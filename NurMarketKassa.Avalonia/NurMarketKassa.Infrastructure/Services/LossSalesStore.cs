@@ -42,6 +42,11 @@ public static class LossSalesStore
         {
             var all = ReadUnlocked();
             all.Add(record);
+            if (_readBusy)
+            {
+                PosLogger.Log($"Продажа в убыток {record.Loss:0.00} сом не записана в журнал (файл занят) — только в этой строке.", "WARNING");
+                return;
+            }
             var cutoff = DateTimeOffset.Now.AddDays(-180);
             all.RemoveAll(r => r.At < cutoff);
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
@@ -59,12 +64,22 @@ public static class LossSalesStore
             return ReadUnlocked().OrderByDescending(r => r.At).ToList();
     }
 
+    /// <summary>2026-10-30 (приёмка 1.17.65, блокер 3): чтение упало из-за «файл занят» — Add не затирает журнал.</summary>
+    private static bool _readBusy;
+
     private static List<LossSaleRecord> ReadUnlocked()
     {
+        _readBusy = false;
         try
         {
             if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<List<LossSaleRecord>>(File.ReadAllText(FilePath)) ?? new();
+                return JsonSerializer.Deserialize<List<LossSaleRecord>>(AtomicFile.ReadWithRetry(FilePath)) ?? new();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _readBusy = true;
+            PosLogger.Log($"Журнал продаж в убыток: файл занят ({ex.Message}) — не затираем.", "WARNING");
+            return new();
         }
         catch (Exception ex)
         {

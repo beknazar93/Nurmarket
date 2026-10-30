@@ -299,7 +299,7 @@ abstract class AppLocalizations {
   /// No description provided for @offlineWorking.
   ///
   /// In ru, this message translates to:
-  /// **'Нет связи с сервером — продажи сохраняются на телефоне и уйдут сами.'**
+  /// **'Нет связи с сервером — продажи сохраняются на телефоне. Они уйдут, как только появится связь: сразу, если приложение открыто, в фоне примерно раз в 15 минут или при следующем открытии.'**
   String get offlineWorking;
 
   /// No description provided for @runningOut.
@@ -1841,7 +1841,7 @@ abstract class AppLocalizations {
   /// No description provided for @callNoMic.
   ///
   /// In ru, this message translates to:
-  /// **'Нет доступа к микрофону. Разрешите микрофон для NurMarket в настройках телефона.'**
+  /// **'Нет доступа к микрофону. Разрешите микрофон для NurCRM в настройках телефона.'**
   String get callNoMic;
 
   /// No description provided for @callOpenSettings.
@@ -2873,7 +2873,7 @@ abstract class AppLocalizations {
   /// No description provided for @savedOfflineHint.
   ///
   /// In ru, this message translates to:
-  /// **'Нет связи — чек уйдёт на сервер сам, второй раз не проведётся.'**
+  /// **'Чек сохранён на телефоне. Он уйдёт на сервер, когда появится связь: сразу, если приложение открыто, в фоне примерно через 15 минут или при следующем открытии. Второй раз не проведётся.'**
   String get savedOfflineHint;
 
   /// No description provided for @receiptQr.
@@ -3167,7 +3167,7 @@ abstract class AppLocalizations {
   /// No description provided for @offlineCheckHint.
   ///
   /// In ru, this message translates to:
-  /// **'Нет связи — чек сохранён и уйдёт на сервер сам'**
+  /// **'Чек сохранён и ждёт отправки: уйдёт при связи (приложение открыто — сразу, закрыто — в фоне или при следующем открытии)'**
   String get offlineCheckHint;
 
   /// No description provided for @sendToCustomer.
@@ -3257,7 +3257,7 @@ abstract class AppLocalizations {
   /// No description provided for @unknownBarcodeHint.
   ///
   /// In ru, this message translates to:
-  /// **'{code} · не найден ни в каталоге, ни в справочнике NurCRM. Заведите товар — код никуда не отправляется'**
+  /// **'{code} · нет в вашем каталоге (проверено на сервере) и в справочнике NurCRM. Заведите товар — код никуда не отправляется'**
   String unknownBarcodeHint(String code);
 
   /// No description provided for @postpone.
@@ -5045,7 +5045,7 @@ abstract class AppLocalizations {
   /// No description provided for @auditApplyQueued.
   ///
   /// In ru, this message translates to:
-  /// **'Акт ревизии создан — проведение уйдёт при связи.'**
+  /// **'Акт ревизии создан, но не проведён (связи не было). Пересчитайте и проведите заново — акт останется черновиком.'**
   String get auditApplyQueued;
 
   /// No description provided for @auditOnlineOnly.
@@ -5735,7 +5735,7 @@ abstract class AppLocalizations {
   /// No description provided for @peStockQueued.
   ///
   /// In ru, this message translates to:
-  /// **'Документ создан — проведётся сам при связи.'**
+  /// **'Документ создан, но не проведён (связи не было). Пересчитайте и проведите заново.'**
   String get peStockQueued;
 
   /// No description provided for @peStockOffline.
@@ -8231,7 +8231,7 @@ abstract class AppLocalizations {
   /// No description provided for @klNotKassaQr.
   ///
   /// In ru, this message translates to:
-  /// **'Это не QR-код кассы NurMarket'**
+  /// **'Это не QR-код кассы NurCRM'**
   String get klNotKassaQr;
 
   /// No description provided for @klBadQr.
@@ -8243,7 +8243,7 @@ abstract class AppLocalizations {
   /// No description provided for @klQrVersion.
   ///
   /// In ru, this message translates to:
-  /// **'Эта касса новее приложения. Обновите NurMarket на телефоне.'**
+  /// **'Эта касса новее приложения. Обновите NurCRM на телефоне.'**
   String get klQrVersion;
 
   /// No description provided for @klManual.
@@ -9602,6 +9602,24 @@ abstract class AppLocalizations {
   /// **'Штрихкод исправлен'**
   String get recvFixed;
 
+  /// No description provided for @recvOffline.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сервер не ответил'**
+  String get recvOffline;
+
+  /// No description provided for @recvOfflineHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'{code} · не удалось проверить: нет связи с сервером. Это не значит, что товара нет — проверьте снова, когда появится сеть'**
+  String recvOfflineHint(String code);
+
+  /// No description provided for @recvRetry.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверить снова'**
+  String get recvRetry;
+
   /// No description provided for @recvNoRight.
   ///
   /// In ru, this message translates to:
@@ -10941,6 +10959,534 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Выбрать даты'**
   String get infRangePick;
+
+  /// No description provided for @apiSaleAlreadyPosted.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сервер уже провёл этот чек (ключ совпал) — сверьте его в разделе «Чеки».'**
+  String get apiSaleAlreadyPosted;
+
+  /// No description provided for @apiAuditStale.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ревизия не проведена вовремя — остатки могли измениться. Пересчитайте заново (акт остался черновиком).'**
+  String get apiAuditStale;
+
+  /// No description provided for @priceChangedTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цена изменилась'**
+  String get priceChangedTitle;
+
+  /// No description provided for @priceChangedLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'{name}: {oldPrice} → {newPrice} сом'**
+  String priceChangedLine(String name, String oldPrice, String newPrice);
+
+  /// No description provided for @priceChangedNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'Продажа не проведена. Цены в чеке обновлены — проверьте новую сумму и нажмите «Оплатить» ещё раз.'**
+  String get priceChangedNote;
+
+  /// No description provided for @priceMaybeStale.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи — цена в чеке может быть устаревшей.'**
+  String get priceMaybeStale;
+
+  /// No description provided for @apiWifiPortal.
+  ///
+  /// In ru, this message translates to:
+  /// **'Откройте страницу входа Wi-Fi (сеть магазина просит войти) и повторите.'**
+  String get apiWifiPortal;
+
+  /// No description provided for @apiBadResponse.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сервер ответил непонятно. Повторите позже.'**
+  String get apiBadResponse;
+
+  /// No description provided for @linkOffline.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи с сервером'**
+  String get linkOffline;
+
+  /// No description provided for @linkOfflineSince.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи · данные от {time}'**
+  String linkOfflineSince(String time);
+
+  /// No description provided for @dataAsOf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Данные от {time}'**
+  String dataAsOf(String time);
+
+  /// No description provided for @noDataOffline.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет данных — нет связи с сервером'**
+  String get noDataOffline;
+
+  /// No description provided for @unsentOnPhone.
+  ///
+  /// In ru, this message translates to:
+  /// **'На телефоне не отправлено: {n}'**
+  String unsentOnPhone(int n);
+
+  /// No description provided for @listCachedAt.
+  ///
+  /// In ru, this message translates to:
+  /// **'Показан сохранённый список от {time}.'**
+  String listCachedAt(String time);
+
+  /// No description provided for @auditError.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сбой'**
+  String get auditError;
+
+  /// No description provided for @stockAsOf.
+  ///
+  /// In ru, this message translates to:
+  /// **'Остатки на {time}'**
+  String stockAsOf(String time);
+
+  /// No description provided for @accountLoading.
+  ///
+  /// In ru, this message translates to:
+  /// **'Загружаем данные аккаунта… {done}/{total}'**
+  String accountLoading(int done, int total);
+
+  /// No description provided for @accountLoadFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Данные аккаунта загрузились не полностью (нет связи или сервер не ответил).'**
+  String get accountLoadFailed;
+
+  /// No description provided for @accountDataNotLoaded.
+  ///
+  /// In ru, this message translates to:
+  /// **'Данные этого аккаунта ещё не загружены'**
+  String get accountDataNotLoaded;
+
+  /// No description provided for @logoutSendNow.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отправить сейчас'**
+  String get logoutSendNow;
+
+  /// No description provided for @guardUnsent.
+  ///
+  /// In ru, this message translates to:
+  /// **'Есть неотправленные продажи и операции: {n} на {sum} сом. Пока они не отправлены, выйти нельзя.'**
+  String guardUnsent(int n, String sum);
+
+  /// No description provided for @guardSending.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отправляем…'**
+  String get guardSending;
+
+  /// No description provided for @guardWaitConnection.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи с сервером. Дождитесь связи и нажмите «Отправить сейчас» ещё раз — или выгрузите продажи в файл.'**
+  String get guardWaitConnection;
+
+  /// No description provided for @guardSendLeft.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не всё отправилось: осталось {n}. {error}'**
+  String guardSendLeft(int n, String error);
+
+  /// No description provided for @guardExport.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выгрузить в файл и выйти'**
+  String get guardExport;
+
+  /// No description provided for @guardExportWarn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Файл будет содержать данные чеков (товары, суммы). Храните его в надёжном месте. После выхода на телефоне не останется ничего, кроме этого файла.'**
+  String get guardExportWarn;
+
+  /// No description provided for @guardExported.
+  ///
+  /// In ru, this message translates to:
+  /// **'Файл сохранён: {path}. Пришлите его владельцу или администратору для восстановления продаж.'**
+  String guardExported(String path);
+
+  /// No description provided for @guardExportFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось сохранить файл: {error}. Выход отменён, продажи на месте.'**
+  String guardExportFailed(String error);
+
+  /// No description provided for @guardDiscard.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выйти БЕЗ отправки'**
+  String get guardDiscard;
+
+  /// No description provided for @guardDiscardWord.
+  ///
+  /// In ru, this message translates to:
+  /// **'УДАЛИТЬ'**
+  String get guardDiscardWord;
+
+  /// No description provided for @guardDiscardWarn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Неотправленные продажи будут ПОТЕРЯНЫ без возможности восстановления. Чтобы подтвердить, введите слово «{word}».'**
+  String guardDiscardWarn(String word);
+
+  /// No description provided for @guardDiscardField.
+  ///
+  /// In ru, this message translates to:
+  /// **'Слово подтверждения'**
+  String get guardDiscardField;
+
+  /// No description provided for @guardForeign.
+  ///
+  /// In ru, this message translates to:
+  /// **'На телефоне остались неотправленные продажи другого аккаунта ({account}): {n} на {sum} сом. Чтобы войти другим аккаунтом, их нужно выгрузить в файл или удалить. Или войдите прежним аккаунтом и отправьте.'**
+  String guardForeign(String account, int n, String sum);
+
+  /// No description provided for @close.
+  ///
+  /// In ru, this message translates to:
+  /// **'Закрыть'**
+  String get close;
+
+  /// No description provided for @revCostLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Закупка: {cost}'**
+  String revCostLine(String cost);
+
+  /// No description provided for @revNoCost.
+  ///
+  /// In ru, this message translates to:
+  /// **'Закупки нет'**
+  String get revNoCost;
+
+  /// No description provided for @revDiffAmount.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сумма разницы: {amount}'**
+  String revDiffAmount(String amount);
+
+  /// No description provided for @revStarNote.
+  ///
+  /// In ru, this message translates to:
+  /// **'* — закупки у товара нет, сумма посчитана по цене продажи.'**
+  String get revStarNote;
+
+  /// No description provided for @revShortageLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Недостача: {qty} шт · −{cost} сом (по закупке) · −{sale} сом (по продаже)'**
+  String revShortageLine(String qty, String cost, String sale);
+
+  /// No description provided for @revSurplusLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Излишек: {qty} шт · +{cost} сом (по закупке) · +{sale} сом (по продаже)'**
+  String revSurplusLine(String qty, String cost, String sale);
+
+  /// No description provided for @revNetLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чистый результат: {amount} сом (по закупке)'**
+  String revNetLine(String amount);
+
+  /// No description provided for @revNoCostWarn.
+  ///
+  /// In ru, this message translates to:
+  /// **'{n, plural, one{⚠ Не хватает закупки у {n} товара} few{⚠ Не хватает закупки у {n} товаров} many{⚠ Не хватает закупки у {n} товаров} other{⚠ Не хватает закупки у {n} товаров}}'**
+  String revNoCostWarn(int n);
+
+  /// No description provided for @revNoCostTip.
+  ///
+  /// In ru, this message translates to:
+  /// **'У этих товаров нет закупки: в суммы «по закупке» они не вошли. Их разница по цене продажи: недостача −{short} сом, излишек +{surplus} сом. В списке их сумма помечена «*».'**
+  String revNoCostTip(String short, String surplus);
+
+  /// No description provided for @revTopShortages.
+  ///
+  /// In ru, this message translates to:
+  /// **'Топ-{n} недостач'**
+  String revTopShortages(int n);
+
+  /// No description provided for @revAllDiffs.
+  ///
+  /// In ru, this message translates to:
+  /// **'Все расхождения: {n}'**
+  String revAllDiffs(int n);
+
+  /// No description provided for @pbTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поступления и партии'**
+  String get pbTitle;
+
+  /// No description provided for @pbTotalReceived.
+  ///
+  /// In ru, this message translates to:
+  /// **'Всего получено'**
+  String get pbTotalReceived;
+
+  /// No description provided for @pbAvgCost.
+  ///
+  /// In ru, this message translates to:
+  /// **'Средняя закупка'**
+  String get pbAvgCost;
+
+  /// No description provided for @pbLastCost.
+  ///
+  /// In ru, this message translates to:
+  /// **'Последняя закупка'**
+  String get pbLastCost;
+
+  /// No description provided for @pbLastSupplier.
+  ///
+  /// In ru, this message translates to:
+  /// **'Последний поставщик'**
+  String get pbLastSupplier;
+
+  /// No description provided for @pbCount.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поступлений: {n}'**
+  String pbCount(int n);
+
+  /// No description provided for @pbPartial.
+  ///
+  /// In ru, this message translates to:
+  /// **'Итоги — по загруженным поступлениям. Прокрутите вниз, чтобы подгрузить остальные.'**
+  String get pbPartial;
+
+  /// No description provided for @pbSearchHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поставщик или № прихода'**
+  String get pbSearchHint;
+
+  /// No description provided for @pbSearchHintNo.
+  ///
+  /// In ru, this message translates to:
+  /// **'№ прихода'**
+  String get pbSearchHintNo;
+
+  /// No description provided for @pbWeek.
+  ///
+  /// In ru, this message translates to:
+  /// **'Неделя'**
+  String get pbWeek;
+
+  /// No description provided for @pbMonth.
+  ///
+  /// In ru, this message translates to:
+  /// **'Месяц'**
+  String get pbMonth;
+
+  /// No description provided for @pbYear.
+  ///
+  /// In ru, this message translates to:
+  /// **'Год'**
+  String get pbYear;
+
+  /// No description provided for @pbAllTime.
+  ///
+  /// In ru, this message translates to:
+  /// **'Всё время'**
+  String get pbAllTime;
+
+  /// No description provided for @pbInvoice.
+  ///
+  /// In ru, this message translates to:
+  /// **'Накладная'**
+  String get pbInvoice;
+
+  /// No description provided for @pbNumber.
+  ///
+  /// In ru, this message translates to:
+  /// **'№ {no}'**
+  String pbNumber(String no);
+
+  /// No description provided for @pbCostLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Закупка: {cost} сом'**
+  String pbCostLine(String cost);
+
+  /// No description provided for @pbSumLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сумма: {sum} сом'**
+  String pbSumLine(String sum);
+
+  /// No description provided for @pbReceivedBy.
+  ///
+  /// In ru, this message translates to:
+  /// **'Принял: {name}'**
+  String pbReceivedBy(String name);
+
+  /// No description provided for @pbPayLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Оплата: {method}'**
+  String pbPayLine(String method);
+
+  /// No description provided for @pbPayCash.
+  ///
+  /// In ru, this message translates to:
+  /// **'Наличные'**
+  String get pbPayCash;
+
+  /// No description provided for @pbPayDebt.
+  ///
+  /// In ru, this message translates to:
+  /// **'В долг'**
+  String get pbPayDebt;
+
+  /// No description provided for @pbPayPrepay.
+  ///
+  /// In ru, this message translates to:
+  /// **'Предоплата'**
+  String get pbPayPrepay;
+
+  /// No description provided for @pbRemainLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Остаток партии ≈ {qty} {unit} (оценка)'**
+  String pbRemainLine(String qty, String unit);
+
+  /// No description provided for @pbRemainTip.
+  ///
+  /// In ru, this message translates to:
+  /// **'Это оценка по правилу FIFO («первым пришёл — первым ушёл»): текущий остаток товара ({stock} {unit}) распределён по самым свежим поступлениям, начиная с последнего. Сервер не хранит остаток каждой партии, поэтому цифра приблизительная.'**
+  String pbRemainTip(String stock, String unit);
+
+  /// No description provided for @pbReturned.
+  ///
+  /// In ru, this message translates to:
+  /// **'Возвращено поставщику: {qty} {unit}'**
+  String pbReturned(String qty, String unit);
+
+  /// No description provided for @pbEmpty.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поступлений этого товара не найдено'**
+  String get pbEmpty;
+
+  /// No description provided for @pbEmptySearch.
+  ///
+  /// In ru, this message translates to:
+  /// **'По запросу ничего не найдено'**
+  String get pbEmptySearch;
+
+  /// No description provided for @pbDataFrom.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет связи. Данные от {time}'**
+  String pbDataFrom(String time);
+
+  /// No description provided for @pbLoadingMore.
+  ///
+  /// In ru, this message translates to:
+  /// **'Загружаем ещё…'**
+  String get pbLoadingMore;
+
+  /// No description provided for @pbEnd.
+  ///
+  /// In ru, this message translates to:
+  /// **'Больше поступлений нет'**
+  String get pbEnd;
+
+  /// No description provided for @pbToTop.
+  ///
+  /// In ru, this message translates to:
+  /// **'К началу'**
+  String get pbToTop;
+
+  /// No description provided for @pbLoadError.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось загрузить: {error}'**
+  String pbLoadError(String error);
+
+  /// No description provided for @pbDocTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Накладная прихода'**
+  String get pbDocTitle;
+
+  /// No description provided for @pbDocLines.
+  ///
+  /// In ru, this message translates to:
+  /// **'Состав прихода'**
+  String get pbDocLines;
+
+  /// No description provided for @pbDocTotal.
+  ///
+  /// In ru, this message translates to:
+  /// **'Итого: {sum} сом'**
+  String pbDocTotal(String sum);
+
+  /// No description provided for @pbThisProduct.
+  ///
+  /// In ru, this message translates to:
+  /// **'этот товар'**
+  String get pbThisProduct;
+
+  /// No description provided for @pbOpenFile.
+  ///
+  /// In ru, this message translates to:
+  /// **'Открыть файл'**
+  String get pbOpenFile;
+
+  /// No description provided for @pbNoFile.
+  ///
+  /// In ru, this message translates to:
+  /// **'Исходный файл не сохранён'**
+  String get pbNoFile;
+
+  /// No description provided for @pbFileError.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось открыть файл'**
+  String get pbFileError;
+
+  /// No description provided for @pbSupplier.
+  ///
+  /// In ru, this message translates to:
+  /// **'Поставщик'**
+  String get pbSupplier;
+
+  /// No description provided for @pbCall.
+  ///
+  /// In ru, this message translates to:
+  /// **'Позвонить'**
+  String get pbCall;
+
+  /// No description provided for @pbWhatsApp.
+  ///
+  /// In ru, this message translates to:
+  /// **'WhatsApp'**
+  String get pbWhatsApp;
+
+  /// No description provided for @pbNoPhone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Телефон не указан'**
+  String get pbNoPhone;
 }
 
 class _AppLocalizationsDelegate

@@ -120,7 +120,7 @@ internal static class AndroidCrashReport
         }
         catch { version = "?"; }
 
-        return $"NurMarket {version} ({(NurMarketKassa.Services.AppMode.IsOwner ? "владелец" : "касса")}), {DateTime.Now:dd.MM.yyyy HH:mm:ss}\n"
+        return $"NurCRM {version} ({(NurMarketKassa.Services.AppMode.IsOwner ? "владелец" : "касса")}), {DateTime.Now:dd.MM.yyyy HH:mm:ss}\n"
                + $"Android {Build.VERSION.Release} (API {(int)Build.VERSION.SdkInt}), {Build.Manufacturer} {Build.Model}\n"
                + $"Процессор: {string.Join(", ", Build.SupportedAbis ?? Array.Empty<string>())}; 64-бит: {System.Environment.Is64BitProcess}\n"
                + $"Источник: {source}\n\n"
@@ -142,7 +142,7 @@ internal static class AndroidCrashReport
 
 /// <summary>Экран ошибки — обычный Android, без Avalonia и кода кассы (они могли и упасть).</summary>
 [Activity(
-    Label = "NurMarket",
+    Label = "NurCRM",
     Theme = "@android:style/Theme.DeviceDefault.Light.NoActionBar",
     Process = ":crash",
     // 2026-10-04: своя задача. С общей (по умолчанию — имя пакета) запуск с ClearTask закрывал саму кассу:
@@ -177,11 +177,11 @@ public class CrashActivity : Activity
 
         var hint = new TextView(this)
         {
-            Text = T("Нажмите «Отправить» и пришлите этот текст в поддержку NurMarket — по нему найдём причину.",
-                "«Жөнөтүү» баскычын басып, бул текстти NurMarket колдоосуна жибериңиз — ал боюнча себебин табабыз.",
-                "Tap “Send” and send this text to NurMarket support — it will show us the cause.",
-                "«Gönder»e dokunun ve bu metni NurMarket desteğine gönderin — nedeni bununla bulacağız.",
-                "«Yuborish»ni bosing va bu matnni NurMarket qo'llab-quvvatlash xizmatiga yuboring — sababini shu orqali topamiz."),
+            Text = T("Нажмите «Отправить» и пришлите этот текст в поддержку NurCRM — по нему найдём причину.",
+                "«Жөнөтүү» баскычын басып, бул текстти NurCRM колдоосуна жибериңиз — ал боюнча себебин табабыз.",
+                "Tap “Send” and send this text to NurCRM support — it will show us the cause.",
+                "«Gönder»e dokunun ve bu metni NurCRM desteğine gönderin — nedeni bununla bulacağız.",
+                "«Yuborish»ni bosing va bu matnni NurCRM qo'llab-quvvatlash xizmatiga yuboring — sababini shu orqali topamiz."),
             TextSize = 15,
         };
         hint.SetPadding(0, pad / 2, 0, pad / 2);
@@ -208,12 +208,12 @@ public class CrashActivity : Activity
             var send = new Intent(Intent.ActionSend);
             send.SetType("text/plain");
             send.PutExtra(Intent.ExtraText, text);
-            StartActivity(Intent.CreateChooser(send, "NurMarket"));
+            StartActivity(Intent.CreateChooser(send, "NurCRM"));
         });
         Add(T("Скопировать", "Көчүрүү", "Copy", "Kopyala", "Nusxalash"), () =>
         {
             if (GetSystemService(ClipboardService) is ClipboardManager clip)
-                clip.PrimaryClip = ClipData.NewPlainText("NurMarket", text);
+                clip.PrimaryClip = ClipData.NewPlainText("NurCRM", text);
             Toast.MakeText(this, T("Скопировано", "Көчүрүлдү", "Copied", "Kopyalandı", "Nusxalandi"), ToastLength.Short)?.Show();
         });
         Add(T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"), () =>

@@ -55,7 +55,7 @@ public sealed record PriceTagPrintRequest(
 /// Печать — либо на термопринтер этикеток (через тот же путь, что и BarcodeLabelService:
 /// WinUSB/LPT/COM/raw-USB/спулер), либо на обычный офисный принтер A4 сеткой ценников на листе.
 /// </summary>
-public static class PriceTagService
+public static partial class PriceTagService
 {
     private static readonly Color AccentColor = Color.FromArgb(217, 63, 61);
 

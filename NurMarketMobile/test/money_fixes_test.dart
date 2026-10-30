@@ -413,14 +413,34 @@ void main() {
       await db.replaceProducts([ProductsCompanion.insert(id: 'p1', name: 'Вода', quantity: const Value(10))]);
     });
 
-    test('экран и фоновая очередь одновременно — остаток прибавлен один раз', () async {
-      var stock = 10.0;
-      final api = FakeApi((m, p, b, h, q) async {
+    // 2026-10-29 (аудит мобилки, п. 7): приход — POST products/mass-incoming/ с Idempotency-Key, сервер прибавляет сам.
+    FakeApi massServer(void Function(int stock) onStock, {bool lose = false}) {
+      var stock = 10;
+      final done = <String, bool>{};
+      var loseNext = lose;
+      onStock(stock);
+      return FakeApi((m, p, b, h, q) async {
         await Future<void>.delayed(const Duration(milliseconds: 5));
-        if (m == 'GET') return {'id': 'p1', 'quantity': stock};
-        if (m == 'PATCH') stock = ((b as Map)['quantity'] as num).toDouble();
-        return {'ok': true};
+        if (m == 'POST' && p == 'api/main/products/mass-incoming/') {
+          final key = h!['Idempotency-Key']!;
+          if (done[key] != true) {
+            done[key] = true;
+            stock += int.parse(((b as Map)['items'] as List).single['quantity'] as String);
+            onStock(stock);
+          }
+          if (loseNext) {
+            loseNext = false;
+            throw ApiException('Сервер не ответил вовремя.');
+          }
+          return {'ok': true};
+        }
+        throw ApiException('не ожидали $m $p', status: 404);
       })..attach(session('a@x.kg'));
+    }
+
+    test('экран и фоновая очередь одновременно — остаток прибавлен один раз', () async {
+      var stock = 0;
+      final api = massServer((v) => stock = v);
       final stockRepo = StockRepository(api, db);
       final sync = SyncService(db: db, sales: SalesRepository(api, db), stock: stockRepo, catalog: CatalogRepository(api, db), owner: () => 'a@x.kg');
       final post = stockRepo.postReceiving([StockLine(productId: 'p1', name: 'Вода', before: 10, qty: 20)]);
@@ -430,10 +450,24 @@ void main() {
       expect(stock, 30);
     });
 
-    test('ответ на PATCH потерялся — повтор не прибавляет второй раз', () async {
+    test('ответ на mass-incoming потерялся — повтор тем же ключом не прибавляет второй раз', () async {
+      var stock = 0;
+      final api = massServer((v) => stock = v, lose: true);
+      final stockRepo = StockRepository(api, db);
+      final sent = await stockRepo.postReceiving([StockLine(productId: 'p1', name: 'Вода', before: 10, qty: 20)]);
+      expect(sent, isFalse);
+      final sync = SyncService(db: db, sales: SalesRepository(api, db), stock: stockRepo, catalog: CatalogRepository(api, db), owner: () => 'a@x.kg');
+      await sync.runOnce();
+      expect(stock, 30, reason: 'раньше было 50');
+      expect(await db.pending(), isEmpty);
+      expect(api.calls.where((c) => c.startsWith('PATCH')), isEmpty, reason: 'абсолютный остаток больше не пишется');
+    });
+
+    test('сервер без mass-incoming (404) — прежний путь: прибавка к свежему остатку, ответ PATCH потерялся — второй раз не прибавляем', () async {
       var stock = 10.0;
       var lose = true;
       final api = FakeApi((m, p, b, h, q) async {
+        if (m == 'POST') throw ApiException('Not found', status: 404);
         if (m == 'GET') return {'id': 'p1', 'quantity': stock};
         if (m == 'PATCH') {
           stock = ((b as Map)['quantity'] as num).toDouble();
@@ -453,33 +487,57 @@ void main() {
       expect(await db.pending(), isEmpty);
     });
 
-    test('ревизия проводится: акт + apply; потерянный ответ apply — второй акт не создаётся', () async {
+    // 2026-10-29 (аудит мобилки, п. 6): ревизия из очереди не проводится; на создание акта уходит ключ повтора.
+    test('ревизия: потерянный ответ apply, но акт проведён — «проведено», второй акт и второй apply не создаются', () async {
       var sessions = 0, applies = 0;
       var applied = false;
-      var lose = true;
+      String? sessionKey;
       final api = FakeApi((m, p, b, h, q) async {
-        if (m == 'POST' && p == 'api/main/inventory/sessions/') return {'id': 'inv${++sessions}'};
+        if (m == 'POST' && p == 'api/main/inventory/sessions/') {
+          sessionKey = h?['Idempotency-Key'];
+          return {'id': 'inv${++sessions}'};
+        }
         if (m == 'POST' && p.endsWith('/apply/')) {
           applies++;
-          if (applied) throw ApiException('Акт уже проведён', status: 400);
           applied = true;
-          if (lose) {
-            lose = false;
-            throw ApiException('Сервер не ответил вовремя.');
-          }
-          return {'ok': true};
+          throw ApiException('Сервер не ответил вовремя.');
         }
         if (m == 'GET' && p.startsWith('api/main/inventory/sessions/')) return {'id': 'inv1', 'status': applied ? 'applied' : 'draft'};
         throw ApiException('нет', status: 404);
       })..attach(session('a@x.kg'));
       final stockRepo = StockRepository(api, db);
       final ok = await stockRepo.applyAudit('Ревизия', {'p1': 7});
-      expect(ok, isFalse, reason: 'акт создан, проведение ждёт');
+      expect(ok, isTrue, reason: 'статус акта «проведён» — ответ просто потерялся');
+      expect(sessions, 1);
+      expect(applies, 1);
+      expect(sessionKey, isNotNull, reason: 'ключ повтора на создание акта');
+      expect((await db.select(db.outbox).get()).single.id, sessionKey);
+      expect(await db.pending(), isEmpty);
+    });
+
+    test('ревизия: apply не дошёл — позже из очереди НЕ проводится (пересчитать заново), запись «Не принято»', () async {
+      var applies = 0;
+      final api = FakeApi((m, p, b, h, q) async {
+        if (m == 'POST' && p == 'api/main/inventory/sessions/') return {'id': 'inv1'};
+        if (m == 'POST' && p.endsWith('/apply/')) {
+          applies++;
+          throw ApiException('Нет связи с сервером.');
+        }
+        if (m == 'GET' && p.startsWith('api/main/inventory/sessions/')) return {'id': 'inv1', 'status': 'draft'};
+        throw ApiException('нет', status: 404);
+      })..attach(session('a@x.kg'));
+      final stockRepo = StockRepository(api, db);
+      final ok = await stockRepo.applyAudit('Ревизия', {'p1': 7});
+      expect(ok, isFalse);
+      final row = (await db.select(db.outbox).get()).single;
+      expect(row.status, 'failed');
+      expect(row.lastError, isNotEmpty);
+      // даже вернув запись в очередь, фоновая досылка apply не вызывает
+      await db.retryFailed(row.id);
       final sync = SyncService(db: db, sales: SalesRepository(api, db), stock: stockRepo, catalog: CatalogRepository(api, db), owner: () => 'a@x.kg');
       await sync.runOnce();
-      expect(sessions, 1);
-      expect(applies, 2);
-      expect(await db.pending(), isEmpty);
+      expect(applies, 1, reason: 'пересчёт часами позже затёр бы продажи');
+      expect((await db.select(db.outbox).get()).single.status, 'failed');
     });
 
     test('ревизия без связи — запись не остаётся в очереди (пересчёт на экране)', () async {

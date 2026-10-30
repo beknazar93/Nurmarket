@@ -248,7 +248,7 @@ public sealed class BonusAnalyticsWindow : Window
         if (tile.Child is StackPanel sp)
         {
             if (noData)
-                sp.Children.Add(Soft(Tr.T("сервер пока не отдаёт — см. Б-99 в ТЗ", "сервер азырынча бербейт — ТЗдеги Б-99", "the server does not provide it yet — see B-99 in the spec", "sunucu henüz vermiyor — şartnamedeki B-99", "server hozircha bermaydi — TZdagi B-99"), 12));
+                sp.Children.Add(Soft(Tr.T("недоступно: сервер пока не передаёт", "жеткиликсиз: сервер азырынча бербейт", "unavailable: the server does not provide it yet", "kullanılamıyor: sunucu henüz vermiyor", "mavjud emas: server hozircha bermaydi"), 12));
             else if (!string.IsNullOrEmpty(note))
                 sp.Children.Add(Soft(note, 12));
         }
@@ -426,7 +426,7 @@ public sealed class BonusAnalyticsWindow : Window
 
     /// <summary>2026-10-28 (сеть магазинов): блок «По филиалам». Бонус хранится у клиента и общий на компанию, поэтому филиалы делят
     /// «начислили в X — потратили в Y». Что сервер даёт сегодня: филиал чека (выручка, чеки) и филиал смены (списано бонусами).
-    /// Филиала самой бонусной операции (где начислили) нет — «начислено по филиалам» и взаиморасчёты: «нет данных на сервере» (Б-99).
+    /// Филиала самой бонусной операции (где начислили) нет — «начислено по филиалам» и взаиморасчёты: «нет данных на сервере».
     /// Правило «расход бонуса несёт: где потратили / где начислили» — настройка в своём JSON (BonusBranchRule), по умолчанию «где потратили».</summary>
     private void RenderBranches(BonusAnalyticsData d)
     {
@@ -467,18 +467,18 @@ public sealed class BonusAnalyticsWindow : Window
                     "By the “where spent” rule the branch where the customer paid with bonuses bears the cost — the last column.",
                     "«Harcandığı yer» kuralına göre bonus giderini müşterinin bonusla ödediği şube üstlenir — son sütun.",
                     "«Sarflangan joy» qoidasiga ko'ra bonus xarajatini mijoz bonus bilan to'lagan filial ko'taradi — oxirgi ustun.")
-                : Tr.T("По правилу «где начислили» расход несёт филиал-начислитель: он должен филиалу, где бонусы потратили, сумму потраченных там бонусов (1 бонус = 1 сом) — последний столбец. Какие именно филиалы-начислители должны: " + BonusAnalyticsData.NoDataText + " — у бонусной операции нет филиала начисления (Б-99).",
-                    "«Кайда эсептесе» эрежеси боюнча чыгымды бонус эсептеген филиал көтөрөт: ал бонус сарпталган филиалга ошол жерде сарпталган бонустардын суммасын берет (1 бонус = 1 сом) — акыркы мамыча. Кайсы филиалдар карыздар: " + BonusAnalyticsData.NoDataText + " — бонус операциясында эсептелген филиал жок (Б-99).",
-                    "By the “where earned” rule the earning branch bears the cost: it owes the branch where bonuses were spent the amount spent there (1 bonus = 1 som) — the last column. Which earning branches owe it: " + BonusAnalyticsData.NoDataText + " — a bonus operation has no earning branch (B-99).",
-                    "«Kazanıldığı yer» kuralına göre gideri bonusu kazandıran şube üstlenir: bonusların harcandığı şubeye orada harcanan tutarı borçludur (1 bonus = 1 som) — son sütun. Hangi şubelerin borçlu olduğu: " + BonusAnalyticsData.NoDataText + " — bonus işleminde kazanılan şube yok (B-99).",
-                    "«Hisoblangan joy» qoidasiga ko'ra xarajatni bonus hisoblangan filial ko'taradi: u bonus sarflangan filialga o'sha yerda sarflangan summani qarzdor (1 bonus = 1 so'm) — oxirgi ustun. Qaysi filiallar qarzdor: " + BonusAnalyticsData.NoDataText + " — bonus amalida hisoblangan filial yo'q (B-99).")));
+                : Tr.T("По правилу «где начислили» расход несёт филиал-начислитель: он должен филиалу, где бонусы потратили, сумму потраченных там бонусов (1 бонус = 1 сом) — последний столбец. Какие именно филиалы-начислители должны: " + BonusAnalyticsData.NoDataText + " — у бонусной операции нет филиала начисления.",
+                    "«Кайда эсептесе» эрежеси боюнча чыгымды бонус эсептеген филиал көтөрөт: ал бонус сарпталган филиалга ошол жерде сарпталган бонустардын суммасын берет (1 бонус = 1 сом) — акыркы мамыча. Кайсы филиалдар карыздар: " + BonusAnalyticsData.NoDataText + " — бонус операциясында эсептелген филиал жок.",
+                    "By the “where earned” rule the earning branch bears the cost: it owes the branch where bonuses were spent the amount spent there (1 bonus = 1 som) — the last column. Which earning branches owe it: " + BonusAnalyticsData.NoDataText + " — a bonus operation has no earning branch.",
+                    "«Kazanıldığı yer» kuralına göre gideri bonusu kazandıran şube üstlenir: bonusların harcandığı şubeye orada harcanan tutarı borçludur (1 bonus = 1 som) — son sütun. Hangi şubelerin borçlu olduğu: " + BonusAnalyticsData.NoDataText + " — bonus işleminde kazanılan şube yok.",
+                    "«Hisoblangan joy» qoidasiga ko'ra xarajatni bonus hisoblangan filial ko'taradi: u bonus sarflangan filialga o'sha yerda sarflangan summani qarzdor (1 bonus = 1 so'm) — oxirgi ustun. Qaysi filiallar qarzdor: " + BonusAnalyticsData.NoDataText + " — bonus amalida hisoblangan filial yo'q.")));
         }
         else
-            rows.Add(Soft(Tr.T("Филиалы чеков и смен: " + BonusAnalyticsData.NoDataText + " — в ответе нет названия филиала (Б-99).",
-                "Чектердин жана смендердин филиалдары: " + BonusAnalyticsData.NoDataText + " — жоопто филиалдын аталышы жок (Б-99).",
-                "Branches of receipts and shifts: " + BonusAnalyticsData.NoDataText + " — the response has no branch name (B-99).",
-                "Fiş ve vardiya şubeleri: " + BonusAnalyticsData.NoDataText + " — yanıtta şube adı yok (B-99).",
-                "Chek va smena filiallari: " + BonusAnalyticsData.NoDataText + " — javobda filial nomi yo'q (B-99).")));
+            rows.Add(Soft(Tr.T("Филиалы чеков и смен: " + BonusAnalyticsData.NoDataText + " — в ответе нет названия филиала.",
+                "Чектердин жана смендердин филиалдары: " + BonusAnalyticsData.NoDataText + " — жоопто филиалдын аталышы жок.",
+                "Branches of receipts and shifts: " + BonusAnalyticsData.NoDataText + " — the response has no branch name.",
+                "Fiş ve vardiya şubeleri: " + BonusAnalyticsData.NoDataText + " — yanıtta şube adı yok.",
+                "Chek va smena filiallari: " + BonusAnalyticsData.NoDataText + " — javobda filial nomi yo'q.")));
 
         rows.Add(Line(Tr.T("Начислено в филиале", "Филиалда эсептелген", "Earned in the branch", "Şubede kazanılan", "Filialda hisoblangan"), BonusAnalyticsData.NoDataText));
         rows.Add(Line(Tr.T("Взаиморасчёты: потрачены бонусы, начисленные в другом филиале", "Өз ара эсептешүү: башка филиалда эсептелген бонустар сарпталган", "Settlements: bonuses earned in another branch were spent", "Karşılıklı hesaplaşma: başka şubede kazanılan bonus harcandı", "O'zaro hisob-kitob: boshqa filialda hisoblangan bonuslar sarflangan"), BonusAnalyticsData.NoDataText));

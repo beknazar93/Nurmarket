@@ -124,6 +124,11 @@ public sealed class AvaloniaWindowService : IWindowService
         // MainWindow can temporarily still reference a closed login window during
         // navigation. Passing such a window to Avalonia ShowDialog reaches a null
         // native owner and results in an internal NullReferenceException.
+#if !NURANDROID
+        // 2026-10-30: окно оплаты и другие — над верхней модалкой/активным окном, а не под ними.
+        if (ModalWindowManager.PreferredOwner() is { IsVisible: true } preferred && !ReferenceEquals(preferred, dialog))
+            return preferred;
+#endif
         var activeWindow = desktop.Windows
             .LastOrDefault(window =>
                 !ReferenceEquals(window, dialog) &&

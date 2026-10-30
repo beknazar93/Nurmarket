@@ -281,7 +281,7 @@ public static class CartReceiptTextBuilder
         }
         catch
         {
-            return "NUR MARKET\n\n(НЕ УДАЛОСЬ РАЗОБРАТЬ КОРЗИНУ)\n\n".ToUpperInvariant();
+            return "NURCRM\n\n(НЕ УДАЛОСЬ РАЗОБРАТЬ КОРЗИНУ)\n\n".ToUpperInvariant();
         }
     }
 

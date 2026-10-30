@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -587,8 +586,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
     final db = ref.read(databaseProvider);
     // 2026-10-22 (мобилка, админ, П11): порог «заканчивается» как на ПК — остаток меньше 10 (было ≤ 3).
-    final low = await (db.select(db.products)..where((p) => lowStockSql(p) & p.isService.equals(false))).get();
-    if (low.isNotEmpty) items.add((Icons.inventory_2_outlined, pal.warnSoft, T.warn, l.notifyRunningOut, l.notifyRunningOutSub(low.length), '/admin/purchase'));
+    final low = await countLowStock(db); // 2026-10-30 (оптимизация, п. 4): COUNT(*) вместо чтения всех строк
+    if (low > 0) items.add((Icons.inventory_2_outlined, pal.warnSoft, T.warn, l.notifyRunningOut, l.notifyRunningOutSub(low), '/admin/purchase'));
     try {
       for (final d in (await ref.read(opsRepoProvider).debtors()).take(3)) {
         if (d.debt <= 0) continue;

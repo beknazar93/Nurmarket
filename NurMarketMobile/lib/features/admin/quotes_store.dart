@@ -657,6 +657,9 @@ class QuotesStore {
     final c = cloud;
     final scope = c?.scope ?? '';
     if (c == null || scope.isEmpty) return QuotesSyncResult(QuotesSyncState.localOnly, pending: (await unsentIds()).length);
+    // 2026-10-30 (оптимизация, п. 3): фоновая досылка каждые 20 с раньше читала и разбирала JSON ВСЕХ документов, и только потом
+    // видела «ничего не изменено». Теперь сначала дёшево: компания не менялась и список «не отправлено» пуст — сразу «готово».
+    if (onlyIfDirty && await db.getSetting(_kScope) == scope && (await _dirty()).isEmpty) return QuotesSyncResult(QuotesSyncState.synced);
     // Снимок телефона.
     final (local0, dirty0) = await _local.run(() async {
       final stored = await db.getSetting(_kScope);

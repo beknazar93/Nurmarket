@@ -30,7 +30,7 @@ public static class TestReceiptLineBuilder
         if (settings.ShowStoreName)
         {
             lines.Add(ReceiptLineLayout.Center(displayName, w));
-            lines.Add(ReceiptLineLayout.Center("NUR MARKET KASSA", w));
+            lines.Add(ReceiptLineLayout.Center("NURCRM KASSA", w));
         }
 
         if (settings.ShowInn && !string.IsNullOrWhiteSpace(settings.StoreInn))

@@ -43,11 +43,11 @@ public sealed class PhoneLinkSettingsView : Border
             Text = T("Телефон как сканер", "Телефон сканер катары", "Phone as a scanner", "Telefon tarayıcı olarak", "Telefon skaner sifatida"),
             Classes = { "SettingsCardTitle" }, FontSize = 14,
         });
-        stack.Children.Add(Hint(T("Приложение NurMarket на телефоне сканирует штрихкод камерой, и товар сразу попадает в чек этой кассы. Телефон должен быть в той же Wi-Fi сети, что и касса. Включают и подключают телефоны владелец и администратор.",
-            "Телефондогу NurMarket тиркемеси штрихкодду камера менен сканерлейт, товар түз эле ушул кассанын чегине түшөт. Телефон кассадагы Wi-Fi тармагында болушу керек. Телефондорду ээси жана администратор күйгүзөт жана туташтырат.",
-            "The NurMarket app on the phone scans a barcode with the camera and the goods go straight into this till's receipt. The phone must be on the same Wi-Fi network as the till. The owner and administrators turn it on and connect phones.",
-            "Telefondaki NurMarket uygulaması barkodu kamerayla tarar ve ürün doğrudan bu kasanın fişine düşer. Telefon kasayla aynı Wi-Fi ağında olmalı. Telefonları sahip ve yönetici açar ve bağlar.",
-            "Telefondagi NurMarket ilovasi shtrix-kodni kamera bilan skanerlaydi va tovar bevosita shu kassa chekiga tushadi. Telefon kassa bilan bir xil Wi-Fi tarmog'ida bo'lishi kerak. Telefonlarni egasi va administrator yoqadi va ulaydi.")));
+        stack.Children.Add(Hint(T("Приложение NurCRM на телефоне сканирует штрихкод камерой, и товар сразу попадает в чек этой кассы. Телефон должен быть в той же Wi-Fi сети, что и касса. Включают и подключают телефоны владелец и администратор.",
+            "Телефондогу NurCRM тиркемеси штрихкодду камера менен сканерлейт, товар түз эле ушул кассанын чегине түшөт. Телефон кассадагы Wi-Fi тармагында болушу керек. Телефондорду ээси жана администратор күйгүзөт жана туташтырат.",
+            "The NurCRM app on the phone scans a barcode with the camera and the goods go straight into this till's receipt. The phone must be on the same Wi-Fi network as the till. The owner and administrators turn it on and connect phones.",
+            "Telefondaki NurCRM uygulaması barkodu kamerayla tarar ve ürün doğrudan bu kasanın fişine düşer. Telefon kasayla aynı Wi-Fi ağında olmalı. Telefonları sahip ve yönetici açar ve bağlar.",
+            "Telefondagi NurCRM ilovasi shtrix-kodni kamera bilan skanerlaydi va tovar bevosita shu kassa chekiga tushadi. Telefon kassa bilan bir xil Wi-Fi tarmog'ida bo'lishi kerak. Telefonlarni egasi va administrator yoqadi va ulaydi.")));
 
         var label = T("Принимать сканы с телефонов", "Телефондордон сканерлөөнү кабыл алуу", "Accept scans from phones", "Telefonlardan taramaları kabul et", "Telefonlardan skanerlashni qabul qilish");
         var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };

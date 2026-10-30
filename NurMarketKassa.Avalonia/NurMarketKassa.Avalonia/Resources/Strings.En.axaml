@@ -27,7 +27,7 @@
   <x:String x:Key="csh.menu.errorLogs">Logs and errors</x:String>
   <x:String x:Key="csh.menu.cartRemovals">Removed from receipt</x:String>
   <x:String x:Key="csh.menu.remoteSupport">NurCRM support</x:String>
-  <x:String x:Key="csh.menu.knowledgeBase">NurMarket knowledge base</x:String>
+  <x:String x:Key="csh.menu.knowledgeBase">NurCRM knowledge base</x:String>
   <x:String x:Key="csh.menu.restock">Restock and expiry</x:String>
   <x:String x:Key="csh.menu.switchCashier">Switch cashier</x:String>
   <x:String x:Key="switchCashier.title">Switch cashier</x:String>
@@ -122,7 +122,7 @@
   <x:String x:Key="header.labelTheme">Theme</x:String>
   <x:String x:Key="header.labelKeyboard">Keyboard</x:String>
   <x:String x:Key="header.labelHotkeys">Hotkeys</x:String>
-  <x:String x:Key="mainWindow.windowTitle">POS — Nur Market</x:String>
+  <x:String x:Key="mainWindow.windowTitle">POS — NurCRM</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Back</x:String>
   <x:String x:Key="printSettings.findButton">Find</x:String>
   <x:String x:Key="printSettings.lptWatermark">Port or printer path (if not found)</x:String>
@@ -231,7 +231,7 @@
   <x:String x:Key="csh.filter.apply">Apply</x:String>
 
   <!-- Login screen -->
-  <x:String x:Key="csh.login.title">Sign in — Nur Market</x:String>
+  <x:String x:Key="csh.login.title">Sign in — NurCRM</x:String>
   <x:String x:Key="csh.login.tagline">Point-of-sale system for retail</x:String>
   <x:String x:Key="csh.login.secureTitle">Secure sign-in for your shift</x:String>
   <x:String x:Key="csh.login.secureSubtitle">Data syncs with the cloud and the local audit database.</x:String>
@@ -329,7 +329,7 @@
 
   <!-- NurCRM support -->
   <!-- 2026-10-16: удалённая помощь — только своя «Nur Support» -->
-  <x:String x:Key="remoteSupport.intro">Remote help — “Nur Support”: a NurMarket operator sees the till's screen and helps you sort things out. Call support or message us on WhatsApp: +996 221 068 796, then click “Get a code for support” and read the code and PIN to the operator.</x:String>
+  <x:String x:Key="remoteSupport.intro">Remote help — “Nur Support”: a NurCRM operator sees the till's screen and helps you sort things out. Call support or message us on WhatsApp: +996 221 068 796, then click “Get a code for support” and read the code and PIN to the operator.</x:String>
   <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
   <x:String x:Key="remoteSupport.copyDeviceInfo">Copy device information</x:String>
 
@@ -629,7 +629,7 @@
   <x:String x:Key="sideMenu.sectionSystem">System</x:String>
 
   <!-- Admin support, CRM webview, shift history window -->
-  <x:String x:Key="adminSupport.title">Support — Nur Market</x:String>
+  <x:String x:Key="adminSupport.title">Support — NurCRM</x:String>
   <x:String x:Key="adminSupport.header">Admin support</x:String>
   <x:String x:Key="adminSupport.subtitle">Support is always available</x:String>
   <x:String x:Key="common.forward">Forward</x:String>
@@ -812,7 +812,7 @@
   <x:String x:Key="posSettings.print.printAfterPayment">Print receipt after payment</x:String>
   <x:String x:Key="posSettings.print.equipmentTitle">Equipment and connection</x:String>
   <x:String x:Key="posSettings.print.foundPrinters">Detected printers and ports</x:String>
-  <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Nothing found — click "Find"</x:String>
+  <x:String x:Key="posSettings.print.nothingFoundPlaceholder">None found — click "Find"</x:String>
   <x:String x:Key="posSettings.print.retriesOnFailure">Print retries on failure</x:String>
   <x:String x:Key="posSettings.print.tapeWidth">Paper width</x:String>
   <x:String x:Key="posSettings.print.charsPerLine">Characters per line</x:String>

@@ -73,6 +73,26 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
                 $"Недостаточно прав для действия ({m.Groups["perm"].Value}).",
                 $"Аракет үчүн укук жетишсиз ({m.Groups["perm"].Value}).", $"Insufficient permissions for this action ({m.Groups["perm"].Value}).", $"Bu işlem için yetkiniz yetersiz ({m.Groups["perm"].Value}).", $"Bu amal uchun huquq yetarli emas ({m.Groups["perm"].Value}).")),
 
+        // 2026-10-31 (живой обход, В-9): технические английские строки журнала — человеческие подписи; исходный текст остаётся в подсказке («Подробнее»).
+        (new Regex(@"^(?:Owner app:\s*)?permission denied:\s*(?<perm>\S+)$", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+            m => Tr.T(
+                $"Не хватило прав для действия ({m.Groups["perm"].Value}).",
+                $"Аракет үчүн укук жетишпеди ({m.Groups["perm"].Value}).", $"Not enough rights for the action ({m.Groups["perm"].Value}).", $"İşlem için yetki yetmedi ({m.Groups["perm"].Value}).", $"Amal uchun huquq yetmadi ({m.Groups["perm"].Value}).")),
+
+        (new Regex(@"^Unobserved task exception\b.*$", RegexOptions.Compiled | RegexOptions.Singleline),
+            _ => Tr.T("Фоновая операция завершилась с ошибкой — на работу кассы это не повлияло. Подробности — в подсказке.",
+                "Фондук аракет ката менен аяктады — кассанын ишине таасир эткен жок. Кеңири маалымат — кеңеште.",
+                "A background task ended with an error — it did not affect the till. Details are in the tooltip.",
+                "Arka plan işlemi hatayla bitti — kasanın çalışmasını etkilemedi. Ayrıntılar ipucunda.",
+                "Fon amali xato bilan tugadi — kassa ishiga ta'sir qilmadi. Tafsilotlar maslahatda.")),
+
+        (new Regex(@"^Product categories/brands load failed\b.*$", RegexOptions.Compiled | RegexOptions.Singleline),
+            _ => Tr.T("Не удалось загрузить категории и бренды товаров — сервер NurCRM не ответил.",
+                "Товар категорияларын жана бренддерин жүктөө мүмкүн болгон жок — NurCRM сервери жооп берген жок.",
+                "Could not load product categories and brands — the NurCRM server did not respond.",
+                "Ürün kategorileri ve markaları yüklenemedi — NurCRM sunucusu yanıt vermedi.",
+                "Mahsulot kategoriyalari va brendlarini yuklab bo'lmadi — NurCRM serveri javob bermadi.")),
+
         (new Regex(@"^Нет связи с сервером\.?$", RegexOptions.Compiled),
             _ => Tr.T("Нет связи с сервером.", "Сервер менен байланыш жок.", "No connection to the server.", "Sunucuyla bağlantı yok.", "Server bilan aloqa yo'q.")),
 
@@ -82,11 +102,12 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
 
     // 2026-10-27, аудит владельца Н-7: владельцу показывались названия .NET-исключений («TaskCanceledException», «HttpRequestException») —
     // заменяем их понятными словами; сам журнал на диске не меняется.
-    private static readonly Regex TechnicalNameRegex = new(@"\b(TaskCanceledException|OperationCanceledException|HttpRequestException)\b", RegexOptions.Compiled);
+    private static readonly Regex TechnicalNameRegex = new(@"\b(TaskCanceledException|OperationCanceledException|HttpRequestException|ApiException)\b", RegexOptions.Compiled);
 
     private static string PlainWords(string text) => TechnicalNameRegex.Replace(text, m => m.Value switch
     {
         "HttpRequestException" => Tr.T("нет связи с сервером", "сервер менен байланыш жок", "no connection to the server", "sunucuyla bağlantı yok", "server bilan aloqa yo'q"),
+        "ApiException" => Tr.T("сервер NurCRM вернул ошибку", "NurCRM сервери ката кайтарды", "the NurCRM server returned an error", "NurCRM sunucusu hata döndürdü", "NurCRM serveri xato qaytardi"),
         _ => Tr.T("сервер не ответил вовремя", "сервер убагында жооп берген жок", "the server did not respond in time", "sunucu zamanında yanıt vermedi", "server o'z vaqtida javob bermadi"),
     });
 
@@ -175,11 +196,11 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
         if (!SupportLogService.IsConfigured)
         {
             PosMessageBox.Show(this, Tr.T(
-                "Бот поддержки ещё не подключён. Нажмите «Открыть папку» и отправьте файлы журнала в поддержку NurMarket вручную.",
-                "Колдоо боту азырынча туташкан эмес. «Папканы ачуу» баскычын басып, журнал файлдарын NurMarket колдоосуна кол менен жөнөтүңүз.",
-                "The support bot isn't connected yet. Click “Open folder” and send the log files to NurMarket support manually.",
-                "Destek botu henüz bağlı değil. «Klasörü aç»a tıklayın ve günlük dosyalarını NurMarket desteğine elle gönderin.",
-                "Yordam boti hali ulanmagan. «Papkani ochish» tugmasini bosing va jurnal fayllarini NurMarket yordamiga qo'lda yuboring."),
+                "Бот поддержки ещё не подключён. Нажмите «Открыть папку» и отправьте файлы журнала в поддержку NurCRM вручную.",
+                "Колдоо боту азырынча туташкан эмес. «Папканы ачуу» баскычын басып, журнал файлдарын NurCRM колдоосуна кол менен жөнөтүңүз.",
+                "The support bot isn't connected yet. Click “Open folder” and send the log files to NurCRM support manually.",
+                "Destek botu henüz bağlı değil. «Klasörü aç»a tıklayın ve günlük dosyalarını NurCRM desteğine elle gönderin.",
+                "Yordam boti hali ulanmagan. «Papkani ochish» tugmasini bosing va jurnal fayllarini NurCRM yordamiga qo'lda yuboring."),
                 title, System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
             return;
         }
@@ -245,7 +266,35 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
         NurMarketKassa.Services.AppMode.DataFolderName,
         "Logs");
 
-    private void LoadRows()
+    private bool _loadingRows;
+
+    /// <summary>2026-10-30 (стресс-тест «Управление и Помощь»): журнал (два файла по ≤5 МБ) читался и разбирался на потоке интерфейса —
+    /// окно открывалось с зависанием 0,3–1,5 с. Теперь разбор — в фоне, на экран строки попадают одним присвоением.</summary>
+    private async void LoadRows()
+    {
+        if (_loadingRows)
+            return;
+        _loadingRows = true;
+        try
+        {
+            var rows = await System.Threading.Tasks.Task.Run(BuildRows).ConfigureAwait(true);
+            LogGrid.ItemsSource = rows
+                .OrderByDescending(r => r.SortKey)
+                .Take(500)
+                .ToList();
+            EmptyText.IsVisible = rows.Count == 0;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Журнал ошибок не прочитан: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _loadingRows = false;
+        }
+    }
+
+    private List<RowVm> BuildRows()
     {
         var rows = new List<RowVm>();
 
@@ -297,16 +346,13 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
                                || string.Equals(level, "Critical", StringComparison.OrdinalIgnoreCase)) && !isDeferred,
                     IsDeferred = isDeferred,
                     Message = TranslateMessage(message),
+                    Details = LeadingCategoryBracketRegex.Replace(message, ""), // 2026-10-31: исходный текст записи — в подсказке («Подробнее»)
                     SortKey = $"{currentDate} {match.Groups["time"].Value}",
                 });
             }
         }
 
-        LogGrid.ItemsSource = rows
-            .OrderByDescending(r => r.SortKey)
-            .Take(500)
-            .ToList();
-        EmptyText.IsVisible = rows.Count == 0;
+        return rows;
     }
 
     private static string FormatDate(string isoDate) =>
@@ -342,6 +388,7 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
         public bool IsError { get; set; }
         public bool IsDeferred { get; set; }
         public string Message { get; set; } = "";
+        public string Details { get; set; } = "";
         public string SortKey { get; set; } = "";
     }
 }

@@ -307,6 +307,8 @@ public partial class ShtrikhScaleSettingsWindow : Window
     // Связь
     // =====================================================================================
 
+    private static string ScaleIpText() => UserPreferences.Instance.ScaleNetworkIp ?? "";
+
     private static ShtrikhPrintLanScaleService CreateScale()
     {
         var prefs = UserPreferences.Instance;
@@ -346,6 +348,16 @@ public partial class ShtrikhScaleSettingsWindow : Window
                 ShowResult("-1: " + L("Нет связи с весами. Проверьте IP-адрес и порт в Настройки → Весы.", "Тараза менен байланыш жок. IP-даректи жана портту Жөндөөлөр → Таразадан текшериңиз.", "No connection to the scale. Check the IP address and port in Settings → Scales.", "Tartı ile bağlantı yok. IP ve portu Ayarlar → Tartı'da kontrol edin.", "Tarozi bilan aloqa yo‘q. IP va portni Sozlamalar → Tarozida tekshiring."), true);
             else
                 ShowResult((offline ? "-1: " : $"{ex.ErrorCode}: ") + ex.Message, true);
+        }
+        catch (ArgumentException ex) when (ex is not ArgumentOutOfRangeException)
+        {
+            // 2026-10-31 (стресс-тест 1.17.68): пустой IP показывал «Не задан IP-адрес весов. (Parameter 'host')» с .NET-хвостом, только по-русски.
+            PosLogger.Log($"Настройки весов Штрих-ПРИНТ: {ex.Message}", "SCALES");
+            ShowResult(string.IsNullOrWhiteSpace(ScaleIpText())
+                ? L("Не задан IP-адрес весов. Укажите его в Настройки → Весы.", "Таразанын IP-дареги көрсөтүлгөн эмес. Аны Жөндөөлөр → Таразадан жазыңыз.", "The scale IP address is not set. Enter it in Settings → Scales.",
+                    "Tartının IP adresi girilmemiş. Ayarlar → Tartı'dan girin.", "Tarozining IP-manzili ko'rsatilmagan. Uni Sozlamalar → Tarozida kiriting.")
+                : L("Это не похоже на IP-адрес весов. Проверьте его в Настройки → Весы.", "Бул таразанын IP-дарегине окшобойт. Аны Жөндөөлөр → Таразадан текшериңиз.", "This does not look like a scale IP address. Check it in Settings → Scales.",
+                    "Bu bir tartı IP adresine benzemiyor. Ayarlar → Tartı'dan kontrol edin.", "Bu tarozi IP-manziliga o'xshamaydi. Uni Sozlamalar → Tarozida tekshiring."), true);
         }
         catch (Exception ex)
         {

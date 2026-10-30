@@ -61,7 +61,7 @@ class _AssistantOverlayState extends ConsumerState<AssistantOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.of(context);
+    final mq = MediaQuery.paddingOf(context); // 2026-10-30 (оптимизация): только отступы — не перестраиваться на каждый кадр клавиатуры
     return ListenableBuilder(
       listenable: Listenable.merge([_c, _c.tables]),
       builder: (context, _) {
@@ -69,7 +69,7 @@ class _AssistantOverlayState extends ConsumerState<AssistantOverlay> {
         final mini = live && _c.view == CallView.mini;
         final panel = live && !_c.tables.isClosed && _c.tables.current != null;
         final pos = panel ? PillPos.top : _c.pillPos;
-        final topPad = mini && pos == PillPos.top ? mq.padding.top + pillSpace : 0.0;
+        final topPad = mini && pos == PillPos.top ? mq.top + pillSpace : 0.0;
         final base = Positioned.fill(
           // Структура одна и та же всегда (Padding + MediaQuery): иначе при появлении плашки раздел пересоздавался бы.
           child: Padding(
@@ -77,7 +77,7 @@ class _AssistantOverlayState extends ConsumerState<AssistantOverlay> {
             child: MediaQuery.removePadding(context: context, removeTop: topPad > 0, child: widget.child),
           ),
         );
-        final lineTop = mq.padding.top + (mini && pos == PillPos.top ? 6 + 56 + 8 : 8);
+        final lineTop = mq.top + (mini && pos == PillPos.top ? 6 + 56 + 8 : 8);
         return Stack(
           children: [
             base,
@@ -89,8 +89,8 @@ class _AssistantOverlayState extends ConsumerState<AssistantOverlay> {
               Positioned(
                 left: 16,
                 right: 16,
-                top: pos == PillPos.top ? mq.padding.top + 6 : null,
-                bottom: pos == PillPos.bottom ? mq.padding.bottom + 76 : null,
+                top: pos == PillPos.top ? mq.top + 6 : null,
+                bottom: pos == PillPos.bottom ? mq.bottom + 76 : null,
                 child: _Pill(c: _c),
               ),
             if (live && _c.ambiguous != null) Positioned.fill(child: _AmbiguousSheet(c: _c, p: _c.ambiguous!)),
@@ -559,7 +559,7 @@ class _AmbiguousSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l;
     final pal = context.pal;
-    final mq = MediaQuery.of(context);
+    final mq = MediaQuery.paddingOf(context); // 2026-10-30 (оптимизация): только отступы — не перестраиваться на каждый кадр клавиатуры
     return Stack(
       children: [
         Positioned.fill(
@@ -578,7 +578,7 @@ class _AmbiguousSheet extends StatelessWidget {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             elevation: 12,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 10, 16, 12 + mq.padding.bottom),
+              padding: EdgeInsets.fromLTRB(16, 10, 16, 12 + mq.bottom),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -646,14 +646,14 @@ class _MoneyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l;
     final pal = context.pal;
-    final mq = MediaQuery.of(context);
+    final mq = MediaQuery.paddingOf(context); // 2026-10-30 (оптимизация): только отступы — не перестраиваться на каждый кадр клавиатуры
     return Stack(
       children: [
         Positioned.fill(child: ColoredBox(color: pal.dark ? const Color(0x99000000) : const Color(0x73191919))),
         Positioned(
           left: 16,
           right: 16,
-          bottom: 24 + mq.padding.bottom,
+          bottom: 24 + mq.bottom,
           child: Material(
             color: pal.panel,
             borderRadius: BorderRadius.circular(20),

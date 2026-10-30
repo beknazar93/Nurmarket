@@ -47,6 +47,10 @@ public static class PendingShiftCloseStore
 
         /// <summary>2026-10-27 (ревью, См-2): сколько раз кассир нажимал «Открыть смену», а сервер не принял закрытие этой смены.</summary>
         public int OpenRetries { get; set; }
+
+        /// <summary>2026-10-30 (приёмка 1.17.65, «Важно»): компания, в которой смена закрыта на кассе. Фоновое закрытие выполняется только для неё: после входа в другую
+        /// компанию чужую смену «закрыть» нельзя (она не найдётся или, хуже, закроется по чужому токену). Пусто — запись старого формата (как раньше, без проверки).</summary>
+        public string? CompanyId { get; set; }
     }
 
     public static List<Entry> LoadAll()
@@ -55,11 +59,9 @@ public static class PendingShiftCloseStore
         {
             try
             {
-                if (!File.Exists(FilePath))
-                    return new List<Entry>();
-
-                return JsonSerializer.Deserialize<List<Entry>>(File.ReadAllText(FilePath), Json)
-                       ?? new List<Entry>();
+                // 2026-10-29 (аварийный аудит, п. 7): битый файл — из копии .bak, а не «пусто» (иначе очередь закрытий смен терялась).
+                // 2026-10-30: «файл занят» для показа не ошибка очереди — отдаём то, что ещё не записано на диск (_unsaved).
+                return LoadAllNoLock(forWrite: false);
             }
             catch (Exception ex)
             {
@@ -79,13 +81,21 @@ public static class PendingShiftCloseStore
 
         lock (Gate)
         {
-            var all = LoadAllNoLock();
+            if (!TryLoadForWrite(out var all))
+            {
+                // 2026-10-30: файл занят — держим запись в памяти, допишем при следующей записи (смена уже закрыта локально).
+                Unsaved.RemoveAll(u => string.Equals(u.ShiftId, shiftId.Trim(), StringComparison.OrdinalIgnoreCase));
+                Unsaved.Add(new Entry { ShiftId = shiftId.Trim(), ClosingCash = closingCash, ClosedLocallyAtUtc = DateTime.UtcNow, LastError = lastError, CompanyId = CompanyInfoService.LastCompany?.Id });
+                return;
+            }
+
             var existing = all.FirstOrDefault(e =>
                 string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase));
 
             if (existing != null)
             {
                 existing.ClosingCash = closingCash ?? existing.ClosingCash;
+                existing.CompanyId ??= CompanyInfoService.LastCompany?.Id;
                 existing.LastError = lastError;
             }
             else
@@ -96,6 +106,7 @@ public static class PendingShiftCloseStore
                     ClosingCash = closingCash,
                     ClosedLocallyAtUtc = DateTime.UtcNow,
                     LastError = lastError,
+                    CompanyId = CompanyInfoService.LastCompany?.Id,
                 });
             }
 
@@ -108,7 +119,9 @@ public static class PendingShiftCloseStore
     {
         lock (Gate)
         {
-            var all = LoadAllNoLock();
+            Unsaved.RemoveAll(u => string.Equals(u.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase));
+            if (!TryLoadForWrite(out var all))
+                return;
             var removed = all.RemoveAll(e =>
                 string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase));
             if (removed > 0)
@@ -123,7 +136,8 @@ public static class PendingShiftCloseStore
     {
         lock (Gate)
         {
-            var all = LoadAllNoLock();
+            if (!TryLoadForWrite(out var all))
+                return;
             var entry = all.FirstOrDefault(e =>
                 string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase));
             if (entry == null)
@@ -141,7 +155,8 @@ public static class PendingShiftCloseStore
     {
         lock (Gate)
         {
-            var all = LoadAllNoLock();
+            if (!TryLoadForWrite(out var all))
+                return 0;
             var entry = all.FirstOrDefault(e =>
                 string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase));
             if (entry == null)
@@ -164,17 +179,55 @@ public static class PendingShiftCloseStore
 
     public static int Count => LoadAll().Count;
 
-    private static List<Entry> LoadAllNoLock()
+    /// <summary>2026-10-30 (приёмка 1.17.65, блокер 3): записи, которые не удалось сохранить из-за занятого файла (антивирус держит
+    /// pending_shift_closes.json). Держим в памяти и дописываем при следующей успешной записи — очередь закрытия смен не теряется,
+    /// а «файл занят» при чтении больше не превращается в «пусто» с затиранием остальных записей.</summary>
+    private static readonly List<Entry> Unsaved = new();
+
+    /// <param name="forWrite">true — читаем, чтобы записать: «файл занят» пробрасывается (запись не выполняется, файл не затирается).</param>
+    private static List<Entry> LoadAllNoLock(bool forWrite = true)
     {
+        List<Entry> list;
         try
         {
-            return File.Exists(FilePath)
-                ? JsonSerializer.Deserialize<List<Entry>>(File.ReadAllText(FilePath), Json) ?? new List<Entry>()
+            var text = AtomicFile.ReadAllText(FilePath); // 2026-10-29: см. LoadAll — битый файл читается из .bak
+            list = text is not null
+                ? JsonSerializer.Deserialize<List<Entry>>(text, Json) ?? new List<Entry>()
                 : new List<Entry>();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            if (forWrite)
+                throw;
+            list = new List<Entry>();
         }
         catch
         {
-            return new List<Entry>();
+            list = new List<Entry>();
+        }
+
+        foreach (var u in Unsaved)
+        {
+            if (!list.Any(e => string.Equals(e.ShiftId, u.ShiftId, StringComparison.OrdinalIgnoreCase)))
+                list.Add(u);
+        }
+
+        return list;
+    }
+
+    /// <summary>Загрузка для записи; false — файл занят, ничего менять нельзя (запись отложена).</summary>
+    private static bool TryLoadForWrite(out List<Entry> all)
+    {
+        try
+        {
+            all = LoadAllNoLock(forWrite: true);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            PosLogger.Log($"Очередь закрытия смен: файл занят ({ex.Message}) — запись отложена, прежние записи не затираем.", "WARNING");
+            all = new List<Entry>();
+            return false;
         }
     }
 
@@ -186,7 +239,8 @@ public static class PendingShiftCloseStore
             if (!string.IsNullOrEmpty(directory))
                 Directory.CreateDirectory(directory);
 
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(all, Json));
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(all, Json)); // 2026-10-29: атомарно, с копией .bak
+            Unsaved.Clear();
         }
         catch (Exception ex)
         {

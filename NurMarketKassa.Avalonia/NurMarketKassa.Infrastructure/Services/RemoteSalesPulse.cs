@@ -10,7 +10,8 @@ namespace NurMarketKassa.Services;
 /// и <see cref="Detected"/> (кэш каталога перечитывает остатки, не чаще <see cref="SyncCenter.StockReloadMinSpacing"/>).
 /// Свои продажи тоже меняют ответ: если остаток на этом ПК менялся за последние 25 с — это скорее всего своя продажа, каталог не перечитывается
 /// (остаток уже уменьшен сразу), сигнал для отчётов всё равно уходит.
-/// Бюджет запросов: 3 в минуту; пауза при 429/аварии/работе без связи; при сбоях интервал растёт вдвое, до 4×; разброс ±15 %.
+/// Бюджет запросов: 3 в минуту у кассы (SyncCenter.PulseInterval: у владельца с активным окном 12 в минуту, в простое/свёрнуто реже); пауза при
+/// 429/аварии/работе без связи; при сбоях интервал растёт вдвое, до 4×; разброс ±15 %.
 /// </summary>
 public static class RemoteSalesPulse
 {
@@ -35,8 +36,11 @@ public static class RemoteSalesPulse
         {
             try
             {
-                var interval = TimeSpan.FromTicks(SyncCenter.SalesPulseInterval.Ticks * (1L << Math.Min(_failures, 2)));
-                await Task.Delay(SyncCenter.Jitter(interval)).ConfigureAwait(false);
+                // 2026-10-29 (скорость синхронизации): период зависит от режима — владелец с активным окном 5 с, касса 20 с, простой/свёрнуто 30–60 с;
+                // подсказка соседа по локальной сети (SyncCenter.PulseKick) будит пульс сразу. При сбоях интервал по-прежнему растёт вдвое, до 4×.
+                await SyncCenter.WaitAdaptiveAsync(
+                    () => TimeSpan.FromTicks(SyncCenter.PulseInterval().Ticks * (1L << Math.Min(_failures, 2))),
+                    SyncCenter.PulseKick, TimeSpan.FromSeconds(1)).ConfigureAwait(false);
                 if (SyncCenter.ShouldPause() || PosApp.SalesApi is not { } sales)
                     continue;
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));

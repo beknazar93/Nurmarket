@@ -1245,7 +1245,7 @@ class _QuoteScanSheet extends ConsumerStatefulWidget {
 }
 
 class _QuoteScanSheetState extends ConsumerState<_QuoteScanSheet> {
-  final _camera = MobileScannerController(detectionSpeed: DetectionSpeed.normal);
+  final _camera = MobileScannerController(formats: const [BarcodeFormat.ean13, BarcodeFormat.ean8, BarcodeFormat.code128, BarcodeFormat.upcA, BarcodeFormat.upcE, BarcodeFormat.itf14, BarcodeFormat.qrCode], detectionSpeed: DetectionSpeed.normal);
   String _last = '';
   DateTime _lastAt = DateTime(2000);
   String? _msg;

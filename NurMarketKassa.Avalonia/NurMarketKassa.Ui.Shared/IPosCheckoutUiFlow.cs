@@ -10,6 +10,9 @@ public interface IPosCheckoutUiFlow
 
     Task ShowPaymentResultAsync(bool isSuccess, string message);
 
+    /// <summary>2026-10-30 (приёмка 1.17.66, «Важно» 1): закрыть окно «Проводим оплату…» без результата — перед вопросом «Сервер занят: повторить / отложить в очередь».</summary>
+    Task ClosePaymentProcessingAsync() => Task.CompletedTask;
+
     Task ShowPaymentSuccessAsync(
         double totalAmount,
         bool defaultPrintReceipt,

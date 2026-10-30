@@ -228,6 +228,9 @@ public static class StockSyncService
             {
                 if (!string.Equals(vm.Id, id, StringComparison.OrdinalIgnoreCase))
                     continue;
+                // 2026-10-31 (стресс-тест 1.17.68, В-6): у услуги остатка нет (продажа его не уменьшает) — возврат не должен «поднимать» его с 0 до 1–2.
+                if (vm.IsService)
+                    break;
                 var next = vm.Quantity + qty;
                 MarkLocallyTouched(id);
                 expected[id] = next;

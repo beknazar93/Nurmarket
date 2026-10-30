@@ -471,8 +471,8 @@
      "articles": [
       {
        "id": "программа-владельца-что-такое-nurmarket-владелец-и-где-его-н",
-       "title": "«NurMarket Egasi» nima va uni qayerdan topish mumkin",
-       "text": "Шаг 1. «NurMarket Egasi» dasturi kassa bilan birga o'rnatiladi: yangilanishdan keyin ish stolida va «Start» menyusida «NurMarket Владелец» yorlig'i paydo bo'ladi.\nШаг 2. Uni oching va NurCRM'dagi ega yoki administrator hisobi bilan kiring.\nШаг 3. Chapda — bo'limlar menyusi, o'ngda — «Umumiy ko'rinish»: bugungi kun, hafta yoki oy uchun tushum, cheklar, o'rtacha chek va foyda, kunlar bo'yicha tushum, to'lov usullari, so'nggi sotuvlar va eng yaxshi mahsulotlar.\nШаг 4. «Umumiy ko'rinish» har daqiqada avtomatik yangilanadi, oynaga qaytganda esa darhol; ↻ tugmasi hozir yangilaydi. Kassadagi sotuv bu yerda dasturni qayta ishga tushirmasdan paydo bo'ladi.\nВажно: Dastur boshqa kompyuterda ham ishlashi mumkin: kassa va ega dasturi ma'lumotlarni bitta NurCRM serveridan oladi.",
+       "title": "«NurCRM Egasi» nima va uni qayerdan topish mumkin",
+       "text": "Шаг 1. «NurCRM Egasi» dasturi kassa bilan birga o'rnatiladi: yangilanishdan keyin ish stolida va «Start» menyusida «NurCRM Владелец» yorlig'i paydo bo'ladi.\nШаг 2. Uni oching va NurCRM'dagi ega yoki administrator hisobi bilan kiring.\nШаг 3. Chapda — bo'limlar menyusi, o'ngda — «Umumiy ko'rinish»: bugungi kun, hafta yoki oy uchun tushum, cheklar, o'rtacha chek va foyda, kunlar bo'yicha tushum, to'lov usullari, so'nggi sotuvlar va eng yaxshi mahsulotlar.\nШаг 4. «Umumiy ko'rinish» har daqiqada avtomatik yangilanadi, oynaga qaytganda esa darhol; ↻ tugmasi hozir yangilaydi. Kassadagi sotuv bu yerda dasturni qayta ishga tushirmasdan paydo bo'ladi.\nВажно: Dastur boshqa kompyuterda ham ishlashi mumkin: kassa va ega dasturi ma'lumotlarni bitta NurCRM serveridan oladi.",
        "keywords": [
         "egasi",
         "ega",
@@ -1097,7 +1097,7 @@
      ]
     }
    ],
-   "note": "«Standart» tarifidan boshlab bu bo'lim «NurMarket Egasi» dasturida joylashgan: uning yorlig'i ish stolida kassa bilan birga paydo bo'ladi. «Start» tarifida bo'lim kassa menyusida (☰) qoladi."
+   "note": "«Standart» tarifidan boshlab bu bo'lim «NurCRM Egasi» dasturida joylashgan: uning yorlig'i ish stolida kassa bilan birga paydo bo'ladi. «Start» tarifida bo'lim kassa menyusida (☰) qoladi."
   },
   {
    "title": "Ombor",
@@ -1324,7 +1324,7 @@
      ]
     }
    ],
-   "note": "«Standart» tarifidan boshlab bu bo'lim «NurMarket Egasi» dasturida joylashgan: uning yorlig'i ish stolida kassa bilan birga paydo bo'ladi. «Start» tarifida bo'lim kassa menyusida (☰) qoladi."
+   "note": "«Standart» tarifidan boshlab bu bo'lim «NurCRM Egasi» dasturida joylashgan: uning yorlig'i ish stolida kassa bilan birga paydo bo'ladi. «Start» tarifida bo'lim kassa menyusida (☰) qoladi."
   },
   {
    "title": "Mijozlar va qarzlar",
@@ -1616,7 +1616,7 @@
      ]
     }
    ],
-   "note": "«Standart» tarifidan boshlab bu bo'lim «NurMarket Egasi» dasturida joylashgan: uning yorlig'i ish stolida kassa bilan birga paydo bo'ladi. «Start» tarifida bo'lim kassa menyusida (☰) qoladi."
+   "note": "«Standart» tarifidan boshlab bu bo'lim «NurCRM Egasi» dasturida joylashgan: uning yorlig'i ish stolida kassa bilan birga paydo bo'ladi. «Start» tarifida bo'lim kassa menyusida (☰) qoladi."
   },
   {
    "title": "Xodimlar",
@@ -2031,7 +2031,7 @@
       {
        "id": "настройки-и-оборудование-как-получить-удалённую-помощь-подде",
        "title": "Qo'llab-quvvatlash xizmatidan masofaviy yordamni qanday olish",
-       "text": "Шаг 1. ☰ → «Tizim» → «NurCRM texnik yordami» bo'limini oching.\nШаг 2. NurMarket yordam xizmatiga qo'ng'iroq qiling yoki WhatsApp'ga yozing: +996 221 068 796.\nШаг 3. «Nur Yordam» blokida «Yordam uchun kod olish» tugmasini bosing va operatorga kod hamda PIN'ni ayting (kod 15 daqiqa amal qiladi).\nШаг 4. «… operatori ushbu kompyuterga ulanmoqchi» degan savol chiqqanda «Ruxsat berish» (operator ekranni ko'radi va boshqara oladi) yoki «Faqat ko'rish» (faqat ekran, boshqaruvsiz) tugmasini bosing. «Rad etish» — ulanishga ruxsat bermaslik.\nШаг 5. Seans davomida ekran tepasida qizil «Yordam seansi» chizig'i turadi — «Tugatish» tugmasi operatorni darhol uzadi.\nВажно: «Ruxsat berish» yoki «Faqat ko'rish»ni bosmasangiz, hech kim ulanmaydi. Qo'llab-quvvatlash serveri mavjud bo'lmasa — +996 221 068 796 raqamiga qo'ng'iroq qiling.\nВажно: Xatolar jurnali — ☰ → «Tizim» → «Jurnal va xatolar», «Jurnal papkasini ochish» tugmasi.",
+       "text": "Шаг 1. ☰ → «Tizim» → «NurCRM texnik yordami» bo'limini oching.\nШаг 2. NurCRM yordam xizmatiga qo'ng'iroq qiling yoki WhatsApp'ga yozing: +996 221 068 796.\nШаг 3. «Nur Yordam» blokida «Yordam uchun kod olish» tugmasini bosing va operatorga kod hamda PIN'ni ayting (kod 15 daqiqa amal qiladi).\nШаг 4. «… operatori ushbu kompyuterga ulanmoqchi» degan savol chiqqanda «Ruxsat berish» (operator ekranni ko'radi va boshqara oladi) yoki «Faqat ko'rish» (faqat ekran, boshqaruvsiz) tugmasini bosing. «Rad etish» — ulanishga ruxsat bermaslik.\nШаг 5. Seans davomida ekran tepasida qizil «Yordam seansi» chizig'i turadi — «Tugatish» tugmasi operatorni darhol uzadi.\nВажно: «Ruxsat berish» yoki «Faqat ko'rish»ni bosmasangiz, hech kim ulanmaydi. Qo'llab-quvvatlash serveri mavjud bo'lmasa — +996 221 068 796 raqamiga qo'ng'iroq qiling.\nВажно: Xatolar jurnali — ☰ → «Tizim» → «Jurnal va xatolar», «Jurnal papkasini ochish» tugmasi.",
        "keywords": [
         "qo'llab-quvvatlash",
         "поддержка",
@@ -2873,7 +2873,7 @@
       {
        "id": "частые-вопросы-кассир-не-видит-раздел-меню-почему",
        "title": "Kassir menyu bo'limini ko'rmayapti — nega?",
-       "text": "Шаг 1. «Standart» tarifidan boshlab ombor, sotuvlar, moliya, ish haqi, ABC, mijozlar va ombor to'ldirish kassada emas, «NurMarket Egasi» dasturida (ish stolidagi yorliq) joylashgan.\nШаг 2. Qolgan bo'limlar faqat xodimda huquqlar bo'lsa ko'rinadi — huquqlar NurCRM'da (veb-panelda) har bir xodimga alohida beriladi.\nШаг 3. Ba'zi bo'limlar faqat qo'shimcha funksiya faollashtirilgandan keyin ochiladi (Marketpleys → «Qo'shimcha funksiyalar»).\nШаг 4. Huquqlar o'zgartirilgandan keyin kassaga qayta kiring.",
+       "text": "Шаг 1. «Standart» tarifidan boshlab ombor, sotuvlar, moliya, ish haqi, ABC, mijozlar va ombor to'ldirish kassada emas, «NurCRM Egasi» dasturida (ish stolidagi yorliq) joylashgan.\nШаг 2. Qolgan bo'limlar faqat xodimda huquqlar bo'lsa ko'rinadi — huquqlar NurCRM'da (veb-panelda) har bir xodimga alohida beriladi.\nШаг 3. Ba'zi bo'limlar faqat qo'shimcha funksiya faollashtirilgandan keyin ochiladi (Marketpleys → «Qo'shimcha funksiyalar»).\nШаг 4. Huquqlar o'zgartirilgandan keyin kassaga qayta kiring.",
        "keywords": [
         "bo'lim yo'q",
         "ruxsat",

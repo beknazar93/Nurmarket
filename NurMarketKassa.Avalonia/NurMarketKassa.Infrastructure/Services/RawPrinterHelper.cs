@@ -36,6 +36,10 @@ public static class RawPrinterHelper
     /// виртуальные вроде "Generic / Text Only" — многие чековые/этикеточные принтеры ставятся именно так.</summary>
     public static IReadOnlyList<string> GetInstalledPrinterNames()
     {
+        // 2026-10-29: Android/Linux/macOS — очереди Windows (winspool.Drv) нет; раньше DllNotFoundException в журнале при каждом открытии Настроек.
+        if (!OperatingSystem.IsWindows())
+            return Array.Empty<string>();
+
         const uint level = 4; // PRINTER_INFO_4: минимальный уровень, отдающий только имена — не требует прав администратора.
         const uint flags = PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS;
 

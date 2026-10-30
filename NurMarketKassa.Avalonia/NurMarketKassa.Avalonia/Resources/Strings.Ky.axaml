@@ -27,7 +27,7 @@
   <x:String x:Key="csh.menu.errorLogs">Логдор жана каталар</x:String>
   <x:String x:Key="csh.menu.cartRemovals">Чектен алынгандар</x:String>
   <x:String x:Key="csh.menu.remoteSupport">NurCRM тех колдоо</x:String>
-  <x:String x:Key="csh.menu.knowledgeBase">NurMarket билим базасы</x:String>
+  <x:String x:Key="csh.menu.knowledgeBase">NurCRM билим базасы</x:String>
   <x:String x:Key="csh.menu.restock">Толуктоо жана мөөнөттөр</x:String>
   <x:String x:Key="csh.menu.switchCashier">Кассирди алмаштыруу</x:String>
   <x:String x:Key="switchCashier.title">Кассирди алмаштыруу</x:String>
@@ -122,7 +122,7 @@
   <x:String x:Key="header.labelTheme">Тема</x:String>
   <x:String x:Key="header.labelKeyboard">Баскычтар</x:String>
   <x:String x:Key="header.labelHotkeys">Ыкчам</x:String>
-  <x:String x:Key="mainWindow.windowTitle">Касса — Nur Market</x:String>
+  <x:String x:Key="mainWindow.windowTitle">Касса — NurCRM</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Артка</x:String>
   <x:String x:Key="printSettings.findButton">Издөө</x:String>
   <x:String x:Key="printSettings.lptWatermark">Порт же принтердин жолу (табылбаса)</x:String>
@@ -231,7 +231,7 @@
   <x:String x:Key="csh.filter.apply">Колдонуу</x:String>
 
   <!-- Login screen -->
-  <x:String x:Key="csh.login.title">Кирүү — Nur Market</x:String>
+  <x:String x:Key="csh.login.title">Кирүү — NurCRM</x:String>
   <x:String x:Key="csh.login.tagline">Чекене соода үчүн касса системасы</x:String>
   <x:String x:Key="csh.login.secureTitle">Жумуш сменасына коопсуз кирүү</x:String>
   <x:String x:Key="csh.login.secureSubtitle">Маалыматтар булут жана жергиликтүү аудит базасы менен шайкештирилет.</x:String>
@@ -329,7 +329,7 @@
 
   <!-- NurCRM тех колдоо (бэклог "Доработки" этап 4) -->
   <!-- 2026-10-16: удалённая помощь — только своя «Нур Колдоо» -->
-  <x:String x:Key="remoteSupport.intro">Алыстан жардам — «Нур Колдоо»: NurMarket оператору кассанын экранын көрүп, маселени чечүүгө жардам берет. Колдоо кызматына чалыңыз же WhatsApp'ка жазыңыз: +996 221 068 796, андан кийин «Колдоо үчүн код алуу» баскычын басып, операторго код менен PIN'ди айтып бериңиз.</x:String>
+  <x:String x:Key="remoteSupport.intro">Алыстан жардам — «Нур Колдоо»: NurCRM оператору кассанын экранын көрүп, маселени чечүүгө жардам берет. Колдоо кызматына чалыңыз же WhatsApp'ка жазыңыз: +996 221 068 796, андан кийин «Колдоо үчүн код алуу» баскычын басып, операторго код менен PIN'ди айтып бериңиз.</x:String>
   <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
   <x:String x:Key="remoteSupport.copyDeviceInfo">Түзмөк жөнүндө маалыматты көчүрүү</x:String>
 
@@ -629,7 +629,7 @@
   <x:String x:Key="sideMenu.sectionSystem">Система</x:String>
 
   <!-- Admin support, CRM webview, shift history window -->
-  <x:String x:Key="adminSupport.title">Колдоо — Nur Market</x:String>
+  <x:String x:Key="adminSupport.title">Колдоо — NurCRM</x:String>
   <x:String x:Key="adminSupport.header">Администратор колдоосу</x:String>
   <x:String x:Key="adminSupport.subtitle">Колдоо кызматы дайыма байланышта</x:String>
   <x:String x:Key="common.forward">Алдыга</x:String>
@@ -812,7 +812,7 @@
   <x:String x:Key="posSettings.print.printAfterPayment">Төлөмдөн кийин чекти басып чыгаруу</x:String>
   <x:String x:Key="posSettings.print.equipmentTitle">Жабдуулар жана туташуу</x:String>
   <x:String x:Key="posSettings.print.foundPrinters">Табылган принтерлер жана порттор</x:String>
-  <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Эч нерсе табылган жок — «Издөө» баскычын басыңыз</x:String>
+  <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Табылган жок — «Издөө» баскычы</x:String>
   <x:String x:Key="posSettings.print.retriesOnFailure">Ката кетсе кайра басып чыгаруу саны</x:String>
   <x:String x:Key="posSettings.print.tapeWidth">Тасманын туурасы</x:String>
   <x:String x:Key="posSettings.print.charsPerLine">Саптагы белгилер</x:String>

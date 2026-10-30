@@ -79,6 +79,18 @@ public static class ProductInfoResearch
         var parts = new List<string>();
         var sources = new List<TelegramAiChat.WebSource>();
         var barcode = (p.Barcode ?? "").Trim();
+        // 2026-10-30: справочник NurCRM (128 тыс. товаров, без интернета) — название, бренд, категория по штрихкоду; тумблер bc.directory.
+        if (barcode.Length is >= 8 and <= 14 && barcode.All(char.IsDigit) && AdvisorCapabilities.IsOn("bc.directory")
+            && GlobalProducts.GlobalProductCatalog.Instance.Find(barcode) is { } directory)
+            parts.Add($"Справочник NurCRM (штрихкод {barcode}): {directory.Name}" + (directory.Brand.Length > 0 ? $"; бренд {directory.Brand}" : "")
+                      + (directory.Category.Length > 0 ? $"; категория {directory.Category}" : ""));
+        // 2026-10-30: тумблер bc.web — название и штрихкод наружу (открытые базы, поиск, Groq) не уходят.
+        if (!AdvisorCapabilities.IsOn("bc.web"))
+        {
+            var local = new Finding(p, parts.Count > 0 ? string.Join(Environment.NewLine, parts) : "в справочнике сведений не нашлось (поиск в интернете выключен владельцем)", sources);
+            Cache[p.Id] = (DateTime.UtcNow, local);
+            return local;
+        }
         if (barcode.Length is >= 8 and <= 14 && barcode.All(char.IsDigit))
         {
             foreach (var (name, host) in OpenBases)

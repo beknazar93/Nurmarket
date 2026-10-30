@@ -81,7 +81,9 @@ public sealed class AssetPathToBitmapConverter : IValueConverter
     // в несколько тысяч товаров съедало сотни МБ. Теперь в кэше — последние MaxThumbs миниатюр (несколько страниц
     // каталога); вытесненная не освобождается принудительно (её ещё может показывать плитка) — её соберёт сборщик мусора,
     // когда плитка её отпустит. Обои, фон и значки (без «thumb») — как раньше, без предела.
-    private const int MaxThumbs = 240;
+    // 2026-10-30 (оптимизация кассы, Б5): 240 → 160 (≈ 3 страницы по 50 плиток; нативная память кэша ~98 → ~65 МБ). Ширину декодирования (320 px) не трогаем —
+    // на экране с масштабом 200 % карточка 180 px требует 360 px, уменьшение дало бы мыло.
+    private const int MaxThumbs = 160;
     private static readonly LinkedList<string> ThumbOrder = new();
     private static readonly Dictionary<string, LinkedListNode<string>> ThumbNodes = new(StringComparer.Ordinal);
     private static readonly object ThumbGate = new();

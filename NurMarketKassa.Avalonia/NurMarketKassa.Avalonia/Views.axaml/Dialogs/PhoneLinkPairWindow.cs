@@ -46,11 +46,11 @@ internal sealed class PhoneLinkPairWindow : Window
         Avalonia.Automation.AutomationProperties.SetName(_qrFrame, T("QR-код кассы для телефона", "Телефон үчүн кассанын QR-коду", "Till QR code for the phone", "Telefon için kasa QR kodu", "Telefon uchun kassa QR kodi"));
 
         var steps = new StackPanel { Spacing = 10 };
-        steps.Children.Add(Step("1", T("Откройте приложение NurMarket на телефоне: Профиль → «Связь с кассой».",
-            "Телефондогу NurMarket тиркемесин ачыңыз: Профиль → «Касса менен байланыш».",
-            "Open the NurMarket app on the phone: Profile → “Till link”.",
-            "Telefonda NurMarket uygulamasını açın: Profil → «Kasa bağlantısı».",
-            "Telefonda NurMarket ilovasini oching: Profil → «Kassa bilan aloqa».")));
+        steps.Children.Add(Step("1", T("Откройте приложение NurCRM на телефоне: Профиль → «Связь с кассой».",
+            "Телефондогу NurCRM тиркемесин ачыңыз: Профиль → «Касса менен байланыш».",
+            "Open the NurCRM app on the phone: Profile → “Till link”.",
+            "Telefonda NurCRM uygulamasını açın: Profil → «Kasa bağlantısı».",
+            "Telefonda NurCRM ilovasini oching: Profil → «Kassa bilan aloqa».")));
         steps.Children.Add(Step("2", T("Нажмите «Сканировать QR» и наведите камеру на код слева.",
             "«QR сканерлөө» баскычын басып, камераны сол жактагы кодго багыттаңыз.",
             "Tap “Scan QR” and point the camera at the code on the left.",

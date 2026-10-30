@@ -22,8 +22,13 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 /// «создан» ещё нет (хук установки не сработал); (3) итог пишется в Logs\owner-shortcut.log.</summary>
 internal static class OwnerShortcuts
 {
-    private const string ShortcutName = "NurMarket Владелец";
+    private const string ShortcutName = "NurCRM Владелец";
+    // 2026-10-29: программа теперь называется NurCRM; ярлык со старым именем переносим на новое (MigrateLegacyShortcuts).
+    private const string LegacyShortcutName = "NurMarket Владелец";
     private const string CreatedMarker = "owner-shortcut.created";
+    // 2026-10-30: ярлык самой кассы: Velopack называет его по packTitle (теперь «NurCRM Kassa»), прежний — «NurMarket Kassa».
+    private const string KassaShortcutName = "NurCRM Kassa";
+    private const string LegacyKassaShortcutName = "NurMarket Kassa";
 
     /// <summary>2026-09-30, владелец: «при установке сделай так, чтобы можно было установить обе
     /// программы или только кассу». Установщик Velopack своих вопросов не задаёт, поэтому хук
@@ -53,7 +58,8 @@ internal static class OwnerShortcuts
         try
         {
             foreach (var folder in ShortcutFolders())
-                if (File.Exists(Path.Combine(folder, ShortcutName + ".lnk")))
+                if (File.Exists(Path.Combine(folder, ShortcutName + ".lnk"))
+                    || File.Exists(Path.Combine(folder, LegacyShortcutName + ".lnk")))
                     return true;
         }
         catch
@@ -159,7 +165,46 @@ internal static class OwnerShortcuts
             return;
         }
 
+        MigrateLegacyShortcuts();
         EnsureCreated(evenIfCreatedBefore: false);
+    }
+
+    /// <summary>2026-10-29: ярлык «NurMarket Владелец» (наш, ведёт на эту кассу с --owner) переименовываем в «NurCRM Владелец».</summary>
+    private static void MigrateLegacyShortcuts()
+    {
+        try
+        {
+            var exe = Environment.ProcessPath;
+            foreach (var folder in ShortcutFolders())
+            {
+                var old = Path.Combine(folder, LegacyShortcutName + ".lnk");
+                var path = Path.Combine(folder, ShortcutName + ".lnk");
+                if (!File.Exists(old) || string.IsNullOrEmpty(exe) || !PointsTo(old, exe))
+                    continue;
+                if (File.Exists(path) || CreateShortcut(path, exe))
+                    File.Delete(old);
+            }
+
+            // 2026-10-30 (приёмка 1.17.65, «Важно»): Velopack создаёт ярлык кассы по packTitle «NurCRM Kassa», а ярлык прежней установки «NurMarket Kassa» оставался —
+            // после обновления на рабочем столе/в «Пуск» было два. Старый ярлык (тот же exe, без --owner) удаляем, если новый уже есть, иначе переименовываем в новый.
+            foreach (var folder in ShortcutFolders())
+            {
+                var oldKassa = Path.Combine(folder, LegacyKassaShortcutName + ".lnk");
+                var newKassa = Path.Combine(folder, KassaShortcutName + ".lnk");
+                if (!File.Exists(oldKassa) || string.IsNullOrEmpty(exe) || !PointsToKassa(oldKassa, exe))
+                    continue;
+                var merged = File.Exists(newKassa);
+                if (merged)
+                    File.Delete(oldKassa);
+                else
+                    File.Move(oldKassa, newKassa);
+                Log($"ярлык кассы «{LegacyKassaShortcutName}» в «{folder}» " + (merged ? "удалён (уже есть «" + KassaShortcutName + "»)" : "переименован в «" + KassaShortcutName + "»"));
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"перенос старого ярлыка не удался: {ex.Message}");
+        }
     }
 
     /// <summary>Вопрос при первом запуске. Язык интерфейса ещё не выбран — текст на русском и
@@ -167,16 +212,16 @@ internal static class OwnerShortcuts
     private static bool AskInstallChoice()
     {
         const string text =
-            "Установить вместе с кассой программу владельца «NurMarket Владелец»?\n" +
+            "Установить вместе с кассой программу владельца «NurCRM Владелец»?\n" +
             "(склад, продажи, финансы, аналитика, зарплата)\n\n" +
             "Да — касса и программа владельца\n" +
             "Нет — только касса\n\n" +
             "Передумать можно потом: Настройки → Обновления → «Программа владельца».\n\n" +
-            "Касса менен бирге ээсинин программасын «NurMarket Владелец» орнотобузбу?\n" +
+            "Касса менен бирге ээсинин программасын «NurCRM Владелец» орнотобузбу?\n" +
             "Ооба — касса жана ээсинин программасы; Жок — касса гана.";
         const uint MB_YESNO = 0x4, MB_ICONQUESTION = 0x20, MB_SETFOREGROUND = 0x10000, MB_TOPMOST = 0x40000;
         const int IDYES = 6;
-        return MessageBoxW(IntPtr.Zero, text, "NurMarket Kassa — установка",
+        return MessageBoxW(IntPtr.Zero, text, "NurCRM Kassa — установка",
             MB_YESNO | MB_ICONQUESTION | MB_SETFOREGROUND | MB_TOPMOST) == IDYES;
     }
 
@@ -188,8 +233,9 @@ internal static class OwnerShortcuts
     {
         var exe = Environment.ProcessPath;
         foreach (var folder in ShortcutFolders())
+        foreach (var name in new[] { ShortcutName, LegacyShortcutName })
         {
-            var path = Path.Combine(folder, ShortcutName + ".lnk");
+            var path = Path.Combine(folder, name + ".lnk");
             try
             {
                 if (File.Exists(path) && PointsTo(path, exe))
@@ -211,8 +257,9 @@ internal static class OwnerShortcuts
 
             var exe = Environment.ProcessPath;
             foreach (var folder in ShortcutFolders())
+            foreach (var name in new[] { ShortcutName, LegacyShortcutName })
             {
-                var path = Path.Combine(folder, ShortcutName + ".lnk");
+                var path = Path.Combine(folder, name + ".lnk");
                 // Чужой ярлык с тем же именем (например, отдельной установки владельца) не трогаем.
                 if (File.Exists(path) && PointsTo(path, exe))
                     File.Delete(path);
@@ -255,9 +302,32 @@ internal static class OwnerShortcuts
             link.SetArguments("--owner");
             link.SetWorkingDirectory(Path.GetDirectoryName(exe) ?? "");
             link.SetIconLocation(exe, 0);
-            link.SetDescription("NurMarket Владелец — склад, продажи, финансы и зарплата");
+            link.SetDescription("NurCRM Владелец — склад, продажи, финансы и зарплата");
             ((IPersistFile)link).Save(path, true);
             return File.Exists(path);
+        }
+        finally
+        {
+            Marshal.FinalReleaseComObject(link);
+        }
+    }
+
+    /// <summary>2026-10-30: ярлык самой кассы (ведёт на этот exe и не несёт --owner).</summary>
+    private static bool PointsToKassa(string path, string? exe)
+    {
+        if (string.IsNullOrEmpty(exe))
+            return false;
+
+        var link = (IShellLinkW)new ShellLink();
+        try
+        {
+            ((IPersistFile)link).Load(path, 0);
+            var target = new StringBuilder(1024);
+            link.GetPath(target, target.Capacity, IntPtr.Zero, 0);
+            var args = new StringBuilder(1024);
+            link.GetArguments(args, args.Capacity);
+            return string.Equals(target.ToString(), exe, StringComparison.OrdinalIgnoreCase)
+                   && !args.ToString().Contains("--owner", StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

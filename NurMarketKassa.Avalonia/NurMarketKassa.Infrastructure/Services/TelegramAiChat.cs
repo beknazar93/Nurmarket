@@ -124,6 +124,9 @@ public static class TelegramAiChat
         IReadOnlyList<(byte[] Data, string Mime)>? attachments = null, Action<int>? stage = null, bool useHistory = true, ISet<string>? forceFull = null,
         TimeSpan? budget = null)
     {
+        // 2026-10-30: Нур Советник выключен владельцем (Настройки → Операции → Нур Советник) — ничего не собираем и никуда не отправляем.
+        if (!AdvisorCapabilities.MasterOn)
+            return new OwnerAskResult(null, "disabled", Array.Empty<WebSource>(), Array.Empty<AiSection>(), "", null, false);
         var total = System.Diagnostics.Stopwatch.StartNew();
         QuestionBudget.Value = attachments is { Count: > 0 } ? null : budget;
         var timings = new StringBuilder();
@@ -135,7 +138,8 @@ public static class TelegramAiChat
             var (questionSections, researchSources, partTimes) = await QuestionSectionsAsync(question, access, ct).ConfigureAwait(false);
             timings.Append(partTimes);
             var all = shop.Concat(questionSections).ToList();
-            var explicitWebSearch = ProductActionPlan.IsExplicitWebSearchRequest(question);
+            // 2026-10-30: «Поиск в интернете по просьбе» выключен — ни Google-поиск Gemini, ни Groq не вызываются.
+            var explicitWebSearch = ProductActionPlan.IsExplicitWebSearchRequest(question) && AdvisorCapabilities.IsOn("web.search");
             var groqSearch = explicitWebSearch && WebSearchUnavailable && AiProviders.CanSearchWeb;
             var build = System.Diagnostics.Stopwatch.StartNew();
             var (system, included, fallbackSystem) = BuildOwnerSystem(question, all, access, QuestionImage.Value is not null, forceFull, groqSearch);
@@ -145,7 +149,7 @@ public static class TelegramAiChat
             var personalNeeded = PersonalQuestion(question);
             stage?.Invoke(StageAsk);
             var ai = System.Diagnostics.Stopwatch.StartNew();
-            var (answer, error, generatedSources, fallback) = await AskCoreOwnerAsync(question, system, personalNeeded ? "" : fallbackSystem, ct, useHistory,
+            var (answer, error, generatedSources, fallback) = await AskCoreOwnerAsync(question, system, personalNeeded || !AdvisorCapabilities.IsOn("priv.fallback") ? "" : fallbackSystem, ct, useHistory,
                 webSearch: explicitWebSearch && !groqSearch && researchSources.Count == 0).ConfigureAwait(false);
             timings.Append($"ИИ {(fallback ? "запасной" : _workingModel ?? "—")} {ai.ElapsedMilliseconds} мс; ");
             var sources = researchSources.Count > 0 ? researchSources : generatedSources;
@@ -157,7 +161,7 @@ public static class TelegramAiChat
                 var force = new HashSet<string>(forceFull ?? new HashSet<string>()) { need };
                 (system, included, fallbackSystem) = BuildOwnerSystem(question, all, access, QuestionImage.Value is not null, force, groqSearch);
                 var again = System.Diagnostics.Stopwatch.StartNew();
-                (answer, error, generatedSources, fallback) = await AskCoreOwnerAsync(question, system, personalNeeded ? "" : fallbackSystem, ct, useHistory,
+                (answer, error, generatedSources, fallback) = await AskCoreOwnerAsync(question, system, personalNeeded || !AdvisorCapabilities.IsOn("priv.fallback") ? "" : fallbackSystem, ct, useHistory,
                     webSearch: false).ConfigureAwait(false);
                 timings.Append($"второй шаг «{need}» {again.ElapsedMilliseconds} мс; ");
                 // Снова «НУЖНО:» — служебную строку владельцу не показываем.
@@ -325,25 +329,34 @@ public static class TelegramAiChat
         if (access.DeniedPrompt() is { Length: > 0 } denied)
             rules.Append(' ').Append(denied);
         var q = (question ?? "").ToLowerInvariant();
-        if (access.Clients && Has(q, "долж", "долг", "карыз", "debt", "borç", "qarz"))
+        if (access.Clients && AdvisorCapabilities.IsOn("read.debts") && Has(q, "долж", "долг", "карыз", "debt", "borç", "qarz"))
             rules.Append(' ').Append(DebtorTableRule);
-        if (access.Products && NeedsActionRules(question ?? "", image) && !(LooksLikeListRequest(question ?? "") && !ProductActionPlan.LooksLikeAction(q.Replace("выведи", "").Replace("покажи", ""))))
-            rules.Append(' ').Append(ActionRules);
-        else if (access.Products)
+        // 2026-10-30: правила действий собираются по включённым возможностям (AdvisorCapabilities); выключенные операции в инструкцию не попадают.
+        var actionRules = access.Products ? AdvisorCapabilities.BuildActionRules() : "";
+        if (actionRules.Length > 0 && NeedsActionRules(question ?? "", image) && !(LooksLikeListRequest(question ?? "") && !ProductActionPlan.LooksLikeAction(q.Replace("выведи", "").Replace("покажи", ""))))
+            rules.Append(' ').Append(actionRules);
+        else if (actionRules.Length > 0)
             rules.Append(" Изменения товаров (строки «ТОВАР:») предлагай только по прямой просьбе владельца что-то изменить.");
-        if (access.Settings && NeedsBotRules(question ?? ""))
+        else if (access.Products)
+            rules.Append(" Изменения товаров через тебя выключены владельцем: строки «ТОВАР:» не пиши; просят изменить товар — ответь «Эта возможность выключена владельцем (Настройки → Операции → Нур Советник)».");
+        if (access.Settings && AdvisorCapabilities.IsOn("act.bot") && NeedsBotRules(question ?? ""))
             rules.Append(' ').Append(BotRules);
-        if (access.Clients && NeedsRemindRules(question ?? ""))
+        if (access.Clients && AdvisorCapabilities.IsOn("rem.debtors") && NeedsRemindRules(question ?? ""))
             rules.Append(' ').Append(RemindRules);
-        if (image && access.Products)
+        if (image && access.Products && AdvisorCapabilities.IsOn("inv.read"))
             rules.Append("\n").Append(ProductActionPlan.PhotoPromptText).Append(' ').Append(InvoiceException);
         if (groqSearch)
             rules.Append('\n').Append(GroqSearchHint);
         // 2026-10-27, жалоба владельца («ИИ открывает не те разделы и врёт „открыла“»): переходы выполняет программа сама и сообщает результат;
         // нейросеть ничего не открывает и не обещает. Список id — только когда во фразе есть «открой/перейди/…» (иначе лишние токены).
-        rules.Append(' ').Append(NavNoPretendRule);
-        if (AdvisorNavRouter.LooksLikeNav(question))
-            rules.Append(" РАЗДЕЛЫ ПРОГРАММЫ (id — название): ").Append(AdvisorNavRouter.PromptList()).Append('.');
+        if (AdvisorCapabilities.IsOn("nav.open"))
+        {
+            rules.Append(' ').Append(NavNoPretendRule);
+            if (AdvisorNavRouter.LooksLikeNav(question))
+                rules.Append(" РАЗДЕЛЫ ПРОГРАММЫ (id — название): ").Append(AdvisorNavRouter.PromptList()).Append('.');
+        }
+        else
+            rules.Append(" Разделы программы ты не открываешь (выключено владельцем): не пиши «открываю/открыла»; просят открыть — ответь «Эта возможность выключена владельцем (Настройки → Операции → Нур Советник)».");
         var head = rules + "\n\nДАННЫЕ МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + " (части по важности):\n";
         // 2026-10-21 (стенд): раздел, присланный целиком по «НУЖНО:», — сверх бюджета (раньше склад целиком вытеснял всё остальное).
         var extra = Math.Min(40000, sections.Where(x => forceFull?.Contains(x.Key) == true).Sum(x => x.Full.Length));
@@ -360,7 +373,7 @@ public static class TelegramAiChat
         + "Нужно открыть раздел — выведи ТОВАР: {\"op\": \"open_section\", \"section\": \"id\"} (id строго из списка), а в тексте скажи только «Сейчас открою — проверьте результат от программы».";
 
     private const string OwnerCorePrompt =
-        "Тебя зовут Нур Советник (по-кыргызски — Нур Кеңешчи; называй себя одним именем на языке ответа): ИИ-советник владельца магазина в Кыргызстане в программе NurMarket. "
+        "Тебя зовут Нур Советник (по-кыргызски — Нур Кеңешчи; называй себя одним именем на языке ответа): ИИ-советник владельца магазина в Кыргызстане в программе NurCRM. "
         + "Отвечай на языке вопроса (русский, кыргызский, английский, турецкий, узбекский), по делу и дружелюбно, до 8 предложений. Валюта — сом. "
         + "ЦИФРЫ — ТОЛЬКО из данных магазина ниже; никогда не выдумывай суммы, остатки, цены и даты. Готовые итоги и проценты (СРАВНЕНИЕ ПЕРИОДОВ, ДОЛГИ, СКЛАД) называй как есть, не пересчитывай. "
         + "Нужных данных нет (другой период, будущая дата, нет такого товара) — честно скажи и назови раздел программы («Сводка», «Продажи», «ABC-анализ», «Пополнение и сроки», «Долги клиентов», «Склад», «Зарплата»). "
@@ -467,6 +480,9 @@ public static class TelegramAiChat
         var sb = new StringBuilder(OwnerVoicePrompt);
         if (access.DeniedPrompt() is { Length: > 0 } denied)
             sb.Append(' ').Append(denied);
+        // 2026-10-30: возможности, выключенные владельцем, сильнее общих обещаний выше (изменение товаров, фото, интернет, сайт, разделы).
+        if (AdvisorCapabilities.DisabledNote() is { Length: > 0 } disabledNote)
+            sb.Append(" ВАЖНО, это сильнее всего сказанного выше:").Append(disabledNote);
         var sections = shop.ToList();
         if (access.Staff && !string.IsNullOrWhiteSpace(staff))
             sections.Add(new AiSection("staff", "Сотрудники, зарплата и табель", 3, staff.Trim(), Personal: true));
@@ -484,7 +500,7 @@ public static class TelegramAiChat
     }
 
     private const string OwnerVoicePrompt =
-        "Тебя зовут Нур Советник (по-русски называй себя только «Нур Советник», по-кыргызски — только «Нур Кеңешчи», не оба сразу): ты ИИ-советник владельца магазина в Кыргызстане, встроенный в программу NurMarket. "
+        "Тебя зовут Нур Советник (по-русски называй себя только «Нур Советник», по-кыргызски — только «Нур Кеңешчи», не оба сразу): ты ИИ-советник владельца магазина в Кыргызстане, встроенный в программу NurCRM. "
         // 2026-10-06, владелец: «дай название нашему ИИ — на кыргызском Нур Кеңешчи, на русском Нур Советник».
         + "Если спрашивают, как тебя зовут, — по-русски «Нур Советник», по-кыргызски «Нур Кеңешчи». Сейчас вы разговариваете ГОЛОСОМ "
         + "в реальном времени, как по телефону. Отвечай коротко и разговорно: одно–три предложения, без списков, таблиц, ссылок и символов. "
@@ -563,22 +579,29 @@ public static class TelegramAiChat
     /// действиями с товарами (строки «ТОВАР: {…}» убраны из текста — бот покажет их кнопками «Выполнить / Отмена»).</summary>
     public static async Task<(string? Answer, List<ProductActionPlan.Step> Steps, string? Error)> AskOwnerBotAsync(string chatId, string question, CancellationToken ct)
     {
+        // 2026-10-30: Нур Советник выключен владельцем — ИИ в боте владельца не отвечает и данные не уходят.
+        if (!AdvisorCapabilities.MasterOn)
+            return (null, new List<ProductActionPlan.Step>(), AdvisorCapabilities.BlockedText());
         await ProductExpiryIndex.RefreshAsync(false, ct).ConfigureAwait(false);
-        var cards = await ProductActionPlan.MentionedCardsContextAsync(question, ct).ConfigureAwait(false);
+        var cards = AdvisorCapabilities.IsOn("read.stock") ? await ProductActionPlan.MentionedCardsContextAsync(question, ct).ConfigureAwait(false) : "";
         var (research, _) = await ResearchMentionedAsync(question, ct).ConfigureAwait(false);
         if (research.Length > 0)
             cards += (cards.Length > 0 ? "\n\n" : "") + research;
-        var staff = await StaffContextAsync(question, ct).ConfigureAwait(false);
+        var staff = AdvisorCapabilities.IsOn("read.staff") ? await StaffContextAsync(question, ct).ConfigureAwait(false) : "";
         if (staff.Length > 0)
             cards += (cards.Length > 0 ? "\n\n" : "") + staff;
         // 2026-10-07: «чеки за вчера» — программа сама загружает чеки за период, ИИ выводит таблицей (раньше: «зайдите в NurMarket»).
-        var salesDetail = await SalesDetailContextAsync(question, ct).ConfigureAwait(false);
+        var salesDetail = AdvisorCapabilities.IsOn("read.sales") && AdvisorCapabilities.IsOn("priv.receipts") ? await SalesDetailContextAsync(question, ct).ConfigureAwait(false) : "";
         if (salesDetail.Length > 0)
             cards += (cards.Length > 0 ? "\n\n" : "") + salesDetail;
         // 2026-10-21 (бот, К2): выручка в сводке ИИ бота — с сервера, как «Сводка» программы; местная история — только без связи.
-        var serverRevenue = await TelegramReportBuilder.ServerRevenueAiTextAsync(ct).ConfigureAwait(false);
-        var system = SystemPrompt + "\n" + ProductActionPlan.PromptText + (cards.Length > 0 ? "\n\n" + cards : "") + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n"
-                     + (serverRevenue is null ? "" : serverRevenue + "\n") + BuildShopContext(question, localRevenue: serverRevenue is null);
+        // 2026-10-30 (приёмка 1.17.67, п. 6б): тумблер «Продажи» выключен — ни серверной, ни местной выручки и топа товаров в ИИ (как AiContextBudget.Compose).
+        var salesOn = AdvisorCapabilities.IsOn("read.sales");
+        var serverRevenue = salesOn ? await TelegramReportBuilder.ServerRevenueAiTextAsync(ct).ConfigureAwait(false) : null;
+        // 2026-10-30: правила действий — по включённым возможностям (все включены — прежний текст).
+        var botActions = AdvisorCapabilities.AllActionsOn ? ProductActionPlan.PromptText : AdvisorCapabilities.BuildActionRules();
+        var system = SystemPrompt + "\n" + botActions + (cards.Length > 0 ? "\n\n" + cards : "") + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n"
+                     + (serverRevenue is null ? "" : serverRevenue + "\n") + BuildShopContext(question, localRevenue: salesOn && serverRevenue is null);
         var (answer, error, _) = await AskCoreAsync("owner:" + chatId, question, system, ct, raw: true).ConfigureAwait(false);
         if (answer is null)
             return (null, new List<ProductActionPlan.Step>(), error);
@@ -737,7 +760,7 @@ public static class TelegramAiChat
     /// <summary>2026-10-06: сведения из интернета о товарах из вопроса — только если просят описать / дополнить / найти сведения.</summary>
     private static async Task<(string Text, IReadOnlyList<WebSource> Sources)> ResearchMentionedAsync(string question, CancellationToken ct)
     {
-        if (!ProductActionPlan.IsExplicitWebSearchRequest(question) || !ProductInfoResearch.LooksLikeInfoRequest(question))
+        if (!ProductActionPlan.IsExplicitWebSearchRequest(question) || !ProductInfoResearch.LooksLikeInfoRequest(question) || !(AdvisorCapabilities.IsOn("bc.web") || AdvisorCapabilities.IsOn("bc.directory")))
             return ("", Array.Empty<WebSource>());
         var targets = ProductActionPlan.Mentioned(question, 3);
         if (targets.Count == 0)
@@ -751,10 +774,11 @@ public static class TelegramAiChat
     public static async Task<(string? Answer, string? Error)> AskAsync(string chatId, string question, CancellationToken ct)
     {
         // 2026-10-21 (бот, К2): выручка — с сервера, как «Сводка»; местная история — только без связи.
-        var serverRevenue = await TelegramReportBuilder.ServerRevenueAiTextAsync(ct).ConfigureAwait(false);
+        var salesOn = AdvisorCapabilities.IsOn("read.sales"); // 2026-10-30: тумблер «Продажи» (приёмка 1.17.67, п. 6б)
+        var serverRevenue = salesOn ? await TelegramReportBuilder.ServerRevenueAiTextAsync(ct).ConfigureAwait(false) : null;
         var (answer, error, _) = await AskCoreAsync("owner:" + chatId, question,
             SystemPrompt + "\n\nСВОДКА МАГАЗИНА на " + DateTime.Now.ToString("dd.MM.yyyy HH:mm") + ":\n"
-            + (serverRevenue is null ? "" : serverRevenue + "\n") + BuildShopContext(question, localRevenue: serverRevenue is null), ct).ConfigureAwait(false);
+            + (serverRevenue is null ? "" : serverRevenue + "\n") + BuildShopContext(question, localRevenue: salesOn && serverRevenue is null), ct).ConfigureAwait(false);
         return (answer, error);
     }
 
@@ -1442,13 +1466,18 @@ public static class TelegramAiChat
             Add(() => TelegramReportBuilder.BuildRevenue(7, "Выручка за 7 дней"));
             Add(() => TelegramReportBuilder.BuildTopProducts(7, 8));
         }
-        Add(() => TelegramReportBuilder.BuildLowStock(take: 10));
+        // 2026-10-30 (приёмка 1.17.66): бот владельца считался мимо AiContextBudget — тумблеры «Склад» и «Списки склада» не действовали.
+        // Те же правила, что у AdvisorCapabilities.SectionAllowed: список «заканчивается» — StockListsAllowed, сроки и товары из вопроса — read.stock.
+        var stockOn = AdvisorCapabilities.IsOn("read.stock");
+        if (AdvisorCapabilities.StockListsAllowed)
+            Add(() => TelegramReportBuilder.BuildLowStock(take: 10));
         // 2026-10-06: просроченные и скоро истекающие товары (сервер) — для советов и действий «списать просрочку».
-        Add(() => ProductExpiryIndex.ContextText());
+        if (stockOn)
+            Add(() => ProductExpiryIndex.ContextText());
         Add(TelegramInquiryStore.ShortSummary);
         if (TelegramAssistant.RentalContext(question) is { } rentals)
             sb.AppendLine(rentals);
-        if (TelegramAssistant.ProductContext(question) is { } products)
+        if (stockOn && TelegramAssistant.ProductContext(question) is { } products)
             sb.AppendLine("Товары из вопроса:\n" + products);
 
         var text = sb.ToString();

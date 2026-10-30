@@ -731,7 +731,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: MobileScanner(
-                    controller: _camera ??= MobileScannerController(),
+                    controller: _camera ??= MobileScannerController(formats: const [BarcodeFormat.ean13, BarcodeFormat.ean8, BarcodeFormat.code128, BarcodeFormat.upcA, BarcodeFormat.upcE, BarcodeFormat.itf14, BarcodeFormat.qrCode]),
                     onDetect: (cap) {
                       final v = cap.barcodes.firstOrNull?.rawValue;
                       if (v != null && v.isNotEmpty && v != _barcode.text) _lookup(v);

@@ -343,11 +343,12 @@
                                         Tag="2" Click="SummaryPeriod_Click"/>
                             </StackPanel>
                             </Border>
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <TextBlock Text="📊" FontSize="18" VerticalAlignment="Top"/>
-                                <TextBlock x:Name="DailySummaryText" TextWrapping="Wrap" FontSize="13"
+                            <!-- 2026-10-31: было горизонтальной StackPanel — строка «Сегодня: выручка…» шириной 1284–1490 пт выходила за правый край; теперь переносится по ширине. -->
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Text="📊" FontSize="18" VerticalAlignment="Top" Margin="0,0,10,0"/>
+                                <TextBlock Grid.Column="1" x:Name="DailySummaryText" TextWrapping="Wrap" FontSize="13"
                                            Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            </Grid>
                         </StackPanel>
                     </Border>
                     </Grid>
@@ -941,7 +942,7 @@
                             <Border Width="30" Height="30" CornerRadius="15" ClipToBounds="True" Margin="0,0,10,0">
                                 <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png" Stretch="Uniform" />
                             </Border>
-                            <TextBlock Text="NUR MARKET" FontSize="18" FontWeight="Bold"
+                            <TextBlock Text="NURCRM" FontSize="18" FontWeight="Bold"
                                    Foreground="{DynamicResource BrushText}" VerticalAlignment="Center" />
                         </StackPanel>
                         <Button Content="✕" Width="32" Height="32" Padding="0"

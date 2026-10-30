@@ -167,6 +167,14 @@
                                 Content="{Binding PayAllButtonLabel}" Click="PayAll_Click"
                                 IsEnabled="{Binding CanPayAll}"/>
                     </Grid>
+                    <!-- 2026-10-30, владелец: «при оплате долга система зависает» — полоса и секунды, пока сервер гасит взносы одним ответом. -->
+                    <Border IsVisible="{Binding ShowPayingBanner}" CornerRadius="10" Padding="12,10" Background="{DynamicResource BrushAccentSoft}">
+                        <StackPanel Spacing="8">
+                            <ProgressBar IsIndeterminate="True" Height="4" MinHeight="4" CornerRadius="2" Foreground="{DynamicResource BrushAccent}"/>
+                            <TextBlock Text="{Binding PayingBannerText}" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource BrushText}"/>
+                        </StackPanel>
+                    </Border>
                     <!-- 2026-10-18, девятый круг: по части чеков точный остаток не получен — «одной суммой» закрыта. -->
                     <TextBlock Text="{Binding RemainingUnknownHint}" FontSize="12.5" TextWrapping="Wrap" FontWeight="SemiBold"
                                IsVisible="{Binding HasRemainingUnknown}" Foreground="{DynamicResource BrushDanger}"/>

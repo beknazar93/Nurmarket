@@ -132,7 +132,7 @@ class ReceiptView extends StatelessWidget {
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     Text(
-                      'NurMarket',
+                      'NurCRM',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: p.textSoft, fontSize: 10.5),
                     ),

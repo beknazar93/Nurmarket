@@ -111,7 +111,7 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get offlineWorking =>
-      'Сервер менен байланыш жок — сатуулар телефондо сакталат жана өзү жөнөтүлөт.';
+      'Сервер менен байланыш жок — сатуулар телефондо сакталат. Байланыш пайда болору менен жөнөтүлөт: колдонмо ачык болсо — дароо, фондо — болжол менен 15 мүнөт сайын же кийинки ачканда.';
 
   @override
   String runningOut(int n) {
@@ -974,7 +974,7 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get callNoMic =>
-      'Микрофонго уруксат жок. Телефондун жөндөөлөрүндө NurMarket үчүн микрофонго уруксат бериңиз.';
+      'Микрофонго уруксат жок. Телефондун жөндөөлөрүндө NurCRM үчүн микрофонго уруксат бериңиз.';
 
   @override
   String get callOpenSettings => 'Жөндөөлөрдү ачуу';
@@ -1544,7 +1544,7 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get savedOfflineHint =>
-      'Байланыш жок — чек серверге өзү кетет, экинчи жолу өтпөйт.';
+      'Чек телефондо сакталды. Байланыш пайда болгондо серверге жөнөтүлөт: колдонмо ачык болсо — дароо, фондо — болжол менен 15 мүнөттөн кийин же кийинки ачканда. Экинчи жолу өткөрүлбөйт.';
 
   @override
   String get receiptQr => 'QR-код';
@@ -1696,7 +1696,7 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get offlineCheckHint =>
-      'Байланыш жок — чек сакталды жана серверге өзү кетет';
+      'Чек сакталды жана жөнөтүүнү күтүүдө: байланыш болгондо кетет (колдонмо ачык — дароо, жабык — фондо же кийинки ачканда)';
 
   @override
   String get sendToCustomer => 'Сатып алуучуга жөнөтүү';
@@ -1747,7 +1747,7 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String unknownBarcodeHint(String code) {
-    return '$code · каталогдо да, NurCRM справочнигинде да жок. Товарды кошуңуз — код эч жакка жөнөтүлбөйт';
+    return '$code · сиздин каталогдо (серверден текшерилди) да, NurCRM справочнигинде да жок. Товарды кошуңуз — код эч жакка жөнөтүлбөйт';
   }
 
   @override
@@ -2791,7 +2791,7 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get auditApplyQueued =>
-      'Ревизия акты түзүлдү — өткөрүү байланыш болгондо кетет.';
+      'Ревизия акты түзүлдү, бирок өткөрүлгөн жок (байланыш болгон жок). Кайра саап өткөрүңүз — акт долбоор бойдон калат.';
 
   @override
   String get auditOnlineOnly =>
@@ -3216,7 +3216,7 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get peStockQueued =>
-      'Документ түзүлдү — байланыш болгондо өзү өткөрүлөт.';
+      'Документ түзүлдү, бирок өткөрүлгөн жок (байланыш болгон жок). Кайра саап өткөрүңүз.';
 
   @override
   String get peStockOffline =>
@@ -4663,7 +4663,7 @@ class AppLocalizationsKy extends AppLocalizations {
       'Камераны кассанын экранындагы QR кодго багыттаңыз';
 
   @override
-  String get klNotKassaQr => 'Бул NurMarket кассасынын QR коду эмес';
+  String get klNotKassaQr => 'Бул NurCRM кассасынын QR коду эмес';
 
   @override
   String get klBadQr =>
@@ -4671,7 +4671,7 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get klQrVersion =>
-      'Бул касса тиркемеден жаңыраак. Телефондогу NurMarket\'ти жаңыртыңыз.';
+      'Бул касса тиркемеден жаңыраак. Телефондогу NurCRM\'ти жаңыртыңыз.';
 
   @override
   String get klManual => 'Шилтемени кол менен киргизүү';
@@ -5507,6 +5507,17 @@ class AppLocalizationsKy extends AppLocalizations {
   String get recvFixed => 'Штрихкод оңдолду';
 
   @override
+  String get recvOffline => 'Сервер жооп берген жок';
+
+  @override
+  String recvOfflineHint(String code) {
+    return '$code · текшерүү мүмкүн болгон жок: серверге байланыш жок. Бул товар жок дегенди билдирбейт — тармак чыкканда кайра текшериңиз';
+  }
+
+  @override
+  String get recvRetry => 'Кайра текшерүү';
+
+  @override
   String get recvNoRight => 'Кошуу, байлоо же оңдоо үчүн «Кампа» укугу керек.';
 
   @override
@@ -6295,4 +6306,348 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get infRangePick => 'Күндөрдү тандоо';
+
+  @override
+  String get apiSaleAlreadyPosted =>
+      'Сервер бул чекти мурун эле өткөргөн (ачкыч дал келди) — «Чектер» бөлүмүндө салыштырыңыз.';
+
+  @override
+  String get apiAuditStale =>
+      'Ревизия өз убагында өткөрүлгөн жок — калдыктар өзгөргөн болушу мүмкүн. Кайра саноо керек (акт долбоор бойдон калды).';
+
+  @override
+  String get priceChangedTitle => 'Баа өзгөрдү';
+
+  @override
+  String priceChangedLine(String name, String oldPrice, String newPrice) {
+    return '$name: $oldPrice → $newPrice сом';
+  }
+
+  @override
+  String get priceChangedNote =>
+      'Сатуу өткөрүлгөн жок. Чектеги баалар жаңыртылды — жаңы суммаңызды текшерип, «Төлөө» баскычын кайра басыңыз.';
+
+  @override
+  String get priceMaybeStale =>
+      'Байланыш жок — чектеги баа эскирген болушу мүмкүн.';
+
+  @override
+  String get apiWifiPortal =>
+      'Wi-Fi кирүү баракчасын ачыңыз (дүкөндүн тармагы кирүүнү суранууда) жана кайталаңыз.';
+
+  @override
+  String get apiBadResponse =>
+      'Сервер түшүнүксүз жооп берди. Кийинчерээк кайталаңыз.';
+
+  @override
+  String get linkOffline => 'Сервер менен байланыш жок';
+
+  @override
+  String linkOfflineSince(String time) {
+    return 'Байланыш жок · маалымат $time боюнча';
+  }
+
+  @override
+  String dataAsOf(String time) {
+    return 'Маалымат $time боюнча';
+  }
+
+  @override
+  String get noDataOffline => 'Маалымат жок — сервер менен байланыш жок';
+
+  @override
+  String unsentOnPhone(int n) {
+    return 'Телефондо жөнөтүлбөгөн: $n';
+  }
+
+  @override
+  String listCachedAt(String time) {
+    return 'Сакталган тизме көрсөтүлдү, $time боюнча.';
+  }
+
+  @override
+  String get auditError => 'Ката';
+
+  @override
+  String stockAsOf(String time) {
+    return 'Калдыктар $time боюнча';
+  }
+
+  @override
+  String accountLoading(int done, int total) {
+    return 'Аккаунттын маалыматтары жүктөлүүдө… $done/$total';
+  }
+
+  @override
+  String get accountLoadFailed =>
+      'Аккаунттын маалыматтары толук жүктөлгөн жок (байланыш жок же сервер жооп берген жок).';
+
+  @override
+  String get accountDataNotLoaded =>
+      'Бул аккаунттын маалыматтары али жүктөлө элек';
+
+  @override
+  String get logoutSendNow => 'Азыр жөнөтүү';
+
+  @override
+  String guardUnsent(int n, String sum) {
+    return 'Жөнөтүлбөгөн сатуулар жана операциялар бар: $n, $sum сом. Жөнөтүлгөнгө чейин чыгууга болбойт.';
+  }
+
+  @override
+  String get guardSending => 'Жөнөтүлүп жатат…';
+
+  @override
+  String get guardWaitConnection =>
+      'Сервер менен байланыш жок. Байланышты күтүп, «Азыр жөнөтүү» дагы басыңыз — же сатууларды файлга чыгарыңыз.';
+
+  @override
+  String guardSendLeft(int n, String error) {
+    return 'Баары жөнөгөн жок: $n калды. $error';
+  }
+
+  @override
+  String get guardExport => 'Файлга чыгарып, чыгуу';
+
+  @override
+  String get guardExportWarn =>
+      'Файлда чектердин маалыматтары болот (товарлар, суммалар). Аны ишенимдүү жерде сактаңыз. Чыккандан кийин телефондо бул файлдан башка эч нерсе калбайт.';
+
+  @override
+  String guardExported(String path) {
+    return 'Файл сакталды: $path. Сатууларды калыбына келтирүү үчүн аны ээсине же администраторго жөнөтүңүз.';
+  }
+
+  @override
+  String guardExportFailed(String error) {
+    return 'Файл сакталган жок: $error. Чыгуу жокко чыгарылды, сатуулар ордунда.';
+  }
+
+  @override
+  String get guardDiscard => 'Жөнөтпөй чыгуу';
+
+  @override
+  String get guardDiscardWord => 'ӨЧҮРҮҮ';
+
+  @override
+  String guardDiscardWarn(String word) {
+    return 'Жөнөтүлбөгөн сатуулар калыбына келтирүү мүмкүнчүлүгүсүз ЖОГОЛОТ. Ырастоо үчүн «$word» деген сөздү жазыңыз.';
+  }
+
+  @override
+  String get guardDiscardField => 'Ырастоо сөзү';
+
+  @override
+  String guardForeign(String account, int n, String sum) {
+    return 'Телефондо башка аккаунттын ($account) жөнөтүлбөгөн сатуулары калган: $n, $sum сом. Башка аккаунт менен кирүү үчүн аларды файлга чыгаруу же өчүрүү керек. Же мурунку аккаунт менен кирип, жөнөтүңүз.';
+  }
+
+  @override
+  String get close => 'Жабуу';
+
+  @override
+  String revCostLine(String cost) {
+    return 'Сатып алуу: $cost';
+  }
+
+  @override
+  String get revNoCost => 'Сатып алуу баасы жок';
+
+  @override
+  String revDiffAmount(String amount) {
+    return 'Айырма суммасы: $amount';
+  }
+
+  @override
+  String get revStarNote =>
+      '* — товардын сатып алуу баасы жок, сумма сатуу баасы боюнча эсептелген.';
+
+  @override
+  String revShortageLine(String qty, String cost, String sale) {
+    return 'Жетишсиздик: $qty дана · −$cost сом (сатып алуу боюнча) · −$sale сом (сатуу боюнча)';
+  }
+
+  @override
+  String revSurplusLine(String qty, String cost, String sale) {
+    return 'Ашыкча: $qty дана · +$cost сом (сатып алуу боюнча) · +$sale сом (сатуу боюнча)';
+  }
+
+  @override
+  String revNetLine(String amount) {
+    return 'Таза жыйынтык: $amount сом (сатып алуу боюнча)';
+  }
+
+  @override
+  String revNoCostWarn(int n) {
+    return '⚠ Сатып алуу баасы жок: $n товар';
+  }
+
+  @override
+  String revNoCostTip(String short, String surplus) {
+    return 'Бул товарлардын сатып алуу баасы жок: «сатып алуу боюнча» суммага кирген жок. Сатуу баасы боюнча айырмасы: жетишсиздик −$short сом, ашыкча +$surplus сом. Тизмеде алардын суммасы «*» менен белгиленген.';
+  }
+
+  @override
+  String revTopShortages(int n) {
+    return 'Жетишсиздиктин топ-$n';
+  }
+
+  @override
+  String revAllDiffs(int n) {
+    return 'Бардык айырмалар: $n';
+  }
+
+  @override
+  String get pbTitle => 'Түшүүлөр жана партиялар';
+
+  @override
+  String get pbTotalReceived => 'Жалпы алынды';
+
+  @override
+  String get pbAvgCost => 'Орточо сатып алуу';
+
+  @override
+  String get pbLastCost => 'Акыркы сатып алуу';
+
+  @override
+  String get pbLastSupplier => 'Акыркы жеткирүүчү';
+
+  @override
+  String pbCount(int n) {
+    return 'Түшүүлөр: $n';
+  }
+
+  @override
+  String get pbPartial =>
+      'Жыйынтык — жүктөлгөн түшүүлөр боюнча. Калгандарын жүктөө үчүн ылдый сыдырыңыз.';
+
+  @override
+  String get pbSearchHint => 'Жеткирүүчү же түшүү №';
+
+  @override
+  String get pbSearchHintNo => 'Түшүү №';
+
+  @override
+  String get pbWeek => 'Жума';
+
+  @override
+  String get pbMonth => 'Ай';
+
+  @override
+  String get pbYear => 'Жыл';
+
+  @override
+  String get pbAllTime => 'Бардык убакыт';
+
+  @override
+  String get pbInvoice => 'Накладная';
+
+  @override
+  String pbNumber(String no) {
+    return '№ $no';
+  }
+
+  @override
+  String pbCostLine(String cost) {
+    return 'Сатып алуу: $cost сом';
+  }
+
+  @override
+  String pbSumLine(String sum) {
+    return 'Сумма: $sum сом';
+  }
+
+  @override
+  String pbReceivedBy(String name) {
+    return 'Кабыл алган: $name';
+  }
+
+  @override
+  String pbPayLine(String method) {
+    return 'Төлөм: $method';
+  }
+
+  @override
+  String get pbPayCash => 'Накталай';
+
+  @override
+  String get pbPayDebt => 'Карызга';
+
+  @override
+  String get pbPayPrepay => 'Алдын ала төлөм';
+
+  @override
+  String pbRemainLine(String qty, String unit) {
+    return 'Партиянын калдыгы ≈ $qty $unit (болжол)';
+  }
+
+  @override
+  String pbRemainTip(String stock, String unit) {
+    return 'Бул FIFO эрежеси боюнча болжол («биринчи келген — биринчи кетет»): товардын учурдагы калдыгы ($stock $unit) эң жаңы түшүүлөрдөн баштап бөлүштүрүлгөн. Сервер ар бир партиянын калдыгын сактабайт, ошондуктан сан болжолдуу.';
+  }
+
+  @override
+  String pbReturned(String qty, String unit) {
+    return 'Жеткирүүчүгө кайтарылды: $qty $unit';
+  }
+
+  @override
+  String get pbEmpty => 'Бул товардын түшүүлөрү табылган жок';
+
+  @override
+  String get pbEmptySearch => 'Суроо боюнча эч нерсе табылган жок';
+
+  @override
+  String pbDataFrom(String time) {
+    return 'Байланыш жок. Маалымат $time';
+  }
+
+  @override
+  String get pbLoadingMore => 'Дагы жүктөлүүдө…';
+
+  @override
+  String get pbEnd => 'Башка түшүүлөр жок';
+
+  @override
+  String get pbToTop => 'Башына';
+
+  @override
+  String pbLoadError(String error) {
+    return 'Жүктөө мүмкүн болгон жок: $error';
+  }
+
+  @override
+  String get pbDocTitle => 'Түшүү накладнойу';
+
+  @override
+  String get pbDocLines => 'Түшүүнүн курамы';
+
+  @override
+  String pbDocTotal(String sum) {
+    return 'Жыйынтыгы: $sum сом';
+  }
+
+  @override
+  String get pbThisProduct => 'бул товар';
+
+  @override
+  String get pbOpenFile => 'Файлды ачуу';
+
+  @override
+  String get pbNoFile => 'Баштапкы файл сакталган эмес';
+
+  @override
+  String get pbFileError => 'Файлды ачуу мүмкүн болгон жок';
+
+  @override
+  String get pbSupplier => 'Жеткирүүчү';
+
+  @override
+  String get pbCall => 'Чалуу';
+
+  @override
+  String get pbWhatsApp => 'WhatsApp';
+
+  @override
+  String get pbNoPhone => 'Телефон көрсөтүлгөн эмес';
 }

@@ -46,6 +46,13 @@ public sealed class LanSyncService
     public const int LastPort = 47819;
     private const int PageSize = 300;
     private static readonly TimeSpan PullInterval = TimeSpan.FromSeconds(4);
+    // 2026-10-30 (оптимизация кассы, Б2): раньше каждые 4 с — запись своего файла реестра, чтение чужих и запрос к соседу (21 600 записей в сутки
+    // на процесс, каждую проверяет Defender). Теперь: при работе с соседями — круг 4 с (подсказка соседа будит круг сразу), без соседей или в «тихом»
+    // режиме (свёрнуто / фон Android / простой > 10 мин) — 15 с; файл реестра пишется раз в 12 с (PeerTimeout 45 с с запасом), чужие читаются так же;
+    // первую минуту после запуска — как раньше (быстрый поиск соседа).
+    private static readonly TimeSpan IdlePullInterval = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan RegistryInterval = TimeSpan.FromSeconds(12);
+    private static readonly TimeSpan WarmupSpan = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan AnnounceInterval = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan PeerTimeout = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan MaxClockSkew = TimeSpan.FromMinutes(10);
@@ -53,6 +60,8 @@ public sealed class LanSyncService
 
     private readonly ConcurrentDictionary<string, LanPeerInfo> _peers = new(StringComparer.Ordinal);
     private readonly object _gate = new();
+    // 2026-10-29: подсказка соседа («hint:…») будит круг забора журнала сразу, а не через PullInterval (4 с).
+    private readonly SemaphoreSlim _pullWake = new(0, 1);
     private CancellationTokenSource? _cts;
     private TcpListener? _listener;
     private UdpClient? _udp;
@@ -179,18 +188,33 @@ public sealed class LanSyncService
             _ = Task.Run(() => AcceptLoopAsync(ct), ct);
             var lastAnnounce = DateTime.MinValue;
             var lastPrune = DateTime.MinValue;
+            var startedUtc = DateTime.UtcNow;
+            var lastRegWrite = startedUtc; // файл только что записан выше
+            var lastRegRead = DateTime.MinValue;
+            var warmup = true;
             while (!ct.IsCancellationRequested)
             {
                 try
                 {
-                    WriteRegistryFile();
+                    var nowUtc = DateTime.UtcNow;
+                    warmup = nowUtc - startedUtc < WarmupSpan;
+                    if (nowUtc - lastRegWrite >= RegistryInterval)
+                    {
+                        WriteRegistryFile();
+                        lastRegWrite = nowUtc;
+                    }
                     if (NetworkMode && DateTime.UtcNow - lastAnnounce > AnnounceInterval)
                     {
                         Announce();
                         lastAnnounce = DateTime.UtcNow;
                     }
 
-                    ReadRegistryPeers();
+                    if (warmup || nowUtc - lastRegRead >= RegistryInterval)
+                    {
+                        ReadRegistryPeers();
+                        lastRegRead = nowUtc;
+                    }
+
                     await PullAllAsync(ct).ConfigureAwait(false);
 
                     if (DateTime.UtcNow - lastPrune > TimeSpan.FromMinutes(30))
@@ -207,7 +231,10 @@ public sealed class LanSyncService
                     LastError = ex.Message;
                 }
 
-                await Task.Delay(PullInterval, ct).ConfigureAwait(false);
+                var wait = warmup || (!SyncCenter.IsQuiet() && _peers.Values.Any(p => DateTime.UtcNow - p.LastSeenUtc < PeerTimeout))
+                    ? PullInterval
+                    : IdlePullInterval;
+                await _pullWake.WaitAsync(wait, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -322,7 +349,18 @@ public sealed class LanSyncService
             else
             {
                 response = new LanResponse { Ok = true, D = DeviceId, N = DeviceName, R = Role };
-                if (request.Op == "journal")
+                if (request.Op.StartsWith(HintOpPrefix, StringComparison.Ordinal))
+                {
+                    // 2026-10-29: подсказка «у меня изменилось: sale/product/stock/price» — только тип, данных нет.
+                    var kind = request.Op[HintOpPrefix.Length..];
+                    if (SyncCenter.IsKnownHint(kind))
+                    {
+                        if (kind == "sale")
+                            try { _pullWake.Release(); } catch (SemaphoreFullException) { /* круг уже запланирован */ }
+                        SyncCenter.OnPeerHint(kind);
+                    }
+                }
+                else if (request.Op == "journal")
                 {
                     var (events, last) = LanJournal.ReadOwnAfter(Math.Max(0, request.After), PageSize);
                     response.Events = events;
@@ -377,6 +415,47 @@ public sealed class LanSyncService
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(key));
         var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes($"{device}|{ts}|{op}|{after}"));
         return Convert.ToHexString(hash);
+    }
+
+    // ------------------------------------------------------------------ подсказки соседям (2026-10-29)
+
+    private const string HintOpPrefix = "hint:";
+    private long _lastHintTick;
+    private string _lastHintKind = "";
+
+    /// <summary>Сообщить соседям (другие кассы, программа владельца, этот ПК), что здесь только что что-то записано: они сразу читают журнал /
+    /// ленту каталога, а не ждут свой такт. Фоном, не бросает, подпись та же, что у запросов журнала. Одинаковые подсказки чаще раза в 300 мс склеиваются.</summary>
+    public void NotifyPeers(string kind)
+    {
+        if (!IsRunning || !SyncCenter.IsKnownHint(kind))
+            return;
+        var now = Environment.TickCount64;
+        lock (_gate)
+        {
+            if (kind == _lastHintKind && now - _lastHintTick < 300)
+                return;
+            _lastHintKind = kind;
+            _lastHintTick = now;
+        }
+
+        var peers = Peers;
+        if (peers.Count == 0)
+            return;
+        _ = Task.Run(async () =>
+        {
+            await Task.WhenAll(peers.Select(async peer =>
+            {
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                    await RequestAsync(peer, HintOpPrefix + kind, 0, cts.Token).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    // сосед не ответил — он догонит обычным кругом забора журнала (раз в 4 с) и лентой
+                }
+            })).ConfigureAwait(false);
+        });
     }
 
     // ------------------------------------------------------------------ забор журналов соседей
@@ -720,6 +799,7 @@ public sealed class LanSyncService
                 {
                     PosLogger.Log($"LAN: найден сосед в сети: {beacon.N} ({peer.EndPoint}).", "LAN");
                     StatusChanged?.Invoke();
+                    try { _pullWake.Release(); } catch (SemaphoreFullException) { /* 2026-10-30: круг уже запланирован */ }
                 }
             }
             catch (JsonException)

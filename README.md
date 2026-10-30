@@ -1,3 +1,3 @@
-﻿# NurMarket Kassa
+﻿# NurCRM Kassa
 
 Релизы: см. вкладку Releases.

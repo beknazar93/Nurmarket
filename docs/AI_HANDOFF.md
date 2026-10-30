@@ -1,4 +1,4 @@
-# NurMarket Kassa — документ передачи работы для ИИ-агентов
+# NurCRM Kassa (раньше NurMarket Kassa) — документ передачи работы для ИИ-агентов
 
 Состояние на **28.09.2026, утро**. Последний выпуск — **v1.17.22** (коммит `7941c67`, ветка `main`, опубликован на GitHub официальным). Этот файл — первое, что нужно прочитать новому агенту: что это за проект, где что лежит, как собирать, проверять и выпускать, какие правила у владельца, что сделано, что сломано и что в работе.
 
@@ -6,6 +6,7 @@
 
 ## 1. Что это за проект
 
+**Название (29.10.2026).** По решению владельца программа называется NurCRM («Нур СРМ»): видимое название везде NurCRM Kassa / NurCRM Владелец. Технические идентификаторы остались NurMarket* (packId Velopack `NurMarketKassa`, проекты и пространства имён, имена файлов выпуска, applicationId Android, папки данных `NurMarketKassa`/`NurMarketOwner`, mutex, журналы, репозитории GitHub) — не менять, иначе сломаются автообновления и данные. Ярлык владельца переименован в «NurCRM Владелец» (старый «NurMarket Владелец» переносится при запуске).
 - **NurMarket Kassa** — кассовая программа для Windows (Avalonia 11.2.5, .NET 8) для магазинов в Кыргызстане. Работает поверх облачной CRM **NurCRM** (сайт https://nurcrm.kg, API `https://app.nurcrm.kg/`). Своего сервера у кассы нет: товары, продажи, смены, клиенты — всё в NurCRM.
 - Один exe в двух режимах:
   - **Касса** (обычный запуск) — продажи, смена, возвраты, внесение/изъятие, оплата долга, печать, весы, экран покупателя.
@@ -134,7 +135,7 @@ dotnet publish NurMarketKassa.Avalonia/NurMarketKassa.Avalonia.csproj -c Release
 4. Упаковать:
    ```bash
    cd NurMarketKassa.Avalonia
-   vpk pack --packId NurMarketKassa --packVersion X.Y.Z --packDir dev-out --mainExe NurMarketKassa.Avalonia.exe --packTitle "NurMarket Kassa" --packAuthors NurMarketKassa --icon NurMarketKassa.Avalonia/Assets/app-icon.ico --channel win --outputDir releases --releaseNotes NurMarketKassa.Avalonia/release-notes-X.Y.Z.md -y
+   vpk pack --packId NurMarketKassa --packVersion X.Y.Z --packDir dev-out --mainExe NurMarketKassa.Avalonia.exe --packTitle "NurCRM Kassa" --packAuthors NurMarketKassa --icon NurMarketKassa.Avalonia/Assets/app-icon.ico --channel win --outputDir releases --releaseNotes NurMarketKassa.Avalonia/release-notes-X.Y.Z.md -y
    ```
    `packId` строго `NurMarketKassa`. Дельта строится от предыдущего полного пакета в `releases/`.
 5. Отправить код: `python tools/release/gh_release.py push main` (токен берётся из `token.txt`, в вывод не попадает).

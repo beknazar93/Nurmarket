@@ -136,11 +136,8 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
 
         try
         {
-            using var bmp = BarcodeLabelService.GenerateLabelBitmap(ProductName, Barcode, PriceText, _template, Sku, Unit, StoreName);
-            using var ms = new MemoryStream();
-            bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-            ms.Position = 0;
-            Preview = new Bitmap(ms);
+            // 2026-10-29: Android/Linux — System.Drawing недоступен, картинку рисует Avalonia (LabelSceneRenderer).
+            Preview = LabelSceneRenderer.LabelPreview(ProductName, Barcode, PriceText, _template, Sku, Unit, StoreName);
 
             // Штрих-код не в выбранном формате / не напечатается — объясняем почему.
             var warning = BarcodeLabelService.DescribeBarcodeProblem(Barcode, _template);

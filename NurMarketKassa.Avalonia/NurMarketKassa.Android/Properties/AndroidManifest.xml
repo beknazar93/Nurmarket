@@ -28,6 +28,6 @@
   <uses-feature android:name="android.hardware.usb.host" android:required="false" />
   <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
   <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
-  <application android:label="NurMarket Kassa" android:icon="@drawable/icon" android:allowBackup="false"
+  <application android:label="NurCRM Kassa" android:icon="@drawable/icon" android:allowBackup="false"
                android:usesCleartextTraffic="true" android:largeHeap="true" />
 </manifest>

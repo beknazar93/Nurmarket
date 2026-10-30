@@ -88,6 +88,8 @@
             <TextBlock x:Name="RevenueText" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource BrushText}" Text="—"/>
             <!-- 2026-10-23 (аудит К5, п. 3): продажи в долг отдельной строкой — выручка выше уже без них (как «Сводка» владельца). -->
             <TextBlock x:Name="CreditSalesText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Text=""/>
+            <!-- 2026-10-30 (приёмка 1.17.65): Z-отчёт без связи собран из данных кассы — пометка, что сверка с сервером будет после отправки. -->
+            <TextBlock x:Name="LocalDataNote" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" IsVisible="False" Text=""/>
           </StackPanel>
         </Border>
       </Grid>

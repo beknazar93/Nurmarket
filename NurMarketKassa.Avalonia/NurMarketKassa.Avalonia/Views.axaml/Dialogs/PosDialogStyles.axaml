@@ -83,7 +83,9 @@
                 BoxShadow="0 12 32 0 #33101828">
           <Border CornerRadius="{DynamicResource SettingsCardRadius}" ClipToBounds="True">
             <DockPanel>
-              <Border DockPanel.Dock="Top" Padding="24,16,16,14"
+              <!-- 2026-10-30: шапка — «ручка» перетаскивания окна (DialogDragHelper); ✕ и кнопки в ней перетаскивание не запускают. -->
+              <Border DockPanel.Dock="Top" Padding="24,16,16,14" dlg:DialogDragHelper.IsHandle="True"
+                      Background="Transparent"
                       BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
                 <Grid ColumnDefinitions="*,Auto">
                   <StackPanel VerticalAlignment="Center" Spacing="2" Margin="0,0,12,0">

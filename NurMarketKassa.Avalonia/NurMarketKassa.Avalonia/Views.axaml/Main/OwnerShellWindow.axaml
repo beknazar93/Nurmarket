@@ -2,7 +2,7 @@
         xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:CompileBindings="False"
-        Title="NurMarket Владелец"
+        Title="NurCRM Владелец"
         Height="860"
         Width="1360"
         MinWidth="1000"
@@ -846,7 +846,7 @@
                         <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png" Stretch="UniformToFill"/>
                     </Border>
                     <StackPanel Grid.Column="1" x:Name="OldLogoTextPanel" Margin="11,0,0,0" VerticalAlignment="Center" Spacing="3">
-                        <TextBlock Text="NurMarket" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                        <TextBlock Text="NurCRM" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                         <Border HorizontalAlignment="Left" Background="{DynamicResource BrushAccent}" CornerRadius="6" Padding="7,1,7,2">
                             <TextBlock x:Name="OwnerBadgeText" FontSize="11" FontWeight="SemiBold"
                                        Foreground="{DynamicResource BrushAccentForeground}"/>
@@ -963,12 +963,16 @@
                     </WrapPanel>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" x:Name="OverviewTools" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center"
+                <!-- 2026-10-31 (стресс-тест 1.17.68): WrapPanel вместо StackPanel — на 800×480 в две строки шапки «Спросить Нур Советника» уходила
+                     за край окна; теперь при нехватке места кнопки переносятся строкой ниже. -->
+                <WrapPanel Grid.Column="1" x:Name="OverviewTools" Orientation="Horizontal" VerticalAlignment="Center"
                             Margin="0,6,18,0">
-                    <Button x:Name="RefreshButton" Classes="iconBtn" Click="Refresh_Click">
+                    <Button x:Name="RefreshButton" Classes="iconBtn" Click="Refresh_Click" Margin="0,0,10,3">
                         <Path Classes="btnIcon" Data="{StaticResource RefreshIcon}"/>
                     </Button>
-                    <Border Classes="segment">
+                    <Border Classes="segment" Margin="0,0,10,3">
+                        <!-- 2026-10-31: Viewbox (только уменьшение) — на узкой шапке кнопки периода не выходят за рамку сегмента. -->
+                        <Viewbox StretchDirection="DownOnly">
                         <StackPanel Orientation="Horizontal" Spacing="2">
                             <Button x:Name="TodayButton" Classes="seg active" Tag="today" Click="Period_Click"/>
                             <Button x:Name="WeekButton" Classes="seg" Tag="week" Click="Period_Click"/>
@@ -976,16 +980,17 @@
                             <!-- 2026-09-30: свои даты, как «Спец. дата» в «Финансах». -->
                             <Button x:Name="CustomButton" Classes="seg" Tag="custom" Click="Period_Click"/>
                         </StackPanel>
+                        </Viewbox>
                     </Border>
                     <!-- 2026-10-18, этап О1: открывает тот же раздел «Нур Советник», что пункт меню (виден, только если пункт есть).
                          На узкой шапке — только значок (OwnerShellWindow.Attention.cs, FitHeaderTools). -->
-                    <Button x:Name="AskAiButton" Classes="askAi" Click="AskAi_Click" IsVisible="False">
+                    <Button x:Name="AskAiButton" Classes="askAi" Click="AskAi_Click" IsVisible="False" Margin="0,0,0,3">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Path Data="{StaticResource AiAdvisorIcon}"/>
                             <TextBlock x:Name="AskAiText" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                </StackPanel>
+                </WrapPanel>
 
                 <!-- 2026-10-02, владелец: «уведомление об окончании и приближении срока проката» (со звуком).
                      2026-10-18, этап О2: плашка — не в меню (правило аудита 9), а в полосе над открытым разделом: окно раздела

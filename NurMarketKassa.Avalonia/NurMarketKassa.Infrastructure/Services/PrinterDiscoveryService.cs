@@ -54,6 +54,11 @@ public static class PrinterDiscoveryService
             PosLogger.Log($"Printer enumeration (platform) failed: {ex.GetType().Name}", "WARNING");
         }
 
+        // 2026-10-29: Android — ни очереди Windows, ни COM/LPT/WinUSB нет (журнал: DllNotFoundException winspool и
+        // UnauthorizedAccessException GetPortNames при каждом открытии Настроек). Только то, что видит платформа (USB host, Bluetooth, сеть).
+        if (OperatingSystem.IsAndroid())
+            return result;
+
         // 2026-10-29: Linux/macOS — очередь Windows, WinUSB и LPT там нет (только устройства, CUPS и COM-переходники).
         if ((OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()) && !OperatingSystem.IsAndroid())
         {

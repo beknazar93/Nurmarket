@@ -45,7 +45,7 @@ public static class ShiftCashOperationsStore
     {
         lock (FileLock)
         {
-            var list = LoadStored();
+            var list = LoadStored(forWrite: true);
             list.Insert(0, new StoredCashOperation
             {
                 Id = operation.Id,
@@ -126,6 +126,48 @@ public static class ShiftCashOperationsStore
             .ToList();
     }
 
+    /// <summary>2026-10-29 (аварийный аудит, п. 5): внесения/изъятия, сделанные в смене, открытой без связи («offline-shift-…»), раньше висели на
+    /// ней вечно: сервер такого id не знает, ShiftCashFlowSync их пропускал, а «Касса» в шапке новой смены их не считала. Чеки той смены
+    /// сервер кладёт в смену, открытую в момент выгрузки (SyncService), — внесения/изъятия привязываем к ней же, к фактической серверной смене.
+    /// Прежний id сохраняется в OfflineShiftId. Возвращает число перепривязанных операций.</summary>
+    public static int RebindOfflineShifts(string? realShiftId)
+    {
+        if (string.IsNullOrWhiteSpace(realShiftId) || !Guid.TryParse(realShiftId, out _))
+            return 0;
+        // 2026-10-29 (приёмка 1.17.65, В-3): привязываем ТОЛЬКО к фактической текущей (открытой сейчас) смене. Раньше PushPendingForOtherShiftsAsync
+        // вызывал это для старой закрытой смены с хвостами — и внесения/изъятия офлайн-смены прилипали к ней, а не к текущей.
+        if (!string.Equals(realShiftId, NurMarketKassa.PosApp.ActiveShiftId, StringComparison.OrdinalIgnoreCase))
+            return 0;
+
+        var moved = 0;
+        lock (FileLock)
+        {
+            List<StoredCashOperation> list;
+            try { list = LoadStored(forWrite: true); }
+            catch (IOException) { return 0; } // 2026-10-30: файл занят — привяжем при следующем проходе, историю не трогаем
+            catch (UnauthorizedAccessException) { return 0; }
+            foreach (var x in list)
+            {
+                if (string.IsNullOrEmpty(x.ShiftId) || !x.ShiftId.StartsWith("offline-", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                x.OfflineShiftId ??= x.ShiftId;
+                x.ShiftId = realShiftId;
+                moved++;
+            }
+
+            if (moved > 0)
+                SaveStored(list);
+        }
+
+        if (moved > 0)
+        {
+            PosLogger.Log($"Внесения/изъятия офлайн-смены ({moved}) привязаны к серверной смене {realShiftId[..8]} — уйдут на сервер.", "SHIFT");
+            PosDataEvents.RaiseSalesChanged();
+        }
+
+        return moved;
+    }
+
     /// <summary>2026-10-27 (аудит кассы, В-5): смены, по которым есть внесения/изъятия, ещё не записанные на сервер. Нужны, чтобы
     /// после закрытия смены (кассиром или сервером в 01:00) хвосты не оставались неотправленными навсегда.</summary>
     public static IReadOnlyList<string> PendingShiftIds()
@@ -187,7 +229,10 @@ public static class ShiftCashOperationsStore
     {
         lock (FileLock)
         {
-            var list = LoadStored();
+            List<StoredCashOperation> list;
+            try { list = LoadStored(forWrite: true); }
+            catch (IOException) { return; } // 2026-10-30: файл занят — отметим при следующей отправке (сервер дубль по source_id не примет)
+            catch (UnauthorizedAccessException) { return; }
             var entry = list.FirstOrDefault(x => string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
             if (entry is null || !string.IsNullOrEmpty(entry.ServerFlowId))
                 return;
@@ -231,27 +276,45 @@ public static class ShiftCashOperationsStore
     {
         lock (FileLock)
         {
-            var list = LoadStored();
+            var list = LoadStored(forWrite: true);
             list.RemoveAll(x => string.Equals(x.Id, id, StringComparison.OrdinalIgnoreCase));
             SaveStored(list);
         }
     }
 
-    private static List<StoredCashOperation> LoadStored()
+    /// <summary>2026-10-30 (приёмка 1.17.65, блокер 3): <paramref name="forWrite"/> — читаем, чтобы потом записать. «Файл занят» (IOException после
+    /// повторов 3×50 мс в AtomicFile) тогда НЕ превращается в «пусто» — пробрасывается, запись не выполняется и история не затирается.
+    /// Для показа (forWrite=false) по-прежнему пусто, чтобы окно не падало.</summary>
+    private static List<StoredCashOperation> LoadStored(bool forWrite = false)
     {
         try
         {
-            if (!File.Exists(HistoryFilePath))
+            // 2026-10-29 (аварийный аудит, п. 7): битый файл — из копии .bak (AtomicFile), а не «пусто» (иначе следующая запись затирала историю).
+            var text = AtomicFile.ReadAllText(HistoryFilePath);
+            if (text is null)
                 return new List<StoredCashOperation>();
 
-            return JsonSerializer.Deserialize<List<StoredCashOperation>>(File.ReadAllText(HistoryFilePath), JsonOpts)
+            return JsonSerializer.Deserialize<List<StoredCashOperation>>(text, JsonOpts)
                    ?? new List<StoredCashOperation>();
+        }
+        catch (Exception ex) when (forWrite && ex is IOException or UnauthorizedAccessException)
+        {
+            PosLogger.Log($"Внесения/изъятия: файл истории занят, запись отложена, историю не трогаем ({ex.Message}).", "WARNING");
+            throw;
         }
         catch
         {
             return new List<StoredCashOperation>();
         }
     }
+
+    /// <summary>2026-10-30: текст кассиру, если внесение/изъятие не записалось из-за занятого файла.</summary>
+    public static string BusyText() => Tr.T(
+        "Файл истории внесений и изъятий занят (антивирус?). Операция НЕ записана — повторите через несколько секунд.",
+        "Акча салуулар жана алып коюулар тарыхынын файлы бош эмес (антивирус?). Операция жазылган жок — бир нече секунддан кийин кайталаңыз.",
+        "The cash in/out history file is busy (antivirus?). The operation was NOT recorded — try again in a few seconds.",
+        "Para giriş/çıkış geçmişi dosyası meşgul (antivirüs?). İşlem KAYDEDİLMEDİ — birkaç saniye sonra tekrar deneyin.",
+        "Kirim va chiqimlar tarixi fayli band (antivirus?). Amal YOZILMADI — bir necha soniyadan keyin qayta urinib ko'ring.");
 
     private static void SaveStored(List<StoredCashOperation> entries)
     {
@@ -261,12 +324,8 @@ public static class ShiftCashOperationsStore
             Directory.CreateDirectory(dir);
 
         // Атомарная запись: сбой питания посреди WriteAllText обрезал бы файл и терял всю историю.
-        var tempPath = path + ".tmp";
-        File.WriteAllText(tempPath, JsonSerializer.Serialize(entries, JsonOpts));
-        if (File.Exists(path))
-            File.Replace(tempPath, path, null);
-        else
-            File.Move(tempPath, path);
+        // 2026-10-29: теперь с Flush на диск и копией .bak (AtomicFile).
+        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(entries, JsonOpts));
     }
 
     private static CashOperationModel Map(StoredCashOperation entry)
@@ -299,6 +358,8 @@ public static class ShiftCashOperationsStore
         public string UserId { get; set; } = "";
         /// <summary>Смена, в которой выполнена операция (нужна для расчёта баланса кассы).</summary>
         public string? ShiftId { get; set; }
+        /// <summary>2026-10-29: прежний id смены, открытой без связи («offline-shift-…»), если операция перепривязана к серверной смене.</summary>
+        public string? OfflineShiftId { get; set; }
         /// <summary>ID движения денег на сервере (api/construction/cashflows/); пусто — ещё не записана.</summary>
         public string? ServerFlowId { get; set; }
         /// <summary>source_kind движения на сервере (2026-09-28): «shift_drawer_inflow» —

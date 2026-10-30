@@ -96,7 +96,7 @@ public static class ReceiptPaperPdf
                         col.Item().PaddingTop(3).AlignCenter().Text(d.QrUrl).FontSize(6.5f).FontColor(Soft);
 
                     col.Item().PaddingTop(6).AlignCenter().Text(Tr.T("Спасибо за покупку!", "Сатып алганыңыз үчүн рахмат!", "Thank you for your purchase!", "Alışveriş için teşekkürler!", "Xaridingiz uchun rahmat!")).Bold();
-                    col.Item().AlignCenter().Text("NurMarket").FontSize(7).FontColor(Soft);
+                    col.Item().AlignCenter().Text("NurCRM").FontSize(7).FontColor(Soft);
                 });
             });
         }).GeneratePdf(path);

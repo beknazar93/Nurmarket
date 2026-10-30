@@ -93,6 +93,11 @@ internal static class EmployeeAccessChecklist
 
         panel.Children.Add(GroupHeader(Tr.T("Касса Маркета", "Маркеттин кассасы", "Market till", "Market kasası", "Market kassasi")));
         panel.Children.Add(Row(boxes.MarketDiscount, boxes.MarketEditPrice, boxes.MarketDeleteCartItem, boxes.MarketEmployeeReturn));
+        // 2026-10-30: «Редактор документов закупок» (правка проведённых накладных) — пока только у владельца: строка видна, но выключена и в сохранение не входит.
+        var purchaseEditor = Check(Tr.T("Редактор документов закупок (пока только владелец)", "Сатып алуу документтеринин редактору (азырынча ээси гана)", "Purchase documents editor (owner only for now)", "Alım belgeleri düzenleyicisi (şimdilik yalnızca sahip)", "Xarid hujjatlari muharriri (hozircha faqat egasi)"), false);
+        purchaseEditor.IsEnabled = false;
+        Avalonia.Controls.ToolTip.SetTip(purchaseEditor, Tr.T("Пока право выдано только владельцу; сотрудникам и администратору не выдаётся.", "Азырынча укук ээсине гана берилген; кызматкерлерге жана администраторго берилбейт.", "For now the right is given only to the owner; it is not given to staff or the administrator.", "Yetki şimdilik yalnızca sahibe verildi; personele ve yöneticiye verilmez.", "Huquq hozircha faqat egasiga berilgan; xodimlar va administratorga berilmaydi."));
+        panel.Children.Add(purchaseEditor);
 
         panel.Children.Add(GroupHeader(Tr.T("Дополнительные услуги", "Кошумча кызматтар", "Add-on services", "Ek hizmetler", "Qo'shimcha xizmatlar")));
         panel.Children.Add(Row(boxes.MarketLabel, boxes.MarketScales, boxes.Whatsapp, boxes.Telegram, boxes.Instagram, boxes.Documents));

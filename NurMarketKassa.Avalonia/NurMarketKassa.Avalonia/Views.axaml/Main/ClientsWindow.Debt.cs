@@ -464,6 +464,9 @@ public partial class ClientsWindow
                     .ConfigureAwait(true);
                 var text = sum.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
                 PosLogger.Log($"Долг без продажи: клиент {client.Id}, {text} сом, до {dueDate:dd.MM.yyyy}.", "INFO");
+                // 2026-10-31 (приёмка 1.17.68, В-1а): новый долг без продажи не меняет список чеков — поднимаем версию долга клиента,
+                // иначе «Долги», «Сводка», карточка и Советник до 3 минут показывают старую сумму из кэша уточнённых остатков.
+                PosDataEvents.RaiseClientDebtChanged(client.Id);
                 tcs.TrySetResult(text);
                 dialog.Close();
             }

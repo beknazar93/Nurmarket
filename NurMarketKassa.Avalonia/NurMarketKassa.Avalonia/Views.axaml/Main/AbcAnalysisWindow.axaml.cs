@@ -37,6 +37,7 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
     {
         PosDataEvents.SalesChanged += OnSalesChangedExternally;
         AbcSection.ProductAnalyticsRequested += ShowProductAnalytics;
+        AbcSection.RetryRequested += () => _ = ReloadAsync(); // 2026-10-31: «Нет связи с сервером» → «Повторить»
         ApplyTexts();
         ExcelButton.IsEnabled = TariffGate.CanUseAnalyticsExport;
         WordButton.IsEnabled = TariffGate.CanUseAnalyticsExport;
@@ -199,6 +200,12 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
     /// поэтому уходим на UI-поток.</summary>
     private void OnSalesChangedExternally()
     {
+        // 2026-10-31 (приёмка 1.17.68): SalesChanged поднимается и с фоновых потоков (оплата долга, пульс продаж) — поля и _liveCts трогаем только в UI-потоке.
+        if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(OnSalesChangedExternally);
+            return;
+        }
         _liveCts?.Cancel();
         _liveCts?.Dispose();
         var cts = new CancellationTokenSource();

@@ -119,7 +119,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get offlineWorking =>
-      'Нет связи с сервером — продажи сохраняются на телефоне и уйдут сами.';
+      'Нет связи с сервером — продажи сохраняются на телефоне. Они уйдут, как только появится связь: сразу, если приложение открыто, в фоне примерно раз в 15 минут или при следующем открытии.';
 
   @override
   String runningOut(int n) {
@@ -1005,7 +1005,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get callNoMic =>
-      'Нет доступа к микрофону. Разрешите микрофон для NurMarket в настройках телефона.';
+      'Нет доступа к микрофону. Разрешите микрофон для NurCRM в настройках телефона.';
 
   @override
   String get callOpenSettings => 'Открыть настройки';
@@ -1590,7 +1590,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get savedOfflineHint =>
-      'Нет связи — чек уйдёт на сервер сам, второй раз не проведётся.';
+      'Чек сохранён на телефоне. Он уйдёт на сервер, когда появится связь: сразу, если приложение открыто, в фоне примерно через 15 минут или при следующем открытии. Второй раз не проведётся.';
 
   @override
   String get receiptQr => 'QR-код';
@@ -1742,7 +1742,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get offlineCheckHint =>
-      'Нет связи — чек сохранён и уйдёт на сервер сам';
+      'Чек сохранён и ждёт отправки: уйдёт при связи (приложение открыто — сразу, закрыто — в фоне или при следующем открытии)';
 
   @override
   String get sendToCustomer => 'Отправить покупателю';
@@ -1800,7 +1800,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String unknownBarcodeHint(String code) {
-    return '$code · не найден ни в каталоге, ни в справочнике NurCRM. Заведите товар — код никуда не отправляется';
+    return '$code · нет в вашем каталоге (проверено на сервере) и в справочнике NurCRM. Заведите товар — код никуда не отправляется';
   }
 
   @override
@@ -2879,7 +2879,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get auditApplyQueued =>
-      'Акт ревизии создан — проведение уйдёт при связи.';
+      'Акт ревизии создан, но не проведён (связи не было). Пересчитайте и проведите заново — акт останется черновиком.';
 
   @override
   String get auditOnlineOnly =>
@@ -3321,7 +3321,8 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get peStockQueued => 'Документ создан — проведётся сам при связи.';
+  String get peStockQueued =>
+      'Документ создан, но не проведён (связи не было). Пересчитайте и проведите заново.';
 
   @override
   String get peStockOffline =>
@@ -4786,7 +4787,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get klScanQrTitle => 'Наведите камеру на QR-код на экране кассы';
 
   @override
-  String get klNotKassaQr => 'Это не QR-код кассы NurMarket';
+  String get klNotKassaQr => 'Это не QR-код кассы NurCRM';
 
   @override
   String get klBadQr =>
@@ -4794,7 +4795,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get klQrVersion =>
-      'Эта касса новее приложения. Обновите NurMarket на телефоне.';
+      'Эта касса новее приложения. Обновите NurCRM на телефоне.';
 
   @override
   String get klManual => 'Ввести ссылку вручную';
@@ -5624,6 +5625,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get recvFixed => 'Штрихкод исправлен';
 
   @override
+  String get recvOffline => 'Сервер не ответил';
+
+  @override
+  String recvOfflineHint(String code) {
+    return '$code · не удалось проверить: нет связи с сервером. Это не значит, что товара нет — проверьте снова, когда появится сеть';
+  }
+
+  @override
+  String get recvRetry => 'Проверить снова';
+
+  @override
   String get recvNoRight =>
       'Завести, привязать или исправить может сотрудник с правом «Склад».';
 
@@ -6412,4 +6424,354 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get infRangePick => 'Выбрать даты';
+
+  @override
+  String get apiSaleAlreadyPosted =>
+      'Сервер уже провёл этот чек (ключ совпал) — сверьте его в разделе «Чеки».';
+
+  @override
+  String get apiAuditStale =>
+      'Ревизия не проведена вовремя — остатки могли измениться. Пересчитайте заново (акт остался черновиком).';
+
+  @override
+  String get priceChangedTitle => 'Цена изменилась';
+
+  @override
+  String priceChangedLine(String name, String oldPrice, String newPrice) {
+    return '$name: $oldPrice → $newPrice сом';
+  }
+
+  @override
+  String get priceChangedNote =>
+      'Продажа не проведена. Цены в чеке обновлены — проверьте новую сумму и нажмите «Оплатить» ещё раз.';
+
+  @override
+  String get priceMaybeStale =>
+      'Нет связи — цена в чеке может быть устаревшей.';
+
+  @override
+  String get apiWifiPortal =>
+      'Откройте страницу входа Wi-Fi (сеть магазина просит войти) и повторите.';
+
+  @override
+  String get apiBadResponse => 'Сервер ответил непонятно. Повторите позже.';
+
+  @override
+  String get linkOffline => 'Нет связи с сервером';
+
+  @override
+  String linkOfflineSince(String time) {
+    return 'Нет связи · данные от $time';
+  }
+
+  @override
+  String dataAsOf(String time) {
+    return 'Данные от $time';
+  }
+
+  @override
+  String get noDataOffline => 'Нет данных — нет связи с сервером';
+
+  @override
+  String unsentOnPhone(int n) {
+    return 'На телефоне не отправлено: $n';
+  }
+
+  @override
+  String listCachedAt(String time) {
+    return 'Показан сохранённый список от $time.';
+  }
+
+  @override
+  String get auditError => 'Сбой';
+
+  @override
+  String stockAsOf(String time) {
+    return 'Остатки на $time';
+  }
+
+  @override
+  String accountLoading(int done, int total) {
+    return 'Загружаем данные аккаунта… $done/$total';
+  }
+
+  @override
+  String get accountLoadFailed =>
+      'Данные аккаунта загрузились не полностью (нет связи или сервер не ответил).';
+
+  @override
+  String get accountDataNotLoaded => 'Данные этого аккаунта ещё не загружены';
+
+  @override
+  String get logoutSendNow => 'Отправить сейчас';
+
+  @override
+  String guardUnsent(int n, String sum) {
+    return 'Есть неотправленные продажи и операции: $n на $sum сом. Пока они не отправлены, выйти нельзя.';
+  }
+
+  @override
+  String get guardSending => 'Отправляем…';
+
+  @override
+  String get guardWaitConnection =>
+      'Нет связи с сервером. Дождитесь связи и нажмите «Отправить сейчас» ещё раз — или выгрузите продажи в файл.';
+
+  @override
+  String guardSendLeft(int n, String error) {
+    return 'Не всё отправилось: осталось $n. $error';
+  }
+
+  @override
+  String get guardExport => 'Выгрузить в файл и выйти';
+
+  @override
+  String get guardExportWarn =>
+      'Файл будет содержать данные чеков (товары, суммы). Храните его в надёжном месте. После выхода на телефоне не останется ничего, кроме этого файла.';
+
+  @override
+  String guardExported(String path) {
+    return 'Файл сохранён: $path. Пришлите его владельцу или администратору для восстановления продаж.';
+  }
+
+  @override
+  String guardExportFailed(String error) {
+    return 'Не удалось сохранить файл: $error. Выход отменён, продажи на месте.';
+  }
+
+  @override
+  String get guardDiscard => 'Выйти БЕЗ отправки';
+
+  @override
+  String get guardDiscardWord => 'УДАЛИТЬ';
+
+  @override
+  String guardDiscardWarn(String word) {
+    return 'Неотправленные продажи будут ПОТЕРЯНЫ без возможности восстановления. Чтобы подтвердить, введите слово «$word».';
+  }
+
+  @override
+  String get guardDiscardField => 'Слово подтверждения';
+
+  @override
+  String guardForeign(String account, int n, String sum) {
+    return 'На телефоне остались неотправленные продажи другого аккаунта ($account): $n на $sum сом. Чтобы войти другим аккаунтом, их нужно выгрузить в файл или удалить. Или войдите прежним аккаунтом и отправьте.';
+  }
+
+  @override
+  String get close => 'Закрыть';
+
+  @override
+  String revCostLine(String cost) {
+    return 'Закупка: $cost';
+  }
+
+  @override
+  String get revNoCost => 'Закупки нет';
+
+  @override
+  String revDiffAmount(String amount) {
+    return 'Сумма разницы: $amount';
+  }
+
+  @override
+  String get revStarNote =>
+      '* — закупки у товара нет, сумма посчитана по цене продажи.';
+
+  @override
+  String revShortageLine(String qty, String cost, String sale) {
+    return 'Недостача: $qty шт · −$cost сом (по закупке) · −$sale сом (по продаже)';
+  }
+
+  @override
+  String revSurplusLine(String qty, String cost, String sale) {
+    return 'Излишек: $qty шт · +$cost сом (по закупке) · +$sale сом (по продаже)';
+  }
+
+  @override
+  String revNetLine(String amount) {
+    return 'Чистый результат: $amount сом (по закупке)';
+  }
+
+  @override
+  String revNoCostWarn(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '⚠ Не хватает закупки у $n товаров',
+      many: '⚠ Не хватает закупки у $n товаров',
+      few: '⚠ Не хватает закупки у $n товаров',
+      one: '⚠ Не хватает закупки у $n товара',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String revNoCostTip(String short, String surplus) {
+    return 'У этих товаров нет закупки: в суммы «по закупке» они не вошли. Их разница по цене продажи: недостача −$short сом, излишек +$surplus сом. В списке их сумма помечена «*».';
+  }
+
+  @override
+  String revTopShortages(int n) {
+    return 'Топ-$n недостач';
+  }
+
+  @override
+  String revAllDiffs(int n) {
+    return 'Все расхождения: $n';
+  }
+
+  @override
+  String get pbTitle => 'Поступления и партии';
+
+  @override
+  String get pbTotalReceived => 'Всего получено';
+
+  @override
+  String get pbAvgCost => 'Средняя закупка';
+
+  @override
+  String get pbLastCost => 'Последняя закупка';
+
+  @override
+  String get pbLastSupplier => 'Последний поставщик';
+
+  @override
+  String pbCount(int n) {
+    return 'Поступлений: $n';
+  }
+
+  @override
+  String get pbPartial =>
+      'Итоги — по загруженным поступлениям. Прокрутите вниз, чтобы подгрузить остальные.';
+
+  @override
+  String get pbSearchHint => 'Поставщик или № прихода';
+
+  @override
+  String get pbSearchHintNo => '№ прихода';
+
+  @override
+  String get pbWeek => 'Неделя';
+
+  @override
+  String get pbMonth => 'Месяц';
+
+  @override
+  String get pbYear => 'Год';
+
+  @override
+  String get pbAllTime => 'Всё время';
+
+  @override
+  String get pbInvoice => 'Накладная';
+
+  @override
+  String pbNumber(String no) {
+    return '№ $no';
+  }
+
+  @override
+  String pbCostLine(String cost) {
+    return 'Закупка: $cost сом';
+  }
+
+  @override
+  String pbSumLine(String sum) {
+    return 'Сумма: $sum сом';
+  }
+
+  @override
+  String pbReceivedBy(String name) {
+    return 'Принял: $name';
+  }
+
+  @override
+  String pbPayLine(String method) {
+    return 'Оплата: $method';
+  }
+
+  @override
+  String get pbPayCash => 'Наличные';
+
+  @override
+  String get pbPayDebt => 'В долг';
+
+  @override
+  String get pbPayPrepay => 'Предоплата';
+
+  @override
+  String pbRemainLine(String qty, String unit) {
+    return 'Остаток партии ≈ $qty $unit (оценка)';
+  }
+
+  @override
+  String pbRemainTip(String stock, String unit) {
+    return 'Это оценка по правилу FIFO («первым пришёл — первым ушёл»): текущий остаток товара ($stock $unit) распределён по самым свежим поступлениям, начиная с последнего. Сервер не хранит остаток каждой партии, поэтому цифра приблизительная.';
+  }
+
+  @override
+  String pbReturned(String qty, String unit) {
+    return 'Возвращено поставщику: $qty $unit';
+  }
+
+  @override
+  String get pbEmpty => 'Поступлений этого товара не найдено';
+
+  @override
+  String get pbEmptySearch => 'По запросу ничего не найдено';
+
+  @override
+  String pbDataFrom(String time) {
+    return 'Нет связи. Данные от $time';
+  }
+
+  @override
+  String get pbLoadingMore => 'Загружаем ещё…';
+
+  @override
+  String get pbEnd => 'Больше поступлений нет';
+
+  @override
+  String get pbToTop => 'К началу';
+
+  @override
+  String pbLoadError(String error) {
+    return 'Не удалось загрузить: $error';
+  }
+
+  @override
+  String get pbDocTitle => 'Накладная прихода';
+
+  @override
+  String get pbDocLines => 'Состав прихода';
+
+  @override
+  String pbDocTotal(String sum) {
+    return 'Итого: $sum сом';
+  }
+
+  @override
+  String get pbThisProduct => 'этот товар';
+
+  @override
+  String get pbOpenFile => 'Открыть файл';
+
+  @override
+  String get pbNoFile => 'Исходный файл не сохранён';
+
+  @override
+  String get pbFileError => 'Не удалось открыть файл';
+
+  @override
+  String get pbSupplier => 'Поставщик';
+
+  @override
+  String get pbCall => 'Позвонить';
+
+  @override
+  String get pbWhatsApp => 'WhatsApp';
+
+  @override
+  String get pbNoPhone => 'Телефон не указан';
 }

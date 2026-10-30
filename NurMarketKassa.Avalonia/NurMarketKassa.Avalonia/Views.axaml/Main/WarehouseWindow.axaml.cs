@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.ViewModels;
@@ -59,6 +60,10 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         AddHandler(KeyDownEvent, Window_KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         this.FitToScreen();
         DataContext = _viewModel;
+        // 2026-10-30 (приёмка 1.17.65, «Права»): колонка «Себестоимость» (закупка за единицу и сумма закупки) — только ролям с правом видеть закупку.
+        if (!RevisionShowPurchase)
+            foreach (var cost in ProductsGrid.Columns.Where(c => c.SortMemberPath == "PurchasePrice"))
+                cost.IsVisible = false;
         // Esc закрывает склад, но не молча выбрасывает набранные строки приёмки и ревизии:
         // они живут только в этом окне и после закрытия пропадут.
         EscapeKey.Attach(this, closeWindow: CloseByEscape);
@@ -770,6 +775,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         var tiles = ViewTilesRadio.IsChecked == true;
         ProductsGrid.IsVisible = !tiles;
         ProductsTilesScroll.IsVisible = tiles;
+        UpdateSortPickerVisibility(); // 2026-10-30: «Сортировка» списком — только в плитках
     }
 
     /// <summary>Итог под таблицей товаров: позиции, единицы и стоимость склада по закупке и по
@@ -794,7 +800,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         var low = products.Count(p => p.IsLowStock && p.Quantity > 0);
         var outOfStock = products.Count(p => p.Quantity <= 0);
 
-        WarehouseTotalsPanel.ItemsSource = new List<KpiCardVm>
+        var totals = new List<KpiCardVm>
         {
             new() { Label = Tr.T("Позиций:", "Позициялар:", "Items:", "Kalem:", "Pozitsiyalar:"), Value = products.Count.ToString("N0") },
             new() { Label = Tr.T("Единиц на складе:", "Кампадагы бирдик:", "Units in stock:", "Stoktaki adet:", "Ombordagi birliklar:"), Value = units.ToString("N0") },
@@ -803,6 +809,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             new() { Label = Tr.T("Заканчивается:", "Түгөнүп баратат:", "Running low:", "Tükenmek üzere:", "Tugab bormoqda:"), Value = low.ToString("N0") },
             new() { Label = Tr.T("Нет в наличии:", "Калдыкта жок:", "Out of stock:", "Stokta yok:", "Mavjud emas:"), Value = outOfStock.ToString("N0") },
         };
+        if (!RevisionShowPurchase)
+            totals.RemoveAt(2); // 2026-10-30: «По закупке» — сумма закупки склада, только по праву
+        WarehouseTotalsPanel.ItemsSource = totals;
         // 2026-10-06: те же итоги — плитками над таблицей (WarehouseWindow.Redesign.cs).
         BuildKpiCards(products.Count, units, purchaseValue, saleValue, low, outOfStock);
     }
@@ -881,6 +890,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             InitRedesign();
             // 2026-10-11: замечания тестировщика — крестики, «Очистить список», подсказки не «зависают» (WarehouseWindow.Fixes.cs).
             InitWarehouseFixes();
+            // 2026-10-30, владелец: сортировка по клику на заголовок столбца (WarehouseWindow.Sort.cs).
+            InitProductSort();
             // 2026-10-25, ТЗ «оприходование в фоне» (Q2): связь окна с очередью приходов (WarehouseWindow.ReceivingBg.cs).
             InitReceivingBackground();
             // 2026-10-20, этап П3: «В долг» — срок оплаты поставщику (WarehouseWindow.SupplierDebt.cs).
@@ -925,6 +936,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         spin.Start();
         try
         {
+            // 2026-10-30 (15 тыс. товаров): сначала лента изменений (секунды; общий путь программы — без второй параллельной полной загрузки),
+            // таблица перестраивается сразу; полная сверка всего каталога (155 страниц, ~3 мин) — в фоне, если её не было 10 мин, с «Загружено N из M».
             var result = await CatalogCacheService.SyncCatalogFullAsync().ConfigureAwait(true);
             if (result.Success)
                 CatalogCacheService.NotifyCatalogChanged();
@@ -932,6 +945,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
                 PosLogger.Log($"Склад: обновление с сервера не удалось ({result.ErrorMessage}) — показан локальный каталог.", "CATALOG");
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
             RefreshWarehouseTotals();
+            if (result.Success && CatalogCacheService.RequestBackgroundFullReload?.Invoke() is { } fullReload)
+                _ = TrackBackgroundFullReloadAsync(fullReload);
             // 2026-10-06: и сроки годности — заново с сервера.
             _ = RefreshExpiryAsync(force: true);
             // Удачное обновление видно по таблице — окно-сообщение только если сервер не ответил.
@@ -1324,10 +1339,44 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         }
     }
 
+    /// <summary>2026-10-30: «Поступления и партии» из меню строки — та же карточка товара, открытая на вкладке «Поступления».</summary>
+    private void ProductReceipts_Click(object? sender, RoutedEventArgs e)
+    {
+        _openCardOnReceipts = true;
+        EditProduct_Click(sender, e);
+    }
+
+    private bool _openCardOnReceipts;
+
+    /// <summary>2026-10-30 (приёмка 1.17.66, мелочь): карточка товара открывалась дважды от одного действия (вживую 19:19:42: два ProductEditDialog с разницей 0,25 с) — второй
+    /// щелчок/событие приходил, пока первый ещё догружал карточку с сервера. Пока карточка открывается или открыта, новые открытия игнорируются.</summary>
+    private bool _editProductBusy;
+
     private async void EditProduct_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_editProductBusy)
+        {
+            _openCardOnReceipts = false;
+            return;
+        }
+
+        _editProductBusy = true;
+        try
+        {
+            await EditProductCoreAsync(sender, e).ConfigureAwait(true);
+        }
+        finally
+        {
+            _editProductBusy = false;
+        }
+    }
+
+    private async Task EditProductCoreAsync(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: CatalogProductTileVm product })
             return;
+        var onReceipts = _openCardOnReceipts;
+        _openCardOnReceipts = false;
 
         var catalogApi = App.AppHost?.Services.GetService<ICatalogApiService>();
         var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
@@ -1357,7 +1406,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             PosLogger.Log($"Product detail fetch before edit failed: {ex.GetType().Name}: {ex.Message}", "WARNING");
         }
 
-        var dialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ProductEditDialog(catalogApi, toEdit);
+        var dialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ProductEditDialog(catalogApi, toEdit) { StartOnReceiptsTab = onReceipts };
         var saved = await dialog.ShowDialog<bool>(this).ConfigureAwait(true);
         if (saved)
         {
@@ -1434,10 +1483,40 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
         }
+        catch (ApiException ex) when (IsProductInUseError(ex))
+        {
+            // 2026-10-30: сервер (Django ProtectedError) не удаляет товар с историей — это правило, не сбой.
+            // Раньше сырой текст шёл как «ошибка» с кнопкой «Отложить ошибку» и записью ERROR в журнал; теперь —
+            // понятное окно-подсказка (info: без «Отложить ошибку») и запись INFO. «Скрыть» у товара в API нет —
+            // предлагаем то, что есть в кассе: обнулить остаток кнопкой «Остаток».
+            PosLogger.Log($"Склад: «{product.Title}» не удалён — по товару есть история (ответ сервера: {ex.Message}).", "INFO");
+            PosAlertDialog.Show(this,
+                Tr.T("Товар нельзя удалить", "Товарды өчүрүүгө болбойт", "The product can't be deleted", "Ürün silinemez", "Mahsulotni o'chirib bo'lmaydi"),
+                Tr.T($"«{product.Title}» нельзя удалить: по нему есть история (приходы, продажи, передачи), и сервер её сохраняет. Чтобы товар не мешал, спишите остаток кнопкой «Остаток» — товар останется в истории с нулём на складе.",
+                     $"«{product.Title}» товарын өчүрүүгө болбойт: ал боюнча тарых бар (кирешелер, сатуулар, өткөрүп берүүлөр) жана сервер аны сактайт. Товар тоскоол болбошу үчүн калдыкты «Калдык» баскычы менен чыгымдаңыз — товар тарыхта нөл калдык менен калат.",
+                     $"“{product.Title}” can't be deleted: it has history (receipts, sales, transfers) and the server keeps it. To get it out of the way, write off its stock with the “Stock” button — the product stays in the history with zero stock.",
+                     $"«{product.Title}» silinemez: ürünün geçmişi var (girişler, satışlar, transferler) ve sunucu bunu saklar. Ürün engel olmasın diye «Stok» düğmesiyle stoğu sıfırlayın — ürün geçmişte sıfır stokla kalır.",
+                     $"«{product.Title}» mahsulotini o'chirib bo'lmaydi: uning tarixi bor (kirimlar, sotuvlar, o'tkazmalar) va server uni saqlaydi. Mahsulot xalaqit bermasligi uchun qoldiqni «Qoldiq» tugmasi bilan yozib yuboring — mahsulot tarixda nol qoldiq bilan qoladi."),
+                PosAlertKind.Warning, null, info: true);
+        }
         catch (Exception ex)
         {
             prompts?.ShowToast(Tr.T($"Не удалось удалить товар: {ex.Message}", $"Товарды өчүрүү мүмкүн болгон жок: {ex.Message}", $"Could not delete the product: {ex.Message}", $"Ürün silinemedi: {ex.Message}", $"Mahsulotni o'chirib bo'lmadi: {ex.Message}"), isWarning: true);
         }
+    }
+
+    /// <summary>2026-10-30: ответ сервера «нельзя удалить — на объект ссылаются другие записи» (ProtectedError):
+    /// 409 либо текст/тело с «ссылаются», «protected», «referenced», «foreign key», «has_references».</summary>
+    internal static bool IsProductInUseError(ApiException ex)
+    {
+        if (ex.StatusCode == 409)
+            return true;
+        var text = ex.Message + " " + (ex.Payload?.ToString() ?? "");
+        return text.Contains("ссылаются", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("protected", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("referenced", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("foreign key", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("has_references", StringComparison.OrdinalIgnoreCase);
     }
 
     private async void UploadPhoto_Click(object? sender, RoutedEventArgs e)
@@ -1733,6 +1812,11 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+        // 2026-10-30, владелец: «на складе сортировка при нажатии не работает». Нажатие на заголовок столбца таблицы не помечено «обработано»,
+        // доходило сюда и запускало перетаскивание окна: система забирала мышь до отпускания кнопки, заголовок не получал «отпускание» — сортировка
+        // (срабатывает именно на нём) не запускалась. Внутри таблицы и выпадающих списков (в т. ч. «Сортировка» в плитках) окно не тянем.
+        if (e.Source is Visual src && (src.FindAncestorOfType<DataGrid>(includeSelf: true) is not null || src.FindAncestorOfType<ComboBox>(includeSelf: true) is not null))
+            return;
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             BeginMoveDrag(e);

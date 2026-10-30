@@ -143,14 +143,14 @@ public static class BarChartRenderer
             }
             else
             {
-                fill.Bind(Border.BackgroundProperty, container.GetResourceObservable("BrushText"));
+                fill.Bind(Border.BackgroundProperty, fill.GetResourceObservable("BrushText")); // 2026-10-31: источник — сам элемент (container держал диаграммы после перерисовки)
                 if (worst.Contains(i)) fill.Opacity = 0.4;
             }
             if (i == currentIndex)
             {
                 // текущий период — контур цвета текста темы
                 fill.BorderThickness = new Thickness(2);
-                fill.Bind(Border.BorderBrushProperty, container.GetResourceObservable("BrushText"));
+                fill.Bind(Border.BorderBrushProperty, fill.GetResourceObservable("BrushText")); // 2026-10-31: источник — сам элемент (container держал диаграммы после перерисовки)
             }
             Grid.SetColumn(fill, 0);
             track.Children.Add(fill);
@@ -183,7 +183,7 @@ public static class BarChartRenderer
         }
         else
         {
-            bar.Bind(Border.BackgroundProperty, themeSource.GetResourceObservable("BrushText"));
+            bar.Bind(Border.BackgroundProperty, bar.GetResourceObservable("BrushText")); // 2026-10-31: источник — сам элемент (container держал диаграммы после перерисовки)
             if (worst) bar.Opacity = 0.4;
         }
         if (!current) return bar;
@@ -195,7 +195,7 @@ public static class BarChartRenderer
             HorizontalAlignment = bar.HorizontalAlignment,
             Child = bar,
         };
-        ring.Bind(Border.BorderBrushProperty, themeSource.GetResourceObservable("BrushText"));
+        ring.Bind(Border.BorderBrushProperty, ring.GetResourceObservable("BrushText")); // 2026-10-31: источник — сам элемент (container держал диаграммы после перерисовки)
         return ring;
     }
 
@@ -212,7 +212,7 @@ public static class BarChartRenderer
                 BorderBrush = border, BorderThickness = border == null ? new Thickness(0) : new Thickness(1.5), VerticalAlignment = VerticalAlignment.Center,
             });
             var t = new TextBlock { Text = text, FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
-            t.Bind(TextBlock.ForegroundProperty, themeSource.GetResourceObservable("BrushTextSoft"));
+            t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft")); // 2026-10-31: источник — сам элемент (container держал диаграммы после перерисовки)
             chip.Children.Add(t);
             legend.Children.Add(chip);
         }
@@ -631,7 +631,7 @@ public static class BarChartRenderer
             StrokeJoin = PenLineJoin.Round,
             IsHitTestVisible = false,
         };
-        polyline.Bind(Shape.StrokeProperty, container.GetResourceObservable("BrushText"));
+        polyline.Bind(Shape.StrokeProperty, polyline.GetResourceObservable("BrushText")); // 2026-10-31: источник — сам элемент (container держал диаграммы после перерисовки)
         canvas.Children.Add(polyline);
 
         foreach (var point in linePoints)
@@ -645,7 +645,7 @@ public static class BarChartRenderer
                 StrokeThickness = 1.5,
                 IsHitTestVisible = false,
             };
-            dot.Bind(Shape.StrokeProperty, container.GetResourceObservable("BrushText"));
+            dot.Bind(Shape.StrokeProperty, dot.GetResourceObservable("BrushText")); // 2026-10-31: источник — сам элемент (container держал диаграммы после перерисовки)
             Canvas.SetLeft(dot, point.X - 3.5);
             Canvas.SetTop(dot, point.Y - 3.5);
             canvas.Children.Add(dot);
@@ -675,7 +675,7 @@ public static class BarChartRenderer
             RenderTransform = new RotateTransform(48),
             RenderTransformOrigin = RelativePoint.TopLeft,
         };
-        label.Bind(TextBlock.ForegroundProperty, themeSource.GetResourceObservable("BrushTextSoft"));
+        label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushTextSoft")); // 2026-10-31: источник — сам элемент (container держал диаграммы после перерисовки)
         ToolTip.SetTip(label, text);
         return label;
     }

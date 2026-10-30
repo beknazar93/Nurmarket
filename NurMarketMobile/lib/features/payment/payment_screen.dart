@@ -473,6 +473,26 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
   }
 
+  /// 2026-10-29 (аудит мобилки, п. 8): «Цена изменилась: A → B» — цены строк чека обновлены по серверу, продажа не проведена;
+  /// кассир видит новую сумму и нажимает «Оплатить» ещё раз.
+  Future<void> _showPriceChanged(List<PriceChange> changes) async {
+    final l = context.l;
+    ref.read(cartProvider.notifier).applyPriceChanges(changes);
+    final lines = [for (final c in changes.take(5)) l.priceChangedLine(c.name, money(c.oldPrice), money(c.newPrice))];
+    if (changes.length > 5) lines.add('+${changes.length - 5}');
+    final text = [...lines, l.priceChangedNote].join('\n');
+    _aiSink.report(HandleOutcome.error('${l.priceChangedTitle}: ${lines.join('; ')}'));
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l.priceChangedTitle),
+        content: Text(text),
+        actions: [FilledButton(onPressed: () => Navigator.pop(c), child: Text(l.done))],
+      ),
+    );
+  }
+
   Future<void> _payCore() async {
     final l = context.l;
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -500,19 +520,35 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         return;
       }
     }
+    final sales = ref.read(salesRepoProvider);
+    final payReceived = method == PayMethod.card ? null : (received ?? (method == PayMethod.cash ? cart.total : null));
+    // 2026-10-29 (аудит мобилки, п. 8): перед оплатой сверяем цены чека с сервером, как касса («Цена изменилась: 205 → 195»).
+    // Если прошлая попытка ЭТОГО чека без ответа (ключ жив) — не сверяем: повтор должен уйти тем же телом (п. 9).
+    if (!await sales.hasLiveAttempt(cart: cart, shiftId: shift.id, method: method, received: payReceived, client: client)) {
+      final check = await sales.checkPrices(baseCart);
+      if (check.changes.isNotEmpty) {
+        await _showPriceChanged(check.changes);
+        return;
+      }
+      // Без связи сверить не с чем — продаём по цене телефона, но кассир предупреждён.
+      if (check.offline && mounted) toast(context, l.priceMaybeStale);
+    }
     final CheckoutResult result;
     try {
-      result = await ref
-          .read(salesRepoProvider)
-          .checkout(
-            cart: cart,
-            shiftId: shift.id,
-            method: method,
-            received: method == PayMethod.card ? null : (received ?? (method == PayMethod.cash ? cart.total : null)),
-            client: client,
-            // Бонусы без сервера не списать — такая продажа только при связи (в очередь не встаёт).
-            requireOnline: redeem > 0,
-          );
+      result = await sales.checkout(
+        cart: cart,
+        shiftId: shift.id,
+        method: method,
+        received: payReceived,
+        client: client,
+        // Бонусы без сервера не списать — такая продажа только при связи (в очередь не встаёт).
+        requireOnline: redeem > 0,
+      );
+    } on PriceChangedException catch (e) {
+      // Сервер отказал: цена устарела, продажа НЕ проведена. Цены строк — из ответа сервера, нет их — запрашиваем карточки.
+      final changes = e.changes.isNotEmpty ? e.changes : (await sales.checkPrices(baseCart)).changes;
+      await _showPriceChanged(changes);
+      return;
     } on CheckoutUnknownException {
       // Сервер не ответил — продажа могла пройти. Ключ сохранён: повтор той же оплаты второй раз не проведётся.
       if (mounted) toast(context, l.payOutcomeUnknown, error: true);
@@ -530,6 +566,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     // Чек уже проведён (или в очереди) — корзину очищаем в любом случае, даже если экран успели закрыть;
     // дальше ошибки (бонусы, срок долга, журнал) не прячут экран «Оплачено».
     ref.read(cartProvider.notifier).clear();
+    // 2026-10-29 (аудит мобилки, п. 1): сервер уже имел продажу с этим ключом — «проведено, сверьте», а не ошибка.
+    if (result.reconcile && mounted) toast(context, ApiText.saleAlreadyPosted);
     final saleId = result.response == null ? null : str(result.response, 'id');
     try {
       // 14.10: журнал аудита.

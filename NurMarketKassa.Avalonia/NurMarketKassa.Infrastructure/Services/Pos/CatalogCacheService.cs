@@ -46,10 +46,37 @@ public static class CatalogCacheService
 
     public static void EnsureLocalDatabase() => Repository.EnsureSchema();
 
-    public static HashSet<string> FavoriteIds => Repository.GetFavoriteIds();
+    // 2026-10-30 (оптимизация кассы, Б7): ProductCatalogMapper.TryTile спрашивал FavoriteIds на КАЖДЫЙ товар — запрос к SQLite × 15 000
+    // (45 с одного ядра на полной загрузке, если сервер не присылает is_favorite). Теперь набор кэшируется на 5 с (хватает на всю загрузку)
+    // и сбрасывается при SetFavorite. Возвращаемый набор только читают (Contains).
+    private static readonly object FavoriteGate = new();
+    private static HashSet<string>? _favoriteCache;
+    private static long _favoriteCacheAt;
 
-    public static void SetFavorite(string productId, bool isFavorite) =>
+    public static HashSet<string> FavoriteIds
+    {
+        get
+        {
+            lock (FavoriteGate)
+            {
+                var now = Environment.TickCount64;
+                if (_favoriteCache is null || now - _favoriteCacheAt > 5000)
+                {
+                    _favoriteCache = Repository.GetFavoriteIds();
+                    _favoriteCacheAt = now;
+                }
+
+                return _favoriteCache;
+            }
+        }
+    }
+
+    public static void SetFavorite(string productId, bool isFavorite)
+    {
         Repository.SetFavorite(productId, isFavorite);
+        lock (FavoriteGate)
+            _favoriteCache = null;
+    }
 
     public static bool LoadFromDatabase()
     {
@@ -110,11 +137,27 @@ public static class CatalogCacheService
         return string.Equals(local, remote.Token, StringComparison.Ordinal);
     }
 
+    /// <summary>2026-10-30 (15 тыс. товаров): общий путь обновления каталога для окон (Склад, массовая загрузка, ревизия, правка товара).
+    /// Ставит AvaloniaCatalogCacheService: лента изменений, если жива (секунды), иначе ОДНА полная загрузка на всю программу — раньше этот
+    /// статический путь качал весь каталог сам, параллельно фоновой синхронизации (в журнале владельца 30.10 — до трёх полных загрузок
+    /// по 155 страниц одновременно). null (стенды, старые хосты) — прежняя полная загрузка ниже.</summary>
+    public static Func<CancellationToken, Task<CatalogSyncResult>>? SharedRefresh { get; set; }
+
+    /// <summary>2026-10-30: «Обновить» на Складе — полная сверка всего каталога в фоне (одна на программу, не во время массовой загрузки).
+    /// Ставит AvaloniaCatalogCacheService; возвращает задачу загрузки или null, если полная загрузка сейчас не нужна или запрещена.</summary>
+    public static Func<Task<CatalogSyncResult>?>? RequestBackgroundFullReload { get; set; }
+
+    /// <summary>2026-10-30: каталог сверен с сервером (лентой или полной загрузкой) — для «каталог старше 10 минут» массовой загрузки.</summary>
+    public static void NoteSynced(DateTime utc) => LastSyncTime = utc;
+
     public static async Task<CatalogSyncResult> SyncCatalogFullAsync(CancellationToken cancellationToken = default)
     {
         // 2026-09-29: и в аварии сервера — каталог из локальной базы, сервер не дёргаем.
         if (OfflineModeHelper.SellLocally)
             return CatalogSyncResult.Failed("Нет подключения — каталог из локальной базы.");
+
+        if (SharedRefresh is { } shared)
+            return await shared(cancellationToken).ConfigureAwait(false);
 
         try
         {

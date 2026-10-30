@@ -625,14 +625,21 @@
             <Setter Property="Width" Value="16"/>
             <Setter Property="Height" Value="16"/>
         </Style>
+        <!-- 2026-10-29, Android: «⋯» трудно нажать пальцем — зона нажатия не меньше 48 dp (строка 52 это вмещает). -->
         <Style Selector="Button.row-more">
-            <Setter Property="Width" Value="44"/>
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="MinWidth" Value="48"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="MinHeight" Value="48"/>
             <Setter Property="Padding" Value="0"/>
         </Style>
         <!-- Узкая таблица (класс ставит ProductsGrid_SizeChanged) — только значки, подпись в подсказке. -->
         <Style Selector="DataGrid.row-compact Button.row-act">
             <Setter Property="Width" Value="44"/>
             <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="DataGrid.row-compact Button.row-more">
+            <Setter Property="Width" Value="48"/>
         </Style>
         <Style Selector="DataGrid.row-compact TextBlock.row-act-text">
             <Setter Property="IsVisible" Value="False"/>
@@ -946,9 +953,12 @@
                                                            FontSize="13" FontWeight="SemiBold"
                                                            HorizontalAlignment="Right"
                                                            Foreground="{DynamicResource BrushTextMuted}"/>
+                                                <!-- 2026-10-31 (стресс-тест 1.17.68): огромная сумма не режется молча — многоточие и полное значение в подсказке. -->
                                                 <TextBlock Text="{ReflectionBinding StockCostText}"
                                                            FontSize="11.5"
                                                            HorizontalAlignment="Right"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip.Tip="{ReflectionBinding StockCostText}"
                                                            Foreground="{DynamicResource BrushTextSoft}"/>
                                             </StackPanel>
                                         </DataTemplate>
@@ -982,7 +992,7 @@
                                             <!-- 2026-10-18, решение владельца: было 6 значков без подписей (±, ✎, этикетка, ценник, фото,
                                                  корзина). Видны два главных действия с подписью, остальное — в «⋯» (меню с подписями,
                                                  «Удалить» последним, красным, под чертой). Обработчики прежние. -->
-                                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,12,0">
+                                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,20,0"> <!-- 2026-10-29: отступ справа 12 → 20 (Android: «⋯» у края экрана) -->
                                                 <!-- 2026-10-06, редизайн склада: «±» — приход, списание или точное количество прямо из строки. -->
                                                 <Button Classes="sec-outline row-act" Click="StockAdjust_Click" Tag="{Binding}"
                                                         AutomationProperties.Name="{x:Static views:WarehouseWindow.RowStockName}"

@@ -2467,6 +2467,1008 @@
           "Fiyata 1.250,50 yazın; 1250,5 olarak okunur."
         ]
       }
+    },
+    {
+      "id": "1.18.9/offline-sale-resend",
+      "version": "1.18.9",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Продажа без связи и досылка без дублей",
+        "ky": "Байланышсыз сатуу жана кайталанбай жөнөтүү",
+        "uz": "Aloqasiz sotuv va takrorlanmasdan yuborish",
+        "en": "Offline sale and re-sending without duplicates",
+        "tr": "Bağlantısız satış ve kopya oluşturmadan gönderme"
+      },
+      "changed": {
+        "ru": "Если связи нет, чек сохраняется на телефоне и уходит на сервер, когда связь появится. Один и тот же чек не проводится дважды, даже если связь обрывалась посреди отправки.",
+        "ky": "Эгер байланыш жок болсо, чек телефондо сакталат жана байланыш пайда болгондо серверге кетет. Бир чек эки жолу өткөрүлбөйт, жөнөтүү учурунда байланыш үзүлсө да.",
+        "uz": "Aloqa bo'lmasa, chek telefonda saqlanadi va aloqa paydo bo'lgach serverga ketadi. Bir xil chek ikki marta o'tkazilmaydi, hatto yuborish paytida aloqa uzilsa ham.",
+        "en": "With no connection the receipt is kept on the phone and goes to the server when the connection returns. The same receipt is never posted twice, even if the connection drops in the middle of sending.",
+        "tr": "Bağlantı yoksa fiş telefonda saklanır ve bağlantı gelince sunucuya gider. Gönderim sırasında bağlantı kopsa bile aynı fiş iki kez işlenmez."
+      },
+      "steps": {
+        "ru": [
+          "Включите режим «в самолёте» (или выключите Wi-Fi и мобильные данные).",
+          "Проведите продажу одного товара наличными — чек должен сохраниться, на главной появится «На телефоне не отправлено: 1».",
+          "Проведите ещё одну продажу — счётчик станет 2.",
+          "Включите связь и подождите до минуты: счётчик исчезнет.",
+          "Откройте «Чеки» на телефоне и в программе на компьютере: каждый из двух чеков есть ровно один раз.",
+          "Повторите, но выключайте связь в момент отправки: чек не должен задвоиться."
+        ],
+        "ky": [
+          "«Учакта» режимин күйгүзүңүз (же Wi-Fi жана мобилдик берилиштерди өчүрүңүз).",
+          "Бир товарды накт акчага сатыңыз — чек сакталышы керек, башкы экранда «Телефондо жөнөтүлгөн жок: 1» чыгат.",
+          "Дагы бир сатуу жасаңыз — эсептегич 2 болот.",
+          "Байланышты күйгүзүп, бир мүнөткө чейин күтүңүз: эсептегич жоголот.",
+          "Телефондогу жана компьютердеги программадагы «Чектерди» ачыңыз: эки чектин ар бири так бир жолу бар.",
+          "Кайталаңыз, бирок жөнөтүү учурунда байланышты өчүрүңүз: чек экилениши керек эмес."
+        ],
+        "uz": [
+          "«Parvoz» rejimini yoqing (yoki Wi-Fi va mobil internetni o'chiring).",
+          "Bitta tovarni naqd pulga soting — chek saqlanishi kerak, bosh ekranda «Telefonda yuborilmagan: 1» chiqadi.",
+          "Yana bitta sotuv qiling — hisoblagich 2 bo'ladi.",
+          "Aloqani yoqing va bir daqiqagacha kuting: hisoblagich yo'qoladi.",
+          "Telefondagi va kompyuterdagi dasturdagi «Cheklar»ni oching: ikki chekning har biri aniq bir marta bor.",
+          "Takrorlang, lekin yuborish paytida aloqani o'chiring: chek ikkilanmasligi kerak."
+        ],
+        "en": [
+          "Turn on airplane mode (or switch off Wi-Fi and mobile data).",
+          "Sell one item for cash — the receipt must be saved and the home screen shows \"Not sent from this phone: 1\".",
+          "Make one more sale — the counter becomes 2.",
+          "Turn the connection back on and wait up to a minute: the counter disappears.",
+          "Open Receipts on the phone and in the desktop program: each of the two receipts is there exactly once.",
+          "Repeat, but cut the connection right while sending: the receipt must not be doubled."
+        ],
+        "tr": [
+          "Uçak modunu açın (veya Wi-Fi ile mobil veriyi kapatın).",
+          "Bir ürünü nakit satın; fiş kaydedilmeli, ana ekranda «Telefonda gönderilmeyen: 1» görünür.",
+          "Bir satış daha yapın; sayaç 2 olur.",
+          "Bağlantıyı açıp bir dakikaya kadar bekleyin: sayaç kaybolur.",
+          "Telefondaki «Fişler»i ve bilgisayardaki programı açın: iki fişin her biri tam bir kez var.",
+          "Tekrarlayın, ama bağlantıyı tam gönderim sırasında kesin: fiş ikilenmemeli."
+        ]
+      }
+    },
+    {
+      "id": "1.18.9/background-resend",
+      "version": "1.18.9",
+      "area": "sale",
+      "severity": "important",
+      "title": {
+        "ru": "Фоновая досылка чеков раз в 15 минут",
+        "ky": "Чектерди фондо 15 мүнөт сайын жөнөтүү",
+        "uz": "Cheklarni fonda har 15 daqiqada yuborish",
+        "en": "Background re-sending of receipts every 15 minutes",
+        "tr": "Fişlerin arka planda 15 dakikada bir gönderilmesi"
+      },
+      "changed": {
+        "ru": "Неотправленные чеки уходят на сервер и когда приложение закрыто: Android сам запускает проверку примерно раз в 15 минут, если есть сеть. Раньше они уходили только при открытом приложении. Только Android; на iPhone очередь уходит при открытии приложения.",
+        "ky": "Жөнөтүлбөгөн чектер колдонмо жабык болгондо да серверге кетет: Android тармак болсо, болжол менен 15 мүнөт сайын текшерүүнү өзү иштетет. Мурда алар колдонмо ачык болгондо гана кетчү. Android үчүн гана; iPhone'до кезек колдонмо ачылганда кетет.",
+        "uz": "Yuborilmagan cheklar ilova yopiq bo'lsa ham serverga ketadi: tarmoq bo'lsa, Android taxminan har 15 daqiqada tekshiruvni o'zi ishga tushiradi. Ilgari ular faqat ilova ochiq bo'lganda ketardi. Faqat Android; iPhone'da navbat ilova ochilganda ketadi.",
+        "en": "Unsent receipts now reach the server even when the app is closed: Android runs a check about every 15 minutes when there is a network. Before, they went only while the app was open. Android only; on iPhone the queue goes out when the app is opened.",
+        "tr": "Gönderilmeyen fişler uygulama kapalıyken de sunucuya gider: ağ varsa Android yaklaşık 15 dakikada bir kontrol çalıştırır. Önceden yalnızca uygulama açıkken giderdi. Yalnızca Android; iPhone'da kuyruk uygulama açılınca gider."
+      },
+      "steps": {
+        "ru": [
+          "Выключите связь и проведите продажу — на главной «На телефоне не отправлено: 1».",
+          "Включите связь и полностью закройте приложение (смахните из списка недавних). Не открывайте его.",
+          "Подождите 15–30 минут (экономия батареи может отложить запуск).",
+          "На компьютере в программе откройте «Чеки»: чек появился без открытия мобилки.",
+          "Откройте мобилку: счётчика «не отправлено» нет, в журнале «Синхронизация» есть запись о фоновой отправке.",
+          "Проверьте, что чек не задвоился."
+        ],
+        "ky": [
+          "Байланышты өчүрүп, сатуу жасаңыз — башкы экранда «Телефондо жөнөтүлгөн жок: 1».",
+          "Байланышты күйгүзүп, колдонмону толугу менен жабыңыз (акыркылар тизмесинен сүрүп салыңыз). Ачпаңыз.",
+          "15–30 мүнөт күтүңүз (батареяны үнөмдөө иштетүүнү кечиктириши мүмкүн).",
+          "Компьютердеги программада «Чектерди» ачыңыз: чек мобилканы ачпай эле пайда болду.",
+          "Мобилканы ачыңыз: «жөнөтүлгөн жок» эсептегичи жок, «Синхрондоо» журналында фондук жөнөтүү жөнүндө жазуу бар.",
+          "Чек экилене электигин текшериңиз."
+        ],
+        "uz": [
+          "Aloqani o'chirib, sotuv qiling — bosh ekranda «Telefonda yuborilmagan: 1».",
+          "Aloqani yoqing va ilovani butunlay yoping (so'nggilar ro'yxatidan surib tashlang). Ochmang.",
+          "15–30 daqiqa kuting (batareyani tejash ishga tushirishni kechiktirishi mumkin).",
+          "Kompyuterdagi dasturda «Cheklar»ni oching: chek mobilni ochmasdan paydo bo'ldi.",
+          "Mobilni oching: «yuborilmagan» hisoblagichi yo'q, «Sinxronlash» jurnalida fonda yuborish haqida yozuv bor.",
+          "Chek ikkilanmaganini tekshiring."
+        ],
+        "en": [
+          "Turn the connection off and make a sale — home shows \"Not sent from this phone: 1\".",
+          "Turn the connection on and fully close the app (swipe it from recent apps). Do not open it.",
+          "Wait 15–30 minutes (battery saving can delay the run).",
+          "On the computer open Receipts in the program: the receipt has appeared without opening the mobile app.",
+          "Open the mobile app: no \"not sent\" counter, and the Sync log has an entry about the background send.",
+          "Check that the receipt is not doubled."
+        ],
+        "tr": [
+          "Bağlantıyı kapatıp satış yapın; ana ekranda «Telefonda gönderilmeyen: 1» görünür.",
+          "Bağlantıyı açın ve uygulamayı tamamen kapatın (son uygulamalardan kaydırın). Açmayın.",
+          "15–30 dakika bekleyin (pil tasarrufu çalışmayı geciktirebilir).",
+          "Bilgisayarda programda «Fişler»i açın: fiş mobil uygulamayı açmadan göründü.",
+          "Mobil uygulamayı açın: «gönderilmedi» sayacı yok, «Eşitleme» günlüğünde arka plan gönderimi kaydı var.",
+          "Fişin ikilenmediğini kontrol edin."
+        ]
+      }
+    },
+    {
+      "id": "1.18.9/catalog-all-products",
+      "version": "1.18.9",
+      "area": "stock",
+      "severity": "important",
+      "title": {
+        "ru": "Весь каталог товаров (не только 100)",
+        "ky": "Товарлардын бардыгы (100 гана эмес)",
+        "uz": "Tovarlarning hammasi (faqat 100 emas)",
+        "en": "The whole product catalog (not just 100)",
+        "tr": "Tüm ürün kataloğu (yalnızca 100 değil)"
+      },
+      "changed": {
+        "ru": "Телефон загружает все товары магазина, а не первые 100. Раньше в магазине с 369 товарами на телефоне были видны только 100.",
+        "ky": "Телефон дүкөндүн бардык товарларын жүктөйт, алгачкы 100 гана эмес. Мурда 369 товарлуу дүкөндө телефондо 100 гана көрүнчү.",
+        "uz": "Telefon do'konning barcha tovarlarini yuklaydi, birinchi 100 tasini emas. Ilgari 369 ta tovarli do'konda telefonda faqat 100 tasi ko'rinardi.",
+        "en": "The phone loads every product of the store, not the first 100. Before, a store with 369 products showed only 100 on the phone.",
+        "tr": "Telefon mağazanın tüm ürünlerini yükler, ilk 100'ü değil. Önceden 369 ürünlü mağazada telefonda yalnızca 100 görünürdü."
+      },
+      "steps": {
+        "ru": [
+          "Войдите в магазин, где больше 100 товаров (на тестовом аккаунте NBS их 369).",
+          "Откройте «Склад» и сравните число товаров с программой на компьютере — число совпадает (369 из 369).",
+          "Найдите через поиск товар, который в списке был бы после сотого: он находится.",
+          "Нажмите «Обновить» и проверьте, что число не уменьшилось.",
+          "Отключите связь и откройте «Склад»: все товары на месте из памяти телефона."
+        ],
+        "ky": [
+          "100дөн ашык товары бар дүкөнгө кириңиз (NBS сыноо аккаунтунда 369).",
+          "«Кампаны» ачып, товарлардын санын компьютердеги программа менен салыштырыңыз — сан дал келет (369дан 369).",
+          "Тизмеде жүздөн кийин турчу товарды издөө аркылуу табыңыз: табылат.",
+          "«Жаңыртуу» баскычын басыңыз, сан азайбаганын текшериңиз.",
+          "Байланышты өчүрүп, «Кампаны» ачыңыз: бардык товар телефондун эс тутумунан жеринде."
+        ],
+        "uz": [
+          "100 tadan ko'p tovari bor do'konga kiring (NBS sinov akkauntida 369 ta).",
+          "«Ombor»ni oching va tovarlar sonini kompyuterdagi dastur bilan solishtiring — son mos keladi (369 dan 369).",
+          "Ro'yxatda yuzinchidan keyin turadigan tovarni qidiruv orqali toping: topiladi.",
+          "«Yangilash»ni bosing va son kamaymaganini tekshiring.",
+          "Aloqani o'chirib, «Ombor»ni oching: barcha tovarlar telefon xotirasidan joyida."
+        ],
+        "en": [
+          "Sign in to a store with more than 100 products (the NBS test account has 369).",
+          "Open Stock and compare the number of products with the desktop program — the numbers match (369 of 369).",
+          "Search for a product that would sit after the 100th in the list: it is found.",
+          "Tap Refresh and check that the number did not drop.",
+          "Turn the connection off and open Stock: all products are there from the phone memory."
+        ],
+        "tr": [
+          "100'den fazla ürünü olan bir mağazaya girin (NBS test hesabında 369).",
+          "«Depo»yu açıp ürün sayısını bilgisayardaki programla karşılaştırın; sayı aynıdır (369 / 369).",
+          "Listede yüzüncüden sonra gelecek bir ürünü aramayla bulun: bulunur.",
+          "«Yenile»ye dokunun ve sayının azalmadığını kontrol edin.",
+          "Bağlantıyı kapatıp «Depo»yu açın: tüm ürünler telefon belleğinden yerinde."
+        ]
+      }
+    },
+    {
+      "id": "1.18.9/offline-banner",
+      "version": "1.18.9",
+      "area": "other",
+      "severity": "important",
+      "title": {
+        "ru": "Плашка «Нет связи · данные от ЧЧ:ММ»",
+        "ky": "«Байланыш жок · маалымат СС:ММ» тилкеси",
+        "uz": "«Aloqa yo'q · ma'lumot SS:DD» lavhasi",
+        "en": "The \"No connection · data from HH:MM\" banner",
+        "tr": "«Bağlantı yok · veri SS:DD» bandı"
+      },
+      "changed": {
+        "ru": "Когда нет связи с сервером, вверху экрана появляется плашка «Нет связи · данные от ЧЧ:ММ» — время последней удачной загрузки. Показанные цифры — из памяти телефона, и это видно.",
+        "ky": "Серверге байланыш жок болгондо, экрандын үстүндө «Байланыш жок · маалымат СС:ММ» тилкеси чыгат — акыркы ийгиликтүү жүктөөнүн убактысы. Көрсөтүлгөн сандар телефондун эс тутумунан экени көрүнүп турат.",
+        "uz": "Serverga aloqa bo'lmasa, ekran tepasida «Aloqa yo'q · ma'lumot SS:DD» lavhasi paydo bo'ladi — oxirgi muvaffaqiyatli yuklash vaqti. Ko'rsatilgan raqamlar telefon xotirasidan ekani ko'rinib turadi.",
+        "en": "When the server cannot be reached, a banner \"No connection · data from HH:MM\" appears at the top — the time of the last successful load. The numbers shown come from the phone memory, and that is visible.",
+        "tr": "Sunucuya ulaşılamadığında üstte «Bağlantı yok · veri SS:DD» bandı çıkar: son başarılı yüklemenin saati. Gösterilen rakamların telefon belleğinden geldiği açıkça görünür."
+      },
+      "steps": {
+        "ru": [
+          "Откройте «Сводку» и «Склад» при работающей связи: плашки нет.",
+          "Выключите связь и откройте «Сводку»: вверху «Нет связи · данные от ЧЧ:ММ», время похоже на момент последней загрузки.",
+          "Откройте экран, который ни разу не грузился: «Нет данных — нет связи с сервером».",
+          "Включите связь и потяните экран вниз: плашка исчезает, цифры обновились.",
+          "Проверьте на экране 360 dp с крупным шрифтом: плашка не перекрывает кнопки."
+        ],
+        "ky": [
+          "Байланыш иштеп турганда «Жыйынтыкты» жана «Кампаны» ачыңыз: тилке жок.",
+          "Байланышты өчүрүп, «Жыйынтыкты» ачыңыз: үстүндө «Байланыш жок · маалымат СС:ММ», убакыт акыркы жүктөөгө окшош.",
+          "Бир да жолу жүктөлбөгөн экранды ачыңыз: «Маалымат жок — серверге байланыш жок».",
+          "Байланышты күйгүзүп, экранды ылдый тартыңыз: тилке жоголот, сандар жаңырды.",
+          "360 dp экранда жана чоң арипте текшериңиз: тилке баскычтарды жаппайт."
+        ],
+        "uz": [
+          "Aloqa ishlab turganda «Xulosa» va «Ombor»ni oching: lavha yo'q.",
+          "Aloqani o'chirib, «Xulosa»ni oching: tepada «Aloqa yo'q · ma'lumot SS:DD», vaqt oxirgi yuklashga o'xshaydi.",
+          "Hech yuklanmagan ekranni oching: «Ma'lumot yo'q — serverga aloqa yo'q».",
+          "Aloqani yoqing va ekranni pastga torting: lavha yo'qoladi, raqamlar yangilandi.",
+          "360 dp ekranda va katta shriftda tekshiring: lavha tugmalarni yopmaydi."
+        ],
+        "en": [
+          "Open Summary and Stock while the connection works: no banner.",
+          "Turn the connection off and open Summary: \"No connection · data from HH:MM\" at the top, the time looks like the last load.",
+          "Open a screen that never loaded: \"No data — no connection to the server\".",
+          "Turn the connection on and pull the screen down: the banner goes, the numbers are updated.",
+          "Check on a 360 dp screen with a large font: the banner does not cover buttons."
+        ],
+        "tr": [
+          "Bağlantı varken «Özet» ve «Depo»yu açın: bant yok.",
+          "Bağlantıyı kapatıp «Özet»i açın: üstte «Bağlantı yok · veri SS:DD», saat son yüklemeye benzer.",
+          "Hiç yüklenmemiş bir ekranı açın: «Veri yok — sunucuyla bağlantı yok».",
+          "Bağlantıyı açıp ekranı aşağı çekin: bant kaybolur, rakamlar güncellenir.",
+          "360 dp ekranda ve büyük yazıyla kontrol edin: bant düğmeleri kapatmaz."
+        ]
+      }
+    },
+    {
+      "id": "1.18.9/price-check-before-pay",
+      "version": "1.18.9",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Сверка цены перед оплатой",
+        "ky": "Төлөмдөн мурун баа текшерүү",
+        "uz": "To'lovdan oldin narxni solishtirish",
+        "en": "Price check before payment",
+        "tr": "Ödemeden önce fiyat kontrolü"
+      },
+      "changed": {
+        "ru": "Перед оплатой телефон сверяет цены в чеке с сервером. Если цена изменилась, продажа не проводится, цены в чеке обновляются и показывается «Цена изменилась: A → B». Без связи — пометка, что цена может быть устаревшей.",
+        "ky": "Төлөмдөн мурун телефон чектеги бааларды сервер менен салыштырат. Баа өзгөрсө, сатуу өткөрүлбөйт, чектеги баалар жаңырат жана «Баа өзгөрдү: A → B» көрсөтүлөт. Байланышсыз — баа эскирген болушу мүмкүн деген белги.",
+        "uz": "To'lovdan oldin telefon chekdagi narxlarni server bilan solishtiradi. Narx o'zgargan bo'lsa, sotuv o'tkazilmaydi, chekdagi narxlar yangilanadi va «Narx o'zgardi: A → B» ko'rsatiladi. Aloqasiz — narx eskirgan bo'lishi mumkinligi haqida belgi.",
+        "en": "Before payment the phone checks the receipt prices against the server. If a price has changed, the sale is not posted, the prices in the receipt are updated and \"Price changed: A → B\" is shown. Without a connection there is a note that the price may be outdated.",
+        "tr": "Ödemeden önce telefon fişteki fiyatları sunucuyla karşılaştırır. Fiyat değişmişse satış işlenmez, fişteki fiyatlar güncellenir ve «Fiyat değişti: A → B» gösterilir. Bağlantı yoksa fiyatın eskimiş olabileceği notu çıkar."
+      },
+      "steps": {
+        "ru": [
+          "Добавьте товар в чек на телефоне, не оплачивая.",
+          "В программе на компьютере (или в карточке товара на другом телефоне) измените цену этого товара, например 205 → 195.",
+          "На телефоне нажмите «Оплатить»: продажа не проведена, окно «Цена изменилась» со строкой «Название: 205 → 195 сом».",
+          "Проверьте, что в чеке теперь новая цена и сумма пересчитана, нажмите «Оплатить» ещё раз — продажа проходит по 195.",
+          "Выключите связь, соберите чек: показана пометка «Нет связи — цена в чеке может быть устаревшей».",
+          "Верните прежнюю цену товара на сервере."
+        ],
+        "ky": [
+          "Телефондо төлөбөй туруп, чекке товар кошуңуз.",
+          "Компьютердеги программада (же башка телефондогу товар карточкасында) ушул товардын баасын өзгөртүңүз, мисалы 205 → 195.",
+          "Телефондо «Төлөө» баскычын басыңыз: сатуу өткөн жок, «Баа өзгөрдү» терезеси «Аталышы: 205 → 195 сом» саптуу чыгат.",
+          "Чекте жаңы баа турганын жана сумма кайра эсептелгенин текшерип, «Төлөө» баскычын дагы басыңыз — сатуу 195 менен өтөт.",
+          "Байланышты өчүрүп, чек чогултуңуз: «Байланыш жок — чектеги баа эскирген болушу мүмкүн» белгиси көрүнөт.",
+          "Серверде товардын мурунку баасын кайтарыңыз."
+        ],
+        "uz": [
+          "Telefonda to'lamasdan chekka tovar qo'shing.",
+          "Kompyuterdagi dasturda (yoki boshqa telefondagi tovar kartochkasida) shu tovar narxini o'zgartiring, masalan 205 → 195.",
+          "Telefonda «To'lash»ni bosing: sotuv o'tmadi, «Narx o'zgardi» oynasi «Nomi: 205 → 195 so'm» qatori bilan chiqadi.",
+          "Chekda yangi narx turganini va summa qayta hisoblanganini tekshirib, «To'lash»ni yana bosing — sotuv 195 bo'yicha o'tadi.",
+          "Aloqani o'chirib, chek yig'ing: «Aloqa yo'q — chekdagi narx eskirgan bo'lishi mumkin» belgisi ko'rinadi.",
+          "Serverda tovarning avvalgi narxini qaytaring."
+        ],
+        "en": [
+          "Add an item to the receipt on the phone, without paying.",
+          "In the desktop program (or the product card on another phone) change that item's price, e.g. 205 → 195.",
+          "On the phone tap Pay: the sale is not posted, a \"Price changed\" window shows \"Name: 205 → 195 som\".",
+          "Check that the receipt now has the new price and the total is recalculated, tap Pay again — the sale goes through at 195.",
+          "Turn the connection off and build a receipt: the note \"No connection — the price in the receipt may be outdated\" is shown.",
+          "Put the previous price back on the server."
+        ],
+        "tr": [
+          "Telefonda ödemeden fişe bir ürün ekleyin.",
+          "Bilgisayardaki programda (veya başka bir telefondaki ürün kartında) bu ürünün fiyatını değiştirin, örneğin 205 → 195.",
+          "Telefonda «Öde»ye dokunun: satış işlenmez, «Fiyat değişti» penceresi «Ad: 205 → 195 som» satırıyla çıkar.",
+          "Fişte yeni fiyatın olduğunu ve toplamın yeniden hesaplandığını kontrol edip «Öde»ye tekrar dokunun; satış 195 ile geçer.",
+          "Bağlantıyı kapatıp fiş oluşturun: «Bağlantı yok — fişteki fiyat eskimiş olabilir» notu görünür.",
+          "Ürünün önceki fiyatını sunucuda geri koyun."
+        ]
+      }
+    },
+    {
+      "id": "1.18.9/mass-incoming-stock",
+      "version": "1.18.9",
+      "area": "invoices",
+      "severity": "money",
+      "title": {
+        "ru": "Приход без затирания остатка",
+        "ky": "Кирешени кабыл алуу калдыкты өчүрбөйт",
+        "uz": "Kirim qoldiqni o'chirib yubormaydi",
+        "en": "Receiving does not overwrite the stock",
+        "tr": "Mal kabulü stoku silmez"
+      },
+      "changed": {
+        "ru": "Приход товара (приёмка, накладная) теперь идёт отдельным запросом «приход» сервера и прибавляет количество к остатку. Раньше при гонке с продажей остаток мог быть перезаписан устаревшим числом.",
+        "ky": "Товарды кабыл алуу (кабыл алуу, накладной) эми серверге өзүнчө «киреше» сурамы менен барат жана санды калдыкка кошот. Мурда сатуу менен чуркашканда калдык эскирген сан менен жазылып калышы мүмкүн эле.",
+        "uz": "Tovar kirimi (qabul qilish, nakladnoy) endi serverga alohida «kirim» so'rovi bilan boradi va miqdorni qoldiqqa qo'shadi. Ilgari sotuv bilan bir vaqtda bo'lganda qoldiq eskirgan son bilan qayta yozilishi mumkin edi.",
+        "en": "Receiving goods (receiving, invoice) now goes to the server as a separate \"incoming\" request and adds the quantity to the stock. Before, a race with a sale could overwrite the stock with a stale number.",
+        "tr": "Mal kabulü (kabul, fatura) artık sunucuya ayrı bir «giriş» isteğiyle gider ve miktarı stoka ekler. Önceden satışla yarış olduğunda stok eski bir sayıyla ezilebiliyordu."
+      },
+      "steps": {
+        "ru": [
+          "Запишите остаток товара А (например 10 шт) на телефоне.",
+          "Откройте «Приёмку», добавьте товар А — 5 шт, закупка и наценка как обычно, проведите.",
+          "Остаток товара А стал 15 (а не 5). Проверьте то же в программе на компьютере.",
+          "Проведите продажу товара А на кассе и сразу — приёмку на телефоне: остаток = было + приход − продажа, ничего не потеряно.",
+          "Загрузите накладную с двумя товарами: у обоих остаток вырос на количество из накладной.",
+          "Повторно загрузите ту же накладную: приложение предупреждает о повторе."
+        ],
+        "ky": [
+          "А товарынын калдыгын (мисалы 10 даана) телефондон жазып алыңыз.",
+          "«Кабыл алууну» ачып, А товарын кошуңуз — 5 даана, сатып алуу жана үстөк баа адаттагыдай, өткөрүңүз.",
+          "А товарынын калдыгы 15 болду (5 эмес). Ушуну компьютердеги программада да текшериңиз.",
+          "Кассада А товарын сатыңыз жана дароо телефондо кабыл алуу жасаңыз: калдык = болгон + киреше − сатуу, эч нерсе жоголгон жок.",
+          "Эки товарлуу накладнойду жүктөңүз: экөөнүн калдыгы накладнойдогу санга көбөйдү.",
+          "Ошол эле накладнойду кайра жүктөңүз: колдонмо кайталоо тууралуу эскертет."
+        ],
+        "uz": [
+          "A tovarining qoldig'ini (masalan 10 dona) telefondan yozib oling.",
+          "«Qabul qilish»ni oching, A tovarini qo'shing — 5 dona, xarid va ustama odatdagidek, o'tkazing.",
+          "A tovarining qoldig'i 15 bo'ldi (5 emas). Buni kompyuterdagi dasturda ham tekshiring.",
+          "Kassada A tovarini soting va darhol telefonda qabul qiling: qoldiq = bor edi + kirim − sotuv, hech narsa yo'qolmadi.",
+          "Ikki tovarli nakladnoyni yuklang: ikkalasining qoldig'i nakladnoydagi songa oshdi.",
+          "Xuddi shu nakladnoyni qayta yuklang: ilova takror haqida ogohlantiradi."
+        ],
+        "en": [
+          "Note the stock of item A (e.g. 10 pcs) on the phone.",
+          "Open Receiving, add item A — 5 pcs, purchase price and markup as usual, post it.",
+          "The stock of item A became 15 (not 5). Check the same in the desktop program.",
+          "Sell item A at the till and right after that make a receiving on the phone: stock = was + incoming − sale, nothing is lost.",
+          "Upload an invoice with two items: both stocks grew by the quantity in the invoice.",
+          "Upload the same invoice again: the app warns about the repeat."
+        ],
+        "tr": [
+          "A ürününün stokunu (örn. 10 adet) telefonda not edin.",
+          "«Mal kabulü»nü açın, A ürününü ekleyin: 5 adet, alış fiyatı ve kâr oranı her zamanki gibi, işleyin.",
+          "A ürününün stoku 15 oldu (5 değil). Aynısını bilgisayardaki programda da kontrol edin.",
+          "Kasada A ürününü satın ve hemen telefonda mal kabulü yapın: stok = önceki + giriş − satış, hiçbir şey kaybolmadı.",
+          "İki ürünlü bir fatura yükleyin: ikisinin de stoku faturadaki miktar kadar arttı.",
+          "Aynı faturayı tekrar yükleyin: uygulama tekrar konusunda uyarır."
+        ]
+      }
+    },
+    {
+      "id": "1.18.9/audit-queue-no-auto",
+      "version": "1.18.9",
+      "area": "stock",
+      "severity": "important",
+      "title": {
+        "ru": "Ревизия из очереди не проводится сама",
+        "ky": "Кезектеги ревизия өзү өтпөйт",
+        "uz": "Navbatdagi reviziya o'zi o'tmaydi",
+        "en": "A queued stock-take is not posted by itself",
+        "tr": "Kuyruktaki sayım kendiliğinden işlenmez"
+      },
+      "changed": {
+        "ru": "Если ревизия (пересчёт остатков) осталась в очереди без связи, она не проводится автоматически позже по старым числам: остатки за это время могли измениться. Приложение сообщает «Ревизия не проведена вовремя — пересчитайте заново», акт остаётся черновиком.",
+        "ky": "Ревизия (калдыктарды кайра саноо) байланышсыз кезекте калса, ал кийин эски сандар менен автоматтык өткөрүлбөйт: бул убакытта калдыктар өзгөрүп кетиши мүмкүн. Колдонмо «Ревизия өз убагында өткөрүлгөн жок — кайра санаңыз» деп билдирет, акт долбоор бойдон калат.",
+        "uz": "Agar reviziya (qoldiqlarni qayta sanash) aloqasiz navbatda qolsa, u keyinroq eski sonlar bilan avtomatik o'tkazilmaydi: bu vaqtda qoldiqlar o'zgargan bo'lishi mumkin. Ilova «Reviziya o'z vaqtida o'tkazilmadi — qayta sanang» deb xabar beradi, dalolatnoma qoralama bo'lib qoladi.",
+        "en": "If a stock-take (recount) stayed in the queue without a connection, it is not posted automatically later with old numbers: the stock may have changed meanwhile. The app says \"The stock-take was not posted in time — recount\", and the act stays a draft.",
+        "tr": "Bir sayım (stok yenileme) bağlantısız kuyrukta kaldıysa, sonradan eski sayılarla otomatik işlenmez: bu arada stok değişmiş olabilir. Uygulama «Sayım zamanında işlenmedi — yeniden sayın» der, tutanak taslak olarak kalır."
+      },
+      "steps": {
+        "ru": [
+          "Откройте «Ревизию», пересчитайте 2–3 товара и выключите связь до проведения.",
+          "Нажмите «Провести»: акт встаёт в очередь, остатки на сервере не изменились.",
+          "Поменяйте остаток одного из этих товаров (проведите продажу на кассе).",
+          "Включите связь и подождите: ревизия сама не проводится, остаток товара остался тем, что после продажи.",
+          "В «Синхронизации» или на экране ревизии видно «Ревизия не проведена вовремя — … Пересчитайте заново»; акт — черновик.",
+          "Пересчитайте заново при связи и проведите: остатки стали равны пересчёту."
+        ],
+        "ky": [
+          "«Ревизияны» ачып, 2–3 товарды кайра санаңыз да, өткөрүүдөн мурун байланышты өчүрүңүз.",
+          "«Өткөрүү» баскычын басыңыз: акт кезекке турат, серверде калдыктар өзгөргөн жок.",
+          "Ушул товарлардын бирөөнүн калдыгын өзгөртүңүз (кассада сатуу жасаңыз).",
+          "Байланышты күйгүзүп, күтүңүз: ревизия өзү өтпөйт, товардын калдыгы сатуудан кийинки бойдон калды.",
+          "«Синхрондоодо» же ревизия экранында «Ревизия өз убагында өткөрүлгөн жок — … Кайра санаңыз» көрүнөт; акт — долбоор.",
+          "Байланыш менен кайра санап, өткөрүңүз: калдыктар кайра саноого барабар болду."
+        ],
+        "uz": [
+          "«Reviziya»ni oching, 2–3 ta tovarni qayta sanang va o'tkazishdan oldin aloqani o'chiring.",
+          "«O'tkazish»ni bosing: dalolatnoma navbatga turadi, serverda qoldiqlar o'zgarmadi.",
+          "Shu tovarlardan birining qoldig'ini o'zgartiring (kassada sotuv qiling).",
+          "Aloqani yoqing va kuting: reviziya o'zi o'tmaydi, tovar qoldig'i sotuvdan keyingi holda qoldi.",
+          "«Sinxronlash»da yoki reviziya ekranida «Reviziya o'z vaqtida o'tkazilmadi — … Qayta sanang» ko'rinadi; dalolatnoma — qoralama.",
+          "Aloqa bilan qayta sanab, o'tkazing: qoldiqlar qayta sanashga teng bo'ldi."
+        ],
+        "en": [
+          "Open Stock-take, recount 2–3 items and turn the connection off before posting.",
+          "Tap Post: the act goes into the queue, the stock on the server is unchanged.",
+          "Change the stock of one of those items (make a sale at the till).",
+          "Turn the connection on and wait: the stock-take does not post itself, the item stock stays as after the sale.",
+          "In Sync or on the stock-take screen you see \"The stock-take was not posted in time — … Recount\"; the act is a draft.",
+          "Recount with a connection and post: the stock equals the recount."
+        ],
+        "tr": [
+          "«Sayım»ı açın, 2–3 ürünü yeniden sayın ve işlemeden önce bağlantıyı kapatın.",
+          "«İşle»ye dokunun: tutanak kuyruğa girer, sunucudaki stok değişmez.",
+          "Bu ürünlerden birinin stokunu değiştirin (kasada satış yapın).",
+          "Bağlantıyı açıp bekleyin: sayım kendiliğinden işlenmez, ürün stoku satıştan sonraki haliyle kalır.",
+          "«Eşitleme»de veya sayım ekranında «Sayım zamanında işlenmedi — … Yeniden sayın» görünür; tutanak taslaktır.",
+          "Bağlantıyla yeniden sayıp işleyin: stok sayıma eşit olur."
+        ]
+      }
+    },
+    {
+      "id": "1.18.9/search-yo-layout",
+      "version": "1.18.9",
+      "area": "stock",
+      "severity": "normal",
+      "title": {
+        "ru": "Поиск: «елка» = «ёлка», раскладка",
+        "ky": "Издөө: «елка» = «ёлка», тергич",
+        "uz": "Qidiruv: «елка» = «ёлка», klaviatura",
+        "en": "Search: \"елка\" = \"ёлка\", keyboard layout",
+        "tr": "Arama: «елка» = «ёлка», klavye düzeni"
+      },
+      "changed": {
+        "ru": "Поиск товара не различает «е» и «ё», находит товар, набранный в неверной раскладке (например «ghbdtn» вместо «привет»), и слова можно вводить в любом порядке.",
+        "ky": "«е» менен «ё» айырмаланбайт, туура эмес тергичте терилген товарды таап берет (мисалы «привет» ордуна «ghbdtn») жана сөздөрдү каалаган тартипте жазса болот.",
+        "uz": "Tovar qidiruvi «е» va «ё» ni farqlamaydi, noto'g'ri klaviaturada terilgan tovarni topadi (masalan «привет» o'rniga «ghbdtn») va so'zlarni istalgan tartibda kiritish mumkin.",
+        "en": "Product search does not tell \"е\" from \"ё\", finds a product typed in the wrong layout (e.g. \"ghbdtn\" instead of \"привет\") and the words can be typed in any order.",
+        "tr": "Ürün araması «е» ile «ё» arasında fark gözetmez, yanlış klavye düzeninde yazılan ürünü bulur (örn. «привет» yerine «ghbdtn») ve sözcükler herhangi bir sırada yazılabilir."
+      },
+      "steps": {
+        "ru": [
+          "Заведите (или найдите) товар «Ёлка новогодняя». В «Складе» наберите «елка» — товар находится.",
+          "Наберите «ёлка новогодняя» и «новогодняя елка» — тот же товар.",
+          "Переключите клавиатуру на латиницу и наберите название в неверной раскладке (например «tkrf» вместо «елка») — товар находится.",
+          "Наберите несколько слов названия в обратном порядке — товар находится.",
+          "Проверьте тот же поиск на экране продажи и в приёмке."
+        ],
+        "ky": [
+          "«Жаңы жылдык ёлка» товарын түзүңүз (же табыңыз). «Кампада» «елка» деп териңиз — товар табылат.",
+          "«ёлка» жана «елка жаңы жылдык» деп териңиз — ошол эле товар.",
+          "Клавиатураны латынга которуп, аталышты туура эмес тергичте териңиз (мисалы «елка» ордуна «tkrf») — товар табылат.",
+          "Аталыштын бир нече сөзүн тескери тартипте териңиз — товар табылат.",
+          "Ушул эле издөөнү сатуу экранында жана кабыл алууда да текшериңиз."
+        ],
+        "uz": [
+          "«Yangi yil archasi (ёлка)» tovarini yarating (yoki toping). «Ombor»da «елка» deb tering — tovar topiladi.",
+          "«ёлка» va «елка yangi yil» deb tering — o'sha tovar.",
+          "Klaviaturani lotinga o'tkazib, nomni noto'g'ri klaviaturada tering (masalan «елка» o'rniga «tkrf») — tovar topiladi.",
+          "Nomning bir necha so'zini teskari tartibda tering — tovar topiladi.",
+          "Xuddi shu qidiruvni sotuv ekranida va qabul qilishda ham tekshiring."
+        ],
+        "en": [
+          "Create (or find) an item \"Ёлка новогодняя\". In Stock type \"елка\" — the item is found.",
+          "Type \"ёлка новогодняя\" and \"новогодняя елка\" — the same item.",
+          "Switch the keyboard to Latin and type the name in the wrong layout (e.g. \"tkrf\" instead of \"елка\") — the item is found.",
+          "Type several words of the name in reverse order — the item is found.",
+          "Check the same search on the sale screen and in Receiving."
+        ],
+        "tr": [
+          "«Ёлка новогодняя» ürününü oluşturun (veya bulun). «Depo»da «елка» yazın; ürün bulunur.",
+          "«ёлка новогодняя» ve «новогодняя елка» yazın; aynı ürün.",
+          "Klavyeyi Latin'e çevirip adı yanlış düzende yazın (örn. «елка» yerine «tkrf»); ürün bulunur.",
+          "Adın birkaç sözcüğünü ters sırada yazın; ürün bulunur.",
+          "Aynı aramayı satış ekranında ve mal kabulünde de kontrol edin."
+        ]
+      }
+    },
+    {
+      "id": "1.18.9/wifi-portal-message",
+      "version": "1.18.9",
+      "area": "other",
+      "severity": "normal",
+      "title": {
+        "ru": "Страница входа Wi-Fi: понятное сообщение",
+        "ky": "Wi-Fi кирүү баракчасы: түшүнүктүү билдирүү",
+        "uz": "Wi-Fi kirish sahifasi: tushunarli xabar",
+        "en": "Wi-Fi sign-in page: a clear message",
+        "tr": "Wi-Fi giriş sayfası: anlaşılır mesaj"
+      },
+      "changed": {
+        "ru": "Если сеть магазина просит войти на странице Wi-Fi и вместо ответа сервера приходит эта страница, приложение пишет «Откройте страницу входа Wi-Fi (сеть магазина просит войти) и повторите» вместо непонятной ошибки.",
+        "ky": "Дүкөндүн тармагы Wi-Fi баракчасында кирүүнү сурап, сервердин жообунун ордуна ошол баракча келсе, колдонмо түшүнүксүз катанын ордуна «Wi-Fi кирүү баракчасын ачыңыз (дүкөндүн тармагы кирүүнү сурайт) жана кайталаңыз» деп жазат.",
+        "uz": "Do'kon tarmog'i Wi-Fi sahifasida kirishni so'rasa va server javobi o'rniga shu sahifa kelsa, ilova tushunarsiz xato o'rniga «Wi-Fi kirish sahifasini oching (do'kon tarmog'i kirishni so'raydi) va takrorlang» deb yozadi.",
+        "en": "If the store network asks to sign in on a Wi-Fi page and that page comes back instead of the server reply, the app says \"Open the Wi-Fi sign-in page (the store network asks to sign in) and retry\" instead of an obscure error.",
+        "tr": "Mağaza ağı Wi-Fi sayfasında giriş isterse ve sunucu yanıtı yerine o sayfa gelirse, uygulama anlaşılmaz bir hata yerine «Wi-Fi giriş sayfasını açın (mağaza ağı giriş istiyor) ve tekrarlayın» yazar."
+      },
+      "steps": {
+        "ru": [
+          "Подключитесь к Wi-Fi с входом через страницу (кафе, гостевая сеть) и не входите на странице.",
+          "Откройте в приложении «Сводку» или проведите продажу: вместо непонятной ошибки сообщение «Откройте страницу входа Wi-Fi…».",
+          "Откройте браузер, войдите на странице Wi-Fi, вернитесь в приложение и повторите: всё работает.",
+          "Проверьте, что чек при этом не потерян (он в очереди «не отправлено») и не задвоился после входа."
+        ],
+        "ky": [
+          "Баракча аркылуу кирүүчү Wi-Fi'га (кафе, конок тармагы) туташыңыз, бирок баракчада кирбеңиз.",
+          "Колдонмодо «Жыйынтыкты» ачыңыз же сатуу жасаңыз: түшүнүксүз катанын ордуна «Wi-Fi кирүү баракчасын ачыңыз…» билдирүүсү.",
+          "Браузерди ачып, Wi-Fi баракчасында кирип, колдонмого кайтып, кайталаңыз: баары иштейт.",
+          "Чек жоголбогонун (ал «жөнөтүлгөн жок» кезегинде) жана киргенден кийин экилене электигин текшериңиз."
+        ],
+        "uz": [
+          "Sahifa orqali kiriladigan Wi-Fi'ga (kafe, mehmon tarmog'i) ulaning va sahifada kirmang.",
+          "Ilovada «Xulosa»ni oching yoki sotuv qiling: tushunarsiz xato o'rniga «Wi-Fi kirish sahifasini oching…» xabari.",
+          "Brauzerni oching, Wi-Fi sahifasida kiring, ilovaga qayting va takrorlang: hammasi ishlaydi.",
+          "Chek yo'qolmaganini («yuborilmagan» navbatida) va kirgandan keyin ikkilanmaganini tekshiring."
+        ],
+        "en": [
+          "Connect to a Wi-Fi that needs a sign-in page (cafe, guest network) and do not sign in on the page.",
+          "Open Summary in the app or make a sale: instead of an obscure error the message \"Open the Wi-Fi sign-in page…\".",
+          "Open the browser, sign in on the Wi-Fi page, go back to the app and retry: everything works.",
+          "Check that the receipt was not lost (it is in the \"not sent\" queue) and was not doubled after sign-in."
+        ],
+        "tr": [
+          "Sayfa üzerinden giriş isteyen bir Wi-Fi'a (kafe, misafir ağı) bağlanın ve sayfada giriş yapmayın.",
+          "Uygulamada «Özet»i açın veya satış yapın: anlaşılmaz hata yerine «Wi-Fi giriş sayfasını açın…» mesajı çıkar.",
+          "Tarayıcıyı açın, Wi-Fi sayfasında giriş yapın, uygulamaya dönün ve tekrarlayın: her şey çalışır.",
+          "Fişin kaybolmadığını («gönderilmedi» kuyruğunda) ve girişten sonra ikilenmediğini kontrol edin."
+        ]
+      }
+    },
+    {
+      "id": "1.18.9/account-switch-wipe",
+      "version": "1.18.9",
+      "area": "profile",
+      "severity": "money",
+      "title": {
+        "ru": "Смена аккаунта: товары прошлого не остаются",
+        "ky": "Аккаунтты алмаштыруу: мурункунун товарлары калбайт",
+        "uz": "Akkauntni almashtirish: avvalgisining tovarlari qolmaydi",
+        "en": "Switching accounts: the previous account's products do not stay",
+        "tr": "Hesap değiştirme: önceki hesabın ürünleri kalmaz"
+      },
+      "changed": {
+        "ru": "Когда в приложение входит другой аккаунт (другой логин, компания, магазин), товары, остатки и настройки каталога прошлого аккаунта стираются, каталог нового грузится заново. Неотправленные чеки прошлого аккаунта остаются в очереди и уходят только под его логином; клиенты, должники, чеки, ключи ИИ и настройки не стираются.",
+        "ky": "Колдонмого башка аккаунт (башка логин, компания, дүкөн) кирсе, мурунку аккаунттын товарлары, калдыктары жана каталог жөндөөлөрү өчүрүлөт, жаңысынын каталогу кайра жүктөлөт. Мурунку аккаунттын жөнөтүлбөгөн чектери кезекте калат жана анын логини менен гана кетет; кардарлар, карыздар, чектер, ЖИ ачкычтары жана жөндөөлөр өчүрүлбөйт.",
+        "uz": "Ilovaga boshqa akkaunt (boshqa login, kompaniya, do'kon) kirsa, avvalgi akkauntning tovarlari, qoldiqlari va katalog sozlamalari o'chiriladi, yangisining katalogi qaytadan yuklanadi. Avvalgi akkauntning yuborilmagan cheklari navbatda qoladi va faqat uning logini bilan ketadi; mijozlar, qarzdorlar, cheklar, AI kalitlari va sozlamalar o'chirilmaydi.",
+        "en": "When a different account (another login, company, store) signs in, the previous account's products, stock and catalog settings are erased and the new catalog is loaded afresh. The previous account's unsent receipts stay in the queue and go out only under its own login; clients, debtors, receipts, AI keys and settings are not erased.",
+        "tr": "Uygulamaya başka bir hesap (başka giriş, şirket, mağaza) girdiğinde önceki hesabın ürünleri, stoku ve katalog ayarları silinir, yenisinin kataloğu baştan yüklenir. Önceki hesabın gönderilmeyen fişleri kuyrukta kalır ve yalnızca kendi girişiyle gider; müşteriler, borçlular, fişler, YZ anahtarları ve ayarlar silinmez."
+      },
+      "steps": {
+        "ru": [
+          "Войдите аккаунтом A (магазин с товарами), откройте «Склад» — запомните пару названий.",
+          "Выключите связь, проведите продажу и не досылайте её; включите связь.",
+          "Выйдите из аккаунта и войдите аккаунтом B (другая компания или другой магазин).",
+          "Откройте «Склад» и поиск в продаже: названий магазина A нет вообще, только товары B (после загрузки каталога).",
+          "Проверьте «Синхронизация»: чек A показан как «чужой» и не уходит под B; клиенты, должники и ключи ИИ не пропали.",
+          "Выйдите и снова войдите аккаунтом A: каталог A загружается заново, неотправленный чек A уходит.",
+          "Выйдите и войдите тем же аккаунтом A ещё раз: каталог не перекачивается целиком, без пустого склада."
+        ],
+        "ky": [
+          "A аккаунту менен кириңиз (товарлуу дүкөн), «Кампаны» ачыңыз — бир-эки аталышты эстеп калыңыз.",
+          "Байланышты өчүрүп, сатуу жасаңыз, жөнөтпөңүз; байланышты күйгүзүңүз.",
+          "Аккаунттан чыгып, B аккаунту менен кириңиз (башка компания же башка дүкөн).",
+          "«Кампаны» жана сатуудагы издөөнү ачыңыз: A дүкөнүнүн аталыштары такыр жок, B товарлары гана (каталог жүктөлгөндөн кийин).",
+          "«Синхрондоону» текшериңиз: A чеги «бөтөн» катары көрүнөт жана B менен кетпейт; кардарлар, карыздар жана ЖИ ачкычтары жоголгон жок.",
+          "Чыгып, кайра A аккаунту менен кириңиз: A каталогу кайра жүктөлөт, жөнөтүлбөгөн A чеги кетет.",
+          "Чыгып, ошол эле A аккаунту менен дагы кириңиз: каталог толугу менен кайра жүктөлбөйт, кампа бош эмес."
+        ],
+        "uz": [
+          "A akkaunti bilan kiring (tovarli do'kon), «Ombor»ni oching — bir-ikki nomni eslab qoling.",
+          "Aloqani o'chirib, sotuv qiling va yubormang; aloqani yoqing.",
+          "Akkauntdan chiqib, B akkaunti bilan kiring (boshqa kompaniya yoki boshqa do'kon).",
+          "«Ombor» va sotuvdagi qidiruvni oching: A do'konining nomlari umuman yo'q, faqat B tovarlari (katalog yuklangandan keyin).",
+          "«Sinxronlash»ni tekshiring: A cheki «begona» deb ko'rsatiladi va B bilan ketmaydi; mijozlar, qarzdorlar va AI kalitlari yo'qolmadi.",
+          "Chiqib, yana A akkaunti bilan kiring: A katalogi qaytadan yuklanadi, yuborilmagan A cheki ketadi.",
+          "Chiqib, xuddi shu A akkaunti bilan yana kiring: katalog butunlay qayta yuklanmaydi, ombor bo'sh emas."
+        ],
+        "en": [
+          "Sign in as account A (a store with products), open Stock and remember a couple of names.",
+          "Turn the connection off, make a sale and do not send it; turn the connection on.",
+          "Sign out and sign in as account B (another company or store).",
+          "Open Stock and the sale search: no names from store A at all, only B products (after the catalog loads).",
+          "Check Sync: the A receipt is shown as \"foreign\" and does not go out under B; clients, debtors and AI keys are still there.",
+          "Sign out and sign in as A again: the A catalog is loaded afresh, the unsent A receipt goes out.",
+          "Sign out and sign in as the same account A once more: the catalog is not fully re-downloaded, no empty stock."
+        ],
+        "tr": [
+          "A hesabıyla girin (ürünleri olan mağaza), «Depo»yu açın ve birkaç adı aklınızda tutun.",
+          "Bağlantıyı kapatıp bir satış yapın ve göndermeyin; bağlantıyı açın.",
+          "Çıkış yapıp B hesabıyla girin (başka şirket veya mağaza).",
+          "«Depo»yu ve satıştaki aramayı açın: A mağazasının adları hiç yok, yalnızca B ürünleri (katalog yüklendikten sonra).",
+          "«Eşitleme»yi kontrol edin: A fişi «yabancı» görünür ve B ile gitmez; müşteriler, borçlular ve YZ anahtarları yerinde.",
+          "Çıkıp yeniden A ile girin: A kataloğu baştan yüklenir, gönderilmeyen A fişi gider.",
+          "Çıkıp aynı A hesabıyla bir kez daha girin: katalog baştan indirilmez, depo boş kalmaz."
+        ]
+      }
+    },
+    {
+      "id": "1.18.9/search-whole-catalog",
+      "version": "1.18.9",
+      "area": "stock",
+      "severity": "important",
+      "title": {
+        "ru": "Больше 1000 товаров: каталог и поиск без лимита 100",
+        "ky": "1000ден ашык товар: каталог жана издөө 100 чектөөсүз",
+        "uz": "1000 tadan ortiq tovar: katalog va qidiruv 100 cheklovisiz",
+        "en": "Over 1000 products: catalog and search without the 100 limit",
+        "tr": "1000'den fazla ürün: 100 sınırı olmayan katalog ve arama"
+      },
+      "changed": {
+        "ru": "Каталог загружается до конца, сколько бы товаров ни было (проверено на 2500): телефон идёт по страницам сервера, пока они не кончатся. Поиск на экранах продажи и склада идёт по всей базе телефона, а не по первым 100.",
+        "ky": "Каталог канча товар болсо да аягына чейин жүктөлөт (2500гө текшерилди): телефон сервердин барактарын бүтмөйүнчө аралайт. Сатуу жана кампа экрандарындагы издөө телефондун бүт базасы боюнча жүрөт, алгачкы 100 боюнча эмес.",
+        "uz": "Katalog tovar qancha bo'lmasin oxirigacha yuklanadi (2500 gacha sinalgan): telefon server sahifalarini tugamaguncha aylanadi. Sotuv va ombor ekranlaridagi qidiruv telefonning butun bazasi bo'yicha ketadi, birinchi 100 tasi bo'yicha emas.",
+        "en": "The catalog loads to the end however many products there are (checked on 2500): the phone walks through the server pages until they run out. Search on the sale and stock screens covers the whole phone database, not just the first 100.",
+        "tr": "Katalog kaç ürün olursa olsun sonuna kadar yüklenir (2500 ile denendi): telefon sunucu sayfalarını bitene kadar gezer. Satış ve depo ekranlarındaki arama yalnızca ilk 100'ü değil, telefonun tüm veritabanını kapsar."
+      },
+      "steps": {
+        "ru": [
+          "Войдите в магазин, где больше 1000 товаров (или загрузите массово 1100–2500 товаров на тестовом аккаунте).",
+          "На телефоне нажмите «Обновить» на складе и подождите: число товаров равно числу в программе на компьютере.",
+          "В «Продаже» без поиска прокрутите список до конца: товаров столько же, а не 100.",
+          "Найдите поиском товар, который в списке стоит за тысячным: он находится по названию, по штрихкоду и по двум словам в любом порядке.",
+          "То же в «Складе», в приёмке и в поиске на главной.",
+          "Выключите связь и повторите поиск: результаты те же (из памяти телефона)."
+        ],
+        "ky": [
+          "1000ден ашык товары бар дүкөнгө кириңиз (же сыноо аккаунтка 1100–2500 товарды жаппай жүктөңүз).",
+          "Телефондо кампада «Жаңыртуу» баскычын басып, күтүңүз: товарлардын саны компьютердеги программадагы сан менен барабар.",
+          "«Сатууда» издебей тизмени аягына чейин жылдырыңыз: товар ошончо, 100 эмес.",
+          "Тизмеде миңинчиден кийин турган товарды издөө менен табыңыз: аталышы, штрихкоду жана каалаган тартиптеги эки сөз менен табылат.",
+          "Ушул эле «Кампада», кабыл алууда жана башкы экрандагы издөөдө.",
+          "Байланышты өчүрүп, издөөнү кайталаңыз: натыйжа бирдей (телефондун эс тутумунан)."
+        ],
+        "uz": [
+          "1000 tadan ortiq tovari bor do'konga kiring (yoki sinov akkauntga 1100–2500 tovarni ommaviy yuklang).",
+          "Telefonda omborda «Yangilash»ni bosing va kuting: tovarlar soni kompyuterdagi dasturdagi son bilan teng.",
+          "«Sotuv»da qidirmasdan ro'yxatni oxirigacha aylantiring: tovar shuncha, 100 emas.",
+          "Ro'yxatda mingdan keyin turadigan tovarni qidiruv bilan toping: nomi, shtrixkodi va istalgan tartibdagi ikki so'z bilan topiladi.",
+          "Xuddi shu «Ombor»da, qabul qilishda va bosh ekrandagi qidiruvda.",
+          "Aloqani o'chirib, qidiruvni takrorlang: natijalar bir xil (telefon xotirasidan)."
+        ],
+        "en": [
+          "Sign in to a store with more than 1000 products (or bulk-upload 1100–2500 products on the test account).",
+          "On the phone tap Refresh in Stock and wait: the number of products equals the number in the desktop program.",
+          "In Sale, with no search, scroll the list to the end: there are as many products, not 100.",
+          "Search for a product that sits past the thousandth: it is found by name, by barcode and by two words in any order.",
+          "The same in Stock, in Receiving and in the home search.",
+          "Turn the connection off and repeat the search: the same results (from the phone memory)."
+        ],
+        "tr": [
+          "1000'den fazla ürünü olan bir mağazaya girin (veya test hesabına 1100–2500 ürünü toplu yükleyin).",
+          "Telefonda Depo'da «Yenile»ye dokunup bekleyin: ürün sayısı bilgisayardaki programdaki sayıya eşittir.",
+          "«Satış»ta arama yapmadan listeyi sonuna kadar kaydırın: ürün sayısı aynı, 100 değil.",
+          "Binincinin ötesinde duran bir ürünü aramayla bulun: ad, barkod ve herhangi bir sırada iki sözcükle bulunur.",
+          "Aynısını Depo'da, mal kabulünde ve ana ekrandaki aramada deneyin.",
+          "Bağlantıyı kapatıp aramayı tekrarlayın: sonuçlar aynı (telefon belleğinden)."
+        ]
+      }
+    },
+    {
+      "id": "1.18.10/account-full-isolation",
+      "version": "1.18.10",
+      "area": "profile",
+      "severity": "money",
+      "title": {
+        "ru": "Смена аккаунта: ничего от прошлого не остаётся",
+        "ky": "Аккаунтту алмаштыруу: мурункудан эч нерсе калбайт",
+        "uz": "Akkauntni almashtirish: avvalgisidan hech narsa qolmaydi",
+        "en": "Switching accounts: nothing from the previous one stays",
+        "tr": "Hesap değiştirme: öncekinden hiçbir şey kalmaz"
+      },
+      "changed": {
+        "ru": "Выход из аккаунта (и вход другим) стирает с телефона ВСЁ: товары, клиентов, должников, чеки, смену, черновики, очередь, ключи идемпотентности, код тестировщика и отметки, принтер, тему и язык, ключи ИИ, токены, журналы и файлы. Если в очереди есть неотправленные продажи или операции, выйти нельзя: окно «Есть неотправленные продажи (N на X сом)» предлагает «Отправить сейчас», при отсутствии связи — «Выгрузить в файл и выйти» (файл unsent-логин-дата.json остаётся единственным) или «Выйти БЕЗ отправки» (нужно ввести слово «УДАЛИТЬ», продажи потеряются). На экране входа нет следов прошлого аккаунта: ни плашек, ни логина, ни автозаполнения.",
+        "ky": "Аккаунттан чыгуу (жана башкасы менен кирүү) телефондон БАРДЫГЫН өчүрөт: товарларды, кардарларды, карыздарды, чектерди, сменаны, долбоорлорду, кезекти, идемпотенттүүлүк ачкычтарын, тестирөөчү кодун жана белгилерин, принтерди, теманы жана тилди, ЖИ ачкычтарын, токендерди, журналдарды жана файлдарды. Кезекте жөнөтүлбөгөн сатуулар же операциялар болсо, чыгууга болбойт: «Жөнөтүлбөгөн сатуулар бар (N, X сом)» терезеси «Азыр жөнөтүүнү» сунуштайт, байланыш жок болсо — «Файлга чыгарып, чыгуу» (unsent-логин-күн.json файлы жалгыз калат) же «Жөнөтпөй чыгуу» («ӨЧҮРҮҮ» сөзүн жазуу керек, сатуулар жоголот). Кирүү экранында мурунку аккаунттун издери жок: тилкелер, логин, автотолтуруу жок.",
+        "uz": "Akkauntdan chiqish (va boshqasi bilan kirish) telefondan HAMMASINI o'chiradi: tovarlar, mijozlar, qarzdorlar, cheklar, smena, qoralamalar, navbat, idempotentlik kalitlari, sinovchi kodi va belgilari, printer, mavzu va til, AI kalitlari, tokenlar, jurnallar va fayllar. Navbatda yuborilmagan sotuvlar yoki operatsiyalar bo'lsa, chiqib bo'lmaydi: «Yuborilmagan sotuvlar bor (N ta, X so'm)» oynasi «Hozir yuborish»ni taklif qiladi, aloqa bo'lmasa — «Faylga chiqarib, chiqish» (unsent-login-sana.json fayli yagona qoladi) yoki «Yubormasdan chiqish» («O'CHIRISH» so'zini kiritish kerak, sotuvlar yo'qoladi). Kirish ekranida avvalgi akkaunt izlari yo'q: lavhalar, login, avtotoldirish yo'q.",
+        "en": "Signing out (and signing in with another account) erases EVERYTHING on the phone: products, clients, debtors, receipts, the shift, drafts, the queue, idempotency keys, the tester code and marks, the printer, theme and language, AI keys, tokens, logs and files. If the queue has unsent sales or operations, you cannot sign out: the \"There are unsent sales (N worth X som)\" window offers Send now and, without a connection, Export to a file and sign out (the file unsent-login-date.json is the only thing that stays) or Sign out WITHOUT sending (you must type the word DELETE, the sales are lost). The sign-in screen has no trace of the previous account: no banners, no login, no autofill.",
+        "tr": "Çıkış (ve başka hesapla giriş) telefondan HER ŞEYİ siler: ürünler, müşteriler, borçlular, fişler, vardiya, taslaklar, kuyruk, idempotency anahtarları, test uzmanı kodu ve işaretleri, yazıcı, tema ve dil, YZ anahtarları, belirteçler, günlükler ve dosyalar. Kuyrukta gönderilmemiş satış veya işlem varsa çıkılamaz: «Gönderilmemiş satışlar var (N, X som)» penceresi «Şimdi gönder»i sunar; bağlantı yoksa «Dosyaya aktar ve çık» (unsent-giriş-tarih.json tek kalan şeydir) veya «Göndermeden ÇIK» (SİL sözcüğünü yazmak gerekir, satışlar kaybolur). Giriş ekranında önceki hesabın izi yoktur: bant, kullanıcı adı, otomatik doldurma yok."
+      },
+      "steps": {
+        "ru": [
+          "Войдите аккаунтом A: в «Склад» есть товары, в «Клиенты» и «Должники» — записи; задайте тёмную тему и язык «Кыргызча»; откройте ИИ-чат Нур Советника и задайте вопрос; сохраните принтер в «Профиль → Принтер».",
+          "Выключите связь, проведите продажу и не досылайте её.",
+          "Нажмите «Выйти»: появится окно «Есть неотправленные продажи (1 на … сом)». Обычного «Выйти» нет. «Отправить сейчас» без связи — сообщение, что связи нет, окно остаётся.",
+          "«Выйти БЕЗ отправки» → кнопка неактивна, пока не введено слово «УДАЛИТЬ» (проверьте и неполное слово), «Отмена» возвращает назад. Пока не подтверждали — ничего не удаляется.",
+          "«Выгрузить в файл и выйти» → предупреждение, что файл содержит данные чеков; затем путь к файлу unsent-логин-дата.json (папка NurMarket в «Documents» приложения); откройте файл — в нём ваш чек. После выхода это единственное, что осталось.",
+          "Включите связь и снова нажмите «Выйти» → «Отправить сейчас»: продажа уходит, окно закрывается, выход происходит; чек появился на сервере (в программе на компьютере).",
+          "Экран входа: тема и язык по умолчанию, поле логина пустое, подсказок системного автозаполнения и плашек про прошлый аккаунт нет.",
+          "Войдите аккаунтом B (другая компания): идёт «Загружаем данные аккаунта… 3/6»; товаров, клиентов, должников, чеков, чата и «Действий ИИ» от A нет; «Доступ к ИИ» и права — B; принтер не настроен; тема светлая; в режиме тестировщика id устройства и отметки новые, код тестировщика спрашивается заново.",
+          "Повторите выход без отправки (введя «УДАЛИТЬ») при непроведённой продаже: на экране входа и в программе ничего от прошлого аккаунта; файл выгрузки не создаётся."
+        ],
+        "ky": [
+          "A аккаунту менен кириңиз: «Кампада» товарлар, «Кардарлар» жана «Карыздарда» жазуулар бар; кара тема жана «Кыргызча» тилин коюңуз; Нур Кеңешчинин ЖИ-чатында суроо бериңиз; «Профиль → Принтер» бөлүмүндө принтерди сактаңыз.",
+          "Байланышты өчүрүп, сатуу жасаңыз жана жөнөтпөңүз.",
+          "«Чыгуу» басыңыз: «Жөнөтүлбөгөн сатуулар бар (1, … сом)» терезеси чыгат. Кадимки «Чыгуу» жок. Байланышсыз «Азыр жөнөтүү» — байланыш жок деген билдирүү, терезе калат.",
+          "«Жөнөтпөй чыгуу» → «ӨЧҮРҮҮ» сөзү жазылмайынча баскыч иштебейт (жарым сөздү да текшериңиз), «Жокко чыгаруу» артка кайтарат. Ырастаганга чейин эч нерсе өчпөйт.",
+          "«Файлга чыгарып, чыгуу» → файлда чектердин маалыматы бар деген эскертүү; андан кийин unsent-логин-күн.json файлынын жолу (тиркеменин «Documents» ичиндеги NurMarket папкасы); файлды ачыңыз — анда сиздин чек. Чыккандан кийин жалгыз ушул калат.",
+          "Байланышты күйгүзүп, кайра «Чыгуу» → «Азыр жөнөтүү»: сатуу кетет, терезе жабылат, чыгуу болот; чек серверде көрүндү (компьютердеги программада).",
+          "Кирүү экраны: тема жана тил демейки, логин талаасы бош, системанын автотолтуруу сунуштары жана мурунку аккаунт жөнүндө тилкелер жок.",
+          "B аккаунту менен кириңиз (башка компания): «Аккаунттын маалыматтары жүктөлүүдө… 3/6»; A'нын товарлары, кардарлары, карыздары, чектери, чаты жана «ЖИ аракеттери» жок; «ЖИга жетүү» жана укуктар — B'ники; принтер орнотулган эмес; тема ачык; тестирөөчү режиминде түзмөк id'си жана белгилер жаңы, тестирөөчү коду кайра суралат.",
+          "Өткөрүлбөгөн сатуу менен жөнөтпөй чыгууну («ӨЧҮРҮҮ» жазып) кайталаңыз: кирүү экранында жана программада мурунку аккаунттан эч нерсе жок; чыгаруу файлы түзүлбөйт."
+        ],
+        "uz": [
+          "A akkaunti bilan kiring: «Ombor»da tovarlar, «Mijozlar» va «Qarzdorlar»da yozuvlar bor; qora mavzu va «Qirg'izcha» tilini qo'ying; Nur Maslahatchining AI-chatida savol bering; «Profil → Printer»da printerni saqlang.",
+          "Aloqani o'chirib, sotuv qiling va yubormang.",
+          "«Chiqish»ni bosing: «Yuborilmagan sotuvlar bor (1 ta, … so'm)» oynasi chiqadi. Oddiy «Chiqish» yo'q. Aloqasiz «Hozir yuborish» — aloqa yo'qligi haqida xabar, oyna qoladi.",
+          "«Yubormasdan chiqish» → «O'CHIRISH» so'zi kiritilmaguncha tugma ishlamaydi (to'liq bo'lmagan so'zni ham tekshiring), «Bekor qilish» orqaga qaytaradi. Tasdiqlamaguncha hech narsa o'chmaydi.",
+          "«Faylga chiqarib, chiqish» → faylda chek ma'lumotlari borligi haqida ogohlantirish; so'ng unsent-login-sana.json faylining yo'li (ilovaning «Documents»idagi NurMarket papkasi); faylni oching — unda sizning chekingiz. Chiqqandan keyin yagona qolgani shu.",
+          "Aloqani yoqib, yana «Chiqish» → «Hozir yuborish»: sotuv ketadi, oyna yopiladi, chiqish bo'ladi; chek serverda paydo bo'ldi (kompyuterdagi dasturda).",
+          "Kirish ekrani: mavzu va til odatiy, login maydoni bo'sh, tizim avtotoldirish takliflari va avvalgi akkaunt haqidagi lavhalar yo'q.",
+          "B akkaunti bilan kiring (boshqa kompaniya): «Akkaunt ma'lumotlari yuklanmoqda… 3/6»; A'ning tovarlari, mijozlari, qarzdorlari, cheklari, chati va «AI harakatlari» yo'q; «AIga kirish» va huquqlar — B'niki; printer sozlanmagan; mavzu och; sinovchi rejimida qurilma id'si va belgilar yangi, sinovchi kodi qayta so'raladi.",
+          "O'tkazilmagan sotuv bilan yubormasdan chiqishni («O'CHIRISH» kiritib) takrorlang: kirish ekranida va dasturda avvalgi akkauntdan hech narsa yo'q; chiqarish fayli yaratilmaydi."
+        ],
+        "en": [
+          "Sign in as account A: Stock has products, Clients and Debtors have records; set the dark theme and the language Кыргызча; open the Nur Advisor AI chat and ask a question; save a printer in Profile → Printer.",
+          "Turn the connection off, make a sale and do not send it.",
+          "Tap Sign out: the window \"There are unsent sales (1 worth … som)\" appears. There is no plain Sign out. Send now without a connection shows that there is no connection, and the window stays.",
+          "Sign out WITHOUT sending → the button is inactive until the word DELETE is typed (try an incomplete word too); Cancel goes back. Nothing is deleted until you confirm.",
+          "Export to a file and sign out → a warning that the file contains receipt data; then the path of unsent-login-date.json (the NurMarket folder in the app's Documents); open the file — your receipt is in it. After signing out it is the only thing left.",
+          "Turn the connection on and tap Sign out again → Send now: the sale goes out, the window closes, you are signed out; the receipt appeared on the server (in the desktop program).",
+          "The sign-in screen: default theme and language, an empty login field, no system autofill suggestions and no banners about the previous account.",
+          "Sign in as account B (another company): \"Loading account data… 3/6\" runs; nothing from A (products, clients, debtors, receipts, chat, AI actions); AI access and rights are B's; no printer is set up; the theme is light; in tester mode the device id and marks are new and the tester code is asked for again.",
+          "Repeat signing out without sending (typing DELETE) with an unsent sale: nothing from the previous account on the sign-in screen or in the app; no export file is created."
+        ],
+        "tr": [
+          "A hesabıyla girin: «Depo»da ürünler, «Müşteriler» ve «Borçlular»da kayıtlar var; koyu temayı ve Кыргызча dilini seçin; Nur Danışman YZ sohbetini açıp soru sorun; «Profil → Yazıcı»da bir yazıcı kaydedin.",
+          "Bağlantıyı kapatıp bir satış yapın ve göndermeyin.",
+          "«Çık»a dokunun: «Gönderilmemiş satışlar var (1, … som)» penceresi çıkar. Sade «Çık» yok. Bağlantısız «Şimdi gönder» bağlantı olmadığını gösterir, pencere kalır.",
+          "«Göndermeden ÇIK» → SİL sözcüğü yazılana kadar düğme pasiftir (eksik sözcüğü de deneyin); «İptal» geri döndürür. Onaylamadan hiçbir şey silinmez.",
+          "«Dosyaya aktar ve çık» → dosyanın fiş verileri içerdiği uyarısı; sonra unsent-giriş-tarih.json yolu (uygulamanın «Documents»indeki NurMarket klasörü); dosyayı açın — fişiniz içinde. Çıkıştan sonra kalan tek şey budur.",
+          "Bağlantıyı açıp tekrar «Çık» → «Şimdi gönder»: satış gider, pencere kapanır, çıkış olur; fiş sunucuda göründü (bilgisayardaki programda).",
+          "Giriş ekranı: varsayılan tema ve dil, boş kullanıcı adı alanı, sistem otomatik doldurma önerisi ve önceki hesapla ilgili bant yok.",
+          "B hesabıyla girin (başka şirket): «Hesap verileri yükleniyor… 3/6» görünür; A'nın ürünleri, müşterileri, borçluları, fişleri, sohbeti ve «YZ eylemleri» yok; «YZ erişimi» ve yetkiler B'nin; yazıcı ayarlı değil; tema açık; test uzmanı modunda cihaz kimliği ve işaretler yeni, test uzmanı kodu yeniden sorulur.",
+          "Gönderilmemiş satışla göndermeden çıkışı (SİL yazarak) tekrarlayın: giriş ekranında ve programda önceki hesaptan hiçbir şey yok; dışa aktarma dosyası oluşmaz."
+        ]
+      }
+    },
+    {
+      "id": "1.18.10/rename-nurcrm",
+      "version": "1.18.10",
+      "area": "profile",
+      "severity": "normal",
+      "title": {
+        "ru": "Новое название: NurCRM",
+        "ky": "Жаңы аталышы: NurCRM",
+        "uz": "Yangi nomi: NurCRM",
+        "en": "New name: NurCRM",
+        "tr": "Yeni ad: NurCRM"
+      },
+      "changed": {
+        "ru": "Программа называется NurCRM («Нур СРМ»), а не NurMarket: название под значком приложения, заголовок окна, экран входа, чек и PDF-документы (подпись внизу), тестовая печать, подсказки о доступе к камере и микрофону, сообщения о QR кассы, отчёт тестировщика. Установка поверх прежней версии и вход сохраняются, связь с кассой не меняется.",
+        "ky": "Программанын аты NurCRM («Нур СРМ»), NurMarket эмес: колдонмонун сүрөтчөсүнүн астындагы ат, терезенин аталышы, кирүү экраны, чек жана PDF-документтер (ылдыйкы кол тамга), сыноо басуу, камера менен микрофонго уруксат жөнүндө эскертмелер, кассанын QR жөнүндөгү билдирүүлөр, тестирөөчүнүн отчёту. Мурунку нускасынын үстүнөн орнотуу жана кирүү сакталат, кассага байланыш өзгөрбөйт.",
+        "uz": "Dastur nomi NurCRM («Nur SRM»), NurMarket emas: ilova belgisi ostidagi nom, oyna sarlavhasi, kirish ekrani, chek va PDF-hujjatlar (pastdagi yozuv), sinov chop etish, kamera va mikrofonga ruxsat haqidagi maslahatlar, kassa QR haqidagi xabarlar, testchi hisoboti. Oldingi versiya ustiga o'rnatish va kirish saqlanadi, kassa bilan aloqa o'zgarmaydi.",
+        "en": "The program is now called NurCRM, not NurMarket: the name under the app icon, the window title, the sign-in screen, the receipt and PDF documents (footer), the test print, the camera and microphone permission hints, the till QR messages and the tester report. Installing over the old version and the sign-in are kept, and the link with the till does not change.",
+        "tr": "Programın adı artık NurMarket değil NurCRM: uygulama simgesinin altındaki ad, pencere başlığı, giriş ekranı, fiş ve PDF belgeleri (alt yazı), test baskısı, kamera ve mikrofon izni ipuçları, kasa QR iletileri ve test uzmanı raporu. Eski sürümün üzerine kurulum ve oturum korunur, kasa bağlantısı değişmez."
+      },
+      "steps": {
+        "ru": [
+          "Установите 1.18.10 поверх прежней версии: вход сохранён.",
+          "Посмотрите на главный экран телефона: под значком приложения написано «NurCRM».",
+          "Выйдите из аккаунта: на экране входа написано «NurCRM», слов «NurMarket» нет.",
+          "Откройте чек или документ (накладную) в PDF: внизу «NurCRM», а не «NurMarket».",
+          "В «Связь с кассой» нажмите «Сканировать QR на кассе» и наведите на чужой QR: сообщение про QR кассы «NurCRM».",
+          "Свяжитесь с кассой как раньше: связь работает без повторного сопряжения."
+        ],
+        "ky": [
+          "1.18.10ду мурунку нускасынын үстүнөн орнотуңуз: кирүү сакталган.",
+          "Телефондун башкы экранына карап көрүңүз: колдонмонун сүрөтчөсүнүн астында «NurCRM» жазылган.",
+          "Аккаунттан чыгыңыз: кирүү экранында «NurCRM» жазылган, «NurMarket» деген сөз жок.",
+          "Чекти же документти (накладнойду) PDFте ачыңыз: ылдыйда «NurMarket» эмес, «NurCRM».",
+          "«Кассага байланыш» бөлүмүндө «Кассадагы QR кодду скандоо» басып, бөтөн QRга багыттаңыз: кассанын QR жөнүндөгү билдирүүдө «NurCRM».",
+          "Кассага мурдагыдай байланышыңыз: кайра жупташтырбай иштейт."
+        ],
+        "uz": [
+          "1.18.10 ni oldingi versiya ustiga o'rnating: kirish saqlangan.",
+          "Telefonning bosh ekraniga qarang: ilova belgisi ostida «NurCRM» yozilgan.",
+          "Akkauntdan chiqing: kirish ekranida «NurCRM» yozilgan, «NurMarket» so'zi yo'q.",
+          "Chekni yoki hujjatni (nakladnoyni) PDFda oching: pastda «NurMarket» emas, «NurCRM».",
+          "«Kassa bilan aloqa»da «Kassadagi QR-kodni skanerlash»ni bosib, begona QRga yo'naltiring: kassa QR haqidagi xabarda «NurCRM».",
+          "Kassa bilan avvalgidek bog'laning: qayta juftlashtirmasdan ishlaydi."
+        ],
+        "en": [
+          "Install 1.18.10 over the previous version: the sign-in is kept.",
+          "Look at the phone home screen: the name under the app icon is NurCRM.",
+          "Sign out: the sign-in screen says NurCRM and has no NurMarket anywhere.",
+          "Open a receipt or a document (waybill) as PDF: the footer says NurCRM, not NurMarket.",
+          "In Till link tap «Scan the QR on the till» and point it at a foreign QR: the till QR message says NurCRM.",
+          "Connect to the till as before: the link works without pairing again."
+        ],
+        "tr": [
+          "1.18.10'u eski sürümün üzerine kurun: oturum korunur.",
+          "Telefonun ana ekranına bakın: uygulama simgesinin altında «NurCRM» yazar.",
+          "Hesaptan çıkın: giriş ekranında «NurCRM» yazar, «NurMarket» yoktur.",
+          "Bir fişi veya belgeyi (irsaliye) PDF olarak açın: altında «NurMarket» değil «NurCRM» yazar.",
+          "«Kasa bağlantısı»nda «Kasadaki QR'ı tara»ya dokunup yabancı bir QR'a tutun: kasa QR iletisinde «NurCRM» yazar.",
+          "Kasaya eskisi gibi bağlanın: yeniden eşleştirmeden çalışır."
+        ]
+      }
+    },
+    {
+      "id": "1.18.12/audit-purchase-money",
+      "version": "1.18.12",
+      "area": "stock",
+      "severity": "money",
+      "title": {
+        "ru": "Ревизия в деньгах: закупка, сумма разницы, итоги потерь",
+        "ky": "Ревизия акчада: сатып алуу баасы, айырма суммасы, жоготуулардын жыйынтыгы",
+        "uz": "Pulda inventarizatsiya: xarid narxi, farq summasi, yo'qotishlar jami",
+        "en": "Stock count in money: cost price, difference amount, loss totals",
+        "tr": "Parada sayım: alış fiyatı, fark tutarı, kayıp toplamları"
+      },
+      "changed": {
+        "ru": "В «Склад → Ревизия» у владельца и администратора (и у сотрудника с правом «Настройки») на каждой карточке товара появились «Закупка» и «Сумма разницы» (разница × закупка; минус красным, плюс зелёным). Если закупки у товара нет, сумма считается по цене продажи и помечена «*». Внизу экрана: «Недостача: N шт · −X сом (по закупке) · −Y сом (по продаже)», «Излишек», «Чистый результат» и «Не хватает закупки у N товаров». В окне «Провести ревизию» те же итоги и список: «Топ-10 недостач» или «Все расхождения». Кассир ничего этого не видит — его экран прежний. Закупка хранится в базе телефона (база обновляется сама, ничего не теряется) и берётся из каталога сервера.",
+        "ky": "«Кампа → Ревизия» бөлүмүндө ээсинде жана администраторунда (жана «Жөндөөлөр» укугу бар кызматкерде) ар бир товардын карточкасында «Сатып алуу» жана «Айырма суммасы» (айырма × сатып алуу баасы; минус кызылча, плюс жашылча) пайда болду. Товардын сатып алуу баасы жок болсо, сумма сатуу баасы боюнча эсептелип, «*» менен белгиленет. Экрандын ылдыйында: «Жетишсиздик: N дана · −X сом (сатып алуу боюнча) · −Y сом (сатуу боюнча)», «Ашыкча», «Таза жыйынтык» жана «Сатып алуу баасы жок: N товар». «Ревизияны өткөрүү» терезесинде ушул эле жыйынтыктар жана тизме: «Жетишсиздиктин топ-10» же «Бардык айырмалар». Кассир мунун бирин да көрбөйт — анын экраны мурункудай. Сатып алуу баасы телефондун базасында сакталат (база өзү жаңырат, эч нерсе жоголбойт) жана сервердин каталогунан алынат.",
+        "uz": "«Ombor → Inventarizatsiya»da egasi va administratorida (hamda «Sozlamalar» huquqi bor xodimda) har bir mahsulot kartochkasida «Xarid» va «Farq summasi» (farq × xarid narxi; minus qizil, plyus yashil) paydo bo'ldi. Mahsulotda xarid narxi bo'lmasa, summa sotuv narxida hisoblanadi va «*» bilan belgilanadi. Ekran pastida: «Kamomad: N dona · −X so'm (xarid narxida) · −Y so'm (sotuv narxida)», «Ortiqcha», «Sof natija» va «Xarid narxi yo'q: N ta mahsulot». «Inventarizatsiyani o'tkazish» oynasida xuddi shu jami va ro'yxat: «Eng katta 10 kamomad» yoki «Barcha farqlar». Kassir buning birortasini ko'rmaydi — uning ekrani avvalgidek. Xarid narxi telefon bazasida saqlanadi (baza o'zi yangilanadi, hech narsa yo'qolmaydi) va server katalogidan olinadi.",
+        "en": "In Stock → Stock count, the owner and the administrator (and an employee with the Settings right) now see on every product card the Cost price and the Difference amount (difference × cost; minus in red, plus in green). If a product has no cost price, the amount is taken at the selling price and marked \"*\". At the bottom of the screen: \"Shortage: N pcs · −X som (at cost) · −Y som (at sale price)\", \"Surplus\", \"Net result\" and \"No cost price for N products\". The \"Post the stock count\" window shows the same totals and a list: \"Top 10 shortages\" or \"All differences\". A cashier sees none of this: the screen is as before. The cost price is kept in the phone's database (it upgrades itself, nothing is lost) and comes from the server catalog.",
+        "tr": "Depo → Sayım'da sahip ve yönetici (ve «Ayarlar» yetkili çalışan) artık her ürün kartında Alış ve Fark tutarını (fark × alış fiyatı; eksi kırmızı, artı yeşil) görür. Ürünün alış fiyatı yoksa tutar satış fiyatıyla hesaplanır ve «*» ile işaretlenir. Ekranın altında: «Eksik: N adet · −X som (alış fiyatıyla) · −Y som (satış fiyatıyla)», «Fazla», «Net sonuç» ve «Alış fiyatı olmayan ürün: N». «Sayımı işle» penceresinde aynı toplamlar ve liste: «En büyük 10 eksik» veya «Tüm farklar». Kasiyer bunların hiçbirini görmez — ekranı eskisi gibidir. Alış fiyatı telefonun veri tabanında tutulur (kendiliğinden güncellenir, hiçbir şey kaybolmaz) ve sunucu kataloğundan gelir."
+      },
+      "steps": {
+        "ru": [
+          "Зайдите владельцем или администратором. Нажмите «Обновить» в «Склад», чтобы каталог загрузил закупку. «Склад → Ревизия → Весь склад».",
+          "Введите факт у трёх товаров: меньше учёта у товара с закупкой (недостача), больше учёта (излишек) и меньше учёта у товара без закупки. Карточки: «Закупка: …» и «Сумма разницы: …» — недостача красным со знаком «−», излишек зелёным со знаком «+»; у товара без закупки — «Закупки нет» и сумма с «*».",
+          "Проверьте арифметику на калькуляторе: разница × закупка. Внизу экрана: «Недостача», «Излишек» (по закупке и по продаже), «Чистый результат» (излишек − недостача по закупке) и «Не хватает закупки у N товаров» с пояснением про «*».",
+          "Нажмите «Провести ревизию»: в окне те же итоги, переключатель «Топ-N недостач» / «Все расхождения: N», в топе самые дорогие недостачи сверху. Нажмите «Отмена» — ничего не проведено.",
+          "Откройте карточку товара без закупки (админ), задайте закупку, сохраните; снова «Ревизия»: сумма этого товара считается по закупке, без «*».",
+          "Выйдите и войдите кассиром (без права «Настройки»): в «Ревизии» нет ни «Закупки», ни сумм, ни итогов в деньгах — экран прежний; окно «Провести ревизию» без списка.",
+          "Проверьте на кыргызском и узбекском, в тёмной теме и при крупном шрифте (360 dp): строки итогов читаются, окно не обрезано."
+        ],
+        "ky": [
+          "Ээси же администратор менен кириңиз. «Кампада» «Жаңыртуу» басыңыз — каталог сатып алуу баасын жүктөсүн. «Кампа → Ревизия → Бүт кампа».",
+          "Үч товардын фактысын киргизиңиз: сатып алуу баасы бар товарда эсептен аз (жетишсиздик), эсептен көп (ашыкча) жана сатып алуу баасы жок товарда эсептен аз. Карточкалар: «Сатып алуу: …» жана «Айырма суммасы: …» — жетишсиздик «−» белгиси менен кызылча, ашыкча «+» менен жашылча; сатып алуу баасы жок товарда — «Сатып алуу баасы жок» жана сумма «*» менен.",
+          "Арифметиканы калькуляторго текшериңиз: айырма × сатып алуу баасы. Экрандын ылдыйында: «Жетишсиздик», «Ашыкча» (сатып алуу жана сатуу боюнча), «Таза жыйынтык» (ашыкча − жетишсиздик, сатып алуу боюнча) жана «Сатып алуу баасы жок: N товар» «*» жөнүндө түшүндүрмө менен.",
+          "«Ревизияны өткөрүү» басыңыз: терезеде ушул эле жыйынтыктар, «Жетишсиздиктин топ-N» / «Бардык айырмалар: N» которгучу, топто эң кымбат жетишсиздиктер жогоруда. «Жокко чыгаруу» басыңыз — эч нерсе өткөрүлгөн жок.",
+          "Сатып алуу баасы жок товардын карточкасын ачыңыз (админ), сатып алуу баасын коюп сактаңыз; кайра «Ревизия»: бул товардын суммасы сатып алуу баасы боюнча, «*» жок.",
+          "Чыгып, кассир катары кириңиз («Жөндөөлөр» укугусуз): «Ревизияда» «Сатып алуу» да, суммалар да, акчадагы жыйынтыктар да жок — экран мурункудай; «Ревизияны өткөрүү» терезеси тизмесиз.",
+          "Кыргызча жана өзбекче, кара темада жана чоң арипте (360 dp) текшериңиз: жыйынтык саптары окулат, терезе кыркылбайт."
+        ],
+        "uz": [
+          "Egasi yoki administrator bilan kiring. «Ombor»da «Yangilash»ni bosing — katalog xarid narxini yuklasin. «Ombor → Inventarizatsiya → Butun ombor».",
+          "Uchta mahsulot faktini kiriting: xarid narxi bor mahsulotda hisobdan kam (kamomad), hisobdan ko'p (ortiqcha) va xarid narxi yo'q mahsulotda hisobdan kam. Kartochkalar: «Xarid: …» va «Farq summasi: …» — kamomad «−» belgisi bilan qizil, ortiqcha «+» bilan yashil; xarid narxi yo'q mahsulotda — «Xarid narxi yo'q» va summa «*» bilan.",
+          "Arifmetikani kalkulyatorda tekshiring: farq × xarid narxi. Ekran pastida: «Kamomad», «Ortiqcha» (xarid va sotuv narxida), «Sof natija» (ortiqcha − kamomad, xarid narxida) va «Xarid narxi yo'q: N ta mahsulot» «*» haqidagi izoh bilan.",
+          "«Inventarizatsiyani o'tkazish»ni bosing: oynada xuddi shu jami, «Eng katta N kamomad» / «Barcha farqlar: N» almashtirgichi, topda eng qimmat kamomadlar tepada. «Bekor qilish»ni bosing — hech narsa o'tkazilmadi.",
+          "Xarid narxi yo'q mahsulot kartochkasini oching (admin), xarid narxini kiritib saqlang; yana «Inventarizatsiya»: bu mahsulot summasi xarid narxida, «*»siz.",
+          "Chiqib, kassir sifatida kiring («Sozlamalar» huquqisiz): «Inventarizatsiya»da na «Xarid», na summalar, na puldagi jami yo'q — ekran avvalgidek; «Inventarizatsiyani o'tkazish» oynasi ro'yxatsiz.",
+          "Qirg'izcha va o'zbekchada, qora mavzuda va yirik shriftda (360 dp) tekshiring: jami qatorlari o'qiladi, oyna kesilmagan."
+        ],
+        "en": [
+          "Sign in as the owner or an administrator. Tap Refresh in Stock so the catalog loads the cost price. Stock → Stock count → Whole stock.",
+          "Enter the count for three products: below the book figure for a product with a cost price (shortage), above it (surplus), and below it for a product without a cost price. On the cards: \"Cost: …\" and \"Diff. amount: …\" — a shortage in red with \"−\", a surplus in green with \"+\"; for the product without a cost price: \"No cost price\" and the amount with \"*\".",
+          "Check the arithmetic on a calculator: difference × cost. At the bottom of the screen: \"Shortage\", \"Surplus\" (at cost and at sale price), \"Net result\" (surplus − shortage at cost) and \"No cost price for N products\" with the explanation of \"*\".",
+          "Tap Post the stock count: the window has the same totals, a switch \"Top N shortages\" / \"All differences: N\", and the costliest shortages come first in the top. Tap Cancel — nothing is posted.",
+          "Open the card of the product without a cost price (as admin), set the cost price and save; open Stock count again: that product is now counted at cost, without \"*\".",
+          "Sign out and sign in as a cashier (without the Settings right): Stock count shows no Cost, no amounts and no money totals — the screen is as before; the Post window has no list.",
+          "Check in Kyrgyz and Uzbek, in the dark theme and at a large font (360 dp): the totals lines are readable and the window is not cut off."
+        ],
+        "tr": [
+          "Sahip veya yönetici olarak girin. Depo'da «Yenile»ye dokunun — katalog alış fiyatını yüklesin. Depo → Sayım → Tüm depo.",
+          "Üç ürün için sayım girin: alış fiyatı olan üründe sistemden az (eksik), sistemden fazla (fazla) ve alış fiyatı olmayan üründe sistemden az. Kartlarda: «Alış: …» ve «Fark tutarı: …» — eksik «−» ile kırmızı, fazla «+» ile yeşil; alış fiyatı olmayan üründe «Alış fiyatı yok» ve tutar «*» ile.",
+          "Hesabı hesap makinesinde kontrol edin: fark × alış fiyatı. Ekranın altında: «Eksik», «Fazla» (alış ve satış fiyatıyla), «Net sonuç» (fazla − eksik, alış fiyatıyla) ve «*» açıklamasıyla «Alış fiyatı olmayan ürün: N».",
+          "«Sayımı işle»ye dokunun: pencerede aynı toplamlar, «En büyük N eksik» / «Tüm farklar: N» anahtarı; ilk sırada en pahalı eksikler. «İptal»e dokunun — hiçbir şey işlenmedi.",
+          "Alış fiyatı olmayan ürünün kartını açın (yönetici), alış fiyatını girip kaydedin; tekrar «Sayım»: bu ürünün tutarı alış fiyatıyla, «*» olmadan hesaplanır.",
+          "Çıkıp kasiyer olarak girin («Ayarlar» yetkisi olmadan): «Sayım»da ne Alış, ne tutarlar, ne para toplamları var — ekran eskisi gibi; «İşle» penceresinde liste yok.",
+          "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: toplam satırları okunur, pencere kesilmez."
+        ]
+      }
+    },
+    {
+      "id": "1.18.12/product-batches",
+      "version": "1.18.12",
+      "area": "stock",
+      "severity": "important",
+      "title": {
+        "ru": "Поступления и партии товара",
+        "ky": "Товардын түшүүлөрү жана партиялары",
+        "uz": "Tovar kirimlari va partiyalari",
+        "en": "Product receipts and batches",
+        "tr": "Ürün girişleri ve partiler"
+      },
+      "changed": {
+        "ru": "В «Складе» у товара есть кнопка-часы «Поступления и партии»: список приходов этого товара (новые сверху) с датой, поставщиком, номером, количеством, закупкой, суммой и оценкой «остаток партии», итоги сверху, поиск, период и накладная прихода.",
+        "ky": "«Кампада» товардын катарында «Түшүүлөр жана партиялар» саат баскычы бар: бул товардын түшүүлөрү (жаңылары жогоруда) күнү, жеткирүүчүсү, номери, саны, сатып алуу баасы, суммасы жана «партиянын калдыгы» болжолу менен, жогоруда жыйынтыктар, издөө, мезгил жана түшүү накладнойу.",
+        "uz": "«Ombor»da mahsulot qatorida «Kirimlar va partiyalar» soat tugmasi bor: shu mahsulotning kirimlari (yangilari tepada) sanasi, yetkazib beruvchisi, raqami, miqdori, xarid narxi, summasi va «partiya qoldig'i» taxmini bilan, tepada jami, qidiruv, davr va kirim nakladnoyi.",
+        "en": "In Stock each product row has a clock button \"Receipts and batches\": the receipts of that product (newest first) with date, supplier, number, quantity, cost, total and an estimated batch balance, totals on top, search, period filter and the receipt invoice.",
+        "tr": "Depo'da her ürün satırında «Girişler ve partiler» saat düğmesi var: bu ürünün girişleri (yeniler üstte) tarih, tedarikçi, numara, miktar, alış, tutar ve tahmini parti kalanıyla; üstte toplamlar, arama, dönem ve giriş irsaliyesi."
+      },
+      "steps": {
+        "ru": [
+          "Зайдите владельцем или администратором. «Склад» — у товара, который приходовали, нажмите значок часов справа (или откройте карточку товара и меню «⋮» → «Поступления и партии»).",
+          "Сверху закреплены итоги: «Всего получено», «Средняя закупка», «Последняя закупка», «Последний поставщик». Сверьте с «Закупки» на кассе или сайте. Список — новые сверху: дата и время, поставщик, № прихода, количество, закупка, сумма, «Принял».",
+          "«Остаток партии ≈ N (оценка)»: нажмите строку — окно объясняет правило FIFO. Проверьте: у самого свежего прихода остаток равен принятому (если остаток товара не меньше), у старых — 0, когда товар уже распродан.",
+          "Нажмите на имя поставщика: окно с телефоном, «Позвонить» и WhatsApp. Нажмите «Накладная»: состав прихода, ваш товар подсвечен; ниже «Открыть файл» (если сервер хранит файл) или «Исходный файл не сохранён».",
+          "Поиск: введите часть имени поставщика или номера. Период «Неделя / Месяц / Год / Всё время». Пролистайте длинный список вниз — подгружается сам, появляется «К началу» и в конце «Больше поступлений нет».",
+          "Выключите интернет и откройте снова: список из памяти с надписью «Нет связи. Данные от ЧЧ:ММ». Войдите кассиром (без права «Настройки»): только дата и количество, без закупки, поставщиков, итогов в деньгах и кнопки «Накладная».",
+          "Проверьте на кыргызском и узбекском, в тёмной теме и при крупном шрифте (360 dp): строки не обрезаны, кнопки нажимаются."
+        ],
+        "ky": [
+          "Ээси же администратор менен кириңиз. «Кампа» — киреше болгон товардын оң жагындагы саат белгисин басыңыз (же товардын карточкасын ачып, «⋮» менюсунан «Түшүүлөр жана партиялар»).",
+          "Жогоруда жыйынтыктар бекитилген: «Жалпы алынды», «Орточо сатып алуу», «Акыркы сатып алуу», «Акыркы жеткирүүчү». Кассадагы же сайттагы «Сатып алуулар» менен салыштырыңыз. Тизме — жаңылары жогоруда: күнү жана убактысы, жеткирүүчү, түшүү №, саны, сатып алуу баасы, сумма, «Кабыл алган».",
+          "«Партиянын калдыгы ≈ N (болжол)»: сапты басыңыз — терезе FIFO эрежесин түшүндүрөт. Текшериңиз: эң жаңы түшүүдө калдык кабыл алынганга барабар (товардын калдыгы жетсе), эскилеринде — товар сатылып бүткөндө 0.",
+          "Жеткирүүчүнүн атын басыңыз: телефону, «Чалуу» жана WhatsApp менен терезе. «Накладная» басыңыз: түшүүнүн курамы, товарыңыз белгиленген; төмөндө «Файлды ачуу» (сервер файлды сактаса) же «Баштапкы файл сакталган эмес».",
+          "Издөө: жеткирүүчүнүн атынын же номердин бир бөлүгүн жазыңыз. Мезгил «Жума / Ай / Жыл / Бардык убакыт». Узун тизмени ылдый сыдырыңыз — өзү жүктөлөт, «Башына» чыгат, акырында «Башка түшүүлөр жок».",
+          "Интернетти өчүрүп, кайра ачыңыз: эстен тизме жана «Байланыш жок. Маалымат ЧЧ:ММ» жазуусу. Кассир катары кириңиз («Жөндөөлөр» укугусуз): дата жана саны гана, сатып алуу баасы, жеткирүүчүлөр, акчадагы жыйынтыктар жана «Накладная» баскычы жок.",
+          "Кыргызча жана өзбекче, кара темада жана чоң арипте (360 dp) текшериңиз: саптар кыркылбайт, баскычтар басылат."
+        ],
+        "uz": [
+          "Egasi yoki administrator bilan kiring. «Ombor» — kirim bo'lgan mahsulotning o'ng tomonidagi soat belgisini bosing (yoki mahsulot kartochkasini ochib, «⋮» menyusidan «Kirimlar va partiyalar»).",
+          "Tepada jami mahkamlangan: «Jami olingan», «O'rtacha xarid», «Oxirgi xarid», «Oxirgi yetkazib beruvchi». Kassa yoki saytdagi «Xaridlar» bilan solishtiring. Ro'yxat — yangilari tepada: sana va vaqt, yetkazib beruvchi, kirim №, miqdor, xarid narxi, summa, «Qabul qilgan».",
+          "«Partiya qoldig'i ≈ N (taxminiy)»: qatorni bosing — oyna FIFO qoidasini tushuntiradi. Tekshiring: eng yangi kirimda qoldiq qabul qilinganga teng (mahsulot qoldig'i yetsa), eskilarida — mahsulot sotilib bo'lgan bo'lsa 0.",
+          "Yetkazib beruvchi nomini bosing: telefon, «Qo'ng'iroq qilish» va WhatsApp bilan oyna. «Nakladnoy»ni bosing: kirim tarkibi, mahsulotingiz ajratilgan; pastda «Faylni ochish» (server fayl saqlasa) yoki «Asl fayl saqlanmagan».",
+          "Qidiruv: yetkazib beruvchi nomi yoki raqamining bir qismini kiriting. Davr «Hafta / Oy / Yil / Butun davr». Uzun ro'yxatni pastga suring — o'zi yuklanadi, «Boshiga» chiqadi, oxirida «Boshqa kirim yo'q».",
+          "Internetni o'chirib, qayta oching: xotiradan ro'yxat va «Aloqa yo'q. Ma'lumot SS:DD holatida» yozuvi. Kassir sifatida kiring («Sozlamalar» huquqisiz): faqat sana va miqdor, xarid narxi, yetkazib beruvchilar, puldagi jami va «Nakladnoy» tugmasi yo'q.",
+          "Qirg'izcha va o'zbekchada, qora mavzuda va yirik shriftda (360 dp) tekshiring: qatorlar kesilmaydi, tugmalar bosiladi."
+        ],
+        "en": [
+          "Sign in as the owner or an administrator. Stock — on a product that has been received, tap the clock icon on the right (or open the product card and the \"⋮\" menu → Receipts and batches).",
+          "The totals are pinned on top: Total received, Average cost, Last cost, Last supplier. Compare with Purchases on the till or the site. The list is newest first: date and time, supplier, receipt no., quantity, cost, total, Received by.",
+          "\"Batch left ≈ N (estimate)\": tap the line — the window explains the FIFO rule. Check: the newest receipt shows its full quantity (if the stock is not lower), older ones show 0 when the product has been sold out.",
+          "Tap the supplier name: a window with the phone, Call and WhatsApp. Tap Invoice: the receipt items with your product highlighted; below it Open file (if the server stores a file) or The original file was not saved.",
+          "Search: type part of a supplier name or number. Period: Week / Month / Year / All time. Scroll a long list down — it loads by itself, To top appears and at the end No more receipts.",
+          "Turn the internet off and open again: the list from memory with No connection. Data from HH:MM. Sign in as a cashier (without the Settings right): only date and quantity — no cost, suppliers, money totals or the Invoice button.",
+          "Check in Kyrgyz and Uzbek, in the dark theme and at a large font (360 dp): the lines are not cut off and the buttons work."
+        ],
+        "tr": [
+          "Sahip veya yönetici olarak girin. Depo — girişi yapılmış bir üründe sağdaki saat simgesine dokunun (ya da ürün kartını açıp «⋮» menüsü → Girişler ve partiler).",
+          "Toplamlar üstte sabit: Toplam alınan, Ortalama alış, Son alış, Son tedarikçi. Kasadaki veya sitedeki Alışlar ile karşılaştırın. Liste yeniden eskiye: tarih ve saat, tedarikçi, giriş no, miktar, alış, tutar, Teslim alan.",
+          "«Partide kalan ≈ N (tahmini)»: satıra dokunun — pencere FIFO kuralını açıklar. Kontrol edin: en yeni girişte, stok yeterliyse, kalan girilen miktara eşittir; ürün tükenmişse eskilerde 0.",
+          "Tedarikçi adına dokunun: telefon, Ara ve WhatsApp'lı pencere. İrsaliye'ye dokunun: giriş kalemleri, ürününüz vurgulu; altında Dosyayı aç (sunucu dosya saklıyorsa) veya Orijinal dosya kaydedilmemiş.",
+          "Arama: tedarikçi adının veya numaranın bir kısmını yazın. Dönem: Hafta / Ay / Yıl / Tüm zaman. Uzun listeyi aşağı kaydırın — kendiliğinden yüklenir, Başa dön çıkar, sonda Başka giriş yok yazar.",
+          "İnterneti kapatıp yeniden açın: bellekten liste ve Bağlantı yok. Veriler SS:DD itibarıyla yazısı. Kasiyer olarak girin («Ayarlar» yetkisi olmadan): yalnızca tarih ve miktar — alış, tedarikçi, para toplamları ve İrsaliye düğmesi yok.",
+          "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: satırlar kesilmez, düğmeler çalışır."
+        ]
+      }
+    },
+    {
+      "id": "1.18.13/receive-server-lookup",
+      "version": "1.18.13",
+      "area": "stock",
+      "severity": "important",
+      "title": {
+        "ru": "Приёмка: товар из каталога больше не «неизвестный штрихкод»",
+        "ky": "Кабыл алуу: каталогдогу товар мындан ары «белгисиз штрих-код» эмес",
+        "uz": "Qabul qilish: katalogdagi mahsulot endi «noma'lum shtrix-kod» emas",
+        "en": "Receiving: a catalog product is no longer an \"unknown barcode\"",
+        "tr": "Mal kabul: katalogdaki ürün artık «bilinmeyen barkod» değil"
+      },
+      "changed": {
+        "ru": "Приёмка: товар, который есть в каталоге, больше не показывается как «Неизвестный штрихкод» — поиск идёт и по серверу (до 7 с); если связи нет, показывается «Сервер не ответил» и кнопка «Проверить снова»; код сравнивается терпимо к ведущим нулям.",
+        "ky": "Кабыл алуу: каталогдо бар товар мындан ары «Белгисиз штрих-код» катары көрсөтүлбөйт — издөө серверден да жүрөт (7 секундга чейин); байланыш жок болсо «Сервер жооп берген жок» жана «Кайра текшерүү» баскычы көрсөтүлөт; код алдыңкы нөлдөргө токтоолук менен салыштырылат.",
+        "uz": "Qabul qilish: katalogda bor mahsulot endi «Noma'lum shtrix-kod» deb ko'rsatilmaydi — qidiruv serverda ham boradi (7 soniyagacha); aloqa bo'lmasa «Server javob bermadi» va «Qayta tekshirish» tugmasi ko'rsatiladi; kod bosh nollarga bag'rikeng solishtiriladi.",
+        "en": "Receiving: a product that is in the catalog is no longer shown as \"Unknown barcode\" — the search also asks the server (up to 7 s); with no connection it shows \"The server did not answer\" and a \"Check again\" button; the code is compared tolerant of leading zeros.",
+        "tr": "Mal kabul: katalogda olan ürün artık «Bilinmeyen barkod» olarak gösterilmez — arama sunucuda da yapılır (en çok 7 sn); bağlantı yoksa «Sunucu yanıt vermedi» ve «Tekrar kontrol et» düğmesi görünür; kod baştaki sıfırlara toleranslı karşılaştırılır."
+      },
+      "steps": {
+        "ru": [
+          "Зайдите владельцем или администратором. Возьмите товар, который есть в каталоге NurCRM (в идеале — которого ещё нет в памяти телефона, например сразу после входа до полной загрузки склада). «Склад → Приёмка», отсканируйте или введите его штрихкод.",
+          "Пока идёт поиск, видно «Ищу … на сервере и в справочнике…» (до 7 с). Затем показан сам товар из каталога, а не «Неизвестный штрихкод».",
+          "Введите тот же код с лишним нулём впереди (или короткий код EAN-8 / UPC-E, GTIN-14 с нулями): товар находится так же.",
+          "Введите выдуманный код (13 цифр, которого нет в магазине): после ответа сервера — «Неизвестный штрихкод» с текстом «нет в вашем каталоге (проверено на сервере) и в справочнике NurCRM» и кнопкой «Завести товар».",
+          "Включите авиарежим и введите код товара, которого нет в памяти телефона: вместо «Неизвестного штрихкода» — «Сервер не ответил» с подсказкой и кнопкой «Проверить снова». Выключите авиарежим и нажмите «Проверить снова» — товар найден.",
+          "Быстро отсканируйте подряд 5–6 разных кодов: экран не зависает, каждый получает свой ответ (запросы к серверу идут с паузой).",
+          "Проверьте на кыргызском и узбекском, в тёмной теме и при крупном шрифте (360 dp): карточка и кнопка не обрезаны."
+        ],
+        "ky": [
+          "Ээси же администратор менен кириңиз. NurCRM каталогундагы товарды алыңыз (эң жакшысы — телефондун эсинде дагы жок болгон, мисалы кирип, кампа толук жүктөлгөнгө чейин). «Кампа → Кабыл алуу», штрих-кодун сканерлеңиз же териңиз.",
+          "Издөө жүрүп жатканда «Серверден жана справочниктен издеп жатам…» көрүнөт (7 секундга чейин). Андан соң «Белгисиз штрих-код» эмес, каталогдогу товардын өзү көрсөтүлөт.",
+          "Ошол эле кодду алдына ашыкча нөл кошуп териңиз (же кыска EAN-8 / UPC-E, нөлдөрү бар GTIN-14 кодун): товар ушундай эле табылат.",
+          "Ойлоп табылган кодду териңиз (дүкөндө жок 13 сан): сервер жооп бергенден кийин — «Белгисиз штрих-код», «каталогуңузда (серверде текшерилди) жана NurCRM справочнигинде жок» тексти жана «Товар кошуу» баскычы.",
+          "Учак режимин күйгүзүп, телефондун эсинде жок товардын кодун териңиз: «Белгисиз штрих-код» ордуна — «Сервер жооп берген жок», кеңеш жана «Кайра текшерүү» баскычы. Учак режимин өчүрүп, «Кайра текшерүү» басыңыз — товар табылат.",
+          "Тез эле удаалаш 5–6 ар башка кодду сканерлеңиз: экран катпайт, ар бири өз жообун алат (серверге суроолор тыныгуу менен жөнөтүлөт).",
+          "Кыргызча жана өзбекче, кара темада жана чоң арипте (360 dp) текшериңиз: карточка жана баскыч кыркылбайт."
+        ],
+        "uz": [
+          "Egasi yoki administrator bilan kiring. NurCRM katalogidagi mahsulotni oling (yaxshisi — telefon xotirasida hali yo'g'i, masalan kirgandan so'ng ombor to'liq yuklanmasdan oldin). «Ombor → Qabul qilish», uning shtrix-kodini skanerlang yoki kiriting.",
+          "Qidiruv ketayotganda «Serverda va ma'lumotnomada qidirilmoqda…» ko'rinadi (7 soniyagacha). So'ng «Noma'lum shtrix-kod» emas, katalogdagi mahsulotning o'zi ko'rsatiladi.",
+          "Xuddi shu kodni oldiga ortiqcha nol qo'shib kiriting (yoki qisqa EAN-8 / UPC-E, nollari bor GTIN-14): mahsulot shunday topiladi.",
+          "To'qib chiqarilgan kodni kiriting (do'konda yo'q 13 raqam): server javobidan so'ng — «Noma'lum shtrix-kod», «katalogingizda (serverda tekshirildi) va NurCRM ma'lumotnomasida yo'q» matni va «Mahsulot qo'shish» tugmasi.",
+          "Parvoz rejimini yoqing va telefon xotirasida yo'q mahsulot kodini kiriting: «Noma'lum shtrix-kod» o'rniga — «Server javob bermadi», maslahat va «Qayta tekshirish» tugmasi. Parvoz rejimini o'chirib, «Qayta tekshirish»ni bosing — mahsulot topiladi.",
+          "Ketma-ket tez 5–6 xil kodni skanerlang: ekran qotmaydi, har biri o'z javobini oladi (serverga so'rovlar tanaffus bilan boradi).",
+          "Qirg'izcha va o'zbekchada, qora mavzuda va yirik shriftda (360 dp) tekshiring: kartochka va tugma kesilmaydi."
+        ],
+        "en": [
+          "Sign in as the owner or an administrator. Take a product that is in the NurCRM catalog (ideally one not yet in the phone's memory, e.g. right after signing in, before the stock is fully loaded). Stock → Receiving, scan or type its barcode.",
+          "While the search runs you see \"Looking up … on the server and in the directory…\" (up to 7 s). Then the product itself from the catalog is shown, not \"Unknown barcode\".",
+          "Type the same code with an extra zero in front (or a short EAN-8 / UPC-E, GTIN-14 with zeros): the product is found the same way.",
+          "Type an invented code (13 digits that the shop does not have): after the server answers — \"Unknown barcode\" with the text \"not in your catalog (checked on the server) or the NurCRM directory\" and the \"Add product\" button.",
+          "Turn airplane mode on and type the code of a product that is not in the phone's memory: instead of \"Unknown barcode\" you see \"The server did not answer\" with a hint and the \"Check again\" button. Turn airplane mode off and tap \"Check again\" — the product is found.",
+          "Quickly scan 5–6 different codes in a row: the screen does not freeze and each gets its own answer (requests to the server go with a pause).",
+          "Check in Kyrgyz and Uzbek, in the dark theme and at a large font (360 dp): the card and the button are not cut off."
+        ],
+        "tr": [
+          "Sahip veya yönetici olarak girin. NurCRM kataloğunda olan bir ürünü alın (ideal olarak telefonun belleğinde henüz olmayan, örneğin girişten hemen sonra, depo tam yüklenmeden). Depo → Mal kabul, barkodunu okutun veya yazın.",
+          "Arama sürerken «… sunucuda ve rehberde aranıyor…» görünür (en çok 7 sn). Sonra «Bilinmeyen barkod» değil, katalogdaki ürünün kendisi gösterilir.",
+          "Aynı kodu başına fazladan sıfır ekleyerek yazın (veya kısa EAN-8 / UPC-E, sıfırlı GTIN-14): ürün aynı şekilde bulunur.",
+          "Uydurma bir kod yazın (mağazada olmayan 13 hane): sunucu yanıt verdikten sonra — «Bilinmeyen barkod», «kataloğunuzda (sunucuda kontrol edildi) ve NurCRM rehberinde yok» metni ve «Ürün ekle» düğmesi.",
+          "Uçak modunu açın ve telefonun belleğinde olmayan bir ürünün kodunu yazın: «Bilinmeyen barkod» yerine — «Sunucu yanıt vermedi», ipucu ve «Tekrar kontrol et» düğmesi. Uçak modunu kapatıp «Tekrar kontrol et»e dokunun — ürün bulunur.",
+          "Art arda hızlıca 5–6 farklı kod okutun: ekran donmaz, her biri kendi yanıtını alır (sunucuya istekler aralıklı gider).",
+          "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: kart ve düğme kesilmez."
+        ]
+      }
     }
   ]
 }

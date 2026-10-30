@@ -29,11 +29,25 @@ public partial class MarketplaceView : UserControl
         };
         Store.InlineControlProvider = ProvideInlineControl;
         Store.Initialize(new LocalMarketplaceCatalogSource(Run));
-        RebuildThemedCards();
+        // 2026-10-30 (стресс-тест «Управление и Помощь»): витрина собиралась при открытии трижды (Initialize, Store.Reload в конце
+        // RebuildThemedCards и отложенная пересборка по событию прежних карточек) — ≈1,2 с «зависания» окна. Каталог от прежних карточек
+        // не зависит (ProvideInlineControl = null), поэтому здесь достаточно первой сборки.
+        _storeReloadPending = true;
+        RebuildThemedCards(reload: false);
+        _storeReloadPending = false;
+        _themeBuiltFor = Application.Current?.ActualThemeVariant;
         // 2026-10-21: карточки красятся кистями темы в момент сборки — при смене светлой/тёмной (кнопка «Тема» у владельца,
         // редактор тем) пересобираем их, иначе остаются старые цвета. Post — AccentThemeService.Apply кладёт новые кисти
         // уже после смены варианта (App.ApplyTheme).
-        ActualThemeVariantChanged += (_, _) => Dispatcher.UIThread.Post(RebuildThemedCards);
+        // 2026-10-30: при открытии окна событие приходит само (вид получил вариант темы окна) — витрина уже собрана в нём; пересборка — только
+        // если вариант (светлый/тёмный) действительно сменился.
+        ActualThemeVariantChanged += (_, _) => Dispatcher.UIThread.Post(() =>
+        {
+            if (Equals(ActualThemeVariant, _themeBuiltFor))
+                return;
+            _themeBuiltFor = ActualThemeVariant;
+            RebuildThemedCards();
+        });
 
         // "Список" новых тем/доп. услуг — это, по сути, новая версия кассы (Velopack/GitHub
         // Releases): отдельного каталога на сервере нет, все карточки зашиты в код. Поэтому
@@ -41,7 +55,15 @@ public partial class MarketplaceView : UserControl
         // реализовано как немедленная проверка обновлений с баннером — так пользователь
         // реально видит, что есть более новая версия с новыми функциями/темами.
         _ = CheckForUpdatesAsync();
+
+        // 2026-10-31, ТЗ Умара «функции маркетплейса — с сервера»: при открытии Маркетплейса — свежий список функций, включённых
+        // компании на сервере; пришло изменение (включили/выключили) — витрина перечитывается. Без связи/с ошибкой — как было, по ключам.
+        AttachedToVisualTree += (_, _) => ServerAddons.Changed += OnServerAddonsChanged;
+        DetachedFromVisualTree += (_, _) => ServerAddons.Changed -= OnServerAddonsChanged;
+        _ = ServerAddons.RefreshAsync(force: true);
     }
+
+    private void OnServerAddonsChanged() => Dispatcher.UIThread.Post(ScheduleStoreReload);
 
     // 2026-10-23: хранилище прежних карточек доп. функций. На экране они не показываются (витрина рисует каталог), но
     // обработчики активации по-прежнему обновляют их, а любое изменение списка перечитывает каталог (ScheduleStoreReload).
@@ -49,6 +71,7 @@ public partial class MarketplaceView : UserControl
     private readonly WrapPanel ExtrasWrapPanel = new();
     private readonly Border _inlineHost = new();
     private bool _storeReloadPending;
+    private Avalonia.Styling.ThemeVariant? _themeBuiltFor;
 
     private void ScheduleStoreReload()
     {
@@ -109,6 +132,9 @@ public partial class MarketplaceView : UserControl
                 case "open":
                     OpenFeature(id);
                     break;
+                case "request":
+                    _ = RequestAddonAsync(id);
+                    break;
                 case "theme":
                     // 2026-10-27 (аудит редакторов, В-8): свою плохо читаемую тему молча не применяем — «Всё равно применить?».
                     if (CustomThemeStore.Find(id) is { } customToApply && !ThemeReadability.ConfirmApply(TopLevel.GetTopLevel(this) as Window, customToApply))
@@ -145,6 +171,101 @@ public partial class MarketplaceView : UserControl
             PosLogger.Log($"Маркетплейс: действие «{command}» не выполнено: {ex}", "WARNING");
         }
     }
+
+    private bool _requestBusy;
+
+    /// <summary>2026-10-31, ТЗ Умара: «Подключить» — заявка в поддержку (POST api/support/addon-requests/, как на сайте). Оплата пока через
+    /// поддержку: перезвонят, примут оплату и включат функцию на сервере (она появится здесь после следующей загрузки).</summary>
+    private async Task RequestAddonAsync(string slug)
+    {
+        if (_requestBusy)
+            return;
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        var item = Store.FindItem(slug);
+        var title = item?.Title ?? slug;
+        _requestBusy = true;
+        try
+        {
+            var dlg = new SimpleInputDialog(title,
+                Tr.T("Ваш телефон для связи (не меньше 9 цифр), например +996 555 123 456:", "Байланыш үчүн телефонуңуз (кеминде 9 сан), мисалы +996 555 123 456:",
+                     "Your phone number for contact (at least 9 digits), e.g. +996 555 123 456:", "İletişim için telefonunuz (en az 9 hane), örn. +996 555 123 456:",
+                     "Aloqa uchun telefon raqamingiz (kamida 9 ta raqam), masalan +996 555 123 456:"),
+                optional: false,
+                confirmText: Tr.T("Отправить заявку", "Өтүнмөнү жөнөтүү", "Send request", "Talebi gönder", "Arizani yuborish"));
+            if (PosDialogHost.Show(dlg, owner) != true)
+                return;
+            var phone = dlg.Result.Trim();
+            if (!ServerAddons.PhoneLooksValid(phone))
+            {
+                AddonRequestAlert(owner, title, PhoneTooShortText(), PosAlertKind.Error);
+                return;
+            }
+
+            // Цена — по-русски, как её увидит поддержка (на сайте то же: «1 500 сом разово»).
+            var price = item?.Price is { Amount: { } amount } p
+                ? $"{amount:N0} сом" + (p.Period == MarketplacePricePeriod.PerMonth ? "/мес" : " разово") + (p.MonthlyFee is { } fee ? $" + {fee:N0} сом/мес" : "")
+                : "";
+            var result = await ServerAddons.SubmitRequestAsync(slug, title, price, phone).ConfigureAwait(true);
+            switch (result.Status)
+            {
+                case ServerAddons.RequestStatus.Sent:
+                    AddonRequestAlert(owner, title,
+                        Tr.T("Заявка отправлена. Поддержка перезвонит, примет оплату и включит функцию — она появится здесь сама.",
+                             "Өтүнмө жөнөтүлдү. Колдоо кызматы чалып, төлөмдү кабыл алат жана функцияны иштетет — ал бул жерде өзү пайда болот.",
+                             "Request sent. Support will call you, take the payment and turn the feature on — it will appear here by itself.",
+                             "Talep gönderildi. Destek sizi arayacak, ödemeyi alacak ve özelliği açacak — burada kendiliğinden görünecek.",
+                             "Ariza yuborildi. Qo'llab-quvvatlash qo'ng'iroq qiladi, to'lovni qabul qiladi va funksiyani yoqadi — u shu yerda o'zi paydo bo'ladi."),
+                        PosAlertKind.Success);
+                    break;
+                case ServerAddons.RequestStatus.PhoneTooShort:
+                    AddonRequestAlert(owner, title, PhoneTooShortText(), PosAlertKind.Error);
+                    break;
+                case ServerAddons.RequestStatus.TooMany:
+                    AddonRequestAlert(owner, title,
+                        Tr.T("Слишком много заявок за короткое время. Подождите несколько минут и попробуйте снова.", "Кыска убакытта өтө көп өтүнмө. Бир нече мүнөт күтүп, кайра аракет кылыңыз.",
+                             "Too many requests in a short time. Wait a few minutes and try again.", "Kısa sürede çok fazla talep. Birkaç dakika bekleyip tekrar deneyin.", "Qisqa vaqtda juda ko'p ariza. Bir necha daqiqa kutib, qayta urinib ko'ring."),
+                        PosAlertKind.Warning);
+                    break;
+                case ServerAddons.RequestStatus.Unavailable:
+                    var tel = string.IsNullOrWhiteSpace(result.SupportPhone) ? "" : result.SupportPhone.Trim();
+                    AddonRequestAlert(owner, title,
+                        Tr.T("Заявки сейчас не принимаются. Позвоните в поддержку: " + (tel.Length > 0 ? tel : "номер на сайте nurcrm.kg"),
+                             "Азыр өтүнмөлөр кабыл алынбайт. Колдоо кызматына чалыңыз: " + (tel.Length > 0 ? tel : "номери nurcrm.kg сайтында"),
+                             "Requests are not accepted right now. Call support: " + (tel.Length > 0 ? tel : "the number is on nurcrm.kg"),
+                             "Talepler şu an kabul edilmiyor. Destek hattını arayın: " + (tel.Length > 0 ? tel : "numara nurcrm.kg sitesinde"),
+                             "Hozir arizalar qabul qilinmaydi. Qo'llab-quvvatlashga qo'ng'iroq qiling: " + (tel.Length > 0 ? tel : "raqam nurcrm.kg saytida")),
+                        PosAlertKind.Warning);
+                    break;
+                case ServerAddons.RequestStatus.NoConnection:
+                    AddonRequestAlert(owner, title,
+                        Tr.T("Нет связи с сервером. Проверьте интернет и повторите — заявка не отправлена.", "Сервер менен байланыш жок. Интернетти текшерип, кайталаңыз — өтүнмө жөнөтүлгөн жок.",
+                             "No connection to the server. Check the internet and retry — the request was not sent.", "Sunucuyla bağlantı yok. İnterneti kontrol edip tekrar deneyin — talep gönderilmedi.", "Server bilan aloqa yo'q. Internetni tekshirib, qayta urinib ko'ring — ariza yuborilmadi."),
+                        PosAlertKind.Warning);
+                    break;
+                default:
+                    AddonRequestAlert(owner, title,
+                        Tr.T("Заявку не удалось отправить. Попробуйте позже или позвоните в поддержку.", "Өтүнмөнү жөнөтүү мүмкүн болгон жок. Кийинчерээк аракет кылыңыз же колдоо кызматына чалыңыз.",
+                             "The request could not be sent. Try later or call support.", "Talep gönderilemedi. Daha sonra deneyin veya destek hattını arayın.", "Arizani yuborib bo'lmadi. Keyinroq urinib ko'ring yoki qo'llab-quvvatlashga qo'ng'iroq qiling."),
+                        PosAlertKind.Error);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Маркетплейс: заявка на подключение «{slug}» не отправлена: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _requestBusy = false;
+        }
+    }
+
+    /// <summary>Сообщение о заявке. Стенд проверок подменяет его (без реального окна); в программе всегда PosAlertDialog.</summary>
+    internal static Action<Window?, string, string, PosAlertKind> AddonRequestAlert = (owner, title, text, kind) => PosAlertDialog.Show(owner, title, text, kind);
+
+    private static string PhoneTooShortText() =>
+        Tr.T("Телефон слишком короткий — введите не меньше 9 цифр.", "Телефон өтө кыска — кеминде 9 сан киргизиңиз.",
+             "The phone number is too short — enter at least 9 digits.", "Telefon çok kısa — en az 9 hane girin.", "Telefon raqami juda qisqa — kamida 9 ta raqam kiriting.");
 
     /// <summary>«Открыть» разблокированной функции — те же действия, что были на кнопках карточек доп. функций.</summary>
     private void OpenFeature(string id)
@@ -354,7 +475,7 @@ public partial class MarketplaceView : UserControl
     }
 
     /// <summary>2026-10-21: галерея тем и карточки «Доп. функций» — в порядке конструктора (порядок карточек в ряду).</summary>
-    private void RebuildThemedCards()
+    private void RebuildThemedCards(bool reload = true)
     {
         RefreshLoyaltyCard();
         RefreshWarehouseAnalyticsCard();
@@ -368,7 +489,8 @@ public partial class MarketplaceView : UserControl
         RefreshAnalyticsExportCard();
         RefreshScalesCard();
         RefreshStandardPackCards();
-        Store.Reload(); // 2026-10-23: темы и виды кассы рисуются цветами текущего варианта темы
+        if (reload)
+            Store.Reload(); // 2026-10-23: темы и виды кассы рисуются цветами текущего варианта темы
     }
 
     /// <summary>Кисть из ресурсов приложения — карточки Маркетплейса собираются в коде, а там

@@ -230,8 +230,8 @@ public partial class SideMenuView : UserControl
         AutomationProperties.SetName(SearchClearButton, clear);
         var version = typeof(SideMenuView).Assembly.GetName().Version;
         NewVersionText.Text = version is null
-            ? "NurMarket"
-            : $"NurMarket · {Tr.T("версия", "версия", "version", "sürüm", "versiya")} {version.Major}.{version.Minor}.{Math.Max(0, version.Build)}";
+            ? "NurCRM"
+            : $"NurCRM · {Tr.T("версия", "версия", "version", "sürüm", "versiya")} {version.Major}.{version.Minor}.{Math.Max(0, version.Build)}";
         var close = Tr.T("Закрыть меню (Esc)", "Менюну жабуу (Esc)", "Close the menu (Esc)", "Menüyü kapat (Esc)", "Menyuni yopish (Esc)");
         ToolTip.SetTip(NewMenuCloseButton, close);
         AutomationProperties.SetName(NewMenuCloseButton, close);
@@ -599,7 +599,7 @@ public partial class SideMenuView : UserControl
                 try
                 {
                     if (wantIrregular)
-                        irregular = IrregularReceiptsStore.LoadAll().Count
+                        irregular = IrregularReceiptsStore.LoadAll().Count(e => e.ClosedAt is null) // 2026-10-30: «Проверено» гасит счётчик
                                     + OfflinePendingSalesStore.LoadAll().Count(s => !string.Equals(s.Status, OfflineSaleEntry.Synced, StringComparison.OrdinalIgnoreCase));
                 }
                 catch

@@ -534,11 +534,11 @@ class VideoStill {
 // может заменить их ключами l10n, но без них движок уже говорит понятно на всех языках.
 const _vm = <String, List<String>>{
   'cameraDenied': [
-    'Нет доступа к камере. Разрешите камеру для NurMarket в настройках телефона.',
-    'Камерага кирүүгө уруксат жок. Телефондун жөндөөлөрүндө NurMarket үчүн камераны уруксаттаңыз.',
-    "Kameraga ruxsat yo'q. Telefon sozlamalarida NurMarket uchun kameraga ruxsat bering.",
-    'No camera access. Allow the camera for NurMarket in the phone settings.',
-    'Kameraya erişim yok. Telefon ayarlarında NurMarket için kameraya izin verin.',
+    'Нет доступа к камере. Разрешите камеру для NurCRM в настройках телефона.',
+    'Камерага кирүүгө уруксат жок. Телефондун жөндөөлөрүндө NurCRM үчүн камераны уруксаттаңыз.',
+    "Kameraga ruxsat yo'q. Telefon sozlamalarida NurCRM uchun kameraga ruxsat bering.",
+    'No camera access. Allow the camera for NurCRM in the phone settings.',
+    'Kameraya erişim yok. Telefon ayarlarında NurCRM için kameraya izin verin.',
   ],
   'cameraBusy': [
     'Камера занята. Повторите через секунду',

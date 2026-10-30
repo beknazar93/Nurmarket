@@ -146,13 +146,15 @@ public static class InvoiceImportFlow
             Suppliers = suppliers,
             CurrentSupplier = vm.HasReceivingSupplier ? vm.ReceivingSupplier : null,
             TakenCodes = () => vm.ReceivingLines.Select(l => (string?)l.Barcode).ToList(),
-            CreateSupplier = OfflineModeHelper.UseLocalOperations ? null : async (window, known) =>
+            // 2026-10-30: «＋» — форма «Новый поставщик» с полями из накладной (название, ИНН, номер накладной в примечании), защита от дубля по ИНН/названию,
+            // без права «Склад» — подсказка «Попросите владельца» (SupplierResolve).
+            CreateSupplier = OfflineModeHelper.UseLocalOperations ? null : async (window, known, prefill) =>
             {
-                var created = await SupplierQuickCreate.ShowAsync(window, known).ConfigureAwait(true);
+                var created = await SupplierResolve.CreateAsync(window, known, prefill).ConfigureAwait(true);
                 if (created is null)
                     return null;
-                vm.SelectOrAddReceivingSupplier(created.Supplier);
-                return created.Supplier;
+                vm.SelectOrAddReceivingSupplier(created);
+                return created;
             },
             RemapColumns = table2 is null ? null : async window =>
             {
@@ -248,8 +250,14 @@ public static class InvoiceImportFlow
             Total = result.Total,
         };
         InvoiceImportRegistry.Record(entry);
+        // 2026-10-30: копия исходного файла — ссылка «Накладная» у поступления товара (Склад → товар → Поступления и партии).
+        if (path is { Length: > 0 })
+            InvoiceImportRegistry.StoreFile(entry, path);
         // 2026-10-27 (ревью Ск-2): перед «Оприходовать» окно снова сверит накладную с журналом (уже оприходована / лежит дважды).
         vm.NoteInvoiceInReceiving(entry);
+        // 2026-10-30 (нумерация закупок): номер и дата накладной поставщика уйдут вместе с приходом (в комментарии прихода, рядом с номером документа ПР-…).
+        vm.ReceivingSupplierDocNumber = result.Number;
+        vm.ReceivingSupplierDocDate = result.Date;
         vm.ConfirmInvoiceRepeats = repeats => ConfirmRepeatsAsync(owner, repeats);
         var newCount = result.Lines.Count(l => l.IsNew);
         PosLogger.Log($"INVOICE_IMPORT: накладная {name} перенесена в приёмку — строк {added}, новых товаров {newCount}, сумма {result.Total:0.##}, поставщик {(supplier is null ? "не выбран" : "выбран")}, пропущено нераспознанных {result.Unrecognized}.", "INVOICE_IMPORT");

@@ -340,7 +340,7 @@ class PrinterService {
   /// Кнопка «Открыть ящик» в настройках.
   Future<void> openDrawerTest(PrinterConfig c) => send(c, drawerPulse(pin: c.drawerPin));
 
-  Future<void> printTest(PrinterConfig c, {String title = 'NurMarket'}) =>
+  Future<void> printTest(PrinterConfig c, {String title = 'NurCRM'}) =>
       send(c, testPage(paperMm: c.paperMm, codepage: c.codepage, codeTable: c.codeTable, title: title));
 }
 

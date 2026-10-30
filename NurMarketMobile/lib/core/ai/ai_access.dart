@@ -45,9 +45,15 @@ class AiAccessPolicy {
   final List<AiAccessUser>? users;
   final String updatedBy;
   final String updatedAt;
-  const AiAccessPolicy._(this.users, this.updatedBy, this.updatedAt);
+
+  /// 2026-10-29 (полная изоляция аккаунтов): правило этого аккаунта ещё ни разу не загружалось с сервера (после смены аккаунта
+  /// копия прошлого стёрта, связи нет) — экран пишет «данные этого аккаунта ещё не загружены», а не «ИИ открыт всем».
+  final bool unloaded;
+  const AiAccessPolicy._(this.users, this.updatedBy, this.updatedAt, [this.unloaded = false]);
 
   const AiAccessPolicy.unset() : this._(null, '', '');
+
+  const AiAccessPolicy.unloaded() : this._(null, '', '', true);
 
   AiAccessPolicy.set(List<AiAccessUser> users, {String by = '', String at = ''})
     : this._(List.unmodifiable(_clean(users)), by, at);
@@ -135,7 +141,7 @@ class AiAccess {
   }
 
   /// Владельцу, пока список не задан, показываем плашку «Рекомендуем ограничить».
-  static bool shouldRecommend(Session? s, AiAccessPolicy policy) => !policy.isSet && canManage(s);
+  static bool shouldRecommend(Session? s, AiAccessPolicy policy) => !policy.isSet && !policy.unloaded && canManage(s);
 
   /// Список по умолчанию: сам владелец — первым из двух.
   static List<AiAccessUser> defaultUsers(Session? s) =>
@@ -143,7 +149,7 @@ class AiAccess {
 
   /// Строка статуса «у вас есть доступ / нет доступа / лимит не задан» — для профиля и настроек.
   static String statusText(AppLocalizations l, Session? s, AiAccessPolicy policy) =>
-      !policy.isSet ? l.aiAccMineOpen : (canUse(s, policy) ? l.aiAccMineYes : l.aiAccMineNo);
+      policy.unloaded ? l.accountDataNotLoaded : !policy.isSet ? l.aiAccMineOpen : (canUse(s, policy) ? l.aiAccMineYes : l.aiAccMineNo);
 
   /// «ИИ доступен только 2 сотрудникам магазина: A, B. Обратитесь к владельцу» — на языке интерфейса ([l]; null — по-русски).
   static String deniedText(AppLocalizations? l, AiAccessPolicy policy) {
@@ -170,7 +176,11 @@ class AiAccessRepository {
   static DateTime _cachedAt = DateTime(2000);
   static Duration _ttl = const Duration(minutes: 5);
 
+  /// 2026-10-29: последняя загрузка правила дошла до сервера (false — взята копия телефона или правила нет).
+  static bool lastLoadFromServer = false;
+
   static void resetForTest() {
+    lastLoadFromServer = false;
     _cached = null;
     _cachedFor = null;
     _cachedAt = DateTime(2000);
@@ -190,7 +200,9 @@ class AiAccessRepository {
       final settings = data['settings'];
       p = AiAccessPolicy.fromJson(settings is Map ? settings[key] : null);
       await _saveLocal(p);
+      lastLoadFromServer = true;
     } catch (_) {
+      lastLoadFromServer = false;
       ttl = const Duration(minutes: 1);
       p = await _readLocal();
     }
@@ -220,7 +232,8 @@ class AiAccessRepository {
 
   Future<AiAccessPolicy> _readLocal() async {
     try {
-      return AiAccessPolicy.fromJson(await db.getSetting(_local));
+      final raw = await db.getSetting(_local);
+      return raw == null ? const AiAccessPolicy.unloaded() : AiAccessPolicy.fromJson(raw); // 2026-10-29: копии нет — не загружено
     } catch (_) {
       return const AiAccessPolicy.unset();
     }

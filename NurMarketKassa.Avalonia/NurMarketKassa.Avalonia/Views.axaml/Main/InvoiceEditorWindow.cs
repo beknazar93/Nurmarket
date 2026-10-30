@@ -39,6 +39,11 @@ public sealed class InvoiceEditorWindow : Window
         /// <summary>Поставщик, прочитанный ИИ в накладной (ProductActionPlan.SupplierHint), — только подсказка.</summary>
         public string? InvoiceSupplierName { get; init; }
         public string? InvoiceSupplierInn { get; init; }
+        /// <summary>2026-10-30: телефон и адрес поставщика, если ИИ их прочитал в накладной, — предзаполнение «Новый поставщик».</summary>
+        public string? InvoiceSupplierPhone { get; init; }
+        public string? InvoiceSupplierAddress { get; init; }
+        /// <summary>2026-10-30: владелец выбрал «Без поставщика» (с предупреждением) — приход пишется в остатки товаров, долга и расхода нет.</summary>
+        public bool NoSupplier { get; set; }
         public List<PurchaseReceivingService.Supplier>? Suppliers { get; set; }
         /// <summary>Повторы строк, объединённые при разборе (показать владельцу).</summary>
         public List<string> MergeNotes { get; } = new();
@@ -58,7 +63,11 @@ public sealed class InvoiceEditorWindow : Window
 
         public static PurchaseDraft FromSteps(IEnumerable<ProductActionPlan.Step> steps, string? supplierName, string? supplierInn)
         {
-            var draft = new PurchaseDraft { InvoiceSupplierName = supplierName, InvoiceSupplierInn = supplierInn };
+            var draft = new PurchaseDraft
+            {
+                InvoiceSupplierName = supplierName, InvoiceSupplierInn = supplierInn,
+                InvoiceSupplierPhone = ProductActionPlan.LastSupplierExtra.Phone, InvoiceSupplierAddress = ProductActionPlan.LastSupplierExtra.Address,
+            };
             // 2026-10-24 (П4): список шагов нужен целиком — код для прихода к товару без штрихкода приходит отдельным шагом set_barcode (код — в Text).
             var allSteps = steps as IReadOnlyCollection<ProductActionPlan.Step> ?? steps.ToList();
             foreach (var step in allSteps.Where(ProductActionPlan.IsPurchaseStep))
@@ -236,7 +245,9 @@ public sealed class InvoiceEditorWindow : Window
                 if (posted.Count > 0)
                 {
                     var summary = (job.Summary ?? "").Replace("\n", " ").Trim();
-                    var who = T($"Поставщик «{tail.Supplier.Name}», ", $"Жеткирүүчү «{tail.Supplier.Name}», ", $"Supplier “{tail.Supplier.Name}”, ", $"Tedarikçi «{tail.Supplier.Name}», ", $"Yetkazib beruvchi «{tail.Supplier.Name}», ")
+                    var who = tail.Supplier.Id.Length == 0
+                        ? T("Без поставщика: остаток записан в товары.", "Жеткирүүчүсүз: калдык товарларга жазылды.", "No supplier: stock written to the products.", "Tedarikçisiz: stok ürünlere yazıldı.", "Yetkazib beruvchisiz: qoldiq mahsulotlarga yozildi.")
+                        : T($"Поставщик «{tail.Supplier.Name}», ", $"Жеткирүүчү «{tail.Supplier.Name}», ", $"Supplier “{tail.Supplier.Name}”, ", $"Tedarikçi «{tail.Supplier.Name}», ", $"Yetkazib beruvchi «{tail.Supplier.Name}», ")
                               + (tail.PaidNow ? T("оплачено сразу.", "дароо төлөндү.", "paid now.", "hemen ödendi.", "darhol to'landi.")
                                   : T("в долг поставщику.", "жеткирүүчүгө карызга.", "on credit.", "tedarikçiye borç.", "yetkazib beruvchiga qarzga."));
                     draft.PostedSummaries.Add(summary + " " + who);
@@ -321,6 +332,10 @@ public sealed class InvoiceEditorWindow : Window
     private readonly ListBox _supplierList = new() { MaxHeight = 104, MinHeight = 0 };
     private readonly StackPanel _supplierPicker = new() { Spacing = 6 };
     private readonly Button _changeSupplier;
+    // 2026-10-30: «＋ Новый поставщик» (форма «Поставщики», предзаполнена из накладной) и «Без поставщика» (с предупреждением).
+    private readonly Button _newSupplier;
+    private readonly Button _noSupplier;
+    private bool _creatingSupplier;
     private readonly Button _post;
     private readonly Button _close;
     private readonly RadioButton _paidNow;
@@ -373,21 +388,28 @@ public sealed class InvoiceEditorWindow : Window
         // ── поставщик ──
         var supplierLabel = new TextBlock { Text = T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"), FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
         Res(supplierLabel, TextBlock.ForegroundProperty, "BrushTextSoft");
-        _changeSupplier = UiKit.Ghost(this, T("Сменить", "Алмаштыруу", "Change", "Değiştir", "O'zgartirish"));
+        _changeSupplier = UiKit.Ghost(this, T("Другой…", "Башкасы…", "Another…", "Başka…", "Boshqasi…")); // 2026-10-30: было «Сменить»
         // 2026-10-22 (модалки, пакет 2): касание 44 px (было 34–36) — кнопки, поля строк, ✕ строки, пункты поставщиков.
         _changeSupplier.Height = 44;
         _changeSupplier.Click += (_, _) =>
         {
             _supplierPicker.IsVisible = true;
             _changeSupplier.IsVisible = false;
+            SyncSupplierButtons();
             _supplierList.SelectedIndex = -1;
             _supplierSearch?.Focus();
         };
         var refresh = UiKit.Ghost(this, T("⟳ Обновить список", "⟳ Тизмени жаңыртуу", "⟳ Refresh list", "⟳ Listeyi yenile", "⟳ Ro'yxatni yangilash"));
         refresh.Height = 44;
         refresh.Click += async (_, _) => await LoadSuppliersAsync(force: true).ConfigureAwait(true);
+        _newSupplier = UiKit.Ghost(this, T("＋ Новый поставщик", "＋ Жаңы жеткирүүчү", "＋ New supplier", "＋ Yeni tedarikçi", "＋ Yangi yetkazib beruvchi"));
+        _newSupplier.Height = 44;
+        _newSupplier.Click += async (_, _) => await CreateSupplierAsync().ConfigureAwait(true);
+        _noSupplier = UiKit.Ghost(this, T("Без поставщика", "Жеткирүүчүсүз", "No supplier", "Tedarikçisiz", "Yetkazib beruvchisiz"));
+        _noSupplier.Height = 44;
+        _noSupplier.Click += async (_, _) => await ChooseNoSupplierAsync().ConfigureAwait(true);
         var supplierHead = new DockPanel { LastChildFill = true };
-        var headRight = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _changeSupplier, refresh } };
+        var headRight = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { _changeSupplier, _newSupplier, _noSupplier, refresh } };
         DockPanel.SetDock(headRight, Dock.Right);
         supplierHead.Children.Add(headRight);
         supplierLabel.Margin = new Thickness(0, 0, 10, 0);
@@ -430,11 +452,14 @@ public sealed class InvoiceEditorWindow : Window
         };
         var notFound = new TextBlock
         {
-            Text = T("Нет нужного поставщика? Добавьте его в NurCRM (Клиенты → Поставщики) и нажмите «Обновить список».",
-                "Керектүү жеткирүүчү жокпу? Аны NurCRM'ге кошуңуз (Кардарлар → Жеткирүүчүлөр) жана «Тизмени жаңыртуу» баскычын басыңыз.",
-                "Supplier not in the list? Add it in NurCRM (Clients → Suppliers) and press “Refresh list”.",
-                "Tedarikçi listede yok mu? NurCRM'de ekleyin (Müşteriler → Tedarikçiler) ve «Listeyi yenile»ye basın.",
-                "Kerakli yetkazib beruvchi yo'qmi? Uni NurCRM'ga qo'shing (Mijozlar → Yetkazib beruvchilar) va «Ro'yxatni yangilash»ni bosing."),
+            // 2026-10-30: «＋ Новый поставщик» создаёт поставщика на месте (было: «добавьте в NurCRM»); без права — «Попросите владельца».
+            Text = SupplierResolve.CanCreate()
+                ? T("Нет нужного поставщика? Нажмите «＋ Новый поставщик» — он создастся здесь же и сразу выберется.",
+                    "Керектүү жеткирүүчү жокпу? «＋ Жаңы жеткирүүчү» баскычын басыңыз — ал ушул жерде түзүлүп, дароо тандалат.",
+                    "Supplier not in the list? Press “＋ New supplier” — it is created right here and selected at once.",
+                    "Tedarikçi listede yok mu? «＋ Yeni tedarikçi»ye basın — burada oluşturulur ve hemen seçilir.",
+                    "Kerakli yetkazib beruvchi yo'qmi? «＋ Yangi yetkazib beruvchi»ni bosing — u shu yerning o'zida yaratilib, darhol tanlanadi.")
+                : SupplierResolve.AskOwnerText,
             FontSize = 12.5, TextWrapping = TextWrapping.Wrap,
         };
         Res(notFound, TextBlock.ForegroundProperty, "BrushTextSoft");
@@ -646,6 +671,7 @@ public sealed class InvoiceEditorWindow : Window
     private void SelectSupplier(PurchaseReceivingService.Supplier supplier)
     {
         _draft.Supplier = supplier;
+        _draft.NoSupplier = false;
         _repeatConfirmedFor = null;
         PosLogger.Log($"Закупка по накладной: выбран поставщик «{supplier.Name}».", "STOCK");
         ShowSupplier();
@@ -653,48 +679,178 @@ public sealed class InvoiceEditorWindow : Window
         Dispatcher.UIThread.Post(() => _navBoxes.FirstOrDefault()?.Focus(), DispatcherPriority.Background);
     }
 
+    /// <summary>2026-10-30: «＋ Новый поставщик» и «Без поставщика» видны, пока открыт выбор поставщика (список).</summary>
+    private void SyncSupplierButtons()
+    {
+        _newSupplier.IsVisible = _supplierPicker.IsVisible && SupplierResolve.CanCreate();
+        _noSupplier.IsVisible = _supplierPicker.IsVisible;
+    }
+
+    /// <summary>2026-10-30: создать поставщика из накладной (форма «Поставщики», предзаполнена: название, ИНН, телефон, адрес). Похожий уже есть —
+    /// спрашиваем «использовать его?». Созданный сразу выбран, закупка проводится с ним.</summary>
+    private async Task CreateSupplierAsync()
+    {
+        if (_creatingSupplier || _draft.Posting)
+            return;
+        _creatingSupplier = true;
+        _newSupplier.IsEnabled = false; // 2026-10-30: кнопка заблокирована на время запроса; повтор тем же поставщиком ловит и SupplierResolve
+        try
+        {
+            var prefill = SupplierResolve.Prefill.From(_draft.InvoiceSupplierName, _draft.InvoiceSupplierInn, _draft.InvoiceSupplierPhone, _draft.InvoiceSupplierAddress);
+            var created = await SupplierResolve.CreateAsync(this, _draft.Suppliers ?? new List<PurchaseReceivingService.Supplier>(), prefill).ConfigureAwait(true);
+            if (created is null)
+                return;
+            _draft.Suppliers ??= new List<PurchaseReceivingService.Supplier>();
+            if (_draft.Suppliers.All(x => x.Id != created.Id))
+            {
+                _draft.Suppliers.Add(created);
+                _draft.Suppliers.Sort((a, c) => string.Compare(a.Name, c.Name, StringComparison.CurrentCultureIgnoreCase));
+            }
+            FillSupplierList();
+            SelectSupplier(created);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Закупка по накладной: поставщик не создан: {ex.Message}", "WARNING");
+            ShowError(T("Не удалось создать поставщика: ", "Жеткирүүчүнү түзүү мүмкүн болгон жок: ", "Could not create the supplier: ", "Tedarikçi oluşturulamadı: ", "Yetkazib beruvchini yaratib bo'lmadi: ") + ex.Message);
+        }
+        finally
+        {
+            _creatingSupplier = false;
+            _newSupplier.IsEnabled = true;
+        }
+    }
+
+    /// <summary>2026-10-30: «Без поставщика» — с предупреждением; закупка проводится в остатки товаров (долга и расхода из кассы нет).</summary>
+    private async Task ChooseNoSupplierAsync()
+    {
+        if (_draft.Posting || !await SupplierResolve.ConfirmNoSupplierAsync(this).ConfigureAwait(true))
+            return;
+        _draft.Supplier = null;
+        _draft.NoSupplier = true;
+        _repeatConfirmedFor = null;
+        PosLogger.Log("Закупка по накладной: выбрано «Без поставщика».", "STOCK");
+        ShowSupplier();
+    }
+
     private void ShowSupplier()
     {
         var chosen = _draft.Supplier;
-        _supplierSelected.Text = chosen is null
-            ? T("не выбран", "тандалган жок", "not selected", "seçilmedi", "tanlanmagan")
-            : "«" + chosen.Name + "»";
+        var none = chosen is null && _draft.NoSupplier;
+        _supplierSelected.Text = chosen is not null
+            ? "«" + chosen.Name + "»"
+            : none ? T("без поставщика", "жеткирүүчүсүз", "no supplier", "tedarikçisiz", "yetkazib beruvchisiz")
+            : T("не выбран", "тандалган жок", "not selected", "seçilmedi", "tanlanmagan");
         _supplierSelectedBrush?.Dispose();
         _supplierSelectedBrush = _supplierSelected.Bind(TextBlock.ForegroundProperty, _supplierSelected.GetResourceObservable(chosen is null ? "BrushWarning" : "BrushText"));
-        _supplierPicker.IsVisible = chosen is null;
-        _changeSupplier.IsVisible = chosen is not null;
+        _supplierPicker.IsVisible = chosen is null && !none;
+        _changeSupplier.IsVisible = chosen is not null || none;
+        SyncSupplierButtons();
+        // Без поставщика оплата не нужна: долга и расхода из кассы нет, остаток пишется прямо в товары.
+        _paidNow.IsEnabled = _debt.IsEnabled = !none;
+        if (none)
+            _paidNow.IsChecked = true;
 
-        // Поставщик из накладной — подсказка «Похоже: …» с кнопкой; сам не выбирается (подтверждает владелец).
+        // Поставщик из накладной — подсказка «Найден: …» с причиной и процентом, либо карточка «Новый поставщик»; сам не выбирается (подтверждает владелец).
         _matchPanel.Children.Clear();
         _matchPanel.IsVisible = false;
-        if (chosen is null && (_draft.InvoiceSupplierName is { Length: > 0 } || _draft.InvoiceSupplierInn is { Length: > 0 }))
+        if (none)
         {
+            var warn = new TextBlock
+            {
+                Text = T("Без поставщика: остаток и цены запишутся прямо в товары; долг поставщику, расход из кассы и история закупок по поставщику не создаются.",
+                    "Жеткирүүчүсүз: калдык жана баалар түз эле товарларга жазылат; жеткирүүчүгө карыз, кассадан чыгым жана жеткирүүчү боюнча сатып алуу тарыхы түзүлбөйт.",
+                    "No supplier: stock and prices are written straight to the products; no supplier debt, cash expense or supplier purchase history.",
+                    "Tedarikçisiz: stok ve fiyatlar doğrudan ürünlere yazılır; tedarikçi borcu, kasa gideri ve tedarikçi alım geçmişi oluşmaz.",
+                    "Yetkazib beruvchisiz: qoldiq va narxlar to'g'ridan-to'g'ri mahsulotlarga yoziladi; yetkazib beruvchiga qarz, kassadan xarajat va xarid tarixi yaratilmaydi."),
+                FontSize = 12.5, TextWrapping = TextWrapping.Wrap,
+            };
+            Res(warn, TextBlock.ForegroundProperty, "BrushWarning");
+            _matchPanel.Children.Add(warn);
+            _matchPanel.IsVisible = true;
+        }
+        else if (chosen is null && (_draft.InvoiceSupplierName is { Length: > 0 } || _draft.InvoiceSupplierInn is { Length: > 0 }))
+        {
+            var innWord = T("ИНН", "ИНН", "TIN", "VKN", "STIR");
             var invoiceText = T("В накладной: ", "Накладнойдо: ", "On the invoice: ", "Faturada: ", "Yuk xatida: ")
                               + "«" + (_draft.InvoiceSupplierName ?? "?") + "»"
-                              + (string.IsNullOrWhiteSpace(_draft.InvoiceSupplierInn) ? "" : $" ({T("ИНН", "ИНН", "TIN", "VKN", "STIR")} {_draft.InvoiceSupplierInn})");
-            var match = _draft.Suppliers is { } list ? PurchaseReceivingService.MatchSupplier(list, _draft.InvoiceSupplierName, _draft.InvoiceSupplierInn) : null;
-            var info = new TextBlock
+                              + (string.IsNullOrWhiteSpace(_draft.InvoiceSupplierInn) ? "" : $" ({innWord} {_draft.InvoiceSupplierInn})");
+            var match = _draft.Suppliers is { } list ? SupplierResolve.Find(list, _draft.InvoiceSupplierName, _draft.InvoiceSupplierInn) : null;
+            if (match is null && _draft.Suppliers is not null)
             {
-                Text = invoiceText + (match is null
-                    ? _draft.Suppliers is null ? "" : T(" — в списке NurCRM не найден.", " — NurCRM тизмесинде табылган жок.", " — not found in the NurCRM list.", " — NurCRM listesinde bulunamadı.", " — NurCRM ro'yxatida topilmadi.")
-                    : T(". Похоже на:", ". Окшошу:", ". Looks like:", ". Benzer:", ". O'xshashi:")),
-                FontSize = 13, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center,
-            };
-            Res(info, TextBlock.ForegroundProperty, "BrushText");
-            if (match is not null)
-            {
-                // 2026-10-22 (модалки, пакет 2): обводкой — жёлтая в окне одна («Провести закупку»).
-                var pick = UiKit.Ghost(this, T($"Выбрать «{match.Name}»", $"«{match.Name}» тандоо", $"Choose “{match.Name}”", $"«{match.Name}» seç", $"«{match.Name}»ni tanlash"));
-                pick.Height = 44;
-                pick.FontSize = 13;
-                pick.Margin = new Thickness(8, 0, 0, 0);
-                pick.MaxWidth = 320;
-                pick.Click += (_, _) => SelectSupplier(match);
-                DockPanel.SetDock(pick, Dock.Right);
-                _matchPanel.Children.Add(pick);
+                // Поставщика нет в NurCRM — карточка «Новый поставщик» с полями из накладной.
+                var shownName = _draft.InvoiceSupplierName ?? "?";
+                var details = new List<string>();
+                if (!string.IsNullOrWhiteSpace(_draft.InvoiceSupplierName))
+                    details.Add("«" + _draft.InvoiceSupplierName + "»");
+                if (!string.IsNullOrWhiteSpace(_draft.InvoiceSupplierInn))
+                    details.Add($"{innWord} {_draft.InvoiceSupplierInn}");
+                if (!string.IsNullOrWhiteSpace(_draft.InvoiceSupplierPhone))
+                    details.Add(_draft.InvoiceSupplierPhone!);
+                if (!string.IsNullOrWhiteSpace(_draft.InvoiceSupplierAddress))
+                    details.Add(_draft.InvoiceSupplierAddress!);
+                var title = new TextBlock
+                {
+                    Text = T($"Поставщик «{shownName}» не найден — создать?", $"«{shownName}» жеткирүүчүсү табылган жок — түзөбүзбү?", $"Supplier “{shownName}” not found — create it?",
+                        $"«{shownName}» tedarikçisi bulunamadı — oluşturulsun mu?", $"«{shownName}» yetkazib beruvchisi topilmadi — yaratamizmi?"),
+                    FontSize = 13.5, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap,
+                };
+                Res(title, TextBlock.ForegroundProperty, "BrushText");
+                var sub = new TextBlock
+                {
+                    Text = T("Новый поставщик: ", "Жаңы жеткирүүчү: ", "New supplier: ", "Yeni tedarikçi: ", "Yangi yetkazib beruvchi: ") + string.Join(" · ", details)
+                           + (SupplierResolve.CanCreate() ? "" : "\n" + SupplierResolve.AskOwnerText),
+                    FontSize = 12.5, TextWrapping = TextWrapping.Wrap,
+                };
+                Res(sub, TextBlock.ForegroundProperty, "BrushTextSoft");
+                var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 0) };
+                if (SupplierResolve.CanCreate())
+                {
+                    var create = UiKit.Ghost(this, T("Создать поставщика", "Жеткирүүчүнү түзүү", "Create supplier", "Tedarikçi oluştur", "Yetkazib beruvchini yaratish"));
+                    create.Height = 44;
+                    create.Click += async (_, _) => await CreateSupplierAsync().ConfigureAwait(true);
+                    buttons.Children.Add(create);
+                }
+                var other = UiKit.Ghost(this, T("Выбрать другого", "Башкасын тандоо", "Choose another", "Başkasını seç", "Boshqasini tanlash"));
+                other.Height = 44;
+                other.Click += (_, _) => _supplierSearch?.Focus();
+                buttons.Children.Add(other);
+                var without = UiKit.Ghost(this, T("Без поставщика", "Жеткирүүчүсүз", "No supplier", "Tedarikçisiz", "Yetkazib beruvchisiz"));
+                without.Height = 44;
+                without.Click += async (_, _) => await ChooseNoSupplierAsync().ConfigureAwait(true);
+                buttons.Children.Add(without);
+                var card = new Border { BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Child = new StackPanel { Spacing = 2, Children = { title, sub, buttons } } };
+                Res(card, Border.BorderBrushProperty, "BrushWarning");
+                _matchPanel.Children.Add(card);
+                _matchPanel.IsVisible = true;
             }
-            _matchPanel.Children.Add(info);
-            _matchPanel.IsVisible = true;
+            else
+            {
+                var info = new TextBlock
+                {
+                    Text = invoiceText + (match is null
+                        ? ""
+                        : T($". Найден: «{match.Supplier.Name}» — {match.Reason}.", $". Табылды: «{match.Supplier.Name}» — {match.Reason}.", $". Found: “{match.Supplier.Name}” — {match.Reason}.",
+                            $". Bulundu: «{match.Supplier.Name}» — {match.Reason}.", $". Topildi: «{match.Supplier.Name}» — {match.Reason}.")),
+                    FontSize = 13, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center,
+                };
+                Res(info, TextBlock.ForegroundProperty, "BrushText");
+                if (match is not null)
+                {
+                    // 2026-10-22 (модалки, пакет 2): обводкой — жёлтая в окне одна («Провести закупку»).
+                    var found = match.Supplier;
+                    var pick = UiKit.Ghost(this, T($"Выбрать «{found.Name}»", $"«{found.Name}» тандоо", $"Choose “{found.Name}”", $"«{found.Name}» seç", $"«{found.Name}»ni tanlash"));
+                    pick.Height = 44;
+                    pick.FontSize = 13;
+                    pick.Margin = new Thickness(8, 0, 0, 0);
+                    pick.MaxWidth = 320;
+                    pick.Click += (_, _) => SelectSupplier(found);
+                    DockPanel.SetDock(pick, Dock.Right);
+                    _matchPanel.Children.Add(pick);
+                }
+                _matchPanel.Children.Add(info);
+                _matchPanel.IsVisible = true;
+            }
         }
         UpdatePostState();
     }
@@ -898,7 +1054,7 @@ public sealed class InvoiceEditorWindow : Window
 
     private void UpdatePostState()
     {
-        var noSupplier = _draft.Supplier is null;
+        var noSupplier = _draft.Supplier is null && !_draft.NoSupplier;
         _post.IsEnabled = !noSupplier && !_draft.Posting && _draft.Rows.Count > 0;
         _close.IsEnabled = !_draft.Posting;
         _needSupplier.IsVisible = noSupplier || _draft.Rows.Count == 0;
@@ -976,7 +1132,9 @@ public sealed class InvoiceEditorWindow : Window
         // а не после постановки — иначе окно закрывалось через 589–607 мс при медленном сервере. Как в складе (ReceivingWaitLimit):
         // 0,46 с — запас на шаг таймера Windows и возврат в поток UI; ожидание — не меньше 50 мс.
         var sinceClick = System.Diagnostics.Stopwatch.StartNew();
-        if (_draft.Supplier is not { } supplier)
+        // 2026-10-30: «Без поставщика» (с предупреждением) — supplier с пустым Id: реестр повторов и итог работают как обычно, в очередь уходит null.
+        var supplier = _draft.Supplier ?? (_draft.NoSupplier ? new PurchaseReceivingService.Supplier("", T("Без поставщика", "Жеткирүүчүсүз", "No supplier", "Tedarikçisiz", "Yetkazib beruvchisiz")) : null);
+        if (supplier is null)
         {
             ShowError(T("Выберите поставщика — без поставщика закупку провести нельзя.", "Жеткирүүчүнү тандаңыз — жеткирүүчүсүз сатып алууну өткөрүүгө болбойт.",
                 "Choose a supplier — a purchase can't be posted without one.", "Tedarikçi seçin — tedarikçisiz alım işlenemez.", "Yetkazib beruvchini tanlang — usiz xaridni o'tkazib bo'lmaydi."));
@@ -1067,7 +1225,7 @@ public sealed class InvoiceEditorWindow : Window
         {
             var employee = NurMarketKassa.PosApp.CurrentUserDisplayName ?? NurMarketKassa.PosApp.CurrentUserId;
             PosLogger.Log($"Закупка по накладной: в очередь — поставщик «{supplier.Name}», строк {lines.Count}, {(paidNow ? "оплачено сразу" : "в долг")}.", "STOCK");
-            jobId = BackgroundReceivingQueue.Instance.Enqueue(new ReceivingJobRequest(ReceivingJobSource.Invoice, lines, supplier, paidNow, employee, _draft.DebtDays), out _);
+            jobId = BackgroundReceivingQueue.Instance.Enqueue(new ReceivingJobRequest(ReceivingJobSource.Invoice, lines, supplier.Id.Length == 0 ? null : supplier, paidNow, employee, _draft.DebtDays), out _);
         }
         catch (Exception ex)
         {

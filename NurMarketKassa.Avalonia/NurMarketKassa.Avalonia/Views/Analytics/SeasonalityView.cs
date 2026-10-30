@@ -126,7 +126,7 @@ public sealed class SeasonalityView : UserControl
         _grid.Columns.Add(new DataGridTextColumn
         {
             Header = Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum"),
-            Width = new DataGridLength(120),
+            Width = new DataGridLength(160), // 2026-10-31: 120→160 («1 699 999,66 сом» обрезалась)
             Binding = new Avalonia.Data.Binding(nameof(RowVm.SumText)),
         });
 

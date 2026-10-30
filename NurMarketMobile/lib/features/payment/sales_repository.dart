@@ -44,6 +44,37 @@ class CheckoutUnknownException extends ApiException {
   CheckoutUnknownException(super.message, {this.debt = false});
 }
 
+/// 2026-10-29 (аудит мобилки, п. 8): строка чека, цена которой на сервере другая (было → стало).
+class PriceChange {
+  final String productId;
+  final String name;
+  final double oldPrice;
+  final double newPrice;
+
+  /// Новые розничная и оптовая цены товара (для обновления строки чека); null — сервер их не прислал.
+  final double? retail;
+  final double? wholesale;
+  const PriceChange(this.productId, this.name, this.oldPrice, this.newPrice, {this.retail, this.wholesale});
+}
+
+/// 2026-10-29 (аудит мобилки, п. 8): сервер отказал в продаже — 409 price_changed (строгая проверка цены,
+/// заголовок X-NurMarket-Strict-Price). Продажа НЕ проведена: ключ забыт, цены нужно обновить и оплатить заново.
+class PriceChangedException extends ApiException {
+  final List<PriceChange> changes;
+  PriceChangedException(super.message, {this.changes = const []}) : super(status: 409);
+  @override
+  bool get isTransient => false;
+}
+
+/// 2026-10-29 (аудит мобилки, п. 8): итог сверки цен чека с сервером перед оплатой.
+class PriceCheck {
+  final List<PriceChange> changes;
+
+  /// Сервер не ответил ни по одному товару — цена в чеке может быть устаревшей.
+  final bool offline;
+  const PriceCheck(this.changes, {this.offline = false});
+}
+
 /// 2026-10-27 (ревью М-6): расхождение остатка после продажи штуки из упаковки.
 class PackStockMismatch {
   final String productId;
@@ -70,7 +101,11 @@ class CheckoutResult {
   /// 2026-10-27 (ревью М-6): товары, у которых остаток на сервере после продажи штуки из пачки не совпал с ожидаемым
   /// (штука должна списать долю пачки, а не пачку). Пусто — совпало или проверить не удалось. Экран «Оплачено» показывает жёлтую плашку.
   final List<PackStockMismatch> stockWarnings;
-  const CheckoutResult({required this.queued, required this.key, this.number, required this.total, this.receiptUrl, this.response, this.stockWarnings = const []});
+
+  /// 2026-10-29 (аудит мобилки, п. 1): сервер ответил 409 idempotency_conflict — продажа с этим ключом у него уже есть,
+  /// номер и сумма неизвестны. Это «проведено, сверьте в «Чеки»», а не «не принято».
+  final bool reconcile;
+  const CheckoutResult({required this.queued, required this.key, this.number, required this.total, this.receiptUrl, this.response, this.stockWarnings = const [], this.reconcile = false});
 }
 
 /// Продажа одним запросом: POST api/main/pos/checkout/ с заголовком Idempotency-Key.
@@ -143,24 +178,135 @@ class SalesRepository {
   static const pendingKeySetting = 'checkout.pendingKey';
   static const _pendingKeyLife = Duration(hours: 24);
 
-  Future<String> _attemptKey(String signature) async {
+  /// 2026-10-29 (аудит мобилки, пп. 1, 9): попытка оплаты — ключ + тело, которое уходило (или уйдёт) под этим ключом, и время продажи.
+  /// Раньше ключ считался от всего тела, включая «получено»: другая введённая сумма давала новый ключ и вторую продажу; а первая
+  /// попытка онлайн шла без sold_at/cashbox, досылка — с ними (сервер мог ответить 409 на проведённую продажу). Теперь тело, время
+  /// и касса запоминаются вместе с ключом, и повтор (и досылка) отправляют ровно то же.
+  static String signatureOf(Map<String, dynamic> body, PayMethod method) {
+    final c = (jsonDecode(jsonEncode(body)) as Map).cast<String, dynamic>();
+    // Наличные/карта: «получено» не меняет продажу (сумма — итог чека) — в подпись не входит. В долг: внесённое — часть продажи.
+    if (method != PayMethod.debt && c['payment'] is Map) (c['payment'] as Map).remove('received');
+    return jsonEncode(c);
+  }
+
+  Future<_Attempt> _attempt(String signature, Map<String, dynamic> body) async {
     try {
       final raw = await db.getSetting(pendingKeySetting);
       if (raw != null && raw.isNotEmpty) {
         final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
         final at = DateTime.tryParse(m['at'] as String? ?? '');
-        if (m['sig'] == signature && m['key'] is String && at != null && DateTime.now().difference(at) < _pendingKeyLife) return m['key'] as String;
+        final sold = DateTime.tryParse(m['sold'] as String? ?? '');
+        if (m['sig'] == signature && m['key'] is String && m['body'] is Map && sold != null && at != null && DateTime.now().difference(at) < _pendingKeyLife) {
+          return _Attempt(m['key'] as String, (m['body'] as Map).cast<String, dynamic>(), sold, m['cashbox'] as String?, m['sent'] == true, signature, at);
+        }
       }
     } catch (_) {
       // испорченная запись — новый ключ
     }
     final key = const Uuid().v4().replaceAll('-', '');
-    await db.setSetting(pendingKeySetting, jsonEncode({'key': key, 'sig': signature, 'at': DateTime.now().toIso8601String()}));
-    return key;
+    final n = DateTime.now();
+    final att = _Attempt(key, body, DateTime(n.year, n.month, n.day, n.hour, n.minute, n.second), api.session?.cashboxId, false, signature, n);
+    await _saveAttempt(att);
+    return att;
   }
+
+  Future<void> _saveAttempt(_Attempt a, {bool sent = false}) => db.setSetting(
+    pendingKeySetting,
+    jsonEncode({'key': a.key, 'sig': a.signature, 'at': a.at.toIso8601String(), 'body': a.body, 'sold': a.soldAt.toIso8601String(), 'cashbox': a.cashbox, 'sent': sent || a.sentBefore}),
+  );
 
   /// Продажа проведена, встала в очередь или сервер отказал по существу — следующая оплата будет новой.
   Future<void> _forgetKey() => db.setSetting(pendingKeySetting, '');
+
+  /// 2026-10-29 (аудит мобилки, п. 9): есть ли живая попытка оплаты именно этого чека (исход неизвестен). Тогда цены чека
+  /// сверять и менять нельзя — повтор должен уйти тем же телом и ключом.
+  Future<bool> hasLiveAttempt({required Cart cart, required String shiftId, required PayMethod method, double? received, Client? client}) async {
+    try {
+      final body = buildBody(cart: cart, shiftId: shiftId, method: method, received: received, clientId: client?.id);
+      final raw = await db.getSetting(pendingKeySetting);
+      if (raw == null || raw.isEmpty) return false;
+      final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
+      final at = DateTime.tryParse(m['at'] as String? ?? '');
+      return m['sig'] == signatureOf(body, method) && m['body'] is Map && at != null && DateTime.now().difference(at) < _pendingKeyLife;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 2026-10-29 (аудит мобилки, п. 8): 409 price_changed — строгая проверка цены отказала (продажа не проведена).
+  static bool isPriceChanged(Object? payload) => _payloadHas(payload, 'price_changed');
+
+  /// 2026-10-29 (аудит мобилки, п. 1): 409 idempotency_conflict — продажа с этим ключом у сервера уже есть (тело отличается).
+  static bool isKeyConflict(Object? payload) => _payloadHas(payload, 'idempotency_conflict');
+
+  static bool _payloadHas(Object? payload, String code) {
+    if (payload == null) return false;
+    try {
+      return (payload is String ? payload : jsonEncode(payload)).toLowerCase().contains(code);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// price_mismatch из ответа сервера (на верхнем уровне или внутри detail/error/errors/data): [{product_id, name, sent, current}].
+  static List<PriceChange> parseMismatch(Object? payload, Cart cart) {
+    final out = <PriceChange>[];
+    List? find(Object? o, int depth) {
+      if (o is Map) {
+        if (o['price_mismatch'] is List) return o['price_mismatch'] as List;
+        if (depth < 2) {
+          for (final v in o.values) {
+            final r = find(v, depth + 1);
+            if (r != null) return r;
+          }
+        }
+      }
+      return null;
+    }
+
+    for (final r in find(payload, 0) ?? const []) {
+      if (r is! Map) continue;
+      final row = r.cast<String, dynamic>();
+      final id = str(row, 'product_id') ?? str(row, 'product') ?? str(row, 'id');
+      final current = num0(row, 'current');
+      if (id == null || current <= 0) continue;
+      final line = cart.lines.where((l) => l.productId == id).firstOrNull;
+      out.add(PriceChange(id, str(row, 'name') ?? line?.name ?? id, row['sent'] == null ? (line?.price ?? 0) : num0(row, 'sent'), current));
+    }
+    return out;
+  }
+
+  /// 2026-10-29 (аудит мобилки, п. 8): сверка цен чека с сервером перед оплатой, как SyncPricesBeforePaymentAsync кассы:
+  /// карточки товаров (до 2 с на запрос, все сразу). Сервер не ответил ни по одному товару — [PriceCheck.offline].
+  Future<PriceCheck> checkPrices(Cart cart, {Duration timeout = const Duration(seconds: 2)}) async {
+    final lines = cart.lines.where((l) => !l.custom && l.variantId == null && l.salePackageId == null).toList();
+    final ids = {for (final l in lines) l.productId}.toList();
+    if (ids.isEmpty) return const PriceCheck([]);
+    final fresh = <String, Map<String, dynamic>>{};
+    await Future.wait([
+      for (final id in ids)
+        () async {
+          try {
+            final m = await api.get('api/main/products/$id/', timeout: timeout).timeout(timeout);
+            if (m is Map) fresh[id] = m.cast<String, dynamic>();
+          } catch (_) {
+            // нет ответа по этому товару — цену не сверили
+          }
+        }(),
+    ]);
+    if (fresh.isEmpty) return const PriceCheck([], offline: true);
+    final changes = <PriceChange>[];
+    for (final l in lines) {
+      final srv = fresh[l.productId];
+      if (srv == null) continue;
+      final retail = num0(srv, 'price');
+      final wholesale = num0(srv, 'wholesale_price');
+      final now = l.wholesale ? wholesale : retail;
+      if (now <= 0 || (now - l.price).abs() < 0.005) continue;
+      changes.add(PriceChange(l.productId, l.name, l.price, now, retail: retail > 0 ? retail : null, wholesale: wholesale));
+    }
+    return PriceCheck(changes);
+  }
 
   /// Провести чек. Без связи (или сервер не ответил) — в очередь с тем же ключом; отказ по существу — исключение.
   /// [requireOnline] — бонусы к списанию: без сервера их не списать, такую продажу в очередь не ставим (как долг).
@@ -190,16 +336,19 @@ class SalesRepository {
     Client? client,
     bool requireOnline = false,
   }) async {
-    final body = buildBody(cart: cart, shiftId: shiftId, method: method, received: received, clientId: client?.id);
-    final key = await _attemptKey(jsonEncode(body));
+    final plain = buildBody(cart: cart, shiftId: shiftId, method: method, received: received, clientId: client?.id);
+    // 2026-10-29: тело, время продажи и касса — из запомненной попытки (повтор уходит ровно с теми же полями, что и первая отправка).
+    final att = await _attempt(signatureOf(plain, method), plain);
+    final key = att.key;
+    final body = att.body;
     final session = api.session;
-    final now = DateTime.now();
+    final now = att.soldAt;
     final summary = cart.lines.take(3).map((l) => l.name).join(', ') + (cart.count > 3 ? '…' : '');
     final row = OutboxCompanion.insert(
       id: key,
       kind: 'sale',
       // 2026-10-22: в очереди — кто продал и на какой кассе (cashbox при досылке, привязка к аккаунту, К-6).
-      body: jsonEncode(OutboxMeta.attach(body, owner: OutboxMeta.ownerOf(session), cashboxId: session?.cashboxId, at: now, packs: _packFactors(cart))),
+      body: jsonEncode(OutboxMeta.attach(body, owner: OutboxMeta.ownerOf(session), cashboxId: att.cashbox, at: now, packs: _packFactors(cart))),
       createdAt: now,
       total: Value(cart.total),
       summary: Value(summary),
@@ -216,8 +365,23 @@ class SalesRepository {
     final before = await _packStockBefore(cart);
     Map<String, dynamic> resp;
     try {
-      resp = await _send(body, key);
+      // 2026-10-29: помечаем «уже отправлялось» ДО запроса — 409 price_changed на повтор не доказывает «не проведено».
+      await _saveAttempt(att, sent: true);
+      resp = await _send(withSale(body, now, att.cashbox), key, strict: true);
     } on ApiException catch (e) {
+      // 2026-10-29 (аудит мобилки, п. 8): строгая проверка цены — сервер ничего не создал; верим только первой отправке ключа.
+      if (e.status == 409 && !att.sentBefore && isPriceChanged(e.payload)) {
+        await _forgetKey();
+        throw PriceChangedException(e.message, changes: parseMismatch(e.payload, cart));
+      }
+      // 2026-10-29 (аудит мобилки, п. 1): 409 idempotency_conflict — продажа с этим ключом уже проведена: «проведено, сверить».
+      if (e.status == 409 && isKeyConflict(e.payload)) {
+        await _forgetKey();
+        await db.enqueue(row);
+        await db.markSent(key);
+        await _applyStock(cart);
+        return CheckoutResult(queued: false, key: key, total: cart.total, reconcile: true);
+      }
       if (!e.isTransient) {
         await _forgetKey();
         rethrow;
@@ -302,8 +466,22 @@ class SalesRepository {
     return out;
   }
 
-  Future<Map<String, dynamic>> _send(Map<String, dynamic> body, String key, {Duration timeout = const Duration(seconds: 15)}) async {
-    final resp = await api.post('api/main/pos/checkout/', body: body, headers: {'Idempotency-Key': key}, timeout: timeout);
+  /// 2026-10-29: тело для сервера = тело попытки + время продажи и касса (то же делает досылка, [replayBody]).
+  static Map<String, dynamic> withSale(Map<String, dynamic> body, DateTime soldAt, String? cashbox) => {
+    ...body,
+    'sold_at': isoWithOffset(soldAt),
+    if (cashbox != null && cashbox.isNotEmpty) 'cashbox': cashbox,
+  };
+
+  /// [strict] — онлайн-оплата: заголовок X-NurMarket-Strict-Price: 1, сервер не проведёт чек с устаревшей ценой (409 price_changed).
+  /// Сервер без этой проверки заголовок не знает. Досылка из очереди строгой не бывает: покупатель уже заплатил.
+  Future<Map<String, dynamic>> _send(Map<String, dynamic> body, String key, {Duration timeout = const Duration(seconds: 15), bool strict = false}) async {
+    final resp = await api.post(
+      'api/main/pos/checkout/',
+      body: body,
+      headers: {'Idempotency-Key': key, if (strict) 'X-NurMarket-Strict-Price': '1'},
+      timeout: timeout,
+    );
     // Ответ не того вида — исход неизвестен (как обрыв): повтор тем же ключом.
     if (resp is! Map) throw ApiException(ApiText.serverError(502), status: 502);
     return resp.cast<String, dynamic>();
@@ -317,11 +495,8 @@ class SalesRepository {
   static Map<String, dynamic> replayBody(OutboxData row) {
     final raw = (jsonDecode(row.body) as Map).cast<String, dynamic>();
     final meta = OutboxMeta.read(row.body);
-    final body = OutboxMeta.strip(raw);
-    body['sold_at'] = isoWithOffset(row.createdAt);
     final cashbox = meta?['cashbox'];
-    if (cashbox is String && cashbox.isNotEmpty) body['cashbox'] = cashbox;
-    return body;
+    return withSale(OutboxMeta.strip(raw), row.createdAt, cashbox is String ? cashbox : null);
   }
 
   /// «2026-10-22T14:05:00+06:00» — как у кассы (yyyy-MM-ddTHH:mm:sszzz).
@@ -428,4 +603,16 @@ class SalesRepository {
       inn: str(m, 'inn') ?? inn.trim(),
     );
   }
+}
+
+/// 2026-10-29: запомненная попытка оплаты (см. [SalesRepository.signatureOf]).
+class _Attempt {
+  final String key;
+  final Map<String, dynamic> body;
+  final DateTime soldAt;
+  final String? cashbox;
+  final bool sentBefore;
+  final String signature;
+  final DateTime at;
+  _Attempt(this.key, this.body, this.soldAt, this.cashbox, this.sentBefore, this.signature, this.at);
 }

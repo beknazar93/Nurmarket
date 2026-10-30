@@ -105,6 +105,9 @@ public sealed partial class MarketplaceStoreView : UserControl
         ShowDetail(id, keepScroll: false);
     }
 
+    /// <summary>2026-10-31: элемент каталога по Id (для заявки «Подключить» — название и цена).</summary>
+    public MarketplaceItem? FindItem(string id) => _items.FirstOrDefault(i => i.Id == id);
+
     /// <summary>Каталог перечитан (состояние функции изменилось, сменились язык/тема) — перерисовать, оставаясь где были.</summary>
     public void Reload()
     {

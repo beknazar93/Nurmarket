@@ -198,7 +198,9 @@ public sealed class PurchaseReceivingService
             }
         }
 
-        body["idempotency_key"] = st.BeginSend();
+        var sendKey = st.BeginSend();
+        body["idempotency_key"] = sendKey;
+        await AddDocumentFieldsAsync(body, sendKey, st, ct).ConfigureAwait(false);
         try
         {
             var response = await Api.CreateSupplierReceiptAsync(supplier.Id, body, ct).ConfigureAwait(false);
@@ -216,7 +218,10 @@ public sealed class PurchaseReceivingService
             if (ex is OperationCanceledException)
                 st.Interrupted = true;
             else if (!IsQueueRetryable(ex))
+            {
+                DocumentNumbering.Store.Release(DocSeries.Receipt, sendKey); // 2026-10-30: отказ сервера — номер не использован
                 st.MarkRejected();
+            }
             errors.Add(Tr.T("Приход от поставщика не проведён: ", "Жеткирүүчүдөн келген товар кабыл алынган жок: ",
                 "The supplier delivery was not posted: ", "Tedarikçiden mal kabulü yapılamadı: ",
                 "Yetkazib beruvchidan kirim o'tkazilmadi: ") + Msg2(ex));
@@ -224,10 +229,53 @@ public sealed class PurchaseReceivingService
         }
     }
 
+    /// <summary>2026-10-30 (нумерация закупок): номер документа и номер накладной поставщика уходят с приходом в служебном комментарии
+    /// («№ ПР-2026-000123; накладная поставщика: 45 от 29.10.2026») и, на будущее, в document_number / document_date (сервер лишние поля пропускает).
+    /// Номер резервируется по ключу прихода: повтор отправки получает тот же. Нет связи для сверки истории — номер временный («ПР-2026-ч5»),
+    /// в комментарий он не пишется и заменяется постоянным при следующей отправке.</summary>
+    private async Task AddDocumentFieldsAsync(Dictionary<string, object?> body, string key, ReceivingPostState? st, CancellationToken ct)
+    {
+        try
+        {
+            var store = DocumentNumbering.Store;
+            var settings = store.Settings;
+            var res = await store.ReserveAsync(DocSeries.Receipt, key,
+                async (page, limit, token) => SupplierApiService.ParseDocPage(await Api.ListSupplierReceiptsAsync(page, limit, token).ConfigureAwait(false), DocSeries.Receipt, settings), ct)
+                .ConfigureAwait(false);
+            var text = store.Format(res);
+            if (st is not null)
+                lock (st.Gate)
+                    st.DocNumber = text;
+            var parts = new List<string>();
+            if (!res.Draft)
+                parts.Add("№ " + text);
+            if (st?.SupplierDocNumber is { Length: > 0 } supplierNo)
+            {
+                parts.Add("накладная поставщика: " + supplierNo + (st.SupplierDocDate is { } d ? " от " + d.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : ""));
+                body["document_number"] = supplierNo;
+                if (st.SupplierDocDate is { } dd)
+                    body["document_date"] = dd.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            }
+            if (parts.Count > 0)
+                body["comment"] = string.Join("; ", parts);
+            PosLogger.Log($"Закупки: приходу присвоен номер {text}{(res.Draft ? " (временный, нет сверки с историей сервера)" : "")}.", "STOCK");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Номер — служебная пометка: сбой нумерации приход не блокирует.
+            PosLogger.Log($"Закупки: номер прихода не присвоен ({ex.Message}).", "WARNING");
+        }
+    }
+
     /// <summary>Сбой, после которого очередь повторит попытку: исход неизвестен (сеть, таймаут, 5xx, 408, 429) или нет входа (401 — ждём вход).</summary>
     private static bool IsQueueRetryable(Exception ex) => PendingIdempotencyKey.IsOutcomeUnknown(ex) || ex is ApiException { StatusCode: 401 };
 
-    private static string Msg2(Exception ex) => IsNoAnswer(ex) ? NoAnswerText : ex.Message;
+    // 2026-10-29: типичные отказы сервера (например «не более 3 цифры после запятой») — понятным текстом (ReceivingServerMessages).
+    private static string Msg2(Exception ex) => IsNoAnswer(ex) ? NoAnswerText : ReceivingServerMessages.Humanize(ex.Message) ?? ex.Message;
 
     /// <summary>Таймаут, обрыв, нет связи — один понятный текст вместо английского «The request was canceled due to the configured HttpClient.Timeout…».</summary>
     private static bool IsNoAnswer(Exception ex) => ex is OperationCanceledException or System.Net.Http.HttpRequestException or IOException or TimeoutException;
@@ -525,14 +573,21 @@ public sealed class PurchaseReceivingService
         // «исход неизвестен». state == null — всё как раньше.
         var st = state;
         bool Soft(Exception ex) => ex is not OperationCanceledException || (st is not null && !st.IsStopping(ct));
-        string Msg(Exception ex) => st is not null && IsNoAnswer(ex) ? NoAnswerText : ex.Message;
+        string Msg(Exception ex) => st is not null && IsNoAnswer(ex) ? NoAnswerText : ReceivingServerMessages.Humanize(ex.Message) ?? ex.Message;
 
         // 1. Новые товары заводим на складе. Товар из общей базы — тем же запросом, что сайт
         //    (создаётся по его шаблону), неизвестный — обычной карточкой.
-        foreach (var line in lines.Where(l => string.IsNullOrWhiteSpace(l.ProductId)))
+        // 2026-10-30 (скорость массовой загрузки прихода): задача из мастера загрузки (st.Parallelism > 1) создаёт товары и пишет остатки по несколько строк сразу
+        // (раньше — строго по одной: 100 строк × 3–4 запроса × задержка сервера). Строки одного штрихкода/товара идут друг за другом; состояние повторов уже
+        // потокобезопасно (под st.Gate). У обычной приёмки Parallelism = 1 — порядок и поведение прежние.
+        var degree = st?.Parallelism ?? 1;
+        void AddErr(string e) { lock (errors) errors.Add(e); }
+        var createdNow = new HashSet<ReceivingLineVm>(ReferenceEqualityComparer.Instance); // созданные ЭТИМ вызовом (остаток заведомо 0)
+        await ForEachLineAsync(lines.Where(l => string.IsNullOrWhiteSpace(l.ProductId)).ToList(), degree,
+            l => string.IsNullOrWhiteSpace(l.Barcode) ? Guid.NewGuid().ToString("N") : l.Barcode.Trim(), ct, async line =>
         {
             if (st is { Interrupted: true })
-                break;
+                return;
             try
             {
                 // 2026-10-25: прошлая попытка уже посылала создание этого товара, а ответа мы не видели — не создаём второй: ищем
@@ -541,21 +596,21 @@ public sealed class PurchaseReceivingService
                 {
                     if (string.IsNullOrWhiteSpace(line.Barcode))
                     {
-                        errors.Add(Tr.T($"{line.ProductName}: товар мог быть создан при прошлой попытке — проверьте склад и добавьте строку заново, если его там нет",
+                        AddErr(Tr.T($"{line.ProductName}: товар мог быть создан при прошлой попытке — проверьте склад и добавьте строку заново, если его там нет",
                             $"{line.ProductName}: товар мурунку аракетте түзүлгөн болушу мүмкүн — кампаны текшериңиз, жок болсо сапты кайра кошуңуз",
                             $"{line.ProductName}: the product may have been created on the previous attempt — check the warehouse and add the line again if it is not there",
                             $"{line.ProductName}: ürün önceki denemede oluşturulmuş olabilir — depoyu kontrol edin, yoksa satırı yeniden ekleyin",
                             $"{line.ProductName}: mahsulot oldingi urinishda yaratilgan bo'lishi mumkin — omborni tekshiring, yo'q bo'lsa qatorni qayta qo'shing"));
                         st.SetOutcome(line, "check");
-                        continue;
+                        return;
                     }
                     if (await Api.FindWarehouseProductByBarcodeAsync(line.Barcode, ct).ConfigureAwait(false) is { } existing
                         && Str(existing, "id") is { Length: > 0 } existingId)
                     {
                         line.ProductId = existingId;
                         st.SetCreatedPrice(line, line.SalePrice);
-                        created++;
-                        continue;
+                        Interlocked.Increment(ref created);
+                        return;
                     }
                 }
                 st?.MarkCreateAttempt(line);
@@ -587,30 +642,33 @@ public sealed class PurchaseReceivingService
                 var id = Str(response, "id") ?? (response.TryGetProperty("product", out var pr) ? Str(pr, "id") : null);
                 if (string.IsNullOrWhiteSpace(id))
                 {
-                    errors.Add(Tr.T($"{line.ProductName}: сервер не вернул номер созданного товара",
+                    AddErr(Tr.T($"{line.ProductName}: сервер не вернул номер созданного товара",
                         $"{line.ProductName}: сервер түзүлгөн товардын номерин кайтарган жок",
                         $"{line.ProductName}: the server didn't return the ID of the created product",
                         $"{line.ProductName}: sunucu oluşturulan ürünün numarasını döndürmedi",
                         $"{line.ProductName}: server yaratilgan mahsulot raqamini qaytarmadi"));
                     st?.SetOutcome(line, "unknown");
-                    continue;
+                    return;
                 }
 
                 line.ProductId = id;
+                if (line.Source != ReceivingSource.GlobalBase)
+                    lock (createdNow)
+                        createdNow.Add(line);
                 CreatedPriceSet(st, line, line.SalePrice);
-                created++;
+                Interlocked.Increment(ref created);
             }
             catch (Exception ex) when (Soft(ex))
             {
                 var why = Msg(ex);
-                errors.Add(Tr.T($"{line.ProductName}: не удалось создать товар — {why}",
+                AddErr(Tr.T($"{line.ProductName}: не удалось создать товар — {why}",
                     $"{line.ProductName}: товарды түзүү мүмкүн болгон жок — {why}",
                     $"{line.ProductName}: could not create the product — {why}",
                     $"{line.ProductName}: ürün oluşturulamadı — {why}",
                     $"{line.ProductName}: mahsulotni yaratib bo'lmadi — {why}"));
                 NoteLineFailure(st, line, ex);
             }
-        }
+        });
 
         var ready = lines.Where(l => !string.IsNullOrWhiteSpace(l.ProductId)).ToList();
         if (ready.Count == 0)
@@ -638,8 +696,9 @@ public sealed class PurchaseReceivingService
                 ["items"] = ready.Select(l => new Dictionary<string, object?>
                 {
                     ["product"] = l.ProductId,
-                    ["qty"] = l.Quantity,
-                    ["purchase_price"] = l.PurchasePrice,
+                    // 2026-10-29: сервер принимает не больше 3 знаков после запятой; шум double (0,1+0,2) и ввод с лишними знаками округляем до 3.
+                    ["qty"] = Math.Round(l.Quantity, 3, MidpointRounding.AwayFromZero),
+                    ["purchase_price"] = Math.Round(l.PurchasePrice, 3, MidpointRounding.AwayFromZero),
                 }).ToList(),
                 ["payment_type"] = paidNow ? "cash" : "debt",
             };
@@ -664,6 +723,7 @@ public sealed class PurchaseReceivingService
             {
                 body["idempotency_key"] = _pendingReceiptKey.Get(signature);
                 receiptKey = body["idempotency_key"] as string;
+                await AddDocumentFieldsAsync(body, receiptKey!, null, ct).ConfigureAwait(false);
             }
 
             // 2026-10-22 (закупки как в вебе): приход пишет в товар цену закупки, а сервер у товара с наценкой (markup_percent) может
@@ -724,9 +784,11 @@ public sealed class PurchaseReceivingService
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     _pendingReceiptKey.OnError(ex);
+                    if (receiptKey is { Length: > 0 } rejectedKey && !PendingIdempotencyKey.IsOutcomeUnknown(ex))
+                        DocumentNumbering.Store.Release(DocSeries.Receipt, rejectedKey); // 2026-10-30: отказ сервера — номер не использован
                     errors.Add(Tr.T("Приход от поставщика не проведён: ", "Жеткирүүчүдөн келген товар кабыл алынган жок: ",
                         "The supplier delivery was not posted: ", "Tedarikçiden mal kabulü yapılamadı: ",
-                        "Yetkazib beruvchidan kirim o'tkazilmadi: ") + ex.Message);
+                        "Yetkazib beruvchidan kirim o'tkazilmadi: ") + (ReceivingServerMessages.Humanize(ex.Message) ?? ex.Message));
                     return new PostResult(Array.Empty<ReceivingLineVm>(), 0, created, errors);
                 }
             }
@@ -742,6 +804,15 @@ public sealed class PurchaseReceivingService
                 receiptPriceChanged = sent.PriceChanged;
                 receiptKey = st.ReceiptKey;
                 posted.AddRange(ready);
+            }
+
+            // 2026-10-30 (нумерация закупок и наценка в накладной): приход проведён — закрепляем номер за документом и запоминаем по строкам закупку,
+            // наценку, цену продажи и прошлую цену продажи (сервер их в строке прихода не хранит).
+            if (!string.IsNullOrEmpty(receiptId))
+            {
+                if (receiptKey is { Length: > 0 })
+                    DocumentNumbering.Store.Bind(DocSeries.Receipt, receiptKey, receiptId);
+                ReceiptMarkupLog.Record(receiptId, ready);
             }
 
             // Цена продажи в документ прихода не входит — у сайта она тоже пишется в товар
@@ -855,14 +926,19 @@ public sealed class PurchaseReceivingService
             // 3. Без поставщика — как у сайта: остаток и цены пишутся в сам товар. Остаток
             //    берётся свежий с сервера, а не из каталога кассы: за время приёмки товар могли
             //    продать на другой кассе.
-            foreach (var line in ready)
+            await ForEachLineAsync(ready, degree, l => l.ProductId!, ct, async line =>
             {
                 if (st is { Interrupted: true })
-                    break;
+                    return;
                 try
                 {
-                    var current = await Api.ProductsDetailAsync(line.ProductId!, ct).ConfigureAwait(false);
-                    var stock = current is { } c ? Num(c, "quantity") : line.StockBefore;
+                    // 2026-10-30: товар только что создан этим же вызовом с остатком 0 и прошлых записей остатка у него нет — читать остаток незачем (был GET на каждую новую строку).
+                    bool justCreated;
+                    lock (createdNow)
+                        justCreated = degree > 1 && line.IsNew && createdNow.Contains(line); // только в задачах мастера загрузки: обычная приёмка читает остаток, как раньше
+                    justCreated &= !PatchTryGet(st, line, out _);
+                    var current = justCreated ? null : await Api.ProductsDetailAsync(line.ProductId!, ct).ConfigureAwait(false);
+                    var stock = justCreated ? 0 : current is { } c ? Num(c, "quantity") : line.StockBefore;
 
                     // 2026-10-15, ревью: прошлое «Провести» уже записало этот остаток (ответ потерялся) — не прибавляем
                     // количество второй раз, только цены/название (см. _pendingStockPatches).
@@ -877,21 +953,21 @@ public sealed class PurchaseReceivingService
                         {
                             var stockText = current is null ? "?" : stock.ToString("0.###", CultureInfo.CurrentCulture);
                             PosLogger.Log($"Приёмка: товар {line.ProductId} — прошлый PATCH остатка без ответа, остаток сейчас {stockText} (до прибавки {pending.PreStock:0.###}, записывали {pending.Target:0.###}) — количество не прибавляем, нужна проверка.", "WARNING");
-                            errors.Add(Tr.T(
+                            AddErr(Tr.T(
                                 $"{line.ProductName}: прошлая попытка провести строку осталась без ответа сервера, а остаток с тех пор изменился (сейчас {stockText}, до прибавки было {pending.PreStock:0.###}, записывали {pending.Target:0.###}) — не понять, прибавилось ли количество. Повторно НЕ прибавлено, чтобы не задвоить. Проверьте остаток товара (например, ревизией): если количество прибавилось — удалите строку (✕), если нет — удалите строку и добавьте товар заново.",
                                 $"{line.ProductName}: сапты өткөрүүнүн мурунку аракети сервердин жообусуз калды, ал эми калдык андан бери өзгөрдү (азыр {stockText}, кошууга чейин {pending.PreStock:0.###} болчу, {pending.Target:0.###} жазылган) — саны кошулганы белгисиз. Эки эсе болбосун деп кайра КОШУЛГАН ЖОК. Товардын калдыгын текшериңиз (мисалы, ревизия менен): саны кошулган болсо — сапты өчүрүңүз (✕), кошулбаса — сапты өчүрүп, товарды кайра кошуңуз.",
                                 $"{line.ProductName}: the previous attempt to post this line got no reply from the server, and the stock has changed since then (now {stockText}, before adding it was {pending.PreStock:0.###}, {pending.Target:0.###} was written) — it is unclear whether the quantity was added. It was NOT added again to avoid doubling. Check the product stock (e.g. with a stocktake): if the quantity was added, remove the line (✕); if not, remove the line and add the product again.",
                                 $"{line.ProductName}: bu satırı işlemeye yönelik önceki deneme sunucudan yanıt alamadı ve stok o zamandan beri değişti (şu an {stockText}, eklemeden önce {pending.PreStock:0.###} idi, {pending.Target:0.###} yazılmıştı) — miktarın eklenip eklenmediği belli değil. İki katına çıkmasın diye tekrar EKLENMEDİ. Ürün stoğunu kontrol edin (ör. sayımla): miktar eklendiyse satırı silin (✕), eklenmediyse satırı silip ürünü yeniden ekleyin.",
                                 $"{line.ProductName}: qatorni o'tkazishning oldingi urinishi serverdan javobsiz qoldi, qoldiq esa o'shandan beri o'zgardi (hozir {stockText}, qo'shishdan oldin {pending.PreStock:0.###} edi, {pending.Target:0.###} yozilgan) — miqdor qo'shilgan-qo'shilmagani noma'lum. Ikki baravar bo'lmasligi uchun qayta QO'SHILMADI. Mahsulot qoldig'ini tekshiring (masalan, inventarizatsiya bilan): miqdor qo'shilgan bo'lsa — qatorni o'chiring (✕), qo'shilmagan bo'lsa — qatorni o'chirib, mahsulotni qayta qo'shing."));
                             st?.SetOutcome(line, "check");
-                            continue;
+                            return;
                         }
                     }
                     var target = Math.Round(preStock + line.Quantity, 3);
 
                     var fields = new Dictionary<string, object?>
                     {
-                        ["purchase_price"] = line.PurchasePrice,
+                        ["purchase_price"] = Math.Round(line.PurchasePrice, 2, MidpointRounding.AwayFromZero), // 2026-10-29: PATCH товара — не больше 2 знаков
                         ["price"] = line.SalePrice,
                     };
                     // 2026-10-24 (Б0, ТЗ «Склад» 4.2): наценка вместе с закупкой и продажей, как карточка товара.
@@ -920,7 +996,8 @@ public sealed class PurchaseReceivingService
                         throw;
                     }
                     PatchRemove(st, line);
-                    posted.Add(line);
+                    lock (posted)
+                        posted.Add(line);
                     st?.SetOutcome(line, "posted");
                 }
                 catch (Exception ex) when (Soft(ex))
@@ -933,20 +1010,20 @@ public sealed class PurchaseReceivingService
                     {
                         if (ex is not OperationCanceledException)
                             st?.SetOutcome(line, "rejected");
-                        errors.Add(Tr.T($"{line.ProductName}: не принят — на складе два товара со штрихкодом {line.Barcode} (второй: «{dup}»). Удалите лишний на складе и повторите.",
+                        AddErr(Tr.T($"{line.ProductName}: не принят — на складе два товара со штрихкодом {line.Barcode} (второй: «{dup}»). Удалите лишний на складе и повторите.",
                             $"{line.ProductName}: кабыл алынган жок — кампада {line.Barcode} штрихкоддуу эки товар бар (экинчиси: «{dup}»). Ашыкчасын өчүрүп, кайталаңыз.",
                             $"{line.ProductName}: not received — the warehouse has two products with barcode {line.Barcode} (the other: “{dup}”). Delete the extra one and retry.",
                             $"{line.ProductName}: kabul edilmedi — depoda {line.Barcode} barkodlu iki ürün var (diğeri: «{dup}»). Fazlasını silip tekrar deneyin.",
                             $"{line.ProductName}: qabul qilinmadi — omborda {line.Barcode} shtrix-kodli ikkita mahsulot bor (ikkinchisi: «{dup}»). Ortiqchasini o'chirib, qayta urining."));
-                        continue;
+                        return;
                     }
-                    errors.Add(Tr.T($"{line.ProductName}: не принят — {why}",
+                    AddErr(Tr.T($"{line.ProductName}: не принят — {why}",
                         $"{line.ProductName}: кабыл алынган жок — {why}",
                         $"{line.ProductName}: not received — {why}",
                         $"{line.ProductName}: kabul edilmedi — {why}",
                         $"{line.ProductName}: qabul qilinmadi — {why}"));
                 }
-            }
+            });
         }
 
         // 3а. 2026-10-06 (О-70): приёмка сеткой — прибавляем остатки размеров. Сервер сам выравнивает остаток товара по сумме
@@ -1012,6 +1089,29 @@ public sealed class PurchaseReceivingService
         }
 
         return new PostResult(posted, posted.Sum(l => l.LineTotal), created, errors, receiptId, receiptTotal, receiptAt, receiptKey);
+    }
+
+    /// <summary>2026-10-30: строки прихода — по одной (degree ≤ 1, как раньше) или по несколько сразу. Строки с одним ключом (штрихкод / товар) идут друг за другом:
+    /// остаток пишется абсолютным числом «прочитанное + принятое», две такие записи параллельно потеряли бы одну прибавку. Пока сервер просит паузу (429) — ждём её.</summary>
+    private static async Task ForEachLineAsync(IReadOnlyList<ReceivingLineVm> items, int degree, Func<ReceivingLineVm, string> key, CancellationToken ct, Func<ReceivingLineVm, Task> body)
+    {
+        if (degree <= 1 || items.Count <= 1)
+        {
+            foreach (var item in items)
+                await body(item).ConfigureAwait(false);
+            return;
+        }
+        var groups = items.GroupBy(key, StringComparer.OrdinalIgnoreCase).Select(g => g.ToList()).ToList();
+        await Parallel.ForEachAsync(groups, new ParallelOptions { MaxDegreeOfParallelism = degree, CancellationToken = ct }, async (group, token) =>
+        {
+            foreach (var item in group)
+            {
+                var block = ApiThrottle.RemainingBlock;
+                if (block > TimeSpan.Zero)
+                    await Task.Delay(block, token).ConfigureAwait(false);
+                await body(item).ConfigureAwait(false);
+            }
+        }).ConfigureAwait(false);
     }
 
     /// <summary>2026-10-22 (закупки как в вебе): цены продажи товаров на сервере (GET товара, до 4 запросов сразу). Не прочитанные —

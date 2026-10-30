@@ -329,12 +329,13 @@ const _t = <String, List<String>>{
     'Wrote off {qty} of "{name}": stock {from} → {to}.',
     '"{name}" {qty} düşüldü: stok {from} → {to}.',
   ],
+  // 2026-10-29 (аудит мобилки, п. 6): из очереди ревизия больше не проводится — текст честный
   'stockQueued': [
-    'Нет связи: акт сохранён и проведётся при связи.',
-    'Байланыш жок: акт сакталды, байланыш болгондо өтөт.',
-    "Aloqa yo'q: akt saqlandi, aloqa bo'lganda o'tkaziladi.",
-    'No connection: the act is saved and will post when online.',
-    'Bağlantı yok: belge kaydedildi, bağlantı gelince işlenecek.',
+    'Акт создан, но не проведён (связи не было). Пересчитайте и проведите заново.',
+    'Акт түзүлдү, бирок өткөрүлгөн жок (байланыш болгон жок). Кайра саап өткөрүңүз.',
+    "Akt yaratildi, lekin o'tkazilmadi (aloqa yo'q edi). Qayta sanab o'tkazing.",
+    'The act is created but NOT posted (no connection). Count and post again.',
+    'Belge oluşturuldu ancak işlenmedi (bağlantı yoktu). Yeniden sayıp işleyin.',
   ],
   'belowZero': [
     'Списать нельзя: на складе только {cur}.',
@@ -379,11 +380,11 @@ const _t = <String, List<String>>{
     'Sayım işlendi: {n} kalem. Farklar: {diff}.',
   ],
   'countedQueued': [
-    'Ревизия сохранена ({n} поз.) и проведётся при связи.',
-    'Ревизия сакталды ({n} поз.), байланыш болгондо өтөт.',
-    "Reviziya saqlandi ({n} ta), aloqa bo'lganda o'tkaziladi.",
-    'The stock count is saved ({n} items) and will post when online.',
-    'Sayım kaydedildi ({n} kalem), bağlantı gelince işlenecek.',
+    'Ревизия ({n} поз.) не проведена: связи не было. Пересчитайте и проведите заново.',
+    'Ревизия ({n} поз.) өткөрүлгөн жок: байланыш болгон жок. Кайра саап өткөрүңүз.',
+    "Reviziya ({n} ta) o'tkazilmadi: aloqa yo'q edi. Qayta sanab o'tkazing.",
+    'The stock count ({n} items) was NOT posted: no connection. Count and post again.',
+    'Sayım ({n} kalem) işlenmedi: bağlantı yoktu. Yeniden sayıp işleyin.',
   ],
   'deleted': [
     'Удалила товар «{name}».',

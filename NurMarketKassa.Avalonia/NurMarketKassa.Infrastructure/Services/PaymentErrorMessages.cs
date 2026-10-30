@@ -27,8 +27,32 @@ public static class PaymentErrorMessages
                || message.Contains("скидку в процентах", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>2026-10-29 (аварийный аудит кассы, п. 9): касса не смогла записать чек в локальную базу — база занята другой
+    /// программой (5/6), диск полон (13), ошибка диска (10), база только для чтения (8) или повреждена (11/26). Деньги не принимать.</summary>
+    public static bool IsLocalStorageFailure(Exception ex)
+    {
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+        {
+            if (e is Microsoft.Data.Sqlite.SqliteException sql && sql.SqliteErrorCode is 5 or 6 or 8 or 10 or 11 or 13 or 26)
+                return true;
+            if (e is IOException io && (io.HResult & 0xFFFF) is 112 or 39) // ERROR_DISK_FULL / ERROR_HANDLE_DISK_FULL
+                return true;
+        }
+        return false;
+    }
+
+    public static string LocalStorageFailure => Tr.T(
+        "Касса не может записать чек на диск (база занята или нет места на диске) — деньги не принимайте. Закройте лишние программы, освободите место и повторите оплату; если не помогает — перезапустите кассу. Товары в чеке сохранены.",
+        "Касса чекти дискке жаза албай жатат (база бош эмес же дискте орун жок) — акча албаңыз. Ашыкча программаларды жаап, орун бошотуп, төлөмдү кайталаңыз; жардам бербесе — кассаны кайра жандырыңыз. Чектеги товарлар сакталды.",
+        "The till cannot write the receipt to disk (the database is busy or the disk is full) — do not take money. Close extra programs, free up disk space and repeat the payment; if it does not help, restart the till. The items in the receipt are kept.",
+        "Kasa fişi diske yazamıyor (veritabanı meşgul veya disk dolu) — para almayın. Gereksiz programları kapatın, yer açın ve ödemeyi tekrarlayın; işe yaramazsa kasayı yeniden başlatın. Fişteki ürünler korunuyor.",
+        "Kassa chekni diskka yoza olmayapti (baza band yoki diskda joy yo'q) — pul olmang. Ortiqcha dasturlarni yoping, joy bo'shating va to'lovni takrorlang; yordam bermasa — kassani qayta ishga tushiring. Chekdagi mahsulotlar saqlangan.");
+
     public static string ForCashier(Exception ex)
     {
+        if (IsLocalStorageFailure(ex))
+            return LocalStorageFailure;
+
         if (ex is ApiException api)
         {
             if (LooksLikeDiscountError(api.Message))

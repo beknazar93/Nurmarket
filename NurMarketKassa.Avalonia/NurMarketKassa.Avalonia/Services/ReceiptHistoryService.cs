@@ -64,6 +64,9 @@ public sealed class ReceiptHistoryEntry
     /// <summary>Сервер отклонил чек — повторить можно в «Некорректных чеках».</summary>
     public bool IsFailedUpload => Local is { IsAutonomous: false } local
         && string.Equals(local.Status, OfflineSaleEntry.Failed, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>2026-10-29: кнопка отправки есть и у «Не отправлен» («Отправить на сервер»), и у «Ошибки отправки» («Повторить отправку»).</summary>
+    public bool CanSendNow => IsPendingUpload || IsFailedUpload;
 }
 
 /// <summary>Результат загрузки «Истории чеков».</summary>
@@ -759,6 +762,8 @@ public static class ReceiptHistoryService
         try
         {
             PosLogger.Log($"История чеков: кассир нажал «Отправить на сервер» (чек {localId}) — досылка очереди сейчас.", "OFFLINE");
+            // 2026-10-29: «Повторить отправку» у «Ошибки отправки» — сначала чек возвращается в очередь (счётчик автоповторов заново), затем обычная досылка.
+            await Task.Run(() => OfflinePendingSalesStore.RequeueFailedById(localId), ct).ConfigureAwait(false);
             await Task.Run(async () =>
             {
                 await sync.ProbeNowAsync(ct).ConfigureAwait(false);
@@ -905,10 +910,13 @@ public static class ReceiptHistoryService
     /// <summary>Статус чека словами, на языке интерфейса.</summary>
     public static string StatusLabel(ReceiptHistoryEntry entry)
     {
+        // 2026-10-29: «Требует проверки» — сервер не принял чек (например, «в долг» без связи: лимит, клиент удалён); «Ждёт отправки» — чек в очереди.
+        if (entry.IsFailedUpload && entry.Local!.ReviewNeeded)
+            return Tr.T("Требует проверки", "Текшерүү керек", "Needs review", "Kontrol gerekli", "Tekshirish kerak");
         if (entry.IsFailedUpload)
             return Tr.T("Ошибка отправки", "Жөнөтүү катасы", "Send error", "Gönderme hatası", "Yuborishda xato");
         if (entry.IsPendingUpload)
-            return Tr.T("Не отправлен на сервер", "Серверге жөнөтүлгөн жок", "Not sent to the server", "Sunucuya gönderilmedi", "Serverga yuborilmagan");
+            return Tr.T("Ждёт отправки", "Жөнөтүүнү күтөт", "Waiting to be sent", "Gönderilmeyi bekliyor", "Yuborilishini kutmoqda");
         if (entry.IsLocal)
             return Tr.T("Оплачен", "Төлөндү", "Paid", "Ödendi", "To'langan");
         if (IsReturnedOrCanceled(entry))

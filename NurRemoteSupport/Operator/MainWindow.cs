@@ -62,7 +62,7 @@ internal sealed class MainWindow : Window
     }
 
     private void UpdateTitle(int waiting) =>
-        Title = (waiting > 0 ? $"({waiting}) " : "") + "NurMarket " + L.T("Поддержка", "Колдоо", "Support", "Destek", "Yordam") + " — " + _api.Name;
+        Title = (waiting > 0 ? $"({waiting}) " : "") + "NurCRM " + L.T("Поддержка", "Колдоо", "Support", "Destek", "Yordam") + " — " + _api.Name;
 
     // ------------------------------------------------------------------ меню
 
@@ -81,7 +81,7 @@ internal sealed class MainWindow : Window
                     Children =
                     {
                         new BrandMark { Width = 36, Height = 36, VerticalAlignment = VerticalAlignment.Center },
-                        new TextBlock { Text = "NurMarket", FontSize = 20, FontWeight = FontWeight.ExtraBold, Foreground = Ui.NavyText, VerticalAlignment = VerticalAlignment.Center },
+                        new TextBlock { Text = "NurCRM", FontSize = 20, FontWeight = FontWeight.ExtraBold, Foreground = Ui.NavyText, VerticalAlignment = VerticalAlignment.Center },
                     },
                 },
                 Ui.Pill(L.T("поддержка", "колдоо", "support", "destek", "yordam"), Ui.Accent, Ui.OnAccent),
@@ -398,7 +398,7 @@ internal sealed class MainWindow : Window
             Row = p;
             SetText(_company, Str(p, "company") is { Length: > 0 } c ? c : "—");
             SetText(_waiting, L.T("ждёт ", "күтөт ", "waiting ", "bekliyor ", "kutmoqda ") + (Date(p, "created") is { } cr ? Ui.Ago(cr) : ""));
-            SetText(_line, $"{Str(p, "machine")} · {L.T("кассир", "кассир", "cashier", "kasiyer", "kassir")}: {(Str(p, "user") is { Length: > 0 } u ? u : "—")} · NurMarket {Str(p, "version")}");
+            SetText(_line, $"{Str(p, "machine")} · {L.T("кассир", "кассир", "cashier", "kasiyer", "kassir")}: {(Str(p, "user") is { Length: > 0 } u ? u : "—")} · NurCRM {Str(p, "version")}");
             var note = Str(p, "note");
             SetText(_note, "«" + note + "»");
             _noteBox.IsVisible = note.Length > 0;

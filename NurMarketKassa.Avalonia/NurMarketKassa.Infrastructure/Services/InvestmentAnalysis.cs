@@ -405,7 +405,14 @@ public static class InvestmentAnalysis
             if (ownIdx is null && ownInvested > 0m && ownCum >= ownInvested - 0.005m)
                 ownIdx = i + 1;
         }
-        int? biz = monthly > 0m && invested + ownInvested > 0m ? (int)Math.Ceiling((invested + ownInvested) / monthly) : null;
+        // 2026-10-30 (стресс-тест «Отчёты»): при ничтожной прибыли (0,01 сом/мес) и крупных вложениях частное не влезало в int — OverflowException
+        // в симуляторе. Больше 100 лет (1200 мес) — не окупится в обозримом: «нет срока», как при нулевой прибыли.
+        int? biz = null;
+        if (monthly > 0m && invested + ownInvested > 0m)
+        {
+            var bizMonths = Math.Ceiling((invested + ownInvested) / monthly);
+            biz = bizMonths <= 1200m ? (int)bizMonths : null;
+        }
         var isNet = terms.Base == "net";
         return new SimResult(invIdx, isNet ? ownIdx : null, isNet ? biz : null, groups.Select(g => (g.Stage, g.From, g.To, g.Pay)).ToList(), monthly);
     }

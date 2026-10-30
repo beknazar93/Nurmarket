@@ -22,6 +22,16 @@ internal static class DebtPaymentFlow
         ? T("Безнал (карта, перевод)", "Накталай эмес (карта, которуу)", "Non-cash (card, transfer)", "Nakitsiz (kart, havale)", "Naqd emas (karta, o'tkazma)")
         : T("Наличные", "Накталай", "Cash", "Nakit", "Naqd");
 
+    /// <summary>2026-10-30: подпись под полосой «Идёт оплата долга…» (владелец: «при оплате долга система зависает»). Сервер гасит
+    /// взносы по очереди одним запросом (~0,1–0,15 с на взнос: 122 взноса ≈ 13 с, 113 ≈ 18 с) — прогресса по взносам кассе не видно, поэтому
+    /// честно показываем секунды ожидания и что делать. Общая для кассы (PayDebtDialog) и владельца (AcceptDebtPaymentWindow).</summary>
+    public static string PayingText(int seconds) => T(
+        $"Идёт оплата долга… {seconds} с. Сервер гасит взносы по очереди — при большом долге это может занять до полуминуты. Окно работает, не закрывайте его и не нажимайте «Принять» ещё раз: повторного списания не будет.",
+        $"Карыз төлөнүүдө… {seconds} с. Сервер төгүмдөрдү кезеги менен жабат — карыз чоң болсо жарым мүнөткө чейин созулушу мүмкүн. Терезе иштеп жатат, аны жаппаңыз жана «Кабыл алуу» баскычын кайра баспаңыз: экинчи жолу алынбайт.",
+        $"Paying the debt… {seconds} s. The server clears the instalments one by one — a large debt can take up to half a minute. The window is working: don't close it and don't press “Accept” again, you won't be charged twice.",
+        $"Borç ödeniyor… {seconds} sn. Sunucu taksitleri sırayla kapatır — büyük borçta yarım dakikaya kadar sürebilir. Pencere çalışıyor, kapatmayın ve «Al» düğmesine tekrar basmayın: ikinci kez tahsil edilmez.",
+        $"Qarz to'lanmoqda… {seconds} s. Server badallarni navbat bilan yopadi — katta qarzda yarim daqiqagacha cho'zilishi mumkin. Oyna ishlayapti, uni yopmang va «Qabul qilish»ni qayta bosmang: ikkinchi marta yechilmaydi.");
+
     /// <summary>Для журнала (по-русски, как остальные строки PAYMENT).</summary>
     public static string MethodLog(string method) => method == DebtPaymentSettings.MethodTransfer ? "безнал" : "наличные";
 

@@ -159,13 +159,13 @@ class LiveShotPage extends StatefulWidget {
     this.maxShots = 1,
     this.minShots = 1,
     this.steps = const [],
-    this.preset = ResolutionPreset.veryHigh,
+    this.preset = ResolutionPreset.high, // 2026-10-30 (оптимизация, п. 5): было veryHigh (до 1–3 МБ на снимок); для ИИ хватает 1280×720
     this.onShot,
     this.stages = const [],
     this.next,
   });
 
-  static Future<Uint8List?> open(BuildContext context, {required String title, required String hint, String? next, ResolutionPreset preset = ResolutionPreset.veryHigh}) async {
+  static Future<Uint8List?> open(BuildContext context, {required String title, required String hint, String? next, ResolutionPreset preset = ResolutionPreset.high}) async {
     final r = await Navigator.of(context).push<Object?>(
       MaterialPageRoute(
         builder: (_) => LiveShotPage(title: title, hint: hint, next: next, preset: preset),

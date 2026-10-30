@@ -3,11 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/session_store.dart';
+import '../../core/sync/account_switch.dart';
+import '../../core/sync/outbox_meta.dart';
 import '../../core/providers.dart';
 import '../../core/theme/brand_mark.dart';
+import '../../core/ui/account_banners.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/tester/tester_mode.dart';
 import '../../core/util/ui.dart';
+import '../profile/logout_guard.dart';
 import '../shift/shift_repository.dart';
 
 /// Вход (макет PLogin, Т15): тот же логин, что на кассе и в вебе.
@@ -68,6 +73,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _error = null;
     });
     try {
+      // 2026-10-29 («ничего не должно остаться»): вводят чужой логин, а на телефоне остались неотправленные продажи прошлого
+      // аккаунта (выход не делали: истёк вход) — их нужно выгрузить в файл или удалить; иначе вход не продолжается
+      final typed = OutboxMeta.ownerOf(Session(email: _login.text, access: '', refresh: ''));
+      final last = ((await ref.read(databaseProvider).getSetting(AccountSwitch.lastOwnerKey)) ?? '').trim().toLowerCase();
+      if (last.isNotEmpty && last != typed && mounted) {
+        if (!await confirmQueueResolved(context, ref, foreignOwner: typed)) {
+          if (mounted) setState(() => _busy = false);
+          return;
+        }
+      }
       await ref.read(sessionProvider.notifier).login(_login.text, _password.text);
       if (mounted) context.go('/cashbox');
     } on ApiException catch (e) {
@@ -110,7 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           children: [
                             if (kb)
                               const Expanded(
-                                child: Text('NurMarket', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
+                                child: Text('NurCRM', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
                               )
                             else
                               const Spacer(),
@@ -136,7 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const TesterTap(child: BrandLogo(width: 130, kind: BrandLogoKind.vertical, variant: BrandVariant.dark)),
                           const SizedBox(height: 14),
                           const Text(
-                            'NurMarket',
+                            'NurCRM',
                             style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white),
                           ),
                           const SizedBox(height: 6),
@@ -155,7 +170,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           TextField(
                             controller: _login,
                             keyboardType: TextInputType.emailAddress,
-                            autofillHints: const [AutofillHints.username],
+                            // 2026-10-29: без автозаполнения — на экране входа не должно быть следов прошлого аккаунта
+                            autocorrect: false,
+                            enableSuggestions: false,
                             // 2026-10-26 (живой аудит, П9): «Далее» на клавиатуре переводит на пароль
                             textInputAction: TextInputAction.next,
                             onSubmitted: (_) => _passwordFocus.requestFocus(),
@@ -167,7 +184,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             controller: _password,
                             focusNode: _passwordFocus,
                             obscureText: _hide,
-                            autofillHints: const [AutofillHints.password],
+                            autocorrect: false,
+                            enableSuggestions: false,
                             textInputAction: TextInputAction.done,
                             onSubmitted: (_) => _submit(),
                             decoration: InputDecoration(
@@ -188,6 +206,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               child: Text(_error!, style: const TextStyle(color: T.danger, fontSize: 13)),
                             ),
                           ],
+                          // 2026-10-29 (полная изоляция аккаунтов): «Загружаем данные аккаунта…» после входа и неотправленные продажи других аккаунтов
+                          if (_busy) const AccountLoadBanner(margin: EdgeInsets.only(top: 12)),
                           const Spacer(),
                           const SizedBox(height: 16),
                           SafeArea(

@@ -21,7 +21,7 @@ public static class DeviceInfoReport
         var sb = new StringBuilder();
         var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString()
                       ?? typeof(DeviceInfoReport).Assembly.GetName().Version?.ToString() ?? "?";
-        sb.AppendLine($"NurMarket {version} — {(AppMode.IsOwner ? "программа владельца" : "касса")}");
+        sb.AppendLine($"NurCRM {version} — {(AppMode.IsOwner ? "программа владельца" : "касса")}");
         sb.AppendLine($"Время: {DateTime.Now:dd.MM.yyyy HH:mm:ss} (UTC{DateTimeOffset.Now:zzz})");
         sb.AppendLine($"Язык интерфейса: {UserPreferences.Instance.Language}; культура: {CultureInfo.CurrentUICulture.Name}");
 

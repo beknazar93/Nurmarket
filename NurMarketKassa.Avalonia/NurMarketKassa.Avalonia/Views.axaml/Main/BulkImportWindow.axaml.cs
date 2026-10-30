@@ -57,23 +57,66 @@ public partial class BulkImportWindow : Window
             window.Show();
     }
 
+    // 2026-10-29: срочный баг клиента — любое исключение в async void обработчике уходило в общий диалог
+    // «Ошибка — Произошла ошибка в программе». Теперь каждый обработчик окна ловит всё сам, пишет в журнал
+    // и показывает понятный текст в строке итога.
+    private void ReportFailure(string where, Exception ex)
+    {
+        PosLogger.Log($"Массовая загрузка: {where}: {ex}", "WAREHOUSE");
+        try
+        {
+            SummaryText.Text = Tr.T($"Не удалось выполнить действие: {ex.Message}", $"Аракетти аткаруу мүмкүн болгон жок: {ex.Message}",
+                $"Could not complete the action: {ex.Message}", $"İşlem tamamlanamadı: {ex.Message}", $"Amalni bajarib bo'lmadi: {ex.Message}");
+        }
+        catch
+        {
+            // Окно уже закрыто — журнала достаточно.
+        }
+    }
+
     private async void DownloadTemplate_Click(object? sender, RoutedEventArgs e)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        try
         {
-            Title = Tr.T("Сохранить шаблон CSV", "CSV үлгүсүн сактоо", "Save CSV template", "CSV şablonunu kaydet", "CSV shablonini saqlash"),
-            SuggestedFileName = "products_template.csv",
-            FileTypeChoices = [new FilePickerFileType("CSV") { Patterns = ["*.csv"] }],
-        });
-        if (file is null)
-            return;
+            var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = Tr.T("Сохранить шаблон CSV", "CSV үлгүсүн сактоо", "Save CSV template", "CSV şablonunu kaydet", "CSV shablonini saqlash"),
+                SuggestedFileName = "products_template.csv",
+                FileTypeChoices = [new FilePickerFileType("CSV") { Patterns = ["*.csv"] }],
+            });
+            if (file is null)
+                return;
 
-        await using var stream = await file.OpenWriteAsync();
-        var bytes = new UTF8Encoding(true).GetBytes(ProductCsvImporter.BuildTemplateCsv());
-        await stream.WriteAsync(bytes);
+            await using var stream = await file.OpenWriteAsync();
+            // 2026-10-29: при перезаписи более длинного файла «хвост» старого содержимого оставался.
+            if (stream.CanSeek)
+                stream.SetLength(0);
+            var bytes = new UTF8Encoding(true).GetBytes(ProductCsvImporter.BuildTemplateCsv());
+            await stream.WriteAsync(bytes);
+        }
+        catch (Exception ex)
+        {
+            ReportFailure("шаблон не сохранён", ex);
+        }
     }
 
     private async void PickFile_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await PickFileCoreAsync();
+        }
+        catch (Exception ex)
+        {
+            // Предпросмотр от прошлого файла не оставляем: иначе «Загрузить» отправил бы его строки.
+            _rows = [];
+            StartImportButton.IsEnabled = false;
+            ReportFailure("файл не обработан", ex);
+        }
+    }
+
+    /// <summary>Читает файл и разбирает его в таблицу предпросмотра. Ошибка файла — в SummaryText, не исключение.</summary>
+    private async Task PickFileCoreAsync()
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
@@ -84,26 +127,53 @@ public partial class BulkImportWindow : Window
         if (files.Count == 0)
             return;
 
+        // 2026-10-29: без локального пути (Android, облачные провайдеры) молча ничего не делали — читаем поток.
         var path = files[0].TryGetLocalPath();
-        if (path is null)
-            return;
+        FileNameText.Text = path is not null ? Path.GetFileName(path) : files[0].Name;
 
-        FileNameText.Text = Path.GetFileName(path);
-
-        string text;
+        byte[] bytes;
         try
         {
-            text = await File.ReadAllTextAsync(path, Encoding.UTF8);
+            // FileShare.ReadWrite: файл может быть открыт в Excel (он держит запись) — раньше это был IOException.
+            await using var stream = path is not null
+                ? new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)
+                : await files[0].OpenReadAsync();
+            if (stream.CanSeek && stream.Length > ProductFileReader.MaxFileBytes)
+            {
+                ShowFileError(Tr.T("Файл больше 20 МБ. Разделите его на части.", "Файл 20 МБдан чоң. Бөлүктөргө бөлүңүз.",
+                    "The file is larger than 20 MB. Split it into parts.", "Dosya 20 MB'tan büyük. Parçalara bölün.", "Fayl 20 MB dan katta. Uni qismlarga bo'ling."));
+                return;
+            }
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            bytes = buffer.ToArray();
         }
         catch (Exception ex)
         {
-            SummaryText.Text = Tr.T($"Не удалось прочитать файл: {ex.Message}", $"Файлды окуу мүмкүн болгон жок: {ex.Message}",
-                $"Could not read the file: {ex.Message}", $"Dosya okunamadı: {ex.Message}", $"Faylni o'qib bo'lmadi: {ex.Message}");
+            PosLogger.Log($"Массовая загрузка: файл не прочитан: {ex}", "WAREHOUSE");
+            ShowFileError(Tr.T($"Не удалось прочитать файл: {ex.Message}", $"Файлды окуу мүмкүн болгон жок: {ex.Message}",
+                $"Could not read the file: {ex.Message}", $"Dosya okunamadı: {ex.Message}", $"Faylni o'qib bo'lmadi: {ex.Message}"));
             return;
         }
 
-        var parsed = ProductCsvImporter.Parse(text);
-        var products = CatalogCacheService.Products;
+        // Кодировка (UTF-8 с BOM и без, UTF-16, Windows-1251), Excel вместо CSV, заголовки — внутри разборщика.
+        var outcome = ProductCsvImporter.ParseBytes(bytes);
+        if (outcome.Error is not null)
+        {
+            ShowFileError(outcome.Error);
+            return;
+        }
+        var parsed = outcome.Rows;
+
+        // 2026-10-29: снимок списка каталога + словарь по штрихкоду вместо FirstOrDefault на каждую строку
+        // (строки × товары — окно зависало на тысячах строк) и устойчиво к повторам штрихкода в каталоге.
+        var byBarcode = new Dictionary<string, CatalogProductTileVm>(StringComparer.OrdinalIgnoreCase);
+        foreach (var p in CatalogCacheService.Products.ToArray())
+        {
+            var code = p?.Barcode?.Trim();
+            if (!string.IsNullOrEmpty(code))
+                byBarcode.TryAdd(code, p!);
+        }
         // Штрихкод, уже встретившийся выше в этом же файле (2026-09-26, стресс-тест массовой
         // загрузки): обе строки считались «новыми», и на сервере появлялись два товара с одним
         // штрихкодом. Берём первую, повтор показываем и пропускаем.
@@ -114,7 +184,8 @@ public partial class BulkImportWindow : Window
             var vm = new PreviewRowVm
             {
                 RowNumber = row.RowNumber,
-                Name = row.Name,
+                // В таблице — не больше 150 символов (в файле может быть огромная ячейка); полное название в Source.
+                Name = row.Name.Length > 150 ? row.Name[..150] + "…" : row.Name,
                 Barcode = row.Barcode,
                 QuantityText = row.Quantity?.ToString("0.###", CultureInfo.InvariantCulture) ?? "—",
                 PriceText = row.Price?.ToString("0.##", CultureInfo.InvariantCulture) ?? "",
@@ -140,7 +211,7 @@ public partial class BulkImportWindow : Window
             }
             firstRowByBarcode[row.Barcode] = row.RowNumber;
 
-            var existing = products.FirstOrDefault(p => string.Equals(p.Barcode, row.Barcode, StringComparison.OrdinalIgnoreCase));
+            byBarcode.TryGetValue(row.Barcode, out var existing);
             if (existing != null)
             {
                 vm.ExistingProductId = existing.Id;
@@ -182,10 +253,46 @@ public partial class BulkImportWindow : Window
             $"Rows: {_rows.Count}, valid: {validCount}.",
             $"Satır: {_rows.Count}, geçerli: {validCount}.",
             $"Qatorlar: {_rows.Count}, shundan to'g'ri: {validCount}.");
+        // Каталог ещё не загружался — совпадения по штрихкоду не найдены, все строки выглядят «новыми».
+        if (byBarcode.Count == 0 && CatalogCacheService.LastSyncTime is null)
+            SummaryText.Text += " " + Tr.T("Каталог ещё не загружен — «Новый товар» может оказаться уже существующим; дождитесь загрузки каталога и выберите файл снова.",
+                "Каталог али жүктөлө элек — «Жаңы товар» мурунтан бар болушу мүмкүн; каталог жүктөлгөнчө күтүп, файлды кайра тандаңыз.",
+                "The catalog has not loaded yet — a “New product” may already exist; wait for the catalog and choose the file again.",
+                "Katalog henüz yüklenmedi — «Yeni ürün» zaten var olabilir; katalogun yüklenmesini bekleyip dosyayı yeniden seçin.",
+                "Katalog hali yuklanmagan — «Yangi mahsulot» allaqachon mavjud bo'lishi mumkin; katalog yuklanishini kutib, faylni qayta tanlang.");
         StartImportButton.IsEnabled = validCount > 0 && _catalogApi != null;
     }
 
+    /// <summary>Файл не принят целиком: пустой предпросмотр (не «Файл ещё не выбран»), кнопка загрузки выключена, причина — в итоге.</summary>
+    private void ShowFileError(string message)
+    {
+        _rows = [];
+        PreviewGrid.ItemsSource = _rows;
+        StartImportButton.IsEnabled = false;
+        SummaryText.Text = message;
+    }
+
     private async void StartImport_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await StartImportCoreAsync();
+        }
+        catch (Exception ex)
+        {
+            ReportFailure("загрузка прервана", ex);
+            try
+            {
+                StartImportButton.IsEnabled = _rows.Any(r => r.CanImport && !r.Done);
+            }
+            catch
+            {
+                // Окно закрыто.
+            }
+        }
+    }
+
+    private async Task StartImportCoreAsync()
     {
         if (_catalogApi is null || _rows.Count == 0)
             return;

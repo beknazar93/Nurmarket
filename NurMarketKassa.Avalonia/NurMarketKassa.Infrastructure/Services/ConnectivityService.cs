@@ -54,6 +54,10 @@ public static class SharedConnectivityCheck
         if (ServerOutageMonitor.IsOutage)
             return false;
 
+        // 2026-10-30 (приёмка 1.17.65, «Важно» 2): сервер ответил 429 и просит паузу — он жив, «нет связи» тут нет; проверка пауза не штурмует.
+        if (Api.ApiThrottle.IsBusy)
+            return true;
+
         if (IsRecentlyConfirmed())
             return true;
 

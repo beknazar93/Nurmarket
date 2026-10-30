@@ -69,6 +69,11 @@ public sealed class AcceptDebtPaymentWindow : Window
     /// <summary>2026-10-18, девятый круг (п.7): предупреждение к проведённой оплате — жёлтая плашка, закрывает владелец («Понятно»).</summary>
     private readonly Border _warningBox = new() { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 10), BorderThickness = new Thickness(1), IsVisible = false };
     private readonly TextBlock _warning = new() { FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+    /// <summary>2026-10-30: полоса «Идёт оплата долга… N с» — видна только пока запрос оплаты у сервера (он гасит 100+ взносов 10–20 с).</summary>
+    private readonly Border _payingBox = new() { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 10), IsVisible = false };
+    private readonly TextBlock _payingText = new() { FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
+    private Avalonia.Threading.DispatcherTimer? _payingTimer;
+    private readonly Stopwatch _payingWatch = new();
     private readonly Button _go;
     private readonly Button _cancel;
     /// <summary>2026-10-18, второй круг ревью: «Снять блокировку» — при оплате без ответа (в плашке ошибки).</summary>
@@ -242,6 +247,13 @@ public sealed class AcceptDebtPaymentWindow : Window
         warningGrid.Children.Add(_warning);
         warningGrid.Children.Add(warningClose);
         _warningBox.Child = warningGrid;
+        // 2026-10-30: полоса прогресса оплаты (неопределённая — сервер отвечает одним ответом) и секунды ожидания.
+        Use(_payingBox, Border.BackgroundProperty, "BrushAccentSoft");
+        Use(_payingText, TextBlock.ForegroundProperty, "BrushText");
+        var payingBar = new ProgressBar { IsIndeterminate = true, Height = 4, MinHeight = 4, CornerRadius = new CornerRadius(2) };
+        Use(payingBar, ProgressBar.ForegroundProperty, "BrushAccent");
+        _payingBox.Child = new StackPanel { Spacing = 8, Children = { payingBar, _payingText } };
+        root.Children.Add(_payingBox);
         root.Children.Add(_errorBox);
         root.Children.Add(_successBox);
         root.Children.Add(_warningBox);
@@ -291,6 +303,7 @@ public sealed class AcceptDebtPaymentWindow : Window
         {
             PosDataEvents.DebouncedDebtChanged -= OnDebtChanged;
             DebtPaymentRunner.Changed -= OnRunnerChanged;
+            _payingTimer?.Stop();
         };
 
         BuildMethods();
@@ -1091,6 +1104,7 @@ public sealed class AcceptDebtPaymentWindow : Window
         }
 
         DebtPayAttempt attempt;
+        ShowPaying(true); // 2026-10-30: «Идёт оплата долга… N с» на всё время запроса
         try
         {
             if (unknownRecord is not null)
@@ -1114,6 +1128,7 @@ public sealed class AcceptDebtPaymentWindow : Window
         {
             _activeNewKey = null;
             _running = false;
+            ShowPaying(false);
         }
 
         // 2026-10-18, седьмой круг (п.10): исход — DebtPayOutcome, текст — общий DebtPaymentRunner.OutcomeText (как в кассе).
@@ -1171,6 +1186,23 @@ public sealed class AcceptDebtPaymentWindow : Window
         BuildMethods();
         // Точный остаток после оплаты — с сервера.
         await LoadAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>2026-10-30: полоса «Идёт оплата долга… N с». Таймер раз в секунду обновляет только подпись (UI-поток свободен:
+    /// запрос идёт в фоне, окно не «белеет»).</summary>
+    private void ShowPaying(bool on)
+    {
+        _payingTimer?.Stop();
+        _payingTimer = null;
+        _payingBox.IsVisible = on;
+        if (!on)
+            return;
+        _payingWatch.Restart();
+        _payingText.Text = DebtPaymentFlow.PayingText(0);
+        _payingTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _payingTimer.Tick += (_, _) => _payingText.Text = DebtPaymentFlow.PayingText((int)_payingWatch.Elapsed.TotalSeconds);
+        _payingTimer.Start();
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => _payingBox.BringIntoView(), Avalonia.Threading.DispatcherPriority.Background);
     }
 
     /// <summary>2026-10-18, девятый круг (п.7): предупреждение не стирается следующими сообщениями — только «Понятно».</summary>

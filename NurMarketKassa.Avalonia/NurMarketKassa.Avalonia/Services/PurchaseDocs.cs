@@ -16,7 +16,8 @@ public static class PurchaseDocs
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
 
-    public sealed record DocLine(string Name, string Unit, double Qty, double Price);
+    // 2026-10-30: Extra — приписка к названию строки (наценка и цена продажи во внутренней копии накладной; печатному бланку колонок не добавляем).
+    public sealed record DocLine(string Name, string Unit, double Qty, double Price, string? Extra = null);
 
     public sealed record Party(string Name, string Phone, string Inn, string Address);
 
@@ -45,12 +46,29 @@ public static class PurchaseDocs
         };
         foreach (var l in lines.Where(x => x.Qty > 0))
         {
-            var line = new ClientDocLine { Name = l.Name, Unit = string.IsNullOrWhiteSpace(l.Unit) ? "шт" : l.Unit, Qty = l.Qty };
+            var line = new ClientDocLine { Name = l.Name + (l.Extra is { Length: > 0 } extra ? " · " + extra : ""), Unit = string.IsNullOrWhiteSpace(l.Unit) ? "шт" : l.Unit, Qty = l.Qty };
             line.SetPrice(Math.Round(l.Price, 2), 0);
             doc.Lines.Add(line);
         }
         var seller = new ClientDocProfile { Name = supplier.Name, Phone = supplier.Phone, Inn = supplier.Inn, Address = supplier.Address, ShowStamp = false };
         return new ClientDocRenderer.Input(doc, seller, ClientDocRenderer.Classic, ClientDocsUi.AccentHex(host), null);
+    }
+
+    /// <summary>2026-10-30: приписка к строке накладной — «наценка 30 % → 117 сом» (≈ — расчётная).</summary>
+    public static string? MarkupSuffix(MarkupView v) => v.Percent is not { } p || v.Sale <= 0 ? null
+        : T("наценка ", "кошумча ", "markup ", "kâr ", "ustama ") + ReceiptMarkupLog.PercentText(p, v.Estimated) + " → " + v.Sale.ToString("0.##", Ru);
+
+    /// <summary>2026-10-30: примечание накладной: номер накладной поставщика и (во внутренней копии) средняя наценка, ожидаемая выручка и прибыль.</summary>
+    public static string? ReceiptNote(string? supplierDoc, MarkupTotals? totals)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(supplierDoc))
+            parts.Add(supplierDoc!);
+        if (totals is { AvgPercent: { } avg } t)
+            parts.Add(T("Средняя наценка ", "Орточо кошумча ", "Average markup ", "Ortalama kâr ", "O'rtacha ustama ") + (t.AnyEstimated ? "≈ " : "") + avg.ToString("0.##", Ru) + " %, "
+                + T("ожидаемая выручка ", "күтүлгөн түшүм ", "expected revenue ", "beklenen ciro ", "kutilgan tushum ") + t.Revenue.ToString("N2", Ru) + ", "
+                + T("прибыль ", "пайда ", "profit ", "kâr ", "foyda ") + t.Profit.ToString("N2", Ru));
+        return parts.Count == 0 ? null : string.Join("\n", parts);
     }
 
     private static string Folder()

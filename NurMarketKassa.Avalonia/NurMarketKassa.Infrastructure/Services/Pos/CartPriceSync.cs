@@ -47,7 +47,9 @@ public static class CartPriceSync
                 return Skip("нет связи с каталогом");
             if (offline)
                 return Skip("офлайн или авария сервера");
-            if (!cart.HasCart || cart.IsLocalOffline || !cart.IsStaging)
+            // 2026-10-29 (приёмка 1.17.65, В-2): чек, начатый без связи (IsLocalOffline), тоже сверяем — после возврата связи его цены из локального
+            // каталога так же могли устареть. Раньше такой чек пропускался, сервер отвечал 409 price_changed, и кассир упирался в тупик.
+            if (!cart.HasCart || (!cart.IsLocalOffline && !cart.IsStaging))
                 return Skip("чек не локальный (цены поставил сервер)");
 
             var ids = ReceiptSnapshotCartEditor.PriceSyncProductIds(cart);

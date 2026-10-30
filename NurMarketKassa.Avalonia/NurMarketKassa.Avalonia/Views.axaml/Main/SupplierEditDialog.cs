@@ -33,10 +33,16 @@ public sealed class SupplierEditDialog : Window
     private readonly Button _cancel;
     private readonly Button _ok;
     private bool _saving;
+    // 2026-10-31 (приёмка 1.17.68, С-7): ключ повтора создания поставщика — один на попытку; те же поля после сбоя/обрыва — тот же ключ,
+    // изменили поля — новый. _createAttempted: прошлая попытка могла дойти до сервера (обрыв) — перед повтором ищем уже созданного.
+    private string? _createKey;
+    private string? _createSig;
+    private bool _createAttempted;
 
     public SupplierInfo? Saved { get; private set; }
 
-    public SupplierEditDialog(SupplierApiService svc, SupplierInfo? existing, IReadOnlyList<SupplierInfo> all)
+    // 2026-10-30: prefill — поля нового поставщика из накладной (SupplierResolve), prefillNote — подпись «Создан из накладной № …» вместо обычной под заголовком.
+    public SupplierEditDialog(SupplierApiService svc, SupplierInfo? existing, IReadOnlyList<SupplierInfo> all, SupplierRequisites? prefill = null, string? prefillNote = null)
     {
         _svc = svc;
         _existing = existing;
@@ -88,6 +94,18 @@ public sealed class SupplierEditDialog : Window
             _bik.Text = existing.Bik;
             _address.Text = existing.Address;
         }
+        else if (prefill is not null)
+        {
+            _name.Text = prefill.Name;
+            _phone.Text = prefill.Phone;
+            _email.Text = prefill.Email;
+            _llc.Text = prefill.Llc;
+            _inn.Text = prefill.Inn;
+            _okpo.Text = prefill.Okpo;
+            _score.Text = prefill.Score;
+            _bik.Text = prefill.Bik;
+            _address.Text = prefill.Address;
+        }
 
         _cancel = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         _cancel.Click += (_, _) => { if (!_saving) Close(); };
@@ -109,7 +127,9 @@ public sealed class SupplierEditDialog : Window
         Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
 
         Content = SectionCards.Shell(Title,
-            T("Те же поля, что на сайте: название и телефон, ниже — реквизиты для накладных и акта сверки.",
+            prefillNote is { Length: > 0 } && existing is null
+                ? prefillNote + T(". Проверьте поля и допишите телефон.", ". Талааларды текшерип, телефонду толуктаңыз.", ". Check the fields and add the phone.", ". Alanları kontrol edin ve telefonu ekleyin.", ". Maydonlarni tekshiring va telefonni kiriting.")
+                : T("Те же поля, что на сайте: название и телефон, ниже — реквизиты для накладных и акта сверки.",
                 "Сайттагыдай талаалар: аталышы жана телефону, төмөндө — накладной жана салыштыруу актысы үчүн реквизиттер.",
                 "The same fields as on the website: name and phone, below — details for invoices and reconciliation.",
                 "Sitedeki alanların aynısı: ad ve telefon, altında — fatura ve mutabakat için künye.",
@@ -160,6 +180,13 @@ public sealed class SupplierEditDialog : Window
         return key.Length == 0 ? null : _all.FirstOrDefault(s => s.Id != _existing?.Id && PurchaseReceivingService.SupplierNameKey(s.Name) == key);
     }
 
+    /// <summary>2026-10-31 (приёмка 1.17.68, С-7): поставщик с таким же ИНН (≥ 6 цифр) уже есть — второго не создаём.</summary>
+    private SupplierInfo? SameInn()
+    {
+        var inn = Digits(_inn.Text);
+        return inn.Length < 6 ? null : _all.FirstOrDefault(s => s.Id != _existing?.Id && Digits(s.Inn) == inn);
+    }
+
     private void UpdateState()
     {
         _ok.IsEnabled = !_saving && !string.IsNullOrWhiteSpace(_name.Text) && !string.IsNullOrWhiteSpace(_phone.Text);
@@ -186,6 +213,20 @@ public sealed class SupplierEditDialog : Window
                 $"Bunday yetkazib beruvchi allaqachon bor: {same.Name}. Uni ro'yxatdan oching — ikkinchisi yaratilmaydi."));
             return;
         }
+        if ((_existing is null || Digits(_inn.Text) != Digits(_existing.Inn)) && SameInn() is { } sameInn) // правка без смены ИНН старых двойников не блокирует
+        {
+            ShowError(T($"Поставщик с этим ИНН уже есть: {sameInn.Name}. Откройте его в списке — второй не создаётся.", $"Бул ИНН менен жеткирүүчү бар: {sameInn.Name}. Аны тизмеден ачыңыз — экинчиси түзүлбөйт.",
+                $"A supplier with this tax ID already exists: {sameInn.Name}. Open it in the list — a second one isn't created.", $"Bu vergi numarasıyla bir tedarikçi zaten var: {sameInn.Name}. Listeden açın — ikincisi oluşturulmaz.",
+                $"Bu STIR bilan yetkazib beruvchi allaqachon bor: {sameInn.Name}. Uni ro'yxatdan oching — ikkinchisi yaratilmaydi."));
+            return;
+        }
+        // 2026-10-30: ИНН — только цифры, 9–14 (КР — 14, РФ — 10/12); у уже сохранённого поставщика проверяется, только если ИНН меняли.
+        if ((_existing is null || !string.Equals((_inn.Text ?? "").Trim(), _existing.Inn, StringComparison.Ordinal))
+            && NurMarketKassa.AvaloniaHost.Views.Dialogs.SupplierResolve.InnProblem(_inn.Text) is { } innProblem)
+        {
+            ShowError(innProblem);
+            return;
+        }
         var r = new SupplierRequisites(_name.Text ?? "", _phone.Text ?? "", _email.Text ?? "", _llc.Text ?? "", _inn.Text ?? "", _okpo.Text ?? "", _score.Text ?? "",
             _bik.Text ?? "", _address.Text ?? "");
         _saving = true;
@@ -194,7 +235,26 @@ public sealed class SupplierEditDialog : Window
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
-            var saved = _existing is null ? await _svc.CreateAsync(r, cts.Token).ConfigureAwait(true) : await _svc.UpdateAsync(_existing, r, cts.Token).ConfigureAwait(true);
+            SupplierInfo? saved;
+            if (_existing is not null)
+                saved = await _svc.UpdateAsync(_existing, r, cts.Token).ConfigureAwait(true);
+            else
+            {
+                var sig = string.Join("|", r.Name.Trim(), r.Phone.Trim(), r.Email.Trim(), r.Llc.Trim(), r.Inn.Trim(), r.Okpo.Trim(), r.Score.Trim(), r.Bik.Trim(), r.Address.Trim());
+                if (_createKey is null || _createSig != sig)
+                {
+                    _createKey = Guid.NewGuid().ToString("N");
+                    _createSig = sig;
+                    _createAttempted = false;
+                }
+                // Прошлая попытка с теми же полями оборвалась (таймаут 40 с): поставщик мог создаться — ищем его по названию/ИНН, а не создаём второго.
+                saved = _createAttempted ? await FindCreatedAsync(r, cts.Token).ConfigureAwait(true) : null;
+                if (saved is null)
+                {
+                    _createAttempted = true;
+                    saved = await _svc.CreateAsync(r, cts.Token, _createKey).ConfigureAwait(true);
+                }
+            }
             if (saved is null)
                 throw new InvalidOperationException(T("сервер не вернул поставщика — обновите список", "сервер жеткирүүчүнү кайтарган жок — тизмени жаңыртыңыз",
                     "the server didn't return the supplier — refresh the list", "sunucu tedarikçiyi döndürmedi — listeyi yenileyin", "server yetkazib beruvchini qaytarmadi — ro'yxatni yangilang"));
@@ -211,6 +271,27 @@ public sealed class SupplierEditDialog : Window
                       + (ex is OperationCanceledException ? T("сервер не ответил", "сервер жооп берген жок", "the server didn't respond", "sunucu yanıt vermedi", "server javob bermadi")
                           : ex is InvalidOperationException ? ex.Message : ServerTelegramBotApi.DescribeFields(ex)));
             PosLogger.Log($"Поставщики: поставщик не сохранён ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+        }
+    }
+
+    /// <summary>2026-10-31 (приёмка 1.17.68, С-7): свежий список поставщиков с сервера — есть ли уже поставщик с этим названием или ИНН
+    /// (прошлая попытка создания оборвалась, но сервер её принял). Не получилось проверить — null (создаём с тем же ключом повтора).</summary>
+    private async Task<SupplierInfo?> FindCreatedAsync(SupplierRequisites r, CancellationToken ct)
+    {
+        try
+        {
+            var key = PurchaseReceivingService.SupplierNameKey(r.Name);
+            var inn = Digits(r.Inn);
+            var found = (await _svc.ListAsync(ct).ConfigureAwait(true)).FirstOrDefault(s =>
+                (key.Length > 0 && PurchaseReceivingService.SupplierNameKey(s.Name) == key) || (inn.Length >= 6 && Digits(s.Inn) == inn));
+            if (found is not null)
+                PosLogger.Log($"Поставщики: прошлое создание «{r.Name}» дошло до сервера — взят существующий {found.Id}, второй не создаётся.", "INFO");
+            return found;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Поставщики: повторная проверка перед созданием не удалась ({ex.Message}) — создаю с тем же ключом повтора.", "WARNING");
+            return null;
         }
     }
 

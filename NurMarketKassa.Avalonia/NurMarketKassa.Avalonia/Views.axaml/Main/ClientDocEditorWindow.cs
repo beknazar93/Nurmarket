@@ -184,8 +184,15 @@ public sealed class ClientDocEditorWindow : Window
         headLeft.Children.Add(_number);
         _status.Margin = new Thickness(10, 0, 0, 0);
         headLeft.Children.Add(_status);
-        var headRight = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center, Children = { _tplLabel, tplSeg, _viewSeg } };
-        var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 4) };
+        // 2026-10-31 (стресс-тест 1.17.68, 800×480): правая часть шапки (бланк + «Документ/Предпросмотр») занимала почти всю ширину и сжимала левую
+        // до нуля — поле «Номер документа» уходило за край, «Предпросмотр» обрезался. Теперь это WrapPanel, а на узком окне (< 900) она переносится
+        // второй строкой под номер (ApplyLayout).
+        tplSeg.Margin = new Thickness(0, 2, 10, 2);
+        _viewSeg.Margin = new Thickness(0, 2, 0, 2);
+        var headRight = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { _tplLabel, tplSeg, _viewSeg } };
+        var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto"), Margin = new Thickness(0, 0, 0, 4) };
+        _headLeft = headLeft;
+        _headRight = headRight;
         head.Children.Add(headLeft);
         Grid.SetColumn(headRight, 1);
         head.Children.Add(headRight);
@@ -1438,10 +1445,23 @@ public sealed class ClientDocEditorWindow : Window
     /// <summary>Сколько листов в последнем предпросмотре (для стенда).</summary>
     public int PageCount { get; private set; }
 
+    private WrapPanel? _headLeft;
+    private WrapPanel? _headRight;
+
     private void ApplyLayout(double width)
     {
         if (width <= 0 || double.IsNaN(width))
             return;
+        // 2026-10-31: узкая шапка (800×480): бланк и «Документ/Предпросмотр» — второй строкой под номером, на всю ширину.
+        if (_headLeft is not null && _headRight is not null)
+        {
+            var tight = width < 900;
+            Grid.SetRow(_headRight, tight ? 1 : 0);
+            Grid.SetColumn(_headRight, tight ? 0 : 1);
+            Grid.SetColumnSpan(_headRight, tight ? 2 : 1);
+            Grid.SetColumnSpan(_headLeft, tight ? 2 : 1);
+            _headRight.HorizontalAlignment = tight ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        }
         _narrow = width < 1180;
         _viewSeg.IsVisible = _narrow;
         _tplLabel.IsVisible = !_narrow;

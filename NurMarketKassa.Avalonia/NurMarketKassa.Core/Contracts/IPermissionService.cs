@@ -21,6 +21,10 @@ public static class PosPermissions
     public const string ViewShifts = "can_view_shifts";
     public const string ViewCashier = "can_view_cashier";
 
+    /// <summary>2026-10-30: «Редактор документов закупок» — правка проведённых накладных прихода. Пока ТОЛЬКО у владельца (роль owner в профиле);
+    /// сотрудникам не выдаётся (в доступах — «пока только владелец»). Проверка — PermissionService.CanEditPurchaseDocuments.</summary>
+    public const string EditPurchaseDocuments = "can_edit_purchase_documents";
+
     // 2026-10-18, аудит доступов: «Продажа» на сайте — флаг can_view_sale (не can_view_sales — тот
     // открыт всем кассирам для просмотра продаж по решению владельца).
     public const string Sale = "can_view_sale";

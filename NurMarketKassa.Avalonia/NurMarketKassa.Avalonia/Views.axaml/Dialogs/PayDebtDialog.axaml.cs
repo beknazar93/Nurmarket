@@ -367,6 +367,17 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
     /// (до 40) с таймаутом 55 с на запрос — при молчащем сервере кассир почти минуту смотрел на пустое
     /// окно. Теперь первая страница — не дольше 5 с без ответа сервера (ServerAnswerWait; сбой — авария
     /// и текст «оплата долга недоступна»), остальные догружаются фоном, окно ими не блокируется.</summary>
+    /// <summary>2026-10-29: сервер недоступен — это окно закрывается, открывается «Оплата долга без связи» (клиенты из памяти кассы). Раньше здесь был тупик.</summary>
+    private void SwitchToOfflineDebtPayment()
+    {
+        var owner = Owner as Window;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            Close();
+            _ = OfflineOperationsWindow.OpenAsync(owner, OfflineOperationsWindow.Mode.DebtPayment);
+        });
+    }
+
     private async Task EnsureClientsLoadedAsync()
     {
         if (_clientsLoaded)
@@ -374,7 +385,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
 
         if (OfflineModeHelper.IsServerOutage)
         {
-            ErrorMessage = ServerDownMessage(null);
+            SwitchToOfflineDebtPayment();
             return;
         }
 
@@ -392,7 +403,10 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         }
         catch (ServerNotAnsweringException ex)
         {
-            ErrorMessage = ServerDownMessage(ex);
+            if (ex.Throttled)
+                ErrorMessage = ServerDownMessage(ex);
+            else
+                SwitchToOfflineDebtPayment();
         }
         catch (OperationCanceledException) when (_closedCts.IsCancellationRequested)
         {
@@ -594,13 +608,15 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
 
     /// <summary>2026-10-21 (ревью денег, A2): сделки клиента без продажи с остатком долга (GET clients/{id}/deals/ — у сделки
     /// продажи есть поле sale; сделки уже найденных чеков исключаются по deal_id). Не получилось — пусто, как раньше (WARNING).</summary>
-    internal static async Task<List<DebtSaleRow>> LoadNoSaleDebtRowsAsync(string clientId, IReadOnlyList<DebtSaleRow> saleRows, CancellationToken ct)
+    /// <param name="onIncomplete">2026-10-31 (приёмка 1.17.68, В-1б): вызывается, если долги без продажи не получены (сбой запроса или чек без известной сделки) — ответ неполный, кэшировать его нельзя.</param>
+    internal static async Task<List<DebtSaleRow>> LoadNoSaleDebtRowsAsync(string clientId, IReadOnlyList<DebtSaleRow> saleRows, CancellationToken ct, Action? onIncomplete = null)
     {
         var result = new List<DebtSaleRow>();
         // Сделка неуточнённого чека неизвестна — её нельзя отличить от долга без продажи (иначе долг посчитался бы дважды).
         if (saleRows.Any(r => r.RemainingUnknown && string.IsNullOrWhiteSpace(r.DealId)))
         {
             PosLogger.Log("Оплата долга: долги без продажи не проверены — есть чек без известной сделки.", "WARNING");
+            onIncomplete?.Invoke();
             return result;
         }
         var knownDeals = new HashSet<string>(saleRows.Select(r => r.DealId).Where(d => !string.IsNullOrWhiteSpace(d)), StringComparer.OrdinalIgnoreCase);
@@ -688,6 +704,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         catch (Exception ex)
         {
             PosLogger.Log($"Оплата долга: долги без продажи не получены ({ErrorCode(ex)}) — показаны только чеки.", "WARNING");
+            onIncomplete?.Invoke();
         }
         return result;
     }

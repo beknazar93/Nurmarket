@@ -31,11 +31,11 @@
     <DefineConstants>$(DefineConstants);NURPORTABLE;NURANDROID</DefineConstants>
 
     <ApplicationId>kg.nurmarket.kassa</ApplicationId>
-    <ApplicationTitle>NurMarket Kassa</ApplicationTitle>
+    <ApplicationTitle>NurCRM Kassa</ApplicationTitle>
     <!-- versionCode Android — целое, растёт с каждой сборкой для клиентов: 1.17.44 → 11744. -->
-    <ApplicationVersion>11764</ApplicationVersion>
-    <ApplicationDisplayVersion>1.17.64</ApplicationDisplayVersion>
-    <Version>1.17.64</Version>
+    <ApplicationVersion>11768</ApplicationVersion>
+    <ApplicationDisplayVersion>1.17.68</ApplicationDisplayVersion>
+    <Version>1.17.68</Version>
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <FileVersion>$(Version)</FileVersion>
 

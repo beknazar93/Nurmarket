@@ -161,15 +161,12 @@ public partial class PriceTagPrintDialog : Window
         {
             var widthMm = (double)(WidthBox.Value ?? 40m);
             var heightMm = (double)(HeightBox.Value ?? 30m);
-            using var bmp = option.Kind == PriceTagKind.Custom
-                ? BarcodeLabelService.GenerateLabelBitmap(
+            // 2026-10-29: Android/Linux — System.Drawing недоступен, картинку рисует Avalonia (LabelSceneRenderer).
+            PreviewImage.Source = option.Kind == PriceTagKind.Custom
+                ? LabelSceneRenderer.LabelPreview(
                     _product.Title, _product.Barcode ?? "", PriceDisplay, _customTemplate,
                     sku: _product.Article, unit: _product.Unit, storeName: UserPreferences.Instance.StoreName)
-                : PriceTagService.GenerateBitmap(option.Kind, BuildData(), widthMm, heightMm);
-            using var ms = new MemoryStream();
-            bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-            ms.Position = 0;
-            PreviewImage.Source = new Bitmap(ms);
+                : LabelSceneRenderer.PriceTagPreview(option.Kind, BuildData(), widthMm, heightMm);
 
             // Штрих-код, который напечатается не как выбрано (Code 128 вместо EAN) или не
             // напечатается вовсе (кириллица, не влезает), — объясняем в строке состояния.

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../theme/tokens.dart';
+import 'photo_cache.dart';
 
 extension L10nX on BuildContext {
   AppLocalizations get l => AppLocalizations.of(this)!;
@@ -218,14 +219,8 @@ class ProductThumb extends StatelessWidget {
     final px = ((size ?? 160) * MediaQuery.devicePixelRatioOf(context)).round().clamp(64, 480);
     final child = url == null || url!.isEmpty
         ? letters
-        : Image.network(
-            url!,
-            fit: BoxFit.cover,
-            cacheWidth: px,
-            gaplessPlayback: true,
-            errorBuilder: (_, _, _) => letters,
-            loadingBuilder: (_, w, progress) => progress == null ? w : letters,
-          );
+        // 2026-10-30 (оптимизация, п. 12): с дисковым кэшем — фото скачивается один раз (было Image.network без кэша на диске)
+        : CachedPhoto(url: url!, cacheWidth: px, placeholder: letters, error: letters);
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: size == null ? child : SizedBox(width: size, height: size, child: child),

@@ -38,6 +38,9 @@ class CamAliases {
   static DateTime _syncedAt = DateTime(2000);
   static bool _writeDenied = false;
 
+  /// 2026-10-29 (полная изоляция аккаунтов): названия, которые ИИ камеры выучил в магазине прошлого аккаунта, не переходят к новому.
+  static void forgetAccount() => resetForTest();
+
   static void resetForTest() {
     current = {};
     removed = {};

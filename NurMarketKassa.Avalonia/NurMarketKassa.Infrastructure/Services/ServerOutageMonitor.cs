@@ -70,26 +70,50 @@ public static class ServerOutageMonitor
     /// <summary>Следит, отвечает ли сервер на запросы одной операции (см. PosCheckoutService: не
     /// больше ~2 с ожидания без ответа сервера). Успешный ответ или отказ 4xx вызывает
     /// <paramref name="onAnswer"/>. Действует до конца асинхронного метода, который его начал.</summary>
-    public static ResponseWatch BeginResponseWatch(Action? onAnswer)
+    public static ResponseWatch BeginResponseWatch(Action? onAnswer, Action<TimeSpan>? onThrottled = null)
     {
-        var watch = new ResponseWatch(onAnswer);
+        var watch = new ResponseWatch(onAnswer, onThrottled);
         CurrentWatch.Value = watch;
         return watch;
     }
 
+    /// <summary>2026-10-30 (приёмка 1.17.66, «Важно» 1): сервер ответил 429 на запрос текущей операции — операция узнаёт, сколько ждать (Retry-After),
+    /// и продлевает свой срок на эту паузу (оплата, смена): 429 — не «сервер молчит».</summary>
+    internal static void NoteThrottled(TimeSpan wait) => CurrentWatch.Value?.Throttled(wait);
+
     public sealed class ResponseWatch
     {
         private Action? _onAnswer;
+        private Action<TimeSpan>? _onThrottled;
         private int _answers;
 
-        internal ResponseWatch(Action? onAnswer) => _onAnswer = onAnswer;
+        internal ResponseWatch(Action? onAnswer, Action<TimeSpan>? onThrottled = null)
+        {
+            _onAnswer = onAnswer;
+            _onThrottled = onThrottled;
+        }
+
+        internal void Throttled(TimeSpan wait)
+        {
+            try
+            {
+                Volatile.Read(ref _onThrottled)?.Invoke(wait);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
 
         /// <summary>Сколько раз сервер ответил в этой операции.</summary>
         public int Answers => Volatile.Read(ref _answers);
 
         /// <summary>Больше не следить (операция завершена): фоновые задачи, начатые внутри неё,
         /// не должны трогать её таймер.</summary>
-        public void Stop() => Volatile.Write(ref _onAnswer, null);
+        public void Stop()
+        {
+            Volatile.Write(ref _onAnswer, null);
+            Volatile.Write(ref _onThrottled, null);
+        }
 
         internal void Answered()
         {
@@ -175,6 +199,15 @@ public static class ServerOutageMonitor
     /// работа кассы (оплата), уже исчерпала свои повторы: авария объявляется сразу.</summary>
     public static void ReportFailure(string context, string error, bool hard = false)
     {
+        // 2026-10-30 (приёмка кассы 1.17.65, «Важно» 2): 429 («слишком часто», Request was throttled) — сервер ЖИВ и ответил, просто просит паузу. Это не авария:
+        // раньше поток 429 при массовой загрузке владельца включал «Автономно», касса показывала смену закрытой и «Касса: 0,00». Пауза уже запомнена
+        // (ApiThrottle), шапка покажет «Сервер занят»; сама операция повторит или поставит чек в очередь без смены состояния связи.
+        if (Api.ApiThrottle.LooksThrottled(error))
+        {
+            CurrentWatch.Value?.Answered();
+            return;
+        }
+
         ServerLinkState from, to;
         int failures;
         lock (Sync)

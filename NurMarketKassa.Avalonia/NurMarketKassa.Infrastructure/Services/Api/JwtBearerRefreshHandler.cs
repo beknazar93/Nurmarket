@@ -24,6 +24,10 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
+        // 2026-10-30 (приёмка 1.17.65, «Важно» 2): общий щит от 429 — пока сервер просит паузу, запросы кассы её ждут (фоновые — дольше и по одному,
+        // критичные: оплата, смена — первыми). Ожидание до отсчёта времени запроса: отмена здесь сбоем сервера не считается.
+        await ApiThrottle.WaitShieldAsync(cancellationToken).ConfigureAwait(false);
+
         var started = DateTime.UtcNow;
         // 2026-10-04: момент отправки — обрыв/таймаут запроса, ушедшего до последнего ответа сервера,
         // аварией не считается (см. ServerOutageMonitor.ReportTransportFailure).
@@ -108,7 +112,7 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
             {
                 refreshed = await _api.RefreshAccessAndPersistAsync(cancellationToken).ConfigureAwait(false);
                 if (!refreshed)
-                    _api.ClearSession();
+                    _api.ExpireSession(request.RequestUri?.AbsolutePath ?? "refresh"); // 2026-10-30: не стираем профиль/права, сообщаем один раз
             }
         }
         finally

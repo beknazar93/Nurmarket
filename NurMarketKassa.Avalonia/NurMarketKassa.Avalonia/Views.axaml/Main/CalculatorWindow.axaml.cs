@@ -722,6 +722,9 @@ public partial class CalculatorWindow : Window, IOwnerSection
                     cm = lm;
             }
 
+            // 2026-10-31 (стресс-тест 1.17.68, п. 9): сервер ответил пусто/ошибкой — раньше молча оставались нули; теперь «Нет связи» (кнопка «Заполнить» — повтор).
+            if (c30.ValueKind != JsonValueKind.Object && cm.ValueKind != JsonValueKind.Object)
+                throw new InvalidOperationException("sales report is empty");
             if (c30.ValueKind == JsonValueKind.Object)
             {
                 var margin = Card(c30, "margin_percent");

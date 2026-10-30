@@ -140,7 +140,7 @@ public partial class ThemeEditorWindow : Window
 
     private static string KeyLabel(ColorKey key) => key switch
     {
-        ColorKey.Accent => Tr.T("Акцент (кнопки, выделение)", "Акцент (баскычтар, белгилөө)", "Accent (buttons, selection)", "Vurgu (düğmeler, seçim)", "Urg'u (tugmalar, belgilash)"),
+        ColorKey.Accent => Tr.T("Акцент (кнопки, выбор)", "Акцент (баскыч, тандоо)", "Accent (buttons, picks)", "Vurgu (düğme, seçim)", "Urg'u (tugma, tanlov)"), // 2026-10-31: подпись обрезалась — короче
         ColorKey.AccentText => Tr.T("Текст на акценте", "Акценттеги текст", "Text on accent", "Vurgu üzerindeki metin", "Urg'u ustidagi matn"),
         ColorKey.Background => Tr.T("Фон окна", "Терезенин фону", "Window background", "Pencere arka planı", "Oyna foni"),
         ColorKey.Panel => Tr.T("Панели и карточки", "Панелдер жана карточкалар", "Panels and cards", "Paneller ve kartlar", "Panellar va kartochkalar"),
@@ -174,6 +174,7 @@ public partial class ThemeEditorWindow : Window
             };
             swatch.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushBorderStrong"));
             var label = new TextBlock { Text = KeyLabel(key), FontSize = 13, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(10, 0, 8, 0) };
+            ToolTip.SetTip(label, KeyLabel(key));
             label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
             var hex = new TextBox { Tag = key };
             hex.Classes.Add("te-hex");
@@ -638,7 +639,7 @@ public partial class ThemeEditorWindow : Window
                 Title = ExportText.Text,
                 SuggestedFileName = CustomThemeStore.SuggestFileName(_working),
                 DefaultExtension = "json",
-                FileTypeChoices = [new FilePickerFileType(Tr.T("Тема NurMarket", "NurMarket темасы", "NurMarket theme", "NurMarket teması", "NurMarket mavzusi")) { Patterns = ["*.json"] }],
+                FileTypeChoices = [new FilePickerFileType(Tr.T("Тема NurCRM", "NurCRM темасы", "NurCRM theme", "NurCRM teması", "NurCRM mavzusi")) { Patterns = ["*.json"] }],
             }).ConfigureAwait(true);
             if (file is null)
                 return;
@@ -668,7 +669,7 @@ public partial class ThemeEditorWindow : Window
             {
                 Title = ImportText.Text,
                 AllowMultiple = false,
-                FileTypeFilter = [new FilePickerFileType(Tr.T("Тема NurMarket", "NurMarket темасы", "NurMarket theme", "NurMarket teması", "NurMarket mavzusi")) { Patterns = ["*.json"] }],
+                FileTypeFilter = [new FilePickerFileType(Tr.T("Тема NurCRM", "NurCRM темасы", "NurCRM theme", "NurCRM teması", "NurCRM mavzusi")) { Patterns = ["*.json"] }],
             }).ConfigureAwait(true);
             var file = files.FirstOrDefault();
             if (file is null)
@@ -688,9 +689,9 @@ public partial class ThemeEditorWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Импорт темы: {ex.Message}", "WARNING");
-            SetStatus(Tr.T("Этот файл не похож на тему NurMarket.", "Бул файл NurMarket темасына окшобойт.",
-                "This file does not look like a NurMarket theme.", "Bu dosya bir NurMarket temasına benzemiyor.",
-                "Bu fayl NurMarket mavzusiga o'xshamaydi."), warn: true);
+            SetStatus(Tr.T("Этот файл не похож на тему NurCRM.", "Бул файл NurCRM темасына окшобойт.",
+                "This file does not look like a NurCRM theme.", "Bu dosya bir NurCRM temasına benzemiyor.",
+                "Bu fayl NurCRM mavzusiga o'xshamaydi."), warn: true);
         }
     }
 

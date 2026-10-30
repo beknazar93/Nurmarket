@@ -159,11 +159,23 @@ class OpsRepository {
     _debtorsCacheKey,
     jsonEncode({
       'owner': owner,
+      'at': DateTime.now().toIso8601String(), // 2026-10-29 (аудит, п. 5): «список от ЧЧ:ММ»
       'rows': [
         for (final d in rows) {'id': d.clientId, 'n': d.name, 'p': d.phone, 'd': d.debt, 'c': d.salesCount},
       ],
     }),
   );
+
+  /// Когда сохранён последний список должников этого аккаунта (null — не знаем).
+  Future<DateTime?> debtorsCachedAt(String owner) async {
+    try {
+      final m = (jsonDecode(await db.getSetting(_debtorsCacheKey) ?? '') as Map).cast<String, dynamic>();
+      if (m['owner'] != owner) return null;
+      return DateTime.tryParse('${m['at'] ?? ''}');
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<List<Debtor>?> cachedDebtors(String owner) async {
     final raw = await db.getSetting(_debtorsCacheKey);

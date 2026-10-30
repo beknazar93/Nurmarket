@@ -190,44 +190,69 @@ public sealed class BonusAnalyticsData
         var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var truncated = false;
         var clientField = false;
-        for (var page = 1; page <= maxPages; page++)
+        // 2026-10-31: страницы чеков грузим волнами по 4 параллельно (раньше по одной — ~15 с на «Бонусах»); порядок разбора прежний.
+        const int wave = 4;
+        for (var first = 1; first <= maxPages; first = first == 1 ? 2 : first + wave)
         {
             ct.ThrowIfCancellationRequested();
-            List<JsonElement> raw;
-            try
+            var count = first == 1 ? 1 : Math.Min(wave, maxPages - first + 1);
+            var tasks = Enumerable.Range(first, count).Select(async pg =>
             {
-                raw = await sales.PosSalesListAsync(page, pageSize, null, ct, from.Date, to.Date.AddDays(1)).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+                try
+                {
+                    return (Raw: await sales.PosSalesListAsync(pg, pageSize, null, ct, from.Date, to.Date.AddDays(1)).ConfigureAwait(false), Error: (Exception?)null);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    return (Raw: (List<JsonElement>?)null, Error: ex);
+                }
+            }).ToList();
+            var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+            var stop = false;
+            for (var k = 0; k < results.Length && !stop; k++)
             {
-                PosLogger.Log($"Аналитика бонусов: список чеков, страница {page}: {ex.Message}", "WARNING");
-                if (page == 1)
-                    return (null, false, false);
-                truncated = true;
-                break;
-            }
+                var page = first + k;
+                var raw = results[k].Raw;
+                if (raw is null)
+                {
+                    PosLogger.Log($"Аналитика бонусов: список чеков, страница {page}: {results[k].Error?.Message}", "WARNING");
+                    if (page == 1)
+                        return (null, false, false);
+                    truncated = true;
+                    stop = true;
+                    break;
+                }
 
-            var fresh = 0;
-            foreach (var el in raw)
-            {
-                var id = Str(el, "id");
-                if (!string.IsNullOrEmpty(id) && !seenIds.Add(id))
-                    continue;
-                fresh++;
-                var status = Str(el, "status") ?? "";
-                if (string.Equals(status, "canceled", StringComparison.OrdinalIgnoreCase) || !CountsAsRevenue(status))
-                    continue;
-                if (!TryServerDay(Str(el, "created_at"), out var day) || day < from.Date || day > to.Date)
-                    continue;
-                var client = ClientIdOf(el, out var seen);
-                clientField |= seen;
-                rows.Add(new SaleRow(day, Num(el, "total"), Num(el, "discount_total"), client, BranchOf(el)));
-            }
+                var fresh = 0;
+                foreach (var el in raw)
+                {
+                    var id = Str(el, "id");
+                    if (!string.IsNullOrEmpty(id) && !seenIds.Add(id))
+                        continue;
+                    fresh++;
+                    var status = Str(el, "status") ?? "";
+                    if (string.Equals(status, "canceled", StringComparison.OrdinalIgnoreCase) || !CountsAsRevenue(status))
+                        continue;
+                    // 2026-10-31: «Выручка (без долга)» — продажи способом «в долг» в выручку не входят (как в Сводке и «Продажах и финансах»).
+                    if (string.Equals(Str(el, "payment_method")?.Trim(), "debt", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!TryServerDay(Str(el, "created_at"), out var day) || day < from.Date || day > to.Date)
+                        continue;
+                    var client = ClientIdOf(el, out var seen);
+                    clientField |= seen;
+                    rows.Add(new SaleRow(day, Num(el, "total"), Num(el, "discount_total"), client, BranchOf(el)));
+                }
 
-            if (raw.Count < pageSize || fresh == 0)
+                if (raw.Count < pageSize || fresh == 0)
+                {
+                    stop = true;
+                    break;
+                }
+                if (page == maxPages)
+                    truncated = true;
+            }
+            if (stop)
                 break;
-            if (page == maxPages)
-                truncated = true;
         }
         return (rows, truncated, clientField);
     }

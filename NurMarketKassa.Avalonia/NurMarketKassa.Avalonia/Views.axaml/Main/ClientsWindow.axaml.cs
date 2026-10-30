@@ -416,7 +416,16 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         _ = LoadDebtsAsync();
         try
         {
-            var raw = await _clientsApi.GetClientsAsync(null, cts.Token).ConfigureAwait(true);
+            // 2026-10-31 (стресс-тест 1.17.68, В-2): страницы приходят по очереди — в плитке «Клиентов» видно «Загружено N…».
+            var progress = new Progress<int>(n =>
+            {
+                if (cts.IsCancellationRequested || !_isLoading || KpiClientsValue == null)
+                    return;
+                KpiClientsValue.Text = Tr.T($"Загружено {n:N0}…", $"Жүктөлдү {n:N0}…", $"Loaded {n:N0}…", $"Yüklendi {n:N0}…", $"Yuklandi {n:N0}…");
+            });
+            var raw = _clientsApi is ClientsApiService paged
+                ? await paged.GetClientsAsync(null, progress, cts.Token).ConfigureAwait(true)
+                : await _clientsApi.GetClientsAsync(null, cts.Token).ConfigureAwait(true);
             if (cts.IsCancellationRequested)
                 return;
 
@@ -594,6 +603,16 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
             _allClients.RemoveAll(c => c.Id == client.Id);
             ApplyFilter();
             SelectedClient = null;
+        }
+        catch (ApiException ex) when (WarehouseWindow.IsProductInUseError(ex))
+        {
+            // 2026-10-30: клиент с историей (продажи, долги) не удаляется — правило сервера (ProtectedError); вместо сырого текста — понятная подсказка, в журнал INFO.
+            PosLogger.Log($"Клиенты: «{client.FullName}» не удалён — по клиенту есть история (ответ сервера: {ex.Message}).", "INFO");
+            CardErrorMessage = Tr.T("Клиента нельзя удалить: по нему есть история (продажи, долги). Сервер её сохраняет.",
+                "Клиентти өчүрүүгө болбойт: ал боюнча тарых бар (сатуулар, карыздар). Сервер аны сактайт.",
+                "The client can't be deleted: there is history (sales, debts) and the server keeps it.",
+                "Müşteri silinemez: geçmişi var (satışlar, borçlar) ve sunucu bunu saklar.",
+                "Mijozni o'chirib bo'lmaydi: uning tarixi bor (sotuvlar, qarzlar) va server uni saqlaydi.");
         }
         catch (ApiException ex)
         {

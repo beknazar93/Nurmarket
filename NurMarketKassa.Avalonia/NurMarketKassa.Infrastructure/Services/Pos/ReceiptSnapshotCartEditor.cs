@@ -595,11 +595,12 @@ public static class ReceiptSnapshotCartEditor
     }
 
     /// <summary>2026-10-27: id товаров обычных строк чека, цену которых перед оплатой стоит сверить с сервером (без повторов).
-    /// Серверную корзину (не staging) и локальную офлайн-корзину не трогаем: у первой цены поставил сервер, вторая — без сервера.</summary>
+    /// Серверную корзину (не staging) не трогаем: цены поставил сервер. Локальную офлайн-корзину — сверяем (2026-10-29, В-2).</summary>
     public static List<string> PriceSyncProductIds(ICartService cart)
     {
         var ids = new List<string>();
-        if (!cart.HasCart || cart.IsLocalOffline || !cart.IsStaging)
+        // 2026-10-29 (приёмка 1.17.65, В-2): чек, начатый без связи, сверяется тоже (вызывающий сам не зовёт сверку при SellLocally).
+        if (!cart.HasCart || (!cart.IsLocalOffline && !cart.IsStaging))
             return ids;
         if (ParseRoot(cart)["items"] is not JsonArray items)
             return ids;
@@ -623,7 +624,7 @@ public static class ReceiptSnapshotCartEditor
     public static List<LinePriceChange> ApplyCatalogPrices(ICartService cart, IReadOnlyDictionary<string, double> prices)
     {
         var changes = new List<LinePriceChange>();
-        if (prices.Count == 0 || !cart.HasCart || cart.IsLocalOffline || !cart.IsStaging)
+        if (prices.Count == 0 || !cart.HasCart || (!cart.IsLocalOffline && !cart.IsStaging))
             return changes;
 
         var root = ParseRoot(cart);

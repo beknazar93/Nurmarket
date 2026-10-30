@@ -187,7 +187,8 @@ public static class OwnerMorningReport
         try
         {
             var settings = Settings;
-            if (!settings.Enabled || !TryParseTime(settings.Time, out var at))
+            // 2026-10-30: тумблер Нур Советника «Утренний отчёт» (Настройки → Операции → Нур Советник) — выключен: не собираем, ИИ и Telegram не трогаем.
+            if (!settings.Enabled || !AdvisorCapabilities.IsOn("pro.morning") || !TryParseTime(settings.Time, out var at))
                 return;
             var now = DateTime.Now;
             var today = now.Date;
@@ -244,6 +245,8 @@ public static class OwnerMorningReport
     /// отчёта уже прошло, отчёт включён и сегодня ещё не отправлен (повторно не шлёт). Ничего не бросает; null — не собрался вовсе.</summary>
     public static async Task<Report?> RunNowAsync()
     {
+        if (!AdvisorCapabilities.IsOn("pro.morning"))
+            return null;
         try
         {
             await RunGate.WaitAsync().ConfigureAwait(true);
@@ -929,7 +932,9 @@ public static class OwnerMorningReport
         TimeoutException or OperationCanceledException => T("не ответил вовремя", "убагында жооп берген жок", "didn't respond in time", "zamanında yanıt vermedi", "o'z vaqtida javob bermadi"),
         HttpRequestException => T("нет связи с сервером — проверьте интернет", "сервер менен байланыш жок — интернетти текшериңиз", "no connection to the server — check the internet",
             "sunucuya bağlantı yok — interneti kontrol edin", "server bilan aloqa yo'q — internetni tekshiring"),
-        _ => T("ошибка", "ката", "error", "hata", "xato") + " (" + ex.GetType().Name + ")",
+        // 2026-10-31 (живой обход, В-8): владельцу показывалось сырое «ошибка (ApiException)» — теперь человеческая фраза, тип ошибки остаётся в журнале.
+        _ => T("сервер NurCRM не ответил — нажмите «Повторить»", "NurCRM сервери жооп берген жок — «Кайталоо» баскычын басыңыз", "the NurCRM server didn't respond — press “Retry”",
+            "NurCRM sunucusu yanıt vermedi — «Tekrar dene»ye basın", "NurCRM serveri javob bermadi — «Qayta urinish»ni bosing"),
     };
 
     private static string? Str(JsonElement e, string name) =>

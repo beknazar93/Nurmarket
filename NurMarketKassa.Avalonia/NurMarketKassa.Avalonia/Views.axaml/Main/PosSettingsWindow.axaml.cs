@@ -147,6 +147,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private CheckBox DebtPrepayChoiceCheck => _operationsView.DebtPrepayChoiceCheck;
         private TextBox DebtPenaltyBox => _operationsView.DebtPenaltyBox;
         private TextBox RentalPenaltyBox => _operationsView.RentalPenaltyBox;
+        private TextBox OfflineDebtMaxBox => _operationsView.OfflineDebtMaxBox;
         private Slider UiScaleSlider => _screenView.UiScaleSlider;
 
         // --- Updates ---
@@ -353,6 +354,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             DebtPrepayChoiceCheck.IsChecked = prefs.DebtPrepaymentChooseMethod;
             DebtPenaltyBox.Text = prefs.DebtLatePenaltyText;
             RentalPenaltyBox.Text = prefs.RentalLatePenaltyPerDay > 0 ? prefs.RentalLatePenaltyPerDay.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) : "";
+            OfflineDebtMaxBox.Text = prefs.OfflineDebtMaxPerClient > 0 ? prefs.OfflineDebtMaxPerClient.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) : "";
 
             // Вид кассы (раскладка) выбирается карточками прямо в ScreenSettingsView
             // (2026-09-28, шесть раскладок вместо двух радиокнопок) и применяется сразу.
@@ -508,6 +510,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 "Rental late penalty per day, som — filled into \"New rental\" and printed on the receipt",
                 "Kiralama gecikme cezası (günlük, som) — \"Yeni kiralama\"ya girilir ve fişe yazılır",
                 "Prokatni kechiktirgan har sutka uchun jarima, so'm — «Yangi prokat»ga qo'yiladi va chekda chiqadi");
+            // 2026-10-29: «Макс. долг без связи» — предел долга на клиента, сом. 0 — по лимиту клиента с сервера; лимита нет нигде — касса просит подтверждение кассира.
+            _operationsView.OfflineDebtMaxLabel.Text = Tr.T("Макс. долг без связи на клиента, сом — до этой суммы касса без интернета оформляет «в долг». 0 — по лимиту клиента; лимита нет — касса спросит подтверждение кассира.",
+                "Байланышсыз кардарга макс. карыз, сом — ушул сумманын чегинде касса интернетсиз «карызга» жазат. 0 — кардардын лимити боюнча; лимит жок болсо — касса кассирден ырастоо сурайт.",
+                "Max debt without a connection per client, som — up to this amount the till makes credit sales without the internet. 0 — by the client's limit; no limit anywhere — the till asks the cashier to confirm.",
+                "Bağlantısız müşteri başına maks. borç, som — kasa internetsiz bu tutara kadar veresiye satış yapar. 0 — müşterinin limitine göre; hiçbir yerde limit yoksa kasa kasiyerden onay ister.",
+                "Aloqasiz mijoz uchun maks. qarz, so'm — kassa internetsiz shu summagacha «qarzga» rasmiylashtiradi. 0 — mijoz limiti bo'yicha; limit hech qayerda yo'q bo'lsa — kassa kassirdan tasdiq so'raydi.");
             var penaltySave = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             penaltySave.Tick += (_, _) =>
             {
@@ -516,8 +524,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 prefsNow.DebtLatePenaltyText = (DebtPenaltyBox.Text ?? "").Trim();
                 prefsNow.RentalLatePenaltyPerDay = double.TryParse((RentalPenaltyBox.Text ?? "").Trim().Replace(',', '.'), System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingSign | System.Globalization.NumberStyles.AllowLeadingWhite | System.Globalization.NumberStyles.AllowTrailingWhite,
                     System.Globalization.CultureInfo.InvariantCulture, out var perDay) && perDay > 0 ? perDay : 0;
+                prefsNow.OfflineDebtMaxPerClient = double.TryParse((OfflineDebtMaxBox.Text ?? "").Trim().Replace(',', '.'), System.Globalization.NumberStyles.AllowDecimalPoint | System.Globalization.NumberStyles.AllowLeadingWhite | System.Globalization.NumberStyles.AllowTrailingWhite,
+                    System.Globalization.CultureInfo.InvariantCulture, out var offlineMax) && offlineMax > 0 ? offlineMax : 0;
                 prefsNow.SaveToDisk();
             };
+            OfflineDebtMaxBox.TextChanged += (_, _) => { penaltySave.Stop(); penaltySave.Start(); };
             DebtPenaltyBox.TextChanged += (_, _) => { penaltySave.Stop(); penaltySave.Start(); };
             RentalPenaltyBox.TextChanged += (_, _) => { penaltySave.Stop(); penaltySave.Start(); };
             _screenView.SaveRequested += ScreenSaveRequested;

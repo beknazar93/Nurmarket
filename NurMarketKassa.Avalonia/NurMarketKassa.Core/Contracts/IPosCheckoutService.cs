@@ -48,6 +48,12 @@ public sealed class PosCheckoutRequest
     /// <summary>2026-10-20, владелец (долг Д5): имя и телефон клиента — только для печатного чека продажи «в долг».</summary>
     public string? ClientNameForReceipt { get; init; }
     public string? ClientPhoneForReceipt { get; init; }
+    /// <summary>2026-10-29: «в долг» без связи — кассир подтвердил продажу после предупреждения кассы (лимит клиента неизвестен, данные старые). Ставит окно
+    /// кассы после вопроса; сервис оплаты без него не оформит такую продажу (OfflineDebtRules).</summary>
+    public bool OfflineDebtConfirmed { get; set; }
+    /// <summary>2026-10-30 (приёмка 1.17.66, «Важно» 1): кассир выбрал «Отложить в очередь» после «Сервер занят» — чек ставится в офлайн-очередь с прежним ключом без обращения к серверу
+    /// (и без объявления аварии). Только для наличных/безнала.</summary>
+    public bool DeferToQueue { get; set; }
 }
 
 /// <summary>2026-10-06: график погашения долга. Unit — "day" или "month"; Count — число платежей; Interval — через сколько
@@ -88,6 +94,15 @@ public sealed class PosCheckoutResult
     /// Здесь — актуальные цены из ответа сервера (может быть пусто, если сервер их не прислал: тогда цены берутся запросом товара).</summary>
     public bool PriceChanged { get; init; }
     public IReadOnlyList<ServerPriceMismatch>? PriceChanges { get; init; }
+
+    /// <summary>2026-10-29: «в долг» без связи не оформлена — касса просит подтверждение кассира (ErrorMessage — вопрос с причинами). Подтвердил —
+    /// оплата повторяется с OfflineDebtConfirmed = true.</summary>
+    public bool OfflineDebtConfirmRequired { get; init; }
+
+    /// <summary>2026-10-30 (приёмка 1.17.66, «Важно» 1): сервер отвечает 429 дольше срока оплаты — сервер ЖИВ, но занят. Продажа не потеряна, ключ повтора сохранён:
+    /// кассир выбирает «Повторить» или (если <see cref="CanDeferToQueue"/>) «Отложить в очередь» — оплата повторяется с <see cref="PosCheckoutRequest.DeferToQueue"/>.</summary>
+    public bool ServerBusy { get; init; }
+    public bool CanDeferToQueue { get; init; }
 
     /// <summary>2026-10-27: продажа проведена, но сервер сообщил price_mismatch (цена в чеке отличалась от текущей) — короткий текст для тоста
     /// (журнал PRICE_SYNC пишется в сервисе оплаты). null — расхождений нет или сервер поле не прислал.</summary>
@@ -134,6 +149,14 @@ public sealed class PosCheckoutResult
 
     public static PosCheckoutResult Failed(string error) =>
         new() { IsSuccess = false, ErrorMessage = error };
+
+    /// <summary>2026-10-29: «в долг» без связи ждёт подтверждения кассира (см. <see cref="OfflineDebtConfirmRequired"/>).</summary>
+    public static PosCheckoutResult OfflineDebtNeedsConfirm(string question) =>
+        new() { IsSuccess = false, ErrorMessage = question, OfflineDebtConfirmRequired = true };
+
+    /// <summary>2026-10-30: сервер занят (429) — вопрос кассиру «Повторить / Отложить в очередь» (см. <see cref="ServerBusy"/>).</summary>
+    public static PosCheckoutResult ServerBusyFailure(string question, bool canDeferToQueue) =>
+        new() { IsSuccess = false, ErrorMessage = question, ServerBusy = true, CanDeferToQueue = canDeferToQueue };
 
     /// <summary>2026-10-27: отказ сервера 409 price_changed (заголовок X-NurMarket-Strict-Price).</summary>
     public static PosCheckoutResult PriceChangedFailure(string error, IReadOnlyList<ServerPriceMismatch> changes) =>

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
 import '../../features/scan/barcode_lookup.dart';
+import '../catalog/search_match.dart';
 
 part 'database.g.dart';
 
@@ -40,6 +41,11 @@ class Products extends Table {
   /// 2026-10-22 (мобилка, админ): минимальный остаток товара (minimum_quantity сервера). 0 — не задан: «заканчивается»
   /// по общему порогу < 10, как на ПК. Задан — товар заканчивается, когда остаток дошёл до минимума.
   RealColumn get minQuantity => real().withDefault(const Constant(0))();
+
+  /// 2026-10-30 (ревизия: потери в деньгах, как на кассе): закупочная цена товара (purchase_price сервера). null — неизвестна
+  /// (сервер не прислал или у товара не задана): в ревизии сумма разницы тогда считается по цене продажи с пометкой «*».
+  /// Показывается только владельцу и администратору (Session.canSeePurchase).
+  RealColumn get purchasePrice => real().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -87,17 +93,43 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'nurmarket'));
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     // 2026-10-22 (скорость скана): индексы по штрихкоду, артикулу и PLU — раньше каждый скан читал все товары подряд
     // (на 50 000 товаров — десятки миллисекунд на каждое написание кода). IF NOT EXISTS: и новая база, и старая.
     beforeOpen: (details) async {
+      // 2026-10-29 (аудит, п. 3): фоновая отправка очереди открывает ту же базу из другого изолята — занятая база ждёт, а не падает
+      await customStatement('PRAGMA busy_timeout = 5000');
       await customStatement('CREATE INDEX IF NOT EXISTS ix_products_barcode ON products(barcode)');
       await customStatement('CREATE INDEX IF NOT EXISTS ix_products_sku ON products(sku)');
       await customStatement('CREATE INDEX IF NOT EXISTS ix_products_plu_int ON products(CAST(plu AS INTEGER))');
       await customStatement('CREATE INDEX IF NOT EXISTS ix_products_sku_int ON products(CAST(sku AS INTEGER))');
+      // 2026-10-30 (оптимизация, п. 1–3): счётчик ждущих, список очереди и чистка выбирают по статусу — без индекса это полный перебор очереди
+      try {
+        await customStatement('CREATE INDEX IF NOT EXISTS ix_outbox_status ON outbox(status, created_at)');
+      } catch (_) {
+        // таблицы очереди нет (очень старая/урезанная база) — без индекса запросы только медленнее
+      }
+      // 2026-10-29 (аудит, п. 10): ключ поиска хранится нормализованным (ё→е, ү→у …, как SearchMatch кассы). Каталог теперь
+      // обновляется по ленте и целиком качается редко, поэтому ключи уже лежащих товаров приводим к новому виду один раз
+      // здесь (SQL replace — те же замены, что SearchMatch.normalize; схема базы не меняется).
+      if (!details.wasCreated) {
+        try {
+          final done = await customSelect("SELECT value FROM settings WHERE key = 'search.keyV'").get();
+          if (done.isEmpty) {
+            var expr = 'search_key';
+            for (final e in const {'ё': 'е', 'ң': 'н', 'ө': 'о', 'ү': 'у', 'ұ': 'у', 'қ': 'к', 'ғ': 'г', 'һ': 'х'}.entries) {
+              expr = "replace($expr, '${e.key}', '${e.value}')";
+            }
+            await customStatement('UPDATE products SET search_key = $expr');
+            await customStatement("INSERT OR REPLACE INTO settings(key, value) VALUES('search.keyV', '2')");
+          }
+        } catch (_) {
+          // не вышло — поиск работает по старым ключам, их обновит полная загрузка каталога
+        }
+      }
     },
     onUpgrade: (m, from, to) async {
       // 13.10: PLU для весовых этикеток; каталог заполнит его при ближайшей синхронизации.
@@ -113,6 +145,8 @@ class AppDatabase extends _$AppDatabase {
       if (from < 5) await m.addColumn(products, products.promoRules);
       // 2026-10-22 (мобилка, админ): минимальный остаток товара; у старых товаров 0 (общий порог), каталог заполнит.
       if (from < 6) await m.addColumn(products, products.minQuantity);
+      // 2026-10-30 (ревизия в деньгах): закупка товара; у старых товаров null (неизвестна), каталог заполнит при ближайшей загрузке.
+      if (from < 7) await m.addColumn(products, products.purchasePrice);
     },
   );
 
@@ -123,26 +157,86 @@ class AppDatabase extends _$AppDatabase {
     await batch((b) => b.insertAll(products, rows));
   });
 
+  /// 2026-10-29 (аудит, п. 2): применить страницу ленты изменений — новые товары вставить, известные обновить (в [updates]
+  /// только присланные поля: Value.absent() запись не трогает), удалённые убрать. Одной транзакцией.
+  Future<void> applyCatalogChanges({List<ProductsCompanion> inserts = const [], List<ProductsCompanion> updates = const [], List<String> deletedIds = const []}) =>
+      transaction(() async {
+        if (inserts.isNotEmpty) await batch((b) => b.insertAll(products, inserts, mode: InsertMode.insertOrReplace));
+        for (final u in updates) {
+          await (update(products)..where((p) => p.id.equals(u.id.value))).write(u);
+        }
+        for (var i = 0; i < deletedIds.length; i += 500) {
+          await (delete(products)..where((p) => p.id.isIn(deletedIds.skip(i).take(500)))).go();
+        }
+      });
+
+  /// 2026-10-29 (срочно, владелец: «при смене аккаунта остаются данные старого, включая склад и товары»): вход другим аккаунтом —
+  /// товары, остатки и служебные настройки каталога (область, курсор и ETag ленты, версия, упаковки) прошлого аккаунта стираются.
+  /// Очередь продаж, клиенты, должники, чеки, настройки аккаунта и ключи ИИ не трогаются (очередь привязана к аккаунту — OutboxMeta).
+  Future<void> wipeCatalogForAccountSwitch() => transaction(() async {
+    await delete(products).go();
+    await (delete(settings)..where((s) => s.key.like('catalog.%'))).go();
+  });
+
+  /// Товары по списку id (пачками — SQLite ограничивает число параметров).
+  Future<Map<String, Product>> productsByIds(Iterable<String> ids) async {
+    final all = ids.toList();
+    final out = <String, Product>{};
+    for (var i = 0; i < all.length; i += 500) {
+      for (final p in await (select(products)..where((x) => x.id.isIn(all.skip(i).take(500)))).get()) {
+        out[p.id] = p;
+      }
+    }
+    return out;
+  }
+
+  /// 2026-10-30 (оптимизация, п. 10): минимум и закупка всех товаров — только эти поля (для сохранения при полной загрузке каталога).
+  Future<Map<String, ({double minQuantity, double? purchasePrice})>> keptFieldsById() async {
+    final rows = await customSelect('SELECT id, min_quantity, purchase_price FROM products', readsFrom: {products}).get();
+    return {
+      for (final r in rows) r.read<String>('id'): (minQuantity: r.read<double>('min_quantity'), purchasePrice: r.readNullable<double>('purchase_price')),
+    };
+  }
+
   Future<int> productCount() async => (await (selectOnly(products)..addColumns([products.id.count()])).getSingle()).read(products.id.count()) ?? 0;
 
   /// Поиск по названию, штрихкоду и артикулу.
-  Future<List<Product>> searchProducts(String query, {String? category, bool favorites = false, int limit = 200}) {
-    final q = query.trim().toLowerCase();
+  /// 2026-10-29 (аудит мобилки, п. 10): как SearchMatch кассы — ё=е, слова в любом порядке, при пустом результате вторая попытка
+  /// с «не той раскладкой» и транслитом (Asu↔Асу, ФЫГ↔ASU). Всё в SQL по готовому ключу (search_key), без чтения всех строк.
+  /// 2026-10-30 (оптимизация, п. 13): [extra] — дополнительное условие в SQL (остаток, услуги) — экраны «Продажа» и «Склад» берут
+  /// товары окном (LIMIT), а не читают весь каталог на каждую букву поиска.
+  Future<List<Product>> searchProducts(String query, {String? category, bool favorites = false, int limit = 200, Expression<bool> Function($ProductsTable p)? extra}) async {
+    final sq = SearchQuery(query);
+    final strict = await _searchRows(query, sq, fuzzy: false, category: category, favorites: favorites, limit: limit, extra: extra);
+    if (strict.isNotEmpty || sq.isEmpty) return strict;
+    return _searchRows(query, sq, fuzzy: true, category: category, favorites: favorites, limit: limit, extra: extra);
+  }
+
+  Future<List<Product>> _searchRows(String query, SearchQuery sq, {required bool fuzzy, String? category, required bool favorites, required int limit, Expression<bool> Function($ProductsTable p)? extra}) {
     final s = select(products);
     s.where((p) {
       Expression<bool> e = const Constant(true);
-      if (q.isNotEmpty) {
-        // каждое слово запроса — в любом месте названия («кола 2л» найдёт «Кока-Кола (ПЭТ) 2л»)
-        for (final w in q.split(RegExp(r'\s+')).where((w) => w.isNotEmpty)) {
-          e = e & p.searchKey.like('%$w%');
+      if (!sq.isEmpty) {
+        // каждое слово запроса — в любом месте ключа («кола 2л» найдёт «Кока-Кола (ПЭТ) 2л»)
+        Expression<bool> text = const Constant(true);
+        for (var i = 0; i < sq.tokens.length; i++) {
+          Expression<bool> one = p.searchKey.like('%${sq.tokens[i]}%');
+          if (fuzzy) {
+            for (final v in sq.variants[i]) {
+              one = one | p.searchKey.like('%$v%');
+            }
+          }
+          text = text & one;
         }
-        e = e | p.barcode.equals(query.trim()) | p.altBarcodes.like('%${query.trim()}%');
+        e = text | p.barcode.equals(query.trim()) | p.altBarcodes.like('%${query.trim()}%');
       }
       if (category != null && category.isNotEmpty) e = e & p.category.equals(category);
       if (favorites) e = e & p.isFavorite.equals(true);
+      if (extra != null) e = e & extra(p);
       return e;
     });
-    s.orderBy([(p) => OrderingTerm(expression: p.searchKey)]);
+    // 2026-10-30 (оптимизация, п. 13): id вторым ключом — порядок товаров с одинаковым ключом не меняется между запросами
+    s.orderBy([(p) => OrderingTerm(expression: p.searchKey), (p) => OrderingTerm(expression: p.id)]);
     s.limit(limit);
     return s.get();
   }
@@ -287,10 +381,50 @@ class AppDatabase extends _$AppDatabase {
         .watchSingle();
   }
 
-  Stream<List<OutboxData>> watchOutbox({String? kind}) {
+  /// 2026-10-30 (оптимизация, п. 1–2): список очереди для экранов. Отправленные и снятые отсекаются и число строк ограничивается
+  /// В SQL — экран не читает всю историю (она растёт с каждым чеком). [hideSent]/[hideDropped] — статусы sent / dropped.
+  Stream<List<OutboxData>> watchOutbox({String? kind, bool hideSent = false, bool hideDropped = false, int? limit}) {
     final s = select(outbox)..orderBy([(o) => OrderingTerm(expression: o.createdAt, mode: OrderingMode.desc)]);
-    if (kind != null) s.where((o) => o.kind.equals(kind));
+    s.where((o) {
+      Expression<bool> e = const Constant(true);
+      if (kind != null) e = e & o.kind.equals(kind);
+      if (hideSent) e = e & o.status.equals('sent').not();
+      if (hideDropped) e = e & o.status.equals('dropped').not();
+      return e;
+    });
+    if (limit != null) s.limit(limit);
     return s.watch();
+  }
+
+  /// 2026-10-30 (оптимизация, п. 1): только ждущие отправки записи (обычно их 0–3) — для счётчика «неотправленных»; раньше счётчик
+  /// перечитывал всю таблицу очереди на каждую её запись. Строки нужны целиком: владельца записи знает только тело (`_meta`).
+  Stream<List<OutboxData>> watchPendingRows() =>
+      (select(outbox)..where((o) => o.status.equals('pending'))).watch();
+
+  /// 2026-10-30 (оптимизация, п. 3): есть ли что отправлять — без чтения тел и без записи (тик синхронизации каждые 20 с).
+  Future<bool> hasPending() async {
+    final r = await customSelect("SELECT 1 FROM outbox WHERE status = 'pending' LIMIT 1", readsFrom: {outbox}).get();
+    return r.isNotEmpty;
+  }
+
+  /// 2026-10-30 (оптимизация, чистка очереди): отправленные и снятые записи старше [keepDays] дней удаляются, а из оставшихся
+  /// отправленных хранятся не больше [keepRows] последних. Ждущие и «Не принято» не трогаются никогда. Возвращает число удалённых.
+  Future<int> purgeOutbox({int keepDays = 30, int keepRows = 500}) async {
+    final cutoff = DateTime.now().subtract(Duration(days: keepDays)).millisecondsSinceEpoch ~/ 1000;
+    final a = await customUpdate(
+      "DELETE FROM outbox WHERE status IN ('sent', 'dropped') AND created_at < ?",
+      variables: [Variable.withInt(cutoff)],
+      updates: {outbox},
+      updateKind: UpdateKind.delete,
+    );
+    final b = await customUpdate(
+      "DELETE FROM outbox WHERE status IN ('sent', 'dropped') AND id NOT IN "
+      "(SELECT id FROM outbox WHERE status IN ('sent', 'dropped') ORDER BY created_at DESC LIMIT ?)",
+      variables: [Variable.withInt(keepRows)],
+      updates: {outbox},
+      updateKind: UpdateKind.delete,
+    );
+    return a + b;
   }
 
   Future<void> markSent(String id, {String? serverId, String? serverNumber}) => (update(outbox)..where((o) => o.id.equals(id))).write(
@@ -304,6 +438,27 @@ class AppDatabase extends _$AppDatabase {
   );
 
   Future<void> retryFailed(String id) => (update(outbox)..where((o) => o.id.equals(id))).write(const OutboxCompanion(status: Value('pending')));
+
+  // ------------------------------------------------------------------ замок очереди
+
+  static const queueLockKey = 'queue.lock';
+
+  /// 2026-10-29 (аудит, п. 3): замок отправки очереди между основным изолятом и фоновой задачей WorkManager (разные изоляты, один
+  /// файл базы): одна строка настроек «владелец|до какого времени», захват одним SQL-оператором. Просроченный замок (процесс
+  /// убили посреди отправки) забирается сразу. Ключ идемпотентности защищает от дубля и без замка — замок убирает лишние 409.
+  Future<bool> tryAcquireQueueLock(String owner, {Duration ttl = const Duration(minutes: 3)}) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final mine = '$owner|${now + ttl.inMilliseconds}';
+    await customStatement(
+      "INSERT INTO settings(key, value) VALUES('$queueLockKey', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value "
+      "WHERE value = '' OR CAST(substr(value, instr(value, '|') + 1) AS INTEGER) < ?",
+      [mine, now],
+    );
+    return await getSetting(queueLockKey) == mine;
+  }
+
+  Future<void> releaseQueueLock(String owner) =>
+      customStatement("UPDATE settings SET value = '' WHERE key = '$queueLockKey' AND value LIKE ?", ['$owner|%']);
 
   // ------------------------------------------------------------------ настройки
 

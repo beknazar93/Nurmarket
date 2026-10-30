@@ -13,14 +13,13 @@
         SystemDecorations="None"
         Background="{DynamicResource BrushDialogPanel}">
     <!-- 2026-10-17, редизайн (этап 2): оплата — панелью у правого края главного окна (макет Pay).
-         2026-10-23 (ТЗ компактной оплаты): высота окна теперь по содержимому (SizeToContent=Height), а не «во всю высоту»;
+         2026-10-23 (ТЗ компактной оплаты): высота окна по содержимому (SizeToContent=Height), а не «во всю высоту»;
          низ окна прижат к низу главного окна, при смене способа оплаты окно растёт вверх. Ширина главного окна ≥ 1000 —
-         две колонки (класс two-col: слева «как платят», справа «кто и чек»), уже — одна колонка, как раньше.
-         Место и размер ставит CheckoutDialog.DockTo/ApplyDock (до показа и при движении/размере главного окна и самого
-         окна оплаты): если справа чек кассы (Классика, Карточки, Минимал, Профи) и слева от него хватает места — окно
-         встаёт сразу слева от чека, чек остаётся виден. Без главного окна (или на Android) — как раньше, по центру.
-         Окно непрозрачное: прозрачный фон на ПК без композиции рисовался чёрной рамкой.
-         Логика оплаты не менялась: те же привязки к CheckoutViewModel, имена элементов и клавиши.
+         две колонки (класс two-col), уже — одна колонка. Место и размер ставит CheckoutDialog.DockTo/ApplyDock.
+         2026-10-30, редизайн «Окно оплаты» (макет design/Payment-Dialog, docs/Дизайн/Окно оплаты — редизайн (30.10.2026).md):
+         слева «Итог и состав» (крупный итог, строки, плашка «Сдача / Не хватает / В долг уйдёт», клиент F5, бонусы F6, чек F7, прокат ссылкой),
+         справа «Способ оплаты» (4 плитки в ряд F1–F4, сумма, быстрые суммы, банк и QR, долг), внизу «Отмена Esc · причина · Оплатить Enter».
+         Логика оплаты не менялась: те же привязки к CheckoutViewModel, имена элементов и клавиши (деньги — CanExecutePay, CashReceivedForApi — не тронуты).
          Своей цифровой клавиатуры нет — правило владельца (только osk.exe по касанию поля). -->
 
     <Window.Resources>
@@ -28,44 +27,58 @@
     </Window.Resources>
 
     <Window.Styles>
-        <!-- Способ оплаты — плитка 2×2 (стрелки ←/→/↑/↓ обходят её так же, как раньше). -->
+        <!-- 2026-10-30, редизайн окна оплаты (макет design/Payment-Dialog): способ оплаты — 4 плитки В РЯД (значок, подпись, клавиша F1–F4);
+             выбранная — тёмная с акцентной полосой снизу. Стрелки ←/→ и F1–F4 обходят её так же, как раньше (OnPaymentKeyTunnel). -->
         <Style Selector="RadioButton.PayTypeOption">
-            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-            <Setter Property="CornerRadius" Value="10"/>
-            <Setter Property="Padding" Value="12,0"/>
-            <Setter Property="Height" Value="52"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="8,8"/>
+            <Setter Property="MinHeight" Value="64"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Left"/>
-            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
             <!-- Фокус с клавиатуры рисует стиль :focus-visible ниже; рамка Fluent легла бы второй. -->
             <Setter Property="FocusAdorner" Value="{x:Null}"/>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{TemplateBinding CornerRadius}"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter Content="{TemplateBinding Content}"
-                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True"/>
-                    </Border>
+                    <Panel>
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch"
+                                              RecognizesAccessKey="True"/>
+                        </Border>
+                        <Border x:Name="PART_Bar" IsVisible="False" Height="3" Margin="10,0" VerticalAlignment="Bottom"
+                                CornerRadius="3,3,0,0" Background="{DynamicResource BrushAccent}"/>
+                    </Panel>
                 </ControlTemplate>
             </Setter>
         </Style>
+        <Style Selector="RadioButton.PayTypeOption:pointerover">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
 
-        <!-- 2026-10-19, К1 (правило 2): выбранный способ оплаты — тёмно-синим (цвет текста темы, надпись цветом панели),
-             как выбранные сегменты; жёлтая в панели одна — «Оплатить». -->
+        <!-- 2026-10-19, К1 (правило 2): выбранный способ оплаты — цветом текста темы (надпись цветом панели), жёлтая в панели одна — «Оплатить».
+             2026-10-30: плюс акцентная полоса снизу. -->
         <Style Selector="RadioButton.PayTypeOption:checked">
             <Setter Property="Background" Value="{DynamicResource BrushText}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushDialogPanel}"/>
             <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style Selector="RadioButton.PayTypeOption:checked /template/ Border#PART_Bar">
+            <Setter Property="IsVisible" Value="True"/>
         </Style>
 
         <!-- Способ оплаты, выбранный стрелками: рамка толще и ярче, чтобы кассир видел, где
@@ -73,29 +86,38 @@
         <Style Selector="RadioButton.PayTypeOption:focus-visible">
             <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
             <Setter Property="BorderThickness" Value="2.5"/>
-            <Setter Property="Padding" Value="11,0"/>
+            <Setter Property="Padding" Value="7,7"/>
         </Style>
 
-        <Style Selector="RadioButton.PayTypeOption Border.pay-icon">
-            <Setter Property="Width" Value="32"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="CornerRadius" Value="16"/>
-            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
-        <Style Selector="RadioButton.PayTypeOption:checked Border.pay-icon">
-            <Setter Property="Background" Value="{DynamicResource BrushDialogPanel}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushDialogPanel}"/>
-        </Style>
         <Style Selector="RadioButton.PayTypeOption Path.pay-icon-glyph">
-            <Setter Property="Width" Value="17"/>
-            <Setter Property="Height" Value="17"/>
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="22"/>
             <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
             <Setter Property="Fill" Value="{DynamicResource BrushTextMuted}"/>
         </Style>
         <Style Selector="RadioButton.PayTypeOption:checked Path.pay-icon-glyph">
-            <Setter Property="Fill" Value="{DynamicResource BrushText}"/>
+            <Setter Property="Fill" Value="{DynamicResource BrushDialogPanel}"/>
+        </Style>
+
+        <!-- Подсказка клавиши (F1…F7, Esc): цвет текста — от кнопки/плитки, на выбранной плитке рамка светлая. -->
+        <Style Selector="Border.key-hint">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+            <Setter Property="BorderThickness" Value="1,1,1,2"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="Padding" Value="5,0"/>
+            <Setter Property="MinWidth" Value="22"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.key-hint > TextBlock">
+            <Setter Property="FontFamily" Value="Consolas,Courier New,monospace"/>
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="RadioButton.PayTypeOption:checked Border.key-hint">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushDialogPanel}"/>
+            <Setter Property="Opacity" Value="0.85"/>
         </Style>
 
         <!-- Быстрые суммы («Без сдачи», круглые купюры): цель касания 44+. 2026-10-17, ревью этапа 2: кнопки сумм
@@ -184,83 +206,173 @@
             <Setter Property="BorderThickness" Value="2"/>
         </Style>
 
-        <!-- Отступы окна. 2026-10-23 (ТЗ компактной оплаты): «высота по содержимому» — шапка 56, полоса итога 60, подвал 68
-             (в классе tiny — 52 / 52 / 60); зоны касания везде ≥ 44. Классы compact (доступная высота < 760) и tiny (< 650)
-             ставит CheckoutDialog.ApplyDock по доступной высоте (MaxHeight), а не по высоте панели. -->
-        <Style Selector="Border.pay-header">
-            <Setter Property="Padding" Value="16,6,8,6"/>
+        <!-- 2026-10-30 (редизайн): «Ровно N» — первая и акцентная из быстрых сумм. -->
+        <Style Selector="Button.pay-quick.exact">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
         </Style>
-        <Style Selector="Grid.pay-body">
-            <Setter Property="Margin" Value="16,12,16,12"/>
+
+        <!-- 2026-10-30 (редизайн): «+ Выбрать клиента F5» — красная, когда способ «В долг» (без клиента долг не оформить). -->
+        <Style Selector="Button.client-pick">
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="MinHeight" Value="48"/>
+            <Setter Property="Padding" Value="12,4,8,4"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.client-pick.req">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+        </Style>
+        <Style Selector="Button.client-pick.req:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}"/>
+        </Style>
+        <Style Selector="Button.client-pick:pointerover:not(.req) /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
+        <Style Selector="Button.client-pick.req Border.key-hint">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushDangerOnSoft}"/>
+        </Style>
+
+        <!-- 2026-10-30 (редизайн): «Оформить как прокат ›» — вторичная ссылка, а не большая кнопка. -->
+        <Style Selector="Button.rental-link">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0,0"/>
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.rental-link:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+
+        <!-- Отступы окна. 2026-10-23 (ТЗ компактной оплаты): «высота по содержимому». Классы compact (доступная высота < 760) и tiny (< 650)
+             ставит CheckoutDialog.ApplyDock по доступной высоте (MaxHeight). 2026-10-30 (редизайн): шапка 52 (tiny 44), крупный итог 36/32/26,
+             «Получено» 56/52/48, плитки 64/56/52, кнопка «Оплатить» 52/48/44; зоны касания везде ≥ 44. -->
+        <Style Selector="Border.pay-header">
+            <Setter Property="Padding" Value="10,4,8,4"/>
+            <Setter Property="MinHeight" Value="52"/>
+        </Style>
+        <Style Selector="Border.pay-pane">
+            <Setter Property="Padding" Value="16,14"/>
         </Style>
         <Style Selector="Border.pay-footer">
-            <Setter Property="Padding" Value="16,12"/>
-        </Style>
-        <Style Selector="Border.pay-summary">
-            <Setter Property="Padding" Value="16,6"/>
-            <Setter Property="MinHeight" Value="60"/>
-        </Style>
-        <Style Selector="TextBlock.pay-sum">
-            <Setter Property="FontSize" Value="28"/>
-        </Style>
-        <Style Selector="TextBox.pay-cash">
-            <Setter Property="Height" Value="48"/>
-            <Setter Property="FontSize" Value="20"/>
-        </Style>
-        <Style Selector="StackPanel.pay-col">
-            <Setter Property="Spacing" Value="8"/>
-        </Style>
-        <Style Selector="Image.pay-qr">
-            <Setter Property="Width" Value="120"/>
-            <Setter Property="Height" Value="120"/>
-        </Style>
-        <Style Selector=".compact Grid.pay-body">
-            <Setter Property="Margin" Value="16,10,16,10"/>
-        </Style>
-        <Style Selector=".compact Border.pay-footer">
             <Setter Property="Padding" Value="16,10"/>
         </Style>
+        <Style Selector="Border.pay-summary">
+            <Setter Property="Padding" Value="14,10"/>
+            <Setter Property="MinHeight" Value="64"/>
+        </Style>
+        <Style Selector="TextBlock.pay-sum">
+            <Setter Property="FontSize" Value="36"/>
+        </Style>
+        <Style Selector="TextBlock.result-amount">
+            <Setter Property="FontSize" Value="30"/>
+        </Style>
+        <Style Selector="TextBox.pay-cash">
+            <Setter Property="Height" Value="56"/>
+            <Setter Property="FontSize" Value="28"/>
+            <Setter Property="FontWeight" Value="ExtraBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Right"/>
+        </Style>
+        <Style Selector="StackPanel.pay-col">
+            <Setter Property="Spacing" Value="10"/>
+        </Style>
+        <Style Selector="Image.pay-qr">
+            <Setter Property="Width" Value="84"/>
+            <Setter Property="Height" Value="84"/>
+        </Style>
+        <Style Selector="Button.foot-pay">
+            <Setter Property="MinHeight" Value="52"/>
+        </Style>
+        <Style Selector=".compact Border.pay-pane">
+            <Setter Property="Padding" Value="14,10"/>
+        </Style>
+        <Style Selector=".compact Border.pay-footer">
+            <Setter Property="Padding" Value="16,8"/>
+        </Style>
+        <Style Selector=".compact TextBlock.pay-sum">
+            <Setter Property="FontSize" Value="32"/>
+        </Style>
+        <Style Selector=".compact TextBox.pay-cash">
+            <Setter Property="Height" Value="52"/>
+            <Setter Property="FontSize" Value="24"/>
+        </Style>
         <Style Selector=".compact RadioButton.PayTypeOption">
-            <Setter Property="Height" Value="48"/>
+            <Setter Property="MinHeight" Value="56"/>
+        </Style>
+        <Style Selector="UniformGrid.pay-methods">
+            <Setter Property="Rows" Value="1"/>
+            <Setter Property="Columns" Value="4"/>
+        </Style>
+        <Style Selector="Window:not(.two-col) UniformGrid.pay-methods">
+            <Setter Property="Rows" Value="2"/>
+            <Setter Property="Columns" Value="2"/>
+        </Style>
+        <Style Selector=".compact RadioButton.PayTypeOption Path.pay-icon-glyph">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector=".compact Button.foot-pay">
+            <Setter Property="MinHeight" Value="48"/>
         </Style>
         <!-- 2026-10-23 (аудит круг 3, Б-6): моноблок 1024×600 — доступная высота ниже 650 px (класс tiny, ставит ApplyDock). -->
         <Style Selector=".tiny Border.pay-header">
-            <Setter Property="Padding" Value="14,4,6,4"/>
+            <Setter Property="Padding" Value="8,2,6,2"/>
+            <Setter Property="MinHeight" Value="44"/>
         </Style>
-        <Style Selector=".tiny Grid.pay-body">
-            <Setter Property="Margin" Value="12,8,12,8"/>
+        <Style Selector=".tiny Border.pay-pane">
+            <Setter Property="Padding" Value="12,8"/>
         </Style>
         <Style Selector=".tiny StackPanel.pay-col">
             <Setter Property="Spacing" Value="6"/>
         </Style>
         <Style Selector=".tiny Border.pay-footer">
-            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Padding" Value="12,6"/>
         </Style>
         <Style Selector=".tiny Border.pay-summary">
-            <Setter Property="Padding" Value="14,4"/>
+            <Setter Property="Padding" Value="12,6"/>
             <Setter Property="MinHeight" Value="52"/>
         </Style>
         <Style Selector=".tiny TextBlock.pay-sum">
+            <Setter Property="FontSize" Value="26"/>
+        </Style>
+        <Style Selector=".tiny TextBlock.result-amount">
             <Setter Property="FontSize" Value="24"/>
         </Style>
-        <Style Selector=".tiny RadioButton.PayTypeOption">
-            <Setter Property="Height" Value="44"/>
-        </Style>
-        <Style Selector=".tiny TextBox.pay-cash">
-            <Setter Property="Height" Value="44"/>
-            <Setter Property="FontSize" Value="18"/>
-        </Style>
-        <Style Selector=".tiny Image.pay-qr">
-            <Setter Property="Width" Value="96"/>
-            <Setter Property="Height" Value="96"/>
-        </Style>
-        <!-- 2026-10-23 (аудит круг 4, Б-6): на 1024×600 «Безналичные» переносилось на две строки.
-             Значок способа оплаты на низкой панели убран (подпись и так выделяется цветом), подзаголовок шапки скрыт, кнопки 44. -->
-        <Style Selector=".compact RadioButton.PayTypeOption Border.pay-icon">
+        <Style Selector=".tiny RadioButton.PayTypeOption Border.key-hint">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
-        <Style Selector=".compact RadioButton.PayTypeOption TextBlock">
-            <Setter Property="TextAlignment" Value="Center"/>
+        <Style Selector=".tiny RadioButton.PayTypeOption">
+            <Setter Property="MinHeight" Value="52"/>
+            <Setter Property="Padding" Value="6,6"/>
+            <Setter Property="FontSize" Value="11.5"/>
+        </Style>
+        <Style Selector=".tiny TextBox.pay-cash">
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="FontSize" Value="22"/>
+        </Style>
+        <Style Selector=".tiny Image.pay-qr">
+            <Setter Property="Width" Value="64"/>
+            <Setter Property="Height" Value="64"/>
         </Style>
         <Style Selector=".tiny TextBlock.pay-sub">
             <Setter Property="IsVisible" Value="False"/>
@@ -268,27 +380,33 @@
         <Style Selector=".tiny Border.pay-footer Button">
             <Setter Property="MinHeight" Value="44"/>
         </Style>
+        <Style Selector=".tiny Button.foot-pay">
+            <Setter Property="MinHeight" Value="44"/>
+        </Style>
 
-        <!-- 2026-10-23 (ТЗ компактной оплаты): раскладка колонок. Без класса two-col (главное окно уже 1000, Android-телефон)
-             обе колонки — одна под другой во всю ширину, подвал в две строки; с two-col — слева «как платят», справа «кто и чек». -->
-        <Style Selector="StackPanel.left-col">
+        <!-- 2026-10-30 (редизайн): раскладка колонок. Без класса two-col (главное окно уже 1000, Android-телефон) обе панели — одна под другой
+             во всю ширину (сверху «Итог и состав», ниже «Способ оплаты»), подвал в две строки; с two-col — слева «Итог и состав» (5/11), справа
+             «Способ оплаты» (6/11), подвал в одну строку. -->
+        <Style Selector="Border.left-pane">
+            <Setter Property="Grid.Row" Value="0"/>
+            <Setter Property="Grid.Column" Value="0"/>
+            <Setter Property="Grid.ColumnSpan" Value="2"/>
+            <Setter Property="Background" Value="{DynamicResource BrushWindow}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+        <Style Selector="Border.right-pane">
             <Setter Property="Grid.Row" Value="1"/>
             <Setter Property="Grid.Column" Value="0"/>
-            <Setter Property="Grid.ColumnSpan" Value="3"/>
-            <Setter Property="Margin" Value="0,10,0,0"/>
+            <Setter Property="Grid.ColumnSpan" Value="2"/>
         </Style>
-        <Style Selector="StackPanel.right-col">
-            <Setter Property="Grid.Row" Value="2"/>
-            <Setter Property="Grid.Column" Value="0"/>
-            <Setter Property="Grid.ColumnSpan" Value="3"/>
-            <Setter Property="Margin" Value="0,10,0,0"/>
-        </Style>
-        <Style Selector=".two-col StackPanel.left-col">
+        <Style Selector=".two-col Border.left-pane">
             <Setter Property="Grid.ColumnSpan" Value="1"/>
+            <Setter Property="BorderThickness" Value="0,0,1,0"/>
         </Style>
-        <Style Selector=".two-col StackPanel.right-col">
-            <Setter Property="Grid.Row" Value="1"/>
-            <Setter Property="Grid.Column" Value="2"/>
+        <Style Selector=".two-col Border.right-pane">
+            <Setter Property="Grid.Row" Value="0"/>
+            <Setter Property="Grid.Column" Value="1"/>
             <Setter Property="Grid.ColumnSpan" Value="1"/>
         </Style>
         <Style Selector=".two-col TextBlock.pay-sub">
@@ -297,40 +415,101 @@
         <Style Selector=".two-col TextBlock.consultant-title">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
-        <!-- Подвал: одна колонка — «Напечатать чек» отдельной строкой, ниже «Отмена» и «Оплатить»; две — всё в одну строку. -->
-        <Style Selector="Panel.foot-print">
+        <!-- Подвал: одна колонка — причина строкой сверху, ниже «Отмена» и «Оплатить»; две — всё в одну строку: «Отмена», причина, «Оплатить». -->
+        <Style Selector="TextBlock.foot-reason">
             <Setter Property="Grid.Row" Value="0"/>
             <Setter Property="Grid.Column" Value="0"/>
             <Setter Property="Grid.ColumnSpan" Value="3"/>
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
         <Style Selector="Button.foot-cancel">
             <Setter Property="Grid.Row" Value="1"/>
             <Setter Property="Grid.Column" Value="0"/>
-            <Setter Property="MaxWidth" Value="140"/>
+            <Setter Property="MaxWidth" Value="160"/>
         </Style>
         <Style Selector="Button.foot-pay">
             <Setter Property="Grid.Row" Value="1"/>
             <Setter Property="Grid.Column" Value="1"/>
             <Setter Property="Grid.ColumnSpan" Value="2"/>
         </Style>
-        <Style Selector=".two-col Panel.foot-print">
+        <Style Selector=".two-col TextBlock.foot-reason">
+            <Setter Property="Grid.Row" Value="0"/>
+            <Setter Property="Grid.Column" Value="1"/>
             <Setter Property="Grid.ColumnSpan" Value="1"/>
-            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="Margin" Value="12,0"/>
         </Style>
         <Style Selector=".two-col Button.foot-cancel">
             <Setter Property="Grid.Row" Value="0"/>
-            <Setter Property="Grid.Column" Value="1"/>
+            <Setter Property="Grid.Column" Value="0"/>
             <Setter Property="MaxWidth" Value="180"/>
-            <Setter Property="Margin" Value="12,0,0,0"/>
         </Style>
         <Style Selector=".two-col Button.foot-pay">
             <Setter Property="Grid.Row" Value="0"/>
             <Setter Property="Grid.Column" Value="2"/>
             <Setter Property="Grid.ColumnSpan" Value="1"/>
+            <Setter Property="MinWidth" Value="240"/>
         </Style>
-        <Style Selector=".two-col TextBlock.print-off-hint">
-            <Setter Property="MaxWidth" Value="230"/>
+
+        <!-- Плашка результата под итогом: «Сдача» (зелёная), «Не хватает» (красная), «В долг уйдёт» (жёлтая). -->
+        <Style Selector="Border.result-plate">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="MinHeight" Value="60"/>
+        </Style>
+        <Style Selector="Border.result-plate.ok">
+            <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
+        </Style>
+        <Style Selector="Border.result-plate.short">
+            <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}"/>
+        </Style>
+        <Style Selector="Border.result-plate.warn">
+            <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
+        </Style>
+        <Style Selector="Border.result-plate TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector="Border.result-plate.ok TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushUiStatusOk}"/>
+        </Style>
+        <Style Selector="Border.result-plate.short TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
+        </Style>
+        <Style Selector="Border.result-plate.warn TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+        </Style>
+        <Style Selector=".tiny Border.result-plate">
+            <Setter Property="Padding" Value="12,4"/>
+            <Setter Property="MinHeight" Value="48"/>
+        </Style>
+
+        <!-- Строки под итогом («Сумма позиций … 28,00 сом») и подписи в них. -->
+        <Style Selector="TextBlock.line-k">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.line-v">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Карточка (QR, долг клиента): мягкий фон, рамка. -->
+        <Style Selector="Border.pay-card">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="12,10"/>
+        </Style>
+
+        <!-- Плашка остатка смешанной оплаты. -->
+        <Style Selector="Border.mix-rem">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="MinHeight" Value="36"/>
         </Style>
 
         <!-- Подсказка клавиши на главной кнопке («Enter»). -->
@@ -419,18 +598,19 @@
     <Border Background="{DynamicResource BrushDialogPanel}"
             BorderBrush="{DynamicResource BrushBorderStrong}" BorderThickness="1">
 
-        <!-- 2026-10-21 (пакет 6, п. 27): над кнопками закреплён блок: почему «Оплатить» неактивна, ошибка, строка консультанта
-             (касание — к его блоку). 2026-10-23 (ТЗ компактной оплаты): «Напечатать чек» ушёл в строку кнопок, закреплённый блок
-             не занимает места, пока в нём нечего показать. -->
-        <Grid RowDefinitions="Auto,*,Auto,Auto">
+        <!-- 2026-10-30 (редизайн): строки окна — шапка; полоса предупреждений (цена изменилась, ошибка, список клиентов); тело с прокруткой
+             (две панели); строка консультанта; подвал «Отмена Esc · причина · Оплатить Enter». -->
+        <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
 
-            <!-- 1. Шапка в одну строку (56): заголовок, «· 3 позиции», ✕ (= «Отмена», = Esc). -->
+            <!-- 1. Шапка (52): ⋮⋮ (за шапку окно тянется — DialogDragHelper по классу pay-header), «Оплата покупки · 3 позиции», бейдж «без связи», ✕ (= «Отмена», = Esc). -->
             <Border Grid.Row="0" Classes="pay-header"
                     BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1">
-                <Grid ColumnDefinitions="*,Auto">
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                    <TextBlock Grid.Column="0" Text="⋮⋮" FontSize="16" LetterSpacing="-3" Margin="6,0,10,0"
+                               Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="{DynamicResource csh.checkout.title}" FontSize="18" FontWeight="Bold"
+                            <TextBlock Text="{DynamicResource csh.checkout.title}" FontSize="18" FontWeight="ExtraBold"
                                        Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
                             <!-- «· 3 позиции» — ставит CheckoutDialog.DockTo по строкам чека главного окна. -->
                             <TextBlock x:Name="LinesText" IsVisible="False" FontSize="13"
@@ -440,8 +620,14 @@
                         <TextBlock x:Name="SubtitleText" Classes="pay-sub" Text="{DynamicResource csh.checkout.subtitle}" FontSize="13"
                                    Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
                     </StackPanel>
+                    <!-- Без связи (касса офлайн или сервер не отвечает): чек уйдёт в очередь. -->
+                    <Border Grid.Column="2" IsVisible="{Binding IsOfflineMode}" Margin="0,0,8,0" Padding="10,0" Height="28" CornerRadius="8"
+                            Background="{DynamicResource BrushWarningSoft}" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding OfflineBadgeText}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource BrushText}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="260"/>
+                    </Border>
                     <!-- 2026-10-24 (приёмка, ПР-9): у ✕ было имя «Avalonia.Controls.PathIcon» — экранному чтению и UIA нужно «Закрыть». -->
-                    <Button Grid.Column="1" Classes="modal-close" Width="44" Height="44" VerticalAlignment="Center"
+                    <Button Grid.Column="3" Classes="modal-close" Width="44" Height="44" VerticalAlignment="Center"
                             AutomationProperties.Name="{DynamicResource common.close}"
                             Click="Cancel_Click" IsTabStop="False" Focusable="False">
                         <PathIcon Data="{DynamicResource IconClose}" Width="16" Height="16"/>
@@ -449,127 +635,126 @@
                 </Grid>
             </Border>
 
-            <!-- 2. Содержимое прокручивается; шапка и кнопки на месте. Тело — сетка: полоса итога во всю ширину, под ней
-                 «Как платят» (LeftCol) и «Кто и чек» (RightCol); без класса two-col колонки идут одна под другой. -->
-            <ScrollViewer x:Name="ContentScroll" Grid.Row="1"
+            <!-- 2. Над телом (2026-10-30): «Цена изменилась», ошибка, статус списка клиентов — под шапкой, пока видны. Пока все строки скрыты, блок высоты не имеет. -->
+            <StackPanel Grid.Row="1" Margin="12,0">
+                <!-- 2026-10-27 (приёмка 1.17.63, Д-6): «Цена изменилась: …» — сверка цен перед оплатой изменила строки; текст стоит, пока окно открыто. -->
+                <Border IsVisible="{Binding HasPriceChangeNotice}" Margin="0,8,0,0" Padding="12,8" CornerRadius="10"
+                        Background="{DynamicResource BrushWarningSoft}">
+                    <TextBlock Text="{Binding PriceChangeNotice}" Foreground="{DynamicResource BrushText}"
+                               FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                </Border>
+                <!-- 2026-10-30 (приёмка 1.17.65, «Важно» 2): список клиентов при «Сервер занят» (429) — нейтральная надпись автоповтора и кнопка «Повторить» после неудачи. -->
+                <TextBlock Text="{Binding ClientsStatusText}"
+                           IsVisible="{Binding HasClientsStatus}"
+                           Margin="0,8,0,0"
+                           Foreground="{DynamicResource BrushTextSoft}"
+                           FontSize="13" TextWrapping="Wrap"/>
+                <Button Content="{DynamicResource shift.retryBalance}"
+                        Command="{Binding RetryLoadClientsCommand}"
+                        IsVisible="{Binding ClientsLoadFailed}"
+                        Classes="modal-secondary" Margin="0,6,0,0" MinHeight="44" HorizontalAlignment="Left"/>
+                <!-- Ошибка. 2026-10-24 (приёмка, ПР-9): видимость текста ставит код (CheckoutDialog.UpdateErrorVisibility): пока видна подсказка
+                     «Чтобы продать в долг, выберите клиента.», красную «Для продажи в долг выберите клиента.» не показываем — смысл тот же.
+                     2026-10-30: красная плашка видна вместе с самим текстом. -->
+                <Border IsVisible="{Binding #ErrorText.IsVisible}" Margin="0,8,0,0" Padding="12,8" CornerRadius="10"
+                        Background="{DynamicResource BrushDangerSoft}">
+                    <TextBlock x:Name="ErrorText" Text="{Binding ErrorMessage}"
+                               Foreground="{DynamicResource BrushDangerOnSoft}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               IsVisible="False"/>
+                </Border>
+            </StackPanel>
+
+            <!-- 3. Содержимое прокручивается; шапка и кнопки на месте. Тело — две панели: «Способ оплаты» (RightCol, справа; в XAML первая, чтобы Tab шёл
+                 с плиток и поля суммы) и «Итог и состав» (LeftCol, слева). Без класса two-col панели идут одна под другой: итог сверху. -->
+            <ScrollViewer x:Name="ContentScroll" Grid.Row="2"
                           VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           AllowAutoHide="True">
-                <Grid x:Name="BodyGrid" Classes="pay-body" ColumnDefinitions="11*,20,9*" RowDefinitions="Auto,Auto,Auto">
+                <Grid x:Name="BodyGrid" ColumnDefinitions="4*,6*" RowDefinitions="Auto,Auto">
 
-                    <!-- Полоса итога: «Итог к оплате» + сумма (+ скидка) слева, сдача (только наличные) справа.
-                         Цвета фирменные и одинаковые во всех темах: жёлтый по #0B2A3C — 11:1. -->
-                    <Border Grid.Row="0" Grid.ColumnSpan="3" Classes="pay-summary" CornerRadius="12" Background="#0B2A3C">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <!-- 2026-10-24 (аудит, круг 8, С-18): в долг — подпись «Получить сейчас» и строка «Чек · сейчас · в долг» под суммой. -->
-                            <StackPanel VerticalAlignment="Center">
-                            <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="{DynamicResource csh.checkout.totalDue}" FontSize="13" IsVisible="{Binding !IsDebtMode}"
-                                           FontWeight="SemiBold" Foreground="#C9D6DF" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <TextBlock Text="{Binding TotalDueLabel}" FontSize="13" IsVisible="{Binding IsDebtMode}"
-                                           FontWeight="SemiBold" Foreground="#C9D6DF" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <TextBlock Text="{Binding PayableDisplay}" Classes="pay-sum"
-                                           FontWeight="Bold" Foreground="#FFD600" VerticalAlignment="Center" Margin="0,0,14,0"/>
-                                <!-- Скидка (если есть) -->
-                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
-                                            IsVisible="{Binding HasDiscount}">
-                                    <TextBlock Text="{DynamicResource discount.title}" FontSize="13" Foreground="#C9D6DF" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding DiscountSummaryDisplay}" FontSize="13" FontWeight="SemiBold"
-                                               Foreground="#FCA5A5" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </WrapPanel>
-                            <TextBlock Text="{Binding DebtSplitDisplay}" FontSize="12" Foreground="#C9D6DF"
-                                       IsVisible="{Binding IsDebtMode}" TextWrapping="Wrap" Margin="0,2,0,0"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="12,0,0,0" Orientation="Horizontal" Spacing="8"
-                                        VerticalAlignment="Center" IsVisible="{Binding IsCashMode}">
-                                <TextBlock Text="{DynamicResource csh.checkout.change}" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="#C9D6DF" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding ChangeAmountDisplay}" FontSize="22" FontWeight="Bold"
-                                           Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                    <!-- ───────── Правая панель: способ оплаты ───────── -->
+                    <Border Classes="pay-pane right-pane">
+                    <StackPanel x:Name="RightCol" Classes="pay-col">
 
-                    <!-- ───────── Левая колонка: как платят ───────── -->
-                    <StackPanel x:Name="LeftCol" Classes="pay-col left-col">
-
-                        <!-- Способ оплаты: прежние четыре (видимость и порядок — как были). 2026-10-23: подпись «Способ оплаты» убрана с экрана
-                             (плитки говорят сами), осталась как имя сетки для программ экранного чтения. -->
-                        <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,8,Auto"
+                        <!-- Способ оплаты: прежние четыре (видимость и порядок — как были), в ряд, с клавишами F1–F4. Подпись «Способ оплаты» — имя сетки для программ экранного чтения. -->
+                        <!-- В одну колонку (узкое окно) плитки идут 2×2 (стиль Window:not(.two-col)), иначе слова в подписях рвались бы посередине. -->
+                        <UniformGrid Classes="pay-methods" Margin="-3"
                               AutomationProperties.Name="{DynamicResource csh.checkout.paymentMethod}">
                             <RadioButton x:Name="PayCashOption"
-                                         Grid.Column="0" Grid.Row="0"
+                                         Margin="3"
                                          GroupName="Pay"
                                          Classes="PayTypeOption"
                                          IsChecked="{Binding IsCash, Mode=TwoWay}">
-                                <!-- значок + подпись сеткой — длинная подпись (кыргызский) переносится
-                                     на вторую строку внутри кнопки, а не обрезается её краем. -->
-                                <Grid ColumnDefinitions="Auto,*">
-                                    <Border Classes="pay-icon">
-                                        <Path Classes="pay-icon-glyph" Data="M3,6H21V18H3V6M12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9M7,8A2,2 0 0,1 5,10V14A2,2 0 0,1 7,16H17A2,2 0 0,1 19,14V10A2,2 0 0,1 17,8H7Z"/>
-                                    </Border>
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="{DynamicResource csh.checkout.cash}" VerticalAlignment="Center"
+                                <!-- значок, подпись, клавиша — длинная подпись (кыргызский) переносится на вторую строку внутри плитки, а не обрезается её краем. -->
+                                <Grid RowDefinitions="Auto,*">
+                                    <Path Classes="pay-icon-glyph" Data="M3,6H21V18H3V6M12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9M7,8A2,2 0 0,1 5,10V14A2,2 0 0,1 7,16H17A2,2 0 0,1 19,14V10A2,2 0 0,1 17,8H7Z"/>
+                                    <TextBlock Grid.Row="1" Text="{DynamicResource csh.checkout.cash}" VerticalAlignment="Center" Margin="0,4,0,0"
                                                TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                    <Border Grid.RowSpan="2" Classes="key-hint" HorizontalAlignment="Right" VerticalAlignment="Top"><TextBlock Text="F1"/></Border>
                                 </Grid>
                             </RadioButton>
 
                             <RadioButton x:Name="PayTransferOption"
-                                         Grid.Column="2" Grid.Row="0"
+                                         Margin="3"
                                          GroupName="Pay"
                                          Classes="PayTypeOption"
                                          IsChecked="{Binding IsTransfer, Mode=TwoWay}">
-                                <Grid ColumnDefinitions="Auto,*">
-                                    <Border Classes="pay-icon">
-                                        <Path Classes="pay-icon-glyph" Data="M20,8H4V6H20M20,18H4V12H20M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
-                                    </Border>
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="{DynamicResource csh.checkout.transfer}" VerticalAlignment="Center"
+                                <Grid RowDefinitions="Auto,*">
+                                    <Path Classes="pay-icon-glyph" Data="M20,8H4V6H20M20,18H4V12H20M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
+                                    <TextBlock Grid.Row="1" Text="{DynamicResource csh.checkout.transfer}" VerticalAlignment="Center" Margin="0,4,0,0"
                                                TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                    <Border Grid.RowSpan="2" Classes="key-hint" HorizontalAlignment="Right" VerticalAlignment="Top"><TextBlock Text="F2"/></Border>
                                 </Grid>
                             </RadioButton>
 
                             <RadioButton x:Name="PayDebtOption"
-                                         Grid.Column="0" Grid.Row="2"
+                                         Margin="3"
                                          GroupName="Pay"
                                          Classes="PayTypeOption"
                                          IsChecked="{Binding IsDebt, Mode=TwoWay}">
-                                <Grid ColumnDefinitions="Auto,*">
-                                    <Border Classes="pay-icon">
-                                        <Path Classes="pay-icon-glyph" Data="M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22C6.47,22 2,17.5 2,12A10,10 0 0,1 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z"/>
-                                    </Border>
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="{DynamicResource csh.checkout.debt}" VerticalAlignment="Center"
+                                <Grid RowDefinitions="Auto,*">
+                                    <Path Classes="pay-icon-glyph" Data="M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22C6.47,22 2,17.5 2,12A10,10 0 0,1 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z"/>
+                                    <TextBlock Grid.Row="1" Text="{DynamicResource csh.checkout.debt}" VerticalAlignment="Center" Margin="0,4,0,0"
                                                TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                    <Border Grid.RowSpan="2" Classes="key-hint" HorizontalAlignment="Right" VerticalAlignment="Top"><TextBlock Text="F3"/></Border>
                                 </Grid>
                             </RadioButton>
 
                             <RadioButton x:Name="PayMixedOption"
-                                         Grid.Column="2" Grid.Row="2"
+                                         Margin="3"
                                          GroupName="Pay"
                                          Classes="PayTypeOption"
                                          IsChecked="{Binding IsMixed, Mode=TwoWay}">
-                                <Grid ColumnDefinitions="Auto,*">
-                                    <Border Classes="pay-icon">
-                                        <Path Classes="pay-icon-glyph" Data="M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z"/>
-                                    </Border>
-                                    <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="{DynamicResource csh.checkout.mixed}" VerticalAlignment="Center"
+                                <Grid RowDefinitions="Auto,*">
+                                    <Path Classes="pay-icon-glyph" Data="M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z"/>
+                                    <TextBlock Grid.Row="1" Text="{DynamicResource csh.checkout.mixed}" VerticalAlignment="Center" Margin="0,4,0,0"
                                                TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                    <Border Grid.RowSpan="2" Classes="key-hint" HorizontalAlignment="Right" VerticalAlignment="Top"><TextBlock Text="F4"/></Border>
                                 </Grid>
                             </RadioButton>
-                        </Grid>
+                        </UniformGrid>
 
-                        <!-- Наличные: получено, быстрые суммы, «недостаточно» (показывается только при IsCashMode) -->
+                        <!-- Наличные: получено (крупно, справа), быстрые суммы (показывается только при IsCashMode). Сдача и «Не хватает» — плашкой в левой панели. -->
                         <StackPanel IsVisible="{Binding IsCashMode}" Spacing="6">
                             <TextBlock Text="{DynamicResource csh.checkout.cashReceived}" Classes="pay-label" TextWrapping="NoWrap"/>
 
                             <TextBox x:Name="CashReceivedBox"
                                      Classes="pay-amount pay-cash"
                                      Text="{Binding CashReceived}"
-                                     KeyDown="CashReceivedBox_KeyDown"/>
+                                     KeyDown="CashReceivedBox_KeyDown">
+                                <TextBox.InnerRightContent>
+                                    <TextBlock Text="{Binding MoneyUnitText}" FontSize="13" FontWeight="Bold" Margin="0,0,14,0"
+                                               Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Center"/>
+                                </TextBox.InnerRightContent>
+                            </TextBox>
 
-                            <!-- «Без сдачи» (ExactCashCommand) и подсказки круглых сумм (2026-09-17: ближайшие 3 круглые
+                            <!-- «Ровно N» (ExactCashCommand) и подсказки круглых сумм (2026-09-17: ближайшие 3 круглые
                                  суммы не меньше итога) — одной строкой, ширина делится поровну между видимыми. -->
                             <UniformGrid Rows="1" Margin="0,0,-8,0">
-                                <Button Classes="pay-quick" Focusable="False"
-                                        Content="{DynamicResource csh.checkout.exact}"
+                                <Button Classes="pay-quick exact" Focusable="False"
+                                        Content="{Binding ExactCashLabel}"
                                         Command="{Binding ExactCashCommand}"/>
                                 <Button Classes="pay-quick" Focusable="False"
                                         Content="{Binding CashSuggestion1Display}"
@@ -584,10 +769,6 @@
                                         Command="{Binding ApplyCashSuggestion3Command}"
                                         IsVisible="{Binding HasCashSuggestion3}"/>
                             </UniformGrid>
-
-                            <TextBlock Text="{Binding ChangeStatusText}" IsVisible="{Binding ChangeStatusIsWarn}"
-                                       FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"
-                                       TextWrapping="Wrap"/>
                         </StackPanel>
 
                         <!-- Смешанная оплата: наличная + безналичная часть рядом -->
@@ -601,17 +782,20 @@
                                 <TextBox x:Name="MixedNonCashBox" Grid.Column="2" Grid.Row="2" Classes="pay-amount" Text="{Binding MixedNonCashAmount}"/>
                             </Grid>
 
-                            <TextBlock Text="{Binding MixedRemainingText}"
-                                       FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"
-                                       Foreground="{DynamicResource BrushUiStatusOk}"
-                                       IsVisible="{Binding MixedAmountsMatch}"/>
-                            <TextBlock Text="{Binding MixedRemainingText}"
-                                       FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"
-                                       Foreground="{DynamicResource BrushDanger}"
-                                       IsVisible="{Binding !MixedAmountsMatch}"/>
+                            <!-- Плашка остатка: «Сумма сходится» — зелёная, «Не хватает / Лишнее» — красная. -->
+                            <Border Classes="mix-rem" Background="{DynamicResource BrushSuccessSoft}" IsVisible="{Binding MixedAmountsMatch}">
+                                <TextBlock Text="{Binding MixedRemainingText}"
+                                           FontSize="13" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource BrushUiStatusOk}"/>
+                            </Border>
+                            <Border Classes="mix-rem" Background="{DynamicResource BrushDangerSoft}" IsVisible="{Binding !MixedAmountsMatch}">
+                                <TextBlock Text="{Binding MixedRemainingText}"
+                                           FontSize="13" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource BrushDangerOnSoft}"/>
+                            </Border>
                         </StackPanel>
 
-                        <!-- Банк для безналичной оплаты. QR-код теперь в правой колонке (RightCol). -->
+                        <!-- Банк и QR для безналичной оплаты (безнал/смешанная). -->
                         <StackPanel IsVisible="{Binding IsBankSelectionVisible}" Spacing="6">
                             <TextBlock Text="{DynamicResource csh.checkout.selectBank}" Classes="pay-label" TextWrapping="NoWrap"/>
 
@@ -627,13 +811,50 @@
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
 
+                            <!-- QR загружен — карточка «QR для оплаты» (картинка, сумма, подсказка про Enter). Видимость: способ с банком (внешняя обёртка) и загруженный QR. -->
+                            <Border Classes="pay-card" IsVisible="{Binding HasQrCode}">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <Border Background="White"
+                                            BorderBrush="{DynamicResource BrushBorder}"
+                                            BorderThickness="1"
+                                            CornerRadius="10"
+                                            Padding="4"
+                                            VerticalAlignment="Center">
+                                        <Image Classes="pay-qr"
+                                               Source="{Binding QrCodePath, Converter={StaticResource PathToImageConverter}}"
+                                               Stretch="Uniform"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="{Binding QrCardTitle}" FontSize="12.5" Foreground="{DynamicResource BrushTextMuted}" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding PayableDisplay}" FontSize="18" FontWeight="ExtraBold" Foreground="{DynamicResource BrushText}"/>
+                                        <TextBlock Text="{Binding QrManualHint}" FontSize="11.5" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
                             <!-- QR не загружен — подсказка, где его поставить (одна строка, полный текст — всплывающей подсказкой). -->
                             <TextBlock Text="{DynamicResource csh.checkout.noQrCode}"
                                        IsVisible="{Binding !HasQrCode}"
                                        ToolTip.Tip="{DynamicResource csh.checkout.noQrCode}"
                                        Foreground="{DynamicResource BrushTextSoft}"
                                        FontSize="12" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding QrManualHint}"
+                                       IsVisible="{Binding !HasQrCode}"
+                                       Foreground="{DynamicResource BrushTextSoft}"
+                                       FontSize="12" TextWrapping="Wrap"/>
                         </StackPanel>
+
+                        <!-- 2026-10-30 (редизайн): карточка «Текущий долг / После продажи» — когда в долг выбран клиент (данные клиента, что уже есть у кассы;
+                             лимит клиента появится вместе с полем в API). -->
+                        <Border Classes="pay-card" IsVisible="{Binding ShowDebtCard}">
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                <TextBlock Text="{Binding CurrentDebtLabel}" Classes="line-k"/>
+                                <TextBlock Grid.Column="1" Text="{Binding CurrentDebtDisplay}" Classes="line-v"/>
+                                <TextBlock Grid.Row="1" Text="{Binding DebtAfterSaleLabel}" Classes="line-k" Margin="0,4,0,0"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DebtAfterSaleDisplay}" Classes="line-v" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource BrushDanger}"/>
+                            </Grid>
+                        </Border>
 
                         <!-- 2026-10-17: долг — после выбора клиента: без клиента «в долг» не оплатить, он виден первым. -->
                         <!-- 2026-10-20, владелец (долг Д2): блок долга — те же подписи (pay-label) и отступы, что в остальном окне;
@@ -747,57 +968,114 @@
                             <TextBlock Text="{Binding DebtDueHint}" IsVisible="{Binding IsInstallment}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
                     </StackPanel>
+                    </Border>
 
-                    <!-- ───────── Правая колонка: кто и чек ───────── -->
-                    <StackPanel x:Name="RightCol" Classes="pay-col right-col">
+                    <!-- ───────── Левая панель: итог и состав ───────── -->
+                    <Border x:Name="LeftPane" Classes="pay-pane left-pane">
+                    <StackPanel x:Name="LeftCol" Classes="pay-col">
+
+                        <!-- Плашка итога: «Итог к оплате» + крупная сумма. Цвета фирменные и одинаковые во всех темах: жёлтый по тёмному — 11:1.
+                             Длинная сумма (1 234 567,89) сжимается по ширине, а не обрезается.
+                             2026-10-24 (аудит, круг 8, С-18): в долг — подпись «Получить сейчас» и строка «Чек · сейчас · в долг» под суммой. -->
+                        <Border Classes="pay-summary" CornerRadius="12" Background="#191919" BorderBrush="{DynamicResource BrushBorderStrong}" BorderThickness="1">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource csh.checkout.totalDue}" FontSize="12.5" IsVisible="{Binding !IsDebtMode}"
+                                           FontWeight="SemiBold" Foreground="#C9D6DF"/>
+                                <TextBlock Text="{Binding TotalDueLabel}" FontSize="12.5" IsVisible="{Binding IsDebtMode}"
+                                           FontWeight="SemiBold" Foreground="#C9D6DF"/>
+                                <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Left">
+                                    <TextBlock Text="{Binding PayableDisplay}" Classes="pay-sum"
+                                               FontWeight="ExtraBold" Foreground="#FFD600"/>
+                                </Viewbox>
+                                <TextBlock Text="{Binding DebtSplitDisplay}" FontSize="12" Foreground="#C9D6DF"
+                                           IsVisible="{Binding IsDebtMode}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Состав итога: сумма позиций, скидки по строкам, скидка на чек, бонусы (строки со скидкой/бонусами — только когда они есть). -->
+                        <StackPanel Spacing="4">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding SubtotalLabel}" Classes="line-k"/>
+                                <TextBlock Grid.Column="1" Text="{Binding SubtotalDisplay}" Classes="line-v"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasLineDiscounts}">
+                                <TextBlock Text="{Binding LineDiscountsLabel}" Classes="line-k"/>
+                                <TextBlock Grid.Column="1" Text="{Binding LineDiscountsDisplay}" Classes="line-v" Foreground="{DynamicResource BrushUiStatusOk}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasDiscount}">
+                                <TextBlock Text="{Binding OrderDiscountLabel}" Classes="line-k"/>
+                                <TextBlock Grid.Column="1" Text="{Binding OrderDiscountDisplay}" Classes="line-v" Foreground="{DynamicResource BrushUiStatusOk}"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasPointsRedeemed}">
+                                <TextBlock Text="{Binding BonusesLabel}" Classes="line-k"/>
+                                <TextBlock Grid.Column="1" Text="{Binding PointsRedeemedDisplay}" Classes="line-v" Foreground="{DynamicResource BrushUiStatusOk}"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Результат по способу: наличные — «Сдача N» (зелёная) или «Не хватает N» (красная) с формулой «получено − итог»; в долг — «В долг уйдёт N». -->
+                        <Border Classes="result-plate" Classes.ok="{Binding ResultIsOk}" Classes.short="{Binding ResultIsShort}"
+                                Classes.warn="{Binding ResultIsWarn}" IsVisible="{Binding ShowResultPlate}">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding ResultTitle}" FontSize="13" FontWeight="Bold" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding ResultFormula}" IsVisible="{Binding HasResultFormula}" FontSize="11.5"
+                                               FontWeight="SemiBold" Opacity="0.85" TextWrapping="NoWrap"/>
+                                </StackPanel>
+                                <Viewbox Grid.Column="1" StretchDirection="DownOnly" MaxWidth="190" Margin="8,0,0,0" HorizontalAlignment="Right">
+                                    <TextBlock Text="{Binding ResultAmountDisplay}" Classes="result-amount" FontWeight="ExtraBold"/>
+                                </Viewbox>
+                            </Grid>
+                        </Border>
 
                         <!-- Клиент: для продажи в долг ИЛИ для бонусной программы (AI-фичи 2026-09-04) — строка всегда на месте.
-                             2026-10-23 (ТЗ компактной оплаты): подпись «Клиент» убрана (имя строки — для экранного чтения); без клиента —
-                             «Клиент не выбран» серым + кнопка «Выбрать клиента ›». Поиск/список клиентов и форма нового клиента — отдельное
-                             окно ClientPickerDialog поверх того же CheckoutViewModel (2026-09-05); оно ищет эту строку по имени
-                             ClientRow и встаёт под ней, поэтому имя менять нельзя. -->
-                        <Panel x:Name="ClientRow" x:CompileBindings="False" MinHeight="44"
+                             2026-10-30 (редизайн): чип «АА · Асанов Асан · бонусы · долг · ✕» или «＋ Выбрать клиента F5» (красный в способе «В долг»).
+                             Поиск/список клиентов и форма нового клиента — отдельное окно ClientPickerDialog поверх того же CheckoutViewModel (2026-09-05);
+                             оно ищет эту строку по имени ClientRow и встаёт под ней, поэтому имя менять нельзя. -->
+                        <Panel x:Name="ClientRow" x:CompileBindings="False" MinHeight="48"
                                AutomationProperties.Name="{DynamicResource csh.checkout.client}"
                                IsVisible="{Binding ShowClientSection}">
-                            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !HasSelectedClient}">
-                                <TextBlock Grid.Column="0" Text="{Binding SelectedClientName}" FontSize="13"
-                                           Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center"
-                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
-                                           ToolTip.Tip="{Binding SelectedClientName}"/>
-                                <Button Grid.Column="1" Click="ChooseClient_Click"
-                                        Classes="sec-outline"
-                                        Margin="8,0,0,0" Padding="10,0" Height="44" FontSize="13"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalContentAlignment="Center"
-                                        Cursor="Hand">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock Text="{DynamicResource csh.checkout.chooseClient}" VerticalAlignment="Center"/>
-                                        <TextBlock Text="›" VerticalAlignment="Center"/>
+                            <Button Classes="client-pick" Classes.req="{Binding IsDebtMode}" Click="ChooseClient_Click"
+                                    IsVisible="{Binding !HasSelectedClient}">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <TextBlock Text="＋" FontSize="16" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{DynamicResource csh.checkout.chooseClient}" VerticalAlignment="Center"
+                                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
-                                </Button>
-                            </Grid>
+                                    <Border Grid.Column="1" Classes="key-hint"><TextBlock Text="F5"/></Border>
+                                </Grid>
+                            </Button>
 
                             <!-- 2026-10-19, К1: выбранный клиент — нейтральной плашкой (бледно-жёлтая была «вторым акцентом»). -->
-                            <Border Background="{DynamicResource BrushPanelSoft}"
-                                    BorderBrush="{DynamicResource BrushBorderStrong}"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
-                                    Padding="10,2"
-                                    MinHeight="44"
+                            <Border Background="{DynamicResource BrushPanel}"
+                                    BorderBrush="{DynamicResource BrushBorder}"
+                                    BorderThickness="1.5"
+                                    CornerRadius="12"
+                                    Padding="4,2,2,2"
+                                    MinHeight="48"
                                     IsVisible="{Binding HasSelectedClient}">
                                 <Grid ColumnDefinitions="*,Auto,Auto">
-                                    <TextBlock Grid.Column="0" Text="{Binding SelectedClientName}" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource BrushText}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
-                                               VerticalAlignment="Center" ToolTip.Tip="{Binding SelectedClientName}"/>
-                                    <Button Grid.Column="1" Content="{DynamicResource csh.checkout.changeClient}"
-                                            Click="ChooseClient_Click"
-                                            Padding="10,0" MinHeight="44" FontSize="13"
-                                            VerticalContentAlignment="Center"
-                                            Background="Transparent"
-                                            Foreground="{DynamicResource BrushText}"
-                                            FontWeight="SemiBold"
-                                            BorderThickness="0"
-                                            Cursor="Hand"/>
+                                    <Button Grid.Column="0" Click="ChooseClient_Click"
+                                            Background="Transparent" BorderThickness="0" Padding="6,2" MinHeight="44"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"
+                                            AutomationProperties.Name="{Binding SelectedClientName}"
+                                            ToolTip.Tip="{Binding SelectedClientName}"
+                                            Cursor="Hand">
+                                        <Grid ColumnDefinitions="Auto,*">
+                                            <Border Width="32" Height="32" CornerRadius="16" Background="{DynamicResource BrushAccentSoft}" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding SelectedClientInitials}" FontSize="13" FontWeight="ExtraBold"
+                                                           Foreground="{DynamicResource BrushText}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding SelectedClientShortName}" FontSize="13.5" FontWeight="Bold"
+                                                           Foreground="{DynamicResource BrushText}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding SelectedClientSubline}" IsVisible="{Binding HasSelectedClientSubline}" FontSize="11.5"
+                                                           Foreground="{DynamicResource BrushTextSoft}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Button>
+                                    <Border Grid.Column="1" Classes="key-hint" Margin="2,0,0,0"><TextBlock Text="F5" Foreground="{DynamicResource BrushTextSoft}"/></Border>
                                     <!-- Отмена ошибочно выбранного клиента (2026-09-05). -->
                                     <Button Grid.Column="2" Content="{DynamicResource csh.checkout.clearClient}"
                                             Command="{Binding ClearClientCommand}"
@@ -812,43 +1090,34 @@
                         </Panel>
 
                         <!-- Бонусная программа — только когда включена в Настройки → Операции и клиент выбран.
-                             2026-10-23: «Бонусов: …» и поле списания — в одной строке, «начислится…» — мелко под ней. -->
-                        <Border x:CompileBindings="False" IsVisible="{Binding ShowLoyaltyBlock}" Background="{DynamicResource BrushPanelSoft}"
-                                CornerRadius="8" Padding="10,4">
-                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                                <!-- 2026-10-24 (аудит, круг 8, С-18): поле показывает «0», Watermark не виден — подпись «Списать бонусами, сом» под балансом. -->
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <!-- 2026-10-24 (приёмка, ПР-9): «Бонусов доступно: 0,12 сом» — одна строка (раньше «сом» уходило на вторую): шрифт 13, NoWrap + многоточие, полный текст в подсказке; поле списания 110 → 96, чтобы «0,12 сом» влезло. -->
-                                    <TextBlock Text="{Binding ClientLoyaltyBalanceDisplay}" FontWeight="SemiBold" FontSize="13" TextWrapping="NoWrap"
-                                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ClientLoyaltyBalanceDisplay}"
+                             2026-10-30 (редизайн): «Бонусов доступно» + поле списания, кнопка «Списать N F6» → «✓ Списано N», «начислится…» мелко под ней. -->
+                        <Border x:CompileBindings="False" Classes="pay-card" IsVisible="{Binding ShowLoyaltyBlock}">
+                            <StackPanel Spacing="6">
+                                <!-- 2026-10-24 (аудит, круг 8, С-18): поле показывает «0», Watermark не виден — подпись «Списать бонусами, сом» под балансом.
+                                     2026-10-24 (приёмка, ПР-9): «Бонусов доступно: 0,12 сом» — полный текст в подсказке.
+                                     2026-10-30 (редизайн): баланс и подпись — сверху (на узкой левой панели не обрезаются), ниже поле и кнопка «Списать N F6» рядом. -->
+                                <StackPanel>
+                                    <TextBlock Text="{Binding ClientLoyaltyBalanceDisplay}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap"
+                                               ToolTip.Tip="{Binding ClientLoyaltyBalanceDisplay}"
                                                Foreground="{DynamicResource BrushText}"/>
                                     <TextBlock Text="{Binding LoyaltyRedeemLabel}" FontSize="12" TextWrapping="Wrap"
-                                               MaxLines="2" TextTrimming="CharacterEllipsis"
                                                Foreground="{DynamicResource BrushTextSoft}"/>
                                 </StackPanel>
-                                <TextBox Grid.Column="1" Text="{Binding PointsToRedeemInput}"
-                                         Watermark="{Binding LoyaltyRedeemLabel}"
-                                         Width="96" Height="44" Margin="8,0,0,0" VerticalContentAlignment="Center"/>
-                                <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding EarnedPointsPreviewDisplay}" FontSize="12" TextWrapping="Wrap"
+                                <Grid ColumnDefinitions="88,8,*">
+                                    <TextBox Grid.Column="0" Text="{Binding PointsToRedeemInput}"
+                                             Watermark="{Binding LoyaltyRedeemLabel}"
+                                             Height="44" VerticalContentAlignment="Center"/>
+                                    <Button Grid.Column="2" Classes="pay-quick last" Focusable="False" Click="RedeemPoints_Click" IsEnabled="{Binding CanRedeemPoints}" HorizontalAlignment="Stretch">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{Binding RedeemButtonText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <Border Classes="key-hint"><TextBlock Text="F6"/></Border>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                                <TextBlock Text="{Binding EarnedPointsPreviewDisplay}" FontSize="12" TextWrapping="Wrap"
                                            Foreground="{DynamicResource BrushTextSoft}"/>
-                            </Grid>
+                            </StackPanel>
                         </Border>
-
-                        <!-- QR банка для безналичной оплаты (безнал/смешанная): белая рамка 120 (tiny 96). Видимость: способ с банком
-                             (внешняя обёртка) и загруженный QR (внутренняя рамка) — иначе QR остался бы в режиме наличных. -->
-                        <Panel IsVisible="{Binding IsBankSelectionVisible}">
-                            <Border Background="White"
-                                    BorderBrush="{DynamicResource BrushBorder}"
-                                    BorderThickness="1"
-                                    CornerRadius="10"
-                                    Padding="6"
-                                    HorizontalAlignment="Left"
-                                    IsVisible="{Binding HasQrCode}">
-                                <Image Classes="pay-qr"
-                                       Source="{Binding QrCodePath, Converter={StaticResource PathToImageConverter}}"
-                                       Stretch="Uniform"/>
-                            </Border>
-                        </Panel>
 
                         <!-- Консультант (2026-09-25, сфера «Одежда» в Настройки → Операции) — как блок
                              «КОНСУЛЬТАНТ» на сайте: кто помог покупателю и процент ему с продажи.
@@ -924,91 +1193,76 @@
                         </StackPanel>
                         </StackPanel>
 
-                        <!-- 2026-10-02, владелец: «добавь сюда аренду / прокат». С 20.10 — во всех сферах, если в чеке есть товары.
-                             2026-10-23: из середины окна — в низ правой колонки, 44. -->
-                        <Button Classes="pay-quick last" IsVisible="{Binding ShowRentalButton}" Command="{Binding RentalCommand}"
-                                HorizontalAlignment="Stretch" Height="44">
-                            <Grid ColumnDefinitions="Auto,*" HorizontalAlignment="Center">
-                                <Path Width="20" Height="20" Stretch="Uniform" Fill="{DynamicResource BrushAccentText}" VerticalAlignment="Center" Margin="0,0,10,0"
-                                      Data="M12,4A3,3 0 0,1 15,7C15,8.27 14.21,9.36 13.1,9.79C12.91,9.9 12.71,10 12.5,10.1V11.3L21,17.5C21.88,18.13 21.43,19.5 20.35,19.5H3.65C2.57,19.5 2.12,18.13 3,17.5L11.5,11.3V9.14C11.5,8.76 11.73,8.43 12.07,8.28C12.67,8 13,7.54 13,7A1,1 0 0,0 12,6A1,1 0 0,0 11,7H9A3,3 0 0,1 12,4M12,13.04L6.37,17.5H17.63L12,13.04Z"/>
-                                <TextBlock Grid.Column="1" Text="{DynamicResource csh.checkout.rental}" VerticalAlignment="Center" FontWeight="SemiBold"
-                                           TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                        <!-- Параметры (внизу панели): «Напечатать чек F7» и ссылка «Оформить как прокат ›».
+                             2026-10-02, владелец: «добавь сюда аренду / прокат». С 20.10 — во всех сферах, если в чеке есть товары. 2026-10-30: ссылка вместо большой кнопки. -->
+                        <StackPanel Spacing="0" Margin="0,4,0,0">
+                            <!-- 2026-10-20 (живой аудит кассы, К7): без «Печатать чек после оплаты» в Настройках переключатель неактивен. -->
+                            <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsPrintReceiptAvailable}">
+                                <CheckBox Classes="Switch print-switch" MinHeight="44"
+                                          Content="{DynamicResource csh.checkout.printReceipt}"
+                                          IsEnabled="{Binding IsPrintReceiptAvailable}"
+                                          IsChecked="{Binding IsPrintReceiptEnabled}"
+                                          ToolTip.Tip="{Binding PrintReceiptHint}"
+                                          ToolTip.ShowOnDisabled="True"/>
+                                <Border Grid.Column="1" Classes="key-hint" Margin="8,0,0,0"><TextBlock Text="F7" Foreground="{DynamicResource BrushTextSoft}"/></Border>
                             </Grid>
-                        </Button>
+                            <TextBlock Classes="print-off-hint" Text="{Binding PrintReceiptHint}"
+                                       IsVisible="{Binding !IsPrintReceiptAvailable}"
+                                       ToolTip.Tip="{Binding PrintReceiptHint}"
+                                       FontSize="12" TextWrapping="Wrap" MinHeight="44"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                            <Button Classes="rental-link" IsVisible="{Binding ShowRentalButton}" Command="{Binding RentalCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Path Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource BrushTextMuted}" VerticalAlignment="Center"
+                                          Data="M12,4A3,3 0 0,1 15,7C15,8.27 14.21,9.36 13.1,9.79C12.91,9.9 12.71,10 12.5,10.1V11.3L21,17.5C21.88,18.13 21.43,19.5 20.35,19.5H3.65C2.57,19.5 2.12,18.13 3,17.5L11.5,11.3V9.14C11.5,8.76 11.73,8.43 12.07,8.28C12.67,8 13,7.54 13,7A1,1 0 0,0 12,6A1,1 0 0,0 11,7H9A3,3 0 0,1 12,4M12,13.04L6.37,17.5H17.63L12,13.04Z"/>
+                                    <TextBlock Text="{DynamicResource csh.checkout.rental}" VerticalAlignment="Center" TextDecorations="Underline"
+                                               TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="›" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                     </StackPanel>
+                    </Border>
 
                 </Grid>
             </ScrollViewer>
 
-            <!-- 2а. Закреплено над кнопками (2026-10-21, пакет 6, п. 27 и п. 15). 2026-10-23: пока все строки скрыты, блок высоты
-                 не имеет (отступы — у самих строк); ошибка — по HasError (прежнее «!!ErrorMessage» на пустой строке
-                 оставляло строку видимой и занимало 18 px всегда). -->
-            <Border Grid.Row="2" Padding="16,0">
-                <StackPanel>
-                    <!-- 2026-10-27 (приёмка 1.17.63, Д-6): «Цена изменилась: …» — сверка цен перед оплатой изменила строки; текст стоит, пока окно открыто. -->
-                    <Border IsVisible="{Binding HasPriceChangeNotice}" Margin="0,6,0,0" Padding="10,8" CornerRadius="8"
-                            Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorderStrong}" BorderThickness="1">
-                        <TextBlock Text="{Binding PriceChangeNotice}" Foreground="{DynamicResource BrushText}"
-                                   FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                    </Border>
-                    <!-- Почему «Оплатить» неактивна (в долг — нужен клиент и срок). -->
-                    <TextBlock Text="{Binding PayBlockedHint}"
-                               IsVisible="{Binding HasPayBlockedHint}"
-                               Margin="0,6,0,0"
-                               Foreground="{DynamicResource BrushText}"
-                               FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                    <!-- Ошибка -->
-                    <!-- 2026-10-24 (приёмка, ПР-9): видимость ставит код (CheckoutDialog.UpdateErrorVisibility): пока видна подсказка
-                         «Чтобы продать в долг, выберите клиента.», красную «Для продажи в долг выберите клиента.» не показываем — смысл тот же. -->
-                    <TextBlock x:Name="ErrorText" Text="{Binding ErrorMessage}"
-                               Margin="0,6,0,0"
-                               Foreground="{DynamicResource BrushDanger}"
-                               FontSize="13"
-                               FontWeight="Medium"
-                               TextWrapping="Wrap"
-                               IsVisible="False"/>
-                    <!-- Консультант одной строкой: касание — прокрутка к его блоку.
-                         2026-10-22 (аудит новой сборки, П4): «Консультант» стоял дважды — строкой здесь и заголовком блока выше в прокрутке.
-                         Теперь строка видна, только когда сам блок вне экрана (CheckoutDialog.UpdateConsultantSummaryVisibility). -->
-                    <Button x:Name="ConsultantSummaryButton" Classes="main-ghost"
-                            IsVisible="False"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                            MinHeight="44" Padding="0" Background="Transparent" BorderThickness="0"
-                            Click="ConsultantSummary_Click">
-                        <TextBlock x:Name="ConsultantSummaryText" FontSize="13" TextWrapping="Wrap"
-                                   Foreground="{DynamicResource BrushText}"/>
-                    </Button>
-                </StackPanel>
+            <!-- 4. Консультант одной строкой: касание — прокрутка к его блоку.
+                 2026-10-22 (аудит новой сборки, П4): «Консультант» стоял дважды — строкой здесь и заголовком блока выше в прокрутке.
+                 Теперь строка видна, только когда сам блок вне экрана (CheckoutDialog.UpdateConsultantSummaryVisibility). -->
+            <Border Grid.Row="3" Padding="16,0">
+                <Button x:Name="ConsultantSummaryButton" Classes="main-ghost"
+                        IsVisible="False"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                        MinHeight="44" Padding="0" Background="Transparent" BorderThickness="0"
+                        Click="ConsultantSummary_Click">
+                    <TextBlock x:Name="ConsultantSummaryText" FontSize="13" TextWrapping="Wrap"
+                               Foreground="{DynamicResource BrushText}"/>
+                </Button>
             </Border>
 
-            <!-- 3. Кнопки. 2026-10-23 (ТЗ компактной оплаты): в two-col одна строка — «Напечатать чек» слева, «Отмена» (обводка, Esc),
-                 жёлтая «Оплатить …» (Enter); в одной колонке — тумблер печати отдельной строкой, ниже «Отмена» и «Оплатить»
-                 (место кнопок ставят стили foot-* выше). Пояснение «выбор запоминается…» ушло во всплывающую подсказку тумблера;
-                 если печать выключена в Настройках — вместо тумблера одна строка с причиной (многоточие, полный текст в подсказке). -->
-            <Border Grid.Row="3" Classes="pay-footer"
+            <!-- 5. Подвал. 2026-10-30 (редизайн): «Отмена Esc» · причина, почему «Оплатить» серая (красным, всегда рядом с кнопкой) · «Оплатить N Enter».
+                 В одной колонке причина — строкой сверху, ниже «Отмена» и «Оплатить» (место ставят стили foot-* выше). «Напечатать чек» переехал в левую панель. -->
+            <Border Grid.Row="4" Classes="pay-footer"
                     BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
-                <Grid ColumnDefinitions="Auto,Auto,*" RowDefinitions="Auto,Auto">
-                    <Panel Classes="foot-print">
-                        <!-- 2026-10-20 (живой аудит кассы, К7): без «Печатать чек после оплаты» в Настройках переключатель неактивен. -->
-                        <CheckBox Classes="Switch print-switch" MinHeight="44"
-                                  Content="{DynamicResource csh.checkout.printReceipt}"
-                                  IsVisible="{Binding IsPrintReceiptAvailable}"
-                                  IsEnabled="{Binding IsPrintReceiptAvailable}"
-                                  IsChecked="{Binding IsPrintReceiptEnabled}"
-                                  ToolTip.Tip="{Binding PrintReceiptHint}"
-                                  ToolTip.ShowOnDisabled="True"/>
-                        <TextBlock Classes="print-off-hint" Text="{Binding PrintReceiptHint}"
-                                   IsVisible="{Binding !IsPrintReceiptAvailable}"
-                                   ToolTip.Tip="{Binding PrintReceiptHint}"
-                                   FontSize="12" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource BrushTextSoft}"/>
-                    </Panel>
+                <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+                    <!-- Почему «Оплатить» неактивна (в долг — нужен клиент и срок). -->
+                    <TextBlock Classes="foot-reason" Text="{Binding PayBlockedHint}"
+                               IsVisible="{Binding HasPayBlockedHint}"
+                               Foreground="{DynamicResource BrushDanger}"
+                               FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center"/>
 
-                    <Button IsCancel="True" Content="{DynamicResource csh.checkout.cancel}"
+                    <Button IsCancel="True"
                             Click="Cancel_Click"
                             Classes="modal-cancel foot-cancel"
-                            MinHeight="44" MinWidth="96"/>
+                            MinHeight="44" MinWidth="96">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{DynamicResource csh.checkout.cancel}" VerticalAlignment="Center"/>
+                            <Border Classes="key-hint"><TextBlock Text="Esc"/></Border>
+                        </StackPanel>
+                    </Button>
 
                     <!-- 2026-10-24 (приёмка, ПР-9): имя для UIA/экранного чтения = видимый текст кнопки («Получить 1,00 · в долг 3,00»), а не «Enter Оплатить …». -->
                     <Button Classes="modal-primary foot-pay"

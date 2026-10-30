@@ -28,7 +28,7 @@ public sealed record LabelPrintRequest(
 /// Генерирует изображение этикетки (штрих-код + название товара + цена) по шаблону
 /// <see cref="LabelTemplate"/> и печатает его на выбранном Windows-принтере.
 /// </summary>
-public static class BarcodeLabelService
+public static partial class BarcodeLabelService
 {
     internal const int Dpi = 203; // стандартное разрешение термопринтеров этикеток.
 
@@ -511,6 +511,9 @@ public static class BarcodeLabelService
     public static bool HasTextOverflow(string productName, string? priceText, LabelTemplate template,
         string? sku = null, string? unit = null, string? storeName = null, string? variantText = null)
     {
+        // 2026-10-29: Android/Linux — System.Drawing недоступен; жёлтая строка «текст не помещается» там не показывается.
+        if (!OperatingSystem.IsWindows())
+            return false;
         using var probe = new Bitmap(1, 1);
         using var g = Graphics.FromImage(probe);
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;

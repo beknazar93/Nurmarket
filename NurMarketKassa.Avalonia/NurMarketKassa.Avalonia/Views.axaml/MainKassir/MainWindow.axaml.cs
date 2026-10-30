@@ -20,6 +20,7 @@ using NurMarketKassa.AvaloniaHost.Views.Main.Controls;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Models;
 using NurMarketKassa.Services;
+using ApiThrottle = NurMarketKassa.Services.Api.ApiThrottle; // 2026-10-30: «Сервер занят» (429), общий щит запросов
 using NurMarketKassa.Services.Hardware;
 using NurMarketKassa.Ui.Shared;
 using NurMarketKassa.ViewModels.Main;
@@ -125,6 +126,14 @@ public partial class MainWindow : Window
             if (e.Property == BoundsProperty)
                 UpdateHeaderNarrow();
         };
+        // 2026-10-30: содержимое шапки могло стать шире окна (длинное название кассы, большая сумма, крупный шрифт) — страховка ниже.
+        KassaHeaderBar.LayoutUpdated += (_, _) => UpdateHeaderNarrow();
+        // 2026-10-30 (приёмка 1.17.65, блокер 1): жёсткие минимумы колонок 470 + 490 шире окна при масштабе Windows 150 % — правая панель уходила за край.
+        MainContentGrid.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == BoundsProperty)
+                FitColumnMinimums();
+        };
         CatalogGridSplitter.PointerReleased += OnCatalogGridSplitterPointerReleased;
         CatalogColumn.PropertyChanged += OnCatalogColumnPropertyChanged;
         CartColumn.PropertyChanged += OnCartColumnPropertyChanged;
@@ -152,6 +161,8 @@ public partial class MainWindow : Window
         };
         // 2026-10-29: та же сверка смены — шаг SyncCenter.ForceSyncAllAsync (общая «Обновить»).
         SyncCenter.ShiftRefresher = _ => Dispatcher.UIThread.InvokeAsync(() => _viewModel.RefreshShiftAsync?.Invoke() ?? Task.CompletedTask);
+        // 2026-10-29 (скорость синхронизации): режим окна и «есть товары в чеке» — для адаптивного опроса ленты (3 с / 8 с / 30–60 с).
+        NurMarketKassa.AvaloniaHost.Services.SyncActivityWatcher.Attach(this, _viewModel.Basket, () => _viewModel.Basket.HasItems);
         // 2026-10-20 (живой аудит кассы, К1–К3, К6): как заплатили — для суммы возврата и «Истории чеков» после возврата.
         _viewModel.Basket.CheckoutSucceeded += RememberSaleForReturns;
         // 2026-10-20 (К12): оплата долга (в этой кассе, в программе владельца или на соседней кассе) — «Касса» в шапке сразу.
@@ -164,6 +175,8 @@ public partial class MainWindow : Window
         Loaded += OnLoaded;
         Closing += OnClosing;
         Closed += OnClosed;
+        // 2026-10-30: сессия недействительна — одно окно «Сессия истекла. Войдите снова» (данные кассы остаются на месте).
+        _sessionPrompt = NurMarketKassa.AvaloniaHost.Services.SessionExpiredPrompt.Attach(this, () => NavigateToLoginAsync());
         Screens.Changed += OnCashierScreensChanged;
         _barcodeInputService.BarcodeScanned += OnBarcodeScanned;
         AddHandler(PointerPressedEvent, OnGlobalPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -194,6 +207,8 @@ public partial class MainWindow : Window
         // reintroduce either without confirming real hardware still scans correctly afterward.
 
         ApplyFullscreenPreference();
+        // 2026-10-30: окно кассы всегда целиком в рабочей области своего экрана (старый размер, другой монитор, масштаб Windows).
+        NurMarketKassa.AvaloniaHost.Services.WindowFitGuard.Attach(this);
         // Масштаб — до показа окна: UiScaleHelper дождётся, пока окно окажется на экране, и
         // первый же кадр кассы будет подогнан под экран, а не в родных 1280×840.
         RefreshUiScale();
@@ -268,6 +283,7 @@ public partial class MainWindow : Window
                 // Единственное место на пути автовхода, где компания уже известна: до сюда
                 // касса ещё ничего не продала, поэтому разделить данные аккаунтов можно здесь.
                 AccountDataIsolation.SwitchTo(CompanyInfoService.LastCompany?.Id);
+                await AccountDataIsolation.EnsureAccountDataLoadedAsync(progress, cancellationToken).ConfigureAwait(true); // 2026-10-29: «Загружаем данные аккаунта…» до открытия окна
                 // 2026-10-25, ТЗ «оприходование в фоне» (Q5): очередь приходов в фоне догружает незавершённое (после смены данных аккаунта).
                 NurMarketKassa.AvaloniaHost.Views.BackgroundReceiptsHost.Start();
                 // Тариф компании (Старт/Стандарт) становится известен только сейчас — без этого
@@ -1429,8 +1445,9 @@ public partial class MainWindow : Window
             decimal? received = method == "cash" && sale.CashReceived is { } got ? (decimal)got : null;
             decimal? change = method == "cash" && sale.ChangeDue is { } back ? (decimal)back : null;
             var soldAt = new DateTimeOffset(sale.SoldAt);
+            var soldInShift = NurMarketKassa.PosApp.ActiveShiftId; // 2026-10-30: смена продажи — для Z-отчёта без связи (LocalShiftTotals)
             _ = Task.Run(() => SaleReturnLedger.RememberPayment(saleId, total, method, paidCash, paidNonCash, received, change, linesTotal, soldAt,
-                dueDate, schedule, clientName, clientPhone));
+                dueDate, schedule, clientName, clientPhone, soldInShift));
         }
         catch (Exception ex)
         {
@@ -1578,7 +1595,8 @@ public partial class MainWindow : Window
             if (!_session.IsShiftOpen)
                 return _shiftCashBalance;
 
-            var net = ShiftCashOperationsStore.NetForShift(_session.ActiveShiftId);
+            // 2026-10-29: + наличные возвратов (минус) и оплат долга (плюс), оформленных без связи и ещё не отправленных.
+            var net = ShiftCashOperationsStore.NetForShift(_session.ActiveShiftId) + OfflineOperationsStore.PendingCashDelta(_session.ActiveShiftId);
             // 2026-10-04, живой тест 04.10: без сервера шапка стояла на 10181.50, хотя прошла продажа
             // 42.50 наличными, — остаток смены знает только проведённые на сервере чеки. Прибавляем
             // наличные офлайн-очереди этой смены, которых в остатке ещё нет.
@@ -1775,11 +1793,11 @@ public partial class MainWindow : Window
 
         _viewModel.CloseSideMenu();
         _prompts.ShowToast(Tr.T(
-            "Этот раздел — в программе «NurMarket Владелец».",
-            "Бул бөлүм «NurMarket Ээси» программасында.",
-            "This section is in the “NurMarket Owner” program.",
-            "Bu bölüm «NurMarket İşletme Sahibi» programında yer alır.",
-            "Bu bo'lim «NurMarket Egasi» dasturida."), isWarning: true);
+            "Этот раздел — в программе «NurCRM Владелец».",
+            "Бул бөлүм «NurCRM Ээси» программасында.",
+            "This section is in the “NurCRM Owner” program.",
+            "Bu bölüm «NurCRM İşletme Sahibi» programında yer alır.",
+            "Bu bo'lim «NurCRM Egasi» dasturida."), isWarning: true);
         return false;
     }
 
@@ -1824,11 +1842,12 @@ public partial class MainWindow : Window
             _ = ReturnAfterShiftCheckAsync();
             return;
         }
-        // 2026-09-29: авария сервера — строкой под чеком, без окна ошибки (см. таблицу у CheckoutAsync).
-        if (OfflineModeHelper.IsServerOutage)
+        // 2026-10-29: нет связи (авария сервера или вход без интернета) — возврат без связи по чекам, которые касса помнит (владелец разрешил).
+        if (OfflineModeHelper.SellLocally)
         {
-            _viewModel.Basket.CartMessage = OfflineModeHelper.ReturnUnavailableInOutage;
-            PosLogger.Log("Возврат не открыт: сервер NurCRM не отвечает.", "OUTAGE");
+            PosLogger.Log("Возврат: сервер NurCRM не отвечает — открыто окно возврата без связи.", "OUTAGE");
+            _ = OfflineOperationsWindow.OpenAsync(this, OfflineOperationsWindow.Mode.Return)
+                .ContinueWith(_ => OnReturnFinished(), TaskScheduler.FromCurrentSynchronizationContext());
             return;
         }
         var dlg = App.GetRequiredService<ReturnSaleDialog>();
@@ -1931,12 +1950,15 @@ public partial class MainWindow : Window
 
     internal void NavigatePayDebt()
     {
-        // 2026-09-29: авария сервера — строкой под чеком, без окна ошибки (см. таблицу у CheckoutAsync).
-        if (OfflineModeHelper.IsServerOutage)
+        // 2026-10-29: нет связи — оплата долга без связи по клиентам из памяти кассы (владелец разрешил); смена должна быть своя и открытая.
+        if (OfflineModeHelper.SellLocally)
         {
+            if (!Authorize(PosPermissions.ViewSales))
+                return;
             _viewModel.CloseSideMenu();
-            _viewModel.Basket.CartMessage = OfflineModeHelper.DebtPaymentUnavailableInOutage;
-            PosLogger.Log("Оплата долга не открыта: сервер NurCRM не отвечает.", "OUTAGE");
+            PosLogger.Log("Оплата долга: сервер NurCRM не отвечает — открыто окно оплаты долга без связи.", "OUTAGE");
+            _ = OfflineOperationsWindow.OpenAsync(this, OfflineOperationsWindow.Mode.DebtPayment)
+                .ContinueWith(_ => OnReturnFinished(), TaskScheduler.FromCurrentSynchronizationContext());
             return;
         }
 
@@ -1971,6 +1993,30 @@ public partial class MainWindow : Window
     }
 
     internal void NavigateDeferredReceipts() => ShowModuleWindow<IrregularReceiptsWindow>();
+
+    /// <summary>2026-10-30: красная/жёлтая плашка в шапке («Не отправлено: N · Отклонено: M», «В очереди: N») ведёт в «Некорректные чеки»
+    /// (там же кнопки «Отправить» и «Закрыть без отправки»); если чеки в порядке, а не дошли операции без связи (возврат, оплата долга) — в их окно.</summary>
+    private void OnQueueBadge_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            return;
+        e.Handled = true;
+        try
+        {
+            var salesOpen = OfflinePendingSalesStore.LoadAll().Any(s => !s.IsAutonomous
+                && !string.Equals(s.Status, OfflineSaleEntry.Synced, StringComparison.OrdinalIgnoreCase));
+            if (!salesOpen && OfflineOperationsStore.PendingCount + OfflineOperationsStore.FailedCount > 0)
+            {
+                _ = OfflineOperationsWindow.OpenAsync(this, OfflineOperationsWindow.Mode.Return);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Плашка очереди: очередь не прочитана, открываю «Некорректные чеки»: {ex.Message}", "WARNING");
+        }
+        NavigateDeferredReceipts();
+    }
 
     // 2026-10-27, аудит С-17: «Логи и ошибки» — только с правом «Настройки» (кнопку в меню ☰ для остальных прячет SideMenuViewModel).
     internal void NavigateErrorLogs()
@@ -2069,6 +2115,9 @@ public partial class MainWindow : Window
         // моменту (LoginWindow может вызвать InitializeApplicationAsync до Show() этого окна).
         // Телеграм-бот владельца отвечает на команды, только пока касса включена: своего
         // сервера у программы нет, новые сообщения она спрашивает сама (getUpdates).
+        // 2026-10-29 (аварийный аудит кассы, п. 7): при запуске база оказалась повреждена и заменена копией — кассир должен об этом знать.
+        if (NurMarketKassa.Services.DatabaseService.TakeStartupNotice() is { Length: > 0 } dbNotice)
+            _prompts.ShowWarning(dbNotice);
         StartTelegramBot();
         // 2026-09-30: бота могут подключить в программе владельца уже при открытой кассе, а команды
         // может держать программа владельца и потом закрыться — раз в минуту пробуем снова
@@ -2087,6 +2136,10 @@ public partial class MainWindow : Window
             _shiftWatchTimer.Tick += (_, _) =>
             {
                 if (SyncCenter.ShouldPause())
+                    return;
+                // 2026-10-30 (оптимизация кассы, Б3): окно свёрнуто / нет ввода > 10 мин — ходим на сервер в 4 раза реже (каждый 4-й такт, 120 с);
+                // кассир вернулся — сразу снова каждые 30 с.
+                if (SyncCenter.IsQuiet() && (++_shiftQuietTicks & 3) != 0)
                     return;
                 _ = CheckShiftOnServerAsync();
                 _ = RefreshShiftAgeAsync(); // 2026-10-22 (смена 23 ч): тот же таймер, без второго
@@ -2226,14 +2279,77 @@ public partial class MainWindow : Window
     /// <summary>2026-10-23 (аудит, круг 5): в окне 1024 при большом экране "compact" не включался (он — по рабочей области), и
     /// «Касса: N сом» обрезалась. Класс окна "headernarrow" — по ширине шапки: включается при &lt; 1250, выключается при &gt;= 1270 (на стенде полная шапка со статусом целиком помещается с ~1255)
     /// (зазор — чтобы не мигало на границе). Прячет подписи кнопок, «Экран/Тема/Горячие» (они в «⋯») и режим сети.</summary>
+    /// <summary>2026-10-30: минимумы колонок каталога (470) и чека (490) — не больше того, что помещается в окне: если места меньше 968, обе
+    /// сужаются пропорционально (каталог не уже 200, чек не уже 260); внутри панелей остаётся прокрутка. Только для широкого (не вертикального и не телефонного) вида.</summary>
+    private void FitColumnMinimums()
+    {
+        if (_portraitLayout || _phoneMode)
+            return;
+        var width = MainContentGrid.Bounds.Width;
+        if (width <= 0)
+            return;
+        var catalogMin = this.FindResource("CatalogMinimumWidth") is double c ? c : 470;
+        var cartMin = this.FindResource("CartMinimumWidth") is double k ? k : 490;
+        var room = width - 8;
+        if (catalogMin + cartMin > room)
+        {
+            var ratio = room / (catalogMin + cartMin);
+            catalogMin = Math.Max(200, Math.Floor(catalogMin * ratio));
+            cartMin = Math.Max(260, Math.Floor(room - catalogMin));
+        }
+        if (Math.Abs(CatalogColumn.MinWidth - catalogMin) > 0.5)
+            CatalogColumn.MinWidth = catalogMin;
+        if (Math.Abs(CartColumn.MinWidth - cartMin) > 0.5)
+            CartColumn.MinWidth = cartMin;
+    }
+
+    private double _headerOverflowAt;
+    private double _headerTinyAt;
+
+    /// <summary>2026-10-30: ширина, которую шапке нужно в обычном виде (сумма желаемых размеров трёх блоков и отступы).</summary>
+    private double HeaderContentWidth()
+    {
+        if (KassaHeaderBar.Child is not Grid grid)
+            return 0;
+        double sum = KassaHeaderBar.Padding.Left + KassaHeaderBar.Padding.Right;
+        foreach (var child in grid.Children)
+            sum += child.IsVisible ? child.DesiredSize.Width : 0;
+        return sum;
+    }
+
     private void UpdateHeaderNarrow()
     {
         var width = KassaHeaderBar.Bounds.Width;
         if (width <= 0)
             return;
         var narrow = Classes.Contains("headernarrow") ? width < 1270 : width < 1250;
+        // 2026-10-30, баг владельца («Закрыть смену» обрезана справа): если шапка в обычном виде не помещается в своей ширине
+        // (содержимое шире окна при любой ширине ≥ 1250) — включаем узкий вид (значки без подписей, «⋯»); выключаем, когда ширина
+        // заметно больше той, на которой не хватило места.
+        var wasNarrow = Classes.Contains("headernarrow");
+        if (!narrow && !wasNarrow && HeaderContentWidth() > width + 1)
+        {
+            narrow = true;
+            _headerOverflowAt = width;
+        }
+        else if (wasNarrow && !narrow && _headerOverflowAt > 0 && width < _headerOverflowAt + 60)
+            narrow = true;
         if (Classes.Contains("headernarrow") != narrow)
             Classes.Set("headernarrow", narrow);
+        // 2026-10-30 (приёмка 1.17.65, блокер 1): и в узком виде шапка может не поместиться (1024 при 150 % Windows) — второй шаг:
+        // «Открыть/Закрыть смену» только значком (подпись — в подсказке), класс окна "headertiny". Возврат — с запасом (подписи ~160 точек).
+        var tiny = Classes.Contains("headertiny");
+        if (!narrow)
+            tiny = false;
+        else if (!tiny && Classes.Contains("headernarrow") && HeaderContentWidth() > width + 1)
+        {
+            tiny = true;
+            _headerTinyAt = width;
+        }
+        else if (tiny && width >= _headerTinyAt + 170)
+            tiny = false;
+        if (Classes.Contains("headertiny") != tiny)
+            Classes.Set("headertiny", tiny);
     }
 
     /// <summary>2026-10-04: включает/выключает компактный вид (класс окна "compact").</summary>
@@ -2405,8 +2521,11 @@ public partial class MainWindow : Window
         }
     }
 
+    private IDisposable? _sessionPrompt;
+
     private void OnClosed(object? sender, EventArgs e)
     {
+        _sessionPrompt?.Dispose();
         _applicationStateService.CancelPendingSave();
         // 2026-10-18, ревью этапа 6: таймер плашки «Продажа прошла» (40 мс) не должен пережить окно.
         SaleDoneBar.Dismiss();
@@ -2431,12 +2550,23 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.Post(() =>
         {
-            PlaceOnPrimaryScreen();
-            if (!UserPreferences.Instance.CustomerDisplay.IsEnabled)
-                return;
+            // 2026-10-29, Android: «при изменении масштаба/размера выходит ошибка». На Android это событие приходит при каждой смене
+            // размера вида (масштаб, плотность, клавиатура), а исключение здесь уходило в общий диалог «Произошла ошибка в программе».
+            // Окно кассы на Android и так на весь вид — переставлять его не нужно; остальное — с перехватом и записью в журнал.
+            try
+            {
+                if (!OperatingSystem.IsAndroid())
+                    PlaceOnPrimaryScreen();
+                if (!UserPreferences.Instance.CustomerDisplay.IsEnabled)
+                    return;
 
-            _customerDisplay.OpenForSession(this, "смена экранов Windows"); // 2026-10-27: итог пишет сервис
-            Activate();
+                _customerDisplay.OpenForSession(this, "смена экранов Windows"); // 2026-10-27: итог пишет сервис
+                Activate();
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Смена экранов: окно кассы не перестроено: {ex}", "WARNING");
+            }
         }, DispatcherPriority.Background);
     }
 
@@ -2463,6 +2593,7 @@ public partial class MainWindow : Window
     // показывала «Касса: 2 250,19» и «Закрыть смену». Вызывается: таймер 90 с, перед оплатой, при открытии «Внесения/изъятия»,
     // после возврата связи. Сеть недоступна/ошибка — ничего не меняем. Возвращает true, если смена закрыта сервером.
     private DispatcherTimer? _shiftWatchTimer;
+    private int _shiftQuietTicks; // 2026-10-30: счётчик тактов сторожа смены в «тихом» режиме (Б3)
     private DateTime _lastShiftWatchUtc = DateTime.MinValue;
     private int _shiftWatchBusy;
     private int _shiftWatchTicks;
@@ -2727,6 +2858,7 @@ public partial class MainWindow : Window
             MainContentGrid.RowDefinitions = new RowDefinitions();
             CatalogColumn.MinWidth = this.FindResource("CatalogMinimumWidth") is double catalogMin ? catalogMin : 470;
             CartColumn.MinWidth = this.FindResource("CartMinimumWidth") is double cartMin ? cartMin : 490;
+            FitColumnMinimums();
         }
 
         Grid.SetRow(CatalogPanel, 0);
@@ -2863,6 +2995,13 @@ public partial class MainWindow : Window
                     window.Close();
                 }
             };
+#if !NURANDROID
+        // 2026-10-30 (приёмка 1.17.65, блокер 2): модальны по смыслу — «Тех поддержка NurCRM» и «Некорректные чеки» (фон размывается, окно поверх).
+        // Остальные разделы (Склад, Продажи, «Приходы в фоне»…) — не модалки: фон не трогаем.
+        if (window is RemoteSupportWindow or IrregularReceiptsWindow)
+            // 2026-10-31 (приёмка 1.17.68, п. 3): «Тех поддержка» не модальна, пока нет вопроса «Разрешить доступ?» (см. OnNurSessionChanged).
+            NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalWindowManager.Track(window, suspended: window is RemoteSupportWindow);
+#endif
         window.Show(this);
     }
 
@@ -2898,8 +3037,38 @@ public partial class MainWindow : Window
         });
     }
 
+    private int _busyRefreshScheduled;
+
+    /// <summary>2026-10-30 (приёмка 1.17.65, «Важно» 2): сервер ответил 429 при сверке смены — состояние смены и кассы остаётся прежним, а сверка повторяется
+    /// после паузы сервера (один отложенный повтор за раз, не штурм).</summary>
+    private void ScheduleShiftRefreshAfterBusy()
+    {
+        if (Interlocked.Exchange(ref _busyRefreshScheduled, 1) == 1)
+            return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(ApiThrottle.RemainingBlock + TimeSpan.FromSeconds(3), _windowCts.Token).ConfigureAwait(false);
+                await Dispatcher.UIThread.InvokeAsync(() => RefreshShiftStateAsync(_windowCts.Token)).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Повтор сверки смены после «Сервер занят» не удался: {ex.Message}", "SHIFT");
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _busyRefreshScheduled, 0);
+            }
+        });
+    }
+
     private async Task RefreshShiftStateAsync(CancellationToken cancellationToken, TimeSpan? balanceTimeout = null)
     {
+        using var critical = ApiThrottle.BeginCritical(); // 2026-10-30: сверка смены (запуск, «Оплатить») — критичный запрос, при 429 выходит первым после паузы
         try
         {
             // 2026-09-10: автономный (офлайн) режим — реальных касс/смен на сервере не
@@ -2957,13 +3126,23 @@ public partial class MainWindow : Window
                 if (!ServerOutageMonitor.IsOutage)
                 try
                 {
-                    using var cashboxTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                    cashboxTimeoutCts.CancelAfter(TimeSpan.FromSeconds(6));
-                    rawListOrNull = await App.ShiftApi.ConstructionCashboxesListAsync(cashboxTimeoutCts.Token).ConfigureAwait(true);
+                    // 2026-10-30 (приёмка 1.17.65, «Важно» 2): 429 — «Сервер занят»: до трёх попыток с паузой Retry-After (каждой — 6 с + остаток паузы).
+                    rawListOrNull = await ApiThrottle.RunWithRetryAsync(async () =>
+                    {
+                        using var cashboxTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        cashboxTimeoutCts.CancelAfter(TimeSpan.FromSeconds(6) + ApiThrottle.RemainingBlock);
+                        return await App.ShiftApi.ConstructionCashboxesListAsync(cashboxTimeoutCts.Token).ConfigureAwait(true);
+                    }, 3, null, cancellationToken).ConfigureAwait(true);
                 }
                 catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
                     PosLogger.Log("Список касс не получен за 6с (протухшая сессия/нет сети) — пробуем позже.", "SHIFT");
+                }
+                catch (Exception ex) when (ApiThrottle.IsThrottled(ex) && !cancellationToken.IsCancellationRequested)
+                {
+                    // Не «SHIFT refresh failed» с пропуском всего остального (смена выглядела закрытой, касса 0,00): идём дальше на последнем известном состоянии.
+                    PosLogger.Log("Список касс не получен: сервер занят (429) — смена и касса остаются по последнему известному состоянию, повтор позже.", "SHIFT");
+                    ScheduleShiftRefreshAfterBusy();
                 }
 
                 if (rawListOrNull is { } rawList)
@@ -3105,6 +3284,13 @@ public partial class MainWindow : Window
                         _shiftCashBalance = OfflinePosStateStore.ReadShiftCashBalance();
                         _shiftTotals = null;
                     }
+                    catch (Exception ex) when (ApiThrottle.IsThrottled(ex) && !cancellationToken.IsCancellationRequested)
+                    {
+                        // 2026-10-30 (приёмка 1.17.65, «Важно» 2): сервер занят — остаток и разбивка остаются прежними (не 0,00), повтор после паузы.
+                        PosLogger.Log("totals/balance fetch: сервер занят (429) — оставляю последний известный остаток кассы.", "SHIFT");
+                        _shiftCashBalance = _shiftCashBalance ?? OfflinePosStateStore.ReadShiftCashBalance();
+                        ScheduleShiftRefreshAfterBusy();
+                    }
                 }
             }
 
@@ -3128,7 +3314,27 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"SHIFT refresh failed: {ex.Message}", "SHIFT");
+            if (ApiThrottle.IsThrottled(ex))
+            {
+                // 2026-10-30 (приёмка 1.17.65, «Важно» 2): 429 при запуске оставлял смену закрытой («Открыть смену», «Касса: 0,00») — берём последнее
+                // известное состояние смены и кассы и повторяем сверку после паузы сервера.
+                try
+                {
+                    OfflinePosStateStore.RestoreToApp();
+                    NurMarketKassa.App.SyncToSession(_session);
+                    if (_session.IsShiftOpen)
+                        _shiftCashBalance ??= OfflinePosStateStore.ReadShiftCashBalance();
+                }
+                catch (Exception restoreEx)
+                {
+                    PosLogger.Log($"SHIFT: последнее известное состояние не восстановлено: {restoreEx.Message}", "SHIFT");
+                }
+
+                ScheduleShiftRefreshAfterBusy();
+            }
+
             UpdateShiftBalanceUi();
+            _viewModel.Toolbar.NotifyShiftStateChanged();
         }
     }
 
@@ -3332,22 +3538,38 @@ public partial class MainWindow : Window
     {
         try
         {
+            // 2026-10-30 (приёмка кассы 1.17.65, «Важно» 1): смена закрыта без связи — ответа сервера на закрытие нет, а снимок «до закрытия» пуст или стар,
+            // и Z показывал выручку 0 и пустые продажи. Тогда итоги — по данным кассы (журнал оплат и очередь без связи, LocalShiftTotals), с пометкой в окне.
+            var openedAtKnown = before?.OpenedAt ?? ShiftAgeWarning.Get(shiftId);
+            var local = fresh is null ? LocalShiftTotals.Compute(shiftId, openedAtKnown) : null;
+            decimal? localOpening = null;
+            if (local is not null && fresh?.OpeningCash is null && before?.OpeningCash is null && expectedBeforeClose is { } expectedLocal && !string.IsNullOrEmpty(shiftId))
+            {
+                // Начальную сумму без сервера берём обратным счётом от «в ящике должно быть» из окна закрытия — по той же формуле (ShiftDrawerMath.Expected).
+                var debtPaidLocal = (decimal)ShiftEventsStore.TotalsForShift(shiftId).GetValueOrDefault(ShiftEventsStore.KindDebtPayment);
+                var (depositsLocal, withdrawalsLocal) = ShiftCashOperationsStore.SumsForShift(shiftId);
+                var cashReturnsLocal = ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindReturn)
+                    .Sum(e => (decimal)(CloseShiftDialog.ParseNote(e.Note, "cash") ?? e.Amount));
+                var derived = expectedLocal - (local.CashSales + debtPaidLocal + depositsLocal - withdrawalsLocal - cashReturnsLocal);
+                if (derived >= 0m)
+                    localOpening = derived;
+            }
             var shift = new ShiftModel
             {
                 Id = shiftId ?? "",
                 ShiftNumber = shiftId ?? "",
                 // Раньше не заполнялось — в отчёте закрытия стояло «Открыта: —» (стресс-тест 2026-09-26).
-                OpenedAt = before?.OpenedAt,
+                OpenedAt = openedAtKnown,
                 ClosedAt = DateTime.Now,
                 Cashier = NurMarketKassa.PosApp.CurrentUserDisplayName ?? "—",
                 Status = "Закрыта",
-                Revenue = fresh?.TotalSales ?? before?.TotalSales ?? 0m,
+                Revenue = fresh?.TotalSales ?? local?.TotalSales ?? before?.TotalSales ?? 0m,
                 ClosingCash = actualClosingCash,
-                OpeningCash = fresh?.OpeningCash ?? before?.OpeningCash,
-                CashSales = fresh?.CashSales ?? before?.CashSales,
-                NonCashSales = fresh?.NonCashSales ?? before?.NonCashSales,
-                DebtSales = fresh?.DebtSales ?? before?.DebtSales,
-                SalesCount = fresh?.SalesCount ?? before?.SalesCount,
+                OpeningCash = fresh?.OpeningCash ?? before?.OpeningCash ?? localOpening,
+                CashSales = fresh?.CashSales ?? local?.CashSales ?? before?.CashSales,
+                NonCashSales = fresh?.NonCashSales ?? local?.NonCashSales ?? before?.NonCashSales,
+                DebtSales = fresh?.DebtSales ?? local?.DebtSales ?? before?.DebtSales,
+                SalesCount = fresh?.SalesCount ?? local?.SalesCount ?? before?.SalesCount,
                 // Расход и приход — с сервера. Без них отчёт считал изъятия по локальному
                 // файлу и печатал меньше настоящего (живой случай: расход 1 940, в чеке 490).
                 ExpenseTotal = before?.ExpenseTotal,
@@ -3361,7 +3583,7 @@ public partial class MainWindow : Window
                 ExpectedCash = expectedBeforeClose,
             };
             // Отчёт собран из ответа самого закрытия — сверять его с сервером незачем.
-            var dialog = new ShiftDetailsDialog(shift) { RefreshFromServer = false };
+            var dialog = new ShiftDetailsDialog(shift) { RefreshFromServer = false, LocalReport = local is not null };
             if (fresh?.PendingDebtSales is { } pendingDebt)
             {
                 // 2026-09-27: отчёт больше не ждёт расчёта долга — открывается сразу, долг

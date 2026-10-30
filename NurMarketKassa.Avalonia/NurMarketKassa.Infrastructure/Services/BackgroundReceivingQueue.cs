@@ -44,6 +44,10 @@ public sealed partial class BackgroundReceivingQueue
     /// <summary>Страховка одной попытки (без поставщика запросов много). Не «таймаут запроса» — тот 55 с в NurMarketApiClient.</summary>
     public static TimeSpan AttemptTimeout { get; set; } = TimeSpan.FromMinutes(20);
 
+    /// <summary>2026-10-30 (скорость массовой загрузки): сколько строк части из мастера загрузки создаётся и записывается одновременно (для остальных приходов — по одной).
+    /// Общая очередь запросов клиента — 12 мест, часть из них нужна кассе (продажи, лента).</summary>
+    public static int BulkPostParallel { get; set; } = 8;
+
     /// <summary>Как часто проверять связь, пока сервер недоступен (дополнительно к событию ServerOutageMonitor).</summary>
     public static TimeSpan ServerPoll { get; set; } = TimeSpan.FromSeconds(30);
 
@@ -162,6 +166,11 @@ public sealed partial class BackgroundReceivingQueue
         if (request.FileRows is { } fileRows)
             for (var i = 0; i < job.Lines.Count && i < fileRows.Count; i++)
                 job.Lines[i].FileRow = fileRows[i];
+        if (!string.IsNullOrWhiteSpace(request.SupplierDocNumber))
+        {
+            job.State.SupplierDocNumber = request.SupplierDocNumber.Trim();
+            job.State.SupplierDocDate = request.SupplierDocDate;
+        }
         job.Signature = SignatureOf(job);
 
         lock (_sync)
@@ -356,14 +365,17 @@ public sealed partial class BackgroundReceivingQueue
     /// <summary>«Убрать из списка»: только завершённые задачи (для «нужна проверка» окно сначала спрашивает «Я проверил остаток вручную»).</summary>
     public bool Dismiss(string id)
     {
+        ReceivingJob job;
         lock (_sync)
         {
-            var job = _jobs.FirstOrDefault(j => j.Id == id);
+            job = _jobs.FirstOrDefault(j => j.Id == id)!;
             if (job is null || !job.IsFinal)
                 return false;
             _jobs.Remove(job);
             Save();
         }
+        // 2026-10-29: красная плашка «ошибка: N» в шапке пересчитывается сразу (раньше после «Убрать из списка» события не было).
+        RaiseChanged(job);
         return true;
     }
 
@@ -372,11 +384,13 @@ public sealed partial class BackgroundReceivingQueue
     public IReadOnlyList<ReceivingLineVm> TakeBackLines(string id)
     {
         var result = new List<ReceivingLineVm>();
+        ReceivingJob? changedJob = null;
         lock (_sync)
         {
             var job = _jobs.FirstOrDefault(j => j.Id == id);
             if (job is null || job.Status is not (ReceivingJobStatus.Failed or ReceivingJobStatus.Partial or ReceivingJobStatus.NeedsCheck))
                 return result;
+            changedJob = job;
             foreach (var l in job.Lines.ToList())
             {
                 if (!SurelyNotPosted(job, l))
@@ -396,7 +410,32 @@ public sealed partial class BackgroundReceivingQueue
             }
             Save();
         }
+        if (changedJob is not null && result.Count > 0)
+            RaiseChanged(changedJob); // 2026-10-29: плашка «ошибка» в шапке обновляется сразу
         return result;
+    }
+
+    /// <summary>2026-10-29, смена компании («ничего не должно остаться от старого аккаунта»): остановить воркер и забыть все задачи
+    /// (и в памяти, и на диске). Вызывается только после того, как пользователь подтвердил потерю или выгрузил их в файл.</summary>
+    public void DiscardAllForAccountSwitch()
+    {
+        Shutdown();
+        lock (_sync)
+        {
+            _jobs = new List<ReceivingJob>();
+            _loaded = true;
+            _closed = false;
+            _closedFile = null;
+        }
+        try
+        {
+            if (Directory.Exists(DataDir))
+                Directory.Delete(DataDir, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Приход в фоне: папка очереди не удалена при смене аккаунта ({ex.Message}).", "WARNING");
+        }
     }
 
     /// <summary>Остановить воркер (выход из программы, стенд). Незавершённая попытка останется «отправляется» и после запуска сверится с сервером.</summary>

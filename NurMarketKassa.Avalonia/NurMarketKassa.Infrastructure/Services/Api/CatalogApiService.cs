@@ -283,7 +283,7 @@ public sealed partial class CatalogApiService : ICatalogApiService
                         ["page_size"] = pageSize.ToString(CultureInfo.InvariantCulture),
                     };
 
-                    var data = await _client.RequestAsync(HttpMethod.Get, path, null, qs, ct).ConfigureAwait(false);
+                    var data = await RequestPageResumingAsync(path, qs, page, ct).ConfigureAwait(false);
                     var batch = NurMarketApiClient.UnwrapList(data);
                     if (batch.Count == 0)
                         break;
@@ -292,6 +292,11 @@ public sealed partial class CatalogApiService : ICatalogApiService
                     // запросов — без лога прогресса синхронизация, которая просто идёт медленно,
                     // в логах выглядит неотличимо от зависшей.
                     PosLogger.Log($"CATALOG fetch: page {page}, +{batch.Count} (всего {outList.Count})", "CATALOG");
+                    // 2026-10-30 (15 тыс. товаров): «Загружено N из M» для Склада — M из поля count ответа сервера (DRF).
+                    var expected = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("count", out var cnt) && cnt.ValueKind == JsonValueKind.Number
+                        && cnt.TryGetInt32(out var c) ? c : (int?)null;
+                    FullLoadProgress?.Invoke(outList.Count + batch.Count, expected);
+                    FullLoadPage?.Invoke(batch);
 
                     foreach (var p in batch)
                     {
@@ -326,6 +331,49 @@ public sealed partial class CatalogApiService : ICatalogApiService
         if (last404 != null && outList.Count == 0)
             throw last404;
         return outList;
+    }
+
+    /// <summary>2026-10-30 (15 тыс. товаров): ход полной загрузки каталога — (загружено, всего по ответу сервера или null). Для надписи
+    /// «Загружено N из M» на Складе; вызывается из фонового потока.</summary>
+    public static event Action<int, int?>? FullLoadProgress;
+
+    /// <summary>2026-10-30 (холодный старт на 16 тыс.): очередная страница полной загрузки — при пустой базе кассы её товары сразу пишутся
+    /// в базу и показываются (поиск и скан по уже загруженной части), не дожидаясь всех 155 страниц.</summary>
+    public static event Action<List<JsonElement>>? FullLoadPage;
+
+    /// <summary>2026-10-30: первая загрузка лентой (AvaloniaCatalogCacheService) сообщает ход тем же событиям, что загрузка по страницам.</summary>
+    public static void ReportFullLoad(int loaded, int? total, List<JsonElement> batch)
+    {
+        FullLoadProgress?.Invoke(loaded, total);
+        FullLoadPage?.Invoke(batch);
+    }
+
+    /// <summary>2026-10-30: сколько раз подряд одна страница каталога может получить 429, прежде чем загрузка сдастся.</summary>
+    internal const int MaxThrottleRetriesPerPage = 10;
+
+    /// <summary>2026-10-30 (15 тыс. товаров, журнал владельца 30.10): у NurMarketApiClient нет повтора при 429, и один отказ на странице 21 из 155
+    /// ронял ВСЮ полную загрузку — следующая начиналась со страницы 1 (за 16:03–16:37 — 12 повторов с нуля, ни одной успешной, пока шла массовая
+    /// загрузка карточек). Теперь 429 — пауза, которую просит сервер (общий щит ApiThrottle, не меньше 1 с × номер попытки), и повтор ЭТОЙ
+    /// же страницы, а не всего каталога с нуля; страницы идут по одной (запрос низкого приоритета, не штурмуем сервер).</summary>
+    private async Task<JsonElement> RequestPageResumingAsync(string path, Dictionary<string, string> qs, int page, CancellationToken ct)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                // Пауза Retry-After и «фоновые — по одному» уже соблюдаются общим щитом (ApiThrottle.WaitShieldAsync) перед каждым запросом.
+                return await _client.RequestAsync(HttpMethod.Get, path, null, qs, ct).ConfigureAwait(false);
+            }
+            catch (ApiException e) when (e.StatusCode == 429 && attempt < MaxThrottleRetriesPerPage && !ct.IsCancellationRequested)
+            {
+                var pause = ApiThrottle.RemainingBlock;
+                var floor = TimeSpan.FromSeconds(Math.Min(attempt, 20));
+                if (pause < floor)
+                    pause = floor;
+                PosLogger.Log($"CATALOG fetch: страница {page} — сервер занят (429), пауза {pause.TotalSeconds:0} с и повтор этой же страницы (попытка {attempt + 1}).", "CATALOG");
+                await Task.Delay(pause, ct).ConfigureAwait(false);
+            }
+        }
     }
 
     // ── Варианты товара (2026-10-01, магазин одежды) ─────────────────────────────

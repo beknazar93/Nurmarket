@@ -369,6 +369,12 @@ public partial class WarehouseWindow
                     : T("загружаю с сервера…", "серверден жүктөлүүдө…", "loading from the server…", "sunucudan yükleniyor…", "serverdan yuklanmoqda…"),
                 expired > 0 ? "BrushDanger" : expiring > 0 ? "BrushWarning" : null, "expiry"),
         };
+        // 2026-10-30 (приёмка 1.17.65, «Права»): без права видеть закупку нет плитки «Склад по закупке», а у «Склада по продаже» — подсказки с наценкой (по ней считается закупка).
+        if (!RevisionShowPurchase)
+        {
+            cards.RemoveAt(1);
+            cards[1] = Card(T("Склад по продаже", "Сатуу баасы боюнча", "Stock at sale price", "Satış fiyatıyla stok", "Sotuv narxida ombor"), sale.ToString("N0", RuCulture) + " " + som, "", null, null);
+        }
         // 2026-10-19, этап О9 (аудит, проблема 4): плитки — общие sec-kpi в KpiTileGrid (лишние — вторым рядом, ряды ровные),
         // сумма уменьшается Viewbox'ом целиком, подпись и пояснение переносятся (было «65 087 с…», «нажмите, что…»).
         // Выбранный фильтр — тёмная рамка (была жёлтая); цвет числа — только «мало» (оранжевый) и «нет / просрочено» (красный).

@@ -409,6 +409,171 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     /// <summary>Пересобрать список (после обновления сроков годности или остатков).</summary>
     public void ReapplyProductFilter() => ApplyProductFilter();
 
+    // ---------------------------------------------------------------- 2026-10-30, владелец: «на складе сортировка: при нажатии на заголовок
+    // столбца «Остаток» как в Windows — сначала показывать с 0 остатком». Клик по заголовку: по возрастанию ▲ → по убыванию ▼ → без сортировки.
+    // Ключи: name (название), code (код/штрихкод), price, cost (закупка), stock (остаток), category. Запоминается в настройках этого ПК.
+
+    private string _sortKey = "";
+    private bool _sortDescending;
+    private bool _sortLoaded;
+
+    public string ProductSortKey { get { EnsureSortLoaded(); return _sortKey; } }
+    public bool ProductSortDescending { get { EnsureSortLoaded(); return _sortDescending; } }
+
+    /// <summary>Сменилась сортировка — окно обновляет стрелки в заголовках и выпадающий список плиток.</summary>
+    public event Action? ProductSortChanged;
+
+    private void EnsureSortLoaded()
+    {
+        if (_sortLoaded)
+            return;
+        _sortLoaded = true;
+        var saved = UserPreferences.Instance.WarehouseProductSort ?? "";
+        var parts = saved.Split(':');
+        if (parts.Length == 2 && parts[0] is "name" or "code" or "price" or "cost" or "stock" or "category")
+        {
+            _sortKey = parts[0];
+            _sortDescending = parts[1] == "desc";
+        }
+    }
+
+    public void SetProductSort(string key, bool descending)
+    {
+        EnsureSortLoaded();
+        key ??= "";
+        if (_sortKey == key && _sortDescending == descending)
+            return;
+        _sortKey = key;
+        _sortDescending = key.Length > 0 && descending;
+        try
+        {
+            UserPreferences.Instance.WarehouseProductSort = _sortKey.Length == 0 ? "" : $"{_sortKey}:{(_sortDescending ? "desc" : "asc")}";
+            UserPreferences.Instance.SaveToDisk();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Склад: сортировка не сохранена: {ex.Message}", "WARNING");
+        }
+
+        // 2026-10-30: журнал для диагностики («сортировка не работает») — столбец, направление, сколько строк и сколько мс заняло.
+        var sortWatch = System.Diagnostics.Stopwatch.StartNew();
+        ApplyProductFilter();
+        ProductSortChanged?.Invoke();
+        PosLogger.Log($"SORT: столбец «{(_sortKey.Length == 0 ? "без сортировки" : _sortKey)}», {(_sortKey.Length == 0 ? "-" : _sortDescending ? "по убыванию" : "по возрастанию")}, строк {FilteredProducts.Count}, {sortWatch.ElapsedMilliseconds} мс", "INFO");
+    }
+
+    /// <summary>Клик по заголовку столбца: другой столбец — по возрастанию; тот же — по убыванию; третий клик — без сортировки.</summary>
+    public void CycleProductSort(string key)
+    {
+        EnsureSortLoaded();
+        if (_sortKey != key)
+            SetProductSort(key, false);
+        else if (!_sortDescending)
+            SetProductSort(key, true);
+        else
+            SetProductSort("", false);
+    }
+
+    /// <summary>Ключ для сравнения строк: без регистра, ё = е (алфавит кириллицы по кодам совпадает с русским порядком).</summary>
+    internal static string SortText(string? s) =>
+        string.IsNullOrWhiteSpace(s) ? "" : s.Trim().ToLowerInvariant().Replace('ё', 'е');
+
+    /// <summary>Коды из одних цифр — как числа (сначала короче), остальные — по алфавиту.</summary>
+    private static int CompareCode(string a, string b)
+    {
+        static bool Digits(string s)
+        {
+            foreach (var ch in s)
+                if (ch is < '0' or > '9')
+                    return false;
+            return true;
+        }
+
+        if (Digits(a) && Digits(b))
+        {
+            var ta = a.TrimStart('0');
+            var tb = b.TrimStart('0');
+            if (ta.Length != tb.Length)
+                return ta.Length.CompareTo(tb.Length);
+            var c = string.CompareOrdinal(ta, tb);
+            return c != 0 ? c : a.Length.CompareTo(b.Length);
+        }
+
+        return string.CompareOrdinal(a, b);
+    }
+
+    /// <summary>2026-10-30: порядок остатков «сначала 0»: нули, потом минусовые (от меньшего), потом положительные (по возрастанию).</summary>
+    internal static int CompareStockZeroFirst(double a, double b)
+    {
+        static int Rank(double v) => Math.Abs(v) < 0.0005 ? 0 : v < 0 ? 1 : 2;
+        var c = Rank(a).CompareTo(Rank(b));
+        return c != 0 ? c : Rank(a) == 0 ? 0 : a.CompareTo(b);
+    }
+
+    /// <summary>Сортировка с предвычисленными ключами. Пустые значения (нет названия/кода/категории, цена или закупка 0) — в конце при любом
+    /// направлении; остаток — число (отрицательные, затем 0, 1, 2 …). При равенстве — по названию, затем исходный порядок (стабильно).</summary>
+    public static List<CatalogProductTileVm> SortProducts(IReadOnlyList<CatalogProductTileVm> items, string key, bool descending)
+    {
+        var n = items.Count;
+        var names = new string[n];
+        var texts = key is "code" or "category" ? new string[n] : null;
+        var nums = key is "price" or "cost" or "stock" ? new double[n] : null;
+        for (var i = 0; i < n; i++)
+        {
+            var p = items[i];
+            names[i] = SortText(p.Title);
+            if (texts is not null)
+                texts[i] = key == "code"
+                    ? (string.IsNullOrWhiteSpace(p.Article) ? SortText(p.Barcode) : SortText(p.Article))
+                    : SortText(p.Category);
+            else if (nums is not null)
+            {
+                var v = key switch { "price" => p.PriceValue, "cost" => p.PurchasePrice, _ => p.Quantity };
+                // цена/закупка 0 — «не заполнено»; остаток 0 — настоящее значение
+                nums[i] = !double.IsFinite(v) || (key != "stock" && v <= 0) ? double.NaN : v;
+            }
+        }
+
+        var dir = descending ? -1 : 1;
+        var order = new int[n];
+        for (var i = 0; i < n; i++)
+            order[i] = i;
+        Array.Sort(order, (a, b) =>
+        {
+            int c;
+            if (nums is not null)
+            {
+                var na = double.IsNaN(nums[a]);
+                var nb = double.IsNaN(nums[b]);
+                // 2026-10-30 (приёмка 1.17.67): «Остаток ▲» = «сначала 0» — нули, затем минусовые, затем положительные (раньше минусовые шли раньше нулей).
+                c = na || nb ? na.CompareTo(nb) : key == "stock" && !descending ? CompareStockZeroFirst(nums[a], nums[b]) : dir * nums[a].CompareTo(nums[b]);
+            }
+            else
+            {
+                var sa = texts is null ? names[a] : texts[a];
+                var sb = texts is null ? names[b] : texts[b];
+                var ea = sa.Length == 0;
+                var eb = sb.Length == 0;
+                c = ea || eb ? ea.CompareTo(eb) : dir * (key == "code" ? CompareCode(sa, sb) : string.CompareOrdinal(sa, sb));
+            }
+
+            if (c != 0)
+                return c;
+            if (texts is not null || nums is not null)
+            {
+                c = string.CompareOrdinal(names[a], names[b]);
+                if (c != 0)
+                    return c;
+            }
+
+            return a.CompareTo(b);
+        });
+        var result = new List<CatalogProductTileVm>(n);
+        foreach (var i in order)
+            result.Add(items[i]);
+        return result;
+    }
+
     /// <summary>Метки срока годности у товаров каталога — из справочника сервера (ProductExpiryIndex).</summary>
     public static void ApplyExpiryBadges()
     {
@@ -465,6 +630,10 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             "expiry" => source.Where(p => expiry.ContainsKey(p.Id)).OrderBy(p => expiry[p.Id].DaysLeft),
             _ => source,
         };
+        // 2026-10-30, владелец: сортировка по столбцу — по ВСЕМУ отфильтрованному списку (встроенная сортировка таблицы упорядочивала
+        // только видимую страницу из 50 строк). Ключи считаются один раз на строку (15 000 — десятки мс).
+        if (ProductSortKey.Length > 0)
+            source = SortProducts(source as List<CatalogProductTileVm> ?? source.ToList(), _sortKey, _sortDescending);
         if (exactHit is not null)
             source = new[] { exactHit }.Concat(source.Where(p => !string.Equals(p.Id, exactHit.Id, StringComparison.OrdinalIgnoreCase)));
 
@@ -542,6 +711,10 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
     /// <summary>2026-10-20, этап П3: «В долг» — срок оплаты поставщику в днях (по умолчанию 30): дата оплаты долга = день прихода + срок.</summary>
     public int ReceivingDebtDays { get; set; } = 30;
+
+    /// <summary>2026-10-30 (нумерация закупок): номер и дата накладной поставщика (из импорта накладной) — уходят с приходом и показываются рядом с номером документа.</summary>
+    public string? ReceivingSupplierDocNumber { get; set; }
+    public DateTime? ReceivingSupplierDocDate { get; set; }
 
     public async Task LoadReceivingSuppliersAsync()
     {
@@ -1003,8 +1176,11 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             var supplier = HasReceivingSupplier ? ReceivingSupplier : null;
             var employee = PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId;
             jobId = BackgroundReceivingQueue.Instance.Enqueue(
-                new ReceivingJobRequest(ReceivingJobSource.Warehouse, lines, supplier, ReceivingPaidNow, employee, ReceivingDebtDays),
+                new ReceivingJobRequest(ReceivingJobSource.Warehouse, lines, supplier, ReceivingPaidNow, employee, ReceivingDebtDays,
+                    SupplierDocNumber: ReceivingSupplierDocNumber, SupplierDocDate: ReceivingSupplierDocDate),
                 out duplicate);
+            ReceivingSupplierDocNumber = null;
+            ReceivingSupplierDocDate = null;
         }
         catch (InvalidOperationException ex)
         {

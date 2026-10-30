@@ -111,7 +111,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get offlineWorking =>
-      'Server bilan aloqa yo\'q — sotuvlar telefonda saqlanadi va o\'zi yuboriladi.';
+      'Server bilan aloqa yo\'q — sotuvlar telefonda saqlanadi. Aloqa paydo bo\'lishi bilan yuboriladi: ilova ochiq bo\'lsa — darhol, fonda — taxminan har 15 daqiqada yoki keyingi ochilishda.';
 
   @override
   String runningOut(int n) {
@@ -975,7 +975,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get callNoMic =>
-      'Mikrofonga ruxsat yo\'q. Telefon sozlamalarida NurMarket uchun mikrofonga ruxsat bering.';
+      'Mikrofonga ruxsat yo\'q. Telefon sozlamalarida NurCRM uchun mikrofonga ruxsat bering.';
 
   @override
   String get callOpenSettings => 'Sozlamalarni ochish';
@@ -1546,7 +1546,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get savedOfflineHint =>
-      'Aloqa yo\'q — chek serverga o\'zi ketadi, ikki marta o\'tmaydi.';
+      'Chek telefonda saqlandi. Aloqa paydo bo\'lganda serverga yuboriladi: ilova ochiq bo\'lsa — darhol, fonda — taxminan 15 daqiqadan keyin yoki keyingi ochilishda. Ikkinchi marta o\'tkazilmaydi.';
 
   @override
   String get receiptQr => 'QR-kod';
@@ -1698,7 +1698,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get offlineCheckHint =>
-      'Aloqa yo\'q — chek saqlandi va serverga o\'zi ketadi';
+      'Chek saqlandi va yuborilishini kutmoqda: aloqa bo\'lganda ketadi (ilova ochiq — darhol, yopiq — fonda yoki keyingi ochilishda)';
 
   @override
   String get sendToCustomer => 'Xaridorga yuborish';
@@ -1749,7 +1749,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String unknownBarcodeHint(String code) {
-    return '$code · katalogda ham, NurCRM ma\'lumotnomasida ham yo\'q. Mahsulotni qo\'shing — kod hech qayerga yuborilmaydi';
+    return '$code · katalogingizda (serverda tekshirildi) ham, NurCRM ma\'lumotnomasida ham yo\'q. Mahsulotni qo\'shing — kod hech qayerga yuborilmaydi';
   }
 
   @override
@@ -2798,7 +2798,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get auditApplyQueued =>
-      'Inventarizatsiya akti yaratildi — o\'tkazish aloqa bo\'lganda yuboriladi.';
+      'Inventarizatsiya akti yaratildi, lekin o\'tkazilmadi (aloqa yo\'q edi). Qayta sanab o\'tkazing — akt qoralama bo\'lib qoladi.';
 
   @override
   String get auditOnlineOnly =>
@@ -3226,7 +3226,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get peStockQueued =>
-      'Hujjat yaratildi — aloqa bo\'lganda o\'zi o\'tkaziladi.';
+      'Hujjat yaratildi, lekin o\'tkazilmadi (aloqa yo\'q edi). Qayta sanab o\'tkazing.';
 
   @override
   String get peStockOffline =>
@@ -4680,7 +4680,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get klScanQrTitle => 'Kamerani kassa ekranidagi QR-kodga qarating';
 
   @override
-  String get klNotKassaQr => 'Bu NurMarket kassasining QR-kodi emas';
+  String get klNotKassaQr => 'Bu NurCRM kassasining QR-kodi emas';
 
   @override
   String get klBadQr =>
@@ -4688,7 +4688,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get klQrVersion =>
-      'Bu kassa ilovadan yangiroq. Telefondagi NurMarket\'ni yangilang.';
+      'Bu kassa ilovadan yangiroq. Telefondagi NurCRM\'ni yangilang.';
 
   @override
   String get klManual => 'Havolani qo\'lda kiritish';
@@ -5525,6 +5525,17 @@ class AppLocalizationsUz extends AppLocalizations {
   String get recvFixed => 'Shtrix-kod to\'g\'rilandi';
 
   @override
+  String get recvOffline => 'Server javob bermadi';
+
+  @override
+  String recvOfflineHint(String code) {
+    return '$code · tekshirib bo\'lmadi: serverga ulanish yo\'q. Bu mahsulot yo\'q degani emas — tarmoq paydo bo\'lganda qayta tekshiring';
+  }
+
+  @override
+  String get recvRetry => 'Qayta tekshirish';
+
+  @override
   String get recvNoRight =>
       'Qo\'shish, bog\'lash yoki to\'g\'rilash uchun «Ombor» huquqi kerak.';
 
@@ -6319,4 +6330,348 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get infRangePick => 'Sanalarni tanlash';
+
+  @override
+  String get apiSaleAlreadyPosted =>
+      'Server bu chekni allaqachon o\'tkazgan (kalit bir xil) — «Cheklar» bo\'limida solishtiring.';
+
+  @override
+  String get apiAuditStale =>
+      'Inventarizatsiya o\'z vaqtida o\'tkazilmadi — qoldiqlar o\'zgargan bo\'lishi mumkin. Qayta sanang (akt qoralama bo\'lib qoldi).';
+
+  @override
+  String get priceChangedTitle => 'Narx o\'zgardi';
+
+  @override
+  String priceChangedLine(String name, String oldPrice, String newPrice) {
+    return '$name: $oldPrice → $newPrice so\'m';
+  }
+
+  @override
+  String get priceChangedNote =>
+      'Sotuv o\'tkazilmadi. Chekdagi narxlar yangilandi — yangi summani tekshirib, «To\'lash» tugmasini qayta bosing.';
+
+  @override
+  String get priceMaybeStale =>
+      'Aloqa yo\'q — chekdagi narx eskirgan bo\'lishi mumkin.';
+
+  @override
+  String get apiWifiPortal =>
+      'Wi-Fi kirish sahifasini oching (do\'kon tarmog\'i kirishni so\'rayapti) va qayta urinib ko\'ring.';
+
+  @override
+  String get apiBadResponse =>
+      'Server tushunarsiz javob berdi. Keyinroq qayta urinib ko\'ring.';
+
+  @override
+  String get linkOffline => 'Server bilan aloqa yo\'q';
+
+  @override
+  String linkOfflineSince(String time) {
+    return 'Aloqa yo\'q · ma\'lumot $time holatida';
+  }
+
+  @override
+  String dataAsOf(String time) {
+    return 'Ma\'lumot $time holatida';
+  }
+
+  @override
+  String get noDataOffline => 'Ma\'lumot yo\'q — server bilan aloqa yo\'q';
+
+  @override
+  String unsentOnPhone(int n) {
+    return 'Telefonda yuborilmagan: $n';
+  }
+
+  @override
+  String listCachedAt(String time) {
+    return 'Saqlangan ro\'yxat ko\'rsatildi, $time holatida.';
+  }
+
+  @override
+  String get auditError => 'Xato';
+
+  @override
+  String stockAsOf(String time) {
+    return 'Qoldiqlar $time holatida';
+  }
+
+  @override
+  String accountLoading(int done, int total) {
+    return 'Akkaunt ma\'lumotlari yuklanmoqda… $done/$total';
+  }
+
+  @override
+  String get accountLoadFailed =>
+      'Akkaunt ma\'lumotlari to\'liq yuklanmadi (aloqa yo\'q yoki server javob bermadi).';
+
+  @override
+  String get accountDataNotLoaded =>
+      'Bu akkaunt ma\'lumotlari hali yuklanmagan';
+
+  @override
+  String get logoutSendNow => 'Hozir yuborish';
+
+  @override
+  String guardUnsent(int n, String sum) {
+    return 'Yuborilmagan sotuvlar va operatsiyalar bor: $n ta, $sum so\'m. Yuborilmaguncha chiqib bo\'lmaydi.';
+  }
+
+  @override
+  String get guardSending => 'Yuborilmoqda…';
+
+  @override
+  String get guardWaitConnection =>
+      'Server bilan aloqa yo\'q. Aloqani kutib, «Hozir yuborish»ni yana bosing — yoki sotuvlarni faylga chiqaring.';
+
+  @override
+  String guardSendLeft(int n, String error) {
+    return 'Hammasi yuborilmadi: $n ta qoldi. $error';
+  }
+
+  @override
+  String get guardExport => 'Faylga chiqarib, chiqish';
+
+  @override
+  String get guardExportWarn =>
+      'Faylda chek ma\'lumotlari bo\'ladi (tovarlar, summalar). Uni ishonchli joyda saqlang. Chiqqandan keyin telefonda shu fayldan boshqa hech narsa qolmaydi.';
+
+  @override
+  String guardExported(String path) {
+    return 'Fayl saqlandi: $path. Sotuvlarni tiklash uchun uni egasiga yoki administratorga yuboring.';
+  }
+
+  @override
+  String guardExportFailed(String error) {
+    return 'Faylni saqlab bo\'lmadi: $error. Chiqish bekor qilindi, sotuvlar joyida.';
+  }
+
+  @override
+  String get guardDiscard => 'Yubormasdan chiqish';
+
+  @override
+  String get guardDiscardWord => 'O\'CHIRISH';
+
+  @override
+  String guardDiscardWarn(String word) {
+    return 'Yuborilmagan sotuvlar tiklab bo\'lmaydigan tarzda YO\'QOLADI. Tasdiqlash uchun «$word» so\'zini kiriting.';
+  }
+
+  @override
+  String get guardDiscardField => 'Tasdiqlash so\'zi';
+
+  @override
+  String guardForeign(String account, int n, String sum) {
+    return 'Telefonda boshqa akkauntning ($account) yuborilmagan sotuvlari qolgan: $n ta, $sum so\'m. Boshqa akkaunt bilan kirish uchun ularni faylga chiqarish yoki o\'chirish kerak. Yoki avvalgi akkaunt bilan kirib, yuboring.';
+  }
+
+  @override
+  String get close => 'Yopish';
+
+  @override
+  String revCostLine(String cost) {
+    return 'Xarid: $cost';
+  }
+
+  @override
+  String get revNoCost => 'Xarid narxi yo\'q';
+
+  @override
+  String revDiffAmount(String amount) {
+    return 'Farq summasi: $amount';
+  }
+
+  @override
+  String get revStarNote =>
+      '* — mahsulotda xarid narxi yo\'q, summa sotuv narxida hisoblangan.';
+
+  @override
+  String revShortageLine(String qty, String cost, String sale) {
+    return 'Kamomad: $qty dona · −$cost so\'m (xarid narxida) · −$sale so\'m (sotuv narxida)';
+  }
+
+  @override
+  String revSurplusLine(String qty, String cost, String sale) {
+    return 'Ortiqcha: $qty dona · +$cost so\'m (xarid narxida) · +$sale so\'m (sotuv narxida)';
+  }
+
+  @override
+  String revNetLine(String amount) {
+    return 'Sof natija: $amount so\'m (xarid narxida)';
+  }
+
+  @override
+  String revNoCostWarn(int n) {
+    return '⚠ Xarid narxi yo\'q: $n ta mahsulot';
+  }
+
+  @override
+  String revNoCostTip(String short, String surplus) {
+    return 'Bu mahsulotlarda xarid narxi yo\'q: «xarid narxida» summalarga kirmagan. Sotuv narxidagi farqi: kamomad −$short so\'m, ortiqcha +$surplus so\'m. Ro\'yxatda summasi «*» bilan belgilangan.';
+  }
+
+  @override
+  String revTopShortages(int n) {
+    return 'Eng katta $n kamomad';
+  }
+
+  @override
+  String revAllDiffs(int n) {
+    return 'Barcha farqlar: $n';
+  }
+
+  @override
+  String get pbTitle => 'Kirimlar va partiyalar';
+
+  @override
+  String get pbTotalReceived => 'Jami olingan';
+
+  @override
+  String get pbAvgCost => 'O\'rtacha xarid';
+
+  @override
+  String get pbLastCost => 'Oxirgi xarid';
+
+  @override
+  String get pbLastSupplier => 'Oxirgi yetkazib beruvchi';
+
+  @override
+  String pbCount(int n) {
+    return 'Kirimlar: $n';
+  }
+
+  @override
+  String get pbPartial =>
+      'Jami faqat yuklangan kirimlar bo\'yicha. Qolganini yuklash uchun pastga suring.';
+
+  @override
+  String get pbSearchHint => 'Yetkazib beruvchi yoki kirim №';
+
+  @override
+  String get pbSearchHintNo => 'Kirim №';
+
+  @override
+  String get pbWeek => 'Hafta';
+
+  @override
+  String get pbMonth => 'Oy';
+
+  @override
+  String get pbYear => 'Yil';
+
+  @override
+  String get pbAllTime => 'Butun davr';
+
+  @override
+  String get pbInvoice => 'Nakladnoy';
+
+  @override
+  String pbNumber(String no) {
+    return '№ $no';
+  }
+
+  @override
+  String pbCostLine(String cost) {
+    return 'Xarid: $cost so\'m';
+  }
+
+  @override
+  String pbSumLine(String sum) {
+    return 'Summa: $sum so\'m';
+  }
+
+  @override
+  String pbReceivedBy(String name) {
+    return 'Qabul qilgan: $name';
+  }
+
+  @override
+  String pbPayLine(String method) {
+    return 'To\'lov: $method';
+  }
+
+  @override
+  String get pbPayCash => 'Naqd';
+
+  @override
+  String get pbPayDebt => 'Qarzga';
+
+  @override
+  String get pbPayPrepay => 'Oldindan to\'lov';
+
+  @override
+  String pbRemainLine(String qty, String unit) {
+    return 'Partiya qoldig\'i ≈ $qty $unit (taxminiy)';
+  }
+
+  @override
+  String pbRemainTip(String stock, String unit) {
+    return 'FIFO qoidasi bo\'yicha taxmin («birinchi kelgan — birinchi ketadi»): mahsulotning joriy qoldig\'i ($stock $unit) eng yangi kirimlardan boshlab taqsimlangan. Server har bir partiya qoldig\'ini saqlamaydi, shuning uchun raqam taxminiy.';
+  }
+
+  @override
+  String pbReturned(String qty, String unit) {
+    return 'Yetkazib beruvchiga qaytarildi: $qty $unit';
+  }
+
+  @override
+  String get pbEmpty => 'Bu mahsulotning kirimlari topilmadi';
+
+  @override
+  String get pbEmptySearch => 'So\'rov bo\'yicha hech narsa topilmadi';
+
+  @override
+  String pbDataFrom(String time) {
+    return 'Aloqa yo\'q. Ma\'lumot $time holatida';
+  }
+
+  @override
+  String get pbLoadingMore => 'Yana yuklanmoqda…';
+
+  @override
+  String get pbEnd => 'Boshqa kirim yo\'q';
+
+  @override
+  String get pbToTop => 'Boshiga';
+
+  @override
+  String pbLoadError(String error) {
+    return 'Yuklab bo\'lmadi: $error';
+  }
+
+  @override
+  String get pbDocTitle => 'Kirim nakladnoyi';
+
+  @override
+  String get pbDocLines => 'Kirim tarkibi';
+
+  @override
+  String pbDocTotal(String sum) {
+    return 'Jami: $sum so\'m';
+  }
+
+  @override
+  String get pbThisProduct => 'shu mahsulot';
+
+  @override
+  String get pbOpenFile => 'Faylni ochish';
+
+  @override
+  String get pbNoFile => 'Asl fayl saqlanmagan';
+
+  @override
+  String get pbFileError => 'Faylni ochib bo\'lmadi';
+
+  @override
+  String get pbSupplier => 'Yetkazib beruvchi';
+
+  @override
+  String get pbCall => 'Qo\'ng\'iroq qilish';
+
+  @override
+  String get pbWhatsApp => 'WhatsApp';
+
+  @override
+  String get pbNoPhone => 'Telefon ko\'rsatilmagan';
 }

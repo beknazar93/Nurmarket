@@ -20,7 +20,8 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// </summary>
 public partial class CrmWebViewWindow : Window, IOwnerSection
 {
-    private const string NurCrmUrl = "https://nurcrm.kg";
+    // 2026-10-31 (живой обход, В-14): раздел «NurCRM» открывал публичный лендинг nurcrm.kg («Логин», «Оставить заявку») — владелец уже вошёл, ему нужен кабинет app.nurcrm.kg.
+    private const string NurCrmUrl = "https://app.nurcrm.kg/";
 
     /// <summary>2026-10-05, владелец: «к десктопу добавь … WhatsApp Web» — то же окно со встроенным браузером
     /// для web.whatsapp.com (вход по QR-коду один раз — профиль WebView2 постоянный).</summary>
@@ -29,7 +30,7 @@ public partial class CrmWebViewWindow : Window, IOwnerSection
     private readonly string _homeUrl;
     private CoreWebView2? _webView;
 
-    public CrmWebViewWindow() : this(NurCrmUrl, "NurCRM — nurcrm.kg")
+    public CrmWebViewWindow() : this(NurCrmUrl, "NurCRM — app.nurcrm.kg")
     {
     }
 

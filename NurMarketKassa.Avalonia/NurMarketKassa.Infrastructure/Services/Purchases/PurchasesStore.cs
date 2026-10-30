@@ -106,6 +106,9 @@ public static class PurchasesStore
     private static string DataDir => DataDirOverride
         ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketKassa", "purchases");
 
+    /// <summary>2026-10-30: папка журнала закупок — рядом лежат индекс нумерации документов и журнал наценок приходов.</summary>
+    public static string StorageDir => DataDir;
+
     private static string FilePath => Path.Combine(DataDir, "purchases.json");
     private static readonly object Sync = new();
     private const int KeepReceipts = 2000;
@@ -148,10 +151,8 @@ public static class PurchasesStore
                 order.Id = Guid.NewGuid().ToString("N");
                 order.CompanyId = CurrentCompany;
                 order.CreatedAt = now;
-                // «ЗП-2210-1»: заказ поставщику, день и месяц, номер за день («З-261022» читалось как число).
-                var prefix = "ЗП-" + now.ToString("ddMM", CultureInfo.InvariantCulture) + "-";
-                var n = data.Orders.Count(o => o.Number.StartsWith(prefix, StringComparison.Ordinal)) + 1;
-                order.Number = prefix + n.ToString(CultureInfo.InvariantCulture);
+                // 2026-10-30: «ЗП-2026-000123» — единая нумерация закупок (тип-год-порядок, DocumentNumbering); прежние «ЗП-2210-1» у старых заказов остаются.
+                order.Number = DocumentNumbering.Store.NextOrderNumber();
             }
             order.UpdatedAt = now;
             data.Orders.RemoveAll(o => o.Id == order.Id);

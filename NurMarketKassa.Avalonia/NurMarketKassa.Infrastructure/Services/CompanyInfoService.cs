@@ -57,6 +57,8 @@ public static class CompanyInfoService
             ApplyCompanyToPreferences(company);
             // 2026-10-05, запрос NurCRM: бонусы на сервере — процент из настройки магазина, разовая выгрузка, очередь.
             _ = ServerLoyalty.AfterCompanyRefreshAsync(company?.Id);
+            // 2026-10-31, ТЗ Умара: платные функции, включённые компании на сервере (GET users/company/addons/), — после входа и раз в 15 минут.
+            ServerAddons.AfterCompanyRefresh();
             // 2026-10-05: настройки аккаунта с сервера (SettingsCloudSync) — один раз на вход в компанию.
             _ = SettingsCloudSync.PullOnceAsync(company?.Id);
             // 2026-10-29: и затем общие настройки компании подтягиваются на лету (раз в ~45 с, ETag) — без перезапуска кассы (Н-1).

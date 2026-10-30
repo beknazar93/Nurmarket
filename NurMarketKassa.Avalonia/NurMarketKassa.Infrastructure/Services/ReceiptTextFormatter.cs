@@ -153,6 +153,7 @@ internal static class ReceiptTextFormatter
 
         var upper = trimmed.ToUpperInvariant();
         return upper.Contains("НУР МАРКЕТ", StringComparison.Ordinal) ||
+               upper.Contains("НУР СРМ", StringComparison.Ordinal) || // 2026-10-29: программа переименована в NurCRM
                upper.Contains("MARKET PLUS", StringComparison.Ordinal) ||
                upper.Contains("СПАСИБО", StringComparison.Ordinal) ||
                upper.Contains("ДОБРО ПОЖАЛОВАТЬ", StringComparison.Ordinal) ||

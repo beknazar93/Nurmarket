@@ -353,7 +353,7 @@ public sealed partial class AiAdvisorWindow
             };
             Use(label, TextBlock.ForegroundProperty, "BrushTextSoft");
             src.Children.Add(label);
-            foreach (var s in sources.Where(s => s.SourceSection is not null).DistinctBy(s => s.SourceSection).Take(2))
+            foreach (var s in sources.Where(s => s.SourceSection is not null && Cap("nav.open")).DistinctBy(s => s.SourceSection).Take(2))
             {
                 var key = s.SourceSection!;
                 var open = MorningReportCard.SmallButton(T("Открыть «", "«", "Open “", "«", "«") + SectionTitle(key) + T("» ›", "» ачуу ›", "” ›", "» aç ›", "» ochish ›"),
@@ -390,15 +390,16 @@ public sealed partial class AiAdvisorWindow
         if (HasTable(answerText))
             Add("⬇ " + T("В Excel", "Excel'ге", "To Excel", "Excel'e", "Excel'ga"), T("Сохранить таблицу в Excel", "Таблицаны Excel'ге сактоо", "Save the table to Excel", "Tabloyu Excel'e kaydet", "Jadvalni Excel'ga saqlash"),
                 () => ExportTablesAsync(question, answerText));
-        if (access.Products && topics.Contains(Topic.LowStock))
+        // 2026-10-30: тумблер «Готовые вопросы и кнопки под ответами» — кнопки-предложения скрыты (Excel остаётся).
+        if (access.Products && Cap("pro.hints") && topics.Contains(Topic.LowStock))
             Add("🧾 " + T("Заказать у поставщика", "Жеткирүүчүдөн заказ кылуу", "Order from supplier", "Tedarikçiden sipariş", "Yetkazib beruvchidan buyurtma"),
                 T("Подготовить черновик заказа поставщику", "Жеткирүүчүгө заказдын долбоорун даярдоо", "Prepare a supplier order draft", "Tedarikçi sipariş taslağı hazırla", "Yetkazib beruvchiga buyurtma qoralamasini tayyorlash"),
                 AddSupplierOrderDraftAsync);
-        if (access.Products && topics.Contains(Topic.Promo))
+        if (access.Products && Cap("pro.hints") && topics.Contains(Topic.Promo))
             Add("🏷 " + T("Сделать акцию", "Акция жасоо", "Make a promotion", "Kampanya yap", "Aksiya qilish"),
                 T("Подготовить черновик акции", "Акциянын долбоорун даярдоо", "Prepare a promotion draft", "Kampanya taslağı hazırla", "Aksiya qoralamasini tayyorlash"),
                 AddPromoDraftAsync);
-        if (access.Clients && topics.Contains(Topic.Debts))
+        if (access.Clients && Cap("pro.hints") && Cap("rem.debtors") && topics.Contains(Topic.Debts))
             Add("✉ " + T("Напомнить должникам", "Карыздарга эскертүү", "Remind debtors", "Borçlulara hatırlat", "Qarzdorlarga eslatish"),
                 T("Напоминания должникам по расписанию", "Карыздарга эскертүүлөр", "Debt reminders", "Borç hatırlatmaları", "Qarz eslatmalari"),
                 () => { OpenDebtReminders(); return Task.CompletedTask; });
@@ -433,7 +434,7 @@ public sealed partial class AiAdvisorWindow
     /// <summary>2026-10-21 (И9): на пустом экране — «Пора напомнить N должникам» с кнопкой (ничего не отправляется само).</summary>
     private Control? DebtReminderBanner()
     {
-        if (!CurrentAccess().Clients)
+        if (!CurrentAccess().Clients || !Cap("pro.remind") || !Cap("rem.debtors"))
             return null;
         string? due;
         try
@@ -731,7 +732,7 @@ public sealed partial class AiAdvisorWindow
                 var steps = groupRows.Select(x => new ProductActionPlan.Step("receive", x.Row.Tile, x.Row.OrderFor14, null, null,
                     x.Row.Cost > 0 ? x.Row.Cost : null, null, ExpectedStock: x.Row.Tile.Quantity)).ToList();
                 var draft = InvoiceEditorWindow.PurchaseDraft.FromSteps(steps, supplierName, null);
-                await new InvoiceEditorWindow(draft).ShowDialog<string?>(this).ConfigureAwait(true);
+                await ShowEditorDialogAsync(new InvoiceEditorWindow(draft)).ConfigureAwait(true);
             };
             var card = new Border
             {
@@ -746,6 +747,62 @@ public sealed partial class AiAdvisorWindow
         PosLogger.Log($"ИИ-советник: черновик заказа поставщикам — {need.Count} товаров, {groups.Count} поставщиков (ничего не отправлено).", "INFO");
         SaveCurrentChat();
         ScrollToEnd();
+    }
+
+    /// <summary>2026-10-30, срочный баг владельца («Провести закупку не работает, если переключить окошко с Нур Советника на другое и обратно»):
+    /// программа владельца при смене раздела прячет окно советника (Hide), а Avalonia вместе с ним прячет и отвязывает окно закупки (ShowDialog).
+    /// ShowDialog при этом не завершается, окно не возвращается, флаг карточки «закупка открыта» остаётся — кнопка молча ничего не делает.
+    /// Здесь окно закупки возвращается модально, как только советник снова показан; закрылся советник — закрывается и окно закупки.</summary>
+    private async Task ShowEditorDialogAsync(InvoiceEditorWindow editor)
+    {
+        var closed = false;
+        editor.Closed += (_, _) => closed = true;
+        void Restore(object? sender, AvaloniaPropertyChangedEventArgs e)
+        {
+            if (e.Property != IsVisibleProperty || !IsVisible)
+                return;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (closed || !IsVisible || editor.IsVisible)
+                    return;
+                try
+                {
+                    _ = editor.ShowDialog<string?>(this);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"ИИ-советник: окно закупки не вернулось после переключения раздела ({ex.Message}).", "WARNING");
+                }
+            }, DispatcherPriority.Background);
+        }
+        void OnAdvisorClosed(object? sender, EventArgs e)
+        {
+            if (!closed)
+                editor.Close();
+        }
+        PropertyChanged += Restore;
+        Closed += OnAdvisorClosed;
+        _editorsOpen++; // 2026-10-30: пока окно закупки открыто, спрятанный советник оболочка не закрывает (KeepAliveWhenHidden)
+        var counted = true;
+        void Uncount()
+        {
+            if (counted)
+            {
+                counted = false;
+                _editorsOpen--;
+            }
+        }
+        editor.Closed += (_, _) => Uncount(); // не ждём, пока завершится ShowDialog: он мог зависнуть при Hide советника
+        try
+        {
+            await editor.ShowDialog<string?>(this).ConfigureAwait(true);
+        }
+        finally
+        {
+            Uncount();
+            PropertyChanged -= Restore;
+            Closed -= OnAdvisorClosed;
+        }
     }
 
     /// <summary>Черновик акции: залежавшиеся (30 дней без продаж) и затоваренные товары, скидка 15–20 %, но цена не ниже закупки + 5 %;

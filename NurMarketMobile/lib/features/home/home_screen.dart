@@ -1,4 +1,3 @@
-import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,8 +6,10 @@ import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/ui/link_banner.dart';
 import '../../core/ui/infographic/infographics.dart' show PaymentSplit;
 import '../../core/util/product_picker.dart';
+import '../../core/ui/account_banners.dart';
 import '../../core/util/ui.dart';
 import '../staff/staff_providers.dart' show myTasksProvider;
 import '../staff/tasks_screen.dart' show TasksTodayPlate;
@@ -49,8 +50,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _countLow(AppDatabase db) async {
     // 2026-10-22 (мобилка, админ, П11): порог как на ПК — остаток меньше 10 (lowStockLimit), было ≤ 3.
-    final low = await (db.select(db.products)..where((p) => lowStockSql(p) & p.isService.equals(false))).get();
-    if (mounted) setState(() => _low = low.length);
+    final low = await countLowStock(db); // 2026-10-30 (оптимизация, п. 4): COUNT(*) вместо чтения всех строк
+    if (mounted) setState(() => _low = low);
   }
 
   Future<void> _openShift() async {
@@ -81,6 +82,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final pending = ref.watch(pendingCountProvider).value ?? 0;
     final p = context.pal;
     final opened = shift.shift?.openedAt;
+    // 2026-10-29 (аудит мобилки, п. 5): смена из памяти без итогов — «—» вместо «0 сом · 0 чеков»; с итогами — «данные от ЧЧ:ММ»
+    final noTotals = shift.cached && shift.shift != null && shift.fetchedAt == null;
     // 2026-10-26 (живой аудит, П2, С-2): большой шрифт — кнопки операций по одной в ряд, а не по две (подписи не обрезаются);
     // плитки — высота от шрифта вместо фиксированного соотношения сторон.
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
@@ -165,7 +168,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        shift.isOpen ? l.shiftOpenSince(opened == null ? '' : TimeOfDay.fromDateTime(opened).format(context)) : l.shiftClosed,
+                        shift.isOpen ? l.shiftOpenSince(opened == null ? '—' : TimeOfDay.fromDateTime(opened).format(context)) : l.shiftClosed,
                         style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -182,17 +185,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          '${money(shift.shift?.salesTotal ?? 0)} ${l.som}',
+                          noTotals ? '—' : '${money(shift.shift?.salesTotal ?? 0)} ${l.som}',
                           style: const TextStyle(color: T.accent, fontSize: 30, fontWeight: FontWeight.w800),
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(l.checksCount(shift.shift?.salesCount ?? 0), style: const TextStyle(color: Color(0xFFC7D2DB), fontSize: 12)),
+                    if (!noTotals) Text(l.checksCount(shift.shift?.salesCount ?? 0), style: const TextStyle(color: Color(0xFFC7D2DB), fontSize: 12)),
                   ],
                 ),
+                if (shift.cached && shift.shift != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    [
+                      noTotals ? l.noDataOffline : l.dataAsOf(TimeOfDay.fromDateTime(shift.fetchedAt!).format(context)),
+                      if (pending > 0) l.unsentOnPhone(pending),
+                    ].join(' · '),
+                    style: const TextStyle(color: Color(0xFFC7D2DB), fontSize: 11.5),
+                  ),
+                ],
                 // 2026-10-29 (инфографика, спека Fable): чем платили в этой смене — полоса и проценты (нет продаж — не показываем).
-                if (shift.shift != null && (shift.shift!.cashSales + shift.shift!.nonCashSales + shift.shift!.debtSales) > 0) ...[
+                if (!noTotals && shift.shift != null && (shift.shift!.cashSales + shift.shift!.nonCashSales + shift.shift!.debtSales) > 0) ...[
                   const SizedBox(height: 12),
                   PaymentSplit(cash: shift.shift!.cashSales, nonCash: shift.shift!.nonCashSales, debt: shift.shift!.debtSales, onDark: true),
                 ],
@@ -269,22 +282,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ],
-          if (shift.error != null) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: context.pal.warnSoft, borderRadius: BorderRadius.circular(12)),
-              child: Row(
-                children: [
-                  Icon(Icons.wifi_off_rounded, color: p.warn, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(l.offlineWorking, style: TextStyle(color: p.warn, fontSize: 12.5)),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          // 2026-10-29 (аудит мобилки, п. 5): плашка следит за связью сама (ApiClient.link) и уходит, когда связь вернулась
+          // 2026-10-29 (полная изоляция аккаунтов): загрузка данных этого аккаунта и неотправленные продажи других аккаунтов
+          const AccountLoadBanner(margin: EdgeInsets.only(top: 10)),
+          LinkBanner(force: shift.error != null, dataAt: shift.fetchedAt, detail: l.offlineWorking, margin: const EdgeInsets.only(top: 10)),
           const SizedBox(height: 14),
           GridView(
             shrinkWrap: true,

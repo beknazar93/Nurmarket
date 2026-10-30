@@ -57,6 +57,21 @@ public static class PendingUnknownCheckoutStore
 
         /// <summary>Кассиру уже показано «эти позиции проведены, повторно не проводим» — второй раз тем же сообщением не пугаем.</summary>
         public bool Warned { get; set; }
+
+        /// <summary>2026-10-29 (аварийный аудит, п. 2): «в долг»/смешанная на быстром пути (pos/checkout с Idempotency-Key), ответ не дошёл. Серверной корзины
+        /// нет (CartId = «quick:ключ»), сверка — повтором ТОГО ЖЕ тела тем же ключом: сервер вернёт прежнюю продажу (replayed), а не создаст вторую.
+        /// Ключ и тело лежат на диске, поэтому перезапуск кассы защиту не стирает.</summary>
+        public string? QuickKey { get; set; }
+
+        /// <summary>Тело запроса быстрого пути, для которого выдан <see cref="QuickKey"/> (сравнение «тот же платёж»).</summary>
+        public string? QuickBody { get; set; }
+
+        /// <summary>2026-10-29 (приёмка 1.17.65, В-1): запись сделана ДО отправки онлайн-оплаты («в полёте»): ключ и тело на диске, ответа ещё нет.
+        /// Если касса упала посреди оплаты, после запуска исход сверяется по ключу (idempotency/{key}), а не угадывается.</summary>
+        public bool InFlight { get; set; }
+
+        /// <summary>2026-10-29 (В-1): сервер подтвердил по ключу, что продажа проведена — тот же чек больше не пробиваем, пока кассир не начнёт новый.</summary>
+        public bool PaidConfirmed { get; set; }
     }
 
     public static Entry? Load()
@@ -67,7 +82,7 @@ public static class PendingUnknownCheckoutStore
             {
                 if (!File.Exists(FilePath))
                     return null;
-                var entry = JsonSerializer.Deserialize<Entry>(File.ReadAllText(FilePath), Json);
+                var entry = JsonSerializer.Deserialize<Entry>(AtomicFile.ReadWithRetry(FilePath), Json); // 2026-10-30: «файл занят» — повтор 3×50 мс
                 if (entry == null || string.IsNullOrWhiteSpace(entry.CartId))
                     return null;
                 if (DateTime.UtcNow - entry.AtUtc > MaxAge)
@@ -97,7 +112,15 @@ public static class PendingUnknownCheckoutStore
                 if (!string.IsNullOrEmpty(dir))
                     Directory.CreateDirectory(dir);
                 var tmp = FilePath + ".tmp";
-                File.WriteAllText(tmp, JsonSerializer.Serialize(entry, Json));
+                // 2026-10-29 (В-1): запись «в полёте» должна пережить мгновенный сбой процесса/питания — пишем во временный файл, сбрасываем
+                // на диск (fsync) и только потом атомарно подменяем рабочий.
+                using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    var bytes = new System.Text.UTF8Encoding(false).GetBytes(JsonSerializer.Serialize(entry, Json));
+                    fs.Write(bytes, 0, bytes.Length);
+                    fs.Flush(flushToDisk: true);
+                }
+
                 File.Move(tmp, FilePath, overwrite: true);
             }
             catch (Exception ex)

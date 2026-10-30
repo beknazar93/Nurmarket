@@ -52,6 +52,7 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         _autonomous = autonomous;
         RefreshFromSession();
         QueuedCount = OfflinePendingSalesStore.PendingCount;
+        FailedCount = OfflinePendingSalesStoreSafeFailedCount();
         _ = MonitorConnectivityAsync(_lifetimeCts.Token);
         _ = MonitorSubscriptionCountdownAsync(_lifetimeCts.Token);
 
@@ -63,6 +64,7 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         // с последней ошибкой и одно ненавязчивое уведомление на переходе (без окон-ошибок).
         ServerOutageMonitor.StateChanged += OnServerStateChanged;
         ServerOutageMonitor.QueueFlushed += OnServerQueueFlushed;
+        SessionExpiryMonitor.Changed += OnSessionExpiryChanged; // 2026-10-30
         InfoToastRequested += OnInfoToastRequested;
         SyncCenter.Changed += OnSyncCenterChanged;
         _dispatcher.Post(RefreshStatusToolTip);
@@ -101,12 +103,16 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
     {
         StatusLabel = FormatStatusLabel(IsOnline);
         QueueText = FormatQueueText(QueuedCount);
+        FailedText = FormatFailedText(QueuedCount, FailedCount);
         RefreshFromSession();
         RefreshStatusToolTip();
     });
 
     private static string FormatStatusLabel(bool online) =>
-        online
+        // 2026-10-30: сессия недействительна — понятная подсказка вместо «Онлайн/Офлайн»; очередь ждёт входа.
+        SessionExpiryMonitor.IsExpired
+            ? Tr.T("🔑 Войдите снова", "🔑 Кайра кириңиз", "🔑 Sign in again", "🔑 Yeniden giriş yapın", "🔑 Qaytadan kiring")
+        : online
             ? Tr.T("Онлайн", "Онлайн", "Online", "Çevrimiçi", "Onlayn")
             : ServerOutageMonitor.IsOutage
                 // 2026-09-29: сервер не отвечает — касса работает автономно (не «Офлайн»: сеть может быть).
@@ -193,6 +199,12 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         });
     }
 
+    private void OnSessionExpiryChanged() => _dispatcher.Post(() =>
+    {
+        StatusLabel = FormatStatusLabel(IsOnline);
+        RefreshStatusToolTip();
+    });
+
     private void OnServerQueueFlushed(int sent, int left)
     {
         if (_autonomous.IsCurrentSessionAutonomous || ServerOutageMonitor.IsOutage)
@@ -255,6 +267,16 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
             ? Tr.T($" Ждут отправки: {queued}.", $" Жөнөтүүнү күтүүдө: {queued}.", $" Waiting to be sent: {queued}.",
                 $" Gönderilmeyi bekleyen: {queued}.", $" Yuborilishini kutmoqda: {queued}.")
             : "";
+        if (SessionExpiryMonitor.IsExpired)
+        {
+            StatusToolTip = Tr.T("Сессия истекла (вход с другого устройства или срок вышел). Выйдите и войдите снова — продажи, смена и корзины сохранены и отправятся сами.",
+                "Сессиянын мөөнөтү бүттү (башка түзмөктөн кирүү же убакыт бүттү). Чыгып, кайра кириңиз — сатуулар, смена жана себеттер сакталды, өзү жөнөтүлөт.",
+                "The session has expired (signed in elsewhere or timed out). Sign out and in again — sales, the shift and carts are saved and will be sent automatically.",
+                "Oturum süresi doldu (başka cihazdan giriş veya zaman aşımı). Çıkış yapıp tekrar girin — satışlar, vardiya ve sepetler kayıtlı, otomatik gönderilecek.",
+                "Sessiya muddati tugadi (boshqa qurilmadan kirish yoki vaqt tugadi). Chiqib, qaytadan kiring — sotuvlar, smena va savatlar saqlangan, o'zi yuboriladi.")
+                + queueLine;
+            return;
+        }
         if (ServerOutageMonitor.IsOutage)
         {
             var since = ServerOutageMonitor.OutageSince;
@@ -301,6 +323,27 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
             return 0;
         }
     }
+
+    private static int OfflinePendingSalesStoreSafeFailedCount()
+    {
+        try
+        {
+            return OfflinePendingSalesStore.FailedCount;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>2026-10-29 (аварийный аудит кассы, п. 8): красная плашка «Не отправлено: N · Отклонено: M» — отклонённые чеки
+    /// (деньги взяты, а на сервере продажи нет) раньше были видны только числом в меню ☰ и лежали там днями.</summary>
+    private static string FormatFailedText(int queued, int failed) =>
+        failed > 0
+            ? Tr.T($"Не отправлено: {queued} · Отклонено: {failed}", $"Жөнөтүлгөн жок: {queued} · Четке кагылды: {failed}",
+                $"Not sent: {queued} · Rejected: {failed}", $"Gönderilmedi: {queued} · Reddedildi: {failed}",
+                $"Yuborilmadi: {queued} · Rad etildi: {failed}")
+            : "";
 
     private static string FormatQueueText(int queued) =>
         queued > 0
@@ -388,7 +431,12 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         try
         {
             var queued = OfflinePendingSalesStore.PendingCount;
-            _dispatcher.Post(() => QueuedCount = queued);
+            var failed = OfflinePendingSalesStoreSafeFailedCount();
+            _dispatcher.Post(() =>
+            {
+                QueuedCount = queued;
+                FailedCount = failed;
+            });
         }
         catch
         {
@@ -405,7 +453,37 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
                 return;
             HasQueuedItems = value > 0;
             QueueText = FormatQueueText(value);
+            FailedText = FormatFailedText(value, _failedCount);
         }
+    }
+
+    private int _failedCount;
+    private string _failedText = "";
+    private bool _hasFailedItems;
+
+    /// <summary>Сколько чеков сервер отклонил (статус failed) — «Некорректные чеки» в меню ☰.</summary>
+    public int FailedCount
+    {
+        get => _failedCount;
+        private set
+        {
+            if (!SetProperty(ref _failedCount, value))
+                return;
+            HasFailedItems = value > 0;
+            FailedText = FormatFailedText(_queuedCount, value);
+        }
+    }
+
+    public string FailedText
+    {
+        get => _failedText;
+        private set => SetProperty(ref _failedText, value ?? "");
+    }
+
+    public bool HasFailedItems
+    {
+        get => _hasFailedItems;
+        private set => SetProperty(ref _hasFailedItems, value);
     }
 
     public string QueueText
@@ -500,6 +578,7 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         Tr.LanguageChanged -= OnLanguageChanged;
         ServerOutageMonitor.StateChanged -= OnServerStateChanged;
         ServerOutageMonitor.QueueFlushed -= OnServerQueueFlushed;
+        SessionExpiryMonitor.Changed -= OnSessionExpiryChanged;
         InfoToastRequested -= OnInfoToastRequested;
         SyncCenter.Changed -= OnSyncCenterChanged;
         _lifetimeCts.Cancel();
@@ -542,9 +621,11 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
             try
             {
                 var queued = OfflinePendingSalesStore.PendingCount;
+                var failed = OfflinePendingSalesStoreSafeFailedCount();
                 await _dispatcher.InvokeAsync(() =>
                 {
                     QueuedCount = queued;
+                    FailedCount = failed;
                     RefreshStatusToolTip(); // 2026-09-29: подсказка индикатора — с числом в очереди
                 }).ConfigureAwait(false);
             }
@@ -568,6 +649,29 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         }
     }
 
+    // 2026-10-30 (приёмка кассы 1.17.65, «Важно» 2): нейтральная надпись «Сервер занят, повтор через N с» (не красный офлайн) — пока сервер просит паузу (429).
+    private string _serverBusyText = "";
+    private bool _hasServerBusy;
+
+    public string ServerBusyText
+    {
+        get => _serverBusyText;
+        private set => SetProperty(ref _serverBusyText, value ?? "");
+    }
+
+    public bool HasServerBusy
+    {
+        get => _hasServerBusy;
+        private set => SetProperty(ref _hasServerBusy, value);
+    }
+
+    private void ApplyServerBusy()
+    {
+        var busy = NurMarketKassa.Services.Api.ApiThrottle.IsBusy && !ServerOutageMonitor.IsOutage && !_autonomous.IsCurrentSessionAutonomous;
+        ServerBusyText = busy ? NurMarketKassa.Services.Api.ApiThrottle.BusyHeaderText() : "";
+        HasServerBusy = busy;
+    }
+
     private async Task MonitorSubscriptionCountdownAsync(CancellationToken ct)
     {
         using var timer = new PeriodicTimer(SubscriptionCountdownPollInterval);
@@ -576,7 +680,11 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
             try
             {
                 var status = CompanyInfoService.GetCachedSubscriptionStatus();
-                await _dispatcher.InvokeAsync(() => ApplySubscriptionCountdown(status)).ConfigureAwait(false);
+                await _dispatcher.InvokeAsync(() =>
+                {
+                    ApplySubscriptionCountdown(status);
+                    ApplyServerBusy();
+                }).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {

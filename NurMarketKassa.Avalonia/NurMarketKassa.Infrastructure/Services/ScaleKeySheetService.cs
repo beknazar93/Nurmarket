@@ -49,6 +49,9 @@ public static class ScaleKeySheetService
 
     public static IReadOnlyList<string> InstalledPrinters()
     {
+        // 2026-10-29: System.Drawing.Printing есть только в Windows.
+        if (!OperatingSystem.IsWindows())
+            return Array.Empty<string>();
         try
         {
             return PrinterSettings.InstalledPrinters.Cast<string>().ToList();

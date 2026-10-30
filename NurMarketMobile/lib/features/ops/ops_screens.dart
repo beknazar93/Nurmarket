@@ -183,6 +183,9 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
   /// 2026-10-26 (живой аудит, П5): список взят из памяти телефона (нет связи) — рядом «Повторить».
   bool _stale = false;
 
+  /// 2026-10-29 (аудит, п. 5): когда список должников в последний раз пришёл с сервера (или был сохранён).
+  DateTime? _loadedAt;
+
   @override
   void initState() {
     super.initState();
@@ -199,14 +202,17 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
           _rows = rows;
           _error = null;
           _stale = false;
+          _loadedAt = DateTime.now();
         });
       }
       await repo.cacheDebtors(owner, rows);
     } on ApiException catch (e) {
       final saved = _rows ?? await repo.cachedDebtors(owner);
+      final savedAt = _loadedAt ?? await repo.debtorsCachedAt(owner);
       if (mounted) {
         setState(() {
           _error = e.message;
+          _loadedAt = savedAt;
           if (saved != null) {
             _rows = saved;
             _stale = true;
@@ -347,7 +353,7 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
                   if (_stale)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: _RetryBox(message: l.listCachedNote, onRetry: _load, compact: true),
+                      child: _RetryBox(message: _loadedAt == null ? l.listCachedNote : l.listCachedAt(TimeOfDay.fromDateTime(_loadedAt!).format(context)), onRetry: _load, compact: true),
                     ),
                   TextField(
                     controller: _q,

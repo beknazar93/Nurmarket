@@ -43,6 +43,10 @@ internal sealed class RevisionFinishDialog : Window
     private RevisionPreview _preview = null!;
     private IReadOnlyDictionary<string, double> _sendMap = new Dictionary<string, double>();
     private bool _rebuilding;
+    private readonly RadioButton _segAll;
+    private readonly RadioButton _segTop;
+    private readonly Border _segBox;
+    private bool _topOnly;
 
     public RevisionApplyResult? Result { get; private set; }
 
@@ -69,7 +73,7 @@ internal sealed class RevisionFinishDialog : Window
         _export = export;
         Title = T("Завершить ревизию", "Ревизияны аякташ", "Finish the stocktake", "Sayımı bitir", "Inventarizatsiyani yakunlash");
         Width = 912;
-        Height = 660;
+        Height = RevisionRowView.ShowMoney ? 720 : 660; // 2026-10-29: с деньгами сводка выше — список топ-10 виден почти целиком
         MinWidth = 360;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         SystemDecorations = SystemDecorations.None;
@@ -111,11 +115,26 @@ internal sealed class RevisionFinishDialog : Window
         _warnings.TextWrapping = TextWrapping.Wrap;
         _warnings.Bind(TextBlock.ForegroundProperty, _warnings.GetResourceObservable("BrushDanger"));
 
+        // 2026-10-29: переключатель списка «Все расхождения / Топ-10 недостач» (только там, где видна закупка). По умолчанию —
+        // топ-10, если недостача есть: перед проведением владелец сразу видит, на какие товары ушло больше всего денег.
+        _segAll = new RadioButton { GroupName = "RevFinishView", Focusable = false };
+        _segTop = new RadioButton { GroupName = "RevFinishView", Focusable = false };
+        _segAll.Classes.Add("sec-seg");
+        _segTop.Classes.Add("sec-seg");
+        _topOnly = RevisionRowView.ShowMoney && _s.GetTotals().ShortageQty > 0;
+        _segAll.IsChecked = !_topOnly;
+        _segTop.IsChecked = _topOnly;
+        _segAll.IsCheckedChanged += (_, _) => OnViewToggle();
+        _segTop.IsCheckedChanged += (_, _) => OnViewToggle();
+        var segPanel = new StackPanel { Orientation = Orientation.Horizontal, Children = { _segAll, _segTop } };
+        _segBox = new Border { Classes = { "sec-segment" }, Child = segPanel, HorizontalAlignment = HorizontalAlignment.Left, IsVisible = RevisionRowView.ShowMoney, Margin = new Thickness(0, 4, 0, 0) };
+
         var top = new StackPanel { Spacing = 6 };
         top.Children.Add(_summary);
         top.Children.Add(_correction);
         top.Children.Add(_sold);
         top.Children.Add(new ScrollViewer { Content = _warnings, MaxHeight = 64, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto });
+        top.Children.Add(_segBox);
 
         // Список расхождений.
         var header = RevisionRowView.BuildHeader(true);
@@ -161,6 +180,12 @@ internal sealed class RevisionFinishDialog : Window
         listTitle.Margin = new Thickness(0, 10, 0, 0);
         Grid.SetRow(listTitle, 1);
         header.Margin = new Thickness(0, 24, 0, 0);
+        if (RevisionRowView.ShowMoney)
+        {
+            listTitle.IsVisible = false; // вместо заголовка — переключатель «Все расхождения / Топ-10 недостач»
+            header.Margin = new Thickness(0, 8, 0, 0);
+        }
+
         var abandonRow = new StackPanel { Spacing = 6 };
         abandonRow.Children.Add(_error);
         abandonRow.Children.Add(_abandon);
@@ -224,7 +249,8 @@ internal sealed class RevisionFinishDialog : Window
         var totals = _s.GetTotals();
         var som = T("сом", "сом", "som", "TL", "so'm");
         var pcs = T("шт", "дана", "pcs", "adet", "dona");
-        var owner = AppMode.IsOwner;
+        // 2026-10-29: деньги по закупке видит тот, кому открыта закупка (владелец, администратор, автономный режим) — было только AppMode.IsOwner.
+        var owner = RevisionRowView.ShowMoney;
 
         _summary.Children.Clear();
         _summary.Children.Add(Text(T($"Посчитано {ReportFormat.Integer(totals.Counted)} из {ReportFormat.Integer(totals.Total)} позиций. В акт уйдёт: {ReportFormat.Integer(_preview.Items.Count)}.",
@@ -234,7 +260,9 @@ internal sealed class RevisionFinishDialog : Window
             $"{ReportFormat.Integer(totals.Counted)} / {ReportFormat.Integer(totals.Total)} pozitsiya sanaldi. Aktga kiradi: {ReportFormat.Integer(_preview.Items.Count)}."), 15, bold: true));
         var diffLine = T($"С расхождением: {ReportFormat.Integer(totals.WithDifference)}", $"Айырмасы бар: {ReportFormat.Integer(totals.WithDifference)}",
             $"With differences: {ReportFormat.Integer(totals.WithDifference)}", $"Farklı: {ReportFormat.Integer(totals.WithDifference)}", $"Farqli: {ReportFormat.Integer(totals.WithDifference)}");
-        if (totals.WithDifference > 0)
+        // 2026-10-29: с закупкой — «С расхождением» и отдельные строки Недостача / Излишек / Чистый результат / «Не хватает закупки» (как в подвале окна ревизии).
+        var moneyLines = owner ? RevisionRowView.MoneyLines(totals) : new List<(string Text, string Brush, string? Tip)>();
+        if (totals.WithDifference > 0 && !owner)
         {
             var shortCost = owner ? T($", по закупке −{ReportFormat.Money(totals.ShortageAtCost)}", $", сатып алуу боюнча −{ReportFormat.Money(totals.ShortageAtCost)}", $", at cost −{ReportFormat.Money(totals.ShortageAtCost)}", $", alış fiyatıyla −{ReportFormat.Money(totals.ShortageAtCost)}", $", xarid narxida −{ReportFormat.Money(totals.ShortageAtCost)}") : "";
             var surCost = owner ? T($", по закупке +{ReportFormat.Money(totals.SurplusAtCost)}", $", сатып алуу боюнча +{ReportFormat.Money(totals.SurplusAtCost)}", $", at cost +{ReportFormat.Money(totals.SurplusAtCost)}", $", alış fiyatıyla +{ReportFormat.Money(totals.SurplusAtCost)}", $", xarid narxida +{ReportFormat.Money(totals.SurplusAtCost)}") : "";
@@ -244,7 +272,24 @@ internal sealed class RevisionFinishDialog : Window
                 $"  ·  surplus +{ReportFormat.Quantity(totals.SurplusQty)} {pcs} (+{ReportFormat.Money(totals.SurplusAtSale)} {som}{surCost})", $"  ·  fazla +{ReportFormat.Quantity(totals.SurplusQty)} {pcs} (+{ReportFormat.Money(totals.SurplusAtSale)} {som}{surCost})", $"  ·  ortiqcha +{ReportFormat.Quantity(totals.SurplusQty)} {pcs} (+{ReportFormat.Money(totals.SurplusAtSale)} {som}{surCost})");
         }
 
-        _summary.Children.Add(Text(diffLine + T("  (по цене продажи)", "  (сатуу баасы боюнча)", "  (at selling price)", "  (satış fiyatıyla)", "  (sotuv narxida)"), 13));
+        if (moneyLines.Count == 0)
+            _summary.Children.Add(Text(owner ? diffLine : diffLine + T("  (по цене продажи)", "  (сатуу баасы боюнча)", "  (at selling price)", "  (satış fiyatıyla)", "  (sotuv narxida)"), 13));
+        else
+        {
+            // Строки денег переносятся по ширине: «Чистый результат» и «Не хватает закупки» встают в одну строку — окно ниже на низком экране.
+            var moneyPanel = new WrapPanel { Orientation = Orientation.Horizontal };
+            foreach (var (lineText, brush, tip) in moneyLines)
+            {
+                var tb = new TextBlock { Text = lineText, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 18, 0), TextWrapping = TextWrapping.NoWrap };
+                tb.Bind(TextBlock.ForegroundProperty, tb.GetResourceObservable(brush));
+                if (tip is not null)
+                    ToolTip.SetTip(tb, tip);
+                moneyPanel.Children.Add(tb);
+            }
+
+            _summary.Children.Add(moneyPanel);
+        }
+
         _summary.Children.Add(Text(T($"Не посчитанные позиции ({ReportFormat.Integer(totals.NotCounted)}) не меняются.", $"Саналбаган позициялар ({ReportFormat.Integer(totals.NotCounted)}) өзгөрбөйт.",
             $"Items that were not counted ({ReportFormat.Integer(totals.NotCounted)}) stay as they are.", $"Sayılmayan kalemler ({ReportFormat.Integer(totals.NotCounted)}) değişmez.", $"Sanalmagan pozitsiyalar ({ReportFormat.Integer(totals.NotCounted)}) o'zgarmaydi."), 13, soft: true));
         if (totals.ReadOnly > 0)
@@ -274,15 +319,51 @@ internal sealed class RevisionFinishDialog : Window
         }
 
         // Список: расхождения и позиции, у которых «В акт» не равно факту (поправка на продажи). Одним присвоением.
-        _list.ItemsSource = _preview.Items
-            .Where(i => i.Row.HasDifference || Math.Abs(i.Send - i.Fact) > 0.0004)
-            .Select(i => i.Row)
-            .ToList();
+        FillList();
 
         var n = _preview.Items.Count;
         _apply.Content = T($"Применить {n} поз.", $"{n} позицияны колдонуу", $"Apply {n} items", $"{n} kalemi uygula", $"{n} ta pozitsiyani qo'llash");
         _apply.IsEnabled = n > 0 || _s.IsPostingStarted;
         _abandon.IsVisible = _s.IsPostingStarted && _s.CanAbandonPosting;
+    }
+
+    /// <summary>2026-10-29: список под сводкой — все расхождения или топ-10 самых дорогих недостач (по закупке; нет закупки — по цене продажи).</summary>
+    private void FillList()
+    {
+        var all = _preview.Items
+            .Where(i => i.Row.HasDifference || Math.Abs(i.Send - i.Fact) > 0.0004)
+            .Select(i => i.Row)
+            .ToList();
+        var top = all
+            .Where(r => r.HasDifference && r.Difference < 0)
+            .Select(r => (Row: r, Loss: RevisionRowView.DiffMoney(r, r.Difference)?.Amount ?? 0))
+            .OrderBy(x => x.Loss)
+            .Take(10)
+            .Select(x => x.Row)
+            .ToList();
+        if (_topOnly && top.Count == 0)
+        {
+            _topOnly = false; // недостач не осталось — показываем все расхождения
+            _rebuilding = true;
+            _segAll.IsChecked = true;
+            _rebuilding = false;
+        }
+
+        var count = all.Count(r => r.HasDifference);
+        _segAll.Content = T($"Все расхождения: {count}", $"Бардык айырмалар: {count}", $"All differences: {count}", $"Tüm farklar: {count}", $"Barcha farqlar: {count}");
+        _segTop.Content = T($"Топ-{top.Count} недостач", $"Жетишсиздиктин топ-{top.Count}", $"Top {top.Count} shortages", $"En büyük {top.Count} eksik", $"Eng katta {top.Count} kamomad");
+        _list.ItemsSource = _topOnly ? top : all;
+    }
+
+    private void OnViewToggle()
+    {
+        if (_rebuilding)
+            return;
+        var topOnly = _segTop.IsChecked == true;
+        if (topOnly == _topOnly)
+            return;
+        _topOnly = topOnly;
+        FillList();
     }
 
     private static string StageText(RevisionApplyProgress p) => p.Stage switch

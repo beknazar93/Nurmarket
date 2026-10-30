@@ -153,7 +153,9 @@ public sealed class ServerSalesSummary
                 debt += total;
         }
 
-        return (cash, mixed, debt, (Revenue ?? 0m) - cash - mixed - debt);
+        // 2026-10-31 (живой обход, В-5): cards.revenue — «без долга» (наличные + безнал = выручка, проверено на неделе: 4 411 + 1 566,60 = 5 977,60,
+        // долг 45,00 лежит отдельно в payment_methods). Раньше долг вычитался из выручки второй раз, и безнал был занижен на сумму долга.
+        return (cash, mixed, debt, (Revenue ?? 0m) - cash - mixed);
     }
 
     private static decimal? Parse(JsonElement value)

@@ -9,7 +9,7 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 public static class PosMessageBox
 {
     public static MessageBoxResult Show(string messageBoxText) =>
-        Show(messageBoxText, Tr.T("Nur Market — Касса", "Nur Market — Касса", "Nur Market — Till", "Nur Market — Kasa", "Nur Market — Kassa"));
+        Show(messageBoxText, Tr.T("NurCRM — Касса", "NurCRM — Касса", "NurCRM — Till", "NurCRM — Kasa", "NurCRM — Kassa"));
 
     public static MessageBoxResult Show(string messageBoxText, string caption) =>
         Show(messageBoxText, caption, MessageBoxButton.OK);

@@ -113,7 +113,7 @@ public sealed class MainToolbarViewModel : ViewModelBase
     public void RefreshUserTitle()
     {
         UserTitle = string.IsNullOrWhiteSpace(_session.PosCashboxDisplayName)
-            ? Tr.T("Касса — Nur Market", "Касса — Nur Market", "Till — Nur Market", "Kasa — Nur Market", "Kassa — Nur Market")
+            ? Tr.T("Касса — NurCRM", "Касса — NurCRM", "Till — NurCRM", "Kasa — NurCRM", "Kassa — NurCRM")
             : _session.PosCashboxDisplayName!;
     }
 

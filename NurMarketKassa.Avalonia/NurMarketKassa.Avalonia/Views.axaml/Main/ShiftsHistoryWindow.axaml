@@ -9,7 +9,7 @@
         Width="1280"
         Height="840"
         MinWidth="960"
-        MinHeight="640"
+        MinHeight="520"
         WindowStartupLocation="CenterOwner"
         WindowState="Maximized"
         SystemDecorations="None"

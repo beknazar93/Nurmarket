@@ -24,7 +24,9 @@ namespace NurMarketKassa.Services;
 /// </summary>
 public sealed class CatalogFeedSync
 {
-    public sealed record TickResult(int Added, int Changed, int Deleted, bool NeedFullSync, string Note)
+    /// <param name="Ok">2026-10-29: сервер ответил на опрос (304, пустая страница или изменения) — лента жива. Раньше «жива» считалась только при 304 или
+    /// изменениях, а пустая страница (первый опрос после изменений: ETag ещё не привязан к новому курсору) её не подтверждала.</param>
+    public sealed record TickResult(int Added, int Changed, int Deleted, bool NeedFullSync, string Note, bool Ok = false)
     {
         public bool Applied => Added + Changed + Deleted > 0;
         public static TickResult None(string note) => new(0, 0, 0, false, note);
@@ -65,6 +67,10 @@ public sealed class CatalogFeedSync
     private string? _etagCursor;
     private DateTime _pausedUntilUtc = DateTime.MinValue;
     private string? _lastLoggedProblem;
+    private DateTime _cursorAdvancedUtc = DateTime.UtcNow;
+
+    /// <summary>Сколько держим курсор неподвижным на пустых страницах (чтобы работал 304 по ETag).</summary>
+    public static readonly TimeSpan CursorFreeze = TimeSpan.FromMinutes(10);
 
     /// <param name="accountKey">Ключ аккаунта (LastCatalogUserKey): другой аккаунт — другой курсор.</param>
     /// <param name="allowStock">Можно ли применять остаток из ленты (см. описание класса).</param>
@@ -82,6 +88,17 @@ public sealed class CatalogFeedSync
 
     public string? Cursor => _cursor;
 
+    /// <summary>2026-10-30 (приёмка 1.17.66, «Важно» 8): сохранённый курсор этого аккаунта/филиала/сервера есть (catalog_feed_cursor.json) — каталог при запуске можно
+    /// дочитать лентой (дельта), а не качать целиком.</summary>
+    public bool HasSavedCursor()
+    {
+        EnsureLoaded();
+        return !string.IsNullOrWhiteSpace(_cursor);
+    }
+
+    /// <summary>2026-10-30: последний опрос показал, что сервер ленту не поддерживает (404/405/501…) — тогда каталог при запуске качается по-старому.</summary>
+    public bool Unsupported { get; private set; }
+
     public bool IsPaused => DateTime.UtcNow < _pausedUntilUtc;
 
     /// <summary>Смена аккаунта: курсор и ETag забываются (и на диске тоже).</summary>
@@ -92,9 +109,22 @@ public sealed class CatalogFeedSync
         _etagCursor = null;
         _scope = null;
         _loaded = true;
+        _cursorAdvancedUtc = DateTime.UtcNow;
         _pausedUntilUtc = DateTime.MinValue;
         try { if (File.Exists(StorePath)) File.Delete(StorePath); }
         catch (Exception ex) { PosLogger.Log($"CATALOG_FEED: файл курсора не удалён: {ex.Message}", "CATALOG_FEED"); }
+    }
+
+    /// <summary>2026-10-30 (первая загрузка лентой): каталог уже получен лентой до этого курсора — опрос продолжает с него, а не читает
+    /// всю ленту (16 тыс. товаров) второй раз.</summary>
+    public void AdoptCursor(string cursor)
+    {
+        EnsureLoaded();
+        _cursor = cursor;
+        _etag = null;
+        _etagCursor = null;
+        _cursorAdvancedUtc = DateTime.UtcNow;
+        Save();
     }
 
     /// <summary>Один опрос: читает страницы ленты, пока сервер говорит has_more, применяет к локальному каталогу и сдвигает курсор.
@@ -116,6 +146,7 @@ public sealed class CatalogFeedSync
         var needFull = false;
         var pages = 0;
         var notes = "";
+        var ok = false;
         try
         {
             while (pages < MaxPagesPerTick)
@@ -128,6 +159,7 @@ public sealed class CatalogFeedSync
 
                 if (page.Status == CatalogFeedStatus.Unsupported)
                 {
+                    Unsupported = true;
                     Pause(UnsupportedRetry, $"лента не поддерживается сервером ({page.Note}) — прежняя логика, повтор через {UnsupportedRetry.TotalMinutes:0} мин");
                     break;
                 }
@@ -135,10 +167,17 @@ public sealed class CatalogFeedSync
                 if (page.Status == CatalogFeedStatus.NotModified)
                 {
                     notes = "304";
+                    ok = true;
+                    Unsupported = false;
+                    Interlocked.Increment(ref _stat304);
                     ClearProblem();
                     break;
                 }
 
+                ok = true;
+                Unsupported = false;
+                if (page.Items.Count == 0 && page.DeletedIds.Count == 0)
+                    Interlocked.Increment(ref _statEmpty);
                 ClearProblem();
                 if ((page.Items.Count > 0 || page.DeletedIds.Count > 0) && string.IsNullOrWhiteSpace(page.NextCursor))
                 {
@@ -167,8 +206,17 @@ public sealed class CatalogFeedSync
                 }
 
                 var moved = !string.IsNullOrWhiteSpace(page.NextCursor) && !string.Equals(page.NextCursor, requested, StringComparison.Ordinal);
+                // 2026-10-29 (замер скорости): на пустой странице сервер возвращает курсор = своё текущее время, поэтому каждый опрос шёл с новым
+                // since и ETag никогда не совпадал (304 не бывало вовсе). Пустая страница курсор НЕ двигает (ничего не пропущено: после requested
+                // изменений нет, а следующий опрос по-прежнему спрашивает всё после requested), но не дольше CursorFreeze — старый курсор сервер мог забыть.
+                var emptyPage = page.Items.Count == 0 && page.DeletedIds.Count == 0 && !page.HasMore;
+                if (moved && emptyPage && requested is not null && DateTime.UtcNow - _cursorAdvancedUtc < CursorFreeze)
+                    moved = false;
                 if (moved)
+                {
                     _cursor = page.NextCursor;
+                    _cursorAdvancedUtc = DateTime.UtcNow;
+                }
                 // ETag относится к ответу на запрос с курсором requested; уйдёт вместе с ним, пока курсор не изменился.
                 _etag = page.ETag;
                 _etagCursor = requested;
@@ -188,6 +236,14 @@ public sealed class CatalogFeedSync
             var wait = ApiThrottle.RemainingBlock > ThrottlePause ? ApiThrottle.RemainingBlock : ThrottlePause;
             Pause(wait, $"сервер ответил 429 — пауза {wait.TotalSeconds:0} с");
         }
+        catch (ApiException ex) when (ex.StatusCode == 410)
+        {
+            // 2026-10-30 (15 тыс. товаров): 410 cursor_expired — сервер забыл курсор: изменения за этот период могли пропасть. Курсор сбрасываем
+            // (следующий такт — с начала ленты) и просим одну полную сверку каталога; раньше 410 шёл в «ошибку» и повторялся с тем же курсором вечно.
+            Reset();
+            needFull = true;
+            Pause(ErrorPause, "сервер забыл курсор ленты (410 cursor_expired): курсор сброшен, нужна полная сверка");
+        }
         catch (ApiException ex) when (ex.StatusCode is 400 or 403)
         {
             // Сервер отказал в самом запросе (например, курсор не принят): пробуем с начала, но не чаще раза в 10 минут.
@@ -204,7 +260,27 @@ public sealed class CatalogFeedSync
             Pause(ErrorPause, $"сбой {ex.GetType().Name}: {ex.Message}");
         }
 
-        return new TickResult(added, changed, deleted, needFull, notes);
+        LogStatsIfDue();
+        return new TickResult(added, changed, deleted, needFull, notes, ok);
+    }
+
+    // 2026-10-29 (скорость синхронизации): раз в 5 минут одна строка — сколько опросов закончились 304 (сервер не собирал ответ) и сколько пустым 200.
+    // Видно, что If-None-Match без W/ работает (304 появляется со второго опроса без изменений).
+    private static int _stat304, _statEmpty;
+    private static long _statLoggedTicks = DateTime.UtcNow.Ticks;
+
+    private static void LogStatsIfDue()
+    {
+        var now = DateTime.UtcNow.Ticks;
+        if (now - Interlocked.Read(ref _statLoggedTicks) < TimeSpan.FromMinutes(5).Ticks)
+            return;
+        Interlocked.Exchange(ref _statLoggedTicks, now);
+        var n304 = Interlocked.Exchange(ref _stat304, 0);
+        var empty = Interlocked.Exchange(ref _statEmpty, 0);
+        // 2026-10-30: рядом — число всех запросов к NurCRM за период и в минуту (до этого частоту считали только по коду).
+        var requests = SyncCenter.TakeRequestCount();
+        if (n304 + empty > 0 || requests > 0)
+            PosLogger.Log($"CATALOG_FEED: за 5 минут опросов без изменений: 304 — {n304}, пустых 200 — {empty}; запросов к серверу — {requests} (≈{requests / 5.0:0.#} в минуту).", "CATALOG_FEED");
     }
 
     private void Pause(TimeSpan span, string why)
@@ -235,6 +311,7 @@ public sealed class CatalogFeedSync
 
         _loaded = true;
         _scope = scope;
+        _cursorAdvancedUtc = DateTime.UtcNow;
         _cursor = null;
         _etag = null;
         _etagCursor = null;

@@ -189,7 +189,7 @@ def make_release(version, commit_sha, body, prerelease=False):
     # 2026-10-15: релиз создаётся черновиком и публикуется только после загрузки всех файлов —
     # при обрыве загрузки кассы не видят полупустой релиз, а шаг resume его догружает.
     st, rel = api("POST", f"https://api.github.com/repos/{REPO}/releases", {
-        "tag_name": tag, "target_commitish": commit_sha, "name": f"NurMarketKassa {version}",
+        "tag_name": tag, "target_commitish": commit_sha, "name": f"NurCRM Kassa {version}",
         "body": body, "draft": True, "prerelease": prerelease,
     })
     print(f"релиз {tag} (черновик): HTTP {st}")
@@ -233,7 +233,7 @@ def update_release(version, body):
     if not rel:
         raise SystemExit(f"{tag}: релиза нет")
     st, _ = api("PATCH", f"https://api.github.com/repos/{REPO}/releases/{rel['id']}",
-                {"body": body, "name": f"NurMarketKassa {version}", "prerelease": True})
+                {"body": body, "name": f"NurCRM Kassa {version}", "prerelease": True})
     print(f"описание и пометка «тестовая»: HTTP {st}")
     for a in rel["assets"]:
         if a["name"] == "releases.win.json":

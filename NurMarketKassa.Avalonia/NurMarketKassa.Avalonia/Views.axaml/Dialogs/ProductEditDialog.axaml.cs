@@ -119,6 +119,11 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     /// обычную карточку товара в Складе. См. OfferAddUnknownProductAsync в MainWindow.Dialogs.cs.</summary>
     public bool IsQuickAddMode { get; }
 
+    /// <summary>2026-10-30 (приёмка 1.17.65, «Права»): закупка, наценка, прибыль и закупка упаковки видны только ролям с правом «видеть закупку»
+    /// (как в ревизии склада и во вкладке «Поступления»). Кассиру поля скрыты; внутри окна значение хранится лишь затем, чтобы сохранение
+    /// не стёрло закупку на сервере (в привязки она не отдаётся).</summary>
+    public bool ShowPurchase { get; } = WarehouseWindow.RevisionShowPurchase;
+
     public ProductEditDialog(ICatalogApiService catalogApi, CatalogProductTileVm? existing, bool quickAddMode = false)
     {
         _catalogApi = catalogApi;
@@ -210,6 +215,12 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         GenerateBarcodeCommand = new RelayCommand(GenerateBarcode);
 
         InitializeComponent();
+        // 2026-10-30 (приёмка 1.17.65): без права видеть закупку в ряду цен остаётся только «Цена продажи» (на всю половину ряда, не справа в углу).
+        if (!ShowPurchase)
+        {
+            NarrowRowPrices.ColumnDefinitions = new ColumnDefinitions("*,18,*");
+            Grid.SetColumn(SalePriceStack, 0);
+        }
         // 2026-10-18, редизайн (этап 5): карточка ModalShell одной высоты на всех вкладках (окно не прыгает при смене
         // вкладки) — 820, но не выше 85 % рабочей области экрана кассы (ModalShell.MaxHeight). На Android размер окна
         // задаёт WindowLayerHost (на телефоне — во весь экран), там карточка тянется по окну: окну, как до этапа 5,
@@ -321,11 +332,19 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 _ = FillNameFromGlobalBaseAsync(Barcode);
             }
         };
-        // 2026-10-02, вкладки карточки: история закупок грузится при раскрытии — раскрываем при выборе вкладки.
+        // 2026-10-02, вкладки карточки: история закупок грузится при первом показе вкладки (запрос к серверу, карточку открывают часто).
+        // 2026-10-30: вкладка стала «Поступления» (партии, поставщик, накладная) — ProductReceiptsView.
         ProductTabs.SelectionChanged += (_, _) =>
         {
             if (ReferenceEquals(ProductTabs.SelectedItem, HistoryTab))
-                PurchaseHistoryExpander.IsExpanded = true;
+                _receiptsView?.EnsureLoaded();
+        };
+        Closed += (_, _) => _receiptsView?.Stop();
+        // 2026-10-30: «Поступления и партии» из меню строки товара — карточка сразу открывается на этой вкладке.
+        Opened += (_, _) =>
+        {
+            if (StartOnReceiptsTab && HistoryTab.IsVisible)
+                ProductTabs.SelectedItem = HistoryTab;
         };
         ApplyVariantsTexts();
         DataContext = this;
@@ -667,16 +686,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
     }
 
-    /// <summary>Строка истории закупок в карточке.</summary>
-    private sealed class PurchaseHistoryRow
-    {
-        public string WhenText { get; init; } = "";
-        public string MainText { get; init; } = "";
-        public string DetailText { get; init; } = "";
-        public string TotalText { get; init; } = "";
-    }
+    /// <summary>2026-10-30: открыть карточку сразу на вкладке «Поступления» (меню строки товара на складе).</summary>
+    public bool StartOnReceiptsTab { get; set; }
 
-    private bool _purchaseHistoryLoaded;
+    private ProductReceiptsView? _receiptsView;
 
     private void SetupPurchaseHistory()
     {
@@ -684,61 +697,19 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         if (_existing is null || IsQuickAddMode || string.IsNullOrWhiteSpace(_existing.Id))
             return;
 
-        PurchaseHistoryExpander.IsVisible = true;
-        PurchaseHistoryExpander.PropertyChanged += async (_, e) =>
-        {
-            if (e.Property == Expander.IsExpandedProperty && PurchaseHistoryExpander.IsExpanded && !_purchaseHistoryLoaded)
-                await LoadPurchaseHistoryAsync();
-        };
-    }
-
-    private async Task LoadPurchaseHistoryAsync()
-    {
-        _purchaseHistoryLoaded = true;
-        PurchaseHistoryStatus.Text = Tr.T("Загружаю историю закупок…", "Сатып алуулар тарыхы жүктөлүүдө…",
-            "Loading purchase history…", "Alım geçmişi yükleniyor…", "Xaridlar tarixi yuklanmoqda…");
-
-        List<PurchaseReceivingService.HistoryEntry> history;
-        try
-        {
-            history = await PurchaseReceivingService.Instance.LoadHistoryAsync(_existing!.Id).ConfigureAwait(true);
-        }
-        catch (Exception ex)
-        {
-            _purchaseHistoryLoaded = false;
-            PurchaseHistoryStatus.Text = Tr.T("История закупок не загрузилась: ", "Сатып алуулар тарыхы жүктөлгөн жок: ",
-                "Purchase history failed to load: ", "Alım geçmişi yüklenemedi: ", "Xaridlar tarixi yuklanmadi: ") + ex.Message;
-            return;
-        }
-
-        var som = Tr.T("сом", "сом", "som", "som", "so'm");
-        PurchaseHistoryList.ItemsSource = history.Select(h =>
-        {
-            var unit = string.IsNullOrWhiteSpace(h.Unit) ? "шт" : h.Unit;
-            var details = new List<string>();
-            if (h.SalePrice is { } sale && sale > 0)
-                details.Add(Tr.T("продажа", "сатуу", "sale", "satış", "sotuv narxi") + $" {sale:0.##} {som}");
-            if (!string.IsNullOrWhiteSpace(h.SupplierName))
-                details.Add(Tr.T("поставщик", "жеткирүүчү", "supplier", "tedarikçi", "yetkazib beruvchi") + " " + h.SupplierName);
-            if (!string.IsNullOrWhiteSpace(h.Employee))
-                details.Add(Tr.T("принял", "кабыл алган", "received by", "teslim alan", "qabul qiluvchi") + " " + h.Employee);
-            details.Add(h.Source);
-
-            return new PurchaseHistoryRow
-            {
-                WhenText = h.At == default ? "—" : h.At.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture),
-                MainText = $"{h.Quantity:0.###} {unit} × {h.PurchasePrice:0.##} {som}",
-                DetailText = string.Join("  ·  ", details),
-                TotalText = $"{h.Quantity * h.PurchasePrice:0.##} {som}",
-            };
-        }).ToList();
-
-        PurchaseHistoryStatus.Text = history.Count == 0
-            ? Tr.T("Закупок этого товара пока не было.", "Бул товар боюнча азырынча сатып алуу болгон эмес.",
-                "No purchases of this product yet.", "Bu ürün için henüz alım yapılmadı.", "Bu mahsulot hali xarid qilinmagan.")
-            : Tr.T("Последняя цена закупки", "Акыркы сатып алуу баасы", "Last purchase price", "Son alış fiyatı", "Oxirgi xarid narxi")
-              + $": {history[0].PurchasePrice:0.##} {som}  ·  "
-              + Tr.T("закупок", "сатып алуулар", "purchases", "alım", "xaridlar soni") + $": {history.Count}";
+        // 2026-10-30: закупочные цены и поставщики — только ролям с правом (как «Закупка» в ревизии склада); остальным — дата, количество, остаток партии.
+        var showMoney = WarehouseWindow.RevisionShowPurchase;
+        var productId = _existing.Id;
+        HistoryTab.Header = Tr.T("Поступления", "Кирүүлөр", "Receipts", "Girişler", "Kirimlar");
+        var api = new NurMarketKassa.Services.Api.SupplierApiService(App.GetRequiredService<NurMarketKassa.Services.NurMarketApiClient>());
+        var view = new ProductReceiptsView(productId, _existing.Quantity, "", showMoney,
+            (progress, ct) => ProductReceiptsService.LoadAsync(api, productId, null, progress, ct, showMoney,
+                new[] { _existing.Barcode }.Concat((_existing.AlternateBarcodeVariants ?? new()).Select(v => v.Barcode)).Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c!).ToList())); // 2026-10-30: + совпадение по штрихкоду и доп. штрихкодам
+        view.OpenReceipt = (row, filePath) => ProductReceiptsActions.OpenReceiptAsync(this, api, row, productId, filePath);
+        view.OpenSupplier = row => ProductReceiptsActions.OpenSupplierAsync(this, api, row);
+        _receiptsView = view;
+        ReceiptsHost.Child = view;
+        HistoryTab.IsVisible = true;
     }
 
     /// <summary>Parameterless ctor required by Avalonia XAML previewer/designer only.</summary>
@@ -1434,7 +1405,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         {
             var purchase = TryParseNumber(_purchasePrice);
             var sale = TryParseNumber(_price);
-            if (purchase is not > 0 || sale is not > 0)
+            if (!ShowPurchase || purchase is not > 0 || sale is not > 0) // 2026-10-30: прибыль/наценка выдают закупку — кассиру не показываем
                 return "";
             var profit = sale.Value - purchase.Value;
             var markup = (sale.Value / purchase.Value - 1) * 100;
@@ -1460,7 +1431,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     // переключатель снова виден во всех режимах магазина, как на сайте NurCRM.
     public bool ShowWeightToggle => !IsQuickAddMode;
     public string Quantity { get => _quantity; set { _quantity = value; OnPropertyChanged(); OnPropertyChanged(nameof(ProfitText)); OnPropertyChanged(nameof(HasProfitText)); } }
-    public string PurchasePrice { get => _purchasePrice; set { _purchasePrice = value; OnPropertyChanged(); RaisePriceWarning(); } }
+    public string PurchasePrice { get => ShowPurchase ? _purchasePrice : ""; set { _purchasePrice = value; OnPropertyChanged(); RaisePriceWarning(); } }
 
     /// <summary>2026-10-05, владелец: «если во время редактирования или создания товара закупочная цена превышает
     /// продажную — там должно быть красное предупреждение». Пусто — цены в порядке (или одна из них не введена).</summary>
@@ -1470,7 +1441,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         {
             var purchase = TryParseNumber(_purchasePrice);
             var sale = TryParseNumber(_price);
-            if (purchase is not > 0 || sale is not > 0 || purchase.Value <= sale.Value)
+            if (!ShowPurchase || purchase is not > 0 || sale is not > 0 || purchase.Value <= sale.Value) // 2026-10-30: предупреждение называет закупку — только по праву
                 return "";
             var p = purchase.Value.ToString("0.##", CultureInfo.InvariantCulture);
             var s = sale.Value.ToString("0.##", CultureInfo.InvariantCulture);
@@ -1501,7 +1472,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     /// _suppressPriceSync не даёт зациклиться, когда один сеттер программно меняет другой.</summary>
     public string MarkupPercent
     {
-        get => _markupPercent;
+        get => ShowPurchase ? _markupPercent : ""; // 2026-10-30: наценка вместе с ценой продажи выдаёт закупку
         set
         {
             _markupPercent = value;
@@ -1663,7 +1634,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                     "The price of the whole pack is not set — enter the “Sale price” on the “Main” tab: the piece price is calculated from it.",
                     "Tüm paketin fiyatı girilmedi — «Ana» sekmesinde «Satış fiyatı»nı girin: adet fiyatı ondan hesaplanır.",
                     "Butun qadoq narxi kiritilmagan — «Asosiy» yorlig'ida «Sotuv narxi»ni kiriting: dona narxi undan hisoblanadi.");
-            var buyText = buy > 0
+            var buyText = ShowPurchase && buy > 0 // 2026-10-30: закупку упаковки видят только роли с правом
                 ? Tr.T($" · закупка упаковки: {Money(buy)} сом", $" · таңгактын сатып алуу баасы: {Money(buy)} сом", $" · pack cost: {Money(buy)} som", $" · paket alış fiyatı: {Money(buy)} som", $" · qadoq xarid narxi: {Money(buy)} so'm")
                 : "";
             return Tr.T($"Цена упаковки (целой): {Money(pack)} сом{buyText} — берётся с вкладки «Основное».",
@@ -1684,6 +1655,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             var buy = TryParseNumber(_purchasePrice) ?? 0;
             if (qty < 2 || piece <= 0)
                 return "";
+            // 2026-10-30: без права на закупку — только цены (наценка, прибыль и закупка штуки раскрыли бы закупку).
+            if (!ShowPurchase)
+                return Tr.T($"Цена штуки {Money(piece)} сом × {Money(qty)} шт", $"Штуканын баасы {Money(piece)} сом × {Money(qty)} шт", $"Piece price {Money(piece)} som × {Money(qty)} pcs",
+                    $"Adet fiyatı {Money(piece)} som × {Money(qty)} adet", $"Dona narxi {Money(piece)} so'm × {Money(qty)} dona");
             if (buy <= 0)
                 return Tr.T("Закупка штуки неизвестна — укажите закупку упаковки на вкладке «Основное».", "Штуканын сатып алуу баасы белгисиз — «Негизги» өтмөгүндө таңгактын сатып алуу баасын жазыңыз.",
                     "The piece cost is unknown — enter the pack cost on the “Main” tab.", "Adet alış fiyatı bilinmiyor — «Ana» sekmesinde paket alış fiyatını girin.", "Dona xarid narxi noma'lum — «Asosiy» yorlig'ida qadoq xarid narxini kiriting.");
@@ -1728,7 +1703,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
 
     // ---- только вид (спека Fable): карточка «Целая упаковка», подписи под полем, цвет строки расчёта, кнопка «Вернуть авто»
     public string PackWholePrice => (TryParseNumber(_price) ?? 0) > 0 ? Money(TryParseNumber(_price)!.Value) : "—";
-    public string PackWholeBuy => (TryParseNumber(_purchasePrice) ?? 0) > 0 ? Money(TryParseNumber(_purchasePrice)!.Value) : "—";
+    public string PackWholeBuy => !ShowPurchase ? "" : (TryParseNumber(_purchasePrice) ?? 0) > 0 ? Money(TryParseNumber(_purchasePrice)!.Value) : "—";
     public string PackSom => Tr.T("сом", "сом", "som", "som", "so'm");
     public bool PackCalcOk => HasPackPieceInfo && !HasPackWarning;
     public bool PackCalcWarn => HasPackPieceInfo && HasPackWarning;

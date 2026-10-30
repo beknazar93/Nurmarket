@@ -240,7 +240,7 @@
                                     BorderThickness="0,0,0,1" Padding="12,8">
                                 <Grid ColumnDefinitions="Auto,*,Auto">
                                     <PathIcon Data="{StaticResource IconMenu}" Width="14" Height="14" Foreground="{DynamicResource BrushText}"/>
-                                    <TextBlock Grid.Column="1" Text="Nur Market" Margin="8,0" FontWeight="SemiBold"
+                                    <TextBlock Grid.Column="1" Text="NurCRM" Margin="8,0" FontWeight="SemiBold"
                                                FontSize="{DynamicResource AppFontSize}" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
                                         <Ellipse Width="8" Height="8" Fill="{DynamicResource BrushUiStatusOk}" VerticalAlignment="Center"/>

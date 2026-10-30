@@ -14,6 +14,7 @@ import '../catalog/product_matcher.dart' show autoGap, autoScore;
 import '../db/database.dart';
 import '../providers.dart';
 import 'ai_access.dart';
+import 'ai_image.dart';
 import 'assistant/ai_journal.dart';
 import 'cam_aliases.dart';
 import 'gemini_keys.dart';
@@ -111,9 +112,11 @@ class VisionService {
   static String? _workingModel;
   final Dio _http;
 
-  /// 2026-10-22 (советник мобилки): сброс запомненных модели и шагов «размышлений» — для тестов.
-  @visibleForTesting
-  static void resetForTest() {
+  /// 2026-10-29 (полная изоляция аккаунтов): секреты ИИ в защищённом хранилище телефона — вход другим аккаунтом их стирает.
+  static const accountSecretKeys = [_keyName, _sharedKeyName, _badKeysName, _extraName, 'ai.groq', 'ai.openrouter'];
+
+  /// 2026-10-29: вошёл другой аккаунт — всё запомненное в памяти (ключи, модель, правило ИИ, «не подошло») забывается.
+  static void forgetAccount() {
     _workingModel = null;
     _thinkStep.clear();
     _list = const [];
@@ -127,8 +130,13 @@ class VisionService {
     _openRouter = null;
     _fallbackLoaded = false;
     lastChatError = null;
+    lastChatModel = null;
     AiAccessRepository.resetForTest();
   }
+
+  /// 2026-10-22 (советник мобилки): сброс запомненных модели и шагов «размышлений» — для тестов.
+  @visibleForTesting
+  static void resetForTest() => forgetAccount();
 
   /// 2026-10-27: прошло 10 минут — запомненный список ключей надо перечитать (для тестов; без выхода из программы).
   @visibleForTesting
@@ -644,6 +652,7 @@ class VisionService {
   Future<List<(int, int)>> identify(Uint8List shot, List<(String name, List<Uint8List> pngs)> refs) async {
     final k = await key();
     if (k == null || refs.isEmpty) return const [];
+    shot = await shrinkForAi(shot); // 2026-10-30 (оптимизация, п. 5): ≤ 1280 px вместо 1–3 МБ с камеры
     final parts = <Map<String, dynamic>>[
       {
         'text':
@@ -887,6 +896,7 @@ class VisionService {
   Future<ScaleReading> readScale(Uint8List jpeg, {bool withProduct = true, List<String> names = const []}) async {
     final k = await key();
     if (k == null) throw const VisionException('no key', noKey: true);
+    jpeg = await shrinkForAi(jpeg); // 2026-10-30 (оптимизация, п. 5)
     final task = StringBuffer()
       ..write('На фото — торговые весы магазина и товар на них. ')
       ..write(withProduct ? '1) Какой товар лежит на весах (как называют в магазине: «Картофель», «Лук репчатый», «Яблоки»). ' : '')
@@ -925,6 +935,8 @@ class VisionService {
   Future<List<SeenItem>> recognize(Uint8List jpeg, {String mode = 'sale', String mime = 'image/jpeg'}) async {
     final k = await key();
     if (k == null) throw const VisionException('no key', noKey: true);
+    // 2026-10-30 (оптимизация, п. 5): снимок для ИИ ≤ 1280 px (накладная — 2048 px, мелкий текст); PDF и чужой тип не трогаем
+    if (mime == 'image/jpeg') jpeg = await shrinkForAi(jpeg, maxSide: mode == 'invoice' ? 2048 : 1280);
     final task = switch (mode) {
       'invoice' =>
         'На фото (или в файле) — накладная поставщика. Перечисли строки товаров: название как в накладной, количество (count), цена за штуку (label_price), штрихкод или артикул — если для него есть колонка.',
@@ -968,6 +980,7 @@ class VisionService {
   Future<String> describe(String name, String barcode, {Uint8List? photo}) async {
     final k = await key();
     if (k == null) throw const VisionException('no key', noKey: true);
+    if (photo != null) photo = await shrinkForAi(photo, maxSide: 1024); // 2026-10-30 (оптимизация, п. 5)
     Map<String, dynamic> body(bool search) => {
       'systemInstruction': {
         'parts': [

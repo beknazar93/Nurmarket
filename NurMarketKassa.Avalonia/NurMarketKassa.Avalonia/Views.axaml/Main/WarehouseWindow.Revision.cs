@@ -69,6 +69,12 @@ public partial class WarehouseWindow
     private ListBox _revList = null!;
     private TextBlock _revEmptyList = null!;
     private TextBlock _revTotalsText = null!;
+    private WrapPanel _revMoneyPanel = null!;
+    private ContentControl _revHeaderHost = null!;
+    private TextBlock _revCardCost = null!;
+    private TextBlock _revCardMoney = null!;
+    private Control _revCardCostBox = null!;
+    private Control _revCardMoneyBox = null!;
     private TextBlock _revMessage = null!;
     private Button _revFinishButton = null!;
     private Button _revDiscardButton = null!;
@@ -95,8 +101,10 @@ public partial class WarehouseWindow
     /// <summary>Идёт ревизия, которую нельзя терять при уходе из раздела владельца (подсчёт и открытое окно).</summary>
     private bool RevisionKeepAlive => _rev is { IsCompleted: false, CountedCount: > 0 } || _rev is { IsApplying: true };
 
-    /// <summary>Закупочные цены в выгрузке — только в программе владельца (вопрос В-7 ТЗ: кассиру закупку не показываем).</summary>
-    private static bool RevisionShowPurchase => AppMode.IsOwner;
+    /// <summary>Закупочные цены в выгрузке — только в программе владельца (вопрос В-7 ТЗ: кассиру закупку не показываем).
+    /// 2026-10-29 (владелец: «где приходные цены?»): то же видит владелец/администратор магазина и автономный режим в обычной кассе —
+    /// как доступ к ключам ИИ в настройках; кассир (роль не owner/admin) закупку по-прежнему не видит. Права «видеть закупку» в проекте нет.</summary>
+    internal static bool RevisionShowPurchase => AppMode.IsOwner || ReceivingMarkupDialog.CanEditSettings();
 
     // ------------------------------------------------------------------ сборка вкладки
 
@@ -274,7 +282,9 @@ public partial class WarehouseWindow
         var card = BuildRevisionCard();
 
         // --- список
-        var header = RevisionRowView.BuildHeader(false);
+        // 2026-10-29: шапку пересобираем при открытии рабочего экрана (колонки «Закупка» и «Сумма разницы» зависят от роли пользователя).
+        _revHeaderHost = new ContentControl { Content = RevisionRowView.BuildHeader(false) };
+        var header = _revHeaderHost;
         _revList = new ListBox
         {
             SelectionMode = SelectionMode.Single,
@@ -333,14 +343,20 @@ public partial class WarehouseWindow
             buttons.Children.Add(b);
         }
 
+        _revMoneyPanel = new WrapPanel { Orientation = Orientation.Horizontal, IsVisible = false };
         var footerText = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
         footerText.Children.Add(_revMessage);
         footerText.Children.Add(_revTotalsText);
-        var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 8, 0, 0) };
+        // 2026-10-29: денежные итоги — отдельной строкой под текстом и кнопками на всю ширину (на 1024×600 они не заезжают под кнопки).
+        var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto"), Margin = new Thickness(0, 8, 0, 0) };
         footerText.Margin = new Thickness(0, 0, 8, 0);
         Grid.SetColumn(buttons, 1);
+        Grid.SetRow(_revMoneyPanel, 1);
+        Grid.SetColumnSpan(_revMoneyPanel, 2);
+        _revMoneyPanel.Margin = new Thickness(0, 4, 0, 0);
         footer.Children.Add(footerText);
         footer.Children.Add(buttons);
+        footer.Children.Add(_revMoneyPanel);
 
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,*,Auto") };
         void Place(Control c, int row)
@@ -416,7 +432,17 @@ public partial class WarehouseWindow
         cardButtons.Children.Add(_revEqualButton);
         cardButtons.Children.Add(_revResetButton);
 
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto") };
+        // 2026-10-29: «Закупка» (цена закупки за единицу) и «Сумма» (разница × закупка) — только если пользователю можно видеть закупку.
+        _revCardCost = RevText("", 20, bold: true);
+        _revCardCost.TextWrapping = TextWrapping.NoWrap;
+        _revCardCostBox = RevLabeled(RevT("Закупка", "Сатып алуу", "Cost", "Alış", "Xarid"), _revCardCost, 90);
+        _revCardMoney = RevText("", 20, bold: true);
+        _revCardMoney.TextWrapping = TextWrapping.NoWrap;
+        _revCardMoneyBox = RevLabeled(RevT("Сумма разницы", "Айырма суммасы", "Diff. amount", "Fark tutarı", "Farq summasi"), _revCardMoney, 120);
+        _revCardCostBox.IsVisible = false;
+        _revCardMoneyBox.IsVisible = false;
+
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto,Auto,Auto") };
         void Col(Control c, int col, double left0 = 14)
         {
             Grid.SetColumn(c, col);
@@ -429,7 +455,9 @@ public partial class WarehouseWindow
         Col(bookBox, 1);
         Col(factBox, 2);
         Col(diffBox, 3);
-        Col(cardButtons, 4);
+        Col(_revCardCostBox, 4);
+        Col(_revCardMoneyBox, 5);
+        Col(cardButtons, 6);
         return SoftBox(grid);
     }
 
@@ -658,6 +686,12 @@ public partial class WarehouseWindow
         s.Changed += _revChangedHandler;
         s.StockApplied = RevisionSession.ApplyToLocalCatalog;
 
+        // 2026-10-29: колонки с деньгами — по роли пользователя (шапка, строки, карточка, итоги).
+        RevisionRowView.ShowMoney = RevisionShowPurchase;
+        _revHeaderHost.Content = RevisionRowView.BuildHeader(false);
+        _revCardCostBox.IsVisible = RevisionRowView.ShowMoney;
+        _revCardMoneyBox.IsVisible = RevisionRowView.ShowMoney;
+
         _revUiSetup = true;
         _revFilter = RevisionFilter.All;
         _revCategory = null;
@@ -748,7 +782,23 @@ public partial class WarehouseWindow
             $"Counted {ReportFormat.Integer(t.Counted)} of {ReportFormat.Integer(t.Total)}", $"Sayılan {ReportFormat.Integer(t.Counted)} / {ReportFormat.Integer(t.Total)}", $"Sanaldi {ReportFormat.Integer(t.Counted)} / {ReportFormat.Integer(t.Total)}");
         text += "  ·  " + RevT($"с расхождением {ReportFormat.Integer(t.WithDifference)}", $"айырмасы бар {ReportFormat.Integer(t.WithDifference)}",
             $"with differences {ReportFormat.Integer(t.WithDifference)}", $"farklı {ReportFormat.Integer(t.WithDifference)}", $"farqli {ReportFormat.Integer(t.WithDifference)}");
-        if (t.WithDifference > 0)
+        // 2026-10-29: владельцу/администратору деньги по расхождению — отдельными строками ниже (по закупке и по продаже), кассиру — как раньше, по продаже.
+        var money = RevisionRowView.ShowMoney;
+        _revMoneyPanel.Children.Clear();
+        if (money)
+        {
+            foreach (var (lineText, brush, tip) in RevisionRowView.MoneyLines(t))
+            {
+                var tb = new TextBlock { Text = lineText, FontSize = 12.5, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 18, 0), TextWrapping = TextWrapping.NoWrap };
+                tb.Bind(TextBlock.ForegroundProperty, tb.GetResourceObservable(brush));
+                if (tip is not null)
+                    ToolTip.SetTip(tb, tip);
+                _revMoneyPanel.Children.Add(tb);
+            }
+        }
+
+        _revMoneyPanel.IsVisible = _revMoneyPanel.Children.Count > 0;
+        if (t.WithDifference > 0 && !money)
         {
             text += "  ·  " + RevT($"недостача −{ReportFormat.Quantity(t.ShortageQty)} {pcs} (−{ReportFormat.Money(t.ShortageAtSale)} {som})", $"жетишсиздик −{ReportFormat.Quantity(t.ShortageQty)} {pcs} (−{ReportFormat.Money(t.ShortageAtSale)} {som})",
                 $"shortage −{ReportFormat.Quantity(t.ShortageQty)} {pcs} (−{ReportFormat.Money(t.ShortageAtSale)} {som})", $"eksik −{ReportFormat.Quantity(t.ShortageQty)} {pcs} (−{ReportFormat.Money(t.ShortageAtSale)} {som})", $"kamomad −{ReportFormat.Quantity(t.ShortageQty)} {pcs} (−{ReportFormat.Money(t.ShortageAtSale)} {som})");
@@ -866,6 +916,8 @@ public partial class WarehouseWindow
             _revCardNote.Text = "";
             _revCardBook.Text = "";
             _revCardDiff.Text = "";
+            _revCardCost.Text = "";
+            _revCardMoney.Text = "";
             _revFactBox.Text = "";
             _revFactInitial = "";
             _revFactBox.IsEnabled = false;
@@ -910,10 +962,16 @@ public partial class WarehouseWindow
         var text = _revFactBox.Text?.Trim() ?? "";
         if (text.Length > 0 && text != _revFactInitial.Trim() && RevisionSession.TryParseEntry(text, out var v, out var add))
             fact = add ? (r.Fact ?? 0) + v : v;
+        // 2026-10-29: закупка за единицу и сумма разницы (разница × закупка; закупки нет — по цене продажи, пометка «*»).
+        _revCardCost.Text = r.HasPurchase ? ReportFormat.Money(r.PurchasePrice) : "—";
+        _revCardCost.Bind(TextBlock.ForegroundProperty, _revCardCost.GetResourceObservable(r.HasPurchase ? "BrushText" : "BrushTextSoft"));
         if (fact is not { } fv)
         {
             _revCardDiff.Text = "—";
             _revCardDiff.Foreground = null;
+            _revCardMoney.Text = "—";
+            _revCardMoney.Foreground = null;
+            ToolTip.SetTip(_revCardMoney, null);
             return;
         }
 
@@ -921,6 +979,22 @@ public partial class WarehouseWindow
         _revCardDiff.Text = d > 0 ? "+" + ReportFormat.Quantity(d) : ReportFormat.Quantity(d);
         var key = d < -0.0005 ? "BrushDanger" : d > 0.0005 ? "BrushSuccess" : "BrushText";
         _revCardDiff.Bind(TextBlock.ForegroundProperty, _revCardDiff.GetResourceObservable(key));
+        if (RevisionRowView.DiffMoney(r, d) is { } m)
+        {
+            var star = m.Fallback && Math.Abs(m.Amount) > 0.004;
+            _revCardMoney.Text = RevisionRowView.SignedMoney(m.Amount) + (star ? "*" : "");
+            _revCardMoney.Bind(TextBlock.ForegroundProperty, _revCardMoney.GetResourceObservable(key));
+            ToolTip.SetTip(_revCardMoney, star
+                ? RevT("Закупки у товара нет — сумма посчитана по цене продажи.", "Товардын сатып алуу баасы жок — сумма сатуу баасы боюнча эсептелген.",
+                    "No purchase price for this product — the amount uses the selling price.", "Ürünün alış fiyatı yok — tutar satış fiyatıyla hesaplandı.", "Mahsulotda xarid narxi yo'q — summa sotuv narxida hisoblangan.")
+                : null);
+        }
+        else
+        {
+            _revCardMoney.Text = "—";
+            _revCardMoney.Foreground = null;
+            ToolTip.SetTip(_revCardMoney, null);
+        }
     }
 
     // ------------------------------------------------------------------ ввод факта

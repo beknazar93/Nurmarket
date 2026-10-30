@@ -15,7 +15,7 @@ namespace NurMarketKassa.Droid;
 // не пересоздают окно — иначе открытый чек пережил бы пересоздание только чудом.
 
 [Activity(
-    Label = "NurMarket Касса",
+    Label = "NurCRM Касса",
     Theme = "@style/NurTheme.NoActionBar",
     Icon = "@drawable/icon",
     MainLauncher = true,
@@ -96,6 +96,7 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
 
     public override bool DispatchTouchEvent(Android.Views.MotionEvent? ev)
     {
+        NurMarketKassa.Services.SyncCenter.NoteInput(); // 2026-10-30 (оптимизация, Б1): время последнего касания — основа «простоя» на Android
         if (ev is null || !NurMarketKassa.AndroidNestedLoop.Enabled)
             return base.DispatchTouchEvent(ev);
         var copy = Android.Views.MotionEvent.Obtain(ev);
@@ -117,6 +118,7 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
 
     public override bool DispatchKeyEvent(Android.Views.KeyEvent? e)
     {
+        NurMarketKassa.Services.SyncCenter.NoteInput(); // 2026-10-30: клавиша/сканер — тоже ввод
         // Громкость, питание, камера — системе как есть.
         if (e is null || !NurMarketKassa.AndroidNestedLoop.Enabled || IsSystemKey(e.KeyCode))
             return base.DispatchKeyEvent(e);
@@ -150,11 +152,20 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
     protected override void OnStart()
     {
         base.OnStart();
+        // 2026-10-30 (оптимизация кассы, Б1): на экране — обычные интервалы опроса сервера; считаем это вводом, чтобы после долгого фона
+        // опрос сразу стал частым (подсказка FeedKick будит циклы).
+        NurMarketKassa.Services.SyncCenter.AppInBackground = false;
+        NurMarketKassa.Services.SyncCenter.WindowMinimized = false;
+        NurMarketKassa.Services.SyncCenter.NoteInput();
+        NurMarketKassa.Services.SyncCenter.FeedKick.Kick();
         KassaKeepAliveService.Start(this, IsOwnerProgram);
     }
 
     protected override void OnStop()
     {
+        // 2026-10-30 (Б1): касса в фоне живёт как служба переднего плана — опросы ленты/пульса/смены/настроек редкие (60 с и реже), LAN 15 с.
+        NurMarketKassa.Services.SyncCenter.AppInBackground = true;
+        NurMarketKassa.Services.SyncCenter.WindowMinimized = true;
         AndroidBootstrap.OnEnteredBackground();
         base.OnStop();
     }
@@ -196,7 +207,7 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
 
 /// <summary>Программа владельца — тот же код с ключом --owner (как ярлык «NurMarket Владелец» в Windows).</summary>
 [Activity(
-    Label = "NurMarket Владелец",
+    Label = "NurCRM Владелец",
     Theme = "@style/NurTheme.NoActionBar",
     Icon = "@drawable/icon_owner",
     MainLauncher = true,

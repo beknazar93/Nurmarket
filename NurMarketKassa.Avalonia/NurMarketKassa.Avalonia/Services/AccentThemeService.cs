@@ -652,11 +652,21 @@ public static class AccentThemeService
         // поэтому они должны существовать всегда, ещё до создания первого диалога. Фон самого
         // окна держим прозрачным: видимый вид даёт внутренняя карточка, у которой CornerRadius
         // действительно обрезает содержимое, а силуэт окна на уровне ОС всегда прямоугольный.
-        app.Resources["DialogTransparencyHint"] =
-            new List<WindowTransparencyLevel> { WindowTransparencyLevel.Transparent };
-        app.Resources["DialogWindowBackground"] = Brushes.Transparent;
-
         var p = dark ? skin.Dark : skin.Light;
+        // 2026-10-30 (оптимизация кассы, Б10): в режиме «Слабое устройство» (программный рендер) прозрачное окно диалога — слойное окно Windows,
+        // каждый кадр которого ЦП копирует в слой. Там диалоги — обычные непрозрачные окна, фон — цвет панели диалога (углы окна станут
+        // прямоугольными, остальной вид тот же). Блюр под модальными окнами в этом режиме уже отключён (ModalWindowManager.Backdrop).
+        if (UserPreferences.Instance.LowPerformanceMode)
+        {
+            app.Resources["DialogTransparencyHint"] = new List<WindowTransparencyLevel> { WindowTransparencyLevel.None };
+            app.Resources["DialogWindowBackground"] = Brush(p.Panel);
+        }
+        else
+        {
+            app.Resources["DialogTransparencyHint"] =
+                new List<WindowTransparencyLevel> { WindowTransparencyLevel.Transparent };
+            app.Resources["DialogWindowBackground"] = Brushes.Transparent;
+        }
 
         foreach (var key in ThemeKeys)
             app.Resources.Remove(key);

@@ -143,6 +143,7 @@ namespace NurMarketKassa.ViewModels
             IClientsApiService? clientsApi = null,
             ICustomerDisplayService? customerDisplay = null)
         {
+            PropertyChanged += RaiseRedesignDependents; // 2026-10-30: показные свойства редизайна окна оплаты (CheckoutViewModel.Redesign.cs)
             _clientsApi = clientsApi;
             _customerDisplay = customerDisplay;
             _subtotal = totals.Subtotal;
@@ -187,6 +188,7 @@ namespace NurMarketKassa.ViewModels
             ExactCashCommand = new RelayCommand(SetExactCash, () => IsCashMode);
             ClearCashCommand = new RelayCommand(ClearCash, () => IsCashMode);
             SelectClientCommand = new RelayCommand<ClientOption>(SelectClient);
+            RetryLoadClientsCommand = new RelayCommand(() => { ErrorMessage = ""; _ = EnsureClientsLoadedAsync(); }); // 2026-10-30
             ClearClientCommand = new RelayCommand(ClearSelectedClient);
             AddClientCommand = new AsyncRelayCommand(AddClientAsync, CanAddClient);
             SelectDuplicateClientCommand = new RelayCommand(() =>
@@ -539,10 +541,22 @@ namespace NurMarketKassa.ViewModels
                     return;
                 _isPrintReceiptEnabled = value;
                 OnPropertyChanged();
-                var prefs = UserPreferences.Instance;
-                prefs.CheckoutPrintReceipt = value;
-                prefs.SaveToDisk();
+                // 2026-10-30 (приёмка 1.17.67, мелочи): запись на диск — не на каждое нажатие F7 (удержание клавиши писало файл десятки раз);
+                // окно оплаты вызывает FlushPrintReceiptPreference с задержкой и при закрытии.
+                UserPreferences.Instance.CheckoutPrintReceipt = value;
+                _printReceiptPrefDirty = true;
             }
+        }
+
+        private bool _printReceiptPrefDirty;
+
+        /// <summary>2026-10-30: записать выбор «Напечатать чек» на диск, если он менялся (вызывает окно оплаты: с задержкой и при закрытии).</summary>
+        public void FlushPrintReceiptPreference()
+        {
+            if (!_printReceiptPrefDirty)
+                return;
+            _printReceiptPrefDirty = false;
+            UserPreferences.Instance.SaveToDisk();
         }
 
         /// <summary>2026-10-20 (живой аудит кассы, К7): «Печатать чек после оплаты» в Настройках — главный выключатель; без
@@ -799,6 +813,26 @@ namespace NurMarketKassa.ViewModels
             get => _isLoadingClients;
             private set { _isLoadingClients = value; OnPropertyChanged(); }
         }
+
+        // 2026-10-30 (приёмка 1.17.65, «Важно» 2): список клиентов не загрузился — кнопка «Повторить»; во время автоповтора при «Сервер занят» — нейтральная надпись.
+        private bool _clientsLoadFailed;
+        private string _clientsStatusText = "";
+
+        public bool ClientsLoadFailed
+        {
+            get => _clientsLoadFailed;
+            private set { _clientsLoadFailed = value; OnPropertyChanged(); }
+        }
+
+        public string ClientsStatusText
+        {
+            get => _clientsStatusText;
+            private set { _clientsStatusText = value ?? ""; OnPropertyChanged(); OnPropertyChanged(nameof(HasClientsStatus)); }
+        }
+
+        public bool HasClientsStatus => !string.IsNullOrEmpty(_clientsStatusText);
+
+        public ICommand RetryLoadClientsCommand { get; private set; } = null!;
 
         public ObservableCollection<ClientOption> ClientSearchResults { get; } = new();
 
@@ -1700,18 +1734,62 @@ namespace NurMarketKassa.ViewModels
             // а не крутящийся список до таймаута HttpClient (55 с при «чёрной дыре»).
             if (OfflineModeHelper.UseLocalOperations || OfflineModeHelper.IsServerOutage)
             {
-                ErrorMessage = Tr.T("Клиенты недоступны офлайн.",
-                    "Клиенттер офлайн режимде жеткиликсиз.",
-                    "Clients are unavailable offline.",
-                    "Müşteriler çevrimdışı modda kullanılamaz.",
-                    "Mijozlar oflayn rejimda mavjud emas.");
+                // 2026-10-29: без связи клиенты берутся из памяти кассы (OfflineClientCache) — для «в долг» без связи; долг — с учётом неподтверждённого в очереди.
+                var cached = OfflineClientCache.All();
+                if (cached.Count == 0)
+                {
+                    ErrorMessage = Tr.T("Клиенты недоступны офлайн: в памяти кассы их нет (они сохраняются, пока есть связь).",
+                        "Клиенттер офлайн режимде жеткиликсиз: кассанын эсинде жок (байланыш болгондо сакталат).",
+                        "Clients are unavailable offline: the till has none in memory (they are saved while there is a connection).",
+                        "Müşteriler çevrimdışı modda kullanılamaz: kasanın hafızasında yok (bağlantı varken kaydedilir).",
+                        "Mijozlar oflayn rejimda mavjud emas: kassa xotirasida yo'q (aloqa bor paytda saqlanadi).");
+                    return;
+                }
+
+                ClientOption.DebtLookup = id => OfflineClientCache.Get(id) is { } c ? (double)(OfflineClientCache.KnownDebt(c, includeRejectedSales: true) ?? 0m) : 0;
+                _allClients = cached
+                    .Select(c => new ClientOption
+                    {
+                        Id = c.Id,
+                        DisplayName = string.IsNullOrWhiteSpace(c.Phone) ? c.Name : $"{c.Name} · {c.Phone}",
+                        Name = c.Name,
+                        Phone = c.Phone,
+                    })
+                    .OrderBy(c => c.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+                    .ToList();
+                _clientsLoaded = true;
+                ApplyClientFilter();
+                var stamp = OfflineDebtRules.DataStamp(OfflineClientCache.LastUpdatedAt, DateTimeOffset.Now);
+                ErrorMessage = Tr.T($"Без связи: клиенты из памяти кассы ({stamp}).", $"Байланышсыз: клиенттер кассанын эсинен ({stamp}).",
+                    $"No connection: clients from the till's memory ({stamp}).", $"Bağlantı yok: müşteriler kasanın hafızasından ({stamp}).", $"Aloqasiz: mijozlar kassa xotirasidan ({stamp}).");
                 return;
             }
 
             IsLoadingClients = true;
+            ClientsLoadFailed = false;
+            ClientsStatusText = "";
             try
             {
-                var raw = await _clientsApi.GetClientsAsync(null).ConfigureAwait(true);
+                // 2026-10-30 (приёмка кассы 1.17.65, «Важно» 2): 429 («Сервер занят») не повод оставлять окно без клиентов — автоматический повтор до трёх раз
+                // с паузой сервера и надписью «повтор через N с»; не вышло — «Повторить» (кнопка), а не молчаливая ошибка.
+                List<JsonElement> raw;
+                for (var attempt = 1; ; attempt++)
+                {
+                    try
+                    {
+                        raw = await _clientsApi.GetClientsAsync(null).ConfigureAwait(true);
+                        break;
+                    }
+                    catch (Exception retryEx) when (ApiThrottle.IsThrottled(retryEx) && attempt < 3)
+                    {
+                        var seconds = Math.Max(2, ApiThrottle.RetrySeconds);
+                        ClientsStatusText = Tr.T($"Сервер занят, повтор через {seconds} с…", $"Сервер бош эмес, {seconds} с кийин кайталанат…",
+                            $"Server busy, retrying in {seconds} s…", $"Sunucu meşgul, {seconds} sn sonra tekrar…", $"Server band, {seconds} s dan keyin qayta uriniladi…");
+                        await Task.Delay(TimeSpan.FromSeconds(seconds)).ConfigureAwait(true);
+                    }
+                }
+
+                ClientsStatusText = "";
                 _allClients = raw
                     // "type" различает реальных клиентов и поставщиков/подрядчиков в той же
                     // таблице NurCRM — для продажи в долг нужны только настоящие клиенты.
@@ -1726,11 +1804,19 @@ namespace NurMarketKassa.ViewModels
             }
             catch (Exception ex)
             {
-                ErrorMessage = Tr.T("Не удалось загрузить список клиентов.",
-                    "Клиенттердин тизмесин жүктөө мүмкүн болгон жок.",
-                    "Could not load the client list.",
-                    "Müşteri listesi yüklenemedi.",
-                    "Mijozlar ro'yxatini yuklab bo'lmadi.");
+                ClientsStatusText = "";
+                ClientsLoadFailed = true; // 2026-10-30: кнопка «Повторить» рядом с ошибкой
+                ErrorMessage = ApiThrottle.IsThrottled(ex)
+                    ? Tr.T("Сервер занят — список клиентов пока не загрузился. Нажмите «Повторить».",
+                        "Сервер бош эмес — кардарлардын тизмеси азырынча жүктөлгөн жок. «Кайра аракет» баскычын басыңыз.",
+                        "The server is busy — the client list has not loaded yet. Press “Retry”.",
+                        "Sunucu meşgul — müşteri listesi henüz yüklenmedi. «Tekrar dene» düğmesine basın.",
+                        "Server band — mijozlar ro'yxati hali yuklanmadi. «Qayta urinish» tugmasini bosing.")
+                    : Tr.T("Не удалось загрузить список клиентов.",
+                        "Клиенттердин тизмесин жүктөө мүмкүн болгон жок.",
+                        "Could not load the client list.",
+                        "Müşteri listesi yüklenemedi.",
+                        "Mijozlar ro'yxatini yuklab bo'lmadi.");
                 PosLogger.Log($"Checkout clients load failed: {ex}", "PAYMENT");
             }
             finally

@@ -28,6 +28,16 @@ Expression<bool> lowStockSql($ProductsTable p) =>
     (p.minQuantity.isSmallerOrEqualValue(0) & p.quantity.isSmallerThanValue(lowStockLimit)) |
     (p.minQuantity.isBiggerThanValue(0) & p.quantity.isSmallerOrEqual(p.minQuantity));
 
+/// 2026-10-30 (оптимизация, п. 4): сколько товаров заканчивается — одним SELECT COUNT(*), без чтения полных строк (раньше
+/// на главной и в «Управлении» читалось до 15 000 строк ради `.length`).
+Future<int> countLowStock(AppDatabase db) async {
+  final c = db.products.id.count();
+  final q = db.selectOnly(db.products)
+    ..addColumns([c])
+    ..where(lowStockSql(db.products) & db.products.isService.equals(false));
+  return (await q.getSingle()).read(c) ?? 0;
+}
+
 bool stockFilterMatch(Product p, StockFilter f) => switch (f) {
   StockFilter.all => true,
   StockFilter.inStock => p.isService || p.quantity > 0,

@@ -98,6 +98,13 @@
                                Foreground="{DynamicResource BrushText}"
                                Margin="0,0,0,12"/>
 
+                    <!-- 2026-10-31 (стресс-тест 1.17.68, п. 9): сервер не ответил — вместо пустой таблицы «Нет связи» и «Повторить». -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                IsVisible="{ReflectionBinding ServerOffline}">
+                        <TextBlock Text="{ReflectionBinding ServerOfflineText}" Foreground="{DynamicResource BrushDanger}" FontSize="13" VerticalAlignment="Center"/>
+                        <Button Content="{ReflectionBinding RetryText}" Command="{ReflectionBinding RefreshCommand}" Classes="sec-outline" Height="36" Padding="14,0"/>
+                    </StackPanel>
+
                     <Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource BrushBorder}" Margin="0,0,0,12"/>
 
                     <DataGrid Grid.Row="2"
@@ -110,9 +117,9 @@
                               HorizontalGridLinesBrush="#F1F5F9"
                               RowHeight="40">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="{DynamicResource shiftHistoryView.colShiftNumber}" Binding="{ReflectionBinding ShiftNumber}" Width="90"/>
-                            <DataGridTextColumn Header="{DynamicResource shiftDetails.openedLabel}" Binding="{ReflectionBinding OpenedAt, StringFormat=dd.MM.yyyy HH:mm}" Width="130"/>
-                            <DataGridTextColumn Header="{DynamicResource shiftDetails.closedLabel}" Binding="{ReflectionBinding ClosedAt, StringFormat=dd.MM.yyyy HH:mm}" Width="130"/>
+                            <DataGridTextColumn Header="{DynamicResource shiftHistoryView.colShiftNumber}" Binding="{ReflectionBinding ShiftNumber}" Width="115"/> <!-- 2026-10-31: «№ Смены» и даты «31.10.2026 08:00» обрезались (стресс-тест 1.17.68) -->
+                            <DataGridTextColumn Header="{DynamicResource shiftDetails.openedLabel}" Binding="{ReflectionBinding OpenedAt, StringFormat=dd.MM.yyyy HH:mm}" Width="150"/>
+                            <DataGridTextColumn Header="{DynamicResource shiftDetails.closedLabel}" Binding="{ReflectionBinding ClosedAt, StringFormat=dd.MM.yyyy HH:mm}" Width="150"/>
                             <DataGridTextColumn Header="{DynamicResource common.cashier}" Binding="{ReflectionBinding Cashier}" Width="*"/>
                             <DataGridTextColumn Header="{DynamicResource common.status}" Binding="{ReflectionBinding Status}" Width="110"/>
                             <DataGridTextColumn Header="{DynamicResource common.revenue}" Binding="{ReflectionBinding Revenue, StringFormat=\{0:N2\} сом}" Width="120"/>

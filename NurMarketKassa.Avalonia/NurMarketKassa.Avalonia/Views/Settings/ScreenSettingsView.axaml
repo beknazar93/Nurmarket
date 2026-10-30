@@ -157,6 +157,9 @@
                   <TextBlock x:Name="PayDockText" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock x:Name="PayDockDesc"
                              FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                  <!-- 2026-10-30: окно оплаты можно перетащить за шапку; положение запоминается — кнопка возвращает обычное место. Подпись — в коде (Tr.T). -->
+                  <Button x:Name="PayDockResetButton" Margin="0,6,0,0" Padding="10,4" FontSize="12" HorizontalAlignment="Left"
+                          Click="PayDockResetButton_Click"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="PayDockBottomCheck" Classes="ToggleSwitch" VerticalAlignment="Top"
                           IsCheckedChanged="PayDockBottomCheck_Changed"/>

@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
 
@@ -29,6 +30,9 @@ public sealed class PurchasesSupplierPicker : Grid
     private bool _loading;
 
     public bool AllowAll { get; init; }
+
+    /// <summary>2026-10-30: поля нового поставщика из накладной (SupplierResolve.Prefill) — «＋» откроет форму уже заполненной.</summary>
+    public NurMarketKassa.AvaloniaHost.Views.Dialogs.SupplierResolve.Prefill? CreatePrefill { get; set; }
     public event Action<SupplierInfo?>? Changed;
     public SupplierInfo? Selected => _selected;
     public IReadOnlyList<SupplierInfo> All => _all;
@@ -221,7 +225,15 @@ public sealed class PurchasesSupplierPicker : Grid
     {
         if (TopLevel.GetTopLevel(this) is not Window owner)
             return;
-        var dialog = new SupplierEditDialog(_svc, null, _all);
+        // 2026-10-30: нет права создавать поставщиков (как в «Поставщики») — подсказка вместо формы; поля из накладной — если заданы CreatePrefill.
+        if (!NurMarketKassa.AvaloniaHost.Views.Dialogs.SupplierResolve.CanCreate())
+        {
+            PosDialogs.Info(owner, NurMarketKassa.AvaloniaHost.Views.Dialogs.SupplierResolve.AskOwnerText, T("Новый поставщик", "Жаңы жеткирүүчү", "New supplier", "Yeni tedarikçi", "Yangi yetkazib beruvchi"));
+            return;
+        }
+        var dialog = CreatePrefill is { } pf
+            ? new SupplierEditDialog(_svc, null, _all, new SupplierRequisites(pf.Name, pf.Phone, "", "", pf.Inn, "", pf.Bank, "", pf.Address), pf.Note)
+            : new SupplierEditDialog(_svc, null, _all);
         await dialog.ShowDialog(owner).ConfigureAwait(true);
         if (dialog.Saved is not { } created)
             return;

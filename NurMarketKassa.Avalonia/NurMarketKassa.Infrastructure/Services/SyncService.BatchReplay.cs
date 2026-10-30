@@ -34,6 +34,9 @@ public sealed partial class SyncService
         {
             if (entry.CheckoutCompleted || entry.CheckoutSubmittedAt is not null || !string.IsNullOrWhiteSpace(entry.SyncCartId))
                 continue;
+            // 2026-10-29: «в долг» без связи — только одиночной досылкой (клиент, предоплата, график долга, порядок с оплатами долга по нему).
+            if (entry.OfflineDebt)
+                continue;
             // Уже уходил одиночной быстрой досылкой — только ей же (тем же ключом), см. TryQuickReplayAsync.
             if (entry.QuickCheckoutAttempted && !entry.BatchCheckoutAttempted)
                 continue;

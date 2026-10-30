@@ -25,6 +25,9 @@ enum ReceiveKind {
 
   /// Нигде не найден.
   none,
+
+  /// 2026-10-30: нигде не найден, но сервер не ответил (нет связи, тайм-аут) — «неизвестный» говорить рано: предложить проверить снова.
+  offline,
 }
 
 class ReceiveFind {
@@ -49,16 +52,23 @@ const receiveSimilarMin = 0.9;
 /// Найти код: телефон → опечатка в контрольной цифре карточки (быстро, без сети) → сервер ([CodeLookup], 2 с) →
 /// справочник NurCRM ([GlobalProducts], локально и сервер) + ваш похожий товар по названию справочника ([CatalogMatcher]).
 /// [network] = false — только телефон и локальный справочник (восстановление черновика без связи). Любая ошибка — «не найден».
-Future<ReceiveFind> resolveReceiveCode(AppDatabase db, ApiClient api, GlobalProducts? globals, String raw, {bool network = true}) async {
+/// 2026-10-30 (владелец: «даже если есть товар, выдаёт "неизвестный штрихкод"»): сервер ждём [receiveServerTimeout] (в сканере продажи — 2 с,
+/// здесь сканер уже закрыт и никто не ждёт), без ответа — [ReceiveKind.offline] с кнопкой «Проверить снова», а не «неизвестный».
+/// [fresh] — обойти кэш «сервер этот код только что не знал» (после «Завести товар», «Привязать», «Проверить снова»).
+const receiveServerTimeout = Duration(seconds: 7);
+
+Future<ReceiveFind> resolveReceiveCode(AppDatabase db, ApiClient api, GlobalProducts? globals, String raw, {bool network = true, bool fresh = false}) async {
   final code = normalizeCode(raw);
+  var serverDown = false;
   try {
     final local = await db.productByScan(code, allowWeightLabel: false);
     if (local != null) return ReceiveFind(ReceiveKind.found, code, product: local.product, qty: local.qty ?? 1);
     final typo = await findCheckDigitTypo(db, code);
     if (typo != null) return ReceiveFind(ReceiveKind.typo, code, product: typo);
     if (network) {
-      final hit = await CodeLookup.findOnServer(db, api, code);
+      final hit = await CodeLookup.findOnServer(db, api, code, timeout: receiveServerTimeout, fresh: fresh);
       if (hit.product != null) return ReceiveFind(ReceiveKind.found, code, product: hit.product, qty: hit.qty ?? 1);
+      serverDown = hit.unavailable;
     }
     final g = globals == null ? null : await globals.find(code, network: network);
     if (g != null) {
@@ -71,7 +81,7 @@ Future<ReceiveFind> resolveReceiveCode(AppDatabase db, ApiClient api, GlobalProd
   } catch (_) {
     // сбой базы/сети — как «не найден»: кассир увидит честный текст и сможет завести товар
   }
-  return ReceiveFind(ReceiveKind.none, code);
+  return ReceiveFind(serverDown ? ReceiveKind.offline : ReceiveKind.none, code);
 }
 
 /// Товар магазина, у которого основной штрихкод отличается от [code] только последней цифрой и записан с ошибкой

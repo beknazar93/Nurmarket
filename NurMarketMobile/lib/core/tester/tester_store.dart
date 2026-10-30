@@ -357,7 +357,7 @@ String testerReport({
   }
 
   final b = StringBuffer()
-    ..writeln('Отчёт тестировщика NurMarket Mobile')
+    ..writeln('Отчёт тестировщика NurCRM Mobile')
     ..writeln('Версия: $version (сборка $build)${testBuild ? ', тестовая' : ''}')
     ..writeln('Устройство: $deviceLine')
     ..writeln('Дата: ${when(now)}')

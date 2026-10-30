@@ -235,8 +235,9 @@ public static class LanJournal
         }
     }
 
-    private static void Append(string id, string kind, string json) =>
-        With(c =>
+    private static void Append(string id, string kind, string json)
+    {
+        var added = With(c =>
         {
             using var cmd = c.CreateCommand();
             cmd.CommandText = "INSERT OR IGNORE INTO LanJournal(id, kind, created_at, json) VALUES ($id, $kind, $at, $json)";
@@ -246,6 +247,11 @@ public static class LanJournal
             cmd.Parameters.AddWithValue("$json", json);
             return cmd.ExecuteNonQuery();
         });
+        // 2026-10-29 (скорость синхронизации): новая запись журнала (продажа, выгрузка чека, оплата долга) — подсказка соседям сразу после записи:
+        // программа владельца и другие кассы обновляют «Сводку», остатки и ленту, не дожидаясь своего такта (раньше 4–20 с).
+        if (added > 0)
+            SyncCenter.NoteLocalChange("sale");
+    }
 
     /// <summary>Свои события после номера — для соседа, который их забирает.</summary>
     public static (List<LanEvent> Events, long Last) ReadOwnAfter(long after, int limit)

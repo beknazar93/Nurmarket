@@ -39,7 +39,8 @@ public sealed class InvoiceImportWindow : Window
         public Func<IEnumerable<string?>> TakenCodes { get; init; } = () => [];
 
         /// <summary>Создать поставщика (диалог «Новый поставщик»); null — недоступно (нет связи).</summary>
-        public Func<Window, IReadOnlyList<PurchaseReceivingService.Supplier>, Task<PurchaseReceivingService.Supplier?>>? CreateSupplier { get; init; }
+        // 2026-10-30: третий аргумент — поставщик из накладной (название, ИНН, номер) для предзаполнения формы «Новый поставщик».
+        public Func<Window, IReadOnlyList<PurchaseReceivingService.Supplier>, SupplierResolve.Prefill, Task<PurchaseReceivingService.Supplier?>>? CreateSupplier { get; init; }
 
         /// <summary>Строка заголовков и столбцы можно поправить (Excel/CSV): вернуть новый план или null.</summary>
         public Func<Window, Task<InvoicePlan?>>? RemapColumns { get; init; }
@@ -494,7 +495,9 @@ public sealed class InvoiceImportWindow : Window
             _newSupplierButton.IsEnabled = false;
             try
             {
-                var created = await _req.CreateSupplier(this, _req.Suppliers).ConfigureAwait(true);
+                var header = _plan.Document.Header;
+                var created = await _req.CreateSupplier(this, _req.Suppliers,
+                    SupplierResolve.Prefill.From(header.SupplierName, header.SupplierInn, null, null, string.IsNullOrWhiteSpace(_numberBox.Text) ? header.Number : _numberBox.Text)).ConfigureAwait(true);
                 if (created is not null)
                 {
                     _supplier = created;
@@ -608,9 +611,12 @@ public sealed class InvoiceImportWindow : Window
         else if (_supplier is not null && !_supplierChosenByUser && (h.SupplierName.Length > 0 || h.SupplierInn.Length > 0))
         {
             var byInn = h.SupplierInn.Length > 0 && string.Equals(new string((_supplier.Inn ?? "").Where(char.IsDigit).ToArray()), h.SupplierInn, StringComparison.Ordinal);
+            // 2026-10-30: причина и процент уверенности подбора (SupplierResolve.Find): «по ИНН · 100 %», «по названию · 95 %».
+            var why = SupplierResolve.Find(new[] { _supplier }, h.SupplierName, h.SupplierInn)?.Reason ?? "";
             note = byInn
-                ? T("Поставщик подобран по ИНН из накладной", "Жеткирүүчү накладнойдогу ИНН боюнча табылды", "Supplier matched by the invoice TIN", "Tedarikçi fatura vergi numarasına göre eşleşti", "Yetkazib beruvchi yuk xatidagi STIR bo'yicha topildi")
-                : T("Поставщик подобран по названию из накладной — проверьте", "Жеткирүүчү накладнойдогу аталыш боюнча табылды — текшериңиз", "Supplier matched by the invoice name — please check", "Tedarikçi fatura adına göre eşleşti — kontrol edin", "Yetkazib beruvchi yuk xatidagi nom bo'yicha topildi — tekshiring");
+                ? T("Поставщик подобран из накладной: ", "Жеткирүүчү накладнойдон табылды: ", "Supplier matched from the invoice: ", "Tedarikçi faturadan eşleşti: ", "Yetkazib beruvchi yuk xatidan topildi: ") + why
+                : T("Поставщик подобран из накладной: ", "Жеткирүүчү накладнойдон табылды: ", "Supplier matched from the invoice: ", "Tedarikçi faturadan eşleşti: ", "Yetkazib beruvchi yuk xatidan topildi: ") + why
+                  + T(" — проверьте", " — текшериңиз", " — please check", " — kontrol edin", " — tekshiring");
             if (byInn)
             {
                 // коротко, чтобы не отнимать строку у таблицы на низком экране: подсказка — всплывающая у кнопки поставщика

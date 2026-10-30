@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using NurMarketKassa.Models;
+using NurMarketKassa.Services.Api;
 using NurMarketKassa.Ui.Shared;
 
 namespace NurMarketKassa.Services;
@@ -124,6 +125,9 @@ public sealed class BulkReceivingFeeder
 
     /// <summary>Строк в одной части (одна задача очереди).</summary>
     public static int PartSize { get; set; } = 100;
+
+    /// <summary>2026-10-30: сколько проверок «есть ли такой штрихкод на сервере» идёт одновременно при подготовке части (было — по одной).</summary>
+    public static int PrepareParallel { get; set; } = 8;
 
     /// <summary>Сколько частей одной пачки может одновременно стоять в очереди.</summary>
     public static int MaxParallelParts { get; set; } = 2;
@@ -334,22 +338,27 @@ public sealed class BulkReceivingFeeder
         var st = job.State;
         var todo = job.Lines.Where(l => l.Outcome is ReceivingLineOutcome.Pending or ReceivingLineOutcome.Unknown
                                         && l.IsNew && string.IsNullOrWhiteSpace(l.ProductId) && !string.IsNullOrWhiteSpace(l.Barcode)).ToList();
-        foreach (var line in todo)
+        // 2026-10-30 (скорость): проверки штрихкодов шли по одной (100 строк × 150 мс = 15 с на часть) — теперь до PrepareParallel сразу.
+        // Строки независимы (каждая правит только свой объект), чтение безопасно; сервер просит паузу (429) — ждём её, а не бьёмся в отказы.
+        await Parallel.ForEachAsync(todo, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, PrepareParallel), CancellationToken = ct }, async (line, token) =>
         {
-            ct.ThrowIfCancellationRequested();
+            token.ThrowIfCancellationRequested();
             bool attempted;
             lock (st.Gate)
                 attempted = st.CreateAttempted.Contains(line.Key);
             if (attempted)
-                continue;
+                return;
 
+            var block = ApiThrottle.RemainingBlock;
+            if (block > TimeSpan.Zero)
+                await Task.Delay(block, token).ConfigureAwait(false);
             var code = line.Barcode.Trim();
-            var found = await api.FindWarehouseProductByBarcodeAsync(code, ct).ConfigureAwait(false);
+            var found = await api.FindWarehouseProductByBarcodeAsync(code, token).ConfigureAwait(false);
             // 12 ↔ 13 цифр (UPC-A / EAN-13 с нулём) — та же запись кода, как в приёмке.
             if (found is null && BarcodeForms.Alternate(code) is { } alternate)
-                found = await api.FindWarehouseProductByBarcodeAsync(alternate, ct).ConfigureAwait(false);
+                found = await api.FindWarehouseProductByBarcodeAsync(alternate, token).ConfigureAwait(false);
             if (found is not { } product)
-                continue;
+                return;
 
             var id = Str(product, "id");
             if (string.IsNullOrWhiteSpace(id))
@@ -379,7 +388,7 @@ public sealed class BulkReceivingFeeder
             if (price > 0)
                 line.SalePrice = price;
             PosLogger.Log($"Массовое добавление: штрихкод {code} уже есть на сервере (товар {id}) — приход к нему, дубль не создаётся.", "STOCK");
-        }
+        }).ConfigureAwait(false);
     }
 
     // ------------------------------------------------------------------ подача

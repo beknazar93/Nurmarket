@@ -474,7 +474,7 @@ public partial class ReceiptHistoryWindow : Window
             ? ""
             : (fromServer || entry.IsFailedUpload
                   ? Tr.T("Сервер не принял: ", "Сервер кабыл алган жок: ", "The server did not accept it: ", "Sunucu kabul etmedi: ", "Server qabul qilmadi: ")
-                  : Tr.T("Причина: ", "Себеби: ", "Reason: ", "Neden: ", "Sababi: "))
+                  : Tr.T("Почему не ушёл: ", "Эмне үчүн жөнөтүлгөн жок: ", "Why it was not sent: ", "Neden gönderilmedi: ", "Nega yuborilmadi: "))
               + reason;
         DetailReasonText.IsVisible = reason != null;
         var attempt = entry.Local?.LastAttemptAt;
@@ -486,12 +486,21 @@ public partial class ReceiptHistoryWindow : Window
 
         if (entry.IsFailedUpload)
         {
-            DetailNoticeText.Text = Tr.T(
-                "Сервер отклонил этот чек. Отправить его повторно можно в разделе «Некорректные чеки».",
-                "Сервер бул чекти четке какты. Аны «Туура эмес чектер» бөлүмүнөн кайра жөнөтсө болот.",
-                "The server rejected this receipt. You can resend it in “Irregular receipts”.",
-                "Sunucu bu fişi reddetti. «Sorunlu fişler» bölümünden yeniden gönderebilirsiniz.",
-                "Server bu chekni rad etdi. Uni «Noto'g'ri cheklar» bo'limidan qayta yuborish mumkin.");
+            // 2026-10-29: причина — строкой выше; касса сама повторит до трёх раз, а сразу можно кнопкой «Повторить отправку».
+            // 2026-10-29 (приёмка 1.17.65, Б-1): старый чек (старше суток или из закрытой смены) касса сама не повторяет — только кнопка.
+            var staleLocal = entry.Local is { } localSale && OfflinePendingSalesStore.IsStaleForAutoRetry(localSale);
+            DetailNoticeText.Text = staleLocal ? Tr.T(
+                "Чек не ушёл на сервер — причина указана выше. Он старше суток или из закрытой смены, поэтому касса сама его не повторяет: проверьте, нет ли такой продажи на сервере, и нажмите «Повторить отправку».",
+                "Чек серверге жөнөтүлгөн жок — себеби жогоруда. Ал бир суткадан эски же жабылган сменадан, ошондуктан касса аны өзү кайталабайт: серверде мындай сатуу жок экенин текшерип, «Жөнөтүүнү кайталоо» баскычын басыңыз.",
+                "The receipt did not reach the server — the reason is above. It is over a day old or from a closed shift, so the till will not retry it by itself: check that the sale is not on the server, then press “Retry sending”.",
+                "Fiş sunucuya ulaşmadı — neden yukarıda. Bir günden eski veya kapalı vardiyadan olduğu için kasa kendisi tekrar denemez: satışın sunucuda olmadığını kontrol edip «Göndermeyi tekrarla» düğmesine basın.",
+                "Chek serverga yetib bormadi — sababi yuqorida. U bir kundan eski yoki yopilgan smenadan, shuning uchun kassa o'zi qayta urinmaydi: sotuv serverda yo'qligini tekshirib, «Yuborishni takrorlash» tugmasini bosing.")
+            : Tr.T(
+                "Чек не ушёл на сервер — причина указана выше. Касса сама попробует ещё несколько раз; отправить сейчас можно кнопкой «Повторить отправку» (или в разделе «Некорректные чеки»).",
+                "Чек серверге жөнөтүлгөн жок — себеби жогоруда. Касса өзү дагы бир нече жолу аракет кылат; азыр «Жөнөтүүнү кайталоо» баскычы менен (же «Туура эмес чектер» бөлүмүнөн) жөнөтсө болот.",
+                "The receipt did not reach the server — the reason is above. The till will retry by itself a few more times; you can send it now with “Retry sending” (or in “Irregular receipts”).",
+                "Fiş sunucuya ulaşmadı — neden yukarıda. Kasa kendisi birkaç kez daha deneyecek; şimdi «Göndermeyi tekrarla» düğmesiyle (veya «Sorunlu fişler» bölümünden) gönderebilirsiniz.",
+                "Chek serverga yetib bormadi — sababi yuqorida. Kassa o'zi yana bir necha marta urinadi; hozir «Yuborishni takrorlash» tugmasi bilan (yoki «Noto'g'ri cheklar» bo'limidan) yuborish mumkin.");
             DetailNotice.IsVisible = true;
         }
         else if (entry.IsPendingUpload)
@@ -510,7 +519,8 @@ public partial class ReceiptHistoryWindow : Window
         }
 
         // Возврат — только по чеку, который уже есть на сервере, и тем, кому он разрешён.
-        var canReturn = _canReturn && !entry.IsLocal && !ReceiptHistoryService.IsReturnedOrCanceled(entry);
+        // 2026-10-29: чек из очереди (ждёт отправки) тоже можно вернуть — без связи, возврат уйдёт после чека.
+        var canReturn = _canReturn && (!entry.IsLocal || entry.IsPendingUpload) && !ReceiptHistoryService.IsReturnedOrCanceled(entry);
         _bar.ShowReturn = canReturn;
         UpdateSendButton();
     }
@@ -521,7 +531,8 @@ public partial class ReceiptHistoryWindow : Window
     /// «Печать копии» — обводкой. Пока досылка идёт (сама или по кнопке) — выключена, «Отправляется…».</summary>
     private void UpdateSendButton()
     {
-        var pending = _selected?.Entry.IsPendingUpload == true;
+        // 2026-10-29: кнопка и у «Ошибки отправки» — «Повторить отправку».
+        var pending = _selected?.Entry.CanSendNow == true;
         SendButton.IsVisible = pending;
         // Неотправленный чек: жёлтая главная — «Отправить на сервер», «Печать» обводкой; иначе главная — «Печать».
         _bar.PrintPrimary = !pending;
@@ -539,13 +550,16 @@ public partial class ReceiptHistoryWindow : Window
         }
 
         SendButton.IsEnabled = !busy;
-        SendButtonText.Text = busy ? ReceiptHistoryService.SendingNowText : SendLabel;
+        SendButtonText.Text = busy ? ReceiptHistoryService.SendingNowText
+            : _selected?.Entry.IsFailedUpload == true
+                ? Tr.T("Повторить отправку", "Жөнөтүүнү кайталоо", "Retry sending", "Göndermeyi tekrarla", "Yuborishni takrorlash")
+                : SendLabel;
         Avalonia.Automation.AutomationProperties.SetName(SendButton, SendButtonText.Text);
     }
 
     private async void Send_Click(object? sender, RoutedEventArgs e)
     {
-        if (_sending || _selected is not { Entry: { IsPendingUpload: true } entry } row)
+        if (_sending || _selected is not { Entry: { CanSendNow: true } entry } row)
             return;
 
         _sending = true;
@@ -694,7 +708,7 @@ public partial class ReceiptHistoryWindow : Window
         // «MARKET PLUS» — значение по умолчанию, пока владелец не задал название: на экране — название компании.
         if ((store.Length == 0 || store == "MARKET PLUS") && !string.IsNullOrWhiteSpace(CompanyInfoService.LastCompany?.Name))
             store = CompanyInfoService.LastCompany!.Name!.Trim();
-        card.Shop = prefs.ShowStoreName && store.Length > 0 ? store : "NurMarket";
+        card.Shop = prefs.ShowStoreName && store.Length > 0 ? store : "NurCRM";
         card.Address = prefs.ShowAddress && !string.IsNullOrWhiteSpace(prefs.StoreAddress) ? prefs.StoreAddress.Trim() : "";
         card.Inn = prefs.ShowInn && !string.IsNullOrWhiteSpace(prefs.StoreInn) ? prefs.StoreInn.Trim() : "";
         card.Title = SaleReceiptCardData.TitleText(false);
@@ -1030,7 +1044,7 @@ public partial class ReceiptHistoryWindow : Window
     /// <summary>«Вернуть…» — то же окно возврата, что и в меню, сразу с этим чеком.</summary>
     private async Task ReturnAsync()
     {
-        if (_selected is not { } row || row.Entry.IsLocal)
+        if (_selected is not { } row || (row.Entry.IsLocal && !row.Entry.IsPendingUpload))
             return;
 
         if (!CanReturn())
@@ -1039,10 +1053,14 @@ public partial class ReceiptHistoryWindow : Window
             return;
         }
 
-        // 2026-09-29: авария сервера — возврат недоступен (см. таблицу у PosCheckoutService.CheckoutAsync).
-        if (OfflineModeHelper.IsServerOutage)
+        // 2026-10-29: чек из очереди или нет связи — возврат без связи (владелец разрешил): операция встанет в очередь и уйдёт на сервер после чека.
+        if (row.Entry.IsLocal || OfflineModeHelper.SellLocally)
         {
-            ShowAction(OfflineModeHelper.ReturnUnavailableInOutage, ok: false);
+            ReturnWasOpened = true;
+            await OfflineOperationsWindow.OpenAsync(this, OfflineOperationsWindow.Mode.Return, row.Entry.Id).ConfigureAwait(true);
+            _shownDetailId = null;
+            _selectedDetail = null;
+            await LoadAsync(row.Entry.Id).ConfigureAwait(true);
             return;
         }
 

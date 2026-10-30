@@ -122,6 +122,9 @@ public static class PhoneLinkHost
                     Pairing);
                 _server = new PhoneLinkServer(Pairing, BuildHostInfo);
                 _server.Register("scan", _scan.HandleAsync);
+                // 2026-10-29 (скорость синхронизации): касса — центр событий магазина; телефон держит «events» и шлёт «hint» после своей правки.
+                _server.Register(PhoneLinkEvents.OpEvents, PhoneLinkEvents.HandleEventsAsync);
+                _server.Register(PhoneLinkEvents.OpHint, PhoneLinkEvents.HandleHintAsync);
                 // Точка расширения: print / cart / uploaded подключаются так же — _server.Register("print", …).
             }
             if (!_companyHooked)

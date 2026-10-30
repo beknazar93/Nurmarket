@@ -1,4 +1,4 @@
-﻿using NurMarketKassa.Core.Application;
+﻿﻿using NurMarketKassa.Core.Application;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -26,7 +26,13 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
 {
     /// <summary>2026-10-20, память программы владельца: пока советник отвечает, идёт звонок или запись голоса, оболочка
     /// не закрывает раздел при уходе из него (иначе оборвался бы звонок). Разговор при закрытии сохраняется в историю.</summary>
-    public bool KeepAliveWhenHidden => _busy || _live is not null || _recorder is not null || _liveBar.IsVisible;
+    // 2026-10-30 (приёмка 1.17.66): спрятанный советник с открытым окном закупки, неотправленным текстом, прикреплённым файлом или карточкой
+    // «Выполнить / Провести закупку» не закрывается (раньше TrimHiddenSections закрывал его, окно закупки закрывалось вместе с ним и ввод пропадал).
+    public bool KeepAliveWhenHidden => _busy || _live is not null || _recorder is not null || _liveBar.IsVisible
+        || _editorsOpen > 0 || _pendingProductApply is not null || _attachments.Count > 0 || !string.IsNullOrWhiteSpace(_input.Text);
+
+    /// <summary>Сколько окон закупки сейчас открыто из советника (ShowEditorDialogAsync).</summary>
+    private int _editorsOpen;
 
     // 2026-10-05, владелец: «начни редизайн окна чата с ИИ». Как в современных чатах: слева — история разговоров
     // («＋ Новый разговор», по дням), справа — заголовок с подключёнными моделями, лента по центру (вопрос — пузырь справа,
@@ -291,6 +297,26 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         inputRow.Children.Add(_input);
         AddHandler(KeyDownEvent, ScanKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        // 2026-10-29, жалоба «в ИИ не нажимается вставка накладных»: Ctrl+V с картинкой/файлом из буфера и перетаскивание файла на окно —
+        // как «скрепка» (раньше вложить накладную можно было только через окно выбора файла).
+        AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Key == Key.V && (e.KeyModifiers & KeyModifiers.Control) != 0)
+                _ = TryPasteAttachmentAsync();
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, (_, e) =>
+        {
+            e.DragEffects = e.Data.Contains(DataFormats.Files) ? DragDropEffects.Copy : DragDropEffects.None;
+            e.Handled = true;
+        });
+        AddHandler(DragDrop.DropEvent, (_, e) =>
+        {
+            if (!e.Data.Contains(DataFormats.Files))
+                return;
+            e.Handled = true;
+            _ = AttachDroppedAsync(e.Data.GetFiles());
+        });
         if (VoiceChatRecorder.IsSupported)
         {
             _mic = RoundButton(MicGlyph(recording: false), accent: false); _mic.Margin = new Thickness(6, 0, 0, 0);
@@ -342,12 +368,13 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         };
         Use(clip, Avalonia.Controls.Shapes.Shape.StrokeProperty, "BrushText");
         var attach = RoundButton(clip, accent: false);
+        _attachButton = attach; // 2026-10-30: скрывается тумблером «Читать накладные»
         attach.Margin = new Thickness(6, 0, 0, 0);
-        ToolTip.SetTip(attach, T("Приложить фото: накладная поставщика — ИИ оприходует товары с наценкой; фото товара — опишет и заполнит карточку",
-            "Сүрөт тиркөө: жеткирүүчүнүн накладнойу — ИИ товарларды үстөк менен кириштейт; товардын сүрөтү — сүрөттөп, карточкасын толтурат",
-            "Attach a photo: a supplier invoice — the AI receives the goods with a markup; a product photo — it describes it and fills in the card",
-            "Fotoğraf ekle: tedarikçi faturası — yapay zekâ ürünleri kâr payıyla stoğa alır; ürün fotoğrafı — tanımlar ve kartı doldurur",
-            "Surat biriktirish: yetkazib beruvchi yuk xati — SI mahsulotlarni ustama bilan kirim qiladi; mahsulot surati — tavsiflab, kartani to'ldiradi"));
+        ToolTip.SetTip(attach, T("Приложить фото: накладная поставщика — ИИ оприходует товары с наценкой; фото товара — опишет и заполнит карточку. Можно перетащить файл в окно или нажать Ctrl+V",
+            "Сүрөт тиркөө: жеткирүүчүнүн накладнойу — ИИ товарларды үстөк менен кириштейт; товардын сүрөтү — сүрөттөп, карточкасын толтурат. Файлды терезеге сүйрөп таштаса же Ctrl+V басса болот",
+            "Attach a photo: a supplier invoice — the AI receives the goods with a markup; a product photo — it describes it and fills in the card. You can also drag a file into the window or press Ctrl+V",
+            "Fotoğraf ekle: tedarikçi faturası — yapay zekâ ürünleri kâr payıyla stoğa alır; ürün fotoğrafı — tanımlar ve kartı doldurur. Dosyayı pencereye sürükleyebilir veya Ctrl+V'ye basabilirsiniz",
+            "Surat biriktirish: yetkazib beruvchi yuk xati — SI mahsulotlarni ustama bilan kirim qiladi; mahsulot surati — tavsiflab, kartani to'ldiradi. Faylni oynaga sudrab tashlash yoki Ctrl+V bosish mumkin"));
         attach.Click += async (_, _) => await PickPhotoAsync().ConfigureAwait(true);
         Avalonia.Automation.AutomationProperties.SetName(attach, T("Приложить фото или PDF", "Сүрөт же PDF тиркөө", "Attach a photo or PDF", "Fotoğraf veya PDF ekle", "Surat yoki PDF biriktirish"));
         Grid.SetColumn(attach, 1);
@@ -419,6 +446,8 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         Action<OwnerMorningReport.Report> onMorning = r => Dispatcher.UIThread.Post(() => OnMorningReport(r));
         OwnerMorningReport.ReportReady += onMorning;
         Closed += (_, _) => OwnerMorningReport.ReportReady -= onMorning;
+        // 2026-10-30: тумблеры возможностей Нур Советника — вид окна живёт вместе с настройками (облако, соседнее окно).
+        WatchCapabilities();
 
         // В программе владельца своя локальная история продаж — подтягиваем свежие чеки с сервера, чтобы
         // сводка для советника (выручка, лучшие товары) была по сегодняшним данным.
@@ -461,7 +490,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
 
     private void RefreshKeyCard()
     {
-        _keyCard.IsVisible = !TelegramAiChat.IsConfigured;
+        _keyCard.IsVisible = !TelegramAiChat.IsConfigured && AdvisorCapabilities.MasterOn;
         _input.IsEnabled = TelegramAiChat.IsConfigured && !_busy;
         // Во время ответа или поиска фото — «■ Стоп» (раньше кнопка была просто серой, казалось — зависло).
         _send.IsEnabled = TelegramAiChat.IsConfigured || _busy;
@@ -551,6 +580,28 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     private async Task SendAsync(string? text)
     {
         var question = (text ?? "").Trim();
+        // 2026-10-30: Нур Советник выключен владельцем (Настройки → Операции → Нур Советник) — вежливый ответ, ничего не уходит в ИИ.
+        if (!AdvisorCapabilities.MasterOn)
+        {
+            if (question.Length > 0)
+                AddBubble(AdvisorCapabilities.BlockedText(), fromOwner: false);
+            return;
+        }
+        // 2026-10-30: «Читать накладные: фото и PDF» выключено — вложения в ИИ не отправляются.
+        if (_attachments.Count > 0 && !Cap("inv.read"))
+        {
+            ClearAttachment();
+            SayDisabled("inv.read");
+            return;
+        }
+        // 2026-10-29: без ключа ИИ фото с накладной раньше молча «не отправлялось» (кнопки живые, ответа нет) — говорим причину.
+        if (_attachments.Count > 0 && !_busy && !TelegramAiChat.IsConfigured)
+        {
+            AddBubble(T("Чтобы ИИ прочитал накладную, сначала вставьте ключ ИИ (карточка вверху ленты).", "ЖИ накладнойду окушу үчүн алгач ЖИ ачкычын чаптаңыз (лентанын жогору жагындагы карточка).",
+                "For the AI to read the invoice, first paste the AI key (the card at the top of the chat).", "Yapay zekânın faturayı okuması için önce yapay zekâ anahtarını yapıştırın (sohbetin üstündeki kart).",
+                "SI yuk xatini o'qishi uchun avval SI kalitini qo'ying (lentaning yuqorisidagi karta)."), fromOwner: false);
+            return;
+        }
         // Фото без текста неоднозначно. Спрашиваем назначение перед передачей ИИ, чтобы
         // обычное изображение товара не запускало сценарий прихода на склад.
         if (question.Length == 0 && _attachments.Count > 0)
@@ -766,6 +817,45 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             SaveCurrentChat();
             return;
         }
+        // 2026-10-30: «найди товары с 0 остатком», «без штрихкода», «дорогие товары» — списки по складу считает программа (тумблер «read.stocklists»).
+        if (image is null && await TryStockQueryAsync(question, access).ConfigureAwait(true))
+        {
+            if (gen == _gen)
+            {
+                _busy = false;
+                RefreshKeyCard();
+                SaveCurrentChat();
+                ScrollToEnd();
+                _input.Focus();
+            }
+            return;
+        }
+        // 2026-10-30: «что за товар 4600…», «штрихкод Марса» — ответ программы по складу и справочнику NurCRM, без нейросети (тумблер «bc.directory»).
+        if (image is null)
+        {
+            string? barcodeText = null;
+            try
+            {
+                barcodeText = await TryBarcodeAnswerAsync(question, access, CancellationToken.None).ConfigureAwait(true);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                PosLogger.Log($"ИИ-советник: штрихкод не определён программой ({ex.GetType().Name}: {ex.Message}) — отвечает ИИ.", "WARNING");
+            }
+            if (barcodeText is not null)
+            {
+                if (gen == _gen)
+                {
+                    AddBubble(barcodeText, fromOwner: false);
+                    _busy = false;
+                    RefreshKeyCard();
+                    SaveCurrentChat();
+                    ScrollToEnd();
+                    _input.Focus();
+                }
+                return;
+            }
+        }
         var (thinking, setStage) = AddStageBubble();
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
@@ -835,6 +925,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             List<ProductActionPlan.Step>? productSteps = null;
             IReadOnlyList<string> skippedItems = Array.Empty<string>();
             List<(string Name, string? Phone, double Amount)>? debtReminders = null;
+            var blockedCaps = new List<string>();
             if (answer is { Length: > 0 })
             {
                 (answer, botChange) = ExtractBotChange(answer);
@@ -844,7 +935,11 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                 if (ProductActionPlan.SupplierHint(answer) is var hint && (hint.Name is not null || hint.Inn is not null || attachments.Count > 0))
                     _invoiceSupplierHint = hint;
                 (answer, productSteps, skippedItems) = ProductActionPlan.Extract(answer, question);
+                // 2026-10-30: действия выключенных возможностей отброшены разбором — скажем об этом (ниже), а не промолчим.
+                blockedCaps = ProductActionPlan.LastBlocked.ToList();
                 (answer, debtReminders) = ExtractDebtReminders(answer);
+                if (answer.Trim().Length == 0 && blockedCaps.Count > 0)
+                    answer = AdvisorCapabilities.BlockedText(blockedCaps[0]);
                 // 2026-10-21 (О6): просили ПОКАЗАТЬ список, а ИИ ответил действиями без таблицы (история 08.10: «выведи список всех 21» —
                 // 4 раза «подготовил… подтвердите») — показываем таблицу этих товаров, карточку действий не показываем.
                 if (TelegramAiChat.LooksLikeListRequest(question) && image is null && productSteps.Count > 0 && !HasTable(answer)
@@ -905,13 +1000,22 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             // 2026-10-21 (О4): изменения — только с правом на них; без права карточки нет, а владелец видит почему.
             if (botChange is { Count: > 0 })
             {
-                if (access.Settings)
+                if (!Cap("act.bot"))
+                    SayDisabled("act.bot");
+                else if (access.Settings)
                     AddBotChangeCard(botChange);
                 else
                     AddBubble(NoAccessText(T("настройкам Телеграм-бота", "Телеграм-боттун жөндөөлөрүнө", "the Telegram bot settings", "Telegram botu ayarlarına", "Telegram bot sozlamalariga"), "Настройки"), fromOwner: false);
             }
             if (scenario is not null && access.Settings)
-                AddScenarioCard(scenario);
+            {
+                if (Cap("act.bot"))
+                    AddScenarioCard(scenario);
+                else if (botChange is not { Count: > 0 })
+                    SayDisabled("act.bot");
+            }
+            foreach (var blockedId in blockedCaps.Where(id => id != "act.bot"))
+                SayDisabled(blockedId);
             if (productSteps is { Count: > 0 })
             {
                 if (access.Products)
@@ -920,7 +1024,12 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                     AddBubble(NoAccessText(T("складу и изменению товаров", "кампага жана товарларды өзгөртүүгө", "the warehouse and product changes", "depoya ve ürün değişikliklerine", "omborga va mahsulotlarni o'zgartirishga"), "Склад"), fromOwner: false);
             }
             if (debtReminders is { Count: > 0 } && access.Clients)
-                AddDebtReminderCard(debtReminders);
+            {
+                if (Cap("rem.debtors"))
+                    AddDebtReminderCard(debtReminders);
+                else
+                    SayDisabled("rem.debtors");
+            }
             // 2026-10-06: строки, которые не стали действиями, — не молча, а списком (раньше накладная на 20 позиций давала «ничего»).
             if (skippedItems.Count > 0 && access.Products)
                 AddBubble(T("Не нашёл в каталоге и не смог разобрать: ", "Каталогдон таппадым жана ажырата алган жокмун: ", "Not found in the catalog and couldn't parse: ",
@@ -1291,6 +1400,19 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     /// 2026-10-21 (И3): под вопросами — утренний отчёт за сегодня, если он уже собран.</summary>
     private void ShowWelcome()
     {
+        // 2026-10-30: Нур Советник выключен владельцем — вместо приветствия одна строка, где включить.
+        if (!AdvisorCapabilities.MasterOn)
+        {
+            var off = new TextBlock
+            {
+                Text = AdvisorCapabilities.BlockedText(), FontSize = 15, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center, MaxWidth = 560, Margin = new Thickness(0, 60, 0, 0),
+            };
+            Use(off, TextBlock.ForegroundProperty, "BrushTextSoft");
+            _welcome = off;
+            _messages.Children.Add(off);
+            return;
+        }
         var panel = new StackPanel { Spacing = 10, Margin = new Thickness(0, 18, 0, 0), HorizontalAlignment = HorizontalAlignment.Center, MaxWidth = 800 };
         var avatar = AiAvatar(56);
         avatar.HorizontalAlignment = HorizontalAlignment.Center;
@@ -1312,6 +1434,9 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                 "Do'koningiz raqamlari bo'yicha javob beraman va manbasini ko'rsataman. Ovoz bilan ham — 🎤 yoki «Suhbat»."),
             FontSize = 14, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center, TextAlignment = TextAlignment.Center, MaxWidth = 620,
         };
+        // 2026-10-30: голос выключен тумблерами — про микрофон и «Разговор» в приветствии не пишем.
+        if (!Cap("voice.ask") && !Cap("voice.live") && intro.Text is { } introText)
+            intro.Text = introText.Split(new[] { " Можно голосом", " Үн менен да", " Voice works", " Sesle de", " Ovoz bilan" }, StringSplitOptions.None)[0];
         Use(intro, TextBlock.ForegroundProperty, "BrushTextSoft");
         panel.Children.Add(intro);
         if (_quick.Parent is Panel old)
@@ -1321,7 +1446,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         _quick.MaxWidth = 800;
         panel.Children.Add(_quick);
         // 2026-10-21 (И3): утренний отчёт за сегодня — сразу на пустом экране (как «For you» у лучших помощников).
-        if (OwnerMorningReport.Latest is { } morning && morning.BuiltAt.Date == DateTime.Today)
+        if (Cap("pro.morning") && OwnerMorningReport.Latest is { } morning && morning.BuiltAt.Date == DateTime.Today)
         {
             var card = MorningReportCard.Build(morning, OpenSectionSafe, () => _ = MorningReportSettingsWindow.ShowAsync(this));
             card.Margin = new Thickness(0, 6, 0, 0);
@@ -1361,7 +1486,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     /// <summary>2026-10-21 (И3): готов новый утренний отчёт — на пустом экране обновить приветствие, в разговоре — карточкой в ленту.</summary>
     private void OnMorningReport(OwnerMorningReport.Report r)
     {
-        if (_morningShownFor == r.BuiltAt)
+        if (_morningShownFor == r.BuiltAt || !Cap("pro.morning"))
             return;
         if (_welcome is not null)
         {
@@ -2192,32 +2317,128 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             }).ConfigureAwait(true);
             foreach (var file in files)
             {
-                if (_attachments.Count >= MaxAttachments)
-                {
-                    AddBubble(T($"Не больше {MaxAttachments} страниц за раз.", $"Бир жолу {MaxAttachments} барактан ашпайт.", $"No more than {MaxAttachments} pages at a time.",
-                        $"Tek seferde en fazla {MaxAttachments} sayfa.", $"Bir martada {MaxAttachments} sahifadan ko'p emas."), fromOwner: false);
-                    break;
-                }
                 await using var stream = await file.OpenReadAsync().ConfigureAwait(true);
-                using var ms = new MemoryStream();
-                await stream.CopyToAsync(ms).ConfigureAwait(true);
-                if (ms.Length > 15_000_000 || _attachments.Sum(a => (long)a.Data.Length) + ms.Length > 40_000_000)
-                {
-                    AddBubble(T($"«{file.Name}» слишком большой (больше 15 МБ, или всего больше 40 МБ) — сожмите или сфотографируйте заново.",
-                        $"«{file.Name}» өтө чоң (15 МБдан же жалпы 40 МБдан ашык) — кичирейтиңиз же кайра тартыңыз.",
-                        $"“{file.Name}” is too big (over 15 MB, or over 40 MB in total) — shrink it or retake it.",
-                        $"«{file.Name}» çok büyük (15 MB'tan veya toplamda 40 MB'tan fazla) — küçültün veya yeniden çekin.",
-                        $"«{file.Name}» juda katta (15 MB dan yoki jami 40 MB dan ortiq) — kichraytiring yoki qayta oling."), fromOwner: false);
-                    continue;
-                }
-                var ext = Path.GetExtension(file.Name).ToLowerInvariant();
-                _attachments.Add((ms.ToArray(), ext switch { ".png" => "image/png", ".webp" => "image/webp", ".pdf" => "application/pdf", _ => "image/jpeg" }, file.Name));
+                if (!await AddAttachmentAsync(file.Name, stream).ConfigureAwait(true))
+                    break;
             }
             RenderAttachments();
         }
         catch (Exception ex)
         {
             PosLogger.Log($"ИИ-советник: фото не прикреплено ({ex.Message}).", "WARNING");
+            // 2026-10-29, жалоба «в ИИ не нажимается вставка накладных»: раньше сбой выбора файла был виден только в журнале — кнопка выглядела мёртвой.
+            ShowAttachFailed();
+        }
+    }
+
+    /// <summary>2026-10-29: одно вложение (из окна выбора, перетаскивания или Ctrl+V) с общими проверками: число страниц, размер, тип.
+    /// false — больше страниц не брать (предел достигнут); электронная накладная (Excel/CSV/XML) к ИИ не прикладывается — подсказка и кнопка «Склад → Приёмка».</summary>
+    private async Task<bool> AddAttachmentAsync(string name, Stream stream)
+    {
+        if (_attachments.Count >= MaxAttachments)
+        {
+            AddBubble(T($"Не больше {MaxAttachments} страниц за раз.", $"Бир жолу {MaxAttachments} барактан ашпайт.", $"No more than {MaxAttachments} pages at a time.",
+                $"Tek seferde en fazla {MaxAttachments} sayfa.", $"Bir martada {MaxAttachments} sahifadan ko'p emas."), fromOwner: false);
+            return false;
+        }
+        var ext = Path.GetExtension(name).ToLowerInvariant();
+        if (ext is ".xlsx" or ".xls" or ".csv" or ".tsv" or ".xml" or ".txt")
+        {
+            var hint = AddBubble(T($"«{name}» — это электронная накладная (таблица). ИИ читает фото и PDF, а таблицу загружают в «Склад → Приёмка» кнопкой «Загрузить накладную» — там же её можно просто перетащить в окно.",
+                $"«{name}» — электрондук накладной (таблица). ЖИ сүрөт жана PDF окуйт, ал эми таблицаны «Кампа → Кабыл алуу» бөлүмүндөгү «Накладнойду жүктөө» баскычы менен жүктөйт — ошол жерге жөн эле сүйрөп таштасаңыз да болот.",
+                $"“{name}” is an electronic invoice (a table). The AI reads photos and PDFs; load a table in Warehouse → Receiving with the “Load invoice” button — you can also drag it into that window.",
+                $"«{name}» elektronik bir fatura (tablo). Yapay zekâ fotoğraf ve PDF okur; tabloyu Depo → Mal kabul bölümünde «Fatura yükle» düğmesiyle yükleyin — pencereye sürükleyip bırakabilirsiniz.",
+                $"«{name}» — elektron yuk xati (jadval). SI rasm va PDF o'qiydi; jadvalni Ombor → Qabul qilish bo'limida «Yuk xatini yuklash» tugmasi bilan yuklang — oynaga sudrab tashlasangiz ham bo'ladi."), fromOwner: false);
+            if (ProductActionPlan.OpenNavTarget is not null && AdvisorNavRouter.ById("warehouse.receiving") is { } receiving)
+                AddNavButtons(hint, new[] { receiving });
+            return true;
+        }
+        if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp" or ".pdf"))
+        {
+            AddBubble(T($"«{name}» не подходит: приложите фото (JPG, PNG, WEBP) или PDF накладной.", $"«{name}» ылайыксыз: накладнойдун сүрөтүн (JPG, PNG, WEBP) же PDF тиркеңиз.",
+                $"“{name}” doesn't fit: attach a photo (JPG, PNG, WEBP) or a PDF of the invoice.", $"«{name}» uygun değil: faturanın fotoğrafını (JPG, PNG, WEBP) veya PDF'ini ekleyin.",
+                $"«{name}» mos emas: yuk xatining rasmini (JPG, PNG, WEBP) yoki PDF'ini biriktiring."), fromOwner: false);
+            return true;
+        }
+        // 2026-10-30: «Читать накладные: фото и PDF» выключено — файл в ИИ не уходит.
+        if (!Cap("inv.read"))
+        {
+            SayDisabled("inv.read");
+            return false;
+        }
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms).ConfigureAwait(true);
+        if (ms.Length > 15_000_000 || _attachments.Sum(a => (long)a.Data.Length) + ms.Length > 40_000_000)
+        {
+            AddBubble(T($"«{name}» слишком большой (больше 15 МБ, или всего больше 40 МБ) — сожмите или сфотографируйте заново.",
+                $"«{name}» өтө чоң (15 МБдан же жалпы 40 МБдан ашык) — кичирейтиңиз же кайра тартыңыз.",
+                $"“{name}” is too big (over 15 MB, or over 40 MB in total) — shrink it or retake it.",
+                $"«{name}» çok büyük (15 MB'tan veya toplamda 40 MB'tan fazla) — küçültün veya yeniden çekin.",
+                $"«{name}» juda katta (15 MB dan yoki jami 40 MB dan ortiq) — kichraytiring yoki qayta oling."), fromOwner: false);
+            return true;
+        }
+        _attachments.Add((ms.ToArray(), ext switch { ".png" => "image/png", ".webp" => "image/webp", ".pdf" => "application/pdf", _ => "image/jpeg" }, name));
+        return true;
+    }
+
+    private void ShowAttachFailed() =>
+        AddBubble(T("Не удалось приложить файл. Попробуйте ещё раз, перетащите фото в окно или вставьте его через Ctrl+V.",
+            "Файлды тиркөө мүмкүн болгон жок. Кайра аракет кылыңыз, сүрөттү терезеге сүйрөп таштаңыз же Ctrl+V менен чаптаңыз.",
+            "Couldn't attach the file. Try again, drag the photo into the window, or paste it with Ctrl+V.",
+            "Dosya eklenemedi. Tekrar deneyin, fotoğrafı pencereye sürükleyin veya Ctrl+V ile yapıştırın.",
+            "Faylni biriktirib bo'lmadi. Qayta urinib ko'ring, rasmni oynaga sudrab tashlang yoki Ctrl+V bilan qo'ying."), fromOwner: false);
+
+    /// <summary>2026-10-29: перетаскивание файлов из проводника на окно советника — как «скрепка».</summary>
+    private async Task AttachDroppedAsync(IEnumerable<Avalonia.Platform.Storage.IStorageItem>? items)
+    {
+        try
+        {
+            foreach (var file in (items ?? Array.Empty<Avalonia.Platform.Storage.IStorageItem>()).OfType<Avalonia.Platform.Storage.IStorageFile>())
+            {
+                await using var stream = await file.OpenReadAsync().ConfigureAwait(true);
+                if (!await AddAttachmentAsync(file.Name, stream).ConfigureAwait(true))
+                    break;
+            }
+            RenderAttachments();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: файл не прикреплён перетаскиванием ({ex.Message}).", "WARNING");
+            ShowAttachFailed();
+        }
+    }
+
+    /// <summary>2026-10-29: Ctrl+V — картинка из буфера (снимок экрана, фото накладной из мессенджера) или файлы, скопированные в проводнике,
+    /// прикладываются как страницы. Если в буфере есть текст — это обычная вставка текста в поле, ничего не трогаем.</summary>
+    private async Task TryPasteAttachmentAsync()
+    {
+        try
+        {
+            if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard || _composer is not { IsVisible: true })
+                return;
+            var formats = await clipboard.GetFormatsAsync().ConfigureAwait(true);
+            if (formats.Contains(DataFormats.Text))
+                return;
+            var added = false;
+            if (formats.Contains(DataFormats.Files) && await clipboard.GetDataAsync(DataFormats.Files).ConfigureAwait(true) is IEnumerable<Avalonia.Platform.Storage.IStorageItem> files)
+            {
+                await AttachDroppedAsync(files).ConfigureAwait(true);
+                return;
+            }
+            foreach (var format in new[] { "PNG", "image/png" })
+            {
+                if (!formats.Contains(format) || await clipboard.GetDataAsync(format).ConfigureAwait(true) is not byte[] png || png.Length == 0)
+                    continue;
+                using var ms = new MemoryStream(png);
+                added = await AddAttachmentAsync($"{T("Вставлено", "Чапталган", "Pasted", "Yapıştırılan", "Qo'yilgan")} {DateTime.Now:HH-mm-ss}.png", ms).ConfigureAwait(true);
+                break;
+            }
+            if (added)
+                RenderAttachments();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: вставка из буфера не удалась ({ex.Message}).", "WARNING");
         }
     }
 
@@ -2485,6 +2706,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         var purchase = steps.Any(ProductActionPlan.IsPurchaseStep);
         var supplierHint = _invoiceSupplierHint;
         InvoiceEditorWindow.PurchaseDraft? draft = null;
+        AdvisorSupplierPrompt? supplierPrompt = null; // 2026-10-30: «Поставщик «X» не найден — создать?» в карточке накладной
         var editorOpen = false;
         var title = new TextBlock
         {
@@ -2619,6 +2841,12 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             };
             Use(purchaseNote, TextBlock.ForegroundProperty, "BrushTextSoft");
             body.Children.Add(purchaseNote);
+            // 2026-10-30, жалоба «нет создания поставщика при «Оприходовать товар»»: поставщик из накладной — найден / создать / выбрать другого / без поставщика (без ИИ).
+            if (supplierHint.Name is not null || supplierHint.Inn is not null)
+            {
+                supplierPrompt = new AdvisorSupplierPrompt(this, supplierHint.Name, supplierHint.Inn, ProductActionPlan.LastSupplierExtra.Phone, ProductActionPlan.LastSupplierExtra.Address);
+                body.Children.Add(supplierPrompt);
+            }
             // 2026-10-19, ревью: часть строк этой накладной уже проведена (прежней карточкой) — показать их; в окне закупки они
             // помечены «уже проведено» и без второго подтверждения не проводятся.
             var alreadyPosted = steps.Where(ProductActionPlan.IsPurchaseStep)
@@ -3055,11 +3283,14 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                     if (ReferenceEquals(_scanTargets, scanTargets))
                         _scanTargets = null;
                 }
-                await new InvoiceEditorWindow(draft).ShowDialog<string?>(this).ConfigureAwait(true);
+                // 2026-10-30 (приёмка 1.17.66): выбор поставщика в реплике переходит в черновик при КАЖДОМ открытии окна (раньше — только при первом).
+                supplierPrompt?.Attach(draft);
+                await ShowEditorDialogAsync(new InvoiceEditorWindow(draft)).ConfigureAwait(true); // 2026-10-30: окно закупки переживает смену раздела
             }
             finally
             {
                 editorOpen = false;
+                supplierPrompt?.SyncFromDraft(); // в реплике — тот поставщик, с которым проведётся приход
             }
             if (draft.PostedSummaries.Count > 0)
             {
@@ -3513,6 +3744,11 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     {
         if (_live is not null || _busy || _recorder is not null || !TelegramAiChat.IsConfigured)
             return;
+        if (!Cap("voice.live"))
+        {
+            SayDisabled("voice.live");
+            return;
+        }
         var gen = ++_liveGen;
         VoiceChatPlayer.Stop();
         _sidebar.IsVisible = false;
@@ -3831,6 +4067,11 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     {
         if (_mic is null)
             return;
+        if (_recorder is null && !Cap("voice.ask"))
+        {
+            SayDisabled("voice.ask");
+            return;
+        }
         if (_recorder is null)
         {
             if (_busy)
@@ -4193,7 +4434,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                                   || w is "ач" or "кир" or "ачып");
         // 2026-10-07, владелец: «открывай вкладки только после команды открыть» — «найди / тап товар» больше не открывает склад:
         // сведения о товаре идут таблицей в чат (LiveTablePassAsync).
-        if (!open)
+        if (!open || !Cap("nav.open"))
             return null;
         // Проверить фото — товар, которому его только что поставили. Иначе товар по целым словам названия (не подстрокой:
         // «финансы» находили товар «Нан»); раздел меню важнее товара, если не сказано «товар» и совпало одно слово.
@@ -4235,6 +4476,13 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     /// неизвестный раздел — честно и кнопки основных разделов. Составная просьба («…и найди закончившиеся») — ещё и список закончившихся.</summary>
     private async Task<AdvisorTurn.NavReply> RunNavRouteAsync(AdvisorNavRouter.Route route)
     {
+        // 2026-10-30: «Открывать разделы и товары по просьбе» выключено — не переходим, говорим почему.
+        if (!Cap("nav.open"))
+        {
+            var blocked = AdvisorCapabilities.BlockedText("nav.open");
+            AddBubble(blocked, fromOwner: false);
+            return new AdvisorTurn.NavReply(AdvisorTurn.ReplyKind.Failed, blocked, Array.Empty<AdvisorNavRouter.NavTarget>(), null, null, Array.Empty<string>(), null, 0);
+        }
         var open = ProductActionPlan.OpenNavTarget!;
         if (route.Kind == AdvisorNavRouter.RouteKind.Single)
         {
@@ -4331,6 +4579,8 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     {
         if (name != "open_section")
             return "НЕ ВЫПОЛНЕНО: такого инструмента нет.";
+        if (!Cap("nav.open"))
+            return "НЕ ВЫПОЛНЕНО: открывать разделы выключено владельцем (Настройки → Операции → Нур Советник). Скажи владельцу ровно это одной фразой.";
         string target = "", words = "";
         try
         {
@@ -4404,6 +4654,9 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         // 2026-10-27 (аудит редакторов, В-1): вопрос («Как опубликовать сайт?») — только объяснение, редактор не открываем и ничего не публикуем.
         if (SiteEditorWindow.IsQuestion(text))
             return SiteEditorWindow.PublishHowTo();
+        // 2026-10-30: «Команды сайту» выключены — сайт из чата не меняем и не публикуем.
+        if (!Cap("nav.site"))
+            return AdvisorCapabilities.BlockedText("nav.site");
         openSection("siteeditor");
         for (var i = 0; i < 60 && SiteEditorWindow.Current is not { IsReady: true }; i++)
             await Task.Delay(250).ConfigureAwait(true);
@@ -4462,6 +4715,9 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         var t = spoken.ToLowerInvariant();
         // «Открой склад, проверь фото» — это открыть товар (TryQuickOpen), не поиск фото.
         if (OpenWords(t))
+            return false;
+        // 2026-10-30: «Искать и ставить фото товаров» выключено — поиск в интернете не запускаем (советнику в звонке это сказано в инструкции).
+        if (!Cap("inv.photo"))
             return false;
         var recentPhotoTalk = DateTime.UtcNow - _liveLastPhotoTalkUtc < TimeSpan.FromMinutes(3);
         // Поиск разрешает только прямая команда владельца, а не слова «фото» или обещание самого ИИ.
@@ -4591,6 +4847,12 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     /// с «📷 Добавить фото» (файл или камера, как на складе). На сервер фото уходит только по нажатию владельца.</summary>
     private async Task RunPhotoAssistantAsync(string question)
     {
+        // 2026-10-30: «Искать и ставить фото товаров» выключено — названия товаров для поиска в интернет не уходят.
+        if (!Cap("inv.photo"))
+        {
+            SayDisabled("inv.photo");
+            return;
+        }
         // 2026-10-05, владелец: «чтобы ИИ смог по команде найти фото по названию или штрихкоду товара в интернете, если в
         // базе нет». Названы товары («найди фото для кока колы», штрихкод) — ищем для них; иначе — для всех без фото.
         var named = ProductPhotoFinder.MatchRequest(question);
@@ -4717,6 +4979,11 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     /// <summary>Варианты фото товаров (до 8 на товар) — плиткой в чате, «Поставить это фото» под каждым.</summary>
     private async Task ShowPhotoChoicesAsync(IReadOnlyList<NurMarketKassa.Models.Pos.CatalogProductTileVm> products)
     {
+        if (!Cap("inv.photo"))
+        {
+            SayDisabled("inv.photo");
+            return;
+        }
         var status = AddBubble(T($"Ищу фото на выбор: {string.Join(", ", products.Select(p => p.Title))} — в открытых базах и на сайтах магазинов…",
             $"Тандоо үчүн сүрөт издеп жатам: {string.Join(", ", products.Select(p => p.Title))} — ачык базалардан жана дүкөн сайттарынан…",
             $"Looking for photos to choose from: {string.Join(", ", products.Select(p => p.Title))} — in open databases and shop websites…",

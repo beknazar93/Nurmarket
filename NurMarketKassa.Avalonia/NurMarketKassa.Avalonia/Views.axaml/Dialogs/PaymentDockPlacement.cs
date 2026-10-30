@@ -37,7 +37,10 @@ internal static class PaymentDockPlacement
         }
     }
 
-    public static void WriteBottomMode(bool bottom, string? path = null)
+    /// <summary>Смена режима стирает и смещение, оставленное перетаскиванием (новый режим — новое «обычное» место).</summary>
+    public static void WriteBottomMode(bool bottom, string? path = null) => Write(bottom, 0, 0, path);
+
+    private static void Write(bool bottom, int dx, int dy, string? path)
     {
         try
         {
@@ -45,13 +48,44 @@ internal static class PaymentDockPlacement
             var dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
-            File.WriteAllText(path, bottom ? "{\"mode\":\"bottom\"}" : "{\"mode\":\"center\"}");
+            var json = bottom ? "{\"mode\":\"bottom\"" : "{\"mode\":\"center\"";
+            if (dx != 0 || dy != 0)
+                json += $",\"dx\":{dx},\"dy\":{dy}";
+            File.WriteAllText(path, json + "}");
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Окно оплаты: {FileName} не записан ({ex.Message})", "WARNING");
         }
     }
+
+    /// <summary>2026-10-30, «модалка не двигается!!!»: смещение окна оплаты (в пикселях экрана) от обычного места, которое задаёт режим,
+    /// — после перетаскивания за шапку. Нет файла, поля или оно испорчено — (0, 0).</summary>
+    public static (int Dx, int Dy) ReadOffset(string? path = null)
+    {
+        try
+        {
+            path ??= FilePath;
+            if (!File.Exists(path))
+                return (0, 0);
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            var root = doc.RootElement;
+            if (root.TryGetProperty("dx", out var dx) && dx.ValueKind == JsonValueKind.Number && dx.TryGetInt32(out var x)
+                && root.TryGetProperty("dy", out var dy) && dy.ValueKind == JsonValueKind.Number && dy.TryGetInt32(out var y))
+                return (Math.Clamp(x, -20000, 20000), Math.Clamp(y, -20000, 20000));
+        }
+        catch
+        {
+            // испорченный файл читает ReadBottomMode (с записью в журнал) — здесь просто «без смещения»
+        }
+        return (0, 0);
+    }
+
+    /// <summary>Запомнить смещение окна оплаты (режим «по центру/к низу» сохраняется).</summary>
+    public static void WriteOffset(int dx, int dy, string? path = null) => Write(ReadBottomMode(path), dx, dy, path);
+
+    /// <summary>«Сбросить положение окна оплаты» в настройках: смещение убирается, режим остаётся.</summary>
+    public static void ResetOffset(string? path = null) => Write(ReadBottomMode(path), 0, 0, path);
 
     /// <summary>Верх окна оплаты в пикселях экрана. area — видимая часть клиентской области главного окна в рабочей области экрана;
     /// heightDip — высота окна оплаты; clientHeightDip — высота клиентской области главного окна.

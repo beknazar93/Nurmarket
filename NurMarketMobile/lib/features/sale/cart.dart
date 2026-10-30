@@ -92,8 +92,9 @@ class CartLine {
   final List<PromoRule> promo;
 
   /// Розничная и оптовая цены товара; wholesalePrice = 0 — опта у товара нет.
-  final double retailPrice;
-  final double wholesalePrice;
+  // 2026-10-29 (аудит мобилки, п. 8): не final — сверка цен с сервером перед оплатой обновляет цены строки.
+  double retailPrice;
+  double wholesalePrice;
   bool wholesale;
 
   /// 13.10, макет С5: вариант товара (размер/цвет) — uuid варианта NurCRM; сервер списывает и товар, и размер.

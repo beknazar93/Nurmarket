@@ -241,7 +241,7 @@ class Receipt {
     );
   }
 
-  static String _shop(Session? s) => (s?.companyName.isNotEmpty ?? false) ? s!.companyName : 'NurMarket';
+  static String _shop(Session? s) => (s?.companyName.isNotEmpty ?? false) ? s!.companyName : 'NurCRM';
 
   static String _shiftNo(Map<String, dynamic>? m) {
     if (m == null) return '';

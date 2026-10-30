@@ -9,6 +9,10 @@ namespace NurMarketKassa.Services;
 /// цифры в них не разошлись.</summary>
 public sealed class AnalyticsReportData
 {
+    /// <summary>2026-10-31 (стресс-тест 1.17.68, п. 9): сервер не ответил (при включённой связи) — отчёт построен по истории этой кассы;
+    /// экраны говорят «нет связи», а не «продаж нет».</summary>
+    public bool ServerFailed { get; set; }
+
     public DateTime FromLocal { get; init; }
     public DateTime ToLocal { get; init; }
 
@@ -340,6 +344,7 @@ public sealed class AnalyticsReportData
         bool includeSeasonality = true, bool full = false, CancellationToken ct = default)
     {
         ServerFigures? server = null;
+        var serverFailed = false;
         // Касса работает без сервера — не ждём ответа, которого не будет.
         // 2026-09-29: и в аварии сервера (ServerOutageMonitor) — сразу по истории кассы.
         if (!OfflineModeHelper.SellLocally)
@@ -354,6 +359,7 @@ public sealed class AnalyticsReportData
             try
             {
                 server = await ServerFigures.FetchAsync(api, fromLocal, toLocal, full, timeout.Token).ConfigureAwait(false);
+                serverFailed = server is null;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -362,10 +368,13 @@ public sealed class AnalyticsReportData
             catch (Exception ex)
             {
                 PosLogger.Log($"Аналитика: сервер недоступен ({ex.Message}) — считаю по истории кассы.", "WARNING");
+                serverFailed = true;
             }
         }
 
-        return await Task.Run(() => Build(fromLocal, toLocal, includeSeasonality, server), ct).ConfigureAwait(false);
+        var built = await Task.Run(() => Build(fromLocal, toLocal, includeSeasonality, server), ct).ConfigureAwait(false);
+        built.ServerFailed = serverFailed;
+        return built;
     }
 
     /// <summary>Собирает отчёт из локальных данных кассы. Всё считается на месте, без сети:

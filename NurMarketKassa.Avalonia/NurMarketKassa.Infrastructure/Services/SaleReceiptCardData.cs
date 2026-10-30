@@ -115,7 +115,7 @@ public sealed class SaleReceiptCardData
         var prefs = UserPreferences.Instance;
         var d = new SaleReceiptCardData
         {
-            Shop = prefs.ShowStoreName && !string.IsNullOrWhiteSpace(prefs.StoreName) ? prefs.StoreName.Trim() : "NurMarket",
+            Shop = prefs.ShowStoreName && !string.IsNullOrWhiteSpace(prefs.StoreName) ? prefs.StoreName.Trim() : "NurCRM",
             Inn = prefs.ShowInn && !string.IsNullOrWhiteSpace(prefs.StoreInn) ? prefs.StoreInn.Trim() : "",
             Address = prefs.ShowAddress && !string.IsNullOrWhiteSpace(prefs.StoreAddress) ? prefs.StoreAddress.Trim() : "",
             Number = (receiptNumber ?? "").Trim(),

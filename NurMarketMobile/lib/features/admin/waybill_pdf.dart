@@ -40,7 +40,7 @@ String? vatLine(double total, double percent) {
 Future<List<int>> docPdfBytes(Receipt r, DocKind kind, {String? basis, String? note, String requisites = '', double paid = 0, double vatPercent = 0}) async {
   final regular = pw.Font.ttf(await rootBundle.load('assets/fonts/Montserrat-Regular.ttf'));
   final bold = pw.Font.ttf(await rootBundle.load('assets/fonts/Montserrat-Bold.ttf'));
-  final doc = pw.Document(title: '${docTitle(kind)} ${r.number}', author: r.shop, creator: 'NurMarket');
+  final doc = pw.Document(title: '${docTitle(kind)} ${r.number}', author: r.shop, creator: 'NurCRM');
   final m2 = NumberFormat('#,##0.00', 'ru');
   String d(DateTime t) => '${t.day.toString().padLeft(2, '0')}.${t.month.toString().padLeft(2, '0')}.${t.year}';
   pw.Widget cell(String t, {bool b = false, pw.TextAlign a = pw.TextAlign.left}) => pw.Padding(
@@ -80,7 +80,7 @@ Future<List<int>> docPdfBytes(Receipt r, DocKind kind, {String? basis, String? n
         padding: const pw.EdgeInsets.only(top: 8),
         child: pw.Row(
           children: [
-            pw.Expanded(child: pw.Text('Сформировано в NurMarket', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700))),
+            pw.Expanded(child: pw.Text('Сформировано в NurCRM', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700))),
             if (c.pagesCount > 1)
               pw.Text('${r.number} · стр. ${c.pageNumber} из ${c.pagesCount}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
           ],

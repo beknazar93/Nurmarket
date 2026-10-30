@@ -24,6 +24,11 @@ public partial class ShiftDetailsDialog : Window
     /// false — не сверять: отчёт закрытия смены собран из ответа самого закрытия (MainWindow).</summary>
     public bool RefreshFromServer { get; init; } = true;
 
+    /// <summary>2026-10-30 (приёмка кассы 1.17.65): отчёт собран из данных кассы (смена закрыта без связи, ответа сервера нет). Сервер о продажах смены
+    /// ещё не знает (чеки в очереди), поэтому его цифры не подгружаются: они подменили бы полные данные кассы заниженными. Пересоздать отчёт по данным сервера —
+    /// «Смены» → эта смена, после отправки очереди и закрытия смены на сервере.</summary>
+    public bool LocalReport { get; init; }
+
     private readonly CancellationTokenSource _cts = new();
     private Task<List<ShiftReportData.ShiftSale>>? _saleRows;
     private Task? _pendingDebt;
@@ -73,6 +78,21 @@ public partial class ShiftDetailsDialog : Window
 
     private void OnOpened()
     {
+        if (LocalReport)
+        {
+            // 2026-10-30: цифры — из данных кассы, с сервера ничего не подгружаем; «Товары за смену» — по локальной истории кассы.
+            _serverProductsFailed = true;
+            LocalDataNote.Text = Tr.T("Данные по кассе без связи; сверка с сервером после отправки.",
+                "Байланышсыз касса маалыматтары боюнча; серверге жөнөткөндөн кийин салыштырылат.",
+                "Till data without a connection; reconciled with the server after sending.",
+                "Bağlantısız kasa verileri; gönderimden sonra sunucuyla karşılaştırılır.",
+                "Aloqasiz kassa ma'lumotlari; yuborilgandan keyin server bilan solishtiriladi.");
+            LocalDataNote.IsVisible = true;
+            if (_shift is { } local)
+                BindShiftProducts(local);
+            return;
+        }
+
         if (_shift is not { } shift || !IsServerShift(shift.Id))
             return;
 
@@ -760,7 +780,7 @@ public partial class ShiftDetailsDialog : Window
             _drillDownOpen = true;
             try
             {
-                PosDialogHost.Show(new ShiftDrillDownDialog(_shift, kind, IsServerShift(_shift.Id) ? SaleRows() : null), this);
+                PosDialogHost.Show(new ShiftDrillDownDialog(_shift, kind, IsServerShift(_shift.Id) && !LocalReport ? SaleRows() : null), this); // 2026-10-30: отчёт из данных кассы — чеков смены на сервере нет
             }
             finally
             {
@@ -962,7 +982,7 @@ public partial class ShiftDetailsDialog : Window
                 sb.AppendLine(line);
         }
         sb.AppendLine("------------------------------");
-        sb.AppendLine("NurMarket Kassa");
+        sb.AppendLine("NurCRM Kassa");
         return sb.ToString();
     }
 }

@@ -103,16 +103,20 @@
             </StackPanel>
         </dlg:ModalShell.Footer>
 
-    <Grid RowDefinitions="Auto,*">
-        <TextBlock Grid.Row="0" x:Name="ErrorText" IsVisible="False" Foreground="{DynamicResource BrushDanger}"
+    <Grid RowDefinitions="Auto,Auto,Auto,*">
+        <!-- 2026-10-30: пояснение (спокойным цветом): что в списке и что можно сделать; фильтры по причине; красная строка — только ошибка действия. -->
+        <TextBlock Grid.Row="0" x:Name="HintText" IsVisible="False" Foreground="{DynamicResource BrushTextSoft}"
+                   FontSize="12.5" Margin="0,0,0,8" TextWrapping="Wrap"/>
+        <WrapPanel Grid.Row="1" x:Name="FilterPanel" Margin="0,0,0,8" IsVisible="False"/>
+        <TextBlock Grid.Row="2" x:Name="ErrorText" IsVisible="False" Foreground="{DynamicResource BrushDanger}"
                    FontSize="12" Margin="0,0,0,8" TextWrapping="Wrap"/>
 
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="3">
             <DataGrid x:Name="ReceiptsGrid" Classes="ModernGrid" AutoGenerateColumns="False" IsReadOnly="True">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="{DynamicResource common.date}" Width="110" MinWidth="96" Binding="{ReflectionBinding DateText}"/>
-                    <DataGridTextColumn Header="{DynamicResource common.time}" Width="96" MinWidth="84" Binding="{ReflectionBinding TimeText}"/>
-                    <DataGridTemplateColumn Header="{DynamicResource irregular.colStatus}" Width="200">
+                    <DataGridTextColumn Header="{DynamicResource common.date}" Width="84" MinWidth="76" Binding="{ReflectionBinding DateText}"/>
+                    <DataGridTextColumn Header="{DynamicResource common.time}" Width="76" MinWidth="70" Binding="{ReflectionBinding TimeText}"/>
+                    <DataGridTemplateColumn Header="{DynamicResource irregular.colStatus}" Width="190">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Border Classes="StatusBadge" Classes.pending="{ReflectionBinding IsPending}"
@@ -130,12 +134,20 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="{DynamicResource common.amount}" Width="160" MinWidth="140" Binding="{ReflectionBinding TotalText}"/>
-                    <DataGridTemplateColumn Header="{DynamicResource irregular.colActions}" Width="150">
+                    <DataGridTextColumn Header="{DynamicResource common.amount}" Width="120" MinWidth="104" Binding="{ReflectionBinding TotalText}"/>
+                    <DataGridTemplateColumn Header="{DynamicResource irregular.colActions}" Width="370">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button Content="{DynamicResource irregular.viewButton}" Classes="SecondaryActionButton"
-                                        IsVisible="{ReflectionBinding CanView}" Click="View_Click" Padding="12,4" Height="30"/>
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <Button Content="{ReflectionBinding ViewText}" Classes="SecondaryActionButton"
+                                            IsVisible="{ReflectionBinding CanView}" Click="View_Click" Padding="8,2" Height="30"/>
+                                    <Button Content="{ReflectionBinding SendText}" Classes="PrimaryActionButton"
+                                            IsVisible="{ReflectionBinding CanSend}" Click="SendRow_Click" Padding="8,2" Height="30"/>
+                                    <Button Content="{ReflectionBinding ReplenishText}" Classes="PrimaryActionButton"
+                                            IsVisible="{ReflectionBinding CanReplenish}" Click="ReplenishRow_Click" Padding="8,2" Height="30"/>
+                                    <Button Content="{ReflectionBinding CloseText}" Classes="SecondaryActionButton"
+                                            IsVisible="{ReflectionBinding CanClose}" Click="CloseRow_Click" Padding="8,2" Height="30"/>
+                                </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -172,7 +184,7 @@
                     </ScrollViewer>
 
                     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0" Spacing="8">
-                        <Button Content="{DynamicResource sales.printReceiptButton}" Classes="PrimaryActionButton" Click="PrintReceiptAgain_Click" />
+                        <Button x:Name="PopupPrintButton" Content="{DynamicResource sales.printReceiptButton}" Classes="PrimaryActionButton" Click="PrintReceiptAgain_Click" />
                         <Button Content="{DynamicResource common.close}" Classes="SecondaryActionButton" Click="CloseReceiptDetails_Click" />
                     </StackPanel>
                 </Grid>

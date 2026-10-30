@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ui/link_banner.dart';
 import '../../core/util/access.dart';
 import '../../core/api/session_store.dart';
 import '../../core/catalog/global_products.dart';
@@ -40,12 +41,22 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
   Map<String, PiecePack> _packs = {}; // 2026-10-27 (М4): поштучные упаковки товаров — остаток плитки как «12 пачек + 5 шт»
   Timer? _debounce;
 
+  /// 2026-10-30 (оптимизация, п. 13): плитки берутся окном — первые [_page] по запросу, дальше при прокрутке (раньше на каждую
+  /// букву поиска читались ВСЕ товары, до 20 000 объектов). Номер запроса отсекает устаревшие ответы.
+  static const _page = 400;
+  int _limit = _page;
+  bool _hasMore = false;
+  bool _moreBusy = false;
+  int _seq = 0;
+  final _scroll = ScrollController();
+
   /// 13.10, владелец: «в чеке отдельное таб-окно» — «Товары» и «Чек» отдельными вкладками.
   bool _showCheck = false;
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _scroll.dispose();
     HardwareKeyboard.instance.removeHandler(_onKey);
     _search.dispose();
     _searchFocus.dispose();
@@ -55,7 +66,8 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
   @override
   void initState() {
     super.initState();
-    _reload();
+    _reload(refreshMeta: true);
+    _scroll.addListener(_onScrollMore);
     HardwareKeyboard.instance.addHandler(_onKey);
     unawaited(ScaleRulesLoader.ensure(ref.read(databaseProvider), ref.read(apiProvider)).catchError((_) {}));
   }
@@ -173,18 +185,32 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
     if (refocus && mounted) _searchFocus.requestFocus();
   }
 
-  Future<void> _reload() async {
-    final db = ref.read(databaseProvider);
-    final cats = await db.categories();
-    final list = await db.searchProducts(_search.text, category: _category == '' ? null : _category, favorites: _category == '', limit: 5000);
-    final packs = await PackageStore.read(db);
-    if (mounted) {
-      setState(() {
-        _categories = cats;
-        _products = list;
-        _packs = packs;
-      });
+  /// Дошли почти до конца плиток — окно растёт на страницу.
+  void _onScrollMore() {
+    if (_showCheck || !_hasMore || _moreBusy || !_scroll.hasClients) return;
+    if (_scroll.position.extentAfter < 900) {
+      _moreBusy = true;
+      _limit += _page;
+      _reload(keepWindow: true).whenComplete(() => _moreBusy = false);
     }
+  }
+
+  /// [keepWindow] — окно не сбрасывается (после продажи, при подгрузке); [refreshMeta] — заново прочитать категории и упаковки
+  /// (при открытии и после продажи; пока человек набирает поиск, они не меняются и между буквами не читаются).
+  Future<void> _reload({bool keepWindow = false, bool refreshMeta = false}) async {
+    final seq = ++_seq;
+    if (!keepWindow) _limit = _page;
+    final db = ref.read(databaseProvider);
+    final cats = refreshMeta || _categories.isEmpty ? await db.categories() : null;
+    final list = await db.searchProducts(_search.text, category: _category == '' ? null : _category, favorites: _category == '', limit: _limit + 1);
+    final packs = refreshMeta || cats != null ? await PackageStore.read(db) : null;
+    if (!mounted || seq != _seq) return; // пришёл более новый запрос — этот ответ устарел
+    setState(() {
+      if (cats != null) _categories = cats;
+      _hasMore = list.length > _limit;
+      _products = _hasMore ? list.sublist(0, _limit) : list;
+      if (packs != null) _packs = packs;
+    });
   }
 
   @override
@@ -198,7 +224,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
         if (_search.text.isNotEmpty) _search.clear();
         // 2026-10-27 (аудит мобилки, С-2): после проданного чека остаток на плитке — из базы телефона (продажа уже вычла его
         // локально, sales_repository._applyStock); раньше список перечитывался только при очистке поиска и показывал старые «48 шт».
-        _reload();
+        _reload(keepWindow: true, refreshMeta: true);
       }
     });
     // сколько штук каждого товара уже в чеке — значок «×2» на плитке
@@ -226,6 +252,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
           ),
         ),
         if (!_showCheck) ...[
+          const LinkBanner(catalog: true, margin: EdgeInsets.fromLTRB(16, 0, 16, 8)), // 2026-10-29 (аудит, п. 5): «Остатки на ЧЧ:ММ»
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -240,7 +267,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                     onChanged: (_) {
                       _hideNotice();
                       _debounce?.cancel();
-                      _debounce = Timer(const Duration(milliseconds: 250), _reload);
+                      _debounce = Timer(const Duration(milliseconds: 300), _reload);
                     },
                     decoration: InputDecoration(
                       hintText: l.searchProduct,
@@ -317,6 +344,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
         ],
         Expanded(
           child: CustomScrollView(
+            controller: _scroll,
             slivers: [
               if (!_showCheck)
                 SliverPadding(

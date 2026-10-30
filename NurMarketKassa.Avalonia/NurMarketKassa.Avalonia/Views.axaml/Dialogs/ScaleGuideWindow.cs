@@ -90,26 +90,47 @@ public sealed class ScaleGuideWindow : Window
         try
         {
             var name = AssetLoader.Exists(new Uri(AssetRoot + localized)) ? localized : file;
-            using var stream = AssetLoader.Open(new Uri(AssetRoot + name));
-            var frames = KnowledgeBaseWindow.ReadGifFrames(stream);
-            if (frames.Count == 0)
-                return null;
-            var image = new Image { Source = frames[0].Frame, Stretch = Stretch.Uniform, MaxWidth = 880, HorizontalAlignment = HorizontalAlignment.Left };
-            if (frames.Count > 1)
-            {
-                var index = 0;
-                var timer = new Avalonia.Threading.DispatcherTimer { Interval = frames[0].Delay };
-                timer.Tick += (_, _) =>
-                {
-                    index = (index + 1) % frames.Count;
-                    image.Source = frames[index].Frame;
-                    timer.Interval = frames[index].Delay;
-                };
-                image.AttachedToVisualTree += (_, _) => timer.Start();
-                image.DetachedFromVisualTree += (_, _) => timer.Stop();
-            }
+            var uri = new Uri(AssetRoot + name);
+            // 2026-10-30 (стресс-тест «Управление и Помощь»): кадры GIF раскладывались прямо в конструкторе окна — «Инструкция весов»
+            // открывалась ≈0,7 с с зависанием интерфейса. Рамка с картинкой создаётся сразу, кадры раскладываются в фоне
+            // (так же, как в MarketplaceDemoPlayer); пока их нет — рамка занимает место, чтобы текст не прыгал.
+            var image = new Image { Stretch = Stretch.Uniform, MaxWidth = 880, HorizontalAlignment = HorizontalAlignment.Left };
             // 2026-10-22 (модалки, пакет 3): рамка картинки — цветом темы (StepCard привязывает BrushBorder), не LightGray.
-            return new Border { CornerRadius = new CornerRadius(10), ClipToBounds = true, BorderThickness = new Thickness(1), HorizontalAlignment = HorizontalAlignment.Left, Child = image };
+            var frame = new Border { CornerRadius = new CornerRadius(10), ClipToBounds = true, BorderThickness = new Thickness(1), HorizontalAlignment = HorizontalAlignment.Left, MinHeight = 180, MinWidth = 320, Child = image };
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                using var stream = AssetLoader.Open(uri);
+                return KnowledgeBaseWindow.ReadGifFrames(stream);
+            }).ContinueWith(t => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (t.IsFaulted || t.Result.Count == 0)
+                {
+                    if (t.Exception is { } ex)
+                        PosLogger.Log($"Инструкция весов: нет картинки {file}: {ex.GetBaseException().Message}", "WARNING");
+                    frame.IsVisible = false;
+                    return;
+                }
+                var frames = t.Result;
+                frame.ClearValue(Layoutable.MinHeightProperty);
+                frame.ClearValue(Layoutable.MinWidthProperty);
+                image.Source = frames[0].Frame;
+                if (frames.Count > 1)
+                {
+                    var index = 0;
+                    var timer = new Avalonia.Threading.DispatcherTimer { Interval = frames[0].Delay };
+                    timer.Tick += (_, _) =>
+                    {
+                        index = (index + 1) % frames.Count;
+                        image.Source = frames[index].Frame;
+                        timer.Interval = frames[index].Delay;
+                    };
+                    image.AttachedToVisualTree += (_, _) => timer.Start();
+                    image.DetachedFromVisualTree += (_, _) => timer.Stop();
+                    if (Avalonia.VisualTree.VisualExtensions.GetVisualRoot(image) is not null)
+                        timer.Start();
+                }
+            }));
+            return frame;
         }
         catch (Exception ex)
         {

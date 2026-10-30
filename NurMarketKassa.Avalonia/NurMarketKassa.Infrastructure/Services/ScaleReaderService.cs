@@ -286,6 +286,9 @@ public sealed class ScaleReaderService : IDisposable
 
     public static IReadOnlyList<string> GetAvailablePorts()
     {
+        // 2026-10-29: Android — COM-портов нет, GetPortNames там бросает UnauthorizedAccessException (журнал: десятки WARNING подряд). Пустой список без записи.
+        if (OperatingSystem.IsAndroid())
+            return Array.Empty<string>();
         try
         {
             return SerialPort.GetPortNames()

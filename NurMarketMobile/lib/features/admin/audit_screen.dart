@@ -40,6 +40,8 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
       'cash' => l.cashInOut,
       'shift' => l.shifts,
       'ai' => l.auditAi, // 2026-10-26 (В5): действия ИИ в звонке
+      'sync' => l.sync, // 2026-10-29 (аудит, п. 3): фоновая отправка очереди
+      'error' => l.auditError, // 2026-10-29 (аудит, мелкое): сбои приложения
       _ => l.auditSettings,
     };
   }
@@ -55,6 +57,8 @@ class _AuditLogScreenState extends State<AuditLogScreen> {
     'cash' => Icons.swap_vert_rounded,
     'shift' => Icons.schedule_rounded,
     'ai' => Icons.auto_awesome_outlined,
+    'sync' => Icons.sync_rounded,
+    'error' => Icons.error_outline_rounded,
     _ => Icons.settings_outlined,
   };
 

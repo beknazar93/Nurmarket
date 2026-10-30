@@ -56,7 +56,7 @@ pw.Barcode labelBarcodeFor(String code) {
 Future<List<int>> labelPdfBytes({required String name, required String code, required double price, String currency = ''}) async {
   final regular = pw.Font.ttf(await rootBundle.load('assets/fonts/Montserrat-Regular.ttf'));
   final bold = pw.Font.ttf(await rootBundle.load('assets/fonts/Montserrat-Bold.ttf'));
-  final doc = pw.Document(title: name, creator: 'NurMarket');
+  final doc = pw.Document(title: name, creator: 'NurCRM');
   doc.addPage(
     pw.Page(
       pageFormat: PdfPageFormat(58 * PdfPageFormat.mm, 40 * PdfPageFormat.mm, marginAll: 2 * PdfPageFormat.mm),

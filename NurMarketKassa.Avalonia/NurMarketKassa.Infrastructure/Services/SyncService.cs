@@ -62,6 +62,11 @@ public sealed partial class SyncService : IDisposable
 
     private readonly IShiftApiService _shiftApi;
 
+    private static readonly HashSet<string> WarnedForeignShifts = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>2026-10-29 (Б-1): момент создания службы — отсчёт паузы автоповтора после запуска кассы.</summary>
+    private readonly DateTime _createdUtc = DateTime.UtcNow;
+
     /// <summary>Дожимает смены, закрытые на кассе, но не принятые сервером (см.
     /// PendingShiftCloseStore). Вызывается при каждом проходе синхронизации: как только сервер
     /// перестанет отклонять закрытие, смены закроются сами, без участия кассира.</summary>
@@ -84,6 +89,25 @@ public sealed partial class SyncService : IDisposable
 
             if (shiftsWithQueuedSales.Contains(entry.ShiftId))
                 continue;
+
+            // 2026-10-30 (приёмка 1.17.65, «Важно»): отложенное закрытие смены привязано к компании. Вошли в другую компанию — чужую смену фоном не закрываем
+            // (запись остаётся и сработает после входа в ту компанию); кассиру/в журнал — предупреждение, один раз за запуск.
+            var currentCompanyId = CompanyInfoService.LastCompany?.Id;
+            if (!string.IsNullOrEmpty(entry.CompanyId) && !string.IsNullOrEmpty(currentCompanyId)
+                && !string.Equals(entry.CompanyId, currentCompanyId, StringComparison.OrdinalIgnoreCase))
+            {
+                if (WarnedForeignShifts.Add(entry.ShiftId))
+                {
+                    PosLogger.Log($"Очередь закрытий: смена {entry.ShiftId} закрыта на кассе в другой компании ({entry.CompanyId}), сейчас вход в {currentCompanyId} — фоном не закрываю, дождётся входа в ту компанию.", "WARNING");
+                    PendingShiftCloseStore.RecordFailure(entry.ShiftId, Tr.T(
+                        "Смена другой компании — войдите в ту компанию, и она закроется на сервере сама.",
+                        "Башка компаниянын сменасы — ошол компанияга кириңиз, ал серверде өзү жабылат.",
+                        "This shift belongs to another company — sign in to that company and it will close on the server by itself.",
+                        "Bu vardiya başka bir şirkete ait — o şirkete giriş yapın, sunucuda kendiliğinden kapanır.",
+                        "Bu smena boshqa kompaniyaga tegishli — o'sha kompaniyaga kiring, u serverda o'zi yopiladi."));
+                }
+                continue;
+            }
 
             // 2026-10-27 (аудит кассы, В-7): смена из очереди сейчас — ТЕКУЩАЯ (сервер отдал её при «открыть смену» или касса
             // подхватила открытую смену при входе). Закрыть её фоном значило закрыть смену кассира посреди работы
@@ -135,8 +159,10 @@ public sealed partial class SyncService : IDisposable
 
         // 2026-09-29: сервер ожил после аварии — очередь досылается сразу, а не через 45 с.
         ServerOutageMonitor.Recovered += OnServerRecovered;
+        SessionExpiryMonitor.Changed += OnSessionChanged; // 2026-10-30
         // 2026-10-29: чек попал в очередь — досылаем через несколько секунд, а не на следующем такте; «Обновить» (SyncCenter) тоже досылает сразу.
         OfflinePendingSalesStore.Appended += OnQueueAppended;
+        OfflineOperationsStore.Appended += OnQueueAppended; // 2026-10-29: возврат/оплата долга без связи — тоже сразу, если связь есть
         SyncCenter.QueueFlusher = async ct =>
         {
             await ProbeNowAsync(ct).ConfigureAwait(false);
@@ -200,6 +226,31 @@ public sealed partial class SyncService : IDisposable
     /// <summary>2026-09-29: сервер снова отвечает после аварии — досылаем очередь (продажи, затем
     /// закрытия смен, внесения/изъятия — их дожимает окно кассы) и сообщаем итог кассиру через
     /// ServerOutageMonitor.NotifyQueueFlushed. Фоном: событие приходит из сетевого потока.</summary>
+    /// <summary>2026-10-30 (приёмка 1.17.65, «Важно»): вошли заново (флаг «сессия недействительна» снят) — очередь чеков, операций и закрытий смен досылается сразу,
+    /// а не через такт. Пока сессия недействительна, проход SyncPendingAsync ничего не отправляет и ничего не помечает ошибкой (запросы без токена бессмысленны),
+    /// а новые чеки и операции продолжают копиться в очереди.</summary>
+    private void OnSessionChanged()
+    {
+        if (_disposed || SessionExpiryMonitor.IsExpired || _autonomous.IsCurrentSessionAutonomous)
+            return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await ProbeNowAsync(_cts.Token).ConfigureAwait(false);
+                if (IsOnline)
+                    await SyncPendingAsync(_cts.Token, waitForGate: true).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Досылка очереди после повторного входа не завершена: {ex.Message}", "WARNING");
+            }
+        });
+    }
+
     private void OnServerRecovered()
     {
         if (_disposed || _autonomous.IsCurrentSessionAutonomous)
@@ -317,6 +368,11 @@ public sealed partial class SyncService : IDisposable
         if (_disposed || ct.IsCancellationRequested)
             return;
 
+        // 2026-10-30: сессия недействительна — очередь (продажи, закрытия смен, возвраты) ждёт повторного входа: запросы без токена
+        // только засоряли бы журнал и могли бы пометить чеки отклонёнными. После входа флаг снимается, и всё уходит само.
+        if (SessionExpiryMonitor.IsExpired)
+            return;
+
         // waitForGate — досылка после аварии: дождаться идущего прохода, а не пропустить свой.
         if (waitForGate)
             await _syncGate.WaitAsync(ct).ConfigureAwait(false);
@@ -328,6 +384,14 @@ public sealed partial class SyncService : IDisposable
             IsSyncInProgress = true;
             UpdateStatusText();
             RaiseStateChanged();
+
+            // 2026-10-29: «Ошибка отправки» больше не тупик — до трёх автоповторов с паузами (см. OfflinePendingSalesStore.AutoRequeueFailed).
+            // 2026-10-29 (приёмка 1.17.65, Б-1): первые 2 минуты после запуска автоповтор не включаем — старт не должен сразу садиться на долгий повтор.
+            if (IsOnline && DateTime.UtcNow - _createdUtc >= ReplayErrorPolicy.AutoRetryStartupGrace)
+            {
+                try { OfflinePendingSalesStore.AutoRequeueFailed(MaxUnknownStateDeferrals); }
+                catch (Exception ex) { PosLogger.Log($"OFFLINE: автоповтор отклонённых чеков не отработал: {ex.Message}", "WARNING"); }
+            }
 
             var pending = OfflinePendingSalesStore.LoadPendingForSync();
 
@@ -345,6 +409,10 @@ public sealed partial class SyncService : IDisposable
 
             if (IsOnline && pending.Count > 0)
                 await SyncBatchAsync(pending, ct).ConfigureAwait(false);
+
+            // 2026-10-29: возвраты и оплаты долга, оформленные без связи, — ПОСЛЕ чеков очереди (возврат по чеку из очереди ждёт его отправки).
+            if (IsOnline && !ServerOutageMonitor.IsOutage)
+                await ReplayOfflineOperationsAsync(ct).ConfigureAwait(false);
             if (IsOnline)
                 SyncCenter.RecordSuccess("queue"); // 2026-10-29: «Синхронизация: HH:mm:ss» в подсказке индикатора связи
 
@@ -353,6 +421,10 @@ public sealed partial class SyncService : IDisposable
             // раньше — досылка чеков этой смены получила бы отказ «смена закрыта».
             if (IsOnline && !ServerOutageMonitor.IsOutage)
                 await FlushPendingShiftClosesAsync(ct).ConfigureAwait(false);
+
+            // 2026-10-29: клиенты и долги — в кэш кассы для «в долг» и оплаты долга без связи (раз в 30 / 5 минут, когда связь есть).
+            if (IsOnline && !ServerOutageMonitor.IsOutage)
+                await OfflineClientCache.RefreshIfStaleAsync(ct).ConfigureAwait(false);
 
             // 2026-10-27 (аудит кассы, С-3): предоплаты долга, не доехавшие до сервера (касса закрыта сразу после продажи) — довносим.
             if (IsOnline && !ServerOutageMonitor.IsOutage)
@@ -411,9 +483,14 @@ public sealed partial class SyncService : IDisposable
         }
     }
 
+    /// <summary>2026-10-29 (аварийный аудит кассы, п. 4): сколько проходов подряд сервер может не ответить «прошла ли оплата»,
+    /// прежде чем чек уходит в «Требует проверки» (проход раз в 45 с — около 15 минут).</summary>
+    private const int MaxUnknownStateDeferrals = 20;
+
     private async Task SyncBatchAsync(IReadOnlyList<OfflineSaleEntry> pending, CancellationToken ct)
     {
         var stopBatch = false;
+        var noCauseFailures = 0;
         // 2026-10-06, ТЗ ч.12, п. 3.6: сначала — пакетом (до 50 чеков одним запросом, SyncService.BatchReplay.cs);
         // что пакет не провёл ясно — по одному, как раньше.
         var (stopAll, batchSkip) = await TryBatchReplayAsync(pending, ct).ConfigureAwait(false);
@@ -448,13 +525,27 @@ public sealed partial class SyncService : IDisposable
             {
                 // 2026-10-04: checkout этой корзины отправлен недавно — сервер мог его ещё не довести.
                 // Чек ждёт в очереди, следующие досылаются (SyncService.LegacySettle.cs).
-                OfflinePendingSalesStore.MarkFailed(entry.Id, ex.Message, retryable: true);
-                PosLogger.Log($"OFFLINE replay: чек {entry.Id} отложен — {ex.Message}", "OFFLINE");
+                // 2026-10-29 (аварийный аудит кассы, п. 4): слишком много отложений — «Требует проверки» (failed), очередь идёт дальше.
+                OfflinePendingSalesStore.MarkFailed(entry.Id, ex.Message, retryable: !ex.NeedsReview);
+                PosLogger.Log($"OFFLINE replay: чек {entry.Id} {(ex.NeedsReview ? "требует проверки" : "отложен")} — {ex.Message}",
+                    ex.NeedsReview ? "WARNING" : "OFFLINE");
+                if (ex.NeedsReview)
+                    NotifyOwnerAboutRejected(entry, ex.Message);
+            }
+            catch (HttpRequestException ex) when (ex.InnerException is null && ++noCauseFailures < 3)
+            {
+                // 2026-10-29 (п. 4): ошибка HTTP без причины от сокета/TLS (не обрыв сети) — это не «Офлайн»: чек остаётся в очереди,
+                // следующие досылаются дальше. Три таких подряд — похоже на сбой сервера, прекращаем проход.
+                // 2026-10-29: в карточке чека — причина простыми словами («нет соединения», «таймаут»), а не английский текст .NET.
+                OfflinePendingSalesStore.MarkFailed(entry.Id, ServerOutageMonitor.Describe(ex), retryable: true);
+                PosLogger.Log($"OFFLINE replay: чек {entry.Id} — ошибка запроса без обрыва связи, пропускаю: {ex.Message}", "OFFLINE");
             }
             catch (HttpRequestException ex)
             {
-                IsOnline = false;
-                OfflinePendingSalesStore.MarkFailed(entry.Id, ex.Message, retryable: true);
+                // 2026-10-29: «Офлайн» ставим только при настоящем обрыве (есть причина от сокета/TLS); иначе (3 сбоя подряд) просто стоп прохода.
+                if (ex.InnerException is not null)
+                    IsOnline = false;
+                OfflinePendingSalesStore.MarkFailed(entry.Id, ServerOutageMonitor.Describe(ex), retryable: true);
                 // 2026-10-04: досылка не дошла до сервера — это авария, а не «единичный сбой»: следующие
                 // оплаты сразу идут в очередь, без ожидания сервера (раньше монитор оставался
                 // «Онлайн/Degraded», и следующий чек снова ждал 1,8 с). Только настоящий обрыв (с
@@ -467,10 +558,7 @@ public sealed partial class SyncService : IDisposable
             catch (TaskCanceledException ex)
             {
                 IsOnline = false;
-                OfflinePendingSalesStore.MarkFailed(
-                    entry.Id,
-                    string.IsNullOrWhiteSpace(ex.Message) ? "Таймаут сети." : ex.Message,
-                    retryable: true);
+                OfflinePendingSalesStore.MarkFailed(entry.Id, ServerOutageMonitor.Describe(ex), retryable: true);
                 if (!ct.IsCancellationRequested)
                     ServerOutageMonitor.ReportFailure(ReplayContext, ex, hard: true);
                 break;
@@ -484,8 +572,28 @@ public sealed partial class SyncService : IDisposable
                 // (4xx: нет товара, неверные данные) повтором не лечится и остаётся failed.
                 // 2026-10-04: 409/423/425 («запрос с этим ключом ещё выполняется») — тоже временный:
                 // раньше такой чек уходил в «Некорректные чеки», хотя продажа на сервере проводится.
-                var retryable = ex.StatusCode is null or >= 500 or 408 or 429
-                                || PosCheckoutService.IsQuickTransientStatus(ex.StatusCode);
+                // 2026-10-29 (жалоба «чеки сами не уходят», тариф «Старт»): решение в ReplayErrorPolicy. 4xx без JSON-тела (прокси, защита
+                // шлюза, страница провайдера) — не отказ NurCRM, чек повторится; 402/403 (тариф, подписка, права) — тоже ждёт в очереди, а не
+                // «навсегда в ошибке». Отказ по существу (400/404/422 с JSON) остаётся «Ошибкой отправки»: три автоповтора и кнопка.
+                var verdict = ReplayErrorPolicy.Classify(ex.StatusCode,
+                    ex.Payload is { ValueKind: JsonValueKind.Object or JsonValueKind.Array });
+                // Отказ про смену («смена закрыта») идёт обычным путём ниже (привязка к смене снимается), даже если код 403.
+                if (verdict == ReplayVerdict.RetryNotifyOwner
+                    && (ex.Message.Contains("смен", StringComparison.OrdinalIgnoreCase) || ex.Message.Contains("shift", StringComparison.OrdinalIgnoreCase)))
+                    verdict = ReplayVerdict.Rejected;
+                // 2026-10-29: «в долг» без связи — деловой отказ сервера (лимит долга, клиент удалён/заблокирован), в том числе 409, — не повод повторять:
+                // чек уходит в «Требует проверки» с причиной, очередь идёт дальше. Обычный 409 «ключ ещё выполняется» остаётся временным.
+                var debtBusinessReject = entry.OfflineDebt && OfflineRejection.IsBusinessConflict(ex);
+                var retryable = !debtBusinessReject && (verdict != ReplayVerdict.Rejected
+                                || PosCheckoutService.IsQuickTransientStatus(ex.StatusCode));
+                // 2026-10-29 (аварийный аудит кассы, п. 8): 401 — токен не обновился (refresh отказал, сессия стёрта). Это не отказ
+                // сервера по этому чеку: раньше вся очередь уходила в «отклонённые». Теперь чек ждёт входа, проход прекращается.
+                if (ex.StatusCode == 401)
+                {
+                    retryable = true;
+                    stopBatch = true;
+                    PosLogger.Log($"OFFLINE replay: чек {entry.Id} — 401, сессия не обновлена; очередь ждёт повторного входа кассира.", "WARNING");
+                }
                 // 2026-10-04, стенд «сбои сервера»: сервер недоступен (502–504, 520–524, 408) или просит
                 // паузу (429, 409 — ключ ещё выполняется) — остальные чеки ждут, а не идут по одному в
                 // лежащий сервер (по 2–5 запросов на чек). Недоступность — ещё и авария: оплаты сразу в
@@ -496,7 +604,7 @@ public sealed partial class SyncService : IDisposable
                     stopBatch = true;
                     ServerOutageMonitor.ReportFailure(ReplayContext, ex, hard: true);
                 }
-                else if (ex.StatusCode is 409 or 423 or 425 or 429)
+                else if (ex.StatusCode is 409 or 423 or 425 or 429 && !debtBusinessReject)
                 {
                     stopBatch = true;
                 }
@@ -510,13 +618,37 @@ public sealed partial class SyncService : IDisposable
                         || ex.Message.Contains("shift", StringComparison.OrdinalIgnoreCase)))
                     retryable = true;
                 var failText = ex.Message;
+                if (verdict == ReplayVerdict.RetryNotifyOwner)
+                {
+                    // Тариф/подписка/права: остальные чеки получат тот же ответ — проход прекращаем, чек ждёт; владельцу — одно оповещение.
+                    stopBatch = true;
+                    failText = Tr.T($"Сервер NurCRM пока не разрешает провести чек (код {ex.StatusCode}: тариф, подписка или права). Чек сохранён и уйдёт сам, как только сервер разрешит. Ответ сервера: {ex.Message}",
+                        $"NurCRM сервери чекти өткөрүүгө азырынча уруксат бербей жатат (код {ex.StatusCode}: тариф, жазылуу же укуктар). Чек сакталды, сервер уруксат бергенде өзү жөнөтүлөт. Сервердин жообу: {ex.Message}",
+                        $"The NurCRM server does not allow this receipt yet (code {ex.StatusCode}: plan, subscription or permissions). The receipt is saved and will be sent automatically once the server allows it. Server reply: {ex.Message}",
+                        $"NurCRM sunucusu fişe henüz izin vermiyor (kod {ex.StatusCode}: tarife, abonelik veya yetkiler). Fiş kayıtlı, sunucu izin verince kendiliğinden gönderilecek. Sunucu yanıtı: {ex.Message}",
+                        $"NurCRM serveri chekka hozircha ruxsat bermayapti (kod {ex.StatusCode}: tarif, obuna yoki huquqlar). Chek saqlandi, server ruxsat berishi bilan o'zi yuboriladi. Server javobi: {ex.Message}");
+                    NotifyOwnerAboutRejected(entry, failText);
+                }
+                else if (verdict == ReplayVerdict.Retry && ex.StatusCode is >= 400 and < 500 and not (401 or 408 or 409 or 423 or 425 or 429))
+                {
+                    // Ответ не от NurCRM (HTML/пустое тело): сеть или прокси «режет» запросы — не бьёмся по очереди, повторим на следующем проходе.
+                    stopBatch = true;
+                    failText = Tr.T($"Ответ не от сервера NurCRM (код {ex.StatusCode}) — похоже на сбой связи, прокси или страницу провайдера. Чек сохранён и повторится сам.",
+                        $"NurCRM сервери жооп берген жок (код {ex.StatusCode}) — байланыш, прокси же провайдер бетинин бузулушуна окшойт. Чек сакталды, өзү кайталанат.",
+                        $"The reply did not come from the NurCRM server (code {ex.StatusCode}) — looks like a connection, proxy or provider-page problem. The receipt is saved and will be retried automatically.",
+                        $"Yanıt NurCRM sunucusundan gelmedi (kod {ex.StatusCode}) — bağlantı, proxy veya sağlayıcı sayfası sorunu gibi görünüyor. Fiş kayıtlı, kendiliğinden tekrar denenecek.",
+                        $"Javob NurCRM serveridan kelmadi (kod {ex.StatusCode}) — aloqa, proksi yoki provayder sahifasi muammosiga o'xshaydi. Chek saqlandi, o'zi qayta uriniladi.");
+                }
                 // 2026-10-22 (аудит новой сборки, П1): сервер сам закрыл смену (автозакрытие в 23:00), а чек пробит в ней.
                 // Отказ «смена закрыта» — не отказ по существу: чек не уходит в «Некорректные чеки» и не теряется. Привязку
                 // к закрытой смене снимаем (как у офлайн-смен): следующая досылка идёт без shift_id (сервер возьмёт смену
                 // по времени продажи sold_at или открытую на момент выгрузки), пока кассир не откроет новую смену.
+                // 2026-10-30 (приёмка 1.17.65, «Важно»): чек «в долг» из офлайна НЕ переносим в чужую смену — без привязки сервер положил бы долг и
+                // выручку в смену, открытую на момент выгрузки, а не в ту, где кассир взял деньги/выдал товар. Такой чек остаётся «Требует проверки».
                 if (!retryable
                     && ex.StatusCode is >= 400 and < 500
                     && !string.IsNullOrWhiteSpace(entry.ShiftId)
+                    && !entry.OfflineDebt
                     && !entry.ShiftId!.StartsWith("offline-", StringComparison.OrdinalIgnoreCase)
                     && (ex.Message.Contains("смен", StringComparison.OrdinalIgnoreCase)
                         || ex.Message.Contains("shift", StringComparison.OrdinalIgnoreCase)))
@@ -530,20 +662,76 @@ public sealed partial class SyncService : IDisposable
                         "Vardiya sunucu tarafından kapatıldı — fiş yeni vardiyayı bekleyip kendiliğinden gönderilecek.",
                         "Smena server tomonidan yopilgan — chek yangi smenani kutadi va o'zi yuboriladi.");
                 }
+                if (!retryable && entry.OfflineDebt)
+                    failText = Tr.T($"Требует проверки: сервер не принял продажу «в долг», оформленную без связи (лимит долга, клиент удалён или заблокирован и т. п.). Чек и товар не потеряны — проверьте клиента и долг, затем верните чек в очередь или проведите вручную. Ответ сервера: {ex.Message}",
+                        $"Текшерүү керек: сервер байланышсыз жасалган «карызга» сатууну кабыл алган жок (карыз лимити, кардар өчүрүлгөн же бөгөттөлгөн ж. б.). Чек жана товар жоголгон жок — кардарды жана карызды текшерип, чекти кезекке кайтарыңыз же кол менен өткөрүңүз. Сервердин жообу: {ex.Message}",
+                        $"Needs review: the server did not accept the credit sale made without a connection (debt limit, client deleted or blocked, etc.). The receipt and goods are not lost — check the client and the debt, then return the receipt to the queue or process it manually. Server reply: {ex.Message}",
+                        $"Kontrol gerekli: sunucu bağlantısız yapılan veresiye satışı kabul etmedi (borç limiti, müşteri silinmiş veya engellenmiş vb.). Fiş ve mal kaybolmadı — müşteriyi ve borcu kontrol edip fişi kuyruğa geri alın veya elle işleyin. Sunucu yanıtı: {ex.Message}",
+                        $"Tekshirish kerak: server aloqasiz rasmiylashtirilgan «qarzga» sotuvni qabul qilmadi (qarz limiti, mijoz o'chirilgan yoki bloklangan va h. k.). Chek va tovar yo'qolmadi — mijoz va qarzni tekshirib, chekni navbatga qaytaring yoki qo'lda o'tkazing. Server javobi: {ex.Message}");
                 OfflinePendingSalesStore.MarkFailed(entry.Id, failText, retryable);
                 PosLogger.Log(
                     $"OFFLINE replay: чек {entry.Id} — {(retryable ? "временная ошибка, повторим" : "отказ сервера")}: {ex.StatusCode} {ex.Message}",
                     retryable ? "OFFLINE" : "WARNING");
+                if (!retryable)
+                    NotifyOwnerAboutRejected(entry, failText);
             }
             catch (JsonException ex)
             {
                 OfflinePendingSalesStore.MarkFailed(entry.Id, ex.Message, retryable: false);
+                NotifyOwnerAboutRejected(entry, ex.Message);
             }
 
             UpdateStatusText();
             RaiseStateChanged();
             if (stopBatch)
                 break;
+        }
+    }
+
+    /// <summary>2026-10-29 (аварийный аудит кассы, п. 8): чек отклонён сервером или требует проверки — одно сообщение владельцу в Telegram
+    /// (если бот подключён) на чек; деньги покупателя взяты, а продажи на сервере нет, и без оповещения это лежало бы днями.
+    /// В шапке кассы об этом же говорит красная плашка «Отклонено: M» (MainStatusViewModel).</summary>
+    private static void NotifyOwnerAboutRejected(OfflineSaleEntry entry, string? reason)
+    {
+        try
+        {
+            if (entry.OwnerNotified)
+                return;
+            OfflinePendingSalesStore.Update(entry.Id, e => e.OwnerNotified = true);
+            if (!TelegramBotService.IsConfigured)
+                return;
+
+            var total = "";
+            try
+            {
+                using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(entry.CartJson) ? "{}" : entry.CartJson);
+                total = " (" + CartDisplayHelper.TotalDue(doc.RootElement).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + ")";
+            }
+            catch
+            {
+                // сумма в сообщении необязательна
+            }
+
+            var why = string.IsNullOrWhiteSpace(reason) ? "—" : reason!.Trim();
+            var when = entry.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm");
+            var text = TelegramBotService.BuildAlert(
+                Tr.T("Чек не отправился на сервер", "Чек серверге жөнөтүлгөн жок", "A receipt was not sent to the server",
+                    "Fiş sunucuya gönderilemedi", "Chek serverga yuborilmadi"),
+                Tr.T($"Касса: чек от {when}{total} не принят сервером NurCRM, а деньги покупатель уже отдал.\nПричина: {why}\nОткройте кассу, меню ☰, «Некорректные чеки»: проверьте чек и верните его в очередь либо проведите вручную.",
+                    $"Касса: {when}{total} чек NurCRM серверине кабыл алынган жок, ал эми сатып алуучу акчаны берди.\nСебеби: {why}\nКассаны ачыңыз, меню ☰, «Туура эмес чектер»: чекти текшерип, кезекке кайтарыңыз же кол менен өткөрүңүз.",
+                    $"Till: the receipt from {when}{total} was not accepted by the NurCRM server, but the customer has already paid.\nReason: {why}\nOpen the till, menu ☰, “Irregular receipts”: check the receipt and return it to the queue or process it manually.",
+                    $"Kasa: {when}{total} tarihli fiş NurCRM sunucusu tarafından kabul edilmedi, müşteri ise parayı ödedi.\nNeden: {why}\nKasayı açın, menü ☰, «Hatalı fişler»: fişi kontrol edin ve kuyruğa geri alın ya da elle işleyin.",
+                    $"Kassa: {when}{total} dagi chek NurCRM serveri tomonidan qabul qilinmadi, xaridor esa pulni to'ladi.\nSabab: {why}\nKassani oching, menyu ☰, «Noto'g'ri cheklar»: chekni tekshiring va navbatga qaytaring yoki qo'lda o'tkazing."));
+            _ = Task.Run(async () =>
+            {
+                var error = await TelegramBotService.SendAsync(text).ConfigureAwait(false);
+                if (error != null)
+                    PosLogger.Log($"OFFLINE: оповещение владельцу об отклонённом чеке не ушло ({error}).", "WARNING");
+            });
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"OFFLINE: оповещение об отклонённом чеке не отправлено: {ex.Message}", "WARNING");
         }
     }
 
@@ -583,6 +771,17 @@ public sealed partial class SyncService : IDisposable
         if (quick.Handled)
             return quick.SaleId;
 
+        // 2026-10-29: «в долг» без связи старым путём (корзина → позиции → checkout) не отправляется: он не умеет передать клиента, предоплату и график долга,
+        // и чек превратился бы в обычную продажу. Быстрый путь не взял чек — «Требует проверки», чек остаётся в кассе.
+        if (entry.OfflineDebt)
+            throw new ReplayDeferredException(Tr.T(
+                "Продажа «в долг» не отправлена: быстрый способ отправки чека не подошёл. Чек сохранён — проведите его вручную на сайте или обратитесь к разработчику.",
+                "«Карызга» сатуу жөнөтүлгөн жок: чекти жөнөтүүнүн тез ыкмасы туура келген жок. Чек сакталды — аны сайтта кол менен өткөрүңүз же өнүктүрүүчүгө кайрылыңыз.",
+                "The credit sale was not sent: the fast sending method did not fit. The receipt is saved — process it by hand on the website or contact the developer.",
+                "Veresiye satış gönderilmedi: hızlı gönderim yöntemi uymadı. Fiş kayıtlı — siteden elle işleyin veya geliştiriciye başvurun.",
+                "«Qarzga» sotuv yuborilmadi: chekni yuborishning tez usuli to'g'ri kelmadi. Chek saqlandi — uni saytda qo'lda o'tkazing yoki dasturchiga murojaat qiling."))
+            { NeedsReview = true };
+
         if (entry.CheckoutSubmittedAt is not null)
         {
             // Сверка по статусу КОРЗИНЫ (CartSaleSessionHelper.GetCheckoutStateAsync). Прежняя
@@ -602,7 +801,22 @@ public sealed partial class SyncService : IDisposable
             {
                 // Связь есть, но ответить "проводилась или нет" сервер не смог. Провести повторно
                 // здесь — значит рискнуть дублем; ждём следующего цикла, чек остаётся в очереди.
-                throw new HttpRequestException("Не удалось проверить, прошла ли оплата — повтор отложен.");
+                // 2026-10-29 (аварийный аудит кассы, п. 4): раньше здесь бросался HttpRequestException — SyncBatchAsync
+                // принимал его за обрыв сети: ставил «Офлайн» при живой связи и прекращал досылку ВСЕХ следующих чеков.
+                // Теперь чек откладывается (ReplayDeferredException: остальные идут дальше), а после MaxUnknownStateDeferrals
+                // проходов уходит в «Требует проверки» (failed) — владелец решает вручную.
+                var deferrals = entry.ReplayDeferrals + 1;
+                OfflinePendingSalesStore.Update(entry.Id, e => e.ReplayDeferrals = deferrals);
+                throw new ReplayDeferredException(deferrals >= MaxUnknownStateDeferrals
+                    ? Tr.T("Требует проверки: сервер так и не подтвердил, прошла ли оплата этого чека. Сверьте его с продажами на сервере, затем верните в очередь или удалите.",
+                        "Текшерүү керек: сервер бул чектин төлөмү өткөнүн же өтпөгөнүн ырастаган жок. Сервердеги сатуулар менен салыштырып, кийин кезекке кайтарыңыз же өчүрүңүз.",
+                        "Needs review: the server never confirmed whether this receipt was paid. Compare it with the sales on the server, then return it to the queue or remove it.",
+                        "Kontrol gerekli: sunucu bu fişin ödenip ödenmediğini hiç doğrulamadı. Sunucudaki satışlarla karşılaştırın, sonra kuyruğa geri alın veya silin.",
+                        "Tekshirish kerak: server bu chek to'langan-to'lanmaganini hech tasdiqlamadi. Serverdagi sotuvlar bilan solishtiring, so'ng navbatga qaytaring yoki o'chiring.")
+                    : "Не удалось проверить, прошла ли оплата — повтор отложен.")
+                {
+                    NeedsReview = deferrals >= MaxUnknownStateDeferrals,
+                };
             }
 
             if (state == CartSaleSessionHelper.CartCheckoutState.Open)
@@ -649,15 +863,32 @@ public sealed partial class SyncService : IDisposable
     /// (StagingCartService, «ensure-empty»), досылка — нет.</summary>
     private async Task RebuildReplayCartAsync(OfflineSaleEntry entry, string cartId, CancellationToken ct)
     {
-        var removed = await CartSaleSessionHelper.EnsureServerCartEmptyAsync(_sales, cartId, ct).ConfigureAwait(false);
-        if (removed > 0)
-            PosLogger.Log($"OFFLINE replay: чек {entry.Id} — из серверной корзины убрано {removed} посторонних позиций.", "OFFLINE");
+        // 2026-10-29 (приёмка 1.17.65, Б-1): лимит времени на чек. Чек на сотни позиций (по запросу на позицию) раньше держал очередь
+        // по 12 минут. Теперь по истечении лимита чек откладывается (до checkout ещё не дошли — дубля быть не может), очередь идёт дальше.
+        using var budgetCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budgetCts.CancelAfter(ReplayErrorPolicy.ReplayRebuildBudget);
+        try
+        {
+            var removed = await CartSaleSessionHelper.EnsureServerCartEmptyAsync(_sales, cartId, budgetCts.Token).ConfigureAwait(false);
+            if (removed > 0)
+                PosLogger.Log($"OFFLINE replay: чек {entry.Id} — из серверной корзины убрано {removed} посторонних позиций.", "OFFLINE");
 
-        // Общая с обычной оплатой выгрузка снимка (см. StagingCartService): она умеет строки
-        // «Доп. услуга» и поштучную продажу из пачки. Прежняя local-копия этого цикла молча
-        // пропускала строки без product_id и теряла sale_package_id.
-        await StagingCartService.PushItemsFromSnapshotAsync(_sales, cartId, entry.CartJson, ct).ConfigureAwait(false);
-        await StagingCartService.ApplyOrderDiscountFromSnapshotAsync(_sales, cartId, entry.CartJson, ct).ConfigureAwait(false);
+            // Общая с обычной оплатой выгрузка снимка (см. StagingCartService): она умеет строки
+            // «Доп. услуга» и поштучную продажу из пачки. Прежняя local-копия этого цикла молча
+            // пропускала строки без product_id и теряла sale_package_id.
+            await StagingCartService.PushItemsFromSnapshotAsync(_sales, cartId, entry.CartJson, budgetCts.Token).ConfigureAwait(false);
+            await StagingCartService.ApplyOrderDiscountFromSnapshotAsync(_sales, cartId, entry.CartJson, budgetCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested && budgetCts.IsCancellationRequested)
+        {
+            PosLogger.Log($"OFFLINE replay: чек {entry.Id} — сборка корзины не уложилась в {ReplayErrorPolicy.ReplayRebuildBudget.TotalSeconds:0} с, очередь идёт дальше.", "OFFLINE");
+            throw new ReplayDeferredException(Tr.T(
+                "Большой чек не успел собраться на сервере за отведённое время — очередь идёт дальше, чек будет отправлен на следующем проходе.",
+                "Чоң чек сервердеги убакытка үлгүргөн жок — кезек улантылат, чек кийинки жолу жөнөтүлөт.",
+                "The large receipt did not finish building on the server in time — the queue moves on and the receipt will be sent on the next pass.",
+                "Büyük fiş sunucuda zamanında hazırlanamadı — kuyruk devam ediyor, fiş sonraki geçişte gönderilecek.",
+                "Katta chek serverda vaqtida yig'ilmadi — navbat davom etadi, chek keyingi o'tishda yuboriladi."));
+        }
     }
 
     private async Task<string?> SubmitReplayCheckoutAsync(OfflineSaleEntry entry, string cartId, CancellationToken ct)
@@ -782,7 +1013,9 @@ public sealed partial class SyncService : IDisposable
 
         _disposed = true;
         ServerOutageMonitor.Recovered -= OnServerRecovered;
+        SessionExpiryMonitor.Changed -= OnSessionChanged;
         OfflinePendingSalesStore.Appended -= OnQueueAppended;
+        OfflineOperationsStore.Appended -= OnQueueAppended;
 
         try { _cts.Cancel(); } catch { /* ignore */ }
 

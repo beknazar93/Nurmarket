@@ -71,6 +71,14 @@ public sealed class SaleLedgerEntry
     public string? ClientName { get; set; }
     public string? ClientPhone { get; set; }
 
+    /// <summary>2026-10-30 (приёмка 1.17.65): смена, в которой проведена продажа, — Z-отчёт без связи строится из этого журнала. Поле лежит в JSON файла;
+    /// у старых записей пусто (тогда продажа относится к смене по времени).</summary>
+    public string? ShiftId { get; set; }
+
+    /// <summary>2026-10-30 (приёмка 1.17.66, «Важно» 6): продажа проведена ЭТОЙ кассой (запись сделана при оплате или при досылке её очереди — RememberPayment). Запись, созданная окном
+    /// возврата по чужому чеку (соседняя касса, сайт — RememberFromSale), в выручку Z-отчёта этой кассы не входит, даже если продана сегодня после открытия смены.</summary>
+    public bool Own { get; set; }
+
     public decimal Refunded => Refunds.Sum(r => r.Amount);
     public decimal Remaining => Math.Max(0m, Total - Refunded);
     /// <summary>Доля скидки на весь чек: стоимость строки × Factor = сколько за неё заплатили.</summary>
@@ -114,15 +122,58 @@ public static class SaleReturnLedger
             return Load().TryGetValue(saleId.Trim(), out var entry) ? entry : null;
     }
 
+    /// <summary>2026-10-29 (возврат без связи): строки чека, ушедшего на сервер из очереди, — под серверным id, даже если по чеку уже есть возвраты (RememberFromSale
+    /// в этом случае ничего не пишет). Уже записанные строки не затираются.</summary>
+    public static void RememberLinesIfMissing(string saleId, IReadOnlyList<SaleLedgerLine> lines, decimal linesTotal, DateTimeOffset soldAt)
+    {
+        if (string.IsNullOrWhiteSpace(saleId) || lines.Count == 0)
+            return;
+        Update(saleId, entry =>
+        {
+            if (entry.Lines.Count == 0)
+                entry.Lines = lines.ToList();
+            if (entry.LinesTotal <= 0m && linesTotal > 0m)
+                entry.LinesTotal = linesTotal;
+            entry.SoldAt ??= soldAt;
+        });
+    }
+
+    /// <summary>2026-10-29 (возврат без связи): недавние продажи, которые касса помнит (оплата записана), новые первыми — список для возврата без сервера.</summary>
+    public static List<SaleLedgerEntry> Recent(TimeSpan within, int max)
+    {
+        var since = DateTimeOffset.Now - within;
+        lock (Gate)
+            return Load().Values.Where(e => e.Total > 0m && e.RecordedAt >= since).OrderByDescending(e => e.SoldAt ?? e.RecordedAt).Take(Math.Max(1, max)).ToList();
+    }
+
+    /// <summary>2026-10-30 (приёмка 1.17.65): продажи смены, которые касса помнит по оплате, — для Z-отчёта без связи. Продажа относится к смене по записанной
+    /// смене, а у старых записей (без смены) — по времени продажи не раньше открытия смены. Только оплаченные (Total больше нуля).</summary>
+    public static List<SaleLedgerEntry> ForShift(string? shiftId, DateTime? openedAt)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId))
+            return new List<SaleLedgerEntry>();
+        var id = shiftId.Trim();
+        lock (Gate)
+            return Load().Values.Where(e => e.Total > 0m && !string.IsNullOrEmpty(e.Method) && (
+                string.Equals(e.ShiftId, id, StringComparison.OrdinalIgnoreCase)
+                // 2026-10-30 (приёмка 1.17.66, «Важно» 6): без смены — только СВОИ продажи (Own). Возврат по чужому сегодняшнему чеку создаёт запись без смены
+                // (RememberFromSale), и по времени она попадала в выручку этой кассы. Запись с нашей сменой — своя всегда (ShiftId ставит только RememberPayment).
+                || (e.Own && string.IsNullOrWhiteSpace(e.ShiftId) && openedAt is { } from && (e.SoldAt ?? e.RecordedAt).LocalDateTime >= from))).ToList();
+    }
+
     /// <summary>Продажа только что оплачена (MainWindow после оплаты): деньги — как их приняли в окне оплаты.</summary>
     public static void RememberPayment(string saleId, decimal total, string method, decimal paidCash, decimal paidNonCash,
         decimal? received, decimal? change, decimal linesTotal, DateTimeOffset soldAt,
-        DateTime? debtDueDate = null, IReadOnlyList<SaleLedgerDuePayment>? debtSchedule = null, string? clientName = null, string? clientPhone = null)
+        DateTime? debtDueDate = null, IReadOnlyList<SaleLedgerDuePayment>? debtSchedule = null, string? clientName = null, string? clientPhone = null,
+        string? shiftId = null)
     {
         if (string.IsNullOrWhiteSpace(saleId) || total < 0m)
             return;
         Update(saleId, entry =>
         {
+            entry.Own = true; // 2026-10-30 (приёмка 1.17.66): продажа этой кассы — только такие идут в Z без связи
+            if (!string.IsNullOrWhiteSpace(shiftId))
+                entry.ShiftId ??= shiftId.Trim(); // 2026-10-30: смена продажи — для Z-отчёта без связи
             // 2026-10-20 (долг Д5): срок и график долга, клиент — для копии чека.
             entry.DebtDueDate ??= debtDueDate;
             if (debtSchedule is { Count: > 0 } && entry.DebtSchedule.Count == 0)
@@ -190,6 +241,39 @@ public static class SaleReturnLedger
         if (string.IsNullOrWhiteSpace(saleId))
             return;
         Update(saleId, entry => entry.Refunds.Add(refund));
+    }
+
+    /// <summary>2026-10-29 (возврат без связи): чек очереди получил id продажи на сервере — запись журнала (оплата, возвраты), сделанная под
+    /// локальным id, переезжает на серверный: «История чеков» и окно возврата найдут её по новому id. Уже есть запись под новым id — возвраты
+    /// переносятся к ней.</summary>
+    public static void Rekey(string fromId, string toId)
+    {
+        if (string.IsNullOrWhiteSpace(fromId) || string.IsNullOrWhiteSpace(toId)
+            || string.Equals(fromId.Trim(), toId.Trim(), StringComparison.OrdinalIgnoreCase))
+            return;
+        var from = fromId.Trim();
+        var to = toId.Trim();
+        lock (Gate)
+        {
+            using var crossProcess = CrossProcessLock.Take();
+            _cache = null;
+            var all = Load(out var readOk);
+            if (!readOk || !all.Remove(from, out var entry))
+                return;
+            if (all.TryGetValue(to, out var existing))
+            {
+                existing.Refunds.AddRange(entry.Refunds);
+                existing.Own |= entry.Own;
+                if (existing.Total <= 0m)
+                    existing.Total = entry.Total;
+            }
+            else
+            {
+                entry.SaleId = to;
+                all[to] = entry;
+            }
+            Save(all);
+        }
     }
 
     private static SaleLedgerEntry Update(string saleId, Action<SaleLedgerEntry> change)

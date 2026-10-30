@@ -154,6 +154,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     // сначала под рабочими путями должен оказаться набор нужной компании,
                     // и только потом кто-то начнёт в него писать.
                     AccountDataIsolation.SwitchTo(CompanyInfoService.LastCompany?.Id);
+                    await AccountDataIsolation.EnsureAccountDataLoadedAsync(new Progress<string>(s => _viewModel.SetLoadingStatus(s))).ConfigureAwait(true); // 2026-10-29: «Загружаем данные аккаунта…» до открытия главного окна
                     AccountCatalogIsolation.PrepareForAuthenticatedUser("", userId);
                     App.GetRequiredService<SyncService>().Start();
                     NurMarketKassa.Services.Lan.LanSyncService.Instance.Start();

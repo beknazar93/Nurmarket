@@ -83,6 +83,13 @@ public sealed class UpdateCheckService : IUpdateCheckService
 
             return new UpdateCheckResult(true, isNewer, currentVersion, tagName, downloadUrl, null);
         }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // 2026-10-30 (приёмка 1.17.65): GitHub отвечает 404 на releases/latest, пока в репозитории нет ни одного НЕ тестового выпуска (все 1.17.6x — prerelease).
+            // Это не сбой связи: стабильного выпуска просто нет. Тестовые выпуски получают тестировщики через Velopack (VelopackUpdateService), здесь о них не объявляем.
+            PosLogger.Log("Update check: стабильного выпуска в репозитории нет (releases/latest → 404; все выпуски — тестовые prerelease).", "INFO");
+            return new UpdateCheckResult(true, false, currentVersion, null, null, null);
+        }
         catch (Exception ex) when (ex is HttpRequestException or JsonException or TaskCanceledException)
         {
             PosLogger.Log($"Update check failed: {ex.GetType().Name}: {ex.Message}", "WARNING");

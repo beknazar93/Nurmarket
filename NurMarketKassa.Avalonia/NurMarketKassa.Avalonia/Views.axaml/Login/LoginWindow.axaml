@@ -242,7 +242,7 @@
                             <brand:BrandLogo Kind="Vertical" Variant="Auto" Width="132"/>
                         </Border>
 
-                        <TextBlock Text="Nur Market" Margin="0,14,0,0"
+                        <TextBlock Text="NurCRM" Margin="0,14,0,0"
                                    FontSize="26" FontWeight="Bold"
                                    HorizontalAlignment="Center"
                                    Foreground="{DynamicResource BrushLoginHeroTitle}" />

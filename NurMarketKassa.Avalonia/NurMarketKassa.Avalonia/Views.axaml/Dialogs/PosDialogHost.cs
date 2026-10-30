@@ -25,6 +25,14 @@ public static class PosDialogHost
                 return visibleMain;
         }
 
+        // 2026-10-30, срочный баг владельца («модалка уходит на 2 план»): диалог без владельца раньше брал главное окно, даже когда
+        // поверх него раздел или уже открытая модалка — новый диалог оказывался ПОД ними. Теперь владелец — верхняя модалка / активное окно;
+        // и явно заданный владелец под открытой модалкой заменяется ею (модалки всегда друг над другом).
+#if !NURANDROID
+        if (ModalWindowManager.PreferredOwner() is { IsVisible: true } preferred
+            && (owner is null || ModalWindowManager.IsOpenModal(preferred)))
+            return preferred;
+#endif
         if (owner != null)
             return owner;
 

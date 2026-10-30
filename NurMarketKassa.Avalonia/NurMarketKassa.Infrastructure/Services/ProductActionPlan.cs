@@ -106,7 +106,7 @@ public static class ProductActionPlan
         + "для нового товара — {\"op\": \"create\", \"name\": \"название с накладной\", \"qty\": N, \"purchase\": закупка, \"price\": розничная цена, \"barcode\": \"если виден\", \"unit\": \"если видна\"}. "
         // 2026-10-19: накладная проводится закупкой у поставщика — программа предложит владельцу поставщика из списка NurCRM.
         + "Если в накладной виден поставщик (продавец, грузоотправитель), добавь ещё одну служебную строку ровно так: "
-        + "ПОСТАВЩИК: {\"name\": \"название поставщика как в накладной\", \"inn\": \"ИНН, если виден\"}. Не угадывай поставщика. "
+        + "ПОСТАВЩИК: {\"name\": \"название поставщика как в накладной\", \"inn\": \"ИНН, если виден\", \"phone\": \"телефон, если виден\", \"address\": \"адрес, если виден\"}. Не угадывай поставщика. "
         + "Служебные строки не являются частью видимого ответа: программа удалит их перед показом. Не создавай действие, если обязательное значение не распознано; "
         + "неразборчивую позицию всё равно оставь в таблице с дефисами. Розничная цена = закупка × (1 + наценка / 100): "
         + $"если владелец указал наценку, используй её, но не ниже {MinMarkupPercent:0} %; иначе применяй {MinMarkupPercent:0} % без вопроса владельцу. "
@@ -119,6 +119,9 @@ public static class ProductActionPlan
     private static readonly Regex ReceiveDisplayLine = new(@"(?im)^\s*receive\s*:\s*(\{[^\n]*?\})\s*[—–-]\s*(.+?)\s*$");
     // 2026-10-19: служебная строка «ПОСТАВЩИК: {…}» распознанной накладной (см. PhotoPromptText, SupplierHint).
     private static readonly Regex SupplierLine = new(@"(?im)^[ \t*`•\-]*ПОСТАВЩИК\s*:\s*(\{[^\n]*\})[ \t*`]*$");
+
+    /// <summary>2026-10-30: телефон и адрес поставщика из последней строки «ПОСТАВЩИК» (если ИИ их увидел) — предзаполнение «Новый поставщик».</summary>
+    public static (string? Phone, string? Address) LastSupplierExtra { get; private set; }
 
     /// <summary>2026-10-19: поставщик, которого ИИ прочитал в накладной (название и ИНН), — подсказка для выбора поставщика закупки.
     /// Владелец всё равно выбирает поставщика сам (InvoiceEditorWindow). (null, null) — строки нет.</summary>
@@ -133,7 +136,12 @@ public static class ProductActionPlan
             string? S(string name) => doc.RootElement.TryGetProperty(name, out var v) && v.ValueKind is JsonValueKind.String or JsonValueKind.Number
                 ? v.ToString().Trim() is { Length: > 0 } s && s != "-" ? s : null
                 : null;
-            return (S("name"), S("inn"));
+            var name = S("name");
+            var inn = S("inn");
+            // 2026-10-30: телефон и адрес поставщика — для формы «Новый поставщик» (поставщика в списке нет); прежняя подсказка не меняется.
+            if (name is not null || inn is not null)
+                LastSupplierExtra = (S("phone"), S("address"));
+            return (name, inn);
         }
         catch (JsonException)
         {
@@ -285,6 +293,11 @@ public static class ProductActionPlan
         var lines = await Task.WhenAll(products.Select(p => ProductActions.DescribeForAiAsync(p, ct))).ConfigureAwait(false);
         return "КАРТОЧКИ ТОВАРОВ ИЗ ВОПРОСА (для действий «ТОВАР:»):\n" + string.Join("\n", lines);
     }
+
+    private static readonly AsyncLocal<List<string>?> _lastBlocked = new();
+
+    /// <summary>2026-10-30: id возможностей Нур Советника, из-за которых последний <see cref="Extract"/> (в этом потоке выполнения) отбросил действия.</summary>
+    public static IReadOnlyList<string> LastBlocked => _lastBlocked.Value ?? (IReadOnlyList<string>)Array.Empty<string>();
 
     /// <summary>Строки «ТОВАР: {…}» из ответа ИИ → шаги (товар найден в каталоге, операция известна). Строки из ответа убираются.</summary>
     /// <summary>Строки последнего разбора, которые не удалось превратить в действие (товар не найден), — показать владельцу.</summary>
@@ -445,6 +458,18 @@ public static class ProductActionPlan
             {
             }
         }
+        // 2026-10-30: операции выключенных возможностей Нур Советника (AdvisorCapabilities) отбрасываются; что именно — в LastBlocked (окно скажет об этом).
+        var blocked = new List<string>();
+        steps = steps.Where(st =>
+        {
+            if (AdvisorCapabilities.OpAllowed(st.Op, out var by))
+                return true;
+            if (by is not null && !blocked.Contains(by))
+                blocked.Add(by);
+            PosLogger.Log($"ИИ-советник: действие «{st.Op}» не предложено — возможность «{by}» выключена владельцем.", "INFO");
+            return false;
+        }).ToList();
+        _lastBlocked.Value = blocked;
         // 2026-10-19: и строку «ПОСТАВЩИК: {…}» — она служебная (SupplierHint).
         var cleaned = SupplierLine.Replace(Line.Replace(extractionAnswer, ""), "").Trim();
         if (receiveTable is not null && !cleaned.Contains("|---", StringComparison.Ordinal))
@@ -557,6 +582,9 @@ public static class ProductActionPlan
     /// <summary>Выполнить шаг (после подтверждения владельца).</summary>
     public static async Task<ProductActions.Result> ExecuteAsync(Step s, string? actor, CancellationToken ct = default)
     {
+        // 2026-10-30: последняя защита — выключенную возможность не выполняем, даже если шаг дошёл сюда (старая карточка, бот).
+        if (!AdvisorCapabilities.OpAllowed(s.Op, out var blockedBy))
+            return new ProductActions.Result(false, AdvisorCapabilities.BlockedText(blockedBy));
         var id = s.Product.Id;
         var who = actor ?? "ИИ";
         return s.Op switch
@@ -747,6 +775,17 @@ public static class ProductActionPlan
                 "Depoya erişiminiz yok — ürünler değiştirilemez. Erişimi işletme sahibi NurCRM sitesinde verir (Çalışanlar → «Depo» erişimi).",
                 "Sizda omborga ruxsat yo'q — mahsulotlarni o'zgartirib bo'lmaydi. Ruxsatni ega NurCRM saytida beradi (Xodimlar → «Ombor» ruxsati).");
         }
+        // 2026-10-30: шаги выключенных возможностей Нур Советника — не выполняются, про них одна строка.
+        string? disabledNote = null;
+        if (steps.Any(st => !AdvisorCapabilities.OpAllowed(st.Op, out _)))
+        {
+            AdvisorCapabilities.OpAllowed(steps.First(st => !AdvisorCapabilities.OpAllowed(st.Op, out _)).Op, out var firstBlocked);
+            PosLogger.Log($"Действие с товаром ({actor ?? "—"}): шаги выключенных возможностей не выполнены ({steps.Count(st => !AdvisorCapabilities.OpAllowed(st.Op, out _))}).", "INFO");
+            disabledNote = "✗ " + AdvisorCapabilities.BlockedText(firstBlocked);
+            steps = steps.Where(st => AdvisorCapabilities.OpAllowed(st.Op, out _)).ToList();
+            if (steps.Count == 0)
+                return disabledNote;
+        }
         // 2026-10-19, владелец: накладная — не прямо на склад, а закупкой у поставщика. Приход и новые товары с количеством здесь
         // (бот, общий пакет) не выполняются: остальные шаги — как раньше, а про накладную — одна строка, куда идти.
         string? purchaseNote = null;
@@ -838,6 +877,8 @@ public static class ProductActionPlan
         var lines = new List<string>(mergeNotes);
         if (purchaseNote is not null)
             lines.Insert(0, purchaseNote);
+        if (disabledNote is not null)
+            lines.Insert(0, disabledNote);
         var changed = new List<string>();
         var completed = 0;
         var failed = 0;

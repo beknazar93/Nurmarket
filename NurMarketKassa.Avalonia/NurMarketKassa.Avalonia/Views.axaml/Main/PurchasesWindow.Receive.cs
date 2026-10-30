@@ -37,6 +37,8 @@ public sealed partial class PurchasesWindow
     private sealed class ReceiveState
     {
         public PurchasesSupplierPicker Picker = null!;
+        /// <summary>2026-10-30 (нумерация закупок): «Номер накладной поставщика» в шапке приёмки.</summary>
+        public TextBox DocNumber = null!;
         public readonly ObservableCollection<ReceivingLineVm> Lines = new();
         public readonly StackPanel Rows = new();
         public readonly StackPanel Steps = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
@@ -144,13 +146,29 @@ public sealed partial class PurchasesWindow
             ReceiveRefresh();
             _ = ReceiveLoadGoodsAsync(s, sup);
         };
-        var supplierRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Margin = new Thickness(0, 0, 0, 10) };
+        var supplierRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,190"), Margin = new Thickness(0, 0, 0, 10) };
         var supplierLabel = UiKit.Label(this, T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"));
         supplierLabel.VerticalAlignment = VerticalAlignment.Center;
         supplierLabel.Margin = new Thickness(0, 0, 12, 0);
         supplierRow.Children.Add(supplierLabel);
         Grid.SetColumn(s.Picker, 1);
         supplierRow.Children.Add(s.Picker);
+        // 2026-10-30 (нумерация закупок): номер накладной поставщика вводится здесь и сохраняется вместе с документом (комментарий прихода).
+        var docLabel = UiKit.Label(this, T("№ накладной поставщика", "Жеткирүүчүнүн накладнойунун №", "Supplier invoice №", "Tedarikçi fatura №", "Yetkazib beruvchi yuk xati №"));
+        docLabel.VerticalAlignment = VerticalAlignment.Center;
+        docLabel.Margin = new Thickness(16, 0, 8, 0);
+        Grid.SetColumn(docLabel, 2);
+        supplierRow.Children.Add(docLabel);
+        s.DocNumber = UiKit.Input(this, T("не обязательно", "милдеттүү эмес", "optional", "isteğe bağlı", "ixtiyoriy"), 44);
+        s.DocNumber.MaxLength = 40;
+        Avalonia.Automation.AutomationProperties.SetName(s.DocNumber, docLabel.Text);
+        ToolTip.SetTip(s.DocNumber, T("Номер накладной, которую дал поставщик. Он сохранится вместе с приходом рядом с номером документа ПР-…",
+            "Жеткирүүчү берген накладнойдун номери. Ал кирүү менен бирге ПР-… документ номеринин жанында сакталат.",
+            "The invoice number given by the supplier. It is saved with the delivery next to the document number ПР-…",
+            "Tedarikçinin verdiği fatura numarası. Giriş ile birlikte belge numarasının (ПР-…) yanında kaydedilir.",
+            "Yetkazib beruvchi bergan yuk xati raqami. U kirim bilan birga hujjat raqami (ПР-…) yonida saqlanadi."));
+        Grid.SetColumn(s.DocNumber, 3);
+        supplierRow.Children.Add(s.DocNumber);
         Grid.SetRow(supplierRow, 1);
         page.Children.Add(supplierRow);
         s.Tiles.Margin = new Thickness(0, 0, 0, 10);
@@ -1119,6 +1137,13 @@ public sealed partial class PurchasesWindow
         return box;
     }
 
+    /// <summary>2026-10-30: оборачивает элемент строки приёма в полосу высотой с поле (40 px) у верха строки — он по центру линии полей, подписи под полями его не двигают.</summary>
+    private static Grid OnFieldLine(Control c)
+    {
+        c.VerticalAlignment = VerticalAlignment.Center;
+        return new Grid { MinHeight = 40, VerticalAlignment = VerticalAlignment.Top, Children = { c } };
+    }
+
     private Control ReceiveRow(ReceivingLineVm line)
     {
         var s = _receive!;
@@ -1146,13 +1171,15 @@ public sealed partial class PurchasesWindow
                         + (s.Narrow && !line.IsNew ? " · " + T("ост. ", "калд. ", "stock ", "stok ", "qold. ") + Q(line.StockBefore) : ""), line.IsNew ? "BrushDanger" : "BrushTextSoft", 12);
         meta.Margin = default;
         who.Children.Add(meta);
-        g.Children.Add(who);
+        g.Children.Add(OnFieldLine(who));
 
         var stock = Cell(line.IsNew ? "—" : Q(line.StockBefore) + " " + line.Unit, "BrushTextSoft", 13.5);
         stock.TextAlignment = TextAlignment.Right;
         stock.IsVisible = !s.Narrow;
-        Grid.SetColumn(stock, 1);
-        g.Children.Add(stock);
+        var stockLine = OnFieldLine(stock);
+        stockLine.IsVisible = !s.Narrow;
+        Grid.SetColumn(stockLine, 1);
+        g.Children.Add(stockLine);
 
         string Lbl(string ru, string ky, string en, string tr, string uz) => T(ru, ky, en, tr, uz) + " " + line.ProductName;
         var qty = ReceiveCellBox(ReceiveNum(line.Quantity), Lbl("Количество", "Саны", "Quantity", "Miktar", "Miqdor"));
@@ -1288,25 +1315,27 @@ public sealed partial class PurchasesWindow
         Chain(purchase, () => sale);
         Chain(sale, () => null);
 
-        // 2026-10-27 (приёмка 26.10, Д-7): у «Закупки» и «Продажи» под полем строка «▲ +12 %»/«маржа» (высота 13 с отступом) — поля центрировались
-        // вместе с ней и стояли выше «Количества» и «Наценки %». Под последними — такая же пустая полоса, чтобы все четыре поля были на одной линии.
-        var qtyBox = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { qty, new Border { Height = 13 } } };
+        // 2026-10-30 (баг владельца): подписи под «Закупкой» («без изменений» + «было 35,00») и «Продажей» («прибыль …») разной высоты сдвигали поля по вертикали
+        // (поля центрировались вместе с подписями). Теперь все четыре поля прижаты к верху строки (одинаковая линия 40 px), подписи — под полем и ряд не двигают;
+        // «На складе», «Сумма закупки», название и «✕» — по центру этой же линии (OnFieldLine). Деньги и расчёт не менялись — только разметка.
+        var qtyBox = new StackPanel { VerticalAlignment = VerticalAlignment.Top, Children = { qty } };
         Grid.SetColumn(qtyBox, 2);
         g.Children.Add(qtyBox);
-        var purchaseBox = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { purchase, purchaseSub } };
+        var purchaseBox = new StackPanel { VerticalAlignment = VerticalAlignment.Top, Children = { purchase, purchaseSub } };
         Grid.SetColumn(purchaseBox, 3);
         g.Children.Add(purchaseBox);
-        var markupBox = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { markup, new Border { Height = 13 } } };
+        var markupBox = new StackPanel { VerticalAlignment = VerticalAlignment.Top, Children = { markup } };
         Grid.SetColumn(markupBox, 4);
         g.Children.Add(markupBox);
-        var saleBox = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { sale, saleSub } };
+        var saleBox = new StackPanel { VerticalAlignment = VerticalAlignment.Top, Children = { sale, saleSub } };
         Grid.SetColumn(saleBox, 5);
         g.Children.Add(saleBox);
-        Grid.SetColumn(sum, 6);
-        g.Children.Add(sum);
+        var sumLine = OnFieldLine(sum);
+        Grid.SetColumn(sumLine, 6);
+        g.Children.Add(sumLine);
 
         var remove = new Button { Content = "✕", Width = 44, Height = 44, MinHeight = 44, Padding = new Thickness(0), CornerRadius = new CornerRadius(10), Background = Brushes.Transparent, BorderThickness = new Thickness(0),
-            HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, FontSize = 15 };
+            HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, -2, 0, 0), FontSize = 15 }; // 2026-10-30: 44 px по центру линии полей (40 px)
         Use(remove, Button.ForegroundProperty, "BrushTextSoft");
         Avalonia.Automation.AutomationProperties.SetName(remove, T("Убрать строку", "Сапты алып салуу", "Remove the line", "Satırı kaldır", "Qatorni olib tashlash") + " " + line.ProductName);
         remove.Click += (_, _) =>
@@ -1489,7 +1518,7 @@ public sealed partial class PurchasesWindow
         try
         {
             jobId = BackgroundReceivingQueue.Instance.Enqueue(new ReceivingJobRequest(ReceivingJobSource.Purchases, lines, supplier, paidNow, employee, pay.DueDays, fields,
-                "purchases", PurchaseFinishPayload.From(pay, s.OrderId, shiftId)));
+                "purchases", PurchaseFinishPayload.From(pay, s.OrderId, shiftId), SupplierDocNumber: s.DocNumber.Text));
         }
         catch (Exception ex)
         {
@@ -1501,6 +1530,7 @@ public sealed partial class PurchasesWindow
             return;
         }
 
+        s.DocNumber.Text = ""; // 2026-10-30: номер накладной поставщика ушёл с приходом
         // Задача на диске — список очищаем сразу и готовимся к следующей накладной (заказ уже закрыт этой задачей — к новому приёму не привязываем).
         _bgWaiting.Add(jobId);
         foreach (var line in lines)

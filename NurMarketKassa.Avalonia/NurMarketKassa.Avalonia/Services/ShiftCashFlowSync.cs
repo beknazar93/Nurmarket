@@ -79,6 +79,9 @@ public static class ShiftCashFlowSync
     {
         if (string.IsNullOrWhiteSpace(shiftId) || !Guid.TryParse(shiftId, out _))
             return;
+        // 2026-10-29 (аварийный аудит, п. 5): активна настоящая серверная смена — внесения/изъятия офлайн-смены («offline-shift-…», которую
+        // сервер не знает и которые раньше не уходили никогда) привязываются к ней: туда же сервер кладёт чеки офлайн-смены при выгрузке.
+        ShiftCashOperationsStore.RebindOfflineShifts(shiftId);
         // 2026-09-29: сервер не отвечает (ServerOutageMonitor) — операции ждут в кассе, уйдут
         // по восстановлении связи (MainWindow.OnServerRecovered), без ожидания таймаутов сейчас.
         if (ServerOutageMonitor.IsOutage)

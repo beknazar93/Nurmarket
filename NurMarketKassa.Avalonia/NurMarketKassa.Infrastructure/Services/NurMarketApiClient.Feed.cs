@@ -31,7 +31,14 @@ public sealed partial class NurMarketApiClient
             using var req = new HttpRequestMessage(HttpMethod.Get, BuildUri(relativePath, query));
             ApplyBearerAuthorization(req);
             if (!string.IsNullOrWhiteSpace(ifNoneMatch))
-                req.Headers.TryAddWithoutValidation("If-None-Match", ifNoneMatch);
+            {
+                // 2026-10-29 (замер скорости): Cloudflare, сжимая ответ, делает ETag слабым (W/"…"), а сервер NurCRM сравнивает строго —
+                // с W/ ответ всегда 200, 304 не бывало никогда. Без префикса W/ сервер отвечает 304 (проверено на ленте).
+                var tag = ifNoneMatch.Trim();
+                if (tag.StartsWith("W/", StringComparison.Ordinal))
+                    tag = tag[2..];
+                req.Headers.TryAddWithoutValidation("If-None-Match", tag);
+            }
 
             using var resp = await _http.SendAsync(req, linked.Token).ConfigureAwait(false);
             var etag = resp.Headers.ETag?.ToString();
@@ -43,7 +50,7 @@ public sealed partial class NurMarketApiClient
 
             var text = await resp.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(RefreshToken))
-                ClearSession();
+                ExpireSession(relativePath); // 2026-10-30
 
             if (!resp.IsSuccessStatusCode)
             {

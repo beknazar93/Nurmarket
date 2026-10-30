@@ -49,6 +49,11 @@ public sealed class AbcSectionView : UserControl
     private readonly List<(Button Button, Control Content)> _pages = [];
     private int _selected;
     private readonly List<SliceView> _views = [];
+
+    // 2026-10-30 (стресс-тест: 20 000 чеков, 10 000 товаров): все срезы наполнялись разом — 250–290 мс в UI-потоке (3 таблицы по 10 000 строк
+    // + диаграммы), фриз «ABC-анализа» 825 мс. Теперь наполняется только открытая вкладка, остальные — при первом переключении на них.
+    private IReadOnlyList<AnalyticsReportData.AbcSlice> _slicesNow = [];
+    private bool[] _dirty = [];
     private readonly SeasonalityView _seasonality = new();
     private IReadOnlyList<string> _sliceKeys = SalesSliceKeys;
     private bool _showSeasonality = true;
@@ -136,20 +141,42 @@ public sealed class AbcSectionView : UserControl
         for (var i = 0; i < _pages.Count; i++)
             _pages[i].Button.Classes.Set("active", i == _selected);
         _page.Content = _pages[_selected].Content;
+        FillSelectedView();
+    }
+
+    /// <summary>2026-10-30: наполнить срез открытой вкладки, если он ещё не показан для текущих данных.</summary>
+    private void FillSelectedView()
+    {
+        if (_selected < 0 || _selected >= _pages.Count || _pages[_selected].Content is not SliceView view)
+            return;
+        var i = _views.IndexOf(view);
+        if (i < 0 || i >= _slicesNow.Count || i >= _dirty.Length || !_dirty[i])
+            return;
+        _dirty[i] = false;
+        view.Show(_slicesNow[i]);
     }
 
     /// <summary>Заполняет раздел. Срезы приходят в том же порядке, поэтому вкладка,
     /// выбранная пользователем, остаётся выбранной.</summary>
     public void Update(AnalyticsReportData data)
     {
+        _serverFailed = data.ServerFailed;
         if (_showSeasonality)
             _seasonality.Show(data.Seasonality);
         UpdateSlices(data.AbcSlices);
     }
 
+    /// <summary>2026-10-31 (стресс-тест 1.17.68, п. 9): сервер не ответил — вместо «продаж нет» плашка «Нет связи» и «Повторить».</summary>
+    private bool _serverFailed;
+
+    public event Action? RetryRequested;
+
     private void UpdateSlices(IReadOnlyList<AnalyticsReportData.AbcSlice> allSlices)
     {
         var slices = allSlices.Where(s => _sliceKeys.Contains(s.Key)).ToList();
+        _slicesNow = slices;
+        _dirty = new bool[slices.Count];
+        Array.Fill(_dirty, true);
 
         // Срезы продаж приходят все пять или ни одного (продаж за период не было). Если здесь
         // ждут хоть один из них, а пришёл только склад или ничего, — это «продаж нет», и об этом
@@ -158,7 +185,7 @@ public sealed class AbcSectionView : UserControl
         var noSales = wantsSales && !slices.Any(s => s.Key != AnalyticsReportData.KeyStock);
         var message = noSales || slices.Count == 0;
 
-        var layout = (message ? "!" : "") + string.Join("|", slices.Select(s => s.Key)) + (_showSeasonality ? "|~" : "");
+        var layout = (message ? (_serverFailed ? "!!" : "!") : "") + string.Join("|", slices.Select(s => s.Key)) + (_showSeasonality ? "|~" : "");
         if (layout != _layout)
         {
             _layout = layout;
@@ -167,7 +194,10 @@ public sealed class AbcSectionView : UserControl
             _pages.Clear();
             _views.Clear();
 
-            if (message)
+            if (message && _serverFailed && wantsSales)
+                AddPage(Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"),
+                    NurMarketKassa.AvaloniaHost.Views.ServerOfflineNotice.Build(this, RetryRequested == null ? null : () => RetryRequested?.Invoke()));
+            else if (message)
             {
                 AddPage(Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"),
                     new TextBlock
@@ -197,8 +227,7 @@ public sealed class AbcSectionView : UserControl
             Select(0);
         }
 
-        for (var i = 0; i < slices.Count; i++)
-            _views[i].Show(slices[i]);
+        FillSelectedView();
     }
 
     /// <summary>Одна вкладка среза.</summary>
@@ -324,7 +353,7 @@ public sealed class AbcSectionView : UserControl
             _grid.Columns.Add(new DataGridTemplateColumn
             {
                 Header = Tr.T("Гр.", "Тп.", "Grp", "Gr.", "Gr."),
-                Width = new DataGridLength(64), // 2026-10-18, доводка О4: заголовок «Гр.» не обрезается
+                Width = new DataGridLength(72), // 2026-10-18, доводка О4: заголовок «Гр.» не обрезается; 2026-10-31: 64→72 («Grp» в en)
                 CellTemplate = new FuncDataTemplate<RowVm>((row, _) => row is null ? null : new Border
                 {
                     Background = row.GroupBrush,
@@ -364,7 +393,7 @@ public sealed class AbcSectionView : UserControl
             _valueColumn = new DataGridTextColumn
             {
                 Header = Tr.T("Сумма", "Суммасы", "Amount", "Tutar", "Summa"),
-                Width = new DataGridLength(130),
+                Width = new DataGridLength(145), // 2026-10-31: 130→145 («14 846,49 so'm» обрезалась)
                 Binding = new Avalonia.Data.Binding(nameof(RowVm.SumText)),
             };
             _grid.Columns.Add(_valueColumn);
@@ -379,7 +408,7 @@ public sealed class AbcSectionView : UserControl
             _grid.Columns.Add(new DataGridTextColumn
             {
                 Header = Tr.T("Накопл.", "Топтолгон", "Cumul.", "Kümül.", "To'plangan"),
-                Width = new DataGridLength(95),
+                Width = new DataGridLength(120), // 2026-10-31: 95→120 («Топтолгон»/«To'plangan» обрезались)
                 Binding = new Avalonia.Data.Binding(nameof(RowVm.CumulativeText)),
             });
 
@@ -513,7 +542,7 @@ public sealed class AbcSectionView : UserControl
             _grid.ItemsSource = slice.Rows.Select(r => new RowVm
             {
                 Group = r.Group,
-                GroupBrush = Brush.Parse(BarChartRenderer.AbcColor(r.Group)),
+                GroupBrush = GroupBrushes.TryGetValue(r.Group, out var gb) ? gb : (GroupBrushes[r.Group] = Brush.Parse(BarChartRenderer.AbcColor(r.Group))), // 2026-10-30: кисть на группу, а не на строку (10 000 строк)
                 Name = r.Name,
                 QuantityText = r.Quantity.ToString("0.###", CultureInfo.CurrentCulture),
                 SumText = Format(r.Sum, slice.Unit),
@@ -522,6 +551,8 @@ public sealed class AbcSectionView : UserControl
                 CumulativeText = r.Cumulative.ToString("0.##", CultureInfo.CurrentCulture) + " %",
             }).ToList();
         }
+
+        private static readonly Dictionary<string, IBrush> GroupBrushes = new();
 
         private static string Format(double value, string unit) =>
             unit == "шт." || unit == "даана" || unit == "pcs" || unit == "adet" || unit == "dona"

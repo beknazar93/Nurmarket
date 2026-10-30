@@ -177,7 +177,7 @@
                         </StackPanel>
                         <StackPanel Spacing="4" VerticalAlignment="Bottom">
                             <TextBlock Classes="field-label" Text="{DynamicResource labelEditor.presetLabel}"/>
-                            <ComboBox x:Name="SizePresetCombo" Width="200"/>
+                            <ComboBox x:Name="SizePresetCombo" MinWidth="200"/> <!-- 2026-10-31: было Width=200 — «40×30 мм (по умолчанию)» резалась; теперь по содержимому -->
                         </StackPanel>
                     </WrapPanel>
                 </Border>

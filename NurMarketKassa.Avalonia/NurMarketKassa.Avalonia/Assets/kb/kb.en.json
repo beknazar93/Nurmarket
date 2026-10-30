@@ -472,8 +472,8 @@
      "articles": [
       {
        "id": "программа-владельца-что-такое-nurmarket-владелец-и-где-его-н",
-       "title": "What “NurMarket Owner” is and where to find it",
-       "text": "Шаг 1. The “NurMarket Owner” program is installed together with the POS: after an update, a shortcut named “NurMarket Владелец” (NurMarket Owner) appears on the desktop and in the Start menu.\nШаг 2. Open it and sign in with a NurCRM owner or administrator account.\nШаг 3. The section menu is on the left, and the “Overview” is on the right: revenue, receipts, average receipt, and profit for today, the week, or the month; revenue by day; payment methods; latest sales; and top products.\nШаг 4. The overview refreshes automatically once a minute, and immediately when you return to the window; the ↻ button refreshes it right now. A sale made at the POS appears here without restarting the program.\nВажно: The program can run on a different computer: the POS and the owner program get their data from the same NurCRM server.",
+       "title": "What “NurCRM Owner” is and where to find it",
+       "text": "Шаг 1. The “NurCRM Owner” program is installed together with the POS: after an update, a shortcut named “NurCRM Владелец” (NurCRM Owner) appears on the desktop and in the Start menu.\nШаг 2. Open it and sign in with a NurCRM owner or administrator account.\nШаг 3. The section menu is on the left, and the “Overview” is on the right: revenue, receipts, average receipt, and profit for today, the week, or the month; revenue by day; payment methods; latest sales; and top products.\nШаг 4. The overview refreshes automatically once a minute, and immediately when you return to the window; the ↻ button refreshes it right now. A sale made at the POS appears here without restarting the program.\nВажно: The program can run on a different computer: the POS and the owner program get their data from the same NurCRM server.",
        "keywords": [
         "owner",
         "admin panel",
@@ -1090,7 +1090,7 @@
      ]
     }
    ],
-   "note": "On the “Standard” plan and higher, this section is in the “NurMarket Owner” program; its shortcut appears on the desktop when the POS is installed. On the “Start” plan, the section stays in the POS menu (☰)."
+   "note": "On the “Standard” plan and higher, this section is in the “NurCRM Owner” program; its shortcut appears on the desktop when the POS is installed. On the “Start” plan, the section stays in the POS menu (☰)."
   },
   {
    "title": "Warehouse",
@@ -1317,7 +1317,7 @@
      ]
     }
    ],
-   "note": "On the “Standard” plan and higher, this section is in the “NurMarket Owner” program; its shortcut appears on the desktop when the POS is installed. On the “Start” plan, the section stays in the POS menu (☰)."
+   "note": "On the “Standard” plan and higher, this section is in the “NurCRM Owner” program; its shortcut appears on the desktop when the POS is installed. On the “Start” plan, the section stays in the POS menu (☰)."
   },
   {
    "title": "Clients and debts",
@@ -1609,7 +1609,7 @@
      ]
     }
    ],
-   "note": "On the “Standard” plan and higher, this section is in the “NurMarket Owner” program; its shortcut appears on the desktop when the POS is installed. On the “Start” plan, the section stays in the POS menu (☰)."
+   "note": "On the “Standard” plan and higher, this section is in the “NurCRM Owner” program; its shortcut appears on the desktop when the POS is installed. On the “Start” plan, the section stays in the POS menu (☰)."
   },
   {
    "title": "Employees",
@@ -2036,7 +2036,7 @@
       {
        "id": "настройки-и-оборудование-как-получить-удалённую-помощь-подде",
        "title": "How to get remote help from support",
-       "text": "Шаг 1. Open ☰ → “System” → “NurCRM support”.\nШаг 2. Call NurMarket support or message us on WhatsApp: +996 221 068 796.\nШаг 3. In the “Nur Support” block, click “Get a code for support” and read the code and PIN to the operator (the code is valid for 15 minutes).\nШаг 4. When “Operator … wants to connect to this computer” appears, click “Allow” (the operator sees the screen and can control it) or “View only” (screen only, no control). “Decline” keeps them out.\nШаг 5. While the session is running, a red “Support session” bar stays at the top of the screen — its “End” button disconnects the operator at once.\nВажно: Nobody can connect unless you click “Allow” or “View only”. If the support server is unavailable, call +996 221 068 796.\nВажно: The error log is in ☰ → “System” → “Logs and errors” (the “Open logs folder” button).",
+       "text": "Шаг 1. Open ☰ → “System” → “NurCRM support”.\nШаг 2. Call NurCRM support or message us on WhatsApp: +996 221 068 796.\nШаг 3. In the “Nur Support” block, click “Get a code for support” and read the code and PIN to the operator (the code is valid for 15 minutes).\nШаг 4. When “Operator … wants to connect to this computer” appears, click “Allow” (the operator sees the screen and can control it) or “View only” (screen only, no control). “Decline” keeps them out.\nШаг 5. While the session is running, a red “Support session” bar stays at the top of the screen — its “End” button disconnects the operator at once.\nВажно: Nobody can connect unless you click “Allow” or “View only”. If the support server is unavailable, call +996 221 068 796.\nВажно: The error log is in ☰ → “System” → “Logs and errors” (the “Open logs folder” button).",
        "keywords": [
         "support",
         "nur support",
@@ -2887,7 +2887,7 @@
       {
        "id": "частые-вопросы-кассир-не-видит-раздел-меню-почему",
        "title": "A cashier can't see a menu section — why?",
-       "text": "Шаг 1. Starting with the “Standard” plan, the warehouse, sales, finance, salary, ABC analysis, clients, and restocking sections are in the “NurMarket Owner” program (shortcut on the desktop), not in the POS.\nШаг 2. Other sections are shown only if the employee has permission to see them — permissions are granted to each employee in NurCRM (the web panel).\nШаг 3. Some sections become available only after an add-on is activated (Marketplace → “Extras”).\nШаг 4. After permissions are changed, sign out of the POS and sign in again.",
+       "text": "Шаг 1. Starting with the “Standard” plan, the warehouse, sales, finance, salary, ABC analysis, clients, and restocking sections are in the “NurCRM Owner” program (shortcut on the desktop), not in the POS.\nШаг 2. Other sections are shown only if the employee has permission to see them — permissions are granted to each employee in NurCRM (the web panel).\nШаг 3. Some sections become available only after an add-on is activated (Marketplace → “Extras”).\nШаг 4. After permissions are changed, sign out of the POS and sign in again.",
        "keywords": [
         "no section",
         "cannot see menu",

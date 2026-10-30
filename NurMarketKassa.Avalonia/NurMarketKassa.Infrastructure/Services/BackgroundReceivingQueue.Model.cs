@@ -192,6 +192,14 @@ public sealed class ReceivingJob
 
     [JsonIgnore] public ReceivingPostState State { get; set; } = new();
 
+    /// <summary>2026-10-29: сервер отказал по существу (4xx с JSON) — остались только отклонённые строки, ничего не ждёт повтора. «Повторить» тут не поможет:
+    /// данные нужно исправить (вернуть строки в приёмку). Для сети/5xx строки остаются в ожидании, и это свойство ложно.</summary>
+    [JsonIgnore]
+    public bool IsRejectedByServer =>
+        Status is ReceivingJobStatus.Failed or ReceivingJobStatus.Partial
+        && Lines.Any(l => l.Outcome == ReceivingLineOutcome.Rejected)
+        && !Lines.Any(l => l.Outcome is ReceivingLineOutcome.Pending or ReceivingLineOutcome.Unknown or ReceivingLineOutcome.Check);
+
     /// <summary>Состояние повторов (<see cref="ReceivingPostState"/>) одной строкой JSON — для файла очереди.</summary>
     public string? StateData
     {
@@ -256,9 +264,9 @@ public sealed class ReceivingJob
                     return Tr.T($"частично: принято {PostedCount} из {LineCount}", $"жарым-жартылай: {PostedCount}/{LineCount} кабыл алынды",
                         $"partial: {PostedCount} of {LineCount} received", $"kısmen: {PostedCount}/{LineCount} kabul edildi", $"qisman: {LineCount} tadan {PostedCount} tasi qabul qilindi");
                 case ReceivingJobStatus.NeedsCheck:
-                    return Tr.T("нужна проверка: ", "текшерүү керек: ", "needs checking: ", "kontrol gerekli: ", "tekshirish kerak: ") + (LastError ?? "");
+                    return Tr.T("нужна проверка: ", "текшерүү керек: ", "needs checking: ", "kontrol gerekli: ", "tekshirish kerak: ") + (ReceivingServerMessages.Humanize(LastError) ?? "");
                 default:
-                    return Tr.T("ошибка: ", "ката: ", "error: ", "hata: ", "xato: ") + (LastError ?? "");
+                    return Tr.T("ошибка: ", "ката: ", "error: ", "hata: ", "xato: ") + (ReceivingServerMessages.Humanize(LastError) ?? "");
             }
         }
     }
@@ -285,7 +293,10 @@ public sealed record ReceivingJobRequest(
     string? BatchId = null,
     int? BatchPart = null,
     string? Preparer = null,
-    IReadOnlyList<int?>? FileRows = null);
+    IReadOnlyList<int?>? FileRows = null,
+    // 2026-10-30 (нумерация закупок): номер и дата накладной поставщика («Номер накладной поставщика» в шапке приёмки / из импорта накладной).
+    string? SupplierDocNumber = null,
+    DateTime? SupplierDocDate = null);
 
 /// <summary>Итог шага после прихода, который выполняет окно-источник (пакет Q4: деньги закупки). Done=false — повторить позже.</summary>
 public sealed record FinisherResult(bool Done, string? Text = null, IReadOnlyList<string>? Errors = null);

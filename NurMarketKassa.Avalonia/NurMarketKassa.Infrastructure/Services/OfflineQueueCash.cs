@@ -39,11 +39,17 @@ public static class OfflineQueueCash
         {
             foreach (var entry in OfflineDatabase.LoadByStatus(QueueStatuses))
             {
-                if (!string.Equals(entry.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase)
-                    || !string.Equals(entry.PaymentMethod, "cash", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(entry.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                var cash = CashOf(entry);
+                decimal cash;
+                if (string.Equals(entry.PaymentMethod, "cash", StringComparison.OrdinalIgnoreCase))
+                    cash = CashOf(entry);
+                // 2026-10-29: «в долг» без связи с наличной предоплатой — предоплата лежит в ящике (безналичную предоплату без связи не принимаем).
+                else if (entry.OfflineDebt && decimal.TryParse(entry.CashReceived, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var prepaid) && prepaid > 0m)
+                    cash = prepaid;
+                else
+                    continue;
                 if (cash != 0m)
                     result[entry.Id] = cash;
             }

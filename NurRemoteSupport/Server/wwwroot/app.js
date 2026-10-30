@@ -13,7 +13,7 @@
   const LANG_NAMES = { ru: 'Русский', ky: 'Кыргызча', en: 'English', tr: 'Türkçe', uz: "O'zbekcha" };
   const LANG_LOCALE = { ru: 'ru-RU', ky: 'ky-KG', en: 'en-GB', tr: 'tr-TR', uz: 'uz-UZ' };
   const T = {
-    pageTitle: ['NurMarket · Поддержка', 'NurMarket · Колдоо', 'NurMarket · Support', 'NurMarket · Destek', 'NurMarket · Yordam'],
+    pageTitle: ['NurCRM · Поддержка', 'NurCRM · Колдоо', 'NurCRM · Support', 'NurCRM · Destek', 'NurCRM · Yordam'],
     brandSupport: ['Поддержка', 'Колдоо', 'Support', 'Destek', 'Yordam'],
     navConnect: ['Подключение', 'Туташуу', 'Connect', 'Bağlantı', 'Ulanish'],
     navJournal: ['Журнал', 'Журнал', 'Log', 'Günlük', 'Jurnal'],
@@ -21,7 +21,7 @@
     changePw: ['Сменить пароль', 'Сырсөздү алмаштыруу', 'Change password', 'Şifreyi değiştir', 'Parolni almashtirish'],
     themeTitle: ['Тема: светлая / тёмная', 'Тема: ачык / караңгы', 'Theme: light / dark', 'Tema: açık / koyu', "Mavzu: yorug' / qorong'i"],
     langLabel: ['Язык', 'Тил', 'Language', 'Dil', 'Til'],
-    loginTitle: ['Поддержка NurMarket', 'NurMarket колдоосу', 'NurMarket Support', 'NurMarket Destek', 'NurMarket yordami'],
+    loginTitle: ['Поддержка NurCRM', 'NurCRM колдоосу', 'NurCRM Support', 'NurCRM Destek', 'NurCRM yordami'],
     loginSub: ['Вход для сотрудников', 'Кызматкерлер үчүн кирүү', 'Staff sign-in', 'Personel girişi', 'Xodimlar uchun kirish'],
     loginLabel: ['Логин', 'Логин', 'Login', 'Kullanıcı adı', 'Login'],
     passwordLabel: ['Пароль', 'Сырсөз', 'Password', 'Şifre', 'Parol'],

@@ -408,7 +408,7 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
             settings.Normalize();
             if (_window is null)
             {
-                var window = new CustomerDisplayWindow(_viewModel);
+                var window = new CustomerDisplayWindow(_viewModel) { ShowActivated = false }; // 2026-10-30: экран покупателя не отбирает фокус у модалки
                 _window = window;
                 window.Screens.Changed += OnScreensChanged;
                 window.Closing += (_, e) =>

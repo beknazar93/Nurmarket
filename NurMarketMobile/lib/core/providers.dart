@@ -15,9 +15,18 @@ import '../features/stock/stock_repository.dart';
 import 'api/api_client.dart';
 import 'api/session_store.dart';
 import 'db/database.dart';
+import 'ai/ai_access.dart';
+import 'ai/vision.dart';
+import 'sync/account_reset.dart';
+import 'sync/background_sync.dart';
+import 'sync/account_switch.dart';
 import 'sync/outbox_meta.dart';
 import 'sync/sync_service.dart';
 import 'util/audit.dart';
+import '../features/payment/debt_access.dart';
+import '../features/payment/payment_qr.dart';
+import '../features/scan/code_lookup.dart';
+import '../core/ai/cam_aliases.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) => throw UnimplementedError('задаётся в main'));
 final sessionStoreProvider = Provider<SessionStore>((ref) => SessionStore());
@@ -38,10 +47,47 @@ final syncProvider = Provider(
     owner: () => OutboxMeta.ownerOf(ref.read(apiProvider).session),
     // 2026-10-21: КП и счета без связи уходят в общий список фоном (только если есть неотправленные).
     quotes: () => ref.read(quotesStoreProvider).sync(onlyIfDirty: true),
+    // 2026-10-30 (оптимизация, п. 14): фоновая отправка (Android) — разовая задача только пока есть неотправленное
+    onUnsentChanged: (has) => has ? BackgroundSync.schedule() : BackgroundSync.cancel(),
   ),
 );
 
-final pendingCountProvider = StreamProvider<int>((ref) => ref.watch(databaseProvider).pendingCount());
+/// 2026-10-29 (полная изоляция аккаунтов): считаются только неотправленные записи ВХОДА (аккаунта), а не всего телефона —
+/// записи другого аккаунта (если остались после истёкшего входа) под этим входом не показываются и не отправляются.
+final pendingCountProvider = StreamProvider<int>((ref) {
+  final db = ref.watch(databaseProvider);
+  final me = OutboxMeta.ownerOf(ref.watch(sessionProvider));
+  // 2026-10-30 (оптимизация, п. 1): раньше — вся таблица очереди (с телами чеков) на каждую её запись; теперь только ждущие
+  // записи (индекс по статусу), а изменения без смены числа дальше не идут (distinct).
+  return db.watchPendingRows().asyncMap((rows) async {
+    if (rows.isEmpty) return 0;
+    final legacy = await db.getSetting(OutboxMeta.legacyOwnerSetting);
+    return rows.where((r) => OutboxMeta.belongsTo(r, me, legacyOwner: legacy)).length;
+  }).distinct();
+});
+
+// ------------------------------------------------------------------ загрузка данных аккаунта
+
+/// 2026-10-29 (полная изоляция аккаунтов, уточнение владельца): после входа с сервера подтягиваются данные ЭТОГО аккаунта —
+/// профиль и права, компания, доступ к ИИ и его ключи, правила компании, должники, смена. Пока идёт — «Загружаем данные
+/// аккаунта…» (экран входа и главная), не вышло — понятная ошибка с «Повторить».
+class AccountLoadState {
+  final bool loading;
+  final int done;
+  final int total;
+
+  /// Хоть один шаг не загрузился (нет связи, ошибка сервера) — на главной плашка «Повторить».
+  final bool failed;
+  const AccountLoadState({this.loading = false, this.done = 0, this.total = 0, this.failed = false});
+}
+
+class AccountLoadController extends Notifier<AccountLoadState> {
+  @override
+  AccountLoadState build() => const AccountLoadState();
+  void set(AccountLoadState s) => state = s;
+}
+
+final accountLoadProvider = NotifierProvider<AccountLoadController, AccountLoadState>(AccountLoadController.new);
 
 // ------------------------------------------------------------------ сессия
 
@@ -74,11 +120,12 @@ class SessionController extends Notifier<Session?> {
   }
 
   /// Роль и доступы (can_view_*) из api/users/profile/. Без связи — остаются прежние.
-  Future<void> refreshProfile() async {
+  /// true — профиль получен с сервера (2026-10-29: нужен шагу «Загружаем данные аккаунта»).
+  Future<bool> refreshProfile() async {
     try {
       final profile = await _api.get('api/users/profile/');
       final cur = state;
-      if (cur == null || profile is! Map) return;
+      if (cur == null || profile is! Map) return false;
       final user = (profile['user'] is Map ? profile['user'] : profile) as Map;
       final u = user.cast<String, dynamic>();
       final s = cur.copyWith(
@@ -90,18 +137,29 @@ class SessionController extends Notifier<Session?> {
         isOwner: u['is_owner'] == true || str(u, 'role') == 'owner',
         perms: Session.extractPerms(profile),
       );
+      // 2026-10-30 (оптимизация, п. 9): профиль не изменился — ни записи в защищённое хранилище (Keystore, 30–150 мс), ни нового
+      // Session (он перестраивал ~20 наблюдателей в первые кадры каждого запуска)
+      if (_sameProfile(cur, s)) return true;
       await _store.save(s);
       state = s;
+      return true;
     } catch (_) {
-      // без связи — в следующий запуск
+      return false; // без связи — в следующий запуск
     }
   }
 
-  Future<void> _refreshCompany() async {
+  static bool _sameProfile(Session a, Session b) {
+    if (a.userId != b.userId || a.userName != b.userName || a.role != b.role || a.isOwner != b.isOwner) return false;
+    final x = a.perms, y = b.perms;
+    if (x == null || y == null) return x == y;
+    return x.length == y.length && Set.of(x).containsAll(y);
+  }
+
+  Future<bool> _refreshCompany() async {
     try {
       final company = (await _api.get('api/users/company/')) as Map<String, dynamic>;
       final cur = state;
-      if (cur == null) return;
+      if (cur == null) return false;
       final s = cur.copyWith(
         companyName: str(company, 'name') ?? cur.companyName,
         companyInn: str(company, 'inn') ?? '',
@@ -109,8 +167,9 @@ class SessionController extends Notifier<Session?> {
       );
       await _store.save(s);
       state = s;
+      return true;
     } catch (_) {
-      // без связи — в следующий запуск
+      return false; // без связи — в следующий запуск
     }
   }
 
@@ -118,6 +177,9 @@ class SessionController extends Notifier<Session?> {
   Future<void> login(String email, String password) async {
     await _api.login(email, password);
     var s = _api.session!;
+    _profileLoaded = false;
+    _companyLoaded = false;
+    String? serverLang; // 2026-10-29: язык интерфейса аккаунта с сервера — для первого входа
     try {
       final profile = (await _api.get('api/users/profile/')) as Map<String, dynamic>;
       final user = (profile['user'] is Map ? profile['user'] : profile) as Map;
@@ -130,12 +192,16 @@ class SessionController extends Notifier<Session?> {
         isOwner: u['is_owner'] == true || str(u, 'role') == 'owner',
         perms: Session.extractPerms(profile),
       );
+      _profileLoaded = true;
+      final lang = (str(u, 'language') ?? str(u, 'lang') ?? '').trim().toLowerCase();
+      if (const {'ru', 'ky', 'en', 'tr', 'uz'}.contains(lang)) serverLang = lang;
     } on ApiException {
       // Профиль не загрузился — входим с логином вместо имени.
     }
     try {
       final company = (await _api.get('api/users/company/')) as Map<String, dynamic>;
       s = s.copyWith(companyName: str(company, 'name') ?? '', companyInn: str(company, 'inn') ?? '', companyAddress: str(company, 'address') ?? '');
+      _companyLoaded = true;
     } on ApiException {
       // не критично
     }
@@ -146,6 +212,17 @@ class SessionController extends Notifier<Session?> {
     // 2026-10-22 (мобилка, деньги): вошли другим аккаунтом — чек и смена прошлого входа не переходят к новому
     // (после истечения сессии тем же логином набранный чек остаётся).
     final last = await db.getSetting(_lastOwnerKey);
+    // 2026-10-29 (срочно): другой аккаунт — товары, остатки и настройки каталога прошлого аккаунта стираются, репозиторий каталога
+    // пересоздаётся (курсор ленты, замок загрузки), фоновая задача очереди перепривязывается к новому входу (app.dart).
+    // 2026-10-29 («ничего не должно остаться»): на телефоне остались данные другого аккаунта (выход не делали) — стираются целиком.
+    var wiped = false;
+    if (await AccountSwitch.prepare(db, owner)) {
+      wiped = true;
+      resetAccountProviders(ref);
+    }
+    // язык интерфейса нового аккаунта — с сервера (если прислал и пользователь сам не выбирал на экране входа)
+    if (serverLang != null && (await db.getSetting('ui.lang') ?? '').isEmpty) await db.setSetting('ui.lang', serverLang);
+    if (wiped || serverLang != null) await ref.read(prefsProvider.notifier).load();
     if (last != null && last.isNotEmpty && last != owner) {
       ref.read(cartProvider.notifier).clear();
       ref.read(shiftProvider.notifier).reset();
@@ -154,9 +231,68 @@ class SessionController extends Notifier<Session?> {
     await _claimLegacyQueue(s);
     state = s;
     unawaited(ref.read(cartProvider.notifier).restoreDraft()); // 2026-10-26 (П3, В-1): вошли после истечения сессии — чек на месте
+    await loadAccountData();
   }
 
-  static const _lastOwnerKey = 'session.lastOwner';
+  bool _profileLoaded = false;
+  bool _companyLoaded = false;
+
+  /// 2026-10-29 (полная изоляция аккаунтов, уточнение владельца): подтянуть с сервера данные ЭТОГО аккаунта. Шаги идут по
+  /// очереди с общим прогрессом [accountLoadProvider]; каждый ограничен по времени, сбой одного не мешает остальным. Каталог
+  /// и клиенты грузятся фоном (SyncService.start при входе) — здесь только то, без чего экраны покажут чужое или пустое.
+  /// Вызывается при входе и по «Повторить» на главной.
+  Future<void> loadAccountData() async {
+    final load = ref.read(accountLoadProvider.notifier);
+    final api = ref.read(apiProvider);
+    final db = ref.read(databaseProvider);
+    final steps = <Future<bool> Function()>[
+      () async => _profileLoaded || await refreshProfile(),
+      () async => _companyLoaded || await _refreshCompany(),
+      () async {
+        // доступ к ИИ (кому разрешён, лимит) и ключи ИИ своего аккаунта
+        await ref.read(aiAccessRepoProvider).load(force: true);
+        final ok = AiAccessRepository.lastLoadFromServer;
+        try {
+          await ref.read(visionProvider).key();
+        } catch (_) {
+          // нет права на ИИ или ключа нет — это тоже загруженный ответ
+        }
+        return ok;
+      },
+      () async {
+        // настройки компании: правила весов, долги, QR оплаты, названия камеры
+        await ScaleRulesLoader.ensure(db, api);
+        await CamAliases.ensure(db, api, force: true);
+        await ref.read(debtAccessRepoProvider).load();
+        await ref.read(payQrRepoProvider).load();
+        return true;
+      },
+      () async {
+        await ref.read(opsRepoProvider).debtors();
+        return true;
+      },
+      () async {
+        if (ref.read(sessionProvider)?.cashboxId == null) return true; // касса ещё не выбрана — смену прочитает главная
+        await ref.read(shiftProvider.notifier).refresh();
+        return ref.read(shiftProvider).error == null;
+      },
+    ];
+    var failed = false;
+    load.set(AccountLoadState(loading: true, total: steps.length));
+    for (var i = 0; i < steps.length; i++) {
+      try {
+        if (!await steps[i]().timeout(const Duration(seconds: 20))) failed = true;
+      } catch (e) {
+        // нет прав на раздел (403) — не сбой загрузки; обрыв связи и ошибка сервера — сбой, на главной «Повторить»
+        if (e is! ApiException || e.status == null || e.status! >= 500) failed = true;
+      }
+      if (state == null) break; // вышли во время загрузки
+      load.set(AccountLoadState(loading: true, done: i + 1, total: steps.length, failed: failed));
+    }
+    load.set(AccountLoadState(done: steps.length, total: steps.length, failed: failed));
+  }
+
+  static const _lastOwnerKey = AccountSwitch.lastOwnerKey;
 
   /// Записи очереди до 22.10 без владельца — аккаунта, который первым вошёл после обновления (до него там был он же).
   Future<void> _claimLegacyQueue(Session s) async {
@@ -173,12 +309,21 @@ class SessionController extends Notifier<Session?> {
     state = s;
   }
 
+  /// 2026-10-29 («Ничего не должно остаться от старого аккаунта!!»): выход стирает с телефона ВСЁ — очередь, настройки, товары,
+  /// ключи, журналы, файлы. Вызывать только после окна «Есть неотправленные продажи» (logout_guard.dart): к этому моменту очередь
+  /// отправлена, выгружена в файл или удаление подтверждено словом.
   Future<void> logout() async {
+    ref.read(syncProvider).stop();
     await _store.clear();
     _api.attach(null);
     ref.read(cartProvider.notifier).clear();
+    await ref.read(cartProvider.notifier).flush();
     ref.read(shiftProvider.notifier).reset();
+    ref.read(accountLoadProvider.notifier).set(const AccountLoadState());
     state = null;
+    await AccountSwitch.wipeAll(ref.read(databaseProvider));
+    resetAccountProviders(ref);
+    await ref.read(prefsProvider.notifier).load(); // тема и язык — по умолчанию
   }
 
   /// 2026-10-22 (мобилка, деньги, К-5): сессия истекла (refresh-токен не обновился) — на вход, но набранный чек
@@ -205,7 +350,11 @@ class ShiftState {
 
   /// Смена взята из памяти телефона (нет связи) — итоги не обновлены.
   final bool cached;
-  const ShiftState({this.shift, this.loading = false, this.error, this.foreignShift = false, this.cached = false});
+
+  /// 2026-10-29 (аудит мобилки, п. 5): когда итоги смены в последний раз пришли с сервера. null — итогов нет вовсе (смена
+  /// только из памяти телефона после перезапуска без связи): главная показывает «—», а не «0 сом · 0 чеков».
+  final DateTime? fetchedAt;
+  const ShiftState({this.shift, this.loading = false, this.error, this.foreignShift = false, this.cached = false, this.fetchedAt});
   bool get isOpen => shift != null;
 }
 
@@ -244,7 +393,7 @@ class ShiftController extends Notifier<ShiftState> {
   Future<void> refresh() async {
     final s = ref.read(sessionProvider);
     if (s == null) return;
-    state = ShiftState(shift: state.shift, loading: true, foreignShift: state.foreignShift, cached: state.cached);
+    state = ShiftState(shift: state.shift, loading: true, foreignShift: state.foreignShift, cached: state.cached, fetchedAt: state.fetchedAt);
     try {
       final found = await ref.read(shiftRepoProvider).findShift(s.cashboxId, cashierId: s.userId);
       var shift = found.shift;
@@ -252,7 +401,7 @@ class ShiftController extends Notifier<ShiftState> {
       if (shift != null && found.movedCashbox && shift.cashboxId != null) {
         await ref.read(sessionProvider.notifier).chooseCashbox(Cashbox(shift.cashboxId!, shift.cashboxName ?? s.cashboxName ?? ''));
       }
-      state = ShiftState(shift: shift, foreignShift: shift == null && found.foreignOnThisCashbox);
+      state = ShiftState(shift: shift, foreignShift: shift == null && found.foreignOnThisCashbox, fetchedAt: DateTime.now());
       if (shift != null) {
         await _remember(shift);
       } else {
@@ -266,6 +415,7 @@ class ShiftController extends Notifier<ShiftState> {
         error: e.message,
         foreignShift: state.foreignShift,
         cached: true,
+        fetchedAt: state.fetchedAt,
       );
     }
   }
@@ -305,6 +455,9 @@ class CartController extends Notifier<Cart> {
   /// Незавершённый чек: {owner, ws, cart}. Привязан к аккаунту (как очередь, OutboxMeta.ownerOf); пустой чек = '' (стёрт).
   static const draftKey = 'cart.draft';
   Future<void> _writing = Future.value();
+
+  /// 2026-10-29: дождаться записи черновика (выход стирает базу — отложенная запись не должна её воскресить).
+  Future<void> flush() => _writing;
 
   void _persist(Cart cart) {
     try {
@@ -376,6 +529,31 @@ class CartController extends Notifier<Cart> {
     final lines = [...state.lines];
     for (final l in lines) {
       if (l.canWholesale) l.setWholesale(on);
+    }
+    state = state.copyWith(lines: lines);
+  }
+
+  /// 2026-10-29 (аудит мобилки, п. 8): цены строк по ответу сервера («Цена изменилась: A → B») — розница и опт обновляются,
+  /// цена строки берётся по её типу; скидка строки не больше новой суммы.
+  void applyPriceChanges(List<PriceChange> changes) {
+    if (changes.isEmpty) return;
+    final lines = [...state.lines];
+    for (final l in lines) {
+      if (l.custom || l.variantId != null || l.salePackageId != null) continue;
+      for (final c in changes) {
+        if (c.productId != l.productId) continue;
+        if (c.retail != null) l.retailPrice = c.retail!;
+        if (c.wholesale != null && c.wholesale! > 0) l.wholesalePrice = c.wholesale!;
+        if (c.retail == null && c.wholesale == null) {
+          if (l.wholesale) {
+            l.wholesalePrice = c.newPrice;
+          } else {
+            l.retailPrice = c.newPrice;
+          }
+        }
+        l.price = l.wholesale && l.wholesalePrice > 0 ? l.wholesalePrice : l.retailPrice;
+        if (l.discount > l.gross) l.discount = l.gross;
+      }
     }
     state = state.copyWith(lines: lines);
   }

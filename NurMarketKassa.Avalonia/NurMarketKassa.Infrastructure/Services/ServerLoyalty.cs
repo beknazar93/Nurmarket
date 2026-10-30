@@ -161,18 +161,38 @@ public static class ServerLoyalty
         }
     }
 
+    /// <summary>2026-10-30 (приёмка 1.17.65, блокер 3): операции, не записанные на диск из-за занятого файла очереди (антивирус). Держим в памяти
+    /// и дописываем при следующей успешной записи: «файл занят» больше не превращается в «пустую очередь» и не затирает бонусы.</summary>
+    private static readonly List<QueuedOp> Unsaved = new();
+
+    /// <summary>Читает очередь. «Файл занят» (IOException после повторов 3×50 мс) пробрасывается — вызывающий НЕ пишет поверх.</summary>
     private static List<QueuedOp> ReadQueue()
     {
         lock (FileLock)
         {
+            List<QueuedOp> list;
             try
             {
-                return File.Exists(QueuePath) ? JsonSerializer.Deserialize<List<QueuedOp>>(File.ReadAllText(QueuePath)) ?? new() : new();
+                // 2026-10-29 (аварийный аудит, п. 7): битый файл — из копии .bak (AtomicFile), а не «пустая очередь бонусов».
+                var text = AtomicFile.ReadAllText(QueuePath);
+                list = text is not null ? JsonSerializer.Deserialize<List<QueuedOp>>(text) ?? new() : new();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw;
             }
             catch
             {
-                return new();
+                list = new();
             }
+
+            foreach (var u in Unsaved)
+            {
+                if (!list.Contains(u))
+                    list.Add(u);
+            }
+
+            return list;
         }
     }
 
@@ -185,17 +205,31 @@ public static class ServerLoyalty
             {
                 if (File.Exists(QueuePath))
                     File.Delete(QueuePath);
+                if (File.Exists(QueuePath + ".bak"))
+                    File.Delete(QueuePath + ".bak"); // 2026-10-29: пустая очередь — устаревшую копию не оставляем
+                Unsaved.Clear();
                 return;
             }
-            File.WriteAllText(QueuePath, JsonSerializer.Serialize(queue));
+            AtomicFile.WriteAllText(QueuePath, JsonSerializer.Serialize(queue)); // 2026-10-29: атомарно, с копией .bak
+            Unsaved.Clear();
         }
     }
 
     private static void Enqueue(QueuedOp op)
     {
-        var queue = ReadQueue();
-        queue.Add(op);
-        WriteQueue(queue);
+        try
+        {
+            var queue = ReadQueue();
+            queue.Add(op);
+            WriteQueue(queue);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 2026-10-30: файл очереди занят — операцию держим в памяти, файл не трогаем.
+            lock (FileLock)
+                Unsaved.Add(op);
+            PosLogger.Log($"Бонусы: файл очереди занят ({ex.Message}) — операция {op.Reason} {op.Delta:+0.##;-0.##} ждёт в памяти, файл не затираем.", "WARNING");
+        }
     }
 
     /// <summary>Отправить операции, ждавшие связи (по порядку; первая неудача — остальные ждут дальше).</summary>
@@ -205,7 +239,13 @@ public static class ServerLoyalty
             return;
         try
         {
-            var queue = ReadQueue();
+            List<QueuedOp> queue;
+            try { queue = ReadQueue(); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                PosLogger.Log($"Бонусы: файл очереди занят ({ex.Message}) — отправка отложена, файл не затираем.", "WARNING"); // 2026-10-30
+                return;
+            }
             if (queue.Count == 0)
                 return;
             var sent = 0;
@@ -239,7 +279,7 @@ public static class ServerLoyalty
             {
                 ["client_id"] = b.ClientId,
                 ["balance"] = Inv(b.Balance),
-                ["note"] = "NurMarket: баллы, накопленные на кассе до " + DateTime.Now.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture),
+                ["note"] = "NurCRM: баллы, накопленные на кассе до " + DateTime.Now.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture),
             }).ToList();
             var data = await api.RequestAsync(HttpMethod.Post, "api/main/clients/bonus/import/", new Dictionary<string, object?> { ["items"] = items }, null,
                 CancellationToken.None, TimeSpan.FromSeconds(60)).ConfigureAwait(false);

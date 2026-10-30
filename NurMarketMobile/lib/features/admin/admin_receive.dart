@@ -1180,7 +1180,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: MobileScanner(
-                      controller: _camera ??= MobileScannerController(detectionSpeed: DetectionSpeed.normal),
+                      controller: _camera ??= MobileScannerController(formats: const [BarcodeFormat.ean13, BarcodeFormat.ean8, BarcodeFormat.code128, BarcodeFormat.upcA, BarcodeFormat.upcE, BarcodeFormat.itf14, BarcodeFormat.qrCode], detectionSpeed: DetectionSpeed.normal),
                       onDetect: (cap) {
                         final v = cap.barcodes.firstOrNull?.rawValue;
                         if (v != null && v.isNotEmpty) _onCode(v);

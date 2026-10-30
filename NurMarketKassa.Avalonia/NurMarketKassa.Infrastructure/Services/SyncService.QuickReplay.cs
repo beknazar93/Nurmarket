@@ -38,6 +38,9 @@ public sealed partial class SyncService
         if (body == null)
             return (false, null);
 
+        // 2026-10-29 (аварийный аудит, п. 3): ключ чека мог уйти на сервер раньше (оплата упала по таймауту/500 или прошлая досылка не получила ответа).
+        var keyMaybeSent = entry.QuickCheckoutAttempted;
+
         // Отметка ДО запроса и переживает перезапуск: следующий цикл пошлёт тот же ключ.
         OfflinePendingSalesStore.Update(entry.Id, e => e.QuickCheckoutAttempted = true);
 
@@ -69,9 +72,13 @@ public sealed partial class SyncService
             // обрабатывается сервером): это не отказ по существу, старым путём идти нельзя — он создал
             // бы вторую продажу. Такие ответы, как и 5xx, кроме 500, уходят в SyncBatchAsync — чек
             // остаётся в очереди и досылается тем же ключом.
-            catch (ApiException ex) when (ex.StatusCode == 500
-                                          || (ex.StatusCode is >= 400 and < 500
-                                              && !PosCheckoutService.IsQuickTransientStatus(ex.StatusCode)))
+            // 2026-10-29 (аварийный аудит, п. 3): второй 500 подряд и 4xx на ключ, который МОГ уже дойти до сервера (keyMaybeSent), больше не
+            // отправляют чек старым путём без ключа — сервер мог записать продажу до сбоя, и старый путь создал бы дубль. Исключение уходит
+            // в SyncBatchAsync: 500 — чек остаётся в очереди и досылается тем же ключом, 4xx — «Некорректные чеки» (решает человек).
+            // Старый путь остаётся только для чека, чей ключ ещё ни разу не отправлялся.
+            catch (ApiException ex) when (keyMaybeSent == false
+                                          && ex.StatusCode is >= 400 and < 500
+                                          && !PosCheckoutService.IsQuickTransientStatus(ex.StatusCode))
             {
                 // Продажи с этим ключом нет (иначе был бы 200-повтор) — пробуем старым путём.
                 PosLogger.Log(

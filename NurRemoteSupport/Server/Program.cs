@@ -286,7 +286,7 @@ app.Lifetime.ApplicationStopping.Register(() =>
 });
 
 var opCount = app.Services.GetRequiredService<OperatorStore>().All().Count;
-startupLog.LogInformation("Ретранслятор NurMarket запущен. Данные: {Dir}, операторов: {Count}", Path.GetFullPath(relay.DataDir), opCount);
+startupLog.LogInformation("Ретранслятор NurCRM запущен. Данные: {Dir}, операторов: {Count}", Path.GetFullPath(relay.DataDir), opCount);
 if (opCount == 0)
     startupLog.LogWarning("Нет ни одного оператора. Добавьте: dotnet Server.dll add-operator <login> \"<Имя>\"");
 

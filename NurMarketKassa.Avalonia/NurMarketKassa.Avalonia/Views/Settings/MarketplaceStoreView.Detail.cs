@@ -319,7 +319,8 @@ public sealed partial class MarketplaceStoreView
         }
         else if (item.Status == MarketplaceStatus.Installed || !string.IsNullOrEmpty(statusText))
         {
-            sub = statusText == tariff ? tariff : item.Price != null ? Tr.T("Куплено", "Сатып алынган", "Purchased", "Satın alındı", "Sotib olingan") : "";
+            // 2026-10-31 (ТЗ Умара): включено на сервере без ключа — «Подключено», а не «Куплено».
+            sub = statusText == tariff ? tariff : item.ConnectedByServer ? statusText : item.Price != null ? Tr.T("Куплено", "Сатып алынган", "Purchased", "Satın alındı", "Sotib olingan") : "";
         }
         else if (item.Price is null)
         {
@@ -367,6 +368,13 @@ public sealed partial class MarketplaceStoreView
             panel.Children.Add(priceLine);
         foreach (var action in item.Secondary)
             panel.Children.Add(ActionButton(action, "btn-secondary"));
+        // 2026-10-31 (ТЗ Умара): под кнопками — «Оплата пока через поддержку: оставьте заявку…».
+        if (!string.IsNullOrWhiteSpace(item.ActionHint))
+        {
+            var hint = new TextBlock { Text = item.ActionHint, FontSize = 12.5, TextWrapping = TextWrapping.Wrap, MaxWidth = 300, TextAlignment = mode == DetailMode.Phone ? TextAlignment.Center : TextAlignment.Right };
+            Fg(hint, "BrushTextSoft");
+            panel.Children.Add(hint);
+        }
         return panel;
     }
 

@@ -342,6 +342,9 @@ public sealed class UserPreferences
     /// большому каталогу, а шапку и чек при этом менять незачем.</summary>
     public double CatalogTileScalePercent { get; set; } = 100;
 
+    /// <summary>2026-10-30, владелец: сортировка списка Склада по столбцу («stock:asc», «name:desc»…; пусто — без сортировки).</summary>
+    public string WarehouseProductSort { get; set; } = "";
+
     /// <summary>Сфера магазина (2026-09-25, Настройки → Операции): «grocery» — продуктовый, как было;
     /// «clothing» — одежда и похожие, при оплате можно указать консультанта; «services» — чаще всего
     /// продаются услуги, каталог открывается на них.</summary>
@@ -422,21 +425,26 @@ public sealed class UserPreferences
     /// <summary>Платный «Языковой пакет» (2026-09-07): английский, турецкий и узбекский интерфейс.
     /// По умолчанию доступны только русский и кыргызский; активируется серийным номером в
     /// Маркетплейс → Доп. функции (см. LanguagePackGate).</summary>
-    public bool LanguagePackUnlocked { get; set; }
+    public bool LanguagePackUnlocked { get => _keyLanguagePackUnlocked || ServerAddons.IsGranted("language", LastDataAccountKey); set => _keyLanguagePackUnlocked = value; }
+    private bool _keyLanguagePackUnlocked;
 
     /// <summary>Аналитика склада и редактор ценников — тоже платные доп. услуги (2026-09-04),
     /// каждая со своим независимым флагом разблокировки (см. LicenseKeys).</summary>
-    public bool WarehouseAnalyticsUnlocked { get; set; }
-    public bool PriceTagEditorUnlocked { get; set; }
+    public bool WarehouseAnalyticsUnlocked { get => _keyWarehouseAnalyticsUnlocked || ServerAddons.IsGranted("analytics", LastDataAccountKey); set => _keyWarehouseAnalyticsUnlocked = value; }
+    private bool _keyWarehouseAnalyticsUnlocked;
+    public bool PriceTagEditorUnlocked { get => _keyPriceTagEditorUnlocked || ServerAddons.IsGranted("pricetag", LastDataAccountKey); set => _keyPriceTagEditorUnlocked = value; }
+    private bool _keyPriceTagEditorUnlocked;
 
     /// <summary>Редактор этикеток (2026-09-07) — раньше был бесплатным (см. историю в
     /// MarketplaceView.AddLabelEditorCard), по явной просьбе пользователя стал платным.</summary>
-    public bool LabelEditorUnlocked { get; set; }
+    public bool LabelEditorUnlocked { get => _keyLabelEditorUnlocked || ServerAddons.IsGranted("labeleditor", LastDataAccountKey); set => _keyLabelEditorUnlocked = value; }
+    private bool _keyLabelEditorUnlocked;
 
     /// <summary>Массовая печать ценников (2026-09-04) — независимая от PriceTagEditorUnlocked
     /// доп. услуга (пользователь явно попросил разделить: активация одной не должна включать
     /// другую), хотя UI-код обеих живёт в одном месте (WarehouseWindow/BulkPriceTagPrintDialog).</summary>
-    public bool BulkPriceTagUnlocked { get; set; }
+    public bool BulkPriceTagUnlocked { get => _keyBulkPriceTagUnlocked || ServerAddons.IsGranted("bulktag", LastDataAccountKey); set => _keyBulkPriceTagUnlocked = value; }
+    private bool _keyBulkPriceTagUnlocked;
 
     /// <summary>Голосовой замок (2026-09-05) — если голос, произнёсший команду, не совпадает с
     /// зарегистрированным (см. SpeakerVerificationService), команда не выполняется, показывается
@@ -446,21 +454,25 @@ public sealed class UserPreferences
 
     /// <summary>Доп. услуга «Выгрузка аналитики» (2026-09-22): отчёт по продажам и складу
     /// в Excel и Word с графиками. На «Стандарт» и выше входит в тариф, на «Старт» — платная.</summary>
-    public bool AnalyticsExportUnlocked { get; set; }
+    public bool AnalyticsExportUnlocked { get => _keyAnalyticsExportUnlocked || ServerAddons.IsGranted("export", LastDataAccountKey); set => _keyAnalyticsExportUnlocked = value; }
+    private bool _keyAnalyticsExportUnlocked;
 
     /// <summary>Доп. услуга «Телеграм-бот владельца» (2026-09-22): сводка по смене, ответы на
     /// команды (выручка, топ товаров, что заказать, должники) и напоминания о долге. На тарифе
     /// «Стандарт» и выше входит в тариф, на «Старт» — покупается в Маркетплейс → Доп. функции.</summary>
-    public bool TelegramBotUnlocked { get; set; }
+    public bool TelegramBotUnlocked { get => _keyTelegramBotUnlocked || ServerAddons.IsGranted("telegram", LastDataAccountKey); set => _keyTelegramBotUnlocked = value; }
+    private bool _keyTelegramBotUnlocked;
 
     /// <summary>Доп. услуга «Расширенные итоги смены» (2026-09-22): возвраты, списания, расход,
     /// оплата долгов и скидки в окне смены, X/Z-отчёте и сводке в Telegram. На «Стандарт» и выше
     /// входит в тариф, на «Старт» — платная.</summary>
-    public bool ShiftAnalyticsUnlocked { get; set; }
+    public bool ShiftAnalyticsUnlocked { get => _keyShiftAnalyticsUnlocked || ServerAddons.IsGranted("shiftstats", LastDataAccountKey); set => _keyShiftAnalyticsUnlocked = value; }
+    private bool _keyShiftAnalyticsUnlocked;
 
     /// <summary>Доп. услуга "Учёт сотрудников" (2026-09-05) — табель по кассирам (часы, смены,
     /// выручка), см. StaffTimesheetService/StaffTimesheetWindow.</summary>
-    public bool StaffTimesheetUnlocked { get; set; }
+    public bool StaffTimesheetUnlocked { get => _keyStaffTimesheetUnlocked || ServerAddons.IsGranted("timesheet", LastDataAccountKey); set => _keyStaffTimesheetUnlocked = value; }
+    private bool _keyStaffTimesheetUnlocked;
 
     /// <summary>Доп. услуга "Весы" (2026-09-21, по просьбе владельца — "весы надо добавить в
     /// доп услуги в тарифе старт") — на тарифе «Старт» отправка PLU на весы (Штрих-М/Rongta,
@@ -470,7 +482,8 @@ public sealed class UserPreferences
     /// флаг проставляется в true при первой загрузке файла без него (см.
     /// LoadFromDiskAndMergeDefaults) — апдейт не должен молча отключить уже работающие весы
     /// прямо на смене.</summary>
-    public bool ScalesUnlocked { get; set; }
+    public bool ScalesUnlocked { get => _keyScalesUnlocked || ServerAddons.IsGranted("scales", LastDataAccountKey); set => _keyScalesUnlocked = value; }
+    private bool _keyScalesUnlocked;
 
     /// <summary>Последние настройки массовой печати ценников (2026-09-05, по просьбе
     /// пользователя: "зона где настраивается высота и ширина этикеток и прочее должно
@@ -554,6 +567,15 @@ public sealed class UserPreferences
     /// предоплату; функцию можно включать и выключать в настройках». Включено — в окне оплаты «В долг» у
     /// «Получено сейчас» выбор «Наличные / Безнал». Выключено (по умолчанию) — как раньше, наличными.</summary>
     public bool DebtPrepaymentChooseMethod { get; set; }
+
+    /// <summary>2026-10-30, владелец: «Нур Советник: в настройках тумблеры его возможностей». JSON «id → true/false» — только
+    /// отличия от значений по умолчанию (все возможности включены, null = ничего не менялось). Общее для магазина: меняет владелец
+    /// или администратор, на все кассы идёт через SettingsCloudSync (CompanyKeys). См. AdvisorCapabilities.</summary>
+    public string? AdvisorCapabilitiesJson { get; set; }
+
+    /// <summary>2026-10-30, редактор накладных закупок: окно правки проведённой накладной — "24" (по умолчанию) / "48" / "always". Общее для магазина:
+    /// меняет владелец (Настройки → Операции), на все кассы идёт через SettingsCloudSync (CompanyKeys). null — ничего не меняли (24 ч). См. ReceiptEditPolicy.</summary>
+    public string? PurchaseEditWindow { get; set; }
 
     /// <summary>2026-10-04, клиент: «тумблер, который переключает скидку с процента на сом, сделать
     /// запоминающим — последняя нажатая кнопка остаётся». Окно скидки (на чек и на товар) без уже
@@ -645,7 +667,8 @@ public sealed class UserPreferences
     /// <summary>Бонусная программа (AI-фичи 2026-09-04) — баланс хранится ЛОКАЛЬНО на этой кассе
     /// (см. ClientLoyaltyStore), т.к. в API клиентов NurCRM пока нет поля для баллов. По умолчанию
     /// выключено — новая функция, меняющая сумму к оплате, не должна включаться сама собой.</summary>
-    public bool LoyaltyEnabled { get; set; }
+    public bool LoyaltyEnabled { get => _keyLoyaltyEnabled || ServerAddons.IsGranted("loyalty", LastDataAccountKey); set => _keyLoyaltyEnabled = value; }
+    private bool _keyLoyaltyEnabled;
 
     /// <summary>Блок «Быстрые товары» (избранное) в пустом чеке «Классики». Владелец попросил
     /// возможность его отключить (2026-09-28); по умолчанию включён, как было.</summary>
@@ -828,6 +851,10 @@ public sealed class UserPreferences
     /// «1% от суммы в день»). Пусто — строка о штрафе в чек не печатается.</summary>
     public string DebtLatePenaltyText { get; set; } = "";
 
+    /// <summary>2026-10-29: «Макс. долг без связи» — предел долга на одного клиента (сом), до которого касса без интернета оформляет «в долг».
+    /// 0 — по лимиту клиента с сервера; лимита нет нигде — касса просит подтверждение кассира (OfflineDebtRules).</summary>
+    public double OfflineDebtMaxPerClient { get; set; }
+
     /// <summary>2026-10-06, исследование «Кассы для одежды» (О-31): срок обмена и возврата товара надлежащего качества, дней.
     /// Закон КР «О защите прав потребителей» — 14 дней, не считая дня покупки. Позже касса предупреждает и просит подтвердить
     /// (брак принимают дольше — поэтому не запрет). 0 — срок не проверять. Действует в сфере «Одежда».</summary>
@@ -842,6 +869,26 @@ public sealed class UserPreferences
     /// сохраняется при каждом успешном обновлении данных компании — используется для отсчёта
     /// дней до истечения офлайн, когда нет связи с сервером (см. CompanyInfoService.GetCachedSubscriptionStatus).</summary>
     public string? SubscriptionEndDateRaw { get; set; }
+
+    /// <summary>2026-10-31, ТЗ Умара «функции маркетплейса — с сервера»: свойства платных функций (LoyaltyEnabled и *Unlocked) отдают
+    /// «ключ активации ИЛИ функция включена на сервере» (ServerAddons.IsGranted) — одно место проверки для всех окон и TariffGate.
+    /// В файл настроек и в облако пишется только «ключ» (ServerAddons.RawView), иначе включённое сервером осталось бы навсегда.
+    /// Здесь — «ключ» без сервера: на плитке Маркетплейса отличает «Подключено» (сервер) от «Куплено» (ключ).</summary>
+    public bool IsKeyUnlocked(string slug) => slug.ToLowerInvariant() switch
+    {
+        "loyalty" => _keyLoyaltyEnabled,
+        "timesheet" => _keyStaffTimesheetUnlocked,
+        "analytics" => _keyWarehouseAnalyticsUnlocked,
+        "pricetag" => _keyPriceTagEditorUnlocked,
+        "bulktag" => _keyBulkPriceTagUnlocked,
+        "labeleditor" => _keyLabelEditorUnlocked,
+        "scales" => _keyScalesUnlocked,
+        "export" => _keyAnalyticsExportUnlocked,
+        "telegram" => _keyTelegramBotUnlocked,
+        "shiftstats" => _keyShiftAnalyticsUnlocked,
+        "language" => _keyLanguagePackUnlocked,
+        _ => false,
+    };
 
     public static UserPreferences Instance { get; } = new();
 
@@ -899,6 +946,11 @@ public sealed class UserPreferences
 
             var fromFile = JsonSerializer.Deserialize<UserPreferencesDto>(File.ReadAllText(path), JsonOpt);
             if (fromFile is null)
+                return false;
+            // 2026-10-29: вторая программа ещё работает с другой компанией (она не успела сменить аккаунт) — её ключи, бот и
+            // платные флаги чужие, брать их нельзя (иначе ключи прежней компании вернулись бы после очистки при смене аккаунта).
+            if (!string.IsNullOrEmpty(fromFile.LastDataAccountKey) && !string.IsNullOrEmpty(p.LastDataAccountKey)
+                && !string.Equals(fromFile.LastDataAccountKey, p.LastDataAccountKey, StringComparison.OrdinalIgnoreCase))
                 return false;
             var otherIsNewer = first && File.Exists(FilePath) && written > File.GetLastWriteTimeUtc(FilePath);
 
@@ -1112,6 +1164,7 @@ public sealed class UserPreferences
             p.ReceiptCharWidth58 = fromFile.ReceiptCharWidth58 ?? 0;
             p.RentalLatePenaltyPerDay = fromFile.RentalLatePenaltyPerDay is > 0 ? fromFile.RentalLatePenaltyPerDay.Value : 0;
             p.DebtLatePenaltyText = fromFile.DebtLatePenaltyText ?? "";
+            p.OfflineDebtMaxPerClient = fromFile.OfflineDebtMaxPerClient is > 0 ? fromFile.OfflineDebtMaxPerClient.Value : 0;
             p.ExchangeDaysLimit = fromFile.ExchangeDaysLimit is >= 0 and <= 365 ? fromFile.ExchangeDaysLimit.Value : 14;
             p.NonExchangeableCategories = fromFile.NonExchangeableCategories;
             p.ReceiptCharWidth80 = fromFile.ReceiptCharWidth80 ?? 0;
@@ -1334,6 +1387,10 @@ public sealed class UserPreferences
                 p.TelegramCommandsEnabled = fromFile.TelegramCommandsEnabled.Value;
             if (fromFile.DebtPrepaymentChooseMethod is not null)
                 p.DebtPrepaymentChooseMethod = fromFile.DebtPrepaymentChooseMethod.Value;
+            if (!string.IsNullOrWhiteSpace(fromFile.AdvisorCapabilitiesJson))
+                p.AdvisorCapabilitiesJson = fromFile.AdvisorCapabilitiesJson;
+            if (!string.IsNullOrWhiteSpace(fromFile.PurchaseEditWindow))
+                p.PurchaseEditWindow = fromFile.PurchaseEditWindow;
             if (fromFile.DiscountModePercent is not null)
                 p.DiscountModePercent = fromFile.DiscountModePercent.Value;
             if (!string.IsNullOrWhiteSpace(fromFile.TelegramBotUsername))
@@ -1484,6 +1541,8 @@ public sealed class UserPreferences
                 p.UpdateTesterCode = fromFile.UpdateTesterCode;
             if (fromFile.CatalogTileScalePercent is not null)
                 p.CatalogTileScalePercent = Math.Clamp(fromFile.CatalogTileScalePercent.Value, 70, 160);
+            if (fromFile.WarehouseProductSort is not null)
+                p.WarehouseProductSort = fromFile.WarehouseProductSort;
             if (fromFile.MarketSphere is not null)
             {
                 p.MarketSphere = MarketSpheres.Normalize(fromFile.MarketSphere);
@@ -1505,6 +1564,10 @@ public sealed class UserPreferences
         catch (Exception ex)
         {
             PosLogger.Log($"User preferences load failed: {ex.GetType().Name}", "WARNING");
+            // 2026-10-30 (стресс-тест «Управление»): файл испорчен (обрезан, не JSON) — копия рядом (.bad): ближайшее сохранение настроек
+            // по умолчанию иначе стёрло бы его безвозвратно (у файла тем такая защита уже есть).
+            if (ex is JsonException)
+                try { if (FindExistingSettingsFile() is { } badPath) File.Copy(badPath, badPath + ".bad", overwrite: true); } catch { }
         }
         finally
         {
@@ -1557,6 +1620,13 @@ public sealed class UserPreferences
     {
         if (_persistenceDisabled)
             return;
+        // 2026-10-31: в файл — только ключи активации, без функций, включённых сервером (см. IsKeyUnlocked).
+        using var rawView = ServerAddons.RawView();
+        // 2026-10-31 (приёмка 1.17.68, В-2): снимок настроек и запись файла — под одной блокировкой между потоками (таймер ключей и UI-поток):
+        // иначе старый снимок мог затереть новый.
+        var saveLockHeld = false;
+        System.Threading.Monitor.Enter(SaveFileSync);
+        saveLockHeld = true;
         try
         {
             var dir = Path.GetDirectoryName(FilePath);
@@ -1682,6 +1752,8 @@ public sealed class UserPreferences
                 ShiftAnalyticsUnlocked = ShiftAnalyticsUnlocked,
                 TelegramCommandsEnabled = TelegramCommandsEnabled,
                 DebtPrepaymentChooseMethod = DebtPrepaymentChooseMethod,
+                AdvisorCapabilitiesJson = AdvisorCapabilitiesJson,
+                PurchaseEditWindow = PurchaseEditWindow,
                 DiscountModePercent = DiscountModePercent,
                 TelegramBotUsername = TelegramBotUsername,
                 OwnerPhone = OwnerPhone,
@@ -1758,6 +1830,7 @@ public sealed class UserPreferences
                 ReceiptCharWidth58 = ReceiptCharWidth58 > 0 ? ReceiptCharWidth58 : null,
                 RentalLatePenaltyPerDay = RentalLatePenaltyPerDay > 0 ? RentalLatePenaltyPerDay : null,
                 DebtLatePenaltyText = string.IsNullOrWhiteSpace(DebtLatePenaltyText) ? null : DebtLatePenaltyText.Trim(),
+                OfflineDebtMaxPerClient = OfflineDebtMaxPerClient > 0 ? OfflineDebtMaxPerClient : null,
                 ExchangeDaysLimit = ExchangeDaysLimit,
                 NonExchangeableCategories = NonExchangeableCategories,
                 ReceiptCharWidth80 = ReceiptCharWidth80 > 0 ? ReceiptCharWidth80 : null,
@@ -1785,6 +1858,7 @@ public sealed class UserPreferences
                 UiScalePercent = UiScalePercent,
                 CompactLayoutMode = CompactLayoutMode,
                 CatalogTileScalePercent = CatalogTileScalePercent,
+                WarehouseProductSort = WarehouseProductSort,
                 MarketSphere = MarketSphere,
                 MarketSphereDetail = MarketSphereDetail,
                 MarketSphereServerSeen = MarketSphereServerSeen,
@@ -1793,19 +1867,32 @@ public sealed class UserPreferences
                 CustomerDisplay = CustomerDisplay,
             };
             // 2026-10-06, лог (11:32, IOException): файл на миг занят другой записью (касса и программа владельца, антивирус) —
-            // настройка терялась. Три попытки с короткой паузой.
+            // настройка терялась. Повтор с короткой паузой.
+            // 2026-10-31 (приёмка 1.17.68, В-2): запись — через AtomicFile (Flush на диск, File.Replace, копия .bak). Программа владельца раз в
+            // минуту читает этот же файл (File.ReadAllText): пока он открыт, подмена файла даёт IOException или UnauthorizedAccessException
+            // (раньше ловился только IOException — настройка молча терялась). Теперь до 5 попыток по 50–100 мс, потом WARNING в журнал.
             var json = JsonSerializer.Serialize(dto, JsonOpt);
             for (var attempt = 1; ; attempt++)
             {
                 try
                 {
-                    File.WriteAllText(FilePath, json);
+                    AtomicFile.WriteAllText(FilePath, json);
                     break;
                 }
-                catch (IOException) when (attempt < 3)
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    Thread.Sleep(80 * attempt);
+                    if (attempt >= 5)
+                    {
+                        PosLogger.Log($"User preferences save failed after {attempt} attempts: {ex.GetType().Name} ({Path.GetFileName(FilePath)} занят другой программой).", "WARNING");
+                        throw;
+                    }
+                    Thread.Sleep(50 * attempt);
                 }
+            }
+            if (saveLockHeld)
+            {
+                saveLockHeld = false;
+                System.Threading.Monitor.Exit(SaveFileSync);
             }
             // 2026-10-05, владелец: «при открытии на другом устройстве все настройки аккаунта подтягивались» — на сервер.
             SettingsCloudSync.OnSaved();
@@ -1814,7 +1901,15 @@ public sealed class UserPreferences
         {
             PosLogger.Log($"User preferences save failed: {ex.GetType().Name}", "WARNING");
         }
+        finally
+        {
+            if (saveLockHeld)
+                System.Threading.Monitor.Exit(SaveFileSync);
+        }
     }
+
+    /// <summary>2026-10-31 (приёмка 1.17.68, В-2): общая блокировка снимка и записи user-settings.json.</summary>
+    private static readonly object SaveFileSync = new();
 
     /// <summary>Настройки дополнительных весов (2 или 3): свой порт и скорость, остальное — как у
     /// основных весов.</summary>
@@ -1992,6 +2087,8 @@ public sealed class UserPreferences
         public bool? ShiftAnalyticsUnlocked { get; set; }
         public bool? TelegramCommandsEnabled { get; set; }
         public bool? DebtPrepaymentChooseMethod { get; set; }
+        public string? AdvisorCapabilitiesJson { get; set; }
+        public string? PurchaseEditWindow { get; set; }
         public bool? DiscountModePercent { get; set; }
         public string? TelegramBotUsername { get; set; }
         public bool? TelegramShiftSummaryEnabled { get; set; }
@@ -2068,6 +2165,7 @@ public sealed class UserPreferences
         public int? ReceiptCharWidth58 { get; set; }
         public double? RentalLatePenaltyPerDay { get; set; }
         public string? DebtLatePenaltyText { get; set; }
+        public double? OfflineDebtMaxPerClient { get; set; }
         public int? ExchangeDaysLimit { get; set; }
         public string? NonExchangeableCategories { get; set; }
         public int? ReceiptCharWidth80 { get; set; }
@@ -2094,6 +2192,7 @@ public sealed class UserPreferences
         public double? UiScalePercent { get; set; }
         public string? CompactLayoutMode { get; set; }
         public double? CatalogTileScalePercent { get; set; }
+        public string? WarehouseProductSort { get; set; }
         public string? MarketSphere { get; set; }
         public string? MarketSphereDetail { get; set; }
         public string? MarketSphereServerSeen { get; set; }

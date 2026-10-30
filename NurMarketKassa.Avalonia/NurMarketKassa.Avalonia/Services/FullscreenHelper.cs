@@ -133,6 +133,9 @@ public static class FullscreenHelper
             Embedded.Add(window, new object());
     }
 
+    /// <summary>2026-10-30: окно встроено в программу владельца (ModalWindowManager не считает его отдельной модалкой).</summary>
+    public static bool IsEmbedded(Window window) => Embedded.TryGetValue(window, out _);
+
     private static readonly HashSet<string> SectionWindowTypes = new(StringComparer.Ordinal)
     {
         "WarehouseWindow", "PurchasesWindow", "ClientsWindow", "SalaryWindow", "AbcAnalysisWindow", "RestockSuggestionsWindow",

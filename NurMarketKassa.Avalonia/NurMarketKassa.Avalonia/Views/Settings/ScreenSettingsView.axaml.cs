@@ -167,6 +167,10 @@ public partial class ScreenSettingsView : UserControl
             _suppressPayDock = true;
             PayDockBottomCheck.IsChecked = PaymentDockPlacement.ReadBottomMode();
             _suppressPayDock = false;
+            // 2026-10-30: «модалка не двигается!!!» — окно оплаты двигается за шапку и помнит место; кнопка возвращает обычное.
+            PayDockResetButton.Content = Tr.T("Сбросить положение окна оплаты", "Төлөм терезесинин ордун кайтаруу", "Reset payment window position",
+                "Ödeme penceresi konumunu sıfırla", "To'lov oynasi joylashuvini tiklash");
+            PayDockResetButton.IsEnabled = PaymentDockPlacement.ReadOffset() != (0, 0);
         }
 
         // Выбор вида кассы (карточки с миниатюрами) — общий элемент KassaLayoutPicker
@@ -191,8 +195,16 @@ public partial class ScreenSettingsView : UserControl
     /// <summary>2026-10-27: положение окна оплаты — сразу, без «Сохранить»; действует с ближайшего открытия окна оплаты.</summary>
     private void PayDockBottomCheck_Changed(object? sender, RoutedEventArgs e)
     {
-        if (!_suppressPayDock)
-            PaymentDockPlacement.WriteBottomMode(PayDockBottomCheck.IsChecked == true);
+        if (_suppressPayDock)
+            return;
+        PaymentDockPlacement.WriteBottomMode(PayDockBottomCheck.IsChecked == true);
+        PayDockResetButton.IsEnabled = false; // 2026-10-30: смена режима стирает и смещение от перетаскивания
+    }
+
+    private void PayDockResetButton_Click(object? sender, RoutedEventArgs e)
+    {
+        PaymentDockPlacement.ResetOffset();
+        PayDockResetButton.IsEnabled = false;
     }
 
     private void Save_Click(object? sender, RoutedEventArgs e) =>

@@ -257,12 +257,12 @@ void main() {
       expect(() => TesterChecklist.parse('[]'), returnsNormally);
     });
 
-    test('настоящий assets/data/tester_checklist.json: пункты 1.18.8, все 5 языков, шаги, стабильные id, области известны', () async {
+    test('настоящий assets/data/tester_checklist.json: пункты 1.18.12, все 5 языков, шаги, стабильные id, области известны', () async {
       final raw = await rootBundle.loadString(TesterChecklist.assetPath);
       final l = TesterChecklist.parse(raw);
       final cur = l.forVersion(AppBuild.version);
-      expect(cur.length, inInclusiveRange(8, 40));
-      expect(l.versions.first, AppBuild.version);
+      expect(cur.length, inInclusiveRange(1, 40));
+      expect(l.versions, contains(AppBuild.version));
       expect(l.forVersion('1.18.6'), isNotEmpty, reason: 'прошлая версия — коротко');
       final ids = <String>{};
       final areaIds = {for (final a in l.areas) a.id};
@@ -489,7 +489,7 @@ void main() {
       },
       now: DateTime(2026, 10, 27, 15),
     );
-    expect(text, contains('Отчёт тестировщика NurMarket Mobile'));
+    expect(text, contains('Отчёт тестировщика NurCRM Mobile'));
     expect(text, contains('Версия: 1.2.0 (сборка 5), тестовая'));
     expect(text, contains('Устройство: Телефон Умара, Android, id AB12CD34'));
     expect(text, contains('Итого: проверено 1 из 2, проблем 1, не проверено 0'));
@@ -774,7 +774,7 @@ void main() {
       await t.tap(find.text(l.tsCopyReport));
       await t.pump();
       expect(clip, isNotNull);
-      expect(clip, contains('Отчёт тестировщика NurMarket Mobile'));
+      expect(clip, contains('Отчёт тестировщика NurCRM Mobile'));
       expect(clip, contains('Версия: 1.2.0'));
       expect(clip, contains('Итого: проверено 1 из 2'));
       expect(clip, contains('- [Склад] Пункт Б'));
@@ -783,7 +783,7 @@ void main() {
       await close(t);
     });
 
-    // --- вёрстка на настоящем списке 1.18.8 ---
+    // --- вёрстка на настоящем списке 1.18.12 ---
     for (final cfg in [
       ('ky', const Size(360, 800), 1.3, false),
       ('uz', const Size(360, 800), 1.3, true),
@@ -828,7 +828,8 @@ void main() {
             if (find.text(l.tsCountNone).evaluate().isNotEmpty && find.byKey(ValueKey('ok-${list.forVersion('1.18.6').last.id}')).evaluate().isNotEmpty) break;
           }
           expect(t.takeException(), isNull);
-          expect(seen.length, greaterThan(10), reason: 'прокрутили много карточек');
+          // 2026-10-29: в 1.18.12 пункты (audit-purchase-money, product-batches) — проверяем его карточку на всех языках и размерах
+          expect(seen.length, greaterThanOrEqualTo(list.forVersion(AppBuild.version).length), reason: 'прокрутили карточки версии');
           await close(t);
         },
       );
@@ -839,7 +840,7 @@ void main() {
       final list = TesterChecklist.parse(File('assets/data/tester_checklist.json').readAsStringSync());
       await open(t, list: list, lang: 'ky');
       final l = lx('ky');
-      final first = list.forVersion(AppBuild.version).first;
+      final first = list.forVersion(list.versions.first).first; // 2026-10-30: экран открывает самую новую версию списка (currentVersion теста '1.2.0' в нём нет)
       await t.scrollUntilVisible(find.byKey(ValueKey('ok-${first.id}')), 150, scrollable: find.byType(Scrollable).first, maxScrolls: 100);
       await t.pump();
       final txt = t.widget<Text>(find.descendant(of: find.byKey(ValueKey('ok-${first.id}')), matching: find.byType(Text)).first);

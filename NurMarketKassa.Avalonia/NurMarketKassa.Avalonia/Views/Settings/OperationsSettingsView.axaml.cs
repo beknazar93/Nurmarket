@@ -35,6 +35,12 @@ public partial class OperationsSettingsView : UserControl
         // и общая настройка компании «Оплата долга» следом за ней (раньше она была на вкладке «Экран»).
         DebtSaleTitle.Text = Tr.T("Продажа в долг", "Карызга сатуу", "Sale on credit", "Veresiye satış", "Qarzga sotuv");
         OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(DebtSaleCard) + 1, new DebtPaymentSettingsCard());
+        // 2026-10-30: нумерация документов закупок (ПР/ВП/ЗП) и показ наценки в накладной — в «Операциях» следом за долгами.
+        OpsCardList.Children.Add(new PurchaseNumberingSettingsCard());
+        // 2026-10-30: окно правки проведённых накладных закупок (24 ч / 48 ч / всегда) — меняет только владелец.
+        OpsCardList.Children.Add(new PurchaseEditSettingsCard());
+        // 2026-10-30: тумблеры возможностей Нур Советника — карточка из кода сразу за карточкой Telegram-бота и ключей ИИ.
+        OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(TelegramCard) + 1, new AdvisorSettingsCard());
         AttachedToVisualTree += Lan_Attached;
         DetachedFromVisualTree += Lan_Detached;
     }

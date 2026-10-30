@@ -545,6 +545,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
 
     private void SetFromText(string? text, Action<double> apply, string name, Action<string?> setRaw)
     {
+        string? qtyProblem = null;
         if (string.IsNullOrWhiteSpace(text))
         {
             apply(0);
@@ -557,13 +558,32 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
             {
                 setRaw(text.Trim()); // 2026-10-28: «Принято» тоже хранит набранный текст («2.», «2,5») до выхода из ячейки (CommitText)
                 if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(text, out var value) && value >= 0)
+                {
+                    // 2026-10-29: сервер принимает количество не больше чем с 3 знаками после запятой (кг, л) — лишние знаки округляем сразу и говорим об этом.
+                    var rounded = Math.Round(value, 3, MidpointRounding.AwayFromZero);
+                    if (Math.Abs(rounded - value) > 1e-9)
+                    {
+                        value = rounded;
+                        qtyProblem = NurMarketKassa.Services.Tr.T("Количество — не больше 3 знаков после запятой, округлено.",
+                            "Саны — үтүрдөн кийин 3 цифрадан ашык эмес, тегизделди.", "Quantity allows at most 3 decimal places — rounded.",
+                            "Miktar virgülden sonra en fazla 3 basamak içerir — yuvarlandı.", "Miqdor verguldan keyin ko'pi bilan 3 raqam — yaxlitlandi.");
+                    }
+
                     apply(value);
+                }
             }
             finally
             {
                 _inTextSet = false;
             }
         }
+        if (qtyProblem != _priceProblem)
+        {
+            _priceProblem = qtyProblem;
+            OnPropertyChanged(nameof(PriceProblemText));
+            OnPropertyChanged(nameof(LowMarginText));
+        }
+
         OnPropertyChanged(name);
     }
 

@@ -35,6 +35,12 @@ public interface IPosQuickCheckoutApi
     /// {"items": [{"idempotency_key", "body"}]} → {"results": [{"idempotency_key", "status", "sale" | "detail"}]}.
     /// Каждая продажа проводится отдельно (своя транзакция); повтор с тем же ключом — status 200 и прежняя продажа.</summary>
     Task<JsonElement> PosCheckoutBatchAsync(JsonObject body, TimeSpan timeout, CancellationToken ct = default);
+
+    /// <summary>2026-10-29 (приёмка 1.17.65, В-1): исход оплаты по ключу — GET api/main/idempotency/{key}/. Сервер отвечает found:true (продажа есть)
+    /// или 404 JSON found:false (с таким ключом ничего не проведено). Старый сервер (404 HTML), нет связи и т.п. — <see cref="IdempotencyOutcome.Unknown"/>.
+    /// Реализация по умолчанию (заглушки) — Unknown.</summary>
+    Task<IdempotencyOutcome> PosIdempotencyLookupAsync(string idempotencyKey, CancellationToken ct = default) =>
+        Task.FromResult(IdempotencyOutcome.Unknown);
 }
 
 public sealed partial class SalesApiService : IPosQuickCheckoutApi
@@ -73,4 +79,35 @@ public sealed partial class SalesApiService : IPosQuickCheckoutApi
 
     public Task<JsonElement> PosCheckoutBatchAsync(JsonObject body, TimeSpan timeout, CancellationToken ct = default) =>
         _client.RequestAsync(HttpMethod.Post, "api/main/pos/checkout/batch/", body, null, ct, timeout);
+
+    public async Task<IdempotencyOutcome> PosIdempotencyLookupAsync(string idempotencyKey, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+            return IdempotencyOutcome.Unknown;
+        try
+        {
+            var response = await _client.RequestAsync(HttpMethod.Get, "api/main/idempotency/" + Uri.EscapeDataString(idempotencyKey.Trim()) + "/",
+                null, null, ct, TimeSpan.FromSeconds(8)).ConfigureAwait(false);
+            if (response.ValueKind == JsonValueKind.Object && response.TryGetProperty("found", out var found))
+                return found.ValueKind == JsonValueKind.True ? IdempotencyOutcome.Found
+                    : found.ValueKind == JsonValueKind.False ? IdempotencyOutcome.NotFound
+                    : IdempotencyOutcome.Unknown;
+            return IdempotencyOutcome.Unknown;
+        }
+        catch (ApiException ex) when (ex.StatusCode == 404
+                                      && ex.Payload is { ValueKind: JsonValueKind.Object } payload
+                                      && payload.TryGetProperty("found", out var f) && f.ValueKind == JsonValueKind.False)
+        {
+            // 404 JSON {"found":false} — сервер понимает ключи и этого ключа не знает. 404 HTML (старый сервер) сюда не попадает.
+            return IdempotencyOutcome.NotFound;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return IdempotencyOutcome.Unknown;
+        }
+    }
 }

@@ -16,6 +16,7 @@ import 'package:nurmarket/core/catalog/global_products.dart';
 import 'package:nurmarket/core/db/database.dart';
 import 'package:nurmarket/core/providers.dart';
 import 'package:nurmarket/core/theme/theme.dart';
+import 'package:nurmarket/features/scan/code_lookup.dart';
 import 'package:nurmarket/features/stock/receive_lookup.dart';
 import 'package:nurmarket/features/stock/stock_screens.dart';
 import 'package:nurmarket/l10n/app_localizations.dart';
@@ -73,20 +74,25 @@ void main() {
   late List<String> log;
   // что отвечает сервер на поиск по коду (id -> карточка)
   late Map<String, Map<String, dynamic>> server;
+  // 2026-10-30: «связи нет» — сервер не отвечает на поиск по коду
+  late bool serverDown;
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     await _seed(db);
     log = [];
     server = {};
+    serverDown = false;
+    CodeLookup.clearCache(gap: Duration.zero);
     api = FakeApi((m, p, b, q) async {
       log.add('$m $p');
       if (m == 'GET' && p == 'api/main/products/list/') {
+        if (serverDown) throw ApiException('нет связи');
         final s = '${q?['search'] ?? ''}';
         return {
           'results': [
             for (final x in server.values)
-              if ('${x['barcode']}' == s) x,
+              if ('${x['barcode']}'.contains(s) || ((x['alternate_barcodes'] as List?) ?? const []).any((a) => '${(a as Map)['barcode']}' == s)) x,
           ],
         };
       }
@@ -148,6 +154,49 @@ void main() {
       final f = await find(_nothing);
       expect(f.kind, ReceiveKind.found);
       expect(f.product!.name, 'Новый сок');
+    });
+
+    test('сервер не ответил — не «неизвестный», а «offline»; после появления связи «Проверить снова» находит товар', () async {
+      server['p9'] = {'id': 'p9', 'name': 'Новый сок', 'barcode': _nothing, 'price': '50', 'quantity': 3};
+      serverDown = true;
+      final f = await find(_nothing);
+      expect(f.kind, ReceiveKind.offline);
+      serverDown = false;
+      // fresh — кэш «сервер не знал» обходится; но «не ответил» и так не кэшируется
+      final g = await resolveReceiveCode(db, api, _Globals(_globals), _nothing, fresh: true);
+      expect(g.kind, ReceiveKind.found);
+      expect(g.product!.name, 'Новый сок');
+    });
+
+    test('штрихкод на сервере записан с ведущим нулём или в доп. штрихкодах — всё равно находится', () async {
+      server['p10'] = {'id': 'p10', 'name': 'Winston EAN-8', 'barcode': '0048745000', 'price': '70', 'quantity': 3};
+      expect((await find(_winston)).kind, ReceiveKind.found, reason: 'ведущие нули не мешают');
+      server['p11'] = {
+        'id': 'p11',
+        'name': 'Пепси коробка',
+        'barcode': '4870145009999',
+        'price': '60',
+        'quantity': 3,
+        'alternate_barcodes': [
+          {'barcode': _pepsi, 'quantity': 12},
+        ],
+      };
+      final f = await find(_pepsi);
+      expect(f.kind, ReceiveKind.found, reason: 'доп. штрихкод товара на сервере');
+      expect(f.product!.name, 'Пепси коробка');
+    });
+
+    test('кэш: код, которого сервер не знает, повторно не спрашивается; «fresh» (после «Завести товар») — спрашивается', () async {
+      int asks() => log.where((e) => e.contains('products/list')).length;
+      expect((await find(_nothing)).kind, ReceiveKind.none);
+      final n1 = asks();
+      expect(n1, 1);
+      expect((await find(_nothing)).kind, ReceiveKind.none);
+      expect(asks(), n1, reason: 'повтор того же кода — без запроса к серверу');
+      server['p9'] = {'id': 'p9', 'name': 'Новый сок', 'barcode': _nothing, 'price': '50', 'quantity': 3};
+      final f = await resolveReceiveCode(db, api, _Globals(_globals), _nothing, fresh: true);
+      expect(f.kind, ReceiveKind.found);
+      expect(asks(), n1 + 1);
     });
 
     test('без сети: сервер не спрашивается, справочник — только локальный', () async {
@@ -238,13 +287,28 @@ void main() {
       await pump(tester, [_nothing, _nothing]);
       await scan(tester);
       expect(find.text('Неизвестный штрихкод'), findsOneWidget);
-      expect(find.textContaining('не найден ни в каталоге, ни в справочнике NurCRM'), findsOneWidget);
+      expect(find.textContaining('нет в вашем каталоге (проверено на сервере) и в справочнике NurCRM'), findsOneWidget);
       expect(find.textContaining('код никуда не отправляется'), findsOneWidget);
       expect(find.textContaining('администратор получит'), findsNothing);
       expect(find.text('×2'), findsOneWidget, reason: 'повторный скан неизвестного кода считается');
       await tester.tap(find.byKey(const ValueKey('add_$_nothing')));
       await settle(tester);
       expect(find.text('NEW $_nothing'), findsOneWidget);
+    });
+
+    testWidgets('нет связи: «Сервер не ответил» вместо «Неизвестный штрихкод», «Проверить снова» находит товар', (tester) async {
+      server['p9'] = {'id': 'p9', 'name': 'Новый сок', 'barcode': _nothing, 'price': '50', 'quantity': 3};
+      serverDown = true;
+      await pump(tester, [_nothing]);
+      await scan(tester);
+      expect(find.text('Сервер не ответил'), findsOneWidget);
+      expect(find.text('Неизвестный штрихкод'), findsNothing);
+      expect(find.byKey(const ValueKey('retry_$_nothing')), findsOneWidget);
+      serverDown = false;
+      await tester.tap(find.byKey(const ValueKey('retry_$_nothing')));
+      await settle(tester);
+      expect(find.text('Новый сок'), findsOneWidget);
+      expect(find.text('Сервер не ответил'), findsNothing);
     });
 
     testWidgets('«Привязать штрихкод»: доп. код уходит в карточку, товар переходит в строки приёмки с накопленным количеством', (tester) async {

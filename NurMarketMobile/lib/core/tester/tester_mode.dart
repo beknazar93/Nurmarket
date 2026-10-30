@@ -16,8 +16,8 @@ import '../util/ui.dart';
 /// tester_mode_test.dart), а [isTestBuild] при обычном (не тестовом) выпуске ставится в false — тогда режим открывается
 /// только по коду тестировщика (долгое нажатие на логотип).
 class AppBuild {
-  static const version = '1.18.8';
-  static const build = 9;
+  static const version = '1.18.13';
+  static const build = 14;
 
   /// Тестовая сборка (prerelease на GitHub): режим тестировщика доступен всем, у кого она стоит.
   static const isTestBuild = true;

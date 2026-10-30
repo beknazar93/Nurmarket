@@ -266,7 +266,7 @@ Uint8List drawerPulse({int pin = 0}) => (BytesBuilder()
     .toBytes();
 
 /// Пробная страница: ширина ленты, кириллица и обе таблицы — по ней видно, что выбрать.
-Uint8List testPage({int paperMm = 58, PrinterCodepage codepage = PrinterCodepage.cp866, int? codeTable, String title = 'NurMarket'}) {
+Uint8List testPage({int paperMm = 58, PrinterCodepage codepage = PrinterCodepage.cp866, int? codeTable, String title = 'NurCRM'}) {
   final w = lineWidth(paperMm);
   final p = EscPos(codepage, codeTable: codeTable)
     ..text(title, bold: true, big: true, center: true)

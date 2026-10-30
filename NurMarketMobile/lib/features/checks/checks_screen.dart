@@ -83,12 +83,17 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
   bool _hasMore = false;
   String? _legacyOwner;
 
+  /// 2026-10-30 (оптимизация, п. 2): поток очереди создаётся один раз. Раньше — прямо в build(): на каждую букву поиска он
+  /// пересоздавался и заново читал всю таблицу очереди. Отправленные и снятые отсекаются в SQL, строк не больше 200.
+  late final Stream<List<OutboxData>> _outbox;
+
   bool _foreign(CheckRow r) =>
       r.local != null && !OutboxMeta.belongsTo(r.local!, OutboxMeta.ownerOf(ref.read(sessionProvider)), legacyOwner: _legacyOwner);
 
   @override
   void initState() {
     super.initState();
+    _outbox = ref.read(databaseProvider).watchOutbox(kind: 'sale', hideSent: true, hideDropped: true, limit: 200);
     ref.read(databaseProvider).getSetting(OutboxMeta.legacyOwnerSetting).then((v) => mounted ? setState(() => _legacyOwner = v) : null);
     _load();
   }
@@ -118,9 +123,13 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
     final l = context.l;
     final pal = context.pal;
     return StreamBuilder<List<OutboxData>>(
-      stream: ref.read(databaseProvider).watchOutbox(kind: 'sale'),
+      stream: _outbox,
       builder: (c, snap) {
-        final local = (snap.data ?? []).where((o) => o.status != 'sent' && o.status != OutboxMeta.dropped).toList();
+        // 2026-10-29 (полная изоляция аккаунтов): чужие неотправленные продажи под этим входом не показываются (плашка на главной)
+        final me = OutboxMeta.ownerOf(ref.read(sessionProvider));
+        final local = (snap.data ?? [])
+            .where((o) => o.status != 'sent' && o.status != OutboxMeta.dropped && OutboxMeta.belongsTo(o, me, legacyOwner: _legacyOwner))
+            .toList();
         final rows = _unsent
             ? local
                   .map(
@@ -308,7 +317,7 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
     final session = ref.read(sessionProvider);
     if (r.pending) {
       return Receipt(
-        shop: (session?.companyName.isNotEmpty ?? false) ? session!.companyName : 'NurMarket',
+        shop: (session?.companyName.isNotEmpty ?? false) ? session!.companyName : 'NurCRM',
         inn: session?.companyInn ?? '',
         address: session?.companyAddress ?? '',
         at: r.at ?? DateTime.now(),

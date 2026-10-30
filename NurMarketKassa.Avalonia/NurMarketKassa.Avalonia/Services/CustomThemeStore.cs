@@ -156,7 +156,7 @@ public static class CustomThemeStore
         }
 
         if (envelope?.Theme is null || !string.Equals(envelope.Format, ExportFormat, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException("not a NurMarket theme file");
+            throw new InvalidDataException("not a NurCRM theme file");
 
         var theme = envelope.Theme;
         Sanitize(theme.Light);

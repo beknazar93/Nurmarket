@@ -35,12 +35,7 @@
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="Octokit" Version="14.0.0" />
-    <!-- Голосовой замок (2026-09-05): проверка "тот ли голос говорит" через готовую,
-         протестированную библиотеку sherpa-onnx (Apache 2.0, k2-fsa) вместо самодельного
-         FFT/mel-filterbank в C# — извлечение признаков (Kaldi-совместимый fbank) там уже
-         реализовано и подобрано под конкретную ONNX-модель эмбеддинга диктора. -->
-    <PackageReference Include="org.k2fsa.sherpa.onnx" Version="1.13.5" />
-    <PackageReference Include="org.k2fsa.sherpa.onnx.runtime.win-x64" Version="1.13.5" />
+    <!-- 2026-10-30: Vosk и sherpa-onnx (голос) удалены — в коде их нет; установка легче на ~66 МБ, APK на ~26 МБ. -->
     <PackageReference Include="QuestPDF" Version="2024.12.3" />
     <PackageReference Include="System.Drawing.Common" Version="10.0.8" />
     <PackageReference Include="ZXing.Net" Version="0.16.10" />
@@ -48,7 +43,6 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.8" />
     <PackageReference Include="Velopack" Version="1.0.1" />
-    <PackageReference Include="Vosk" Version="0.3.38" />
     <PackageReference Include="WebSocketSharp-netstandard" Version="1.0.1" />
   </ItemGroup>
 

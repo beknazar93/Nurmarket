@@ -48,21 +48,33 @@ public partial class BundleItemPickerDialog : Window
         Rebuild();
     }
 
-    private IEnumerable<PickerItem> VisibleItems() =>
+    /// <summary>2026-10-30 (стресс-тест, каталог 15 000): на КАЖДЫЙ товар строилась строка (CheckBox + StackPanel + 2 TextBlock) без виртуализации —
+    /// «Выбрать из списка» в приёмке/массовом добавлении/наборе занимало ~1 ГБ ОЗУ и вешало окно на секунды. Показываем первые RenderLimit подходящих,
+    /// остальные находятся поиском (подсказка внизу). «Выбрать все» и галочка «все» относятся к показанным строкам.</summary>
+    private const int RenderLimit = 300;
+
+    private IEnumerable<PickerItem> Matches() =>
         string.IsNullOrWhiteSpace(_searchText)
             ? _allItems
             : _allItems.Where(i => SearchMatch.Matches(_searchText, i.Product.Title, i.Product.Barcode, i.Product.Article)); // 2026-10-29: единый поиск
 
+    private IEnumerable<PickerItem> VisibleItems() => Matches().Take(RenderLimit);
+
     private void Rebuild()
     {
         ItemsList.Items.Clear();
-        var visible = VisibleItems().ToList();
+        var matches = Matches().ToList();
+        var visible = matches.Count > RenderLimit ? matches.GetRange(0, RenderLimit) : matches;
         foreach (var item in visible)
             ItemsList.Items.Add(BuildRow(item));
 
         EmptyHintText.Text = visible.Count == 0
             ? Tr.T("Ничего не найдено.", "Эч нерсе табылган жок.", "Nothing found.", "Hiçbir şey bulunamadı.", "Hech narsa topilmadi.")
-            : "";
+            : matches.Count > visible.Count
+                ? Tr.T($"Показаны первые {visible.Count} из {matches.Count:N0} — уточните поиск.", $"Алгачкы {visible.Count} көрсөтүлдү, баары {matches.Count:N0} — издөөнү тактаңыз.",
+                    $"Showing the first {visible.Count} of {matches.Count:N0} — refine the search.", $"İlk {visible.Count} / {matches.Count:N0} gösteriliyor — aramayı daraltın.",
+                    $"Birinchi {visible.Count} ta ko'rsatildi, jami {matches.Count:N0} — qidiruvni aniqlashtiring.")
+                : "";
 
         SelectAllCheckBox.IsCheckedChanged -= SelectAllCheckBox_CheckedChangedNoop;
         SelectAllCheckBox.IsChecked = visible.Count > 0 && visible.All(i => i.IsSelected);

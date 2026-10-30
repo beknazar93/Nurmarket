@@ -844,6 +844,9 @@ public sealed partial class SalesApiService : ISalesApiService
         var id = saleId.Trim();
         if (id.Length == 0)
             throw new ApiException("Укажите номер продажи.", 400);
+        // 2026-10-29 (ревью офлайн-операций, Б-1): пустой (не null) список строк — ошибка вызова; без items сервер вернул бы ВЕСЬ чек. «Весь чек» — только lines = null.
+        if (lines is { Count: 0 })
+            throw new ArgumentException("Пустой список строк возврата не отправляется (без items сервер вернёт весь чек).", nameof(lines));
 
         var body = new Dictionary<string, object>
         {

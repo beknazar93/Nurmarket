@@ -60,12 +60,17 @@ public sealed record SupplierDeal(
 public sealed record SupplierPurchaseLine(string Id, string ProductName, double Quantity, string Unit, double Amount, string PaymentType, DateTime? PurchasedAt);
 
 /// <summary>Строка прихода (suppliers/receipts/{id}/ → items).</summary>
-public sealed record SupplierReceiptLine(string Id, string ProductId, string ProductName, string Code, double Qty, double PurchasePrice, double ReturnedQty, string Unit);
+public sealed record SupplierReceiptLine(string Id, string ProductId, string ProductName, string Code, double Qty, double PurchasePrice, double ReturnedQty, string Unit,
+    // 2026-10-30 (нумерация и наценка в накладной): серверные поля строки, если сервер их начнёт отдавать (ТЗ Умару, пункт 13); сейчас null.
+    double? MarkupPercent = null, double? SalePrice = null, double? PreviousSalePrice = null);
 
 /// <summary>Приход от поставщика (GET suppliers/receipts/). Способа оплаты в приходе сервер не отдаёт (вопрос бэкенду 6.8).</summary>
 public sealed record SupplierReceipt(
     string Id, string SupplierId, string SupplierName, string CreatedBy, DateTime? CreatedAt, int ItemsCount, double Total, double ReturnedAmount,
-    IReadOnlyList<SupplierReceiptLine> Lines);
+    IReadOnlyList<SupplierReceiptLine> Lines,
+    // 2026-10-30 (нумерация закупок): служебный комментарий прихода («№ ПР-2026-000123», если сервер его хранит), номер сервера (number),
+    // номер и дата накладной поставщика (document_number / document_date). Сервер этих полей пока не отдаёт — тогда пусто.
+    string Comment = "", string ServerNumber = "", string SupplierDocNumber = "", DateTime? SupplierDocDate = null);
 
 /// <summary>Товар поставщика (GET suppliers/{id}/products/ — товары с полем client = этот поставщик).</summary>
 public sealed record SupplierProduct(string Id, string Name, string Code, string Article, double Price, double PurchasePrice, double Quantity);
@@ -108,6 +113,30 @@ public sealed class SupplierApiService
     /// <summary>Не больше 4 запросов kpis/сделок одновременно (как уточнение долгов клиентов, DebtsView).</summary>
     private static readonly SemaphoreSlim Throttle = new(4, 4);
 
+    // 2026-10-31 (стресс-тест 1.17.68, п. 5): «Поставщики» при каждом открытии слали 2 запроса на поставщика (kpis + сделки: 62 на 30 поставщиков).
+    // Сводки держим 60 секунд; любая запись (оплата, возврат, правка, долг, приём) сбрасывает кэш, кнопка «Обновить» читает сервер заново.
+    private static readonly TimeSpan SummaryTtl = TimeSpan.FromSeconds(60);
+    private static readonly object SummarySync = new();
+    private static readonly Dictionary<string, (DateTime At, SupplierSummary Summary)> SummaryCache = new(StringComparer.OrdinalIgnoreCase);
+
+    static SupplierApiService()
+    {
+        SupplierDebtRecorder.Changed += InvalidateSummaries;
+        PurchasesStore.Changed += InvalidateSummaries;
+    }
+
+    /// <summary>Сбросить кэш сводок поставщиков (после записи долга, оплаты, возврата, правки и по кнопке «Обновить»).</summary>
+    public static void InvalidateSummaries()
+    {
+        lock (SummarySync)
+        {
+            SummaryCache.Clear();
+            _summaryGeneration++; // 2026-10-31 (приёмка 1.17.68, С-6): загрузка, начатая до сброса, не должна положить в кэш долг «до оплаты»
+        }
+    }
+
+    private static long _summaryGeneration;
+
     public SupplierApiService(NurMarketApiClient api) => _api = api;
 
     private static ICatalogApiService Catalog => PosApp.CatalogApi;
@@ -127,13 +156,31 @@ public sealed class SupplierApiService
 
     /// <summary>Новый поставщик — POST clients/ с type=suppliers (CatalogApiService.CreateSupplierAsync, как «Новый поставщик» сайта):
     /// имя и телефон обязательны, реквизиты — только заполненные.</summary>
-    public async Task<SupplierInfo?> CreateAsync(SupplierRequisites r, CancellationToken ct = default)
+    /// <remarks>2026-10-31 (приёмка 1.17.68, С-7): <paramref name="idempotencyKey"/> — заголовок Idempotency-Key (один ключ на попытку создания,
+    /// повтор после обрыва уходит с тем же): сервер, который ключ знает, второго поставщика не создаст. Без ключа — как раньше.</remarks>
+    public async Task<SupplierInfo?> CreateAsync(SupplierRequisites r, CancellationToken ct = default, string? idempotencyKey = null)
     {
         var extra = new Dictionary<string, string>();
         foreach (var (key, value) in Fields(r))
             if (key is not ("full_name" or "phone") && value.Length > 0)
                 extra[key] = value;
-        var row = await Catalog.CreateSupplierAsync(r.Name, r.Phone, ct, extra).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            var plain = await Catalog.CreateSupplierAsync(r.Name, r.Phone, ct, extra).ConfigureAwait(false);
+            return ParseSupplier(plain);
+        }
+        // Тело — как у CatalogApiService.CreateSupplierAsync (full_name, phone, type=suppliers + заполненные реквизиты).
+        var body = new Dictionary<string, string>
+        {
+            ["full_name"] = r.Name.Trim(),
+            ["phone"] = r.Phone.Trim(),
+            ["type"] = "suppliers",
+        };
+        foreach (var (key, value) in extra)
+            if (!body.ContainsKey(key))
+                body[key] = value;
+        var headers = new Dictionary<string, string> { ["Idempotency-Key"] = idempotencyKey.Trim() };
+        var (row, _) = await _api.RequestWithHeadersAsync(HttpMethod.Post, "api/main/clients/", body, headers, ct, TimeSpan.FromSeconds(40)).ConfigureAwait(false);
         return ParseSupplier(row);
     }
 
@@ -148,8 +195,16 @@ public sealed class SupplierApiService
                 body[key] = value;
         if (body.Count == 0)
             return old;
-        var row = await _api.RequestAsync(HttpMethod.Patch, $"api/main/clients/{Esc(old.Id)}/", body, null, ct, Timeout).ConfigureAwait(false);
-        return ParseSupplier(row) ?? old;
+        InvalidateSummaries(); // 2026-10-31: правка поставщика — кэш сводок устарел
+        try
+        {
+            var row = await _api.RequestAsync(HttpMethod.Patch, $"api/main/clients/{Esc(old.Id)}/", body, null, ct, Timeout).ConfigureAwait(false);
+            return ParseSupplier(row) ?? old;
+        }
+        finally
+        {
+            InvalidateSummaries(); // 2026-10-31 (приёмка 1.17.68, С-6): и после ответа — загрузка, начатая во время запроса, могла принести старое
+        }
     }
 
     private static IEnumerable<(string Key, string Value)> Fields(SupplierRequisites r)
@@ -204,7 +259,21 @@ public sealed class SupplierApiService
             ["idempotency_key"] = idempotencyKey,
             ["installment_id"] = installmentId.Trim(),
         };
-        return _api.RequestAsync(HttpMethod.Post, $"api/main/clients/{Esc(supplierId)}/deals/{Esc(dealId)}/pay/", body, null, ct, Timeout);
+        InvalidateSummaries(); // 2026-10-31: оплата меняет долг — кэш сводок устарел
+        return PayInstallmentCoreAsync(supplierId, dealId, body, ct);
+    }
+
+    /// <summary>2026-10-31 (приёмка 1.17.68, С-6): сброс кэша сводок ещё раз ПОСЛЕ ответа сервера (успех или сбой — оплата могла пройти).</summary>
+    private async Task<JsonElement> PayInstallmentCoreAsync(string supplierId, string dealId, Dictionary<string, string> body, CancellationToken ct)
+    {
+        try
+        {
+            return await _api.RequestAsync(HttpMethod.Post, $"api/main/clients/{Esc(supplierId)}/deals/{Esc(dealId)}/pay/", body, null, ct, Timeout).ConfigureAwait(false);
+        }
+        finally
+        {
+            InvalidateSummaries();
+        }
     }
 
     // ------------------------------------------------------------------ закупки, приходы, товары, возвраты
@@ -245,7 +314,7 @@ public sealed class SupplierApiService
     /// (GET suppliers/receipts/?page&amp;limit&amp;supplier_id&amp;date_from&amp;date_to): приходы страницы, всего приходов (count) и общая сумма
     /// по фильтру (meta.total_amount; нет — сумма страницы). Только чтение.</summary>
     public async Task<(List<SupplierReceipt> Receipts, int Count, double Total, bool HasNext)> GetReceiptsPageAsync(int page, int limit, string? supplierId,
-        DateTime? from, DateTime? to, CancellationToken ct = default)
+        DateTime? from, DateTime? to, CancellationToken ct = default, string? productId = null)
     {
         var query = new Dictionary<string, string>
         {
@@ -258,6 +327,10 @@ public sealed class SupplierApiService
             query["date_from"] = f.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         if (to is { } t)
             query["date_to"] = t.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        // 2026-10-30 («Поступления и партии» товара): фильтр по товару — запрос серверу; пока сервер его не знает, лишний параметр
+        // игнорируется, и вызывающий отбирает строки товара сам (ProductReceiptsService).
+        if (!string.IsNullOrEmpty(productId))
+            query["product_id"] = productId;
         var d = await GetJsonAsync("api/main/suppliers/receipts/", query, ct).ConfigureAwait(false);
         var list = Rows(d).Select(ParseReceipt).Where(r => string.IsNullOrEmpty(supplierId) || r.SupplierId.Length == 0 || r.SupplierId == supplierId).ToList();
         var count = d.ValueKind == JsonValueKind.Object && Has(d, "count") ? (int)Num(d, "count") : list.Count;
@@ -346,6 +419,27 @@ public sealed class SupplierApiService
         return rows;
     }
 
+    /// <summary>2026-10-30 (редактор накладных, ТЗ 3.3-6): возврат поставщику POST suppliers/{id}/returns/ с заголовком Idempotency-Key (раньше ключ не слали —
+    /// повтор после обрыва мог провести возврат дважды). Тот же ключ дублируется в теле (idempotency_key) — как у остальных денежных POST NurCRM.
+    /// Возвращает id возврата, если сервер его вернул.</summary>
+    public async Task<string?> PostReturnAsync(string supplierId, IDictionary<string, object?> body, string idempotencyKey, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+            throw new ArgumentException("Idempotency-Key обязателен.", nameof(idempotencyKey));
+        body["idempotency_key"] = idempotencyKey.Trim();
+        var headers = new Dictionary<string, string> { ["Idempotency-Key"] = idempotencyKey.Trim() };
+        InvalidateSummaries(); // 2026-10-31: возврат может уйти в счёт долга — кэш сводок устарел
+        try
+        {
+            var (data, _) = await _api.RequestWithHeadersAsync(HttpMethod.Post, $"api/main/suppliers/{Esc(supplierId)}/returns/", body, headers, ct, TimeSpan.FromSeconds(40)).ConfigureAwait(false);
+            return Str(data, "id") is { Length: > 0 } id ? id : null;
+        }
+        finally
+        {
+            InvalidateSummaries(); // 2026-10-31 (приёмка 1.17.68, С-6): и после ответа
+        }
+    }
+
     public async Task<SupplierReceipt> GetReceiptAsync(string receiptId, CancellationToken ct = default) =>
         ParseReceipt(await GetJsonAsync($"api/main/suppliers/receipts/{Esc(receiptId)}/", null, ct).ConfigureAwait(false));
 
@@ -355,6 +449,38 @@ public sealed class SupplierApiService
         var d = await GetJsonAsync($"api/main/suppliers/{Esc(supplierId)}/products/", null, ct).ConfigureAwait(false);
         return Rows(d).Select(x => new SupplierProduct(Str(x, "id"), Str(x, "name"), Str(x, "code"), Str(x, "article"), Num(x, "price"), Num(x, "purchase_price"), Num(x, "quantity")))
             .OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+    /// <summary>2026-10-30 (нумерация закупок): страница документов серии для индекса номеров — приходы (receipts) или возвраты (returns), без отбора.</summary>
+    public DocPageFetcher PageFetcher(DocSeries series, DocNumberingSettings settings) => async (page, limit, ct) =>
+    {
+        var query = new Dictionary<string, string>
+        {
+            ["page"] = Math.Max(1, page).ToString(CultureInfo.InvariantCulture),
+            ["limit"] = Math.Clamp(limit, 1, 200).ToString(CultureInfo.InvariantCulture),
+        };
+        var d = await GetJsonAsync(series == DocSeries.Return ? "api/main/suppliers/returns/" : "api/main/suppliers/receipts/", query, ct).ConfigureAwait(false);
+        return ParseDocPage(d, series, settings);
+    };
+
+    /// <summary>Ответ списка → страница документов для индекса номеров (id, дата создания, закреплённый номер из комментария/номера сервера).</summary>
+    public static DocPage ParseDocPage(JsonElement d, DocSeries series, DocNumberingSettings settings)
+    {
+        var docs = new List<DocEntry>();
+        foreach (var x in Rows(d))
+        {
+            var id = Str(x, "id");
+            if (id.Length == 0 || Date(Str(x, "created_at")) is not { } at)
+                continue;
+            var text = Str(x, "number") + " " + Str(x, "comment") + " " + Str(x, "note") + " " + Str(x, "description");
+            // 2026-10-30: префикс из номера хранится с документом (смена префикса не перенумеровывает старые).
+            var claim = DocumentNumberingCore.ClaimWithPrefixFromText(settings, series, text);
+            docs.Add(new DocEntry(id, at, claim?.Year ?? 0, claim?.Seq ?? 0, claim?.Prefix ?? ""));
+        }
+        var hasNext = d.ValueKind == JsonValueKind.Object && d.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String;
+        var hasCount = d.ValueKind == JsonValueKind.Object && Has(d, "count");
+        var count = hasCount ? (int)Num(d, "count") : docs.Count;
+        return new DocPage(docs, count, hasNext, hasCount && (count > docs.Count || !hasNext));
     }
 
     /// <summary>Возвраты поставщику (GET suppliers/returns/ — те же, что в разделе «Возвраты поставщикам»).</summary>
@@ -372,8 +498,28 @@ public sealed class SupplierApiService
 
     /// <summary>Долг, предоплата, просрочка и ближайший срок по каждому поставщику: kpis и сделки (не больше 4 запросов сразу),
     /// последняя закупка — по одной странице приходов. onEach — после каждого поставщика (для постепенной отрисовки).</summary>
-    public async Task<List<SupplierSummary>> LoadSummariesAsync(IReadOnlyList<SupplierInfo> suppliers, Action<SupplierSummary>? onEach, CancellationToken ct = default)
+    public async Task<List<SupplierSummary>> LoadSummariesAsync(IReadOnlyList<SupplierInfo> suppliers, Action<SupplierSummary>? onEach, CancellationToken ct = default, bool useCache = false)
     {
+        // 2026-10-31: сводки моложе 60 секунд берём из кэша (повторное открытие окна), остальным — запросы; «Обновить» зовёт с useCache: false.
+        var ready = new List<SupplierSummary>();
+        var todo = new List<SupplierInfo>();
+        long generation;
+        lock (SummarySync)
+        {
+            generation = _summaryGeneration;
+            foreach (var s in suppliers)
+            {
+                if (useCache && SummaryCache.TryGetValue(s.Id, out var hit) && DateTime.UtcNow - hit.At < SummaryTtl)
+                    ready.Add(hit.Summary with { Info = s });
+                else
+                    todo.Add(s);
+            }
+        }
+        foreach (var r in ready)
+            onEach?.Invoke(r);
+        if (todo.Count == 0)
+            return ready;
+
         // 2026-10-23 (аудит, круг 6: «Поставщики» 8–12 с): приходы для «последней закупки» грузятся параллельно с kpis/сделками
         // (раньше все поставщики ждали их первыми); kpis и сделки одного поставщика — тоже вместе. Те же запросы, число не растёт.
         var last = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
@@ -392,7 +538,7 @@ public sealed class SupplierApiService
             }
         }, ct);
 
-        var tasks = suppliers.Select(async s =>
+        var tasks = todo.Select(async s =>
         {
             await Throttle.WaitAsync(ct).ConfigureAwait(false);
             try
@@ -409,10 +555,17 @@ public sealed class SupplierApiService
                     try { deals = await GetDealsAsync(s.Id, ct).ConfigureAwait(false); }
                     catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"Поставщики: сделки {s.Id} не получены ({ex.Message}).", "WARNING"); }
                 }
-                await Task.WhenAll(GetKpis(), GetDeals()).ConfigureAwait(false);
+                // 2026-10-31: сделки нужны, только если у поставщика есть долг или предоплата (иначе сводка из kpis та же) — на поставщиков без долга один запрос вместо двух.
+                await GetKpis().ConfigureAwait(false);
+                if (kpis is null || kpis.Debt > 0.005 || kpis.DebtCount > 0 || kpis.Prepayment > 0.005 || kpis.PrepaymentCount > 0)
+                    await GetDeals().ConfigureAwait(false);
                 await receiptsTask.ConfigureAwait(false);
                 var lastAt = last.TryGetValue(s.Id, out var l) ? l : (DateTime?)null;
                 var summary = Summarize(s, kpis, deals, lastAt);
+                if (summary.Loaded)
+                    lock (SummarySync)
+                        if (generation == _summaryGeneration) // 2026-10-31 (С-6): за время загрузки была запись (оплата, возврат, правка) — в кэш не кладём
+                            SummaryCache[s.Id] = (DateTime.UtcNow, summary);
                 onEach?.Invoke(summary);
                 return summary;
             }
@@ -421,7 +574,8 @@ public sealed class SupplierApiService
                 Throttle.Release();
             }
         }).ToList();
-        return (await Task.WhenAll(tasks).ConfigureAwait(false)).ToList();
+        ready.AddRange(await Task.WhenAll(tasks).ConfigureAwait(false));
+        return ready;
     }
 
     /// <summary>Сводка по одному поставщику: долг и предоплата — из kpis (сервер), без kpis — по сделкам; просрочка и ближайший
@@ -520,9 +674,15 @@ public sealed class SupplierApiService
     {
         var items = Arr(x, "items") is { Count: > 0 } it ? it : Arr(x, "lines");
         var lines = items.Select(i => new SupplierReceiptLine(Str(i, "id"), Str(i, "product_id") is { Length: > 0 } pid ? pid : Str(i, "product"), Str(i, "product_name"),
-            Str(i, "product_code"), Num(i, "qty"), Num(i, "purchase_price"), Num(i, "returned_qty"), Str(i, "unit"))).ToList();
+            Str(i, "product_code"), Num(i, "qty"), Num(i, "purchase_price"), Num(i, "returned_qty"), Str(i, "unit"),
+            Has(i, "markup_percent") ? Num(i, "markup_percent") : null, Has(i, "sale_price") ? Num(i, "sale_price") : null,
+            Has(i, "previous_sale_price") ? Num(i, "previous_sale_price") : null)).ToList();
+        var comment = Str(x, "comment") is { Length: > 0 } c1 ? c1 : Str(x, "note") is { Length: > 0 } c2 ? c2 : Str(x, "description");
         return new SupplierReceipt(Str(x, "id"), Str(x, "supplier_id"), Str(x, "supplier_name"), Str(x, "created_by_name"), Date(Str(x, "created_at")),
-            Has(x, "items_count") ? (int)Num(x, "items_count") : lines.Count, Num(x, "total_amount"), Num(x, "returned_amount"), lines);
+            Has(x, "items_count") ? (int)Num(x, "items_count") : lines.Count, Num(x, "total_amount"), Num(x, "returned_amount"), lines,
+            comment, Str(x, "number"),
+            Str(x, "supplier_document_number") is { Length: > 0 } sdn ? sdn : Str(x, "document_number") is { Length: > 0 } dn ? dn : DocumentNumberingCore.SupplierDocFromText(comment).Number,
+            Date(Str(x, "supplier_document_date")) ?? Date(Str(x, "document_date")) ?? DocumentNumberingCore.SupplierDocFromText(comment).Date);
     }
 
     private static SupplierReturnInfo ParseReturn(JsonElement x)

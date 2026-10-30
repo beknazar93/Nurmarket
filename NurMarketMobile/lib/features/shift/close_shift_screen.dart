@@ -93,7 +93,8 @@ class _CloseShiftScreenState extends ConsumerState<CloseShiftScreen> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      await ref.read(syncProvider).runOnce();
+      // 2026-10-29 (аудит мобилки, п. 4): только очередь чеков, без каталога — и ждём уже идущий проход, а не выходим из него.
+      await ref.read(syncProvider).runQueue();
       final (pending, failed) = await _queueCounts();
       if (pending > 0) {
         if (mounted) toast(context, l.closeShiftPending(pending), error: true);

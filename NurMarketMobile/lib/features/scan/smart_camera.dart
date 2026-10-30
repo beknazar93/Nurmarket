@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:camera/camera.dart' show ResolutionPreset;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,7 +45,9 @@ Future<Uint8List?> takeProductPhoto(BuildContext context, String mode) {
     _ => l.liveHintSale,
   };
   // 2026-10-22: под подсказкой — что будет после снимка
-  return LiveShotPage.open(context, title: l.smartCam, hint: hint, next: l.liveNextList);
+  // 2026-10-30 (оптимизация, п. 5): обычный снимок — high (1280×720); накладная и полка — veryHigh (мелкий текст)
+  final preset = mode == 'invoice' || mode == 'shelf' ? ResolutionPreset.veryHigh : ResolutionPreset.high;
+  return LiveShotPage.open(context, title: l.smartCam, hint: hint, next: l.liveNextList, preset: preset);
 }
 
 /// Ключа ИИ нет ни на сервере, ни на телефоне — предлагаем вставить (как поле ключа в настройках кассы).

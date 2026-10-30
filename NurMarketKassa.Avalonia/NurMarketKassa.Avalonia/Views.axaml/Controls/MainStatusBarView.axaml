@@ -43,6 +43,18 @@
                        Foreground="White"/>
         </Border>
 
+        <!-- 2026-10-29 (аварийный аудит кассы, п. 8): отклонённые чеки -->
+        <Border Background="{DynamicResource BrushDanger}"
+                CornerRadius="10"
+                Padding="8,3"
+                VerticalAlignment="Center"
+                IsVisible="{Binding HasFailedItems}">
+            <TextBlock Text="{Binding FailedText}"
+                       FontSize="12"
+                       FontWeight="Bold"
+                       Foreground="White"/>
+        </Border>
+
         <Border Background="{DynamicResource BrushDanger}"
                 CornerRadius="10"
                 Padding="8,3"

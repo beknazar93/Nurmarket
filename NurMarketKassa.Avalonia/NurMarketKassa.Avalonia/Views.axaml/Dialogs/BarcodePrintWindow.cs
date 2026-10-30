@@ -610,12 +610,17 @@ public sealed class BarcodePrintWindow : Window
         _copiesSync.Clear();
         var start = _page * PageSize;
         var end = Math.Min(start + PageSize, _found.Count);
-        for (var i = start; i < end; i++)
+        // 2026-10-31 (стресс-тест 1.17.68): 48 карточек разом — окно открывалось 0,6–0,8 с. Первые 12 строим сразу, остальные — пакетами по 12 между кадрами.
+        var gen = ++_renderGen;
+        var firstEnd = Math.Min(start + CardBatch, end);
+        for (var i = start; i < firstEnd; i++)
         {
             var card = BuildCard(_found[i]);
             _cards.Add(card);
             _cardsPanel.Children.Add(card);
         }
+        if (firstEnd < end)
+            Dispatcher.UIThread.Post(() => AddCardBatch(gen, firstEnd, end), DispatcherPriority.Background);
         LayoutCards(_scroll.Bounds.Width > 0 ? _scroll.Bounds.Width : Width - 64);
         _scroll.Offset = default;
 
@@ -631,6 +636,26 @@ public sealed class BarcodePrintWindow : Window
         _prevButton.IsEnabled = _page > 0;
         _nextButton.IsEnabled = _page < PageCount - 1;
         ApplyTexts();
+    }
+
+    private const int CardBatch = 12;
+    private int _renderGen;
+
+    /// <summary>Следующий пакет карточек страницы; страница сменилась (или окно закрыто) — пакет бросается.</summary>
+    private void AddCardBatch(int gen, int from, int end)
+    {
+        if (gen != _renderGen)
+            return;
+        var to = Math.Min(from + CardBatch, end);
+        for (var i = from; i < to; i++)
+        {
+            var card = BuildCard(_found[i]);
+            _cards.Add(card);
+            _cardsPanel.Children.Add(card);
+        }
+        LayoutCards(_lastWidth > 0 ? _lastWidth : (_scroll.Bounds.Width > 0 ? _scroll.Bounds.Width : Width - 64));
+        if (to < end)
+            Dispatcher.UIThread.Post(() => AddCardBatch(gen, to, end), DispatcherPriority.Background);
     }
 
     private void LayoutCards(double width)
@@ -1027,11 +1052,8 @@ public sealed class BarcodePrintWindow : Window
                     code = ch[Math.Clamp(GetSel(sample.Id).BarcodeIndex, 0, ch.Count - 1)].Code;
             }
             var price = sample != null ? BarcodePrintCatalog.LabelPrice(sample) : "85,00 сом";
-            using var bmp = BarcodeLabelService.GenerateLabelBitmap(name, code, price, _template, sample?.Article, sample?.Unit, UserPreferences.Instance.StoreName);
-            using var ms = new MemoryStream();
-            bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-            ms.Position = 0;
-            var next = new Bitmap(ms);
+            // 2026-10-29: Android/Linux — System.Drawing недоступен, картинку рисует Avalonia (LabelSceneRenderer).
+            var next = LabelSceneRenderer.LabelPreview(name, code, price, _template, sample?.Article, sample?.Unit, UserPreferences.Instance.StoreName);
             _previewImage.Source = next;
             _previewBitmap?.Dispose();
             _previewBitmap = next;
@@ -1039,7 +1061,7 @@ public sealed class BarcodePrintWindow : Window
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Barcode print window: preview failed: {ex.GetType().Name}", "WARNING");
+            PosLogger.Log($"Barcode print window: preview failed: {ex}", "WARNING");
         }
     }
 

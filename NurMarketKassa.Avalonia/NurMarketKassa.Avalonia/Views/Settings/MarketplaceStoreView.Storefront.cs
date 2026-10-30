@@ -204,7 +204,7 @@ public sealed partial class MarketplaceStoreView
     private static string GroupChip(MarketplaceGroup g) => g switch
     {
         MarketplaceGroup.Sales => Tr.T("Продажи", "Сатуу", "Sales", "Satış", "Savdo"),
-        MarketplaceGroup.Warehouse => Tr.T("Склад и печать", "Кампа жана басма", "Stock and print", "Depo ve baskı", "Ombor va chop"),
+        MarketplaceGroup.Warehouse => Tr.T("Склад и печать", "Кампа, басма", "Stock and print", "Depo ve baskı", "Ombor va chop"), // 2026-10-31: ky «Функция · Кампа жана басма» обрезалось — короче
         MarketplaceGroup.Owner => Tr.T("Владельцу", "Ээсине", "Owner", "Sahibine", "Egasiga"),
         MarketplaceGroup.Packs => Tr.T("Пакеты", "Пакеттер", "Packs", "Paketler", "Paketlar"),
         _ => GroupTitle(g),

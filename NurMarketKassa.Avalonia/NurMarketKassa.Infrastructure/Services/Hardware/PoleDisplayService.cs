@@ -171,7 +171,7 @@ public sealed class PoleDisplayService
         {
             Write(devicePath, baud, protocol == ProtocolLed
                 ? BuildLedPayload(1234.56, LedLamp.Total)
-                : BuildTextPayload("NURMARKET", "TEST 1234.56"));
+                : BuildTextPayload("NURCRM", "TEST 1234.56"));
             return (true, protocol == ProtocolLed
                 ? Tr.T(
                     $"Отправлено «1234.56» на {devicePath} ({baud} бод). Если на табло не появилось — нажмите «Найти табло».",
@@ -180,11 +180,11 @@ public sealed class PoleDisplayService
                     $"«1234.56» gönderildi: {devicePath} ({baud} baud). Ekranda görünmediyse «Ekranı bul» düğmesine basın.",
                     $"«1234.56» yuborildi: {devicePath} ({baud} bod). Agar tabloda ko'rinmasa — «Tabloni topish» tugmasini bosing.")
                 : Tr.T(
-                    $"Отправлено «NURMARKET / TEST 1234.56» на {devicePath} ({baud} бод).",
-                    $"«NURMARKET / TEST 1234.56» жөнөтүлдү: {devicePath} ({baud} бод).",
-                    $"Sent “NURMARKET / TEST 1234.56” to {devicePath} ({baud} baud).",
-                    $"«NURMARKET / TEST 1234.56» gönderildi: {devicePath} ({baud} baud).",
-                    $"«NURMARKET / TEST 1234.56» yuborildi: {devicePath} ({baud} bod)."));
+                    $"Отправлено «NURCRM / TEST 1234.56» на {devicePath} ({baud} бод).",
+                    $"«NURCRM / TEST 1234.56» жөнөтүлдү: {devicePath} ({baud} бод).",
+                    $"Sent “NURCRM / TEST 1234.56” to {devicePath} ({baud} baud).",
+                    $"«NURCRM / TEST 1234.56» gönderildi: {devicePath} ({baud} baud).",
+                    $"«NURCRM / TEST 1234.56» yuborildi: {devicePath} ({baud} bod)."));
         }
         catch (Exception ex)
         {

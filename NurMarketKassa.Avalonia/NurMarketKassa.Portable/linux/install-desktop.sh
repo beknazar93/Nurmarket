@@ -16,9 +16,9 @@ cp "$DIR/nurmarket-kassa.png" "$ICONS/nurmarket-kassa.png"
 cat > "$APPS/nurmarket-kassa.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=NurMarket Kassa
-Name[ru]=NurMarket Касса
-Comment=Касса NurMarket (NurCRM)
+Name=NurCRM Kassa
+Name[ru]=NurCRM Касса
+Comment=Касса NurCRM (Нур СРМ)
 Exec="$DIR/NurMarketKassa.Avalonia"
 Path=$DIR
 Icon=$ICONS/nurmarket-kassa.png
@@ -29,9 +29,9 @@ EOF
 cat > "$APPS/nurmarket-owner.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=NurMarket Owner
-Name[ru]=NurMarket Владелец
-Comment=Программа владельца NurMarket
+Name=NurCRM Owner
+Name[ru]=NurCRM Владелец
+Comment=Программа владельца NurCRM
 Exec="$DIR/NurMarketKassa.Avalonia" --owner
 Path=$DIR
 Icon=$ICONS/nurmarket-kassa.png
@@ -41,4 +41,4 @@ StartupWMClass=NurMarketKassa.Avalonia
 EOF
 chmod +x "$APPS/nurmarket-kassa.desktop" "$APPS/nurmarket-owner.desktop"
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$APPS" 2>/dev/null
-echo "Готово: «NurMarket Касса» и «NurMarket Владелец» появились в меню приложений."
+echo "Готово: «NurCRM Касса» и «NurCRM Владелец» появились в меню приложений."

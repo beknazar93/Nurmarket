@@ -62,14 +62,14 @@ public partial class UpdatesSettingsView : UserControl
             return;
 
         OwnerAppTitle.Text = Tr.T("Программа владельца", "Ээсинин программасы", "Owner app", "Sahip programı", "Egasining dasturi");
-        OwnerAppDesc.Text = Tr.T("«NurMarket Владелец» — склад, продажи, финансы, аналитика и зарплата. Ставится вместе с кассой; на кассовом компьютере её можно не ставить.",
-            "«NurMarket Владелец» — кампа, сатуулар, каржы, аналитика жана эмгек акы. Касса менен бирге орнотулат; кассалык компьютерге коюлбаса да болот.",
-            "“NurMarket Владелец” — warehouse, sales, finance, analytics and salary. Installed with the till; it can be left off the till computer.",
-            "«NurMarket Владелец» — depo, satışlar, finans, analiz ve maaş. Kasa ile birlikte kurulur; kasa bilgisayarına kurulmayabilir.",
-            "«NurMarket Владелец» — ombor, sotuvlar, moliya, tahlil va ish haqi. Kassa bilan birga o'rnatiladi; kassa kompyuteriga qo'yilmasa ham bo'ladi.");
+        OwnerAppDesc.Text = Tr.T("«NurCRM Владелец» — склад, продажи, финансы, аналитика и зарплата. Ставится вместе с кассой; на кассовом компьютере её можно не ставить.",
+            "«NurCRM Владелец» — кампа, сатуулар, каржы, аналитика жана эмгек акы. Касса менен бирге орнотулат; кассалык компьютерге коюлбаса да болот.",
+            "“NurCRM Владелец” — warehouse, sales, finance, analytics and salary. Installed with the till; it can be left off the till computer.",
+            "«NurCRM Владелец» — depo, satışlar, finans, analiz ve maaş. Kasa ile birlikte kurulur; kasa bilgisayarına kurulmayabilir.",
+            "«NurCRM Владелец» — ombor, sotuvlar, moliya, tahlil va ish haqi. Kassa bilan birga o'rnatiladi; kassa kompyuteriga qo'yilmasa ham bo'ladi.");
         var installed = Services.OwnerShortcuts.IsInstalled();
         OwnerAppStatus.Text = installed
-            ? Tr.T("✓ Установлена на этом компьютере (ярлык «NurMarket Владелец»).", "✓ Бул компьютерге орнотулган («NurMarket Владелец» энбелгиси).", "✓ Installed on this computer (“NurMarket Владелец” shortcut).", "✓ Bu bilgisayarda kurulu («NurMarket Владелец» kısayolu).", "✓ Bu kompyuterga o'rnatilgan («NurMarket Владелец» yorlig'i).")
+            ? Tr.T("✓ Установлена на этом компьютере (ярлык «NurCRM Владелец»).", "✓ Бул компьютерге орнотулган («NurCRM Владелец» энбелгиси).", "✓ Installed on this computer (“NurCRM Владелец” shortcut).", "✓ Bu bilgisayarda kurulu («NurCRM Владелец» kısayolu).", "✓ Bu kompyuterga o'rnatilgan («NurCRM Владелец» yorlig'i).")
             : Tr.T("Не установлена — на этом компьютере только касса.", "Орнотулган эмес — бул компьютерде касса гана.", "Not installed — only the till on this computer.", "Kurulu değil — bu bilgisayarda yalnızca kasa var.", "O'rnatilmagan — bu kompyuterda faqat kassa.");
         OwnerAppAddButton.Content = installed
             ? Tr.T("Восстановить ярлык", "Энбелгини калыбына келтирүү", "Restore shortcut", "Kısayolu geri yükle", "Yorliqni tiklash")

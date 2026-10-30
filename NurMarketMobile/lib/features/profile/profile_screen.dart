@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'logout_guard.dart';
 import '../../core/ai/ai_access.dart';
 import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
@@ -271,22 +272,9 @@ class ProfileScreen extends ConsumerWidget {
           OutlinedButton(
             style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), foregroundColor: pal.danger),
             onPressed: () async {
-              if (pending > 0) {
-                final ok = await showDialog<bool>(
-                  context: context,
-                  builder: (c) => AlertDialog(
-                    content: Text(l.logoutPending(pending)),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
-                      TextButton(
-                        onPressed: () => Navigator.pop(c, true),
-                        child: Text(l.logout, style: TextStyle(color: pal.danger)),
-                      ),
-                    ],
-                  ),
-                );
-                if (ok != true) return;
-              }
+              // 2026-10-29 («ничего не должно остаться»): с неотправленными продажами выйти нельзя — отправить, выгрузить в файл
+              // или удалить, подтвердив словом; после этого выход стирает с телефона всё
+              if (!await confirmQueueResolved(context, ref)) return;
               await ref.read(sessionProvider.notifier).logout();
               if (context.mounted) context.go('/login');
             },
@@ -316,17 +304,28 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
   String? _catalogAt;
   String? _legacyOwner;
 
+  /// 2026-10-30 (оптимизация, п. 2): поток очереди создаётся один раз (раньше — в build() на каждую перерисовку); снятые записи
+  /// и всё, что дальше первых 150, в SQL отсекаются (на экран идут последние 100 записей своего аккаунта).
+  late final Stream<List<OutboxData>> _outbox;
+
   @override
   void initState() {
     super.initState();
-    ref.read(databaseProvider).getSetting('catalog.syncedAt').then((v) => mounted ? setState(() => _catalogAt = v) : null);
+    _outbox = ref.read(databaseProvider).watchOutbox(hideDropped: true, limit: 150);
+    _readCatalogAt().then((v) => mounted ? setState(() => _catalogAt = v) : null);
     ref.read(databaseProvider).getSetting(OutboxMeta.legacyOwnerSetting).then((v) => mounted ? setState(() => _legacyOwner = v) : null);
+  }
+
+  /// 2026-10-29 (аудит, п. 2): «каталог обновлён» — время последней сверки с сервером (лента без изменений тоже сверка).
+  Future<String?> _readCatalogAt() async {
+    final db = ref.read(databaseProvider);
+    return await db.getSetting('catalog.checkedAt') ?? await db.getSetting('catalog.syncedAt');
   }
 
   Future<void> _now() async {
     setState(() => _busy = true);
     await ref.read(syncProvider).runOnce(force: true);
-    final at = await ref.read(databaseProvider).getSetting('catalog.syncedAt');
+    final at = await _readCatalogAt();
     if (mounted) {
       setState(() {
         _busy = false;
@@ -357,10 +356,14 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
             : l.catalogUpdated('${at.day.toString().padLeft(2, '0')}.${at.month.toString().padLeft(2, '0')} ${TimeOfDay.fromDateTime(at).format(context)}'),
       ),
       body: StreamBuilder<List<OutboxData>>(
-        stream: ref.read(databaseProvider).watchOutbox(),
+        stream: _outbox,
         builder: (c, snap) {
-          final rows = (snap.data ?? []).where((r) => r.status != OutboxMeta.dropped).take(100).toList();
           final me = OutboxMeta.ownerOf(ref.read(sessionProvider));
+          // 2026-10-29 (полная изоляция аккаунтов): чужая очередь здесь не показывается (о ней — плашка), отправленное чужое — тоже
+          final rows = (snap.data ?? [])
+              .where((r) => r.status != OutboxMeta.dropped && OutboxMeta.belongsTo(r, me, legacyOwner: _legacyOwner))
+              .take(100)
+              .toList();
           if (rows.isEmpty) {
             return Center(
               child: Text(l.nothingToSend, style: TextStyle(color: pal.textSoft)),

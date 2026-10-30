@@ -75,6 +75,11 @@ public static class SettingsCloudSync
         // 2026-10-27, аудит владельца Б-1: «контроль удалений» и «слепой пересчёт» — правила магазина, а не привычка кассира:
         // владелец меняет их один раз, и они действуют на всех кассах (раньше жили только в профиле того ПК, где поменяли).
         "AskCartRemovalReason", "CartRemovalReasonThreshold", "BlindCashCount",
+        // 2026-10-30: тумблеры возможностей Нур Советника (AdvisorCapabilities) — правило магазина, одинаковое на всех кассах.
+        // null (ничего не менялось) в облако не уходит.
+        "AdvisorCapabilitiesJson",
+        // 2026-10-30: окно правки накладных закупок (24 ч / 48 ч / всегда) — правило магазина, меняет владелец. null (ничего не менялось) в облако не уходит.
+        "PurchaseEditWindow",
     };
 
     /// <summary>2026-10-27, Б-1: новые общие ключи правил (удаления, слепой пересчёт) не «заполняют пустое облако» значением по умолчанию
@@ -157,6 +162,8 @@ public static class SettingsCloudSync
     {
         var prefs = UserPreferences.Instance;
         var map = new Dictionary<string, string>();
+        // 2026-10-31: в облако — только ключи активации; функции, включённые сервером (ServerAddons), чужим кассам флагом не передаются.
+        using var rawView = ServerAddons.RawView();
         foreach (var key in keys)
         {
             try
@@ -228,6 +235,39 @@ public static class SettingsCloudSync
             _companyEtag = null;
             _applyPending = false;
         }
+    }
+
+    /// <summary>2026-10-29: смена компании — локальные настройки сброшены (AccountDataIsolation.SwitchTo). Сброс не должен считаться
+    /// «правкой пользователя» (иначе пустые ключи и закрытые функции ушли бы в облако новой компании и не дали бы применить её
+    /// настоящие значения): запись во время <paramref name="reset"/> не отслеживается, затем всё начинается заново, как у нового
+    /// пользователя (облако будет получено заново).</summary>
+    public static void RunAccountReset(Action reset)
+    {
+        lock (Sync)
+            _applying = true;
+        try
+        {
+            reset();
+        }
+        finally
+        {
+            lock (Sync)
+                _applying = false;
+        }
+        OnUserChanged(CurrentUserId());
+    }
+
+    /// <summary>2026-10-29: настройки аккаунта получены с сервера (личные и общие) — для окна «Загружаем данные аккаунта…».</summary>
+    public static bool AccountSettingsLoaded => _personalLoaded && _companyLoaded;
+
+    /// <summary>2026-10-29: ждёт получения настроек аккаунта с сервера не дольше <paramref name="timeout"/>. true — получены.
+    /// Сам получение не запускает (его запускает CompanyInfoService.RefreshAsync).</summary>
+    public static async Task<bool> WaitAccountSettingsAsync(TimeSpan timeout, CancellationToken ct = default)
+    {
+        var until = DateTime.UtcNow + timeout;
+        while (!AccountSettingsLoaded && DateTime.UtcNow < until && !ct.IsCancellationRequested)
+            await Task.Delay(150, ct).ConfigureAwait(false);
+        return AccountSettingsLoaded;
     }
 
     /// <summary>Один раз на вход в компанию (обновление компании бывает часто — повторно не тянем, чтобы не затереть
@@ -542,6 +582,7 @@ public static class SettingsCloudSync
     private static string? _companyFingerprint;
     private static bool _applyPending;
     private static int _pollStarted;
+    private static readonly SyncCenter.KickSignal PollKick = new(); // 2026-10-30: никем не будится — нужен только как таймер для WaitAdaptiveAsync
     private static int _refreshFailures;
 
     /// <summary>Запустить фоновый опрос общих настроек (один раз за запуск; вызывается после первого получения облака).</summary>
@@ -555,10 +596,14 @@ public static class SettingsCloudSync
             {
                 try
                 {
-                    var delay = _applyPending
-                        ? TimeSpan.FromSeconds(15)
-                        : SyncCenter.Jitter(TimeSpan.FromTicks(SyncCenter.CompanySettingsInterval.Ticks * (1L << Math.Min(_refreshFailures, 3))));
-                    await Task.Delay(delay).ConfigureAwait(false);
+                    // 2026-10-30 (оптимизация кассы, Б3): интервал адаптивный — 30 с при работе, 120 с при свёрнутом окне / фоне Android / простое
+                    // больше 10 мин; пересчитывается каждые 2 с (вернулись — такт сокращается). Разброс ±15 % даёт сам WaitAdaptiveAsync.
+                    if (_applyPending)
+                        await Task.Delay(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
+                    else
+                        await SyncCenter.WaitAdaptiveAsync(
+                            () => TimeSpan.FromTicks(SyncCenter.QuietInterval(SyncCenter.CompanySettingsInterval).Ticks * (1L << Math.Min(_refreshFailures, 3))),
+                            PollKick, TimeSpan.Zero).ConfigureAwait(false);
                     if (SyncCenter.ShouldPause())
                         continue;
                     await RefreshCompanyAsync(CancellationToken.None).ConfigureAwait(false);
@@ -1031,6 +1076,8 @@ public static class SettingsCloudSync
         if (server is null)
             return applied;
         var prefs = UserPreferences.Instance;
+        // 2026-10-31: сравниваем с облаком «ключи» без функций от сервера (ServerAddons), иначе включённое сервером считалось бы значением кассы.
+        using var rawView = ServerAddons.RawView();
         foreach (var key in keys)
         {
             // 2026-10-18: коды сотрудников — отдельно, по версии (ApplyEmployeeCodesAsync); грязные ключи — с этой кассы (П2).

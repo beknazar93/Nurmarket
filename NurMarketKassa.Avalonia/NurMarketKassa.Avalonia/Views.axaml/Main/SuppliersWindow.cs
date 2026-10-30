@@ -158,7 +158,13 @@ public sealed class SuppliersWindow : Window, IOwnerSection
                 return;
             _loaded = true;
             RenderDebtQueue();
-            await LoadAsync().ConfigureAwait(true);
+            await LoadAsync(fromCache: true).ConfigureAwait(true); // 2026-10-31: повторное открытие в пределах 60 с — сводки из кэша
+        };
+        // 2026-10-31: окно закрыли — незавершённые запросы сводок отменяем (раньше шли до конца, до 62 запросов впустую).
+        Closed += (_, _) =>
+        {
+            _gen++;
+            try { _loadCts?.Cancel(); } catch (ObjectDisposedException) { }
         };
         // 2026-10-20, этап П3: журнал записи долгов изменился (приёмка «в долг», другая программа на этом ПК) — плашка заново.
         Action onQueue = () => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -290,9 +296,14 @@ public sealed class SuppliersWindow : Window, IOwnerSection
 
     // ------------------------------------------------------------------ загрузка
 
-    private async Task LoadAsync()
+    private CancellationTokenSource? _loadCts;
+
+    private async Task LoadAsync(bool fromCache = false)
     {
         var gen = ++_gen;
+        try { _loadCts?.Cancel(); } catch (ObjectDisposedException) { }
+        if (!fromCache)
+            SupplierApiService.InvalidateSummaries(); // «Обновить» и перечитывание после записи долга — всегда с сервера
         _summariesDone = false;
         SetStatus(T("Загружаю поставщиков…", "Жеткирүүчүлөр жүктөлүүдө…", "Loading suppliers…", "Tedarikçiler yükleniyor…", "Yetkazib beruvchilar yuklanmoqda…"));
         try
@@ -316,6 +327,7 @@ public sealed class SuppliersWindow : Window, IOwnerSection
             var done = 0;
             SetStatus(Counting(0, list.Count));
             using var sumCts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+            _loadCts = sumCts;
             await _svc.LoadSummariesAsync(list, s => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 if (gen != _gen)
@@ -325,7 +337,7 @@ public sealed class SuppliersWindow : Window, IOwnerSection
                 SetStatus(Counting(done, list.Count));
                 if (done % 5 == 0)
                     Render();
-            }), sumCts.Token).ConfigureAwait(true);
+            }), sumCts.Token, fromCache).ConfigureAwait(true);
             // Отложенные Post из onEach — выполнить до итоговой отрисовки.
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
             if (gen != _gen)

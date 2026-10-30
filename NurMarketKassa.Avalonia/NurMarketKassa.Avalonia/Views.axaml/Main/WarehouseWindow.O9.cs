@@ -244,11 +244,11 @@ public partial class WarehouseWindow
         LabelEditorPaidText.Text = unlocked
             ? T("Подключено на этом компьютере.", "Бул компьютерде туташтырылган.", "Activated on this computer.",
                 "Bu bilgisayarda etkin.", "Shu kompyuterda ulangan.")
-            : T($"Платная функция — подключение {fee} сом. Купить: «Маркетплейс → Доп. функции» или у поддержки NurMarket; полученный серийный номер введите кнопкой ниже.",
-                $"Акылуу функция — туташтыруу {fee} сом. Сатып алуу: «Маркетплейс → Кошумча функциялар» же NurMarket колдоо кызматы; алынган сериялык номерди төмөнкү баскыч менен киргизиңиз.",
-                $"Paid feature — activation {fee} som. Buy it in «Marketplace → Extras» or from NurMarket support, then enter the serial number with the button below.",
-                $"Ücretli özellik — etkinleştirme {fee} som. «Pazar yeri → Ek özellikler» bölümünden veya NurMarket destekten satın alın; aldığınız seri numarasını aşağıdaki düğmeyle girin.",
-                $"Pullik funksiya — ulash {fee} so'm. Sotib olish: «Marketpleys → Qo'shimcha funksiyalar» yoki NurMarket qo'llab-quvvatlash xizmati; olingan seriya raqamini quyidagi tugma bilan kiriting.");
+            : T($"Платная функция — подключение {fee} сом. Купить: «Маркетплейс → Доп. функции» или у поддержки NurCRM; полученный серийный номер введите кнопкой ниже.",
+                $"Акылуу функция — туташтыруу {fee} сом. Сатып алуу: «Маркетплейс → Кошумча функциялар» же NurCRM колдоо кызматы; алынган сериялык номерди төмөнкү баскыч менен киргизиңиз.",
+                $"Paid feature — activation {fee} som. Buy it in «Marketplace → Extras» or from NurCRM support, then enter the serial number with the button below.",
+                $"Ücretli özellik — etkinleştirme {fee} som. «Pazar yeri → Ek özellikler» bölümünden veya NurCRM destekten satın alın; aldığınız seri numarasını aşağıdaki düğmeyle girin.",
+                $"Pullik funksiya — ulash {fee} so'm. Sotib olish: «Marketpleys → Qo'shimcha funksiyalar» yoki NurCRM qo'llab-quvvatlash xizmati; olingan seriya raqamini quyidagi tugma bilan kiriting.");
         LabelEditorOpenButton.Content = unlocked
             ? T("Открыть редактор", "Редакторду ачуу", "Open editor", "Düzenleyiciyi aç", "Muharrirni ochish")
             : T("Ввести серийный номер", "Сериялык номерди киргизүү", "Enter serial number", "Seri numarası gir", "Seriya raqamini kiritish");

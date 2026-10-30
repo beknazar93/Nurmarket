@@ -564,7 +564,7 @@ public sealed class ScaleTempAddressSession : IAsyncDisposable
     {
         static string Q(string s) => "'" + s.Replace("'", "''") + "'";
         var sb = new StringBuilder();
-        sb.AppendLine("# NurMarket Kassa: temporary IPv4 address for the scale search. Generated " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
+        sb.AppendLine("# NurCRM Kassa: temporary IPv4 address for the scale search. Generated " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
         sb.AppendLine("$ErrorActionPreference = 'Continue'");
         sb.AppendLine($"$status = {Q(statusPath)}");
         sb.AppendLine($"$doneFlag = {Q(donePath)}");

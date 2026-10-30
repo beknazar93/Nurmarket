@@ -112,6 +112,11 @@ public sealed class MarketplaceItem
     /// <summary>Папка медиа в Assets/marketplace (theme:nurmarket → theme_nurmarket).</summary>
     public string MediaFolder => Id.Replace(':', '_');
 
+    /// <summary>2026-10-31 (ТЗ Умара «функции маркетплейса — с сервера»): функция включена на сервере, ключа на этой кассе нет — значок «Подключено».</summary>
+    public bool ConnectedByServer { get; set; }
+    /// <summary>2026-10-31: пояснение под кнопками действий («Оплата пока через поддержку…»).</summary>
+    public string ActionHint { get; set; } = "";
+
     public bool IsComingSoon => Status == MarketplaceStatus.ComingSoon;
 
     public string KindLabel => Kind switch
@@ -609,6 +614,10 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
         MarketplaceKind kind = MarketplaceKind.Feature, string note = "")
     {
         var slug = id;
+        // 2026-10-31 (ТЗ Умара): включено сервером без ключа — «Подключено» (функции, входящие в тариф «Стандарт», остаются «Входит в тариф»).
+        var byServer = unlocked && ServerAddons.IsServerOnly(id) && !(id is "export" or "telegram" or "shiftstats" && !TariffGate.IsStartTariff);
+        if (byServer)
+            statusText = T("Подключено", "Туташтырылды", "Connected", "Bağlandı", "Ulandi");
         MarketplaceAction? primary;
         if (unlocked)
             primary = openLabel is null ? null : new MarketplaceAction(openLabel, () => _run("open:" + slug));
@@ -656,6 +665,18 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
             Primary = primary,
             RelatedIds = related ?? [],
             InlineControlId = inline,
+            ConnectedByServer = byServer,
+            // 2026-10-31 (ТЗ Умара): у платной функции без ключа и без включения на сервере — «Подключить» (заявка в поддержку) рядом с вводом ключа.
+            Secondary = !unlocked && kind == MarketplaceKind.Feature && Array.IndexOf(ServerAddons.Slugs, id) >= 0
+                ? [new MarketplaceAction(T("Подключить", "Туташтыруу", "Connect", "Bağla", "Ulash"), () => _run("request:" + slug))]
+                : [],
+            ActionHint = !unlocked && kind == MarketplaceKind.Feature && Array.IndexOf(ServerAddons.Slugs, id) >= 0
+                ? T("Оплата пока через поддержку: оставьте заявку — перезвоним, примем оплату и включим функцию",
+                    "Төлөм азырынча колдоо кызматы аркылуу: өтүнмө калтырыңыз — чалабыз, төлөмдү кабыл алабыз жана функцияны иштетебиз",
+                    "Payment is through support for now: leave a request — we will call you, take the payment and turn the feature on",
+                    "Ödeme şimdilik destek üzerinden: talep bırakın — sizi arayıp ödemeyi alır ve özelliği açarız",
+                    "To'lov hozircha qo'llab-quvvatlash orqali: ariza qoldiring — qo'ng'iroq qilamiz, to'lovni qabul qilamiz va funksiyani yoqamiz")
+                : "",
         };
     }
 

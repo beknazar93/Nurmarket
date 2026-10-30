@@ -162,7 +162,8 @@ internal static class AndroidBootstrap
         var host = new WindowLayerHost();
         lifetime.AttachHost(host);
         // 2026-10-04: вид кассы — подогнанный под экран аппарата (ScreenFitHost).
-        lifetime.MainView = new ScreenFitHost(host);
+        // 2026-10-29: вокруг — безопасные поля (панели, вырез, жесты) и отступ справа не меньше 20 dp (SafeAreaHost).
+        lifetime.MainView = new SafeAreaHost(new ScreenFitHost(host));
         AndroidCustomerDisplay.Initialize(activity);
     }
 

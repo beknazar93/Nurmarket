@@ -296,6 +296,17 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// ждёт сервер не дольше ServerAnswerWait.FirstPortionBudget (5 с с последнего ответа; раньше —
     /// до 55 с, пока касса ещё «Онлайн», а сервер уже молчит), сбой — авария и понятный текст в окне.
     /// Следующие страницы («Ещё») грузятся фоном: окно не блокируется, кнопки возврата доступны.</summary>
+    /// <summary>2026-10-29: сервер недоступен — это окно закрывается, открывается «Возврат без связи» (чеки из памяти кассы). Раньше здесь был тупик с текстом ошибки.</summary>
+    private void SwitchToOfflineReturn()
+    {
+        var owner = Owner as Window;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            Close();
+            _ = OfflineOperationsWindow.OpenAsync(owner, OfflineOperationsWindow.Mode.Return);
+        });
+    }
+
     private async Task<bool> LoadSalesAsync(bool reset)
     {
         if (!reset && _loadingMore)
@@ -309,7 +320,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         {
             // Касса уже знает, что сервер лежит, — не ждём его ещё раз.
             _serverDown = true;
-            ShowErr(OfflineModeHelper.ReturnUnavailableInOutage);
+            SwitchToOfflineReturn();
             return false;
         }
 
@@ -419,7 +430,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // 2026-10-04: первая страница — сервер не ответил за 5 с или ответил сбоем: авария уже
             // объявлена (ServerAnswerWait), кассиру — что делать, а не «Превышено время ожидания» через 55 с.
             _serverDown = !ex.Throttled;
-            ShowErr(ex.Throttled ? ServerAnswerWait.ThrottledMessage : OfflineModeHelper.ReturnUnavailableInOutage);
+            if (ex.Throttled)
+                ShowErr(ServerAnswerWait.ThrottledMessage);
+            else
+                SwitchToOfflineReturn();
         }
         catch (ApiException ex)
         {
@@ -934,6 +948,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             var lineTotal = CartDisplayHelper.LineTotal(lineItem);
             var originalQty = CartDisplayHelper.LineQuantity(lineItem);
             var qty = CartDisplayHelper.RefundableQuantity(lineItem);
+            // 2026-10-29 (ревью, В-5): возвраты, оформленные без связи и ещё не дошедшие до сервера, вычитаются из «можно вернуть» — сервер их пока не знает.
+            qty = Math.Max(0, qty - NurMarketKassa.Services.OfflineOperationsStore.UnsentRefundQuantity(_currentSaleId, CartDisplayHelper.TryProductId(lineItem), CartDisplayHelper.ItemName(lineItem)));
             var canReturn = qty > 0 && !CartDisplayHelper.LineLooksFullyReturned(lineItem);
 
             // Сумма к возврату — пропорционально остатку к возврату, а не полная сумма строки:
@@ -1136,7 +1152,14 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             total = ReturnShareEstimator.Cap(total, saleTotal);
         }
         // 2026-10-27 (ревью, См-5): сервер сам сказал, сколько ещё можно вернуть (refundable_total) — это точнее и записи кассы, и оценки по итогу чека.
-        return ReturnShareEstimator.CapRefundable(total, refundableTotal);
+        // 2026-10-30 («Возврат больше положенного: сервер записал 2,00, положено 1,80»): последний возврат по чеку (отмечены все оставшиеся строки
+        // целиком) — ровно остаток сервера, как у него; иначе — не больше остатка (RefundAmountMath).
+        if (refundableTotal is { } left && left > 0m)
+        {
+            var allLeft = selected.Count == returnableLines && selected.All(l => l.Quantity >= l.MaxReturnQuantity - 1e-6);
+            return RefundAmountMath.AmountForReturn(total, left, allLeft && left <= total + 0.01m * selected.Count);
+        }
+        return total;
     }
 
     private async Task ReturnSelectedCoreAsync(string saleId)
@@ -1311,7 +1334,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         {
             // 2026-10-16, ревью: 4xx (кроме 408/429) — ключ забыт; иначе исход неизвестен, ключ оставлен для повтора.
             outcomeUnknown = PendingReturn.OnError(ex);
-            PosMessageBox.Show(this, ex.Message, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Error);
+            // 2026-10-30: «возврат больше положенного» — понятный текст с суммой, которую сервер разрешает (дальше окно пересчитает остаток чека).
+            PosMessageBox.Show(this, RefundExceedsText(ex) ?? ex.Message, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
         catch (HttpRequestException ex)
         {
@@ -1703,6 +1727,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     private async Task ReportReturnIfAppliedAsync(string saleId, IReadOnlyDictionary<string, double> refundableBefore,
         decimal estimate, bool reverseLoyalty, bool whole = false, IReadOnlyList<ReturnSaleLineVm>? returnedLines = null, bool isDefect = false)
     {
+        NurMarketKassa.Services.OfflineOperationsService.NoteUnknownOnlineReturn(saleId); // 2026-10-29 (ревью, В-5): онлайн-возврат без ответа — офлайн-возврат по чеку закрыт, пока исход не выяснен
         try
         {
             using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -1717,6 +1742,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         }
 
         PendingReturn.OnSuccess();
+        NurMarketKassa.Services.OfflineOperationsService.ClearUnknownOnlineReturn(saleId); // 2026-10-29: исход выяснен — возврат без связи по чеку снова доступен
         SaleDetailCache.Forget(saleId);
         // 2026-10-20 (живой аудит, К1–К3): та же сумма и разбивка, что у дошедшего ответа (ResolveRefundAsync).
         var outcome = await ResolveRefundAsync(saleId, estimate, whole,
@@ -2172,7 +2198,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         {
             // 2026-10-16, ревью: 4xx (кроме 408/429) — ключ забыт; иначе исход неизвестен, ключ оставлен для повтора.
             outcomeUnknown = PendingReturn.OnError(ex);
-            PosMessageBox.Show(this, ex.Message, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Error);
+            // 2026-10-30: «возврат больше положенного» — понятный текст с суммой, которую сервер разрешает (дальше окно пересчитает остаток чека).
+            PosMessageBox.Show(this, RefundExceedsText(ex) ?? ex.Message, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
         catch (HttpRequestException ex)
         {
@@ -2198,6 +2225,22 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 whole: true, returnedLines: Lines.Where(l => l.CanReturn).ToList(), isDefect: reasonDialog.IsDefect).ConfigureAwait(true);
             await RefreshCurrentSaleAsync(saleId).ConfigureAwait(true);
         }
+    }
+
+    /// <summary>2026-10-30: ответ сервера «refund_exceeds_paid» (возврат больше положенного) — текст для кассира с цифрами сервера
+    /// (оплачено / уже возвращено / можно вернуть). Сумма в запросе не передаётся (сервер считает по строкам), поэтому повторять с другой суммой нельзя:
+    /// окно после ответа заново читает чек и пересчитывает «можно вернуть» (RefreshCurrentSaleAsync). null — другая ошибка.</summary>
+    private static string? RefundExceedsText(ApiException ex)
+    {
+        if (!RefundAmountMath.TryParseExceeds(ex, out var info))
+            return null;
+        var left = info.Refundable is { } r && r > 0m ? MoneyText.Som(r) : null;
+        var paid = info.Paid is { } p ? MoneyText.Som(p) : null;
+        var back = info.Refunded is { } b ? MoneyText.Som(b) : null;
+        var numbers = paid is null || back is null ? "" : "\n" + Tr.T($"Оплачено {paid}, уже возвращено {back}.", $"Төлөндү {paid}, мурун кайтарылды {back}.", $"Paid {paid}, already returned {back}.", $"Ödenen {paid}, daha önce iade edilen {back}.", $"To'langan {paid}, avval qaytarilgan {back}.");
+        return left is null
+            ? Tr.T("Сервер не принял возврат: по этому чеку больше нечего возвращать (возможно, часть уже возвращена на сайте или другой кассе).", "Сервер кайтарууну кабыл алган жок: бул чек боюнча кайтарууга эч нерсе калган жок (бир бөлүгү сайтта же башка кассада кайтарылган болушу мүмкүн).", "The server did not accept the return: nothing is left to return on this receipt (part may have been returned on the website or another till).", "Sunucu iadeyi kabul etmedi: bu fişte iade edilecek bir şey kalmadı (bir kısmı sitede veya başka kasada iade edilmiş olabilir).", "Server qaytarishni qabul qilmadi: bu chek bo'yicha qaytariladigan narsa qolmadi (bir qismi saytda yoki boshqa kassada qaytarilgan bo'lishi mumkin).") + numbers
+            : Tr.T($"Сервер не принял возврат: по чеку можно вернуть не больше {left}. Выберите меньше строк или количество.", $"Сервер кайтарууну кабыл алган жок: чек боюнча {left} ашык кайтарууга болбойт. Азыраак позиция же сан тандаңыз.", $"The server did not accept the return: no more than {left} can be returned on this receipt. Select fewer items or a smaller quantity.", $"Sunucu iadeyi kabul etmedi: bu fişte en fazla {left} iade edilebilir. Daha az kalem veya miktar seçin.", $"Server qaytarishni qabul qilmadi: bu chek bo'yicha {left} dan ko'p qaytarib bo'lmaydi. Kamroq pozitsiya yoki miqdor tanlang.") + numbers;
     }
 
     private void ShowErr(string msg)

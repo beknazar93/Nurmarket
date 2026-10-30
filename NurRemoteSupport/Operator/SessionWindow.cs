@@ -212,7 +212,7 @@ internal sealed class SessionWindow : Window
         var head = _company.Length > 0 || _machine.Length > 0
             ? $"{Place()}{(_machine.Length > 0 ? " · " + _machine : "")}"
             : L.T("Подключение к кассе", "Кассага туташуу", "Connecting to a till", "Kasaya bağlanılıyor", "Kassaga ulanish");
-        Title = $"{head} — NurMarket {L.T("Поддержка", "Колдоо", "Support", "Destek", "Yordam")}";
+        Title = $"{head} — NurCRM {L.T("Поддержка", "Колдоо", "Support", "Destek", "Yordam")}";
         _title.Text = head;
         _subtitle.Text = (_user.Length > 0 ? L.T("кассир: ", "кассир: ", "cashier: ", "kasiyer: ", "kassir: ") + _user + " · " : "") + state + (_note.Length > 0 ? $" · «{_note}»" : "");
     }
@@ -1045,7 +1045,7 @@ internal sealed class SessionWindow : Window
                     if (c.ValueKind == JsonValueKind.String && c.GetString() is { Length: > 0 } cs)
                         _caps.Add(cs);
         }
-        UpdateHeader(L.T("сеанс идёт", "сеанс жүрүп жатат", "session live", "oturum canlı", "seans davom etmoqda") + (h.ValueKind == JsonValueKind.Object ? " · NurMarket " + MainWindow.Str(h, "version") : ""));
+        UpdateHeader(L.T("сеанс идёт", "сеанс жүрүп жатат", "session live", "oturum canlı", "seans davom etmoqda") + (h.ValueKind == JsonValueKind.Object ? " · NurCRM " + MainWindow.Str(h, "version") : ""));
         SetStatus(null);
         _moveTimer.Start();
         ApplyCaps();

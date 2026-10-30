@@ -108,6 +108,9 @@
                 <TextBox x:Name="DebtPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" MaxLength="120"/>
                 <TextBlock x:Name="RentalPenaltyLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                 <TextBox x:Name="RentalPenaltyBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" Width="160" HorizontalAlignment="Left" Watermark="0"/>
+                <!-- 2026-10-29: «Макс. долг без связи» — предел долга на клиента, до которого касса без интернета оформляет «в долг». Надписи — в коде (5 языков). -->
+                <TextBlock x:Name="OfflineDebtMaxLabel" x:FieldModifier="public" FontSize="13" Foreground="{DynamicResource BrushText}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                <TextBox x:Name="OfflineDebtMaxBox" x:FieldModifier="public" Classes="ModernTextBox" Height="44" Width="160" HorizontalAlignment="Left" Watermark="0"/>
               </StackPanel>
           </StackPanel>
         </Border>

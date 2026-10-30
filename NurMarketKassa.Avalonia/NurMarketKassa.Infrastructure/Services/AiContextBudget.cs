@@ -108,7 +108,8 @@ public static class AiContextBudget
         var report = new StringBuilder();
         var included = new List<AiSection>();
         var omitted = new List<AiSection>();
-        var ordered = sections.Where(s => !string.IsNullOrWhiteSpace(s.Full))
+        // 2026-10-30: тумблеры Нур Советника — выключенные части данных и приватность отсекаются здесь, в единственной точке сборки.
+        var ordered = AdvisorCapabilities.FilterSections(sections).Where(s => !string.IsNullOrWhiteSpace(s.Full))
             .Select((s, i) => (s, i))
             .OrderBy(x => forceFull?.Contains(x.s.Key) == true ? -1 : x.s.Priority).ThenBy(x => x.i)
             .Select(x => x.s).ToList();

@@ -54,6 +54,12 @@ public sealed class PermissionService : IPermissionService
         if (ExtractPermissionNames(_authApi.UserPayload).Contains(permission))
             return true;
 
+        // 2026-10-30, живой баг (программа владельца): сессия недействительна → права не подтвердить, а «Клиенты» отвечали
+        // «Недостаточно прав». Пока нужен повторный вход, роль owner/admin из последнего успешного профиля (он остаётся в памяти,
+        // а на диске — в сохранённом входе) даёт доступ к разделам; данные всё равно не загрузятся без входа, откажет сервер.
+        if (SessionExpiryMonitor.IsExpired && HasOwnerOrAdminRole(_authApi.UserPayload))
+            return true;
+
         // 2026-10-01: разделы, которые сайт открывает владельцу всегда (PosPermissions.OwnerSections).
         // Тарифные флаги (поставщики, весы, этикетки…) сюда не входят — их по-прежнему решает сервер.
         return PosPermissions.OwnerSections.Contains(permission, StringComparer.OrdinalIgnoreCase)
@@ -66,6 +72,24 @@ public sealed class PermissionService : IPermissionService
     {
         if (AppMode.IsOwner)
             return true;
+        var user = OfflineAuthSessionStore.ResolveUserObject(payload);
+        if (user.ValueKind != JsonValueKind.Object)
+            user = payload;
+        return user.ValueKind == JsonValueKind.Object
+               && user.TryGetProperty("role", out var role)
+               && role.ValueKind == JsonValueKind.String
+               && role.GetString() is { } roleName
+               && (roleName.Equals("owner", StringComparison.OrdinalIgnoreCase) || roleName.Equals("admin", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>2026-10-30, редактор накладных закупок: право «Редактор документов закупок» — ТОЛЬКО роль owner из профиля. Админ, право «Настройки»,
+    /// автономный режим и сама программа владельца (AppMode.IsOwner — она бывает у сотрудника) права не дают. Когда сервер начнёт отдавать флаг
+    /// can_edit_purchase_documents, его можно будет учитывать здесь; окончательную проверку всё равно делает сервер.</summary>
+    public static bool CanEditPurchaseDocuments(JsonElement payload) => ReceiptEditPolicy.IsOwnerRole(payload);
+
+    /// <summary>Роль owner/admin именно из профиля (без AppMode.IsOwner: программа владельца бывает и у сотрудника).</summary>
+    internal static bool HasOwnerOrAdminRole(JsonElement payload)
+    {
         var user = OfflineAuthSessionStore.ResolveUserObject(payload);
         if (user.ValueKind != JsonValueKind.Object)
             user = payload;

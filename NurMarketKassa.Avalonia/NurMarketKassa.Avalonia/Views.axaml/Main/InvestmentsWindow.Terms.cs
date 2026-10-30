@@ -83,6 +83,8 @@ public sealed partial class InvestmentsWindow
         nameBox.Text = draft.Name;
         nameBox.TextChanged += (_, _) =>
         {
+            if ((nameBox.Text ?? "") == draft.Name)
+                return; // 2026-10-31: TextChanged без правки имени не должен ставить «изменено и не сохранено»
             draft.Name = nameBox.Text ?? "";
             MarkDirty();
             RebuildSide();
@@ -568,15 +570,29 @@ public sealed partial class InvestmentsWindow
         string M(int? m) => m is { } v ? v + " " + T("мес", "ай", "mo", "ay", "oy") : T("не окупится", "кайтпайт", "will not pay back", "geri dönmez", "oqlanmaydi");
         void Kpi(string label, string value, string colorKey)
         {
-            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+            // 2026-10-31: длинное значение («нужна база «чистая прибыль»») съедало ширину и подпись шла по 2 буквы в строке — длинное значение уходит второй строкой под подпись.
+            var longValue = value.Length > 14;
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions(longValue ? "Auto,*" : "Auto,*,Auto") };
             var dot = new Border { Width = 10, Height = 10, CornerRadius = new CornerRadius(3), Background = Brush.Parse(ColorOf(colorKey)), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
             var l = Soft(label, 13);
             l.VerticalAlignment = VerticalAlignment.Center;
+            l.TextWrapping = TextWrapping.Wrap;
             Grid.SetColumn(l, 1);
-            var v = Heading(value, 15);
-            v.VerticalAlignment = VerticalAlignment.Center;
-            v.Margin = new Thickness(10, 0, 0, 0);
-            Grid.SetColumn(v, 2);
+            var v = Heading(value, longValue ? 13 : 15);
+            v.TextWrapping = TextWrapping.Wrap;
+            if (longValue)
+            {
+                row.RowDefinitions = new RowDefinitions("Auto,Auto");
+                v.Margin = new Thickness(0, 4, 0, 0);
+                Grid.SetRow(v, 1);
+                Grid.SetColumn(v, 1);
+            }
+            else
+            {
+                v.VerticalAlignment = VerticalAlignment.Center;
+                v.Margin = new Thickness(10, 0, 0, 0);
+                Grid.SetColumn(v, 2);
+            }
             row.Children.Add(dot);
             row.Children.Add(l);
             row.Children.Add(v);
@@ -590,7 +606,7 @@ public sealed partial class InvestmentsWindow
         Kpi(T("Владелец окупится", "Ээси кайтарат", "The owner pays back", "Sahibi geri alır", "Egasi oqlanadi"), terms.Base == "net" ? M(sim.OwnerMonths) : T("нужна база «чистая прибыль»", "«таза пайда» базасы керек", "needs the “net profit” base", "«net kâr» tabanı gerekli", "«sof foyda» bazasi kerak"), OwnerKey);
 
         // Шкала 4 лет.
-        _simResult.Children.Add(Soft(T("Этапы на шкале 4 лет", "4 жылдык шкаладагы этаптар", "Stages on a 4-year scale", "4 yıllık ölçekte aşamalar", "4 yillik shkaladagi bosqichlar"), 12));
+        _simResult.Children.Add(Soft(T("Этапы на шкале: 4 года", "4 жылдык шкаладагы этаптар", "Stages on a 4-year scale", "4 yıllık ölçekte aşamalar", "4 yillik shkaladagi bosqichlar"), 12));
         var groups = sim.Stages.Where(g => g.From < 48).ToList();
         if (groups.Count > 0)
         {

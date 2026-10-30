@@ -46,4 +46,8 @@ internal sealed class ReplayDeferredException : Exception
     public ReplayDeferredException(string message) : base(message)
     {
     }
+
+    /// <summary>2026-10-29 (аварийный аудит кассы, п. 4): отложений было слишком много — чек переходит в «Требует проверки»
+    /// (failed, владелец решает вручную), а не ждёт вечно.</summary>
+    public bool NeedsReview { get; init; }
 }

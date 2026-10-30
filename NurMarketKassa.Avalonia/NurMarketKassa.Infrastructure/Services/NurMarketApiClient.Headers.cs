@@ -47,7 +47,7 @@ public sealed partial class NurMarketApiClient
             var text = await resp.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
 
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(RefreshToken))
-                ClearSession();
+                ExpireSession(relativePath); // 2026-10-30
 
             if (!resp.IsSuccessStatusCode)
             {

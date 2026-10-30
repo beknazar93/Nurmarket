@@ -1,11 +1,14 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'core/api/api_client.dart' show ApiText;
+import 'core/api/api_client.dart' show ApiClient, ApiText;
 import 'core/api/session_store.dart';
+import 'core/sync/background_sync.dart';
 import 'core/util/access.dart';
 import 'core/util/ui.dart' show statusBarStyle;
 import 'core/providers.dart';
@@ -204,9 +207,44 @@ class NurMarketApp extends ConsumerStatefulWidget {
 class _NurMarketAppState extends ConsumerState<NurMarketApp> {
   late final GoRouter _router = ref.read(appRouterProvider);
 
+  /// 2026-10-29 (аудит мобилки, п. 3): вернулись в приложение — очередь продаж уходит сразу, а не по таймеру через ≤ 20 с.
+  late final AppLifecycleListener _lifecycle = AppLifecycleListener(onResume: _onResume, onHide: _onHide);
+
+  /// Приложение скрыто — опрос по таймеру на паузу (срочно, «Скорость синхронизации»).
+  void _onHide() {
+    ref.read(syncProvider).pause();
+    unawaited(ref.read(syncProvider).planBackground()); // 2026-10-30 (оптимизация, п. 14): сворачиваемся — есть неотправленное, значит фоновая задача нужна
+    unawaited(Audit.syncToDisk()); // 2026-10-30 (оптимизация, п. 8): журнал действий — на диск (fsync) при сворачивании
+  }
+  late final ApiClient _api = ref.read(apiProvider);
+  bool _wasOffline = false;
+
+  Future<void> _onResume() async {
+    if (ref.read(sessionProvider) == null) return;
+    // фоновая задача могла обновить токены, пока приложение было закрыто или свёрнуто
+    await ref.read(apiProvider).reloadTokens();
+    ref.read(syncProvider).resume();
+    unawaited(ref.read(syncProvider).runOnce());
+  }
+
+  /// Связь появилась (первый ответ сервера после обрыва) — очередь уходит сразу, не дожидаясь таймера.
+  void _onLink() {
+    final off = _api.link.value.offline;
+    if (_wasOffline && !off && ref.read(sessionProvider) != null) unawaited(ref.read(syncProvider).runOnce());
+    _wasOffline = off;
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    _api.link.removeListener(_onLink);
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
+    _api.link.addListener(_onLink);
     // 2026-10-26 (голос-управление, В4): звонок ИИ ходит по разделам через этот же роутер.
     ref.read(callControllerProvider).attachRouter(_router);
     // Сессия истекла и не обновилась — на вход. 2026-10-22 (мобилка, деньги, К-5): без logout — набранный чек и очередь
@@ -216,7 +254,10 @@ class _NurMarketAppState extends ConsumerState<NurMarketApp> {
       await ref.read(sessionProvider.notifier).expire();
       _router.go('/login');
     });
-    if (widget.signedIn) ref.read(syncProvider).start();
+    if (widget.signedIn) {
+      ref.read(syncProvider).start();
+      unawaited(ref.read(syncProvider).planBackground()); // 2026-10-30 (оптимизация, п. 14): фоновая отправка — разовой задачей, если очередь не пуста
+    }
   }
 
   @override
@@ -226,16 +267,22 @@ class _NurMarketAppState extends ConsumerState<NurMarketApp> {
       // 14.10: журнал аудита — кто работает; вход и выход.
       Audit.currentUser = next?.userName ?? '';
       if (prev == null && next != null) Audit.log('login', 'Вход · ${next.email}');
-      if (prev != null && next == null) Audit.log('login', 'Выход · ${prev.userName}');
-      if (prev == null && next != null) ref.read(syncProvider).start();
-      if (next == null) ref.read(syncProvider).stop();
+      // 2026-10-29: запись «Выход» не пишем — выход стирает журнал, следов аккаунта на телефоне не остаётся
+      if (prev == null && next != null) {
+        ref.read(syncProvider).start();
+        unawaited(BackgroundSync.rebind().then((_) => ref.read(syncProvider).planBackground())); // 2026-10-29 (смена аккаунта): задача очереди — заново под новый вход
+      }
+      if (next == null) {
+        ref.read(syncProvider).stop();
+        unawaited(BackgroundSync.cancel());
+      }
       // 2026-10-26 (голос-управление, В4): вышли из учётной записи или сменили кассу — звонок с ИИ завершается
       if (prev != null && (next == null || next.cashboxId != prev.cashboxId || next.userId != prev.userId)) {
         ref.read(callControllerProvider).endCall();
       }
     });
     return MaterialApp.router(
-      title: 'NurMarket',
+      title: 'NurCRM',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(dark: false),
       darkTheme: buildTheme(dark: true),

@@ -179,7 +179,7 @@ public static class ProductActions
     /// <summary>Карточка товара для ИИ: всё, что известно (id нужен ИИ, чтобы точно указать товар в действии).</summary>
     public static async Task<string> DescribeForAiAsync(CatalogProductTileVm p, CancellationToken ct = default)
     {
-        var line = $"• id={p.Id} | {p.Title} | цена {p.PriceLine} | закупка {p.PurchasePrice:0.##} | остаток {Qty(p.Quantity)} {(p.MustWeigh ? "кг" : "шт")}"
+        var line = $"• id={p.Id} | {p.Title} | цена {p.PriceLine} | {(AdvisorCapabilities.HidePurchase ? "" : $"закупка {p.PurchasePrice:0.##} | ")}остаток {Qty(p.Quantity)} {(p.MustWeigh ? "кг" : "шт")}"
                    + (string.IsNullOrWhiteSpace(p.Barcode) ? "" : $" | штрихкод {p.Barcode}")
                    + (string.IsNullOrWhiteSpace(p.Category) ? "" : $" | категория {p.Category}")
                    + (string.IsNullOrWhiteSpace(p.Brand) ? "" : $" | бренд {p.Brand}");

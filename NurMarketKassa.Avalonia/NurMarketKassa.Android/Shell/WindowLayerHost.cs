@@ -35,11 +35,11 @@ public sealed class WindowLayerHost : Panel
     // таблица сжималась до одной строки — окно листалось целиком, и таблицы получали высоту «по содержимому».
     // Эти окна перестраиваются сами (NarrowLayout) и на телефоне открываются во весь экран.
     internal static readonly HashSet<string> NarrowWindows = new(StringComparer.Ordinal)
-        { "CheckoutDialog", "LoginWindow", "ProductEditDialog", "ReturnSaleDialog", "PayDebtDialog" };
+        { "CheckoutDialog", "LoginWindow", "ProductEditDialog", "ReturnSaleDialog", "PayDebtDialog", "OfflineOperationsWindow" }; // 2026-10-29: + возврат/оплата долга без связи
 
     /// <summary>2026-10-04: формы, которые на телефоне открываются во весь экран.</summary>
     internal static readonly HashSet<string> FullScreenOnPhone = new(StringComparer.Ordinal)
-        { "ProductEditDialog", "ReturnSaleDialog", "PayDebtDialog" };
+        { "ProductEditDialog", "ReturnSaleDialog", "PayDebtDialog", "OfflineOperationsWindow" };
     private readonly List<Window> _windows = new();
     private readonly Dictionary<Window, Layer> _layers = new();
     private readonly Dictionary<Window, IInputElement?> _lastFocus = new();
@@ -235,10 +235,60 @@ public sealed class WindowLayerHost : Panel
             layer.IsHitTestVisible = i >= topModal;
             layer.IsVisible = _windows[i].IsVisible;
         }
+        UpdateBackdropBlur(topModal);
 
         var top = TopWindow;
         foreach (var w in _windows)
             w.SetActive(ReferenceEquals(w, top));
+    }
+
+    // ---- 2026-10-30: размытие фона под модалкой (затемнение уже есть в слое модалки; здесь — блюр слоёв ниже неё) ----
+
+    private readonly List<Layer> _blurLayers = new();
+    private double _blurLevel;
+    private double _blurGoal;
+    private DispatcherTimer? _blurTimer;
+
+    /// <summary>Слои ниже верхней модалки размываются за 130 мс; когда модалок нет — размытие плавно снимается. Слабое устройство — без блюра.</summary>
+    private void UpdateBackdropBlur(int topModal)
+    {
+        try
+        {
+            if (NurMarketKassa.Services.UserPreferences.Instance.LowPerformanceMode)
+                topModal = -1;
+            var wanted = new List<Layer>();
+            for (var i = 0; i < topModal && i < _windows.Count; i++)
+                if (_layers.TryGetValue(_windows[i], out var l) && l.IsVisible)
+                    wanted.Add(l);
+            foreach (var old in _blurLayers.Where(l => !wanted.Contains(l)).ToList())
+            {
+                old.Effect = null;
+                _blurLayers.Remove(old);
+            }
+            _blurLayers.AddRange(wanted.Where(l => !_blurLayers.Contains(l)));
+            _blurGoal = _blurLayers.Count > 0 ? 1 : 0;
+            if (_blurTimer is null)
+            {
+                _blurTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+                _blurTimer.Tick += (_, _) =>
+                {
+                    _blurLevel = _blurGoal > _blurLevel ? Math.Min(1, _blurLevel + 16.0 / 130) : Math.Max(0, _blurLevel - 16.0 / 130);
+                    foreach (var l in _blurLayers)
+                        l.Effect = _blurLevel > 0 ? new BlurEffect { Radius = _blurLevel * 5 } : null;
+                    if (_blurLevel == _blurGoal)
+                        _blurTimer?.Stop();
+                };
+            }
+            if (_blurLevel != _blurGoal)
+                _blurTimer.Start();
+            else
+                foreach (var l in _blurLayers)
+                    l.Effect = _blurLevel > 0 ? new BlurEffect { Radius = _blurLevel * 5 } : null;
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"Android: размытие фона — {ex.Message}", "UI");
+        }
     }
 
     internal void FocusWindow(Window window)

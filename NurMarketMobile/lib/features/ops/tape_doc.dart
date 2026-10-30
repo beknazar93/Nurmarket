@@ -67,7 +67,7 @@ class TapeDoc {
     List<(String, String)> meta = const [],
     required List<TapeItem> items,
   }) => TapeDoc(
-    shop: (s?.companyName.isNotEmpty ?? false) ? s!.companyName : 'NurMarket',
+    shop: (s?.companyName.isNotEmpty ?? false) ? s!.companyName : 'NurCRM',
     inn: s?.companyInn ?? '',
     address: s?.companyAddress ?? '',
     title: title,
@@ -193,7 +193,7 @@ class TapeDoc {
       textAlign: pw.TextAlign.center,
       style: pw.TextStyle(fontSize: size, color: c, fontWeight: strong ? pw.FontWeight.bold : pw.FontWeight.normal),
     );
-    final doc = pw.Document(title: fileName, author: shop, creator: 'NurMarket');
+    final doc = pw.Document(title: fileName, author: shop, creator: 'NurCRM');
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.roll80.copyWith(marginLeft: 10, marginRight: 10, marginTop: 12, marginBottom: 12),

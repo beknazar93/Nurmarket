@@ -46,7 +46,7 @@
   "closeShift": "Закрыть смену",
   "openingCashHint": "Сколько денег в кассе на начало",
   "openShiftFirst": "Сначала откройте смену на главной.",
-  "offlineWorking": "Нет связи с сервером — продажи сохраняются на телефоне и уйдут сами.",
+  "offlineWorking": "Нет связи с сервером — продажи сохраняются на телефоне. Они уйдут, как только появится связь: сразу, если приложение открыто, в фоне примерно раз в 15 минут или при следующем открытии.",
   "runningOut": "{n, plural, one{Заканчивается {n} товар} few{Заканчиваются {n} товара} many{Заканчиваются {n} товаров} other{Заканчиваются {n} товара}}",
   "@runningOut": {
     "placeholders": {
@@ -615,7 +615,7 @@
       }
     }
   },
-  "callNoMic": "Нет доступа к микрофону. Разрешите микрофон для NurMarket в настройках телефона.",
+  "callNoMic": "Нет доступа к микрофону. Разрешите микрофон для NurCRM в настройках телефона.",
   "callOpenSettings": "Открыть настройки",
   "callUnsupported": "Голосовой звонок работает на телефоне Android.",
   "callTableReady": "Таблица с цифрами будет в чате после звонка",
@@ -915,7 +915,7 @@
   "total": "Итого",
   "paidOk": "Оплата проведена",
   "savedOffline": "Чек сохранён на телефоне",
-  "savedOfflineHint": "Нет связи — чек уйдёт на сервер сам, второй раз не проведётся.",
+  "savedOfflineHint": "Чек сохранён на телефоне. Он уйдёт на сервер, когда появится связь: сразу, если приложение открыто, в фоне примерно через 15 минут или при следующем открытии. Второй раз не проведётся.",
   "receiptQr": "QR-код",
   "showQr": "Показать QR покупателю",
   "qrPointCamera": "Покупатель наводит камеру телефона",
@@ -971,7 +971,7 @@
   "notAccepted": "не принят",
   "waitsForNetwork": "ждёт связи",
   "returned": "возврат",
-  "offlineCheckHint": "Нет связи — чек сохранён и уйдёт на сервер сам",
+  "offlineCheckHint": "Чек сохранён и ждёт отправки: уйдёт при связи (приложение открыто — сразу, закрыто — в фоне или при следующем открытии)",
   "sendToCustomer": "Отправить покупателю",
   "sendAgain": "Отправить ещё раз",
   "returnByAdmin": "Возврат — с разрешения администратора",
@@ -1003,7 +1003,7 @@
     }
   },
   "unknownBarcode": "Неизвестный штрихкод",
-  "unknownBarcodeHint": "{code} · не найден ни в каталоге, ни в справочнике NurCRM. Заведите товар — код никуда не отправляется",
+  "unknownBarcodeHint": "{code} · нет в вашем каталоге (проверено на сервере) и в справочнике NurCRM. Заведите товар — код никуда не отправляется",
   "@unknownBarcodeHint": {
     "placeholders": {
       "code": {
@@ -1759,7 +1759,7 @@
     }
   },
   "auditApplied": "Ревизия проведена — остатки обновлены.",
-  "auditApplyQueued": "Акт ревизии создан — проведение уйдёт при связи.",
+  "auditApplyQueued": "Акт ревизии создан, но не проведён (связи не было). Пересчитайте и проведите заново — акт останется черновиком.",
   "auditOnlineOnly": "Ревизия проводится только при связи с сервером — пересчёт сохранён, повторите позже.",
   "auditContinue": "{n, plural, one{Продолжить пересчёт ({n} товар)} few{Продолжить пересчёт ({n} товара)} many{Продолжить пересчёт ({n} товаров)} other{Продолжить пересчёт ({n} товара)}}",
   "@auditContinue": {
@@ -2096,7 +2096,7 @@
       }
     }
   },
-  "peStockQueued": "Документ создан — проведётся сам при связи.",
+  "peStockQueued": "Документ создан, но не проведён (связи не было). Пересчитайте и проведите заново.",
   "peStockOffline": "Нет связи с сервером — остаток не получен, ничего не изменено.",
   "peStockBelowZero": "Списать больше остатка нельзя (есть {qty}).",
   "@peStockBelowZero": {
@@ -3058,9 +3058,9 @@
   "klScanQr": "Сканировать QR на кассе",
   "klScanQrHint": "На компьютере с кассой откройте окно «Подключить телефон» и наведите камеру на QR-код. Телефон и касса должны быть в одной Wi-Fi сети, касса — запущена.",
   "klScanQrTitle": "Наведите камеру на QR-код на экране кассы",
-  "klNotKassaQr": "Это не QR-код кассы NurMarket",
+  "klNotKassaQr": "Это не QR-код кассы NurCRM",
   "klBadQr": "Не удалось прочитать QR-код. Откройте на кассе окно «Подключить телефон» и сканируйте заново.",
-  "klQrVersion": "Эта касса новее приложения. Обновите NurMarket на телефоне.",
+  "klQrVersion": "Эта касса новее приложения. Обновите NurCRM на телефоне.",
   "klManual": "Ввести ссылку вручную",
   "klManualHint": "Вставьте текст QR-кода (nurmarket-link:…)",
   "klConnect": "Подключить",
@@ -3791,6 +3791,16 @@
     }
   },
   "recvFixed": "Штрихкод исправлен",
+  "recvOffline": "Сервер не ответил",
+  "recvOfflineHint": "{code} · не удалось проверить: нет связи с сервером. Это не значит, что товара нет — проверьте снова, когда появится сеть",
+  "@recvOfflineHint": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "recvRetry": "Проверить снова",
   "recvNoRight": "Завести, привязать или исправить может сотрудник с правом «Склад».",
   "recvSearching": "Ищу {code} на сервере и в справочнике…",
   "@recvSearching": {
@@ -4381,5 +4391,376 @@
   "infTotalWord": "Всего",
   "infShiftNoSales": "В смене пока нет продаж",
   "infHowTitle": "Как это посчитано",
-  "infRangePick": "Выбрать даты"
+  "infRangePick": "Выбрать даты",
+  "apiSaleAlreadyPosted": "Сервер уже провёл этот чек (ключ совпал) — сверьте его в разделе «Чеки».",
+  "apiAuditStale": "Ревизия не проведена вовремя — остатки могли измениться. Пересчитайте заново (акт остался черновиком).",
+  "priceChangedTitle": "Цена изменилась",
+  "priceChangedLine": "{name}: {oldPrice} → {newPrice} сом",
+  "@priceChangedLine": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "oldPrice": {
+        "type": "String"
+      },
+      "newPrice": {
+        "type": "String"
+      }
+    }
+  },
+  "priceChangedNote": "Продажа не проведена. Цены в чеке обновлены — проверьте новую сумму и нажмите «Оплатить» ещё раз.",
+  "priceMaybeStale": "Нет связи — цена в чеке может быть устаревшей.",
+  "apiWifiPortal": "Откройте страницу входа Wi-Fi (сеть магазина просит войти) и повторите.",
+  "apiBadResponse": "Сервер ответил непонятно. Повторите позже.",
+  "linkOffline": "Нет связи с сервером",
+  "linkOfflineSince": "Нет связи · данные от {time}",
+  "@linkOfflineSince": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "dataAsOf": "Данные от {time}",
+  "@dataAsOf": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "noDataOffline": "Нет данных — нет связи с сервером",
+  "unsentOnPhone": "На телефоне не отправлено: {n}",
+  "@unsentOnPhone": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "listCachedAt": "Показан сохранённый список от {time}.",
+  "@listCachedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "auditError": "Сбой",
+  "stockAsOf": "Остатки на {time}",
+  "@stockAsOf": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "accountLoading": "Загружаем данные аккаунта… {done}/{total}",
+  "@accountLoading": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "accountLoadFailed": "Данные аккаунта загрузились не полностью (нет связи или сервер не ответил).",
+  "accountDataNotLoaded": "Данные этого аккаунта ещё не загружены",
+  "logoutSendNow": "Отправить сейчас",
+  "guardUnsent": "Есть неотправленные продажи и операции: {n} на {sum} сом. Пока они не отправлены, выйти нельзя.",
+  "@guardUnsent": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "guardSending": "Отправляем…",
+  "guardWaitConnection": "Нет связи с сервером. Дождитесь связи и нажмите «Отправить сейчас» ещё раз — или выгрузите продажи в файл.",
+  "guardSendLeft": "Не всё отправилось: осталось {n}. {error}",
+  "@guardSendLeft": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "guardExport": "Выгрузить в файл и выйти",
+  "guardExportWarn": "Файл будет содержать данные чеков (товары, суммы). Храните его в надёжном месте. После выхода на телефоне не останется ничего, кроме этого файла.",
+  "guardExported": "Файл сохранён: {path}. Пришлите его владельцу или администратору для восстановления продаж.",
+  "@guardExported": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "guardExportFailed": "Не удалось сохранить файл: {error}. Выход отменён, продажи на месте.",
+  "@guardExportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "guardDiscard": "Выйти БЕЗ отправки",
+  "guardDiscardWord": "УДАЛИТЬ",
+  "guardDiscardWarn": "Неотправленные продажи будут ПОТЕРЯНЫ без возможности восстановления. Чтобы подтвердить, введите слово «{word}».",
+  "@guardDiscardWarn": {
+    "placeholders": {
+      "word": {
+        "type": "String"
+      }
+    }
+  },
+  "guardDiscardField": "Слово подтверждения",
+  "guardForeign": "На телефоне остались неотправленные продажи другого аккаунта ({account}): {n} на {sum} сом. Чтобы войти другим аккаунтом, их нужно выгрузить в файл или удалить. Или войдите прежним аккаунтом и отправьте.",
+  "@guardForeign": {
+    "placeholders": {
+      "account": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      },
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "close": "Закрыть",
+  "revCostLine": "Закупка: {cost}",
+  "@revCostLine": {
+    "placeholders": {
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "revNoCost": "Закупки нет",
+  "revDiffAmount": "Сумма разницы: {amount}",
+  "@revDiffAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "revStarNote": "* — закупки у товара нет, сумма посчитана по цене продажи.",
+  "revShortageLine": "Недостача: {qty} шт · −{cost} сом (по закупке) · −{sale} сом (по продаже)",
+  "@revShortageLine": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      },
+      "cost": {
+        "type": "String"
+      },
+      "sale": {
+        "type": "String"
+      }
+    }
+  },
+  "revSurplusLine": "Излишек: {qty} шт · +{cost} сом (по закупке) · +{sale} сом (по продаже)",
+  "@revSurplusLine": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      },
+      "cost": {
+        "type": "String"
+      },
+      "sale": {
+        "type": "String"
+      }
+    }
+  },
+  "revNetLine": "Чистый результат: {amount} сом (по закупке)",
+  "@revNetLine": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "revNoCostWarn": "{n, plural, one{⚠ Не хватает закупки у {n} товара} few{⚠ Не хватает закупки у {n} товаров} many{⚠ Не хватает закупки у {n} товаров} other{⚠ Не хватает закупки у {n} товаров}}",
+  "@revNoCostWarn": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "revNoCostTip": "У этих товаров нет закупки: в суммы «по закупке» они не вошли. Их разница по цене продажи: недостача −{short} сом, излишек +{surplus} сом. В списке их сумма помечена «*».",
+  "@revNoCostTip": {
+    "placeholders": {
+      "short": {
+        "type": "String"
+      },
+      "surplus": {
+        "type": "String"
+      }
+    }
+  },
+  "revTopShortages": "Топ-{n} недостач",
+  "@revTopShortages": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "revAllDiffs": "Все расхождения: {n}",
+  "@revAllDiffs": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pbTitle": "Поступления и партии",
+  "pbTotalReceived": "Всего получено",
+  "pbAvgCost": "Средняя закупка",
+  "pbLastCost": "Последняя закупка",
+  "pbLastSupplier": "Последний поставщик",
+  "pbCount": "Поступлений: {n}",
+  "@pbCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pbPartial": "Итоги — по загруженным поступлениям. Прокрутите вниз, чтобы подгрузить остальные.",
+  "pbSearchHint": "Поставщик или № прихода",
+  "pbSearchHintNo": "№ прихода",
+  "pbWeek": "Неделя",
+  "pbMonth": "Месяц",
+  "pbYear": "Год",
+  "pbAllTime": "Всё время",
+  "pbInvoice": "Накладная",
+  "pbNumber": "№ {no}",
+  "@pbNumber": {
+    "placeholders": {
+      "no": {
+        "type": "String"
+      }
+    }
+  },
+  "pbCostLine": "Закупка: {cost} сом",
+  "@pbCostLine": {
+    "placeholders": {
+      "cost": {
+        "type": "String"
+      }
+    }
+  },
+  "pbSumLine": "Сумма: {sum} сом",
+  "@pbSumLine": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "pbReceivedBy": "Принял: {name}",
+  "@pbReceivedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pbPayLine": "Оплата: {method}",
+  "@pbPayLine": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "pbPayCash": "Наличные",
+  "pbPayDebt": "В долг",
+  "pbPayPrepay": "Предоплата",
+  "pbRemainLine": "Остаток партии ≈ {qty} {unit} (оценка)",
+  "@pbRemainLine": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "pbRemainTip": "Это оценка по правилу FIFO («первым пришёл — первым ушёл»): текущий остаток товара ({stock} {unit}) распределён по самым свежим поступлениям, начиная с последнего. Сервер не хранит остаток каждой партии, поэтому цифра приблизительная.",
+  "@pbRemainTip": {
+    "placeholders": {
+      "stock": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "pbReturned": "Возвращено поставщику: {qty} {unit}",
+  "@pbReturned": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "pbEmpty": "Поступлений этого товара не найдено",
+  "pbEmptySearch": "По запросу ничего не найдено",
+  "pbDataFrom": "Нет связи. Данные от {time}",
+  "@pbDataFrom": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "pbLoadingMore": "Загружаем ещё…",
+  "pbEnd": "Больше поступлений нет",
+  "pbToTop": "К началу",
+  "pbLoadError": "Не удалось загрузить: {error}",
+  "@pbLoadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pbDocTitle": "Накладная прихода",
+  "pbDocLines": "Состав прихода",
+  "pbDocTotal": "Итого: {sum} сом",
+  "@pbDocTotal": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "pbThisProduct": "этот товар",
+  "pbOpenFile": "Открыть файл",
+  "pbNoFile": "Исходный файл не сохранён",
+  "pbFileError": "Не удалось открыть файл",
+  "pbSupplier": "Поставщик",
+  "pbCall": "Позвонить",
+  "pbWhatsApp": "WhatsApp",
+  "pbNoPhone": "Телефон не указан"
 }

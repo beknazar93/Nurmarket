@@ -69,7 +69,7 @@ public class KassaKeepAliveService : Service
 
     private Notification BuildNotification()
     {
-        var title = IsOwnerProgram ? "NurMarket Владелец" : "NurMarket Касса";
+        var title = IsOwnerProgram ? "NurCRM Владелец" : "NurCRM Касса";
         var text = IsOwnerProgram
             ? Tr.T("Программа владельца работает — нажмите, чтобы открыть",
                 "Ээсинин программасы иштеп жатат — ачуу үчүн басыңыз",

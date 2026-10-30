@@ -27,7 +27,7 @@
   <x:String x:Key="csh.menu.errorLogs">Jurnal va xatolar</x:String>
   <x:String x:Key="csh.menu.cartRemovals">Chekdan olib tashlanganlar</x:String>
   <x:String x:Key="csh.menu.remoteSupport">NurCRM texnik yordami</x:String>
-  <x:String x:Key="csh.menu.knowledgeBase">NurMarket bilimlar bazasi</x:String>
+  <x:String x:Key="csh.menu.knowledgeBase">NurCRM bilimlar bazasi</x:String>
   <x:String x:Key="csh.menu.restock">To'ldirish va muddatlar</x:String>
   <x:String x:Key="csh.menu.switchCashier">Kassirni almashtirish</x:String>
   <x:String x:Key="switchCashier.title">Kassirni almashtirish</x:String>
@@ -122,7 +122,7 @@
   <x:String x:Key="header.labelTheme">Mavzu</x:String>
   <x:String x:Key="header.labelKeyboard">Klaviatura</x:String>
   <x:String x:Key="header.labelHotkeys">Tezkor</x:String>
-  <x:String x:Key="mainWindow.windowTitle">Kassa — Nur Market</x:String>
+  <x:String x:Key="mainWindow.windowTitle">Kassa — NurCRM</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Orqaga</x:String>
   <x:String x:Key="printSettings.findButton">Topish</x:String>
   <x:String x:Key="printSettings.lptWatermark">Port yoki printer yo'li (topilmasa)</x:String>
@@ -231,7 +231,7 @@
   <x:String x:Key="csh.filter.apply">Qo'llash</x:String>
 
   <!-- Kirish ekrani -->
-  <x:String x:Key="csh.login.title">Kirish — Nur Market</x:String>
+  <x:String x:Key="csh.login.title">Kirish — NurCRM</x:String>
   <x:String x:Key="csh.login.tagline">Chakana savdo uchun kassa tizimi</x:String>
   <x:String x:Key="csh.login.secureTitle">Ish smenasiga xavfsiz kirish</x:String>
   <x:String x:Key="csh.login.secureSubtitle">Ma'lumotlar bulut va mahalliy audit bazasi bilan sinxronlashtiriladi.</x:String>
@@ -329,7 +329,7 @@
 
   <!-- NurCRM texnik yordam -->
   <!-- 2026-10-16: удалённая помощь — только своя «Nur Yordam» -->
-  <x:String x:Key="remoteSupport.intro">Masofaviy yordam — «Nur Yordam»: NurMarket operatori kassa ekranini ko'radi va muammoni hal qilishga yordam beradi. Yordam xizmatiga qo'ng'iroq qiling yoki WhatsApp'ga yozing: +996 221 068 796, so'ng «Yordam uchun kod olish» tugmasini bosing va operatorga kod hamda PIN'ni ayting.</x:String>
+  <x:String x:Key="remoteSupport.intro">Masofaviy yordam — «Nur Yordam»: NurCRM operatori kassa ekranini ko'radi va muammoni hal qilishga yordam beradi. Yordam xizmatiga qo'ng'iroq qiling yoki WhatsApp'ga yozing: +996 221 068 796, so'ng «Yordam uchun kod olish» tugmasini bosing va operatorga kod hamda PIN'ni ayting.</x:String>
   <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
   <x:String x:Key="remoteSupport.copyDeviceInfo">Qurilma ma'lumotlarini nusxalash</x:String>
 
@@ -629,7 +629,7 @@
   <x:String x:Key="sideMenu.sectionSystem">Tizim</x:String>
 
   <!-- Admin yordami, CRM veb-ko'rinishi, smena tarixi oynasi -->
-  <x:String x:Key="adminSupport.title">Yordam — Nur Market</x:String>
+  <x:String x:Key="adminSupport.title">Yordam — NurCRM</x:String>
   <x:String x:Key="adminSupport.header">Administrator yordami</x:String>
   <x:String x:Key="adminSupport.subtitle">Yordam har doim aloqada</x:String>
   <x:String x:Key="common.forward">Oldinga</x:String>
@@ -812,7 +812,7 @@
   <x:String x:Key="posSettings.print.printAfterPayment">To'lovdan keyin chekni chop etish</x:String>
   <x:String x:Key="posSettings.print.equipmentTitle">Uskuna va ulanish</x:String>
   <x:String x:Key="posSettings.print.foundPrinters">Topilgan printerlar va portlar</x:String>
-  <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Hech narsa topilmadi — "Topish" tugmasini bosing</x:String>
+  <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Topilmadi — "Topish"ni bosing</x:String>
   <x:String x:Key="posSettings.print.retriesOnFailure">Xato bo'lganda qayta urinishlar</x:String>
   <x:String x:Key="posSettings.print.tapeWidth">Lenta kengligi</x:String>
   <x:String x:Key="posSettings.print.charsPerLine">Qatordagi belgilar</x:String>

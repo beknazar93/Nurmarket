@@ -50,11 +50,11 @@ internal static class AndroidCameraScanner
             if (!await _permission.Task.ConfigureAwait(true))
             {
                 Toast.MakeText(activity, AndroidCrashReport.T(
-                    "Нет доступа к камере. Разрешите его: Настройки Android → Приложения → NurMarket → Разрешения.",
-                    "Камерага уруксат жок. Android жөндөөлөрү → Колдонмолор → NurMarket → Уруксаттар.",
-                    "No camera access. Allow it in Android Settings → Apps → NurMarket → Permissions.",
-                    "Kamera izni yok. Android Ayarlar → Uygulamalar → NurMarket → İzinler.",
-                    "Kameraga ruxsat yo'q. Android sozlamalari → Ilovalar → NurMarket → Ruxsatlar."), ToastLength.Long)?.Show();
+                    "Нет доступа к камере. Разрешите его: Настройки Android → Приложения → NurCRM → Разрешения.",
+                    "Камерага уруксат жок. Android жөндөөлөрү → Колдонмолор → NurCRM → Уруксаттар.",
+                    "No camera access. Allow it in Android Settings → Apps → NurCRM → Permissions.",
+                    "Kamera izni yok. Android Ayarlar → Uygulamalar → NurCRM → İzinler.",
+                    "Kameraga ruxsat yo'q. Android sozlamalari → Ilovalar → NurCRM → Ruxsatlar."), ToastLength.Long)?.Show();
                 return null;
             }
         }

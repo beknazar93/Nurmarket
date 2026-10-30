@@ -98,14 +98,19 @@ public sealed class CashShiftService : ICashShiftService
         if (OfflineModeHelper.UseLocalOperations || OfflineModeHelper.IsServerOutage)
             return OpenOfflineShift(openingCash);
 
+        using var critical = ApiThrottle.BeginCritical(); // 2026-10-30: открытие смены — критичный запрос, при 429 выходит первым после паузы
         var opening = openingCash.ToString("0.00", CultureInfo.InvariantCulture);
         // 2026-10-04, стенд «сбои сервера»: сервер, который молчит (обрыв без ответа, «чёрная дыра»,
         // ответ через 20–60 с), кассир ждёт не дольше OpenShiftServerAnswerBudget с последнего ответа
         // сервера, дальше — офлайн-смена (catch ниже), как при обрыве сети. Раньше — до 55 с на запрос
         // (таймаут HttpClient): на стенде открытие смены при «чёрной дыре» заняло 55 с.
-        using var serverWait = new CancellationTokenSource(OpenShiftServerAnswerBudget);
+        // 2026-10-30 (приёмка 1.17.67, «Важно» 1): уже идущая пауза 429 (лента, пульс) входит в срок — иначе он истекал внутри чужой паузы.
+        using var serverWait = new CancellationTokenSource(OpenShiftServerAnswerBudget + ApiThrottle.RemainingBlock);
         using var serverCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, serverWait.Token);
-        var watch = ServerOutageMonitor.BeginResponseWatch(() => serverWait.CancelAfter(OpenShiftServerAnswerBudget));
+        // 2026-10-30 (приёмка 1.17.66, «Важно» 1): 429 — пауза Retry-After входит в срок (пауза + запас), а не 2 с: иначе срок выходил внутри паузы и смена открывалась офлайн при живом сервере.
+        var shiftStartedUtc = DateTime.UtcNow;
+        var watch = ServerOutageMonitor.BeginResponseWatch(() => serverWait.CancelAfter(OpenShiftServerAnswerBudget + ApiThrottle.RemainingBlock),
+            wait => serverWait.CancelAfter(ApiThrottle.CriticalBudget(wait)));
         try
         {
             // 2026-09-10: раньше вызывался ДО этого try/catch — ApiException отсюда (например,
@@ -302,6 +307,14 @@ public sealed class CashShiftService : ICashShiftService
             _auditDb.LogShift("open", openingCash, PosApp.ActiveShiftId);
             return CashShiftOperationResult.Success(openingCash);
         }
+        catch (Exception ex) when ((ApiThrottle.IsThrottled(ex) || (ex is OperationCanceledException && ApiThrottle.ThrottledSince(shiftStartedUtc))) && !cancellationToken.IsCancellationRequested)
+        {
+            // 2026-10-30 (приёмка 1.17.66, «Важно» 1): срок мог выйти уже после паузы 429 (отмена) — это тоже «занят», не «нет связи».
+            // 2026-10-30 (приёмка 1.17.65, «Важно» 2): 429 — сервер занят, а не «нет связи». Офлайн-смену не открываем (она подменила бы настоящую смену
+            // сервера и отправила бы чеки без неё): кассир видит «Сервер занят», повторяет через пару секунд.
+            PosLogger.Log($"Открытие смены: сервер занят (429) — смена не открыта, повтор через {ApiThrottle.RemainingBlock.TotalSeconds:0} с.", "SHIFT");
+            return CashShiftOperationResult.Failed(ApiThrottle.BusyText());
+        }
         catch (HttpRequestException ex)
         {
             // 2026-10-04: обрыв связи — авария сразу (следующие действия кассира не ждут сеть), как в
@@ -436,6 +449,7 @@ public sealed class CashShiftService : ICashShiftService
 
         var shiftId = PosApp.ActiveShiftId;
         var closing = closingCash?.ToString("0.00", CultureInfo.InvariantCulture);
+        using var critical = ApiThrottle.BeginCritical(); // 2026-10-30: закрытие смены — критичный запрос (при 429 первым после паузы)
 
         if (OfflineModeHelper.UseLocalOperations)
         {
@@ -457,9 +471,12 @@ public sealed class CashShiftService : ICashShiftService
         // 2026-10-04, стенд «сбои сервера»: молчащий сервер — не дольше CloseShiftServerAnswerBudget с
         // последнего ответа, дальше смена закрывается в кассе, закрытие на сервере — в очередь (catch
         // ниже). Раньше — до 55 с (таймаут HttpClient; на стенде при «чёрной дыре» — ровно 55 с).
-        using var serverWait = new CancellationTokenSource(CloseShiftServerAnswerBudget);
+        using var serverWait = new CancellationTokenSource(CloseShiftServerAnswerBudget + ApiThrottle.RemainingBlock); // 2026-10-30 (приёмка 1.17.67, «Важно» 1): + идущая пауза 429
         using var serverCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, serverWait.Token);
-        var watch = ServerOutageMonitor.BeginResponseWatch(() => serverWait.CancelAfter(CloseShiftServerAnswerBudget));
+        // 2026-10-30 (приёмка 1.17.66, «Важно» 1): то же, что при открытии — на 429 срок = Retry-After + запас.
+        var closeStartedUtc = DateTime.UtcNow;
+        var watch = ServerOutageMonitor.BeginResponseWatch(() => serverWait.CancelAfter(CloseShiftServerAnswerBudget + ApiThrottle.RemainingBlock),
+            wait => serverWait.CancelAfter(ApiThrottle.CriticalBudget(wait)));
         try
         {
             JsonElement response;
@@ -506,6 +523,14 @@ public sealed class CashShiftService : ICashShiftService
             // свежий, читаем разбивку из него.
             var totals = ReadClosingTotals(response, shiftId, cancellationToken);
             return CashShiftOperationResult.Success(closingCash, totals: totals);
+        }
+        catch (Exception ex) when ((ApiThrottle.IsThrottled(ex) || (ex is OperationCanceledException && ApiThrottle.ThrottledSince(closeStartedUtc)))
+                                   && !cancellationToken.IsCancellationRequested)
+        {
+            // 2026-10-30 (приёмка 1.17.66, «Важно» 1): сервер занят (429) — смена НЕ закрывается офлайн и авария не объявляется: сервер жив, просил паузу.
+            // Кассир повторяет закрытие через несколько секунд (смена остаётся открытой, ничего не потеряно).
+            PosLogger.Log($"Закрытие смены: сервер занят (429) — смена не закрыта, повтор через {ApiThrottle.RemainingBlock.TotalSeconds:0} с.", "SHIFT");
+            return CashShiftOperationResult.Failed(ApiThrottle.BusyText());
         }
         catch (Exception ex) when (ex is not HttpRequestException
                                    && ServerOutageMonitor.IsServerFailure(ex)
@@ -602,6 +627,16 @@ public sealed class CashShiftService : ICashShiftService
 
                 return CashShiftOperationResult.Failed(DescribeCloseFailure(retryEx));
             }
+        }
+        catch (Exception ex) when (SessionExpiryMonitor.IsSessionLost(ex) && !cancellationToken.IsCancellationRequested) // 2026-10-30: не любой 401
+        {
+            // 2026-10-30, живой баг («Ошибка закрытия смены: Сессия недействительна…» — тупик): сервер отозвал вход. Смена закрывается
+            // в кассе, закрытие на сервере остаётся «ждёт» (PendingShiftCloseStore) и уйдёт само после повторного входа; окно «Войдите снова»
+            // покажет SessionExpiredPrompt (один раз). Деньги, очередь продаж и корзины не трогаются.
+            SessionExpiryMonitor.Report(Tr.T("закрытие смены", "сменаны жабуу", "closing the shift", "vardiya kapatma", "smenani yopish"));
+            return IsOfflineShiftId(shiftId)
+                ? CloseOfflineShiftLocally(shiftId, closingCash)
+                : CloseLocallyAndQueue(shiftId!, closing, closingCash, "session expired");
         }
         catch (Exception ex)
         {

@@ -682,6 +682,25 @@ class KassaLink extends ChangeNotifier {
     }
   }
 
+  /// 2026-10-29 (полная изоляция аккаунтов): другой аккаунт — сопряжение с кассой, id телефона и счётчик сканов прошлого забыты;
+  /// id телефона для нового аккаунта создаётся заново при следующем чтении.
+  Future<void> forgetAccount() async {
+    _retryTimer?.cancel();
+    _queue.clear();
+    _pairing = null;
+    _kassaSigns = false;
+    _kassaName = '';
+    shiftOpen = null;
+    _status = KassaLinkStatus.unpaired;
+    _phone = '';
+    _seq = 0;
+    _loading = null;
+    await _store.delete(_kPairing);
+    await _store.delete(_kPhone);
+    await _store.delete(_kSeq);
+    notifyListeners();
+  }
+
   /// Отключить телефон от кассы (на кассе ключ отзывается отдельно): забыть ключ и очередь.
   Future<void> disconnect() async {
     await ensureLoaded();

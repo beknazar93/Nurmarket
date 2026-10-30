@@ -117,7 +117,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get offlineWorking =>
-      'No connection — sales are saved on the phone and will be sent automatically.';
+      'No connection to the server — sales are saved on the phone. They will be sent as soon as there is a connection: right away if the app is open, in the background about every 15 minutes, or the next time you open it.';
 
   @override
   String runningOut(int n) {
@@ -1000,7 +1000,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get callNoMic =>
-      'No microphone access. Allow the microphone for NurMarket in the phone settings.';
+      'No microphone access. Allow the microphone for NurCRM in the phone settings.';
 
   @override
   String get callOpenSettings => 'Open settings';
@@ -1581,7 +1581,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get savedOfflineHint =>
-      'No connection — the receipt will be sent automatically and won\'t be recorded twice.';
+      'The receipt is saved on the phone. It will be sent when there is a connection: right away if the app is open, in the background in about 15 minutes, or the next time you open it. It will not be posted twice.';
 
   @override
   String get receiptQr => 'QR code';
@@ -1733,7 +1733,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get offlineCheckHint =>
-      'No connection — the receipt is saved and will be sent automatically';
+      'Receipt saved and waiting to be sent: it goes out when there is a connection (app open — at once, closed — in the background or on the next open)';
 
   @override
   String get sendToCustomer => 'Send to customer';
@@ -1790,7 +1790,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String unknownBarcodeHint(String code) {
-    return '$code · not in the catalog or the NurCRM directory. Add the product — the code is not sent anywhere';
+    return '$code · not in your catalog (checked on the server) or the NurCRM directory. Add the product — the code is not sent anywhere';
   }
 
   @override
@@ -2862,7 +2862,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get auditApplyQueued =>
-      'The stock count act is created — posting will be sent when online.';
+      'The stock count act is created but NOT posted (no connection). Count and post again — the act stays a draft.';
 
   @override
   String get auditOnlineOnly =>
@@ -3301,7 +3301,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get peStockQueued =>
-      'The document is created — it will be posted automatically when online.';
+      'The document is created but NOT posted (no connection). Count and post again.';
 
   @override
   String get peStockOffline =>
@@ -4765,7 +4765,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Point the camera at the QR code on the till screen';
 
   @override
-  String get klNotKassaQr => 'This is not a NurMarket till QR code';
+  String get klNotKassaQr => 'This is not a NurCRM till QR code';
 
   @override
   String get klBadQr =>
@@ -4773,7 +4773,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get klQrVersion =>
-      'This till is newer than the app. Update NurMarket on the phone.';
+      'This till is newer than the app. Update NurCRM on the phone.';
 
   @override
   String get klManual => 'Enter the link manually';
@@ -5608,6 +5608,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recvFixed => 'Barcode fixed';
 
   @override
+  String get recvOffline => 'The server did not answer';
+
+  @override
+  String recvOfflineHint(String code) {
+    return '$code · could not check: no connection to the server. This does not mean the product is missing — check again when the network is back';
+  }
+
+  @override
+  String get recvRetry => 'Check again';
+
+  @override
   String get recvNoRight =>
       'Adding, linking or fixing needs the “Stock” permission.';
 
@@ -6398,4 +6409,353 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get infRangePick => 'Pick dates';
+
+  @override
+  String get apiSaleAlreadyPosted =>
+      'The server has already posted this receipt (same key) — check it in “Receipts”.';
+
+  @override
+  String get apiAuditStale =>
+      'The stock count was not posted in time — stock may have changed. Count again (the act stays a draft).';
+
+  @override
+  String get priceChangedTitle => 'Price changed';
+
+  @override
+  String priceChangedLine(String name, String oldPrice, String newPrice) {
+    return '$name: $oldPrice → $newPrice som';
+  }
+
+  @override
+  String get priceChangedNote =>
+      'The sale was NOT posted. Prices in the receipt are updated — check the new total and press “Pay” again.';
+
+  @override
+  String get priceMaybeStale =>
+      'No connection — the price in the receipt may be out of date.';
+
+  @override
+  String get apiWifiPortal =>
+      'Open the Wi-Fi sign-in page (the shop network asks you to log in) and try again.';
+
+  @override
+  String get apiBadResponse =>
+      'The server replied in an unexpected way. Try again later.';
+
+  @override
+  String get linkOffline => 'No connection to the server';
+
+  @override
+  String linkOfflineSince(String time) {
+    return 'No connection · data as of $time';
+  }
+
+  @override
+  String dataAsOf(String time) {
+    return 'Data as of $time';
+  }
+
+  @override
+  String get noDataOffline => 'No data — no connection to the server';
+
+  @override
+  String unsentOnPhone(int n) {
+    return 'Not sent from this phone: $n';
+  }
+
+  @override
+  String listCachedAt(String time) {
+    return 'Showing the saved list from $time.';
+  }
+
+  @override
+  String get auditError => 'Error';
+
+  @override
+  String stockAsOf(String time) {
+    return 'Stock as of $time';
+  }
+
+  @override
+  String accountLoading(int done, int total) {
+    return 'Loading account data… $done/$total';
+  }
+
+  @override
+  String get accountLoadFailed =>
+      'Account data did not load completely (no connection or the server did not answer).';
+
+  @override
+  String get accountDataNotLoaded => 'This account\'s data is not loaded yet';
+
+  @override
+  String get logoutSendNow => 'Send now';
+
+  @override
+  String guardUnsent(int n, String sum) {
+    return 'There are unsent sales and operations: $n worth $sum som. You cannot sign out until they are sent.';
+  }
+
+  @override
+  String get guardSending => 'Sending…';
+
+  @override
+  String get guardWaitConnection =>
+      'No connection to the server. Wait for the connection and tap Send now again, or export the sales to a file.';
+
+  @override
+  String guardSendLeft(int n, String error) {
+    return 'Not everything was sent: $n left. $error';
+  }
+
+  @override
+  String get guardExport => 'Export to a file and sign out';
+
+  @override
+  String get guardExportWarn =>
+      'The file will contain receipt data (items, amounts). Keep it in a safe place. After signing out nothing will remain on the phone except this file.';
+
+  @override
+  String guardExported(String path) {
+    return 'File saved: $path. Send it to the owner or administrator to restore the sales.';
+  }
+
+  @override
+  String guardExportFailed(String error) {
+    return 'Could not save the file: $error. Sign-out cancelled, the sales are still there.';
+  }
+
+  @override
+  String get guardDiscard => 'Sign out WITHOUT sending';
+
+  @override
+  String get guardDiscardWord => 'DELETE';
+
+  @override
+  String guardDiscardWarn(String word) {
+    return 'Unsent sales will be LOST and cannot be restored. To confirm, type the word \"$word\".';
+  }
+
+  @override
+  String get guardDiscardField => 'Confirmation word';
+
+  @override
+  String guardForeign(String account, int n, String sum) {
+    return 'Unsent sales of another account ($account) are left on the phone: $n worth $sum som. To sign in with a different account they must be exported to a file or deleted. Or sign in with the previous account and send them.';
+  }
+
+  @override
+  String get close => 'Close';
+
+  @override
+  String revCostLine(String cost) {
+    return 'Cost: $cost';
+  }
+
+  @override
+  String get revNoCost => 'No cost price';
+
+  @override
+  String revDiffAmount(String amount) {
+    return 'Diff. amount: $amount';
+  }
+
+  @override
+  String get revStarNote =>
+      '* — the product has no cost price, the amount is at the selling price.';
+
+  @override
+  String revShortageLine(String qty, String cost, String sale) {
+    return 'Shortage: $qty pcs · −$cost som (at cost) · −$sale som (at sale price)';
+  }
+
+  @override
+  String revSurplusLine(String qty, String cost, String sale) {
+    return 'Surplus: $qty pcs · +$cost som (at cost) · +$sale som (at sale price)';
+  }
+
+  @override
+  String revNetLine(String amount) {
+    return 'Net result: $amount som (at cost)';
+  }
+
+  @override
+  String revNoCostWarn(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '⚠ No cost price for $n products',
+      one: '⚠ No cost price for $n product',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String revNoCostTip(String short, String surplus) {
+    return 'These products have no cost price, so they are not in the “at cost” totals. Their difference at the selling price: shortage −$short som, surplus +$surplus som. In the list their amount is marked “*”.';
+  }
+
+  @override
+  String revTopShortages(int n) {
+    return 'Top $n shortages';
+  }
+
+  @override
+  String revAllDiffs(int n) {
+    return 'All differences: $n';
+  }
+
+  @override
+  String get pbTitle => 'Receipts and batches';
+
+  @override
+  String get pbTotalReceived => 'Total received';
+
+  @override
+  String get pbAvgCost => 'Average cost';
+
+  @override
+  String get pbLastCost => 'Last cost';
+
+  @override
+  String get pbLastSupplier => 'Last supplier';
+
+  @override
+  String pbCount(int n) {
+    return 'Receipts: $n';
+  }
+
+  @override
+  String get pbPartial =>
+      'Totals cover the loaded receipts only. Scroll down to load the rest.';
+
+  @override
+  String get pbSearchHint => 'Supplier or receipt no.';
+
+  @override
+  String get pbSearchHintNo => 'Receipt no.';
+
+  @override
+  String get pbWeek => 'Week';
+
+  @override
+  String get pbMonth => 'Month';
+
+  @override
+  String get pbYear => 'Year';
+
+  @override
+  String get pbAllTime => 'All time';
+
+  @override
+  String get pbInvoice => 'Invoice';
+
+  @override
+  String pbNumber(String no) {
+    return 'No. $no';
+  }
+
+  @override
+  String pbCostLine(String cost) {
+    return 'Cost: $cost som';
+  }
+
+  @override
+  String pbSumLine(String sum) {
+    return 'Total: $sum som';
+  }
+
+  @override
+  String pbReceivedBy(String name) {
+    return 'Received by: $name';
+  }
+
+  @override
+  String pbPayLine(String method) {
+    return 'Payment: $method';
+  }
+
+  @override
+  String get pbPayCash => 'Cash';
+
+  @override
+  String get pbPayDebt => 'On credit';
+
+  @override
+  String get pbPayPrepay => 'Prepayment';
+
+  @override
+  String pbRemainLine(String qty, String unit) {
+    return 'Batch left ≈ $qty $unit (estimate)';
+  }
+
+  @override
+  String pbRemainTip(String stock, String unit) {
+    return 'An estimate by the FIFO rule (first in, first out): the product\'s current stock ($stock $unit) is spread over the newest receipts, starting from the last one. The server does not keep the balance of each batch, so the figure is approximate.';
+  }
+
+  @override
+  String pbReturned(String qty, String unit) {
+    return 'Returned to supplier: $qty $unit';
+  }
+
+  @override
+  String get pbEmpty => 'No receipts of this product found';
+
+  @override
+  String get pbEmptySearch => 'Nothing found for this search';
+
+  @override
+  String pbDataFrom(String time) {
+    return 'No connection. Data from $time';
+  }
+
+  @override
+  String get pbLoadingMore => 'Loading more…';
+
+  @override
+  String get pbEnd => 'No more receipts';
+
+  @override
+  String get pbToTop => 'To top';
+
+  @override
+  String pbLoadError(String error) {
+    return 'Could not load: $error';
+  }
+
+  @override
+  String get pbDocTitle => 'Receipt invoice';
+
+  @override
+  String get pbDocLines => 'Receipt items';
+
+  @override
+  String pbDocTotal(String sum) {
+    return 'Total: $sum som';
+  }
+
+  @override
+  String get pbThisProduct => 'this product';
+
+  @override
+  String get pbOpenFile => 'Open file';
+
+  @override
+  String get pbNoFile => 'The original file was not saved';
+
+  @override
+  String get pbFileError => 'Could not open the file';
+
+  @override
+  String get pbSupplier => 'Supplier';
+
+  @override
+  String get pbCall => 'Call';
+
+  @override
+  String get pbWhatsApp => 'WhatsApp';
+
+  @override
+  String get pbNoPhone => 'No phone number';
 }

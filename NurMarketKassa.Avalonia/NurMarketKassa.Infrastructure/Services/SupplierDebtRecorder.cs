@@ -354,7 +354,7 @@ public static class SupplierDebtRecorder
         ["title"] = DealTitle(e.SupplierName),
         ["kind"] = "debt",
         ["amount"] = Math.Round(e.Amount, 2).ToString("0.00", CultureInfo.InvariantCulture),
-        ["note"] = $"{e.Key} · приход {e.ReceiptAt.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)}, срок {e.DueDays} дн. · NurMarket",
+        ["note"] = $"{e.Key} · приход {e.ReceiptAt.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)}, срок {e.DueDays} дн. · NurCRM",
         ["client"] = e.SupplierId,
         // 2026-10-21 (ревью денег, A7): всегда один взнос — сервер понимает debt_months как число ЕЖЕМЕСЯЧНЫХ взносов, и
         // Round(DueDays / 30) разбивал долг на 60/90 (и даже 45) дней на 2–3 взноса. Срок — только в first_due_date.

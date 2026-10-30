@@ -26,13 +26,19 @@ public static class ShiftHistoryService
             var payload = await NurMarketKassa.AvaloniaHost.App.ShiftApi
                 .ConstructionShiftsListAsync(ct: cancellationToken)
                 .ConfigureAwait(false);
+            LastLoadFailed = false;
             return Parse(payload);
         }
         catch
         {
+            LastLoadFailed = true;
             return Array.Empty<ShiftHistoryEntry>();
         }
     }
+
+    /// <summary>2026-10-31 (стресс-тест 1.17.68, п. 9): последняя загрузка списка смен с сервера не удалась — экран «Смены» говорит «Нет связи»,
+    /// а не показывает пустой список без объяснения.</summary>
+    public static bool LastLoadFailed { get; private set; }
 
     /// <summary>Одна смена с сервера — GET api/construction/shifts/{id}/ (0,2–0,5 с вместо 2–3 с
     /// у полного списка; поля те же). null — нет связи или смена не найдена.</summary>

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ui/link_banner.dart';
 import '../../core/api/api_client.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
@@ -241,11 +242,18 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
                 gap,
                 InfoCardSkeleton(title: l.paymentMethods),
               ]);
-            } else if (snap.hasError) {
+            } else if (snap.hasError && _last == null) {
               final e = snap.error;
               children.add(InfoError(onRetry: _load, lastData: _last?.updatedAt, detail: e is ApiException ? e.message : null));
             } else {
-              final b = snap.data!;
+              // 2026-10-29 (аудит мобилки, п. 5): ошибка при обновлении — остаются последние цифры и плашка «данные от ЧЧ:ММ»
+              final b = snap.hasError ? _last! : snap.data!;
+              if (snap.hasError) {
+                children.addAll([
+                  LinkBanner(force: true, dataAt: b.updatedAt, detail: snap.error is ApiException ? (snap.error as ApiException).message : null),
+                  gap,
+                ]);
+              }
               final s = b.current;
               final vs = versusLabel(l, _period);
               final p = b.previous;

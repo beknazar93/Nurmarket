@@ -175,11 +175,27 @@ public partial class OwnerShellWindow : Window, IMainShell
         HeaderGrid.SizeChanged += (_, _) => FitHeaderTools();
         // 2026-10-04, редизайн под Android-телефон: меню по «≡», без кнопок окна (OwnerShellWindow.Phone.cs).
         AttachPhoneLayout();
+        // 2026-10-29 (скорость синхронизации): режим окна для пульса продаж (5 с при активной «Сводке», 60 с в свёрнутом).
+        NurMarketKassa.AvaloniaHost.Services.SyncActivityWatcher.Attach(this);
         // 2026-10-18: вид меню на выбор — новое / бургер ☰ / старое (OwnerShellWindow.MenuStyle.cs).
         AttachMenuStyle();
         // 2026-10-05: на «Старте» подключили (или истёк тестовый доступ) пакет «Стандарта» — меню сразу по тарифу.
-        TariffGate.PacksChanged += () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(); _ = RefreshDebtsCardAsync(force: true); });
-        SectionVisibility.Changed += () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(); _ = RefreshDebtsCardAsync(force: true); });
+        // 2026-10-30 (стресс-тест 1.17.68): обработчики статических событий снимаются при закрытии окна — иначе каждое созданное окно программы
+        // владельца оставалось в памяти навсегда (~6 МБ на окно; стенд: 30 открытий — +175 МБ, 35 из 35 окон живы).
+        Action rebuildNavigation = () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(); _ = RefreshDebtsCardAsync(force: true); });
+        TariffGate.PacksChanged += rebuildNavigation;
+        SectionVisibility.Changed += rebuildNavigation;
+        Closed += (_, _) =>
+        {
+            TariffGate.PacksChanged -= rebuildNavigation;
+            SectionVisibility.Changed -= rebuildNavigation;
+            // 2026-10-31 (стресс-тест 1.17.68, п. 8): статические ссылки ProductActionPlan на лямбды окна держали закрытое главное окно (WireNavSearch).
+            if (ProductActionPlan.OpenProduct?.Target == this) ProductActionPlan.OpenProduct = null;
+            if (ProductActionPlan.OpenSection?.Target == this) ProductActionPlan.OpenSection = null;
+            if (ProductActionPlan.NavigateByWords?.Target == this) ProductActionPlan.NavigateByWords = null;
+            if (ProductActionPlan.OpenNavTarget?.Target == this) ProductActionPlan.OpenNavTarget = null;
+            if (ProductActionPlan.ShowChangedProducts?.Target == this) ProductActionPlan.ShowChangedProducts = null;
+        };
         // 2026-10-23 (аудит, круг 8, В-6): туннельный обработчик, handledEventsToo — видит и клавиши, которые поле уже обработало.
         AddHandler(KeyDownEvent, (_, _) => _lastKeyInputUtc = DateTime.UtcNow, RoutingStrategies.Tunnel, handledEventsToo: true);
         _timer = new DispatcherTimer { Interval = RefreshInterval };
@@ -243,6 +259,9 @@ public partial class OwnerShellWindow : Window, IMainShell
             LanSyncService.Instance.PeerDataChanged -= OnLanPeerData;
             PosDataEvents.SalesChanged -= OnSalesChangedForAbc;
         };
+        // 2026-10-30: сессия недействительна — одно окно «Сессия истекла. Войдите снова» (права и данные не сбрасываются).
+        var sessionPrompt = NurMarketKassa.AvaloniaHost.Services.SessionExpiredPrompt.Attach(this, SignOutAsync);
+        Closed += (_, _) => sessionPrompt.Dispose();
         Tr.LanguageChanged += OnLanguageChanged;
         LanSyncService.Instance.PeerDataChanged += OnLanPeerData;
         PosDataEvents.SalesChanged += OnSalesChangedForAbc;
@@ -280,6 +299,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         {
             var subscription = await CompanyInfoService.RefreshAsync(App.AuthApi, cancellationToken).ConfigureAwait(true);
             AccountDataIsolation.SwitchTo(CompanyInfoService.LastCompany?.Id);
+            await AccountDataIsolation.EnsureAccountDataLoadedAsync(progress, cancellationToken).ConfigureAwait(true); // 2026-10-29: «Загружаем данные аккаунта…» до открытия окна
             // 2026-10-25, ТЗ «оприходование в фоне» (Q5): очередь приходов в фоне догружает незавершённое.
             BackgroundReceiptsHost.Start();
             if (subscription is { IsExpired: true })
@@ -329,6 +349,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         // окно всегда просто разворачивалось (с панелью задач). Теперь при включённой настройке — как у кассы (FullscreenHelper).
         WindowState = WindowState.Maximized;
         FullscreenHelper.ApplyToMainWindow(this);
+        WindowFitGuard.Attach(this); // 2026-10-30: окно целиком в рабочей области экрана (см. WindowFitGuard)
     }
 
     /// <summary>2026-10-21 (сенсорный моноблок): MinWidth/MinHeight не больше рабочей области экрана окна (в точках).</summary>
@@ -384,9 +405,9 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private void ApplyTexts()
     {
-        Title = Tr.T("NurMarket Владелец", "NurMarket Ээси", "NurMarket Owner", "NurMarket İşletme Sahibi", "NurMarket Egasi");
+        Title = Tr.T("NurCRM Владелец", "NurCRM Ээси", "NurCRM Owner", "NurCRM İşletme Sahibi", "NurCRM Egasi");
         // 2026-10-18, этап О2: подписи «NurMarket / Владелец» у логотипа в тёмной колонке нет — во всплывающей подсказке.
-        ToolTip.SetTip(LogoImage, "NurMarket · " + Tr.T("Владелец", "Ээси", "Owner", "İşletme sahibi", "Egasi"));
+        ToolTip.SetTip(LogoImage, "NurCRM · " + Tr.T("Владелец", "Ээси", "Owner", "İşletme sahibi", "Egasi"));
 
         var company = CompanyInfoService.LastCompany;
         CompanyNameText.Text = string.IsNullOrWhiteSpace(company?.Name) ? "NurCRM" : company!.Name;
@@ -605,7 +626,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-05, владелец: «в десктопе открой чат с ИИ для владельца, чтобы владелец советовался с ним —
         // специальную вкладку». Видит выручку и лучшие товары — права как у «Аналитики».
         // 2026-10-05, владелец: «строго соблюдай разделение тарифов» — ИИ только на «Стандарте» (TariffGate.CanUseAi).
-        Add("aiadvisor", "AiAdvisorIcon", Tr.T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi"), TariffGate.CanUseAi,
+        Add("aiadvisor", "AiAdvisorIcon", Tr.T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi"), TariffGate.CanUseAi && AdvisorCapabilities.MasterOn, // 2026-10-30: главный тумблер «Нур Советник включён»
             () => { if (Authorize(PosPermissions.ViewAnalytics)) OpenSection("aiadvisor", () => new AiAdvisorWindow()); });
 
         Group("products", Tr.T("Товары", "Товарлар", "Products", "Ürünler", "Mahsulotlar"));
@@ -782,8 +803,10 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// последних разделов, остальные закрываются штатно (Close — их Closed отписывает события и таймеры).</summary>
     private const int HiddenSectionsKept = 3;
 
-    /// <summary>Тяжёлые разделы (предпросмотр сайта, графики аналитики) — закрываются вскоре после ухода из них.</summary>
-    private static readonly HashSet<string> HeavySections = new() { "siteeditor", "analytics" };
+    /// <summary>Тяжёлые разделы (предпросмотр сайта, графики аналитики) — закрываются вскоре после ухода из них.
+    /// 2026-10-30 (оптимизация кассы, Б4): + «CRM» и «WhatsApp» (WebView2: 6–9 процессов Chromium, свёрнутый WhatsApp Web продолжал гонять JS и сокет).
+    /// Вход в WhatsApp сохраняется в профиле WebView2; при возврате страница грузится 3–5 с.</summary>
+    private static readonly HashSet<string> HeavySections = new() { "siteeditor", "analytics", "crm", "whatsapp" };
 
     /// <summary>Что вернуть разделу, открытому заново после закрытия: вкладку и кнопку периода.</summary>
     private sealed class SectionState
@@ -1170,6 +1193,13 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         if (App.GetRequiredService<IPermissionService>().HasPermission(permission))
             return true;
+        // 2026-10-30: сессия недействительна — права не подтвердить, это не «нет доступа»: вместо отказа — «Сессия истекла. Войдите снова».
+        if (SessionExpiryMonitor.IsExpired)
+        {
+            PosLogger.Log($"Owner app: section {permission} — сессия недействительна, показываю «Войдите снова».", "AUTH");
+            _ = NurMarketKassa.AvaloniaHost.Services.SessionExpiredPrompt.AskAsync(this, SignOutAsync);
+            return false;
+        }
         PosLogger.Log($"Owner app: permission denied: {permission}", "WARNING");
         // 2026-10-01: подсказка, какую галочку включить на сайте (названия — как на сайте NurCRM).
         var siteRight = SiteRightName(permission);
@@ -1329,9 +1359,11 @@ public partial class OwnerShellWindow : Window, IMainShell
         _refreshing = true;
         RefreshButton.IsEnabled = false;
         _lastRefreshStartedUtc = DateTime.UtcNow;
+        string? startedKey = null;
         try
         {
             var (from, to) = CurrentRange();
+            startedKey = RangeKey(from, to);
             var ct = _cts.Token;
             var fetchStartedUtc = DateTime.UtcNow;
 
@@ -1428,6 +1460,15 @@ public partial class OwnerShellWindow : Window, IMainShell
         {
             _refreshing = false;
             RefreshButton.IsEnabled = true;
+            // 2026-10-30 (стресс-тест «Отчёты», гонка периодов): пока шла загрузка, владелец нажал другой период — его RefreshAsync вернулся
+            // сразу (идёт предыдущая), а предыдущая закончилась для прежнего периода: на кнопке новый период, цифры — прежнего, до таймера
+            // (до минуты). Теперь, если период сменился за время загрузки, обновляем ещё раз — уже по нему.
+            if (startedKey != null && !_loggingOut && !_cts.IsCancellationRequested)
+            {
+                var (nowFrom, nowTo) = CurrentRange();
+                if (RangeKey(nowFrom, nowTo) != startedKey)
+                    _ = RefreshAsync();
+            }
         }
     }
 
@@ -2803,8 +2844,9 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         _abcDebounce.Stop();
         _abcDebounce.Start();
-        // 2026-10-29: «Сводка» — по событию, а не только по таймеру (не чаще раза в 8 с; скрытую/неактивную по тем же правилам, что таймер).
-        if (DateTime.UtcNow - _lastRefreshStartedUtc >= TimeSpan.FromSeconds(8))
+        // 2026-10-29: «Сводка» — по событию, а не только по таймеру (не чаще раза в 3 с; скрытую/неактивную по тем же правилам, что таймер).
+        // 2026-10-29 (скорость синхронизации): было 8 с; события приходят быстро (пульс 5 с у владельца, подсказка кассы по локальной сети).
+        if (DateTime.UtcNow - _lastRefreshStartedUtc >= TimeSpan.FromSeconds(3))
             _ = RefreshWhenShownAsync();
     });
 

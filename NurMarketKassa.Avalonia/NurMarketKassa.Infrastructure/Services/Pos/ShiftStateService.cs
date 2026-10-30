@@ -57,9 +57,15 @@ public sealed class ShiftStateService : IShiftStateService
             // обычный вход в кассу в "очень долгий вход", хотя сама проверка авторизации тут ни
             // при чём. Явный короткий таймаут: либо получаем реальный баланс быстро, либо честно
             // и быстро откатываемся на локальный (тот же catch ниже, что и раньше).
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(6));
-            var list = await _shiftApi.ConstructionShiftsListAsync(openOnly: true, ct: timeoutCts.Token).ConfigureAwait(false);
+            // 2026-10-30 (приёмка 1.17.65, «Важно» 2): 429 («Сервер занят») не обрыв — состояние смены не сбрасываем. Запрос критичный (идёт первым после паузы
+            // сервера), при 429 — до трёх попыток с паузой Retry-After; каждой попытке 6 с + оставшаяся пауза. Не вышло — ниже последнее известное состояние.
+            using var critical = ApiThrottle.BeginCritical();
+            var list = await ApiThrottle.RunWithRetryAsync(async () =>
+            {
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(6) + ApiThrottle.RemainingBlock);
+                return await _shiftApi.ConstructionShiftsListAsync(openOnly: true, ct: timeoutCts.Token).ConfigureAwait(false);
+            }, 3, null, cancellationToken).ConfigureAwait(false);
             var openId = ShiftHelper.PickOpenShiftId(list, PosApp.PosCashboxId, PosApp.CurrentUserId);
             if (string.IsNullOrEmpty(openId)
                 && ShiftHelper.FindCashierShiftOnOtherCashbox(list, PosApp.CurrentUserId) is { } own
@@ -96,7 +102,9 @@ public sealed class ShiftStateService : IShiftStateService
         {
             // 2026-09-12: раньше здесь не было лога — при живой отладке "разбивка не
             // отображается" не было видно, срабатывает ли вообще этот откат и почему.
-            PosLogger.Log($"Shift balance refresh failed/timed out: {ex.GetType().Name}: {ex.Message}", "SHIFT");
+            PosLogger.Log(ApiThrottle.IsThrottled(ex)
+                ? "Shift balance refresh: сервер занят (429) — оставляю последнее известное состояние смены и кассы."
+                : $"Shift balance refresh failed/timed out: {ex.GetType().Name}: {ex.Message}", "SHIFT");
             OfflinePosStateStore.RestoreToApp();
             balance = OfflinePosStateStore.ReadShiftCashBalance();
         }

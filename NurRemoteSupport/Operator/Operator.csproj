@@ -10,7 +10,7 @@
     <AssemblyName>NurMarketSupport</AssemblyName>
     <RootNamespace>NurRemoteSupport.Operator</RootNamespace>
     <Version>1.0.2</Version>
-    <Product>NurMarket Поддержка</Product>
+    <Product>NurCRM Поддержка</Product>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport> <!-- нужно Avalonia для UI Automation (дикторы, проверка tools/qa) -->
   </PropertyGroup>

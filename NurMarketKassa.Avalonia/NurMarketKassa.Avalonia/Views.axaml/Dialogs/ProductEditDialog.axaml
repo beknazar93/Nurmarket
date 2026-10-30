@@ -360,15 +360,16 @@
                                  у полей и так подписи «Цена закупки / Наценка / Цена продажи», а цены видны без прокрутки. -->
                             <TextBlock x:Name="PricesHeader" Text="{DynamicResource product.pricesHeader}" FontWeight="Bold" FontSize="13" Margin="0,10,0,0"/>
                             <Grid x:Name="NarrowRowPrices" ColumnDefinitions="*,18,*,18,*">
-                                <StackPanel Grid.Column="0" Spacing="8">
+                                <!-- 2026-10-30 (приёмка 1.17.65): закупка и наценка скрыты у ролей без права видеть закупку (ShowPurchase). -->
+                                <StackPanel x:Name="PurchaseStack" Grid.Column="0" Spacing="8" IsVisible="{Binding ShowPurchase}">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.purchasePriceLabel}"/>
                                     <TextBox Text="{Binding PurchasePrice}"/>
                                 </StackPanel>
-                                <StackPanel Grid.Column="2" Spacing="8">
+                                <StackPanel x:Name="MarkupStack" Grid.Column="2" Spacing="8" IsVisible="{Binding ShowPurchase}">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.markupLabel}"/>
                                     <TextBox Text="{Binding MarkupPercent}"/>
                                 </StackPanel>
-                                <StackPanel Grid.Column="4" Spacing="8">
+                                <StackPanel x:Name="SalePriceStack" Grid.Column="4" Spacing="8">
                                     <TextBlock x:Name="SalePriceFieldLabel" Classes="FieldLabel" Text="{DynamicResource product.salePriceLabel}"/>
                                     <TextBox Text="{Binding Price}"/>
                                 </StackPanel>
@@ -560,12 +561,12 @@
                                     <Border CornerRadius="12" Padding="14,12" BorderThickness="1" Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}">
                                         <Grid ColumnDefinitions="*,*,Auto" RowDefinitions="Auto,Auto">
                                             <TextBlock Grid.Row="0" Grid.Column="0" x:Name="PackWholePriceLabel" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-                                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="PackWholeBuyLabel" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                                            <TextBlock Grid.Row="0" Grid.Column="1" x:Name="PackWholeBuyLabel" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" IsVisible="{Binding ShowPurchase}"/>
                                             <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Spacing="4">
                                                 <TextBlock Text="{Binding PackWholePrice}" FontSize="18" FontWeight="ExtraBold"/>
                                                 <TextBlock Text="{Binding PackSom}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                                             </StackPanel>
-                                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="4" IsVisible="{Binding ShowPurchase}">
                                                 <TextBlock Text="{Binding PackWholeBuy}" FontSize="18" FontWeight="ExtraBold"/>
                                                 <TextBlock Text="{Binding PackSom}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                                             </StackPanel>
@@ -826,48 +827,10 @@
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
-                <TabItem Header="{DynamicResource product.tabHistory}" x:Name="HistoryTab" IsVisible="{Binding #PurchaseHistoryExpander.IsVisible}">
-                    <ScrollViewer Padding="0,14,16,6">
-                        <StackPanel Spacing="20" Margin="0,0,0,240">
-                            <!-- 2026-09-24: история закупок — когда, сколько и почём привозили товар.
-                                 Приёмки этой кассы плюс приходы от поставщиков с сайта. Загружается при
-                                 первом раскрытии: это запрос к серверу, а карточку открывают часто. -->
-                            <Expander x:Name="PurchaseHistoryExpander"
-                                      Header="{DynamicResource product.sectionPurchaseHistory}" IsExpanded="False"
-                                      FontWeight="Bold" FontSize="13" Foreground="{DynamicResource BrushText}"
-                                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                      IsVisible="False">
-                                <StackPanel Spacing="6" Margin="0,12,0,0">
-                                    <TextBlock x:Name="PurchaseHistoryStatus" FontWeight="Normal" FontSize="12.5"
-                                               TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
-                                    <ItemsControl x:Name="PurchaseHistoryList" x:CompileBindings="False">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Padding="12,8" Margin="0,2" CornerRadius="8"
-                                                        Background="{DynamicResource BrushPanelSoft}">
-                                                    <Grid ColumnDefinitions="120,*,Auto">
-                                                        <TextBlock Grid.Column="0" Text="{ReflectionBinding WhenText}"
-                                                                   FontWeight="Normal" FontSize="12" VerticalAlignment="Center"
-                                                                   Foreground="{DynamicResource BrushTextSoft}"/>
-                                                        <StackPanel Grid.Column="1" Spacing="2" Margin="8,0">
-                                                            <TextBlock Text="{ReflectionBinding MainText}" FontWeight="SemiBold"
-                                                                       FontSize="13" Foreground="{DynamicResource BrushText}"/>
-                                                            <TextBlock Text="{ReflectionBinding DetailText}" FontWeight="Normal"
-                                                                       FontSize="11.5" TextWrapping="Wrap"
-                                                                       Foreground="{DynamicResource BrushTextSoft}"/>
-                                                        </StackPanel>
-                                                        <TextBlock Grid.Column="2" Text="{ReflectionBinding TotalText}"
-                                                                   FontWeight="Bold" FontSize="13" VerticalAlignment="Center"
-                                                                   Foreground="{DynamicResource BrushText}"/>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Expander>
-                        </StackPanel>
-                    </ScrollViewer>
+                <!-- 2026-10-30, просьба владельца «на складе по товару — от кого партия, какого числа, и ссылка на накладную»: вкладка вместо прежней «Истории закупок»
+                     (раскрывающийся список без поиска и итогов). Содержимое собирает код (ProductReceiptsView): итоги, поиск, период, виртуализированный список. -->
+                <TabItem x:Name="HistoryTab" IsVisible="False">
+                    <Border x:Name="ReceiptsHost" Padding="0,10,12,0"/>
                 </TabItem>
             </TabControl>
 

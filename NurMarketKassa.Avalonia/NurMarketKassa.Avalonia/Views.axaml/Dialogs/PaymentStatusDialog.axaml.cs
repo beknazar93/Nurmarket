@@ -60,6 +60,9 @@ public partial class PaymentStatusDialog : Window
 
     private void OnEscapeAvailable(object? sender, EventArgs e)
     {
+        // 2026-10-30 (приёмка 1.17.66, «Важно» 1): сервер просит паузу (429) — это не «долго отвечает, оплата могла пройти»; надпись «Сервер занят…» уже показана, ждём дальше.
+        if (_waiting && NurMarketKassa.Services.Api.ApiThrottle.IsBusy)
+            return;
         StopEscapeTimer();
         if (!_waiting)
             return;
@@ -180,6 +183,34 @@ public partial class PaymentStatusDialog : Window
         _spinnerAngle = (_spinnerAngle + 10) % 360;
         if (SpinnerPath.RenderTransform is RotateTransform rotation)
             rotation.Angle = _spinnerAngle;
+        if (++_busyTicks % 8 == 0)
+            UpdateBusyText();
+    }
+
+    private int _busyTicks;
+    private bool _busyShown;
+    private string? _normalMessage;
+
+    /// <summary>2026-10-30 (приёмка 1.17.66, «Важно» 1): пока сервер просит паузу (429) — «Сервер занят, повтор через N с» вместо «Пожалуйста, подождите».</summary>
+    private void UpdateBusyText()
+    {
+        if (!_waiting)
+            return;
+        if (NurMarketKassa.Services.Api.ApiThrottle.IsBusy)
+        {
+            if (!_busyShown)
+            {
+                _busyShown = true;
+                _normalMessage = StatusMessage.Text;
+            }
+
+            StatusMessage.Text = NurMarketKassa.Services.Api.ApiThrottle.BusyHeaderText();
+        }
+        else if (_busyShown)
+        {
+            _busyShown = false;
+            StatusMessage.Text = _normalMessage;
+        }
     }
 
     private void StopSpinner()

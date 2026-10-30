@@ -173,8 +173,28 @@ public partial class App : Application
         EmployeeAccessGate.CurrentUserProvider = () => AppHost?.Services.GetService<NurMarketApiClient>()?.UserPayload ?? default;
         // 2026-10-06: срок долга, названный клиентом, — на сервер после продажи «В долг».
         DebtDueDateSync.ApiProvider = () => AppHost?.Services.GetService<NurMarketApiClient>();
+        // 2026-10-29: возврат и оплата долга без связи уходят на сервер из очереди (SalesOfflineOpsApi), кэш клиентов для «в долг» обновляется с сервера.
+        SalesOfflineOpsApi.DebtApiProvider = () => AppHost?.Services.GetService<ClientDebtsApiService>();
+        // 2026-10-29 (ревью, В-3): поправка ящика после возврата без связи по долговому чеку — сервер не вычитает наличные, как и в онлайн-окне возврата.
+        OfflineOperationsReplayer.DrawerReader = shiftId => AppHost?.Services.GetService<NurMarketApiClient>() is { } api
+            ? ExchangeCashCorrections.ReadExpectedCashAsync(api, shiftId)
+            : Task.FromResult<decimal?>(null);
+        OfflineOperationsReplayer.DrawerCorrector = (shiftId, key, overstated, cashOut, what) =>
+            ExchangeCashCorrections.RecordIfKnownServerError(shiftId, key, overstated, cashOut, what);
+        OfflineClientCache.Refresher = async (fullClients, ct) =>
+        {
+            if (AppMode.IsOwner || AppHost is null || !TariffGate.CanUseDebts)
+                return;
+            if (fullClients && AppHost.Services.GetService<IClientsApiService>() is { } clients)
+                await clients.GetClientsAsync(null, ct).ConfigureAwait(false);
+            if (AppHost.Services.GetService<ClientDebtsApiService>() is { } debts)
+                await debts.GetDebtorsAsync(0, ct).ConfigureAwait(false);
+        };
         // Смена компании = смена набора локальных данных. Подписка здесь, один раз на запуск:
         // так разделение срабатывает на любом пути входа, включая смену кассира.
+        // 2026-10-29: при смене компании всё прежнее стирается; неотправленное — только по решению пользователя (UnsentDataDialog).
+        AccountDataIsolation.UnsentDecisionHandler = UnsentDataDialog.Ask;
+        AccountDataIsolation.UnsentExported += UnsentDataDialog.ShowExported;
         CompanyInfoService.CompanyChanged += id => AccountDataIsolation.SwitchTo(id);
         // 2026-10-04: общий кеш размеров/цветов одежды (окно выбора размера, прокат, бот) — см. ProductVariantCache.
         ProductVariantCache.Loader = (productId, token) => CatalogApi.GetProductVariantsAsync(productId, token);
@@ -492,6 +512,15 @@ public partial class App : Application
         Avalonia.Threading.Dispatcher.UIThread.UnhandledException += (_, args) =>
         {
             PosLogger.Log($"Unhandled Avalonia UI exception: {args.Exception}", "CRITICAL");
+            // 2026-10-29: Android — TargetInvocationException сам ничего не говорит; настоящая причина — во вложенных исключениях.
+            if (args.Exception is System.Reflection.TargetInvocationException or AggregateException || args.Exception.InnerException is not null)
+            {
+                var chain = new List<string>();
+                for (var e = args.Exception; e is not null; e = e.InnerException)
+                    chain.Add($"{e.GetType().FullName}: {e.Message}");
+                var root = args.Exception.GetBaseException();
+                PosLogger.Log($"Причина (цепочка): {string.Join(" -> ", chain)}. Исходное место: {root.StackTrace?.Split('\n').FirstOrDefault()?.Trim()}", "CRITICAL");
+            }
             CrashReportService.WriteReport(args.Exception, "Avalonia UI thread");
 
             // 2026-10-04, владелец: «если 2 пальца касаются — появляется какая-то ошибка». Сбой во время касания

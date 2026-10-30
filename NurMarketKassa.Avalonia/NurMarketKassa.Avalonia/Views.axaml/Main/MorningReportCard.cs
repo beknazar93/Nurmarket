@@ -107,6 +107,15 @@ public static class MorningReportCard
             Open("warehouse", T("Открыть склад", "Кампаны ачуу", "Open warehouse", "Depoyu aç", "Omborni ochish"));
         if (r.Oddities.Count > 0)
             Open("sales", T("Открыть продажи", "Сатууларды ачуу", "Open sales", "Satışları aç", "Sotuvlarni ochish"));
+        // 2026-10-31 (живой обход, В-8): часть данных не получена — «Повторить» собирает отчёт заново (RunNowAsync публикует новую карточку).
+        if (r.Problems.Count > 0)
+        {
+            var retryText = T("Повторить", "Кайталоо", "Retry", "Tekrar dene", "Qayta urinish");
+            var retry = SmallButton(retryText, retryText);
+            retry.Margin = new Thickness(0, 0, 8, 8);
+            retry.Click += (_, _) => Safe(() => _ = OwnerMorningReport.RunNowAsync(), "retry");
+            buttons.Children.Add(retry);
+        }
         if (buttons.Children.Count > 0)
             root.Children.Add(buttons);
 

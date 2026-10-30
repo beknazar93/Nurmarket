@@ -215,6 +215,17 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _purchasePriceMeta = const VerificationMeta(
+    'purchasePrice',
+  );
+  @override
+  late final GeneratedColumn<double> purchasePrice = GeneratedColumn<double>(
+    'purchase_price',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -235,6 +246,7 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
     searchKey,
     promoRules,
     minQuantity,
+    purchasePrice,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -366,6 +378,15 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         ),
       );
     }
+    if (data.containsKey('purchase_price')) {
+      context.handle(
+        _purchasePriceMeta,
+        purchasePrice.isAcceptableOrUnknown(
+          data['purchase_price']!,
+          _purchasePriceMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -447,6 +468,10 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         DriftSqlType.double,
         data['${effectivePrefix}min_quantity'],
       )!,
+      purchasePrice: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}purchase_price'],
+      ),
     );
   }
 
@@ -490,6 +515,11 @@ class Product extends DataClass implements Insertable<Product> {
   /// 2026-10-22 (мобилка, админ): минимальный остаток товара (minimum_quantity сервера). 0 — не задан: «заканчивается»
   /// по общему порогу < 10, как на ПК. Задан — товар заканчивается, когда остаток дошёл до минимума.
   final double minQuantity;
+
+  /// 2026-10-30 (ревизия: потери в деньгах, как на кассе): закупочная цена товара (purchase_price сервера). null — неизвестна
+  /// (сервер не прислал или у товара не задана): в ревизии сумма разницы тогда считается по цене продажи с пометкой «*».
+  /// Показывается только владельцу и администратору (Session.canSeePurchase).
+  final double? purchasePrice;
   const Product({
     required this.id,
     required this.name,
@@ -509,6 +539,7 @@ class Product extends DataClass implements Insertable<Product> {
     required this.searchKey,
     required this.promoRules,
     required this.minQuantity,
+    this.purchasePrice,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -539,6 +570,9 @@ class Product extends DataClass implements Insertable<Product> {
     map['search_key'] = Variable<String>(searchKey);
     map['promo_rules'] = Variable<String>(promoRules);
     map['min_quantity'] = Variable<double>(minQuantity);
+    if (!nullToAbsent || purchasePrice != null) {
+      map['purchase_price'] = Variable<double>(purchasePrice);
+    }
     return map;
   }
 
@@ -566,6 +600,9 @@ class Product extends DataClass implements Insertable<Product> {
       searchKey: Value(searchKey),
       promoRules: Value(promoRules),
       minQuantity: Value(minQuantity),
+      purchasePrice: purchasePrice == null && nullToAbsent
+          ? const Value.absent()
+          : Value(purchasePrice),
     );
   }
 
@@ -593,6 +630,7 @@ class Product extends DataClass implements Insertable<Product> {
       searchKey: serializer.fromJson<String>(json['searchKey']),
       promoRules: serializer.fromJson<String>(json['promoRules']),
       minQuantity: serializer.fromJson<double>(json['minQuantity']),
+      purchasePrice: serializer.fromJson<double?>(json['purchasePrice']),
     );
   }
   @override
@@ -617,6 +655,7 @@ class Product extends DataClass implements Insertable<Product> {
       'searchKey': serializer.toJson<String>(searchKey),
       'promoRules': serializer.toJson<String>(promoRules),
       'minQuantity': serializer.toJson<double>(minQuantity),
+      'purchasePrice': serializer.toJson<double?>(purchasePrice),
     };
   }
 
@@ -639,6 +678,7 @@ class Product extends DataClass implements Insertable<Product> {
     String? searchKey,
     String? promoRules,
     double? minQuantity,
+    Value<double?> purchasePrice = const Value.absent(),
   }) => Product(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -658,6 +698,9 @@ class Product extends DataClass implements Insertable<Product> {
     searchKey: searchKey ?? this.searchKey,
     promoRules: promoRules ?? this.promoRules,
     minQuantity: minQuantity ?? this.minQuantity,
+    purchasePrice: purchasePrice.present
+        ? purchasePrice.value
+        : this.purchasePrice,
   );
   Product copyWithCompanion(ProductsCompanion data) {
     return Product(
@@ -689,6 +732,9 @@ class Product extends DataClass implements Insertable<Product> {
       minQuantity: data.minQuantity.present
           ? data.minQuantity.value
           : this.minQuantity,
+      purchasePrice: data.purchasePrice.present
+          ? data.purchasePrice.value
+          : this.purchasePrice,
     );
   }
 
@@ -712,7 +758,8 @@ class Product extends DataClass implements Insertable<Product> {
           ..write('imageUrl: $imageUrl, ')
           ..write('searchKey: $searchKey, ')
           ..write('promoRules: $promoRules, ')
-          ..write('minQuantity: $minQuantity')
+          ..write('minQuantity: $minQuantity, ')
+          ..write('purchasePrice: $purchasePrice')
           ..write(')'))
         .toString();
   }
@@ -737,6 +784,7 @@ class Product extends DataClass implements Insertable<Product> {
     searchKey,
     promoRules,
     minQuantity,
+    purchasePrice,
   );
   @override
   bool operator ==(Object other) =>
@@ -759,7 +807,8 @@ class Product extends DataClass implements Insertable<Product> {
           other.imageUrl == this.imageUrl &&
           other.searchKey == this.searchKey &&
           other.promoRules == this.promoRules &&
-          other.minQuantity == this.minQuantity);
+          other.minQuantity == this.minQuantity &&
+          other.purchasePrice == this.purchasePrice);
 }
 
 class ProductsCompanion extends UpdateCompanion<Product> {
@@ -781,6 +830,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
   final Value<String> searchKey;
   final Value<String> promoRules;
   final Value<double> minQuantity;
+  final Value<double?> purchasePrice;
   final Value<int> rowid;
   const ProductsCompanion({
     this.id = const Value.absent(),
@@ -801,6 +851,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.searchKey = const Value.absent(),
     this.promoRules = const Value.absent(),
     this.minQuantity = const Value.absent(),
+    this.purchasePrice = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ProductsCompanion.insert({
@@ -822,6 +873,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.searchKey = const Value.absent(),
     this.promoRules = const Value.absent(),
     this.minQuantity = const Value.absent(),
+    this.purchasePrice = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name);
@@ -844,6 +896,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Expression<String>? searchKey,
     Expression<String>? promoRules,
     Expression<double>? minQuantity,
+    Expression<double>? purchasePrice,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -865,6 +918,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       if (searchKey != null) 'search_key': searchKey,
       if (promoRules != null) 'promo_rules': promoRules,
       if (minQuantity != null) 'min_quantity': minQuantity,
+      if (purchasePrice != null) 'purchase_price': purchasePrice,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -888,6 +942,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Value<String>? searchKey,
     Value<String>? promoRules,
     Value<double>? minQuantity,
+    Value<double?>? purchasePrice,
     Value<int>? rowid,
   }) {
     return ProductsCompanion(
@@ -909,6 +964,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       searchKey: searchKey ?? this.searchKey,
       promoRules: promoRules ?? this.promoRules,
       minQuantity: minQuantity ?? this.minQuantity,
+      purchasePrice: purchasePrice ?? this.purchasePrice,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -970,6 +1026,9 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     if (minQuantity.present) {
       map['min_quantity'] = Variable<double>(minQuantity.value);
     }
+    if (purchasePrice.present) {
+      map['purchase_price'] = Variable<double>(purchasePrice.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -997,6 +1056,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
           ..write('searchKey: $searchKey, ')
           ..write('promoRules: $promoRules, ')
           ..write('minQuantity: $minQuantity, ')
+          ..write('purchasePrice: $purchasePrice, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2045,6 +2105,7 @@ typedef $$ProductsTableCreateCompanionBuilder = ProductsCompanion Function({
   Value<String> searchKey,
   Value<String> promoRules,
   Value<double> minQuantity,
+  Value<double?> purchasePrice,
   Value<int> rowid,
 });
 typedef $$ProductsTableUpdateCompanionBuilder = ProductsCompanion Function({
@@ -2066,6 +2127,7 @@ typedef $$ProductsTableUpdateCompanionBuilder = ProductsCompanion Function({
   Value<String> searchKey,
   Value<String> promoRules,
   Value<double> minQuantity,
+  Value<double?> purchasePrice,
   Value<int> rowid,
 });
 
@@ -2165,6 +2227,11 @@ class $$ProductsTableFilterComposer
 
   ColumnFilters<double> get minQuantity => $composableBuilder(
     column: $table.minQuantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get purchasePrice => $composableBuilder(
+    column: $table.purchasePrice,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2267,6 +2334,11 @@ class $$ProductsTableOrderingComposer
     column: $table.minQuantity,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get purchasePrice => $composableBuilder(
+    column: $table.purchasePrice,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ProductsTableAnnotationComposer
@@ -2341,6 +2413,11 @@ class $$ProductsTableAnnotationComposer
     column: $table.minQuantity,
     builder: (column) => column,
   );
+
+  GeneratedColumn<double> get purchasePrice => $composableBuilder(
+    column: $table.purchasePrice,
+    builder: (column) => column,
+  );
 }
 
 class $$ProductsTableTableManager
@@ -2389,6 +2466,7 @@ class $$ProductsTableTableManager
                 Value<String> searchKey = const Value.absent(),
                 Value<String> promoRules = const Value.absent(),
                 Value<double> minQuantity = const Value.absent(),
+                Value<double?> purchasePrice = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProductsCompanion(
                 id: id,
@@ -2409,6 +2487,7 @@ class $$ProductsTableTableManager
                 searchKey: searchKey,
                 promoRules: promoRules,
                 minQuantity: minQuantity,
+                purchasePrice: purchasePrice,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2431,6 +2510,7 @@ class $$ProductsTableTableManager
                 Value<String> searchKey = const Value.absent(),
                 Value<String> promoRules = const Value.absent(),
                 Value<double> minQuantity = const Value.absent(),
+                Value<double?> purchasePrice = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProductsCompanion.insert(
                 id: id,
@@ -2451,6 +2531,7 @@ class $$ProductsTableTableManager
                 searchKey: searchKey,
                 promoRules: promoRules,
                 minQuantity: minQuantity,
+                purchasePrice: purchasePrice,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

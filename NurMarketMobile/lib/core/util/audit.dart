@@ -28,7 +28,7 @@ class AuditEntry {
 }
 
 class Audit {
-  static const kinds = ['sale', 'cart', 'return', 'discount', 'delete', 'price', 'product', 'receive', 'cash', 'shift', 'settings', 'login', 'open', 'ai'];
+  static const kinds = ['sale', 'cart', 'return', 'discount', 'delete', 'price', 'product', 'receive', 'cash', 'shift', 'settings', 'login', 'open', 'ai', 'sync', 'error'];
 
   /// Кто сейчас работает (ставит app.dart при входе/выходе) — пишется в каждую запись.
   static String currentUser = '';
@@ -48,6 +48,8 @@ class Audit {
     _pending.clear();
     _flushing = null;
     _chain = Future.value();
+    _sinceTrim = 1 << 30;
+    _lastSync = DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   /// Записать действие. Ошибки записи не мешают работе кассы.
@@ -67,21 +69,88 @@ class Audit {
     return r;
   }
 
+  /// 2026-10-30 (оптимизация, п. 8): fsync не на каждую пачку, а не чаще раза в [_syncEvery] и при сворачивании приложения
+  /// ([syncToDisk]). Компромисс: запись без fsync уже передана операционной системе (close файла) — падение или закрытие
+  /// приложения её не теряет; пропасть могут только последние ≤ 30 секунд при внезапном выключении питания телефона.
+  static const _syncEvery = Duration(seconds: 30);
+  static DateTime _lastSync = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// 2026-10-30 (оптимизация, п. 8): обрезка файла до [_max] строк — при записи (раз за запуск и затем каждые 1000 записей), а не
+  /// только при открытии экрана журнала: раньше без открытия журнал рос без предела.
+  static int _sinceTrim = 1 << 30;
+
   static Future<void> _flush() async {
     try {
       await Future<void>.delayed(Duration.zero); // дать накопиться записям этого же такта
       final f = await _file();
       while (_pending.isNotEmpty) {
         final batch = _pending.join();
+        final n = _pending.length;
         _pending.clear();
         try {
-          await f.writeAsString(batch, mode: FileMode.append, flush: true);
+          final due = DateTime.now().difference(_lastSync) >= _syncEvery;
+          await f.writeAsString(batch, mode: FileMode.append, flush: due);
+          if (due) _lastSync = DateTime.now();
+          _sinceTrim += n;
+          if (_sinceTrim >= 1000) {
+            _sinceTrim = 0;
+            await _trim(f);
+          }
         } catch (_) {
           // журнал не записался — продажа важнее
         }
       }
     } finally {
       _flushing = null;
+    }
+  }
+
+  /// Обрезка до последних [_max] строк через временный файл и переименование (обрыв посреди записи не оставляет половинный журнал).
+  static Future<void> _trim(File f) async {
+    if (!await f.exists()) return;
+    final lines = await f.readAsLines();
+    if (lines.length <= _max) return;
+    final tmp = File('${f.path}.tmp');
+    await tmp.writeAsString('${lines.sublist(lines.length - _max).join('\n')}\n', flush: true);
+    await tmp.rename(f.path);
+  }
+
+  /// 2026-10-30 (оптимизация, п. 8): приложение свёрнуто — всё накопленное сбрасывается на диск (fsync) одним разом.
+  static Future<void> syncToDisk() async {
+    try {
+      await _flushing;
+      await _serial(() async {
+        final f = await _file();
+        if (!await f.exists()) return;
+        final raf = await f.open(mode: FileMode.append);
+        try {
+          await raf.flush();
+        } finally {
+          await raf.close();
+        }
+        _lastSync = DateTime.now();
+      });
+    } catch (_) {
+      // не вышло — данные уже у системы
+    }
+  }
+
+  /// 2026-10-29 («ничего не должно остаться от старого аккаунта»): журнал действий (и файлы `audit.*.jsonl` старых версий) стирается
+  /// при выходе и смене аккаунта; накопленные, но не записанные строки сбрасываются.
+  static Future<void> wipeAll({Directory? directory}) async {
+    await _flushing;
+    _pending.clear();
+    currentUser = '';
+    try {
+      await _serial(() async {
+        final dir = directory ?? testDirectory ?? await getApplicationDocumentsDirectory();
+        await for (final e in dir.list()) {
+          final name = e.uri.pathSegments.last;
+          if (e is File && name.startsWith('audit') && name.endsWith('.jsonl')) await e.delete();
+        }
+      });
+    } catch (_) {
+      // журнал не стёрся — новые записи пойдут поверх
     }
   }
 

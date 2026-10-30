@@ -45,7 +45,25 @@ public sealed partial class NurMarketApiClient : IDisposable
         var baseUrl = settings.ApiBaseUrl.Trim().TrimEnd('/') + "/";
         // 2026-10-04, стресс-тест: сервер NurCRM умеет gzip (страница каталога 155 КБ → 18 КБ), а касса его не
         // просила — каждые 2 минуты качался полный каталог без сжатия. Accept-Encoding ставится сам.
-        var handler = new JwtBearerRefreshHandler(this) { InnerHandler = new HttpClientHandler { AutomaticDecompression = System.Net.DecompressionMethods.All } };
+        // 2026-10-29 (замер скорости): HTTP/2 с откатом на 1.1 и долгое хранение соединения (TransportTuningHandler + SocketsHttpHandler) —
+        // соединение не закрывается между тактами ленты (раньше новое TLS-рукопожатие ~170 мс), пинг HTTP/2 вовремя замечает оборванную связь.
+        var handler = new JwtBearerRefreshHandler(this)
+        {
+            InnerHandler = new TransportTuningHandler
+            {
+                InnerHandler = new SocketsHttpHandler
+                {
+                    AutomaticDecompression = System.Net.DecompressionMethods.All,
+                    PooledConnectionIdleTimeout = TimeSpan.FromMinutes(3),
+                    PooledConnectionLifetime = TimeSpan.FromMinutes(15),
+                    KeepAlivePingDelay = TimeSpan.FromSeconds(30),
+                    // 2026-10-29: было 15 с — на медленной линии ответ на пинг запаздывал, и живое соединение обрывали (все запросы на нём падали).
+                    KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
+                    KeepAlivePingPolicy = HttpKeepAlivePingPolicy.WithActiveRequests,
+                    EnableMultipleHttp2Connections = true,
+                },
+            },
+        };
         _http = new HttpClient(handler)
         {
             BaseAddress = new Uri(baseUrl, UriKind.Absolute),
@@ -296,6 +314,16 @@ public sealed partial class NurMarketApiClient : IDisposable
         CompanyInfoService.Clear();
     }
 
+    /// <summary>2026-10-30: сервер отозвал вход (401, refresh отклонён) — токены стираем, а профиль (роль, права, филиал, ИНН)
+    /// и данные компании оставляем: раньше полный ClearSession обнулял UserPayload, и «Клиенты» в программе владельца
+    /// отвечали «Недостаточно прав» (права = пусто). Объявляет сессию недействительной один раз (SessionExpiryMonitor).</summary>
+    public void ExpireSession(string source)
+    {
+        AccessToken = null;
+        RefreshToken = null;
+        SessionExpiryMonitor.Report(source);
+    }
+
     /// <summary>2026-10-18, аудит («Сменить кассира» с неверным паролем): полный снимок текущего входа —
     /// токены, профиль пользователя (роль, доступы, id, email), филиал и ИНН компании. Вход нового кассира
     /// при ошибке стирает всё это (ClearSession), а восстановление через RestoreOfflineSession возвращало
@@ -318,6 +346,7 @@ public sealed partial class NurMarketApiClient : IDisposable
     /// <summary>Восстановление сессии из локального кэша (офлайн-вход).</summary>
     public void RestoreOfflineSession(OfflineAuthSession session)
     {
+        SessionExpiryMonitor.Reset(); // 2026-10-30
         AccessToken = session.AccessToken;
         RefreshToken = session.RefreshToken;
         ActiveBranchId = session.BranchId;
@@ -1182,7 +1211,7 @@ public sealed partial class NurMarketApiClient : IDisposable
             using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, linked.Token).ConfigureAwait(false);
 
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(RefreshToken))
-                ClearSession();
+                ExpireSession(relativePath); // 2026-10-30
 
             resp.EnsureSuccessStatusCode();
 
@@ -1235,7 +1264,7 @@ public sealed partial class NurMarketApiClient : IDisposable
             var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(RefreshToken))
-                ClearSession();
+                ExpireSession(relativePath); // 2026-10-30
 
             if (!resp.IsSuccessStatusCode)
             {
@@ -1300,7 +1329,8 @@ public sealed partial class NurMarketApiClient : IDisposable
         string relativePath,
         object? jsonBody,
         IReadOnlyDictionary<string, string>? query,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool retryThrottle = true)
     {
         relativePath = ApiPathNormalizer.EnsureTrailingSlash(relativePath, method);
         var uri = BuildUri(relativePath, query);
@@ -1315,8 +1345,15 @@ public sealed partial class NurMarketApiClient : IDisposable
         using var resp = await _http.SendAsync(req, ct).ConfigureAwait(false);
         var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
-        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(RefreshToken))
-            ClearSession();
+        // 2026-10-31 (ТЗ Умара): 401 на необязательном «company/addons/» не должен выкидывать кассира из сессии — касса работает по ключам и кэшу.
+        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(RefreshToken)
+            && !relativePath.Contains("company/addons", StringComparison.OrdinalIgnoreCase))
+            ExpireSession(relativePath); // 2026-10-30
+
+        // 2026-10-30 (приёмка 1.17.65, «Важно» 2): 429 — сервер отклонил запрос ДО обработки (ограничение частоты), повтор безопасен, в том числе POST.
+        // Один повтор: общий щит (JwtBearerRefreshHandler) сам выдержит паузу Retry-After; не помогло — ApiException 429 («Сервер занят»), а не обрыв связи.
+        if ((int)resp.StatusCode == 429 && retryThrottle && ApiThrottle.RemainingBlock <= TimeSpan.FromSeconds(15) && !ct.IsCancellationRequested)
+            return await SendOnceAsync(method, relativePath, jsonBody, query, ct, retryThrottle: false).ConfigureAwait(false);
 
         if (!resp.IsSuccessStatusCode)
         {
@@ -1386,7 +1423,7 @@ public sealed partial class NurMarketApiClient : IDisposable
             await SendOnceAsync(HttpMethod.Get, "api/users/profile/", null, null, timeout.Token).ConfigureAwait(false);
             return true;
         }
-        catch (ApiException ex) when (!ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode))
+        catch (ApiException ex) when (!ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode) || ex.StatusCode == 429) // 2026-10-30: 429 — сервер жив, просит паузу
         {
             return true;
         }
@@ -1463,6 +1500,7 @@ public sealed partial class NurMarketApiClient : IDisposable
 
     private void ApplyLoginResponse(JsonElement root)
     {
+        SessionExpiryMonitor.Reset(); // 2026-10-30: успешный вход снимает «нужно войти»
         if (root.TryGetProperty("access", out var a) && a.ValueKind == JsonValueKind.String)
             AccessToken = a.GetString();
         if (root.TryGetProperty("refresh", out var r) && r.ValueKind == JsonValueKind.String)

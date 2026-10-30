@@ -23,6 +23,11 @@ public partial class CheckoutDialog : Window
 {
     private readonly CheckoutViewModel _viewModel;
     private readonly IDialogService _dialogService;
+    // 2026-10-30 (приёмка 1.17.67, мелочи): удержание F5–F7 не переключает туда-обратно; запись «Напечатать чек» — с задержкой; бейдж «Без связи» обновляется.
+    private readonly HashSet<Key> _heldFunctionKeys = new();
+    private DispatcherTimer? _printPrefTimer;
+    private DispatcherTimer? _offlineTimer;
+    private bool _lastOffline;
 
     public CheckoutDialog() : this(
         new CheckoutViewModel(new CartTotalsCalculator.CartTotals(), "", ""),
@@ -46,6 +51,7 @@ public partial class CheckoutDialog : Window
         InitializeComponent();
         DataContext = _viewModel;
         AttachCloseHandler();
+        DialogDragHelper.Attach(this, OnUserMoved); // 2026-10-30: окно оплаты двигается за шапку и помнит место («модалка не двигается!!!»)
         this.ClampToScreenHeight();
         // 2026-10-21 (пакет 6, п. 27): строка «Консультант: …» над кнопками — всегда видна, блок выбора — в прокрутке.
         UpdateConsultantSummary();
@@ -58,6 +64,8 @@ public partial class CheckoutDialog : Window
         void OnViewModelPropertyChanged(string? propertyName)
         {
             UpdateErrorVisibility();
+            if (propertyName == nameof(CheckoutViewModel.IsPrintReceiptEnabled))
+                SchedulePrintPrefSave();
             if (propertyName is nameof(CheckoutViewModel.SelectedConsultant) or nameof(CheckoutViewModel.IsConsultantEnabled))
                 UpdateConsultantSummary();
             // 2026-10-22 (аудит 1.17.59, П-В, Б8): клиент выбран в режиме «В долг» — прокручиваем к предоплате и сроку.
@@ -91,6 +99,8 @@ public partial class CheckoutDialog : Window
                 ApplyDock(dockOwner);
                 QueueRedock();
             }
+            else
+                ApplyUndockedFit();
 
             if (_viewModel.IsCashMode && !OperatingSystem.IsAndroid())
             {
@@ -98,7 +108,16 @@ public partial class CheckoutDialog : Window
                 CashReceivedBox.SelectAll();
             }
         };
-        Closed += (_, _) => DetachDockOwner();
+        Closed += (_, _) =>
+        {
+            DetachDockOwner();
+            _printPrefTimer?.Stop();
+            _offlineTimer?.Stop();
+            _viewModel.FlushPrintReceiptPreference();
+        };
+        Deactivated += (_, _) => _heldFunctionKeys.Clear();
+        AddHandler(KeyUpEvent, (_, e) => _heldFunctionKeys.Remove(e.Key), RoutingStrategies.Tunnel, handledEventsToo: true);
+        Opened += (_, _) => StartOfflineWatch();
         // 2026-10-23 (ТЗ компактной оплаты): высота окна теперь по содержимому, поэтому после её смены (другой способ оплаты, клиент,
         // консультант) место окна пересчитывается: низ остаётся у низа главного окна, окно растёт вверх.
         SizeChanged += (_, e) => OnOwnSizeChanged(e);
@@ -225,8 +244,8 @@ public partial class CheckoutDialog : Window
             _viewModel.PayCommand.Execute(null);
     }
 
-    /// <summary>Способы оплаты в том порядке, в каком их читают на экране (2×2): так их обходят
-    /// стрелки Влево/Вправо.</summary>
+    /// <summary>Способы оплаты в том порядке, в каком их читают на экране (в ряд, 2026-10-30; раньше 2×2): так их обходят
+    /// стрелки Влево/Вправо и клавиши F1–F4.</summary>
     private RadioButton[] PaymentOptions => [PayCashOption, PayTransferOption, PayDebtOption, PayMixedOption];
 
     /// <summary>Оплата с клавиатуры (2026-09-27, просьба владельца: «кассир стрелкой выбирает
@@ -261,10 +280,40 @@ public partial class CheckoutDialog : Window
                     e.Handled = MovePaymentMethod(forward ? 1 : -1);
                 break;
 
-            // Строка вниз/вверх в сетке 2×2. В самом списке банков Вверх/Вниз листают банки —
-            // это делает ComboBox, туда не вмешиваемся.
+            // 2026-10-30 (редизайн): плитки теперь в один ряд, поэтому ↑/↓ листают способы так же, как ←/→ (раньше шли по строкам сетки 2×2).
+            // В самом списке банков Вверх/Вниз листают банки — это делает ComboBox, туда не вмешиваемся.
             case Key.Up or Key.Down when onOption || nothingFocused || ReferenceEquals(focused, CashReceivedBox):
-                e.Handled = MovePaymentMethod(e.Key == Key.Down ? 2 : -2);
+                e.Handled = MovePaymentMethod(e.Key == Key.Down ? 1 : -1);
+                break;
+
+            // 2026-10-30 (редизайн): F1–F4 — способ оплаты (Наличные, Безналичные, В долг, Смешанная), F5 — выбор клиента,
+            // F6 — списать/снять бонусы, F7 — «Напечатать чек». Работают из любого поля окна.
+            // 2026-10-30 (приёмка 1.17.67): F4 на свёрнутом списке банков раскрывает его (как в обычном списке), а не выбирает «Смешанную».
+            case Key.F4 when onBank:
+                e.Handled = true;
+                BankComboBox.IsDropDownOpen = true;
+                break;
+
+            case Key.F1 or Key.F2 or Key.F3 or Key.F4:
+                e.Handled = SelectPaymentMethod(e.Key - Key.F1);
+                break;
+
+            case Key.F5 when _viewModel.ShowClientSection:
+                e.Handled = true;
+                if (FirstPressOfFunctionKey(e.Key))
+                    ChooseClient_Click(this, e);
+                break;
+
+            case Key.F6 when _viewModel.ShowLoyaltyBlock:
+                e.Handled = true;
+                if (FirstPressOfFunctionKey(e.Key))
+                    _viewModel.ToggleRedeemAllPoints();
+                break;
+
+            case Key.F7 when _viewModel.IsPrintReceiptAvailable:
+                e.Handled = true;
+                if (FirstPressOfFunctionKey(e.Key))
+                    _viewModel.IsPrintReceiptEnabled = !_viewModel.IsPrintReceiptEnabled;
                 break;
 
             case Key.Enter when onOption || onBank || nothingFocused:
@@ -282,6 +331,45 @@ public partial class CheckoutDialog : Window
         }
     }
 
+    /// <summary>2026-10-30: true — клавишу нажали заново; false — это автоповтор удерживаемой клавиши (в Avalonia нет KeyEventArgs.IsRepeat).
+    /// Признак «удерживается» снимается при отпускании клавиши и при потере активности окна.</summary>
+    private bool FirstPressOfFunctionKey(Key key) => _heldFunctionKeys.Add(key);
+
+    /// <summary>2026-10-30: «Напечатать чек» пишется на диск через 0,7 с после последнего изменения (и при закрытии окна), а не на каждое нажатие.</summary>
+    private void SchedulePrintPrefSave()
+    {
+        _printPrefTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
+        _printPrefTimer.Stop();
+        _printPrefTimer.Tick -= OnPrintPrefTimer;
+        _printPrefTimer.Tick += OnPrintPrefTimer;
+        _printPrefTimer.Start();
+    }
+
+    private void OnPrintPrefTimer(object? sender, EventArgs e)
+    {
+        _printPrefTimer?.Stop();
+        _viewModel.FlushPrintReceiptPreference();
+    }
+
+    /// <summary>2026-10-30: бейдж «Без связи» в шапке читает состояние связи, которое само не оповещает, — перечитываем раз в 2 с, пока окно открыто.</summary>
+    private void StartOfflineWatch()
+    {
+        _lastOffline = _viewModel.IsOfflineMode;
+        _offlineTimer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _offlineTimer.Tick -= OnOfflineTimer;
+        _offlineTimer.Tick += OnOfflineTimer;
+        _offlineTimer.Start();
+    }
+
+    private void OnOfflineTimer(object? sender, EventArgs e)
+    {
+        var now = _viewModel.IsOfflineMode;
+        if (now == _lastOffline)
+            return;
+        _lastOffline = now;
+        _viewModel.RefreshOfflineMode();
+    }
+
     /// <summary>Переключает способ оплаты так же, как клик мышью (RadioButton.Toggle ставит
     /// IsChecked через SetCurrentValue — привязка к модели остаётся). Наличные сразу отдают фокус
     /// полю «Получено» с выделенной суммой — как при открытии окна: можно печатать сумму или
@@ -292,6 +380,16 @@ public partial class CheckoutDialog : Window
         var current = Array.FindIndex(options, option => option.IsChecked == true);
         var next = current + step;
         if (current < 0 || next < 0 || next >= options.Length)
+            return false;
+
+        return SelectPaymentMethod(next);
+    }
+
+    /// <summary>2026-10-30: выбор способа по номеру плитки (0…3) — для F1–F4 и стрелок. Наличные отдают фокус полю «Получено».</summary>
+    private bool SelectPaymentMethod(int next)
+    {
+        var options = PaymentOptions;
+        if (next < 0 || next >= options.Length)
             return false;
 
         options[next].SetCurrentValue(ToggleButton.IsCheckedProperty, true);
@@ -425,6 +523,9 @@ public partial class CheckoutDialog : Window
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);
 
+    /// <summary>2026-10-30: «Списать N F6» — списать столько бонусов, сколько можно (или снять списание); то же, что ввести число в поле бонусов.</summary>
+    private void RedeemPoints_Click(object? sender, RoutedEventArgs e) => _viewModel.ToggleRedeemAllPoints();
+
     private async void ChooseClient_Click(object? sender, RoutedEventArgs e)
     {
         await ClientPickerDialog.Open(this, _viewModel).ConfigureAwait(true);
@@ -464,6 +565,9 @@ public partial class CheckoutDialog : Window
     /// <summary>От этой ширины главного окна окно оплаты — в две колонки (класс two-col), уже — в одну.</summary>
     private const double TwoColOwnerWidth = 1000;
 
+    /// <summary>2026-10-30: главное окно ниже этого (800×480) при ширине 760…999 — оплата занимает всю ширину в две колонки.</summary>
+    private const double FullWidthOwnerHeight = 560;
+
     /// <summary>Ширина самого окна оплаты, от которой не прилипшее окно (Android-планшет, маленькое главное окно) тоже делится на две колонки.</summary>
     private const double TwoColWindowWidth = 680;
 
@@ -483,15 +587,29 @@ public partial class CheckoutDialog : Window
     private bool _redockQueued;
     /// <summary>2026-10-27: режим «прижимать к низу» из payment_dialog_position.json (читается при открытии окна).</summary>
     private bool _bottomDock;
+    /// <summary>2026-10-30: смещение, оставленное перетаскиванием за шапку (из payment_dialog_position.json), и обычное место окна без него.</summary>
+    private int _userDx, _userDy, _dockX, _dockY;
+
+    /// <summary>Окно оплаты перетащили за шапку (DialogDragHelper уже вернул его в рабочую область) — запоминаем смещение от обычного места.
+    /// Только когда окно прилипло к главному (иначе обычного места нет).</summary>
+    private void OnUserMoved(Window _)
+    {
+        if (_dockOwner is null)
+            return;
+        _userDx = Position.X - _dockX;
+        _userDy = Position.Y - _dockY;
+        PaymentDockPlacement.WriteOffset(_userDx, _userDy);
+    }
 
     /// <summary>Ширина окна в одну колонку: треть главного окна, но 400…480 точек (на 1024 — 400, на 1366 — 451,
     /// с 1455 — 480) и не шире самого окна.</summary>
     internal static double PanelWidthFor(double ownerWidth) =>
         Math.Min(ownerWidth, Math.Clamp(Math.Round(ownerWidth * 0.33), 400, 480));
 
-    /// <summary>Ширина окна в две колонки: 60 % главного окна, но 680…800 точек (1296 — 778, 1024 — 680).</summary>
+    /// <summary>Ширина окна в две колонки: 66 % главного окна, но 800…880 точек (1296 — 855, 1024 — 800).
+    /// 2026-10-30 (редизайн): было 60 % и 680…800 — четыре плитки способов в ряд при 680–740 не вмещали слово «Безналичные».</summary>
     internal static double TwoColWidthFor(double ownerWidth) =>
-        Math.Clamp(Math.Round(ownerWidth * 0.6), 680, 800);
+        Math.Min(ownerWidth - 2 * DockMargin, Math.Clamp(Math.Round(ownerWidth * 0.66), 800, 880));
 
     /// <summary>Ставит окно оплаты у правого края главного окна (вызывать до ShowDialog — так окно
     /// сразу появляется на месте, без прыжка из центра). Если справа на главном экране чек (раскладки
@@ -502,6 +620,7 @@ public partial class CheckoutDialog : Window
         if (OperatingSystem.IsAndroid())
             return false;
         _bottomDock = PaymentDockPlacement.ReadBottomMode();
+        (_userDx, _userDy) = PaymentDockPlacement.ReadOffset(); // 2026-10-30: место после перетаскивания
         var target = IsDockable(owner) ? owner : MainKassaWindow(owner);
         if (target is null || !ApplyDock(target))
             return false;
@@ -546,6 +665,12 @@ public partial class CheckoutDialog : Window
             var client = target.ClientSize;
             var twoCol = client.Width >= TwoColOwnerWidth;
             var width = twoCol ? TwoColWidthFor(client.Width) : PanelWidthFor(client.Width);
+            // 2026-10-30 (редизайн оплаты): очень низкое главное окно (800×480) — оплата во всю ширину в две колонки (как в макете s800), а не узкая колонка с прокруткой.
+            if (!twoCol && client.Width >= MinDockOwnerWidth && client.Height < FullWidthOwnerHeight)
+            {
+                twoCol = true;
+                width = client.Width - 2 * DockMargin;
+            }
             var left = client.Width - DockMargin - width;
 
             var receipt = FindReceipt(target);
@@ -576,6 +701,18 @@ public partial class CheckoutDialog : Window
             // 2026-10-27, жалоба владельца «почему окно оплаты вниз ушло??»: по умолчанию окно по центру области по вертикали
             // (на низкой области < 700 и в режиме «прижимать к низу» — низ окна у низа области, как раньше).
             var y = PaymentDockPlacement.ComputeY(area.Y, area.Bottom, height, scaling, client.Height, DockMargin, _bottomDock);
+            // 2026-10-30 («модалка не двигается!!!»): обычное место запоминаем, окно перетащили за шапку — ставим со смещением
+            // (в пределах рабочей области экрана, чтобы шапка была достижима).
+            _dockX = x;
+            _dockY = y;
+            if ((_userDx != 0 || _userDy != 0) && screen is not null)
+            {
+                var wa = screen.WorkingArea;
+                var wPx = (int)Math.Round(width * scaling);
+                var hPx = (int)Math.Round(height * scaling);
+                x = Math.Clamp(x + _userDx, wa.X, Math.Max(wa.X, wa.Right - wPx));
+                y = Math.Clamp(y + _userDy, wa.Y, Math.Max(wa.Y, wa.Bottom - hPx));
+            }
 
             SizeToContent = SizeToContent.Height;
             WindowStartupLocation = WindowStartupLocation.Manual;
@@ -611,6 +748,43 @@ public partial class CheckoutDialog : Window
         var twoCol = Bounds.Width >= TwoColWindowWidth;
         if (Classes.Contains("two-col") != twoCol)
             Classes.Set("two-col", twoCol);
+    }
+
+    /// <summary>2026-10-30 (редизайн оплаты): окно не прилипло к главному (главное окно ниже 480 — экран 800×480, свёрнуто, экран покупателя): плотность по
+    /// высоте рабочей области экрана (compact / tiny, как в ApplyDock), а на невысоком широком экране — две колонки во всю ширину, чтобы всё помещалось.
+    /// Размеры области можно передать (стенд проверки).</summary>
+    internal void ApplyUndockedFit(double? availW = null, double? availH = null)
+    {
+        try
+        {
+            if (OperatingSystem.IsAndroid())
+                return;
+            var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+            if (availW is null || availH is null)
+            {
+                if (screen is null || screen.Scaling <= 0)
+                    return;
+                availW = screen.WorkingArea.Width / screen.Scaling - 2 * DockMargin;
+                availH = screen.WorkingArea.Height / screen.Scaling - 2 * DockMargin;
+            }
+            Classes.Set("compact", availH.Value < CompactPanelHeight);
+            Classes.Set("tiny", availH.Value < TinyPanelHeight);
+            if (availW.Value >= TwoColWindowWidth + 40 && availH.Value < TinyPanelHeight)
+            {
+                var width = Math.Min(availW.Value, 800);
+                MaxWidth = width;
+                Width = width;
+                if (screen is not null)
+                {
+                    var wa = screen.WorkingArea;
+                    Position = new PixelPoint(wa.X + (int)Math.Round((wa.Width - width * screen.Scaling) / 2), Position.Y);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Окно оплаты: подгонка под экран: {ex.Message}", "WARNING");
+        }
     }
 
     /// <summary>Строки чека на главном экране — список, привязанный к строкам корзины (CartLineItemVm),

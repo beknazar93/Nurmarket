@@ -88,7 +88,9 @@ public sealed record RevisionTotals(
     int Total, int Counted, int WithDifference, int NotCounted,
     double ShortageQty, double ShortageAtSale, double ShortageAtCost,
     double SurplusQty, double SurplusAtSale, double SurplusAtCost,
-    int ReadOnly)
+    int ReadOnly,
+    // 2026-10-29: «Не хватает закупки у N товаров» — позиции с расхождением без цены закупки и их разница по цене продажи (в «по закупке» они не вошли).
+    int NoCostCount = 0, double ShortageNoCostAtSale = 0, double SurplusNoCostAtSale = 0)
 {
     public double NetQty => SurplusQty - ShortageQty;
     public double NetAtSale => SurplusAtSale - ShortageAtSale;
@@ -131,6 +133,9 @@ public sealed class RevisionRow : INotifyPropertyChanged
     public bool IsWeighted { get; }
     public double SalePrice { get; }
     public double PurchasePrice { get; }
+
+    /// <summary>2026-10-29: цена закупки известна (больше нуля); иначе деньги по расхождению считаем по цене продажи с пометкой.</summary>
+    public bool HasPurchase => PurchasePrice > 0.0001;
 
     /// <summary>Товар с размерами: пересчитывается по размерам в карточке, в акт не входит.</summary>
     public bool IsReadOnly { get; }
@@ -744,8 +749,8 @@ public sealed class RevisionSession
     /// <summary>Итоги для подвала и окна «Завершить ревизию». Один проход, миллисекунды на 15 000.</summary>
     public RevisionTotals GetTotals()
     {
-        int counted = 0, withDiff = 0, readOnly = 0;
-        double shQ = 0, shS = 0, shC = 0, suQ = 0, suS = 0, suC = 0;
+        int counted = 0, withDiff = 0, readOnly = 0, noCost = 0;
+        double shQ = 0, shS = 0, shC = 0, suQ = 0, suS = 0, suC = 0, shN = 0, suN = 0;
         lock (_gate)
         {
             foreach (var r in _rows)
@@ -759,23 +764,30 @@ public sealed class RevisionSession
                     continue;
                 withDiff++;
                 var d = r.Difference;
+                if (!r.HasPurchase)
+                    noCost++;
                 if (d < 0)
                 {
                     shQ += -d;
                     shS += -d * r.SalePrice;
                     shC += -d * r.PurchasePrice;
+                    if (!r.HasPurchase)
+                        shN += -d * r.SalePrice;
                 }
                 else
                 {
                     suQ += d;
                     suS += d * r.SalePrice;
                     suC += d * r.PurchasePrice;
+                    if (!r.HasPurchase)
+                        suN += d * r.SalePrice;
                 }
             }
 
             return new RevisionTotals(_rows.Count, counted, withDiff, _rows.Count - counted,
                 Math.Round(shQ, 3), Math.Round(shS, 2), Math.Round(shC, 2),
-                Math.Round(suQ, 3), Math.Round(suS, 2), Math.Round(suC, 2), readOnly);
+                Math.Round(suQ, 3), Math.Round(suS, 2), Math.Round(suC, 2), readOnly,
+                noCost, Math.Round(shN, 2), Math.Round(suN, 2));
         }
     }
 

@@ -67,7 +67,7 @@ public static class SupportLogService
             company = UserPreferences.Instance.StoreName;
         var version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "?";
         var sb = new StringBuilder()
-            .AppendLine("📋 Журнал NurMarket")
+            .AppendLine("📋 Журнал NurCRM")
             .AppendLine($"Компания: {(string.IsNullOrWhiteSpace(company) ? "—" : company)}")
             .AppendLine($"Логин: {(string.IsNullOrWhiteSpace(PosApp.CurrentUserId) ? "—" : PosApp.CurrentUserId)}")
             .AppendLine($"Программа: {(AppMode.IsOwner ? "Владелец" : "Касса")} {version}")

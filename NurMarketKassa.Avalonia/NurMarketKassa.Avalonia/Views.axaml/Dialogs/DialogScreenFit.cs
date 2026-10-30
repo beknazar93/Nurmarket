@@ -170,6 +170,9 @@ internal static class DialogScreenFit
         if (_registered)
             return;
         _registered = true;
+#if !NURANDROID
+        ModalWindowManager.Register(); // 2026-10-30: модалки всегда спереди, фон блюрится (см. ModalWindowManager)
+#endif
         // 2026-10-29: на Linux (X11) у окон не было значка (в Windows его берёт сам exe, на Mac — пакет .app) — окна кассы
         // в панели задач и в Alt+Tab были с безликим значком.
         if (OperatingSystem.IsLinux() && !OperatingSystem.IsAndroid())

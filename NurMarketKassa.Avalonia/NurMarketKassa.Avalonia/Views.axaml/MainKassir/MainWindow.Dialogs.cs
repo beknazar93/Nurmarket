@@ -369,7 +369,12 @@ public partial class MainWindow
     private async Task RecordCashOperationAsync(CashOperationModel op)
     {
         var isWithdrawal = CashOperationModel.ResolveKind(op.Type) == CashOperationKind.Withdrawal;
-        ShiftCashOperationsStore.Append(op);
+        try { ShiftCashOperationsStore.Append(op); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) // 2026-10-30 (приёмка 1.17.65, блокер 3): файл истории занят — не записываем и не затираем
+        {
+            _prompts.ShowWarning(ShiftCashOperationsStore.BusyText());
+            return;
+        }
 
         // 2026-09-23. Изъятие, сделанное отсюда, не попадало в строку «Расход» Z-отчёта: событие
         // смены писал только путь через «Историю смен». Одна и та же операция давала в отчёте

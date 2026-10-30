@@ -81,6 +81,20 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
         private set { _isLoading = value; OnPropertyChanged(); }
     }
 
+    /// <summary>2026-10-31 (стресс-тест 1.17.68, п. 9): сервер не ответил — над таблицей «Нет связи с сервером» и «Повторить» (RefreshCommand).</summary>
+    public bool ServerOffline
+    {
+        get => _serverOffline;
+        private set { _serverOffline = value; OnPropertyChanged(); }
+    }
+
+    private bool _serverOffline;
+
+    public string ServerOfflineText => Tr.T("Нет связи с сервером — данные не получены.", "Сервер менен байланыш жок — маалымат алынган жок.", "No connection to the server — data was not received.",
+        "Sunucuyla bağlantı yok — veri alınamadı.", "Server bilan aloqa yo'q — ma'lumot olinmadi.");
+
+    public string RetryText => Tr.T("Повторить", "Кайталоо", "Retry", "Tekrar dene", "Qayta urinish");
+
     public ShiftPage ActivePage
     {
         get => _activePage;
@@ -207,6 +221,7 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
         try
         {
             var shifts = await ShiftHistoryService.LoadAsync(fresh: true).ConfigureAwait(true);
+            ServerOffline = ShiftHistoryService.LastLoadFailed && shifts.Count == 0;
             AllShifts.Clear();
             foreach (var shift in shifts.Select(ShiftModel.FromEntry))
                 AllShifts.Add(shift);
@@ -412,7 +427,12 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
         var dialog = new NewOperationDialog();
         if (PosDialogHost.Show(dialog, _owner) == true && dialog.ResultOperation is { } op)
         {
-            ShiftCashOperationsStore.Append(op);
+            try { ShiftCashOperationsStore.Append(op); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) // 2026-10-30 (приёмка 1.17.65, блокер 3): файл истории занят — не записали, не затираем
+            {
+                PosMessageBox.Show(_owner, ShiftCashOperationsStore.BusyText(), Tr.T("Внесение / изъятие", "Акча салуу / алып коюу", "Cash in / out", "Para girişi / çıkışı", "Kirim / chiqim"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
             // Изъятие — это расход смены. Внесение расходом не считается, поэтому пишем только
             // отрицательные операции (см. ShiftEventsStore).
@@ -535,7 +555,12 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
         var dialog = new NewOperationDialog(isDeposit);
         if (PosDialogHost.Show(dialog, _owner) == true && dialog.ResultOperation is { } op)
         {
-            ShiftCashOperationsStore.Append(op);
+            try { ShiftCashOperationsStore.Append(op); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) // 2026-10-30 (приёмка 1.17.65, блокер 3): файл истории занят — не записали, не затираем
+            {
+                PosMessageBox.Show(_owner, ShiftCashOperationsStore.BusyText(), Tr.T("Внесение / изъятие", "Акча салуу / алып коюу", "Cash in / out", "Para girişi / çıkışı", "Kirim / chiqim"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
             // Изъятие — это расход смены. Внесение расходом не считается, поэтому пишем только
             // отрицательные операции (см. ShiftEventsStore).

@@ -265,6 +265,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private void OnSalesChangedExternally()
         {
+            // 2026-10-31 (приёмка 1.17.68): SalesChanged поднимается и с фоновых потоков (оплата долга, пульс продаж) — поля и _liveCts трогаем только в UI-потоке.
+            if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(OnSalesChangedExternally);
+                return;
+            }
             _liveCts?.Cancel();
             _liveCts?.Dispose();
             var cts = new System.Threading.CancellationTokenSource();

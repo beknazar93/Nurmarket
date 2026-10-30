@@ -15,7 +15,7 @@ import '../../core/ai/assistant/call_table.dart';
 Future<List<int>> callTablePdfBytes(CallTable t, {String shop = '', pw.Font? regular, pw.Font? bold}) async {
   final reg = regular ?? pw.Font.ttf(await rootBundle.load('assets/fonts/Montserrat-Regular.ttf'));
   final bld = bold ?? pw.Font.ttf(await rootBundle.load('assets/fonts/Montserrat-Bold.ttf'));
-  final doc = pw.Document(title: t.title, author: shop, creator: 'NurMarket');
+  final doc = pw.Document(title: t.title, author: shop, creator: 'NurCRM');
   final wide = t.columns.length > 5;
   pw.Widget cell(String text, {bool b = false, bool right = false, PdfColor? color}) => pw.Padding(
     padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),

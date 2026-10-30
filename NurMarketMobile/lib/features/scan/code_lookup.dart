@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../sale/catalog_repository.dart';
@@ -25,14 +27,50 @@ class CodeLookup {
     return findOnServer(db, api, raw);
   }
 
-  static Future<({Product? product, double? qty, bool unavailable})> findOnServer(AppDatabase db, ApiClient api, String raw) async {
+  /// 2026-10-30 (владелец: «даже если есть товар, приёмка пишет "неизвестный штрихкод"»): коды, которых сервер только что не знал, —
+  /// запоминаем на [missTtl], чтобы пачка сканов одного и того же кода не била сервер запросами. Товар, найденный сервером, кладётся
+  /// в базу телефона, поэтому «найден» отдельно не кэшируется. [fresh] (после «Завести товар», «Привязать», «Проверить снова»)
+  /// кэш обходит. Между запросами к серверу — пауза не меньше [minGap], сканер при этом не ждёт (поиск идёт после закрытия сканера).
+  static const missTtl = Duration(seconds: 20);
+  static Duration minGap = const Duration(milliseconds: 250);
+  static final Map<String, DateTime> _missed = {};
+  static DateTime _lastCall = DateTime.fromMillisecondsSinceEpoch(0);
+
+  @visibleForTesting
+  static void clearCache({Duration gap = const Duration(milliseconds: 250)}) {
+    minGap = gap;
+    _missed.clear();
+    _lastCall = DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  /// 2026-10-30: код для сравнения — только цифры без ведущих нулей («0048745000» и «48745000» — один код); не цифровой — как есть.
+  static String canonicalCode(String s) {
+    final t = normalizeCode(s);
+    if (t.isEmpty || !RegExp(r'^\d+$').hasMatch(t)) return t.toLowerCase();
+    return t.replaceFirst(RegExp(r'^0+'), '');
+  }
+
+  static Future<({Product? product, double? qty, bool unavailable})> findOnServer(
+    AppDatabase db,
+    ApiClient api,
+    String raw, {
+    Duration timeout = serverTimeout,
+    bool fresh = false,
+  }) async {
     final code = normalizeCode(raw);
     if (code.length < 3) return (product: null, qty: null, unavailable: false);
+    final missAt = _missed[code];
+    if (!fresh && missAt != null && DateTime.now().difference(missAt) < missTtl) return (product: null, qty: null, unavailable: false);
     final forms = barcodeVariants(code).toSet();
+    // 2026-10-30: сравнение терпимое к ведущим нулям (EAN-8/UPC-E/GTIN-14 записаны в карточке с нулями или без)
+    final canon = {for (final f in forms) canonicalCode(f)}..remove('');
+    final wait = minGap - DateTime.now().difference(_lastCall);
+    if (wait > Duration.zero) await Future<void>.delayed(wait);
+    _lastCall = DateTime.now();
     try {
       final data = await api
-          .get('api/main/products/list/', query: {'search': code, 'page': 1, 'page_size': 20}, timeout: serverTimeout)
-          .timeout(serverTimeout + const Duration(milliseconds: 500));
+          .get('api/main/products/list/', query: {'search': code, 'page': 1, 'page_size': 20}, timeout: timeout)
+          .timeout(timeout + const Duration(milliseconds: 500));
       for (final p in asList(data)) {
         final alt = p['alternate_barcodes'] ?? p['alt_barcodes'] ?? p['barcodes'];
         final codes = <String>{
@@ -40,16 +78,18 @@ class CodeLookup {
           if (alt is List)
             for (final a in alt) (a is Map ? '${a['barcode'] ?? ''}' : '$a').trim(),
         };
-        if (!codes.any(forms.contains)) continue;
+        if (!codes.any((c) => forms.contains(c) || canon.contains(canonicalCode(c)))) continue;
         final row = CatalogRepository.mapProduct(p);
         if (row == null) continue;
         await db.upsertProduct(row);
         final saved = await db.productById(row.id.value);
         if (saved != null) {
+          _missed.remove(code);
           final hit = await db.productByScan(code, allowWeightLabel: false);
           return (product: saved, qty: hit?.product.id == saved.id ? hit?.qty : null, unavailable: false);
         }
       }
+      _missed[code] = DateTime.now();
       return (product: null, qty: null, unavailable: false);
     } catch (_) {
       // нет связи, сервер не ответил за 2 с или ответил ошибкой
@@ -66,6 +106,13 @@ class ScaleRulesLoader {
   static const sharedKey = 'ScaleLabelPrefixes';
   static DateTime _loadedAt = DateTime(2000);
   static bool _cacheRead = false;
+
+  /// 2026-10-29 (полная изоляция аккаунтов): правила весовых этикеток прошлого магазина забываются, у нового читаются заново.
+  static void forgetAccount() {
+    _loadedAt = DateTime(2000);
+    _cacheRead = false;
+    ScaleRules.current = const ScaleRules();
+  }
 
   /// Копия с телефона (быстро), потом сервер — не чаще раза в 10 минут.
   static Future<void> ensure(AppDatabase db, ApiClient api) async {

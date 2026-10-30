@@ -201,7 +201,7 @@ public sealed class ExcelWorkbookBuilder : IDisposable
 
         _document.PackageProperties.Title = Meta.Title;
         _document.PackageProperties.Subject = Meta.Subtitle;
-        _document.PackageProperties.Creator = Meta.GeneratedBy ?? "NurMarket";
+        _document.PackageProperties.Creator = Meta.GeneratedBy ?? "NurCRM";
         _document.PackageProperties.Created = Meta.GeneratedAt.ToUniversalTime();
     }
 

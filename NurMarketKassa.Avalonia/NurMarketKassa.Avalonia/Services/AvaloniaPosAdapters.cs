@@ -68,6 +68,17 @@ public sealed class AvaloniaPosCheckoutUiFlow : IPosCheckoutUiFlow
         await ShowPaymentResultCoreAsync(isSuccess, message).ConfigureAwait(true);
     }
 
+    public async Task ClosePaymentProcessingAsync()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            await Dispatcher.UIThread.InvokeAsync(ClosePaymentStatusDialogAsync);
+            return;
+        }
+
+        await ClosePaymentStatusDialogAsync().ConfigureAwait(true);
+    }
+
     private async Task ShowPaymentProcessingCoreAsync(double totalAmount)
     {
         await ClosePaymentStatusDialogAsync().ConfigureAwait(true);

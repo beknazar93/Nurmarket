@@ -93,6 +93,14 @@
                            TextWrapping="Wrap"
                            Margin="2,8,0,0"
                            IsVisible="{Binding HasError}"/>
+                <!-- 2026-10-30 (приёмка 1.17.65, «Важно» 2): нейтральная надпись автоповтора при «Сервер занят» и «Повторить» после неудачи. -->
+                <TextBlock Text="{Binding ClientsStatusText}" IsVisible="{Binding HasClientsStatus}"
+                           FontSize="12" Margin="2,4,0,0" TextWrapping="Wrap"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+                <Button Content="{DynamicResource shift.retryBalance}"
+                        Command="{Binding RetryLoadClientsCommand}"
+                        IsVisible="{Binding ClientsLoadFailed}"
+                        Classes="modal-secondary" Margin="2,4,0,0" MinHeight="44" HorizontalAlignment="Left"/>
             </StackPanel>
 
             <!-- Строка 2: список. Высоту (6 строк по 48 px; в форме 2) ставит код: Border.MaxHeight; пустой поиск — «не найдено» (NotFoundText, текст в коде). -->

@@ -19,8 +19,9 @@ public sealed record DebtorInfo(
     string? OldestDebtAt);
 
 /// <summary>Итог погашения долга одной суммой (POST /api/main/clients/{id}/pay-debt/).
-/// 2026-10-21 (ревью денег, мелочь): Left &lt; 0 — сервер не прислал «left», остаток неизвестен (не «погашен полностью»).</summary>
-public sealed record PayDebtResult(double Paid, double Left, int AppliedCount, bool Replayed);
+/// 2026-10-21 (ревью денег, мелочь): Left &lt; 0 — сервер не прислал «left», остаток неизвестен (не «погашен полностью»).
+/// 2026-10-30: Requests — сколько HTTP-запросов ушло на эту оплату (1; 2 — если сервер просил подождать, 429) — для журнала.</summary>
+public sealed record PayDebtResult(double Paid, double Left, int AppliedCount, bool Replayed, int Requests = 1);
 
 /// <summary>
 /// 2026-09-28: новые адреса NurCRM по ТЗ для бэкенда (docs/BACKEND_API.md) — клиенты, долги,
@@ -102,6 +103,9 @@ public sealed class ClientDebtsApiService : IDisposable
                 break;
         }
 
+        // 2026-10-29: полная сводка должников (без порога) — долги клиентов для «в долг» и оплаты долга без связи (OfflineClientCache).
+        if (minAmount <= 0)
+            OfflineClientCache.RememberDebtors(result.Select(d => (d.ClientId, d.Name, d.Phone, (decimal)d.DebtTotal)));
         return result;
     }
 
@@ -131,8 +135,9 @@ public sealed class ClientDebtsApiService : IDisposable
             body["shift"] = shiftId.Trim();
 
         var id = Uri.EscapeDataString(clientId.Trim());
+        var requests = new System.Runtime.CompilerServices.StrongBox<int>(); // 2026-10-30: число HTTP-запросов оплаты — в журнал
         var data = await SendWithIdempotencyKeyAsync(
-                HttpMethod.Post, $"api/main/clients/{id}/pay-debt/", body, idempotencyKey, ct)
+                HttpMethod.Post, $"api/main/clients/{id}/pay-debt/", body, idempotencyKey, ct, requests: requests)
             .ConfigureAwait(false);
 
         var applied = data.ValueKind == JsonValueKind.Object
@@ -149,7 +154,8 @@ public sealed class ClientDebtsApiService : IDisposable
             // 2026-10-21 (ревью денег, мелочь): нет поля «left» — остаток неизвестен (−1), а не 0 «погашен полностью».
             ReadDouble(data, "left") ?? -1,
             applied,
-            replayed);
+            replayed,
+            Math.Max(1, requests.Value));
     }
 
     /// <summary>2026-10-05, ТЗ ч.12, п. 2.3 (сервер починил и выложил 05.10): долг ОДНОЙ продажи — POST
@@ -292,7 +298,8 @@ public sealed class ClientDebtsApiService : IDisposable
         object? jsonBody,
         string idempotencyKey,
         CancellationToken ct,
-        bool retryThrottle = true)
+        bool retryThrottle = true,
+        System.Runtime.CompilerServices.StrongBox<int>? requests = null)
     {
         if (string.IsNullOrEmpty(_api.AccessToken))
             throw new ApiException(NurMarketApiClient.AuthInvalidHintRu, 401);
@@ -303,6 +310,8 @@ public sealed class ClientDebtsApiService : IDisposable
         if (jsonBody is not null)
             req.Content = new StringContent(JsonSerializer.Serialize(jsonBody), Encoding.UTF8, "application/json");
 
+        if (requests is not null)
+            requests.Value++;
         using var resp = await Http.SendAsync(req, ct).ConfigureAwait(false);
         var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
@@ -313,7 +322,7 @@ public sealed class ClientDebtsApiService : IDisposable
             if (retryThrottle && wait <= TimeSpan.FromSeconds(15))
             {
                 await Task.Delay(wait, ct).ConfigureAwait(false);
-                return await SendWithIdempotencyKeyAsync(method, relativePath, jsonBody, idempotencyKey, ct, retryThrottle: false)
+                return await SendWithIdempotencyKeyAsync(method, relativePath, jsonBody, idempotencyKey, ct, retryThrottle: false, requests: requests)
                     .ConfigureAwait(false);
             }
         }

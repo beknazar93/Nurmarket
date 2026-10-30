@@ -27,7 +27,7 @@
   <x:String x:Key="csh.menu.errorLogs">Günlükler ve hatalar</x:String>
   <x:String x:Key="csh.menu.cartRemovals">Fişten çıkarılanlar</x:String>
   <x:String x:Key="csh.menu.remoteSupport">NurCRM destek</x:String>
-  <x:String x:Key="csh.menu.knowledgeBase">NurMarket bilgi bankası</x:String>
+  <x:String x:Key="csh.menu.knowledgeBase">NurCRM bilgi bankası</x:String>
   <x:String x:Key="csh.menu.restock">Stok yenileme ve son kullanma</x:String>
   <x:String x:Key="csh.menu.switchCashier">Kasiyer değiştir</x:String>
   <x:String x:Key="switchCashier.title">Kasiyer değiştir</x:String>
@@ -122,7 +122,7 @@
   <x:String x:Key="header.labelTheme">Tema</x:String>
   <x:String x:Key="header.labelKeyboard">Klavye</x:String>
   <x:String x:Key="header.labelHotkeys">Kısayol</x:String>
-  <x:String x:Key="mainWindow.windowTitle">Kasa — Nur Market</x:String>
+  <x:String x:Key="mainWindow.windowTitle">Kasa — NurCRM</x:String>
   <x:String x:Key="csh.catalog.prevPage">‹ Geri</x:String>
   <x:String x:Key="printSettings.findButton">Bul</x:String>
   <x:String x:Key="printSettings.lptWatermark">Port veya yazıcı yolu (bulunamazsa)</x:String>
@@ -231,7 +231,7 @@
   <x:String x:Key="csh.filter.apply">Uygula</x:String>
 
   <!-- Giriş ekranı -->
-  <x:String x:Key="csh.login.title">Giriş — Nur Market</x:String>
+  <x:String x:Key="csh.login.title">Giriş — NurCRM</x:String>
   <x:String x:Key="csh.login.tagline">Perakende satış için kasa sistemi</x:String>
   <x:String x:Key="csh.login.secureTitle">Vardiyanız için güvenli giriş</x:String>
   <x:String x:Key="csh.login.secureSubtitle">Veriler bulut ve yerel denetim veritabanıyla senkronize edilir.</x:String>
@@ -329,7 +329,7 @@
 
   <!-- NurCRM destek -->
   <!-- 2026-10-16: удалённая помощь — только своя «Nur Destek» -->
-  <x:String x:Key="remoteSupport.intro">Uzaktan yardım — «Nur Destek»: NurMarket operatörü kasanın ekranını görür ve sorunu çözmenize yardımcı olur. Destek hattını arayın veya WhatsApp'tan yazın: +996 221 068 796, ardından «Destek için kod al» düğmesine basın ve kodu ve PIN'i operatöre söyleyin.</x:String>
+  <x:String x:Key="remoteSupport.intro">Uzaktan yardım — «Nur Destek»: NurCRM operatörü kasanın ekranını görür ve sorunu çözmenize yardımcı olur. Destek hattını arayın veya WhatsApp'tan yazın: +996 221 068 796, ardından «Destek için kod al» düğmesine basın ve kodu ve PIN'i operatöre söyleyin.</x:String>
   <!-- 2026-10-05: кнопка «Скопировать информацию об устройстве» (DeviceInfoReport) -->
   <x:String x:Key="remoteSupport.copyDeviceInfo">Cihaz bilgilerini kopyala</x:String>
 
@@ -629,7 +629,7 @@
   <x:String x:Key="sideMenu.sectionSystem">Sistem</x:String>
 
   <!-- Yönetici desteği, CRM tarayıcısı, vardiya geçmişi -->
-  <x:String x:Key="adminSupport.title">Destek — Nur Market</x:String>
+  <x:String x:Key="adminSupport.title">Destek — NurCRM</x:String>
   <x:String x:Key="adminSupport.header">Yönetici desteği</x:String>
   <x:String x:Key="adminSupport.subtitle">Destek her zaman yanınızda</x:String>
   <x:String x:Key="common.forward">İleri</x:String>
@@ -812,7 +812,7 @@
   <x:String x:Key="posSettings.print.printAfterPayment">Ödemeden sonra fişi yazdır</x:String>
   <x:String x:Key="posSettings.print.equipmentTitle">Donanım ve bağlantı</x:String>
   <x:String x:Key="posSettings.print.foundPrinters">Bulunan yazıcılar ve portlar</x:String>
-  <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Hiçbir şey bulunamadı — "Bul"a basın</x:String>
+  <x:String x:Key="posSettings.print.nothingFoundPlaceholder">Bulunamadı — "Bul"a basın</x:String>
   <x:String x:Key="posSettings.print.retriesOnFailure">Hata durumunda yeniden deneme</x:String>
   <x:String x:Key="posSettings.print.tapeWidth">Kâğıt genişliği</x:String>
   <x:String x:Key="posSettings.print.charsPerLine">Satır başına karakter</x:String>

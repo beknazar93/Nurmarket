@@ -180,6 +180,9 @@ public static class PosRefundService
         // cart-item-deletions/get/, которого на сервере нет (404) — возврат не работал никогда,
         // а кассир получал «Не удалось вернуть позицию: <название товара>».
         ct.ThrowIfCancellationRequested();
+        // 2026-10-29 (ревью офлайн-операций, Б-1): возврат по строкам без строк не отправляем — запрос без items сервер понимает как «вернуть весь чек».
+        if (lines.Count == 0)
+            throw new ArgumentException("Нет строк для возврата.", nameof(lines));
         // 2026-10-06, владелец: «главное не трогай продуктовый» — в «Продуктах» прежний запрос возврата.
         if ((MarketSpheres.IsClothing || isDefect) && api is Api.IPosExchangeApi details)
         {

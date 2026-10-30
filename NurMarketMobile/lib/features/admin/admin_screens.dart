@@ -66,8 +66,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen> {
     _debtsFail = false;
     final db = ref.read(databaseProvider);
     // 2026-10-22 (мобилка, админ, П11): порог «заканчивается» как на ПК — остаток меньше 10 (было ≤ 3).
-    final low = await (db.select(db.products)..where((p) => lowStockSql(p) & p.isService.equals(false))).get();
-    if (mounted) setState(() => _low = low.length);
+    final low = await countLowStock(db); // 2026-10-30 (оптимизация, п. 4): COUNT(*) вместо чтения всех строк
+    if (mounted) setState(() => _low = low);
     try {
       final t = await ref.read(adminRepoProvider).today();
       if (mounted) setState(() => _today = t);
@@ -905,7 +905,7 @@ class PickScreen extends ConsumerStatefulWidget {
 
 class _PickScreenState extends ConsumerState<PickScreen> {
   final Map<int, double> _picked = {};
-  final _camera = MobileScannerController(detectionSpeed: DetectionSpeed.normal);
+  final _camera = MobileScannerController(formats: const [BarcodeFormat.ean13, BarcodeFormat.ean8, BarcodeFormat.code128, BarcodeFormat.upcA, BarcodeFormat.upcE, BarcodeFormat.itf14, BarcodeFormat.qrCode], detectionSpeed: DetectionSpeed.normal);
   String _last = '';
   DateTime _lastAt = DateTime(2000);
   bool _busy = false;

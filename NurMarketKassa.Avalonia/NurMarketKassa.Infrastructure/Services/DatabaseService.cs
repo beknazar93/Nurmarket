@@ -98,6 +98,7 @@ public sealed class DatabaseService
             Directory.CreateDirectory(DataDirectory);
             if (!_legacyImportDone)
                 MigrateFromOldInstallDir();
+            VerifyDatabaseAtStartup();
             using var connection = new SqliteConnection($"Data Source={DbPath}");
             connection.Open();
             using var command = connection.CreateCommand();
@@ -400,11 +401,124 @@ public sealed class DatabaseService
     /// (например, накладные и фотографии в перемещениях).</summary>
     public string DataFolder => Path.GetDirectoryName(DbPath) ?? AppContext.BaseDirectory;
 
+    /// <summary>2026-10-29 (аварийный аудит кассы, п. 1 и 9): строка подключения ЭТОГО класса (чеки офлайн-очереди, смена, списания…)
+    /// отличается от строки каталога (LocalProductRepository: «Data Source=…» без добавок), поэтому у неё свой пул соединений.
+    /// Раньше пул был общий, и соединение каталога с synchronous=NORMAL могло достаться записи офлайн-чека — при пропаже питания
+    /// последние чеки откатывались. Default Timeout=5 — ожидание блокировки базы 5 с (было 30: кассир видел «Проводим оплату…»
+    /// полминуты, потом английский «SQLite Error 5»).</summary>
+    private static readonly string ConnectionString = $"Data Source={DbPath};Default Timeout=5";
+
     public SqliteConnection OpenConnection()
     {
-        var connection = new SqliteConnection($"Data Source={DbPath}");
+        var connection = new SqliteConnection(ConnectionString);
         connection.Open();
+        // synchronous=FULL — запись чека и смены доходит до диска до подтверждения (WAL + NORMAL теряет последние записи при
+        // пропаже питания). busy_timeout повторяем явно: он действует на само соединение, а не на пул.
+        using var pragma = connection.CreateCommand();
+        pragma.CommandText = "PRAGMA busy_timeout=5000; PRAGMA synchronous=FULL;";
+        pragma.ExecuteNonQuery();
         return connection;
+    }
+
+    private static bool _integrityChecked;
+    private static string? _startupNotice;
+
+    /// <summary>2026-10-29 (аварийный аудит кассы, п. 7): сообщение для кассира, если при запуске база оказалась повреждена и была
+    /// заменена копией (или создана заново). Показывается один раз главным окном, затем null.</summary>
+    public static string? TakeStartupNotice()
+    {
+        lock (typeof(DatabaseService))
+        {
+            var notice = _startupNotice;
+            _startupNotice = null;
+            return notice;
+        }
+    }
+
+    /// <summary>2026-10-29: быстрая проверка целостности pos_local.db при первом открытии за запуск. Повреждённый файл не удаляется —
+    /// переименовывается (pos_local.corrupt_*.db), касса берёт самую свежую целую копию из backups; нет копии — пустая база
+    /// (каталог придёт с сервера). Проверка не удалась из-за блокировки/диска — просто продолжаем, как раньше.</summary>
+    private static void VerifyDatabaseAtStartup()
+    {
+        if (_integrityChecked)
+            return;
+        _integrityChecked = true;
+
+        try
+        {
+            if (!File.Exists(DbPath))
+                return;
+
+            var verdict = QuickCheck(DbPath);
+            if (verdict is null || verdict == "ok")
+                return;
+
+            PosLogger.Log($"pos_local.db повреждена (quick_check: {verdict}) — пробую восстановить из резервной копии.", "ERROR");
+            SqliteConnection.ClearAllPools();
+            var stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+            var corrupt = Path.Combine(DataDirectory, $"pos_local.corrupt_{stamp}.db");
+            File.Move(DbPath, corrupt);
+            foreach (var suffix in new[] { "-wal", "-shm" })
+            {
+                if (File.Exists(DbPath + suffix))
+                    File.Move(DbPath + suffix, corrupt + suffix);
+            }
+
+            string? restoredFrom = null;
+            if (Directory.Exists(BackupDirectory))
+            {
+                foreach (var backup in new DirectoryInfo(BackupDirectory).GetFiles("pos_local_*.db").OrderByDescending(f => f.LastWriteTimeUtc))
+                {
+                    if (QuickCheck(backup.FullName) != "ok")
+                        continue;
+                    File.Copy(backup.FullName, DbPath, overwrite: true);
+                    restoredFrom = backup.Name;
+                    break;
+                }
+            }
+
+            PosLogger.Log(restoredFrom is null
+                ? $"pos_local.db: целой копии нет — создана пустая база, повреждённая сохранена как {Path.GetFileName(corrupt)}."
+                : $"pos_local.db восстановлена из копии {restoredFrom}, повреждённая сохранена как {Path.GetFileName(corrupt)}.",
+                "ERROR");
+            _startupNotice = restoredFrom is null
+                ? Tr.T("База данных кассы была повреждена и создана заново. Каталог загрузится с сервера, а чеки, не отправленные до сбоя, надо проверить: повреждённый файл сохранён рядом (pos_local.corrupt_*.db) — сообщите администратору.",
+                    "Кассанын маалымат базасы бузулуп, кайра түзүлдү. Каталог серверден жүктөлөт, ал эми кырсыкка чейин жөнөтүлбөгөн чектерди текшерүү керек: бузулган файл жанында сакталды (pos_local.corrupt_*.db) — администраторго кабарлаңыз.",
+                    "The till database was damaged and has been recreated. The catalog will load from the server, but receipts that were not sent before the failure must be checked: the damaged file is kept next to it (pos_local.corrupt_*.db) — tell your administrator.",
+                    "Kasa veritabanı bozulmuştu ve yeniden oluşturuldu. Katalog sunucudan yüklenecek, ancak arızadan önce gönderilmemiş fişler kontrol edilmeli: bozuk dosya yanında saklandı (pos_local.corrupt_*.db) — yöneticinize bildirin.",
+                    "Kassa ma'lumotlar bazasi shikastlangan va qaytadan yaratildi. Katalog serverdan yuklanadi, nosozlikdan oldin yuborilmagan cheklarni esa tekshirish kerak: shikastlangan fayl yonida saqlandi (pos_local.corrupt_*.db) — administratorga xabar bering.")
+                : Tr.T($"База данных кассы была повреждена и восстановлена из копии ({restoredFrom}). Продажи после этой копии могли пропасть — сверьте последние чеки с сервером и сообщите администратору.",
+                    $"Кассанын маалымат базасы бузулуп, көчүрмөдөн калыбына келтирилди ({restoredFrom}). Ошол көчүрмөдөн кийинки сатуулар жоголушу мүмкүн — акыркы чектерди сервер менен салыштырып, администраторго кабарлаңыз.",
+                    $"The till database was damaged and restored from a backup ({restoredFrom}). Sales made after that backup may be missing — compare the latest receipts with the server and tell your administrator.",
+                    $"Kasa veritabanı bozulmuştu ve yedekten geri yüklendi ({restoredFrom}). Bu yedekten sonraki satışlar eksik olabilir — son fişleri sunucuyla karşılaştırın ve yöneticinize bildirin.",
+                    $"Kassa ma'lumotlar bazasi shikastlangan va nusxadan tiklandi ({restoredFrom}). Shu nusxadan keyingi sotuvlar yo'qolgan bo'lishi mumkin — oxirgi cheklarni server bilan solishtiring va administratorga xabar bering.");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Проверка целостности pos_local.db не завершена: {ex.GetType().Name}: {ex.Message}", "WARNING");
+        }
+    }
+
+    /// <summary>"ok" — база целая; другой текст — повреждена; null — проверить не удалось (занята, нет доступа).</summary>
+    private static string? QuickCheck(string path)
+    {
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={path};Pooling=False;Default Timeout=5");
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "PRAGMA quick_check;";
+            return command.ExecuteScalar()?.ToString();
+        }
+        catch (SqliteException ex) when (ex.SqliteErrorCode is 11 or 26)
+        {
+            return $"{ex.SqliteErrorCode}: {ex.Message}"; // CORRUPT / NOTADB
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"quick_check {Path.GetFileName(path)} не выполнен: {ex.Message}", "WARNING");
+            return null;
+        }
     }
 
     /// <summary>Сливает WAL в основной файл (см. LocalProductRepository.OpenConnection, которое

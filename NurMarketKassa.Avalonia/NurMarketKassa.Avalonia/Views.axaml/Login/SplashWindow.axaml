@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="NurMarketKassa.AvaloniaHost.Views.SplashWindow"
-        Title="Nur Market"
+        Title="NurCRM"
         Width="440"
         Height="270"
         CanResize="False"
@@ -46,7 +46,7 @@
             <Image Source="avares://NurMarketKassa.Avalonia/Assets/app-logo.png"
                    Width="56" Height="56" Stretch="Uniform" HorizontalAlignment="Center" />
 
-            <TextBlock Text="Nur Market"
+            <TextBlock Text="NurCRM"
                        HorizontalAlignment="Center"
                        FontSize="30"
                        FontWeight="Bold"

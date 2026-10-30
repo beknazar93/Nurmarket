@@ -1322,7 +1322,7 @@ public sealed class SupplierCardView : UserControl
         var parts = note.Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .Select(p => System.Text.RegularExpressions.Regex.Replace(p, @"\breceipt(-key)?:\S+", "").Trim(' ', ',', ';'))
             .Where(p => p.Length > 0)
-            .Select(p => string.Equals(p, "NurMarket", StringComparison.OrdinalIgnoreCase)
+            .Select(p => string.Equals(p, "NurCRM", StringComparison.OrdinalIgnoreCase) || string.Equals(p, "NurMarket", StringComparison.OrdinalIgnoreCase) // 2026-10-29: старые записи с «NurMarket» тоже показываем как «из кассы»
                 ? T("из кассы", "кассадан", "from the till", "kasadan", "kassadan") : p);
         return string.Join(" · ", parts);
     }

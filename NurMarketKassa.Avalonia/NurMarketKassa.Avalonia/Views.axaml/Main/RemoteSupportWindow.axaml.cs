@@ -35,11 +35,11 @@ public partial class RemoteSupportWindow : Window, IOwnerSection
             CopyDeviceInfoButton.Classes.Set("SecondaryActionButton", false);
             CopyDeviceInfoButton.Classes.Set("PrimaryActionButton", true);
             StatusText.Text = Tr.T(
-                "Нажмите «Скопировать информацию об устройстве» и отправьте текст в поддержку NurMarket (Telegram, WhatsApp) — по нему программу подстроят под ваш аппарат. Удалённое подключение «Нур Поддержка» работает на кассе с Windows.",
-                "«Түзмөк жөнүндө маалыматты көчүрүү» баскычын басып, текстти NurMarket колдоосуна жибериңиз (Telegram, WhatsApp) — ал боюнча программа аппаратыңызга ылайыкталат. «Нур Колдоо» аркылуу алыстан туташуу Windows'тогу кассада иштейт.",
-                "Tap “Copy device information” and send the text to NurMarket support (Telegram, WhatsApp) — it helps adapt the app to your device. Remote connection via “Nur Support” works on Windows tills.",
-                "«Cihaz bilgilerini kopyala»ya dokunun ve metni NurMarket desteğine gönderin (Telegram, WhatsApp) — program cihazınıza göre uyarlanır. «Nur Destek» ile uzaktan bağlantı Windows kasalarında çalışır.",
-                "«Qurilma ma'lumotlarini nusxalash»ni bosing va matnni NurMarket qo'llab-quvvatlash xizmatiga yuboring (Telegram, WhatsApp) — dastur qurilmangizga moslashtiriladi. «Nur Yordam» orqali masofaviy ulanish Windows'dagi kassada ishlaydi.");
+                "Нажмите «Скопировать информацию об устройстве» и отправьте текст в поддержку NurCRM (Telegram, WhatsApp) — по нему программу подстроят под ваш аппарат. Удалённое подключение «Нур Поддержка» работает на кассе с Windows.",
+                "«Түзмөк жөнүндө маалыматты көчүрүү» баскычын басып, текстти NurCRM колдоосуна жибериңиз (Telegram, WhatsApp) — ал боюнча программа аппаратыңызга ылайыкталат. «Нур Колдоо» аркылуу алыстан туташуу Windows'тогу кассада иштейт.",
+                "Tap “Copy device information” and send the text to NurCRM support (Telegram, WhatsApp) — it helps adapt the app to your device. Remote connection via “Nur Support” works on Windows tills.",
+                "«Cihaz bilgilerini kopyala»ya dokunun ve metni NurCRM desteğine gönderin (Telegram, WhatsApp) — program cihazınıza göre uyarlanır. «Nur Destek» ile uzaktan bağlantı Windows kasalarında çalışır.",
+                "«Qurilma ma'lumotlarini nusxalash»ni bosing va matnni NurCRM qo'llab-quvvatlash xizmatiga yuboring (Telegram, WhatsApp) — dastur qurilmangizga moslashtiriladi. «Nur Yordam» orqali masofaviy ulanish Windows'dagi kassada ishlaydi.");
         }
         WrapInModalShell();
     }
@@ -146,11 +146,11 @@ public partial class RemoteSupportWindow : Window, IOwnerSection
             await clipboard.SetTextAsync(text).ConfigureAwait(true);
             PosLogger.Log("Поддержка: информация об устройстве скопирована:\n" + text, "INFO");
             StatusText.Text = Tr.T(
-                "Скопировано. Вставьте текст в чат поддержки NurMarket (долгое нажатие → «Вставить»).",
-                "Көчүрүлдү. Текстти NurMarket колдоо чатына чаптаңыз (узак басуу → «Чаптоо»).",
-                "Copied. Paste the text into the NurMarket support chat (long press → “Paste”).",
-                "Kopyalandı. Metni NurMarket destek sohbetine yapıştırın (uzun basın → «Yapıştır»).",
-                "Nusxalandi. Matnni NurMarket qo'llab-quvvatlash chatiga joylashtiring (uzoq bosing → «Joylashtirish»).");
+                "Скопировано. Вставьте текст в чат поддержки NurCRM (долгое нажатие → «Вставить»).",
+                "Көчүрүлдү. Текстти NurCRM колдоо чатына чаптаңыз (узак басуу → «Чаптоо»).",
+                "Copied. Paste the text into the NurCRM support chat (long press → “Paste”).",
+                "Kopyalandı. Metni NurCRM destek sohbetine yapıştırın (uzun basın → «Yapıştır»).",
+                "Nusxalandi. Matnni NurCRM qo'llab-quvvatlash chatiga joylashtiring (uzoq bosing → «Joylashtirish»).");
         }
         catch (Exception ex)
         {

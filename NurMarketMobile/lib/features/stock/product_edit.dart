@@ -11,6 +11,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/util/audit.dart';
 import '../../core/util/barcode_generator.dart';
+import '../../core/util/photo_cache.dart';
 import '../../core/util/ui.dart';
 import '../admin/admin_receive.dart';
 import '../admin/admin_screens.dart';
@@ -20,6 +21,7 @@ import '../scan/scan_screen.dart';
 import '../scan/smart_camera.dart';
 import 'barcode_label.dart';
 import 'product_camera_tile.dart';
+import 'product_batches.dart';
 import 'product_delete.dart';
 import 'product_edit_repository.dart';
 import 'product_packages.dart';
@@ -707,13 +709,14 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
                     padding: const EdgeInsets.only(right: 8),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: Image.network(
-                        imageUrl,
+                      // 2026-10-30 (оптимизация, п. 12): фото товара — с дисковым кэшем
+                      child: CachedPhoto(
+                        url: imageUrl,
                         width: 72,
                         height: 72,
-                        fit: BoxFit.cover,
                         cacheWidth: 200,
-                        errorBuilder: (_, _, _) => const SizedBox(width: 72, child: Icon(Icons.broken_image_outlined)),
+                        placeholder: const SizedBox(width: 72, height: 72),
+                        error: const SizedBox(width: 72, child: Icon(Icons.broken_image_outlined)),
                       ),
                     ),
                   ),
@@ -782,13 +785,16 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
           actions: [
             PopupMenuButton<String>(
               onSelected: (v) async {
-                if (v == 'teach') {
+                if (v == 'batches') {
+                  await openProductBatches(context, p);
+                } else if (v == 'teach') {
                   await teachExistingProduct(context, ref, p);
                 } else if (v == 'delete') {
                   await _delete();
                 }
               },
               itemBuilder: (c) => [
+                PopupMenuItem(value: 'batches', child: Text(l.pbTitle)), // 2026-10-30 (1.18.12)
                 PopupMenuItem(value: 'teach', child: Text(l.teachCamera)),
                 if (canDeleteProducts(ref.read(sessionProvider))) PopupMenuItem(value: 'delete', child: Text(l.deleteProduct, style: const TextStyle(color: T.danger))),
               ],

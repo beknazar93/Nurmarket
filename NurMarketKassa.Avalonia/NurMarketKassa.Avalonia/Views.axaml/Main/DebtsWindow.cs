@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -28,7 +29,9 @@ public sealed class DebtsWindow : Window
         Bind(BackgroundProperty, this.GetResourceObservable("BrushWindowBackdrop"));
         // 2026-10-18, этап О4 (аудит «Долги»): окно открывается только разделом программы владельца — название уже в полосе
         // над разделом, второго крупного заголовка нет; поля — как у остальных разделов.
-        Content = new DebtsView(showTitle: false, OwnerSectionLayout.Margin);
+        var view = new DebtsView(showTitle: false, OwnerSectionLayout.Margin);
+        Content = view;
+        Closed += (_, _) => view.StopLoading(); // 2026-10-31: окно закрыто — загрузка и уточнение сумм прекращаются
     }
 }
 
@@ -64,12 +67,34 @@ public sealed class DebtsView : UserControl
     }
     private readonly StackPanel _aging = new() { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(0, 8, 0, 12) };
     private readonly StackPanel _list = new() { Spacing = 10 };
+    /// <summary>2026-10-31 (стресс-тест 1.17.68, В-4): карточки должников — в виртуализированном списке: рисуются только видимые
+    /// (раньше 300 карточек строились и измерялись разом — пауза интерфейса 2–4 с). Загрузка / пусто / ошибка — по-прежнему в _list.</summary>
+    private readonly ItemsControl _items = new()
+    {
+        ItemsPanel = new FuncTemplate<Panel?>(() => new VirtualizingStackPanel()),
+    };
+    private readonly ScrollViewer _scroll = new() { HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
     private readonly TextBox _search;
     private readonly HashSet<string> _expanded = new(StringComparer.OrdinalIgnoreCase);
     private List<Debtor> _debtors = new();
     private string _sort = "amount";
     private int _loadGen;
     private bool _loadStarted;
+    private readonly CancellationTokenSource _life = new();
+
+    /// <summary>2026-10-31 (стресс-тест 1.17.68, В-4): окно закрыто — текущая загрузка и постепенное уточнение сумм останавливаются
+    /// (раньше они шли до конца по закрытому окну: сотни запросов впустую).</summary>
+    internal void StopLoading()
+    {
+        _loadGen++;
+        try
+        {
+            _life.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
 
     /// <param name="Checking">2026-10-18, девятый круг: точный остаток сделки не получен — показана прежняя сумма с пометкой «уточняется».</param>
     /// <param name="Duplicate">2026-10-23 (аудит, круг 8, В-3): «Долг без продажи», похожий на двойную запись чека — показан с пометкой.
@@ -124,14 +149,20 @@ public sealed class DebtsView : UserControl
         tools.Children.Add(byAge);
         var refresh = UiKit.Ghost(this, T("Обновить", "Жаңыртуу", "Refresh", "Yenile", "Yangilash"));
         refresh.Margin = new Thickness(8, 0, 0, 0);
-        refresh.Click += async (_, _) => await LoadAsync().ConfigureAwait(true);
+        refresh.Click += async (_, _) =>
+        {
+            ClearExactCache(); // 2026-10-31: «Обновить» — всё заново, без кэша уточнённых остатков
+            await LoadAsync().ConfigureAwait(true);
+        };
         Grid.SetColumn(refresh, 3);
         tools.Children.Add(refresh);
         tools.Classes.Add("no-reflow");
 
         // 2026-10-18, этап О4 (аудит «Долги», правило 4): строка итога — цветом текста, красная только сумма долга (SetSummary).
         Use(_summary, TextBlock.ForegroundProperty, "BrushText");
-        var scroll = new ScrollViewer { Content = _list, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        _items.ItemTemplate = new FuncDataTemplate<Debtor>((d, _) => d is null ? null : BuildCard(d));
+        _scroll.Content = _list;
+        var scroll = _scroll;
         Grid.SetRow(hint, 1);
         Grid.SetRow(tools, 2);
         Grid.SetRow(_summary, 3);
@@ -266,14 +297,18 @@ public sealed class DebtsView : UserControl
 
     /// <summary>2026-10-22 (аудит 1.17.59, П-Е): добавить к точным строкам клиента его «Долг без продажи» (clients/{id}/deals/ —
     /// общий загрузчик кассы PayDebtDialog.LoadNoSaleDebtRowsAsync; не больше 4 запросов одновременно). Не получилось — как раньше.</summary>
-    private static async Task AppendNoSaleAsync(string clientId, List<DebtSaleRow> rows, CancellationToken ct)
+    /// <remarks>2026-10-31 (приёмка 1.17.68, В-1б): возвращает false, если «долги без продажи» не получены (сбой запроса или чек без известной сделки) —
+    /// такой неполный ответ в кэш не кладётся.</remarks>
+    private static async Task<bool> AppendNoSaleAsync(string clientId, List<DebtSaleRow> rows, CancellationToken ct)
     {
         if (clientId.Length == 0)
-            return;
+            return true;
         await ExactThrottle.WaitAsync(ct).ConfigureAwait(true);
         try
         {
-            rows.AddRange(await PayDebtDialog.LoadNoSaleDebtRowsAsync(clientId, rows, ct).ConfigureAwait(true));
+            var complete = true;
+            rows.AddRange(await PayDebtDialog.LoadNoSaleDebtRowsAsync(clientId, rows, ct, () => complete = false).ConfigureAwait(true));
+            return complete;
         }
         finally
         {
@@ -335,15 +370,55 @@ public sealed class DebtsView : UserControl
     /// <summary>Сколько чеков уточнять до первой отрисовки; больше — сначала список с пометкой «уточняется», точные — постепенно.</summary>
     private const int ExactBeforeRenderLimit = 60;
 
+    /// <summary>2026-10-31: сколько клиентов уточняется одновременно (запросов одновременно — по-прежнему не больше <see cref="ExactThrottle"/>).</summary>
+    private const int ExactClientPool = 5;
+
+    private static readonly object ExactCacheSync = new();
+    private static readonly Dictionary<string, (long Version, string Sig, DateTime AtUtc, List<DebtSaleRow> Rows)> ExactCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan ExactCacheTtl = TimeSpan.FromMinutes(3);
+
+    private static int _cacheHooked;
+
+    /// <summary>2026-10-31 (приёмка 1.17.68, В-1в): оплаты с сайта, мобилки и других касс не меняют версию долга. Их ловит пульс продаж
+    /// (RemoteSalesPulse → SalesChanged, сервер событий не шлёт): изменились чеки компании — кэш уточнённых остатков сбрасывается.
+    /// Подписка статическая, один раз за запуск.</summary>
+    private static void EnsureCacheHooks()
+    {
+        if (System.Threading.Interlocked.Exchange(ref _cacheHooked, 1) == 0)
+            PosDataEvents.SalesChanged += ClearExactCache;
+    }
+
+    /// <summary>2026-10-31: сбросить кэш уточнённых остатков (кнопка «Обновить», принудительный пересчёт).</summary>
+    internal static void ClearExactCache()
+    {
+        lock (ExactCacheSync)
+            ExactCache.Clear();
+    }
+
     /// <summary>Точные остатки одного клиента по его продажам из общего списка; не получилось — null (все чеки «уточняются»).</summary>
     private static async Task<List<DebtSaleRow>?> ExactRowsAsync(string clientId, IReadOnlyList<JsonElement> sales, CancellationToken ct)
     {
         if (clientId.Length == 0)
             return null; // «Без клиента» — сделку по клиенту не запросить
+        // 2026-10-31 (стресс-тест 1.17.68, В-4): повторный расчёт (окно «Долги», «Сводка», напоминания, Советник) не ходит заново за тем же
+        // клиентом, пока его долг не менялся (версия долга), список его чеков тот же и прошло не больше 3 минут.
+        var version = PosDataEvents.DebtVersionOf(clientId);
+        var sig = string.Join("|", sales.Select(x => $"{Str(x, "id")}:{Str(x, "total")}:{Str(x, "debt_remaining")}:{Str(x, "debt_amount")}"));
+        lock (ExactCacheSync)
+            if (ExactCache.TryGetValue(clientId, out var hit) && hit.Version == version && hit.Sig == sig && DateTime.UtcNow - hit.AtUtc <= ExactCacheTtl)
+                return new List<DebtSaleRow>(hit.Rows);
         try
         {
             var rows = await PayDebtDialog.LoadDebtRowsAsync(App.GetRequiredService<ISalesApiService>(), clientId, sales, ct, ExactThrottle).ConfigureAwait(true);
-            await AppendNoSaleAsync(clientId, rows, ct).ConfigureAwait(true); // 2026-10-22 (аудит 1.17.59, П-Е): + «Долг без продажи»
+            var noSaleOk = await AppendNoSaleAsync(clientId, rows, ct).ConfigureAwait(true); // 2026-10-22 (аудит 1.17.59, П-Е): + «Долг без продажи»
+            // 2026-10-31 (приёмка 1.17.68, В-1б): в кэш — только полный ответ (без строк «уточняется» и без сбоя «долгов без продажи»);
+            // версия — на момент начала загрузки: если долг изменился, пока шёл запрос, запись всё равно устареет (hit.Version != version).
+            if (noSaleOk && !rows.Any(r => r.RemainingUnknown))
+            {
+                EnsureCacheHooks();
+                lock (ExactCacheSync)
+                    ExactCache[clientId] = (version, sig, DateTime.UtcNow, new List<DebtSaleRow>(rows));
+            }
             return rows;
         }
         catch (Exception ex)
@@ -414,6 +489,7 @@ public sealed class DebtsView : UserControl
     {
         if (_debtors.Count > 0)
             return;
+        UseCards(false);
         _list.Children.Clear();
         _aging.Children.Clear();
         var bar = new ProgressBar { IsIndeterminate = true, Height = 4, Margin = new Thickness(0, 0, 0, 4) };
@@ -432,6 +508,7 @@ public sealed class DebtsView : UserControl
     {
         if (_debtors.Count > 0)
             return;
+        UseCards(false);
         _list.Children.Clear();
         var box = new StackPanel { Spacing = 10, HorizontalAlignment = HorizontalAlignment.Left };
         var text = new TextBlock
@@ -457,7 +534,8 @@ public sealed class DebtsView : UserControl
         ShowLoading(); // 2026-10-22 (аудит 1.17.59, П-З): индикатор, пока список пуст
         try
         {
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(_life.Token);
+            cts.CancelAfter(TimeSpan.FromSeconds(40));
             // 2026-10-18, десятый круг (п.4) / 2026-10-18: общий точный загрузчик (тот же — у «Сводки»).
             var (debtors, progressive, byClient) = await LoadExactDebtorsAsync(withPhones: true, cts.Token, first =>
             {
@@ -509,28 +587,54 @@ public sealed class DebtsView : UserControl
         }
     }
 
+    private long _lastRefineRender;
+
     /// <summary>2026-10-18, десятый круг (п.4): точные остатки после первой отрисовки — по клиенту (от крупных долгов), не больше
     /// 4 запросов одновременно; отрисовка — каждые 5 клиентов и в конце. Новая полная загрузка — прекращаем; карточка клиента,
     /// перечитанная позже старта этой загрузки, — свежее, её не трогаем.</summary>
     private async Task RefineProgressivelyAsync(int gen, long startVersion, List<Debtor> start, Dictionary<string, IReadOnlyList<JsonElement>> byClient)
     {
         var done = 0;
-        foreach (var d in start.Where(d => d.ClientId.Length > 0).OrderByDescending(d => d.Total).ToList())
+        // 2026-10-31 (стресс-тест 1.17.68, В-4): клиенты уточняются пулом из 5 (раньше строго по одному: 300 должников × 3–5 запросов
+        // шли цепочкой); одновременных запросов по-прежнему не больше 4 (ExactThrottle). Ответы применяются на UI-потоке по очереди.
+        using var pool = new SemaphoreSlim(ExactClientPool);
+        var queue = start.Where(d => d.ClientId.Length > 0).OrderByDescending(d => d.Total).ToList();
+        await Task.WhenAll(queue.Select(async d =>
         {
-            if (gen != _loadGen)
+            try
+            {
+                await pool.WaitAsync(_life.Token).ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
                 return;
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            var exact = await ExactRowsAsync(d.ClientId, byClient.TryGetValue(d.ClientId, out var own) ? own : Array.Empty<JsonElement>(), cts.Token).ConfigureAwait(true);
-            if (gen != _loadGen)
-                return;
-            if (_clientAppliedVersion.TryGetValue(d.ClientId, out var applied) && applied > startVersion)
-                continue;
-            var fresh = ApplyExact(d, exact);
-            _debtors = _debtors.Where(x => !string.Equals(x.ClientId, d.ClientId, StringComparison.OrdinalIgnoreCase))
-                .Concat(fresh is null ? Array.Empty<Debtor>() : new[] { fresh }).ToList();
-            if (++done % 5 == 0)
-                Render();
-        }
+            }
+            try
+            {
+                if (gen != _loadGen)
+                    return;
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(_life.Token);
+                cts.CancelAfter(TimeSpan.FromSeconds(30));
+                var exact = await ExactRowsAsync(d.ClientId, byClient.TryGetValue(d.ClientId, out var own) ? own : Array.Empty<JsonElement>(), cts.Token).ConfigureAwait(true);
+                if (gen != _loadGen)
+                    return;
+                if (_clientAppliedVersion.TryGetValue(d.ClientId, out var applied) && applied > startVersion)
+                    return;
+                var fresh = ApplyExact(d, exact);
+                _debtors = _debtors.Where(x => !string.Equals(x.ClientId, d.ClientId, StringComparison.OrdinalIgnoreCase))
+                    .Concat(fresh is null ? Array.Empty<Debtor>() : new[] { fresh }).ToList();
+                // 2026-10-31: перерисовка — каждые 5 клиентов, но не чаще раза в 0,5 с.
+                if (++done % 5 == 0 && Environment.TickCount64 - _lastRefineRender >= 500)
+                {
+                    _lastRefineRender = Environment.TickCount64;
+                    Render();
+                }
+            }
+            finally
+            {
+                pool.Release();
+            }
+        })).ConfigureAwait(true);
         if (gen == _loadGen)
         {
             Render();
@@ -586,6 +690,8 @@ public sealed class DebtsView : UserControl
     /// долги менялись или ему больше 5 минут. Ошибки — в журнал; по готовности — ExactChanged (с UI-потока).</summary>
     internal static Task RefreshSharedExactAsync(bool force = false)
     {
+        if (force)
+            ClearExactCache(); // 2026-10-31: принудительный пересчёт — без кэша уточнённых остатков
         if (_sharedExactTask is { IsCompleted: false } running)
             return running;
         if (!force && LastExact is { } c && c.Version == PosDataEvents.DebtVersion && DateTime.UtcNow - c.AtUtc <= TimeSpan.FromMinutes(5))
@@ -606,19 +712,29 @@ public sealed class DebtsView : UserControl
                 if (progressive)
                 {
                     // Больше 60 чеков — раздел уточняет постепенно; здесь — то же уточнение по клиенту, до конца (в фоне).
-                    var refined = new List<Debtor>();
-                    foreach (var d in debtors)
+                    // 2026-10-31 (стресс-тест 1.17.68, В-4): клиенты — пулом из 5 (раньше строго по одному; на 300 должниках расчёт не успевал
+                    // за 120 с и напоминания получали «≈»), порядок списка сохраняется; запросов одновременно — не больше 4 (ExactThrottle).
+                    var refined = new Debtor?[debtors.Count];
+                    using var pool = new SemaphoreSlim(ExactClientPool);
+                    await Task.WhenAll(debtors.Select(async (d, i) =>
                     {
                         if (d.ClientId.Length == 0)
                         {
-                            refined.Add(d);
-                            continue;
+                            refined[i] = d;
+                            return;
                         }
-                        var rows = await ExactRowsAsync(d.ClientId, byClient.TryGetValue(d.ClientId, out var own) ? own : Array.Empty<JsonElement>(), cts.Token).ConfigureAwait(true);
-                        if (ApplyExact(d, rows) is { } fresh)
-                            refined.Add(fresh);
-                    }
-                    debtors = refined;
+                        await pool.WaitAsync(cts.Token).ConfigureAwait(true);
+                        try
+                        {
+                            var rows = await ExactRowsAsync(d.ClientId, byClient.TryGetValue(d.ClientId, out var own) ? own : Array.Empty<JsonElement>(), cts.Token).ConfigureAwait(true);
+                            refined[i] = ApplyExact(d, rows);
+                        }
+                        finally
+                        {
+                            pool.Release();
+                        }
+                    })).ConfigureAwait(true);
+                    debtors = refined.Where(x => x is not null).Select(x => x!).ToList();
                 }
                 if (PosDataEvents.DebtVersion != startVersion)
                     continue;
@@ -709,6 +825,21 @@ public sealed class DebtsView : UserControl
         return (refined.Where(d => d is not null).Select(d => d!).Concat(await noSaleTask.ConfigureAwait(true)).ToList(), false, byClient);
     }
 
+    /// <summary>2026-10-31: что показано в прокрутке — карточки должников (список с виртуализацией) или статус (загрузка / пусто / ошибка).</summary>
+    private void UseCards(bool cards)
+    {
+        if (cards)
+        {
+            if (!ReferenceEquals(_scroll.Content, _items))
+                _scroll.Content = _items;
+        }
+        else if (!ReferenceEquals(_scroll.Content, _list))
+        {
+            _items.ItemsSource = null;
+            _scroll.Content = _list;
+        }
+    }
+
     private void Render()
     {
         _list.Children.Clear();
@@ -734,6 +865,7 @@ public sealed class DebtsView : UserControl
                 HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(24, 56, 24, 0),
             };
             Use(empty, TextBlock.ForegroundProperty, "BrushTextSoft");
+            UseCards(false);
             _list.Children.Add(empty);
             return;
         }
@@ -761,8 +893,12 @@ public sealed class DebtsView : UserControl
             || SearchMatch.Matches(query, d.Name) // 2026-10-29: единый поиск
             || (digits.Length >= 3 && new string(d.Phone.Where(char.IsDigit).ToArray()).Contains(digits, StringComparison.Ordinal)));
         shown = _sort == "age" ? shown.OrderBy(d => d.Oldest) : shown.OrderByDescending(d => d.Total);
-        foreach (var d in shown.Take(300))
-            _list.Children.Add(BuildCard(d));
+        // 2026-10-31: список заменяется целиком, но положение прокрутки сохраняется (раскрытие чеков, постепенное уточнение сумм).
+        var keep = ReferenceEquals(_scroll.Content, _items) ? _scroll.Offset : default;
+        UseCards(true);
+        _items.ItemsSource = shown.Take(300).ToList();
+        if (keep.Y > 0.5)
+            Dispatcher.UIThread.Post(() => _scroll.Offset = keep, DispatcherPriority.Loaded);
     }
 
     /// <summary>2026-10-18, этап О4 (аудит «Долги», правило 4): чип давности — с обычной рамкой и цветной точкой, текст цветом
@@ -808,7 +944,7 @@ public sealed class DebtsView : UserControl
 
     private Control BuildCard(Debtor d)
     {
-        var card = new Border { CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Padding = new Thickness(16, 12), Cursor = new Cursor(StandardCursorType.Hand) };
+        var card = new Border { CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Padding = new Thickness(16, 12), Cursor = new Cursor(StandardCursorType.Hand), Margin = new Thickness(0, 0, 0, 10) }; // 2026-10-31: отступ между карточками (у виртуализированного списка нет Spacing)
         Use(card, Border.BackgroundProperty, "BrushPanel");
         // 2026-10-18, этап О4 (аудит «Долги»): рамка — обычная у всех; давность видна в строке «долг с … (N дн.)», сумма — красным.
         Use(card, Border.BorderBrushProperty, "BrushBorder");

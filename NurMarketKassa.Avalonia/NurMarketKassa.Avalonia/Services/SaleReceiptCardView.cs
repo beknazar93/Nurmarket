@@ -110,7 +110,7 @@ internal static class SaleReceiptCardView
 
         body.Children.Add(Text(Tr.T("Спасибо за покупку!", "Сатып алганыңыз үчүн рахмат!", "Thank you for your purchase!", "Alışveriş için teşekkürler!", "Xaridingiz uchun rahmat!"),
             13, "BrushText", bold: true, center: true).With(t => t.Margin = new Thickness(0, 14, 0, 0)));
-        body.Children.Add(Text("NurMarket", 10.5, "BrushTextSoft", center: true));
+        body.Children.Add(Text("NurCRM", 10.5, "BrushTextSoft", center: true));
 
         var top = new Border
         {

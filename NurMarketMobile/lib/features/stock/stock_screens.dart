@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/ui/link_banner.dart';
 import '../../core/api/api_client.dart';
 import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
@@ -17,8 +19,10 @@ import '../../core/ui/infographic/infographics.dart' show SplitBar;
 import '../../core/util/ui.dart';
 import '../admin/admin_screens.dart';
 import '../scan/scan_screen.dart';
+import 'audit_money.dart';
 import 'product_edit.dart';
 import 'product_edit_repository.dart';
+import 'product_batches.dart';
 import 'product_packages.dart';
 import 'receive_lookup.dart';
 import 'stock_repository.dart';
@@ -43,6 +47,14 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   // 2026-10-29 (инфографика, спека Fable): сколько товаров «нет / заканчивается / хватает» — по всему складу (без поиска и категории).
   StockHealth? _health;
 
+  /// 2026-10-30 (оптимизация, п. 13): список берётся окном ([_page] товаров, дальше при прокрутке) — фильтр остатка и поиск в SQL.
+  /// Раньше на каждую букву читалось до 20 000 товаров. Номер запроса отсекает устаревшие ответы.
+  static const _page = 400;
+  int _limit = _page;
+  bool _hasMore = false;
+  bool _moreBusy = false;
+  int _seq = 0;
+
   @override
   void initState() {
     super.initState();
@@ -60,6 +72,12 @@ class _StockScreenState extends ConsumerState<StockScreen> {
 
   /// Дотянули ниже конца списка (Android — overscroll, iPhone — отскок) больше чем на 70 точек — окно «Заканчивается».
   bool _onScroll(ScrollNotification n) {
+    // 2026-10-30 (оптимизация, п. 13): дошли почти до конца — окно растёт на страницу
+    if (_hasMore && !_moreBusy && n.metrics.axis == Axis.vertical && n.metrics.extentAfter < 900) {
+      _moreBusy = true;
+      _limit += _page;
+      _load(more: true).whenComplete(() => _moreBusy = false);
+    }
     if (n is OverscrollNotification && n.overscroll > 0 && n.dragDetails != null && n.metrics.extentAfter == 0) {
       _pull += n.overscroll;
     } else if (n is ScrollUpdateNotification && n.dragDetails != null && n.metrics.pixels > n.metrics.maxScrollExtent) {
@@ -78,7 +96,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     _lowOpen = true;
     HapticFeedback.mediumImpact();
     final l = context.l;
-    final all = (await ref.read(databaseProvider).searchProducts('', limit: 20000)).where((p) => !p.isService && isLowStock(p.quantity, p.minQuantity)).toList() // 2026-10-22 (мобилка, админ, П11): порог как на ПК
+    final all = (await ref.read(databaseProvider).searchProducts('', limit: 20000, extra: (p) => p.isService.equals(false) & lowStockSql(p))).where((p) => !p.isService && isLowStock(p.quantity, p.minQuantity)).toList() // 2026-10-30 (оптимизация, п. 13): из базы только заканчивающиеся // 2026-10-22 (мобилка, админ, П11): порог как на ПК
       ..sort((a, b) => a.quantity.compareTo(b.quantity));
     if (!mounted) return;
     final s = ref.read(sessionProvider);
@@ -147,6 +165,8 @@ class _StockScreenState extends ConsumerState<StockScreen> {
             // 2026-10-22 (мобилка, админ): «Цена» → полная карточка товара (product_edit.dart).
             if (s != null && s.canRoute('/admin/product'))
               ListTile(leading: const Icon(Icons.edit_outlined), title: Text(l.peEdit), onTap: () => Navigator.pop(c, 'price')),
+            // 2026-10-30 (1.18.12): поступления и партии товара — как в программе на ПК.
+            ListTile(leading: const Icon(Icons.history_rounded), title: Text(l.pbTitle), onTap: () => Navigator.pop(c, 'batches')),
             // 14.10, владелец: обучение умной камеры на товаре (3 фото + штрихкод).
             if (canEdit) ListTile(leading: const Icon(Icons.center_focus_strong_rounded), title: Text(l.teachCamera), onTap: () => Navigator.pop(c, 'teach')),
             if (canEdit)
@@ -162,30 +182,62 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     if (!mounted) return;
     if (action == 'price') {
       await openProductEditor(context, ref, p);
-      await _load();
+      await _load(keepWindow: true);
+    } else if (action == 'batches') {
+      await openProductBatches(context, p);
     } else if (action == 'teach') {
       await teachExistingProduct(context, ref, p);
     } else if (action == 'delete' && await confirmDeleteProduct(context, ref, p)) {
-      await _load();
+      await _load(keepWindow: true);
     }
   }
 
-  Future<void> _load() async {
-    var list = await ref.read(databaseProvider).searchProducts(_q.text, category: _category, limit: 20000);
-    list = list.where((p) => !p.isService).toList();
-    if (_q.text.trim().isEmpty && _category == null) {
-      _health = StockHealth.of([for (final p in list) (quantity: p.quantity, minQuantity: p.minQuantity, isService: false)]);
+  /// 2026-10-30 (оптимизация, п. 13): «нет / заканчивается / хватает» по всему складу — тремя COUNT(*) в SQL, а не по 20 000
+  /// прочитанным товарам. Те же пороги, что StockHealth.of (услуги не считаются).
+  Future<StockHealth> _healthSql(AppDatabase db) async {
+    Future<int> count(Expression<bool> where) async {
+      final c = db.products.id.count();
+      final q = db.selectOnly(db.products)
+        ..addColumns([c])
+        ..where(db.products.isService.equals(false) & where);
+      return (await q.getSingle()).read(c) ?? 0;
     }
-    if (_filter == 'low') list = list.where((p) => p.quantity > 0 && isLowStock(p.quantity, p.minQuantity)).toList(); // 2026-10-22 (мобилка, админ, П11)
-    if (_filter == 'out') list = list.where((p) => p.quantity <= 0).toList();
-    if (_filter == 'in') list = list.where((p) => p.quantity > 0).toList();
-    final packs = await PackageStore.read(ref.read(databaseProvider));
-    if (mounted) {
-      setState(() {
-        _list = list;
-        _packs = packs;
-      });
-    }
+
+    final p = db.products;
+    final out = await count(p.quantity.isSmallerOrEqualValue(0));
+    final low = await count(p.quantity.isBiggerThanValue(0) & lowStockSql(p));
+    final all = await count(const Constant(true));
+    return StockHealth(out, low, all - out - low);
+  }
+
+  /// [keepWindow] — окно не сбрасывается (после правки товара); [more] — подгрузка следующей страницы (итоги и упаковки не перечитываются).
+  Future<void> _load({bool keepWindow = false, bool more = false}) async {
+    final seq = ++_seq;
+    if (!keepWindow && !more) _limit = _page;
+    final db = ref.read(databaseProvider);
+    // фильтр остатка — в SQL (услуги в складе не показываются); порог «заканчивается» — как на ПК, с минимумом товара (lowStockSql)
+    final filter = _filter;
+    final list = await db.searchProducts(
+      _q.text,
+      category: _category,
+      limit: _limit + 1,
+      extra: (p) {
+        Expression<bool> e = p.isService.equals(false);
+        if (filter == 'low') e = e & p.quantity.isBiggerThanValue(0) & lowStockSql(p); // 2026-10-22 (мобилка, админ, П11)
+        if (filter == 'out') e = e & p.quantity.isSmallerOrEqualValue(0);
+        if (filter == 'in') e = e & p.quantity.isBiggerThanValue(0);
+        return e;
+      },
+    );
+    final health = _q.text.trim().isEmpty && _category == null && !more ? await _healthSql(db) : null;
+    final packs = more ? null : await PackageStore.read(db);
+    if (!mounted || seq != _seq) return; // пришёл более новый запрос — этот ответ устарел
+    setState(() {
+      _hasMore = list.length > _limit;
+      _list = _hasMore ? list.sublist(0, _limit) : list;
+      if (health != null) _health = health;
+      if (packs != null) _packs = packs;
+    });
   }
 
   /// 2026-10-27 (М4): остаток товара: с поштучной упаковкой — «12 пачек + 5 шт», без неё — «245 шт» как раньше.
@@ -205,6 +257,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     return Column(
       children: [
         ScreenTitle(l.tabStock, back: false),
+        const LinkBanner(catalog: true, margin: EdgeInsets.fromLTRB(16, 0, 16, 8)), // 2026-10-29 (аудит, п. 5): «Остатки на ЧЧ:ММ»
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
@@ -270,7 +323,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
             controller: _q,
             onChanged: (_) {
               _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 250), _load);
+              _debounce = Timer(const Duration(milliseconds: 300), _load);
             },
             decoration: InputDecoration(hintText: l.findProduct, prefixIcon: const Icon(Icons.search_rounded)),
           ),
@@ -316,7 +369,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
               } on ApiException catch (e) {
                 if (context.mounted) toast(context, e.message, error: true);
               }
-              await _load();
+              await _load(keepWindow: true);
             },
             // 13.10, владелец: «долистать до низа и ещё потянуть вверх — плавно открывается окно с низким остатком».
             child: NotificationListener<ScrollNotification>(
@@ -353,7 +406,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                       final s = ref.read(sessionProvider);
                       if (s != null && s.canRoute('/admin/product')) {
                         await openProductEditor(context, ref, p);
-                        await _load();
+                        await _load(keepWindow: true);
                       } else {
                         await _productActions(p);
                       }
@@ -380,6 +433,18 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                         Text(
                           _stockText(p),
                           style: TextStyle(fontWeight: FontWeight.w800, color: color),
+                        ),
+                        // 2026-10-30 (1.18.12): «Поступления и партии» — кнопка в строке (нажатие на строку у администратора открывает карточку)
+                        SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: IconButton(
+                            key: ValueKey('batches-${p.id}'),
+                            padding: EdgeInsets.zero,
+                            tooltip: l.pbTitle,
+                            icon: Icon(Icons.history_rounded, size: 22, color: pal.textSoft),
+                            onPressed: () => openProductBatches(context, p),
+                          ),
                         ),
                       ],
                     ),
@@ -515,11 +580,11 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
   }
 
   /// Найти неизвестный код: сервер -> справочник NurCRM. Товар нашёлся — в строки приёмки с накопленным количеством.
-  Future<void> _recheck(String code, {bool network = true}) async {
+  Future<void> _recheck(String code, {bool network = true, bool fresh = false}) async {
     if (_searching.contains(code)) return;
     if (mounted) setState(() => _searching.add(code));
     try {
-      final f = await resolveReceiveCode(ref.read(databaseProvider), ref.read(apiProvider), _globals, code, network: network);
+      final f = await resolveReceiveCode(ref.read(databaseProvider), ref.read(apiProvider), _globals, code, network: network, fresh: fresh);
       if (!mounted) return;
       if (f.kind == ReceiveKind.found) {
         _unknown.remove(code);
@@ -540,7 +605,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
       return;
     }
     await context.push('/admin/new-product?barcode=$code');
-    if (mounted) await _recheck(code);
+    if (mounted) await _recheck(code, fresh: true);
   }
 
   /// «Привязать штрихкод» (доп. код к похожему товару) и «Исправить» (основной код карточки) — через карточку товара.
@@ -558,7 +623,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
       await repo.save(p.id, before, after, canPrices: false);
       if (!mounted) return;
       toast(context, fix ? l.recvFixed : l.recvBound(p.name));
-      await _recheck(code, network: false);
+      await _recheck(code, network: false, fresh: true);
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
     }
@@ -617,6 +682,13 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
       case ReceiveKind.global:
         lines.add(head(l.recvFoundGlobal(f!.global!.name)));
         if (canEdit) buttons.add(button(l.recvAddProduct, () => _addNew(code), key: ValueKey('add_$code')));
+      case ReceiveKind.offline:
+        // 2026-10-30: сервер не ответил — это не «неизвестный код»; проверить снова
+        lines.add(head(l.recvOffline));
+        if (!searching) {
+          lines.add(small(l.recvOfflineHint(code)));
+          buttons.add(button(l.recvRetry, () => _recheck(code, fresh: true), key: ValueKey('retry_$code')));
+        }
       default:
         lines.add(head(l.unknownBarcode));
         if (!searching) {
@@ -879,6 +951,15 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
 
   TextEditingController _ctrlFor(Product p) => _ctrls.putIfAbsent(p.id, () => TextEditingController());
 
+  /// 2026-10-30 (ревизия в деньгах): закупка и суммы — только владельцу, администратору и тому, кому открыты «Настройки».
+  bool get _money => ref.read(sessionProvider)?.canSeePurchase ?? false;
+
+  /// Посчитанные позиции с ценами — для денежных итогов и окна завершения.
+  List<AuditLine> _auditLines() => [
+    for (final p in _products)
+      if (_counted[p.id] != null) AuditLine.of(p, _counted[p.id]!),
+  ];
+
   /// 2026-10-22 (мобилка, деньги, К-10): «Провести ревизию» — акт и проведение, как на ПК (остатки = пересчитанным).
   Future<void> _send() async {
     final l = context.l;
@@ -888,7 +969,16 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
       context: context,
       builder: (c) => AlertDialog(
         title: Text(l.auditApply),
-        content: Text(l.auditApplyAsk(_counted.length, diffs)),
+        // 2026-10-30: владельцу/администратору в окне ещё и деньги по расхождению (недостача, излишек, чистый результат, топ-10)
+        content: _money
+            ? SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [Text(l.auditApplyAsk(_counted.length, diffs)), const SizedBox(height: 10), AuditFinishDetails(lines: _auditLines())],
+                ),
+              )
+            : Text(l.auditApplyAsk(_counted.length, diffs)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
           FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.auditApply)),
@@ -912,6 +1002,31 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// 2026-10-30: строка карточки — «Закупка: 120 · Сумма разницы: −600 сом» (минус красным, плюс зелёным); закупки нет — «Закупки нет»
+  /// и сумма по цене продажи с «*».
+  Widget _moneyLine(Product p, double? counted) {
+    final l = context.l;
+    final pal = context.pal;
+    final line = AuditLine.of(p, counted ?? p.quantity);
+    final amount = counted == null || !line.hasDiff ? null : auditAmountText(line, l.som);
+    return Text.rich(
+      key: ValueKey('rev-money-${p.id}'),
+      TextSpan(
+        style: TextStyle(fontSize: 11.5, color: pal.textSoft),
+        children: [
+          TextSpan(text: line.hasPurchase ? l.revCostLine(money(line.purchase!)) : l.revNoCost),
+          if (amount != null) ...[
+            const TextSpan(text: ' · '),
+            TextSpan(
+              text: l.revDiffAmount(amount),
+              style: TextStyle(fontWeight: FontWeight.w700, color: line.diff < 0 ? pal.danger : pal.success),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -955,6 +1070,7 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
         ),
       );
     }
+    final showMoney = ref.watch(sessionProvider.select((s) => s?.canSeePurchase ?? false)); // 2026-10-30
     final q = _q.text.trim().toLowerCase();
     final shown = _products.where((p) {
       final c = _counted[p.id];
@@ -1056,6 +1172,7 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
                                   : (diff < 0 ? l.shortBy(qtyText(-diff)) : l.extraBy(qtyText(diff))),
                               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: diff == null ? pal.textSoft : color),
                             ),
+                            if (showMoney) _moneyLine(p, counted),
                           ],
                         ),
                       ),
@@ -1093,6 +1210,15 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // 2026-10-30: итоги в деньгах (недостача / излишек / чистый результат) — владельцу и администратору
+              if (showMoney && _counted.isNotEmpty) ...[
+                // на низком экране итоги прокручиваются, а не съедают весь список
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.textScalerOf(context).scale(90)),
+                  child: SingleChildScrollView(child: AuditMoneyLines(totals: AuditTotals.of(_auditLines()), fontSize: 12)),
+                ),
+                const SizedBox(height: 4),
+              ],
               Text(l.auditApplyHint, style: TextStyle(fontSize: 12, color: pal.textSoft)),
               const SizedBox(height: 8),
               FilledButton(

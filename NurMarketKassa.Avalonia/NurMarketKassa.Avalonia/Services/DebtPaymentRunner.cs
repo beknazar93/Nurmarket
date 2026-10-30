@@ -751,29 +751,58 @@ internal static class DebtPaymentRunner
         }
 
         watch.Stop();
-        Volatile.Write(ref _sendingKey, null);
+        // 2026-10-31 (приёмка 1.17.68): _sendingKey сбрасывается ПОСЛЕ фонового шага ниже, а не до него — иначе на доли секунды пропадала полоса «Идёт оплата».
         // 2026-10-18, седьмой круг (п.2, деньги): СНАЧАЛА удалить запись, потом событие в смену. Запись не удалилась (диск полон) —
         // в смену не пишем, замок остаётся: «Повторить» тем же ключом → replayed → запишется один раз. Иначе деньги в смене +
         // замок → «Оплаты нет» → оплату взяли бы второй раз. Падение между удалением и записью в смену — недосчёт (строка
         // PAYMENT ниже пишется до события смены), не двойной счёт.
-        if (!RemoveRecord(record))
+        // 2026-10-30, владелец: «при оплате долга система зависает». Всё, что после ответа сервера ходит по диску и SQLite (журнал
+        // незавершённых оплат, журнал LAN, кэш клиентов, событие в смену), раньше шло на UI-потоке (continuation ConfigureAwait(true)) —
+        // при занятой базе окно «белело». Порядок и условия те же (сначала удалить запись, потом смена/LAN), но вне UI-потока;
+        // подписчики событий сами уходят на UI-поток (PosDataEvents, DebtPaymentRunner.Changed — Post).
+        var otherShift = !AppMode.IsOwner && !string.IsNullOrWhiteSpace(shiftId) && !string.Equals(shiftId, PosApp.ActiveShiftId, StringComparison.Ordinal);
+        var who = PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId ?? "?";
+        var program = AppMode.IsOwner ? "Владелец" : "Касса";
+        var shiftText = AppMode.IsOwner ? "без смены" : "смена " + (shiftId ?? "— (не открыта)");
+        (bool stored, bool shiftFailed) stage;
+        try
+        {
+            stage = await Task.Run(() =>
+        {
+            if (!RemoveRecord(record))
+                return (false, false);
+            // 2026-10-30: в строке — число запросов к серверу и время ответа (оплата одной суммой = один запрос, сервер гасит взносы сам).
+            PosLogger.Log($"{program}: принята оплата долга — клиент {clientId} «{clientName}», {result.Paid:0.00} сом " +
+                          $"({DebtPaymentFlow.MethodLog(method)}), {(saleId is null ? $"одной суммой, взносов {result.AppliedCount}" : "чек " + saleId)}, остаток {(result.Left >= 0 ? result.Left.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "неизвестен")}, " +
+                          $"принял {who}, {shiftText}, ключ {key}, replayed={(result.Replayed ? "true" : "false")}, запросов {result.Requests}, {watch.ElapsedMilliseconds} мс" +
+                          $"{(result.Replayed ? ", повтор по ключу (второй раз не проведена)" : "")}{(isRetry ? ", повтор неизвестной оплаты" : "")}" +
+                          $"{(otherShift ? " — смена оплаты уже не текущая: записано в ту смену, в текущую не попало" : "")}.", "PAYMENT");
+            var failed = RecordAndAnnounce(record, result.Paid, result.Left);
+            if (otherShift)
+                PosLogger.Log($"Оплата долга: {result.Paid:0.00} сом (клиент {clientId}, ключ {key}) учтена в смене {shiftId}, она уже не текущая — " +
+                              "в текущую смену и её ожидаемую сумму не попала.", "WARNING");
+            return (true, failed);
+        }).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            // 2026-10-31 (приёмка 1.17.68): сервер деньги ПРИНЯЛ; сбой в журнале/смене/оповещении после этого не должен выглядеть как «Не удалось»
+            // (кассир нажал бы оплату второй раз). Считаем успехом, в смене — предупреждение «сверить»; запись, если осталась, снимется повтором по ключу.
+            PosLogger.Log($"Оплата долга: сервер ПРИНЯЛ {result.Paid:0.00} сом (клиент {clientId}, ключ {key}), но шаг после ответа упал ({ex.GetType().Name}: {ex.Message}) — считаю оплату проведённой, сверить смену с сайтом.", "ERROR");
+            stage = (true, true);
+        }
+        finally
+        {
+            Volatile.Write(ref _sendingKey, null);
+        }
+        var (stored, shiftFailed) = stage;
+        if (!stored)
         {
             PosLogger.Log($"Оплата долга: сервер ПРИНЯЛ {result.Paid:0.00} сом (клиент {clientId}, ключ {key}), но журнал незавершённых оплат не записан — " +
                           "замок оставлен, в смену не записано; «Повторить» тем же ключом после освобождения диска.", "ERROR");
             RaiseChanged();
             return new DebtPayAttempt(DebtPayOutcome.StoreUnavailable, result, new DebtPayNotSentException(AcceptedButStoreFailedText(result.Paid)), isRetry);
         }
-        var otherShift = !AppMode.IsOwner && !string.IsNullOrWhiteSpace(shiftId) && !string.Equals(shiftId, PosApp.ActiveShiftId, StringComparison.Ordinal);
-        var who = PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId ?? "?";
-        PosLogger.Log($"{(AppMode.IsOwner ? "Владелец" : "Касса")}: принята оплата долга — клиент {clientId} «{clientName}», {result.Paid:0.00} сом " +
-                      $"({DebtPaymentFlow.MethodLog(method)}), {(saleId is null ? $"одной суммой, взносов {result.AppliedCount}" : "чек " + saleId)}, остаток {(result.Left >= 0 ? result.Left.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "неизвестен")}, " +
-                      $"принял {who}, {(AppMode.IsOwner ? "без смены" : "смена " + (shiftId ?? "— (не открыта)"))}, ключ {key}, replayed={(result.Replayed ? "true" : "false")}, {watch.ElapsedMilliseconds} мс" +
-                      $"{(result.Replayed ? ", повтор по ключу (второй раз не проведена)" : "")}{(isRetry ? ", повтор неизвестной оплаты" : "")}" +
-                      $"{(otherShift ? " — смена оплаты уже не текущая: записано в ту смену, в текущую не попало" : "")}.", "PAYMENT");
-        var shiftFailed = RecordAndAnnounce(record, result.Paid, result.Left);
-        if (otherShift)
-            PosLogger.Log($"Оплата долга: {result.Paid:0.00} сом (клиент {clientId}, ключ {key}) учтена в смене {shiftId}, она уже не текущая — " +
-                          "в текущую смену и её ожидаемую сумму не попала.", "WARNING");
         RaiseChanged();
         return new DebtPayAttempt(DebtPayOutcome.Success, result, null, isRetry, otherShift, shiftFailed);
     }
@@ -802,6 +831,9 @@ internal static class DebtPaymentRunner
                               "на сервере оплата есть, в отчёте смены её нет; сверить с сайтом.", "ERROR");
             }
         }
+        // 2026-10-29 (ревью, В-7): долг в кэше «в долг без связи» уменьшается сразу, а не ждёт следующей сводки сервера.
+        try { OfflineClientCache.ApplyConfirmed(record.ClientId, "pay:" + record.Key, -(decimal)amount); }
+        catch (Exception ex) { PosLogger.Log($"Кэш клиентов: долг после онлайн-оплаты не пересчитан: {ex.Message}", "WARNING"); }
         // Оповещение несёт ключ оплаты — окно-автор узнаёт своё и себя не перечитывает.
         DebtPaymentFlow.Announce(record.Key, record.ClientId, record.ClientName, amount, left, record.Method);
         // 2026-10-18, шестой круг: ShiftEventsStore уже поднял SalesChanged — второй раз только без записи в смену.

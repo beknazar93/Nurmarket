@@ -134,7 +134,7 @@ internal sealed class AndroidApkUpdateService : IAppUpdateService
             // не удалось — не страшно
         }
         var request = new DownloadManager.Request(Android.Net.Uri.Parse(release.ApkUrl));
-        request.SetTitle("NurMarket " + release.Text);
+        request.SetTitle("NurCRM " + release.Text);
         request.SetMimeType("application/vnd.android.package-archive");
         request.SetNotificationVisibility(DownloadVisibility.Visible);
         request.SetDestinationInExternalFilesDir(ctx, Android.OS.Environment.DirectoryDownloads, name);
@@ -188,11 +188,11 @@ internal sealed class AndroidApkUpdateService : IAppUpdateService
                 ctx.StartActivity(allow);
                 PosLogger.Log("Обновление Android: открыт экран разрешения установки.", "INFO");
                 throw new InvalidOperationException(Tr.T(
-                    "разрешите NurMarket устанавливать приложения (переключатель на открывшемся экране), вернитесь и нажмите «Обновить» ещё раз",
-                    "NurMarket'ке тиркемелерди орнотууга уруксат бериңиз (ачылган экрандагы которгуч), кайтып, «Жаңыртуу» дагы басыңыз",
-                    "allow NurMarket to install apps (the switch on the screen that opened), come back and press “Update” again",
-                    "NurMarket'in uygulama yüklemesine izin verin (açılan ekrandaki anahtar), geri dönüp «Güncelle»ye tekrar basın",
-                    "NurMarket'ga ilovalarni o'rnatishga ruxsat bering (ochilgan ekrandagi tugma), qaytib, «Yangilash»ni yana bosing"));
+                    "разрешите NurCRM устанавливать приложения (переключатель на открывшемся экране), вернитесь и нажмите «Обновить» ещё раз",
+                    "NurCRM'ке тиркемелерди орнотууга уруксат бериңиз (ачылган экрандагы которгуч), кайтып, «Жаңыртуу» дагы басыңыз",
+                    "allow NurCRM to install apps (the switch on the screen that opened), come back and press “Update” again",
+                    "NurCRM'in uygulama yüklemesine izin verin (açılan ekrandaki anahtar), geri dönüp «Güncelle»ye tekrar basın",
+                    "NurCRM'ga ilovalarni o'rnatishga ruxsat bering (ochilgan ekrandagi tugma), qaytib, «Yangilash»ni yana bosing"));
             }
             var manager = (DownloadManager)ctx.GetSystemService(Context.DownloadService)!;
             var uri = manager.GetUriForDownloadedFile(_downloadId)

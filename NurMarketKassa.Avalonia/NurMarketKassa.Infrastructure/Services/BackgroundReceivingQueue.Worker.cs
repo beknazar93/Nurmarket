@@ -248,21 +248,32 @@ public sealed partial class BackgroundReceivingQueue
         };
         st.Interrupted = false;
         st.LastStatusCode = null;
+        st.Parallelism = job.Source == ReceivingJobSource.Bulk ? Math.Max(1, BulkPostParallel) : 1; // 2026-10-30: части мастера загрузки идут по несколько строк сразу
+        // 2026-10-30 (скорость): общая запись для параллельных строк. Изменение состояния получает номер; запись, начатая ПОСЛЕ изменения, уже содержит его —
+        // другим потокам, ждавшим замок, свою запись делать не нужно (каждый поток по-прежнему возвращается только когда его изменение на диске).
+        long stateSeq = 0, savedSeq = 0;
         void OnState()
         {
+            var mine = Interlocked.Increment(ref stateSeq);
             lock (_sync)
             {
+                if (Interlocked.Read(ref savedSeq) >= mine)
+                    return;
+                var upTo = Interlocked.Read(ref stateSeq);
                 // ProductId созданного товара — в строку задачи до следующего запроса (после перезапуска товар не создаётся второй раз).
                 foreach (var (vm, jl) in map)
                     if (!string.IsNullOrWhiteSpace(vm.ProductId) && jl.ProductId != vm.ProductId)
                         jl.ProductId = vm.ProductId;
                 Save();
+                Interlocked.Exchange(ref savedSeq, upTo);
             }
         }
         st.Changed += OnState;
 
         PurchaseReceivingService.PostResult? result = null;
         Exception? failure = null;
+        // 2026-10-30: часть мастера загрузки — сотни записей товаров подряд; подсказка соседям/телефонам/опросу ленты уходит одна на часть, а не на каждый запрос.
+        using var quiet = job.Source == ReceivingJobSource.Bulk ? SyncCenter.QuietLocalChanges() : null;
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(stop);
@@ -381,7 +392,7 @@ public sealed partial class BackgroundReceivingQueue
             }
             // Причина последнего отказа — человеку («Подробнее» и статус).
             if (failure is not null)
-                job.LastError = failure is OperationCanceledException ? PurchaseReceivingService.NoAnswerText : failure.Message;
+                job.LastError = failure is OperationCanceledException ? PurchaseReceivingService.NoAnswerText : ReceivingServerMessages.Humanize(failure.Message);
             else if (result is not null && result.Errors.Count > 0)
                 job.LastError = result.Errors[^1];
             Save();
@@ -588,7 +599,7 @@ public sealed partial class BackgroundReceivingQueue
             bool exhausted;
             lock (_sync)
             {
-                job.LastError = failure is OperationCanceledException ? PurchaseReceivingService.NoAnswerText : failure.Message;
+                job.LastError = failure is OperationCanceledException ? PurchaseReceivingService.NoAnswerText : ReceivingServerMessages.Humanize(failure.Message);
                 job.Attempts++;
                 exhausted = job.Attempts > MaxRetries;
             }

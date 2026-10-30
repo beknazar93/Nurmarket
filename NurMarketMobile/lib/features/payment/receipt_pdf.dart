@@ -53,7 +53,7 @@ Future<List<int>> receiptPdfBytes(Receipt r) async {
     child: pw.Divider(thickness: .5, color: PdfColors.grey500, borderStyle: pw.BorderStyle.dashed),
   );
 
-  final doc = pw.Document(title: r.fileName, author: r.shop, creator: 'NurMarket');
+  final doc = pw.Document(title: r.fileName, author: r.shop, creator: 'NurCRM');
   doc.addPage(
     pw.Page(
       pageFormat: PdfPageFormat.roll80.copyWith(marginLeft: 10, marginRight: 10, marginTop: 12, marginBottom: 12),
@@ -162,7 +162,7 @@ Future<List<int>> receiptPdfBytes(Receipt r) async {
             style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold),
           ),
           pw.Text(
-            'NurMarket',
+            'NurCRM',
             textAlign: pw.TextAlign.center,
             style: const pw.TextStyle(fontSize: 6.5, color: soft),
           ),

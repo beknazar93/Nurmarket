@@ -16,7 +16,7 @@
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
     <application
-        android:label="NurMarket"
+        android:label="NurCRM"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

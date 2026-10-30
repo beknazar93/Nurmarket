@@ -280,6 +280,8 @@ class ProductEditRepository {
         minQuantity: Value(after.minQty ?? local.minQuantity),
         price: canPrices ? Value(after.price) : const Value.absent(),
         wholesalePrice: canPrices ? Value(after.wholesale) : const Value.absent(),
+        // 2026-10-30: закупка для ревизии в деньгах (после правки в карточке)
+        purchasePrice: canPrices && after.purchase > 0 ? Value(after.purchase) : const Value.absent(),
       ),
     );
   }

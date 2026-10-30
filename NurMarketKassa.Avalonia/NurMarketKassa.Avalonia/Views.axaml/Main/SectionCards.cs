@@ -155,15 +155,17 @@ internal static class SectionCards
     }
 
     /// <summary>Состав документа таблицей: товар | количество | цена | сумма (числа справа, ровными столбцами).</summary>
-    public static Border LinesTable(Control host, IReadOnlyList<(string Name, string Qty, string Price, string Sum)> rows, string nameHeader, string qtyHeader, string priceHeader, string sumHeader)
+    public static Border LinesTable(Control host, IReadOnlyList<(string Name, string Qty, string Price, string Sum)> rows, string nameHeader, string qtyHeader, string priceHeader, string sumHeader,
+        IReadOnlySet<int>? highlight = null)
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto") };
         var r = 0;
-        void Add(string text, int col, bool header, bool right)
+        void Add(string text, int col, bool header, bool right, bool mark = false)
         {
             var t = new TextBlock
             {
                 Text = text, FontSize = header ? 12 : 13, TextWrapping = col == 0 ? TextWrapping.Wrap : TextWrapping.NoWrap,
+                FontWeight = mark ? FontWeight.Bold : FontWeight.Normal,
                 HorizontalAlignment = right ? HorizontalAlignment.Right : HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(col == 0 ? 0 : 16, header ? 0 : 5, 0, header ? 4 : 5),
             };
@@ -180,14 +182,26 @@ internal static class SectionCards
         Add(qtyHeader, 1, true, true);
         Add(priceHeader, 2, true, true);
         Add(sumHeader, 3, true, true);
+        var index = 0;
         foreach (var row in rows)
         {
             r++;
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            Add(row.Name, 0, false, false);
-            Add(row.Qty, 1, false, true);
-            Add(row.Price, 2, false, true);
-            Add(row.Sum, 3, false, true);
+            // 2026-10-30: строка выделенного товара («Поступления» в карточке товара) — мягкая заливка акцента темы и жирный шрифт.
+            var mark = highlight?.Contains(index) == true;
+            if (mark)
+            {
+                var back = new Border { CornerRadius = new CornerRadius(6), Margin = new Thickness(-6, 0) };
+                back.Bind(Border.BackgroundProperty, host.GetResourceObservable("BrushAccentSoft"));
+                Grid.SetRow(back, r);
+                Grid.SetColumnSpan(back, 4);
+                grid.Children.Add(back);
+            }
+            Add(row.Name, 0, false, false, mark);
+            Add(row.Qty, 1, false, true, mark);
+            Add(row.Price, 2, false, true, mark);
+            Add(row.Sum, 3, false, true, mark);
+            index++;
         }
         var box = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Margin = new Thickness(0, 4, 0, 0), Child = grid };
         box.Bind(Border.BackgroundProperty, host.GetResourceObservable("BrushPanelSoft"));

@@ -167,6 +167,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         Grid.SetRow(scroll, 1);
         listGrid.Children.Add(scroll);
         var listCard = new Border { BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), ClipToBounds = true, Child = listGrid };
+        _listCard = listCard; // 2026-10-30: вкладка «Покупки» (реестр) прячет список истории — PurchasesWindow.Registry.cs
         Use(listCard, Border.BackgroundProperty, "BrushPanel");
         Use(listCard, Border.BorderBrushProperty, "BrushBorder");
 
@@ -218,6 +219,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             _search.Margin = new Thickness(narrow ? 0 : 10, 0, 0, 0);
             Grid.SetRow(refresh, narrow ? 2 : 0);
             Grid.SetColumn(refresh, narrow ? 1 : 3);
+            ApplyRegistryMode();
             Render();
         };
 
@@ -318,7 +320,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             OpenReceive(null);
             return _receive is not null;
         }
-        if (tab is not ("history" or "orders" or "returns"))
+        if (tab is not ("history" or "registry" or "orders" or "returns"))
             return false;
         if (_receive is not null || _recommend is not null)
             CloseSub();
@@ -350,6 +352,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         foreach (var (key, text) in new[]
                  {
                      ("history", T("История закупок", "Сатып алуулар тарыхы", "Purchase history", "Satın alma geçmişi", "Xaridlar tarixi")),
+                     ("registry", T("Покупки", "Сатып алуулар", "Purchases", "Alışlar", "Xaridlar")), // 2026-10-30: реестр — документы и позиции (PurchasesWindow.Registry.cs)
                      ("orders", T("Заказы поставщикам", "Жеткирүүчүлөргө буйрутмалар", "Supplier orders", "Tedarikçi siparişleri", "Buyurtmalar") + (open > 0 ? $" ({open})" : "")),
                      ("returns", T("Возвраты поставщикам", "Жеткирүүчүлөргө кайтаруулар", "Returns to suppliers", "Tedarikçiye iadeler", "Qaytarishlar")),
                  })
@@ -446,6 +449,13 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         _notes = PurchasesStore.ReceiptNotes();
         _debtKeys = SupplierDebtRecorder.DoneKeys();
         _debtAmounts = SupplierDebtRecorder.DoneAmounts();
+        _ = SyncNumbersAsync(); // 2026-10-30: номера документов (ПР/ВП) считаются по полной истории сервера — сверяем индекс в фоне
+        if (_tab == "registry")
+        {
+            ShowRegistry(); // 2026-10-30: реестр «Покупки» грузит себя сам (страницами, с копией) — история ниже не трогаем
+            return;
+        }
+        ApplyRegistryMode();
         _rows.Children.Clear();
         _more.IsVisible = false;
         ApplyHead();
@@ -466,6 +476,30 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         _receiptTotal = 0;
         RenderKpi();
         await LoadPageAsync(1, gen).ConfigureAwait(true);
+    }
+
+    private readonly Dictionary<DocSeries, DateTime> _numbersSyncedAt = new();
+
+    /// <summary>2026-10-30 (нумерация закупок): обновить индекс номеров текущей вкладки (приходы / возвраты) и перерисовать список, когда он готов.
+    /// Не чаще раза в 20 секунд; нет связи — номера остаются прежними (или коротким кодом), ошибка уходит в журнал.</summary>
+    private async Task SyncNumbersAsync()
+    {
+        if (_tab == "orders")
+            return;
+        var series = _tab == "returns" ? DocSeries.Return : DocSeries.Receipt;
+        if (_numbersSyncedAt.TryGetValue(series, out var at) && DateTime.UtcNow - at < TimeSpan.FromSeconds(20))
+            return;
+        _numbersSyncedAt[series] = DateTime.UtcNow;
+        var fetch = _svc.PageFetcher(series, DocumentNumbering.Settings);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+        var ok = await Task.Run(() => DocumentNumbering.TrySyncAsync(series, fetch, cts.Token)).ConfigureAwait(true);
+        if (ok && _sub is null && ((_tab == "returns") == (series == DocSeries.Return)))
+        {
+            if (_tab == "registry")
+                _registry?.RefreshNumbers();
+            else
+                Render();
+        }
     }
 
     private async Task LoadPageAsync(int page, int gen)
@@ -603,7 +637,10 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
     private IEnumerable<SupplierReceipt> ShownReceipts()
     {
         // 2026-10-29: единый поиск — слова в любом порядке, ё=е, «Asu»↔«Асу»↔«фыг»; ищет по поставщику, кассиру, названиям и кодам товаров.
-        return SearchMatch.Filter(_receipts, Query, r => SearchMatch.Key(r.SupplierName, r.CreatedBy, string.Join(" ", r.Lines.Select(l => l.ProductName + " " + l.Code))));
+        // 2026-10-30: плюс номер документа (ПР-2026-123, 123, 000123) и номер накладной поставщика.
+        var byText = SearchMatch.Filter(_receipts, Query, r => SearchMatch.Key(r.SupplierName, r.CreatedBy, string.Join(" ", r.Lines.Select(l => l.ProductName + " " + l.Code)),
+            DocumentNumbering.SearchKey(DocSeries.Receipt, r.Id), DocumentNumbering.ShortCode(r.Id), r.SupplierDocNumber)).ToHashSet();
+        return _receipts.Where(r => byText.Contains(r) || (Query.Length > 0 && DocumentNumbering.MatchesQuery(DocSeries.Receipt, r.Id, Query)));
     }
 
     private IEnumerable<PurchaseOrder> ShownOrders()
@@ -614,7 +651,13 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         var byFilters = PurchasesStore.Orders().Where(o => (supplier is null || o.SupplierId == supplier)
                                                            && (from is null || o.CreatedAt.Date >= from.Value.Date) && (to is null || o.CreatedAt.Date <= to.Value.Date));
         // 2026-10-29: единый поиск — поставщик, номер, названия товаров заказа (слова в любом порядке, раскладка/транслит).
-        return SearchMatch.Filter(byFilters, q, o => SearchMatch.Key(o.SupplierName, o.Number, string.Join(" ", o.Lines.Select(l => l.Name))))
+        var orderList = byFilters.ToList();
+        var byText = SearchMatch.Filter(orderList, q, o => SearchMatch.Key(o.SupplierName, o.Number, string.Join(" ", o.Lines.Select(l => l.Name)))).ToHashSet();
+        var st = DocumentNumbering.Settings;
+        // 2026-10-30: номер заказа ЗП-2026-123 / 123 / 000123 — по порядковому номеру, а не подстрокой.
+        bool NumberHit(PurchaseOrder o) => q.Length > 0 && DocumentNumberingCore.ClaimFromText(st, DocSeries.Order, "№ " + o.Number) is { } c
+            && DocumentNumberingCore.Matches(st, new DocNumber(DocSeries.Order, c.Year, c.Seq), q);
+        return orderList.Where(o => byText.Contains(o) || NumberHit(o))
             .OrderBy(o => o.IsOpen ? 0 : 1).ThenByDescending(o => o.UpdatedAt);
     }
 
@@ -623,7 +666,10 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         var q = Query;
         var (from, to) = PeriodBounds();
         var byPeriod = (_returns ?? new List<SupplierReturnInfo>()).Where(r => (from is null || r.CreatedAt?.Date >= from.Value.Date) && (to is null || r.CreatedAt?.Date <= to.Value.Date));
-        return SearchMatch.Filter(byPeriod, q, r => SearchMatch.Key(r.SupplierName, r.Comment, string.Join(" ", r.Lines.Select(l => l.ProductName)))); // 2026-10-29: единый поиск
+        var returnList = byPeriod.ToList();
+        var byText = SearchMatch.Filter(returnList, q, r => SearchMatch.Key(r.SupplierName, r.Comment, string.Join(" ", r.Lines.Select(l => l.ProductName)),
+            DocumentNumbering.SearchKey(DocSeries.Return, r.Id), DocumentNumbering.ShortCode(r.Id))).ToHashSet(); // 2026-10-29: единый поиск; 2026-10-30: плюс номер возврата
+        return returnList.Where(r => byText.Contains(r) || (q.Length > 0 && DocumentNumbering.MatchesQuery(DocSeries.Return, r.Id, q)));
     }
 
     /// <summary>Колонки шапки и строк по вкладке и ширине.</summary>
@@ -640,11 +686,11 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         _head.ColumnDefinitions = new ColumnDefinitions(Columns);
         var heads = _tab switch
         {
-            "orders" => new[] { T("Заказ", "Буйрутма", "Order", "Sipariş", "Buyurtma"), T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"),
+            "orders" => new[] { T("№ заказа", "Буйрутма №", "Order №", "Sipariş №", "Buyurtma №"), T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"),
                 T("Позиций", "Позиция", "Items", "Kalem", "Pozitsiya"), T("Сумма", "Сумма", "Amount", "Tutar", "Summa"), T("Статус", "Абалы", "Status", "Durum", "Holat"), "" },
-            "returns" => new[] { T("Дата", "Күнү", "Date", "Tarih", "Sana"), T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"),
+            "returns" => new[] { T("№ / Дата", "№ / Күнү", "№ / Date", "№ / Tarih", "№ / Sana"), T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"),
                 T("Позиций", "Позиция", "Items", "Kalem", "Pozitsiya"), T("Сумма", "Сумма", "Amount", "Tutar", "Summa"), T("Деньги и причина", "Акча жана себеп", "Money & reason", "Para ve neden", "Pul va sabab"), "" },
-            _ => new[] { T("Дата", "Күнү", "Date", "Tarih", "Sana"), T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"),
+            _ => new[] { T("№ / Дата", "№ / Күнү", "№ / Date", "№ / Tarih", "№ / Sana"), T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"),
                 T("Позиций", "Позиция", "Items", "Kalem", "Pozitsiya"), T("Сумма", "Сумма", "Amount", "Tutar", "Summa"), T("Оплата", "Төлөм", "Payment", "Ödeme", "To'lov"), "" },
         };
         for (var i = 0; i < heads.Length; i++)
@@ -666,6 +712,8 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
 
     private void Render()
     {
+        if (_tab == "registry")
+            return; // 2026-10-30: реестр рисует себя сам
         ApplyHead();
         _rows.Children.Clear();
         _more.IsVisible = false;
@@ -836,9 +884,12 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
     private Control ReceiptRow(SupplierReceipt r)
     {
         var g = DataGrid();
-        Put(g, 0, Two(r.CreatedAt?.ToString("dd.MM.yyyy", Ru) ?? "—", r.CreatedAt?.ToString("HH:mm", Ru) ?? ""));
+        // 2026-10-30 (нумерация закупок): первая колонка — номер документа (ПР-2026-000123; пока история не сверена — прежний короткий код) и дата.
+        var number = DocumentNumbering.ReceiptText(r.Id);
+        Put(g, 0, Two(number, (r.CreatedAt?.ToString("dd.MM.yyyy HH:mm", Ru) ?? "—")));
         Put(g, 1, Two(r.SupplierName.Length > 0 ? r.SupplierName : "—",
-            T("принял: ", "кабыл алды: ", "by: ", "kabul: ", "qabul qildi: ") + (r.CreatedBy.Length > 0 ? r.CreatedBy : "—"), bold: true));
+            T("принял: ", "кабыл алды: ", "by: ", "kabul: ", "qabul qildi: ") + (r.CreatedBy.Length > 0 ? r.CreatedBy : "—")
+            + (r.SupplierDocNumber.Length > 0 ? " · " + PurchaseNumberUi.SupplierDocText(r.SupplierDocNumber, r.SupplierDocDate) : ""), bold: true));
         var items = Cell((r.ItemsCount > 0 ? r.ItemsCount : r.Lines.Count).ToString(CultureInfo.InvariantCulture), "BrushText", 13.5);
         items.TextAlignment = TextAlignment.Right;
         items.IsVisible = !_narrow;
@@ -848,6 +899,15 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         total.TextAlignment = TextAlignment.Right;
         total.Margin = default;
         sum.Children.Add(total);
+        // 2026-10-31 (живой обход 1.17.67, В-7): приход без строк и без суммы (тестовые приходы) — подпись «пустой приход», возвращать нечего.
+        var emptyReceipt = r.Total < 0.005 && (r.ItemsCount > 0 ? r.ItemsCount : r.Lines.Count) == 0;
+        if (emptyReceipt)
+        {
+            var empty = Cell(T("пустой приход", "бош кириш", "empty delivery", "boş giriş", "bo'sh kirim"), "BrushTextSoft", 12);
+            empty.TextAlignment = TextAlignment.Right;
+            empty.Margin = default;
+            sum.Children.Add(empty);
+        }
         if (r.ReturnedAmount > 0.005)
         {
             var back = Cell(T("возврат ", "кайтаруу ", "returned ", "iade ", "qaytarish ") + MoneyText.Som(r.ReturnedAmount), "BrushDanger", 12);
@@ -859,9 +919,14 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         Put(g, 4, PayPill(r));
         var action = RowAction(T("Вернуть", "Кайтаруу", "Return", "İade", "Qaytarish"), T("Вернуть товар поставщику по этому приходу", "Бул кириш боюнча товарды жеткирүүчүгө кайтаруу",
             "Return goods to the supplier from this delivery", "Bu girişten tedarikçiye iade et", "Bu kirim bo'yicha tovarni qaytarish"));
-        action.IsEnabled = r.ReturnedAmount < r.Total - 0.005;
+        action.IsEnabled = !emptyReceipt && r.ReturnedAmount < r.Total - 0.005;
+        if (emptyReceipt)
+            ToolTip.SetTip(action, T("В этом приходе нет позиций — возвращать нечего.", "Бул кирүүдө позиция жок — кайтарууга эч нерсе жок.", "This delivery has no items — nothing to return.",
+                "Bu girişte kalem yok — iade edilecek bir şey yok.", "Bu kirimda pozitsiya yo'q — qaytariladigan narsa yo'q."));
         action.Click += async (_, _) => await ReturnAsync(r.SupplierId, r.Id).ConfigureAwait(true);
-        return RowShell(g, $"{r.SupplierName}, {r.CreatedAt:dd.MM.yyyy}, {MoneyText.Som(r.Total)}", () => _ = ShowReceiptAsync(r), action);
+        var shell = RowShell(g, $"{number}, {r.SupplierName}, {r.CreatedAt:dd.MM.yyyy}, {MoneyText.Som(r.Total)}", () => _ = ShowReceiptAsync(r), action);
+        PurchaseNumberUi.AttachCopyMenu(shell, number);
+        return shell;
     }
 
     /// <summary>Оплата прихода: подпись «Закупок» этого ПК → долг, записанный журналом по приходу → «—» (сервер способ оплаты не отдаёт).</summary>
@@ -890,7 +955,13 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             }
         }
         else if (_debtKeys.Contains(SupplierDebtRecorder.MarkerForReceipt(r.Id)))
+        {
             (text, bg, fg) = (T("В долг", "Карызга", "On credit", "Veresiye", "Qarzga"), "BrushWarningSoft", "BrushText");
+            // 2026-10-31 (В-7: плитка «В долг» 315,86 против 314,86 по строкам): плитка считает и долги, записанные по метке прихода, а у такой строки сумма долга не
+            // показывалась — теперь показываем, и строки сходятся с плиткой.
+            if (_debtAmounts.GetValueOrDefault(SupplierDebtRecorder.MarkerForReceipt(r.Id)) is var recorded && recorded > 0.005)
+                sub = T("долг ", "карыз ", "debt ", "borç ", "qarz ") + MoneyText.Som(recorded);
+        }
         else
             (text, bg, fg) = ("—", "BrushPanelSoft", "BrushTextSoft");
         var box = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
@@ -942,7 +1013,9 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             action = RowAction(T("Принять", "Кабыл алуу", "Receive", "Kabul et", "Qabul qilish"), T("Принять товар по заказу", "Буйрутма боюнча товар кабыл алуу", "Receive goods for this order", "Siparişe göre mal kabul et", "Buyurtma bo'yicha tovar qabul qilish"));
             action.Click += (_, _) => OpenReceive(ReceivePrefill.FromOrder(o));
         }
-        return RowShell(g, $"{o.Number} {o.SupplierName} — {text}", () => _ = ShowOrderAsync(o), action);
+        var orderShell = RowShell(g, $"{o.Number} {o.SupplierName} — {text}", () => _ = ShowOrderAsync(o), action);
+        PurchaseNumberUi.AttachCopyMenu(orderShell, o.Number);
+        return orderShell;
     }
 
     internal static (string Text, string Bg, string Fg) OrderState(PurchaseOrder o) => o.State switch
@@ -957,7 +1030,8 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
     private Control ReturnRow(SupplierReturnInfo r)
     {
         var g = DataGrid();
-        Put(g, 0, Two(r.CreatedAt?.ToString("dd.MM.yyyy", Ru) ?? "—", r.CreatedAt?.ToString("HH:mm", Ru) ?? ""));
+        var returnNumber = DocumentNumbering.Text(DocSeries.Return, r.Id, DocumentNumbering.ShortCode(r.Id)); // 2026-10-30: номер возврата ВП-2026-000123
+        Put(g, 0, Two(returnNumber, r.CreatedAt?.ToString("dd.MM.yyyy HH:mm", Ru) ?? "—"));
         Put(g, 1, Two(r.SupplierName, string.Join(", ", r.Lines.Take(2).Select(l => l.ProductName)) + (r.Lines.Count > 2 ? ", …" : ""), bold: true));
         var items = Cell(r.Lines.Count.ToString(CultureInfo.InvariantCulture), "BrushText", 13.5);
         items.TextAlignment = TextAlignment.Right;
@@ -978,7 +1052,9 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         reason.TextTrimming = TextTrimming.CharacterEllipsis;
         money.Children.Add(reason);
         Put(g, 4, money);
-        return RowShell(g, $"{r.SupplierName}, {r.CreatedAt:dd.MM.yyyy}, {MoneyText.Som(r.Total)}", () => _ = ShowReturnAsync(r), null);
+        var returnShell = RowShell(g, $"{returnNumber}, {r.SupplierName}, {r.CreatedAt:dd.MM.yyyy}, {MoneyText.Som(r.Total)}", () => _ = ShowReturnAsync(r), null);
+        PurchaseNumberUi.AttachCopyMenu(returnShell, returnNumber);
+        return returnShell;
     }
 
     private StackPanel Two(string main, string sub, bool bold = false)
@@ -1020,7 +1096,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
 
     // ------------------------------------------------------------------ подробности, возврат
 
-    private async Task ShowReceiptAsync(SupplierReceipt r)
+    private async Task ShowReceiptAsync(SupplierReceipt r, string? highlightProductId = null)
     {
         var detail = r;
         if (r.Lines.Count == 0)
@@ -1035,10 +1111,27 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
                 PosLogger.Log($"Закупки: приход {r.Id} не загружен ({ex.Message}).", "WARNING");
             }
         }
-        var dialog = new PurchaseReceiptDialog(detail, _notes.GetValueOrDefault(r.Id), _debtKeys.Contains(SupplierDebtRecorder.MarkerForReceipt(r.Id)), SupplierById(detail.SupplierId));
+        // 2026-10-30: из реестра «Покупки» (двойной щелчок по позиции) — строка товара подсвечена.
+        // 2026-10-30: «Позиции прихода» заменены формой «Накладная прихода» (просмотр, печать, PDF, CSV, правка количества владельцем); «Вернуть»/«Повторить» остаются.
+        var dialog = new InvoiceDocumentWindow(detail, _notes.GetValueOrDefault(r.Id), _debtKeys.Contains(SupplierDebtRecorder.MarkerForReceipt(r.Id)), SupplierById(detail.SupplierId),
+            highlightProductId is { Length: > 0 } ? new PurchaseReceiptContext(highlightProductId, null) : null, showReturnRepeat: true);
         await dialog.ShowDialog(this).ConfigureAwait(true);
         switch (dialog.Action)
         {
+            case "edited":
+                // приход исправлен — список перечитываем и открываем накладную заново, уже с новой версией
+                await ReloadAsync().ConfigureAwait(true);
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    var fresh = await _svc.GetReceiptAsync(r.Id, cts.Token).ConfigureAwait(true);
+                    await ShowReceiptAsync(fresh, highlightProductId).ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Закупки: исправленный приход {r.Id} не перечитан ({ex.Message}).", "WARNING");
+                }
+                break;
             case "return":
                 await ReturnAsync(detail.SupplierId, detail.Id).ConfigureAwait(true);
                 break;
@@ -1100,6 +1193,8 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         {
             PosLogger.Log($"Закупки: оформлен возврат поставщику {supplierId} (приход {receiptId ?? "—"}).", "INFO");
             await ReloadAsync().ConfigureAwait(true);
+            if (_tab == "registry")
+                _registry?.Reload(); // 2026-10-30: возврат изменил суммы документов реестра
         }
     }
 
@@ -1125,6 +1220,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         _main.IsVisible = true;
         BuildTabs();
         Render();
+        RegistryAfterSub();
     }
 
     /// <summary>Отступы страницы — как у списка (в программе владельца — поля раздела).</summary>

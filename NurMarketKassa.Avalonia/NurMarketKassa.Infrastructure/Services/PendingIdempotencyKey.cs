@@ -53,7 +53,11 @@ public sealed class PendingIdempotencyKey
         return false;
     }
 
-    /// <summary>Ответ не дошёл или сервер не ответил по существу: таймаут/обрыв, 5xx, 408, 429 — операция могла пройти.</summary>
+    /// <summary>Ответ не дошёл или сервер не ответил по существу: таймаут/обрыв, 5xx, 408, 429 — операция могла пройти.
+    /// 2026-10-29 (аварийный аудит, п. 6): 409/423/425 — «запрос с этим ключом ещё выполняется» (как в оплате и досылке чека,
+    /// PosCheckoutService.IsQuickTransientStatus): первая отправка могла пройти, ключ выбрасывать нельзя — иначе повтор возврата/оплаты
+    /// долга/прихода уйдёт с новым ключом и деньги проведутся дважды. Исключение — явный деловой отказ 409 price_changed.</summary>
     public static bool IsOutcomeUnknown(Exception ex) =>
-        ex is not ApiException { StatusCode: >= 400 and < 500 and not 408 and not 429 };
+        ex is not ApiException { StatusCode: >= 400 and < 500 and not 408 and not 429 and not 423 and not 425 } api
+        || (api.StatusCode is 409 && !ServerPriceContract.IsPriceChanged(api));
 }

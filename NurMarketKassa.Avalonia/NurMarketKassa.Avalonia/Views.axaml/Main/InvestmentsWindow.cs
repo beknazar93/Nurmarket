@@ -411,6 +411,7 @@ public sealed partial class InvestmentsWindow : Window
         if (!double.IsNaN(width))
             box.Width = width;
         box.Text = value == 0m ? "" : value.ToString("0.##", Ru);
+        var last = value; // 2026-10-31: TextChanged без реальной правки значения не должен ставить «изменено и не сохранено»
         box.TextChanged += (_, _) =>
         {
             var parse = CheckoutValidation.TryParseAmount(box.Text, out var v);
@@ -418,7 +419,11 @@ public sealed partial class InvestmentsWindow : Window
             {
                 Use(box, TextBox.ForegroundProperty, "BrushText");
                 problem?.Invoke(null);
-                set(parse == CheckoutValidation.AmountParse.Ok ? (decimal)Math.Round(v, 2, MidpointRounding.AwayFromZero) : 0m);
+                var parsed = parse == CheckoutValidation.AmountParse.Ok ? (decimal)Math.Round(v, 2, MidpointRounding.AwayFromZero) : 0m;
+                if (parsed == last)
+                    return;
+                last = parsed;
+                set(parsed);
             }
             else
             {
@@ -435,12 +440,16 @@ public sealed partial class InvestmentsWindow : Window
         var box = UiKit.Input(this, T("дд.мм.гггг", "кк.аа.жжжж", "dd.mm.yyyy", "gg.aa.yyyy", "kk.oo.yyyy"), 44);
         box.Width = width;
         box.Text = value?.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) ?? "";
+        var lastDate = value?.Date; // 2026-10-31: без реальной правки даты — не «изменено»
         box.TextChanged += (_, _) =>
         {
             var d = ParseDate(box.Text);
             if (d != null || string.IsNullOrWhiteSpace(box.Text))
             {
                 Use(box, TextBox.ForegroundProperty, "BrushText");
+                if (d == lastDate)
+                    return;
+                lastDate = d;
                 set(d);
             }
             else

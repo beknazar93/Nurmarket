@@ -332,7 +332,9 @@ public static class OwnerAiContext
             var noCost = inStock.Count(t => t.PurchasePrice <= 0);
             return new AiSection("warehouse_totals", "Склад итогом", 0,
                 $"СКЛАД ИТОГОМ (каталог программы, как раздел «Склад»): товаров {tiles.Count}, в наличии {inStock.Count}, с нулевым или минусовым остатком {tiles.Count - inStock.Count}; " +
-                $"остаток по закупке {Money2(cost)}, по цене продажи {Money2(sale)}" + (noCost > 0 ? $" (у {noCost} товаров в наличии закупка не указана)" : "") + ".",
+                // 2026-10-30: тумблер приватности «Закупочные цены и прибыль» — стоимость по закупке в ИИ не уходит.
+                (AdvisorCapabilities.HidePurchase ? $"остаток по цене продажи {Money2(sale)}"
+                    : $"остаток по закупке {Money2(cost)}, по цене продажи {Money2(sale)}" + (noCost > 0 ? $" (у {noCost} товаров в наличии закупка не указана)" : "")) + ".",
                 SourceSection: "warehouse", SourceLabel: "Склад (каталог программы)");
         }
         catch (Exception ex)
@@ -353,9 +355,11 @@ public static class OwnerAiContext
             {
                 var unit = string.IsNullOrWhiteSpace(t.Unit) ? (t.MustWeigh ? "кг" : "шт.") : t.Unit;
                 var cost = t.PurchasePrice > 0 ? t.PurchasePrice.ToString("0.##", CultureInfo.InvariantCulture) : "—";
-                return $"• {t.Title} | {t.Category ?? "—"} | {LocalCartService.ParsePrice(t.PriceLine):0.##} | {cost} | {t.Quantity:0.###} {unit}" + (string.IsNullOrWhiteSpace(t.Barcode) ? "" : $" | {t.Barcode}");
+                // 2026-10-30: тумблер приватности — колонка «закупка» убирается.
+                return $"• {t.Title} | {t.Category ?? "—"} | {LocalCartService.ParsePrice(t.PriceLine):0.##} | {(AdvisorCapabilities.HidePurchase ? "" : cost + " | ")}{t.Quantity:0.###} {unit}" + (string.IsNullOrWhiteSpace(t.Barcode) ? "" : $" | {t.Barcode}");
             }
-            const string head = "СКЛАД ПОСТРОЧНО — название | категория | цена продажи | закупка | остаток | штрихкод:";
+            var head = AdvisorCapabilities.HidePurchase ? "СКЛАД ПОСТРОЧНО — название | категория | цена продажи | остаток | штрихкод:"
+                : "СКЛАД ПОСТРОЧНО — название | категория | цена продажи | закупка | остаток | штрихкод:";
             var full = head + "\n" + string.Join("\n", tiles.OrderBy(t => t.Category ?? "").ThenBy(t => t.Title).Select(Line));
             var top = tiles.OrderByDescending(t => Math.Max(0, t.Quantity) * Math.Max(t.PurchasePrice, 0)).Take(40).ToList();
             var brief = head + $" (показаны 40 из {tiles.Count} — самые дорогие остатки; весь склад: НУЖНО: warehouse)\n" + string.Join("\n", top.Select(Line));
@@ -406,7 +410,9 @@ public static class OwnerAiContext
             {
                 var price = LocalCartService.ParsePrice(t.PriceLine);
                 var markup = t.PurchasePrice > 0 ? $", наценка {(price - t.PurchasePrice) / t.PurchasePrice * 100:0.#} %" : "";
-                sb.AppendLine($"• {t.Title} — цена {price:0.##} сом, закупка {(t.PurchasePrice > 0 ? t.PurchasePrice.ToString("0.##", CultureInfo.InvariantCulture) + " сом" : "не указана")}{markup}, "
+                // 2026-10-30: тумблер приватности — закупка и наценка в ИИ не уходят.
+                var costText = AdvisorCapabilities.HidePurchase ? "" : $", закупка {(t.PurchasePrice > 0 ? t.PurchasePrice.ToString("0.##", CultureInfo.InvariantCulture) + " сом" : "не указана")}{markup}";
+                sb.AppendLine($"• {t.Title} — цена {price:0.##} сом{costText}, "
                               + $"остаток {t.Quantity:0.###} {(string.IsNullOrWhiteSpace(t.Unit) ? "шт." : t.Unit)}" + (string.IsNullOrWhiteSpace(t.Barcode) ? "" : $", штрихкод {t.Barcode}")
                               + (string.IsNullOrWhiteSpace(t.Category) ? "" : $", категория {t.Category}")
                               + (pLabel.Length == 0 ? "" : sold.TryGetValue(t.Title.Trim(), out var st) ? $"; продано за {pLabel} ({pFrom:dd.MM}–{pToEx.AddDays(-1):dd.MM}): {st.Qty:0.###} шт. на {st.Sum:N0} сом" : $"; за {pLabel} продаж не было"));

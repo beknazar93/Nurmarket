@@ -25,6 +25,13 @@ class StockUnclearException extends ApiException {
   bool get isTransient => false;
 }
 
+/// 2026-10-29 (аудит мобилки, п. 6): ревизия не проведена вовремя — из очереди её не проводим (остатки могли измениться).
+class StaleAuditException extends ApiException {
+  StaleAuditException(super.message) : super(status: 409);
+  @override
+  bool get isTransient => false;
+}
+
 /// Склад кассира (Т7, Т16, Т17): приёмка сканером без цен и ревизия.
 class StockRepository {
   final ApiClient api;
@@ -34,6 +41,9 @@ class StockRepository {
   /// 2026-10-22 (мобилка, деньги, К-7): записи, которые сейчас отправляются. Экран и фоновая очередь брали одну запись
   /// одновременно — остаток прибавлялся дважды. Второй вызов теперь ждёт первый и видит запись уже отправленной.
   final _inFlight = <String, Future<void>>{};
+
+  /// 2026-10-29: сервер ответил 404/405 на mass-incoming — приход идёт прежним путём (прибавка к свежему остатку).
+  bool _noMassIncoming = false;
 
   Future<void> _once(String id, Future<void> Function() run) async {
     final busy = _inFlight[id];
@@ -104,6 +114,33 @@ class StockRepository {
     final lines = (body['lines'] as List).cast<Map>().map((e) => e.cast<String, dynamic>()).toList();
     body['lines'] = lines;
     final unclear = <String>[];
+    // 2026-10-29 (аудит мобилки, п. 7): строки без начатой старой прибавки (target) — одним запросом POST products/mass-incoming/
+    // с Idempotency-Key: сервер сам прибавляет к актуальному остатку в одной транзакции. Раньше остаток писался абсолютным
+    // числом «прочитанное + принятое» — продажа на кассе между чтением и записью затиралась. Повтор тем же ключом не удваивает.
+    // Сервер без mass-incoming (404/405) — прежний путь ниже (прибавка к свежему остатку по строке).
+    final fresh0 = lines.where((l) => l['done'] != true && l['target'] is! num).toList();
+    if (fresh0.isNotEmpty && !_noMassIncoming) {
+      final key = lines.where((l) => l['done'] == true).isEmpty ? row.id : '${row.id}-${fresh0.length}';
+      try {
+        await api.post(
+          'api/main/products/mass-incoming/',
+          body: {
+            'items': [
+              for (final l in fresh0) {'product_id': l['productId'], 'quantity': _fmt((l['qty'] as num).toDouble())},
+            ],
+          },
+          headers: {'Idempotency-Key': key},
+          timeout: const Duration(seconds: 30),
+        );
+        for (final l in fresh0) {
+          l['done'] = true;
+        }
+        await _saveBody(fresh, body);
+      } on ApiException catch (e) {
+        if (e.status != 404 && e.status != 405) rethrow;
+        _noMassIncoming = true; // сервер не знает mass-incoming — дальше прежним путём
+      }
+    }
     for (final l in lines) {
       if (l['done'] == true) continue;
       final id = l['productId'] as String;
@@ -160,7 +197,7 @@ class StockRepository {
   /// сервер сам считает разницу с остатком. Раньше уходил только черновик «администратору», а провести его было негде.
   /// Только при связи: пересчёт, проведённый часами позже, стёр бы продажи между пересчётом и отправкой.
   /// id созданного акта сохраняется в записи — повтор после обрыва не создаёт второй акт и не проводит его дважды.
-  /// Возврат: true — проведено; false — акт создан, проведение ждёт связи (уйдёт само).
+  /// Возврат: true — проведено; false — акт создан, но НЕ проведён (2026-10-29: позже сам не проведётся — пересчитать заново).
   Future<bool> applyAudit(String note, Map<String, double> counted) async {
     final key = const Uuid().v4();
     final body = {
@@ -190,8 +227,18 @@ class StockRepository {
       final now = await _row(key);
       final created = now != null && OutboxMeta.read(now.body)?['session'] is String;
       if (e.isTransient && created) {
-        await db.markAttempt(key, e.message);
-        return false; // акт есть, проведение — при связи
+        // 2026-10-29 (аудит мобилки, п. 6): ответ на «провести» мог потеряться — смотрим статус акта. Не проведён — позже сам не
+        // проведётся (очередь ревизию не проводит), запись «Не принято»: пересчитать заново, акт остался черновиком.
+        final sid = OutboxMeta.read(now.body)?['session'] as String?;
+        if (sid != null && await _sessionApplied(sid)) {
+          await db.markSent(key, serverId: sid);
+          for (final c in counted.entries) {
+            await db.setStock(c.key, c.value);
+          }
+          return true;
+        }
+        await db.markAttempt(key, ApiText.auditStale, failed: true);
+        return false;
       }
       // Акт не создан (нет связи или отказ) — запись убираем, пересчёт остаётся на экране.
       await (db.delete(db.outbox)..where((o) => o.id.equals(key))).go();
@@ -199,14 +246,25 @@ class StockRepository {
     }
   }
 
-  Future<void> replayAudit(OutboxData row) => _once(row.id, () async {
+  /// [fromQueue] — фоновая очередь (SyncService). 2026-10-29 (аудит мобилки, п. 6): очередь ревизию НЕ проводит и акт не создаёт —
+  /// пересчёт часами позже затёр бы продажи между пересчётом и проведением. Акт, который успели провести (ответ потерялся),
+  /// помечается отправленным; иначе запись «Не принято» с подсказкой «пересчитайте заново», акт остаётся черновиком.
+  Future<void> replayAudit(OutboxData row, {bool fromQueue = false}) => _once(row.id, () async {
     final fresh = await _row(row.id);
     if (fresh == null || fresh.status == 'sent') return;
     final raw = (jsonDecode(fresh.body) as Map).cast<String, dynamic>();
     final meta = (raw[OutboxMeta.key] is Map ? (raw[OutboxMeta.key] as Map).cast<String, dynamic>() : <String, dynamic>{});
     var sessionId = meta['session'] as String?;
+    if (fromQueue) {
+      if (sessionId != null && meta['apply'] == true && await _sessionApplied(sessionId)) {
+        await db.markSent(row.id, serverId: sessionId);
+        return;
+      }
+      throw StaleAuditException(ApiText.auditStale);
+    }
     if (sessionId == null) {
-      final resp = await api.post('api/main/inventory/sessions/', body: OutboxMeta.strip(raw));
+      // 2026-10-29: ключ повтора акта — потерянный ответ + повтор не создают второй черновик (ключ = id записи очереди).
+      final resp = await api.post('api/main/inventory/sessions/', body: OutboxMeta.strip(raw), headers: {'Idempotency-Key': row.id});
       sessionId = resp is Map ? resp['id']?.toString() : null;
       if (sessionId == null || sessionId.isEmpty) throw ApiException('Сервер не вернул номер акта ревизии.', status: 502);
       meta['session'] = sessionId;

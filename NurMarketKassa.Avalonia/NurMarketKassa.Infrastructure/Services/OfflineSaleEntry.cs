@@ -81,4 +81,47 @@ public sealed class OfflineSaleEntry
     /// когда-нибудь потом войдёт в реальный NurCRM-аккаунт, SyncService попытался бы выгрузить туда
     /// чужую (тестовую/локальную) продажу.</summary>
     public bool IsAutonomous { get; set; }
+
+    /// <summary>2026-10-29 (аварийный аудит кассы, п. 4): сколько проходов досылки подряд чек отложили, потому что сервер не смог
+    /// ответить, прошла ли его оплата. После предела чек уходит в «Требует проверки» (failed), а не держит всю очередь. Лежит в
+    /// JSON записи (схема таблицы не меняется).</summary>
+    public int ReplayDeferrals { get; set; }
+
+    /// <summary>2026-10-30 («Некорректные чеки»: отклонённый чек висел вечно): чек закрыт вручную БЕЗ отправки на сервер (причина — в <see cref="ClosedReason"/>).
+    /// Статус при этом Synced — очередь и счётчики его больше не считают; запись остаётся (не удаляется), в журнале кассы — строка о закрытии.
+    /// Поля лежат в JSON записи (схема таблицы не меняется).</summary>
+    public DateTimeOffset? ClosedWithoutSendAt { get; set; }
+
+    public string? ClosedReason { get; set; }
+
+    /// <summary>2026-10-29 (п. 8): владельцу уже отправлено оповещение, что этот чек отклонён/требует проверки (одно на чек).</summary>
+    public bool OwnerNotified { get; set; }
+
+    /// <summary>2026-10-29: сколько раз касса сама вернула этот чек из «Ошибки отправки» в очередь (до 3, с паузами 3 мин / 15 мин / 1 час,
+    /// см. ReplayErrorPolicy). Кнопка «Повторить отправку» начинает счёт заново. Лежит в JSON записи (схема таблицы не меняется).</summary>
+    public int AutoRetries { get; set; }
+
+    // ── 2026-10-29: «в долг» без связи (владелец разрешил). Все поля лежат в JSON записи (схема таблицы не меняется); у старых записей — значения по умолчанию. ──
+
+    /// <summary>Продажа «в долг», оформленная без связи: клиент и лимит проверены по кэшу кассы, на сервере долга ещё нет.</summary>
+    public bool OfflineDebt { get; set; }
+
+    /// <summary>Сколько из чека ушло в долг (итог минус предоплата) — для долга клиента в кэше, пока чек в очереди.</summary>
+    public decimal DebtAmount { get; set; }
+
+    public string? DebtClientName { get; set; }
+    public string? DebtClientPhone { get; set; }
+
+    /// <summary>Когда касса в последний раз получала данные этого клиента с сервера (метка «данные клиента от ЧЧ:ММ»).</summary>
+    public DateTimeOffset? ClientDataAt { get; set; }
+
+    /// <summary>Кассир подтвердил продажу при неизвестном лимите/сверх осторожности (см. OfflineDebtRules).</summary>
+    public bool DebtConfirmedByCashier { get; set; }
+
+    /// <summary>График долга (DebtSchedulePlan в JSON): после отправки чека применяется к сделке долга (DebtDueDateSync).</summary>
+    public string? DebtScheduleJson { get; set; }
+
+    /// <summary>«Требует проверки» (а не обычная «Ошибка отправки»): сервер отказал по существу — лимит, клиент удалён и т. п. Чек не потерян,
+    /// решает человек; автоповтор для таких чеков не включается.</summary>
+    public bool ReviewNeeded { get; set; }
 }

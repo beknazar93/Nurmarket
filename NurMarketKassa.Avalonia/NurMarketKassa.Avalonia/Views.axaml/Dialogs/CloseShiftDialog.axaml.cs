@@ -306,7 +306,9 @@ public partial class CloseShiftDialog : Window
                 var totals = ShiftEventsStore.TotalsForShift(shiftId);
                 double Get(string kind) => totals.TryGetValue(kind, out var v) ? v : 0;
                 // 2026-10-23 (аудит, круг 8, В-7): как в X-отчёте — оплата долгов наличными из отчёта сервера (там и другие кассы, и программа владельца).
-                var debtCash = _report?.DebtPaymentsCash is { } serverDebtCash ? (double)serverDebtCash : Get(ShiftEventsStore.KindDebtPayment);
+                // 2026-10-29 (ревью, В-4): + оплаты долга наличными без связи, ещё не дошедшие до сервера (в отчёте сервера их нет, а деньги в ящике).
+                var debtCash = (_report?.DebtPaymentsCash is { } serverDebtCash ? (double)serverDebtCash : Get(ShiftEventsStore.KindDebtPayment))
+                    + (_report?.DebtPaymentsCash is not null ? (double)OfflineOperationsStore.UnsentDebtCash(shiftId) : 0);
                 var debtNonCash = Get(ShiftEventsStore.KindDebtPaymentNonCash);
                 if (debtCash > 0.005)
                     rows.Add(new ShiftOpRow(Tr.T("Оплата долгов наличными", "Карыздарды накталай төлөө", "Debt payments in cash", "Nakit borç ödemeleri", "Qarz to'lovlari naqd"),
@@ -359,7 +361,8 @@ public partial class CloseShiftDialog : Window
             var totals = ShiftEventsStore.TotalsForShift(shiftId);
             // 2026-10-23 (аудит, круг 8, В-7): те же источники, что в X-отчёте (ShiftDetailsDialog): отчёт сервера, а без него — журнал кассы.
             // Возвраты: ReturnsTotal сервера пока 0 всегда (у возвратов нет смены) — тогда берём журнал возвратов кассы, как было.
-            var debtCash = _report?.DebtPaymentsCash ?? (totals.TryGetValue(ShiftEventsStore.KindDebtPayment, out var dc) ? (decimal)dc : 0m);
+            var debtCash = (_report?.DebtPaymentsCash ?? (totals.TryGetValue(ShiftEventsStore.KindDebtPayment, out var dc) ? (decimal)dc : 0m))
+                           + (_report?.DebtPaymentsCash is not null ? OfflineOperationsStore.UnsentDebtCash(shiftId) : 0m); // 2026-10-29 (В-4): + оплаты без связи, не дошедшие до сервера
             var returns = _report is { ReturnsTotal: > 0m } withReturns
                 ? withReturns.ReturnsTotal
                 : (decimal)ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindReturn).Sum(r => r.Amount);

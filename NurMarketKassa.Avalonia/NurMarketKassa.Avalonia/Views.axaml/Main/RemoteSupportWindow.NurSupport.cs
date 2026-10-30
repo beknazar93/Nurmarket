@@ -305,6 +305,13 @@ public partial class RemoteSupportWindow
         var s = RemoteSupportSession.Host?.Current;
         var busy = s is RemoteSupportHost.State.Connecting or RemoteSupportHost.State.WaitingOperator or RemoteSupportHost.State.AskingConsent
             or RemoteSupportHost.State.InSession;
+#if !NURANDROID
+        // 2026-10-30 (приёмка 1.17.67, п. 7а): пока идёт сеанс, окно поддержки не модалка — не размывает кассу и не перехватывает щелчки,
+        // оператор работает в кассе, а окно можно свернуть. До сеанса (код, ожидание оператора) окно тоже НЕ модальное, иначе касса размыта
+        // минутами; 2026-10-31 (приёмка 1.17.68, п. 3): модальным оно становится только на время вопроса «Разрешить доступ?», а после
+        // ответа/сеанса модальность снимается без Activate — окно не выскакивает поверх продажи и не перехватывает сканер.
+        NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalWindowManager.SetSuspended(this, s != RemoteSupportHost.State.AskingConsent);
+#endif
         // 2026-10-21: последняя попытка не дошла до сервера — значит, связи нет (пакет 3, п. 143).
         // Один раз на попытку: после «Проверить связь ещё раз» та же старая попытка связь уже не выключает.
         if (s == RemoteSupportHost.State.Ended && RemoteSupportSession.LastEnd == RemoteSupportHost.UnreachableText()
@@ -534,7 +541,7 @@ public static class RemoteSupportSession
         frame.Bind(Border.BackgroundProperty, frame.GetResourceObservable("BrushDialogPanel"));
         dialog = new Window
         {
-            Title = Tr.T("Удалённая помощь NurMarket", "NurMarket алыстан жардам", "NurMarket remote support", "NurMarket uzaktan destek", "NurMarket masofaviy yordam"),
+            Title = Tr.T("Удалённая помощь NurCRM", "NurCRM алыстан жардам", "NurCRM remote support", "NurCRM uzaktan destek", "NurCRM masofaviy yordam"),
             SizeToContent = SizeToContent.WidthAndHeight, CanResize = false, Topmost = true, ShowInTaskbar = true,
             SystemDecorations = SystemDecorations.None,
             WindowStartupLocation = WindowStartupLocation.CenterScreen, Content = frame,
@@ -562,6 +569,10 @@ public static class RemoteSupportSession
         // 2026-10-16: всегда без владельца. С владельцем — главным окном — Windows прятал вопрос, пока главное окно свёрнуто
         // (или его свернули во время вопроса): кассир его не видел, через 60 с — отказ. Без владельца окно Topmost, со своей
         // кнопкой на панели задач, по центру экрана и видно при любом состоянии главного окна; закрывается само (OnChanged).
+        // 2026-10-30: вопрос «Разрешить доступ?» — модалка по виду: фон кассы размывается и затемняется (Topmost без ShowDialog).
+#if !NURANDROID
+        NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalWindowManager.Track(dialog);
+#endif
         dialog.Show();
         dialog.Activate();
     }

@@ -35,6 +35,249 @@ public static class SyncCenter
     /// <summary>Не чаще: полная загрузка каталога по сигналу «чужая продажа» (остатки). Каталог ~350 товаров — 2 страницы.</summary>
     public static TimeSpan StockReloadMinSpacing { get; set; } = TimeSpan.FromSeconds(60);
 
+    // ---------------------------------------------------------------- 2026-10-29: адаптивный опрос и подсказки (отчёт «Скорость синхронизации»)
+
+    /// <summary>Лента каталога при открытом чеке и 10 с после действия/подсказки (было всегда 8 с).</summary>
+    public static TimeSpan FeedActiveInterval { get; set; } = TimeSpan.FromSeconds(3);
+
+    /// <summary>Лента при свёрнутом окне или простое больше <see cref="IdleAfter"/>.</summary>
+    public static TimeSpan FeedIdleInterval { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>Лента при простое больше <see cref="DeepIdleAfter"/>.</summary>
+    public static TimeSpan FeedDeepIdleInterval { get; set; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>Пульс продаж программы владельца, пока окно активно (владелец смотрит «Сводку»).</summary>
+    public static TimeSpan OwnerPulseActiveInterval { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>Нет ввода (мышь/клавиатура/сканер) дольше — «простой».</summary>
+    public static TimeSpan IdleAfter { get; set; } = TimeSpan.FromMinutes(10);
+
+    public static TimeSpan DeepIdleAfter { get; set; } = TimeSpan.FromMinutes(60);
+
+    /// <summary>Окно свёрнуто или скрыто (ставит SyncActivityWatcher главного окна / окна владельца).</summary>
+    public static volatile bool WindowMinimized;
+
+    /// <summary>2026-10-30 (оптимизация кассы, Б1): Android в фоне (MainActivity.OnStop) — окно формально «видимо», но экрана нет.
+    /// Ставит MainActivity; SyncActivityWatcher его не сбрасывает. Опросы тогда идут как у свёрнутого окна, а ещё реже (60 с).</summary>
+    public static volatile bool AppInBackground;
+
+    /// <summary>Окно программы сейчас активно.</summary>
+    public static volatile bool WindowActive = true;
+
+    /// <summary>У кассира есть строки в открытом чеке (ставит SyncActivityWatcher).</summary>
+    public static volatile bool OpenCheck;
+
+    /// <summary>Сигнал «пора опросить сейчас»: будит цикл вместо ожидания такта. Несколько сигналов подряд сливаются в один.</summary>
+    public sealed class KickSignal
+    {
+        private readonly SemaphoreSlim _s = new(0, 1);
+
+        public void Kick()
+        {
+            try { _s.Release(); }
+            catch (SemaphoreFullException) { /* уже есть непрочитанный сигнал */ }
+        }
+
+        public Task<bool> WaitAsync(TimeSpan timeout) => _s.WaitAsync(timeout);
+    }
+
+    /// <summary>Разбудить цикл ленты каталога (CatalogFeedSync).</summary>
+    public static readonly KickSignal FeedKick = new();
+
+    /// <summary>Разбудить пульс продаж (RemoteSalesPulse).</summary>
+    public static readonly KickSignal PulseKick = new();
+
+    private static long _boostUntilTicks;
+
+    private static bool Boosted => DateTime.UtcNow.Ticks < Interlocked.Read(ref _boostUntilTicks);
+
+    /// <summary>Быстрый опрос на <paramref name="span"/> (по умолчанию 10 с): после своей записи или подсказки соседа.</summary>
+    public static void BoostFeed(TimeSpan? span = null)
+    {
+        var until = DateTime.UtcNow.Ticks + (span ?? TimeSpan.FromSeconds(10)).Ticks;
+        if (until > Interlocked.Read(ref _boostUntilTicks))
+            Interlocked.Exchange(ref _boostUntilTicks, until);
+    }
+
+    private static long _lastInputTicks = Environment.TickCount64;
+
+    /// <summary>2026-10-30 (Б1): на Android/Linux/macOS нет GetLastInputInfo — окно и активность сами отмечают здесь касание/клавишу/клик
+    /// (MainActivity.DispatchTouchEvent/DispatchKeyEvent, SyncActivityWatcher). На Windows не используется.</summary>
+    public static void NoteInput() => Interlocked.Exchange(ref _lastInputTicks, Environment.TickCount64);
+
+    /// <summary>Сколько нет ввода. Windows — GetLastInputInfo (весь сеанс); другие системы — время последнего касания/клавиши в программе
+    /// (было всегда ноль, поэтому «простоя» не наступало никогда). При сбое Windows — ноль («кто-то работает»).</summary>
+    public static TimeSpan InputIdle()
+    {
+        if (!OperatingSystem.IsWindows())
+            return TimeSpan.FromMilliseconds(Math.Max(0, Environment.TickCount64 - Interlocked.Read(ref _lastInputTicks)));
+        try
+        {
+            var info = new LastInputInfo { Size = (uint)System.Runtime.InteropServices.Marshal.SizeOf<LastInputInfo>() };
+            if (!GetLastInputInfo(ref info))
+                return TimeSpan.Zero;
+            return TimeSpan.FromMilliseconds(unchecked((uint)Environment.TickCount - info.Time));
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or System.Runtime.InteropServices.MarshalDirectiveException)
+        {
+            return TimeSpan.Zero;
+        }
+    }
+
+    /// <summary>2026-10-30 (Б3): «тихий режим» — окно свёрнуто, программа в фоне (Android) или нет ввода дольше <see cref="IdleAfter"/>.</summary>
+    public static bool IsQuiet() => WindowMinimized || AppInBackground || InputIdle() >= IdleAfter;
+
+    /// <summary>2026-10-30 (Б3): интервал фонового опроса «сторожа смены» и общих настроек компании: обычный (30 с) при работе,
+    /// ×4 (120 с) в тихом режиме — как у ленты каталога (8 → 30 с). Кассир вернулся — следующий такт снова обычный.</summary>
+    public static TimeSpan QuietInterval(TimeSpan normal) => IsQuiet() ? TimeSpan.FromTicks(normal.Ticks * 4) : normal;
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct LastInputInfo
+    {
+        public uint Size;
+        public uint Time;
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetLastInputInfo(ref LastInputInfo info);
+
+    /// <summary>Период ленты каталога сейчас: 3 с при открытом чеке и после действия/подсказки, обычный (<paramref name="normal"/>, 8 с),
+    /// 30 с при свёрнутом окне или простое больше 10 мин, 60 с при простое больше часа.</summary>
+    public static TimeSpan FeedInterval(TimeSpan normal)
+    {
+        if (Boosted)
+            return FeedActiveInterval;
+        if (AppInBackground)
+            return FeedDeepIdleInterval; // 2026-10-30 (Б1): Android в фоне — 60 с вместо 8 (подсказка соседа FeedKick будит сразу)
+        if (WindowMinimized)
+            return FeedIdleInterval;
+        var idle = InputIdle();
+        if (idle >= DeepIdleAfter)
+            return FeedDeepIdleInterval;
+        if (idle >= IdleAfter)
+            return FeedIdleInterval;
+        return OpenCheck ? FeedActiveInterval : normal;
+    }
+
+    /// <summary>Период пульса продаж сейчас. Владелец: 5 с при активном окне, 20 с при неактивном, 30 с в простое, 60 с свёрнутое.
+    /// Касса: обычный <see cref="SalesPulseInterval"/>, 60 с в простое или при свёрнутом окне. После подсказки — 3 с.</summary>
+    public static TimeSpan PulseInterval()
+    {
+        if (Boosted)
+            return TimeSpan.FromSeconds(3);
+        if (WindowMinimized || AppInBackground)
+            return TimeSpan.FromSeconds(60);
+        var idle = InputIdle() >= IdleAfter;
+        if (AppMode.IsOwner)
+            return idle ? TimeSpan.FromSeconds(30) : WindowActive ? OwnerPulseActiveInterval : TimeSpan.FromSeconds(20);
+        return idle ? TimeSpan.FromSeconds(60) : SalesPulseInterval;
+    }
+
+    /// <summary>Ждать следующего такта: не дольше текущего <paramref name="interval"/> (±15 %, пересчитывается каждые 2 с — кассир вернулся
+    /// из простоя, и такт сокращается), но раньше — по сигналу <paramref name="kick"/>. Между тактами не меньше <paramref name="minGap"/>.</summary>
+    public static async Task WaitAdaptiveAsync(Func<TimeSpan> interval, KickSignal kick, TimeSpan minGap)
+    {
+        double k;
+        lock (Rng)
+            k = 1 + ((Rng.NextDouble() * 2) - 1) * 0.15;
+        var started = Environment.TickCount64;
+        var slice = TimeSpan.FromSeconds(2);
+        while (true)
+        {
+            var target = TimeSpan.FromMilliseconds(Math.Max(1000, interval().TotalMilliseconds * k));
+            var left = target - TimeSpan.FromMilliseconds(Environment.TickCount64 - started);
+            if (left <= TimeSpan.Zero)
+                return;
+            if (await kick.WaitAsync(left < slice ? left : slice).ConfigureAwait(false))
+            {
+                var gap = minGap - TimeSpan.FromMilliseconds(Environment.TickCount64 - started);
+                if (gap > TimeSpan.Zero)
+                    await Task.Delay(gap).ConfigureAwait(false);
+                return;
+            }
+        }
+    }
+
+    /// <summary>Подсказки, которые принимаем от соседей по локальной сети и от телефонов: только тип, без данных.</summary>
+    public static bool IsKnownHint(string? kind) => kind is "sale" or "product" or "stock" or "price";
+
+    /// <summary>Эта программа что-то записала (продажа, правка товара/цены/прихода): быстрый опрос и подсказка соседям — другим кассам, программе
+    /// владельца (локальная сеть) и подключённым телефонам. Ничего секретного не передаётся: тип события.</summary>
+    public static void NoteLocalChange(string kind)
+    {
+        if (!IsKnownHint(kind))
+            return;
+        // 2026-10-30 (скорость массовой загрузки): пока идёт массовая запись товаров, подсказка на каждый запрос не нужна (ускоренный опрос ленты,
+        // рассылка соседям и телефонам на каждый из тысяч запросов) — одна общая подсказка уйдёт в конце (QuietScope.Dispose).
+        if (Volatile.Read(ref _quietWrites) > 0)
+            return;
+        BoostFeed();
+        try { Lan.LanSyncService.Instance.NotifyPeers(kind); }
+        catch (Exception ex) { PosLogger.Log($"SYNC: подсказка соседям не ушла: {ex.Message}", "WARNING"); }
+        try { PhoneLink.PhoneLinkEvents.Publish(kind); }
+        catch (Exception ex) { PosLogger.Log($"SYNC: событие для телефонов не записано: {ex.Message}", "WARNING"); }
+    }
+
+    private static int _quietWrites;
+
+    /// <summary>2026-10-30: массовая запись товаров (мастер загрузки, приход пачкой): на время работы подсказки <see cref="NoteLocalChange"/> молчат,
+    /// при завершении последнего такого участка уходит одна общая подсказка «product».</summary>
+    public static IDisposable QuietLocalChanges()
+    {
+        Interlocked.Increment(ref _quietWrites);
+        return new QuietScope();
+    }
+
+    private sealed class QuietScope : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 1)
+                return;
+            if (Interlocked.Decrement(ref _quietWrites) == 0)
+                NoteLocalChange("product");
+        }
+    }
+
+    /// <summary>Пришла подсказка от соседа или телефона: сразу читаем ленту (а при продаже — и чеки компании). Данных в подсказке нет —
+    /// всё берётся с NurCRM, права и правильность не страдают.</summary>
+    public static void OnPeerHint(string kind)
+    {
+        if (!IsKnownHint(kind))
+            return;
+        BoostFeed();
+        FeedKick.Kick();
+        if (kind != "sale")
+            return;
+        PulseKick.Kick();
+        // Сервер мог ещё дописывать продажу — один повтор через 2 с (дёшево: пустой такт ленты ~200 байт).
+        _ = Task.Delay(TimeSpan.FromSeconds(2)).ContinueWith(_ =>
+        {
+            FeedKick.Kick();
+            PulseKick.Kick();
+        }, TaskScheduler.Default);
+    }
+
+    /// <summary>Подсказка от телефона: как от соседа, плюс передаём её дальше (другие кассы, программа владельца, остальные телефоны).</summary>
+    public static void OnPhoneHint(string kind)
+    {
+        if (!IsKnownHint(kind))
+            return;
+        OnPeerHint(kind);
+        NoteLocalChange(kind);
+    }
+
+    // 2026-10-30 (оптимизация кассы, С7): сколько запросов к серверу NurCRM ушло — раз в 5 минут строка в журнал (CatalogFeedSync.LogStatsIfDue),
+    // чтобы вместо оценок по коду были цифры «запросов в минуту». Считает TransportTuningHandler (все запросы API).
+    private static long _requestCount;
+
+    public static void CountRequest() => Interlocked.Increment(ref _requestCount);
+
+    /// <summary>Забрать и обнулить счётчик запросов.</summary>
+    public static long TakeRequestCount() => Interlocked.Exchange(ref _requestCount, 0);
+
     private static long _lastOkTicks;
     private static string _lastWhat = "";
     private static readonly Random Rng = new();

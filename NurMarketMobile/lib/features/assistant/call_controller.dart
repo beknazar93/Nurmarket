@@ -1175,6 +1175,25 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
     return f == null || f.isEmpty ? null : f;
   }
 
+  /// 2026-10-29 (полная изоляция аккаунтов): вошёл другой аккаунт — реплики, таблицы и «этот товар» прошлого звонка стираются.
+  void resetForAccountSwitch() {
+    _finished = null;
+    turns.clear();
+    tables.reset();
+    focus.clear();
+    wizard = null;
+    videoBusy = null;
+    lastAsk = null;
+    videoCard = null;
+    ambiguous = null;
+    numberPrompt = null;
+    actionLine = null;
+    problem = null;
+    kit?.undo.clear();
+    finishedTick.value++;
+    notifyListeners();
+  }
+
   /// Закрыть сообщение о конце звонка (кнопка «Закрыть») — звонка больше нет.
   void dismiss() {
     if (phase == CallPhase.active || phase == CallPhase.preparing) return;

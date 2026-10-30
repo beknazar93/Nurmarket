@@ -1305,6 +1305,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private void OnSalesChangedExternally()
         {
+            // 2026-10-31 (приёмка 1.17.68): SalesChanged поднимается и с фоновых потоков (оплата долга, пульс продаж) — поля и _liveCts трогаем только в UI-потоке.
+            if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(OnSalesChangedExternally);
+                return;
+            }
             // Сезонность раздела «Аналитика» пересчитается после перезагрузки (если вкладка открыта).
             _seasonalityLoaded = false;
             _liveCts?.Cancel();
@@ -3290,8 +3296,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
         {
             try
             {
-                if (File.Exists(CashHistoryFilePath))
-                    return JsonSerializer.Deserialize<List<CashSessionEntry>>(File.ReadAllText(CashHistoryFilePath))
+                // 2026-10-29 (аварийный аудит, п. 7): битый файл — из копии .bak (AtomicFile), а не молча «пусто».
+                var text = AtomicFile.ReadAllText(CashHistoryFilePath);
+                if (text is not null)
+                    return JsonSerializer.Deserialize<List<CashSessionEntry>>(text)
                            ?? new List<CashSessionEntry>();
             }
             catch (Exception ex)
@@ -3308,7 +3316,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 var dir = Path.GetDirectoryName(CashHistoryFilePath);
                 if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                     Directory.CreateDirectory(dir);
-                File.WriteAllText(CashHistoryFilePath, JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = false }));
+                AtomicFile.WriteAllText(CashHistoryFilePath, JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = false })); // 2026-10-29: атомарно, с копией .bak
             }
             catch (Exception ex)
             {

@@ -1966,7 +1966,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             var lossOrderDiscount = checkoutVm.OrderDiscountAmount + checkoutVm.PointsRedeemed;
             await RunOnUiThreadAsync(() => lossLines = CaptureLossLines(lossOrderDiscount)).ConfigureAwait(false);
 
-            var result = await _checkout.CheckoutAsync(new PosCheckoutRequest
+            var payRequest = new PosCheckoutRequest
             {
                 PaymentMethod = checkoutVm.PaymentMethod,
                 CashReceived = cashReceived,
@@ -1985,7 +1985,81 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 // 2026-10-20, владелец (долг Д5): клиент — в чек продажи «в долг» (имя и телефон маской).
                 ClientNameForReceipt = checkoutVm.IsDebtMode ? checkoutVm.SelectedClient?.Name : null,
                 ClientPhoneForReceipt = checkoutVm.IsDebtMode ? checkoutVm.SelectedClient?.Phone : null,
-            }).ConfigureAwait(false);
+            };
+            var result = await _checkout.CheckoutAsync(payRequest).ConfigureAwait(false);
+
+            // 2026-10-30 (приёмка 1.17.66, «Важно» 1): сервер отвечает 429 дольше срока оплаты — он ЖИВ, но занят (автономный режим не включался). Кассир выбирает:
+            // «Повторить» или «Отложить в очередь» (только наличные/безнал; чек уйдёт тем же ключом, дубля не будет). Ключ повтора сохранён сервисом оплаты.
+            for (var busyRound = 0; !result.IsSuccess && result.ServerBusy && busyRound < 5; busyRound++)
+            {
+                if (_checkoutUiFlow != null)
+                {
+                    await _checkoutUiFlow.ClosePaymentProcessingAsync().ConfigureAwait(false);
+                    paymentStatusActive = false;
+                }
+
+                // Esc/закрытие окна = «Повторить» (безопасно: тот же ключ); в очередь чек уходит только явной кнопкой. Без очереди: «Повторить» / «Отмена».
+                var retryText = Tr.T("Повторить", "Кайталоо", "Retry", "Tekrar dene", "Qayta urinish");
+                var busyAnswer = await _prompts.ConfirmAsync(result.ErrorMessage ?? "",
+                    result.CanDeferToQueue ? Tr.T("Отложить в очередь", "Кезекке коюу", "Defer to queue", "Kuyruğa al", "Navbatga qo'yish") : retryText,
+                    result.CanDeferToQueue ? retryText : Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(false);
+                var retryNow = result.CanDeferToQueue ? !busyAnswer : busyAnswer;
+                if (!retryNow && !result.CanDeferToQueue)
+                {
+                    PosLogger.Log("PAY: кассир отказался повторять оплату после «Сервер занят» (способ без очереди).", "PAYMENT");
+                    if (_checkoutUiFlow != null)
+                    {
+                        await _checkoutUiFlow.ShowPaymentProcessingAsync(totals.TotalDue).ConfigureAwait(false);
+                        paymentStatusActive = true;
+                    }
+
+                    result = PosCheckoutResult.Failed(Tr.T("Оплата не проведена: сервер был занят. Чек остался в кассе — повторите оплату позже.",
+                        "Төлөм өткөрүлгөн жок: сервер бош эмес болчу. Чек кассада калды — төлөмдү кийинчерээк кайталаңыз.",
+                        "The payment was not made: the server was busy. The receipt is kept in the till — retry the payment later.",
+                        "Ödeme yapılmadı: sunucu meşguldü. Fiş kasada kaldı — ödemeyi daha sonra tekrar deneyin.",
+                        "To'lov o'tkazilmadi: server band edi. Chek kassada qoldi — to'lovni keyinroq qaytaring."));
+                    break;
+                }
+
+                if (!retryNow)
+                {
+                    payRequest.DeferToQueue = true;
+                    PosLogger.Log("PAY: кассир выбрал «Отложить в очередь» после «Сервер занят».", "PAYMENT");
+                }
+
+                if (_checkoutUiFlow != null)
+                {
+                    await _checkoutUiFlow.ShowPaymentProcessingAsync(totals.TotalDue).ConfigureAwait(false);
+                    paymentStatusActive = true;
+                }
+
+                result = await _checkout.CheckoutAsync(payRequest).ConfigureAwait(false);
+            }
+
+            // 2026-10-29: «в долг» без связи, лимит клиента неизвестен или данные старые — касса спрашивает кассира; согласился — оплата повторяется с подтверждением
+            // (сервис оплаты сам не оформит такую продажу без него). Корзина после отказа восстановлена сервисом оплаты.
+            if (!result.IsSuccess && result.OfflineDebtConfirmRequired)
+            {
+                var question = result.ErrorMessage ?? "";
+                var accepted = await _prompts.ConfirmAsync(question,
+                    Tr.T("Оформить в долг", "Карызга жазуу", "Record on credit", "Veresiye kaydet", "Qarzga rasmiylashtirish"),
+                    Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(false);
+                if (accepted)
+                {
+                    payRequest.OfflineDebtConfirmed = true;
+                    PosLogger.Log("PAY: кассир подтвердил «в долг» без связи при неполной проверке клиента.", "PAYMENT");
+                    result = await _checkout.CheckoutAsync(payRequest).ConfigureAwait(false);
+                }
+                else
+                {
+                    PosLogger.Log("PAY: кассир отказался от «в долг» без связи при неполной проверке клиента.", "PAYMENT");
+                    result = PosCheckoutResult.Failed(Tr.T("Продажа «в долг» без связи отменена. Чек сохранён — выберите другой способ оплаты или повторите позже.",
+                        "Байланышсыз «карызга» сатуу жокко чыгарылды. Чек сакталды — башка төлөм ыкмасын тандаңыз же кийинчерээк кайталаңыз.",
+                        "The credit sale without a connection was canceled. The receipt is kept — choose another payment method or try again later.",
+                        "Bağlantısız veresiye satış iptal edildi. Fiş kayıtlı — başka bir ödeme yöntemi seçin veya daha sonra tekrar deneyin.",
+                        "Aloqasiz «qarzga» sotuv bekor qilindi. Chek saqlandi — boshqa to'lov usulini tanlang yoki keyinroq qayta urinib ko'ring."));
+                }
+            }
 
             if (!result.IsSuccess)
             {
@@ -2012,11 +2086,13 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                     {
                         var names = result.PriceChanges is { Count: > 0 } pc ? string.Join(", ", pc.Take(3).Select(m => m.Name)) : "—";
                         error = Tr.T(
-                            $"Сервер не принял цены в чеке ({names}). Продажа НЕ проведена. Нажмите «Обновить» в каталоге, удалите эти позиции из чека и добавьте заново.",
-                            $"Сервер чектеги баалар кабыл алган жок ({names}). Сатуу ӨТКӨРҮЛГӨН ЖОК. Каталогдо «Жаңыртуу» баскычын басып, бул позицияларды чектен өчүрүп, кайра кошуңуз.",
-                            $"The server did not accept the prices in the receipt ({names}). The sale was NOT recorded. Press “Refresh” in the catalog, remove these lines from the receipt and add them again.",
-                            $"Sunucu fişteki fiyatları kabul etmedi ({names}). Satış KAYDEDİLMEDİ. Katalogda «Yenile»ye basın, bu satırları fişten silip yeniden ekleyin.",
-                            $"Server chekdagi narxlarni qabul qilmadi ({names}). Sotuv O'TKAZILMADI. Katalogda «Yangilash»ni bosing, bu qatorlarni chekdan o'chirib, qayta qo'shing.");
+                            // 2026-10-29 (приёмка 1.17.65, В-2): без «удалите позиции и добавьте заново» — обычные строки (в том числе чека, начатого без связи)
+                            // обновляются выше сами; сюда доходят только особые строки (опт, упаковка, своя цена), и повтор оплаты сверит их снова.
+                            $"Цена изменилась на сервере ({names}), но касса не смогла сама пересчитать эти строки. Продажа НЕ проведена. Нажмите «Обновить» в каталоге и оплатите ещё раз — цены будут запрошены повторно.",
+                            $"Сервердеги баа өзгөрдү ({names}), бирок касса бул саптарды өзү кайра эсептей алган жок. Сатуу ӨТКӨРҮЛГӨН ЖОК. Каталогдо «Жаңыртуу» баскычын басып, кайра төлөңүз — баалар кайра суралат.",
+                            $"The price changed on the server ({names}), but the till could not recalculate these lines itself. The sale was NOT recorded. Press “Refresh” in the catalog and pay again — prices will be requested again.",
+                            $"Fiyat sunucuda değişti ({names}) ancak kasa bu satırları kendisi yeniden hesaplayamadı. Satış KAYDEDİLMEDİ. Katalogda «Yenile»ye basıp tekrar ödeyin — fiyatlar yeniden istenecek.",
+                            $"Narx serverda o'zgardi ({names}), lekin kassa bu qatorlarni o'zi qayta hisoblay olmadi. Sotuv O'TKAZILMADI. Katalogda «Yangilash»ni bosib, yana to'lang — narxlar qayta so'raladi.");
                     }
                 }
 
@@ -2063,6 +2139,21 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             }
 
             LogPendingInsufficientStockOverrideIfAny(result);
+            // 2026-10-29 (ревью, В-7): онлайн-продажа «в долг» — долг клиента в кэше растёт сразу (для проверки лимита «в долг» без связи).
+            if (!result.SavedOffline && checkoutVm.IsDebtMode && !string.IsNullOrWhiteSpace(checkoutVm.ClientId))
+            {
+                try
+                {
+                    decimal.TryParse(cashReceived, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var prepaidNow);
+                    var debtNow = Math.Round((decimal)result.TotalAmount, 2) - Math.Max(0m, prepaidNow);
+                    if (debtNow > 0m)
+                        NurMarketKassa.Services.OfflineClientCache.ApplyConfirmed(checkoutVm.ClientId, "sale:" + (TryReadSaleId(result) ?? Guid.NewGuid().ToString("N")), debtNow);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Кэш клиентов: долг после онлайн-продажи не пересчитан: {ex.Message}", "WARNING");
+                }
+            }
             RecordSoldLineItemsForHistory(TryReadSaleId(result));
             RecordLossSale(TryReadSaleId(result), lossLines);
             CreditOrRedeemLoyaltyPoints(checkoutVm, result);

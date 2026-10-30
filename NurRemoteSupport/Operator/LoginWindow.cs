@@ -21,7 +21,7 @@ internal sealed class LoginWindow : Window
 
     public LoginWindow(string? notice = null)
     {
-        Title = "NurMarket — " + L.T("Поддержка", "Колдоо", "Support", "Destek", "Yordam");
+        Title = "NurCRM — " + L.T("Поддержка", "Колдоо", "Support", "Destek", "Yordam");
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Background = Ui.Window;
         Ui.FitToScreen(this, 480, 700, 340, 420);
@@ -82,7 +82,7 @@ internal sealed class LoginWindow : Window
             Children =
             {
                 logo,
-                new TextBlock { Text = "NurMarket " + L.T("Поддержка", "Колдоо", "Support", "Destek", "Yordam"), FontSize = 22, FontWeight = FontWeight.ExtraBold, HorizontalAlignment = HorizontalAlignment.Center, Foreground = Ui.Text },
+                new TextBlock { Text = "NurCRM " + L.T("Поддержка", "Колдоо", "Support", "Destek", "Yordam"), FontSize = 22, FontWeight = FontWeight.ExtraBold, HorizontalAlignment = HorizontalAlignment.Center, Foreground = Ui.Text },
                 new TextBlock
                 {
                     Text = L.T("Программа сотрудника технической поддержки", "Техникалык колдоо кызматкеринин программасы", "Technical support operator app",

@@ -136,6 +136,7 @@ public partial class PayDebtDialog
         DebtPaymentRunner.Changed += OnRunnerChanged;
         Closed += (_, _) =>
         {
+            _payingTimer?.Stop();
             DebtPaymentSettings.Changed -= OnSettings;
             PosDataEvents.DebouncedDebtChanged -= OnDebtChanged;
             DebtPaymentRunner.Changed -= OnRunnerChanged;
@@ -211,11 +212,36 @@ public partial class PayDebtDialog
 
     public string UnknownUnlockLabel => DebtPaymentRunner.UnlockLabel;
 
+    /// <summary>2026-10-30, владелец: «при оплате долга система зависает». Полоса «Идёт оплата долга… N с» — пока запрос оплаты
+    /// этого клиента у сервера (вопрос «Принять?» и ввод кода не в счёт). Сервер гасит 100+ взносов 10–20 с одним ответом.</summary>
+    public bool ShowPayingBanner => _paying && DebtPaymentRunner.IsInFlight(_selectedClient?.Id);
+
+    public string PayingBannerText => DebtPaymentFlow.PayingText((int)_payingWatch.Elapsed.TotalSeconds);
+
+    private readonly System.Diagnostics.Stopwatch _payingWatch = new();
+    private DispatcherTimer? _payingTimer;
+
     /// <summary>Идёт операция (одна за раз в окне): все кнопки оплаты закрыты, окно не закрывается.</summary>
     private void SetPaying(bool paying)
     {
         var wasPaying = _paying;
         _paying = paying;
+        _payingTimer?.Stop();
+        _payingTimer = null;
+        if (paying)
+        {
+            _payingWatch.Restart();
+            _payingTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _payingTimer.Tick += (_, _) =>
+            {
+                if (!ShowPayingBanner)
+                    _payingWatch.Restart(); // секунды — с начала запроса к серверу, а не с вопроса «Принять?»
+                OnPropertyChanged(nameof(ShowPayingBanner));
+                OnPropertyChanged(nameof(PayingBannerText));
+            };
+            _payingTimer.Start();
+        }
+        OnPropertyChanged(nameof(ShowPayingBanner));
         if (!paying && wasPaying)
         {
             _activeNewKey = null;
@@ -254,6 +280,7 @@ public partial class PayDebtDialog
         OnPropertyChanged(nameof(CanRetryUnknown));
         OnPropertyChanged(nameof(UnknownPaymentText));
         OnPropertyChanged(nameof(UnknownRetryLabel));
+        OnPropertyChanged(nameof(ShowPayingBanner)); // 2026-10-30: запрос оплаты начался/закончился — полоса сразу
     }
 
     // ── 2026-10-18, пятый круг (п.10): одна обёртка для «Оплатить» у строки и «Погасить» ─────────────────────────

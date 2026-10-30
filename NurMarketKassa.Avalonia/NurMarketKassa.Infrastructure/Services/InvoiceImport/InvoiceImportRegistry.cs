@@ -42,6 +42,10 @@ public sealed class InvoiceImportEntry
 
     /// <summary>Ключи защиты от дубля (см. InvoiceImportRegistry.Keys).</summary>
     public List<string> Keys { get; set; } = new();
+
+    /// <summary>2026-10-30 («Поступления и партии» товара): имя копии исходного файла накладной в папке invoice-files рядом с журналом
+    /// (пусто — копия не сохранялась: накладная загружена до 30.10 или файл не копировался). Ссылка из «Склад → товар → Поступления».</summary>
+    public string StoredFile { get; set; } = "";
 }
 
 public static class InvoiceImportRegistry
@@ -89,7 +93,22 @@ public static class InvoiceImportRegistry
         try
         {
             if (store.Invoices.Count > MaxEntries)
-                store.Invoices = store.Invoices.OrderByDescending(e => e.LoadedAt).Take(MaxEntries).ToList();
+            {
+                var kept = store.Invoices.OrderByDescending(e => e.LoadedAt).Take(MaxEntries).ToList();
+                // 2026-10-30: копии файлов выпавших записей удаляем — папка не растёт без предела.
+                foreach (var dropped in store.Invoices.Except(kept).Where(e => !string.IsNullOrWhiteSpace(e.StoredFile)))
+                {
+                    try
+                    {
+                        File.Delete(Path.Combine(FilesDir, Path.GetFileName(dropped.StoredFile)));
+                    }
+                    catch
+                    {
+                        // файл занят или уже удалён — не страшно
+                    }
+                }
+                store.Invoices = kept;
+            }
             Directory.CreateDirectory(DataDir);
             var tmp = FilePath + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(store));
@@ -218,6 +237,73 @@ public static class InvoiceImportRegistry
     {
         lock (Sync)
             return Read().Invoices.OrderByDescending(e => e.LoadedAt).ToList();
+    }
+
+    // ------------------------------------------------------------------ копия исходного файла (2026-10-30)
+
+    // 2026-10-30, просьба владельца «в складе по товару — от кого партия и ссылку на накладную»: сервер NurCRM файл накладной в приходе не хранит,
+    // поэтому при загрузке накладной касса оставляет копию файла у себя (%APPDATA%\NurMarketKassa\purchases\invoice-files\<код записи>.<расширение>,
+    // не больше MaxStoredBytes на файл). База pos_local.db не трогается. Копия видна только на этом ПК.
+    private const long MaxStoredBytes = 25L * 1024 * 1024;
+
+    private static string FilesDir => Path.Combine(DataDir, "invoice-files");
+
+    /// <summary>Полный путь копии файла записи или null, если копии нет (не сохранялась, удалена, обрезана до 500 записей).</summary>
+    public static string? StoredPath(InvoiceImportEntry entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry.StoredFile))
+            return null;
+        var path = Path.Combine(FilesDir, Path.GetFileName(entry.StoredFile));
+        return File.Exists(path) ? path : null;
+    }
+
+    /// <summary>Сохранить копию исходного файла накладной для записи <paramref name="entry"/> (после <see cref="Record"/>). Сбой копирования
+    /// накладную не ломает: StoredFile останется пустым, а «Открыть файл» честно скажет, что файл не сохранён.</summary>
+    public static void StoreFile(InvoiceImportEntry entry, string sourcePath)
+    {
+        try
+        {
+            var info = new FileInfo(sourcePath);
+            if (!info.Exists || info.Length > MaxStoredBytes)
+                return;
+            Directory.CreateDirectory(FilesDir);
+            var name = entry.Id + Path.GetExtension(sourcePath).ToLowerInvariant();
+            File.Copy(sourcePath, Path.Combine(FilesDir, name), overwrite: true);
+            lock (Sync)
+            {
+                var store = Read();
+                var saved = store.Invoices.FirstOrDefault(e => e.Id == entry.Id);
+                if (saved is null)
+                    return;
+                saved.StoredFile = name;
+                entry.StoredFile = name;
+                Write(store);
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"INVOICE_IMPORT: копия файла накладной не сохранена ({ex.Message}).", "WARNING");
+        }
+    }
+
+    /// <summary>2026-10-30: накладная, из которой, скорее всего, оприходован приход (журнал загрузок не хранит id прихода — сервер номер/файл
+    /// не принимает). Совпадение: проведённая запись с копией файла, тот же поставщик (по названию), приход создан после загрузки не позднее
+    /// чем через трое суток, сумма в пределах 1 % (если суммы известны). Из нескольких — ближайшая по времени. null — не нашли.</summary>
+    public static InvoiceImportEntry? FindForReceipt(string? supplierName, DateTime? receiptAt, double receiptTotal)
+    {
+        if (receiptAt is not { } at)
+            return null;
+        var name = (supplierName ?? "").Trim();
+        lock (Sync)
+        {
+            return Read().Invoices
+                .Where(e => e.Posted && !string.IsNullOrWhiteSpace(e.StoredFile)
+                            && string.Equals((e.SupplierName ?? "").Trim(), name, StringComparison.CurrentCultureIgnoreCase)
+                            && at >= e.LoadedAt.AddMinutes(-1) && at <= e.LoadedAt.AddDays(3)
+                            && (e.Total <= 0 || receiptTotal <= 0 || Math.Abs(e.Total - receiptTotal) <= Math.Max(1, 0.01 * Math.Max(e.Total, receiptTotal))))
+                .OrderBy(e => Math.Abs((at - e.LoadedAt).TotalSeconds))
+                .FirstOrDefault();
+        }
     }
 
     // ------------------------------------------------------------------ память сопоставления столбцов

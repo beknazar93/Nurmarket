@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
@@ -659,7 +660,10 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
     if (f == null) return;
     final bytes = await f.readAsBytes();
     try {
-      final table = (f.extension ?? '').toLowerCase() == 'xlsx' ? BulkParser.readXlsx(bytes) : BulkParser.readText(utf8.decode(bytes, allowMalformed: true));
+      // 2026-10-30 (оптимизация, п. 6): разбор Excel (ZIP + XML) и большого CSV — в отдельном изоляте, как накладные: на файле в
+      // тысячи строк интерфейс раньше замирал на секунды.
+      final isXlsx = (f.extension ?? '').toLowerCase() == 'xlsx';
+      final table = await Isolate.run(() => isXlsx ? BulkParser.readXlsx(bytes) : BulkParser.readText(utf8.decode(bytes, allowMalformed: true)));
       await _setRows(BulkParser.parse(table));
     } catch (e) {
       if (mounted) toast(context, '$e', error: true);

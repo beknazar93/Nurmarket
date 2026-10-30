@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """2026-10-29: сборка кассы для macOS на Windows (osx-arm64 и osx-x64): self-contained публикация проекта
-NurMarketKassa.Portable, упаковка в «NurMarket Kassa.app» (Info.plist, иконка .icns) и zip-архив.
+NurMarketKassa.Portable, упаковка в «NurCRM Kassa.app» (Info.plist, иконка .icns) и zip-архив.
 
 Запуск из корня репозитория:
     python tools/release/build_mac.py                  # обе архитектуры, артефакты в C:\\Users\\User\\NurMarket-rel1763
@@ -17,7 +17,7 @@ SLN = os.path.join(ROOT, 'NurMarketKassa.Avalonia')
 PROJ = os.path.join(SLN, 'NurMarketKassa.Portable', 'NurMarketKassa.Portable.csproj')
 MAC_RES = os.path.join(SLN, 'NurMarketKassa.Portable', 'mac')
 ICON_SRC = os.path.join(SLN, 'NurMarketKassa.Avalonia', 'Assets', 'app-icon.ico')
-APP_NAME = 'NurMarket Kassa'
+APP_NAME = 'NurCRM Kassa'
 EXE_NAME = 'NurMarketKassa.Avalonia'   # AssemblyName проекта
 BUNDLE_ID = 'kg.nurmarket.kassa'
 
@@ -94,7 +94,7 @@ def info_plist(version):
         'NSSupportsAutomaticGraphicsSwitching': True,
         'NSCameraUsageDescription': 'Камера нужна для сканирования штрихкодов.',
         'NSMicrophoneUsageDescription': 'Микрофон нужен для голосового ввода.',
-        'NSHumanReadableCopyright': 'NurMarket',
+        'NSHumanReadableCopyright': 'NurCRM',
     })
 
 

@@ -38,7 +38,9 @@ class ScanFrameState extends State<ScanFrame> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    // 2026-10-30 (оптимизация, п. 7): RepaintBoundary — луч перерисовывает только рамку, а не весь экран с камерой (60 к/с)
+    return RepaintBoundary(
+      child: AnimatedBuilder(
       animation: Listenable.merge([_laser, _hit]),
       builder: (context, _) {
         final h = _hit.value; // 0 → 1
@@ -69,17 +71,21 @@ class ScanFrameState extends State<ScanFrame> with TickerProviderStateMixin {
                     child: CustomPaint(painter: _CornersPainter(color: color)),
                   ),
                   // полоса-луч со свечением; при удачном скане замирает по центру
+                  // 2026-10-30 (оптимизация, п. 7): сдвиг через Transform.translate — меняется только рисование, без пересчёта компоновки
                   Positioned(
                     left: 18,
                     right: 18,
-                    top: glow > 0 ? widget.height / 2 - 1 : y - 1,
-                    child: Container(
+                    top: 0,
+                    child: Transform.translate(
+                      offset: Offset(0, glow > 0 ? widget.height / 2 - 1 : y - 1),
+                      child: Container(
                       height: 2.5,
                       decoration: BoxDecoration(
                         color: color,
                         borderRadius: BorderRadius.circular(2),
                         boxShadow: [BoxShadow(color: color.withValues(alpha: .7), blurRadius: 12, spreadRadius: 1)],
                       ),
+                    ),
                     ),
                   ),
                   if (glow > 0)
@@ -95,6 +101,7 @@ class ScanFrameState extends State<ScanFrame> with TickerProviderStateMixin {
           ),
         );
       },
+    ),
     );
   }
 }

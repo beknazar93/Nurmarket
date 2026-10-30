@@ -54,7 +54,7 @@ void main() {
                 child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   BrandLogo(width: 130, kind: BrandLogoKind.vertical, variant: BrandVariant.dark),
                   SizedBox(height: 14),
-                  Text('NurMarket', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white)),
+                  Text('NurCRM', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Colors.white)),
                   SizedBox(height: 6),
                   Text('Касса и склад в телефоне · Касса жана склад телефондо ү ө ң', style: TextStyle(fontSize: 13, color: Color(0xFFC7D2DB))),
                 ]),

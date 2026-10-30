@@ -220,6 +220,10 @@
         <Style Selector=".headernarrow TextBlock.header-network">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
+        <!-- 2026-10-30 (приёмка 1.17.65, блокер 1): шапка и в узком виде не помещается (1024 при 150 %) — «Открыть/Закрыть смену» только значком. -->
+        <Style Selector=".headertiny Button.shift-action TextBlock">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
         <Style Selector=".headernarrow StackPanel.header-status">
             <Setter Property="Spacing" Value="10"/>
         </Style>
@@ -419,6 +423,13 @@
                                    Foreground="{DynamicResource BrushTextSoft}"/>
                     </StackPanel>
 
+                    <!-- 2026-10-30 (приёмка 1.17.65, «Важно» 2): сервер ответил 429 — нейтральная надпись, не красный офлайн. -->
+                    <TextBlock Text="{Binding Toolbar.Status.ServerBusyText}"
+                               IsVisible="{Binding Toolbar.Status.HasServerBusy}"
+                               FontSize="12"
+                               Foreground="{DynamicResource BrushTextSoft}"
+                               VerticalAlignment="Center"/>
+
                     <TextBlock Classes="header-network"
                                Text="{Binding Toolbar.Status.NetworkModeText}"
                                FontSize="12"
@@ -433,8 +444,24 @@
                             CornerRadius="10"
                             Padding="8,3"
                             VerticalAlignment="Center"
+                            Cursor="Hand"
+                            PointerPressed="OnQueueBadge_PointerPressed"
                             IsVisible="{Binding Toolbar.Status.HasQueuedItems}">
                         <TextBlock Text="{Binding Toolbar.Status.QueueText}"
+                                   FontSize="12"
+                                   FontWeight="Bold"
+                                   Foreground="White"/>
+                    </Border>
+
+                    <!-- 2026-10-29 (аварийный аудит кассы, п. 8): чеки, отклонённые сервером — красная плашка «Не отправлено: N · Отклонено: M» -->
+                    <Border Background="{DynamicResource BrushDanger}"
+                            CornerRadius="10"
+                            Padding="8,3"
+                            VerticalAlignment="Center"
+                            Cursor="Hand"
+                            PointerPressed="OnQueueBadge_PointerPressed"
+                            IsVisible="{Binding Toolbar.Status.HasFailedItems}">
+                        <TextBlock Text="{Binding Toolbar.Status.FailedText}"
                                    FontSize="12"
                                    FontWeight="Bold"
                                    Foreground="White"/>
@@ -578,6 +605,7 @@
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             Click="OpenShift_Click"
+                            ToolTip.Tip="{DynamicResource csh.toolbar.openShift}"
                             IsEnabled="{Binding Toolbar.CanOpenShift}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <!-- 2026-09-15, по просьбе пользователя ("сделай дизайн
@@ -595,6 +623,7 @@
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             Click="CloseShift_Click"
+                            ToolTip.Tip="{DynamicResource csh.toolbar.closeShift}"
                             IsEnabled="{Binding Toolbar.CanCloseShift}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <PathIcon Width="15" Height="15" VerticalAlignment="Center"

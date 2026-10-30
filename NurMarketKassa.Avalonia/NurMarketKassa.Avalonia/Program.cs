@@ -218,7 +218,7 @@ internal static class Program
         const string text = "Касса уже запущена. Проверьте панель задач или системный трей.";
         if (OperatingSystem.IsWindows())
         {
-            MessageBox(IntPtr.Zero, text, "NurMarket Kassa", 0x00000030 /* MB_ICONWARNING */);
+            MessageBox(IntPtr.Zero, text, "NurCRM Kassa", 0x00000030 /* MB_ICONWARNING */);
             return;
         }
 
@@ -232,11 +232,11 @@ internal static class Program
             if (OperatingSystem.IsMacOS())
             {
                 psi.ArgumentList.Add("-e");
-                psi.ArgumentList.Add("display notification \"" + text + "\" with title \"NurMarket Kassa\"");
+                psi.ArgumentList.Add("display notification \"" + text + "\" with title \"NurCRM Kassa\"");
             }
             else
             {
-                psi.ArgumentList.Add("NurMarket Kassa");
+                psi.ArgumentList.Add("NurCRM Kassa");
                 psi.ArgumentList.Add(text);
             }
             psi.UseShellExecute = false;

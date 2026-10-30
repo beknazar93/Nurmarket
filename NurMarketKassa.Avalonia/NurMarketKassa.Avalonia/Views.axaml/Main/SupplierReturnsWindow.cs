@@ -397,6 +397,7 @@ public sealed class SupplierReturnDialog : Window
     private List<(string Id, string Name)> _cashboxes = new();
     private bool _byReceipt = true;
     private string _reason = "defect";
+    private readonly PendingIdempotencyKey _pendingKey = new(); // 2026-10-30: ключ повтора возврата
     private string _compensation = "cash";
     private Panel? _cashboxPanel;
     // 2026-10-22 (закупки как в вебе): «Вернуть» в строке «Истории закупок» — окно сразу с этим поставщиком и приходом.
@@ -769,13 +770,20 @@ public sealed class SupplierReturnDialog : Window
         _save.IsEnabled = false;
         try
         {
-            await _api.RequestAsync(HttpMethod.Post, $"api/main/suppliers/{supplierId}/returns/", body, null, CancellationToken.None, TimeSpan.FromSeconds(40)).ConfigureAwait(true);
+            // 2026-10-30 (ТЗ 3.3-6): возврат уходит с ключом повтора (Idempotency-Key). Тот же состав при повторе после обрыва — тот же ключ,
+            // сервер не проведёт возврат второй раз; новый состав — новый ключ.
+            var signature = supplierId + "|" + string.Join(";", items.Select(i => i["product_id"] + ":" + i["qty"] + ":" + i["purchase_price"]).OrderBy(x => x, StringComparer.Ordinal))
+                + "|" + body["reason"] + "|" + body["compensation"] + "|" + (body.TryGetValue("receipt_id", out var rid) ? rid : "");
+            var key = _pendingKey.Get(signature);
+            await new SupplierApiService(_api).PostReturnAsync(supplierId, body, key, CancellationToken.None).ConfigureAwait(true);
+            _pendingKey.OnSuccess();
             PosLogger.Log($"Возврат поставщику оформлен: {items.Count} строк(и), {_reason}, {_compensation}.", "INFO");
             _shell.EndBusy();
             Close(true);
         }
         catch (Exception ex)
         {
+            _pendingKey.OnError(ex);
             _shell.EndBusy();
             _save.IsEnabled = true;
             ShowError(T("Не оформлено: ", "Тариздөлгөн жок: ", "Not saved: ", "Kaydedilmedi: ", "Rasmiylashtirilmadi: ") + ServerTelegramBotApi.DescribeFields(ex));

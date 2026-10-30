@@ -167,7 +167,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     setState(() => _busy = true);
     try {
       if (_c.kind == PrinterKind.bluetooth && !await _btReady()) return;
-      await _service.printTest(_c, title: ref.read(sessionProvider)?.companyName ?? 'NurMarket');
+      await _service.printTest(_c, title: ref.read(sessionProvider)?.companyName ?? 'NurCRM');
       if (mounted) {
         setState(() => _note = l.prnTestHint);
         toast(context, l.prnTestSent);

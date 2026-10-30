@@ -50,7 +50,7 @@ public static class AutostartHelper
                   + "  <key>ProgramArguments</key><array><string>" + System.Security.SecurityElement.Escape(exe) + "</string>"
                   + (args.Length > 0 ? "<string>" + args + "</string>" : "") + "</array>\n"
                   + "  <key>RunAtLoad</key><true/>\n</dict>\n</plist>\n"
-                : "[Desktop Entry]\nType=Application\nName=" + (args.Length > 0 ? "NurMarket Owner" : "NurMarket Kassa") + "\nExec=\"" + exe + "\" " + args
+                : "[Desktop Entry]\nType=Application\nName=" + (args.Length > 0 ? "NurCRM Owner" : "NurCRM Kassa") + "\nExec=\"" + exe + "\" " + args
                   + "\nTerminal=false\nX-GNOME-Autostart-enabled=true\n";
             File.WriteAllText(file, text);
         }

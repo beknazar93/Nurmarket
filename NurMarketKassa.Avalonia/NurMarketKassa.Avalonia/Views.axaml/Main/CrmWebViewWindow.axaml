@@ -44,7 +44,7 @@
                         <TextBlock Text="{DynamicResource common.refresh}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
-                <TextBlock Grid.Column="3" x:Name="AddressLabel" Text="NurCRM — nurcrm.kg" FontSize="14" FontWeight="SemiBold"
+                <TextBlock Grid.Column="3" x:Name="AddressLabel" Text="NurCRM — app.nurcrm.kg" FontSize="14" FontWeight="SemiBold"
                            VerticalAlignment="Center" Margin="14,0,0,0" TextTrimming="CharacterEllipsis"
                            Foreground="{DynamicResource BrushTextMuted}"/>
                 <Button Grid.Column="4" x:Name="OpenInBrowserButton" Classes="sec-outline" Height="36" MinHeight="36" Padding="12,0"

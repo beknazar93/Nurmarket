@@ -46,7 +46,7 @@
                 <Border Width="48" Height="48" CornerRadius="8" ClipToBounds="True">
                     <Image Source="/Assets/app-logo.png" Stretch="UniformToFill" />
                 </Border>
-                <TextBlock Text="Nur Market" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"
+                <TextBlock Text="NurCRM" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"
                            Foreground="{DynamicResource BrushText}" />
             </StackPanel>
                 <Button Classes="support-contact" Click="Phone_Click">

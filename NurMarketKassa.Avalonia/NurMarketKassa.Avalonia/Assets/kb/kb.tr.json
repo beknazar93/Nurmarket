@@ -469,8 +469,8 @@
      "articles": [
       {
        "id": "программа-владельца-что-такое-nurmarket-владелец-и-где-его-н",
-       "title": "«NurMarket İşletme Sahibi» nedir ve nerede bulunur",
-       "text": "Шаг 1. «NurMarket İşletme Sahibi» programı kasayla birlikte kurulur: güncellemeden sonra masaüstünde ve «Başlat» menüsünde programın kısayolu görünür (kısayolun adı: «NurMarket Владелец»).\nШаг 2. Programı açın ve NurCRM'deki mağaza sahibi veya yönetici hesabınızla giriş yapın.\nШаг 3. Solda bölüm menüsü, sağda «Özet» bulunur: bugün, bu hafta veya bu ay için ciro, fiş sayısı, ortalama fiş ve kâr; günlere göre ciro, ödeme yöntemleri, son satışlar ve en çok satan ürünler.\nШаг 4. Özet dakikada bir kendiliğinden yenilenir, pencereye geri döndüğünüzde ise hemen; ↻ düğmesi şimdi yeniler. Kasada yapılan satış, programı yeniden başlatmadan burada görünür.\nВажно: Program başka bir bilgisayarda da çalışabilir: kasa ve işletme sahibi programı verileri aynı NurCRM sunucusundan alır.",
+       "title": "«NurCRM İşletme Sahibi» nedir ve nerede bulunur",
+       "text": "Шаг 1. «NurCRM İşletme Sahibi» programı kasayla birlikte kurulur: güncellemeden sonra masaüstünde ve «Başlat» menüsünde programın kısayolu görünür (kısayolun adı: «NurCRM Владелец»).\nШаг 2. Programı açın ve NurCRM'deki mağaza sahibi veya yönetici hesabınızla giriş yapın.\nШаг 3. Solda bölüm menüsü, sağda «Özet» bulunur: bugün, bu hafta veya bu ay için ciro, fiş sayısı, ortalama fiş ve kâr; günlere göre ciro, ödeme yöntemleri, son satışlar ve en çok satan ürünler.\nШаг 4. Özet dakikada bir kendiliğinden yenilenir, pencereye geri döndüğünüzde ise hemen; ↻ düğmesi şimdi yeniler. Kasada yapılan satış, programı yeniden başlatmadan burada görünür.\nВажно: Program başka bir bilgisayarda da çalışabilir: kasa ve işletme sahibi programı verileri aynı NurCRM sunucusundan alır.",
        "keywords": [
         "sahip",
         "yönetim paneli",
@@ -1087,7 +1087,7 @@
      ]
     }
    ],
-   "note": "«Standart» planından itibaren bu bölüm «NurMarket İşletme Sahibi» programındadır: programın kısayolu kasayla birlikte masaüstüne eklenir. «Start» planında bölüm kasa menüsünde (☰) kalır."
+   "note": "«Standart» planından itibaren bu bölüm «NurCRM İşletme Sahibi» programındadır: programın kısayolu kasayla birlikte masaüstüne eklenir. «Start» planında bölüm kasa menüsünde (☰) kalır."
   },
   {
    "title": "Depo",
@@ -1313,7 +1313,7 @@
      ]
     }
    ],
-   "note": "«Standart» planından itibaren bu bölüm «NurMarket İşletme Sahibi» programındadır: programın kısayolu kasayla birlikte masaüstüne eklenir. «Start» planında bölüm kasa menüsünde (☰) kalır."
+   "note": "«Standart» planından itibaren bu bölüm «NurCRM İşletme Sahibi» programındadır: programın kısayolu kasayla birlikte masaüstüne eklenir. «Start» planında bölüm kasa menüsünde (☰) kalır."
   },
   {
    "title": "Müşteriler ve borçlar",
@@ -1602,7 +1602,7 @@
      ]
     }
    ],
-   "note": "«Standart» planından itibaren bu bölüm «NurMarket İşletme Sahibi» programındadır: programın kısayolu kasayla birlikte masaüstüne eklenir. «Start» planında bölüm kasa menüsünde (☰) kalır."
+   "note": "«Standart» planından itibaren bu bölüm «NurCRM İşletme Sahibi» programındadır: programın kısayolu kasayla birlikte masaüstüne eklenir. «Start» planında bölüm kasa menüsünde (☰) kalır."
   },
   {
    "title": "Personel",
@@ -2027,7 +2027,7 @@
       {
        "id": "настройки-и-оборудование-как-получить-удалённую-помощь-подде",
        "title": "Destek ekibinden uzaktan yardım nasıl alınır",
-       "text": "Шаг 1. ☰ → «Sistem» → «NurCRM destek» bölümünü açın.\nШаг 2. NurMarket destek hattını arayın veya WhatsApp'tan yazın: +996 221 068 796.\nШаг 3. «Nur Destek» bölümünde «Destek için kod al» düğmesine basın, kodu ve PIN'i operatöre söyleyin (kod 15 dakika geçerlidir).\nШаг 4. «… operatörü bu bilgisayara bağlanmak istiyor» sorusu çıktığında «İzin ver» (operatör ekranı görür ve kontrol edebilir) veya «Yalnızca izle» (yalnızca ekran, kontrol yok) düğmesine basın. «Reddet» — bağlantıya izin vermez.\nШаг 5. Oturum sürerken ekranın üstünde kırmızı «Destek oturumu» şeridi durur — «Bitir» düğmesi operatörün bağlantısını hemen keser.\nВажно: «İzin ver» veya «Yalnızca izle» düğmesine basmadıkça kimse bağlanamaz. Destek sunucusuna ulaşılamıyorsa +996 221 068 796 numarasını arayın.\nВажно: Hata günlüğüne ☰ → «Sistem» → «Günlükler ve hatalar» bölümündeki «Günlük klasörünü aç» düğmesiyle ulaşabilirsiniz.",
+       "text": "Шаг 1. ☰ → «Sistem» → «NurCRM destek» bölümünü açın.\nШаг 2. NurCRM destek hattını arayın veya WhatsApp'tan yazın: +996 221 068 796.\nШаг 3. «Nur Destek» bölümünde «Destek için kod al» düğmesine basın, kodu ve PIN'i operatöre söyleyin (kod 15 dakika geçerlidir).\nШаг 4. «… operatörü bu bilgisayara bağlanmak istiyor» sorusu çıktığında «İzin ver» (operatör ekranı görür ve kontrol edebilir) veya «Yalnızca izle» (yalnızca ekran, kontrol yok) düğmesine basın. «Reddet» — bağlantıya izin vermez.\nШаг 5. Oturum sürerken ekranın üstünde kırmızı «Destek oturumu» şeridi durur — «Bitir» düğmesi operatörün bağlantısını hemen keser.\nВажно: «İzin ver» veya «Yalnızca izle» düğmesine basmadıkça kimse bağlanamaz. Destek sunucusuna ulaşılamıyorsa +996 221 068 796 numarasını arayın.\nВажно: Hata günlüğüne ☰ → «Sistem» → «Günlükler ve hatalar» bölümündeki «Günlük klasörünü aç» düğmesiyle ulaşabilirsiniz.",
        "keywords": [
         "destek",
         "nur destek",
@@ -2876,7 +2876,7 @@
       {
        "id": "частые-вопросы-кассир-не-видит-раздел-меню-почему",
        "title": "Kasiyer menüdeki bir bölümü görmüyor — neden?",
-       "text": "Шаг 1. «Standart» planından itibaren depo, satışlar, finans, maaş, ABC, müşteriler ve stok yenileme bölümleri kasada değil, «NurMarket İşletme Sahibi» programındadır (masaüstündeki kısayoldan açılır).\nШаг 2. Diğer bölümler yalnızca personelin yetkisi varsa gösterilir — yetkiler NurCRM'de (web panelinde) her personel için ayrı verilir.\nШаг 3. Bazı bölümler yalnızca ek özellik etkinleştirildikten sonra açılır («Pazaryeri» → «Ek özellikler»).\nШаг 4. Yetkiler değiştirildikten sonra kasaya yeniden giriş yapın.",
+       "text": "Шаг 1. «Standart» planından itibaren depo, satışlar, finans, maaş, ABC, müşteriler ve stok yenileme bölümleri kasada değil, «NurCRM İşletme Sahibi» programındadır (masaüstündeki kısayoldan açılır).\nШаг 2. Diğer bölümler yalnızca personelin yetkisi varsa gösterilir — yetkiler NurCRM'de (web panelinde) her personel için ayrı verilir.\nШаг 3. Bazı bölümler yalnızca ek özellik etkinleştirildikten sonra açılır («Pazaryeri» → «Ek özellikler»).\nШаг 4. Yetkiler değiştirildikten sonra kasaya yeniden giriş yapın.",
        "keywords": [
         "bölüm yok",
         "menüyü görmüyor",

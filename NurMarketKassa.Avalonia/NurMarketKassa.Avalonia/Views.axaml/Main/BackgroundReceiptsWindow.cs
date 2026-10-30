@@ -309,8 +309,14 @@ public sealed class BackgroundReceiptsWindow : Window
             row.Status.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
         }
 
-        row.Notice.Text = row.NoticeText;
-        row.Notice.IsVisible = row.NoticeText.Length > 0;
+        // 2026-10-29: отказ сервера по существу (4xx с JSON) — «Повторить» не поможет, вместо кнопки подсказка «исправьте данные».
+        var rejectedHint = !job.ForeignCompany && job.IsRejectedByServer
+            ? T("Исправьте данные: вернуть строки в приёмку.", "Маалыматтарды оңдоңуз: саптарды кабыл алууга кайтарыңыз.",
+                "Fix the data: return the lines to receiving.", "Verileri düzeltin: satırları mal kabule geri alın.", "Ma'lumotlarni tuzating: qatorlarni qabulga qaytaring.")
+            : "";
+        var noticeText = row.NoticeText.Length > 0 ? row.NoticeText : rejectedHint;
+        row.Notice.Text = noticeText;
+        row.Notice.IsVisible = noticeText.Length > 0;
 
         var hasDetails = job.HasWarnings || job.Lines.Any(l => !string.IsNullOrWhiteSpace(l.Error));
         row.Details.IsVisible = hasDetails;
@@ -319,12 +325,12 @@ public sealed class BackgroundReceiptsWindow : Window
         {
             var parts = new List<string>(job.Errors);
             parts.AddRange(job.Lines.Where(l => !string.IsNullOrWhiteSpace(l.Error)).Select(l => l.ProductName + ": " + l.Error));
-            row.Detail.Text = string.Join("\n", parts.Distinct());
+            row.Detail.Text = string.Join("\n", parts.Select(p => ReceivingServerMessages.Humanize(p) ?? p).Distinct());
         }
 
         var own = !job.ForeignCompany;
         var needsAttention = job.Status is ReceivingJobStatus.Failed or ReceivingJobStatus.Partial or ReceivingJobStatus.NeedsCheck;
-        row.Retry.IsVisible = own && needsAttention;
+        row.Retry.IsVisible = own && needsAttention && !job.IsRejectedByServer; // 2026-10-29: «Повторить» — только для сети/5xx
         row.TakeBack.IsVisible = own && needsAttention
             && job.Lines.Any(l => l.Outcome is ReceivingLineOutcome.Rejected or ReceivingLineOutcome.Pending);
         row.Dismiss.IsVisible = own && job.IsFinal;

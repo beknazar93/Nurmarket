@@ -335,7 +335,22 @@ public sealed class PurchaseDoneDialog : Window
         Use(message, TextBlock.ForegroundProperty, "BrushTextSoft");
         panel.Children.Add(message);
 
-        var number = outcome.Result.ReceiptId is { Length: >= 8 } id ? id[..8].ToUpperInvariant() : DateTime.Now.ToString("yyMMdd-HHmm", CultureInfo.InvariantCulture);
+        // 2026-10-30 (нумерация закупок): номер документа, присвоенный при отправке прихода (ПР-2026-000123 или временный ПР-2026-ч5 без связи).
+        var reserved = outcome.Result.ReceiptKey is { Length: > 0 } rk ? DocumentNumbering.Store.FindReservation(DocSeries.Receipt, rk) : null;
+        var number = reserved is not null ? DocumentNumbering.Store.Format(reserved)
+            : outcome.Result.ReceiptId is { Length: >= 8 } id ? DocumentNumbering.ReceiptText(id) : DateTime.Now.ToString("yyMMdd-HHmm", CultureInfo.InvariantCulture);
+        if (reserved is not null)
+        {
+            var numberText = new TextBlock
+            {
+                FontSize = 14, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap,
+                Text = T("Номер прихода: ", "Кирүүнүн номери: ", "Delivery number: ", "Giriş numarası: ", "Kirim raqami: ") + number
+                       + (reserved.Draft ? T(" (временный — станет постоянным после сверки с сервером)", " (убактылуу — сервер менен тактоодон кийин туруктуу болот)", " (temporary — becomes permanent after syncing with the server)",
+                           " (geçici — sunucuyla eşitlenince kalıcı olur)", " (vaqtincha — server bilan solishtirilgach doimiy bo'ladi)") : ""),
+            };
+            Use(numberText, TextBlock.ForegroundProperty, "BrushText");
+            panel.Children.Add(numberText);
+        }
         var date = outcome.Result.ReceiptAt ?? DateTime.Now;
         var party = new PurchaseDocs.Party(supplier.Name, supplier.Phone, supplier.Inn, supplier.Address);
         var close = SectionCards.Cancel(T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
@@ -368,6 +383,10 @@ public sealed class PurchaseDoneDialog : Window
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, this.GetResourceObservable(key));
 }
 
+/// <summary>2026-10-30: «Позиции прихода» открыты из карточки товара («Поступления»): выделить строку товара, показать «Открыть файл» накладной (или честно —
+/// что файл не сохранён), «Вернуть»/«Повторить» не показывать (они принадлежат окну «Закупки»).</summary>
+public sealed record PurchaseReceiptContext(string HighlightProductId, string? InvoiceFilePath);
+
 /// <summary>«Позиции прихода» сайта + наше: оплата прихода, возвращено, «Вернуть поставщику», «Повторить закупку», накладная PDF/печать.</summary>
 public sealed class PurchaseReceiptDialog : Window
 {
@@ -376,9 +395,11 @@ public sealed class PurchaseReceiptDialog : Window
     /// <summary>return — открыть возврат по приходу, repeat — новый приём с теми же товарами.</summary>
     public string? Action { get; private set; }
 
-    public PurchaseReceiptDialog(SupplierReceipt r, PurchaseReceiptNote? note, bool debtRecorded, SupplierInfo? supplier)
+    public PurchaseReceiptDialog(SupplierReceipt r, PurchaseReceiptNote? note, bool debtRecorded, SupplierInfo? supplier, PurchaseReceiptContext? context = null)
     {
-        Title = T("Позиции прихода", "Кириштин позициялары", "Delivery items", "Giriş kalemleri", "Kirim pozitsiyalari");
+        // 2026-10-30 (нумерация закупок): в заголовке — номер документа (ПР-2026-000123; пока история не сверена — короткий код).
+        var docNumber = DocumentNumbering.ReceiptText(r.Id);
+        Title = T($"Приход {docNumber} · Позиции", $"Кирүү {docNumber} · Позициялар", $"Delivery {docNumber} · Items", $"Giriş {docNumber} · Kalemler", $"Kirim {docNumber} · Pozitsiyalar");
         SectionCards.AsModal(this, 760);
         var panel = new StackPanel { Spacing = 8 };
         void Line(string label, string value)
@@ -393,6 +414,28 @@ public sealed class PurchaseReceiptDialog : Window
             row.Children.Add(b);
             panel.Children.Add(row);
         }
+        // Номер документа: нажатие копирует его; рядом — номер накладной поставщика (отдельно).
+        {
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("150,*") };
+            var a = new TextBlock { Text = T("Номер", "Номер", "Number", "Numara", "Raqam"), FontSize = 13 };
+            Use(a, TextBlock.ForegroundProperty, "BrushTextSoft");
+            var b = new TextBlock { Text = docNumber, FontSize = 14, FontWeight = FontWeight.SemiBold, Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand) };
+            b.Classes.Add("num");
+            Use(b, TextBlock.ForegroundProperty, "BrushText");
+            ToolTip.SetTip(b, PurchaseNumberUi.CopyHint);
+            b.PointerPressed += async (_, _) =>
+            {
+                await PurchaseNumberUi.CopyAsync(this, docNumber).ConfigureAwait(true);
+                ToolTip.SetTip(b, PurchaseNumberUi.CopiedText);
+            };
+            Grid.SetColumn(b, 1);
+            row.Children.Add(a);
+            row.Children.Add(b);
+            panel.Children.Add(row);
+        }
+        var supplierDocText = PurchaseNumberUi.SupplierDocText(r.SupplierDocNumber, r.SupplierDocDate);
+        if (supplierDocText.Length > 0)
+            Line(T("Накладная поставщика", "Жеткирүүчүнүн накладнойу", "Supplier invoice", "Tedarikçi faturası", "Yetkazib beruvchi yuk xati"), r.SupplierDocNumber + (r.SupplierDocDate is { } sd ? " · " + sd.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) : ""));
         Line(T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"), r.SupplierName);
         Line(T("Принял", "Кабыл алды", "Received by", "Kabul eden", "Qabul qildi"), r.CreatedBy.Length > 0 ? r.CreatedBy : "—");
         Line(T("Дата", "Күнү", "Date", "Tarih", "Sana"), r.CreatedAt?.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) ?? "—");
@@ -415,17 +458,57 @@ public sealed class PurchaseReceiptDialog : Window
             Line(T("Возвращено", "Кайтарылды", "Returned", "İade edilen", "Qaytarildi"), MoneyText.Som(r.ReturnedAmount));
         var rows = r.Lines.Select(l => (l.ProductName + (l.ReturnedQty > 0 ? T($" (возвр. {PurchasesWindow.Q(l.ReturnedQty)})", $" (кайт. {PurchasesWindow.Q(l.ReturnedQty)})", $" (ret. {PurchasesWindow.Q(l.ReturnedQty)})", $" (iade {PurchasesWindow.Q(l.ReturnedQty)})", $" (qayt. {PurchasesWindow.Q(l.ReturnedQty)})") : ""),
             PurchasesWindow.Q(l.Qty) + " " + (l.Unit.Length > 0 ? l.Unit : "шт"), MoneyText.Som(l.PurchasePrice), MoneyText.Som(l.Qty * l.PurchasePrice))).ToList();
-        if (rows.Count > 0)
+        // 2026-10-30 (наценка в накладной): ролям с правом на закупочные цены — таблица с колонками «Наценка %» и «Цена продажи» и итогом по документу.
+        var markupRows = WarehouseWindow.RevisionShowPurchase && rows.Count > 0 ? PurchaseMarkupTable.Rows(r) : null;
+        if (markupRows is not null)
+            panel.Children.Add(PurchaseMarkupTable.Build(this, markupRows,
+                context is null ? null : r.Lines.Select((l, i) => (l, i)).Where(x => string.Equals(x.l.ProductId, context.HighlightProductId, StringComparison.OrdinalIgnoreCase)).Select(x => x.i).ToHashSet()));
+        else if (rows.Count > 0)
             panel.Children.Add(SectionCards.LinesTable(this, rows, T("Наименование", "Аталышы", "Name", "Ad", "Nomi"), T("Кол-во", "Саны", "Qty", "Adet", "Soni"),
-                T("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), T("Сумма", "Сумма", "Amount", "Tutar", "Summa")));
+                T("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), T("Сумма", "Сумма", "Amount", "Tutar", "Summa"),
+                context is null ? null : r.Lines.Select((l, i) => (l, i)).Where(x => string.Equals(x.l.ProductId, context.HighlightProductId, StringComparison.OrdinalIgnoreCase)).Select(x => x.i).ToHashSet()));
         else
             panel.Children.Add(SectionCards.Empty(this, T("Позиции не загрузились — проверьте связь.", "Позициялар жүктөлгөн жок — байланышты текшериңиз.", "Items didn't load — check the connection.", "Kalemler yüklenmedi — bağlantıyı kontrol edin.", "Pozitsiyalar yuklanmadi — aloqani tekshiring.")));
         var message = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false };
         Use(message, TextBlock.ForegroundProperty, "BrushTextSoft");
         panel.Children.Add(message);
+        // 2026-10-30: исходный файл накладной (копия, которую касса оставила при загрузке накладной) — открыть; нет — честно сказать.
+        if (context is not null)
+        {
+            var fileRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+            var fileNote = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, MaxWidth = 480 };
+            Use(fileNote, TextBlock.ForegroundProperty, "BrushTextSoft");
+            if (context.InvoiceFilePath is { Length: > 0 } filePath)
+            {
+                fileNote.Text = T("Исходный файл накладной: ", "Накладнойдун баштапкы файлы: ", "Original invoice file: ", "Orijinal fatura dosyası: ", "Yuk xatining asl fayli: ") + System.IO.Path.GetFileName(filePath);
+                fileRow.Children.Add(fileNote);
+                if (!OperatingSystem.IsAndroid())
+                {
+                    var open = SectionCards.Secondary(T("Открыть файл", "Файлды ачуу", "Open file", "Dosyayı aç", "Faylni ochish"));
+                    open.Click += (_, _) => PurchaseDocs.OpenFile(filePath);
+                    fileRow.Children.Add(open);
+                }
+            }
+            else
+            {
+                fileNote.Text = T("Исходный файл накладной не сохранён: сервер NurCRM файл прихода не хранит, а эта касса не загружала накладную файлом. Ниже можно скачать PDF прихода.",
+                    "Накладнойдун баштапкы файлы сакталган эмес: NurCRM сервери кирүү файлын сактабайт, ал эми бул касса накладнойду файл менен жүктөгөн эмес. Төмөндөн кирүүнүн PDF жүктөп алса болот.",
+                    "The original invoice file is not saved: the NurCRM server does not keep a file for a receipt, and this till did not load the invoice from a file. You can download the receipt PDF below.",
+                    "Orijinal fatura dosyası kaydedilmedi: NurCRM sunucusu giriş için dosya saklamaz, bu kasa da faturayı dosyadan yüklemedi. Aşağıdan giriş PDF'ini indirebilirsiniz.",
+                    "Yuk xatining asl fayli saqlanmagan: NurCRM serveri kirim uchun fayl saqlamaydi, bu kassa esa yuk xatini fayldan yuklamagan. Quyidan kirim PDF'ini yuklab olish mumkin.");
+                fileRow.Children.Add(fileNote);
+            }
+            panel.Children.Add(fileRow);
+        }
 
-        var lines = r.Lines.Select(l => new PurchaseDocs.DocLine(l.ProductName, l.Unit, l.Qty, l.PurchasePrice)).ToList();
-        var number = r.Id.Length >= 8 ? r.Id[..8].ToUpperInvariant() : r.Id;
+        // 2026-10-30: печатная накладная поставщику — без наценки (настройка «Показывать наценку в печатной накладной», по умолчанию выкл.); «Скачать PDF» —
+        // внутренняя копия с наценкой (по умолчанию вкл.), и только у ролей с правом на закупочные цены.
+        List<PurchaseDocs.DocLine> LinesFor(bool withMarkup) => r.Lines.Select((l, i) => new PurchaseDocs.DocLine(l.ProductName, l.Unit, l.Qty, l.PurchasePrice,
+            withMarkup && markupRows is not null ? PurchaseDocs.MarkupSuffix(markupRows[i].View) : null)).ToList();
+        string? NoteFor(bool withMarkup) => PurchaseDocs.ReceiptNote(supplierDocText.Length > 0 ? char.ToUpperInvariant(supplierDocText[0]) + supplierDocText[1..] : null,
+            withMarkup && markupRows is not null ? ReceiptMarkupLog.Totals(markupRows.Select(x => (x.Line.Qty, x.Line.PurchasePrice, x.View))) : null);
+        var lines = LinesFor(false);
+        var number = docNumber;
         var date = r.CreatedAt ?? DateTime.Now;
         var party = new PurchaseDocs.Party(r.SupplierName, supplier?.Phone ?? "", supplier?.Inn ?? "", supplier?.Address ?? "");
         var close = SectionCards.Cancel(T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
@@ -452,7 +535,7 @@ public sealed class PurchaseReceiptDialog : Window
             "Aynı ürün ve fiyatlarla yeni kabul", "Shu mahsulotlar va narxlar bilan yangi qabul"));
         var print = Outline(T("Печать", "Басып чыгаруу", "Print", "Yazdır", "Chop etish"), async () =>
         {
-            var error = await PurchaseDocs.PrintAsync(PurchaseDocs.Build(this, "receipt", party, number, date, lines, null), "Накладная " + number).ConfigureAwait(true);
+            var error = await PurchaseDocs.PrintAsync(PurchaseDocs.Build(this, "receipt", party, number, date, LinesFor(DocumentNumbering.Settings.PrintMarkup), NoteFor(DocumentNumbering.Settings.PrintMarkup)), "Накладная " + number).ConfigureAwait(true);
             message.Text = error ?? T("Отправлено на принтер.", "Принтерге жөнөтүлдү.", "Sent to the printer.", "Yazıcıya gönderildi.", "Printerga yuborildi.");
             message.IsVisible = true;
         });
@@ -460,14 +543,15 @@ public sealed class PurchaseReceiptDialog : Window
         pdf.IsEnabled = lines.Count > 0;
         pdf.Click += async (_, _) =>
         {
-            var (path, error) = await PurchaseDocs.SavePdfAsync(PurchaseDocs.Build(this, "receipt", party, number, date, lines, null),
+            var (path, error) = await PurchaseDocs.SavePdfAsync(PurchaseDocs.Build(this, "receipt", party, number, date, LinesFor(DocumentNumbering.Settings.PdfMarkup), NoteFor(DocumentNumbering.Settings.PdfMarkup)),
                 PurchaseDocs.FileName("receipt", r.SupplierName, number, date)).ConfigureAwait(true);
             message.Text = path is not null ? T("PDF сохранён: ", "PDF сакталды: ", "PDF saved: ", "PDF kaydedildi: ", "PDF saqlandi: ") + path
                 : T("PDF не сохранён: ", "PDF сакталган жок: ", "PDF not saved: ", "PDF kaydedilemedi: ", "PDF saqlanmadi: ") + error;
             message.IsVisible = true;
         };
         var buttons = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Right };
-        foreach (var b in new[] { close, giveBack, repeat, print, pdf })
+        // 2026-10-30: из карточки товара «Вернуть»/«Повторить» не нужны (они запускают возврат и приём в окне «Закупки»).
+        foreach (var b in context is null ? new[] { close, giveBack, repeat, print, pdf } : new[] { close, print, pdf })
         {
             b.Margin = new Thickness(8, 4, 0, 4);
             buttons.Children.Add(b);

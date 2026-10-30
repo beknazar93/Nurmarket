@@ -43,6 +43,12 @@ public sealed class ReceivingPostState
     public double? ReceiptTotal { get; set; }
     public DateTime? ReceiptAt { get; set; }
 
+    // 2026-10-30 (нумерация закупок): номер и дата накладной ПОСТАВЩИКА (вводит кассир / читает импорт накладной) — уходят вместе с приходом;
+    // DocNumber — номер документа в кассе («ПР-2026-000123» или временный «ПР-2026-ч5»), для показа в очереди и итоге.
+    public string? SupplierDocNumber { get; set; }
+    public DateTime? SupplierDocDate { get; set; }
+    public string? DocNumber { get; set; }
+
     public Dictionary<string, StockPatchState> StockPatches { get; set; } = new();
     public Dictionary<string, double> CreatedSalePrice { get; set; } = new();
     public Dictionary<string, double> PriceBefore { get; set; } = new();
@@ -68,6 +74,10 @@ public sealed class ReceivingPostState
     [JsonIgnore] public int? LastStatusCode { get; set; }
 
     [JsonIgnore] public int CreatedThisAttempt { get; set; }
+
+    /// <summary>2026-10-30 (скорость массовой загрузки): сколько строк прихода обрабатывается одновременно (создание товара, запись остатка). 1 — по одной, как всегда;
+    /// больше 1 ставит только очередь для задач мастера «Массовая загрузка» (BackgroundReceivingQueue.BulkPostParallel).</summary>
+    [JsonIgnore] public int Parallelism { get; set; } = 1;
 
     public event Action? Changed;
 

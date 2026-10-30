@@ -771,7 +771,43 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
                         "Loading the catalog from the server…", "Katalog sunucudan yükleniyor…",
                         "Katalog serverdan yuklanmoqda…")).ConfigureAwait(false);
 
-            var syncResult = await _catalogCache.SyncCatalogFullAsync().ConfigureAwait(false);
+            // 2026-10-30 (холодный старт на 16 тыс.): каталог пуст — «Загружаем каталог: 4 200 из 16 000 · ~1 мин»; загруженная часть уже
+            // на плитках, в поиске и скане (AvaloniaCatalogCacheService.ColdStartPageHandler).
+            Action<int, int?>? coldProgress = null;
+            if (localProducts.Count == 0)
+            {
+                var started = DateTime.UtcNow;
+                coldProgress = (loaded, total) => _dispatcher.Post(() =>
+                {
+                    var eta = "";
+                    var elapsed = (DateTime.UtcNow - started).TotalSeconds;
+                    if (total is > 0 && loaded > 0 && loaded < total && elapsed > 1)
+                    {
+                        var left = (total.Value - loaded) * elapsed / loaded;
+                        eta = left < 60 ? $" · ~{Math.Max(5, (int)Math.Ceiling(left / 5) * 5)} " + Tr.T("с", "сек", "s", "sn", "s")
+                            : $" · ~{(int)Math.Ceiling(left / 60)} " + Tr.T("мин", "мүн", "min", "dk", "daq");
+                    }
+
+                    StatusText = total is > 0
+                        ? Tr.T($"Загружаем каталог: {loaded:N0} из {total:N0}{eta}. Можно продавать по скану.", $"Каталог жүктөлүүдө: {total:N0} ичинен {loaded:N0}{eta}. Скан менен сатууга болот.",
+                            $"Loading the catalog: {loaded:N0} of {total:N0}{eta}. You can already sell by scanning.", $"Katalog yükleniyor: {loaded:N0} / {total:N0}{eta}. Tarayarak satış yapılabilir.",
+                            $"Katalog yuklanmoqda: {total:N0} tadan {loaded:N0}{eta}. Skaner bilan sotish mumkin.")
+                        : Tr.T($"Загружаем каталог: {loaded:N0}…", $"Каталог жүктөлүүдө: {loaded:N0}…", $"Loading the catalog: {loaded:N0}…", $"Katalog yükleniyor: {loaded:N0}…", $"Katalog yuklanmoqda: {loaded:N0}…");
+                });
+                CatalogApiService.FullLoadProgress += coldProgress;
+            }
+
+            CatalogSyncResult syncResult;
+            try
+            {
+                syncResult = await _catalogCache.SyncCatalogFullAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                if (coldProgress is not null)
+                    CatalogApiService.FullLoadProgress -= coldProgress;
+            }
+
             _lastSyncOk = syncResult.Success; // 2026-10-28: итог для кнопки «Обновить» (ForceRefreshAsync)
             _catalogCache.TryLoadFromDatabase();
             var products = _catalogCache.GetProducts().ToList();
@@ -873,12 +909,25 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         {
             // 2026-10-27, аудит С-25: чтение каталога из SQLite (после каждой продажи и фоновой синхронизации) шло на UI-потоке —
             // кассир видел подвисание после оплаты. Читаем в фоне, на UI-поток отдаём готовый список.
+            // 2026-10-30 (оптимизация кассы, Б-дельта): после оплаты плитки в кэше — те же объекты (остаток правится на месте): копию списка
+            // не делаем (LOH 117 КБ на 15 000), только пересчитываем отбор (остаток мог поменять фильтр «в наличии»).
+            var known = _allProducts;
             var products = await Task.Run(() =>
             {
                 _catalogCache.TryLoadFromDatabase();
-                return _catalogCache.GetProducts().ToList();
+                var current = _catalogCache.GetProducts();
+                return SameTilesAs(known, current) ? null : current.ToList();
             }).ConfigureAwait(false);
-            await _dispatcher.InvokeAsync(() => PublishProducts(products, keepPage)).ConfigureAwait(false);
+            if (products is null)
+                await _dispatcher.InvokeAsync(() =>
+                {
+                    if (!keepPage)
+                        ResetCurrentPage();
+                    ApplyFilter();
+                    RefreshFavorites();
+                }).ConfigureAwait(false);
+            else
+                await _dispatcher.InvokeAsync(() => PublishProducts(products, keepPage)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -888,6 +937,19 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         {
             _republishing = false;
         }
+    }
+
+    private static bool SameTilesAs(IReadOnlyList<CatalogProductTileVm> a, IReadOnlyList<CatalogProductTileVm> b)
+    {
+        if (a.Count != b.Count)
+            return false;
+        for (var i = 0; i < a.Count; i++)
+        {
+            if (!ReferenceEquals(a[i], b[i]))
+                return false;
+        }
+
+        return true;
     }
 
     private void OnCatalogChangedExternally() => _ = RepublishFromLocalAsync(keepPage: true);
@@ -937,7 +999,9 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
             // 2026-10-29 (приёмка 1.17.64, В-4): при поиске сначала названия, где слово запроса — начало слова («Asu» → «Асу…»), потом где внутри, потом остальные.
             .OrderBy(p => isActiveSearch && !sq.IsEmpty ? sq.TitleRank(p.Title) : 0)
             .ThenByDescending(p => p.IsFavorite)
-            .ThenBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase)
+            // 2026-10-30 (оптимизация кассы, Б6): сортировка по названию через OrdinalIgnoreCase — на 15 000 товаров 16 мс вместо 52 (CurrentCultureIgnoreCase), без
+            // выделений на сравнение. Порядок «избранные → название» тот же; отличие только у редких «Ё…» и знаков препинания в начале названия.
+            .ThenBy(p => p.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
         var filtered = Build(false);
         if (filtered.Count == 0 && isActiveSearch && !sq.IsEmpty)

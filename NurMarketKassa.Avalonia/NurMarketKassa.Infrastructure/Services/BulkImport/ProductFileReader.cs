@@ -192,9 +192,9 @@ public static class ProductFileReader
         "Dosya bozuk veya bir Excel tablosu değil. Excel'de açıp yeniden kaydedin (.xlsx veya CSV).",
         "Fayl shikastlangan yoki Excel jadvali emas. Uni Excel'da ochib, qayta saqlang (.xlsx yoki CSV).");
 
-    private static bool IsZip(byte[] b) => b.Length >= 4 && b[0] == 0x50 && b[1] == 0x4B && (b[2] == 0x03 || b[2] == 0x05) && (b[3] == 0x04 || b[3] == 0x06);
+    internal static bool IsZip(byte[] b) => b.Length >= 4 && b[0] == 0x50 && b[1] == 0x4B && (b[2] == 0x03 || b[2] == 0x05) && (b[3] == 0x04 || b[3] == 0x06);
 
-    private static bool IsOleCompound(byte[] b) => b.Length >= 8 && b[0] == 0xD0 && b[1] == 0xCF && b[2] == 0x11 && b[3] == 0xE0 && b[4] == 0xA1 && b[5] == 0xB1;
+    internal static bool IsOleCompound(byte[] b) => b.Length >= 8 && b[0] == 0xD0 && b[1] == 0xCF && b[2] == 0x11 && b[3] == 0xE0 && b[4] == 0xA1 && b[5] == 0xB1;
 
     private static ProductFileReadResult TooManyRows() =>
         ProductFileReadResult.Fail(Tr.T("В файле больше 50 000 строк. Разделите его на части.", "Файлда 50 000 саптан ашык. Бөлүктөргө бөлүңүз.",
@@ -471,7 +471,7 @@ public static class ProductFileReader
         }
     }
 
-    private static string Decode(byte[] bytes, ProductFileEncoding encoding, out string name)
+    internal static string Decode(byte[] bytes, ProductFileEncoding encoding, out string name)
     {
         if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
         {
@@ -584,7 +584,7 @@ public static class ProductFileReader
 
     /// <summary>Записи CSV с номерами (запись с переносом строки внутри кавычек — одна запись, как в Excel). Кавычка открывает ячейку
     /// только в её начале: «12" труба» остаётся как есть.</summary>
-    private static IEnumerable<(int FileRow, string[] Cells)> Records(string text, char delimiter)
+    internal static IEnumerable<(int FileRow, string[] Cells)> Records(string text, char delimiter)
     {
         var fields = new List<string>();
         var sb = new StringBuilder();

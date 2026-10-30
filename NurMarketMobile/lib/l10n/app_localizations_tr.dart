@@ -111,7 +111,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get offlineWorking =>
-      'Sunucu bağlantısı yok — satışlar telefonda saklanır ve kendiliğinden gönderilir.';
+      'Sunucuyla bağlantı yok — satışlar telefonda saklanır. Bağlantı gelir gelmez gönderilir: uygulama açıksa hemen, arka planda yaklaşık 15 dakikada bir veya bir sonraki açılışta.';
 
   @override
   String runningOut(int n) {
@@ -973,7 +973,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get callNoMic =>
-      'Mikrofon erişimi yok. Telefon ayarlarında NurMarket için mikrofona izin verin.';
+      'Mikrofon erişimi yok. Telefon ayarlarında NurCRM için mikrofona izin verin.';
 
   @override
   String get callOpenSettings => 'Ayarları aç';
@@ -1539,7 +1539,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get savedOfflineHint =>
-      'Bağlantı yok — fiş kendiliğinden gönderilecek, iki kez kaydedilmez.';
+      'Fiş telefonda saklandı. Bağlantı gelince sunucuya gönderilir: uygulama açıksa hemen, arka planda yaklaşık 15 dakika içinde veya bir sonraki açılışta. İkinci kez işlenmez.';
 
   @override
   String get receiptQr => 'QR kod';
@@ -1691,7 +1691,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get offlineCheckHint =>
-      'Bağlantı yok — fiş kaydedildi, kendiliğinden gönderilecek';
+      'Fiş kaydedildi ve gönderilmeyi bekliyor: bağlantı gelince gider (uygulama açıksa hemen, kapalıysa arka planda veya bir sonraki açılışta)';
 
   @override
   String get sendToCustomer => 'Müşteriye gönder';
@@ -1741,7 +1741,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String unknownBarcodeHint(String code) {
-    return '$code · katalogda ve NurCRM rehberinde yok. Ürünü ekleyin — kod hiçbir yere gönderilmez';
+    return '$code · kataloğunuzda (sunucuda kontrol edildi) ve NurCRM rehberinde yok. Ürünü ekleyin — kod hiçbir yere gönderilmez';
   }
 
   @override
@@ -2784,7 +2784,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get auditApplyQueued =>
-      'Sayım belgesi oluşturuldu — işleme bağlantı gelince gönderilecek.';
+      'Sayım belgesi oluşturuldu ancak işlenmedi (bağlantı yoktu). Yeniden sayıp işleyin — belge taslak olarak kalır.';
 
   @override
   String get auditOnlineOnly =>
@@ -3207,7 +3207,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get peStockQueued =>
-      'Belge oluşturuldu — bağlantı gelince kendiliğinden işlenecek.';
+      'Belge oluşturuldu ancak işlenmedi (bağlantı yoktu). Yeniden sayıp işleyin.';
 
   @override
   String get peStockOffline =>
@@ -4652,7 +4652,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get klScanQrTitle => 'Kamerayı kasa ekranındaki QR koduna doğrultun';
 
   @override
-  String get klNotKassaQr => 'Bu bir NurMarket kasa QR kodu değil';
+  String get klNotKassaQr => 'Bu bir NurCRM kasa QR kodu değil';
 
   @override
   String get klBadQr =>
@@ -4660,7 +4660,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get klQrVersion =>
-      'Bu kasa uygulamadan daha yeni. Telefonda NurMarket\'i güncelleyin.';
+      'Bu kasa uygulamadan daha yeni. Telefonda NurCRM\'i güncelleyin.';
 
   @override
   String get klManual => 'Bağlantıyı elle gir';
@@ -5490,6 +5490,17 @@ class AppLocalizationsTr extends AppLocalizations {
   String get recvFixed => 'Barkod düzeltildi';
 
   @override
+  String get recvOffline => 'Sunucu yanıt vermedi';
+
+  @override
+  String recvOfflineHint(String code) {
+    return '$code · kontrol edilemedi: sunucuyla bağlantı yok. Bu ürünün olmadığı anlamına gelmez — ağ gelince tekrar kontrol edin';
+  }
+
+  @override
+  String get recvRetry => 'Tekrar kontrol et';
+
+  @override
   String get recvNoRight =>
       'Eklemek, bağlamak veya düzeltmek için «Depo» yetkisi gerekir.';
 
@@ -6278,4 +6289,347 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get infRangePick => 'Tarih seç';
+
+  @override
+  String get apiSaleAlreadyPosted =>
+      'Sunucu bu fişi zaten işledi (anahtar aynı) — “Fişler” bölümünden kontrol edin.';
+
+  @override
+  String get apiAuditStale =>
+      'Sayım zamanında işlenmedi — stok değişmiş olabilir. Yeniden sayın (belge taslak olarak kaldı).';
+
+  @override
+  String get priceChangedTitle => 'Fiyat değişti';
+
+  @override
+  String priceChangedLine(String name, String oldPrice, String newPrice) {
+    return '$name: $oldPrice → $newPrice som';
+  }
+
+  @override
+  String get priceChangedNote =>
+      'Satış KAYDEDİLMEDİ. Fişteki fiyatlar güncellendi — yeni tutarı kontrol edip “Öde”ye tekrar basın.';
+
+  @override
+  String get priceMaybeStale =>
+      'Bağlantı yok — fişteki fiyat güncel olmayabilir.';
+
+  @override
+  String get apiWifiPortal =>
+      'Wi-Fi giriş sayfasını açın (mağaza ağı giriş istiyor) ve tekrar deneyin.';
+
+  @override
+  String get apiBadResponse =>
+      'Sunucu beklenmedik bir yanıt verdi. Daha sonra tekrar deneyin.';
+
+  @override
+  String get linkOffline => 'Sunucuyla bağlantı yok';
+
+  @override
+  String linkOfflineSince(String time) {
+    return 'Bağlantı yok · veriler $time itibarıyla';
+  }
+
+  @override
+  String dataAsOf(String time) {
+    return 'Veriler $time itibarıyla';
+  }
+
+  @override
+  String get noDataOffline => 'Veri yok — sunucuyla bağlantı yok';
+
+  @override
+  String unsentOnPhone(int n) {
+    return 'Telefondan gönderilmeyen: $n';
+  }
+
+  @override
+  String listCachedAt(String time) {
+    return '$time tarihli kayıtlı liste gösteriliyor.';
+  }
+
+  @override
+  String get auditError => 'Hata';
+
+  @override
+  String stockAsOf(String time) {
+    return 'Stok $time itibarıyla';
+  }
+
+  @override
+  String accountLoading(int done, int total) {
+    return 'Hesap verileri yükleniyor… $done/$total';
+  }
+
+  @override
+  String get accountLoadFailed =>
+      'Hesap verileri tam yüklenemedi (bağlantı yok veya sunucu yanıt vermedi).';
+
+  @override
+  String get accountDataNotLoaded => 'Bu hesabın verileri henüz yüklenmedi';
+
+  @override
+  String get logoutSendNow => 'Şimdi gönder';
+
+  @override
+  String guardUnsent(int n, String sum) {
+    return 'Gönderilmemiş satışlar ve işlemler var: $n, $sum som. Gönderilene kadar çıkış yapılamaz.';
+  }
+
+  @override
+  String get guardSending => 'Gönderiliyor…';
+
+  @override
+  String get guardWaitConnection =>
+      'Sunucuyla bağlantı yok. Bağlantıyı bekleyip «Şimdi gönder»e tekrar dokunun veya satışları dosyaya aktarın.';
+
+  @override
+  String guardSendLeft(int n, String error) {
+    return 'Hepsi gönderilemedi: $n kaldı. $error';
+  }
+
+  @override
+  String get guardExport => 'Dosyaya aktar ve çık';
+
+  @override
+  String get guardExportWarn =>
+      'Dosya fiş verilerini (ürünler, tutarlar) içerecek. Güvenli bir yerde saklayın. Çıkıştan sonra telefonda bu dosya dışında hiçbir şey kalmaz.';
+
+  @override
+  String guardExported(String path) {
+    return 'Dosya kaydedildi: $path. Satışları geri yüklemek için sahibine veya yöneticiye gönderin.';
+  }
+
+  @override
+  String guardExportFailed(String error) {
+    return 'Dosya kaydedilemedi: $error. Çıkış iptal edildi, satışlar yerinde.';
+  }
+
+  @override
+  String get guardDiscard => 'Göndermeden ÇIK';
+
+  @override
+  String get guardDiscardWord => 'SİL';
+
+  @override
+  String guardDiscardWarn(String word) {
+    return 'Gönderilmeyen satışlar GERİ ALINAMAYACAK şekilde KAYBOLUR. Onaylamak için «$word» sözcüğünü yazın.';
+  }
+
+  @override
+  String get guardDiscardField => 'Onay sözcüğü';
+
+  @override
+  String guardForeign(String account, int n, String sum) {
+    return 'Telefonda başka bir hesabın ($account) gönderilmemiş satışları kaldı: $n, $sum som. Başka hesapla girmek için bunları dosyaya aktarmanız veya silmeniz gerekir. Ya da önceki hesapla girip gönderin.';
+  }
+
+  @override
+  String get close => 'Kapat';
+
+  @override
+  String revCostLine(String cost) {
+    return 'Alış: $cost';
+  }
+
+  @override
+  String get revNoCost => 'Alış fiyatı yok';
+
+  @override
+  String revDiffAmount(String amount) {
+    return 'Fark tutarı: $amount';
+  }
+
+  @override
+  String get revStarNote =>
+      '* — ürünün alış fiyatı yok, tutar satış fiyatıyla hesaplandı.';
+
+  @override
+  String revShortageLine(String qty, String cost, String sale) {
+    return 'Eksik: $qty adet · −$cost som (alış fiyatıyla) · −$sale som (satış fiyatıyla)';
+  }
+
+  @override
+  String revSurplusLine(String qty, String cost, String sale) {
+    return 'Fazla: $qty adet · +$cost som (alış fiyatıyla) · +$sale som (satış fiyatıyla)';
+  }
+
+  @override
+  String revNetLine(String amount) {
+    return 'Net sonuç: $amount som (alış fiyatıyla)';
+  }
+
+  @override
+  String revNoCostWarn(int n) {
+    return '⚠ Alış fiyatı olmayan ürün: $n';
+  }
+
+  @override
+  String revNoCostTip(String short, String surplus) {
+    return 'Bu ürünlerin alış fiyatı yok: «alış fiyatıyla» toplamlara dahil değil. Satış fiyatıyla farkları: eksik −$short som, fazla +$surplus som. Listede tutarları «*» ile işaretli.';
+  }
+
+  @override
+  String revTopShortages(int n) {
+    return 'En büyük $n eksik';
+  }
+
+  @override
+  String revAllDiffs(int n) {
+    return 'Tüm farklar: $n';
+  }
+
+  @override
+  String get pbTitle => 'Girişler ve partiler';
+
+  @override
+  String get pbTotalReceived => 'Toplam alınan';
+
+  @override
+  String get pbAvgCost => 'Ortalama alış';
+
+  @override
+  String get pbLastCost => 'Son alış';
+
+  @override
+  String get pbLastSupplier => 'Son tedarikçi';
+
+  @override
+  String pbCount(int n) {
+    return 'Giriş sayısı: $n';
+  }
+
+  @override
+  String get pbPartial =>
+      'Toplamlar yalnızca yüklenen girişleri kapsar. Kalanını yüklemek için aşağı kaydırın.';
+
+  @override
+  String get pbSearchHint => 'Tedarikçi veya giriş no';
+
+  @override
+  String get pbSearchHintNo => 'Giriş no';
+
+  @override
+  String get pbWeek => 'Hafta';
+
+  @override
+  String get pbMonth => 'Ay';
+
+  @override
+  String get pbYear => 'Yıl';
+
+  @override
+  String get pbAllTime => 'Tüm zaman';
+
+  @override
+  String get pbInvoice => 'İrsaliye';
+
+  @override
+  String pbNumber(String no) {
+    return 'No $no';
+  }
+
+  @override
+  String pbCostLine(String cost) {
+    return 'Alış: $cost som';
+  }
+
+  @override
+  String pbSumLine(String sum) {
+    return 'Tutar: $sum som';
+  }
+
+  @override
+  String pbReceivedBy(String name) {
+    return 'Teslim alan: $name';
+  }
+
+  @override
+  String pbPayLine(String method) {
+    return 'Ödeme: $method';
+  }
+
+  @override
+  String get pbPayCash => 'Nakit';
+
+  @override
+  String get pbPayDebt => 'Borç';
+
+  @override
+  String get pbPayPrepay => 'Ön ödeme';
+
+  @override
+  String pbRemainLine(String qty, String unit) {
+    return 'Partide kalan ≈ $qty $unit (tahmini)';
+  }
+
+  @override
+  String pbRemainTip(String stock, String unit) {
+    return 'FIFO kuralına (ilk giren ilk çıkar) göre tahmindir: ürünün mevcut stoku ($stock $unit) en yeni girişlerden başlayarak dağıtılır. Sunucu her partinin kalanını saklamaz, bu yüzden rakam yaklaşıktır.';
+  }
+
+  @override
+  String pbReturned(String qty, String unit) {
+    return 'Tedarikçiye iade: $qty $unit';
+  }
+
+  @override
+  String get pbEmpty => 'Bu ürünün girişi bulunamadı';
+
+  @override
+  String get pbEmptySearch => 'Aramada sonuç yok';
+
+  @override
+  String pbDataFrom(String time) {
+    return 'Bağlantı yok. Veriler $time itibarıyla';
+  }
+
+  @override
+  String get pbLoadingMore => 'Daha fazla yükleniyor…';
+
+  @override
+  String get pbEnd => 'Başka giriş yok';
+
+  @override
+  String get pbToTop => 'Başa dön';
+
+  @override
+  String pbLoadError(String error) {
+    return 'Yüklenemedi: $error';
+  }
+
+  @override
+  String get pbDocTitle => 'Giriş irsaliyesi';
+
+  @override
+  String get pbDocLines => 'Giriş kalemleri';
+
+  @override
+  String pbDocTotal(String sum) {
+    return 'Toplam: $sum som';
+  }
+
+  @override
+  String get pbThisProduct => 'bu ürün';
+
+  @override
+  String get pbOpenFile => 'Dosyayı aç';
+
+  @override
+  String get pbNoFile => 'Orijinal dosya kaydedilmemiş';
+
+  @override
+  String get pbFileError => 'Dosya açılamadı';
+
+  @override
+  String get pbSupplier => 'Tedarikçi';
+
+  @override
+  String get pbCall => 'Ara';
+
+  @override
+  String get pbWhatsApp => 'WhatsApp';
+
+  @override
+  String get pbNoPhone => 'Telefon belirtilmemiş';
 }

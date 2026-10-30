@@ -77,13 +77,23 @@ public static class PendingDebtPrepaymentStore
             return LoadAllNoLock();
     }
 
+    /// <summary>2026-10-30 (приёмка 1.17.65, блокер 3): последнее чтение упало из-за «файл занят» — SaveNoLock тогда не пишет (иначе «пусто» затёрло бы очередь).</summary>
+    private static bool _readBusy;
+
     private static List<Entry> LoadAllNoLock()
     {
+        _readBusy = false;
         try
         {
             if (!File.Exists(FilePath))
                 return new List<Entry>();
-            return JsonSerializer.Deserialize<List<Entry>>(File.ReadAllText(FilePath), Json) ?? new List<Entry>();
+            return JsonSerializer.Deserialize<List<Entry>>(AtomicFile.ReadWithRetry(FilePath), Json) ?? new List<Entry>();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _readBusy = true;
+            PosLogger.Log($"Очередь довнесения предоплат долга: файл занят ({ex.Message}) — запись отложена, прежнее не затираем.", "WARNING");
+            return new List<Entry>();
         }
         catch (Exception ex)
         {
@@ -94,6 +104,8 @@ public static class PendingDebtPrepaymentStore
 
     private static void SaveNoLock(List<Entry> all)
     {
+        if (_readBusy)
+            return; // 2026-10-30: файл не прочитан («занят») — пишем только после успешного чтения
         try
         {
             var dir = Path.GetDirectoryName(FilePath);

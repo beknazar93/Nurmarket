@@ -676,13 +676,10 @@ public partial class LabelTemplateEditorDialog : Window
     {
         try
         {
-            using var bmp = BarcodeLabelService.GenerateLabelBitmap(
+            // 2026-10-29: Android/Linux — System.Drawing недоступен, картинку рисует Avalonia (LabelSceneRenderer).
+            PreviewImage.Source = LabelSceneRenderer.LabelPreview(
                 _sampleProductName, _sampleBarcode, _samplePriceText, _template,
                 sku: "SKU-001", unit: "шт", storeName: UserPreferences.Instance.StoreName, variantText: SampleVariantText);
-            using var ms = new MemoryStream();
-            bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-            ms.Position = 0;
-            PreviewImage.Source = new Bitmap(ms);
         }
         catch (Exception ex)
         {

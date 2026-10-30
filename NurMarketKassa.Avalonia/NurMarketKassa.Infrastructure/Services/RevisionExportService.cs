@@ -37,12 +37,14 @@ public static class RevisionExportService
     public sealed record Summary(
         int Total, int Counted, int WithDifference,
         double ShortageQuantity, double ShortageAmount, double ShortageCostAmount,
-        double SurplusQuantity, double SurplusAmount, double SurplusCostAmount);
+        double SurplusQuantity, double SurplusAmount, double SurplusCostAmount,
+        // 2026-10-29: позиций с расхождением без цены закупки (в суммах «по закупке» они не участвуют)
+        int NoCostCount = 0);
 
     /// <summary>Сводка по строкам (для окна итога тоже годится: «недостача −5 шт, излишек +3 шт»).</summary>
     public static Summary Summarize(IEnumerable<RevisionExportRow> rows)
     {
-        int total = 0, counted = 0, diffs = 0;
+        int total = 0, counted = 0, diffs = 0, noCost = 0;
         double shortQty = 0, shortSum = 0, shortCost = 0, surQty = 0, surSum = 0, surCost = 0;
         foreach (var r in rows)
         {
@@ -55,7 +57,9 @@ public static class RevisionExportService
                 continue;
             diffs++;
             var sum = Math.Round(diff * r.SalePrice, 2, MidpointRounding.AwayFromZero);
-            var cost = r.PurchasePrice is { } pp ? Math.Round(diff * pp, 2, MidpointRounding.AwayFromZero) : 0;
+            var cost = r.PurchasePrice is > 0.0001 and { } pp ? Math.Round(diff * pp, 2, MidpointRounding.AwayFromZero) : 0;
+            if (r.PurchasePrice is not > 0.0001)
+                noCost++;
             if (diff < 0)
             {
                 shortQty += -diff; shortSum += -sum; shortCost += -cost;
@@ -66,7 +70,7 @@ public static class RevisionExportService
             }
         }
 
-        return new Summary(total, counted, diffs, shortQty, shortSum, shortCost, surQty, surSum, surCost);
+        return new Summary(total, counted, diffs, shortQty, shortSum, shortCost, surQty, surSum, surCost, noCost);
     }
 
     /// <summary>Строки выбранного объёма в исходном порядке (для окна — «сколько строк уйдёт в файл»).</summary>
@@ -162,9 +166,11 @@ public static class RevisionExportService
             if (scope == RevisionExportScope.Discrepancy && (diff is null || Math.Abs(diff.Value) < Epsilon))
                 continue;
             double? amount = diff is { } d ? Math.Round(d * r.SalePrice, 2, MidpointRounding.AwayFromZero) : null;
-            double? cost = purchase && diff is { } d2 && r.PurchasePrice is { } pp ? Math.Round(d2 * pp, 2, MidpointRounding.AwayFromZero) : null;
+            // 2026-10-29: закупки нет (0) — ячейки закупки и суммы по закупке пустые, а не «0,00» (иначе недостача выглядела бы бесплатной).
+            double? cost = purchase && diff is { } d2 && r.PurchasePrice is > 0.0001 and { } pp ? Math.Round(d2 * pp, 2, MidpointRounding.AwayFromZero) : null;
+            double? buy = purchase && r.PurchasePrice is > 0.0001 ? r.PurchasePrice : null;
             result.Add(new Line(result.Count + 1, r.Name ?? "", r.Barcode ?? "", r.BookQuantity, r.FactQuantity, diff,
-                r.SalePrice, purchase ? r.PurchasePrice : null, amount, cost, r.CountedAt, r.RecordedQuantity));
+                r.SalePrice, buy, amount, cost, r.CountedAt, r.RecordedQuantity));
         }
 
         return result;
@@ -324,6 +330,16 @@ public static class RevisionExportService
         items.Add(new XlKeyValue(ReportLabels.WithUnit(L("Излишек по цене продажи", "Ашыкча сатуу баасы боюнча", "Surplus at selling price", "Fazla (satış fiyatı)", "Ortiqcha (sotuv narxida)"), ReportLabels.Currency), summary.SurplusAmount, XlKind.Money, summary.SurplusAmount > 0 ? ReportTone.Good : ReportTone.None));
         if (purchase)
             items.Add(new XlKeyValue(ReportLabels.WithUnit(L("Излишек по закупке", "Ашыкча сатып алуу баасы боюнча", "Surplus at cost", "Fazla (alış fiyatı)", "Ortiqcha (xarid narxida)"), ReportLabels.Currency), summary.SurplusCostAmount, XlKind.Money, summary.SurplusCostAmount > 0 ? ReportTone.Good : ReportTone.None));
+        // 2026-10-29: чистый результат (излишек − недостача) и позиции без закупки.
+        var netSale = Math.Round(summary.SurplusAmount - summary.ShortageAmount, 2);
+        items.Add(new XlKeyValue(ReportLabels.WithUnit(L("Чистый результат по цене продажи", "Таза жыйынтык сатуу баасы боюнча", "Net result at selling price", "Net sonuç (satış fiyatı)", "Sof natija (sotuv narxida)"), ReportLabels.Currency), netSale, XlKind.Money, Tone(netSale)));
+        if (purchase)
+        {
+            var netCost = Math.Round(summary.SurplusCostAmount - summary.ShortageCostAmount, 2);
+            items.Add(new XlKeyValue(ReportLabels.WithUnit(L("Чистый результат по закупке", "Таза жыйынтык сатып алуу баасы боюнча", "Net result at cost", "Net sonuç (alış fiyatı)", "Sof natija (xarid narxida)"), ReportLabels.Currency), netCost, XlKind.Money, Tone(netCost)));
+            items.Add(new XlKeyValue(L("Позиций с расхождением без цены закупки", "Сатып алуу баасы жок айырмалуу позициялар", "Items with a difference and no purchase price", "Alış fiyatı olmayan farklı kalemler", "Xarid narxi yo'q farqli pozitsiyalar"), summary.NoCostCount, XlKind.Integer, summary.NoCostCount > 0 ? ReportTone.Warn : ReportTone.None));
+        }
+
         summarySheet.AddKeyValues(items);
 
         book.Save();
@@ -465,6 +481,24 @@ public static class RevisionExportService
                         t.Span(L("излишек", "ашыкча", "surplus", "fazla", "ortiqcha") + " +" + ReportFormat.Quantity(summary.SurplusQuantity) + " ("
                             + ReportFormat.Money(summary.SurplusAmount) + " " + ReportLabels.Currency + ")").SemiBold().FontColor(Good);
                     });
+
+                    // 2026-10-29: деньги по закупке (владелец: «сколько минус ушло, сколько денег потеряли») и чистый результат.
+                    if (purchase)
+                    {
+                        var netCost = Math.Round(summary.SurplusCostAmount - summary.ShortageCostAmount, 2);
+                        col.Item().Text(t =>
+                        {
+                            t.Span(L("По закупке", "Сатып алуу баасы боюнча", "At cost", "Alış fiyatıyla", "Xarid narxida") + ":  ").SemiBold();
+                            t.Span(L("недостача", "жетишпөө", "shortage", "eksik", "kam") + " −" + ReportFormat.Money(summary.ShortageCostAmount) + " " + ReportLabels.Currency).SemiBold().FontColor(Bad);
+                            t.Span("  ·  ").SemiBold();
+                            t.Span(L("излишек", "ашыкча", "surplus", "fazla", "ortiqcha") + " +" + ReportFormat.Money(summary.SurplusCostAmount) + " " + ReportLabels.Currency).SemiBold().FontColor(Good);
+                            t.Span("  ·  ").SemiBold();
+                            t.Span(L("чистый результат", "таза жыйынтык", "net result", "net sonuç", "sof natija") + " " + SignedMoney(netCost) + " " + ReportLabels.Currency).SemiBold().FontColor(ToneColor(netCost));
+                            if (summary.NoCostCount > 0)
+                                t.Span("  ·  " + L($"без цены закупки: {summary.NoCostCount}", $"сатып алуу баасы жок: {summary.NoCostCount}", $"no purchase price: {summary.NoCostCount}",
+                                    $"alış fiyatı yok: {summary.NoCostCount}", $"xarid narxi yo'q: {summary.NoCostCount}")).FontColor(Soft);
+                        });
+                    }
 
                     col.Item().PaddingTop(4).Table(t =>
                     {

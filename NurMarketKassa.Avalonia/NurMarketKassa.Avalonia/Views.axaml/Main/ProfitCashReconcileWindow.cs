@@ -121,6 +121,8 @@ public sealed class ProfitCashReconcileWindow : Window
         _periodLabel.Text = PeriodRange.Label(from, to);
     }
 
+    private bool _loadedOnce;
+
     private async Task LoadAsync()
     {
         _cts?.Cancel();
@@ -154,6 +156,10 @@ public sealed class ProfitCashReconcileWindow : Window
 
         try
         {
+            // 2026-10-31 (стресс-тест 1.17.68): клик периода слал 7 запросов, прежние только отменялись — пауза 250 мс: быстрая серия кликов шлёт запросы один раз.
+            if (_loadedOnce)
+                await Task.Delay(250, ct).ConfigureAwait(true);
+            _loadedOnce = true;
             var pnlTask = Get("api/main/analytics/pnl/");
             var cashTask = Get("api/main/analytics/cashflow/");
             var checkTask = Get("api/main/analytics/reconcile/");
@@ -175,6 +181,16 @@ public sealed class ProfitCashReconcileWindow : Window
             var check = await checkTask.ConfigureAwait(true);
             var finance = await financeTask.ConfigureAwait(true);
             _named = await namedTask.ConfigureAwait(true);
+            // 2026-10-31 (стресс-тест 1.17.68, п. 9): сервер не ответил ни на один отчёт — не рисуем нули, а говорим «нет связи» + «Повторить».
+            if (pnl is null && cash is null && check is null && finance is null)
+            {
+                _pnl.Children.Clear();
+                _cash.Children.Clear();
+                _checks.Children.Clear();
+                _pnl.Children.Add(ServerOfflineNotice.Build(this, () => _ = LoadAsync()));
+                _status.Text = ServerOfflineNotice.Text;
+                return;
+            }
             RenderPnl(pnl);
             RenderArticles(await articlesTask.ConfigureAwait(true));
             RenderCash(cash);
@@ -241,6 +257,12 @@ public sealed class ProfitCashReconcileWindow : Window
             "Buying stock does not reduce profit until the goods are sold: profit uses the cost of the lines sold.",
             "Mal satılana kadar alım kârı azaltmaz: kâra satılan satırların maliyeti yansır.",
             "Tovar sotilmaguncha xarid foydani kamaytirmaydi: foydaga sotilgan qatorlar tannarxi kiradi.")));
+        // 2026-10-31 (живой обход, К-2): выручка месяца в «Сводке», здесь и в ABC считается тремя разными отчётами сервера — честно подписываем разницу.
+        _pnl.Children.Add(Soft(Tr.T("Выручка — из отчёта сервера «Прибыль и убытки». «Сводка» и ABC берут другие отчёты сервера, поэтому разница в пределах нескольких сотен сомов возможна.",
+            "Түшүм — сервердин «Пайда жана чыгым» отчётунан. «Жыйынтык» жана ABC сервердин башка отчётторун колдонот, ошондуктан бир нече жүз сомго айырма болушу мүмкүн.",
+            "Revenue comes from the server's “Profit and loss” report. “Summary” and ABC use other server reports, so a difference of a few hundred som is possible.",
+            "Ciro, sunucunun «Kâr ve zarar» raporundan gelir. «Özet» ve ABC başka sunucu raporlarını kullanır, bu yüzden birkaç yüz somluk fark olabilir.",
+            "Tushum serverning «Foyda va zarar» hisobotidan. «Xulosa» va ABC serverning boshqa hisobotlaridan foydalanadi, shuning uchun bir necha yuz so'mlik farq bo'lishi mumkin.")));
     }
 
     /// <summary>2026-10-22 (статьи изъятия): под «Прибылью» — изъятия из кассы смен по статьям за период; инкассация —
@@ -382,7 +404,7 @@ public sealed class ProfitCashReconcileWindow : Window
         }
         var (sCash, sMixed, sDebt, sNonCash) = sales.Split();
         var diffCash = cash - (double)sCash;
-        var diffOther = other - (double)(sNonCash + sDebt);
+        var diffOther = other - (double)sNonCash; // 2026-10-31: sNonCash больше не вычитает долг второй раз (см. ServerSalesSummary.Split)
         var diffMixed = mixed - (double)sMixed;
         var diffTotal = incomeTotal - (double)salesRevenue;
         if (Math.Abs(diffCash) < 0.5 && Math.Abs(diffOther) < 0.5 && Math.Abs(diffMixed) < 0.5 && Math.Abs(diffTotal) < 0.5)
@@ -393,7 +415,7 @@ public sealed class ProfitCashReconcileWindow : Window
         _cash.Children.Add(Row("   " + Tr.T("Наличные: здесь / в «Продажах»", "Накталай: бул жерде / «Сатууларда»", "Cash: here / in Sales", "Nakit: burada / «Satışlar»da", "Naqd: bu yerda / «Sotuvlar»da"),
             Som(cash) + " / " + Som((double)sCash), false, stacked: true));
         _cash.Children.Add(Row("   " + Tr.T("Безнал и прочее: здесь / в «Продажах»", "Накталай эмес: бул жерде / «Сатууларда»", "Cashless and other: here / in Sales",
-            "Nakitsiz ve diğer: burada / «Satışlar»da", "Naqdsiz va boshqa: bu yerda / «Sotuvlar»da"), Som(other) + " / " + Som((double)(sNonCash + sDebt)), false, stacked: true));
+            "Nakitsiz ve diğer: burada / «Satışlar»da", "Naqdsiz va boshqa: bu yerda / «Sotuvlar»da"), Som(other) + " / " + Som((double)sNonCash), false, stacked: true));
         _cash.Children.Add(Row("   " + Tr.T("Смешанная: здесь / в «Продажах»", "Аралаш: бул жерде / «Сатууларда»", "Mixed: here / in Sales", "Karışık: burada / «Satışlar»da", "Aralash: bu yerda / «Sotuvlar»da"),
             Som(mixed) + " / " + Som((double)sMixed), false, stacked: true));
         _cash.Children.Add(Row(Tr.T("Итого: здесь / в «Продажах»", "Жалпы: бул жерде / «Сатууларда»", "Total: here / in Sales", "Toplam: burada / «Satışlar»da", "Jami: bu yerda / «Sotuvlar»da"),
