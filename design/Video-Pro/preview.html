@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NurCRM Video Pro — эталонные сцены</title>
+<!-- 2026-10-30: эталон профессионального стиля роликов NurCRM (гид: docs/Дизайн/Видео — профессиональный стиль (гид).md).
+     Четыре сцены 1920×1080 в масштабе: заставка, окно программы с выносками, цифра, финал.
+     Сборщик повторяет 1:1: токены (:root), тайминги (data-t), easing. Снимки экранов берутся из
+     C:\Users\User\NurMarket-video\shots-features (file://), при недоступности — схематичная заглушка. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+@font-face{font-family:"Montserrat";font-weight:700;src:local("Montserrat Bold"),url("file:///C:/Users/User/NurMarket-video/fonts/Montserrat-Bold.ttf")}
+@font-face{font-family:"Montserrat";font-weight:600;src:local("Montserrat SemiBold"),url("file:///C:/Users/User/NurMarket-video/fonts/Montserrat-SemiBold.ttf")}
+@font-face{font-family:"Montserrat";font-weight:500;src:local("Montserrat Medium"),url("file:///C:/Users/User/NurMarket-video/fonts/Montserrat-Medium.ttf")}
+
+/* ===== ТОКЕНЫ (единственный источник правды для сборщика) ===== */
+:root{
+  --bg:#191919;            /* фон кадра */
+  --bg-2:#1F1F1F;          /* второй тон градиента */
+  --grid:rgba(255,255,255,.035); /* тонкая сетка 64 px */
+  --fg:#FFFFFF;            /* основной текст */
+  --fg-2:rgba(255,255,255,.64); /* вторичный текст */
+  --fg-3:rgba(255,255,255,.40); /* подписи, служебное */
+  --accent:#FFB208;        /* акцент — только ключевые элементы */
+  --glass:rgba(255,255,255,.06);
+  --glass-line:rgba(255,255,255,.12);
+  --shadow:0 40px 120px rgba(0,0,0,.55), 0 8px 24px rgba(0,0,0,.35);
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --t-fast:400ms; --t-mid:550ms; --t-slow:700ms;
+  --font:"Montserrat",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#0F0F0F;color:var(--fg);font-family:var(--font);font-weight:500}
+body{min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:20px;padding:24px 16px 48px}
+
+/* ===== Панель управления (не часть кадра) ===== */
+.bar{width:100%;max-width:1280px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.bar h1{font-size:15px;font-weight:600;margin:0 auto 0 0;color:var(--fg-2);letter-spacing:.02em}
+.bar button,.bar label{font:inherit;font-size:13px;font-weight:600;padding:8px 14px;border-radius:10px;border:1px solid var(--glass-line);background:var(--glass);color:var(--fg);cursor:pointer;transition:background var(--t-fast) var(--ease)}
+.bar button:hover{background:rgba(255,255,255,.1)}
+.bar button[aria-pressed="true"]{background:var(--accent);color:#191919;border-color:var(--accent)}
+.bar input[type=file]{display:none}
+.hint{width:100%;max-width:1280px;font-size:12px;color:var(--fg-3);line-height:1.5}
+.hint b{color:var(--fg-2);font-weight:600}
+kbd{font:inherit;font-size:11px;padding:1px 6px;border:1px solid var(--glass-line);border-radius:6px;color:var(--fg-2)}
+
+/* ===== Кадр 1920×1080, масштабируется под окно ===== */
+.stage-wrap{width:100%;max-width:1280px;aspect-ratio:16/9;position:relative}
+.stage{position:absolute;inset:0;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden;border-radius:12px;
+  background:
+    radial-gradient(1200px 700px at 72% 22%, rgba(255,178,8,.07), transparent 60%),
+    radial-gradient(900px 600px at 18% 85%, rgba(255,255,255,.04), transparent 60%),
+    linear-gradient(160deg, var(--bg-2), var(--bg) 55%, #151515);
+  box-shadow:0 0 0 1px rgba(255,255,255,.06)}
+.stage::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:64px 64px;mask-image:radial-gradient(ellipse at center,#000 40%,transparent 95%)}
+.scene{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity var(--t-mid) var(--ease)}
+.scene.on{opacity:1;pointer-events:auto}
+.safe{position:absolute;inset:60px 96px;pointer-events:none;border:1px dashed rgba(255,255,255,.08);border-radius:4px;display:none}
+.stage.show-safe .safe{display:block}
+.tc{position:absolute;right:28px;top:22px;font-size:20px;font-weight:600;color:var(--fg-3);letter-spacing:.06em;font-variant-numeric:tabular-nums}
+
+/* Общая анимация появления: сдвиг 24 px + fade, без отскока */
+.in{opacity:0;transform:translateY(24px);transition:opacity var(--t-mid) var(--ease),transform var(--t-slow) var(--ease)}
+.on .in{opacity:1;transform:none}
+.on .in[data-d="1"]{transition-delay:.12s}.on .in[data-d="2"]{transition-delay:.26s}.on .in[data-d="3"]{transition-delay:.42s}
+.on .in[data-d="4"]{transition-delay:.60s}.on .in[data-d="5"]{transition-delay:.80s}.on .in[data-d="6"]{transition-delay:1.0s}
+
+/* ===== Логотип ===== */
+.logo{display:flex;align-items:center;gap:28px}
+.logo svg{width:112px;height:112px;filter:drop-shadow(0 12px 40px rgba(255,178,8,.18))}
+.logo .word{font-size:96px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.logo .word span{color:var(--accent)}
+
+/* ===== Сцена A — заставка ===== */
+#sA .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px}
+#sA .ep{font-size:26px;font-weight:600;color:var(--fg-2);letter-spacing:.18em;text-transform:uppercase}
+#sA .ep b{color:var(--accent);font-weight:700}
+#sA .title{font-size:44px;font-weight:600;color:var(--fg);letter-spacing:-.01em}
+.on#sA .logo svg{animation:mark 700ms var(--ease) both}
+@keyframes mark{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+.on#sA .logo .word{clip-path:inset(0 0 0 0);animation:reveal 550ms var(--ease) .15s both}
+@keyframes reveal{from{clip-path:inset(0 100% 0 0);opacity:.6}to{clip-path:inset(0 0 0 0);opacity:1}}
+
+/* ===== Сцена B — плавающее окно программы + выноски ===== */
+#sB .head{position:absolute;left:112px;top:92px;max-width:600px}
+.h-kicker{font-size:22px;font-weight:600;color:var(--accent);letter-spacing:.14em;text-transform:uppercase;margin:0 0 18px}
+.h-title{font-size:64px;font-weight:700;line-height:1.05;letter-spacing:-.02em;margin:0}
+.h-sub{font-size:26px;font-weight:500;color:var(--fg-2);margin:22px 0 0;line-height:1.4;max-width:560px}
+.persp{position:absolute;right:88px;top:200px;width:1080px;height:608px;perspective:2200px;perspective-origin:30% 40%} /* 16:9 — проценты зоны фокуса совпадают с снимком 1920×1080 */
+.window{position:absolute;inset:0;border-radius:18px;overflow:hidden;background:#F4F4F4;
+  box-shadow:var(--shadow),inset 0 0 0 1px rgba(255,255,255,.08);
+  transform:rotateY(-9deg) rotateX(3deg) translateZ(0);transform-style:preserve-3d;
+  transition:transform 6s linear}
+.on#sB .window{animation:drift 7s var(--ease) both}
+@keyframes drift{from{transform:rotateY(-11deg) rotateX(4deg) scale(.985)}to{transform:rotateY(-8deg) rotateX(2.5deg) scale(1)}}
+.window img{display:block;width:100%;height:100%;object-fit:cover;object-position:left top}
+.window .mock{position:absolute;inset:0;background:#F6F6F6;color:#191919;padding:34px 40px;font-size:20px}
+.window .mock h3{margin:0 0 6px;font-size:34px;font-weight:700}
+.window .mock .row{display:flex;gap:16px;margin-top:22px}
+.window .mock .card{flex:1;background:#fff;border:1px solid #E6E6E6;border-radius:14px;padding:18px 20px}
+.window .mock .card small{display:block;color:#6B6B6B;font-size:14px;font-weight:500}
+.window .mock .card b{display:block;font-size:34px;font-weight:700;margin-top:4px}
+.window .mock .list{margin-top:22px;background:#fff;border:1px solid #E6E6E6;border-radius:14px;padding:12px 20px}
+.window .mock .list div{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #EEE;font-weight:500}
+.window .mock .list div:last-child{border:0}
+.window .mock .list div b{color:#B3261E;font-weight:700}
+.hide{display:none!important}
+/* Подсветка зоны фокуса: затемнение вне прямоугольника + тонкая акцентная рамка */
+.focus{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity var(--t-mid) var(--ease) .9s}
+.on#sB .focus{opacity:1}
+.focus .dim{position:absolute;inset:0;background:rgba(10,10,10,.42)}
+.focus .box{position:absolute;border:2px solid var(--accent);border-radius:12px;box-shadow:0 0 0 9999px rgba(10,10,10,.42);transition:all var(--t-slow) var(--ease)}
+/* Выноски: тонкая линия + точка + карточка-стекло */
+.callout{position:absolute;opacity:0;transform:translateY(16px);transition:opacity var(--t-mid) var(--ease),transform var(--t-slow) var(--ease)}
+.on#sB .callout{opacity:1;transform:none}
+.on#sB .callout[data-d="1"]{transition-delay:1.3s}.on#sB .callout[data-d="2"]{transition-delay:1.75s}.on#sB .callout[data-d="3"]{transition-delay:2.2s}
+.callout .line{position:absolute;height:1px;background:linear-gradient(90deg,var(--accent),rgba(255,178,8,.2));transform-origin:left center}
+.callout .dot{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 6px rgba(255,178,8,.18)}
+.card-g{backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);background:rgba(25,25,25,.72);border:1px solid var(--glass-line);border-radius:16px;padding:18px 22px;box-shadow:0 16px 48px rgba(0,0,0,.4)}
+.callout .card-g{position:absolute;min-width:300px}
+.callout small{display:block;font-size:16px;font-weight:600;color:var(--fg-3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.callout b{display:block;font-size:30px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.callout b i{font-style:normal;color:var(--accent)}
+.callout p{margin:6px 0 0;font-size:18px;color:var(--fg-2);line-height:1.35}
+.sub{position:absolute;left:50%;bottom:84px;transform:translateX(-50%);padding:16px 30px;border-radius:14px;font-size:34px;font-weight:500;line-height:1.3;white-space:nowrap;
+  background:rgba(25,25,25,.55);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);
+  opacity:0;transition:opacity var(--t-mid) var(--ease) 1.2s}
+.on .sub{opacity:1}
+/* ?still — все анимации мгновенно (статичный кадр для сверки/экспорта) */
+.still *,.still *::before{transition-duration:0s!important;transition-delay:0s!important;animation-duration:0s!important;animation-delay:0s!important}
+
+/* ===== Сцена C — цифра ===== */
+#sC .wrap{position:absolute;inset:0;display:grid;grid-template-columns:1.05fr .95fr;align-items:center;padding:0 128px;gap:80px}
+.big{font-size:230px;font-weight:700;line-height:.95;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.big .unit{font-size:72px;font-weight:600;color:var(--fg-2);letter-spacing:-.01em;margin-left:14px}
+.big.neg{color:var(--fg)}
+.big .acc{color:var(--accent)}
+.lead{font-size:30px;color:var(--fg-2);line-height:1.4;margin:26px 0 0;max-width:720px}
+.lead b{color:var(--fg);font-weight:600}
+.facts{display:flex;gap:14px;margin-top:40px}
+.fact{padding:16px 22px;border-radius:14px;background:var(--glass);border:1px solid var(--glass-line)}
+.fact small{display:block;font-size:14px;color:var(--fg-3);font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.fact b{display:block;font-size:30px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+/* Мини-диаграмма: столбцы, тонкие линии */
+.chart{position:relative;height:420px;display:flex;align-items:flex-end;gap:28px;padding:0 0 46px;border-bottom:1px solid var(--glass-line)}
+.chart .col{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.chart .bar-v{width:100%;max-width:92px;border-radius:10px 10px 4px 4px;background:rgba(255,255,255,.14);height:0;transition:height 700ms var(--ease)}
+.on#sC .chart .bar-v{height:var(--h)}
+.on#sC .chart .col:nth-child(1) .bar-v{transition-delay:.3s}.on#sC .chart .col:nth-child(2) .bar-v{transition-delay:.42s}.on#sC .chart .col:nth-child(3) .bar-v{transition-delay:.54s}
+.on#sC .chart .col:nth-child(4) .bar-v{transition-delay:.66s}.on#sC .chart .col:nth-child(5) .bar-v{transition-delay:.78s}
+.chart .col.hi .bar-v{background:var(--accent)}
+.chart .col span{position:absolute;bottom:-38px;font-size:18px;color:var(--fg-3);font-weight:600;white-space:nowrap}
+.chart .col.hi span{color:var(--accent)}
+.cap{margin-top:52px;font-size:18px;color:var(--fg-3);font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+
+/* ===== Сцена D — финал ===== */
+#sD .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:30px}
+#sD .slogan{font-size:72px;font-weight:700;letter-spacing:-.02em;line-height:1.1;max-width:1400px}
+#sD .slogan span{color:var(--accent)}
+#sD .tag{font-size:28px;color:var(--fg-2);font-weight:500}
+#sD .url{margin-top:26px;padding:20px 44px;border-radius:16px;background:var(--accent);color:#191919;font-size:40px;font-weight:700;letter-spacing:.01em}
+#sD .platforms{position:absolute;bottom:64px;left:0;right:0;text-align:center;font-size:20px;color:var(--fg-3);font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+
+/* ===== Легенда таймингов под кадром ===== */
+.timeline{width:100%;max-width:1280px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.tl{padding:12px 14px;border-radius:12px;background:var(--glass);border:1px solid var(--glass-line);font-size:12px;line-height:1.5;color:var(--fg-2)}
+.tl b{display:block;color:var(--fg);font-weight:600;font-size:13px;margin-bottom:4px}
+.tl code{color:var(--accent);font-family:ui-monospace,Consolas,monospace;font-size:11px}
+@media (max-width:720px){.bar h1{width:100%}}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1>NurCRM · Video Pro · эталонные сцены 1920×1080</h1>
+  <button data-go="sA" aria-pressed="true">1 Заставка</button>
+  <button data-go="sB">2 Окно + выноски</button>
+  <button data-go="sC">3 Цифра</button>
+  <button data-go="sD">4 Финал</button>
+  <button id="play">▶ Прогнать все</button>
+  <button id="safeBtn">Безопасная зона</button>
+  <label for="shot">Свой снимок…</label><input id="shot" type="file" accept="image/*,video/mp4">
+</div>
+<div class="hint">Клавиши <kbd>1</kbd>–<kbd>4</kbd> — сцены, <kbd>Пробел</kbd> — прогон, <kbd>R</kbd> — повторить анимацию сцены. Снимок окна по умолчанию — <b>16-owner-attention.png</b> из <b>C:\Users\User\NurMarket-video\shots-features</b> (если файл недоступен, показана схематичная заглушка — на сборке заменить настоящим экраном).</div>
+
+<div class="stage-wrap">
+<div class="stage" id="stage">
+  <div class="safe"></div>
+  <div class="tc" id="tc">00:00.0</div>
+
+  <!-- ===== A. Заставка, 1 с ===== -->
+  <section class="scene on" id="sA">
+    <div class="center">
+      <div class="logo">
+        <svg viewBox="0 0 400 400" aria-hidden="true"><circle cx="200" cy="200" r="196" fill="#191919"/><g stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" fill="none"><path d="M200 120V22M220.7 122.7l25.4-94.6M240 130.7l49-84.9M256.6 143.4l69.3-69.3M269.3 160l84.9-49M277.3 179.3l94.6-25.4M280 200h98M277.3 220.7l94.6 25.4M122.7 220.7l-94.6 25.4M120 200H22M122.7 179.3l-94.6-25.4M130.7 160l-84.9-49M143.4 143.4L74.1 74.1M160 130.7L111 45.8M179.3 122.7L153.9 28.1"/></g><g stroke="#FFB208" stroke-width="14" stroke-linecap="round" fill="none"><path d="M269.3 240l84.9 49M256.6 256.6l69.3 69.3M240 269.3l49 84.9M220.7 277.3l25.4 94.6M200 280v98M179.3 277.3l-25.4 94.6M160 269.3l-49 84.9M143.4 256.6l-69.3 69.3M130.7 240l-84.9 49"/></g><path d="M200 170L96 330h208z" fill="#FFB208"/></svg>
+        <div class="word">Nur<span>CRM</span></div>
+      </div>
+      <div class="ep in" data-d="2"><b>07</b> · Работа при отключении</div>
+    </div>
+  </section>
+
+  <!-- ===== B. Окно программы в перспективе + подсветка + выноски ===== -->
+  <section class="scene" id="sB">
+    <div class="head">
+      <p class="h-kicker in" data-d="1">Программа владельца · Сводка</p>
+      <h2 class="h-title in" data-d="2">Долги —<br>на виду</h2>
+      <p class="h-sub in" data-d="3">Кто должен, сколько и как давно — в одной карточке. Без тетради.</p>
+    </div>
+
+    <div class="persp">
+      <div class="window" id="win">
+        <img id="shotImg" alt="" src="file:///C:/Users/User/NurMarket-video/shots-features/16-owner-attention.png"
+             onerror="this.classList.add('hide');document.getElementById('mock').classList.remove('hide')">
+        <div class="mock hide" id="mock">
+          <h3>Сводка</h3>
+          <div style="color:#6B6B6B;font-size:16px">Пятница, 30 октября 2026 · Обновлено 09:52</div>
+          <div class="row">
+            <div class="card"><small>Выручка (без долга)</small><b>48 750 сом</b></div>
+            <div class="card"><small>Чеки</small><b>63</b></div>
+            <div class="card"><small>Средний чек</small><b>774 сом</b></div>
+            <div class="card"><small>Валовая прибыль · 24,4 %</small><b>11 900 сом</b></div>
+          </div>
+          <div class="list">
+            <div><span>Долги клиентов</span><b>275 000 сом</b></div>
+            <div><span>Должников</span><span>5</span></div>
+            <div><span>Больше 30 дней</span><b>60 000 сом</b></div>
+          </div>
+        </div>
+        <!-- Зона фокуса — координаты в % от окна (для 16-owner-attention.png: карточка «Долги клиентов») -->
+        <div class="focus"><div class="box" style="left:72.9%;top:25.4%;width:24.6%;height:7%"></div></div>
+      </div>
+    </div>
+
+    <!-- Выноски: позиции в пикселях кадра; точка — у карточки «Долги клиентов» на снимке -->
+    <div class="callout" data-d="1" style="left:1180px;top:470px">
+      <div class="dot" style="left:486px;top:-100px"></div>
+      <div class="line" style="left:330px;top:-10px;width:186px;transform:rotate(-27deg)"></div>
+      <div class="card-g" style="left:0;top:0"><small>Долги клиентов</small><b><i>275 000</i> сом</b><p>Должников: 5</p></div>
+    </div>
+    <div class="callout" data-d="2" style="left:1440px;top:660px">
+      <div class="card-g" style="position:static"><small>Старше 30 дней</small><b>60 000 сом</b><p>Это и есть риск — им напомнить первыми</p></div>
+    </div>
+    <div class="callout" data-d="3" style="left:112px;top:640px">
+      <div class="card-g" style="position:static"><small>Нур Советник</small><b>«Пора напомнить <i>4</i> должникам»</b><p>просрочка больше 7 дней · кнопка «Проверить список»</p></div>
+    </div>
+
+    <div class="sub">Программа считает долги за вас и подсказывает, кому напомнить.</div>
+  </section>
+
+  <!-- ===== C. Цифра + мини-диаграмма ===== -->
+  <section class="scene" id="sC">
+    <div class="wrap">
+      <div>
+        <p class="h-kicker in" data-d="1">Ревизия · итог</p>
+        <div class="big in" data-d="2"><span class="acc">−</span><span id="counter" data-to="12400">0</span><span class="unit">сом</span></div>
+        <p class="lead in" data-d="3">Недостача по закупке за одну ревизию сканером. <b>234 шт</b> · по продаже <b>−15 710 сом</b>.</p>
+        <div class="facts in" data-d="4">
+          <div class="fact"><small>Расхождений</small><b>5</b></div>
+          <div class="fact"><small>Первый в списке</small><b>Winston Blue</b></div>
+          <div class="fact"><small>Считает</small><b>касса, не вы</b></div>
+        </div>
+      </div>
+      <div class="in" data-d="3">
+        <div class="chart">
+          <div class="col hi" style="--h:92%"><div class="bar-v"></div><span>Winston</span></div>
+          <div class="col" style="--h:61%"><div class="bar-v"></div><span>Адыгене</span></div>
+          <div class="col" style="--h:44%"><div class="bar-v"></div><span>Яйца</span></div>
+          <div class="col" style="--h:31%"><div class="bar-v"></div><span>Семечки</span></div>
+          <div class="col" style="--h:18%"><div class="bar-v"></div><span>Сүт</span></div>
+        </div>
+        <div class="cap">Топ-5 недостач · по сумме закупки</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== D. Финал, 3–4 с ===== -->
+  <section class="scene" id="sD">
+    <div class="center">
+      <div class="logo in" data-d="1">
+        <svg viewBox="0 0 400 400" aria-hidden="true"><circle cx="200" cy="200" r="196" fill="#191919"/><g stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" fill="none"><path d="M200 120V22M220.7 122.7l25.4-94.6M240 130.7l49-84.9M256.6 143.4l69.3-69.3M269.3 160l84.9-49M277.3 179.3l94.6-25.4M280 200h98M277.3 220.7l94.6 25.4M122.7 220.7l-94.6 25.4M120 200H22M122.7 179.3l-94.6-25.4M130.7 160l-84.9-49M143.4 143.4L74.1 74.1M160 130.7L111 45.8M179.3 122.7L153.9 28.1"/></g><g stroke="#FFB208" stroke-width="14" stroke-linecap="round" fill="none"><path d="M269.3 240l84.9 49M256.6 256.6l69.3 69.3M240 269.3l49 84.9M220.7 277.3l25.4 94.6M200 280v98M179.3 277.3l-25.4 94.6M160 269.3l-49 84.9M143.4 256.6l-69.3 69.3M130.7 240l-84.9 49"/></g><path d="M200 170L96 330h208z" fill="#FFB208"/></svg>
+        <div class="word">Nur<span>CRM</span></div>
+      </div>
+      <div class="slogan in" data-d="2">Касса, которая <span>знает</span><br>ваш магазин</div>
+      <div class="tag in" data-d="3">Работает без интернета. Говорит на вашем языке. Считает вашу прибыль.</div>
+      <div class="url in" data-d="4">app.nurcrm.kg</div>
+    </div>
+    <div class="platforms in" data-d="5">Windows · Linux · macOS · Android · телефон</div>
+  </section>
+</div>
+</div>
+
+<div class="timeline">
+  <div class="tl"><b>1 · Заставка — 1,0 с</b>знак 0,92→1,0 <code>700ms</code>, слово — mask-reveal слева <code>550ms +150ms</code>, номер серии <code>+260ms</code>. Уход: push вверх <code>500ms</code>.</div>
+  <div class="tl"><b>2 · Окно — 6–8 с</b>окно rotateY −11°→−8° медленный дрейф (параллакс), фокус-затемнение <code>+900ms</code>, выноски по <code>450ms</code> шагом, субтитр снизу. Текст слева, окно справа — всегда.</div>
+  <div class="tl"><b>3 · Цифра — 3–4 с</b>счётчик 0→12 400 за <code>1200ms</code> (ease-out, табличные цифры), столбцы <code>700ms</code> каскад <code>120ms</code>, акцент только у главного столбца и знака «−».</div>
+  <div class="tl"><b>4 · Финал — 3–4 с</b>логотип → слоган (одно слово акцентом) → подстрочник → ссылка. Только <code>app.nurcrm.kg</code>. Последний удар музыки на логотипе, 0,8 с тишины.</div>
+</div>
+
+<script>
+// 2026-10-30: логика предпросмотра — масштаб кадра, переключение сцен, счётчик, прогон.
+(function(){
+  const stage=document.getElementById('stage'),wrap=stage.parentElement;
+  function fit(){const s=wrap.clientWidth/1920;stage.style.transform='scale('+s+')';wrap.style.height=(1080*s)+'px';}
+  addEventListener('resize',fit);fit();
+
+  const scenes=['sA','sB','sC','sD'],dur={sA:1000,sB:7000,sC:3600,sD:3800};
+  const btns=[...document.querySelectorAll('[data-go]')];
+  let cur='sA',timer=null,tcTimer=null,t0=0;
+  function tc(ms){const s=ms/1000;document.getElementById('tc').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+(s%60).toFixed(1).padStart(4,'0');}
+  const still=/still/.test(location.search);if(still)stage.classList.add('still');
+  function counter(){const el=document.getElementById('counter'),to=+el.dataset.to,start=performance.now(),T=1200;
+    if(still){el.textContent=to.toLocaleString('ru-RU');return;}
+    function step(n){const p=Math.min(1,(n-start)/T),e=1-Math.pow(1-p,3);el.textContent=Math.round(to*e).toLocaleString('ru-RU');if(p<1)requestAnimationFrame(step);}
+    requestAnimationFrame(step);}
+  function show(id,restart){
+    if(restart||cur!==id){document.getElementById(cur).classList.remove('on');cur=id;
+      const el=document.getElementById(id);void el.offsetWidth;el.classList.add('on');
+      if(id==='sC')setTimeout(counter,still?0:420);}
+    btns.forEach(b=>b.setAttribute('aria-pressed',b.dataset.go===id));
+  }
+  btns.forEach(b=>b.onclick=()=>{stop();show(b.dataset.go,true)});
+  function stop(){clearTimeout(timer);clearInterval(tcTimer);timer=null;document.getElementById('play').textContent='▶ Прогнать все';}
+  function play(){stop();let i=0,acc=0;t0=performance.now();tcTimer=setInterval(()=>tc(performance.now()-t0),100);
+    document.getElementById('play').textContent='■ Стоп';
+    (function next(){if(i>=scenes.length){stop();tc(acc);return;}const id=scenes[i++];show(id,true);timer=setTimeout(()=>{acc+=dur[id];next();},dur[id]);})();}
+  document.getElementById('play').onclick=()=>timer?stop():play();
+  document.getElementById('safeBtn').onclick=()=>stage.classList.toggle('show-safe');
+  addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;
+    if(e.key>='1'&&e.key<='4'){stop();show(scenes[+e.key-1],true);}
+    else if(e.key===' '){e.preventDefault();timer?stop():play();}
+    else if(e.key==='r'||e.key==='R'||e.key==='к'||e.key==='К'){show(cur,true);}});
+  // Свой снимок/видео в окно
+  document.getElementById('shot').onchange=ev=>{const f=ev.target.files[0];if(!f)return;const url=URL.createObjectURL(f);
+    const win=document.getElementById('win'),img=document.getElementById('shotImg');document.getElementById('mock').classList.add('hide');
+    if(f.type.startsWith('video/')){img.classList.add('hide');let v=win.querySelector('video');if(!v){v=document.createElement('video');v.muted=true;v.loop=true;v.autoplay=true;v.playsInline=true;v.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:left top';win.insertBefore(v,win.firstChild);}v.src=url;}
+    else{const v=win.querySelector('video');if(v)v.remove();img.classList.remove('hide');img.src=url;}
+    show('sB',true);};
+  // Открытие сразу на сцене: preview.html#2 … #4
+  const h=parseInt(location.hash.slice(1),10);
+  show(h>=1&&h<=4?scenes[h-1]:'sA',true);
+})();
+</script>
+</body>
+</html>

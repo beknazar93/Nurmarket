@@ -1,0 +1,87 @@
+/* NurCRM Kassa — шаблон «Большие объёмы» (списки и модалки на 50–20 000 строк). Дизайн-спека 30.10.2026.
+   Цвета — кисти кассы (имя переменной = имя кисти без «Brush»), как в design/NurMarket-design/screens/BulkAdd-shared.css. */
+body{ margin:0; background:#2B2B2B; color:#F5F5F5; font-family:Montserrat,Onest,"Segoe UI",system-ui,sans-serif; }
+.tb{ position:sticky; top:0; z-index:50; display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:8px 14px; background:#191919; border-bottom:1px solid #3D3D3D; font-size:12px; }
+.tb b{ font-size:13px; margin-right:6px; }
+.tb .grp{ display:flex; align-items:center; gap:4px; padding:3px; border:1px solid #3D3D3D; border-radius:9px; }
+.tb .grp span{ color:#AAA; padding:0 6px; }
+.tb button{ height:28px; padding:0 10px; border:0; border-radius:7px; background:transparent; color:#CCC; font:600 12px Montserrat,system-ui,sans-serif; cursor:pointer; }
+.tb button.on{ background:#FFB208; color:#191919; }
+.tb .perf{ margin-left:auto; color:#AAA; font-variant-numeric:tabular-nums; }
+.tb .perf b{ color:#FFB208; font-size:12px; margin:0 2px; }
+.tb a{ color:#FFD27A; }
+.stage{ padding:18px; display:flex; flex-direction:column; align-items:flex-start; gap:14px; }
+.note{ max-width:1296px; font-size:12px; line-height:1.55; color:#CCC; }
+.note code,.note kbd{ background:#333; padding:1px 5px; border-radius:4px; color:#FFD27A; font-family:Consolas,monospace; font-size:11px; }
+h2.sec{ margin:14px 0 0; font-size:14px; color:#FFB208; }
+
+/* ---------- токены кассы ---------- */
+.frame{
+  --window:#F4F4F4; --panel:#FFFFFF; --panel-soft:#EEEEEE; --panel-pressed:#DDDDDD; --input:#FFFFFF; --input-alt:#F7F7F7;
+  --border:#DDDDDD; --border-strong:#AAAAAA; --text:#191919; --text-muted:#3D3D3D; --text-soft:#666666;
+  --accent:#FFB208; --accent-strong:#E69F00; --accent-pressed:#CC8800; --accent-soft:#FFF1DB; --accent-fg:#191919;
+  --success:#047857; --success-soft:#D1FAE5; --warning:#B45309; --warning-soft:#FEF3C7;
+  --danger:#B91C1C; --danger-soft:#FEE2E2; --danger-on-soft:#B91C1C; --unknown:#B54708; --unknown-soft:#FEF3E2;
+  --focus:#191919; --shadow:0 12px 32px rgba(25,25,25,.18); --overlay:rgba(25,25,25,.45); --skeleton:#E6E6E6; --skeleton-hi:#F4F4F4;
+  --r-btn:10px; --r-card:12px; --r-modal:14px; --pad:16px; --gap:12px; --row:44px; --card:76px;
+  position:relative; overflow:hidden; box-sizing:border-box; width:1296px; height:879px;
+  background:var(--window); color:var(--text); font-family:Montserrat,Onest,"Segoe UI",system-ui,sans-serif; font-size:14px; line-height:1.3;
+  border-radius:8px; box-shadow:0 0 0 1px rgba(0,0,0,.08);
+}
+.frame[data-theme="dark"]{
+  --window:#191919; --panel:#222222; --panel-soft:#333333; --panel-pressed:#3D3D3D; --input:#222222; --input-alt:#2A2A2A;
+  --border:#3D3D3D; --border-strong:#666666; --text:#F5F5F5; --text-muted:#CCCCCC; --text-soft:#AAAAAA;
+  --accent:#FFB208; --accent-strong:#FFC84D; --accent-pressed:#E69F00; --accent-soft:#3A2D10; --accent-fg:#191919;
+  --success:#34D399; --success-soft:#14352A; --warning:#D7BA7D; --warning-soft:#3A3122;
+  --danger:#F14C4C; --danger-soft:#522626; --danger-on-soft:#F58282; --unknown:#FDBA74; --unknown-soft:#3A2A14;
+  --focus:#FFB208; --shadow:0 12px 32px rgba(0,0,0,.6); --overlay:rgba(0,0,0,.6); --skeleton:#2E2E2E; --skeleton-hi:#3A3A3A;
+}
+.frame.s1024{ width:1024px; height:600px; --pad:12px; --gap:8px; font-size:13px; --row:40px; --card:68px; }
+.frame.s360{ width:360px; height:800px; --pad:12px; --gap:8px; font-size:14px; --row:44px; --card:80px; }
+.frame *{ box-sizing:border-box; font-family:inherit; }
+.num{ font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; }
+.muted{ color:var(--text-soft); }
+
+/* ---------- кнопки ---------- */
+.btn{ height:44px; padding:0 18px; border-radius:var(--r-btn); border:1.5px solid var(--border-strong); background:var(--panel); color:var(--text); font:600 14px Montserrat,system-ui,sans-serif; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:8px; justify-content:center; }
+.btn:hover{ background:var(--panel-soft); }
+.btn:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+.btn.primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-fg); }
+.btn.primary:hover{ background:var(--accent-strong); }
+.btn.ghost{ border-color:transparent; background:transparent; }
+.btn.sm{ height:32px; padding:0 12px; font-size:12.5px; border-radius:8px; }
+.btn.icon{ width:44px; padding:0; font-size:18px; }
+.btn:disabled{ opacity:.45; cursor:default; }
+.s1024 .btn{ height:40px; padding:0 14px; font-size:13px; }
+.s360 .btn{ height:44px; padding:0 14px; }
+
+/* ---------- бейджи, чипы ---------- */
+.badge{ display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:7px; font-size:11px; font-weight:700; white-space:nowrap; }
+.badge.new{ background:var(--accent-soft); color:var(--text); }
+.badge.diff{ background:var(--warning-soft); color:var(--warning); }
+.badge.err{ background:var(--danger-soft); color:var(--danger-on-soft); }
+.badge.exp{ background:var(--panel-soft); color:var(--text-muted); }
+.badge.ok{ background:var(--success-soft); color:var(--success); }
+.chip{ height:32px; padding:0 12px; border-radius:16px; border:1.5px solid var(--border); background:var(--panel); color:var(--text-muted); font:600 12.5px Montserrat,system-ui,sans-serif; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; }
+.chip:hover{ border-color:var(--border-strong); }
+.chip.on{ background:var(--accent); border-color:var(--accent); color:var(--accent-fg); }
+.chip .cnt{ font-weight:800; opacity:.75; }
+.chip.on .cnt{ opacity:1; }
+
+/* ---------- поля ---------- */
+.search{ position:relative; flex:1 1 220px; min-width:160px; }
+.search input{ width:100%; height:40px; padding:0 36px 0 38px; border-radius:var(--r-btn); border:1.5px solid var(--border); background:var(--input); color:var(--text); font:500 14px Montserrat,system-ui,sans-serif; }
+.search input:focus{ outline:none; border-color:var(--focus); box-shadow:0 0 0 2px var(--focus); }
+.search input::placeholder{ color:var(--text-soft); }
+.search .ico{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-soft); font-size:16px; pointer-events:none; }
+.search .kbd{ position:absolute; right:10px; top:50%; transform:translateY(-50%); font:600 10.5px Consolas,monospace; color:var(--text-soft); border:1px solid var(--border); border-radius:5px; padding:1px 5px; }
+.search .clr{ position:absolute; right:8px; top:50%; transform:translateY(-50%); border:0; background:transparent; color:var(--text-soft); font-size:16px; cursor:pointer; display:none; }
+.search.has .kbd{ display:none } .search.has .clr{ display:block }
+.seg{ display:inline-flex; padding:3px; border:1.5px solid var(--border); border-radius:10px; background:var(--panel); gap:2px; }
+.seg button{ height:30px; padding:0 12px; border:0; border-radius:7px; background:transparent; color:var(--text-muted); font:600 12.5px Montserrat,system-ui,sans-serif; cursor:pointer; white-space:nowrap; }
+.seg button.on{ background:var(--text); color:var(--panel); }
+select.sel{ height:36px; padding:0 10px; border-radius:9px; border:1.5px solid var(--border); background:var(--input); color:var(--text); font:600 12.5px Montserrat,system-ui,sans-serif; }
+
+/* ---------- скелетон ---------- */
+.sk{ background:linear-gradient(90deg,var(--skeleton) 25%,var(--skeleton-hi) 40%,var(--skeleton) 55%); background-size:400% 100%; animation:sk 1.4s infinite; border-radius:6px; height:14px; }
+@keyframes sk{ 0%{background-position:100% 0} 100%{background-position:0 0} }

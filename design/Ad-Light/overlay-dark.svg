@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1920" height="1080" viewBox="0 0 1920 1080">
+<title>Затемнение «свет погас»: окно-дырка под телефон/фонарик (dark-hole), виньетка (1920×1080)</title>
+<defs><radialGradient id="glow-phone" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFB208" stop-opacity="0.95"/><stop offset="0.45" stop-color="#FFB208" stop-opacity="0.45"/><stop offset="1" stop-color="#FFB208" stop-opacity="0"/></radialGradient><radialGradient id="glow-flash" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient><radialGradient id="hole-grad" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="black"/><stop offset="0.55" stop-color="black" stop-opacity="0.6"/><stop offset="1" stop-color="white"/></radialGradient><mask id="dark-mask"><rect width="1920" height="1080" fill="white"/><ellipse id="dark-hole" cx="960" cy="560" rx="460" ry="400" fill="url(#hole-grad)"/></mask></defs>
+<g id="dark-full"><rect x="0" y="0" width="1920" height="1080" rx="0" fill="#191919" stroke="none" opacity="0.92" mask="url(#dark-mask)"/></g><g id="vignette"><rect x="0" y="0" width="1920" height="1080" rx="0" fill="#191919" stroke="none" opacity="0.3"/></g>
+</svg>

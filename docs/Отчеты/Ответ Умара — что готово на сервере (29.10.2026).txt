@@ -1,0 +1,169 @@
+БЕКНАЗАРУ: ЧТО ГОТОВО НА СЕРВЕРЕ ПО ТЗ 29.10.2026
+Сервер app.nurcrm.kg, выкачено 29.10.2026 (две выкатки: днём и в 15:45).
+Версия сервера: GET /api/main/capabilities/ → server_version "7c9487b".
+Нумерация пунктов — как в «ТЗ Умару — что осталось сделать на сервере (29.10.2026)».
+
+Важно для всех пунктов:
+  - Шлите заголовок X-NurMarket-Client: kassa/<версия> (касса), owner/<версия> (программа владельца),
+    mobile/<версия>. По нему сервер включает новое строгое поведение (409 вместо 400 и т.п.).
+    Без заголовка запрос считается «старым», и ответы такие же, как раньше.
+  - Старые поля и коды ответов не удалялись, только добавлялись новые.
+  - Проверьте, пожалуйста, на NBS (market@nur.kg) всё, что связано с записью: возвраты, оплату долга,
+    приход. Мы со своей стороны проверили только чтение.
+
+====================================================================
+СРОЧНОЕ
+====================================================================
+
+1. Д-4 (Б-04). Возврат по строкам со скидкой на чек — ГОТОВО
+   - Сумма строки возврата учитывает долю скидки на чек. Последний возврат по чеку — ровно остаток.
+   - Сумма всех возвратов не больше оплаченного. Превышение → code "refund_exceeds_paid",
+     409 для нового клиента, 400 для старого; data: {paid, refunded, requested, refundable}.
+   - У продажи (pos/sales/, pos/sales/{id}/) новые поля refunded_total, refundable_total.
+   → Можно убрать «поправку сервера» на кассе после проверки на NBS.
+
+2. Б-13. Оплата долга вне смены и коды ошибок — ГОТОВО
+   Адреса: clients/{id}/pay-debt/, pos/sales/{id}/pay-debt/, deals/pay-any/.
+   - Деньги «вне смены» (shift:null, касса «Основная касса компании», source_kind debt_repayment):
+       * если запрос из программы владельца, мобилки или сайта (X-NurMarket-Client: owner/… , mobile/… , site/…)
+         и shift не передан;
+       * или если у владельца нет своей открытой смены.
+     ВНИМАНИЕ: программа владельца должна слать заголовок owner/<версия>, иначе при открытой смене
+     владельца деньги пойдут в его смену, как раньше. Так сделано нарочно: владелец часто сам стоит
+     за кассой, а старая касса shift не присылает.
+   - Кассир без shift — как раньше, в свою открытую смену.
+   - method и payment_method принимаются оба; разные значения → 400 "field_conflict".
+   - В ответе новые поля: method, payment_method, received_by{id,name}, received_at, shift, cashbox,
+     applied[].sale_number, applied[].sale_debt_left, replayed.
+   - Коды: no_debt, amount_exceeds_debt (data.max), amount_invalid, shift_required (только новый клиент,
+     кассир без смены), shift_closed, shift_not_found, shift_not_owned (403 для нового клиента),
+     method_not_allowed (data.allowed, только новый клиент), cashbox_not_found.
+   - pos/checkout/ с закрытой сменой → code "shift_closed"; с чужой → "shift_not_owned"
+     (403 новый клиент, 400 старый).
+   - Повтор с тем же ключом после закрытия смены → 200, replayed:true.
+
+3. 500 на pos/sales/ за последней страницей — ГОТОВО
+   - Любая страница за концом → 200 {count, next:null, previous, results:[]}.
+
+4. ordering=-updated_at на products/list/ — ГОТОВО
+   - ordering=updated_at и -updated_at работают, при равенстве вторичный ключ id.
+
+====================================================================
+ВАЖНОЕ
+====================================================================
+
+5. Б-46. ETag и 304, лента изменений — ГОТОВО
+   - ETag и 304 (без тела) при совпадении If-None-Match на:
+     main/products/changes/, main/products/catalog-version/, main/app-settings/{app}/,
+     users/company/, users/employees/, users/roles/, main/changes/.
+   - Слабые W/"…", несколько значений через запятую и * понимаются.
+   - Ответ 304 НЕ считается в лимит 429.
+   - ETag у app-settings — номер версии ("31"), как и раньше (его же можно слать в If-Match при PATCH).
+   - GET main/changes/?since=<cursor>&types=…&limit=500 → {cursor, has_more, events[]};
+     старый курсор → 410 "cursor_expired".
+
+6. mass-incoming: поле unit (Б-42) — ГОТОВО
+   - unit в строке применяется к существующему и создаваемому товару. Принимается код (kg, pcs, m, l…)
+     или название (кг, шт, упак, литр…). Неизвестная единица → ошибка строки code "unit_unknown".
+   - Ответ: items[{client_row_id, product_id, quantity, unit, purchase_price, price, price_changed}],
+     errors[{index, client_row_id, code, detail}], replayed. Старые поля остались.
+   - По умолчанию вся пачка атомарна (как раньше). Частичный успех — только с полем "partial": true в теле.
+   - markup_percent, category, supplier в строке — пока НЕ сделаны (в ТЗ «желательно»).
+
+7. Б-102. Поток событий — ГОТОВО (через WebSocket)
+   - Основной канал: wss://app.nurcrm.kg/ws/main/events/?branch=<id>&since=<event_id>
+     Авторизация как у ws/company/: первым сообщением {"token": "<access>"} (можно ?token= или Authorization).
+     Без токена за 10 с — закрытие 4401; истёк токен — закрытие 4401. Повторный {"token": …} продлевает.
+   - Сообщение: {"id","type","at","branch","ids","actor", …поля типа}; ids до 500, больше — null.
+   - Типы: price_changed, product_changed, stock_changed, settings_changed (app, keys[] — только имена ключей),
+     sale_created (sale_id, cashbox, shift), sale_changed (возврат), shift_changed (state: opened/closed/
+     cash_in/cash_out), debt_changed, client_changed, bonus_changed, staff_changed, license_changed.
+     Неизвестный тип — игнорируйте.
+   - Переподключение: since=<id последнего события> → пришлём пропущенные. Если пропущено больше 500,
+     или since старше 7 дней — придёт {"type":"resync"} (перечитать всё).
+   - Heartbeat: {"type":"ping"} каждые 20 с.
+   - Права: только своя компания; сотрудник филиала — только свой филиал; кассир не получает
+     настройки owner и license_changed, staff_changed — только про себя.
+   - GET /api/main/events/stream/ (SSE) долгого потока НЕ держит (на сервере это заняло бы все воркеры):
+     отвечает одним событием event: use_websocket, data {"url":"wss://…/ws/main/events/"}. Используйте WebSocket.
+   - Склейки событий одного товара за 1 с нет; продажа присылает один stock_changed на чек.
+   - Если поток не подключён — опрос с ETag/304 из п. 5.
+
+8. Б-01. capabilities и X-NurCRM-API — ГОТОВО
+   - GET /api/main/capabilities/ → {api:"2026-10", server_version, features[...], company_flags}.
+     В features среди прочих: price_stable, idempotency_lookup, etag_304, purchases, events_stream.
+     Новые возможности будут только добавляться в features.
+   - Заголовок X-NurCRM-API: 2026-10 во всех ответах API.
+   - GET main/idempotency/{uuid}/ для неизвестного ключа → 404 {"code":"idempotency_key_not_found","found":false}.
+
+9. Б-101. Сотрудники и роли — ГОТОВО (кроме 429)
+   - PATCH users/employees/{id}/ меняет только присланные поля; пустая строка в phone_number/track_number
+     очищает поле.
+   - can_use_pos — в users/employees/ и users/profile/; при false shifts/open/ и pos/checkout/ → 403
+     permission_denied, required "can_use_pos".
+   - Мягкое увольнение: PATCH {"is_active": false} (вход закрыт, история остаётся, fired_at ставится сам);
+     {"is_active": true} — вернуть. Список: ?is_active=all|true|false (по умолчанию только активные).
+   - Новые поля: hired_at, fired_at, birth_date, address, emergency_contact, comment (до 500),
+     language (ru|ky|en|tr|uz), default_cashbox (касса своей компании).
+   - GET users/employees/lite/ → [{id, name, role}], только активные, любому сотруднику.
+   - ?page_size= до 500 (без параметра — 100, как раньше).
+   - Лимит тарифа: новый клиент → 403 "employee_limit_reached" {limit, current}; старый — прежний 400.
+   - Ошибки: 403 permission_denied с required "can_edit_employees", 404 чужой id,
+     409 last_admin / open_shift при удалении и увольнении (для нового клиента).
+   - email уникален, phone_number 7–15 цифр (проверяется только новое значение).
+   - Событие employee_changed в main/changes/ (data.action: created/updated/dismissed/restored/deleted).
+   - НЕ сделано: 429 для частых смен прав.
+
+10. Б-96. Покупки платных функций — ГОТОВО (нужно согласовать подпись)
+   - GET /api/main/purchases/ → {purchases:[{feature, expires_at, source}], updated_at, company,
+     alg:"HS256", kid, signature}. Смотреть может любой сотрудник.
+   - POST /api/main/purchases/activate/ {key} → то же тело + activated{feature, expires_at, replayed}.
+     Ошибки: 400 key_invalid, 409 key_already_used (ключ другой компании), 429 too_many_attempts
+     (10 неверных за час), 403 — не владелец/админ.
+   - Подпись: hex HMAC-SHA256 от JSON всего тела без поля signature (ключи по алфавиту, без пробелов,
+     ensure_ascii=false).
+   - ВОПРОС К ТЕБЕ: для проверки на кассе нужен общий секрет (HMAC). Если удобнее асимметрично
+     (сервер подписывает закрытым ключом, касса проверяет открытым, например Ed25519) — скажи, сделаем;
+     поля alg и kid уже есть, формат не сломается.
+
+====================================================================
+ПОТОМ
+====================================================================
+
+13. Б-99. Бонусы — ГОТОВО (без срока бонусов)
+   - GET api/main/clients/bonus/summary/?date_from&date_to&by=branch → earned, redeemed, expired,
+     adjusted_manual, balance_total, clients_with_balance, active_clients, by_day[]; с by=branch —
+     by_branch[] и matrix[].
+     Взаиморасчёт между филиалами приблизительный: сервер не знает, из какого филиала потрачен каждый бонус,
+     поэтому списание делится пропорционально начислениям клиента по филиалам.
+   - clients/{id}/bonus/history/ и POST …/bonus/: поля branch, cashbox; фильтры date_from, date_to, reason.
+   - В строке pos/sales/: bonus_used, bonus_earned, branch_name (cashbox_name уже был).
+   - Срока бонусов (points_expire_days) НЕТ, бонусы не сгорают; expired всегда 0.00.
+
+14. Б-98. Отметки тестировщиков — ГОТОВО
+   - POST /api/main/app-tests/checks/ {version, item_id, device_id (8 символов), status ok|issue|none, comment}.
+     none снимает отметку. Ключ: (компания, version, item_id, device_id).
+   - GET /api/main/app-tests/checks/?version=1.18.8 → {item_id:{ok_count, issue_count, devices[...]}}.
+
+15. Б-97. Выгрузка справочника товаров — ГОТОВО
+   - GET /api/main/global-products/export/?since=<ISO>&page=&page_size= (до 1000, по умолчанию 500)
+     → {count, next, results:[{barcode, name, brand, category, updated_at}]}.
+
+16. Б-100. Стартовые расходы и инвесторы — ГОТОВО (без закрытых периодов)
+   - Отдельного main/expenses/ нет: расходы — это движения /api/construction/cashflows/ (type expense).
+     Признак стартового вложения — поле kind:"startup" (ставит только владелец/админ), фильтр ?kind=startup.
+     Такие суммы не входят в opex и operating_profit в analytics/pnl/.
+   - GET api/main/analytics/startup-payback/?date_from&date_to → invested, returned, remaining,
+     percent_back, avg_monthly_net, months_to_payback, forecast_date, by_month[].
+   - main/investors/ и main/investor-payouts/ (+ /<uuid>/). Начисление за месяц не больше чистой прибыли.
+     Только владелец и админ (кассир — 403).
+   - НЕ сделано: «закрытые периоды только чтение» — решим позже.
+
+17. Ф-3. category / category_title на витрине — ГОТОВО
+   - В public/companies/{slug}/showcase/ у каждой позиции всегда category и category_title
+     (нет категории → null и "").
+
+Ф-1, Ф-2, Ф-6 (сайт market.nurcrm.kg) — выложены 29.10: стрелки и колесо в ряду категорий,
+заголовок «Категория · N товаров» с «✕ Показать все», фото с alt "nurmarket-ref" на витрине не показываются.
+
+Вопросы и замечания — пиши Умару.

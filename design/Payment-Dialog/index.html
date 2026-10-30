@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Окно оплаты — редизайн (30.10.2026)</title>
+<link rel="stylesheet" href="../Large-lists/shared.css">
+<style>
+/* NurCRM Kassa — окно «Оплата покупки», редизайн 30.10.2026. Токены — shared.css (кисти кассы). */
+.frame.s800{ width:800px; height:480px; --pad:10px; --gap:8px; font-size:13px; }
+.tb kbd{ font:600 10.5px Consolas,monospace; color:#FFD27A; border:1px solid #555; border-radius:4px; padding:0 4px; }
+
+/* фон — касса под окном */
+.app{ position:absolute; inset:0; display:grid; grid-template-columns:1fr 300px; }
+.app .tiles{ padding:var(--pad); display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:8px; align-content:start; }
+.app .tile{ height:var(--card); border-radius:var(--r-card); background:var(--panel); border:1px solid var(--border); padding:8px; font-size:11px; color:var(--text-soft); }
+.app .tile b{ display:block; color:var(--accent-strong); font-size:14px; margin-top:4px; }
+.app .chk{ background:var(--panel); border-left:1px solid var(--border); padding:var(--pad); font-size:12px; color:var(--text-soft); }
+.app .chk .ln{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); color:var(--text); }
+.overlay{ position:absolute; inset:0; background:var(--overlay); }
+
+/* ---------- окно ---------- */
+.modal{ position:absolute; width:920px; max-width:calc(100% - 24px); max-height:calc(100% - 24px); display:flex; flex-direction:column; background:var(--panel); border-radius:var(--r-modal); box-shadow:var(--shadow); overflow:hidden; outline:none; }
+.s1024 .modal{ width:960px; max-height:calc(100% - 16px); }
+.s800 .modal{ width:100%; max-width:100%; height:100%; max-height:100%; border-radius:0; }
+.modal.drag{ box-shadow:0 20px 48px rgba(0,0,0,.35); cursor:grabbing; }
+
+/* шапка */
+.mh{ display:flex; align-items:center; gap:10px; height:52px; padding:0 var(--pad) 0 8px; border-bottom:1px solid var(--border); cursor:grab; user-select:none; }
+.s800 .mh{ height:44px; } .s1024 .mh{ height:48px; }
+.mh .grip{ width:20px; height:32px; display:flex; align-items:center; justify-content:center; color:var(--text-soft); font-size:16px; letter-spacing:-3px; }
+.mh h1{ margin:0; font-size:18px; font-weight:800; line-height:1.1; white-space:nowrap; }
+.s800 .mh h1{ font-size:16px }
+.mh .sub{ font-size:12.5px; color:var(--text-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mh .sp{ flex:1; min-width:0; }
+.mh .off{ display:none; align-items:center; gap:6px; height:28px; padding:0 10px; border-radius:8px; background:var(--warning-soft); color:var(--warning); font-size:12px; font-weight:700; white-space:nowrap; }
+.mh .off i{ width:8px; height:8px; border-radius:50%; background:var(--warning); }
+.frame.offline .mh .off{ display:inline-flex; }
+.mh .btn.icon{ width:36px; height:36px; border-color:var(--border); font-size:14px; cursor:pointer; }
+.s800 .mh .off{ font-size:11px; padding:0 8px; }
+
+/* тело */
+.body{ flex:1 1 auto; min-height:0; display:grid; grid-template-columns:5fr 6fr; gap:0; overflow:auto; }
+.s800 .body{ grid-template-columns:290px 1fr; }
+.col{ padding:var(--pad); display:flex; flex-direction:column; gap:var(--gap); min-width:0; overflow:auto; }
+/* сенсорные экраны: компактнее — опции в одну строку, заголовок «Итог и состав» не нужен */
+.s1024 .cap.first,.s800 .cap.first{ display:none }
+.s1024 .opts,.s800 .opts{ flex-direction:row; flex-wrap:wrap; gap:2px 14px; }
+.s1024 .opts .row,.s800 .opts .row{ min-height:30px; gap:6px; }
+.s1024 .opts .row .sp,.s800 .opts .row .sp{ display:none }
+.s1024 .opts .row kbd,.s800 .opts .row kbd{ display:none }
+.col.l{ border-right:1px solid var(--border); background:var(--window); }
+.frame[data-theme="dark"] .col.l{ background:#1E1E1E; }
+h3.cap{ margin:0; font-size:11.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-soft); display:flex; align-items:center; gap:8px; }
+h3.cap .sp{ flex:1 }
+
+/* итог */
+.total{ padding:12px 14px; border-radius:var(--r-card); background:var(--text); color:var(--panel); }
+.frame[data-theme="dark"] .total{ background:#2A2A2A; color:var(--text); }
+.total .k{ font-size:12px; font-weight:600; opacity:.75; }
+.total .v{ font-size:38px; font-weight:800; line-height:1.05; margin-top:2px; font-variant-numeric:tabular-nums; letter-spacing:-.01em; color:var(--accent); white-space:nowrap; }
+.total .v.long{ font-size:28px } .total .v.xlong{ font-size:22px }
+.s1024 .total .v{ font-size:32px } .s1024 .total .v.long{ font-size:24px } .s1024 .total .v.xlong{ font-size:20px }
+.s800 .total{ padding:8px 12px } .s800 .total .v{ font-size:28px } .s800 .total .v.long{ font-size:22px } .s800 .total .v.xlong{ font-size:18px }
+.total .v small{ font-size:.5em; font-weight:700; margin-left:4px; opacity:.9; }
+.lines{ display:flex; flex-direction:column; gap:4px; font-size:13px; }
+.s800 .lines{ font-size:12px; gap:2px; }
+.lines .ln{ display:flex; align-items:center; gap:8px; min-height:26px; }
+.lines .ln .k{ color:var(--text-muted); } .lines .ln .sp{ flex:1; border-bottom:1px dotted var(--border); height:1px; }
+.lines .ln .v{ font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.lines .ln.minus .v{ color:var(--success) }
+.lines .ln .edit{ height:24px; padding:0 8px; border-radius:6px; border:1px dashed var(--border-strong); background:transparent; color:var(--text-muted); font:600 11.5px Montserrat,system-ui,sans-serif; cursor:pointer; }
+.lines .ln .edit:hover{ border-style:solid; }
+.change{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 14px; border-radius:var(--r-card); background:var(--success-soft); color:var(--success); min-height:64px; }
+.change .k{ font-size:13px; font-weight:700; }
+.change .v{ font-size:32px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; line-height:1; }
+.change .v.long{ font-size:24px }
+.s800 .change{ min-height:52px; padding:6px 12px; } .s800 .change .v{ font-size:24px } .s800 .change .v.long{ font-size:18px }
+.change.short{ background:var(--danger-soft); color:var(--danger-on-soft); }
+.change.neutral{ background:var(--panel-soft); color:var(--text-soft); }
+.change.warn{ background:var(--warning-soft); color:var(--warning); }
+.change .f{ font-size:11.5px; font-weight:600; opacity:.85; }
+
+/* клиент */
+.client{ display:flex; align-items:center; gap:8px; min-height:48px; padding:6px 8px 6px 12px; border-radius:var(--r-card); border:1.5px solid var(--border); background:var(--panel); }
+.client.req{ border-color:var(--danger); background:var(--danger-soft); }
+.client .av{ width:32px; height:32px; border-radius:50%; background:var(--accent-soft); color:var(--text); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex:0 0 auto; }
+.client .t{ flex:1; min-width:0; } .client .t b{ display:block; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.client .t small{ display:block; font-size:11.5px; color:var(--text-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.client .t small .d{ color:var(--danger) }
+.client .pick{ flex:1; display:flex; align-items:center; justify-content:space-between; gap:8px; font-weight:700; font-size:13.5px; cursor:pointer; }
+.client .x{ width:32px; height:32px; border:0; border-radius:8px; background:transparent; color:var(--text-soft); font-size:16px; cursor:pointer; }
+.client .x:hover{ background:var(--panel-soft); }
+kbd.k{ display:inline-block; min-width:22px; height:20px; line-height:18px; padding:0 5px; border:1px solid var(--border-strong); border-bottom-width:2px; border-radius:5px; font:700 10.5px Consolas,monospace; color:var(--text-muted); text-align:center; background:var(--panel); }
+.total kbd.k,.tilebtn.on kbd.k{ color:inherit; background:transparent; border-color:currentColor; opacity:.8; }
+.bonus{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-muted); flex-wrap:wrap; }
+.bonus .btn.sm{ height:30px; }
+.bonus .btn.sm.on{ background:var(--success-soft); border-color:var(--success); color:var(--success); }
+.bonus .hint{ color:var(--text-soft); font-size:11.5px; }
+
+/* опции */
+.opts{ margin-top:auto; display:flex; flex-direction:column; gap:6px; font-size:13px; }
+.opts .row{ display:flex; align-items:center; gap:10px; min-height:36px; }
+.opts .row .sp{ flex:1 }
+.sw{ position:relative; width:40px; height:22px; border-radius:11px; background:var(--border-strong); border:0; cursor:pointer; flex:0 0 auto; padding:0; }
+.sw::after{ content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#FFF; transition:left .12s; }
+.sw.on{ background:var(--success) } .sw.on::after{ left:20px }
+.frame[data-theme="dark"] .sw.on{ background:var(--accent) }
+.link{ background:none; border:0; padding:0; color:var(--text-muted); font:600 12.5px Montserrat,system-ui,sans-serif; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.link:hover{ color:var(--text) }
+
+/* способы */
+.methods{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.s800 .methods{ gap:6px }
+.tilebtn{ position:relative; min-height:64px; padding:8px 8px 8px 10px; border-radius:var(--r-card); border:1.5px solid var(--border); background:var(--panel); color:var(--text-muted); text-align:left; cursor:pointer; display:flex; flex-direction:column; justify-content:space-between; gap:4px; font:600 12.5px/1.15 Montserrat,system-ui,sans-serif; }
+.tilebtn:hover{ border-color:var(--border-strong); background:var(--panel-soft); }
+.tilebtn:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+.tilebtn .ic{ width:22px; height:22px; } .tilebtn svg{ width:22px; height:22px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.tilebtn .lb{ display:block; padding-right:2px; }
+.tilebtn .lb span{ hyphens:auto; }
+.tilebtn kbd.k{ position:absolute; top:7px; right:7px; }
+.tilebtn.on{ background:var(--text); color:var(--panel); border-color:var(--text); }
+.tilebtn.on::after{ content:''; position:absolute; left:10px; right:10px; bottom:0; height:3px; border-radius:3px 3px 0 0; background:var(--accent); }
+.tilebtn:disabled{ opacity:.45; cursor:default; }
+.s800 .tilebtn{ min-height:56px; padding:6px 8px; font-size:12px; } .s800 .tilebtn .ic,.s800 .tilebtn svg{ width:18px; height:18px; }
+
+/* блок способа */
+.pane{ display:none; flex-direction:column; gap:var(--gap); }
+.pane.on{ display:flex }
+.amt{ position:relative; }
+.amt label{ display:block; font-size:12px; font-weight:600; color:var(--text-soft); margin-bottom:4px; }
+.amt input{ width:100%; height:56px; padding:0 64px 0 14px; border-radius:var(--r-btn); border:2px solid var(--border-strong); background:var(--input); color:var(--text); font:800 28px Montserrat,system-ui,sans-serif; font-variant-numeric:tabular-nums; text-align:right; }
+.amt input:focus{ outline:none; border-color:var(--focus); box-shadow:0 0 0 2px var(--focus); }
+.amt input.bad{ border-color:var(--danger); }
+.amt .unit{ position:absolute; right:14px; bottom:16px; font-size:14px; font-weight:700; color:var(--text-soft); pointer-events:none; }
+.amt.sm input{ height:44px; font-size:18px; padding-right:52px; } .amt.sm .unit{ bottom:12px; font-size:12px; }
+.s800 .amt input{ height:48px; font-size:22px; } .s800 .amt .unit{ bottom:13px; }
+.quick{ display:flex; gap:6px; flex-wrap:wrap; }
+.quick .btn{ flex:1 1 auto; min-width:64px; height:44px; padding:0 10px; font-size:14px; font-variant-numeric:tabular-nums; }
+.quick .btn.ex{ background:var(--accent-soft); border-color:var(--accent); }
+.s800 .quick .btn{ height:40px; font-size:13px; min-width:56px; }
+.numpad{ display:none; grid-template-columns:repeat(4,1fr); gap:6px; }
+.frame.pad .numpad{ display:grid }
+.numpad button{ height:48px; border-radius:var(--r-btn); border:1.5px solid var(--border); background:var(--panel); color:var(--text); font:700 20px Montserrat,system-ui,sans-serif; cursor:pointer; }
+.numpad button:hover{ background:var(--panel-soft) } .numpad button:active{ background:var(--panel-pressed) }
+.numpad button.fn{ background:var(--panel-soft); font-size:15px; color:var(--text-muted); }
+.s800 .numpad button{ height:42px; font-size:18px; } .s800 .numpad{ gap:5px }
+.chips{ display:flex; gap:6px; flex-wrap:wrap; }
+.chips .chip{ height:40px; border-radius:10px; font-size:13px; }
+.chips .chip.on{ background:var(--text); border-color:var(--text); color:var(--panel); }
+.qr{ display:flex; gap:12px; align-items:center; padding:10px 12px; border-radius:var(--r-card); border:1px solid var(--border); background:var(--window); }
+.frame[data-theme="dark"] .qr{ background:#1E1E1E }
+.qr .img{ width:72px; height:72px; flex:0 0 auto; border-radius:8px; background:
+  repeating-linear-gradient(90deg,var(--text) 0 6px,transparent 6px 12px), repeating-linear-gradient(0deg,var(--text) 0 6px,var(--panel) 6px 12px); background-blend-mode:difference; opacity:.85; border:4px solid var(--panel); outline:1px solid var(--border); }
+.qr .t{ flex:1; min-width:0; font-size:12.5px; color:var(--text-muted); } .qr .t b{ display:block; font-size:14px; color:var(--text); margin-bottom:2px; }
+.wait{ display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--text-muted); }
+.wait i{ width:10px; height:10px; border-radius:50%; background:var(--accent); animation:pulse 1.2s infinite; }
+.frame.offline .wait i{ background:var(--warning); animation:none; }
+@keyframes pulse{ 0%,100%{opacity:.35} 50%{opacity:1} }
+.kv{ display:grid; grid-template-columns:1fr auto; gap:4px 12px; font-size:12.5px; padding:10px 12px; border-radius:var(--r-card); background:var(--panel-soft); }
+.kv .k{ color:var(--text-muted) } .kv .v{ font-weight:700; font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; }
+.kv .v.d{ color:var(--danger-on-soft) } .kv .v.ok{ color:var(--success) }
+.bar{ grid-column:1/-1; height:6px; border-radius:3px; background:var(--border); overflow:hidden; }
+.bar i{ display:block; height:100%; background:var(--warning); }
+.bar i.over{ background:var(--danger) }
+.kv .cache{ grid-column:1/-1; font-size:11px; color:var(--text-soft); }
+.row2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.mix{ display:grid; grid-template-columns:auto 1fr; gap:8px 10px; align-items:center; font-size:13px; }
+.mix .k{ font-weight:600; color:var(--text-muted); white-space:nowrap; display:flex; align-items:center; gap:6px; }
+.mix .k svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.8; }
+.mix .amt input{ height:44px; font-size:18px; padding-right:52px; } .mix .amt .unit{ bottom:12px; font-size:12px; }
+.mix .rem{ grid-column:1/-1; display:flex; align-items:center; gap:8px; min-height:36px; padding:0 12px; border-radius:8px; font-size:13px; font-weight:700; background:var(--warning-soft); color:var(--warning); }
+.mix .rem.ok{ background:var(--success-soft); color:var(--success) } .mix .rem.over{ background:var(--danger-soft); color:var(--danger-on-soft) }
+.mix .rem .sp{ flex:1 } .mix .rem .btn.sm{ height:28px }
+.pane .hint{ font-size:12px; color:var(--text-soft); }
+
+/* футер */
+.mf{ display:flex; align-items:center; gap:10px; padding:10px var(--pad); border-top:1px solid var(--border); background:var(--panel); }
+.s800 .mf{ padding:8px var(--pad); }
+.mf .reason{ flex:1; min-width:0; font-size:12.5px; font-weight:600; color:var(--danger); overflow:hidden; text-overflow:ellipsis; }
+.mf .reason.info{ color:var(--text-soft); font-weight:500; }
+.mf .reason.warn{ color:var(--warning) }
+.mf .btn.pay{ height:52px; min-width:280px; font-size:16px; font-weight:800; gap:10px; }
+.mf .btn.pay kbd.k{ color:inherit; border-color:currentColor; background:transparent; opacity:.75; }
+.s800 .mf .btn.pay{ height:46px; min-width:220px; font-size:14px; }
+.mf .btn.pay:disabled{ opacity:1; background:var(--panel-soft); border-color:var(--panel-soft); color:var(--text-soft); cursor:not-allowed; }
+.spin{ width:18px; height:18px; border:3px solid rgba(0,0,0,.2); border-top-color:#191919; border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin{ to{ transform:rotate(360deg) } }
+.frame.busy .body{ pointer-events:none; opacity:.6; }
+.err{ display:none; align-items:center; gap:10px; margin:0 var(--pad); padding:8px 12px; border-radius:10px; background:var(--danger-soft); color:var(--danger-on-soft); font-size:13px; font-weight:600; }
+.err .sp{ flex:1 } .err .btn.sm{ height:30px; border-color:currentColor; color:inherit; background:transparent; }
+.frame.error .err{ display:flex }
+.notice{ margin:0 var(--pad); padding:6px 12px; border-radius:10px; background:var(--warning-soft); color:var(--warning); font-size:12.5px; font-weight:600; }
+
+/* успех */
+.done{ display:none; position:absolute; inset:0; background:var(--panel); align-items:center; justify-content:center; flex-direction:column; gap:10px; text-align:center; padding:24px; }
+.frame.success .done{ display:flex }
+.done .ok{ width:88px; height:88px; border-radius:50%; background:var(--success-soft); color:var(--success); display:flex; align-items:center; justify-content:center; }
+.done .ok svg{ width:48px; height:48px; stroke:currentColor; fill:none; stroke-width:3.5; stroke-linecap:round; stroke-linejoin:round; }
+.done h2{ margin:4px 0 0; font-size:22px; }
+.done .chg{ font-size:40px; font-weight:800; color:var(--success); font-variant-numeric:tabular-nums; line-height:1; }
+.s800 .done .chg{ font-size:30px } .s800 .done .ok{ width:64px; height:64px; }
+.done .sub{ font-size:13px; color:var(--text-soft); }
+.done .acts{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; justify-content:center; }
+
+/* пустой чек */
+.frame.empty .methods,.frame.empty .pane,.frame.empty .client,.frame.empty .bonus{ opacity:.45; pointer-events:none; }
+
+.toast{ position:absolute; left:50%; bottom:18px; transform:translateX(-50%) translateY(20px); opacity:0; transition:.18s; background:var(--text); color:var(--panel); padding:8px 14px; border-radius:10px; font-size:13px; font-weight:600; pointer-events:none; z-index:5; }
+.toast.show{ opacity:1; transform:translateX(-50%) }
+.sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<div class="tb">
+  <b>Окно оплаты · редизайн</b>
+  <div class="grp"><span>Тема</span><button data-set="theme" data-val="light">Светлая</button><button data-set="theme" data-val="dark">Тёмная</button></div>
+  <div class="grp"><span>Экран</span><button data-set="size" data-val="s1296">1296×879</button><button data-set="size" data-val="s1024">1024×600 сенсор</button><button data-set="size" data-val="s800">800×480</button></div>
+  <div class="grp"><span>Язык</span><button data-set="lang" data-val="ru">RU</button><button data-set="lang" data-val="ky">KY</button><button data-set="lang" data-val="en">EN</button><button data-set="lang" data-val="tr">TR</button><button data-set="lang" data-val="uz">UZ</button></div>
+  <div class="grp"><span>Состояние</span><button data-set="state" data-val="normal">Обычное</button><button data-set="state" data-val="offline">Без связи</button><button data-set="state" data-val="debtoff">В долг без связи</button><button data-set="state" data-val="busy">Проводим…</button><button data-set="state" data-val="success">Успех</button><button data-set="state" data-val="error">Ошибка</button><button data-set="state" data-val="empty">Пустой чек</button></div>
+  <div class="grp"><span>Сумма</span><button data-set="total" data-val="28">28</button><button data-set="total" data-val="149.5">149,50</button><button data-set="total" data-val="1234567.89">1 234 567,89</button></div>
+  <div class="grp"><span>Клиент</span><button data-set="client" data-val="0">Нет</button><button data-set="client" data-val="1">Асан (бонусы, долг)</button></div>
+  <div class="grp"><span>Клавиатура</span><button data-set="pad" data-val="auto">Авто</button><button data-set="pad" data-val="1">Вкл</button><button data-set="pad" data-val="0">Выкл</button></div>
+  <span class="perf">Клавиши: <kbd>F1–F4</kbd> способ · <kbd>F5</kbd> клиент · <kbd>Enter</kbd> оплатить · <kbd>Esc</kbd> отмена · шапку можно тянуть, <kbd>2×клик</kbd> — в центр</span>
+</div>
+<div class="stage">
+<div class="frame" id="frame" tabindex="0">
+  <div class="app">
+    <div class="tiles" id="bgTiles"></div>
+    <div class="chk" id="bgChk"></div>
+  </div>
+  <div class="overlay"></div>
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="ttl">
+    <div class="mh" id="mh">
+      <div class="grip" title="Перетащить окно">⋮⋮</div>
+      <h1 id="ttl"></h1>
+      <div class="sub" id="sub"></div>
+      <div class="sp"></div>
+      <span class="off"><i></i><span data-t="offline"></span></span>
+      <button class="btn icon" id="closeBtn" title="Esc">✕</button>
+    </div>
+    <div class="notice" id="notice" style="display:none"></div>
+    <div class="err" id="errBox"><span>⚠</span><span data-t="serverBusy"></span><span class="sp"></span><button class="btn sm" id="retryBtn"></button><button class="btn sm" id="queueBtn"></button></div>
+    <div class="body" id="body">
+      <div class="col l">
+        <h3 class="cap first"><span data-t="capTotal"></span></h3>
+        <div class="total"><div class="k" data-t="total"></div><div class="v" id="bigTotal"></div></div>
+        <div class="lines" id="lines"></div>
+        <div class="change" id="change"></div>
+        <h3 class="cap"><span data-t="client"></span><span class="sp"></span><kbd class="k">F5</kbd></h3>
+        <div class="client" id="client"></div>
+        <div class="bonus" id="bonus"></div>
+        <div class="opts">
+          <div class="row"><button class="sw on" id="swPrint" role="switch" aria-checked="true"></button><span data-t="print"></span><span class="sp"></span><kbd class="k">F7</kbd></div>
+          <div class="row"><button class="sw" id="swE" role="switch" aria-checked="false"></button><span data-t="ereceipt"></span><span class="sp"></span><span class="muted" id="eHint" style="font-size:11.5px"></span></div>
+          <div class="row"><button class="link" id="rentalBtn">⌂ <span data-t="rental"></span> ›</button></div>
+        </div>
+      </div>
+      <div class="col r">
+        <h3 class="cap"><span data-t="method"></span><span class="sp"></span><span class="muted" style="font-weight:600;text-transform:none;letter-spacing:0">← →</span></h3>
+        <div class="methods" id="methods"></div>
+
+        <div class="pane" data-m="cash">
+          <div class="amt"><label data-t="received"></label><input id="cashIn" inputmode="decimal" autocomplete="off" aria-describedby="chgDesc"><span class="unit" data-t="som"></span></div>
+          <div class="quick" id="quick"></div>
+          <div class="numpad" id="numpad"></div>
+        </div>
+
+        <div class="pane" data-m="card">
+          <div class="chips" id="banks"></div>
+          <div class="qr"><div class="img"></div><div class="t"><b id="qrSum"></b><span data-t="qrShown"></span></div></div>
+          <div class="wait"><i></i><span id="waitTxt"></span></div>
+          <div class="hint" data-t="cardHint"></div>
+        </div>
+
+        <div class="pane" data-m="debt">
+          <div class="kv" id="debtKv"></div>
+          <div class="row2">
+            <div class="amt sm"><label data-t="prepay"></label><input id="prepayIn" inputmode="decimal" value="0"><span class="unit" data-t="som"></span></div>
+            <div><label style="display:block;font-size:12px;font-weight:600;color:var(--text-soft);margin-bottom:4px" data-t="dueBy"></label><div class="chips" id="due"></div></div>
+          </div>
+          <div class="hint"><button class="link" id="instBtn"></button></div>
+        </div>
+
+        <div class="pane" data-m="mixed">
+          <div class="mix" id="mix"></div>
+          <div class="chips" id="banks2"></div>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn" id="cancelBtn"><span data-t="cancel"></span> <kbd class="k">Esc</kbd></button>
+      <div class="reason" id="reason" aria-live="polite"></div>
+      <button class="btn primary pay" id="payBtn"></button>
+    </div>
+    <div class="done" id="done"></div>
+  </div>
+  <div class="toast" id="toast"></div>
+</div>
+<div class="note">
+  <h2 class="sec">Что проверить в макете</h2>
+  Слева — итог, скидка/бонусы/округление и сдача крупно; справа — способ (F1–F4) и его блок. Наличные: поле «Получено» с цифровой клавиатурой на сенсоре, быстрые суммы подбираются по итогу (как <code>CheckoutViewModel.CashSuggestionsFor</code>), сдача считается на каждую клавишу, нехватка — красным и в причине у кнопки. Безнал: терминал/QR и статус ожидания, подтверждение вручную не блокируется (QR — опциональный, 2026-09-16). В долг: клиент обязателен (F5), долг/лимит/«после продажи», предоплата, срок 7/14/30/дата. Смешанная: наличные + карта (+ долг при клиенте), «осталось распределить». Футер: причина блокировки словами, «Проводим оплату…», успех со сдачей, ошибка «сервер занят» с «Повторить / В очередь». Шапку можно тянуть — положение запоминается (в кассе — <code>payment_dialog_position.json</code>). Предустановка через <code>#theme=dark&amp;size=s1024&amp;lang=ky&amp;state=offline&amp;method=debt&amp;client=1&amp;total=1234567.89</code>.
+</div>
+</div>
+<script src="../Large-lists/shared.js"></script>
+<script>
+(function(){
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const frame = $('#frame'), modal = $('#modal');
+  // ---------- 5 языков ----------
+  const T = {
+    title:['Оплата покупки','Сатып алууну төлөө','Payment','Satın alma ödemesi',"Xaridni to'lash"],
+    capTotal:['Итог и состав','Жыйынтык жана курам','Total & items','Toplam ve kalemler','Jami va tarkib'],
+    total:['Итог к оплате','Төлөнүүчү сумма','Total due','Ödenecek tutar',"To'lanadigan summa"],
+    subtotal:['Сумма позиций','Товарлардын суммасы','Items subtotal','Ürünler toplamı','Mahsulotlar summasi'],
+    discount:['Скидка на чек','Чекке арзандатуу','Receipt discount','Fiş indirimi','Chek chegirmasi'],
+    lineDisc:['Скидки по строкам','Саптар боюнча арзандатуу','Line discounts','Satır indirimleri','Qator chegirmalari'],
+    bonuses:['Бонусами','Бонус менен','Bonuses','Bonuslarla','Bonuslar bilan'],
+    rounding:['Округление','Тегеректөө','Rounding','Yuvarlama','Yaxlitlash'],
+    change:['Сдача','Кайтарым','Change','Para üstü','Qaytim'],
+    short:['Не хватает','Жетишпейт','Short by','Eksik','Yetishmaydi'],
+    received:['Получено наличными','Накталай алынды','Cash received','Alınan nakit','Naqd olindi'],
+    exact:['Ровно','Так','Exact','Tam','Aniq'],
+    method:['Способ оплаты','Төлөм ыкмасы','Payment method','Ödeme yöntemi',"To'lov usuli"],
+    cash:['Наличные','Накталай','Cash','Nakit','Naqd'],
+    card:['Безнал · QR','Накталай эмес · QR','Card · QR','Kart · QR','Karta · QR'],
+    debt:['В долг','Карызга','On credit','Veresiye','Qarzga'],
+    mixed:['Смешанная','Аралаш','Split','Karışık','Aralash'],
+    client:['Клиент','Кардар','Client','Müşteri','Mijoz'],
+    pickClient:['Выбрать клиента','Кардарды тандоо','Choose client','Müşteri seç','Mijozni tanlash'],
+    clientRequired:['Для продажи в долг выберите клиента','Карызга сатуу үчүн кардарды тандаңыз','Choose a client to sell on credit','Veresiye satış için müşteri seçin','Qarzga sotish uchun mijozni tanlang'],
+    bonusWord:['бонусы','бонустар','bonuses','bonus','bonuslar'],
+    debtWord:['долг','карыз','debt','borç','qarz'],
+    redeem:['Списать','Чыгаруу','Redeem','Kullan','Yechish'],
+    redeemed:['Списано','Чыгарылды','Redeemed','Kullanıldı','Yechildi'],
+    willEarn:['начислим','кошулат','will earn','kazanılacak',"qo'shiladi"],
+    noBonusOffline:['Бонусы без связи не списываются','Байланышсыз бонус чыгарылбайт','Bonuses cannot be redeemed offline','Bağlantı yokken bonus kullanılamaz',"Aloqasiz bonus yechilmaydi"],
+    print:['Напечатать чек','Чекти басып чыгаруу','Print receipt','Fiş yazdır','Chekni chop etish'],
+    ereceipt:['Электронный чек','Электрондук чек','E-receipt','E-fiş','Elektron chek'],
+    eHint:['QR на экране покупателя','QR кардардын экранында','QR on customer display','QR müşteri ekranında','QR xaridor ekranida'],
+    rental:['Оформить как прокат','Прокат катары тариздөө','Set up as rental','Kiralama olarak düzenle','Ijara sifatida rasmiylashtirish'],
+    cancel:['Отмена','Жокко чыгаруу','Cancel','İptal','Bekor qilish'],
+    pay:['Оплатить','Төлөө','Pay','Öde',"To'lash"],
+    processing:['Проводим оплату…','Төлөм жүрүп жатат…','Processing payment…','Ödeme işleniyor…',"To'lov o'tkazilmoqda…"],
+    paid:['Оплачено','Төлөндү','Paid','Ödendi',"To'landi"],
+    queued:['Чек поставлен в очередь','Чек кезекке коюлду','Receipt queued','Fiş kuyruğa alındı','Chek navbatga qo‘yildi'],
+    newSale:['Новая продажа','Жаңы сатуу','New sale','Yeni satış','Yangi savdo'],
+    printAgain:['Напечатать ещё','Дагы басып чыгаруу','Print again','Tekrar yazdır','Yana chop etish'],
+    offline:['Без связи — чек уйдёт в очередь','Байланыш жок — чек кезекке кетет','Offline — receipt will be queued','Bağlantı yok — fiş kuyruğa alınacak',"Aloqa yo'q — chek navbatga qo'yiladi"],
+    cached:['данные клиента от','кардар маалыматы','client data as of','müşteri verileri',"mijoz ma'lumotlari"],
+    qrShown:['QR с суммой показан на экране покупателя','Сумма менен QR кардардын экранында','QR with the amount is on the customer display','Tutarlı QR müşteri ekranında','Summali QR xaridor ekranida'],
+    waiting:['Ожидаем подтверждение оплаты…','Төлөмдүн ырасталышын күтөбүз…','Waiting for payment confirmation…','Ödeme onayı bekleniyor…','To‘lov tasdig‘i kutilmoqda…'],
+    waitingOff:['Без связи подтверждение не придёт — подтвердите вручную','Байланышсыз ырастоо келбейт — кол менен ырастаңыз','Offline: no auto-confirmation — confirm manually','Bağlantı yok: otomatik onay gelmez — elle onaylayın',"Aloqasiz tasdiq kelmaydi — qo'lda tasdiqlang"],
+    cardHint:['Enter подтверждает оплату вручную — QR не обязателен','Enter төлөмдү кол менен ырастайт — QR милдеттүү эмес','Enter confirms the payment manually — QR is optional','Enter ödemeyi elle onaylar — QR zorunlu değil',"Enter to'lovni qo'lda tasdiqlaydi — QR shart emas"],
+    curDebt:['Текущий долг','Учурдагы карыз','Current debt','Mevcut borç','Joriy qarz'],
+    limit:['Лимит','Лимит','Limit','Limit','Limit'],
+    after:['После продажи','Сатуудан кийин','After this sale','Satış sonrası','Savdodan keyin'],
+    overLimit:['выше лимита','лимиттен ашык','over the limit','limitin üstünde','limitdan yuqori'],
+    prepay:['Предоплата сейчас','Азыр алдын ала төлөм','Paid now','Şimdi ödenen','Hozir to‘lanadi'],
+    dueBy:['Вернёт до','Кайтарат','Due by','Son ödeme','Qaytaradi'],
+    days:['дней','күн','days','gün','kun'],
+    date:['Дата','Дата','Date','Tarih','Sana'],
+    installment:['Рассрочка по графику ›','График боюнча бөлүп төлөө ›','Installment schedule ›','Taksit planı ›',"Bo'lib to'lash jadvali ›"],
+    toDebt:['В долг уйдёт','Карызга калат','Goes on credit','Veresiye kalan','Qarzga qoladi'],
+    distribute:['Осталось распределить','Бөлүштүрүү калды','Left to allocate','Dağıtılacak','Taqsimlash qoldi'],
+    distributed:['Распределено полностью','Толук бөлүштүрүлдү','Fully allocated','Tamamı dağıtıldı',"To'liq taqsimlandi"],
+    over:['Больше итога на','Жыйынтыктан ашык','Over total by','Toplamdan fazla','Jamidan ortiq'],
+    restTo:['Остаток →','Калдык →','Rest →','Kalan →','Qoldiq →'],
+    serverBusy:['Сервер занят — чек не проведён. Деньги не списаны.','Сервер бош эмес — чек өткөн жок. Акча алынган жок.','Server busy — the receipt was not posted. Nothing charged.','Sunucu meşgul — fiş işlenmedi. Para alınmadı.',"Server band — chek o'tkazilmadi. Pul yechilmadi."],
+    retry:['Повторить','Кайталоо','Retry','Tekrar dene','Qayta urinish'],
+    queue:['В очередь','Кезекке','Queue it','Kuyruğa al','Navbatga'],
+    empty:['Чек пуст — добавьте товар','Чек бош — товар кошуңуз','Receipt is empty — add an item','Fiş boş — ürün ekleyin',"Chek bo'sh — mahsulot qo'shing"],
+    enterAmount:['Введите сумму, полученную наличными','Накталай алынган сумманы киргизиңиз','Enter the amount received in cash','Nakit alınan tutarı girin','Naqd olingan summani kiriting'],
+    badAmount:['Сумма введена неверно (пример: 150,50)','Сумма туура эмес (мисалы: 150,50)','Invalid amount (e.g. 150,50)','Tutar hatalı (örn. 150,50)',"Summa noto'g'ri (masalan: 150,50)"],
+    chooseBank:['Выберите терминал или банк','Терминалды же банкты тандаңыз','Choose a terminal or bank','Terminal veya banka seçin','Terminal yoki bankni tanlang'],
+    setDue:['Укажите срок возврата: 7, 14, 30 дней или дату','Кайтаруу мөөнөтүн көрсөтүңүз: 7, 14, 30 күн же дата','Set the due date: 7, 14, 30 days or a date','Vade belirtin: 7, 14, 30 gün veya tarih',"Muddatni ko'rsating: 7, 14, 30 kun yoki sana"],
+    prepayOver:['Предоплата больше суммы чека','Алдын ала төлөм чектен көп','Prepayment exceeds the total','Ön ödeme toplamdan fazla','Oldindan to‘lov chekdan ko‘p'],
+    mixedZero:['В смешанной оплате каждая часть больше нуля','Аралаш төлөмдө ар бир бөлүк нөлдөн чоң','Each split part must be above zero','Her parça sıfırdan büyük olmalı','Har bir qism noldan katta'],
+    som:['сом','сом','som','som',"so'm"],
+    changeDesc:['Сдача считается на каждую клавишу','Кайтарым ар бир баскычта эсептелет','Change recalculates on every key','Para üstü her tuşta hesaplanır','Qaytim har tugmada hisoblanadi'],
+    items:['позиций','позиция','items','kalem','ta mahsulot'],
+    receiptNo:['Чек №','Чек №','Receipt #','Fiş №','Chek №'],
+    priceChanged:['Цена изменилась: «Макароны Макфа» 205 → 195. Чек обновлён.','Баа өзгөрдү: «Макфа» 205 → 195. Чек жаңыланды.','Price changed: “Makfa pasta” 205 → 195. Receipt updated.','Fiyat değişti: «Makfa» 205 → 195. Fiş güncellendi.',"Narx o'zgardi: «Makfa» 205 → 195. Chek yangilandi."],
+    noChange:['Без сдачи','Кайтарымсыз','No change','Para üstü yok','Qaytimsiz'],
+    closeIn:['Окно закроется через','Терезе жабылат','Closes in','Pencere kapanacak','Oyna yopiladi'],
+    sec:['с','с','s','sn','s']
+  };
+  const LANGS = ['ru','ky','en','tr','uz'];
+  const t = k => (T[k] || [k])[LANGS.indexOf(S.lang)] || T[k][0];
+  const ruItems = n => { const a = n % 10, b = n % 100; return (b >= 11 && b <= 14) ? 'позиций' : a === 1 ? 'позиция' : (a >= 2 && a <= 4) ? 'позиции' : 'позиций'; };
+
+  // ---------- состояние ----------
+  const S = { theme:'light', size:'s1296', lang:'ru', state:'normal', total:28, client:0, pad:'auto',
+    method:'cash', cash:'', prepay:'0', due:'7', bank:'', bonusOn:false, print:true, e:false, mixCash:'', mixCard:'', mixDebt:'', notice:false };
+  const CLIENT = { name:'Асанов Асан', phone:'+996 555 12-34-56', bonus:20, debt:1250, limit:5000, since:'14:32' };
+  const BANKS = ['Терминал Optima', 'QR MBank', 'QR Элкарт', 'Перевод'];
+  const BILLS = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+  const lines = () => { const n = S.state === 'empty' ? 0 : (S.total < 100 ? 1 : S.total < 1000 ? 3 : 48); return n; };
+  const isOffline = () => S.state === 'offline' || S.state === 'debtoff';
+  const hasClient = () => !!S.client && S.state !== 'empty';
+  const num = s => { const v = String(s || '').trim().replace(/\s/g,'').replace(',', '.'); if (v === '') return null; if (!/^\d+(\.\d{0,2})?$/.test(v)) return NaN; return parseFloat(v); };
+  const money = n => LL.money(n);
+  const r2 = n => Math.round(n * 100) / 100;
+
+  // итог: скидка на чек 0, бонусы — если списаны
+  const calc = () => {
+    const sub = S.state === 'empty' ? 0 : S.total;
+    const lineDisc = sub >= 1000 ? r2(sub * 0.02) : 0;        // пример: 2 % по строкам на больших чеках
+    const bonus = (S.bonusOn && hasClient() && !isOffline()) ? Math.min(CLIENT.bonus, r2(sub - lineDisc)) : 0;
+    const raw = r2(sub - lineDisc - bonus);
+    const due = Math.round(raw);                                // округление до сома — правило кассы, показываем строкой
+    return { sub, lineDisc, bonus, round: r2(due - raw), due };
+  };
+  function suggestions(total){                                 // = CheckoutViewModel.CashSuggestionsFor
+    if (!(total > 0)) return [];
+    let v = BILLS.filter(s => s >= total).slice(0, 3);
+    if (total > BILLS[BILLS.length-1]) { [1000,5000,10000,50000,100000].forEach(u => { const up = Math.ceil(total/u)*u; if (up >= total && !v.includes(up)) v.push(up); }); v = v.sort((a,b)=>a-b).slice(0,3); }
+    return v;
+  }
+
+  // ---------- причина блокировки (= PayBlockedHint) ----------
+  function blocked(c){
+    if (S.state === 'empty') return t('empty');
+    if (S.method === 'cash') { const v = num(S.cash); if (v === null) return t('enterAmount'); if (isNaN(v)) return t('badAmount'); if (v + 1e-9 < c.due) return t('short') + ' ' + money(c.due - v) + ' ' + t('som'); return ''; }
+    if (S.method === 'card') return S.bank ? '' : t('chooseBank');
+    if (S.method === 'debt') { if (!hasClient()) return t('clientRequired'); if (!S.due) return t('setDue'); const p = num(S.prepay); if (isNaN(p)) return t('badAmount'); if ((p||0) > c.due + 1e-9) return t('prepayOver'); return ''; }
+    if (S.method === 'mixed') { const a = num(S.mixCash)||0, b = num(S.mixCard)||0, d = hasClient() ? (num(S.mixDebt)||0) : 0; const sum = r2(a+b+d); if (isNaN(a+b+d)) return t('badAmount'); if (sum + 1e-9 < c.due) return t('distribute') + ' ' + money(c.due - sum) + ' ' + t('som'); if (sum > c.due + 1e-9) return t('over') + ' ' + money(sum - c.due) + ' ' + t('som'); if (!(a > 0.004) && !(b > 0.004) && !(d > 0.004)) return t('mixedZero'); if ((a>0.004?1:0)+(b>0.004?1:0)+(d>0.004?1:0) < 2) return t('mixedZero'); if (b > 0.004 && !S.bank) return t('chooseBank'); return ''; }
+    return '';
+  }
+
+  // ---------- отрисовка ----------
+  const ICO = {
+    cash:'<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/></svg>',
+    card:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="8" height="8" rx="1"/><rect x="13" y="4" width="8" height="8" rx="1"/><rect x="3" y="14" width="8" height="8" rx="1"/><path d="M14 14h3v3M21 14v3M14 21h7M18 18v3"/></svg>',
+    debt:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    mixed:'<svg viewBox="0 0 24 24"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg>'
+  };
+  function renderAll(){
+    const c = calc();
+    frame.dataset.theme = S.theme; frame.className = 'frame ' + S.size + (isOffline()?' offline':'') + (S.state==='busy'?' busy':'') + (S.state==='success'?' success':'') + (S.state==='error'?' error':'') + (S.state==='empty'?' empty':'');
+    const padOn = S.pad === '1' || (S.pad === 'auto' && S.size !== 's1296'); frame.classList.toggle('pad', padOn);
+    document.querySelectorAll('[data-t]').forEach(el => el.textContent = t(el.dataset.t));
+    $('#ttl').textContent = t('title');
+    const n = lines(); $('#sub').textContent = '· ' + n + ' ' + (S.lang==='ru' ? ruItems(n) : t('items')) + ' · ' + t('receiptNo') + ' 1042';
+    $('#notice').style.display = S.notice ? '' : 'none'; $('#notice').textContent = t('priceChanged');
+    $('#retryBtn').textContent = t('retry'); $('#queueBtn').textContent = t('queue');
+    // итог
+    const bt = $('#bigTotal'); const txt = money(c.due); bt.innerHTML = txt + '<small>' + t('som') + '</small>'; bt.className = 'v' + (txt.length > 12 ? ' xlong' : txt.length > 8 ? ' long' : '');
+    let L = `<div class="ln"><span class="k">${t('subtotal')}</span><span class="sp"></span><span class="v">${money(c.sub)}</span></div>`;
+    if (c.lineDisc) L += `<div class="ln minus"><span class="k">${t('lineDisc')}</span><span class="sp"></span><span class="v">− ${money(c.lineDisc)}</span></div>`;
+    L += `<div class="ln"><span class="k">${t('discount')}</span><button class="edit" id="discBtn">0 % ✎</button><span class="sp"></span><span class="v muted">0,00</span></div>`;
+    if (c.bonus) L += `<div class="ln minus"><span class="k">${t('bonuses')}</span><span class="sp"></span><span class="v">− ${money(c.bonus)}</span></div>`;
+    if (c.round) L += `<div class="ln"><span class="k">${t('rounding')}</span><span class="sp"></span><span class="v">${c.round>0?'+':'−'} ${money(Math.abs(c.round))}</span></div>`;
+    $('#lines').innerHTML = L;
+    // сдача
+    const ch = $('#change');
+    if (S.method === 'cash' && S.state !== 'empty') { const v = num(S.cash); if (v === null || isNaN(v)) { ch.className = 'change neutral'; ch.innerHTML = `<span class="k">${t('change')}</span><span class="v">—</span>`; }
+      else if (v + 1e-9 < c.due) { ch.className = 'change short'; ch.innerHTML = `<span class="k">${t('short')}</span><span class="v${money(c.due-v).length>9?' long':''}">${money(c.due - v)}</span>`; }
+      else { const d = r2(v - c.due); ch.className = 'change'; ch.innerHTML = `<div><div class="k">${t('change')}</div><div class="f">${money(v)} − ${money(c.due)}</div></div><span class="v${money(d).length>9?' long':''}">${d ? money(d) : t('noChange')}</span>`; } }
+    else if (S.method === 'debt' && S.state !== 'empty') { const p = num(S.prepay)||0; const d = Math.max(0, r2(c.due - p)); ch.className = 'change warn'; ch.innerHTML = `<span class="k">${t('toDebt')}</span><span class="v${money(d).length>9?' long':''}">${money(d)}</span>`; }
+    else if (S.method === 'mixed' && S.state !== 'empty') { const a=num(S.mixCash)||0,b=num(S.mixCard)||0,d=hasClient()?(num(S.mixDebt)||0):0, rest = r2(c.due-a-b-d); ch.className = 'change' + (rest > 0.004 ? ' short' : rest < -0.004 ? ' short' : ''); ch.innerHTML = `<span class="k">${rest>0.004?t('distribute'):rest<-0.004?t('over'):t('distributed')}</span><span class="v${money(Math.abs(rest)).length>9?' long':''}">${Math.abs(rest)>0.004?money(Math.abs(rest)):'✓'}</span>`; }
+    else { ch.className = 'change neutral'; ch.innerHTML = `<span class="k">${t('change')}</span><span class="v">0,00</span>`; }
+    // клиент
+    const cl = $('#client');
+    if (hasClient()) { cl.className = 'client'; cl.innerHTML = `<div class="av">АА</div><div class="t"><b>${CLIENT.name}</b><small>${t('bonusWord')} <b style="display:inline;color:var(--success)">${CLIENT.bonus}</b> · ${t('debtWord')} <span class="d">${money(CLIENT.debt)}</span>${isOffline()?` · <span class="muted">${t('cached')} ${CLIENT.since}</span>`:''}</small></div><button class="x" id="clX" title="✕">✕</button>`; }
+    else { cl.className = 'client' + (S.method === 'debt' && S.state !== 'empty' ? ' req' : ''); cl.innerHTML = `<div class="pick" id="clPick"><span>+ ${t('pickClient')}</span><kbd class="k">F5</kbd></div>`; }
+    const b = $('#bonus');
+    if (hasClient() && CLIENT.bonus > 0) { b.style.display = ''; const can = Math.min(CLIENT.bonus, c.sub - c.lineDisc);
+      b.innerHTML = isOffline() ? `<span class="hint">⚠ ${t('noBonusOffline')}</span>` : `<button class="btn sm${S.bonusOn?' on':''}" id="bonusBtn">${S.bonusOn?'✓ '+t('redeemed'):t('redeem')} ${LL.int(can)} <kbd class="k">F6</kbd></button><span class="hint">+${LL.int(Math.round(c.due*0.01))} ${t('willEarn')}</span>`; }
+    else b.style.display = 'none';
+    $('#swPrint').classList.toggle('on', S.print); $('#swPrint').setAttribute('aria-checked', S.print);
+    $('#swE').classList.toggle('on', S.e); $('#swE').setAttribute('aria-checked', S.e); $('#eHint').textContent = S.e ? t('eHint') : '';
+    // способы
+    $('#methods').innerHTML = ['cash','card','debt','mixed'].map((m,i) => `<button class="tilebtn${S.method===m?' on':''}" data-m="${m}" role="radio" aria-checked="${S.method===m}" ${S.state==='empty'?'disabled':''}><span class="ic">${ICO[m]}</span><span class="lb"><span>${t(m)}</span><kbd class="k">F${i+1}</kbd></span></button>`).join('');
+    document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.dataset.m === S.method));
+    // наличные
+    const ci = $('#cashIn'); if (ci.value !== S.cash) ci.value = S.cash; ci.classList.toggle('bad', isNaN(num(S.cash)));
+    const sg = suggestions(c.due); $('#quick').innerHTML = `<button class="btn ex" data-v="${c.due}">${t('exact')} ${money(c.due)}</button>` + sg.map(v => `<button class="btn" data-v="${v}">${LL.int(v)}</button>`).join('');
+    $('#numpad').innerHTML = [['7','8','9','⌫'],['4','5','6','C'],['1','2','3','00'],['0',',','',''] ].flat().map(k => k===''?'<span></span>':`<button data-k="${k}" class="${/[⌫C]/.test(k)?'fn':''}">${k}</button>`).join('');
+    // безнал
+    const bankHtml = BANKS.map(bk => `<button class="chip${S.bank===bk?' on':''}" data-b="${bk}">${bk}</button>`).join('');
+    $('#banks').innerHTML = bankHtml; $('#banks2').innerHTML = bankHtml;
+    $('#qrSum').textContent = money(c.due) + ' ' + t('som') + (S.bank ? ' · ' + S.bank : '');
+    $('#waitTxt').textContent = isOffline() ? t('waitingOff') : (S.bank ? t('waiting') : t('chooseBank'));
+    // долг
+    const p = num(S.prepay)||0, after = r2(CLIENT.debt + Math.max(0, c.due - p)), overL = after > CLIENT.limit;
+    $('#debtKv').innerHTML = hasClient() ? `<span class="k">${t('curDebt')}</span><span class="v d">${money(CLIENT.debt)}</span><span class="k">${t('limit')}</span><span class="v">${money(CLIENT.limit)}</span><span class="k">${t('after')}</span><span class="v${overL?' d':''}">${money(after)}${overL?' · '+t('overLimit'):''}</span><div class="bar"><i class="${overL?'over':''}" style="width:${Math.min(100, after/CLIENT.limit*100)}%"></i></div>${isOffline()?`<span class="cache">⚠ ${t('cached')} ${CLIENT.since}</span>`:''}` : `<span class="k" style="grid-column:1/-1;color:var(--danger)">${t('clientRequired')} — <kbd class="k">F5</kbd></span>`;
+    $('#due').innerHTML = ['7','14','30'].map(d => `<button class="chip${S.due===d?' on':''}" data-d="${d}">${d} ${t('days')}</button>`).join('') + `<button class="chip${S.due==='date'?' on':''}" data-d="date">📅 ${S.due==='date'?'15.11.2026':t('date')}</button>`;
+    $('#instBtn').textContent = t('installment');
+    const pi = $('#prepayIn'); if (pi.value !== S.prepay) pi.value = S.prepay;
+    // смешанная
+    const rest = r2(c.due - (num(S.mixCash)||0) - (num(S.mixCard)||0) - (hasClient()?(num(S.mixDebt)||0):0));
+    $('#mix').innerHTML = `<span class="k">${ICO.cash} ${t('cash')}</span><div class="amt"><input data-f="mixCash" inputmode="decimal" value="${S.mixCash}"><span class="unit">${t('som')}</span></div>
+      <span class="k">${ICO.card} ${t('card')}</span><div class="amt"><input data-f="mixCard" inputmode="decimal" value="${S.mixCard}"><span class="unit">${t('som')}</span></div>
+      ${hasClient()?`<span class="k">${ICO.debt} ${t('debt')}</span><div class="amt"><input data-f="mixDebt" inputmode="decimal" value="${S.mixDebt}"><span class="unit">${t('som')}</span></div>`:''}
+      <div class="rem ${Math.abs(rest)<=0.004?'ok':rest<0?'over':''}"><span>${rest>0.004?t('distribute')+' '+money(rest):rest<-0.004?t('over')+' '+money(-rest):'✓ '+t('distributed')}</span><span class="sp"></span>${rest>0.004?`<button class="btn sm" data-rest="mixCard">${t('restTo')} ${t('card')}</button>`:''}</div>`;
+    // футер
+    const why = blocked(c), pay = $('#payBtn'), rs = $('#reason');
+    pay.disabled = !!why || S.state === 'busy';
+    if (S.state === 'busy') { pay.innerHTML = `<span class="spin"></span>${t('processing')}`; pay.disabled = true; rs.className = 'reason info'; rs.textContent = ''; }
+    else { pay.innerHTML = `${t('pay')} ${money(c.due)} ${t('som')} <kbd class="k">Enter</kbd>`; rs.className = 'reason' + (why ? '' : ' info'); rs.textContent = why || (isOffline() ? t('offline') : (S.method==='cash' ? t('changeDesc') : '')); if (!why && isOffline()) rs.className = 'reason warn'; }
+    // успех
+    const v = num(S.cash)||c.due, chg = S.method==='cash' ? r2(Math.max(0, v - c.due)) : 0;
+    $('#done').innerHTML = `<div class="ok"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div><h2>${isOffline()?t('queued'):t('paid')} · ${money(c.due)} ${t('som')}</h2>${S.method==='cash'?`<div class="sub">${t('change')}</div><div class="chg">${money(chg)} ${t('som')}</div>`:''}<div class="sub">${t('receiptNo')} 1042 · ${t(S.method)}${hasClient()?' · '+CLIENT.name:''}</div><div class="acts"><button class="btn primary" id="newSale">${t('newSale')} <kbd class="k">Enter</kbd></button><button class="btn" id="printAgain">${t('printAgain')}</button></div><div class="sub">${t('closeIn')} 3 ${t('sec')}</div>`;
+    // фон
+    $('#bgTiles').innerHTML = Array.from({length: 24}, (_,i) => `<div class="tile">${['Макароны Макфа','Coca-Cola 1 л','Lays 150 г','Молоко Riha'][i%4]}<b>${[68,78,120,92][i%4]},00</b></div>`).join('');
+    $('#bgChk').innerHTML = `<div class="ln"><span>Макароны Макфа 400 г</span><b>28,00</b></div><div class="ln"><span>Итого</span><b>${money(c.due)}</b></div>`;
+    syncTb(); placeModal();
+  }
+  function syncTb(){ document.querySelectorAll('.tb [data-set]').forEach(b => b.classList.toggle('on', String(S[b.dataset.set])===b.dataset.val)); }
+
+  // ---------- положение окна (перетаскивание за шапку, память) ----------
+  let pos = null; try { pos = JSON.parse(localStorage.getItem('nurcrm-pay-pos-' + S.size) || 'null'); } catch(e){}
+  function placeModal(){
+    if (S.size === 's800') { modal.style.left = '0'; modal.style.top = '0'; return; }
+    const fw = frame.clientWidth, fh = frame.clientHeight, mw = modal.offsetWidth, mh = modal.offsetHeight;
+    let x = pos ? pos.x : Math.round((fw - mw) / 2), y = pos ? pos.y : Math.round((fh - mh) / 2);
+    x = Math.max(8, Math.min(x, fw - mw - 8)); y = Math.max(8, Math.min(y, fh - mh - 8));
+    modal.style.left = x + 'px'; modal.style.top = y + 'px';
+  }
+  (function(){ const mh = $('#mh'); let drag = null;
+    mh.addEventListener('pointerdown', e => { if (e.target.closest('button') || S.size === 's800') return; drag = { dx: e.clientX - modal.offsetLeft, dy: e.clientY - modal.offsetTop }; mh.setPointerCapture(e.pointerId); modal.classList.add('drag'); });
+    mh.addEventListener('pointermove', e => { if (!drag) return; pos = { x: e.clientX - drag.dx, y: e.clientY - drag.dy }; placeModal(); });
+    const end = () => { if (!drag) return; drag = null; modal.classList.remove('drag'); pos = { x: modal.offsetLeft, y: modal.offsetTop }; try { localStorage.setItem('nurcrm-pay-pos-' + S.size, JSON.stringify(pos)); } catch(e){} toast('Положение окна запомнено'); };
+    mh.addEventListener('pointerup', end); mh.addEventListener('pointercancel', end);
+    mh.addEventListener('dblclick', () => { pos = null; try { localStorage.removeItem('nurcrm-pay-pos-' + S.size); } catch(e){} placeModal(); toast('Окно по центру'); });
+  })();
+
+  // ---------- события ----------
+  document.querySelectorAll('.tb [data-set]').forEach(b => b.onclick = () => { const k = b.dataset.set, v = b.dataset.val; S[k] = k==='total' ? +v : k==='client' ? +v : v;
+    if (k === 'state') { if (v === 'debtoff') { S.method = 'debt'; S.client = 1; } if (v === 'success' && S.method==='cash' && num(S.cash)===null) S.cash = String(Math.ceil(calc().due/50)*50 || 50).replace('.',','); }
+    if (k === 'size') { try { pos = JSON.parse(localStorage.getItem('nurcrm-pay-pos-' + S.size) || 'null'); } catch(e){ pos = null; } }
+    if (k === 'total' || k === 'client') { S.cash = ''; S.bonusOn = false; S.mixCash = S.mixCard = S.mixDebt = ''; }
+    renderAll(); });
+  modal.addEventListener('click', e => {
+    const m = e.target.closest('.tilebtn'); if (m) { setMethod(m.dataset.m); return; }
+    const q = e.target.closest('#quick [data-v]'); if (q) { S.cash = money(+q.dataset.v).replace(/\s/g,''); renderAll(); focusCash(); return; }
+    const k = e.target.closest('#numpad [data-k]'); if (k) { padKey(k.dataset.k); return; }
+    const bk = e.target.closest('[data-b]'); if (bk) { S.bank = S.bank === bk.dataset.b ? '' : bk.dataset.b; renderAll(); return; }
+    const d = e.target.closest('[data-d]'); if (d) { S.due = d.dataset.d; renderAll(); return; }
+    const r = e.target.closest('[data-rest]'); if (r) { const c = calc(); const rest = r2(c.due - (num(S.mixCash)||0) - (hasClient()?(num(S.mixDebt)||0):0)); S.mixCard = money(Math.max(0,rest)).replace(/\s/g,''); renderAll(); return; }
+    if (e.target.closest('#clPick')) { S.client = 1; toast('Окно выбора клиента (поиск по имени / телефону)'); renderAll(); return; }
+    if (e.target.closest('#clX')) { S.client = 0; S.bonusOn = false; renderAll(); return; }
+    if (e.target.closest('#bonusBtn')) { S.bonusOn = !S.bonusOn; renderAll(); return; }
+    if (e.target.closest('#swPrint')) { S.print = !S.print; renderAll(); return; }
+    if (e.target.closest('#swE')) { S.e = !S.e; renderAll(); toast(S.e ? 'QR электронного чека покажем на экране покупателя после оплаты' : ''); return; }
+    if (e.target.closest('#rentalBtn')) { toast('Открывается «Новый прокат» с вещами из чека, потом снова оплата (RentalRequested)'); return; }
+    if (e.target.closest('#discBtn')) { toast('Скидка на чек: % или сом, права кассира (ValidateDiscount)'); return; }
+    if (e.target.closest('#payBtn')) { pay(); return; }
+    if (e.target.closest('#cancelBtn') || e.target.closest('#closeBtn')) { toast('Esc / Отмена — окно закрывается, чек остаётся'); return; }
+    if (e.target.closest('#retryBtn')) { S.state = 'busy'; renderAll(); setTimeout(() => { S.state = 'success'; renderAll(); }, 900); return; }
+    if (e.target.closest('#queueBtn')) { S.state = 'offline'; renderAll(); setTimeout(() => { S.state = 'success'; renderAll(); }, 300); return; }
+    if (e.target.closest('#newSale')) { S.state = 'normal'; S.cash = ''; renderAll(); return; }
+    if (e.target.closest('#printAgain')) { toast('Печать копии чека'); return; }
+    if (e.target.closest('#instBtn')) { toast('Рассрочка: график по дням / месяцам (CheckoutViewModel.DebtDue)'); return; }
+  });
+  function setMethod(m){ if (S.state === 'empty') return; S.method = m; renderAll(); if (m === 'cash') focusCash(); else { const b = document.querySelector('.tilebtn.on'); b && b.focus(); } }
+  function focusCash(){ const i = $('#cashIn'); i.focus(); i.select(); }
+  function padKey(k){ let v = S.cash; if (k === '⌫') v = v.slice(0,-1); else if (k === 'C') v = ''; else if (k === ',') { if (!v.includes(',')) v = (v || '0') + ','; } else { if (v.includes(',') && v.split(',')[1].length >= 2) return; v += k; } S.cash = v; renderAll(); }
+  $('#cashIn').addEventListener('input', e => { S.cash = e.target.value; renderAll(); });
+  $('#prepayIn').addEventListener('input', e => { S.prepay = e.target.value; renderAll(); });
+  $('#mix').addEventListener('input', e => { const f = e.target.dataset.f; if (!f) return; S[f] = e.target.value; const el = e.target, pos0 = el.selectionStart; renderAll(); const n = document.querySelector(`#mix [data-f="${f}"]`); n.focus(); try { n.setSelectionRange(pos0, pos0); } catch(_){} });
+  function pay(){ if ($('#payBtn').disabled) { toast($('#reason').textContent); return; } S.state = 'busy'; renderAll(); setTimeout(() => { S.state = 'success'; renderAll(); }, 900); }
+  frame.addEventListener('keydown', e => {
+    const tag = document.activeElement.tagName, inInput = tag === 'INPUT';
+    if (/^F[1-4]$/.test(e.key)) { e.preventDefault(); setMethod(['cash','card','debt','mixed'][+e.key[1]-1]); return; }
+    if (e.key === 'F5') { e.preventDefault(); S.client = S.client ? 0 : 1; renderAll(); return; }
+    if (e.key === 'F6') { e.preventDefault(); if (hasClient() && !isOffline()) { S.bonusOn = !S.bonusOn; renderAll(); } return; }
+    if (e.key === 'F7') { e.preventDefault(); S.print = !S.print; renderAll(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); if (S.state === 'success') { S.state = 'normal'; renderAll(); } else toast('Esc — окно закрывается, чек остаётся'); return; }
+    if (e.key === 'Enter') { e.preventDefault(); if (S.state === 'success') { S.state = 'normal'; S.cash = ''; renderAll(); } else if (S.state !== 'busy') pay(); return; }
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !inInput) { const ms = ['cash','card','debt','mixed'], i = ms.indexOf(S.method) + (e.key === 'ArrowRight' ? 1 : -1); if (i >= 0 && i < 4) { e.preventDefault(); setMethod(ms[i]); } return; }
+    if (S.method === 'cash' && !inInput && /^[0-9,.]$/.test(e.key)) { e.preventDefault(); padKey(e.key === '.' ? ',' : e.key); focusCash(); return; }
+  });
+  let tt; window.toast = m => { if (!m) return; const el = $('#toast'); el.textContent = m; el.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => el.classList.remove('show'), 1800); };
+  // предустановка через #theme=dark&size=s1024&lang=ky&state=offline&method=debt&client=1&total=1234567.89&cash=50&bank=1&notice=1
+  new URLSearchParams(location.hash.slice(1)).forEach((v,k) => { if (k === 'total') S.total = +v; else if (k === 'client') S.client = +v; else if (k === 'bank') S.bank = BANKS[0]; else if (k === 'notice') S.notice = v === '1'; else if (k === 'bonus') S.bonusOn = v === '1'; else if (k in S) S[k] = v; });
+  if (S.state === 'debtoff') { S.method = 'debt'; S.client = 1; }
+  try { pos = JSON.parse(localStorage.getItem('nurcrm-pay-pos-' + S.size) || 'null'); } catch(e){}
+  renderAll(); if (S.method === 'cash' && S.state === 'normal') focusCash();
+  window.addEventListener('resize', placeModal);
+})();
+</script>
+</body>
+</html>

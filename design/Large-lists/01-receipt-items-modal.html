@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Большие объёмы — модалка «Позиции прихода» (500 строк)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+/* фон — окно «Закупки» под модалкой */
+.app{ position:absolute; inset:0; display:flex; flex-direction:column; }
+.app .bar{ height:48px; display:flex; align-items:center; gap:8px; padding:0 var(--pad); background:var(--panel); border-bottom:1px solid var(--border); }
+.app .bar .pill{ height:32px; padding:0 12px; border-radius:16px; display:flex; align-items:center; font-weight:600; font-size:12.5px; color:var(--text-muted); border:1.5px solid var(--border); }
+.app .bar .pill.on{ background:var(--text); color:var(--panel); border-color:var(--text); }
+.app .hdr{ height:36px; display:grid; grid-template-columns:1fr 100px 140px 100px; align-items:center; padding:0 var(--pad); background:var(--panel-soft); font-size:12px; font-weight:600; color:var(--text-muted); }
+.app .li{ height:56px; display:grid; grid-template-columns:1fr 100px 140px 100px; align-items:center; padding:0 var(--pad); border-bottom:1px solid var(--border); background:var(--panel); font-size:13px; }
+.app .li b{ display:block; font-size:13.5px; } .app .li small{ color:var(--text-soft); }
+.overlay{ position:absolute; inset:0; background:var(--overlay); display:flex; align-items:center; justify-content:center; }
+
+/* ---------- модалка ---------- */
+.modal{ width:1040px; max-height:88%; display:flex; flex-direction:column; background:var(--panel); border-radius:var(--r-modal); box-shadow:var(--shadow); overflow:hidden; outline:none; }
+.modal > *{ flex:0 0 auto; }            /* всё фиксировано, растёт только .body */
+.s1024 .modal{ width:940px; }
+.s360 .modal, .modal.full{ width:100%; height:100%; max-height:100%; border-radius:0; }
+.mh{ display:flex; align-items:flex-start; gap:12px; padding:var(--pad) var(--pad) 8px; }
+.mh h1{ margin:0; font-size:22px; font-weight:800; line-height:1.15; }
+.mh .sub{ margin-top:3px; font-size:13px; color:var(--text-soft); }
+.mh .sp{ flex:1 }
+.mh .btn.icon{ width:40px; height:40px; border-color:var(--border); font-size:16px; }
+.s1024 .mh h1{ font-size:19px } .s360 .mh h1{ font-size:18px } .s360 .mh{ padding-bottom:6px }
+
+/* реквизиты — сворачиваемый блок */
+.req{ margin:0 var(--pad); border:1px solid var(--border); border-radius:var(--r-card); overflow:hidden; }
+.req .head{ display:flex; align-items:center; gap:10px; height:40px; padding:0 12px; cursor:pointer; font-size:13px; user-select:none; }
+.req .head b{ font-weight:700; }
+.req .head .line{ flex:1; color:var(--text-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.req .head .chev{ color:var(--text-soft); transition:transform .15s; }
+.req.open .head .chev{ transform:rotate(180deg) }
+.req .grid{ display:none; grid-template-columns:150px 1fr 150px 1fr; gap:6px 12px; padding:4px 12px 12px; font-size:13.5px; border-top:1px solid var(--border); }
+.req.open .grid{ display:grid } .req.open .head .line{ visibility:hidden }
+.req .grid .k{ color:var(--text-soft) } .req .grid .v{ color:var(--text) }
+.s360 .req .grid{ grid-template-columns:110px 1fr }
+
+/* сводка */
+.stats{ display:flex; gap:8px; padding:10px var(--pad) 0; overflow-x:auto; scrollbar-width:none; }
+.stats::-webkit-scrollbar{ display:none }
+.tile{ flex:1 0 auto; min-width:110px; padding:8px 12px; border-radius:var(--r-card); background:var(--panel-soft); border:1px solid transparent; }
+.tile .k{ font-size:11.5px; font-weight:600; color:var(--text-soft); white-space:nowrap; }
+.tile .v{ font-size:18px; font-weight:800; margin-top:1px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.tile.warn{ background:var(--warning-soft); cursor:pointer; } .tile.warn .v{ color:var(--warning) } .tile.warn .k{ color:var(--warning) }
+.tile.warn.on{ border-color:var(--warning); box-shadow:0 0 0 1px var(--warning) inset; }
+.tile.warn:hover{ filter:brightness(.97) }
+.s1024 .tile .v{ font-size:16px } .s1024 .tile{ padding:6px 10px; min-width:96px }
+
+/* инструменты */
+.tools{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px var(--pad) 8px; }
+.tools .chips{ display:flex; gap:6px; flex-wrap:wrap; }
+.tools .right{ margin-left:auto; display:flex; align-items:center; gap:8px; }
+.tools .cnt{ font-size:12.5px; color:var(--text-soft); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.tools .cnt b{ color:var(--text); }
+.s360 .tools{ padding-top:6px } .s360 .tools .chips{ flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; width:100%; }
+.s360 .tools .right{ margin-left:0; width:100%; justify-content:space-between; }
+
+/* тело: шапка колонок + вьюпорт */
+.body{ position:relative; flex:1 1 auto; min-height:120px; display:flex; flex-direction:column; margin:0 var(--pad); border:1px solid var(--border); border-radius:var(--r-card); overflow:hidden; background:var(--panel); }
+.body{ flex:1 1 auto !important; --cols:36px 46px minmax(140px,1fr) 118px 104px 96px 92px 92px 104px 130px; }
+.s1024 .body{ --cols:36px 46px minmax(160px,1fr) 96px 96px 110px 130px; }
+/* 2026-10-30: на 1024×600 модалка сразу на весь экран — иначе списку остаётся ~180 px */
+.s1024 .modal{ width:100%; height:100%; max-height:100%; border-radius:0; }
+.s1024 .tools{ padding-top:6px; padding-bottom:6px } .s1024 .stats{ padding-top:6px }
+.s360 .tools .right{ flex-wrap:wrap }
+.s360 .body{ --cols:1fr; }
+.thead,.row{ display:grid; grid-template-columns:var(--cols); align-items:center; }
+.thead{ height:40px; flex:0 0 auto; background:var(--panel-soft); border-bottom:1px solid var(--border); font-size:12px; font-weight:700; color:var(--text-muted); }
+.thead .c{ padding:0 10px; cursor:pointer; user-select:none; white-space:nowrap; display:flex; align-items:center; gap:4px; height:100%; }
+.thead .c.num{ justify-content:flex-end }
+.thead .c:hover{ color:var(--text) } .thead .c .arr{ font-size:10px; color:var(--accent-strong); }
+.viewport{ position:relative; flex:1 1 auto; overflow:auto; outline:none; overscroll-behavior:contain; }
+.viewport:focus-visible{ box-shadow:inset 0 0 0 2px var(--focus); }
+.vspacer{ width:1px; pointer-events:none; }
+.vwin{ position:absolute; left:0; right:0; top:0; will-change:transform; }
+.row{ border-bottom:1px solid var(--border); height:var(--row); font-size:13.5px; }
+.row:hover{ background:var(--panel-soft) }
+.row.sel{ background:var(--accent-soft) }
+.row.err{ box-shadow:inset 3px 0 0 var(--danger) } .row.diff{ box-shadow:inset 3px 0 0 var(--warning) }
+.row .c{ padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.row .c.name{ display:flex; align-items:center; gap:8px; min-width:0; }
+.row .c.name .t{ overflow:hidden; text-overflow:ellipsis; font-weight:600; }
+.row .c.idx{ color:var(--text-soft); font-size:12px; }
+.row .c.mono{ font-family:Consolas,"Roboto Mono",monospace; font-size:12.5px; color:var(--text-muted); }
+.row .c.edit{ cursor:text; position:relative; }
+.row .c.edit:hover::after{ content:''; position:absolute; inset:6px 4px; border:1px dashed var(--border-strong); border-radius:6px; pointer-events:none; }
+.row .c.edit small{ color:var(--warning); font-weight:700; margin-left:4px; font-size:11px; }
+.row .c.sum{ font-weight:700 }
+.row input.inl{ width:100%; height:32px; border-radius:7px; border:2px solid var(--focus); background:var(--input); color:var(--text); font:600 13.5px Montserrat,system-ui,sans-serif; text-align:right; padding:0 8px; outline:none; }
+.row input[type=checkbox], .thead input[type=checkbox]{ width:18px; height:18px; accent-color:var(--accent); margin:0; cursor:pointer; }
+.row .c.ck,.thead .c.ck{ display:flex; justify-content:center; padding:0; }
+.s1024 .p3,.s1024 .p4{ display:none !important }
+
+/* заголовок группы */
+.grow{ height:36px; display:flex; align-items:center; gap:10px; padding:0 12px; background:var(--panel-soft); border-bottom:1px solid var(--border); font-size:12.5px; font-weight:700; cursor:pointer; user-select:none; }
+.grow .chev{ color:var(--text-soft); font-size:11px; width:12px; } .grow.col .chev{ transform:rotate(-90deg) }
+.grow .m{ margin-left:auto; color:var(--text-soft); font-weight:600; font-variant-numeric:tabular-nums; }
+
+/* карточки */
+.card{ height:var(--card); display:grid; grid-template-columns:28px minmax(0,1fr) auto; gap:0 10px; align-items:center; padding:0 12px 0 8px; border-bottom:1px solid var(--border); font-size:13.5px; }
+.card:hover{ background:var(--panel-soft) } .card.sel{ background:var(--accent-soft) }
+.card.err{ box-shadow:inset 3px 0 0 var(--danger) } .card.diff{ box-shadow:inset 3px 0 0 var(--warning) }
+.card .l1{ display:flex; align-items:center; gap:6px; min-width:0; } .card .l1 .t{ font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.card .l2{ font-size:12px; color:var(--text-soft); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.card .r{ text-align:right; } .card .r .s{ font-weight:800; font-size:15px; font-variant-numeric:tabular-nums; } .card .r .q{ font-size:12px; color:var(--text-soft); margin-top:3px; font-variant-numeric:tabular-nums; }
+.card .r .q small{ color:var(--warning); font-weight:700; }
+.card input[type=checkbox]{ width:18px; height:18px; accent-color:var(--accent); margin:0; }
+
+/* обзор */
+.ov{ flex:1; overflow:auto; padding:14px; display:grid; grid-template-columns:1.2fr 1fr; gap:14px; align-content:start; }
+.s360 .ov{ grid-template-columns:1fr }
+.ov .box{ border:1px solid var(--border); border-radius:var(--r-card); padding:12px 14px; }
+.ov h3{ margin:0 0 10px; font-size:13px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em; }
+.bars .b{ display:grid; grid-template-columns:minmax(0,1fr) 120px; gap:8px; align-items:center; margin-bottom:8px; font-size:13px; }
+.bars .b .n{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+.bars .b .tr{ height:10px; border-radius:5px; background:var(--panel-soft); overflow:hidden; } .bars .b .tr i{ display:block; height:100%; background:var(--accent); border-radius:5px; }
+.bars .b .v{ font-variant-numeric:tabular-nums; font-size:12.5px; text-align:right; color:var(--text-muted); }
+.probs .p{ display:flex; align-items:center; gap:10px; height:44px; border-bottom:1px solid var(--border); cursor:pointer; font-size:13.5px; }
+.probs .p:last-child{ border-bottom:0 } .probs .p:hover{ background:var(--panel-soft) }
+.probs .p .n{ margin-left:auto; font-weight:800; font-variant-numeric:tabular-nums; } .probs .p .go{ color:var(--text-soft) }
+.cats .c{ display:grid; grid-template-columns:1fr 60px 110px; gap:8px; font-size:13px; height:30px; align-items:center; border-bottom:1px solid var(--border); }
+.cats .c:last-child{ border-bottom:0 } .cats .c span:not(:first-child){ text-align:right; font-variant-numeric:tabular-nums; }
+
+/* состояния */
+.state{ position:absolute; inset:40px 0 0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; text-align:center; padding:24px; background:var(--panel); }
+.state .ico{ width:64px; height:64px; border-radius:20px; background:var(--panel-soft); display:flex; align-items:center; justify-content:center; font-size:28px; margin-bottom:6px; }
+.state h4{ margin:0; font-size:17px; font-weight:800; } .state p{ margin:0; color:var(--text-soft); font-size:13px; max-width:420px; line-height:1.45; }
+.state .acts{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; justify-content:center; }
+.state.err .ico{ background:var(--danger-soft); color:var(--danger-on-soft); }
+.skrow{ height:var(--row); display:grid; grid-template-columns:var(--cols); align-items:center; border-bottom:1px solid var(--border); }
+.skrow .sk{ margin:0 10px; }
+.prog{ position:absolute; left:0; right:0; top:40px; z-index:3; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; font-size:13px; box-shadow:0 6px 16px rgba(0,0,0,.08); }
+.prog .tr{ flex:1; height:8px; border-radius:4px; background:var(--panel-soft); overflow:hidden; } .prog .tr i{ display:block; height:100%; width:47%; background:var(--accent); border-radius:4px; transition:width .3s; }
+.prog b{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+.dim{ opacity:.45; pointer-events:none; }
+
+/* «К началу», групповые действия, футер */
+.totop{ position:absolute; right:14px; bottom:14px; z-index:4; height:36px; padding:0 14px; border-radius:18px; border:0; background:var(--text); color:var(--panel); font:700 12.5px Montserrat,system-ui,sans-serif; cursor:pointer; box-shadow:var(--shadow); display:none; align-items:center; gap:6px; }
+.totop.show{ display:inline-flex }
+.bulk{ display:none; align-items:center; gap:8px; margin:8px var(--pad) 0; padding:8px 12px; border-radius:var(--r-card); background:var(--text); color:var(--panel); font-size:13px; }
+.bulk.show{ display:flex } .bulk b{ font-weight:800 } .bulk .sp{ flex:1 }
+.bulk .btn{ height:32px; padding:0 12px; font-size:12.5px; border-radius:8px; background:transparent; color:var(--panel); border-color:var(--border-strong); }
+.bulk .btn.primary{ background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+.mf{ display:flex; align-items:center; gap:8px; padding:12px var(--pad) var(--pad); border-top:1px solid var(--border); margin-top:12px; }
+.mf .tot{ font-size:13px; color:var(--text-soft); font-variant-numeric:tabular-nums; } .mf .tot b{ color:var(--text); font-size:15px; }
+.mf .sp{ flex:1 }
+.s360 .mf{ flex-wrap:wrap; gap:8px; } .s360 .mf .tot{ width:100% } .s360 .mf .btn{ flex:1 } .s360 .mf .btn.hide360{ display:none }
+.more{ position:relative; display:none } .s360 .more{ display:block } .more .menu{ display:none; position:absolute; right:0; bottom:48px; min-width:200px; background:var(--panel); border:1px solid var(--border); border-radius:var(--r-card); box-shadow:var(--shadow); padding:6px; z-index:9; }
+.more.open .menu{ display:block } .more .menu button{ display:block; width:100%; text-align:left; height:40px; padding:0 12px; border:0; border-radius:8px; background:transparent; color:var(--text); font:600 13.5px Montserrat,system-ui,sans-serif; cursor:pointer; }
+.more .menu button:hover{ background:var(--panel-soft) }
+.toast{ position:absolute; left:50%; bottom:20px; transform:translateX(-50%); background:var(--text); color:var(--panel); padding:10px 16px; border-radius:10px; font-size:13px; font-weight:600; opacity:0; transition:opacity .2s; pointer-events:none; z-index:20; }
+.toast.show{ opacity:1 }
+</style>
+</head>
+<body>
+<div class="tb">
+  <b>Большие объёмы · «Позиции прихода»</b>
+  <div class="grp"><span>Тема</span><button data-set="theme" data-val="light" class="on">Светлая</button><button data-set="theme" data-val="dark">Тёмная</button></div>
+  <div class="grp"><span>Экран</span><button data-set="size" data-val="" class="on">1296×879</button><button data-set="size" data-val="s1024">1024×600</button><button data-set="size" data-val="s360">360×800</button></div>
+  <div class="grp"><span>Строк</span><button data-set="rows" data-val="1">1</button><button data-set="rows" data-val="50">50</button><button data-set="rows" data-val="500" class="on">500</button><button data-set="rows" data-val="5000">5 000</button></div>
+  <div class="grp"><span>Режим</span><button data-set="mode" data-val="table" class="on">Таблица</button><button data-set="mode" data-val="cards">Карточки</button><button data-set="mode" data-val="overview">Обзор</button></div>
+  <div class="grp"><span>Группы</span><button data-set="group" data-val="" class="on">Нет</button><button data-set="group" data-val="cat">Категория</button><button data-set="group" data-val="sup">Поставщик</button></div>
+  <div class="grp"><span>Состояние</span><button data-set="state" data-val="" class="on">Обычно</button><button data-set="state" data-val="loading">Загрузка</button><button data-set="state" data-val="empty">Пусто</button><button data-set="state" data-val="nomatch">Нет совпадений</button><button data-set="state" data-val="error">Ошибка</button><button data-set="state" data-val="progress">Долгая операция</button></div>
+  <div class="perf">открытие <b id="pOpen">—</b> мс · отрисовка <b id="pDraw">—</b> мс · строк в DOM <b id="pDom">—</b> из <b id="pAll">—</b></div>
+</div>
+
+<div class="stage">
+<div class="frame" id="frame" data-theme="light" tabindex="-1">
+  <div class="app">
+    <div class="bar"><span class="pill">Неделя</span><span class="pill on">Месяц</span><span class="pill">3 месяца</span><span class="pill">Всё</span><span class="pill">Даты…</span><span class="muted" style="font-size:12.5px">01.10–30.10</span><span style="flex:1"></span><span class="pill" style="width:260px;justify-content:flex-start;color:var(--text-soft);font-weight:500">Поиск: поставщик или товар</span></div>
+    <div class="hdr"><span>Поставщик</span><span class="num">Позиций</span><span class="num">Сумма</span><span>Оплата</span></div>
+    <div class="li"><span><b>ООО Нур-Опт</b><small>Принял: Nur · 22.10.2026 06:35</small></span><span class="num">500</span><span class="num">1 284 350,00</span><span>Наличные</span></div>
+    <div class="li"><span><b>Coca-Cola Бишкек</b><small>Принял: Айжан · 21.10.2026 18:02</small></span><span class="num">64</span><span class="num">48 120,00</span><span>Перевод</span></div>
+    <div class="li"><span><b>Шоро</b><small>Принял: Nur · 21.10.2026 09:40</small></span><span class="num">12</span><span class="num">9 300,00</span><span>В долг</span></div>
+    <div class="li"><span><b>Куликовский</b><small>Принял: Nur · 20.10.2026 08:15</small></span><span class="num">8</span><span class="num">6 240,00</span><span>Наличные</span></div>
+  </div>
+
+  <div class="overlay">
+  <div class="modal" id="modal" tabindex="-1" role="dialog" aria-label="Позиции прихода">
+    <div class="mh">
+      <div><h1>Позиции прихода</h1><div class="sub" id="sub">ООО Нур-Опт · 500 позиций · 1 284 350,00 сом</div></div>
+      <div class="sp"></div>
+      <button class="btn icon" id="fsBtn" title="На весь экран (F11)">⤢</button>
+      <button class="btn icon" title="Закрыть (Esc)" onclick="toast('Закрыть окно')">✕</button>
+    </div>
+
+    <div class="req" id="req">
+      <div class="head" onclick="document.getElementById('req').classList.toggle('open')"><b>Реквизиты</b><span class="line">ООО Нур-Опт · принял Nur · 22.10.2026 06:35 · оплата: наличные · накладная № 1842</span><span class="chev">▾</span></div>
+      <div class="grid">
+        <span class="k">Поставщик</span><span class="v">ООО Нур-Опт</span><span class="k">Принял</span><span class="v">Nur</span>
+        <span class="k">Дата</span><span class="v">22.10.2026 06:35</span><span class="k">Оплата</span><span class="v">Наличные · 1 284 350,00 сом</span>
+        <span class="k">Накладная</span><span class="v">№ 1842 от 21.10.2026</span><span class="k">Склад</span><span class="v">Основной</span>
+      </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="tools">
+      <div class="search" id="sbox"><span class="ico">⌕</span><input id="q" placeholder="Название, штрихкод, категория…" autocomplete="off"><span class="kbd">Ctrl+F</span><button class="clr" id="clr" title="Очистить">✕</button></div>
+      <div class="chips" id="chips"></div>
+      <div class="right">
+        <select class="sel" id="grpSel" title="Группировка"><option value="">Без групп</option><option value="cat">По категориям</option><option value="sup">По поставщикам</option></select>
+        <div class="seg" id="modeSeg"><button data-m="table">Таблица</button><button data-m="cards">Карточки</button><button data-m="overview">Обзор</button></div>
+        <span class="cnt" id="cnt"></span>
+      </div>
+    </div>
+
+    <div class="body" id="body">
+      <div class="thead" id="thead"></div>
+      <div class="viewport" id="vp" tabindex="0"></div>
+      <button class="totop" id="totop">↑ К началу</button>
+    </div>
+
+    <div class="bulk" id="bulk"><b id="bulkN"></b><span id="bulkS"></span><span class="sp"></span><button class="btn primary" onclick="toast('Возврат поставщику выбранных')">Вернуть поставщику</button><button class="btn" onclick="toast('Печать ценников выбранных')">Печать ценников</button><button class="btn" id="bulkOff">Снять выделение</button></div>
+
+    <div class="mf">
+      <span class="tot" id="ftot"></span><span class="sp"></span>
+      <button class="btn hide360" onclick="toast('Закрыть окно')">Закрыть</button>
+      <button class="btn hide360" onclick="toast('Вернуть поставщику')">Вернуть</button>
+      <button class="btn hide360" onclick="toast('Повторить закупку')">Повторить</button>
+      <button class="btn hide360" onclick="toast('Печать: 500 строк, 14 стр. — см. 02-print-pdf.html')">Печать</button>
+      <div class="more" id="more"><button class="btn" onclick="document.getElementById('more').classList.toggle('open')">Ещё ⋯</button>
+        <div class="menu"><button onclick="toast('Вернуть поставщику')">Вернуть поставщику</button><button onclick="toast('Повторить закупку')">Повторить закупку</button><button onclick="toast('Печать')">Печать</button><button onclick="toast('Excel')">Скачать Excel</button><button onclick="toast('Закрыть')">Закрыть</button></div></div>
+      <button class="btn primary" onclick="toast('PDF: 14 страниц, шапка повторяется, итог на последней')">Скачать PDF</button>
+    </div>
+    <div class="toast" id="toast"></div>
+  </div>
+  </div>
+</div>
+
+<div class="note">
+<h2 class="sec">Что здесь показано</h2>
+Модалка не выше 88 % экрана; растёт только таблица (вертикальная прокрутка), шапка колонок, сводка и кнопки закреплены. Строки рисуются только видимые (виртуализация): переключите «Строк: 5 000» — в DOM по-прежнему ~25 строк.
+Поиск: <code>Ctrl+F</code>; понимает ё=е, не ту раскладку (<code>cjrf</code> → «сока» → Coca), транслит (<code>moloko</code>), слова в любом порядке. Чипы — фильтры с количеством; «Требуют внимания» в сводке — тот же фильтр.
+Клик по заголовку — сортировка; клик по «Кол-во» или «Закупка» в строке — правка на месте (<kbd>Enter</kbd> сохранить, <kbd>Esc</kbd> отмена). Галочки — выделение, появляется панель групповых действий.
+Клавиши во вьюпорте: <kbd>Home</kbd>/<kbd>End</kbd>, <kbd>PgUp</kbd>/<kbd>PgDn</kbd>; после двух экранов — «К началу». Кнопка ⤢ — на всё окно. На 1024×600 скрыты «Штрихкод», «Категория», «Цена продажи»; на 360 — только карточки или обзор, кнопки сворачиваются в «Ещё».
+</div>
+</div>
+
+<script src="shared.js"></script>
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const S = { theme:'light', size:'', rows:500, mode:'table', group:'', state:'', q:'', chips:new Set(), att:false, sort:{key:'',dir:1}, sel:new Set(), col:new Set(), full:false };
+  let ALL = [], FILT = [], FLAT = [], vlist = null, progTimer = 0;
+  const frame = $('#frame'), modal = $('#modal'), vp = $('#vp'), thead = $('#thead'), bodyEl = $('#body');
+  const COLS = [
+    { k:'ck', t:'', cls:'ck' }, { k:'idx', t:'№', cls:'num' }, { k:'name', t:'Наименование', cls:'name' }, { k:'barcode', t:'Штрихкод', cls:'p3' },
+    { k:'cat', t:'Категория', cls:'p4' }, { k:'qty', t:'Кол-во', cls:'num' }, { k:'price', t:'Закупка', cls:'num p2' }, { k:'sell', t:'Продажа', cls:'num p3' },
+    { k:'sum', t:'Сумма', cls:'num' }, { k:'st', t:'Статус', cls:'p2' } ];
+  const CHIPS = [ ['diff','Только расхождения', i=>i.diff], ['new','Новые', i=>i.isNew], ['err','С ошибкой', i=>!!i.err], ['exp','Дорогие ≥ 1 000', i=>i.exp] ];
+  const attention = i => i.diff || i.err;
+
+  function load(){ const t0 = performance.now(); ALL = LL.makeItems(S.rows); S.sel.clear(); S.col.clear(); apply(); $('#pOpen').textContent = (performance.now()-t0).toFixed(0); }
+
+  function apply(){
+    const m = LL.makeMatcher(S.q);
+    // «Требуют внимания» — ИЛИ (расхождение или ошибка); чипы — И между собой
+    FILT = ALL.filter(i => m(i) && (!S.att || attention(i)) && [...S.chips].every(c => CHIPS.find(x=>x[0]===c)[2](i)));
+    if (S.sort.key){ const k = S.sort.key, d = S.sort.dir; FILT.sort((a,b)=> (typeof a[k]==='number' ? a[k]-b[k] : String(a[k]).localeCompare(String(b[k]),'ru')) * d); }
+    FLAT = [];
+    if (S.group && S.mode!=='overview'){
+      const g = new Map(); FILT.forEach(i => { const key = i[S.group]; if(!g.has(key)) g.set(key,{g:true,key,n:0,sum:0,items:[]}); const o=g.get(key); o.n++; o.sum+=i.sum; o.items.push(i); });
+      [...g.values()].sort((a,b)=>b.sum-a.sum).forEach(o => { FLAT.push(o); if(!S.col.has(o.key)) FLAT.push(...o.items); });
+    } else FLAT = FILT.slice();
+    renderAll();
+  }
+
+  function renderAll(){
+    frame.dataset.theme = S.theme; frame.className = 'frame ' + S.size; modal.classList.toggle('full', S.full);
+    $('#fsBtn').textContent = S.full ? '⤡' : '⤢';
+    const is360 = S.size==='s360'; let mode = S.mode; if (is360 && mode==='table') mode='cards';
+    $('#modeSeg').querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.m===mode); b.disabled = is360 && b.dataset.m==='table'; b.style.display = (is360 && b.dataset.m==='table') ? 'none' : ''; });
+    $('#grpSel').value = S.group;
+    $('#sbox').classList.toggle('has', !!S.q); $('#q').value = S.q;
+    // чипы
+    $('#chips').innerHTML = CHIPS.map(c => { const n = ALL.filter(c[2]).length; return `<button class="chip ${S.chips.has(c[0])?'on':''}" data-c="${c[0]}">${c[1]} <span class="cnt">${n}</span></button>`; }).join('');
+    // сводка
+    const att = ALL.filter(attention).length, pcs = ALL.reduce((s,i)=>s+i.qty,0), sum = ALL.reduce((s,i)=>s+i.sum,0), mk = ALL.length? ALL.reduce((s,i)=>s+i.markup,0)/ALL.length : 0;
+    $('#stats').innerHTML = `<div class="tile"><div class="k">Позиций</div><div class="v">${LL.int(ALL.length)}</div></div><div class="tile"><div class="k">Штук</div><div class="v">${LL.int(pcs)}</div></div><div class="tile"><div class="k">Сумма закупки</div><div class="v">${LL.money(sum)}</div></div><div class="tile"><div class="k">Средняя наценка</div><div class="v">${mk.toFixed(0)} %</div></div><div class="tile warn ${S.att?'on':''}" id="attTile" title="Показать только расхождения и ошибки"><div class="k">Требуют внимания</div><div class="v">${att} ${S.att?'✕':'›'}</div></div>`;
+    $('#sub').textContent = `ООО Нур-Опт · ${LL.int(ALL.length)} ${plural(ALL.length)} · ${LL.money(sum)} сом`;
+    $('#attTile').onclick = () => { S.att = !S.att; apply(); };
+    // счётчик, футер
+    const fs = FILT.reduce((s,i)=>s+i.sum,0), fp = FILT.reduce((s,i)=>s+i.qty,0);
+    $('#cnt').innerHTML = (FILT.length===ALL.length ? `Показано <b>${LL.int(ALL.length)}</b>` : `Показано <b>${LL.int(FILT.length)}</b> из ${LL.int(ALL.length)}`);
+    $('#ftot').innerHTML = (FILT.length===ALL.length ? 'Итого: ' : 'По фильтру: ') + `${LL.int(FILT.length)} поз. · ${LL.int(fp)} шт · <b>${LL.money(fs)} сом</b>`;
+    // выделение
+    $('#bulk').classList.toggle('show', S.sel.size>0);
+    if (S.sel.size){ const ss = ALL.filter(i=>S.sel.has(i.id)); $('#bulkN').textContent = `Выбрано ${S.sel.size}`; $('#bulkS').textContent = ` · ${LL.int(ss.reduce((s,i)=>s+i.qty,0))} шт · ${LL.money(ss.reduce((s,i)=>s+i.sum,0))} сом`; }
+    // тело
+    bodyEl.querySelectorAll('.state,.prog,.ov,.skel').forEach(e=>e.remove()); vp.classList.remove('dim'); clearInterval(progTimer);
+    thead.style.display = (mode==='table' && S.state!=='empty' && S.state!=='error') ? '' : 'none'; vp.style.display = mode==='overview' ? 'none' : '';
+    thead.innerHTML = COLS.map(c => c.k==='ck' ? `<label class="c ck"><input type="checkbox" id="ckAll" ${FILT.length && FILT.every(i=>S.sel.has(i.id))?'checked':''}></label>` : `<div class="c ${c.cls}" data-k="${c.k}">${c.t}${S.sort.key===c.k?`<span class="arr">${S.sort.dir>0?'▲':'▼'}</span>`:''}</div>`).join('');
+    const ckAll = $('#ckAll'); if (ckAll) ckAll.onchange = e => { FILT.forEach(i => e.target.checked ? S.sel.add(i.id) : S.sel.delete(i.id)); renderAll(); };
+    $('#pAll').textContent = LL.int(FLAT.filter(i=>!i.g).length);
+
+    if (S.state==='loading'){ thead.style.display = mode==='table'?'':'none'; vp.innerHTML = `<div class="skel">${Array.from({length:14},(_,i)=>`<div class="skrow"><span></span><span class="sk" style="width:20px"></span><span class="sk" style="width:${45+((i*37)%40)}%"></span><span class="sk p3"></span><span class="sk p4" style="width:70%"></span><span class="sk" style="width:50%"></span><span class="sk p2"></span><span class="sk p3"></span><span class="sk"></span><span class="sk p2" style="width:60%"></span></div>`).join('')}</div>`; $('#cnt').innerHTML='Загрузка…'; modal.querySelectorAll('.mf .btn:not(.primary)').forEach(b=>b.disabled=true); $('#pDom').textContent='14'; return; }
+    modal.querySelectorAll('.mf .btn').forEach(b=>b.disabled=false);
+    if (S.state==='empty'){ vp.innerHTML=''; bodyEl.insertAdjacentHTML('beforeend', `<div class="state" style="top:0"><div class="ico">▭</div><h4>В этом приходе нет позиций</h4><p>Приход создан, но товары ещё не добавлены. Откройте приёмку на кассе или на сайте NurCRM.</p><div class="acts"><button class="btn" onclick="toast('Открыть приёмку')">Открыть приёмку</button></div></div>`); $('#pDom').textContent='0'; return; }
+    if (S.state==='error'){ vp.innerHTML=''; bodyEl.insertAdjacentHTML('beforeend', `<div class="state err" style="top:0"><div class="ico">!</div><h4>Не удалось загрузить позиции</h4><p>Сервер не ответил за 15 с. Данные не потеряны — повторите попытку или откройте приход на сайте.</p><div class="acts"><button class="btn primary" onclick="toast('Повторяем…')">Повторить</button><button class="btn" onclick="toast('Открыть на сайте')">Открыть на сайте NurCRM</button></div></div>`); $('#pDom').textContent='0'; return; }
+    if (S.state==='nomatch' || (!FLAT.length && (S.q || S.chips.size))){ vp.innerHTML=''; const q = S.state==='nomatch' && !S.q ? 'Сникерс 100 г' : S.q; bodyEl.insertAdjacentHTML('beforeend', `<div class="state" style="top:${mode==='table'?40:0}px"><div class="ico">⌕</div><h4>Ничего не найдено${q?` по «${LL.esc(q)}»`:''}</h4><p>Проверьте раскладку и опечатки — поиск сам понимает ё=е и транслит. ${S.chips.size?'Снимите фильтры-чипы.':''}</p><div class="acts"><button class="btn" id="resetF">Сбросить поиск и фильтры</button></div></div>`); $('#resetF').onclick=()=>{S.q='';S.chips.clear();S.att=false;S.state='';syncTb();apply();}; $('#pDom').textContent='0'; return; }
+
+    if (mode==='overview'){ renderOverview(); return; }
+    if (!vlist || vlist._mode!==mode){ vlist = LL.VList(vp, { overscan:6, heightOf: it => it.g ? 36 : (mode==='cards' ? cardH() : rowH()), render: mode==='cards'?renderCard:renderRow, onRange:(a,b,ms,n)=>{ $('#pDraw').textContent = ms.toFixed(1); $('#pDom').textContent = n; $('#totop').classList.toggle('show', vp.scrollTop > vp.clientHeight*2); } }); vlist._mode = mode; }
+    vlist.setItems(FLAT);
+    if (S.state==='progress'){ vp.classList.add('dim'); let done = 2340, total = 5000; bodyEl.insertAdjacentHTML('beforeend', `<div class="prog"><span>Загружаем позиции…</span><div class="tr"><i id="pbar"></i></div><b id="ptxt"></b><button class="btn sm" onclick="toast('Отменено, показаны загруженные строки')">Отмена</button></div>`); const tick=()=>{ done=Math.min(total, done+73); $('#pbar').style.width=(done/total*100)+'%'; $('#ptxt').textContent=`${LL.int(done)} из ${LL.int(total)}`; if(done>=total){clearInterval(progTimer); setTimeout(()=>{S.state='';syncTb();renderAll();},400);} }; tick(); progTimer=setInterval(tick,120); }
+  }
+  const rowH = () => parseInt(getComputedStyle(frame).getPropertyValue('--row')) || 44;
+  const cardH = () => parseInt(getComputedStyle(frame).getPropertyValue('--card')) || 76;
+  const plural = n => { const a=n%10,b=n%100; return (a===1&&b!==11)?'позиция':(a>=2&&a<=4&&(b<10||b>=20))?'позиции':'позиций'; };
+  const badges = i => (i.isNew?'<span class="badge new">новый</span>':'') + (i.edited?'<span class="badge ok">изменено</span>':'');
+  const status = i => i.err ? `<span class="badge err">${i.err}</span>` : i.diff ? `<span class="badge diff">расхождение −${i.ordered-i.qty}</span>` : i.exp ? `<span class="badge exp">дорогой</span>` : `<span class="muted" style="font-size:12px">принято</span>`;
+  function renderRow(it, n){
+    if (it.g) return `<div class="grow ${S.col.has(it.key)?'col':''}" data-g="${LL.esc(it.key)}"><span class="chev">▾</span>${LL.esc(it.key)}<span class="m">${it.n} поз. · ${LL.money(it.sum)} сом</span></div>`;
+    const i = it, cls = (S.sel.has(i.id)?'sel ':'') + (i.err?'err':i.diff?'diff':'');
+    return `<div class="row ${cls}" data-id="${i.id}"><label class="c ck"><input type="checkbox" ${S.sel.has(i.id)?'checked':''}></label><div class="c num idx">${i.id}</div><div class="c name"><span class="t" title="${LL.esc(i.name)}">${LL.esc(i.name)}</span>${badges(i)}</div><div class="c p3 mono">${i.barcode||'—'}</div><div class="c p4 muted">${i.cat}</div><div class="c num edit" data-f="qty">${i.qty} ${i.unit}${i.diff?`<small>из ${i.ordered}</small>`:''}</div><div class="c num p2 edit" data-f="price">${LL.money(i.price)}</div><div class="c num p3 muted">${LL.money(i.sell)}</div><div class="c num sum">${LL.money(i.sum)}</div><div class="c p2 st">${status(i)}</div></div>`;
+  }
+  function renderCard(it){
+    if (it.g) return renderRow(it);
+    const i = it, cls = (S.sel.has(i.id)?'sel ':'') + (i.err?'err':i.diff?'diff':'');
+    return `<div class="card ${cls}" data-id="${i.id}"><label class="c ck"><input type="checkbox" ${S.sel.has(i.id)?'checked':''}></label><div><div class="l1"><span class="t">${LL.esc(i.name)}</span>${badges(i)}</div><div class="l2">${i.barcode||'без штрихкода'} · ${i.cat} · ${status(i)}</div></div><div class="r"><div class="s">${LL.money(i.sum)}</div><div class="q">${i.qty} ${i.unit}${i.diff?` <small>из ${i.ordered}</small>`:''} × ${LL.money(i.price)}</div></div></div>`;
+  }
+  function renderOverview(){
+    const top = FILT.slice().sort((a,b)=>b.sum-a.sum).slice(0,5), mx = top[0]?top[0].sum:1;
+    const cats = new Map(); FILT.forEach(i=>{ const o = cats.get(i.cat)||{n:0,s:0}; o.n++; o.s+=i.sum; cats.set(i.cat,o); });
+    const pr = [ ['diff','Расхождение с заказом', FILT.filter(i=>i.diff).length], ['err','Нет штрихкода / цена ниже закупки', FILT.filter(i=>i.err).length], ['new','Новые товары (нет на складе)', FILT.filter(i=>i.isNew).length], ['exp','Дорогие позиции ≥ 1 000 сом', FILT.filter(i=>i.exp).length] ];
+    bodyEl.insertAdjacentHTML('beforeend', `<div class="ov">
+      <div class="box bars"><h3>Топ-5 по сумме</h3>${top.map(i=>`<div class="b"><span class="n">${LL.esc(i.name)}</span><span class="v">${LL.money(i.sum)}</span><div class="tr" style="grid-column:1/3"><i style="width:${i.sum/mx*100}%"></i></div></div>`).join('')}</div>
+      <div class="box probs"><h3>Требуют внимания</h3>${pr.map(p=>`<div class="p" data-c="${p[0]}"><span>${p[1]}</span><span class="n">${p[2]}</span><span class="go">›</span></div>`).join('')}</div>
+      <div class="box cats" style="grid-column:1/-1"><h3>По категориям</h3>${[...cats.entries()].sort((a,b)=>b[1].s-a[1].s).map(([k,v])=>`<div class="c"><span>${k}</span><span>${v.n}</span><span>${LL.money(v.s)}</span></div>`).join('')}</div></div>`);
+    bodyEl.querySelectorAll('.probs .p').forEach(p => p.onclick = () => { S.chips.clear(); S.chips.add(p.dataset.c); S.mode = S.size==='s360'?'cards':'table'; syncTb(); apply(); });
+    $('#pDom').textContent = '0'; $('#pDraw').textContent = '—';
+  }
+
+  // ---------- события ----------
+  document.querySelectorAll('.tb [data-set]').forEach(b => b.onclick = () => { const k=b.dataset.set, v=b.dataset.val; S[k] = k==='rows'?+v:v; if (k==='mode'||k==='size') vlist=null; syncTb(); if (k==='rows') load(); else if (k==='group'||k==='mode') apply(); else renderAll(); });
+  function syncTb(){ document.querySelectorAll('.tb [data-set]').forEach(b => b.classList.toggle('on', String(S[b.dataset.set])===b.dataset.val)); }
+  $('#modeSeg').onclick = e => { const b = e.target.closest('button'); if(!b) return; S.mode=b.dataset.m; vlist=null; syncTb(); apply(); };
+  $('#grpSel').onchange = e => { S.group=e.target.value; syncTb(); apply(); };
+  $('#chips').onclick = e => { const c=e.target.closest('.chip'); if(!c) return; S.chips.has(c.dataset.c)?S.chips.delete(c.dataset.c):S.chips.add(c.dataset.c); apply(); };
+  // 2026-10-30: порог виртуализации и отложенного поиска — 200 строк; меньше — ищем сразу, от 200 — дебаунс 200 мс.
+  const applyQ = ()=>{ S.state=''; syncTb(); apply(); }, debQ = LL.debounce(applyQ, 200);
+  $('#q').oninput = e => { S.q = e.target.value; $('#sbox').classList.toggle('has', !!S.q); ALL.length>=200 ? debQ() : applyQ(); };
+  $('#clr').onclick = () => { S.q=''; apply(); $('#q').focus(); };
+  thead.onclick = e => { const c = e.target.closest('[data-k]'); if(!c || c.dataset.k==='st'||c.dataset.k==='idx') return; const k=c.dataset.k; if (S.sort.key===k) { if (S.sort.dir===1) S.sort.dir=-1; else S.sort={key:'',dir:1}; } else S.sort={key:k,dir:1}; apply(); };
+  $('#fsBtn').onclick = () => { S.full=!S.full; renderAll(); };
+  $('#totop').onclick = () => vlist && vlist.scrollTop();
+  $('#bulkOff').onclick = () => { S.sel.clear(); renderAll(); };
+  vp.addEventListener('change', e => { const r = e.target.closest('[data-id]'); if (!r || e.target.type!=='checkbox') return; const id=+r.dataset.id; e.target.checked?S.sel.add(id):S.sel.delete(id); renderAll(); });
+  vp.addEventListener('click', e => {
+    const g = e.target.closest('.grow'); if (g){ S.col.has(g.dataset.g)?S.col.delete(g.dataset.g):S.col.add(g.dataset.g); apply(); return; }
+    const c = e.target.closest('.c.edit'); if (!c || c.querySelector('input')) return;
+    const id = +c.closest('[data-id]').dataset.id, it = ALL.find(i=>i.id===id), f = c.dataset.f;
+    c.innerHTML = `<input class="inl" value="${f==='qty'?it.qty:it.price}">`; const inp = c.querySelector('input'); inp.focus(); inp.select();
+    const done = ok => { if (ok){ const v = parseFloat(String(inp.value).replace(',','.')); if (!isNaN(v) && v>=0){ it[f]=v; it.sum=Math.round(it.qty*it.price*100)/100; it.diff = it.qty!==it.ordered; it.edited=true; it._hay=null; } } apply(); toast(ok?'Сохранено':'Отменено'); };
+    inp.onkeydown = ev => { if (ev.key==='Enter') done(true); else if (ev.key==='Escape') { ev.stopPropagation(); done(false); } };
+    inp.onblur = () => done(true);
+  });
+  frame.addEventListener('keydown', e => {
+    if (e.ctrlKey && (e.key==='f'||e.key==='F'||e.key==='а'||e.key==='А')) { e.preventDefault(); $('#q').focus(); $('#q').select(); return; }
+    if (e.key==='F11'){ e.preventDefault(); S.full=!S.full; renderAll(); return; }
+    const inInput = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+    if (e.key==='Escape'){ if (inInput && S.q){ S.q=''; apply(); } else toast('Esc — закрыть окно'); return; }
+    if (inInput || !vlist) return;
+    if (e.key==='Home'){ e.preventDefault(); vlist.scrollTop(); } else if (e.key==='End'){ e.preventDefault(); vlist.scrollEnd(); }
+    else if (e.key==='PageDown'){ e.preventDefault(); vlist.page(1); } else if (e.key==='PageUp'){ e.preventDefault(); vlist.page(-1); }
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('#more')) $('#more').classList.remove('open'); });
+  let tt; window.toast = m => { const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),1600); };
+  // предустановка через #theme=dark&size=s1024&rows=5000&mode=cards&state=loading&group=cat&q=cjrf&full=1 (для снимков)
+  new URLSearchParams(location.hash.slice(1)).forEach((v,k) => { if (k==='rows') S.rows=+v; else if (k==='full') S.full=v==='1'; else if (k==='att') S.att=v==='1'; else if (k==='chips') v.split(',').forEach(c=>S.chips.add(c)); else if (k in S) S[k]=v; });
+  syncTb(); load();
+})();
+</script>
+</body>
+</html>

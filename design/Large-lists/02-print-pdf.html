@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Большие объёмы — печать, PDF и экспорт (500 строк, 14 страниц)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+.frame{ display:flex; flex-direction:column; }
+.wrap{ flex:1; display:grid; grid-template-columns:300px 1fr; min-height:0; }
+.s1024 .wrap{ grid-template-columns:260px 1fr }
+.s360 .wrap{ grid-template-columns:1fr; grid-template-rows:auto 1fr; }
+.opts{ padding:var(--pad); border-right:1px solid var(--border); background:var(--panel); display:flex; flex-direction:column; gap:14px; overflow:auto; }
+.s360 .opts{ border-right:0; border-bottom:1px solid var(--border); gap:10px; }
+.opts h1{ margin:0; font-size:20px; font-weight:800; } .opts .sub{ font-size:12.5px; color:var(--text-soft); margin-top:2px; }
+.opt{ display:flex; align-items:center; gap:10px; font-size:13.5px; cursor:pointer; min-height:36px; }
+.opt input{ width:20px; height:20px; accent-color:var(--accent); margin:0; }
+.opt .h{ display:block; font-size:11.5px; color:var(--text-soft); margin-top:1px; }
+.opts .grp2{ display:flex; flex-direction:column; gap:4px; }
+.opts .lbl{ font-size:11.5px; font-weight:700; color:var(--text-soft); text-transform:uppercase; letter-spacing:.04em; }
+.opts .fin{ margin-top:auto; display:flex; flex-direction:column; gap:8px; }
+.opts .fin .row2{ display:flex; gap:8px; } .opts .fin .row2 .btn{ flex:1 }
+.est{ font-size:12.5px; color:var(--text-soft); padding:10px 12px; border-radius:10px; background:var(--panel-soft); line-height:1.5; }
+.est b{ color:var(--text) }
+.prev{ overflow:auto; padding:18px; background:var(--window); display:flex; flex-direction:column; align-items:center; gap:14px; }
+.page{ width:595px; min-height:842px; background:#fff; color:#191919; box-shadow:0 4px 18px rgba(0,0,0,.18); padding:28px 32px 36px; position:relative; font-size:9.5px; flex:0 0 auto; display:flex; flex-direction:column; }
+.s1024 .page{ zoom:.72 } .s360 .page{ zoom:.56 }
+.page .ph{ display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #191919; padding-bottom:8px; margin-bottom:8px; }
+.page .ph h2{ margin:0; font-size:15px; font-weight:800; } .page .ph .m{ font-size:9px; color:#666; margin-top:2px; }
+.page .ph .pn{ text-align:right; font-size:9px; color:#666; } .page .ph .pn b{ display:block; font-size:12px; color:#191919; }
+.page .req{ display:grid; grid-template-columns:auto 1fr auto 1fr; gap:2px 10px; font-size:9px; margin-bottom:8px; } .page .req .k{ color:#666 }
+.page table{ width:100%; border-collapse:collapse; } .page th{ text-align:left; font-size:8.5px; color:#666; border-bottom:1px solid #AAA; padding:3px 4px; font-weight:700; background:#F4F4F4; }
+.page td{ padding:3px 4px; border-bottom:1px solid #EEE; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }
+.page .num{ text-align:right; font-variant-numeric:tabular-nums; }
+.page tr.diff td{ background:#FEF3C7 } .page tr.err td{ background:#FEE2E2 }
+.page .carry{ display:flex; justify-content:flex-end; gap:16px; font-size:9px; color:#666; margin-top:6px; } .page .carry b{ color:#191919 }
+.page .pf{ margin-top:auto; padding-top:8px; border-top:1px solid #DDD; display:flex; justify-content:space-between; font-size:8.5px; color:#666; }
+.page .tot{ margin-top:10px; border:1.5px solid #191919; border-radius:8px; padding:8px 10px; display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.page .tot .k{ font-size:8px; color:#666 } .page .tot .v{ font-size:12px; font-weight:800; font-variant-numeric:tabular-nums; }
+.page .sign{ display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:22px; font-size:9px; color:#666; } .page .sign div{ border-top:1px solid #191919; padding-top:3px; }
+.page .sumtab{ margin-top:8px } .page .warnlist{ margin-top:10px } .page .warnlist h4{ margin:0 0 4px; font-size:10px; }
+.gap{ font-size:12px; color:var(--text-soft); text-align:center; padding:4px; }
+</style>
+</head>
+<body>
+<div class="tb">
+  <b>Большие объёмы · печать / PDF / экспорт</b>
+  <div class="grp"><span>Тема</span><button data-set="theme" data-val="light" class="on">Светлая</button><button data-set="theme" data-val="dark">Тёмная</button></div>
+  <div class="grp"><span>Экран</span><button data-set="size" data-val="" class="on">1296×879</button><button data-set="size" data-val="s1024">1024×600</button><button data-set="size" data-val="s360">360×800</button></div>
+  <div class="grp"><span>Строк</span><button data-set="rows" data-val="50">50</button><button data-set="rows" data-val="500" class="on">500</button><button data-set="rows" data-val="5000">5 000</button></div>
+  <div class="perf">страниц <b id="pPages">—</b> · строк на странице <b id="pPer">—</b></div>
+</div>
+<div class="stage">
+<div class="frame" id="frame" data-theme="light">
+  <div class="wrap">
+    <div class="opts">
+      <div><h1>Печать накладной</h1><div class="sub">Позиции прихода · ООО Нур-Опт · 22.10.2026</div></div>
+      <div class="grp2"><div class="lbl">Что печатать</div>
+        <label class="opt"><input type="radio" name="what" value="full" checked><span>Все позиции<span class="h">Шапка повторяется на каждой странице, итог — на последней</span></span></label>
+        <label class="opt"><input type="radio" name="what" value="summary"><span>Только итоги<span class="h">1 страница: суммы, по категориям, требуют внимания</span></span></label>
+        <label class="opt"><input type="radio" name="what" value="attention"><span>Только расхождения и ошибки<span class="h">Для сверки с поставщиком</span></span></label>
+      </div>
+      <div class="grp2"><div class="lbl">Колонки</div>
+        <label class="opt"><input type="checkbox" id="noEmpty" checked><span>Без пустых колонок<span class="h">Скрыть «Штрихкод», «Срок годности», если везде пусто</span></span></label>
+        <label class="opt"><input type="checkbox" id="withSell"><span>С ценой продажи и наценкой</span></label>
+        <label class="opt"><input type="checkbox" id="numbered" checked><span>Нумерация строк и «Продолжение на стр. N»</span></label>
+      </div>
+      <div class="grp2"><div class="lbl">Формат</div>
+        <div class="seg" id="paper"><button data-p="a4" class="on">A4 книжная</button><button data-p="a4l">A4 альбомная</button><button data-p="t80">Чековая 80 мм</button></div>
+      </div>
+      <div class="est" id="est"></div>
+      <div class="fin">
+        <div class="row2"><button class="btn" onclick="alert('Excel: 500 строк, без ограничений, с формулами итогов')">Excel</button><button class="btn" onclick="alert('CSV: UTF-8 с BOM, разделитель «;»')">CSV</button></div>
+        <div class="row2"><button class="btn" onclick="alert('Печать')">Печать</button><button class="btn primary" onclick="alert('PDF формируется в фоне, появится уведомление')">Скачать PDF</button></div>
+      </div>
+    </div>
+    <div class="prev" id="prev"></div>
+  </div>
+</div>
+<div class="note">
+<h2 class="sec">Правила печати больших списков</h2>
+Каждая страница: шапка документа (название, поставщик, дата, «стр. 3 из 14»), шапка таблицы, 38 строк (A4 книжная, 9,5 pt), внизу — «перенос: сумма по странице / нарастающим итогом» и «Продолжение на стр. 4». Итог, подписи и список расхождений — только на последней.
+«Только итоги» всегда 1 страница — для 5 000 строк это главный режим. Excel/CSV — без ограничений по строкам, формируются в фоне (прогресс и отмена — как в 01). Чековая лента 80 мм — не более 100 строк, дальше предлагаем A4 или «Только итоги».
+</div>
+</div>
+<script src="shared.js"></script>
+<script>
+(function(){
+  const $ = s => document.querySelector(s); const S = { theme:'light', size:'', rows:500, what:'full', paper:'a4' };
+  const frame = $('#frame'); let ALL = [];
+  const PER = { a4:38, a4l:26, t80:60 };
+  document.querySelectorAll('.tb [data-set]').forEach(b => b.onclick = () => { S[b.dataset.set] = b.dataset.set==='rows'?+b.dataset.val:b.dataset.val; document.querySelectorAll('.tb [data-set]').forEach(x=>x.classList.toggle('on', String(S[x.dataset.set])===x.dataset.val)); if (b.dataset.set==='rows') load(); else render(); });
+  document.querySelectorAll('input[name=what]').forEach(r => r.onchange = () => { S.what = r.value; render(); });
+  $('#paper').onclick = e => { const b=e.target.closest('button'); if(!b) return; S.paper=b.dataset.p; $('#paper').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); render(); };
+  ['noEmpty','withSell','numbered'].forEach(id => $('#'+id).onchange = render);
+  function load(){ ALL = LL.makeItems(S.rows); render(); }
+  new URLSearchParams(location.hash.slice(1)).forEach((v,k) => { if (k==='rows') S.rows=+v; else if (k in S) S[k]=v; });
+  document.querySelectorAll('.tb [data-set]').forEach(x=>x.classList.toggle('on', String(S[x.dataset.set])===x.dataset.val));
+  const w = document.querySelector(`input[name=what][value=${S.what}]`); if (w) w.checked = true;
+  document.querySelectorAll('#paper button').forEach(x=>x.classList.toggle('on', x.dataset.p===S.paper));
+  function render(){
+    frame.dataset.theme = S.theme; frame.className = 'frame ' + S.size;
+    const rows = S.what==='attention' ? ALL.filter(i=>i.diff||i.err) : ALL;
+    const per = PER[S.paper], withSell = $('#withSell').checked, numbered = $('#numbered').checked, noEmpty = $('#noEmpty').checked;
+    const hasBarcode = !noEmpty || rows.some(i=>i.barcode);
+    const pages = S.what==='summary' ? 1 : Math.max(1, Math.ceil(rows.length/per));
+    const total = rows.reduce((s,i)=>s+i.sum,0), pcs = rows.reduce((s,i)=>s+i.qty,0);
+    $('#pPages').textContent = pages; $('#pPer').textContent = S.what==='summary'?'—':per;
+    $('#est').innerHTML = `<b>${pages} ${pages===1?'страница':pages<5?'страницы':'страниц'}</b> · ${LL.int(rows.length)} строк · ${S.paper==='t80'?'лента ~'+Math.round(rows.length*0.5+12)+' см':'A4'}${rows.length>100&&S.paper==='t80'?'<br><span style="color:var(--warning)">Для ленты слишком длинно — лучше A4 или «Только итоги»</span>':''}${pages>10?'<br>PDF сформируется в фоне (~'+Math.ceil(pages/8)+' с)':''}`;
+    const head = (p) => `<div class="ph"><div><h2>Накладная на приход № 1842</h2><div class="m">ООО Нур-Опт → Магазин NBS, склад «Основной» · принял Nur · 22.10.2026 06:35 · оплата: наличные</div></div><div class="pn">${S.what==='attention'?'Только расхождения':S.what==='summary'?'Итоги':'Все позиции'}<b>стр. ${p} из ${pages}</b></div></div>`;
+    const foot = (p, carry) => `<div class="pf"><span>NurCRM Kassa · напечатано 30.10.2026 14:12 · кассир Nur</span><span>${p<pages&&numbered?'Продолжение на стр. '+(p+1):''}</span><span>— ${p} —</span></div>`;
+    const cols = ['№','Наименование', ...(hasBarcode?['Штрихкод']:[]), 'Кол-во','Закупка', ...(withSell?['Продажа','Наценка']:[]), 'Сумма', ...(S.what==='attention'?['Примечание']:[])];
+    let html = '', run = 0;
+    if (S.what==='summary'){
+      const cats = new Map(); ALL.forEach(i=>{ const o=cats.get(i.cat)||{n:0,q:0,s:0}; o.n++; o.q+=i.qty; o.s+=i.sum; cats.set(i.cat,o); });
+      const att = ALL.filter(i=>i.diff||i.err);
+      html = `<div class="page">${head(1)}<div class="req"><span class="k">Поставщик</span><span>ООО Нур-Опт, ИНН 01234567890123</span><span class="k">Накладная</span><span>№ 1842 от 21.10.2026</span></div>
+        <div class="tot"><div><div class="k">Позиций</div><div class="v">${LL.int(ALL.length)}</div></div><div><div class="k">Штук</div><div class="v">${LL.int(ALL.reduce((s,i)=>s+i.qty,0))}</div></div><div><div class="k">Сумма закупки</div><div class="v">${LL.money(ALL.reduce((s,i)=>s+i.sum,0))}</div></div><div><div class="k">Требуют внимания</div><div class="v">${att.length}</div></div></div>
+        <table class="sumtab"><thead><tr><th>Категория</th><th class="num">Позиций</th><th class="num">Штук</th><th class="num">Сумма, сом</th><th class="num">Доля</th></tr></thead><tbody>${[...cats.entries()].sort((a,b)=>b[1].s-a[1].s).map(([k,v])=>`<tr><td>${k}</td><td class="num">${v.n}</td><td class="num">${LL.int(v.q)}</td><td class="num">${LL.money(v.s)}</td><td class="num">${(v.s/ALL.reduce((s,i)=>s+i.sum,0)*100).toFixed(1)} %</td></tr>`).join('')}</tbody></table>
+        <div class="warnlist"><h4>Требуют внимания (первые 20 из ${att.length})</h4><table><thead><tr><th>№</th><th>Наименование</th><th class="num">Заказано</th><th class="num">Принято</th><th>Примечание</th></tr></thead><tbody>${att.slice(0,20).map(i=>`<tr class="${i.err?'err':'diff'}"><td>${i.id}</td><td>${LL.esc(i.name)}</td><td class="num">${i.ordered}</td><td class="num">${i.qty}</td><td>${i.err||'расхождение −'+(i.ordered-i.qty)}</td></tr>`).join('')}</tbody></table></div>
+        <div class="sign"><div>Сдал (поставщик)</div><div>Принял (магазин)</div></div>${foot(1)}</div>`;
+    } else {
+      const show = pages <= 16 ? [...Array(pages).keys()] : [0,1,2,pages-2,pages-1];
+      let prevP = -1;
+      show.forEach(pi => {
+        if (prevP>=0 && pi!==prevP+1) html += `<div class="gap">… страницы ${prevP+2}–${pi} (${(pi-prevP-1)*per} строк) …</div>`;
+        prevP = pi;
+        const slice = rows.slice(pi*per, (pi+1)*per); run = rows.slice(0,(pi+1)*per).reduce((s,i)=>s+i.sum,0);
+        const pageSum = slice.reduce((s,i)=>s+i.sum,0);
+        html += `<div class="page">${head(pi+1)}${pi===0?`<div class="req"><span class="k">Поставщик</span><span>ООО Нур-Опт, ИНН 01234567890123</span><span class="k">Накладная</span><span>№ 1842 от 21.10.2026</span></div>`:''}
+          <table><thead><tr>${cols.map(c=>`<th class="${/Кол|Закуп|Прода|Нацен|Сумма/.test(c)?'num':''}">${c}</th>`).join('')}</tr></thead><tbody>${slice.map(i=>`<tr class="${S.what==='attention'?(i.err?'err':'diff'):''}"><td>${i.id}</td><td>${LL.esc(i.name)}</td>${hasBarcode?`<td>${i.barcode||'—'}</td>`:''}<td class="num">${i.qty} ${i.unit}</td><td class="num">${LL.money(i.price)}</td>${withSell?`<td class="num">${LL.money(i.sell)}</td><td class="num">${i.markup} %</td>`:''}<td class="num">${LL.money(i.sum)}</td>${S.what==='attention'?`<td>${i.err||'заказано '+i.ordered+', принято '+i.qty}</td>`:''}</tr>`).join('')}</tbody></table>
+          <div class="carry">${S.what==='full'?`<span>по странице: <b>${LL.money(pageSum)}</b></span><span>нарастающим итогом: <b>${LL.money(run)}</b></span>`:''}</div>
+          ${pi===pages-1?`<div class="tot"><div><div class="k">Позиций</div><div class="v">${LL.int(rows.length)}</div></div><div><div class="k">Штук</div><div class="v">${LL.int(pcs)}</div></div><div><div class="k">Сумма закупки, сом</div><div class="v">${LL.money(total)}</div></div><div><div class="k">Расхождений / ошибок</div><div class="v">${ALL.filter(i=>i.diff).length} / ${ALL.filter(i=>i.err).length}</div></div></div><div class="sign"><div>Сдал (поставщик)</div><div>Принял (магазин)</div></div>`:''}
+          ${foot(pi+1)}</div>`;
+      });
+    }
+    $('#prev').innerHTML = html;
+  }
+  load();
+})();
+</script>
+</body>
+</html>

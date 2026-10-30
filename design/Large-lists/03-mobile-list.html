@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Большие объёмы — мобилка и Android-планшет (ревизия 4 000 позиций)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+.phones{ display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; }
+.phone{ width:360px; height:800px; border-radius:28px; overflow:hidden; box-shadow:0 0 0 1px rgba(0,0,0,.2), 0 20px 50px rgba(0,0,0,.4); position:relative; display:flex; flex-direction:column; }
+.phone .cap{ position:absolute; top:-26px; left:0; font-size:12px; color:#AAA; }
+.frame.phone{ width:360px; height:800px; }
+.ph-top{ flex:0 0 auto; background:var(--panel); border-bottom:1px solid var(--border); padding:10px 12px 8px; display:flex; flex-direction:column; gap:8px; position:relative; z-index:2; }
+.ph-top .t{ display:flex; align-items:center; gap:10px; }
+.ph-top .t h1{ margin:0; font-size:18px; font-weight:800; flex:1; } .ph-top .t .sub{ font-size:11.5px; color:var(--text-soft); display:block; font-weight:500; margin-top:1px; }
+.ph-top .t .btn.icon{ width:40px; height:40px; border-color:var(--border); font-size:16px; }
+.ph-top .search{ flex:0 0 auto; }
+.ph-top .chips{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; margin:0 -12px; padding:0 12px; } .ph-top .chips::-webkit-scrollbar{ display:none }
+.ph-top .cnt{ font-size:12px; color:var(--text-soft); display:flex; justify-content:space-between; }
+.ph-top .cnt b{ color:var(--text) }
+.list{ flex:1; overflow:auto; background:var(--panel); position:relative; overscroll-behavior:contain; }
+.it{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:0 10px; align-items:center; padding:10px 12px; min-height:72px; border-bottom:1px solid var(--border); }
+.it.diff{ box-shadow:inset 3px 0 0 var(--warning) } .it.err{ box-shadow:inset 3px 0 0 var(--danger) } .it.done{ background:transparent } .it.todo .n{ color:var(--text-muted) }
+.it .n{ font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.it .s{ font-size:12px; color:var(--text-soft); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.it .r{ text-align:right; } .it .r .f{ font-weight:800; font-size:16px; font-variant-numeric:tabular-nums; } .it .r .f small{ font-size:11px; color:var(--text-soft); font-weight:600; }
+.it .r .d{ font-size:12px; margin-top:3px; font-weight:700; } .it .r .d.w{ color:var(--warning) } .it .r .d.ok{ color:var(--success) } .it .r .d.m{ color:var(--text-soft); font-weight:500; }
+.it .r .inp{ width:92px; height:40px; border-radius:9px; border:1.5px solid var(--border-strong); background:var(--input-alt); text-align:right; font:700 16px Montserrat,system-ui,sans-serif; padding:0 10px; color:var(--text); }
+.grp-h{ position:sticky; top:0; z-index:1; height:32px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; background:var(--panel-soft); font-size:12px; font-weight:700; color:var(--text-muted); }
+.sent{ padding:14px; text-align:center; font-size:12.5px; color:var(--text-soft); }
+.sent .sk{ height:60px; border-radius:10px; margin-bottom:8px; }
+.ph-bot{ flex:0 0 auto; background:var(--panel); border-top:1px solid var(--border); padding:10px 12px 14px; display:flex; flex-direction:column; gap:8px; position:relative; z-index:2; box-shadow:0 -6px 20px rgba(0,0,0,.06); }
+.ph-bot .tot{ display:flex; gap:12px; font-size:12px; color:var(--text-soft); } .ph-bot .tot b{ display:block; font-size:15px; color:var(--text); font-variant-numeric:tabular-nums; }
+.ph-bot .tot .w b{ color:var(--warning) }
+.ph-bot .prog{ height:6px; border-radius:3px; background:var(--panel-soft); overflow:hidden; } .ph-bot .prog i{ display:block; height:100%; background:var(--accent); width:30%; }
+.ph-bot .acts{ display:flex; gap:8px; } .ph-bot .acts .btn{ flex:1 }
+.fab{ position:absolute; right:12px; bottom:134px; z-index:3; height:36px; padding:0 14px; border-radius:18px; border:0; background:var(--text); color:var(--panel); font:700 12.5px Montserrat,system-ui,sans-serif; box-shadow:var(--shadow); display:none; align-items:center; gap:6px; cursor:pointer; }
+.fab.show{ display:inline-flex }
+.sheet{ position:absolute; inset:0; background:var(--overlay); display:flex; align-items:flex-end; z-index:5; }
+.sheet .card2{ width:100%; max-height:88%; background:var(--panel); border-radius:18px 18px 0 0; padding:12px 16px 18px; overflow:auto; }
+.sheet .grab{ width:40px; height:4px; border-radius:2px; background:var(--border-strong); margin:0 auto 12px; }
+.sheet h2{ margin:0 0 10px; font-size:17px; font-weight:800; }
+.tiles{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+.tiles .tile .v{ font-size:17px }
+.bars .b{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 8px; margin-bottom:8px; font-size:13px; } .bars .b .n{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bars .b .tr{ grid-column:1/3; height:8px; border-radius:4px; background:var(--panel-soft); overflow:hidden; } .bars .b .tr i{ display:block; height:100%; background:var(--accent); }
+.probs .p{ display:flex; justify-content:space-between; height:44px; align-items:center; border-bottom:1px solid var(--border); font-size:13.5px; } .probs .p b{ font-weight:800 }
+</style>
+</head>
+<body>
+<div class="tb"><b>Большие объёмы · мобилка 360 dp</b><span style="color:#AAA">Ревизия на 4 000 позиций: поиск сверху, чипы, ленивая подгрузка по 40, закреплённые итоги снизу, «К началу», лист «Обзор». Слева светлая, в центре тёмная (прокручена, с «К началу»), справа — «Обзор» и скелетон.</span></div>
+<div class="stage"><div class="phones">
+  <div class="frame phone" data-theme="light" id="p1"><span class="cap">Светлая · начало списка · группировка по категории</span></div>
+  <div class="frame phone" data-theme="dark" id="p2"><span class="cap">Тёмная · прокручено · фильтр «Расхождения»</span></div>
+  <div class="frame phone" data-theme="light" id="p3"><span class="cap">Светлая · лист «Обзор» поверх списка</span></div>
+  <div class="frame phone" data-theme="dark" id="p4"><span class="cap">Тёмная · загрузка (скелетон) + «Загрузка 2 340 из 4 000»</span></div>
+</div>
+<div class="note">
+<h2 class="sec">Правила для мобилки и Android-планшетов 360–1280 dp</h2>
+Один столбец карточек 72 dp, в карточке только 3 вещи: название, подстрока (штрихкод · категория · остаток в учёте), справа — факт (поле ввода 92×40 в ревизии) и разница. Список подгружается по 40 строк при приближении к концу (сентинел за 10 карточек), выше 400 строк — виртуализация (Flutter ListView.builder это и делает сам).
+Поиск и чипы — закреплены сверху и сворачиваются при прокрутке вниз (возвращаются при прокрутке вверх). Итоги и главная кнопка — закреплены снизу, не перекрываются клавиатурой (resizeToAvoidBottomInset). После двух экранов — «К началу». Заголовок группы — sticky. На планшете ≥ 720 dp — две колонки карточек, ≥ 1024 dp — таблица как в кассе (01).
+</div></div>
+<script src="shared.js"></script>
+<script>
+(function(){
+  const ITEMS = LL.makeItems(4000, 11).map((i,k) => { i.stock = i.ordered; i.fact = k < 1212 ? (i.diff ? (k % 3 ? i.qty : i.stock + 1 + (k % 4)) : i.stock) : null; return i; });
+  const counted = ITEMS.filter(i=>i.fact!==null), diffs = counted.filter(i=>i.fact!==i.stock);
+  const CH = ['Все', 'Не посчитаны', 'Расхождения', 'Молочные', 'Напитки', 'Сигареты'];
+  const card = i => { const d = i.fact===null ? null : i.fact - i.stock; return `<div class="it ${i.fact===null?'todo':d?'diff':'done'}"><div><div class="n">${LL.esc(i.name)}</div><div class="s">${i.barcode||'без штрихкода'} · ${i.cat} · в учёте ${i.stock} ${i.unit}</div></div><div class="r">${i.fact===null?`<input class="inp" placeholder="факт">`:`<div class="f">${i.fact} <small>${i.unit}</small></div><div class="d ${d?'w':'ok'}">${d?(d>0?'+':'')+d+' '+i.unit:'сходится'}</div>`}</div></div>`; };
+  const top = (title, sub, chip, extra) => `<div class="ph-top"><div class="t"><div style="flex:1"><h1>${title}</h1><span class="sub">${sub}</span></div><button class="btn icon">⤢</button><button class="btn icon">✕</button></div><div class="search"><span class="ico">⌕</span><input placeholder="Название или штрихкод"><span class="kbd">скан</span></div><div class="chips">${CH.map(c=>`<span class="chip ${c===chip?'on':''}">${c}${c==='Расхождения'?` <span class="cnt">${diffs.length}</span>`:c==='Не посчитаны'?` <span class="cnt">${LL.int(4000-counted.length)}</span>`:''}</span>`).join('')}</div>${extra||''}</div>`;
+  const bot = (btn) => `<div class="ph-bot"><div class="tot"><span>Посчитано<b>${LL.int(counted.length)} из 4 000</b></span><span class="w">Расхождений<b>${diffs.length}</b></span><span>Сумма расх.<b>−${LL.money(diffs.reduce((s,i)=>s+Math.abs(i.fact-i.stock)*i.price,0))}</b></span></div><div class="prog"><i style="width:${counted.length/40}%"></i></div><div class="acts"><button class="btn">Обзор</button><button class="btn primary">${btn||'Продолжить'}</button></div></div>`;
+
+  // p1: начало, группировка по категории, ленивая подгрузка
+  function lazy(frame, items, startIdx, grouped){
+    const list = frame.querySelector('.list'); let n = 0; const CH = 40;
+    const groupHead = k => `<div class="grp-h"><span>${k}</span><span>${items.filter(i=>i.cat===k).length} поз.</span></div>`;
+    let lastCat = null;
+    function more(){ const s = items.slice(n, n+CH); let h=''; s.forEach(i=>{ if (grouped && i.cat!==lastCat){ lastCat=i.cat; h+=groupHead(i.cat);} h+=card(i); }); n+=CH; sent.insertAdjacentHTML('beforebegin', h); sent.innerHTML = n<items.length ? `<div class="sk"></div><div class="sk"></div>Загружаем ещё… показано ${LL.int(Math.min(n,items.length))} из ${LL.int(items.length)}` : `Это все ${LL.int(items.length)} позиций`; }
+    list.insertAdjacentHTML('beforeend', `<div class="sent"></div>`); const sent = list.querySelector('.sent');
+    more(); more();
+    new IntersectionObserver(e => { if (e[0].isIntersecting && n<items.length) setTimeout(more, 250); }, { root:list, rootMargin:'600px' }).observe(sent);
+    const fab = frame.querySelector('.fab'); list.addEventListener('scroll', () => fab.classList.toggle('show', list.scrollTop > list.clientHeight*2), {passive:true}); fab.onclick = () => list.scrollTo({top:0, behavior:'smooth'});
+    if (startIdx){ requestAnimationFrame(()=>{ while(n<startIdx+CH) more(); list.scrollTop = 72*startIdx; }); }
+  }
+  const p1 = document.getElementById('p1'); const sorted = ITEMS.slice().sort((a,b)=>a.cat.localeCompare(b.cat,'ru'));
+  p1.innerHTML = top('Ревизия · Основной', 'начата 30.10 09:12 · Айжан', 'Все', `<div class="cnt"><span>Показано <b>4 000</b> · по категориям</span><span>↕ по названию</span></div>`) + `<div class="list"></div><button class="fab">↑ К началу</button>` + bot(); lazy(p1, sorted, 0, true);
+  const p2 = document.getElementById('p2');
+  p2.innerHTML = top('Ревизия · Основной', 'начата 30.10 09:12 · Айжан', 'Расхождения', `<div class="cnt"><span>Показано <b>${diffs.length}</b> из 4 000</span><span>↕ по разнице</span></div>`) + `<div class="list"></div><button class="fab show">↑ К началу</button>` + bot('Списать разницу'); lazy(p2, diffs.slice().sort((a,b)=>Math.abs(b.fact-b.stock)-Math.abs(a.fact-a.stock)), 60, false);
+  // p3: обзор
+  const p3 = document.getElementById('p3'); const cats = new Map(); ITEMS.forEach(i=>{ const o=cats.get(i.cat)||{n:0,c:0,d:0}; o.n++; if(i.fact!==null)o.c++; if(i.fact!==null&&i.fact!==i.stock)o.d++; cats.set(i.cat,o); });
+  const tops = diffs.slice().sort((a,b)=>Math.abs(b.fact-b.stock)*b.price-Math.abs(a.fact-a.stock)*a.price).slice(0,5); const mx = Math.abs(tops[0].fact-tops[0].stock)*tops[0].price;
+  p3.innerHTML = top('Ревизия · Основной', 'начата 30.10 09:12 · Айжан', 'Все') + `<div class="list">${sorted.slice(0,12).map(card).join('')}</div>` + bot() + `<div class="sheet"><div class="card2"><div class="grab"></div><h2>Обзор ревизии</h2>
+    <div class="tiles"><div class="tile"><div class="k">Посчитано</div><div class="v">${LL.int(counted.length)} / 4 000</div></div><div class="tile warn"><div class="k">Расхождений</div><div class="v">${diffs.length} ›</div></div><div class="tile"><div class="k">Недостача</div><div class="v">−${LL.money(diffs.filter(i=>i.fact<i.stock).reduce((s,i)=>s+(i.stock-i.fact)*i.price,0))}</div></div><div class="tile"><div class="k">Излишек</div><div class="v">+${LL.money(diffs.filter(i=>i.fact>i.stock).reduce((s,i)=>s+(i.fact-i.stock)*i.price,0))}</div></div></div>
+    <h3 style="margin:0 0 8px;font-size:12px;color:var(--text-soft);text-transform:uppercase">Топ-5 расхождений по сумме</h3><div class="bars">${tops.map(i=>`<div class="b"><span class="n">${LL.esc(i.name)}</span><span class="num">${LL.money(Math.abs(i.fact-i.stock)*i.price)}</span><div class="tr"><i style="width:${Math.abs(i.fact-i.stock)*i.price/mx*100}%"></i></div></div>`).join('')}</div>
+    <h3 style="margin:12px 0 4px;font-size:12px;color:var(--text-soft);text-transform:uppercase">По категориям</h3><div class="probs">${[...cats.entries()].slice(0,6).map(([k,v])=>`<div class="p"><span>${k}</span><span><b>${v.c}</b> / ${v.n} · расх. <b>${v.d}</b></span></div>`).join('')}</div>
+    <button class="btn" style="width:100%;margin-top:14px">Закрыть обзор</button></div></div>`;
+  // p4: загрузка
+  const p4 = document.getElementById('p4');
+  p4.innerHTML = top('Ревизия · Основной', 'загружаем позиции…', 'Все', `<div class="cnt"><span>Загрузка <b>2 340</b> из 4 000</span><span style="color:var(--accent-strong);font-weight:700">Отмена</span></div><div class="prog" style="height:4px;border-radius:2px;background:var(--panel-soft);overflow:hidden"><i style="display:block;height:100%;width:58%;background:var(--accent)"></i></div>`) + `<div class="list">${sorted.slice(0,4).map(card).join('')}${Array.from({length:8},()=>`<div class="it"><div><div class="sk" style="width:70%"></div><div class="sk" style="width:45%;margin-top:8px;height:10px"></div></div><div class="r"><div class="sk" style="width:56px;height:18px"></div></div></div>`).join('')}</div>` + `<div class="ph-bot"><div class="tot"><span>Посчитано<b>— из 4 000</b></span><span class="w">Расхождений<b>—</b></span></div><div class="acts"><button class="btn" disabled>Обзор</button><button class="btn primary" disabled>Продолжить</button></div></div>`;
+})();
+</script>
+</body>
+</html>

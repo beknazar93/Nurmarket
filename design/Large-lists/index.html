@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Большие объёмы — шаблон списков и модалок (макеты)</title>
+<style>
+body{ margin:0; background:#191919; color:#F5F5F5; font-family:Montserrat,"Segoe UI",system-ui,sans-serif; padding:28px; }
+h1{ font-size:22px; margin:0 0 4px; } .sub{ color:#AAA; font-size:13px; margin-bottom:22px; }
+.cards{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; max-width:1100px; }
+a.card{ display:block; padding:16px 18px; border-radius:14px; background:#222; border:1px solid #3D3D3D; color:#F5F5F5; text-decoration:none; }
+a.card:hover{ border-color:#FFB208 } a.card b{ display:block; font-size:15px; margin-bottom:6px; } a.card span{ color:#AAA; font-size:12.5px; line-height:1.5; }
+.rules{ max-width:1100px; margin-top:26px; font-size:13px; line-height:1.6; color:#CCC; } .rules b{ color:#FFB208 }
+code{ background:#333; padding:1px 5px; border-radius:4px; color:#FFD27A; font-size:12px; }
+</style>
+</head>
+<body>
+<h1>Большие объёмы — шаблон списков и модалок</h1>
+<div class="sub">Спека: <code>docs/Дизайн/Большие объёмы — шаблон списков и модалок.md</code> · 30.10.2026 · фейковые данные 500 / 5 000 строк, темы светлая/тёмная, экраны 1296×879 / 1024×600 / 360×800</div>
+<div class="cards">
+  <a class="card" href="01-receipt-items-modal.html"><b>01 · Модалка «Позиции прихода»</b><span>Шаблон целиком: сворачиваемые реквизиты, сводка, поиск Ctrl+F, чипы, сортировка, группы, виртуализация, карточки, обзор, выделение и групповые действия, правка на месте, состояния (загрузка / пусто / нет совпадений / ошибка / долгая операция), полный экран.</span></a>
+  <a class="card" href="02-print-pdf.html"><b>02 · Печать, PDF, Excel/CSV</b><span>Разбивка на страницы с повтором шапки, «стр. 3 из 14», перенос сумм, итог и подписи на последней; «Только итоги» (1 страница), «Только расхождения», «Без пустых колонок»; A4 / альбомная / лента 80 мм.</span></a>
+  <a class="card" href="03-mobile-list.html"><b>03 · Мобилка и планшет</b><span>Ревизия на 4 000 позиций: поиск и чипы сверху, ленивая подгрузка по 40, sticky-группы, закреплённые итоги снизу, «К началу», лист «Обзор», скелетон с прогрессом.</span></a>
+</div>
+<div class="rules">
+<b>Пять правил.</b> 1) Модалка не выше 88 % окна, растёт только список; шапка колонок, сводка и кнопки закреплены. 2) От 200 строк — виртуализация, поиск с дебаунсом 200 мс, открытие ≤ 300 мс на 500 строках.
+3) От 50 строк — поиск (ё=е, раскладка, транслит), чипы с количеством, «Показано N из M», «Требуют внимания» кликабельно. 4) Три режима: Таблица / Карточки / Обзор; 1024×600 прячет колонки по приоритету, 360 dp — только карточки и обзор, кнопки в «Ещё».
+5) Печать и экспорт без потолка: страницы с повтором шапки и итогом на последней, «Только итоги» всегда 1 страница, Excel/CSV в фоне с прогрессом и отменой.
+</div>
+</body>
+</html>

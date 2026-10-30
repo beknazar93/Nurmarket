@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Накладная прихода — документ, правка «до → после», реестр «Покупки» (макет 30.10.2026)</title>
+<link rel="stylesheet" href="../Large-lists/shared.css">
+<style>
+/* 2026-10-30: макет «Накладная прихода» как документ NurCRM — по снимкам чужой кассы (ЭСЕП) и ТЗ редактора накладных. На shared.css/js из Large-lists. */
+.frame{ --row:40px; }
+.frame.s1024{ --row:36px; }
+.hidden{ display:none !important }
+
+/* ---------- окно документа ---------- */
+.doc{ position:absolute; inset:0; display:flex; flex-direction:column; background:var(--panel); outline:none; }
+.doc > *{ flex:0 0 auto }
+.dh{ display:flex; align-items:flex-start; gap:12px; padding:12px var(--pad) 6px; }
+.dh h1{ margin:0; font-size:21px; font-weight:800; line-height:1.15; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.dh h1 .num{ font-variant-numeric:tabular-nums }
+.dh .sub{ margin-top:3px; font-size:12.5px; color:var(--text-soft); }
+.dh .sp{ flex:1 }
+.dh .win{ text-align:right; font-size:12.5px; color:var(--text-soft); line-height:1.4; }
+.dh .win b{ color:var(--success); font-weight:700 } .dh .win b.off{ color:var(--text-soft) }
+.dh .btn.icon{ width:36px; height:36px; border-color:var(--border); font-size:15px; }
+.s1024 .dh{ padding:8px var(--pad) 4px } .s1024 .dh h1{ font-size:17px }
+.badge.st-draft{ background:var(--panel-soft); color:var(--text-muted) }
+.badge.st-posted{ background:var(--success-soft); color:var(--success) }
+.badge.st-edited{ background:var(--accent-soft); color:var(--text) }
+.badge.st-returned{ background:var(--warning-soft); color:var(--warning) }
+.badge.st-queue{ background:var(--unknown-soft); color:var(--unknown) }
+.badge.low{ background:var(--warning-soft); color:var(--warning) }
+.badge.ret{ background:var(--warning-soft); color:var(--warning) }
+.badge.zero{ background:var(--panel-soft); color:var(--text-soft) }
+.badge.add{ background:var(--success-soft); color:var(--success) }
+
+.strip{ margin:0 var(--pad) 6px; padding:7px 12px; border-radius:10px; font-size:12.5px; display:flex; align-items:center; gap:10px; }
+.strip.info{ background:var(--panel-soft); color:var(--text-muted) }
+.strip.warn{ background:var(--warning-soft); color:var(--warning) }
+.strip.acc{ background:var(--accent-soft); color:var(--text) }
+.strip.danger{ background:var(--danger-soft); color:var(--danger-on-soft) }
+.strip .lnk{ margin-left:auto; font-weight:700; cursor:pointer; text-decoration:underline; white-space:nowrap; }
+
+/* реквизиты */
+.req{ display:grid; grid-template-columns:1.3fr 1fr 1fr .9fr 1fr 1.2fr; gap:8px; padding:0 var(--pad) 8px; }
+.s1024 .req{ grid-template-columns:1.3fr 1fr .9fr .9fr; }
+.s1024 .req .f.p3{ display:none }
+.f label{ display:block; font-size:11px; font-weight:700; color:var(--text-soft); margin:0 0 3px 2px; text-transform:uppercase; letter-spacing:.02em; }
+.f .in{ height:36px; width:100%; padding:0 10px; border-radius:9px; border:1.5px solid var(--border); background:var(--input); color:var(--text); font:600 13px Montserrat,system-ui,sans-serif; display:flex; align-items:center; gap:6px; }
+.f input.in, .f select.in{ appearance:auto }
+.f .in:focus{ outline:none; border-color:var(--focus); box-shadow:0 0 0 2px var(--focus); }
+.f .in[disabled], .f .in.ro{ background:var(--input-alt); color:var(--text-muted); border-style:dashed; }
+.s1024 .f .in{ height:32px; font-size:12.5px }
+.opts{ display:flex; gap:14px; flex-wrap:wrap; padding:0 var(--pad) 8px; font-size:12.5px; align-items:center; }
+.opts label{ display:inline-flex; align-items:center; gap:7px; cursor:pointer; color:var(--text-muted); font-weight:600; }
+.opts input{ width:17px; height:17px; accent-color:var(--accent); margin:0; }
+.opts .sp{ flex:1 }
+
+/* инструменты и ввод */
+.tools{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:0 var(--pad) 8px; }
+.tools .chips{ display:flex; gap:6px; flex-wrap:wrap; }
+.tools .cnt{ margin-left:auto; font-size:12.5px; color:var(--text-soft); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.tools .cnt b{ color:var(--text) }
+.addbar{ position:relative; display:flex; gap:8px; align-items:center; flex:1 1 100%; }
+.addbar .search{ max-width:520px }
+.addbar .search{ flex:1 1 220px }
+.addbar .search input{ height:36px }
+.addbar .search .kbd{ right:10px }
+.addbar .bc{ position:relative; width:170px }
+.addbar .bc input{ width:100%; height:36px; padding:0 40px 0 30px; border-radius:var(--r-btn); border:1.5px solid var(--border); background:var(--input); color:var(--text); font:600 13px Consolas,monospace; }
+.addbar .bc input:focus{ outline:none; border-color:var(--focus); box-shadow:0 0 0 2px var(--focus); }
+.addbar .bc .ico{ position:absolute; left:9px; top:50%; transform:translateY(-50%); color:var(--text-soft); font-size:14px }
+.addbar .bc .kbd{ position:absolute; right:8px; top:50%; transform:translateY(-50%); font:600 10.5px Consolas,monospace; color:var(--text-soft); border:1px solid var(--border); border-radius:5px; padding:1px 5px; }
+.sug{ position:absolute; left:0; top:40px; z-index:30; width:460px; max-height:290px; overflow:auto; background:var(--panel); border:1px solid var(--border); border-radius:var(--r-card); box-shadow:var(--shadow); display:none; padding:4px; }
+.sug.show{ display:block }
+.sug .s{ display:grid; grid-template-columns:1fr 110px 80px; gap:8px; align-items:center; height:38px; padding:0 10px; border-radius:8px; cursor:pointer; font-size:13px; }
+.sug .s:hover,.sug .s.hi{ background:var(--panel-soft) }
+.sug .s b{ font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sug .s .m{ font-family:Consolas,monospace; font-size:11.5px; color:var(--text-soft) }
+.sug .s .p{ text-align:right; font-variant-numeric:tabular-nums; color:var(--text-muted) }
+.sug .s.new{ color:var(--accent-strong); font-weight:700; grid-template-columns:1fr }
+.s1024 .search input, .s1024 .addbar .bc input{ height:32px; font-size:12.5px }
+
+/* таблица */
+.body{ position:relative; flex:1 1 auto !important; min-height:120px; display:flex; flex-direction:column; margin:0 var(--pad); border:1px solid var(--border); border-radius:var(--r-card); overflow:hidden; background:var(--panel);
+  --cols:40px 70px 118px minmax(160px,1fr) 86px 44px 100px 86px 104px 84px 96px 90px 36px; }
+.s1024 .body{ --cols:40px minmax(160px,1fr) 86px 100px 104px 84px 96px 36px; }
+.body.pre{ --cols:40px 70px 118px minmax(160px,1fr) 86px 44px 36px; }
+.s1024 .body.pre{ --cols:40px minmax(160px,1fr) 86px 36px; }
+.s1024 .p3, .s1024 .p4{ display:none !important }
+.body.pre .pc{ display:none !important }
+.thead,.row{ display:grid; grid-template-columns:var(--cols); align-items:center; }
+.thead{ height:36px; flex:0 0 auto; background:var(--panel-soft); border-bottom:1px solid var(--border); font-size:11.5px; font-weight:700; color:var(--text-muted); }
+.thead .c{ padding:0 8px; cursor:pointer; user-select:none; white-space:nowrap; display:flex; align-items:center; gap:4px; height:100%; overflow:hidden; }
+.thead .c.num{ justify-content:flex-end } .thead .c:hover{ color:var(--text) } .thead .c .arr{ font-size:10px; color:var(--accent-strong) }
+.viewport{ position:relative; flex:1 1 auto; overflow:auto; outline:none; overscroll-behavior:contain; }
+.viewport:focus-visible{ box-shadow:inset 0 0 0 2px var(--focus) }
+.vspacer{ width:1px; pointer-events:none } .vwin{ position:absolute; left:0; right:0; top:0; will-change:transform }
+.row{ border-bottom:1px solid var(--border); height:var(--row); font-size:13px; }
+.row:hover{ background:var(--panel-soft) }
+.row.cur{ background:var(--accent-soft) }
+.row.err{ box-shadow:inset 3px 0 0 var(--danger) } .row.low{ box-shadow:inset 3px 0 0 var(--warning) }
+.row.zero .c{ opacity:.55 } .row.zero .c.name{ opacity:.7 }
+.row.del .c{ text-decoration:line-through; opacity:.5 } .row.del .c.x{ text-decoration:none; opacity:1 }
+.row.flash{ animation:flash .9s }
+@keyframes flash{ 0%{ background:var(--accent-soft) } 100%{ background:transparent } }
+.row .c{ padding:0 8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; height:100%; display:flex; align-items:center; justify-content:flex-start; gap:6px; min-width:0; }
+.row .c.num{ justify-content:flex-end }
+.row .c.idx{ color:var(--text-soft); font-size:12px }
+.row .c.mono{ font-family:Consolas,"Roboto Mono",monospace; font-size:12px; color:var(--text-muted) }
+.row .c.name .t{ overflow:hidden; text-overflow:ellipsis; font-weight:600; min-width:0 }
+.row .c.sum{ font-weight:700 }
+.row .c.edit{ cursor:text; position:relative }
+.row .c.edit:hover::after{ content:''; position:absolute; inset:5px 3px; border:1px dashed var(--border-strong); border-radius:6px; pointer-events:none }
+.row .c.chg{ background:var(--warning-soft); flex-direction:column; justify-content:center; align-items:flex-end; gap:0; line-height:1.1; }
+.row .c.chg .was{ font-size:10.5px; color:var(--text-soft); font-weight:500; text-decoration:line-through; }
+.row .c.bad{ background:var(--danger-soft); color:var(--danger-on-soft); font-weight:700 }
+.row .c.lowc{ background:var(--warning-soft); color:var(--warning); font-weight:700 }
+.row .c.muted{ color:var(--text-soft) }
+.row .up{ font-size:10.5px; font-weight:800; color:var(--text-soft); padding:1px 4px; border-radius:5px; background:var(--panel-soft); }
+.row .up.bad{ background:var(--danger-soft); color:var(--danger-on-soft) }
+.row .sm{ font-size:10.5px; color:var(--text-soft); font-weight:600 }
+.row input.inl{ width:100%; height:30px; border-radius:7px; border:2px solid var(--focus); background:var(--input); color:var(--text); font:600 13px Montserrat,system-ui,sans-serif; text-align:right; padding:0 6px; outline:none; }
+.row .c.x{ padding:0; justify-content:center } .row .c.x button{ width:26px; height:26px; border:0; border-radius:7px; background:transparent; color:var(--text-soft); cursor:pointer; font-size:13px; }
+.row .c.x button:hover{ background:var(--danger-soft); color:var(--danger-on-soft) }
+.row .c.x button.undo{ width:auto; padding:0 8px; font-size:11px; font-weight:700; color:var(--success) }
+.state{ position:absolute; inset:36px 0 0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; text-align:center; padding:24px; background:var(--panel); }
+.state .ico{ width:64px; height:64px; border-radius:20px; background:var(--panel-soft); display:flex; align-items:center; justify-content:center; font-size:28px; margin-bottom:6px; }
+.state h4{ margin:0; font-size:16px; font-weight:800 } .state p{ margin:0; color:var(--text-soft); font-size:13px; max-width:460px; line-height:1.45 }
+.state kbd{ background:var(--panel-soft); border:1px solid var(--border); border-radius:5px; padding:0 6px; font:700 12px Consolas,monospace; }
+
+/* итог (жёлтая строка примера → полоса AccentSoft) */
+.tot{ display:grid; grid-template-columns:repeat(7,1fr); gap:0; margin:8px var(--pad) 0; border-radius:var(--r-card); background:var(--accent-soft); border:1px solid var(--accent); overflow:hidden; }
+.tot .t{ padding:7px 12px; border-right:1px solid rgba(0,0,0,.08); }
+.tot .t .k{ font-size:10.5px; font-weight:700; color:var(--text-soft); text-transform:uppercase; letter-spacing:.02em; white-space:nowrap; }
+.tot .t .v{ font-size:16px; font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; margin-top:1px; }
+.tot .t .v small{ font-size:11px; font-weight:600; color:var(--text-soft); margin-left:4px }
+.tot .t.att{ cursor:pointer } .tot .t.att .v{ color:var(--warning) } .tot .t.att.on{ box-shadow:inset 0 0 0 2px var(--warning) }
+.tot .t.ok .v{ color:var(--success) }
+.s1024 .tot .t{ padding:5px 10px } .s1024 .tot .t .v{ font-size:14px }
+.tot.editing{ grid-template-columns:repeat(6,1fr) }
+
+/* футер */
+.mf{ display:flex; align-items:center; gap:8px; padding:10px var(--pad) 12px; }
+.mf .sp{ flex:1 }
+.mf .btn{ height:40px; padding:0 14px; font-size:13px }
+.s1024 .mf .btn{ height:36px; padding:0 12px; font-size:12.5px }
+.mf .kbd{ font:600 10px Consolas,monospace; opacity:.6; margin-left:2px }
+.mf .ghost-note{ font-size:12px; color:var(--text-soft) }
+
+/* ---------- реестр «Покупки» ---------- */
+.reg{ position:absolute; inset:0; display:flex; flex-direction:column; background:var(--window); }
+.reg > *{ flex:0 0 auto }
+.reg .top{ display:flex; align-items:center; gap:12px; padding:12px var(--pad) 8px; }
+.reg .top h1{ margin:0; font-size:20px; font-weight:800 }
+.reg .top .tabs{ display:flex; gap:4px; margin-left:8px }
+.reg .top .tabs span{ padding:6px 10px; border-radius:8px; font-size:12.5px; font-weight:600; color:var(--text-soft) }
+.reg .top .tabs span.on{ background:var(--panel); color:var(--text); box-shadow:0 0 0 1px var(--border) }
+.reg .top .sp{ flex:1 }
+.reg .filters{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:0 var(--pad) 8px; }
+.reg .filters .pills{ display:inline-flex; gap:4px; padding:3px; border:1.5px solid var(--border); border-radius:10px; background:var(--panel); }
+.reg .filters .pills button{ height:28px; padding:0 10px; border:0; border-radius:7px; background:transparent; color:var(--text-muted); font:600 12px Montserrat,system-ui,sans-serif; cursor:pointer; white-space:nowrap }
+.reg .filters .pills button.on{ background:var(--text); color:var(--panel) }
+.reg .filters .search{ flex:1 1 200px } .reg .filters .search input{ height:36px }
+.reg .body{ --cols:140px 112px minmax(140px,1fr) 84px 90px 70px 76px 116px 80px 92px 124px 84px; margin-bottom:0 }
+.reg .body.lines{ --cols:44px 112px minmax(130px,1fr) 64px 84px 96px 84px 60px 122px 108px 120px 80px 72px }
+.reg .body.lines .p4{ display:none !important }   /* 2026-10-30: «Код» и «Ед.» в реестре позиций не влезают даже в 1296 — только в Excel */
+.s1024 .reg .body{ --cols:140px 110px minmax(150px,1fr) 100px 76px 120px 84px 96px 120px }
+.s1024 .reg .body.lines{ --cols:46px minmax(150px,1fr) 76px 92px 104px 90px 70px 130px 110px 120px }
+.reg .row{ cursor:pointer }
+.reg .foot{ display:flex; align-items:center; gap:8px; padding:8px var(--pad) 12px; }
+.reg .foot .tot{ margin:0; flex:1; grid-template-columns:repeat(5,1fr) }
+.reg .foot .btn{ height:40px; font-size:13px; padding:0 14px }
+.s1024 .reg .top{ padding:8px var(--pad) 6px } .s1024 .reg .top h1{ font-size:17px }
+
+/* ---------- модалки ---------- */
+.overlay{ position:absolute; inset:0; background:var(--overlay); display:flex; align-items:center; justify-content:center; z-index:40; }
+.modal{ width:860px; max-height:92%; display:flex; flex-direction:column; background:var(--panel); border-radius:var(--r-modal); box-shadow:var(--shadow); overflow:hidden; }
+.s1024 .modal{ width:940px; max-height:96% }
+.modal > *{ flex:0 0 auto } .modal .mb{ flex:1 1 auto; overflow:auto; padding:0 var(--pad) }
+.modal .mh{ display:flex; align-items:flex-start; gap:12px; padding:var(--pad) var(--pad) 8px }
+.modal .mh h2{ margin:0; font-size:19px; font-weight:800 } .modal .mh .sub{ margin-top:3px; font-size:12.5px; color:var(--text-soft) }
+.modal .mh .sp{ flex:1 } .modal .mh .btn.icon{ width:36px; height:36px; font-size:15px; border-color:var(--border) }
+.modal .mf{ border-top:1px solid var(--border); margin-top:8px }
+.pv h3{ margin:12px 0 6px; font-size:12px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em }
+.pv .kv{ display:grid; grid-template-columns:180px 1fr; gap:4px 12px; font-size:13.5px; }
+.pv .kv .d{ font-variant-numeric:tabular-nums } .pv .kv .d b{ font-weight:800 }
+.pv .kv .d .delta{ margin-left:8px; font-weight:700 } .delta.neg{ color:var(--danger) } .delta.pos{ color:var(--success) } .delta.z{ color:var(--text-soft) }
+.pv table{ width:100%; border-collapse:collapse; font-size:13px }
+.pv th{ text-align:left; font-size:11px; color:var(--text-soft); text-transform:uppercase; padding:4px 8px; border-bottom:1px solid var(--border) }
+.pv td{ padding:6px 8px; border-bottom:1px solid var(--border); font-variant-numeric:tabular-nums; white-space:nowrap }
+.pv td.r, .pv th.r{ text-align:right } .pv td .was{ color:var(--text-soft); text-decoration:line-through; margin-right:6px } .pv td.del{ text-decoration:line-through; color:var(--text-soft) }
+.pv .reason{ display:grid; grid-template-columns:240px 1fr 160px; gap:8px; margin-top:6px }
+.pv .reason .in, .pv .reason select{ height:36px; padding:0 10px; border-radius:9px; border:1.5px solid var(--border); background:var(--input); color:var(--text); font:600 13px Montserrat,system-ui,sans-serif; width:100% }
+.pv .warnbox{ margin-top:8px; padding:8px 12px; border-radius:10px; background:var(--warning-soft); color:var(--warning); font-size:12.5px }
+.hist .v{ display:grid; grid-template-columns:70px 1fr 150px 140px; gap:10px; align-items:center; padding:10px 8px; border-bottom:1px solid var(--border); font-size:13px }
+.hist .v .n{ font-weight:800 } .hist .v .m{ color:var(--text-soft); font-size:12px } .hist .v .r{ text-align:right; font-variant-numeric:tabular-nums }
+.hist .v.cur{ background:var(--accent-soft); border-radius:8px }
+.hist .diff{ grid-column:1/-1; font-size:12.5px; color:var(--text-muted); padding:0 0 4px 70px }
+.toast{ position:absolute; left:50%; bottom:22px; transform:translateX(-50%); background:var(--text); color:var(--panel); padding:10px 16px; border-radius:10px; font-size:13px; font-weight:600; opacity:0; transition:opacity .2s; pointer-events:none; z-index:60; white-space:nowrap }
+.toast.show{ opacity:1 }
+</style>
+</head>
+<body>
+<div class="tb">
+  <b>Накладная прихода · документ</b>
+  <div class="grp"><span>Тема</span><button data-set="theme" data-val="light" class="on">Светлая</button><button data-set="theme" data-val="dark">Тёмная</button></div>
+  <div class="grp"><span>Экран</span><button data-set="size" data-val="" class="on">1296×879</button><button data-set="size" data-val="s1024">1024×600</button></div>
+  <div class="grp"><span>Экран-вид</span><button data-set="view" data-val="doc" class="on">Накладная</button><button data-set="view" data-val="reg">Реестр «Покупки»</button></div>
+  <div class="grp"><span>Строк</span><button data-set="rows" data-val="0">0</button><button data-set="rows" data-val="13" class="on">13 (снимок)</button><button data-set="rows" data-val="500">500</button></div>
+  <div class="grp"><span>Режим</span><button data-set="mode" data-val="view" class="on">Просмотр</button><button data-set="mode" data-val="new">Создание</button><button data-set="mode" data-val="edit">Правка (владелец)</button></div>
+  <div class="grp"><span>Статус</span><button data-set="status" data-val="posted" class="on">Проведён</button><button data-set="status" data-val="edited">Исправлен v2</button><button data-set="status" data-val="returned">Возврат частичный</button><button data-set="status" data-val="queue">В очереди</button></div>
+  <div class="grp"><span>Скан</span><button data-set="prescan" data-val="0" class="on">Обычно</button><button data-set="prescan" data-val="1">Предварительное</button></div>
+  <div class="perf">открытие <b id="pOpen">—</b> мс · строк в DOM <b id="pDom">—</b> из <b id="pAll">—</b></div>
+</div>
+
+<div class="stage">
+<div class="frame" id="frame" data-theme="light" tabindex="-1">
+
+  <!-- ===== реестр «Покупки» ===== -->
+  <div class="reg hidden" id="reg">
+    <div class="top">
+      <h1>Закупки</h1>
+      <div class="tabs"><span>История</span><span class="on">Покупки</span><span>Заказы поставщикам</span><span>Возвраты</span></div>
+      <div class="seg" id="regTab"><button data-t="docs" class="on">Документы</button><button data-t="lines">Позиции</button></div>
+      <span class="sp"></span>
+      <span class="cnt muted" id="regCnt" style="font-size:12.5px"></span>
+      <button class="btn sm" onclick="toast('Обновить из NurCRM')">⟳ Обновить</button>
+      <button class="btn sm" onclick="toast('Excel по текущему фильтру — в фоне, с прогрессом')">Excel</button>
+      <button class="btn sm primary" id="regNew">+ Новая накладная <span class="kbd" style="font:600 10px Consolas,monospace;opacity:.7">Ins</span></button>
+    </div>
+    <div class="filters">
+      <div class="pills" id="regPeriod"><button data-p="today">Сегодня</button><button data-p="week">7 дней</button><button data-p="month" class="on">Месяц</button><button data-p="all">Всё</button><button data-p="dates">Даты…</button></div>
+      <select class="sel" id="regSup"><option value="">Все поставщики</option></select>
+      <select class="sel" id="regWh"><option value="">Все склады</option><option>Магазин</option><option>Склад</option></select>
+      <div class="search" id="regSbox"><span class="ico">⌕</span><input id="regQ" placeholder="№ 123, поставщик…" autocomplete="off"><span class="kbd">Ctrl+F</span></div>
+      <div class="chips" id="regChips" style="display:flex;gap:6px"></div>
+    </div>
+    <div class="body" id="rbody"><div class="thead" id="rthead"></div><div class="viewport" id="rvp" tabindex="0"></div></div>
+    <div class="foot"><div class="tot" id="rtot"></div></div>
+  </div>
+
+  <!-- ===== документ ===== -->
+  <div class="doc" id="doc" tabindex="-1">
+    <div class="dh">
+      <div><h1 id="title"></h1><div class="sub" id="sub"></div></div>
+      <div class="sp"></div>
+      <div class="win" id="win"></div>
+      <button class="btn icon" title="Закрыть (Esc)" id="closeDoc">✕</button>
+    </div>
+    <div id="strip"></div>
+    <div class="req" id="req"></div>
+    <div class="opts" id="opts">
+      <label><input type="checkbox" id="optTags" checked> Ценники на все позиции после проведения</label>
+      <label><input type="checkbox" id="optPre"> Предварительное сканирование (сначала товар, цены потом)</label>
+      <span class="sp"></span>
+      <span class="muted" id="draftNote" style="font-size:12px"></span>
+    </div>
+    <div class="tools">
+      <div class="addbar" id="addbar">
+        <button class="btn sm" id="insBtn" title="Insert — новая строка">＋ Вставить товар <span style="font:600 10px Consolas,monospace;opacity:.6">Ins</span></button>
+        <div class="search"><span class="ico">⌕</span><input id="addQ" placeholder="Товар: название, штрихкод, код…" autocomplete="off"><span class="kbd">Ins</span>
+          <div class="sug" id="sug"></div></div>
+        <div class="bc"><span class="ico">▥</span><input id="bc" placeholder="Штрихкод" autocomplete="off" inputmode="numeric"><span class="kbd">F2</span></div>
+      </div>
+      <div class="search" id="sbox" style="flex:0 1 240px"><span class="ico">⌕</span><input id="q" placeholder="Поиск по накладной" autocomplete="off"><span class="kbd">Ctrl+F</span></div>
+      <div class="chips" id="chips"></div>
+      <span class="cnt" id="cnt"></span>
+    </div>
+    <div class="body" id="body"><div class="thead" id="thead"></div><div class="viewport" id="vp" tabindex="0"></div></div>
+    <div class="tot" id="tot"></div>
+    <div class="mf" id="mf"></div>
+  </div>
+
+  <div class="overlay hidden" id="pvOverlay"><div class="modal pv" id="pv"></div></div>
+  <div class="overlay hidden" id="hsOverlay"><div class="modal hist" id="hs"></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+</div>
+
+<div class="note">
+<h2 class="sec">Что здесь показано</h2>
+Одна форма на создание, просмотр и правку накладной прихода. Пример (13 строк) — данные со снимка чужой кассы; цены продажи у части строк условные, чтобы показать состояния.
+Цвет строк: полоса <b style="color:#B91C1C">красная</b> — цена продажи ниже закупки, <b style="color:#B45309">жёлтая</b> — наценка &lt; 10 %; «↑ +12 %» в закупке — выросла против прошлой (красный ярлык, если &gt; 10 %); «новый» — товар без закупок; количество 0 — серая строка, в итог не входит. Плитка «Требуют внимания» = фильтр.
+Клавиши (фокус в окне): <kbd>Insert</kbd> товар, <kbd>F2</kbd> штрихкод (введите штрихкод строки — +1 шт; любой 13-значный — новая строка), <kbd>Enter</kbd>/<kbd>Tab</kbd>/стрелки по ячейкам (количество → закупка → наценка → продажа), <kbd>Del</kbd> удалить, <kbd>Ctrl+Z</kbd> вернуть, <kbd>Ctrl+S</kbd> провести/проверить, <kbd>Ctrl+P</kbd> печать, <kbd>Ctrl+F</kbd> поиск, <kbd>Esc</kbd> закрыть.
+Режим «Правка (владелец)»: изменённые ячейки жёлтые с «было», удалённые зачёркнуты, чипы «Изменённые / Добавленные / Удалённые», «Проверить →» открывает предпросмотр «до → после» с причиной и паролем. Реестр «Покупки»: Документы | Позиции, фильтры период/поставщик/склад/товар/статус, итог по фильтру, клик по строке открывает накладную. 500 строк — виртуализация (в DOM ~25 строк).
+</div>
+
+<script src="../Large-lists/shared.js"></script>
+<script>
+(function(){
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const r2 = n => Math.round(n*100)/100, r4 = n => Math.round(n*10000)/10000;
+  const M = LL.money, I = LL.int, E = LL.esc;
+  const S = { theme:'light', size:'', rows:13, view:'doc', mode:'view', status:'posted', prescan:false, q:'', chips:new Set(), att:false, sort:{key:'',dir:1},
+              reg:{ tab:'docs', period:'month', sup:'', wh:'', st:new Set(), q:'', sort:{key:'',dir:1} } };
+  const frame = $('#frame'), doc = $('#doc'), reg = $('#reg'), vp = $('#vp'), thead = $('#thead'), bodyEl = $('#body'), rvp = $('#rvp');
+  let ALL = [], FILT = [], ORIG = null, vlist = null, rvlist = null, cur = null, curRow = null, UNDO = [], nextId = 1000, version = 1, HIST = [], DOCS = null, LINES = null, CATALOG = null, sugIdx = 0;
+  const DOC = { number:'ПР-2026-000123', supNo:'11381', supDate:'2026-10-30', sup:'ОсОО Кока-Кола', wh:'Магазин', user:'Айбек', at:'30.10.2026 14:05', pay:'debt', note:'' };
+  const SUPS = ['ОсОО Кока-Кола', ...LL.SUPS];
+
+  // ---------- данные ----------
+  // 13 строк со снимка (код, штрихкод, название, кол-во, закупка, прошлая закупка, цена продажи — продажа условная у Спрайт/Кола 1 л для показа состояний)
+  const EX = [
+    [395864,'40822938','Фанта 0,5 л',48,50,50,59],[395865,'5449000000286','Кока-Кола 2 л',18,141.6667,135,165],[395866,'5449000000439','Кока-Кола 1,5 л',0,100.75,100.75,125],
+    [395867,'5449000000439','Кока-Кола 1,5 л',18,108.3333,100.75,125],[395868,'5449000133328','Кока-Кола Zero 1 л',12,79.1666,75,89],[395869,'5449000131836','Кока-Кола Zero 0,5 л',16,50,50,60],
+    [395870,'5449000004840','Фанта 2 л',18,141.6667,135,165],[395871,'5449000006271','Фанта 1 л',36,79.1666,75,89],[395872,'5449000052926','Фанта 1,5 л',18,108.3333,100.75,125],
+    [395873,'5449000176431','Сок Piko 0,5 л апельсин',12,75,75,84],[395874,'5449000273680','Сок Piko 0,5 л виноград и алоэ',12,75,0,84],[395875,'5449000050939','Спрайт 1 л',24,79.1666,75,85],
+    [395876,'5449000054227','Кока-Кола 1 л',36,79.1666,75,75]
+  ];
+  function calc(l){
+    l.sum = r2(l.qty*l.price); l.markup = l.price>0 && l.sale>0 ? r2((l.sale/l.price-1)*100) : null; l.profit = r2((l.sale-l.price)*l.qty);
+    l.below = l.sale>0 && l.sale < l.price; l.low = !l.below && l.markup!==null && l.markup < 10;
+    l.raised = l.prev>0 && l.price > l.prev*1.001; l.raisedPct = l.raised ? Math.round((l.price/l.prev-1)*100) : 0;
+    l.zero = !(l.qty>0); l.noPrice = !(l.price>0); l._hay = null; return l;
+  }
+  const exampleLines = () => EX.map((e,i) => calc({ id:i+1, code:e[0], barcode:e[1], name:e[2], unit:'шт', qty:e[3], price:e[4], prev:e[5], sale:e[6], isNew:e[5]===0, ret:0 }));
+  const bigLines = (n, seed) => LL.makeItems(n, seed||11).map((it,i) => calc({ id:i+1, code:400000+i, barcode:it.barcode||'', name:it.name, unit:it.unit, qty: it.id%23===0 ? 0 : it.qty, price:it.price,
+      prev: it.isNew ? 0 : r2(it.price*(it.id%9===0 ? 0.88 : it.id%13===0 ? 0.97 : 1)), sale:it.sell, isNew:it.isNew, ret:0 }));
+  function catalog(){ if (CATALOG) return CATALOG; const seen = new Set(); CATALOG = LL.makeItems(160, 3).filter(i => !seen.has(i.name) && seen.add(i.name)); return CATALOG; }
+
+  function load(){
+    const t0 = performance.now();
+    ALL = S.rows===13 ? exampleLines() : S.rows===0 ? [] : bigLines(S.rows);
+    if (S.rows===13){ DOC.sup='ОсОО Кока-Кола'; DOC.supNo='11381'; DOC.number='ПР-2026-000123'; }
+    nextId = ALL.length + 1000; ORIG = null; UNDO = []; cur = null; curRow = null; version = S.status==='edited' ? 2 : 1;
+    applyStatus(); apply(); $('#pOpen').textContent = (performance.now()-t0).toFixed(0);
+  }
+  function applyStatus(){
+    ALL.forEach(l => { l.ret = 0; });
+    if (S.status==='returned'){ ALL.forEach((l,i) => { if (S.rows===13 ? (i===1||i===4) : l.id%50===0) l.ret = Math.min(l.qty, i===1 ? 2 : 4); }); }
+    version = S.status==='edited' ? 2 : 1;
+    HIST = S.status==='edited' ? [{ v:2, at:'30.10.2026 10:15', who:'Владелец (Нурлан)', dev:'Касса-1', reason:'Опечатка в количестве', before:23150, after:22550, diff:'Кока-Кола 2 л: кол-во 24 → 18' }] : [];
+  }
+  const isChanged = l => ORIG && ORIG.has(l.id) && !l.del && (ORIG.get(l.id).qty!==l.qty || ORIG.get(l.id).price!==l.price || ORIG.get(l.id).sale!==l.sale);
+  // условные «продано после прихода»: каждая 5-я строка — до 3 шт (в кассе — старое кол-во − текущий остаток)
+  const soldOf = l => ORIG && ORIG.has(l.id) && l.id % 5 === 0 ? Math.min(3, ORIG.get(l.id).qty) : 0;
+  const attention = l => l.below || l.low || l.noPrice;
+  const CHIPS = [ ['below','Ниже закупки', l=>l.below], ['low','Маржа < 10 %', l=>l.low], ['raised','Закупка выросла', l=>l.raised], ['new','Новые', l=>l.isNew], ['zero','Без количества', l=>l.zero] ];
+  const ECHIPS = [ ['chg','Изменённые', l=>isChanged(l)], ['add','Добавленные', l=>!!l.added], ['del','Удалённые', l=>!!l.del], ['below','Ниже закупки', l=>l.below], ['low','Маржа < 10 %', l=>l.low] ];
+  const chips = () => S.mode==='edit' ? ECHIPS : CHIPS;
+
+  function apply(){
+    const m = LL.makeMatcher(S.q);
+    FILT = ALL.filter(l => m(l) && (!S.att || attention(l)) && [...S.chips].every(c => (chips().find(x=>x[0]===c)||[0,0,()=>true])[2](l)));
+    if (S.sort.key){ const k=S.sort.key, d=S.sort.dir; FILT.sort((a,b) => (typeof a[k]==='number' ? (a[k]||0)-(b[k]||0) : String(a[k]).localeCompare(String(b[k]),'ru'))*d); }
+    render();
+  }
+
+  // ---------- отрисовка документа ----------
+  const STATUS = { draft:['Черновик','st-draft'], posted:['Проведён','st-posted'], edited:['Исправлен · v2','st-edited'], returned:['Возврат частичный','st-returned'], queue:['Отправляется…','st-queue'] };
+  function totals(list){
+    const act = list.filter(l => !l.del && l.qty>0); let pcs=0, buy=0, rev=0, buyK=0;
+    act.forEach(l => { const s = r2(l.qty*l.price); pcs += l.qty; buy += s; if (l.sale>0 && l.price>0){ rev += r2(l.qty*l.sale); buyK += s; } });
+    return { pos:act.length, pcs, buy:r2(buy), rev:r2(rev), profit:r2(rev-buyK), avg: buyK>0 ? r2((rev/buyK-1)*100) : null };
+  }
+  function render(){
+    frame.dataset.theme = S.theme; frame.className = 'frame ' + S.size;
+    doc.classList.toggle('hidden', S.view!=='doc'); reg.classList.toggle('hidden', S.view!=='reg');
+    if (S.view==='reg'){ renderReg(); return; }
+    const editing = S.mode!=='view', st = S.mode==='new' ? 'draft' : S.status;
+    const [stText, stCls] = STATUS[st];
+    $('#title').innerHTML = `Накладная прихода <span class="num">${S.mode==='new' ? 'ПР-2026-000124' : DOC.number}</span> <span class="badge ${stCls}">${S.mode==='edit' ? 'Правка · версия '+version+' → '+(version+1) : stText}</span>${S.mode==='new' ? '<span class="badge exp" title="Номер зарезервирован на этой кассе; офлайн был бы «ч1»">резерв</span>' : ''}${st==='returned' ? '<span class="badge ret">возвращено 6 шт</span>' : ''}`;
+    $('#sub').textContent = S.mode==='new' ? `${DOC.sup} · склад ${DOC.wh} · создаёт ${DOC.user} · сегодня` : `${DOC.sup} · накладная поставщика № ${DOC.supNo} от 30.10.2026 · склад ${DOC.wh} · принял ${DOC.user} · ${DOC.at}`;
+    $('#win').innerHTML = S.mode==='new' ? `<b class="off">● Черновик сохранён 10:14</b><br>оплата: ${DOC.pay==='debt'?'в долг (до 29.11)':'наличные'}`
+      : S.mode==='edit' ? `<b>⏱ осталось 13 ч 20 мин</b><br>версия ${version} → ${version+1}`
+      : st==='queue' ? `<b class="off">Нет связи — проведём, когда появится</b><br>ключ повтора сохранён`
+      : st==='edited' ? `<b>⏱ Можно править ещё 9 ч 05 мин</b><br>исправлен 30.10 10:15 · владелец` : `<b>⏱ Можно править ещё 13 ч 20 мин</b><br>окно 24 ч · только владелец`;
+    // полоса
+    const strip = $('#strip');
+    strip.innerHTML = S.prescan ? `<div class="strip acc">▥ Предварительное сканирование: сканируйте товар — количество считается само, цены скрыты. <span class="lnk" id="preOff">Перейти к ценам →</span></div>`
+      : S.mode==='edit' ? `<div class="strip warn">✎ Правка проведённого документа. Количество не ниже проданного, строки с возвратом — цена заблокирована. Изменённых строк: <b id="chgN">0</b>. <span class="lnk" id="hsLnk">История версий</span></div>`
+      : st==='edited' ? `<div class="strip acc">ИСПРАВЛЕНО · версия 2 от 30.10.2026 10:15 · владелец · причина: опечатка в количестве (Кока-Кола 2 л: 24 → 18) <span class="lnk" id="hsLnk">История версий</span></div>`
+      : st==='queue' ? `<div class="strip danger">Приход ещё отправляется — правка недоступна. Строки можно поправить в очереди.</div>`
+      : S.mode==='new' && S.rows===0 ? '' : '';
+    if ($('#preOff')) $('#preOff').onclick = () => { S.prescan=false; syncTb(); render(); };
+    if ($('#hsLnk')) $('#hsLnk').onclick = openHistory;
+    // реквизиты
+    const ro = editing ? '' : 'disabled';
+    const sel = (id, opts, val) => `<select class="in" id="${id}" ${ro}>${opts.map(o => `<option ${o===val?'selected':''}>${o}</option>`).join('')}</select>`;
+    $('#req').innerHTML = `<div class="f"><label>Поставщик</label>${sel('fSup', SUPS, DOC.sup)}</div><div class="f"><label>Склад</label>${sel('fWh', ['Магазин','Склад'], DOC.wh)}</div>
+      <div class="f"><label>№ накладной поставщика</label><input class="in" id="fNo" value="${E(DOC.supNo)}" placeholder="с бумаги" ${ro}></div><div class="f p3"><label>Дата накладной</label><input class="in" type="date" value="${DOC.supDate}" ${ro}></div>
+      <div class="f"><label>Оплата</label>${sel('fPay', ['В долг (до 29.11)','Наличные','Из ящика смены','Частично'], DOC.pay==='debt'?'В долг (до 29.11)':'Наличные')}</div><div class="f p3"><label>Примечание</label><input class="in" value="${E(DOC.note)}" placeholder="…" ${ro}></div>`;
+    if ($('#fSup')) $('#fSup').onchange = e => { DOC.sup = e.target.value; render(); };
+    if ($('#fNo')) $('#fNo').oninput = e => { DOC.supNo = e.target.value; };
+    $('#opts').classList.toggle('hidden', !editing);
+    $('#optPre').checked = S.prescan;
+    $('#draftNote').textContent = S.mode==='new' ? 'Enter в полях шапки документ не проводит · Ctrl+S — провести' : '';
+    $('#addbar').classList.toggle('hidden', !editing);
+    // чипы
+    $('#chips').innerHTML = chips().map(c => { const n = ALL.filter(c[2]).length; return n || S.chips.has(c[0]) ? `<button class="chip ${S.chips.has(c[0])?'on':''}" data-c="${c[0]}">${c[1]} <span class="cnt">${n}</span></button>` : ''; }).join('');
+    $('#sbox').classList.toggle('has', !!S.q); if ($('#q').value!==S.q) $('#q').value = S.q;
+    $('#cnt').innerHTML = FILT.length===ALL.length ? `Показано <b>${I(ALL.length)}</b>` : `Показано <b>${I(FILT.length)}</b> из ${I(ALL.length)}`;
+    // шапка колонок
+    bodyEl.classList.toggle('pre', S.prescan);
+    const COLS = [ {k:'idx',t:'№',cls:'num idx'},{k:'code',t:'Код',cls:'p3'},{k:'barcode',t:'Штрихкод',cls:'p3'},{k:'name',t:'Наименование',cls:'name'},{k:'qty',t:'Кол-во',cls:'num'},{k:'unit',t:'Ед.',cls:'p4'},
+      {k:'price',t:'Закупка',cls:'num pc'},{k:'prev',t:'Прошлая',cls:'num p3 pc'},{k:'sum',t:'Сумма',cls:'num pc'},{k:'markup',t:'Наценка %',cls:'num pc'},{k:'sale',t:'Продажа',cls:'num pc'},{k:'profit',t:'Прибыль',cls:'num p4 pc'},{k:'x',t:'',cls:'x'} ];
+    thead.innerHTML = COLS.map(c => `<div class="c ${c.cls}" data-k="${c.k}">${c.t}${S.sort.key===c.k?`<span class="arr">${S.sort.dir>0?'▲':'▼'}</span>`:''}</div>`).join('');
+    bodyEl.querySelectorAll('.state').forEach(e=>e.remove());
+    if (!vlist) vlist = LL.VList(vp, { overscan:6, heightOf:()=>rowH(), render:renderRow, always:true, onRange:(a,b,ms,n)=>{ $('#pDom').textContent=n; } });
+    vlist.setItems(FILT); $('#pAll').textContent = I(FILT.length);
+    if (!ALL.length) bodyEl.insertAdjacentHTML('beforeend', `<div class="state"><div class="ico">▭</div><h4>${editing?'Накладная пустая':'В этом приходе нет позиций'}</h4><p>${editing?'Нажмите <kbd>Insert</kbd> и начните вводить название, или отсканируйте штрихкод — строка добавится сама.':'Приход создан, но товары ещё не добавлены.'}</p></div>`);
+    else if (!FILT.length) bodyEl.insertAdjacentHTML('beforeend', `<div class="state"><div class="ico">⌕</div><h4>Ничего не найдено${S.q?` по «${E(S.q)}»`:''}</h4><p>Проверьте раскладку — поиск понимает ё=е и транслит. Снимите чипы.</p><div class="acts"><button class="btn sm" id="resetF">Сбросить поиск и фильтры</button></div></div>`);
+    if ($('#resetF')) $('#resetF').onclick = () => { S.q=''; S.chips.clear(); S.att=false; apply(); };
+    // итог
+    const T = totals(ALL), att = ALL.filter(attention).length;
+    const tot = $('#tot'); tot.classList.toggle('editing', S.mode==='edit' || S.prescan);
+    if (S.prescan) tot.innerHTML = `<div class="t"><div class="k">Отсканировано позиций</div><div class="v">${I(T.pos)}</div></div><div class="t"><div class="k">Штук</div><div class="v">${I(T.pcs)}</div></div><div class="t" style="grid-column:span 4"><div class="k">Дальше</div><div class="v" style="font-size:13px;font-weight:600">цены и наценку проставим после «Перейти к ценам →»</div></div>`;
+    else if (S.mode==='edit'){ const B = totals([...ORIG.values()]); tot.innerHTML = `<div class="t"><div class="k">Сумма было → стало</div><div class="v">${M(B.buy)} → ${M(T.buy)}</div></div><div class="t"><div class="k">Разница</div><div class="v">${delta(T.buy-B.buy)}</div></div><div class="t"><div class="k">Долг поставщику</div><div class="v">${M(B.buy)} → ${M(T.buy)}</div></div><div class="t"><div class="k">Строк · изменено / добавлено / удалено</div><div class="v">${I(T.pos)} · ${ALL.filter(isChanged).length} / ${ALL.filter(l=>l.added).length} / ${ALL.filter(l=>l.del).length}</div></div><div class="t ${att?'att':''} ${S.att?'on':''}" id="attTile"><div class="k">Требуют внимания</div><div class="v">${att} ${S.att?'✕':'›'}</div></div><div class="t"><div class="k">Ср. наценка</div><div class="v">${T.avg===null?'—':T.avg.toFixed(2)+' %'}</div></div>`; if ($('#chgN')) $('#chgN').textContent = ALL.filter(isChanged).length + ALL.filter(l=>l.added||l.del).length; }
+    else tot.innerHTML = `<div class="t"><div class="k">Позиций</div><div class="v">${I(T.pos)}<small>${T.pos!==ALL.length?'из '+I(ALL.length):''}</small></div></div><div class="t"><div class="k">Штук</div><div class="v">${I(T.pcs)}</div></div><div class="t"><div class="k">Сумма закупки</div><div class="v">${M(T.buy)}</div></div><div class="t"><div class="k">Ср. наценка</div><div class="v">${T.avg===null?'—':T.avg.toFixed(2)+' %'}</div></div><div class="t"><div class="k">Ожидаемая выручка</div><div class="v">${M(T.rev)}</div></div><div class="t ok"><div class="k">Ожидаемая прибыль</div><div class="v">${M(T.profit)}</div></div><div class="t ${att?'att':'ok'} ${S.att?'on':''}" id="attTile" title="Ниже закупки, маржа < 10 % или нет закупки — клик фильтрует"><div class="k">Требуют внимания</div><div class="v">${att?att+(S.att?' ✕':' ›'):'0 ✓'}</div></div>`;
+    if ($('#attTile')) $('#attTile').onclick = () => { if (!att) return; S.att=!S.att; apply(); };
+    // футер
+    const mf = $('#mf');
+    const noPrice = ALL.some(l => !l.del && l.qty>0 && l.noPrice) && !S.prescan;
+    mf.innerHTML = S.mode==='new' ? `<button class="btn" id="btnClose">Закрыть</button><button class="btn" onclick="toast('Черновик сохранён на этом ПК — откроется из «Покупки → Черновики»')">Сохранить черновик</button><span class="sp"></span><span class="ghost-note">${noPrice?'Есть строки без цены закупки — проведение недоступно':''}</span><button class="btn" onclick="toast('Печать (Ctrl+P): A4, 38 строк на страницу, итог на последней')">Печать <span class="kbd">Ctrl+P</span></button><button class="btn primary" id="btnPost" ${noPrice?'disabled':''}>Провести <span class="kbd">Ctrl+S</span></button>`
+      : S.mode==='edit' ? `<button class="btn" id="btnCancelEdit">Отменить правки</button><button class="btn" id="btnHist">История версий</button><span class="sp"></span><button class="btn" onclick="toast('Открыть файл накладной поставщика для сверки')">Открыть файл накладной</button><button class="btn primary" id="btnCheck">Проверить → <span class="kbd">Ctrl+S</span></button>`
+      : `<button class="btn" id="btnClose">Закрыть</button>${st==='edited'?'<button class="btn" id="btnHist">История версий</button>':''}<button class="btn" onclick="toast('Печать (Ctrl+P): A4 с «ИСПРАВЛЕНО · версия N», если документ правился')">Печать <span class="kbd">Ctrl+P</span></button><button class="btn" onclick="toast('PDF — файл ПР-2026-000123'+(st==='edited'?'_v2':'')+'.pdf')">PDF</button><button class="btn" onclick="toast('Excel по накладной (UTF-8 BOM, ;)')">Excel</button><button class="btn" onclick="toast('Ценники на все позиции → BulkPriceTagPrintDialog')">Ценники</button><span class="sp"></span><button class="btn" onclick="toast('Возврат поставщику по этому приходу')" ${st==='queue'?'disabled':''}>Вернуть</button><button class="btn" onclick="toast('Повторить закупку: новая накладная с этим составом')">Повторить</button><button class="btn primary" id="btnEdit" ${st==='queue'?'disabled title="Приход ещё отправляется — правьте его в очереди"':''}>Изменить</button>`;
+    if ($('#btnClose')) $('#btnClose').onclick = closeDoc;
+    if ($('#btnPost')) $('#btnPost').onclick = post;
+    if ($('#btnEdit')) $('#btnEdit').onclick = () => setMode('edit');
+    if ($('#btnCancelEdit')) $('#btnCancelEdit').onclick = () => setMode('view');
+    if ($('#btnHist')) $('#btnHist').onclick = openHistory;
+    if ($('#btnCheck')) $('#btnCheck').onclick = openPreview;
+    syncTb();
+  }
+  const rowH = () => parseInt(getComputedStyle(frame).getPropertyValue('--row')) || 40;
+  const delta = d => d===0 ? `<span class="delta z">0,00</span>` : `<span class="delta ${d<0?'neg':'pos'}">${d<0?'−':'+'}${M(Math.abs(d))}</span>`;
+  const was = (l,f) => isChanged(l) && ORIG.get(l.id)[f]!==l[f] ? `<span class="was">${f==='qty'?ORIG.get(l.id)[f]:M(ORIG.get(l.id)[f])}</span>` : '';
+  const chg = (l,f) => isChanged(l) && ORIG.get(l.id)[f]!==l[f] ? 'chg' : '';
+  function renderRow(l){
+    const editing = S.mode!=='view' && !l.del, cls = [l.below?'err':l.low?'low':'', l.zero?'zero':'', l.del?'del':'', curRow===l.id?'cur':''].join(' ');
+    const ed = f => editing && !S.prescan || (editing && f==='qty') ? 'edit' : '';
+    const priceLocked = l.ret>0 && S.mode==='edit';
+    const badges = (l.isNew?'<span class="badge new">новый</span>':'') + (l.below?'<span class="badge err">ниже закупки</span>':l.low?`<span class="badge low">маржа ${l.markup.toFixed(0)} %</span>`:'') + (l.zero?'<span class="badge zero">0 шт</span>':'')
+      + (l.ret>0?`<span class="badge ret">возврат ${l.ret}</span>`:'') + (l.added?'<span class="badge add">добавлено</span>':isChanged(l)?'<span class="badge ok">изменено</span>':'') + (l.noPrice&&!S.prescan?'<span class="badge err">нет закупки</span>':'');
+    return `<div class="row ${cls}" data-id="${l.id}">
+      <div class="c num idx">${l.id<1000?l.id:'+'}</div><div class="c p3 mono">${l.code}</div><div class="c p3 mono">${l.barcode||'—'}</div>
+      <div class="c name"><span class="t" title="${E(l.name)}">${E(l.name)}</span>${badges}</div>
+      <div class="c num ${ed('qty')} ${chg(l,'qty')}" data-f="qty" title="${S.mode==='edit'?'Не меньше проданного':''}">${was(l,'qty')}<span>${l.qty}${l.ret>0?`<span class="sm"> −${l.ret}</span>`:''}</span></div>
+      <div class="c p4 muted">${l.unit}</div>
+      <div class="c num pc ${priceLocked?'':ed('price')} ${chg(l,'price')}" data-f="price" ${priceLocked?'title="По строке был возврат — цена заблокирована"':''}>${was(l,'price')}<span>${l.noPrice?'<span class="badge err">0</span>':M(l.price)}${l.raised?` <span class="up ${l.raisedPct>10?'bad':''}" title="Прошлая закупка ${M(l.prev)}">↑ +${l.raisedPct} %</span>`:''}</span></div>
+      <div class="c num p3 pc muted">${l.prev>0?M(l.prev):'—'}</div>
+      <div class="c num pc sum">${M(l.sum)}</div>
+      <div class="c num pc ${ed('markup')} ${l.below?'bad':l.low?'lowc':''}" data-f="markup">${l.markup===null?'—':l.markup.toFixed(2)}</div>
+      <div class="c num pc ${ed('sale')} ${chg(l,'sale')} ${l.below?'bad':''}" data-f="sale">${was(l,'sale')}<span>${l.sale>0?M(l.sale):'—'}</span></div>
+      <div class="c num p4 pc ${l.profit<0?'bad':''}">${l.sale>0?M(l.profit):'—'}</div>
+      <div class="c x">${S.mode==='view'?'':l.del?'<button class="undo" data-a="undel">Вернуть</button>':`<button data-a="del" title="Удалить строку (Del)" ${l.ret>0?'disabled':''}>✕</button>`}</div></div>`;
+  }
+
+  // ---------- правка ячеек и навигация ----------
+  const FIELDS = () => S.prescan ? ['qty'] : ['qty','price','markup','sale'];
+  function startEdit(id, f){
+    if (S.mode==='view') return; const l = ALL.find(x=>x.id===id); if (!l || l.del) return;
+    if (f!=='qty' && S.prescan) f = 'qty'; if (f==='price' && l.ret>0 && S.mode==='edit') f = 'sale';
+    const idx = FILT.indexOf(l); if (idx<0) return;
+    cur = { id, f, old: f==='markup' ? l.markup : l[f] }; curRow = id;
+    let el = vp.querySelector(`[data-id="${id}"]`);
+    if (!el){ vlist.scrollToIndex(Math.max(0, idx-3)); vlist.refresh(); el = vp.querySelector(`[data-id="${id}"]`); }
+    if (el){ const r = el.getBoundingClientRect(), v = vp.getBoundingClientRect(); if (r.bottom > v.bottom) vp.scrollTop += r.bottom - v.bottom; else if (r.top < v.top) vp.scrollTop -= v.top - r.top; vlist.refresh(); el = vp.querySelector(`[data-id="${id}"]`); }
+    if (!el) return;
+    const c = el.querySelector(`[data-f="${f}"]`); if (!c) return;
+    const val = f==='markup' ? (l.markup===null?'':l.markup) : l[f];
+    c.innerHTML = `<input class="inl" value="${val}">`; const inp = c.querySelector('input'); inp.focus(); inp.select();
+    inp.onkeydown = ev => {
+      const k = ev.key, fs = FIELDS(), fi = fs.indexOf(f), ri = FILT.indexOf(l);
+      const go = (r, fi2) => { ev.preventDefault(); if (r<0) { commit(true); return; } if (r>=FILT.length){ commit(true); if (S.mode!=='view') { $('#addQ').focus(); toast('Insert — новая строка'); } return; } commit(true, { id:FILT[r].id, f:fs[fi2] }); };
+      if (k==='Enter' || (k==='Tab' && !ev.shiftKey)) { if (fi<fs.length-1) go(ri, fi+1); else go(ri+1, 0); }
+      else if (k==='Tab' && ev.shiftKey) { if (fi>0) go(ri, fi-1); else go(ri-1, fs.length-1); }
+      else if (k==='ArrowDown') go(ri+1, fi); else if (k==='ArrowUp') go(ri-1, fi);
+      else if (k==='ArrowRight' && inp.selectionStart===inp.value.length && fi<fs.length-1) go(ri, fi+1);
+      else if (k==='ArrowLeft' && inp.selectionStart===0 && fi>0) go(ri, fi-1);
+      else if (k==='Escape') { ev.stopPropagation(); commit(false); }
+      else if (k==='Delete' && ev.ctrlKey) { ev.preventDefault(); commit(false); delLine(id); }
+    };
+    inp.onblur = () => { if (cur && cur.id===id && cur.f===f) commit(true); };
+  }
+  function commit(ok, nav){
+    if (!cur) return; const { id, f, old } = cur; cur = null;
+    const l = ALL.find(x=>x.id===id), inp = vp.querySelector('input.inl');
+    if (ok && l && inp){ const v = parseFloat(String(inp.value).replace(',','.').replace(/\s/g,''));
+      if (!isNaN(v) && v>=0 && v!==old){
+        if (f==='qty' && S.mode==='edit' && ORIG.has(l.id)){ const sold = soldOf(l), min = Math.max(l.ret, sold); if (v < min) { toast(`Не меньше ${min}: ${sold} шт уже продано${l.ret?`, ${l.ret} возвращено`:''}`); apply(); if (nav) startEdit(nav.id, nav.f); return; } }
+        UNDO.push({ t:'cell', id, f, old });
+        if (f==='markup') l.sale = r2(l.price*(1+v/100)); else { l[f] = f==='qty' ? v : r4(v); if (f==='price' && S.mode==='new' && !l.manualSale) l.sale = Math.ceil(l.price*1.2); if (f==='sale') l.manualSale = true; }
+        calc(l);
+      } }
+    apply(); if (nav) startEdit(nav.id, nav.f); else vp.focus();
+  }
+  function delLine(id){
+    const l = ALL.find(x=>x.id===id); if (!l) return;
+    if (l.ret>0) { toast('Нельзя удалить: по строке был возврат поставщику'); return; }
+    if (S.mode==='edit' && !l.added){ l.del = true; UNDO.push({ t:'del', id }); }
+    else { const i = ALL.indexOf(l); ALL.splice(i,1); UNDO.push({ t:'rm', l, i }); }
+    curRow = null; apply(); toast(`Удалено: ${l.name} · Ctrl+Z вернуть`);
+  }
+  function undo(){
+    const u = UNDO.pop(); if (!u) { toast('Нечего отменять'); return; }
+    if (u.t==='cell'){ const l = ALL.find(x=>x.id===u.id); if (l){ if (u.f==='markup') l.sale = r2(l.price*(1+u.old/100)); else l[u.f] = u.old; calc(l); } }
+    else if (u.t==='del'){ const l = ALL.find(x=>x.id===u.id); if (l) l.del = false; }
+    else if (u.t==='rm'){ ALL.splice(u.i, 0, u.l); }
+    apply(); toast('Возвращено');
+  }
+  function addLine(it){
+    const l = calc({ id: nextId++, code: 400000+nextId, barcode: it.barcode||'', name: it.name, unit: it.unit||'шт', qty: 1, price: S.prescan ? 0 : it.price, prev: it.isNew ? 0 : it.price, sale: S.prescan ? 0 : it.sell, isNew: !!it.isNew, ret: 0, added: S.mode==='edit' });
+    ALL.push(l); S.q=''; S.chips.clear(); S.att=false; apply(); vlist.scrollEnd(); vlist.refresh(); toast(`Добавлено: ${l.name}`); startEdit(l.id, 'qty'); return l;
+  }
+  function scan(code){
+    code = String(code).trim(); if (!code) return;
+    const l = ALL.find(x => !x.del && x.barcode===code);
+    if (l){ UNDO.push({ t:'cell', id:l.id, f:'qty', old:l.qty }); l.qty += 1; calc(l); curRow = l.id; apply(); const el = vp.querySelector(`[data-id="${l.id}"]`); if (el) el.classList.add('flash'); toast(`+1 · ${l.name} → ${l.qty} шт`); return; }
+    const c = catalog().find(x => x.barcode===code);
+    if (c) { addLine(c); return; }
+    if (/^\d{8,14}$/.test(code)) { const c2 = catalog()[code.slice(-2) % catalog().length]; addLine({ ...c2, barcode:code }); return; }
+    toast('Штрихкод не найден в каталоге — «Создать товар»?');
+  }
+  // подсказки товара
+  function renderSug(){
+    const q = $('#addQ').value.trim(), box = $('#sug');
+    if (!q){ box.classList.remove('show'); return; }
+    const m = LL.makeMatcher(q), list = catalog().filter(m).slice(0,7);
+    sugIdx = Math.min(sugIdx, list.length);
+    box.innerHTML = list.map((it,i) => `<div class="s ${i===sugIdx?'hi':''}" data-i="${i}"><b>${E(it.name)}</b><span class="m">${it.barcode||'без штрихкода'}</span><span class="p">${M(it.price)}</span></div>`).join('') + `<div class="s new ${sugIdx===list.length?'hi':''}" data-i="${list.length}">+ Создать товар «${E(q)}»</div>`;
+    box.classList.add('show'); box._list = list;
+  }
+  function pickSug(i){ const list = $('#sug')._list || []; if (i<list.length) addLine(list[i]); else addLine({ name:$('#addQ').value.trim(), barcode:'', price:0, sell:0, isNew:true }); $('#addQ').value=''; $('#sug').classList.remove('show'); sugIdx=0; }
+
+  // ---------- режимы, проведение, предпросмотр ----------
+  function setMode(m){
+    if (m==='edit'){ if (S.status==='queue'){ toast('Приход ещё отправляется — правьте его в очереди'); return; } if (S.mode==='new') S.status='posted'; ORIG = new Map(ALL.map(l => [l.id, { qty:l.qty, price:l.price, sale:l.sale }])); ALL.forEach(l => { l.del=false; l.added=false; }); }
+    else if (S.mode==='edit' && ORIG){ ALL = ALL.filter(l => !l.added); ALL.forEach(l => { const o = ORIG.get(l.id); if (o){ l.qty=o.qty; l.price=o.price; l.sale=o.sale; } l.del=false; calc(l); }); ORIG = null; }
+    S.mode = m; S.chips.clear(); S.att=false; cur=null; apply();
+  }
+  function post(){
+    if (!ALL.length){ toast('Накладная пустая'); return; }
+    const bad = ALL.filter(l => l.qty>0 && l.noPrice).length; if (bad){ toast(`Нет цены закупки у ${bad} строк — проведение недоступно`); return; }
+    const att = ALL.filter(attention).length;
+    toast(att ? `Проведено. ${att} строк ниже закупки/маржа < 10 % — подтверждено. Ценники: ${$('#optTags').checked?'печать…':'нет'}` : `Проведено ПР-2026-000124 · ${$('#optTags').checked?'печать ценников…':''}`);
+    S.mode='view'; S.status='posted'; DOC.number='ПР-2026-000124'; DOC.supNo = $('#fNo').value || '—'; apply();
+  }
+  function openPreview(){
+    const B = totals([...ORIG.values()]), T = totals(ALL), chgs = ALL.filter(l => isChanged(l) || l.added || l.del);
+    if (!chgs.length){ toast('Правок нет'); return; }
+    const sold = soldOf; let neg = 0;
+    $('#pv').innerHTML = `<div class="mh"><div><h2>Проверьте правку</h2><div class="sub">${DOC.number} от ${DOC.at} · ${DOC.sup} · версия ${version} → ${version+1}</div></div><span class="sp"></span><button class="btn icon" id="pvClose">✕</button></div>
+      <div class="mb"><h3>Деньги</h3><div class="kv"><span>Сумма прихода</span><span class="d">${M(B.buy)} → <b>${M(T.buy)}</b>${delta(T.buy-B.buy)}</span><span>Долг поставщику</span><span class="d">${M(B.buy)} → <b>${M(T.buy)}</b>${delta(T.buy-B.buy)} <span class="muted">сделка «Долги ${E(DOC.sup)}»</span></span><span>Расход кассы</span><span class="d muted">—</span></div>
+      <h3>Остатки и закупка в карточке</h3><table><tr><th>Товар</th><th class="r">Кол-во</th><th class="r">Остаток сейчас</th><th class="r">Станет</th><th class="r">Закупка в карточке</th></tr>${chgs.map(l => { const o = ORIG.get(l.id) || { qty:0, price:0, sale:0 }; const q1 = o.qty, q2 = l.del ? 0 : l.qty, stock = Math.max(0, q1 - sold(l)); const st2 = stock + (q2 - q1); if (st2 < 0) neg++; return `<tr><td class="${l.del?'del':''}">${E(l.name)}${l.added?' <span class="badge add">добавлено</span>':l.del?' <span class="badge err">удалено</span>':''}</td><td class="r">${q1!==q2?`<span class="was">${q1}</span>`:''}${q2}</td><td class="r">${stock}</td><td class="r" style="${st2<0?'color:var(--danger);font-weight:700':''}">${st2}${st2<0?' ⚠':''}</td><td class="r">${o.price!==l.price&&!l.del?`<span class="was">${M(o.price)}</span>${M(l.price)} <span class="muted">(последний приход)</span>`:M(l.price)+' <span class="muted">без изм.</span>'}</td></tr>`; }).join('')}</table>
+      <div class="warnbox">Продажи после прихода по этим товарам: ${chgs.length*2} чеков — прибыль в отчётах пересчитается от новой закупки. Ревизии: нет. Возвраты по приходу: ${ALL.some(l=>l.ret>0)?'есть (строки заблокированы)':'нет'}.</div>
+      <h3>Причина правки (обязательно) и подтверждение</h3><div class="reason"><select id="pvReason"><option value="">— выберите —</option><option>Опечатка в количестве</option><option>Опечатка в цене</option><option>Не тот товар</option><option>Поставщик прислал исправленную накладную</option><option>Недовоз</option><option>Другое</option></select><input class="in" id="pvText" placeholder="Подробности, 5–500 знаков"><input class="in" id="pvPwd" type="password" placeholder="Пароль владельца"></div></div>
+      <div class="mf"><button class="btn" id="pvBack">← Назад к правке</button><span class="sp"></span><span class="ghost-note" id="pvNote">Нужны причина и пароль</span><button class="btn primary" id="pvSave" disabled>Сохранить правку</button></div>`;
+    $('#pvOverlay').classList.remove('hidden');
+    const chk = () => { const ok = !neg && $('#pvReason').value && $('#pvText').value.trim().length>=5 && $('#pvPwd').value.length>=4; $('#pvSave').disabled = !ok; $('#pvNote').textContent = neg ? `Остаток уйдёт в минус у ${neg} товаров — сервер откажет (negative_stock)` : ok ? 'В PATCH уйдут только изменённые строки ('+chgs.length+')' : 'Нужны причина и пароль'; };
+    chk();
+    ['pvReason','pvText','pvPwd'].forEach(id => $('#'+id).oninput = chk);
+    $('#pvClose').onclick = $('#pvBack').onclick = () => $('#pvOverlay').classList.add('hidden');
+    $('#pvSave').onclick = () => {
+      HIST.push({ v:version+1, at:'30.10.2026 10:15', who:'Владелец (Нурлан)', dev:'Касса-1', reason:$('#pvReason').value+(($('#pvText').value.trim())?' — '+$('#pvText').value.trim():''), before:B.buy, after:T.buy, diff: chgs.map(l => l.del?`${l.name}: удалена`:l.added?`${l.name}: добавлена ${l.qty} × ${M(l.price)}`:`${l.name}: ${ORIG.get(l.id).qty} → ${l.qty}${ORIG.get(l.id).price!==l.price?`, цена ${M(ORIG.get(l.id).price)} → ${M(l.price)}`:''}`).join('; ') });
+      version++; ALL = ALL.filter(l => !l.del); ALL.forEach(l => { l.added=false; }); ORIG = null; S.mode='view'; S.status='edited'; $('#pvOverlay').classList.add('hidden'); apply(); toast(`Приход исправлен, версия ${version} · Telegram владельцу отправлен`);
+    };
+  }
+  function openHistory(){
+    const rows = [{ v:1, at:DOC.at, who:DOC.user+' (кассир)', dev:'Касса-1', reason:'Проведён', before:null, after:HIST.length?HIST[0].before:totals(ALL).buy, diff:'' }, ...HIST];
+    $('#hs').innerHTML = `<div class="mh"><div><h2>История версий</h2><div class="sub">${DOC.number} · ${DOC.sup} · сейчас версия ${version}</div></div><span class="sp"></span><button class="btn icon" id="hsClose">✕</button></div>
+      <div class="mb">${rows.map(h => `<div class="v ${h.v===version?'cur':''}"><span class="n">v${h.v}</span><span><b>${E(h.reason)}</b><div class="m">${h.who} · ${h.dev} · ${h.at}</div></span><span class="r">${h.before!==null?M(h.before)+' → ':''}<b>${M(h.after)}</b></span><span style="text-align:right"><button class="btn sm" onclick="toast('PDF версии ${h.v}')">PDF</button> ${h.v!==version?`<button class="btn sm" onclick="toast('Откат = новая правка с составом версии ${h.v}: окно, предпросмотр, причина, пароль')">Вернуть</button>`:''}</span>${h.diff?`<div class="diff">${E(h.diff)}</div>`:''}</div>`).join('')}</div>
+      <div class="mf"><span class="ghost-note">Историю не стираем: откат — это новая версия</span><span class="sp"></span><button class="btn" id="hsOk">Закрыть</button></div>`;
+    $('#hsOverlay').classList.remove('hidden'); $('#hsClose').onclick = $('#hsOk').onclick = () => $('#hsOverlay').classList.add('hidden');
+  }
+  function closeDoc(){ if (S.mode==='edit' && ALL.some(l=>isChanged(l)||l.added||l.del)) { toast('Есть несохранённые правки — «Отменить правки» или «Проверить →»'); return; } if (S.mode==='edit') setMode('view'); S.view='reg'; render(); }
+
+  // ---------- реестр «Покупки» ----------
+  function makeDocs(){
+    if (DOCS) return; DOCS = []; LINES = [];
+    const USERS = ['Айбек','Айжан','Нурлан'], STS = ['posted','posted','posted','edited','returned','posted','draft'];
+    for (let i=0;i<42;i++){
+      const dayAgo = Math.floor(i*30/42), d = new Date(2026,9,30-dayAgo), n = i===0 ? 13 : i%7===0 ? 120 : 5+(i*37)%60;
+      const lines = i===0 ? exampleLines() : bigLines(n, 100+i);
+      const T = totals(lines), st = i===0 ? 'posted' : STS[i%STS.length];
+      const doc = { i, number:'ПР-2026-'+String(123-i).padStart(6,'0'), date:d, dateS:`${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.2026 ${String(8+(i*5)%11).padStart(2,'0')}:${String((i*17)%60).padStart(2,'0')}`, dayAgo, sup: i===0?'ОсОО Кока-Кола':SUPS[1+(i%(SUPS.length-1))], supNo: i===0?'11381':String(1000+i*7), wh: i>0 && i%4===0?'Склад':'Магазин', n, pcs:T.pcs, sum:T.buy, avg:T.avg, pay:['В долг','Наличные','Частично'][i%3], st, user:USERS[i%3], lines };
+      DOCS.push(doc); lines.forEach(l => LINES.push({ ...l, doc, _hay:null, sup:doc.sup, cat:'' }));
+    }
+    $('#regSup').innerHTML = '<option value="">Все поставщики</option>' + SUPS.map(s=>`<option>${s}</option>`).join('');
+  }
+  const RST = { draft:['Черновик','st-draft'], posted:['Проведён','st-posted'], edited:['Исправлен','st-edited'], returned:['С возвратом','st-returned'] };
+  const RCH = [ ['draft','Черновики'], ['posted','Проведены'], ['edited','Исправлены'], ['returned','С возвратом'] ];
+  function renderReg(){
+    makeDocs(); const R = S.reg, t0 = performance.now();
+    const per = d => R.period==='today' ? d.dayAgo===0 : R.period==='week' ? d.dayAgo<=6 : R.period==='month' ? d.dayAgo<=30 : true;
+    const m = LL.makeMatcher(R.q);
+    const dOk = d => per(d) && (!R.sup || d.sup===R.sup) && (!R.wh || d.wh===R.wh) && (!R.st.size || R.st.has(d.st));
+    let list = R.tab==='docs' ? DOCS.filter(d => dOk(d) && (!R.q || (d.number+' '+d.number.replace(/-/g,'')+' '+parseInt(d.number.slice(-6))+' '+d.sup+' '+d.supNo).toLowerCase().includes(R.q.toLowerCase().trim())))
+                              : LINES.filter(l => dOk(l.doc) && m(l));
+    if (R.sort.key){ const k=R.sort.key, d=R.sort.dir; list.sort((a,b) => { const x = k==='date'?a.doc?a.doc.date:a.date:a[k], y = k==='date'?b.doc?b.doc.date:b.date:b[k]; return (typeof x==='number'||x instanceof Date ? x-y : String(x).localeCompare(String(y),'ru'))*d; }); }
+    $('#regTab').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t===R.tab));
+    $('#regPeriod').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p===R.period));
+    $('#regSup').value = R.sup; $('#regWh').value = R.wh;
+    $('#regChips').innerHTML = RCH.map(c => `<button class="chip ${R.st.has(c[0])?'on':''}" data-c="${c[0]}">${c[1]} <span class="cnt">${DOCS.filter(d=>per(d)&&d.st===c[0]).length}</span></button>`).join('');
+    $('#regQ').placeholder = R.tab==='docs' ? '№ 123, поставщик…' : 'Товар, штрихкод…';
+    const rb = $('#rbody'); rb.classList.toggle('lines', R.tab==='lines');
+    const DC = [ {k:'number',t:'№'},{k:'date',t:'Дата'},{k:'sup',t:'Поставщик'},{k:'supNo',t:'№ накл. пост.',cls:'p3'},{k:'wh',t:'Склад'},{k:'n',t:'Позиций',cls:'num'},{k:'pcs',t:'Штук',cls:'num p3'},{k:'sum',t:'Сумма',cls:'num'},{k:'avg',t:'Ср. нац.',cls:'num'},{k:'pay',t:'Оплата'},{k:'st',t:'Статус'},{k:'user',t:'Принял',cls:'p3'} ];
+    const LC = [ {k:'id',t:'№',cls:'num'},{k:'code',t:'Код',cls:'p4'},{k:'barcode',t:'Штрихкод',cls:'p3'},{k:'name',t:'Наименование'},{k:'unit',t:'Ед.',cls:'p4'},{k:'qty',t:'Кол-во',cls:'num'},{k:'price',t:'Закупка',cls:'num'},{k:'sum',t:'Сумма',cls:'num'},{k:'sale',t:'Продажа',cls:'num'},{k:'markup',t:'Нац. %',cls:'num'},{k:'docn',t:'Документ'},{k:'date',t:'Дата'},{k:'sup',t:'Поставщик'},{k:'wh',t:'Склад',cls:'p3'},{k:'user',t:'Принял',cls:'p3'} ];
+    $('#rthead').innerHTML = (R.tab==='docs'?DC:LC).map(c => `<div class="c ${c.cls||''}" data-k="${c.k}">${c.t}${R.sort.key===c.k?`<span class="arr">${R.sort.dir>0?'▲':'▼'}</span>`:''}</div>`).join('');
+    const renderDoc = d => `<div class="row" data-doc="${d.i}"><div class="c mono" style="font-weight:700;color:var(--text)">${d.number}</div><div class="c muted">${d.dateS}</div><div class="c"><span class="t">${E(d.sup)}</span></div><div class="c p3 mono">${d.supNo}</div><div class="c muted">${d.wh}</div><div class="c num">${d.n}</div><div class="c num p3">${I(d.pcs)}</div><div class="c num sum">${M(d.sum)}</div><div class="c num ${d.avg!==null&&d.avg<10?'lowc':''}">${d.avg===null?'—':d.avg.toFixed(1)+' %'}</div><div class="c muted">${d.pay}</div><div class="c"><span class="badge ${RST[d.st][1]}">${RST[d.st][0]}</span>${d.st==='posted'&&d.dayAgo===0?'<span class="sm" title="Окно правки">✎ 13 ч</span>':''}</div><div class="c p3 muted">${d.user}</div></div>`;
+    const renderLine = l => `<div class="row ${l.below?'err':l.low?'low':''}" data-doc="${l.doc.i}"><div class="c num idx">${l.id}</div><div class="c p4 mono">${l.code}</div><div class="c p3 mono">${l.barcode||'—'}</div><div class="c name"><span class="t">${E(l.name)}</span>${l.isNew?'<span class="badge new">новый</span>':''}</div><div class="c p4 muted">${l.unit}</div><div class="c num">${l.qty}</div><div class="c num">${M(l.price)}${l.raised?` <span class="up ${l.raisedPct>10?'bad':''}">↑</span>`:''}</div><div class="c num sum">${M(l.sum)}</div><div class="c num ${l.below?'bad':''}">${l.sale>0?M(l.sale):'—'}</div><div class="c num ${l.below?'bad':l.low?'lowc':''}">${l.markup===null?'—':l.markup.toFixed(1)}</div><div class="c mono" style="color:var(--text)">${l.doc.number}</div><div class="c muted">${l.doc.dateS}</div><div class="c muted"><span class="t">${E(l.doc.sup)}</span></div><div class="c p3 muted">${l.doc.wh}</div><div class="c p3 muted">${l.doc.user}</div></div>`;
+    if (!rvlist) rvlist = LL.VList(rvp, { overscan:6, heightOf:()=>rowH(), render: it => it.doc ? renderLine(it) : renderDoc(it), always:true, onRange:(a,b,ms,n)=>{ $('#pDom').textContent=n; } });
+    rvlist.setItems(list); $('#pAll').textContent = I(list.length); $('#pOpen').textContent = (performance.now()-t0).toFixed(0);
+    rb.querySelectorAll('.state').forEach(e=>e.remove());
+    if (!list.length) rb.insertAdjacentHTML('beforeend', `<div class="state"><div class="ico">⌕</div><h4>Ничего не найдено</h4><p>Смените период или снимите фильтры.</p><div class="acts"><button class="btn sm" id="rReset">Сбросить фильтры</button></div></div>`);
+    if ($('#rReset')) $('#rReset').onclick = () => { R.q=''; R.st.clear(); R.sup=''; R.wh=''; R.period='all'; $('#regQ').value=''; renderReg(); };
+    const docs = R.tab==='docs' ? list : [...new Set(list.map(l=>l.doc))], lines = R.tab==='docs' ? list.flatMap(d=>d.lines) : list;
+    const T = totals(lines);
+    $('#regCnt').innerHTML = `Показано <b>${I(list.length)}</b> из ${I(R.tab==='docs'?DOCS.length:LINES.length)}`;
+    $('#rtot').innerHTML = `<div class="t"><div class="k">${R.q||R.st.size||R.sup||R.wh?'По фильтру · документов':'Документов'}</div><div class="v">${I(docs.length)}</div></div><div class="t"><div class="k">Позиций</div><div class="v">${I(T.pos)}</div></div><div class="t"><div class="k">Штук</div><div class="v">${I(T.pcs)}</div></div><div class="t"><div class="k">Сумма закупки</div><div class="v">${M(T.buy)}</div></div><div class="t"><div class="k">Ср. наценка · прибыль</div><div class="v">${T.avg===null?'—':T.avg.toFixed(1)+' %'} <small>${M(T.profit)}</small></div></div>`;
+    syncTb();
+  }
+  function openDoc(d){
+    Object.assign(DOC, { number:d.number, supNo:d.supNo, sup:d.sup, wh:d.wh, user:d.user, at:d.dateS, pay: d.pay==='В долг'?'debt':'cash' });
+    ALL = d.lines.map(l => calc({ ...l, del:false, added:false })); S.rows = d.n===13 ? 13 : d.n; S.status = d.st==='draft' ? 'draft' : d.st; S.mode = d.st==='draft' ? 'new' : 'view'; S.view='doc'; S.q=''; S.chips.clear(); S.att=false; ORIG=null; UNDO=[]; cur=null; curRow=null;
+    applyStatus(); if (d.st==='draft') S.status='posted'; apply();
+  }
+
+  // ---------- события ----------
+  function syncTb(){ document.querySelectorAll('.tb [data-set]').forEach(b => { const k=b.dataset.set; const v = k==='prescan' ? (S.prescan?'1':'0') : String(S[k]); b.classList.toggle('on', v===b.dataset.val); }); }
+  document.querySelectorAll('.tb [data-set]').forEach(b => b.onclick = () => {
+    const k=b.dataset.set, v=b.dataset.val; setTimeout(() => frame.focus(), 0);
+    if (k==='rows'){ S.rows=+v; S.view='doc'; if (S.mode==='edit') S.mode='view'; load(); return; }
+    if (k==='view'){ if (S.mode==='edit' && v==='reg') setMode('view'); S.view=v; render(); return; }
+    if (k==='mode'){ S.view='doc'; setMode(v); return; }
+    if (k==='status'){ S.view='doc'; if (S.mode==='edit') setMode('view'); S.mode='view'; S.status=v; applyStatus(); apply(); return; }
+    if (k==='prescan'){ S.prescan = v==='1'; S.view='doc'; if (S.mode==='view' && S.prescan) S.mode='new'; apply(); return; }
+    S[k]=v; render();
+  });
+  $('#optPre').onchange = e => { S.prescan = e.target.checked; apply(); };
+  $('#closeDoc').onclick = closeDoc;
+  $('#insBtn').onclick = () => $('#addQ').focus();
+  $('#addQ').oninput = () => { sugIdx=0; renderSug(); };
+  $('#addQ').onkeydown = e => { const list = $('#sug')._list||[]; if (e.key==='ArrowDown'){ e.preventDefault(); sugIdx=Math.min(sugIdx+1, list.length); renderSug(); } else if (e.key==='ArrowUp'){ e.preventDefault(); sugIdx=Math.max(0,sugIdx-1); renderSug(); } else if (e.key==='Enter'){ e.preventDefault(); if ($('#addQ').value.trim()) pickSug(sugIdx); } else if (e.key==='Escape'){ e.stopPropagation(); $('#addQ').value=''; $('#sug').classList.remove('show'); vp.focus(); } };
+  $('#addQ').onblur = () => setTimeout(() => $('#sug').classList.remove('show'), 150);
+  $('#sug').onmousedown = e => { const s = e.target.closest('.s'); if (s){ e.preventDefault(); pickSug(+s.dataset.i); } };
+  $('#bc').onkeydown = e => { if (e.key==='Enter'){ e.preventDefault(); scan(e.target.value); e.target.value=''; } else if (e.key==='Escape'){ e.stopPropagation(); e.target.value=''; vp.focus(); } };
+  const debQ = LL.debounce(() => apply(), 200);
+  $('#q').oninput = e => { S.q = e.target.value; $('#sbox').classList.toggle('has', !!S.q); ALL.length>=200 ? debQ() : apply(); };
+  $('#chips').onclick = e => { const c = e.target.closest('.chip'); if (!c) return; S.chips.has(c.dataset.c) ? S.chips.delete(c.dataset.c) : S.chips.add(c.dataset.c); apply(); };
+  thead.onclick = e => { const c = e.target.closest('[data-k]'); if (!c || c.dataset.k==='x'||c.dataset.k==='idx') return; const k=c.dataset.k; if (S.sort.key===k){ if (S.sort.dir===1) S.sort.dir=-1; else S.sort={key:'',dir:1}; } else S.sort={key:k,dir:1}; apply(); };
+  // 2026-10-30: текущую строку подсвечиваем сменой класса, без перерисовки списка — иначе кнопка под курсором пересоздаётся и click не приходит
+  vp.addEventListener('mousedown', e => { const r = e.target.closest('[data-id]'); if (!r) return; const id = +r.dataset.id; if (curRow!==id){ curRow = id; vp.querySelectorAll('.row.cur').forEach(x => x.classList.remove('cur')); r.classList.add('cur'); } });
+  vp.addEventListener('click', e => {
+    const r = e.target.closest('[data-id]'); if (!r) return; const id = +r.dataset.id;
+    const b = e.target.closest('button[data-a]'); if (b){ if (b.dataset.a==='del') delLine(id); else { const l = ALL.find(x=>x.id===id); l.del=false; apply(); } return; }
+    const c = e.target.closest('.c.edit'); if (c && !c.querySelector('input')) startEdit(id, c.dataset.f);
+  });
+  frame.addEventListener('keydown', e => {
+    const inInput = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName), inCell = inInput && document.activeElement.classList.contains('inl');
+    const modalOpen = !$('#pvOverlay').classList.contains('hidden') || !$('#hsOverlay').classList.contains('hidden');
+    if (modalOpen){ if (e.key==='Escape'){ $('#pvOverlay').classList.add('hidden'); $('#hsOverlay').classList.add('hidden'); } return; }
+    if (e.ctrlKey && /^[fFаА]$/.test(e.key)){ e.preventDefault(); const q = S.view==='reg' ? $('#regQ') : $('#q'); q.focus(); q.select(); return; }
+    if (S.view==='reg'){ if (e.key==='Insert'){ e.preventDefault(); $('#regNew').click(); } else if (e.key==='Escape' && inInput){ S.reg.q=''; $('#regQ').value=''; renderReg(); } return; }
+    if (e.ctrlKey && /^[sSыЫ]$/.test(e.key)){ e.preventDefault(); if (cur) commit(true); if (S.mode==='new') post(); else if (S.mode==='edit') openPreview(); else toast('Документ проведён — для изменений нажмите «Изменить»'); return; }
+    if (e.ctrlKey && /^[pPзЗ]$/.test(e.key)){ e.preventDefault(); toast('Печать: A4, 38 строк на страницу, итог и подписи на последней' + (S.status==='edited'?' · «ИСПРАВЛЕНО · версия 2»':'')); return; }
+    if (e.ctrlKey && /^[zZяЯ]$/.test(e.key) && !inCell){ e.preventDefault(); if (S.mode!=='view') undo(); return; }
+    if (e.key==='Insert'){ e.preventDefault(); if (S.mode==='view') toast('Документ проведён — нажмите «Изменить» (владелец) или создайте новую накладную'); else { $('#addQ').focus(); } return; }
+    if (e.key==='F2'){ e.preventDefault(); if (S.mode==='view') toast('Документ проведён — сканирование доступно при создании и правке'); else $('#bc').focus(); return; }
+    if (inInput) { if (e.key==='Escape' && !inCell){ if (S.q){ S.q=''; apply(); } else document.activeElement.blur(); } return; }
+    if (e.key==='Escape'){ if (S.q || S.chips.size || S.att){ S.q=''; S.chips.clear(); S.att=false; apply(); } else closeDoc(); return; }
+    if (!vlist) return;
+    if (e.key==='Delete' && curRow!==null && S.mode!=='view'){ e.preventDefault(); delLine(curRow); return; }
+    if ((e.key==='Enter' || e.key==='F4') && curRow!==null && S.mode!=='view'){ e.preventDefault(); startEdit(curRow, 'qty'); return; }
+    if (e.key==='ArrowDown' || e.key==='ArrowUp'){ e.preventDefault(); const i = FILT.findIndex(l=>l.id===curRow); const j = Math.max(0, Math.min(FILT.length-1, i<0 ? 0 : i + (e.key==='ArrowDown'?1:-1))); if (FILT[j]){ curRow = FILT[j].id; vlist.refresh(); const el = vp.querySelector(`[data-id="${curRow}"]`); if (el){ const r=el.getBoundingClientRect(), v=vp.getBoundingClientRect(); if (r.bottom>v.bottom) vp.scrollTop += r.bottom-v.bottom; else if (r.top<v.top) vp.scrollTop -= v.top-r.top; } } return; }
+    if (e.key==='Home'){ e.preventDefault(); vlist.scrollTop(); } else if (e.key==='End'){ e.preventDefault(); vlist.scrollEnd(); }
+    else if (e.key==='PageDown'){ e.preventDefault(); vlist.page(1); } else if (e.key==='PageUp'){ e.preventDefault(); vlist.page(-1); }
+  });
+  // реестр
+  $('#regTab').onclick = e => { const b = e.target.closest('button'); if (!b) return; S.reg.tab = b.dataset.t; S.reg.sort={key:'',dir:1}; renderReg(); };
+  $('#regPeriod').onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.p==='dates'){ toast('Выбор дат: с … по …'); return; } S.reg.period = b.dataset.p; renderReg(); };
+  $('#regSup').onchange = e => { S.reg.sup = e.target.value; renderReg(); };
+  $('#regWh').onchange = e => { S.reg.wh = e.target.value; renderReg(); };
+  $('#regQ').oninput = LL.debounce(e => { S.reg.q = $('#regQ').value; renderReg(); }, 150);
+  $('#regChips').onclick = e => { const c = e.target.closest('.chip'); if (!c) return; S.reg.st.has(c.dataset.c) ? S.reg.st.delete(c.dataset.c) : S.reg.st.add(c.dataset.c); renderReg(); };
+  $('#rthead').onclick = e => { const c = e.target.closest('[data-k]'); if (!c) return; const k=c.dataset.k, R=S.reg; if (R.sort.key===k){ if (R.sort.dir===1) R.sort.dir=-1; else R.sort={key:'',dir:1}; } else R.sort={key:k,dir:1}; renderReg(); };
+  rvp.addEventListener('click', e => { const r = e.target.closest('[data-doc]'); if (!r) return; openDoc(DOCS[+r.dataset.doc]); });
+  $('#regNew').onclick = () => { S.rows=0; S.view='doc'; S.mode='new'; S.status='posted'; Object.assign(DOC, { number:'ПР-2026-000124', sup:SUPS[1], supNo:'', user:'Айбек' }); load(); setTimeout(() => $('#addQ').focus(), 50); };
+  window.__dbg = { S, all:()=>ALL, orig:()=>ORIG, cur:()=>cur, undo:()=>UNDO, last:'' };
+  let tt; window.toast = m => { window.__dbg.last = m; const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'), 2200); };
+  // предустановка: #theme=dark&size=s1024&rows=500&view=reg&mode=edit&status=edited&prescan=1
+  new URLSearchParams(location.hash.slice(1)).forEach((v,k) => { if (k==='rows') S.rows=+v; else if (k==='prescan') S.prescan=v==='1'; else if (k in S) S[k]=v; });
+  const m0 = S.mode; S.mode='view'; load(); if (m0!=='view') setMode(m0);
+})();
+</script>
+</body>
+</html>
