@@ -43,15 +43,16 @@ public static class LicenseKeys
 
     /// <summary>2026-10-05: репозиторий на GitHub открытый — ключи новых пакетов «Стандарта» для «Старта» (TariffGate.Packs)
     /// в коде только отпечатком SHA-256 (ключ без пробелов, заглавными); сами ключи — в docs/paid-serial-keys.md.</summary>
+    // 2026-10-31: владелец потерял список — ключи перевыпущены (старые семь ключей не работают); сами ключи — в docs/paid-serial-keys.md (в git не попадает).
     private static readonly Dictionary<string, string> PermanentSerialHashes = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["ai"] = "8faa08d8e70368c4b426a1ba8d3e3afabe307ad35005f4eb48ea78d3f5012069",
-        ["clients"] = "fbbd7add840561266f06e1f3a0060deb36ba38fa1f2dcf85408dc3d5e1c7597b",
-        ["salesanalytics"] = "bc22b938a7b8c9e49b4be8a587d9d2854aba7c917348ec8fe6fff8d29c6de549",
-        ["restock"] = "8f7ea5dbad447548d1111a123db5c809e23d2208add522eb8044e1b364954cd0",
-        ["salary"] = "1a75ff79e9573554d15a42343db5669f0dd9c30658c3a1e03e7fda2a14b0d42b",
-        ["debts"] = "5f8c91ba0448055e7ea187075de9c1d3a54d0b7a38ad279d59ce7bd587eeb484",
-        ["service"] = "7b7dc9e71de45517f0f6190d7adcb5bc8c8aeae9d0054285dec2a42eda1f6f33",
+        ["ai"] = "e954bc4acac0d62b6d9714d1354fc01144d6de588001bd3cd00d523d097f900f",
+        ["clients"] = "b753b7dc4e401c15fd5c4d9e71fa3f2cb41d9f34d3a562d80a8d8230c26e92ef",
+        ["salesanalytics"] = "a3541614d417f8b3f63f8ea3b67787b8afc65b6fff4d81290d5b930d888c50df",
+        ["restock"] = "6344bdf2afb966c28905283f58b87729f798b2894b59f01815ff40e63affd83e",
+        ["salary"] = "714dd3b9c9878b86e3a7bd35039588d4623531a6b26c02cf4962ab6cf46cea77",
+        ["debts"] = "76e282a5a257873cb37d6a86ab6cc00272c7cdbe169588380158d23dfd211bf4",
+        ["service"] = "5e0b83bb6e6e7c3ffc0107759382826fa47a765d8f74a484a8f719a554af4dca",
     };
 
     private static string Sha256Hex(string text) =>

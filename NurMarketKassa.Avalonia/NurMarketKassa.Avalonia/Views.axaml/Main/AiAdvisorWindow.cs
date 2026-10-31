@@ -537,6 +537,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         SaveCurrentChat();
         _chatId = Guid.NewGuid().ToString("N");
         TelegramAiChat.ResetOwnerAppHistory();
+        _invoiceTotals = null; // 2026-10-31: новый чат — итоги прежней накладной не переносим
         _messages.Children.Clear();
         ShowWelcome();
         RefreshHistoryList();
@@ -934,6 +935,20 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                 // (другая накладная), а ответ без неё («поставь наценку 25 %») прежнюю подсказку не стирает.
                 if (ProductActionPlan.SupplierHint(answer) is var hint && (hint.Name is not null || hint.Inn is not null || attachments.Count > 0))
                     _invoiceSupplierHint = hint;
+                // 2026-10-31: итоги накладной (итог/НДС/скидка/позиции из документа, блок ИИ) — для контрольной сверки в окне закупки; как и поставщик, меняются новым фото.
+                // 2026-10-31 (приёмка 1.17.70): ответ без «ИТОГ НАКЛАДНОЙ» («наценка 30 %» после фото) итог документа не стирает — прежние
+                // Total/Vat/Discount/Positions сохраняются, обновляются только числа ИИ; полная замена — новым фото или новым итогом; сброс — «Новый чат».
+                if (ProductActionPlan.InvoiceTotalsHint(answer) is var totalsHint && (totalsHint is not null || attachments.Count > 0))
+                {
+                    if (attachments.Count > 0 || _invoiceTotals is null || totalsHint is null || totalsHint.HasDocumentTotal)
+                        _invoiceTotals = totalsHint;
+                    else
+                        _invoiceTotals = _invoiceTotals with
+                        {
+                            AiLinesTotal = totalsHint.AiLinesTotal ?? _invoiceTotals.AiLinesTotal,
+                            AiPositions = totalsHint.AiPositions ?? _invoiceTotals.AiPositions,
+                        };
+                }
                 (answer, productSteps, skippedItems) = ProductActionPlan.Extract(answer, question);
                 // 2026-10-30: действия выключенных возможностей отброшены разбором — скажем об этом (ниже), а не промолчим.
                 blockedCaps = ProductActionPlan.LastBlocked.ToList();
@@ -2538,6 +2553,8 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     private Action? _pendingProductSupersede;
     // 2026-10-19: поставщик, которого ИИ прочитал в последней накладной (ProductActionPlan.SupplierHint), — подсказка окну закупки.
     private (string? Name, string? Inn) _invoiceSupplierHint;
+    // 2026-10-31: итоги последней накладной (InvoiceReconcile) — окно закупки сверяет с ними сумму строк.
+    private InvoiceReference? _invoiceTotals;
 
     /// <summary>2026-10-06, владелец: «открывать товар на складе голосом». «Открыть» — сразу, остальное — карточкой с подтверждением.</summary>
     /// <summary>2026-10-07, владелец: «открывай вкладки только после команды открыть что-то из программы». Явное «открой / перейди /
@@ -2705,6 +2722,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         // в карточке (повтор после обрыва — те же строки и тот же ключ идемпотентности).
         var purchase = steps.Any(ProductActionPlan.IsPurchaseStep);
         var supplierHint = _invoiceSupplierHint;
+        var invoiceTotals = _invoiceTotals;
         InvoiceEditorWindow.PurchaseDraft? draft = null;
         AdvisorSupplierPrompt? supplierPrompt = null; // 2026-10-30: «Поставщик «X» не найден — создать?» в карточке накладной
         var editorOpen = false;
@@ -3276,7 +3294,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             {
                 if (draft is null)
                 {
-                    draft = InvoiceEditorWindow.PurchaseDraft.FromSteps(ResolveSteps(), supplierHint.Name, supplierHint.Inn);
+                    draft = InvoiceEditorWindow.PurchaseDraft.FromSteps(ResolveSteps(), supplierHint.Name, supplierHint.Inn, invoiceTotals);
                     // Штрихкоды теперь правятся в окне закупки — поля карточки больше не действуют.
                     foreach (var (box, _) in barcodeBoxes.Values)
                         box.IsEnabled = false;

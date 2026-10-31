@@ -12,6 +12,22 @@ public sealed class InventoryApiService : IInventoryApiService
 
     public InventoryApiService(NurMarketApiClient client) => _client = client;
 
+    /// <summary>2026-10-31: сервер принимает остаток (quantity_fact) только с 2 знаками — округляем сами (а не молча при форматировании).</summary>
+    public static double RoundForServer(double quantity) => Math.Round(quantity, 2, MidpointRounding.AwayFromZero);
+
+    /// <summary>2026-10-31: пояснение, если при отправке остатка потеряется 3-й знак (12,345 → 12,35); null — потерь нет. Операцию не блокирует.</summary>
+    public static string? RoundingNote(double quantity)
+    {
+        var rounded = RoundForServer(quantity);
+        if (Math.Abs(quantity - rounded) <= 0.0005) return null;
+        var n = rounded.ToString("0.##", CultureInfo.InvariantCulture);
+        return Tr.T($"Сервер хранит остаток с 2 знаками — округлено до {n}.",
+            $"Сервер калдыкты үтүрдөн кийин 2 белги менен сактайт — {n} чейин тегеректелди.",
+            $"The server stores stock with 2 decimals — rounded to {n}.",
+            $"Sunucu stoğu 2 ondalıkla saklar — {n} olarak yuvarlandı.",
+            $"Server qoldiqni 2 xonali saqlaydi — {n} gacha yaxlitlandi.");
+    }
+
     public async Task<string?> CreateSessionAsync(
         string note, IReadOnlyList<InventorySessionItem> items, CancellationToken ct = default)
     {
@@ -24,6 +40,7 @@ public sealed class InventoryApiService : IInventoryApiService
                 // 2026-09-12: было "0.###" (до 3 знаков) — сервер отвечал "Убедитесь, что вы
                 // ввели не более 2 цифры после запятой" и вся ревизия падала, стоило только
                 // взвешенному товару дать вес с 3 знаками (например 0.711 кг).
+                // 2026-10-31: вернули "0.##" — формат "0.###" (1.17.70) мог ронять списание/ревизию, пока сервер не подтвердил 3 знака.
                 quantity_fact = i.QuantityFact.ToString("0.##", CultureInfo.InvariantCulture),
             }).ToList(),
         };

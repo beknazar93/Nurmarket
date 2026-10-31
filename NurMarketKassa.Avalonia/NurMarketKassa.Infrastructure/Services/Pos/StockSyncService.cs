@@ -92,7 +92,8 @@ public static class StockSyncService
         vm.Quantity = quantity;
         var qtyCulture = CultureInfo.GetCultureInfo("ru-RU");
         vm.StockInfo = mustWeigh
-            ? $"{quantity.ToString("F2", qtyCulture)} {Tr.T("кг", "кг", "kg", "kg", "kg")}"
+            // 2026-10-31: «Не округляй» — остаток весового до 3 знаков без потери (12,345 кг, не «12,35»; сервер хранит до 3 знаков).
+            ? $"{quantity.ToString("0.###", qtyCulture)} {Tr.T("кг", "кг", "kg", "kg", "kg")}"
             : QuantityRules.ForUnit(vm.Unit) != null
                 // 2026-10-26 (ХМ2): остаток дробной единицы «Хозтоваров» (37.4 м) — не до целого и в своей единице.
                 ? $"{quantity.ToString("0.###", qtyCulture)} {vm.Unit}"

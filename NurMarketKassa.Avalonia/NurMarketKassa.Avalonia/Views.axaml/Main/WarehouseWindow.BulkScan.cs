@@ -440,9 +440,10 @@ public partial class WarehouseWindow
                         skipped++;
                     break;
                 default:
-                    if (UnitCatalog.QuantityProblem(number, line.Unit, line.IsWeight) is null)
+                    // 2026-10-31 («Не округляй»): больше 3 знаков не округляем молча — такое количество пропускаем (как дробное у штучного).
+                    if (UnitCatalog.QuantityProblem(number, line.Unit, line.IsWeight) is null && !ReceivingLineVm.QuantityTooPrecise(number))
                     {
-                        line.Quantity = Math.Round(number, 3);
+                        line.Quantity = number;
                         ok++;
                     }
                     else

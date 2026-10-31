@@ -82,6 +82,13 @@ public static class ProductActions
                 $"«{product.Title}»: amal tayyorlangandan keyin qoldiq o'zgardi ({Qty(expected)} → {Qty(current)}). O'zgarish qilinmadi — yangilab, qayta tasdiqlang."));
 
         var target = Math.Round(setTo ?? current + (delta ?? 0), 3);
+        // 2026-10-31: сервер принимает остаток с 2 знаками (quantity_fact "0.##") — округляем явно, пояснение добавим к ответу; операцию не блокируем.
+        string? roundNote = null;
+        if (target >= 0 && InventoryApiService.RoundingNote(target) is { } rn)
+        {
+            roundNote = rn;
+            target = InventoryApiService.RoundForServer(target);
+        }
         if (target < 0)
             return new Result(false, T($"«{product.Title}»: списать больше остатка нельзя (есть {Qty(current)}).", $"«{product.Title}»: калдыктан көп чыгарууга болбойт (бар {Qty(current)}).",
                 $"“{product.Title}”: can't write off more than the stock ({Qty(current)}).", $"«{product.Title}»: stoktan fazla düşülemez (mevcut {Qty(current)}).", $"«{product.Title}»: qoldiqdan ko'p chiqarib bo'lmaydi (bor {Qty(current)})."));
@@ -141,7 +148,8 @@ public static class ProductActions
         }
         PosLogger.Log($"Действие с товаром ({actor ?? "—"}): «{product.Title}» {Qty(current)} → {Qty(target)} ({reason}).", "STOCK");
         return new Result(true, T($"«{product.Title}»: было {Qty(current)}, стало {Qty(target)}.", $"«{product.Title}»: {Qty(current)} болчу, {Qty(target)} болду.",
-            $"“{product.Title}”: was {Qty(current)}, now {Qty(target)}.", $"«{product.Title}»: {Qty(current)} idi, şimdi {Qty(target)}.", $"«{product.Title}»: {Qty(current)} edi, endi {Qty(target)}."));
+            $"“{product.Title}”: was {Qty(current)}, now {Qty(target)}.", $"«{product.Title}»: {Qty(current)} idi, şimdi {Qty(target)}.", $"«{product.Title}»: {Qty(current)} edi, endi {Qty(target)}.")
+            + (roundNote is null ? "" : " " + roundNote));
     }
 
     /// <summary>Поля карточки товара (имена — как у сервера: description, expiration_date, shelf_life_days, minimum_quantity,

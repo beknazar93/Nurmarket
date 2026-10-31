@@ -93,9 +93,29 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                 if (!_inTextSet) _quantityRaw = null;
                 OnPropertyChanged(nameof(LineTotal));
                 OnPropertyChanged(nameof(QuantityText));
+                OnPropertyChanged(nameof(PriceProblemText)); // 2026-10-31: пояснение «больше 3 знаков» зависит от самого количества
+                OnPropertyChanged(nameof(LowMarginText));
             }
         }
     }
+
+    /// <summary>2026-10-31 («Не округляй»): количество с больше чем 3 знаками после запятой сервер не принимает (проверено 2026-10-29). Раньше такое число
+    /// молча округлялось (12,3456 → 12,346); теперь значение остаётся как набрано, строка помечена красным и не проводится (<see cref="PurchaseReceivingService.Validate"/>).
+    /// Шум double (12,345000000000001) не считается: сравнение идёт через decimal.</summary>
+    public static bool QuantityTooPrecise(double quantity)
+    {
+        if (double.IsNaN(quantity) || double.IsInfinity(quantity) || Math.Abs(quantity) >= 1e9)
+            return false;
+        var d = (decimal)quantity;
+        return Math.Round(d, 3, MidpointRounding.AwayFromZero) != d;
+    }
+
+    public static string QuantityPrecisionText => NurMarketKassa.Services.Tr.T(
+        "Количество — не больше 3 знаков после запятой (сервер не принимает больше)",
+        "Саны — үтүрдөн кийин 3 цифрадан ашык эмес (сервер көбүн кабыл албайт)",
+        "Quantity — at most 3 decimal places (the server does not accept more)",
+        "Miktar — virgülden sonra en fazla 3 basamak (sunucu fazlasını kabul etmez)",
+        "Miqdor — verguldan keyin ko'pi bilan 3 raqam (server ko'pini qabul qilmaydi)");
 
     public double PurchasePrice
     {
@@ -137,7 +157,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
 
     public string QuantityText
     {
-        get => _quantityRaw ?? Quantity.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        get => _quantityRaw ?? Quantity.ToString("0.#########", System.Globalization.CultureInfo.InvariantCulture); // 2026-10-31: без округления показа (было 0.###)
         set => SetFromText(value, v => Quantity = v, nameof(QuantityText), r => _quantityRaw = r);
     }
 
@@ -205,7 +225,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     private bool _inTextSet; // идёт ввод текста в ячейку: сеттеры значений не сбрасывают сырой текст
 
     /// <summary>Причина, по которой введённое число цены не принято (пусто — всё принято). Показывается красным в колонке «Изменение».</summary>
-    public string PriceProblemText => _priceProblem ?? "";
+    public string PriceProblemText => _priceProblem ?? (QuantityTooPrecise(Quantity) ? QuantityPrecisionText : "");
 
     private void SetPriceFromText(string? text, int decimals, Action<double> apply, string name, Action<string?> setRaw)
     {
@@ -559,16 +579,9 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                 setRaw(text.Trim()); // 2026-10-28: «Принято» тоже хранит набранный текст («2.», «2,5») до выхода из ячейки (CommitText)
                 if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(text, out var value) && value >= 0)
                 {
-                    // 2026-10-29: сервер принимает количество не больше чем с 3 знаками после запятой (кг, л) — лишние знаки округляем сразу и говорим об этом.
-                    var rounded = Math.Round(value, 3, MidpointRounding.AwayFromZero);
-                    if (Math.Abs(rounded - value) > 1e-9)
-                    {
-                        value = rounded;
-                        qtyProblem = NurMarketKassa.Services.Tr.T("Количество — не больше 3 знаков после запятой, округлено.",
-                            "Саны — үтүрдөн кийин 3 цифрадан ашык эмес, тегизделди.", "Quantity allows at most 3 decimal places — rounded.",
-                            "Miktar virgülden sonra en fazla 3 basamak içerir — yuvarlandı.", "Miqdor verguldan keyin ko'pi bilan 3 raqam — yaxlitlandi.");
-                    }
-
+                    // 2026-10-29: сервер принимает количество не больше чем с 3 знаками после запятой (кг, л).
+                    // 2026-10-31 («Не округляй»): больше 3 знаков НЕ округляем и не обрезаем — значение остаётся как набрано, красное пояснение
+                    // (PriceProblemText → QuantityPrecisionText) и строку не проведут (PurchaseReceivingService.Validate), пока не исправят.
                     apply(value);
                 }
             }
@@ -669,7 +682,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     public bool IsLowMargin => NurMarketKassa.Services.ReceivingPricing.IsLowMargin(PurchasePrice, SalePrice);
 
     // 2026-10-28: непринятое число цены (PriceProblemText) показывается здесь же, в красной строке под ценой.
-    public string LowMarginText => _priceProblem is { Length: > 0 } problem ? problem
+    public string LowMarginText => PriceProblemText is { Length: > 0 } problem ? problem
         : IsLowMargin && MarkupPercent is { } m
             ? NurMarketKassa.Services.Tr.T($"маржа {m:0.#} %", $"маржа {m:0.#} %", $"margin {m:0.#}%", $"marj {m:0.#} %", $"marja {m:0.#} %")
             : "";
@@ -725,7 +738,17 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     /// <summary>2026-10-19: закупка по скану накладной (InvoiceEditorWindow) — категория и весовой товар у нового товара, как раньше
     /// давал скан при создании товара напрямую. Приёмка склада их не задаёт (null / false — как прежде).</summary>
     public string? CategoryName { get; set; }
-    public bool IsWeight { get; set; }
+
+    private bool _isWeight;
+
+    /// <summary>2026-10-31 (владелец: «в приёмке весовые добавляются???»): новый товар с единицей «кг» создаётся весовым, даже если признак не ставили
+    /// отдельно (приёмка «Приём товара», массовое сканирование, накладная давали «кг» без is_weight — товар был «кг» на кассе, но не весовой на сервере).
+    /// Граммы весовыми не считаются (как ProductUnitNormalizer.IsKilogramWord).</summary>
+    public bool IsWeight
+    {
+        get => _isWeight || string.Equals(NurMarketKassa.Services.UnitCatalog.Normalize(_unit), "кг", StringComparison.Ordinal);
+        set => _isWeight = value;
+    }
 
     /// <summary>Товара у магазина ещё нет — он будет создан при проведении приёмки.</summary>
     public bool IsNew => Source != ReceivingSource.Warehouse;

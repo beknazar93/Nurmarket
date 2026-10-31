@@ -106,6 +106,8 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
                     $"⚠ the invoice unit is “{Item.Unit}”, the card says “{Line.OriginalUnit}” — check quantity and price (is it a pack price?)",
                     $"⚠ faturada birim «{Item.Unit}», kartta «{Line.OriginalUnit}» — miktar ve fiyatı kontrol edin (paket fiyatı olabilir)",
                     $"⚠ yuk xatida birlik «{Item.Unit}», kartada «{Line.OriginalUnit}» — miqdor va narxni tekshiring (qadoq narxi bo'lishi mumkin)"));
+            if (PriceRoundNote is { Length: > 0 } roundNote)
+                parts.Add(roundNote);
             if (Item.Warnings.Count > 0)
                 parts.Add("⚠ " + string.Join("; ", Item.Warnings));
             if (MergedFrom.Count > 0)
@@ -116,6 +118,34 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
     }
 
     public bool HasSubText => SubText.Length > 0;
+
+    // 2026-10-31 (приёмка 1.17.70, Важное 2): цена за единицу из файла (сумма ÷ количество, НДС) бывает с 3–4 знаками; сервер хранит закупку с 2 —
+    // при загрузке округляем до копеек и показываем подсказку, а не блокируем каждую строку. Ручная правка цены подсказку убирает.
+    private double _origPrice = double.NaN, _roundedPrice = double.NaN;
+
+    public void SetPriceRounding(double original, double rounded)
+    {
+        _origPrice = original;
+        _roundedPrice = rounded;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SubText)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasSubText)));
+    }
+
+    public string PriceRoundNote
+    {
+        get
+        {
+            if (double.IsNaN(_origPrice) || Math.Abs(Line.PurchasePrice - _roundedPrice) > 1e-9)
+                return "";
+            var from = $"{ReceivingPricing.LineTotal(Line.Quantity, _origPrice):N2}";
+            var to = $"{ReceivingPricing.LineTotal(Line.Quantity, _roundedPrice):N2}";
+            return Tr.T($"цена округлена до копеек ({_origPrice:0.####} → {_roundedPrice:0.##}), сумма строки: {from} → {to}",
+                $"баа тыйынга чейин тегизделди ({_origPrice:0.####} → {_roundedPrice:0.##}), сап суммасы: {from} → {to}",
+                $"price rounded to cents ({_origPrice:0.####} → {_roundedPrice:0.##}), line total: {from} → {to}",
+                $"fiyat kuruşa yuvarlandı ({_origPrice:0.####} → {_roundedPrice:0.##}), satır tutarı: {from} → {to}",
+                $"narx tiyingacha yaxlitlandi ({_origPrice:0.####} → {_roundedPrice:0.##}), qator summasi: {from} → {to}");
+        }
+    }
 
     public string StatusText => IsFound && UnitWarning && !Match.NeedsConfirm && !Confirmed
         ? Tr.T("Проверьте · единица", "Текшериңиз · бирдик", "Check · unit", "Kontrol edin · birim", "Tekshiring · birlik")
@@ -401,7 +431,8 @@ public sealed class InvoicePlan
 
     private InvoicePlanRow CreateRow(InvoiceItem item, InvoiceMatch match)
     {
-        var purchase = item.UnitPrice(PricesWithVat);
+        var original = item.UnitPrice(PricesWithVat);
+        var purchase = RoundPurchase(original);
         if (match.Tile is { } tile && match.Kind != InvoiceMatchKind.None)
         {
             var line = PurchaseReceivingService.FromTile(tile, item.Quantity);
@@ -409,7 +440,10 @@ public sealed class InvoicePlan
             var status = InvoicePlanRow.FoundStatusOf(match.Kind);
             if (item.Quantity <= 0)
                 status = InvoiceRowStatus.Unrecognized;
-            return new InvoicePlanRow(item, match, line, status, null);
+            var foundRow = new InvoicePlanRow(item, match, line, status, null);
+            if (purchase != original)
+                foundRow.SetPriceRounding(original, purchase);
+            return foundRow;
         }
 
         var directory = item.Barcode.Length > 0 ? _directory(item.Barcode) : null;
@@ -420,8 +454,15 @@ public sealed class InvoicePlan
             st = InvoiceRowStatus.Unrecognized;
         else
             st = directory is not null ? InvoiceRowStatus.NewFromDirectory : InvoiceRowStatus.NewManual;
-        return new InvoicePlanRow(item, match, fresh, st, directory);
+        var row = new InvoicePlanRow(item, match, fresh, st, directory);
+        if (purchase != original)
+            row.SetPriceRounding(original, purchase);
+        return row;
     }
+
+    /// <summary>2026-10-31: цена закупки до копеек (сервер хранит 2 знака) — для загрузки из файла; ручной ввод в приёмке по-прежнему блокируется (PurchaseReceivingService.Validate).</summary>
+    private static double RoundPurchase(double price) =>
+        price > 0 && price < 1e9 ? (double)Math.Round((decimal)price, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero) : price;
 
     /// <summary>Строка нового товара из накладной (название из накладной; нет его — из справочника NurCRM).</summary>
     public ReceivingLineVm BuildNewLine(InvoiceItem item) => BuildNewLine(item, item.Barcode.Length > 0 ? _directory(item.Barcode) : null);
@@ -467,9 +508,13 @@ public sealed class InvoicePlan
         PricesWithVat = withVat;
         foreach (var row in Rows)
         {
-            var price = row.Item.UnitPrice(withVat);
+            var original = row.Item.UnitPrice(withVat);
+            var price = RoundPurchase(original); // 2026-10-31: до копеек, как при загрузке
             if (price > 0)
+            {
                 row.Line.PurchasePrice = price;
+                row.SetPriceRounding(price != original ? original : double.NaN, price);
+            }
         }
     }
 

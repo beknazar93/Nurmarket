@@ -698,7 +698,7 @@ public sealed partial class BackgroundReceivingQueue
                 if (tile is null)
                     return;
                 mustWeigh = tile.MustWeigh;
-                next = Math.Round(tile.Quantity + line.Quantity, 3);
+                next = Math.Round(tile.Quantity + line.Quantity, 6); // 2026-10-31: только шум double, показ не округляется
                 StockSyncService.ApplyQuantityToTile(tile, next.Value, mustWeigh);
             }).ConfigureAwait(false);
             if (next is { } value)

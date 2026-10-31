@@ -45,7 +45,8 @@ public static class ProductUnitNormalizer
     public static bool IsKilogramWord(string? rawUnit)
     {
         var unit = new string((rawUnit ?? string.Empty).ToLowerInvariant().Where(c => !char.IsWhiteSpace(c) && c != '.').ToArray());
-        return unit is "кг" or "kg" or "kgs" or "kг" or "кило" or "kilo" or "kilogram" or "kilograms" or "kilogramme"
+        // 2026-10-31: добавлены «кгр», «kgr», «kilogramm» (как в справочнике UnitCatalog) — раньше такая единица из накладной оставалась штучной.
+        return unit is "кг" or "kg" or "kgs" or "kг" or "кило" or "kilo" or "kilogram" or "kilograms" or "kilogramme" or "кгр" or "kgr" or "kilogramm"
             || unit.StartsWith("килограм", StringComparison.Ordinal);
     }
 
@@ -145,7 +146,7 @@ public static class ProductUnitNormalizer
     {
         var qtyCulture = CultureInfo.GetCultureInfo("ru-RU");
         var qtyStr = isWeightTab
-            ? vm.Quantity.ToString("F2", qtyCulture)
+            ? vm.Quantity.ToString("0.###", qtyCulture) // 2026-10-31: весовой остаток без потери до 3 знаков (было F2 → 12,345 показывалось «12,35»)
             : QuantityRules.ForUnit(unitDisplay) != null
                 ? vm.Quantity.ToString("0.###", qtyCulture) // 2026-10-26 (ХМ2): остаток м/м²/л «Хозтоваров» не до целого
                 : vm.Quantity.ToString("F0", qtyCulture);

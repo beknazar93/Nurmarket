@@ -296,7 +296,7 @@ public sealed class FunnelWindow : Window, IOwnerSection
             Use(note, TextBlock.ForegroundProperty, "BrushText");
             stack.Children.Add(note);
         }
-        // 2026-10-24 (приёмка, ПР-6): ряд кнопок — Grid «◀ ▶ | ✎ Открыть (*) | ✕ (авто)»: «Открыть» не переносится на вторую строку,
+        // 2026-10-24 (приёмка, ПР-6): ряд кнопок — Grid «◀ ▶ | Открыть (*) | ✕ (авто)»: «Открыть» не переносится на вторую строку,
         // стрелки — векторные значки (символы ◀ ▶ рисовались мелко) в сенсорной зоне 44x44. WhatsApp/Instagram — отдельным рядом ниже.
         var rowGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), Margin = new Thickness(0, 4, 0, 0) };
         var arrows = new StackPanel { Orientation = Orientation.Horizontal };
@@ -309,10 +309,12 @@ public sealed class FunnelWindow : Window, IOwnerSection
                 T("Следующий этап", "Кийинки этап", "Next stage", "Sonraki aşama", "Keyingi bosqich"), () => Move(card, Stages[index + 1].Key)));
         // 2026-10-22 (модалки, пакет 4): на моноблоке двойное касание не находят — карточка открывается кнопкой «Открыть»
         // (двойной щелчок мышью тоже работает).
-        var openBtn = Small("", () => OpenEditor(card));
+        // 2026-10-31, просьба владельца: «Открыть» открывает переписку с клиентом (Telegram для карточек из бота, WhatsApp/Instagram — по источнику
+        // и контактам); сама карточка сделки — кнопкой «Карточка» ниже и двойным щелчком.
+        var openBtn = Small("", () => OpenCardChat(card));
         openBtn.Content = new TextBlock
         {
-            Text = "✎ " + T("Открыть", "Ачуу", "Open", "Aç", "Ochish"),
+            Text = T("Открыть", "Ачуу", "Open", "Aç", "Ochish"), // 2026-10-31: без ✎ — кнопка открывает переписку, ✎ остался у «Карточка»
             TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center,
         };
         openBtn.Padding = new Thickness(4, 0);
@@ -320,6 +322,7 @@ public sealed class FunnelWindow : Window, IOwnerSection
         openBtn.HorizontalAlignment = HorizontalAlignment.Stretch;
         openBtn.HorizontalContentAlignment = HorizontalAlignment.Center;
         var chats = new WrapPanel { Orientation = Orientation.Horizontal };
+        chats.Children.Add(Small("✎ " + T("Карточка", "Карточка", "Details", "Kart", "Karta"), () => OpenEditor(card)));
         if (!string.IsNullOrWhiteSpace(card.Phone))
             chats.Children.Add(Small("WhatsApp", () => OpenWhatsApp(card.Phone)));
         if (InstagramName(card.Instagram) is { } igName)

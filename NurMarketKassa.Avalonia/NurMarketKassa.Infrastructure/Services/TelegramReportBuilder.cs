@@ -148,7 +148,7 @@ public static class TelegramReportBuilder
         sb.AppendLine();
         sb.AppendLine("<b>" + TelegramBotText.T("Выручка этой кассы: ", "Бул кассанын түшүмү: ", "This till's revenue: ", "Bu kasanın cirosu: ", "Shu kassa tushumi: ") + Money(net) + "</b>");
         sb.AppendLine(TelegramBotText.T("Чеков с товарами: ", "Товарлуу чектер: ", "Receipts with items: ", "Ürünlü fiş: ", "Mahsulotli cheklar: ") + lines.Select(l => l.SoldAt).Distinct().Count());
-        sb.AppendLine(TelegramBotText.T("Позиций продано: ", "Сатылган позициялар: ", "Items sold: ", "Satılan kalem: ", "Sotilgan pozitsiyalar: ") + lines.Sum(l => l.Quantity).ToString("0.##", Ru));
+        sb.AppendLine(TelegramBotText.T("Позиций продано: ", "Сатылган позициялар: ", "Items sold: ", "Satılan kalem: ", "Sotilgan pozitsiyalar: ") + lines.Sum(l => l.Quantity).ToString("0.###", Ru));
         if (adjustments.Discounts > 0.005)
         {
             sb.AppendLine(TelegramBotText.T("Скидки: ", "Арзандатуулар: ", "Discounts: ", "İndirimler: ", "Chegirmalar: ") + Money(adjustments.Discounts));
@@ -187,7 +187,7 @@ public static class TelegramReportBuilder
         sb.AppendLine();
         var position = 1;
         foreach (var item in top)
-            sb.AppendLine($"{position++}. {Escape(item.Name)} — {item.Quantity:0.##}");
+            sb.AppendLine($"{position++}. {Escape(item.Name)} — {item.Quantity:0.###}");
 
         sb.AppendLine();
         sb.AppendLine(TelegramBotText.T("<i>По продажам этой кассы.</i>", "<i>Бул кассанын сатуулары боюнча.</i>", "<i>Based on this till's sales.</i>",
@@ -251,11 +251,11 @@ public static class TelegramReportBuilder
         {
             var mark = row.DaysLeft <= 2 ? "\U0001F534" : row.DaysLeft <= 7 ? "\U0001F7E1" : "\U0001F7E2";
             sb.AppendLine($"{mark} {Escape(row.Name)} — " + TelegramBotText.T(
-                $"остаток {row.Stock:0.##}, хватит на {row.DaysLeft:0.#} дн. (в день {row.DailyRate:0.##})",
-                $"калдык {row.Stock:0.##}, {row.DaysLeft:0.#} күнгө жетет (күнүнө {row.DailyRate:0.##})",
-                $"stock {row.Stock:0.##}, lasts {row.DaysLeft:0.#} days ({row.DailyRate:0.##} per day)",
-                $"stok {row.Stock:0.##}, {row.DaysLeft:0.#} gün yeter (günde {row.DailyRate:0.##})",
-                $"qoldiq {row.Stock:0.##}, {row.DaysLeft:0.#} kunga yetadi (kuniga {row.DailyRate:0.##})"));
+                $"остаток {row.Stock:0.###}, хватит на {row.DaysLeft:0.#} дн. (в день {row.DailyRate:0.##})",
+                $"калдык {row.Stock:0.###}, {row.DaysLeft:0.#} күнгө жетет (күнүнө {row.DailyRate:0.##})",
+                $"stock {row.Stock:0.###}, lasts {row.DaysLeft:0.#} days ({row.DailyRate:0.##} per day)",
+                $"stok {row.Stock:0.###}, {row.DaysLeft:0.#} gün yeter (günde {row.DailyRate:0.##})",
+                $"qoldiq {row.Stock:0.###}, {row.DaysLeft:0.#} kunga yetadi (kuniga {row.DailyRate:0.##})"));
         }
 
         sb.AppendLine();
@@ -290,7 +290,7 @@ public static class TelegramReportBuilder
         }
 
         foreach (var product in low)
-            sb.AppendLine($"• {Escape(product.Title)} — {product.Quantity:0.##}");
+            sb.AppendLine($"• {Escape(product.Title)} — {product.Quantity:0.###}");
 
         return sb.ToString();
     }
@@ -471,8 +471,8 @@ public static class TelegramReportBuilder
             text.AppendLine(TelegramBotText.T("<b>Срочно заказать — группа A на исходе</b>", "<b>Тез арада заказ кылыңыз — A тобу түгөнүп баратат</b>",
                 "<b>Reorder urgently — group A is running out</b>", "<b>Acil sipariş — A grubu tükeniyor</b>", "<b>Zudlik bilan buyurtma — A guruhi tugayapti</b>"));
             foreach (var row in urgent)
-                text.AppendLine($"• {Escape(row.Name)} — " + TelegramBotText.T($"осталось на {row.DaysLeft:0.#} дн. ({row.Stock:0.##})", $"{row.DaysLeft:0.#} күнгө калды ({row.Stock:0.##})",
-                    $"left for {row.DaysLeft:0.#} days ({row.Stock:0.##})", $"{row.DaysLeft:0.#} günlük kaldı ({row.Stock:0.##})", $"{row.DaysLeft:0.#} kunga qoldi ({row.Stock:0.##})"));
+                text.AppendLine($"• {Escape(row.Name)} — " + TelegramBotText.T($"осталось на {row.DaysLeft:0.#} дн. ({row.Stock:0.###})", $"{row.DaysLeft:0.#} күнгө калды ({row.Stock:0.###})",
+                    $"left for {row.DaysLeft:0.#} days ({row.Stock:0.###})", $"{row.DaysLeft:0.#} günlük kaldı ({row.Stock:0.###})", $"{row.DaysLeft:0.#} kunga qoldi ({row.Stock:0.###})"));
         }
 
         // 2. Делает выручку, но не делает прибыли: в A по деньгам и в C по прибыли.

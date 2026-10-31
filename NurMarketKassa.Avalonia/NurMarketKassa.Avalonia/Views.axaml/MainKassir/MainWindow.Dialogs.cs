@@ -1158,6 +1158,12 @@ public partial class MainWindow
         }
 
         var newQty = currentQty + addQty.Value;
+        // 2026-10-31: сервер принимает остаток с 2 знаками (quantity_fact "0.##") — округляем явно и говорим об этом, не блокируя пополнение.
+        if (NurMarketKassa.Services.Api.InventoryApiService.RoundingNote(newQty) is { } roundNote)
+        {
+            newQty = NurMarketKassa.Services.Api.InventoryApiService.RoundForServer(newQty);
+            _prompts.ShowToast(roundNote, true);
+        }
 
         try
         {

@@ -550,9 +550,9 @@ public static class OwnerMorningReport
                     runningOut.Add(new Item(T($"{r.Name} — закончился (за 30 дн. продано {r.Sold30:0.##})", $"{r.Name} — түгөндү (30 күндө {r.Sold30:0.##} сатылды)",
                         $"{r.Name} — sold out ({r.Sold30:0.##} sold in 30 d)", $"{r.Name} — tükendi (30 günde {r.Sold30:0.##} satıldı)", $"{r.Name} — tugadi (30 kunda {r.Sold30:0.##} sotildi)"), true, "restock"));
                 foreach (var r in low.Take(5 - runningOut.Count))
-                    runningOut.Add(new Item(T($"{r.Name} — осталось {r.Stock:0.##}, хватит на ~{Math.Max(1, Math.Round(r.DaysLeft)):0} дн.", $"{r.Name} — {r.Stock:0.##} калды, ~{Math.Max(1, Math.Round(r.DaysLeft)):0} күнгө жетет",
-                        $"{r.Name} — {r.Stock:0.##} left, ~{Math.Max(1, Math.Round(r.DaysLeft)):0} d", $"{r.Name} — {r.Stock:0.##} kaldı, ~{Math.Max(1, Math.Round(r.DaysLeft)):0} gün yeter",
-                        $"{r.Name} — {r.Stock:0.##} qoldi, ~{Math.Max(1, Math.Round(r.DaysLeft)):0} kunga yetadi"), false, "restock"));
+                    runningOut.Add(new Item(T($"{r.Name} — осталось {r.Stock:0.###}, хватит на ~{Math.Max(1, Math.Round(r.DaysLeft)):0} дн.", $"{r.Name} — {r.Stock:0.###} калды, ~{Math.Max(1, Math.Round(r.DaysLeft)):0} күнгө жетет",
+                        $"{r.Name} — {r.Stock:0.###} left, ~{Math.Max(1, Math.Round(r.DaysLeft)):0} d", $"{r.Name} — {r.Stock:0.###} kaldı, ~{Math.Max(1, Math.Round(r.DaysLeft)):0} gün yeter",
+                        $"{r.Name} — {r.Stock:0.###} qoldi, ~{Math.Max(1, Math.Round(r.DaysLeft)):0} kunga yetadi"), false, "restock"));
                 aiFacts.AppendLine($"Склад: закончились ходовые товары — {soldOut.Count}, запаса меньше чем на неделю — {low.Count}"
                                    + (runningOut.Count > 0 ? " (например: " + string.Join(", ", soldOut.Concat(low).Take(4).Select(r => r.Name)) + ")" : "") + ".");
             }
@@ -567,7 +567,7 @@ public static class OwnerMorningReport
                 expiryTotal = marks.Count;
                 foreach (var m in marks.Take(5))
                     expiryItems.Add(new Item($"{m.Name} — {ProductExpiryIndex.BadgeText(m)}" + (m.Quantity > 0
-                        ? T($" (ост. {m.Quantity:0.##})", $" (калды {m.Quantity:0.##})", $" ({m.Quantity:0.##} left)", $" ({m.Quantity:0.##} kaldı)", $" ({m.Quantity:0.##} qoldi)") : ""),
+                        ? T($" (ост. {m.Quantity:0.###})", $" (калды {m.Quantity:0.###})", $" ({m.Quantity:0.###} left)", $" ({m.Quantity:0.###} kaldı)", $" ({m.Quantity:0.###} qoldi)") : ""),
                         m.Expired, "warehouse"));
                 if (marks.Count > 0)
                     aiFacts.AppendLine($"Сроки годности: просрочено {marks.Count(m => m.Expired)} товаров, скоро истекает {marks.Count(m => !m.Expired)}.");

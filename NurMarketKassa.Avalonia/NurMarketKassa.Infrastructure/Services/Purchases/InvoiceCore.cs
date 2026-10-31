@@ -184,6 +184,85 @@ public static class InvoiceMath
     }
 }
 
+// ---------------------------------------------------------------------- контрольная сверка итога накладной (2026-10-31)
+
+/// <summary>2026-10-31, жалоба владельца: «в бумаге одна сумма, а в закупке другая». Числа, которые ИИ ПРОЧИТАЛ в накладной (не посчитал): итог
+/// к оплате, НДС, скидка, число позиций («ИТОГ НАКЛАДНОЙ: {…}»), и то, что ИИ сам насчитал по своей таблице (AiLinesTotal / AiPositions —
+/// блок «Общая сумма закупа» / «Всего наименований»). Всё необязательно: накладная может не содержать итога.</summary>
+public sealed record InvoiceReference(double? Total, double? Vat, double? Discount, int? Positions, double? AiLinesTotal = null, int? AiPositions = null)
+{
+    /// <summary>Итог, напечатанный в документе (то, что владелец увидит на бумаге).</summary>
+    public bool HasDocumentTotal => Total is > 0;
+}
+
+public enum ReconcileState { NoReference, Match, Mismatch }
+
+/// <summary>Итог сверки: сумма строк закупки против итога накладной. FromDocument = эталон прочитан из документа (иначе — лишь таблица ИИ).</summary>
+public sealed record InvoiceReconcileResult(ReconcileState State, bool FromDocument, double LinesSum, double Reference, double Expected, double Difference,
+    bool VatKnown, bool DiscountKnown, bool PositionsDiffer, int? DocumentPositions);
+
+/// <summary>Причина подозрения на строку: итоговая строка, принятая за товар; нет количества; нет цены закупки.</summary>
+public enum InvoiceRowFlag { None, LooksLikeTotal, NoQty, NoPurchase }
+
+public static class InvoiceReconcile
+{
+    /// <summary>Допуск расхождения, сом: больше — без подтверждения владельца закупку не проводим.</summary>
+    public const double Tolerance = 1.0;
+
+    /// <summary>Сумма строк (количество × закупка; строка без числа в сумму не входит) против итога накладной. Накладная могла быть с НДС
+    /// или со скидкой — сходящимися считаются: строки, строки + НДС, строки − скидка, строки + НДС − скидка.</summary>
+    public static InvoiceReconcileResult Check(double linesSum, int positions, InvoiceReference? r)
+    {
+        var fromDoc = r?.HasDocumentTotal == true;
+        double? reference = fromDoc ? r!.Total : r?.AiLinesTotal is > 0 ? r.AiLinesTotal : null;
+        if (r is null || reference is not { } total)
+            return new InvoiceReconcileResult(ReconcileState.NoReference, false, Math.Round(linesSum, 2), 0, 0, 0, false, false, false, r?.Positions);
+        var vat = fromDoc && r.Vat is > 0 ? r.Vat.Value : 0;
+        var discount = fromDoc && r.Discount is > 0 ? r.Discount.Value : 0;
+        var candidates = new List<double> { linesSum };
+        if (vat > 0) candidates.Add(linesSum + vat);
+        if (discount > 0) candidates.Add(linesSum - discount);
+        if (vat > 0 && discount > 0) candidates.Add(linesSum + vat - discount);
+        // Ближайший к эталону вариант — то, «что должно было быть»; при совпадении разница нулевая.
+        var expected = candidates.OrderBy(c => Math.Abs(c - total)).First();
+        var diff = Math.Round(expected - total, 2);
+        var match = Math.Abs(diff) <= Tolerance + 1e-9;
+        // Число позиций: у документа, а при его отсутствии — у таблицы ИИ.
+        var docPositions = fromDoc ? r.Positions : r.AiPositions;
+        var differ = docPositions is > 0 and { } dp && dp != positions;
+        return new InvoiceReconcileResult(match ? ReconcileState.Match : ReconcileState.Mismatch, fromDoc, Math.Round(linesSum, 2), Math.Round(total, 2),
+            Math.Round(expected, 2), diff, vat > 0, discount > 0, differ, docPositions);
+    }
+
+    /// <summary>Повтор одного товара в накладной объединяется в одну строку: количество складывается, а цена закупки — СРЕДНЕВЗВЕШЕННАЯ,
+    /// чтобы сумма (количество × цена) осталась той же, что на бумаге (раньше бралась цена первой строки). Нет цены у одной из частей —
+    /// берётся цена другой.</summary>
+    public static double MergePurchase(double qty0, double price0, double qty1, double price1)
+    {
+        if (price0 <= 0) return price1 > 0 ? price1 : 0;
+        if (price1 <= 0 || qty0 + qty1 <= 0) return price0;
+        return Math.Round((qty0 * price0 + qty1 * price1) / (qty0 + qty1), 4);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex TotalWords = new(
+        @"^\s*((итого|итог|всего|подитог|промежуточн\w*|в\s*т\.?\s*ч|ндс|нсп|скидк\w*|к\s+оплате|сумма\s+(налог\w*|ндс|прописью))\b|(grand\s+)?(sub)?total\s*[:\-]?\s*$|vat\s*[:\-]?\s*$)",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>Строка закупки, похожая на не-товар или неполная. Строка, чья сумма равна итогу накладной при нескольких строках, — итог, принятый за товар.</summary>
+    public static InvoiceRowFlag RowFlag(string? name, double? qty, double? purchase, double? documentTotal, int rowCount)
+    {
+        if (!string.IsNullOrWhiteSpace(name) && TotalWords.IsMatch(name))
+            return InvoiceRowFlag.LooksLikeTotal;
+        if (documentTotal is > 0 && rowCount > 1 && qty is > 0 && purchase is > 0 && Math.Abs(qty.Value * purchase.Value - documentTotal.Value) <= Tolerance)
+            return InvoiceRowFlag.LooksLikeTotal;
+        if (qty is not > 0)
+            return InvoiceRowFlag.NoQty;
+        if (purchase is not > 0)
+            return InvoiceRowFlag.NoPurchase;
+        return InvoiceRowFlag.None;
+    }
+}
+
 // ---------------------------------------------------------------------- план правки количества («Б-лайт»)
 
 /// <summary>Как приход был оплачен: от этого зависят возврат (чем компенсируется) и доприход (разрешён только наличными и в долг).</summary>

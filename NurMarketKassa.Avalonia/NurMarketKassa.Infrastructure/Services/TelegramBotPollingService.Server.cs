@@ -252,7 +252,7 @@ public sealed partial class TelegramBotPollingService
         foreach (var row in rows.Take(take))
         {
             var unit = string.IsNullOrWhiteSpace(row.Unit) ? "" : " " + Escape(row.Unit);
-            sb.AppendLine($"• {Escape(row.Name)} — {row.Quantity.ToString("0.##", CultureInfo.InvariantCulture)}{unit}");
+            sb.AppendLine($"• {Escape(row.Name)} — {row.Quantity.ToString("0.###", CultureInfo.InvariantCulture)}{unit}");
         }
 
         var total = Math.Max(count ?? rows.Count, rows.Count);

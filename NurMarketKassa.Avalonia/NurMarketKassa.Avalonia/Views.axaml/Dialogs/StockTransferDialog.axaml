@@ -231,12 +231,25 @@
 
         <TabItem Header="{DynamicResource warehouse.transferFiles}">
           <Grid RowDefinitions="Auto,*" Margin="0,10,0,0">
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
-              <ComboBox x:Name="FileKindBox" Width="220"/>
-              <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferAttach}"
-                      Click="Attach_Click"/>
-              <Button Classes="SecondaryButton" Content="{DynamicResource warehouse.transferOpenFile}"
-                      Click="OpenFile_Click"/>
+            <!-- 2026-10-31: «Создать документ» — касса сама формирует накладную / акт / транспортный документ из данных перемещения
+                 (StockTransferDialog.Documents). Подписи кнопок и флажков — из кода (Tr.T на 5 языков). -->
+            <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,8">
+              <WrapPanel Orientation="Horizontal">
+                <ComboBox x:Name="FileKindBox" Width="190" Margin="0,0,6,6"/>
+                <Button x:Name="CreateDocButton" Classes="PrimaryButton" Margin="0,0,6,6" Padding="10,8" Click="CreateDoc_Click"/>
+                <Button x:Name="AttachButton" Classes="SecondaryButton" Margin="0,0,6,6" Padding="10,8" Content="{DynamicResource warehouse.transferAttach}"
+                        Click="Attach_Click"/>
+                <Button Classes="SecondaryButton" Margin="0,0,6,6" Padding="10,8" Content="{DynamicResource warehouse.transferOpenFile}"
+                        Click="OpenFile_Click"/>
+                <Button x:Name="PrintDocButton" Classes="SecondaryButton" Margin="0,0,6,6" Padding="10,8" Click="PrintDoc_Click"/>
+                <Button Classes="SecondaryButton" Margin="0,0,6,6" Padding="10,8" Content="Word" Click="DocWord_Click"/>
+                <Button Classes="SecondaryButton" Margin="0,0,6,6" Padding="10,8" Content="Excel" Click="DocExcel_Click"/>
+              </WrapPanel>
+              <StackPanel Orientation="Horizontal" Spacing="18">
+                <CheckBox x:Name="AutoWaybillCheck" Click="AutoDocs_Click"/>
+                <CheckBox x:Name="AutoOtherCheck" Click="AutoDocs_Click"/>
+              </StackPanel>
+              <TextBlock x:Name="DocStatusText" FontSize="12" TextWrapping="Wrap" IsVisible="False"/>
             </StackPanel>
             <DataGrid Grid.Row="1" x:Name="FilesGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="40">
               <DataGrid.Columns>

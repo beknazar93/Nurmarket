@@ -30,6 +30,7 @@ public partial class StockTransferDialog : Window
         _transferId = transferId;
         InitializeComponent();
         InitializeFileKinds();
+        InitDocumentUi(); // 2026-10-31: «Создать документ» (StockTransferDialog.Documents)
         Opened += (_, _) => Reload();
         // 2026-10-06: главный склад и филиалы для «Откуда/Куда» (StockTransferDialog.Branches).
         Opened += async (_, _) => await LoadBranchPlacesAsync();
@@ -366,6 +367,9 @@ public partial class StockTransferDialog : Window
         StockTransferService.Instance.ChangeStatus(_transferId, status,
             App.GetRequiredService<NurMarketKassa.Ui.Shared.IAppSession>().CurrentUserDisplayName, note);
         Reload();
+        // 2026-10-31: «Отправить» — накладная (и по настройке акт с транспортным документом) создаются сами и прикладываются (StockTransferDialog.Documents).
+        if (status == StockTransferService.StatusInTransit)
+            _ = AutoDocumentsOnShipAsync();
     }
 
     private async void Attach_Click(object? sender, RoutedEventArgs e)

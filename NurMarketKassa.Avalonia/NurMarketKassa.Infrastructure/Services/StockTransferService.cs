@@ -363,7 +363,8 @@ public sealed class StockTransferService
 
     /// <summary>Файл копируется в папку кассы: исходник кладовщик может унести на флешке или
     /// удалить, а накладная должна остаться привязанной к документу.</summary>
-    public void AttachFile(string transferId, string sourcePath, string kind)
+    // 2026-10-31: возвращает путь скопированного файла (нужен, чтобы положить рядом снимок данных созданного документа).
+    public string AttachFile(string transferId, string sourcePath, string kind)
     {
         var folder = Path.Combine(DatabaseService.Instance.DataFolder, "transfers", transferId);
         Directory.CreateDirectory(folder);
@@ -390,6 +391,7 @@ public sealed class StockTransferService
             command.Parameters.AddWithValue("$at", DateTime.Now.ToString("o", CultureInfo.InvariantCulture));
             command.ExecuteNonQuery();
         });
+        return target;
     }
 
     public List<Attachment> LoadAttachments(string transferId)

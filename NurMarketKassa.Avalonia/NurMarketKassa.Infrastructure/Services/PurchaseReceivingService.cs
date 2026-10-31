@@ -371,8 +371,12 @@ public sealed class PurchaseReceivingService
     /// <summary>2026-10-19: название поставщика для сверки — без регистра, кавычек, знаков и организационно-правовой формы.</summary>
     public static string SupplierNameKey(string? name)
     {
-        var words = System.Text.RegularExpressions.Regex.Split((name ?? "").ToLowerInvariant().Replace('ё', 'е'), @"[^\p{L}\p{N}]+")
-            .Where(w => w.Length > 0 && w is not ("осоо" or "ооо" or "оао" or "зао" or "ао" or "пао" or "ип" or "чп" or "тоо" or "llc" or "ltd" or "фх"))
+        // 2026-10-31: «L.T.D.» / «L.L.C.» (буквы через точки) схлопываются в «ltd» / «llc», а форма «OcOO» (латинские O и c, как её читает ИИ с фото) —
+        // в «осоо»: раньше такие слова не отбрасывались и поставщик из накладной не находился в списке.
+        var lower = System.Text.RegularExpressions.Regex.Replace((name ?? "").ToLowerInvariant().Replace('ё', 'е'), @"(?<=\b\p{L})\.(?=\p{L}\b)", "");
+        static string Fold(string w) => w.Replace('o', 'о').Replace('c', 'с').Replace('a', 'а').Replace('p', 'р').Replace('e', 'е').Replace('x', 'х').Replace('k', 'к');
+        var words = System.Text.RegularExpressions.Regex.Split(lower, @"[^\p{L}\p{N}]+")
+            .Where(w => w.Length > 0 && Fold(w) is not ("осоо" or "ооо" or "оао" or "зао" or "ао" or "пао" or "ип" or "чп" or "тоо" or "фх") && w is not ("llc" or "ltd"))
             .ToList();
         return string.Join(" ", words);
     }
@@ -536,9 +540,20 @@ public sealed class PurchaseReceivingService
                     $"{name}: received {line.Quantity:0.###}, but {line.VariantTotal:0.###} by size — fix it in the “Sizes” column",
                     $"{name}: {line.Quantity:0.###} kabul edildi, bedenlere göre {line.VariantTotal:0.###} — «Bedenler» sütununda düzeltin",
                     $"{name}: {line.Quantity:0.###} qabul qilindi, o'lchamlar bo'yicha {line.VariantTotal:0.###} — «O'lchamlar» ustunida tuzating"));
+            // 2026-10-31 («Не округляй»): больше 3 знаков после запятой не округляем молча — строку не проводим, пока не исправят.
+            if (ReceivingLineVm.QuantityTooPrecise(line.Quantity))
+                problems.Add($"{name}: {ReceivingLineVm.QuantityPrecisionText}");
             if (line.Quantity <= 0)
                 problems.Add(Tr.T($"{name}: не указано количество", $"{name}: саны көрсөтүлгөн эмес",
                     $"{name}: quantity missing", $"{name}: miktar belirtilmedi", $"{name}: miqdor ko'rsatilmagan"));
+            // 2026-10-31 («Не округляй»): сервер хранит цену закупки товара с 2 знаками (PATCH с большим числом отклоняет, проверено на NBS 29.10) —
+            // 12,345 из файла/накладной молча в 12,35 не превращаем: строка не проводится, пока цену не поправят явно.
+            if (line.PurchasePrice > 0 && line.PurchasePrice < 1e9 && Math.Round((decimal)line.PurchasePrice, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero) != (decimal)line.PurchasePrice)
+                problems.Add(Tr.T($"{name}: цена закупки {line.PurchasePrice:0.####} — не больше 2 знаков после запятой (сервер хранит 2)",
+                    $"{name}: сатып алуу баасы {line.PurchasePrice:0.####} — үтүрдөн кийин 2 цифрадан ашык эмес (сервер 2 сактайт)",
+                    $"{name}: purchase price {line.PurchasePrice:0.####} — at most 2 decimal places (the server stores 2)",
+                    $"{name}: alış fiyatı {line.PurchasePrice:0.####} — virgülden sonra en fazla 2 basamak (sunucu 2 saklar)",
+                    $"{name}: xarid narxi {line.PurchasePrice:0.####} — verguldan keyin ko'pi bilan 2 raqam (server 2 saqlaydi)"));
             if (line.PurchasePrice <= 0)
                 problems.Add(Tr.T($"{name}: не указана цена закупки", $"{name}: сатып алуу баасы көрсөтүлгөн эмес",
                     $"{name}: purchase price missing", $"{name}: alış fiyatı belirtilmedi", $"{name}: xarid narxi ko'rsatilmagan"));
@@ -547,6 +562,21 @@ public sealed class PurchaseReceivingService
                     $"{name}: sale price missing", $"{name}: satış fiyatı belirtilmedi", $"{name}: sotuv narxi ko'rsatilmagan"));
         }
 
+        return problems;
+    }
+
+    /// <summary>2026-10-31: дробное количество у НОВОГО штучного товара («2,5 шт») — ошибка строки, как в карточке товара и массовом добавлении
+    /// (UnitCatalog.QuantityProblem). В Validate не входит: массовое сканирование и загрузка из файла проверяют это сами. «кг» (весовой), «л», «м» — можно.</summary>
+    public static List<string> FractionalProblems(IReadOnlyList<ReceivingLineVm> lines)
+    {
+        var problems = new List<string>();
+        foreach (var line in lines)
+        {
+            if (!line.IsNew || line.Quantity <= 0 || UnitCatalog.QuantityProblem(line.Quantity, line.Unit, line.IsWeight) is not { } problem)
+                continue;
+            var name = string.IsNullOrWhiteSpace(line.ProductName) ? (string.IsNullOrWhiteSpace(line.Barcode) ? "—" : line.Barcode) : line.ProductName;
+            problems.Add($"{name}: {problem}");
+        }
         return problems;
     }
 
@@ -696,8 +726,9 @@ public sealed class PurchaseReceivingService
                 ["items"] = ready.Select(l => new Dictionary<string, object?>
                 {
                     ["product"] = l.ProductId,
-                    // 2026-10-29: сервер принимает не больше 3 знаков после запятой; шум double (0,1+0,2) и ввод с лишними знаками округляем до 3.
-                    ["qty"] = Math.Round(l.Quantity, 3, MidpointRounding.AwayFromZero),
+                    // 2026-10-29: сервер принимает не больше 3 знаков после запятой. 2026-10-31 («Не округляй»): ввод с лишними знаками не проводится
+                    // (Validate), поэтому здесь убираем только шум double (0,1+0,2 = 0,30000000000000004), а не округляем введённое количество.
+                    ["qty"] = Math.Round(l.Quantity, 6, MidpointRounding.AwayFromZero),
                     ["purchase_price"] = Math.Round(l.PurchasePrice, 3, MidpointRounding.AwayFromZero),
                 }).ToList(),
                 ["payment_type"] = paidNow ? "cash" : "debt",
@@ -963,7 +994,7 @@ public sealed class PurchaseReceivingService
                             return;
                         }
                     }
-                    var target = Math.Round(preStock + line.Quantity, 3);
+                    var target = Math.Round(preStock + line.Quantity, 6); // 2026-10-31: только шум double (оба слагаемых уже до 3 знаков)
 
                     var fields = new Dictionary<string, object?>
                     {
@@ -1054,7 +1085,7 @@ public sealed class PurchaseReceivingService
                     var v = fresh.FirstOrDefault(x => string.Equals(x.Id, variantId, StringComparison.OrdinalIgnoreCase));
                     if (v is null || qty <= 0)
                         continue;
-                    v.Quantity = Math.Round(v.Quantity + qty, 3);
+                    v.Quantity = Math.Round(v.Quantity + qty, 6); // 2026-10-31: только шум double
                     await Api.SaveProductVariantAsync(line.ProductId!, v, ct).ConfigureAwait(false);
                 }
                 ProductVariantCache.Put(line.ProductId!, await Api.GetProductVariantsAsync(line.ProductId!, ct).ConfigureAwait(false));

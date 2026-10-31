@@ -1,4 +1,5 @@
 using NurMarketKassa.Core.Application;
+using NurMarketKassa.Core.Domain;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services.Api;
 
@@ -104,6 +105,37 @@ public static class ProductCodeLookup
         }
 
         return null;
+    }
+
+    /// <summary>2026-10-31: весовая этикетка, прочитанная для ПРИЁМКИ (FindLocal её здесь не разбирает). Product == null — код устроен как этикетка
+    /// весов (13 цифр, префикс 2x, верная контрольная цифра), но товара с таким PLU/артикулом/кодом нет. Quantity — вес в кг (на этикетке «по сумме» — вес,
+    /// восстановленный из суммы по цене продажи, как в кассе). null — это не весовая этикетка.</summary>
+    public sealed record WeightLabelHit(CatalogProductTileVm? Product, WeightBarcodeParseResult Label, double Quantity);
+
+    /// <summary>2026-10-31 (владелец: «в приёмке весовые добавляются???»): приёмка не находила весовой товар по этикетке весов (allowWeightLabel: false) и
+    /// заводила строку «новый товар» с кодом этикетки — на кассе такой код каждый раз другой, товар-двойник бесполезен. Теперь этикетку разбираем тем же
+    /// парсером, что касса: код товара внутри → товар, вес внутри → количество. Звать ПОСЛЕ точного поиска по штрихкоду (FindLocal).</summary>
+    public static WeightLabelHit? FindWeightLabel(string? raw)
+    {
+        var key = Normalize(raw);
+        if (key.Length != 13 || !WeightLabelAllowedHere(key))
+            return null;
+        try
+        {
+            ScaleLabelCodeRegistry.ApplySharedAmountPrefixes();
+            if (!WeightBarcodeParser.TryParse(key, out var label))
+                return null;
+            var product = LocalCartService.FindByEmbeddedCode(label.ProductCode);
+            var price = product is null ? 0 : LocalCartService.ParsePrice(product.PriceLine);
+            // На этикетке «по сумме» без цены товара вес не восстановить (ResolveWeightKg отдал бы сумму как килограммы) — количество пустое, впишут руками.
+            var quantity = label.Kind == WeightBarcodeValueKind.Amount && price <= 0 ? 0 : label.ResolveWeightKg(price);
+            return new WeightLabelHit(product, label, Math.Round(quantity, 3, MidpointRounding.AwayFromZero));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Весовая этикетка {key} в приёмке не разобрана: {ex.Message}", "WARNING");
+            return null;
+        }
     }
 
     /// <summary>Сначала этот компьютер, потом сервер — как касса при скане незнакомого кода.</summary>

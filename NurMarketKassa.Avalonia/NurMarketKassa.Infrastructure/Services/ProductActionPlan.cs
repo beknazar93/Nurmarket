@@ -107,6 +107,13 @@ public static class ProductActionPlan
         // 2026-10-19: накладная проводится закупкой у поставщика — программа предложит владельцу поставщика из списка NurCRM.
         + "Если в накладной виден поставщик (продавец, грузоотправитель), добавь ещё одну служебную строку ровно так: "
         + "ПОСТАВЩИК: {\"name\": \"название поставщика как в накладной\", \"inn\": \"ИНН, если виден\", \"phone\": \"телефон, если виден\", \"address\": \"адрес, если виден\"}. Не угадывай поставщика. "
+        // 2026-10-31: контрольная сверка — итог, напечатанный в документе, ИИ ЧИТАЕТ (не считает): программа сверит его с суммой строк закупки.
+        + "Если в накладной напечатан итог, добавь служебную строку ровно так: "
+        + "ИТОГ НАКЛАДНОЙ: {\"total\": итог к оплате как напечатан в документе, \"vat\": сумма НДС, если выделена, \"discount\": сумма скидки, если есть, \"positions\": число позиций по документу, если напечатано}. "
+        + "Эти числа только ПРОЧИТАЙ из документа, не вычисляй и не подгоняй под таблицу; чего нет в документе — не пиши. "
+        + "Цена закупа — цена за единицу, при которой количество × цена даёт сумму строки документа (если есть цена без НДС и с НДС — бери ту, сумма которой входит в итог «к оплате»). "
+        + "Если количество дано в упаковках, коробках или блоках — переведи в штуки: количество в штуках, цена за штуку, сумма строки не меняется. "
+        + "Строки «Итого», «Всего», «НДС», «Скидка» и подзаголовки разделов в таблицу не включай — они не товары. "
         + "Служебные строки не являются частью видимого ответа: программа удалит их перед показом. Не создавай действие, если обязательное значение не распознано; "
         + "неразборчивую позицию всё равно оставь в таблице с дефисами. Розничная цена = закупка × (1 + наценка / 100): "
         + $"если владелец указал наценку, используй её, но не ниже {MinMarkupPercent:0} %; иначе применяй {MinMarkupPercent:0} % без вопроса владельцу. "
@@ -119,6 +126,56 @@ public static class ProductActionPlan
     private static readonly Regex ReceiveDisplayLine = new(@"(?im)^\s*receive\s*:\s*(\{[^\n]*?\})\s*[—–-]\s*(.+?)\s*$");
     // 2026-10-19: служебная строка «ПОСТАВЩИК: {…}» распознанной накладной (см. PhotoPromptText, SupplierHint).
     private static readonly Regex SupplierLine = new(@"(?im)^[ \t*`•\-]*ПОСТАВЩИК\s*:\s*(\{[^\n]*\})[ \t*`]*$");
+
+    // 2026-10-31: служебная строка «ИТОГ НАКЛАДНОЙ: {…}» — итог, НДС, скидка и число позиций, прочитанные ИИ в документе (контрольная сверка).
+    private static readonly Regex TotalLine = new(@"(?im)^[ \t*`•\-]*ИТОГ\s+НАКЛАДНОЙ\s*:\s*(\{[^\n]*\})[ \t*`]*$");
+    private static readonly Regex AiSumLine = new(@"(?im)Общая\s+сумма\s+закупа\s*:\s*([\d\s  .,]+?)\s*сом");
+    private static readonly Regex AiCountLine = new(@"(?im)Всего\s+наименований\s*:\s*(\d+)");
+
+    /// <summary>Число из текста накладной: «38 395,58», «38395.58», «1,234.56» (последний разделитель — десятичный).</summary>
+    public static double? ParseMoney(string? raw)
+    {
+        var t = (raw ?? "").Replace(" ", "").Replace(" ", "").Replace(" ", "").Trim();
+        if (t.Length == 0 || t == "-")
+            return null;
+        var lastComma = t.LastIndexOf(',');
+        var lastDot = t.LastIndexOf('.');
+        if (lastComma >= 0 && lastDot >= 0)
+            t = lastComma > lastDot ? t.Replace(".", "").Replace(',', '.') : t.Replace(",", "");
+        else if (lastComma >= 0)
+            t = t.Replace(',', '.');
+        return double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) && double.IsFinite(v) ? v : null;
+    }
+
+    /// <summary>2026-10-31: итоги накладной из ответа ИИ: строка «ИТОГ НАКЛАДНОЙ» (то, что напечатано в документе) и блок ИИ «Общая сумма закупа» /
+    /// «Всего наименований» (то, что ИИ насчитал сам). null — ничего нет. Сверка — <see cref="InvoiceReconcile"/>.</summary>
+    public static InvoiceReference? InvoiceTotalsHint(string? answer)
+    {
+        var text = answer ?? "";
+        double? total = null, vat = null, discount = null;
+        int? positions = null;
+        var m = TotalLine.Match(text);
+        if (m.Success)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(m.Groups[1].Value);
+                double? D(string name) => doc.RootElement.TryGetProperty(name, out var v) && v.ValueKind is JsonValueKind.String or JsonValueKind.Number ? ParseMoney(v.ToString()) : null;
+                total = D("total") is > 0 and { } t ? t : null;
+                vat = D("vat") is > 0 and { } vv ? vv : null;
+                discount = D("discount") is > 0 and { } dd ? dd : null;
+                positions = D("positions") is > 0 and { } pp ? (int)Math.Round(pp) : null;
+            }
+            catch (JsonException)
+            {
+            }
+        }
+        var aiSum = AiSumLine.Match(text) is { Success: true } sm ? ParseMoney(sm.Groups[1].Value) : null;
+        var aiCount = AiCountLine.Match(text) is { Success: true } cm && int.TryParse(cm.Groups[1].Value, out var n) ? n : (int?)null;
+        return total is null && vat is null && discount is null && positions is null && aiSum is null && aiCount is null
+            ? null
+            : new InvoiceReference(total, vat, discount, positions, aiSum, aiCount);
+    }
 
     /// <summary>2026-10-30: телефон и адрес поставщика из последней строки «ПОСТАВЩИК» (если ИИ их увидел) — предзаполнение «Новый поставщик».</summary>
     public static (string? Phone, string? Address) LastSupplierExtra { get; private set; }
@@ -471,7 +528,7 @@ public static class ProductActionPlan
         }).ToList();
         _lastBlocked.Value = blocked;
         // 2026-10-19: и строку «ПОСТАВЩИК: {…}» — она служебная (SupplierHint).
-        var cleaned = SupplierLine.Replace(Line.Replace(extractionAnswer, ""), "").Trim();
+        var cleaned = TotalLine.Replace(SupplierLine.Replace(Line.Replace(extractionAnswer, ""), ""), "").Trim(); // 2026-10-31: и «ИТОГ НАКЛАДНОЙ»
         if (receiveTable is not null && !cleaned.Contains("|---", StringComparison.Ordinal))
             cleaned = receiveTable;
         return (Regex.Replace(cleaned, @"\n{3,}", "\n\n"), steps, skipped);

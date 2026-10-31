@@ -810,6 +810,27 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             return;
         }
 
+        // 2026-10-31 (владелец: «в приёмке весовые добавляются???»): этикетка весов — товар по коду внутри, количество = вес с этикетки
+        // (раньше становилась «новым товаром» с кодом этикетки). Только если точного штрихкода с таким кодом нет.
+        if (ProductCodeLookup.FindLocal(trimmed, allowWeightLabel: false) is null
+            && ProductCodeLookup.FindWeightLabel(trimmed) is { Product: { } weighedTile } weighedLabel)
+        {
+            var sameProduct = ReceivingLines.FirstOrDefault(l => string.Equals(l.ProductId, weighedTile.Id, StringComparison.OrdinalIgnoreCase));
+            if (sameProduct is not null)
+            {
+                sameProduct.Quantity += weighedLabel.Quantity;
+                MoveReceivingLineToTop(sameProduct);
+                ReceivingLineAdded?.Invoke(sameProduct);
+                return;
+            }
+
+            var weighedLine = PurchaseReceivingService.FromTile(weighedTile, weighedLabel.Quantity);
+            weighedLine.EnableAutoSale();
+            ReceivingLines.Insert(0, weighedLine);
+            ReceivingLineAdded?.Invoke(weighedLine);
+            return;
+        }
+
         var line = await PurchaseReceivingService.Instance.LookupAsync(trimmed, quantity).ConfigureAwait(true);
 
         // Пока шёл запрос, тот же товар могли отсканировать ещё раз.
@@ -1135,6 +1156,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     {
         var lines = ReceivingLines.ToList();
         var problems = PurchaseReceivingService.Validate(lines);
+        problems.AddRange(PurchaseReceivingService.FractionalProblems(lines)); // 2026-10-31: «2,5 шт» у нового товара — выберите «кг» или целое
         if (problems.Count > 0)
         {
             var shown = problems.Take(8).ToList();
@@ -1433,6 +1455,13 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         }
 
         var newQuantity = Math.Max(0, currentQuantity - WriteOffQuantity);
+        // 2026-10-31: сервер принимает остаток с 2 знаками (quantity_fact "0.##") — округляем явно и говорим об этом, не блокируя списание.
+        var roundedQuantity = InventoryApiService.RoundForServer(newQuantity);
+        if (InventoryApiService.RoundingNote(newQuantity) is { } roundNote)
+        {
+            newQuantity = roundedQuantity;
+            _prompts?.ShowToast(roundNote, true);
+        }
 
         IsBusy = true;
         (WriteOffCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();

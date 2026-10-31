@@ -454,6 +454,27 @@ public sealed partial class PurchasesWindow
             s.Scan.Text = "";
             return;
         }
+        // 2026-10-31 (владелец: «в приёмке весовые добавляются???»): этикетка весов (13 цифр, 2x…) — товар по коду внутри, количество = вес с этикетки
+        // (повторная такая же этикетка прибавляется). Раньше она становилась «новым товаром» с кодом этикетки.
+        var weightLabel = ProductCodeLookup.FindWeightLabel(code);
+        if (weightLabel?.Product is { } weighedTile)
+        {
+            ReceiveAddTile(weighedTile, weightLabel.Quantity);
+            s.Scan.Text = "";
+            var byAmount = weightLabel.Label.Kind == NurMarketKassa.Core.Domain.WeightBarcodeValueKind.Amount;
+            ReceiveMessage(weightLabel.Quantity > 0
+                ? T($"Весовая этикетка: «{weighedTile.Title}» — {Q(weightLabel.Quantity)} {weighedTile.Unit} добавлено в «Принимаем»{(byAmount ? " (вес посчитан по сумме на этикетке)" : "")}. Проверьте количество.",
+                    $"Салмак этикеткасы: «{weighedTile.Title}» — {Q(weightLabel.Quantity)} {weighedTile.Unit} «Кабыл алынат» тилкесине кошулду{(byAmount ? " (салмак этикеткадагы сумма боюнча эсептелди)" : "")}. Санын текшериңиз.",
+                    $"Scale label: “{weighedTile.Title}” — {Q(weightLabel.Quantity)} {weighedTile.Unit} added to “Receiving”{(byAmount ? " (weight calculated from the amount on the label)" : "")}. Check the quantity.",
+                    $"Terazi etiketi: «{weighedTile.Title}» — {Q(weightLabel.Quantity)} {weighedTile.Unit} «Kabul» sütununa eklendi{(byAmount ? " (ağırlık etiketteki tutardan hesaplandı)" : "")}. Miktarı kontrol edin.",
+                    $"Tarozi yorlig'i: «{weighedTile.Title}» — {Q(weightLabel.Quantity)} {weighedTile.Unit} «Qabul» ustuniga qo'shildi{(byAmount ? " (vazn yorliqdagi summadan hisoblandi)" : "")}. Miqdorni tekshiring.")
+                : T($"Весовая этикетка «{weighedTile.Title}» по сумме, а цены товара нет — вес не восстановить. Впишите количество руками.",
+                    $"«{weighedTile.Title}» салмак этикеткасы сумма боюнча, товардын баасы жок — салмакты эсептей албайбыз. Санын кол менен жазыңыз.",
+                    $"The scale label of “{weighedTile.Title}” is by amount and the product has no price — the weight can't be restored. Type the quantity by hand.",
+                    $"«{weighedTile.Title}» terazi etiketi tutara göre, ürünün fiyatı yok — ağırlık hesaplanamaz. Miktarı elle girin.",
+                    $"«{weighedTile.Title}» tarozi yorlig'i summa bo'yicha, mahsulot narxi yo'q — vaznni tiklab bo'lmaydi. Miqdorni qo'lda kiriting."), warning: weightLabel.Quantity <= 0);
+            return;
+        }
         var looksLikeCode = code.Length >= 4 && code.All(char.IsLetterOrDigit) && code.Count(char.IsDigit) >= Math.Max(4, code.Length - 2);
         if (!looksLikeCode)
         {
@@ -496,7 +517,14 @@ public sealed partial class PurchasesWindow
                 target = sameNew;
                 added = false;
             }
-            if (added && line.IsNew)
+            if (added && line.IsNew && weightLabel is not null)
+                // 2026-10-31: код устроен как этикетка весов, но такого весового товара нет — не заводить двойника по коду этикетки молча.
+                ReceiveMessage(T($"Код похож на этикетку весов (код товара {weightLabel.Label.ProductCode}), но весового товара с таким PLU/артикулом нет. Если это обычный штрихкод — впишите название, цены; если этикетка — уберите строку (✕) и проверьте PLU в карточке товара.",
+                    $"Код тараза этикеткасына окшош (товар коду {weightLabel.Label.ProductCode}), бирок мындай PLU/артикулу бар салмактуу товар жок. Кадимки штрихкод болсо — атын, баасын жазыңыз; этикетка болсо — сапты өчүрүп (✕), товар карточкасындагы PLU текшериңиз.",
+                    $"The code looks like a scale label (product code {weightLabel.Label.ProductCode}), but there is no weighed product with this PLU/article. If it is an ordinary barcode — enter the name and prices; if it is a label — remove the line (✕) and check the PLU in the product card.",
+                    $"Kod terazi etiketine benziyor (ürün kodu {weightLabel.Label.ProductCode}) ama bu PLU/artikel ile tartılı ürün yok. Normal barkodsa — adı ve fiyatları girin; etiketse — satırı kaldırın (✕) ve ürün kartındaki PLU'yu kontrol edin.",
+                    $"Kod tarozi yorlig'iga o'xshaydi (mahsulot kodi {weightLabel.Label.ProductCode}), lekin bunday PLU/artikulli vaznli mahsulot yo'q. Oddiy shtrix-kod bo'lsa — nom va narxlarni kiriting; yorliq bo'lsa — qatorni olib tashlang (✕) va mahsulot kartasidagi PLU ni tekshiring."), warning: true);
+            else if (added && line.IsNew)
                 ReceiveMessage(T("Новый товар: впишите название, цену закупки и цену продажи — он появится на складе при оприходовании.",
                     "Жаңы товар: атын, сатып алуу жана сатуу баасын жазыңыз — кирешке алганда кампада пайда болот.",
                     "New product: enter the name, purchase and selling price — it appears in stock when posted.",
@@ -1103,12 +1131,14 @@ public sealed partial class PurchasesWindow
         ReceiveRefresh();
     }
 
-    private static string ReceiveNum(double v) => v > 0 ? v.ToString("0.###", Ru) : "";
+    private static string ReceiveNum(double v) => v > 0 ? v.ToString("0.#########", Ru) : ""; // 2026-10-31: без округления показа (было 0.###)
 
     /// <summary>2026-10-28: цена в ячейке «100,60» (целая — «100»), не «100,6»; пусто для нуля.</summary>
     private static string ReceiveMoney(double v) => v > 0 ? ReceivingLineVm.FormatPrice(v).Replace('.', ',') : "";
 
     private static string ReceiveMarkup(ReceivingLineVm line) => line.MarkupPercent is { } m ? m.ToString("0.##", Ru) : "";
+
+    private static string RoundedQuantityHint => ReceivingLineVm.QuantityPrecisionText; // 2026-10-31: «Не округляй» — теперь пояснение без округления
 
     /// <summary>Читает число из ячейки (запятая или точка). Пустая ячейка — 0; непонятное число — false (строка остаётся как была).</summary>
     private static bool ReceiveReadCell(TextBox box, out double value)
@@ -1119,7 +1149,7 @@ public sealed partial class PurchasesWindow
             return true;
         if (!double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) || v < 0 || v >= 1e9)
             return false;
-        value = Math.Round(v, 3);
+        value = v; // 2026-10-31 («Не округляй»): не округляем; больше 3 знаков — красное пояснение и блок проведения (Validate)
         return true;
     }
 
@@ -1144,6 +1174,50 @@ public sealed partial class PurchasesWindow
         return new Grid { MinHeight = 40, VerticalAlignment = VerticalAlignment.Top, Children = { c } };
     }
 
+    /// <summary>2026-10-31 (владелец: «в приёмке весовые добавляются???»): у НОВОГО товара в «Приёме товара» не было выбора единицы — он создавался «шт» и
+    /// нельзя было принять килограммы/литры. Теперь под названием — кнопки единиц (шт, кг, л, м, уп; список без выпадающего окна — в окнах кассы
+    /// Popup не открывается). «кг» делает товар весовым (ReceivingLineVm.IsWeight), количество можно вводить дробным (до 3 знаков).</summary>
+    private Control ReceiveUnitChips(ReceivingLineVm line)
+    {
+        var panel = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
+        var chips = new List<(string Unit, Border Box, TextBlock Label)>();
+        var units = new List<string> { "шт", "кг", "л", "м", "уп" };
+        var current = UnitCatalog.NormalizeOrKeep(line.Unit);
+        if (!units.Contains(current))
+            units.Add(current); // своя единица (из файла/накладной) остаётся в списке выбранной
+        void Paint()
+        {
+            var now = UnitCatalog.NormalizeOrKeep(line.Unit);
+            foreach (var (unit, box, label) in chips)
+            {
+                var on = string.Equals(unit, now, StringComparison.Ordinal);
+                Use(box, Border.BackgroundProperty, on ? "BrushAccentSoft" : "BrushPanelSoft");
+                Use(label, TextBlock.ForegroundProperty, on ? "BrushAccent" : "BrushTextSoft");
+                label.FontWeight = on ? FontWeight.SemiBold : FontWeight.Normal;
+            }
+        }
+        foreach (var unit in units)
+        {
+            var label = new TextBlock { Text = UnitCatalog.Display(unit), FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center };
+            var box = new Border { Child = label, MinHeight = 32, MinWidth = 40, Padding = new Thickness(10, 0), Margin = new Thickness(0, 0, 6, 4), CornerRadius = new CornerRadius(8), Cursor = new Cursor(StandardCursorType.Hand) };
+            ToolTip.SetTip(box, unit == "кг"
+                ? T("Килограммы: товар будет весовым, количество можно дробным (например 2,5).", "Килограмм: товар салмактуу болот, саны бөлчөк болушу мүмкүн (мисалы 2,5).",
+                    "Kilograms: the product will be weighed, the quantity may be fractional (e.g. 2.5).", "Kilogram: ürün tartılı olur, miktar ondalık olabilir (örn. 2,5).", "Kilogramm: mahsulot vaznli bo'ladi, miqdor kasr bo'lishi mumkin (masalan 2,5).")
+                : T("Единица измерения нового товара.", "Жаңы товардын өлчөө бирдиги.", "Unit of the new product.", "Yeni ürünün birimi.", "Yangi mahsulotning o'lchov birligi."));
+            Avalonia.Automation.AutomationProperties.SetName(box, T("Единица", "Бирдик", "Unit", "Birim", "Birlik") + " " + UnitCatalog.Display(unit));
+            box.PointerPressed += (_, _) =>
+            {
+                line.Unit = unit;
+                Paint();
+                ReceiveRefresh();
+            };
+            chips.Add((unit, box, label));
+            panel.Children.Add(box);
+        }
+        Paint();
+        return panel;
+    }
+
     private Control ReceiveRow(ReceivingLineVm line)
     {
         var s = _receive!;
@@ -1158,6 +1232,7 @@ public sealed partial class PurchasesWindow
             nameBox.TextChanged += (_, _) => line.ProductName = nameBox.Text ?? "";
             parts.Name = nameBox;
             who.Children.Add(nameBox);
+            who.Children.Add(ReceiveUnitChips(line)); // 2026-10-31: единица нового товара (кг — весовой)
         }
         else
         {
@@ -1257,6 +1332,13 @@ public sealed partial class PurchasesWindow
             if (parts.Syncing || !ReceiveReadCell(qty, out var v))
                 return;
             line.Quantity = v;
+            // 2026-10-31 («Не округляй»): сервер принимает не больше 3 знаков после запятой. «12,3456» остаётся как набрано, строка красная
+            // (ReceivingLineVm.PriceProblemText), провести нельзя, пока не исправят (в «Склад → Приёмка» то же через ReceivingLineVm.QuantityText).
+            var roundedHint = RoundedQuantityHint;
+            if (ReceivingLineVm.QuantityTooPrecise(v))
+                ReceiveMessage(roundedHint, warning: true);
+            else if (s.Message.Text == roundedHint)
+                ReceiveMessage(null);
             ReceiveRefresh();
         };
         // 2026-10-28 (дробные цены, автонаценка): закупка и продажа разбираются общим правилом ReceivingLineVm (запятая/точка, 2 знака, без «1e3»);
@@ -1477,6 +1559,7 @@ public sealed partial class PurchasesWindow
         if (lines.Count == 0)
             return;
         var problems = PurchaseReceivingService.Validate(lines);
+        problems.AddRange(PurchaseReceivingService.FractionalProblems(lines)); // 2026-10-31: «2,5 шт» у нового товара — выберите «кг» или целое
         if (problems.Count > 0)
         {
             ReceiveMessage(T("Нельзя оприходовать: ", "Кирешке алууга болбойт: ", "Can't post: ", "Kaydedilemez: ", "Kirim qilib bo'lmaydi: ") + string.Join("; ", problems.Take(4))

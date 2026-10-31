@@ -232,6 +232,11 @@ public sealed class UserPreferences
     // язык прямой печати (без драйвера): escpos — как раньше, escpos_gap — после этикетки подача
     // до следующей (GS FF), tspl — команды этикеточных принтеров (SIZE/GAP/BITMAP/PRINT).
     public bool LabelPageFromTemplate { get; set; } = true;
+
+    // 2026-10-31: документы перемещения создаются сами при «Отправить» (карточка перемещения, вкладка «Документы»):
+    // накладная — по умолчанию ВКЛ, акт приёма-передачи и транспортный документ — по умолчанию ВЫКЛ.
+    public bool TransferAutoWaybill { get; set; } = true;
+    public bool TransferAutoOther { get; set; }
     public double LabelGapMm { get; set; } = 2;
     public double LabelOffsetXMm { get; set; }
     public double LabelOffsetYMm { get; set; }
@@ -1140,6 +1145,10 @@ public sealed class UserPreferences
                 p.LabelPrinterDevicePath = fromFile.LabelPrinterDevicePath;
             if (fromFile.LabelPageFromTemplate is not null)
                 p.LabelPageFromTemplate = fromFile.LabelPageFromTemplate.Value;
+            if (fromFile.TransferAutoWaybill is not null)
+                p.TransferAutoWaybill = fromFile.TransferAutoWaybill.Value; // 2026-10-31
+            if (fromFile.TransferAutoOther is not null)
+                p.TransferAutoOther = fromFile.TransferAutoOther.Value;
             if (fromFile.LabelGapMm is >= 0 and <= 20)
                 p.LabelGapMm = fromFile.LabelGapMm.Value;
             if (fromFile.LabelOffsetXMm is >= -20 and <= 20)
@@ -1652,6 +1661,8 @@ public sealed class UserPreferences
                 ReceiptDevicePath = ReceiptDevicePath,
                 LabelPrinterDevicePath = LabelPrinterDevicePath,
                 LabelPageFromTemplate = LabelPageFromTemplate,
+                TransferAutoWaybill = TransferAutoWaybill,
+                TransferAutoOther = TransferAutoOther,
                 LabelGapMm = LabelGapMm,
                 LabelOffsetXMm = LabelOffsetXMm,
                 LabelOffsetYMm = LabelOffsetYMm,
@@ -1986,6 +1997,8 @@ public sealed class UserPreferences
         public string? ReceiptDevicePath { get; set; }
         public string? LabelPrinterDevicePath { get; set; }
         public bool? LabelPageFromTemplate { get; set; }
+        public bool? TransferAutoWaybill { get; set; }
+        public bool? TransferAutoOther { get; set; }
         public double? LabelGapMm { get; set; }
         public double? LabelOffsetXMm { get; set; }
         public double? LabelOffsetYMm { get; set; }

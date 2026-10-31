@@ -42,6 +42,8 @@ public sealed class InvoiceEditorWindow : Window
         /// <summary>2026-10-30: телефон и адрес поставщика, если ИИ их прочитал в накладной, — предзаполнение «Новый поставщик».</summary>
         public string? InvoiceSupplierPhone { get; init; }
         public string? InvoiceSupplierAddress { get; init; }
+        /// <summary>2026-10-31: итог/НДС/скидка/число позиций, прочитанные ИИ в накладной, — контрольная сверка с суммой строк (InvoiceReconcile).</summary>
+        public InvoiceReference? Reference { get; init; }
         /// <summary>2026-10-30: владелец выбрал «Без поставщика» (с предупреждением) — приход пишется в остатки товаров, долга и расхода нет.</summary>
         public bool NoSupplier { get; set; }
         public List<PurchaseReceivingService.Supplier>? Suppliers { get; set; }
@@ -61,11 +63,11 @@ public sealed class InvoiceEditorWindow : Window
         public Func<bool, Task>? OnSettled { get; set; }
         public bool Completed => (PostedSummaries.Count > 0 || BackgroundQueued) && Rows.Count == 0;
 
-        public static PurchaseDraft FromSteps(IEnumerable<ProductActionPlan.Step> steps, string? supplierName, string? supplierInn)
+        public static PurchaseDraft FromSteps(IEnumerable<ProductActionPlan.Step> steps, string? supplierName, string? supplierInn, InvoiceReference? reference = null)
         {
             var draft = new PurchaseDraft
             {
-                InvoiceSupplierName = supplierName, InvoiceSupplierInn = supplierInn,
+                InvoiceSupplierName = supplierName, InvoiceSupplierInn = supplierInn, Reference = reference,
                 InvoiceSupplierPhone = ProductActionPlan.LastSupplierExtra.Phone, InvoiceSupplierAddress = ProductActionPlan.LastSupplierExtra.Address,
             };
             // 2026-10-24 (П4): список шагов нужен целиком — код для прихода к товару без штрихкода приходит отдельным шагом set_barcode (код — в Text).
@@ -76,11 +78,13 @@ public sealed class InvoiceEditorWindow : Window
                 if (step.Op == "receive" && step.Product.Id is { Length: > 0 } id)
                 {
                     var tile = ProductActions.Find(id) is { } fresh && string.Equals(fresh.Id, id, StringComparison.OrdinalIgnoreCase) ? fresh : step.Product;
-                    // Повтор того же товара в накладной — одна строка (количество складывается, цены — по первой).
+                    // Повтор того же товара в накладной — одна строка (количество складывается, цена продажи — по первой).
                     if (draft.Rows.FirstOrDefault(r => r.Existing is { } e && string.Equals(e.Id, tile.Id, StringComparison.OrdinalIgnoreCase)) is { } same)
                     {
-                        same.Qty = Num(ParseOr(same.Qty) + qty, "0.###");
-                        draft.MergeNotes.Add($"«{tile.Title}» → {same.Qty}");
+                        // 2026-10-31: закупка — средневзвешенная (раньше брали цену первой строки, и сумма расходилась с бумагой, если цены в строках разные).
+                        same.Purchase = Num(InvoiceReconcile.MergePurchase(ParseOr(same.Qty), ParseOr(same.Purchase), qty, step.Purchase ?? 0), "0.####");
+                        same.Qty = Num(ParseOr(same.Qty) + qty, "0.#########");
+                        draft.MergeNotes.Add($"«{tile.Title}» → {same.Qty}" + (step.Purchase is > 0 ? $" × {Num(ParseOr(same.Purchase), "0.####")}" : ""));
                         continue;
                     }
                     var price = step.Price ?? (tile.PriceValue > 0 ? tile.PriceValue : null);
@@ -97,8 +101,8 @@ public sealed class InvoiceEditorWindow : Window
                         Barcode = string.IsNullOrWhiteSpace(tile.Barcode) ? cardCode : tile.Barcode!,
                         BarcodeFromCard = cardCode.Length > 0,
                         Unit = string.IsNullOrWhiteSpace(tile.Unit) ? "шт" : tile.Unit!,
-                        Qty = Num(qty, "0.###"),
-                        Purchase = Num(step.Purchase, "0.##"),
+                        Qty = Num(qty, "0.#########"),
+                        Purchase = Num(step.Purchase, "0.####"),
                         Price = Num(price, "0.##"),
                     });
                     continue;
@@ -110,10 +114,12 @@ public sealed class InvoiceEditorWindow : Window
                         && string.Equals(NameKey(r.Unit), NameKey(unit), StringComparison.Ordinal)
                         && (r.Barcode.Length == 0 || string.IsNullOrWhiteSpace(step.Barcode) || string.Equals(r.Barcode, step.Barcode.Trim(), StringComparison.OrdinalIgnoreCase))) is { } dup)
                 {
-                    dup.Qty = Num(ParseOr(dup.Qty) + qty, "0.###");
+                    // 2026-10-31: закупка — средневзвешенная, чтобы сумма строки осталась как на бумаге (см. выше).
+                    dup.Purchase = Num(InvoiceReconcile.MergePurchase(ParseOr(dup.Qty), ParseOr(dup.Purchase), qty, step.Purchase ?? 0), "0.####");
+                    dup.Qty = Num(ParseOr(dup.Qty) + qty, "0.#########");
                     if (dup.Barcode.Length == 0 && !string.IsNullOrWhiteSpace(step.Barcode))
                         dup.Barcode = step.Barcode.Trim();
-                    draft.MergeNotes.Add($"«{step.Product.Title}» → {dup.Qty}");
+                    draft.MergeNotes.Add($"«{step.Product.Title}» → {dup.Qty}" + (step.Purchase is > 0 ? $" × {Num(ParseOr(dup.Purchase), "0.####")}" : ""));
                     continue;
                 }
                 draft.Rows.Add(new DraftRow
@@ -123,8 +129,8 @@ public sealed class InvoiceEditorWindow : Window
                     Barcode = step.Barcode?.Trim() ?? "",
                     Unit = unit,
                     Category = step.Category,
-                    Qty = Num(qty, "0.###"),
-                    Purchase = Num(step.Purchase, "0.##"),
+                    Qty = Num(qty, "0.#########"),
+                    Purchase = Num(step.Purchase, "0.####"),
                     Price = Num(step.Price, "0.##"),
                 });
             }
@@ -324,6 +330,10 @@ public sealed class InvoiceEditorWindow : Window
     private readonly List<TextBox> _barcodeBoxes = new();
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false, LineHeight = 19 };
     private readonly TextBlock _total = new() { FontSize = 15, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
+    // 2026-10-31: контрольная сверка итога накладной с суммой строк (вверху окна) и подтверждение расхождения перед проведением.
+    private readonly TextBlock _reconcile = new() { FontSize = 13.5, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, IsVisible = false, LineHeight = 20, Margin = new Thickness(0, 0, 0, 10) };
+    private IDisposable? _reconcileBrush;
+    private string? _totalConfirmedFor;
     private readonly TextBlock _supplierSelected = new() { FontSize = 15, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _supplierStatus = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private readonly TextBlock _needSupplier = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
@@ -583,12 +593,13 @@ public sealed class InvoiceEditorWindow : Window
         bottom.Children.Add(_total);
 
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto,Auto"), Margin = new Thickness(20, 16, 20, 16) };
-        Grid.SetRow(hint, 0);
+        var head = new StackPanel { Children = { hint, _reconcile } };
+        Grid.SetRow(head, 0);
         Grid.SetRow(topCard, 1);
         Grid.SetRow(scroll, 2);
         Grid.SetRow(_error, 3);
         Grid.SetRow(bottom, 4);
-        root.Children.Add(hint);
+        root.Children.Add(head);
         root.Children.Add(topCard);
         root.Children.Add(scroll);
         root.Children.Add(_error);
@@ -984,6 +995,13 @@ public sealed class InvoiceEditorWindow : Window
             if (row.PostedBefore is { } postedBefore)
                 action.Text = T($"⚠ Проведено {postedBefore.At:HH:mm}", $"⚠ {postedBefore.At:HH:mm} өткөрүлгөн", $"⚠ Posted {postedBefore.At:HH:mm}",
                     $"⚠ {postedBefore.At:HH:mm} işlendi", $"⚠ {postedBefore.At:HH:mm} da o'tkazilgan");
+            // 2026-10-31: строка, похожая на итог/пустая/без цены, подсвечивается (не товар или не хватает чисел — в итог не входит).
+            if (RowFlagOf(row) is var flag && flag != InvoiceRowFlag.None)
+            {
+                action.Text = "⚠ " + action.Text;
+                Res(action, TextBlock.ForegroundProperty, "BrushDanger");
+                ToolTip.SetTip(action, FlagText(flag));
+            }
             var no = new TextBlock { Text = number.ToString(CultureInfo.InvariantCulture), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0) };
             Res(no, TextBlock.ForegroundProperty, "BrushTextSoft");
             var cells = new Control[] { no, action, invoiceName, receiptName, barcode, qty, purchase, price, sum, remove };
@@ -1050,7 +1068,89 @@ public sealed class InvoiceEditorWindow : Window
             $"Purchase total: {count} items, {sum.ToString("N2", CultureInfo.CurrentCulture)} som — {pay}",
             $"Alım toplamı: {count} kalem, {sum.ToString("N2", CultureInfo.CurrentCulture)} som — {pay}",
             $"Xarid jami: {count} pozitsiya, {sum.ToString("N2", CultureInfo.CurrentCulture)} so'm — {pay}");
+
+        // 2026-10-31: сверка с итогом накладной. Раздельно: сумма по строкам, НДС и скидка (если ИИ их прочитал), итог документа.
+        var reference = _draft.Reference;
+        var check = InvoiceReconcile.Check(sum, count, reference);
+        if (reference is { HasDocumentTotal: true } doc)
+        {
+            var parts = new List<string> { T($"сумма по строкам {Money(sum)}", $"саптар боюнча сумма {Money(sum)}", $"lines {Money(sum)}", $"satırlar {Money(sum)}", $"qatorlar bo'yicha {Money(sum)}") };
+            if (doc.Vat is > 0)
+                parts.Add(T($"НДС {Money(doc.Vat.Value)}", $"КНС {Money(doc.Vat.Value)}", $"VAT {Money(doc.Vat.Value)}", $"KDV {Money(doc.Vat.Value)}", $"QQS {Money(doc.Vat.Value)}"));
+            if (doc.Discount is > 0)
+                parts.Add(T($"скидка {Money(doc.Discount.Value)}", $"арзандатуу {Money(doc.Discount.Value)}", $"discount {Money(doc.Discount.Value)}", $"indirim {Money(doc.Discount.Value)}", $"chegirma {Money(doc.Discount.Value)}"));
+            _total.Text += "\n" + T("Накладная: ", "Накладной: ", "Invoice: ", "Fatura: ", "Yuk xati: ") + string.Join(" · ", parts)
+                           + T($" → итого по накладной {Money(doc.Total!.Value)} сом", $" → накладной боюнча жыйынтык {Money(doc.Total!.Value)} сом", $" → invoice total {Money(doc.Total!.Value)} som",
+                               $" → fatura toplamı {Money(doc.Total!.Value)} som", $" → yuk xati jami {Money(doc.Total!.Value)} so'm");
+        }
+
+        var lines = new List<string>();
+        var brush = "BrushTextSoft";
+        if (check.State == ReconcileState.Mismatch)
+        {
+            var diff = check.Difference.ToString("+#,0.##;-#,0.##", CultureInfo.CurrentCulture);
+            if (check.FromDocument)
+            {
+                brush = "BrushDanger";
+                lines.Add(T($"⚠ Итог накладной {Money(check.Reference)} ≠ расчёт {Money(check.Expected)} (разница {diff} сом) — проверьте цены, количества и НДС. Без вашего подтверждения закупка не проведётся.",
+                    $"⚠ Накладнойдун жыйынтыгы {Money(check.Reference)} ≠ эсептөө {Money(check.Expected)} (айырма {diff} сом) — баа, сан жана КНС текшериңиз. Сиздин ырастооңузсуз сатып алуу өтпөйт.",
+                    $"⚠ Invoice total {Money(check.Reference)} ≠ calculated {Money(check.Expected)} (difference {diff} som) — check prices, quantities and VAT. The purchase is not posted without your confirmation.",
+                    $"⚠ Fatura toplamı {Money(check.Reference)} ≠ hesap {Money(check.Expected)} (fark {diff} som) — fiyat, miktar ve KDV'yi kontrol edin. Onayınız olmadan alım işlenmez.",
+                    $"⚠ Yuk xati jami {Money(check.Reference)} ≠ hisob {Money(check.Expected)} (farq {diff} so'm) — narx, miqdor va QQSni tekshiring. Tasdiqlamasdan xarid o'tkazilmaydi."));
+            }
+            else
+            {
+                brush = "BrushWarning";
+                lines.Add(T($"⚠ ИИ насчитал по накладной {Money(check.Reference)} сом, а в закупке {Money(check.Expected)} (разница {diff}) — часть строк пропущена или изменена, проверьте строки.",
+                    $"⚠ ИИ накладной боюнча {Money(check.Reference)} сом эсептеди, ал эми сатып алууда {Money(check.Expected)} (айырма {diff}) — кээ бир саптар өткөрүлгөн же өзгөргөн, саптарды текшериңиз.",
+                    $"⚠ The AI counted {Money(check.Reference)} som from the invoice, the purchase has {Money(check.Expected)} (difference {diff}) — some lines are missing or changed, check the lines.",
+                    $"⚠ Yapay zekâ faturadan {Money(check.Reference)} som saydı, alımda {Money(check.Expected)} (fark {diff}) — bazı satırlar eksik veya değişmiş, satırları kontrol edin.",
+                    $"⚠ SI yuk xatidan {Money(check.Reference)} so'm hisobladi, xaridda {Money(check.Expected)} (farq {diff}) — ba'zi qatorlar tushib qolgan yoki o'zgargan, qatorlarni tekshiring."));
+            }
+        }
+        else if (check is { State: ReconcileState.Match, FromDocument: true })
+            lines.Add(T($"✓ Итог сходится с накладной: {Money(check.Reference)} сом.", $"✓ Жыйынтык накладной менен дал келет: {Money(check.Reference)} сом.", $"✓ The total matches the invoice: {Money(check.Reference)} som.",
+                $"✓ Toplam faturayla uyuşuyor: {Money(check.Reference)} som.", $"✓ Jami yuk xati bilan mos: {Money(check.Reference)} so'm."));
+        if (check.PositionsDiffer && check.DocumentPositions is { } dp)
+        {
+            if (brush == "BrushTextSoft")
+                brush = "BrushWarning";
+            lines.Add(T($"В накладной {dp} поз., в закупке {count} — проверьте, не пропущены ли строки и нет ли лишних.", $"Накладнойдо {dp} позиция, сатып алууда {count} — саптар калып калбадыбы, ашыкчасы жокпу текшериңиз.",
+                $"The invoice has {dp} items, the purchase {count} — check for missing or extra lines.", $"Faturada {dp} kalem, alımda {count} — eksik veya fazla satır olup olmadığını kontrol edin.",
+                $"Yuk xatida {dp} pozitsiya, xaridda {count} — tushib qolgan yoki ortiqcha qatorlar yo'qligini tekshiring."));
+        }
+        // Строки без числа и строки, похожие на итог: показать номера.
+        var flagged = _draft.Rows.Select((r, i) => (n: i + 1, flag: RowFlagOf(r))).Where(x => x.flag != InvoiceRowFlag.None).ToList();
+        if (flagged.Count > 0)
+        {
+            if (brush == "BrushTextSoft")
+                brush = "BrushWarning";
+            var nums = string.Join(", ", flagged.Select(x => x.n).Take(12)) + (flagged.Count > 12 ? ", …" : "");
+            lines.Add(T($"Подозрительные строки: {nums} (нет количества или цены закупки, либо это итоговая строка) — в итог они не входят, подсвечены ⚠.",
+                $"Шектүү саптар: {nums} (саны же сатып алуу баасы жок, же жыйынтык сабы) — жыйынтыкка кирбейт, ⚠ менен белгиленген.",
+                $"Suspicious lines: {nums} (no quantity or purchase price, or a totals line) — not in the total, marked ⚠.",
+                $"Şüpheli satırlar: {nums} (miktar veya alış fiyatı yok ya da toplam satırı) — toplama girmez, ⚠ ile işaretli.",
+                $"Shubhali qatorlar: {nums} (miqdor yoki xarid narxi yo'q yoki jami qatori) — jamiga kirmaydi, ⚠ bilan belgilangan."));
+        }
+        _reconcile.Text = string.Join("\n", lines);
+        _reconcile.IsVisible = lines.Count > 0;
+        _reconcileBrush?.Dispose();
+        _reconcileBrush = _reconcile.Bind(TextBlock.ForegroundProperty, _reconcile.GetResourceObservable(brush));
     }
+
+    private InvoiceRowFlag RowFlagOf(DraftRow row) => InvoiceReconcile.RowFlag(row.InvoiceName, TryNum(row.Qty, out var q) ? q : null,
+        TryNum(row.Purchase, out var p) ? p : null, _draft.Reference?.Total, _draft.Rows.Count);
+
+    private static string FlagText(InvoiceRowFlag flag) => flag switch
+    {
+        InvoiceRowFlag.LooksLikeTotal => T("Похоже на итоговую строку накладной, а не на товар — проверьте и удалите (✕).", "Накладнойдун жыйынтык сабына окшош, товар эмес — текшерип өчүрүңүз (✕).",
+            "Looks like a totals line of the invoice, not a product — check and remove (✕).", "Faturanın toplam satırına benziyor, ürün değil — kontrol edip silin (✕).", "Yuk xatining jami qatoriga o'xshaydi, mahsulot emas — tekshirib o'chiring (✕)."),
+        InvoiceRowFlag.NoQty => T("Нет количества — в итог не входит.", "Саны жок — жыйынтыкка кирбейт.", "No quantity — not in the total.", "Miktar yok — toplama girmez.", "Miqdor yo'q — jamiga kirmaydi."),
+        InvoiceRowFlag.NoPurchase => T("Нет цены закупки — в итог не входит.", "Сатып алуу баасы жок — жыйынтыкка кирбейт.", "No purchase price — not in the total.", "Alış fiyatı yok — toplama girmez.", "Xarid narxi yo'q — jamiga kirmaydi."),
+        _ => "",
+    };
+
+    private static string Money(double v) => v.ToString("N2", CultureInfo.CurrentCulture);
 
     private void UpdatePostState()
     {
@@ -1099,11 +1199,31 @@ public sealed class InvoiceEditorWindow : Window
         if (!TryNum(row.Qty, out var qty) || qty <= 0)
             problems.Add(T($"строка {n}: количество", $"{n}-сап: саны", $"line {n}: quantity", $"{n}. satır: miktar", $"{n}-qator: miqdor"));
         else
-            line.Quantity = Math.Round(qty, 3);
+        {
+            line.Quantity = qty; // 2026-10-31 («Не округляй»): не округляем; больше 3 знаков сервер не принимает — строку не проводим, пока не исправят
+            if (ReceivingLineVm.QuantityTooPrecise(qty))
+                problems.Add(T($"строка {n}: ", $"{n}-сап: ", $"line {n}: ", $"{n}. satır: ", $"{n}-qator: ") + ReceivingLineVm.QuantityPrecisionText);
+        }
         if (!TryNum(row.Purchase, out var purchase) || purchase <= 0)
             problems.Add(T($"строка {n}: цена закупки", $"{n}-сап: сатып алуу баасы", $"line {n}: purchase price", $"{n}. satır: alış fiyatı", $"{n}-qator: xarid narxi"));
         else
-            line.PurchasePrice = Math.Round(purchase, 2);
+        {
+            // 2026-10-31 («Не округляй»): сервер хранит цену закупки товара с 2 знаками (проверено на NBS 29.10: PATCH больше 2 знаков отклоняет).
+            // Цена за единицу из накладной (сумма / количество) бывает с 4 знаками — молча её не округляем: ставим 2 знака в ячейку, говорим,
+            // как изменится сумма строки против бумаги, и просим проверить; второе нажатие «Провести» проходит.
+            var stored = (double)Math.Round((decimal)purchase, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero);
+            line.PurchasePrice = stored;
+            if (Math.Abs(stored - purchase) > 1e-9)
+            {
+                row.Purchase = Num(stored, "0.##");
+                var paper = TryNum(row.Qty, out var pq) && pq > 0 ? $"{Money(ReceivingPricing.LineTotal(pq, purchase))} → {Money(ReceivingPricing.LineTotal(pq, stored))}" : "";
+                problems.Add(T($"строка {n}: сервер хранит цену закупки с 2 знаками — {Num(purchase, "0.####")} округлено до {Num(stored, "0.##")}" + (paper.Length > 0 ? $" (сумма строки {paper})" : "") + ", проверьте и проведите ещё раз",
+                    $"{n}-сап: сервер сатып алуу баасын 2 цифра менен сактайт — {Num(purchase, "0.####")} {Num(stored, "0.##")} чейин тегизделди" + (paper.Length > 0 ? $" (сап суммасы {paper})" : "") + ", текшерип, кайра өткөрүңүз",
+                    $"line {n}: the server stores the purchase price with 2 decimals — {Num(purchase, "0.####")} rounded to {Num(stored, "0.##")}" + (paper.Length > 0 ? $" (line total {paper})" : "") + ", check and post again",
+                    $"{n}. satır: sunucu alış fiyatını 2 basamakla saklar — {Num(purchase, "0.####")}, {Num(stored, "0.##")} olarak yuvarlandı" + (paper.Length > 0 ? $" (satır tutarı {paper})" : "") + ", kontrol edip tekrar işleyin",
+                    $"{n}-qator: server xarid narxini 2 raqam bilan saqlaydi — {Num(purchase, "0.####")} {Num(stored, "0.##")} gacha yaxlitlandi" + (paper.Length > 0 ? $" (qator summasi {paper})" : "") + ", tekshirib, qayta o'tkazing"));
+            }
+        }
         if (!TryNum(row.Price, out var price) || price <= 0)
             problems.Add(T($"строка {n}: цена продажи", $"{n}-сап: сатуу баасы", $"line {n}: sale price", $"{n}. satır: satış fiyatı", $"{n}-qator: sotuv narxi"));
         else
@@ -1176,6 +1296,25 @@ public sealed class InvoiceEditorWindow : Window
             ShowError(T("Закупку нельзя провести: ", "Сатып алууну өткөрүүгө болбойт: ", "The purchase can't be posted: ", "Alım işlenemiyor: ", "Xaridni o'tkazib bo'lmaydi: ")
                       + string.Join("; ", shown));
             return;
+        }
+
+        // 2026-10-31: итог накладной (прочитанный ИИ в документе) не сходится с суммой строк больше чем на 1 сом — молча не проводим:
+        // предупреждение с числами, провести можно только вторым нажатием (подтверждение действует, пока числа не изменились).
+        var linesSum = _draft.Rows.Sum(r => TryNum(r.Qty, out var cq) && TryNum(r.Purchase, out var cp) ? cq * cp : 0);
+        var reconcile = InvoiceReconcile.Check(linesSum, _draft.Rows.Count, _draft.Reference);
+        if (reconcile is { State: ReconcileState.Mismatch, FromDocument: true })
+        {
+            var signature = Money(reconcile.Expected) + "|" + Money(reconcile.Reference);
+            if (_totalConfirmedFor != signature)
+            {
+                _totalConfirmedFor = signature;
+                ShowError(T($"Итог накладной {Money(reconcile.Reference)} сом, а в закупке {Money(reconcile.Expected)} сом (разница {Money(Math.Abs(reconcile.Difference))}). Проверьте цены, количества и НДС. Если всё верно — нажмите «Провести закупку» ещё раз.",
+                    $"Накладнойдун жыйынтыгы {Money(reconcile.Reference)} сом, ал эми сатып алууда {Money(reconcile.Expected)} сом (айырма {Money(Math.Abs(reconcile.Difference))}). Баа, сан жана КНС текшериңиз. Баары туура болсо — «Сатып алууну өткөрүү» баскычын дагы бир жолу басыңыз.",
+                    $"The invoice total is {Money(reconcile.Reference)} som, the purchase has {Money(reconcile.Expected)} som (difference {Money(Math.Abs(reconcile.Difference))}). Check prices, quantities and VAT. If everything is right, press “Post purchase” again.",
+                    $"Fatura toplamı {Money(reconcile.Reference)} som, alımda {Money(reconcile.Expected)} som (fark {Money(Math.Abs(reconcile.Difference))}). Fiyat, miktar ve KDV'yi kontrol edin. Her şey doğruysa «Alımı işle»ye tekrar basın.",
+                    $"Yuk xati jami {Money(reconcile.Reference)} so'm, xaridda {Money(reconcile.Expected)} so'm (farq {Money(Math.Abs(reconcile.Difference))}). Narx, miqdor va QQSni tekshiring. Hammasi to'g'ri bo'lsa, «Xaridni o'tkazish»ni yana bosing."));
+                return;
+            }
         }
 
         // 2026-10-19, ревью: повтор — по КАЖДОЙ строке (реестр PostedLines: поставщик + товар + количество + цена закупки, итоговые
