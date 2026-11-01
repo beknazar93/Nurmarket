@@ -107,8 +107,9 @@
              Подписи групп — обычными буквами (правило аудита 9), у каждой кнопки есть имя для экранного диктора. -->
         <!-- 2026-10-22 (аудит новой сборки): подпись «Управление» ломалась «Управлени/е» (кегль 10,5 и MaxWidth 66 уже слова в
              Montserrat) — кнопка 72, подпись до 72 при кегле 10; слово теперь целиком. -->
+        <!-- 2026-11-01 (ThinkPad): колонка 76 → 84, кнопка 72 → 80: «Управление» при кегле 12 не помещалась в 72 и ломалась «Управлени/е». -->
         <Style Selector="Button.railGroup">
-            <Setter Property="Width" Value="72"/>
+            <Setter Property="Width" Value="80"/>
             <Setter Property="Padding" Value="0,7,0,6"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
@@ -150,13 +151,15 @@
             <Setter Property="Stroke" Value="{DynamicResource OwnerRailActiveFg}"/>
         </Style>
         <Style Selector="Button.railGroup TextBlock.railLabel">
-            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="LineHeight" Value="12.5"/>
             <Setter Property="TextAlignment" Value="Center"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
-            <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="MaxWidth" Value="72"/>
+            <!-- 2026-11-01: одно слово не рвётся посреди слова — при нехватке места многоточие; полное название — в подсказке кнопки. -->
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="MaxWidth" Value="80"/>
         </Style>
         <!-- 2026-10-18, ревью О2: низкое окно (1366×768 при 125 % — ~580 точек) — колонка групп плотнее, совсем низкое — только
              значки (ApplyRailDensity в OwnerShellWindow.Nav.cs). -->
@@ -169,6 +172,8 @@
         </Style>
         <Style Selector="Border.iconsOnly Button.railGroup">
             <Setter Property="Padding" Value="0,7"/>
+            <!-- 2026-11-01: цель нажатия не меньше 36 и у нижних кнопок (у них значок 20, а не 22). -->
+            <Setter Property="MinHeight" Value="36"/>
         </Style>
         <Style Selector="Border.iconsOnly Button.railGroup TextBlock.railLabel">
             <Setter Property="IsVisible" Value="False"/>
@@ -392,7 +397,7 @@
             <Setter Property="IsHitTestVisible" Value="False"/>
         </Style>
         <Style Selector="Border.navBadge TextBlock">
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -414,7 +419,7 @@
             <Setter Property="Background" Value="Transparent"/>
         </Style>
         <Style Selector="Button.navGroupBtn TextBlock">
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="LetterSpacing" Value="0.6"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
@@ -718,6 +723,10 @@
     </Window.Styles>
 
     <!-- 2026-09-30: верхний ряд — полоса орнамента темы «Кыргыз» (у остальных тем высота 0). -->
+    <!-- 2026-11-01, жалоба владельца (ThinkPad): «Масштаб интерфейса» (Настройки → Экран) не действовал на программу владельца —
+         только на кассу и на само окно настроек, поэтому тёмная колонка меню не уменьшалась. Теперь всё окно — в LayoutTransformControl
+         (UiScaleHelper, OwnerShellWindow.Nav.cs → RefreshUiScale); отступ развёрнутого окна — на нём же, вне масштаба. -->
+    <LayoutTransformControl x:Name="UiScaleTransform">
     <Grid x:Name="RootGrid" ColumnDefinitions="252,*" RowDefinitions="Auto,*">
         <Border Grid.Row="0" Grid.ColumnSpan="2" Height="{DynamicResource OrnamentBandHeight}"
                 Background="{DynamicResource BrushOrnamentBand}" IsHitTestVisible="False"/>
@@ -728,10 +737,11 @@
              сворачивается сама, когда открыт раздел (OwnerShellWindow.Nav.cs). Сама кнопка-«меню» — Border в колонке 0, строке 1:
              её ищет телефонный режим (OwnerShellWindow.Phone.cs). -->
         <Border Grid.Row="1" Grid.Column="0" x:Name="NavSidebar">
-            <Grid x:Name="NavSidebarGrid" ColumnDefinitions="76,*">
-                <!-- Тёмная колонка групп -->
+            <Grid x:Name="NavSidebarGrid" ColumnDefinitions="84,*">
+                <!-- Тёмная колонка групп. 2026-11-01: плотность подбирается по измеренной высоте (ApplyRailDensity), группы прокручиваются,
+                     а логотип с «»» вверху и «Тема / Вид / Выйти / профиль» внизу остаются на месте. -->
                 <Border x:Name="NavRail" Background="{DynamicResource OwnerRailBg}">
-                    <DockPanel>
+                    <DockPanel x:Name="NavRailDock">
                         <StackPanel DockPanel.Dock="Top" x:Name="LogoGrid" Spacing="8" Margin="0,16,0,10" Background="Transparent"
                                     PointerPressed="DragArea_PointerPressed">
                             <Border x:Name="LogoImage" Width="44" Height="44" CornerRadius="12" ClipToBounds="True" HorizontalAlignment="Center">
@@ -747,7 +757,7 @@
                         </StackPanel>
 
                         <!-- Внизу: тема, выход на рабочий стол (было «Система → Выйти»), пользователь. -->
-                        <StackPanel DockPanel.Dock="Bottom" Spacing="2" Margin="0,6,0,14" HorizontalAlignment="Center">
+                        <StackPanel DockPanel.Dock="Bottom" x:Name="RailBottom" Spacing="2" Margin="0,6,0,14" HorizontalAlignment="Center">
                             <Button x:Name="ThemeButton" Classes="railGroup" Click="Theme_Click">
                                 <StackPanel Spacing="3">
                                     <Path x:Name="ThemeIconPath" Classes="railIcon" Width="20" Height="20" Data="{StaticResource MoonIcon}"/>
@@ -815,7 +825,7 @@
                                 <Border Grid.Column="2" x:Name="NavSearchKeyHint" Margin="0,0,8,0" Padding="6,1,6,2" CornerRadius="5"
                                         VerticalAlignment="Center" Background="{DynamicResource BrushPanel}"
                                         BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" IsHitTestVisible="False">
-                                    <TextBlock Text="Ctrl+K" FontSize="10.5" Foreground="{DynamicResource BrushTextMuted}"/>
+                                    <TextBlock Text="Ctrl+K" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
                                 </Border>
                             </Grid>
                         </Border>
@@ -848,7 +858,7 @@
                     <StackPanel Grid.Column="1" x:Name="OldLogoTextPanel" Margin="11,0,0,0" VerticalAlignment="Center" Spacing="3">
                         <TextBlock Text="NurCRM" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                         <Border HorizontalAlignment="Left" Background="{DynamicResource BrushAccent}" CornerRadius="6" Padding="7,1,7,2">
-                            <TextBlock x:Name="OwnerBadgeText" FontSize="11" FontWeight="SemiBold"
+                            <TextBlock x:Name="OwnerBadgeText" FontSize="12" FontWeight="SemiBold"
                                        Foreground="{DynamicResource BrushAccentForeground}"/>
                         </Border>
                     </StackPanel>
@@ -870,7 +880,7 @@
                                        Foreground="{DynamicResource BrushText}" TextTrimming="CharacterEllipsis"/>
                             <!-- 2026-10-20, живой аудит (меню, МЕЛОЧЬ): «Тариф «Стандарт» · до 01.…» обрезался — переносим строкой,
                                  полный текст и в подсказке карточки. -->
-                            <TextBlock x:Name="OldTariffText" FontSize="11.5" TextWrapping="Wrap" MaxLines="2"
+                            <TextBlock x:Name="OldTariffText" FontSize="12" TextWrapping="Wrap" MaxLines="2"
                                        Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                     </Grid>
@@ -890,7 +900,7 @@
                             <TextBlock x:Name="OldUserNameText" FontSize="13" FontWeight="SemiBold"
                                        Foreground="{DynamicResource BrushText}" TextTrimming="CharacterEllipsis"/>
                             <!-- 2026-10-20: «Вход через …» обрезался — перенос строкой и подсказка (OwnerShellWindow.MenuStyle.cs). -->
-                            <TextBlock x:Name="OldUserRoleText" FontSize="11.5" TextWrapping="Wrap" MaxLines="2"
+                            <TextBlock x:Name="OldUserRoleText" FontSize="12" TextWrapping="Wrap" MaxLines="2"
                                        Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                         <Button Grid.Column="2" x:Name="OldMenuStyleButton" Classes="iconBtn" Width="32" Click="MenuStyle_Click">
@@ -1223,4 +1233,5 @@
             </ScrollViewer>
         </Grid>
     </Grid>
+    </LayoutTransformControl>
 </Window>

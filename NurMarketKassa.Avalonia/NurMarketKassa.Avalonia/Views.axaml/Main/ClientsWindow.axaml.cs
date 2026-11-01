@@ -446,11 +446,11 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         }
         catch (ApiException ex)
         {
-            ErrorMessage = ex.Message;
+            ErrorMessage = ServerOutageMonitor.FriendlyError(ex); // 2026-11-01 (В-28): вместо сырого «An error occurred…»
         }
         catch (Exception ex)
         {
-            ErrorMessage = Tr.T("Не удалось загрузить клиентов: ", "Клиенттерди жүктөө мүмкүн болгон жок: ", "Could not load clients: ", "Müşteriler yüklenemedi: ", "Mijozlarni yuklab bo'lmadi: ") + ex.Message;
+            ErrorMessage = Tr.T("Не удалось загрузить клиентов: ", "Клиенттерди жүктөө мүмкүн болгон жок: ", "Could not load clients: ", "Müşteriler yüklenemedi: ", "Mijozlarni yuklab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
             PosLogger.Log($"Clients load failed: {ex}", "WARNING");
         }
         finally
@@ -498,12 +498,12 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         }
         catch (ApiException ex)
         {
-            return ex.Message;
+            return ServerOutageMonitor.FriendlyError(ex, showServerText: true); // 2026-11-01 (В-28): сбой сервера — понятный текст, отказ 4xx — слова сервера
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Client create failed: {ex}", "WARNING");
-            return Tr.T("Не удалось добавить клиента: ", "Клиентти кошуу мүмкүн болгон жок: ", "Could not add the client: ", "Müşteri eklenemedi: ", "Mijozni qo'shib bo'lmadi: ") + ex.Message;
+            return Tr.T("Не удалось добавить клиента: ", "Клиентти кошуу мүмкүн болгон жок: ", "Could not add the client: ", "Müşteri eklenemedi: ", "Mijozni qo'shib bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
         }
     }
 
@@ -567,11 +567,11 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         }
         catch (ApiException ex)
         {
-            CardErrorMessage = ex.Message;
+            CardErrorMessage = ServerOutageMonitor.FriendlyError(ex, showServerText: true); // 2026-11-01 (В-28)
         }
         catch (Exception ex)
         {
-            CardErrorMessage = Tr.T("Не удалось сохранить клиента: ", "Клиентти сактоо мүмкүн болгон жок: ", "Could not save the client: ", "Müşteri kaydedilemedi: ", "Mijozni saqlab bo'lmadi: ") + ex.Message;
+            CardErrorMessage = Tr.T("Не удалось сохранить клиента: ", "Клиентти сактоо мүмкүн болгон жок: ", "Could not save the client: ", "Müşteri kaydedilemedi: ", "Mijozni saqlab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
             PosLogger.Log($"Client update failed: {ex}", "WARNING");
         }
         finally
@@ -616,11 +616,11 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         }
         catch (ApiException ex)
         {
-            CardErrorMessage = ex.Message;
+            CardErrorMessage = ServerOutageMonitor.FriendlyError(ex, showServerText: true); // 2026-11-01 (В-28)
         }
         catch (Exception ex)
         {
-            CardErrorMessage = Tr.T("Не удалось удалить клиента: ", "Клиентти өчүрүү мүмкүн болгон жок: ", "Could not delete the client: ", "Müşteri silinemedi: ", "Mijozni o'chirib bo'lmadi: ") + ex.Message;
+            CardErrorMessage = Tr.T("Не удалось удалить клиента: ", "Клиентти өчүрүү мүмкүн болгон жок: ", "Could not delete the client: ", "Müşteri silinemedi: ", "Mijozni o'chirib bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
             PosLogger.Log($"Client delete failed: {ex}", "WARNING");
         }
         finally
@@ -816,9 +816,9 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
                 ? Tr.T("Долги не загружены", "Карыздар жүктөлгөн жок", "Debts not loaded", "Borçlar yüklenmedi", "Qarzlar yuklanmadi")
                 : Tr.T("Загружаю долги…", "Карыздар жүктөлүүдө…", "Loading debts…", "Borçlar yükleniyor…", "Qarzlar yuklanmoqda…");
             EmptyText.Text = _debtsFailed
-                ? Tr.T("Нет связи с сервером. Нажмите «Обновить», чтобы попробовать ещё раз.", "Сервер менен байланыш жок. Кайра аракет кылуу үчүн «Жаңыртуу» басыңыз.",
-                    "No connection to the server. Press “Refresh” to try again.", "Sunucuyla bağlantı yok. Tekrar denemek için «Yenile»ye basın.",
-                    "Server bilan aloqa yo'q. Qayta urinish uchun «Yangilash»ni bosing.")
+                ? Tr.T("Сервер недоступен. Нажмите «Обновить», чтобы попробовать ещё раз.", "Сервер жеткиликсиз. Кайра аракет кылуу үчүн «Жаңыртуу» басыңыз.",
+                    "The server is unavailable. Press “Refresh” to try again.", "Sunucu kullanılamıyor. Tekrar denemek için «Yenile»ye basın.",
+                    "Server mavjud emas. Qayta urinish uchun «Yangilash»ni bosing.")
                 : Tr.T("Список должников появится через несколько секунд.", "Карыздарлардын тизмеси бир нече секунддан кийин чыгат.",
                     "The list of debtors will appear in a few seconds.", "Borçlu listesi birkaç saniye içinde görünecek.", "Qarzdorlar ro'yxati bir necha soniyada chiqadi.");
         }

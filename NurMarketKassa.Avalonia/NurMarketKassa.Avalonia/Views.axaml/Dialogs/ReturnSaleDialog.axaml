@@ -37,6 +37,8 @@
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
 
+    <!-- 2026-11-01 (аудит Д-04): основные кнопки окна («Вернуть выбранные», «Весь чек», «Обмен», «Закрыть») — общие классы nur-primary /
+         nur-secondary (PosDialogStyles); локальные btn-primary / btn-secondary остаются у мелких кнопок (−/+, «Все», «Обновить»). -->
     <!-- Вторичные кнопки (Светлый контур) -->
     <Style Selector="Button.btn-secondary">
       <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
@@ -152,7 +154,7 @@
                         HeadersVisibility="Column">
                 <DataGrid.Columns>
                   <!-- 2026-10-19, К1: сумма шире (126) — «1 382,50 сом» целиком; № и кнопка уже, дата получает остальное (на 1024 — «20.10.26 01:41»). -->
-                  <DataGridTextColumn Header="{DynamicResource returnSale.colReceiptNo}" Binding="{ReflectionBinding DisplayNumber}" Width="88"/>
+                  <DataGridTextColumn Header="{DynamicResource returnSale.colReceiptNo}" Binding="{ReflectionBinding DisplayNumber}" Width="128"/>
                   <!-- 2026-10-21 (пакет 6, п. 35): под датой — пометка «↩ возвращён» / «↩ частично» (в одну строку на 1024 не помещалась). -->
                   <DataGridTemplateColumn Header="{DynamicResource common.date}" Width="*">
                     <DataGridTemplateColumn.CellTemplate>
@@ -160,7 +162,7 @@
                         <StackPanel VerticalAlignment="Center" Margin="12,2">
                           <TextBlock Text="{ReflectionBinding SaleDateDisplay}" TextTrimming="CharacterEllipsis"/>
                           <TextBlock Text="{ReflectionBinding ReturnMark}" IsVisible="{ReflectionBinding HasReturnMark}"
-                                     FontSize="11.5" FontWeight="SemiBold"
+                                     FontSize="12" FontWeight="SemiBold"
                                      TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                       </DataTemplate>
@@ -229,19 +231,18 @@
               <!-- 2026-10-19, К1 (аудит 19.10, проблема 4): «Вернуть выбранные» — главная и активна, только когда что-то
                    отмечено (CanReturnSelected); «Вернуть весь чек» — обводкой. Обработчики прежние. -->
               <Button x:Name="ReturnSelectedButton" Grid.Column="0"
-                      Classes="btn-primary" Content="{DynamicResource returnSale.returnSelected}"
+                      Classes="nur-primary" Content="{DynamicResource returnSale.returnSelected}"
                       Height="44" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                       IsEnabled="{Binding CanReturnSelected}"
                       Click="ReturnSelected_Click"/>
               <Button x:Name="ReturnWholeReceiptButton" Grid.Column="2"
-                      Classes="btn-secondary" Content="{DynamicResource returnSale.returnWholeReceipt}"
+                      Classes="nur-secondary" Content="{DynamicResource returnSale.returnWholeReceipt}"
                       Height="44" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                      IsEnabled="{Binding !IsBusy}"
                       Click="ReturnWholeReceipt_Click"/>
             </Grid>
             <!-- 2026-10-06 (О-30, магазин одежды): обмен — вернуть отмеченное и выдать другой товар одним документом.
                  Видна в сфере «Одежда»; подпись — в коде. -->
-            <Button x:Name="ExchangeSelectedButton" Classes="btn-secondary" Height="44" IsVisible="False"
+            <Button x:Name="ExchangeSelectedButton" Classes="nur-secondary" Height="44" IsVisible="False"
                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                     IsEnabled="{Binding !IsBusy}"
                     Click="ExchangeSelected_Click"/>
@@ -313,10 +314,10 @@
 
         <!-- 2026-10-22 (модалки, пакет 1): «Оконный режим» и «Закрыть» — 44 px (было 42). -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
-          <Button x:Name="WindowModeButton" Content="{DynamicResource common.windowedMode}" Classes="btn-secondary"
+          <Button x:Name="WindowModeButton" Content="{DynamicResource common.windowedMode}" Classes="nur-secondary"
                   Height="44" MinWidth="120"
                   Click="ToggleFullscreen_Click"/>
-          <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="btn-secondary"
+          <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="nur-secondary"
                   Height="44" MinWidth="120"
                   Click="Close_Click"/>
         </StackPanel>

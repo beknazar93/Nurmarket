@@ -390,17 +390,36 @@ class _ProductPriceScreenState extends ConsumerState<ProductPriceScreen> {
   Timer? _debounce;
   int _seq = 0;
 
+  /// 2026-10-31 («в мобилке не отображаются все товары»): раньше брались первые 300 товаров, и фильтр остатка применялся уже к ним
+  /// (на 15 000 товаров «Нет в наличии» видел 300 первых по алфавиту). Теперь фильтр остатка — в SQL, список окном по [_page]
+  /// с подгрузкой при прокрутке, а «Найдено M» — из базы.
+  static const _page = 300;
+  int _limit = _page;
+  bool _hasMore = false;
+  bool _moreBusy = false;
+  int _total = 0;
+  final _scroll = ScrollController();
+
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_onScrollMore);
     _search('');
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _scroll.dispose();
     _q.dispose();
     super.dispose();
+  }
+
+  void _onScrollMore() {
+    if (!_hasMore || _moreBusy || !_scroll.hasClients || _scroll.position.extentAfter > 600) return;
+    _moreBusy = true;
+    _limit += _page;
+    _search(_q.text, keepWindow: true).whenComplete(() => _moreBusy = false);
   }
 
   void _searchLater(String q) {
@@ -408,12 +427,23 @@ class _ProductPriceScreenState extends ConsumerState<ProductPriceScreen> {
     _debounce = Timer(const Duration(milliseconds: 250), () => _search(q));
   }
 
-  Future<void> _search(String q) async {
+  Future<void> _search(String q, {bool keepWindow = false}) async {
     final seq = ++_seq;
+    if (!keepWindow) _limit = _page;
     final db = ref.read(databaseProvider);
+    final stock = _stock;
     final byCode = q.trim().isEmpty ? null : await db.productByBarcode(q.trim());
-    final rows = byCode != null ? [byCode] : await db.searchProducts(q, category: _category, limit: 300);
-    if (mounted && seq == _seq) setState(() => _rows = rows.where((p) => stockFilterMatch(p, _stock)).toList());
+    final matchesCode = byCode != null && stockFilterMatch(byCode, stock);
+    Expression<bool> extra($ProductsTable p) => stockFilterSql(p, stock);
+    // штрихкод найден, но товар не подходит под фильтр остатка — как раньше, список по тексту (а не пусто)
+    final rows = matchesCode ? [byCode] : await db.searchProducts(q, category: _category, limit: _limit + 1, extra: extra);
+    final total = matchesCode ? 1 : (keepWindow ? _total : await db.countProducts(q, category: _category, extra: extra));
+    if (!mounted || seq != _seq) return;
+    setState(() {
+      _hasMore = !matchesCode && rows.length > _limit;
+      _rows = _hasMore ? rows.sublist(0, _limit) : rows;
+      _total = total;
+    });
   }
 
   // 2026-10-22 (мобилка, админ): правка товара — общая карточка склада (stock/product_edit.dart): цена и закупка уходят
@@ -452,8 +482,17 @@ class _ProductPriceScreenState extends ConsumerState<ProductPriceScreen> {
               },
             ),
           ),
+          if (_total > _rows.length)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(l.stockCountShown(_rows.length, _total), style: TextStyle(fontSize: 12, color: context.pal.textSoft)),
+              ),
+            ),
           Expanded(
             child: ListView.separated(
+              controller: _scroll,
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               itemCount: _rows.length,
               separatorBuilder: (_, _) => const SizedBox(height: 8),

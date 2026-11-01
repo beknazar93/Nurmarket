@@ -246,8 +246,8 @@ public sealed partial class InvestmentsWindow : Window
             StartupCostsStore.SyncState.Saving => T("Сохраняю…", "Сакталууда…", "Saving…", "Kaydediliyor…", "Saqlanmoqda…"),
             StartupCostsStore.SyncState.Saved => T("Сохранено в NurCRM (общие настройки компании).", "NurCRMде сакталды (компаниянын жалпы жөндөөлөрү).",
                 "Saved in NurCRM (company shared settings).", "NurCRM'de kaydedildi (şirket ortak ayarları).", "NurCRMda saqlandi (kompaniyaning umumiy sozlamalari)."),
-            StartupCostsStore.SyncState.LocalOnly => T("Нет связи с сервером: данные сохранены на этом компьютере и отправятся позже.", "Сервер менен байланыш жок: маалымат ушул компьютерде сакталды, кийин жөнөтүлөт.",
-                "No connection: data is saved on this computer and will be sent later.", "Bağlantı yok: veriler bu bilgisayarda kayıtlı, sonra gönderilecek.", "Aloqa yo'q: ma'lumot shu kompyuterda saqlandi, keyin yuboriladi."),
+            StartupCostsStore.SyncState.LocalOnly => T("Сервер NurCRM недоступен: данные сохранены на этом компьютере и отправятся позже.", "NurCRM сервери жеткиликсиз: маалымат ушул компьютерде сакталды, кийин жөнөтүлөт.", // 2026-11-01 (В-08): единая фраза о сбое сервера
+                "The NurCRM server is unavailable: data is saved on this computer and will be sent later.", "NurCRM sunucusu kullanılamıyor: veriler bu bilgisayarda kayıtlı, sonra gönderilecek.", "NurCRM serveri mavjud emas: ma'lumot shu kompyuterda saqlandi, keyin yuboriladi."),
             StartupCostsStore.SyncState.Forbidden => T("Только просмотр: менять вложения и условия может владелец или администратор.", "Көрүү гана: салымдарды жана шарттарды ээси же администратор өзгөртөт.",
                 "View only: only the owner or an administrator can change investments and terms.", "Salt görüntüleme: yatırımları ve koşulları yalnızca sahip veya yönetici değiştirebilir.", "Faqat ko'rish: sarmoya va shartlarni egasi yoki administrator o'zgartiradi."),
             StartupCostsStore.SyncState.Damaged => StartupCostsStore.Notice ?? "",
@@ -265,7 +265,7 @@ public sealed partial class InvestmentsWindow : Window
 
     private async Task ExportAsync(string kind, bool payouts)
     {
-        var shop = UserPreferences.Instance.StoreName;
+        var shop = ReportShopName.Current;
         var name = payouts ? InvestmentExport.SuggestFileName(shop, kind) : StartupCostsExport.SuggestFileName(shop, kind);
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
@@ -504,7 +504,12 @@ public sealed partial class InvestmentsWindow : Window
         return (v < 0m ? "−" : "") + s;
     }
 
-    private static string MonthName(DateTime d) => d.ToString("MMMM yyyy", Ru);
+    // 2026-11-01: месяц на языке интерфейса (аудит Д-09: был всегда по-русски).
+    private static string MonthName(DateTime d)
+    {
+        try { return d.ToString("MMMM yyyy", CultureInfo.GetCultureInfo(Tr.T("ru-RU", "ky-KG", "en-US", "tr-TR", "uz-Latn-UZ"))); }
+        catch (CultureNotFoundException) { return d.ToString("MMMM yyyy", Ru); }
+    }
 
     private static string MonthsText(decimal months) => months.ToString("0.#", Ru) + " " + T("мес.", "ай", "mo.", "ay", "oy");
 

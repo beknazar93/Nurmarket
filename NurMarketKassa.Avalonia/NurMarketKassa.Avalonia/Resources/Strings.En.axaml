@@ -772,10 +772,10 @@
   <x:String x:Key="posSettings.screen.refreshCashboxesTooltip">Refresh the list of tills</x:String>
   <x:String x:Key="posSettings.screen.cashierLanguage">Cashier screen language</x:String>
   <x:String x:Key="posSettings.screen.appliesImmediately">Applies immediately, no restart needed.</x:String>
-  <x:String x:Key="posSettings.screen.langRussian">Russian</x:String>
-  <x:String x:Key="posSettings.screen.langKyrgyz">Kyrgyz</x:String>
-  <x:String x:Key="posSettings.screen.langTurkish">Turkish</x:String>
-  <x:String x:Key="posSettings.screen.langUzbek">Uzbek</x:String>
+  <x:String x:Key="posSettings.screen.langRussian">Русский</x:String>
+  <x:String x:Key="posSettings.screen.langKyrgyz">Кыргызча</x:String>
+  <x:String x:Key="posSettings.screen.langTurkish">Türkçe</x:String>
+  <x:String x:Key="posSettings.screen.langUzbek">O'zbekcha</x:String>
   <x:String x:Key="posSettings.screen.langEnglish">English</x:String>
   <x:String x:Key="posSettings.screen.languagePackHint">English, Turkish and Uzbek are part of the paid "Language pack": Marketplace → Extras</x:String>
   <x:String x:Key="posSettings.screen.uiScale">UI scale</x:String>

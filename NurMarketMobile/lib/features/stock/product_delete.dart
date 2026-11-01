@@ -47,7 +47,10 @@ enum ProductDeleteOutcome {
 class ProductDeleteResult {
   final ProductDeleteOutcome outcome;
   final String message;
-  const ProductDeleteResult(this.outcome, [this.message = '']);
+
+  /// 2026-11-01 (М-16): 409 product_has_history — по товару есть документы, можно предложить «В архив».
+  final bool hasHistory;
+  const ProductDeleteResult(this.outcome, [this.message = '', this.hasHistory = false]);
   bool get removed => outcome == ProductDeleteOutcome.deleted || outcome == ProductDeleteOutcome.alreadyGone;
 }
 
@@ -109,7 +112,7 @@ class ProductDeleter {
         res = ProductDeleteResult(ProductDeleteOutcome.forbidden, e.message);
       } else if (status == 400 || status == 409 || status == 422) {
         // 409 попадает в isTransient у ApiClient (для денег), но для удаления это отказ сервера, а не обрыв
-        res = ProductDeleteResult(ProductDeleteOutcome.refused, e.message);
+        res = ProductDeleteResult(ProductDeleteOutcome.refused, e.message, '${e.payload}'.contains('product_has_history'));
       } else if (e.isTransient) {
         res = ProductDeleteResult(ProductDeleteOutcome.offline, e.message);
       } else {
@@ -169,6 +172,30 @@ Future<bool> confirmAndDeleteProduct(BuildContext context, WidgetRef ref, Produc
   if (ok != true || !context.mounted) return false;
   final deleter = ProductDeleter(AdminRepository(ref.read(apiProvider), db));
   final res = await deleter.run(p, logLabel: l.deleteProduct, failLabel: l.pdAuditFail, stock: qty);
+  if (res.hasHistory && context.mounted) {
+    // 2026-11-01 (М-16): общий текст отказа заменён предложением «В архив»
+    final archive = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        content: Text(l.pdHasHistory),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.pdToArchive)),
+        ],
+      ),
+    );
+    if (archive == true) {
+      try {
+        await AdminRepository(ref.read(apiProvider), db).archiveProduct(p.id);
+        unawaited(Audit.log('delete', '${l.pdToArchive}: ${p.name} · #${p.id}'));
+        if (context.mounted) toast(context, l.pdArchived);
+        return true;
+      } on ApiException catch (e) {
+        if (context.mounted) toast(context, e.message, error: true);
+      }
+    }
+    return false;
+  }
   if (context.mounted) toast(context, deleteOutcomeText(context, res), error: !res.removed);
   return res.removed;
 }

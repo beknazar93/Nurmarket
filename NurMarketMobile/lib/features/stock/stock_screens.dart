@@ -54,11 +54,29 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   bool _hasMore = false;
   bool _moreBusy = false;
   int _seq = 0;
+  int _total = 0; // 2026-10-31: сколько товаров подходит под поиск и фильтр во всей базе телефона (не длина окна)
+  bool _refreshing = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  /// 2026-10-31: «Обновить каталог» — полная пересинхронизация с сервера (прерванная загрузка продолжается с места обрыва).
+  Future<void> _refreshCatalog() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    final l = context.l;
+    try {
+      await ref.read(catalogRepoProvider).sync(full: true);
+      final n = await ref.read(databaseProvider).productCount();
+      if (mounted) toast(context, l.catalogRefreshed(n));
+    } on ApiException catch (e) {
+      if (mounted) toast(context, e.message, error: true);
+    }
+    if (mounted) setState(() => _refreshing = false);
+    if (mounted) await _load();
   }
 
   @override
@@ -217,24 +235,32 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     final db = ref.read(databaseProvider);
     // фильтр остатка — в SQL (услуги в складе не показываются); порог «заканчивается» — как на ПК, с минимумом товара (lowStockSql)
     final filter = _filter;
-    final list = await db.searchProducts(
-      _q.text,
-      category: _category,
-      limit: _limit + 1,
-      extra: (p) {
-        Expression<bool> e = p.isService.equals(false);
-        if (filter == 'low') e = e & p.quantity.isBiggerThanValue(0) & lowStockSql(p); // 2026-10-22 (мобилка, админ, П11)
-        if (filter == 'out') e = e & p.quantity.isSmallerOrEqualValue(0);
-        if (filter == 'in') e = e & p.quantity.isBiggerThanValue(0);
-        return e;
-      },
-    );
+    Expression<bool> extra($ProductsTable p) {
+      Expression<bool> e = p.isService.equals(false);
+      if (filter == 'low') e = e & p.quantity.isBiggerThanValue(0) & lowStockSql(p); // 2026-10-22 (мобилка, админ, П11)
+      if (filter == 'out') e = e & p.quantity.isSmallerOrEqualValue(0);
+      if (filter == 'in') e = e & p.quantity.isBiggerThanValue(0);
+      // 2026-10-31 (режимы магазина): фильтры плиток главной — размеры (одежда), весовые и срок годности (продукты), единицы (хозтовары)
+      if (filter == 'sizes') e = e & productHasVariants();
+      if (filter == 'weight') e = e & p.isWeight.equals(true);
+      if (filter == 'units') e = e & p.isWeight.equals(false) & p.unit.isNotIn(const ['шт', 'шт.', 'pcs', 'Шт', 'ШТ', 'шт ', '']);
+      if (filter == 'expiry') {
+        final until = DateTime.now().add(const Duration(days: 14));
+        String two(int x) => x.toString().padLeft(2, '0');
+        e = e & p.expiresOn.isNotNull() & p.expiresOn.isSmallerOrEqualValue('${until.year}-${two(until.month)}-${two(until.day)}');
+      }
+      return e;
+    }
+
+    final list = await db.searchProducts(_q.text, category: _category, limit: _limit + 1, extra: extra);
+    final total = more ? _total : await db.countProducts(_q.text, category: _category, extra: extra);
     final health = _q.text.trim().isEmpty && _category == null && !more ? await _healthSql(db) : null;
     final packs = more ? null : await PackageStore.read(db);
     if (!mounted || seq != _seq) return; // пришёл более новый запрос — этот ответ устарел
     setState(() {
       _hasMore = list.length > _limit;
       _list = _hasMore ? list.sublist(0, _limit) : list;
+      _total = total;
       if (health != null) _health = health;
       if (packs != null) _packs = packs;
     });
@@ -328,6 +354,28 @@ class _StockScreenState extends ConsumerState<StockScreen> {
             decoration: InputDecoration(hintText: l.findProduct, prefixIcon: const Icon(Icons.search_rounded)),
           ),
         ),
+        if (const {'sizes', 'weight', 'units', 'expiry'}.contains(_filter))
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: InputChip(
+                key: const Key('stockModeFilter'),
+                avatar: const Icon(Icons.filter_alt_rounded, size: 18),
+                label: Text(switch (_filter) {
+                  'sizes' => l.stockFilterSizes,
+                  'weight' => l.stockFilterWeight,
+                  'units' => l.stockFilterUnits,
+                  _ => l.stockFilterExpiry,
+                }),
+                deleteButtonTooltipMessage: l.stockFilterClear,
+                onDeleted: () {
+                  setState(() => _filter = 'all');
+                  _load();
+                },
+              ),
+            ),
+          ),
         ProductFilterBar(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           stock: switch (_filter) {
@@ -377,9 +425,29 @@ class _StockScreenState extends ConsumerState<StockScreen> {
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                itemCount: _list.length + 1,
+                itemCount: _list.length + 2,
                 separatorBuilder: (_, _) => const SizedBox(height: 6),
                 itemBuilder: (c, i) {
+                  // 2026-10-31: первая строка списка — «Показано N из M» / «Товаров: M» (M — по базе телефона, не по окну) и «Обновить каталог»;
+                  // она прокручивается вместе со списком и не отнимает высоту у экрана
+                  if (i == 0) {
+                    return Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          _list.length < _total ? l.stockCountShown(_list.length, _total) : l.stockCountAll(_total),
+                          style: TextStyle(fontSize: 12.5, color: pal.textSoft, fontWeight: FontWeight.w600),
+                        ),
+                        TextButton.icon(
+                          onPressed: _refreshing ? null : _refreshCatalog,
+                          icon: _refreshing ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.refresh_rounded, size: 18),
+                          label: Text(l.catalogRefresh),
+                        ),
+                      ],
+                    );
+                  }
+                  i -= 1;
                   if (i == _list.length) {
                     return Padding(
                       padding: const EdgeInsets.all(12),

@@ -108,6 +108,22 @@ public static class ShiftCashOperationsStore
     /// <summary>source_kind внесения в ящик смены на сервере NurCRM (с 2026-09-28).</summary>
     public const string ShiftDrawerInflowKind = "shift_drawer_inflow";
 
+    /// <summary>2026-11-01: время, вид и сумма внесений/изъятий смены, ещё не записанных на сервер (для окна «Закрыть с пометкой» и журнала).</summary>
+    public static IReadOnlyList<(DateTime At, string Type, decimal Amount)> PendingDetailsForShift(string? shiftId)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId))
+            return Array.Empty<(DateTime, string, decimal)>();
+
+        return LoadStored()
+            .Where(x => string.Equals(x.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase)
+                        && string.IsNullOrEmpty(x.ServerFlowId)
+                        && !string.IsNullOrEmpty(x.Id)
+                        && CashOperationModel.ResolveKind(x.Type) is CashOperationKind.Deposit or CashOperationKind.Withdrawal)
+            .OrderBy(x => x.CreatedAt)
+            .Select(x => (x.CreatedAt, x.Type ?? "", x.Amount))
+            .ToList();
+    }
+
     /// <summary>Внесения и изъятия смены, которые ещё не записаны на сервер.</summary>
     /// <remarks>2026-10-22 (статьи изъятия): и статья операции (ключ, русское название, комментарий отдельно) — на сервер
     /// уходит её category и название «Изъятие: Аренда — …» (ShiftCashFlowSync).</remarks>

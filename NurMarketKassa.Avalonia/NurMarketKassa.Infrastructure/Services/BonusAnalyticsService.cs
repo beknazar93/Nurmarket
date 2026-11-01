@@ -257,6 +257,15 @@ public sealed class BonusAnalyticsData
         return (rows, truncated, clientField);
     }
 
+    /// <summary>2026-11-01 (В-05): «оплачено бонусами» закрытых смен по id смены — отчёт закрытой смены не меняется.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (double Value, DateTime AtUtc)> ClosedShiftBonus = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>2026-11-01 (code-review): срок жизни записи — офлайн-чеки, догнанные в закрытую смену, меняют её «оплачено бонусами» на сервере.</summary>
+    private static readonly TimeSpan ClosedShiftBonusTtl = TimeSpan.FromMinutes(10);
+
+    /// <summary>2026-11-01 (приёмка, В-05): «Обновить» сбрасывает и этот кэш — чеки, досланные в закрытую смену из офлайн-очереди, иначе не попали бы в отчёт до перезапуска.</summary>
+    public static void ClearClosedShiftCache() => ClosedShiftBonus.Clear();
+
     /// <summary>Списано бонусами по отчётам смен сервера (смены, открытые в периоде). null — список смен не получен.</summary>
     private static async Task<(double Total, Dictionary<DateTime, double> ByDay, int Shifts, Dictionary<string, double> ByBranch)?> LoadRedeemedAsync(IShiftApiService shifts, DateTime from, DateTime to, CancellationToken ct)
     {
@@ -274,12 +283,13 @@ public sealed class BonusAnalyticsData
         var items = list.ValueKind == JsonValueKind.Array ? list.EnumerateArray().ToList()
             : list.ValueKind == JsonValueKind.Object && list.TryGetProperty("results", out var r) && r.ValueKind == JsonValueKind.Array ? r.EnumerateArray().ToList()
             : new List<JsonElement>();
-        var inPeriod = new List<(string Id, DateTime Day, string? Branch)>();
+        var inPeriod = new List<(string Id, DateTime Day, string? Branch, bool Closed)>();
         foreach (var row in items)
         {
             var id = Str(row, "id");
             if (!string.IsNullOrEmpty(id) && TryServerDay(Str(row, "opened_at"), out var day) && day >= from.Date && day <= to.Date)
-                inPeriod.Add((id, day, BranchOf(row)));
+                inPeriod.Add((id, day, BranchOf(row), !string.IsNullOrWhiteSpace(Str(row, "closed_at"))
+                    || string.Equals(Str(row, "status"), "closed", StringComparison.OrdinalIgnoreCase)));
         }
         inPeriod = inPeriod.OrderByDescending(s => s.Day).Take(200).ToList();
 
@@ -288,10 +298,21 @@ public sealed class BonusAnalyticsData
         var gate = new SemaphoreSlim(4);
         var reports = await Task.WhenAll(inPeriod.Select(async s =>
         {
+            // 2026-11-01 (В-05, аудит «10 из 10»): отчёт ЗАКРЫТОЙ смены не меняется — берём «оплачено бонусами» из памяти, а не заново с сервера
+            // (раньше — отдельный запрос на каждую смену периода при каждом открытии раздела и «Обновить»).
+            if (s.Closed && ClosedShiftBonus.TryGetValue(s.Id, out var known) && DateTime.UtcNow - known.AtUtc <= ClosedShiftBonusTtl)
+                return (s.Day, s.Branch, Redeemed: (double?)known.Value);
             await gate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
-                return (s.Day, s.Branch, Report: await NurCrmReportsApi.GetShiftReportAsync(s.Id, ct).ConfigureAwait(false));
+                var fetched = await NurCrmReportsApi.GetShiftReportAsync(s.Id, ct).ConfigureAwait(false);
+                if (fetched is not null && s.Closed)
+                {
+                    if (ClosedShiftBonus.Count >= 5000)
+                        ClosedShiftBonus.Clear(); // размер-лимит: проще начать заново, чем вытеснять по одной
+                    ClosedShiftBonus[s.Id] = ((double)fetched.BonusRedeemed, DateTime.UtcNow);
+                }
+                return (s.Day, s.Branch, Redeemed: fetched is null ? (double?)null : (double)fetched.BonusRedeemed);
             }
             finally
             {
@@ -300,12 +321,12 @@ public sealed class BonusAnalyticsData
         })).ConfigureAwait(false);
         var counted = 0;
         var byBranch = new Dictionary<string, double>(StringComparer.CurrentCultureIgnoreCase);
-        foreach (var (day, branch, report) in reports)
+        foreach (var (day, branch, redeemed) in reports)
         {
-            if (report is null)
+            if (redeemed is null)
                 continue;
             counted++;
-            var value = (double)report.BonusRedeemed;
+            var value = redeemed.Value;
             total += value;
             byDay[day] = byDay.GetValueOrDefault(day) + value;
             if (branch != null)
@@ -393,9 +414,10 @@ public sealed class BonusAnalyticsData
         }
 
         var days = new List<DayRow>();
+        var rowsByDay = rows.ToLookup(r => r.Day); // 2026-11-01 (В-05): раньше на каждый день — проход по всем чекам периода (год × 100 тыс.)
         for (var d = from; d <= to; d = d.AddDays(1))
         {
-            var day = rows.Where(r => r.Day == d).ToList();
+            var day = rowsByDay[d].ToList();
             days.Add(new DayRow(d, day.Sum(r => r.Total), day.Where(r => r.ClientId != null).Sum(r => r.Total), day.Count,
                 day.Count(r => r.ClientId != null), redeemedByDay != null ? redeemedByDay.GetValueOrDefault(d) : null));
         }

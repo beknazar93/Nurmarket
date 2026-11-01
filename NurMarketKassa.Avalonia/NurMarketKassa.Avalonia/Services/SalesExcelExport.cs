@@ -55,7 +55,7 @@ internal static class SalesExcelExport
         owner.Closed += onClosed;
         try
         {
-            var shop = UserPreferences.Instance.StoreName;
+            var shop = ReportShopName.Current;
             var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = Tr.T("Сохранить продажи в Excel", "Сатууларды Excel'ге сактоо", "Save sales to Excel", "Satışları Excel olarak kaydet", "Sotuvlarni Excel'ga saqlash"),

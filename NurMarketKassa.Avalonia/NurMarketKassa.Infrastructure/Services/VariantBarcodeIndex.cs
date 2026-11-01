@@ -136,6 +136,40 @@ public static class VariantBarcodeIndex
         }
     }
 
+    // 2026-11-01 (П-3, из веба): размеры товара — для выбора штрихкода в окне массовой печати. Индекс «товар → размеры» строится один раз
+    // и сбрасывается при любом изменении справочника (иначе 15 000 товаров × весь справочник).
+    private static Dictionary<string, List<Hit>>? _byProduct;
+    private static FileModel? _byProductSource;
+
+    /// <summary>Размеры товара со штрихкодами (только активные), по порядку; пусто — размеров нет. Читает справочник, в сеть не ходит.</summary>
+    public static List<Hit> ForProduct(string? productId)
+    {
+        var pid = productId?.Trim();
+        if (string.IsNullOrEmpty(pid))
+            return new List<Hit>();
+        lock (Lock)
+        {
+            var data = Data;
+            if (_byProduct is null || !ReferenceEquals(_byProductSource, data))
+            {
+                var map = new Dictionary<string, List<Hit>>(StringComparer.OrdinalIgnoreCase);
+                foreach (var kv in data.Items)
+                {
+                    if (!kv.Value.A)
+                        continue;
+                    if (!map.TryGetValue(kv.Value.P, out var list))
+                        map[kv.Value.P] = list = new List<Hit>();
+                    list.Add(new Hit(kv.Value.P, new ProductVariantDto { Id = kv.Value.V, Size = kv.Value.S, Color = kv.Value.C, Barcode = kv.Key, Price = kv.Value.Price, Quantity = kv.Value.Q, IsActive = true }));
+                }
+                foreach (var list in map.Values)
+                    list.Sort((a, b) => string.Compare(a.Variant.Size + "|" + a.Variant.Color, b.Variant.Size + "|" + b.Variant.Color, StringComparison.CurrentCultureIgnoreCase));
+                _byProduct = map;
+                _byProductSource = data;
+            }
+            return _byProduct.TryGetValue(pid, out var found) ? new List<Hit>(found) : new List<Hit>();
+        }
+    }
+
     /// <summary>Свежий список размеров товара — заменяет его прежние штрихкоды в справочнике.</summary>
     public static void Update(string productId, IReadOnlyList<ProductVariantDto>? variants)
     {
@@ -144,6 +178,7 @@ public static class VariantBarcodeIndex
         var pid = productId.Trim();
         lock (Lock)
         {
+            _byProduct = null;
             var data = Data;
             foreach (var key in data.Items.Where(kv => string.Equals(kv.Value.P, pid, StringComparison.OrdinalIgnoreCase)).Select(kv => kv.Key).ToList())
                 data.Items.Remove(key);

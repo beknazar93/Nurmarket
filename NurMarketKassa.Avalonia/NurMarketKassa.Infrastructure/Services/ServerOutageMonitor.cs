@@ -322,13 +322,47 @@ public static class ServerOutageMonitor
     {
         var at = dataAt ?? LastSuccessAt?.LocalDateTime;
         return at is { } time
-            ? Tr.T($"Данные на {time:HH:mm}, сервер не отвечает", $"Маалымат {time:HH:mm} боюнча, сервер жооп бербей жатат",
-                $"Data as of {time:HH:mm}, the server is not responding", $"Veriler {time:HH:mm} itibarıyla, sunucu yanıt vermiyor",
-                $"Ma'lumotlar {time:HH:mm} holatiga ko'ra, server javob bermayapti")
-            : Tr.T("Сервер не отвечает — показаны данные этой кассы", "Сервер жооп бербей жатат — ушул кассанын маалыматтары көрсөтүлдү",
-                "The server is not responding — showing this till's data", "Sunucu yanıt vermiyor — bu kasanın verileri gösteriliyor",
-                "Server javob bermayapti — shu kassaning ma'lumotlari ko'rsatildi");
+            ? Tr.T($"Данные на {time:HH:mm}, сервер недоступен", $"Маалымат {time:HH:mm} боюнча, сервер жеткиликсиз",
+                $"Data as of {time:HH:mm}, the server is unavailable", $"Veriler {time:HH:mm} itibarıyla, sunucu kullanılamıyor",
+                $"Ma'lumotlar {time:HH:mm} holatiga ko'ra, server mavjud emas")
+            : Tr.T("Сервер недоступен — показаны данные этой кассы", "Сервер жеткиликсиз — ушул кассанын маалыматтары көрсөтүлдү",
+                "The server is unavailable — showing this till's data", "Sunucu kullanılamıyor — bu kasanın verileri gösteriliyor",
+                "Server mavjud emas — shu kassaning ma'lumotlari ko'rsatildi");
     }
+
+    /// <summary>2026-11-01 (В-08, аудит «10 из 10»): ОДНА фраза для сбоя сервера во всей программе владельца вместо трёх
+    /// («Нет связи с сервером», «Сервер не отвечает», «сервер недоступен»). «Нет связи» при ответе 5xx на работающем интернете
+    /// заставляло владельца проверять свой роутер.</summary>
+    public static string UnavailableText => Tr.T("Сервер NurCRM недоступен", "NurCRM сервери жеткиликсиз", "The NurCRM server is unavailable",
+        "NurCRM sunucusu kullanılamıyor", "NurCRM serveri mavjud emas");
+
+    /// <summary>2026-11-01 (В-28, аудит «10 из 10»): понятный текст ошибки для экрана вместо сырого <c>ex.Message</c>
+    /// («An error occurred while sending the request.», «mock 500»). Сбой сервера или сети — <see cref="UnavailableText"/> и совет;
+    /// отказ сервера 4xx — его текст (он по-русски и по делу); прочее — общая фраза (подробности остаются в журнале).</summary>
+    public static string FriendlyError(Exception? ex, bool showServerText = false)
+    {
+        if (ex is null || IsServerFailure(ex) || ex is HttpRequestException || ex is TimeoutException || ex is System.Net.Sockets.SocketException
+            || (ex is ApiException { StatusCode: null }))
+            return UnavailableText + ". " + Tr.T("Проверьте интернет и нажмите «Обновить».", "Интернетти текшериңиз да «Жаңыртуу» басыңыз.",
+                "Check the internet and press “Refresh”.", "İnterneti kontrol edip «Yenile»ye basın.", "Internetni tekshirib, «Yangilash»ni bosing.");
+        if (ex is ApiException { StatusCode: 401 })
+            return Tr.T("Сессия истекла — войдите заново.", "Сессия бүттү — кайра кириңиз.", "The session expired — sign in again.",
+                "Oturum süresi doldu — yeniden giriş yapın.", "Sessiya tugadi — qayta kiring.");
+        if (ex is ApiException { StatusCode: 403 })
+            return Tr.T("Нет права на это действие. Обратитесь к владельцу.", "Бул аракетке укук жок. Ээсине кайрылыңыз.",
+                "You have no permission for this action. Ask the owner.", "Bu işlem için yetkiniz yok. Sahibine başvurun.", "Bu amalga ruxsat yo'q. Egasiga murojaat qiling.");
+        if (ex is ApiException api && !string.IsNullOrWhiteSpace(api.Message) && api.Message.Length <= 200 && (showServerText || !LooksTechnical(api.Message)))
+            return api.Message.Trim();
+        return Tr.T("Не удалось выполнить запрос. Повторите позже.", "Суроону аткаруу мүмкүн болгон жок. Кийинчерээк кайталаңыз.",
+            "The request failed. Try again later.", "İstek gerçekleştirilemedi. Daha sonra tekrar deneyin.", "So'rovni bajarib bo'lmadi. Keyinroq qayta urinib ko'ring.");
+    }
+
+    /// <summary>Сырой технический текст (английский .NET, имена исключений, «mock 500») на экран не выводим.</summary>
+    private static bool LooksTechnical(string message) =>
+        message.Contains("An error occurred", StringComparison.OrdinalIgnoreCase)
+        || message.Contains("Exception", StringComparison.Ordinal)
+        || message.Contains("mock ", StringComparison.OrdinalIgnoreCase)
+        || (message.All(c => c < 128) && message.Any(char.IsLetter)); // чисто английский текст — тоже сырой
 
     /// <summary>Хвост к <see cref="StaleDataNote"/> в разделах, где вместо данных сервера
     /// показана локальная история этой кассы.</summary>

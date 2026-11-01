@@ -1157,6 +1157,9 @@ public sealed class BranchTransferDialog : Window
     private readonly List<Line> _rows = new();
     private int _searchGen;
     private int _lastFromIndex;
+    /// <summary>2026-11-01 (аудит «10 из 10», С-05): основа ключа повтора — одна на открытое окно; «Провести» после обрыва с тем же составом
+    /// уходит с тем же Idempotency-Key.</summary>
+    private readonly string _transferKeyBase = Guid.NewGuid().ToString("N");
 
     public BranchTransferDialog(IReadOnlyList<BranchesWindow.Branch> branches, JsonElement? repeatOf, string? preferredBranch)
     {
@@ -1503,14 +1506,38 @@ public sealed class BranchTransferDialog : Window
             ["date"] = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             ["items"] = _rows.Select(r => new Dictionary<string, object?> { ["product"] = r.ProductId, ["quantity"] = Math.Round(ParseQty(r.Qty.Text), 3) }).ToList(),
         };
-        if ((_comment.Text ?? "").Trim() is { Length: > 0 } comment)
-            body["comment"] = comment;
+        // 2026-11-01 (С-05): ключ повтора из состава перемещения; метка ключа в комментарии — по ней (плюс склады и состав) после обрыва ищем СВОЁ перемещение на сервере.
+        var transferLines = _rows.Select(r => (r.ProductId, Math.Round(ParseQty(r.Qty.Text), 3))).ToList();
+        var transferKey = Views.Dialogs.StockTransferDialog.MakeTransferKey(_transferKeyBase, FromId, ToId, date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), transferLines);
+        var comment = ((_comment.Text ?? "").Trim() + Views.Dialogs.StockTransferDialog.KeyTag(transferKey)).Trim();
+        body["comment"] = comment;
         if (!_shell.TryBeginBusy())
             return;
         _save.IsEnabled = false;
         try
         {
-            var data = await _api.RequestAsync(HttpMethod.Post, "api/main/branch-transfers/", body, null, CancellationToken.None, TimeSpan.FromSeconds(45)).ConfigureAwait(true);
+            JsonElement data;
+            try
+            {
+                data = await _api.PostWithIdempotencyKeyAsync("api/main/branch-transfers/", body, transferKey, CancellationToken.None, TimeSpan.FromSeconds(45)).ConfigureAwait(true);
+            }
+            catch (Exception postEx) when (PendingIdempotencyKey.IsOutcomeUnknown(postEx))
+            {
+                // Исход неизвестен (таймаут, обрыв): сначала ищем перемещение по метке в комментарии, второй раз не шлём.
+                PosLogger.Log($"Перемещение: ответа нет ({postEx.GetType().Name}) — проверяем, прошло ли оно на сервере.", "WARNING");
+                var posted = await Views.Dialogs.StockTransferDialog.FindPostedTransferAsync(_api, transferKey, FromId, ToId, transferLines).ConfigureAwait(true);
+                if (posted is null)
+                {
+                    ShowError(T("Связь прервалась, проверить не удалось. Перед повтором откройте «Филиалы» → «Перемещения» и убедитесь, что такого перемещения нет.",
+                        "Байланыш үзүлдү, текшерүү мүмкүн болгон жок. Кайра жиберүүдөн мурун «Филиалдар» → «Жылдыруулар» бөлүмүн ачып, мындай жылдыруу жок экенин текшериңиз.",
+                        "The connection was lost and the check failed. Before retrying, open “Branches” → “Transfers” and make sure this transfer is not there.",
+                        "Bağlantı koptu, kontrol edilemedi. Tekrar etmeden önce «Şubeler» → «Transferler» bölümünde bu transferin olmadığından emin olun.",
+                        "Aloqa uzildi, tekshirib bo'lmadi. Qayta urinishdan oldin «Filiallar» → «Ko'chirishlar» bo'limida bunday ko'chirish yo'qligiga ishonch hosil qiling."));
+                    return;
+                }
+                data = posted.Value;
+                PosLogger.Log("Перемещение: найдено на сервере — второй раз не отправляем.", "INFO");
+            }
             PosLogger.Log($"Перемещение {BranchesWindow.Str(data, "number")}: {fromName} → {toName}, {_rows.Count} поз., {qtyTotal:0.###} ед.", "INFO");
             _shell.EndBusy();
             Close(true);

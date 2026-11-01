@@ -172,6 +172,11 @@ public sealed class ProductEditRequest
     /// пробивался на кассе за 0 сом. Отличить «в файле не было такой колонки» от «в файле
     /// стоит ноль» по самому значению невозможно — отсюда отдельные признаки.</summary>
     public bool SendQuantity { get; set; } = true;
+    /// <summary>2026-11-01 (аудит 10 из 10, С-01, приёмка): false — поле alternate_barcodes (с названиями и количествами, прочитанными при открытии) не шлём: список не менялся.</summary>
+    public bool SendAlternateBarcodes { get; set; } = true;
+    /// <summary>2026-11-01 (аудит 10 из 10, С-03): ключ повтора создания товара — уходит заголовком Idempotency-Key (не в тело). Тот же
+    /// ключ при повторной попытке (фоновое создание после таймаута), чтобы сервер, поддерживающий заголовок, не завёл второй товар.</summary>
+    public string? IdempotencyKey { get; set; }
     public bool SendPrice { get; set; } = true;
     public bool SendPurchasePrice { get; set; } = true;
     public bool SendMarkupPercent { get; set; } = true;

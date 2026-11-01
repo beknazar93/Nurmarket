@@ -63,9 +63,12 @@ public static class OperationReceiptPrinter
 
     private static string? Print(Func<string> buildText, string what)
     {
-        if (!UserPreferences.Instance.ReceiptEnabled)
+        // 2026-11-01 (Ж-04): возврат/изъятие печатаются только если печать чека включена в настройках, порт принтера указан и
+        // кассир не выключил «Напечатать чек» в окне оплаты (то же правило, что у продажи). Иначе — молча, без «ошибки печати» на LPT1.
+        var prefs = UserPreferences.Instance;
+        if (!prefs.CheckoutPrintReceiptDefault || !Hardware.HardwareModeHelper.IsPrinterPortConfigured())
         {
-            PosLogger.Log($"Чек {what} не печатается: печать выключена в настройках кассы.", "PRINTER");
+            PosLogger.Log($"Чек {what} не печатается: печать чека выключена или принтер не настроен.", "PRINTER");
             return null;
         }
 

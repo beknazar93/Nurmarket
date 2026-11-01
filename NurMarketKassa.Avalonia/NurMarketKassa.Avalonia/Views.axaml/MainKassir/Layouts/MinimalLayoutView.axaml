@@ -100,19 +100,19 @@
                         <!-- 2026-10-20, проверка фильтров: «Фильтр» в раскладке (было только в «Классике») — число включённых условий,
                              в подсказке что включено; «✕» сбрасывает. Кнопки не берут фокус (скан — окну кассы). -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" VerticalAlignment="Center">
-                            <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="32" Padding="10,0"
+                            <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="36" Padding="10,0"
                                     ToolTip.Tip="{Binding Catalog.ActiveFilterTip}" Click="OpenFilter_Click"
                                     AutomationProperties.Name="{DynamicResource csh.catalog.filter}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <PathIcon Data="{StaticResource IconFilter}" Width="14" Height="14"/>
                                     <Border IsVisible="{Binding Catalog.HasActiveFilter}" CornerRadius="9" MinWidth="18" Height="18" Padding="5,0"
                                             Background="{DynamicResource BrushAccent}" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Catalog.ActiveFilterCount}" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"
+                                        <TextBlock Text="{Binding Catalog.ActiveFilterCount}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"
                                                    VerticalAlignment="Center" Foreground="{DynamicResource BrushAccentForeground}"/>
                                     </Border>
                                 </StackPanel>
                             </Button>
-                            <Button Classes="lx-chip" Focusable="False" Height="32" Width="32" Padding="0" Content="✕"
+                            <Button Classes="lx-chip" Focusable="False" Height="36" Width="36" Padding="0" Content="✕"
                                     IsVisible="{Binding Catalog.HasActiveFilter}" ToolTip.Tip="{Binding Catalog.ResetFilterTip}"
                                     AutomationProperties.Name="{Binding Catalog.ResetFilterTip}" Click="ResetFilter_Click"/>
                         </StackPanel>
@@ -259,7 +259,7 @@
                                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                                     <!-- 2026-09-28: количество вводится с клавиатуры, как в «Классике» (раньше здесь был
                                                          только текст — точное количество в этом виде кассы ввести было нельзя). -->
-                                                    <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="44" Height="26" MinHeight="0"
+                                                    <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="44" Height="32" MinHeight="0"
                                                              Padding="4,0" FontSize="12" FontWeight="SemiBold" TextAlignment="Center" VerticalContentAlignment="Center"
                                                              VerticalAlignment="Center"
                                                              Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}"
@@ -281,26 +281,26 @@
                                             <TextBlock Grid.Column="1" Classes="lx-money" FontSize="15" VerticalAlignment="Top"
                                                        Text="{Binding LineTotal, Converter={x:Static conv:MoneyConverter.Instance}}"/>
                                             <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="4" Margin="0,8,0,0">
-                                                <Button Classes="lx-step" Width="28" Height="28" AutomationProperties.Name="{Binding DecreaseName}" Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"
+                                                <Button Classes="lx-step" Width="36" Height="36" AutomationProperties.Name="{Binding DecreaseName}" Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}">
                                                     <PathIcon Data="{StaticResource IconMinus}"/>
                                                 </Button>
-                                                <Button Classes="lx-step" Width="28" Height="28" IsEnabled="{Binding CanIncrease}"
+                                                <Button Classes="lx-step" Width="36" Height="36" IsEnabled="{Binding CanIncrease}"
                                                         AutomationProperties.Name="{Binding IncreaseName}" Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}">
                                                     <PathIcon Data="{StaticResource IconPlus}"/>
                                                 </Button>
-                                                <Button Classes="lx-ghost" Width="28" Height="28" MinHeight="0" Padding="0" IsVisible="{Binding IsWeight}"
+                                                <Button Classes="lx-ghost" Width="36" Height="36" MinHeight="0" Padding="0" IsVisible="{Binding IsWeight}"
                                                         Command="{Binding WeighCommand}" CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource csh.cart.weighTooltip}">
                                                     <PathIcon Data="{StaticResource IconScale}" Width="14" Height="14"/>
                                                 </Button>
-                                                <Button Classes="lx-ghost" Width="28" Height="28" MinHeight="0" Padding="0"
+                                                <Button Classes="lx-ghost" Width="36" Height="36" MinHeight="0" Padding="0"
                                                         Command="{Binding DiscountCommand}" CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource csh.cart.discountTooltip}">
                                                     <PathIcon Data="{StaticResource IconPercent}" Width="13" Height="13"/>
                                                 </Button>
-                                                <Button Classes="lx-ghost" Width="28" Height="28" MinHeight="0" Padding="0"
+                                                <Button Classes="lx-ghost" Width="36" Height="36" MinHeight="0" Padding="0"
                                                         Command="{Binding RemoveCommand}" CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource csh.cart.removeTooltip}">
                                                     <PathIcon Data="{StaticResource IconClose}" Width="14" Height="14" Foreground="{DynamicResource BrushTextSoft}"/>
@@ -345,16 +345,16 @@
                 <!-- 2026-10-19, К1: подписи кнопок переносятся на 2 строки (по-кыргызски обрезались «…»). -->
                 <UniformGrid Grid.Row="6" Columns="4" Margin="0,12,0,0">
                     <Button Classes="lx-ghost" Padding="1,0" Command="{Binding Basket.DeferCartCommand}">
-                        <TextBlock Text="{DynamicResource onecLayout.holdButton}" FontSize="10.5" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource onecLayout.holdButton}" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Classes="lx-ghost" Padding="1,0" Command="{Binding Basket.ApplyOrderDiscountCommand}">
-                        <TextBlock Text="{DynamicResource onecLayout.discountButton}" FontSize="10.5" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource onecLayout.discountButton}" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Classes="lx-ghost" Padding="1,0" Command="{Binding Basket.AddCustomItemCommand}">
-                        <TextBlock Text="{DynamicResource csh.cart.customService}" FontSize="10.5" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource csh.cart.customService}" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Classes="lx-ghost" Padding="1,0">
-                        <TextBlock Text="{DynamicResource csh.cart.more}" FontSize="10.5" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource csh.cart.more}" FontSize="12" TextWrapping="Wrap" MaxLines="2" TextAlignment="Center" HorizontalAlignment="Center"/>
                         <Button.Flyout>
                             <MenuFlyout Placement="TopEdgeAlignedRight">
                                 <MenuItem Header="{DynamicResource csh.cart.restore}" Command="{Binding Basket.RestoreLastHeldReceiptCommand}"/>

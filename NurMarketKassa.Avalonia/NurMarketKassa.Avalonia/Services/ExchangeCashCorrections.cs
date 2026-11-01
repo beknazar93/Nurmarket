@@ -157,8 +157,9 @@ public static class ExchangeCashCorrections
     {
         try
         {
-            return File.Exists(FilePath)
-                ? JsonSerializer.Deserialize<List<Entry>>(File.ReadAllText(FilePath), JsonOpts) ?? new List<Entry>()
+            // 2026-11-01 (аудит 10 из 10, Н-07): чтение через AtomicFile — битый файл берётся из .bak, а не молча «пусто».
+            return AtomicFile.ReadAllText(FilePath) is { } text
+                ? JsonSerializer.Deserialize<List<Entry>>(text, JsonOpts) ?? new List<Entry>()
                 : new List<Entry>();
         }
         catch
@@ -171,8 +172,8 @@ public static class ExchangeCashCorrections
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(list, JsonOpts));
+            // 2026-11-01 (Н-07): запись через временный файл + замену — переживает обрыв питания (раньше полфайла и потеря поправок смены).
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(list, JsonOpts));
         }
         catch (Exception ex)
         {

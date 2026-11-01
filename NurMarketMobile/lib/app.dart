@@ -1,5 +1,6 @@
 import 'dart:async' show unawaited;
 
+import 'features/stock/sizes_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -93,6 +94,7 @@ GoRouter buildRouter(Reader read, {required bool signedIn, Listenable? refresh})
       path: '/scan',
       builder: (_, s) => ScanScreen(initial: s.uri.queryParameters['mode'] == 'price' ? ScanMode.price : null),
     ),
+    GoRoute(path: '/sizes', builder: (_, _) => const SizesScreen()), // 2026-10-31: режим «Одежда» — остатки по размерам
     GoRoute(path: '/pay', builder: (_, _) => const PaymentScreen()),
     GoRoute(
       path: '/paid',
@@ -214,6 +216,7 @@ class _NurMarketAppState extends ConsumerState<NurMarketApp> {
   void _onHide() {
     ref.read(syncProvider).pause();
     unawaited(ref.read(syncProvider).planBackground()); // 2026-10-30 (оптимизация, п. 14): сворачиваемся — есть неотправленное, значит фоновая задача нужна
+    unawaited(ref.read(cartProvider.notifier).flush()); // 2026-11-01 (М-22): черновик чека — на диск до сворачивания
     unawaited(Audit.syncToDisk()); // 2026-10-30 (оптимизация, п. 8): журнал действий — на диск (fsync) при сворачивании
   }
   late final ApiClient _api = ref.read(apiProvider);

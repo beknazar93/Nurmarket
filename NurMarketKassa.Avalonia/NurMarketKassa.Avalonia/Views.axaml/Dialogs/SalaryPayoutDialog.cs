@@ -511,6 +511,14 @@ public sealed class SalaryPayoutDialog : Window
                 problem = T("Введите сумму.", "Сумманы жазыңыз.", "Enter the amount.", "Tutarı girin.", "Summani kiriting.");
             else if (value > MaxAmount)
                 problem = T("Слишком большая сумма.", "Сумма өтө чоң.", "The amount is too large.", "Tutar çok büyük.", "Summa juda katta.");
+            // 2026-11-01 (аудит 10 из 10, В-01): из ящика смены нельзя выплатить больше остатка — иначе «ожидаемые наличные» уйдут в минус
+            // и у кассира появится недостача в Z-отчёте (на кассе то же правило: CashWithdrawalGuard). «Касса компании» — остаток может быть устаревшим, не блокируем.
+            else if (SelectedSource is { Kind: SalaryPayoutService.PayoutSourceKind.Shift, Balance: { } shiftBalance } && value > shiftBalance + 0.005)
+                problem = T($"В ящике смены только {SalaryWindow.Money(shiftBalance)} {Som} — выплатить больше нельзя. Уменьшите сумму или выберите другой источник.",
+                    $"Смена ящигинде {SalaryWindow.Money(shiftBalance)} {Som} гана бар — андан көп төлөөгө болбойт. Сумманы азайтыңыз же башка булакты тандаңыз.",
+                    $"The shift drawer has only {SalaryWindow.Money(shiftBalance)} {Som} — you cannot pay out more. Reduce the amount or pick another source.",
+                    $"Vardiya çekmecesinde yalnızca {SalaryWindow.Money(shiftBalance)} {Som} var — daha fazlası ödenemez. Tutarı azaltın veya başka bir kaynak seçin.",
+                    $"Smena g'aznasida atigi {SalaryWindow.Money(shiftBalance)} {Som} bor — undan ko'p to'lab bo'lmaydi. Summani kamaytiring yoki boshqa manbani tanlang.");
         }
         string? soft = null;
         var remaining = _payable - _paid;
@@ -545,6 +553,9 @@ public sealed class SalaryPayoutDialog : Window
     {
         // Защита от двойного нажатия: флаг ставится до первого await.
         if (_running || Blocked || _done || Value is not { } amount || amount <= 0 || SelectedSource is not { Cashbox: { } cashbox } source || amount > MaxAmount)
+            return;
+        // 2026-11-01 (В-01): та же проверка остатка ящика смены, что в UpdateState (кнопка могла остаться доступной до обновления).
+        if (source is { Kind: SalaryPayoutService.PayoutSourceKind.Shift, Balance: { } shiftLeft } && amount > shiftLeft + 0.005)
             return;
 
         _running = true;

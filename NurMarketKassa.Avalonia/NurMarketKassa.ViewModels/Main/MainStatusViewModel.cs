@@ -426,22 +426,33 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
     /// <summary>2026-09-28: без связи опрос в MonitorConnectivityAsync ждёт таймаута проверки
     /// сети, и значок «В очереди: 1» в шапке отставал от строки «В очереди: 2» под чеком.
     /// Касса зовёт это сразу после оплаты, не дожидаясь следующего опроса.</summary>
+    private int _queuedRefreshSeq;
+
     public void RefreshQueuedCount()
     {
-        try
+        // 2026-11-01 (Н-02): вызывается из окна кассы (UI-поток) после оплаты; подсчёт очереди (5 000 чеков — 262 мс) уходит в пул потоков,
+        // в UI-поток возвращается только готовое число (_dispatcher.Post).
+        // 2026-11-01 (code-review): порядковый номер запроса — результат более старого запроса, пришедший позже, отбрасывается (иначе показалось бы устаревшее число).
+        var seq = Interlocked.Increment(ref _queuedRefreshSeq);
+        _ = Task.Run(() =>
         {
-            var queued = OfflinePendingSalesStore.PendingCount;
-            var failed = OfflinePendingSalesStoreSafeFailedCount();
-            _dispatcher.Post(() =>
+            try
             {
-                QueuedCount = queued;
-                FailedCount = failed;
-            });
-        }
-        catch
-        {
-            // Не критично: следующий опрос обновит счётчик.
-        }
+                var queued = OfflinePendingSalesStore.PendingCount;
+                var failed = OfflinePendingSalesStoreSafeFailedCount();
+                _dispatcher.Post(() =>
+                {
+                    if (seq != Volatile.Read(ref _queuedRefreshSeq))
+                        return;
+                    QueuedCount = queued;
+                    FailedCount = failed;
+                });
+            }
+            catch
+            {
+                // Не критично: следующий опрос обновит счётчик.
+            }
+        });
     }
 
     public int QueuedCount

@@ -1439,7 +1439,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             // Списание всё равно требует сервера (создание и проведение акта), поэтому без
             // достоверного остатка безопаснее отменить операцию, чем отправить абсолютное
             // значение, посчитанное из устаревших данных.
-            _prompts?.ShowError(Tr.T("Нет связи с сервером — актуальный остаток не получен. Списание отменено.", "Сервер менен байланыш жок — учурдагы калдык алынган жок. Эсептен чыгаруу жокко чыгарылды.", "No connection to the server — couldn't get the current stock. Write-off canceled.", "Sunucuyla bağlantı yok — güncel stok alınamadı. Düşüm iptal edildi.", "Server bilan aloqa yo'q — joriy qoldiq olinmadi. Hisobdan chiqarish bekor qilindi."));
+            _prompts?.ShowError(Tr.T("Сервер NurCRM недоступен — актуальный остаток не получен. Списание отменено.", "NurCRM сервери жеткиликсиз — учурдагы калдык алынган жок. Эсептен чыгаруу жокко чыгарылды.", "The NurCRM server is unavailable — couldn't get the current stock. Write-off canceled.", "NurCRM sunucusu kullanılamıyor — güncel stok alınamadı. Düşüm iptal edildi.", "NurCRM serveri mavjud emas — joriy qoldiq olinmadi. Hisobdan chiqarish bekor qilindi.")); // 2026-11-01 (В-08): единая фраза о сбое сервера
             return false;
         }
 

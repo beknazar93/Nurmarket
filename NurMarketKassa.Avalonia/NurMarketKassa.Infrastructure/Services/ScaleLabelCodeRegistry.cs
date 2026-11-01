@@ -167,8 +167,7 @@ public static class ScaleLabelCodeRegistry
             var set = ReadPrefixes(path);
             if (!set.Add(prefix))
                 return;
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(set.OrderBy(p => p).ToList()));
+            AtomicFile.WriteAllText(path, JsonSerializer.Serialize(set.OrderBy(p => p).ToList())); // 2026-11-01 (Н-07): запись без риска полфайла
         }
         catch (Exception ex)
         {

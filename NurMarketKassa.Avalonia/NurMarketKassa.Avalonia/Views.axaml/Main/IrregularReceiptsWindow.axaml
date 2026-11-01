@@ -5,7 +5,7 @@
         x:CompileBindings="False"
         Title="{DynamicResource csh.menu.deferredReceipts}"
         Height="680"
-        Width="1112"
+        Width="1240"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         SystemDecorations="None"
@@ -69,7 +69,7 @@
             <Setter Property="HorizontalAlignment" Value="Left"/>
         </Style>
         <Style Selector="Border.StatusBadge TextBlock">
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style Selector="Border.StatusBadge.pending">
@@ -116,7 +116,7 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="{DynamicResource common.date}" Width="84" MinWidth="76" Binding="{ReflectionBinding DateText}"/>
                     <DataGridTextColumn Header="{DynamicResource common.time}" Width="76" MinWidth="70" Binding="{ReflectionBinding TimeText}"/>
-                    <DataGridTemplateColumn Header="{DynamicResource irregular.colStatus}" Width="190">
+                    <DataGridTemplateColumn Header="{DynamicResource irregular.colStatus}" Width="230">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Border Classes="StatusBadge" Classes.pending="{ReflectionBinding IsPending}"
@@ -135,7 +135,7 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="{DynamicResource common.amount}" Width="120" MinWidth="104" Binding="{ReflectionBinding TotalText}"/>
-                    <DataGridTemplateColumn Header="{DynamicResource irregular.colActions}" Width="370">
+                    <DataGridTemplateColumn Header="{DynamicResource irregular.colActions}" Width="500">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -143,6 +143,9 @@
                                             IsVisible="{ReflectionBinding CanView}" Click="View_Click" Padding="8,2" Height="30"/>
                                     <Button Content="{ReflectionBinding SendText}" Classes="PrimaryActionButton"
                                             IsVisible="{ReflectionBinding CanSend}" Click="SendRow_Click" Padding="8,2" Height="30"/>
+                                    <!-- 2026-11-01: чек старше 7 суток — проводит владелец по PIN (кнопка видна только при UserPreferences.AcceptLateEnabled) -->
+                                    <Button Content="{ReflectionBinding LateAcceptText}" Classes="SecondaryActionButton"
+                                            IsVisible="{ReflectionBinding CanLateAccept}" Click="LateAccept_Click" Padding="8,2" Height="30"/>
                                     <Button Content="{ReflectionBinding ReplenishText}" Classes="PrimaryActionButton"
                                             IsVisible="{ReflectionBinding CanReplenish}" Click="ReplenishRow_Click" Padding="8,2" Height="30"/>
                                     <Button Content="{ReflectionBinding CloseText}" Classes="SecondaryActionButton"

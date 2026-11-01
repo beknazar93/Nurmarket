@@ -1067,11 +1067,11 @@ public partial class ScalesPluWindow
             var from = lastSync is { } t
                 ? t.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)
                 : Tr.T("неизвестной даты", "белгисиз күндөн", "an unknown date", "bilinmeyen bir tarihten", "noma’lum sanadan");
-            StatusText.Text = Tr.T($"Нет связи с сервером — показан сохранённый каталог от {from} ({total} товаров, весовых {weighed}).",
-                                   $"Сервер менен байланыш жок — {from} сакталган каталог көрсөтүлдү ({total} товар, салмактуу {weighed}).",
-                                   $"No connection to the server — showing the saved catalog from {from} ({total} products, {weighed} weighed).",
-                                   $"Sunucuyla bağlantı yok — {from} tarihli kayıtlı katalog gösteriliyor ({total} ürün, {weighed} tartılı).",
-                                   $"Server bilan aloqa yo‘q — {from} dagi saqlangan katalog ko‘rsatildi ({total} ta tovar, vaznli {weighed}).")
+            StatusText.Text = Tr.T($"Сервер NurCRM недоступен — показан сохранённый каталог от {from} ({total} товаров, весовых {weighed}).", // 2026-11-01 (В-08): единая фраза о сбое сервера
+                                   $"NurCRM сервери жеткиликсиз — {from} сакталган каталог көрсөтүлдү ({total} товар, салмактуу {weighed}).",
+                                   $"The NurCRM server is unavailable — showing the saved catalog from {from} ({total} products, {weighed} weighed).",
+                                   $"NurCRM sunucusu kullanılamıyor — {from} tarihli kayıtlı katalog gösteriliyor ({total} ürün, {weighed} tartılı).",
+                                   $"NurCRM serveri mavjud emas — {from} dagi saqlangan katalog ko‘rsatildi ({total} ta tovar, vaznli {weighed}).")
                               + (string.IsNullOrWhiteSpace(result.ErrorMessage) ? "" : " " + result.ErrorMessage);
             PosLogger.Log($"Весы: обновление каталога с сервера не удалось: {result.ErrorMessage}", "SCALES");
         }

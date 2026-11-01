@@ -327,7 +327,8 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
     public string LastAddedCaption => Tr.T("ТОЛЬКО ЧТО ДОБАВЛЕНО", "ЖАҢЫ ЭЛЕ КОШУЛДУ", "JUST ADDED", "YENİ EKLENDİ", "HOZIRGINA QO'SHILDI");
     public string TotalNumberText => Money(DisplayTotal);
     public string SubtotalNumberText => Money(_snapshot.Subtotal);
-    public string DiscountNumberText => "−" + Money(_snapshot.Discount);
+    // 2026-11-01 (аудит Д-06): при нулевой скидке был «−0,00» — минус только при настоящей скидке.
+    public string DiscountNumberText => (_snapshot.Discount > 0.004 ? "−" : "") + Money(Math.Max(0, _snapshot.Discount));
     public string CashReceivedNumberText => Money(_snapshot.CashReceived ?? 0);
     public string ChangeDueNumberText => Money(_snapshot.ChangeDue ?? 0);
     public bool HasDiscount => _snapshot.Discount > 0.004;
@@ -555,7 +556,7 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
     private static string ColumnLabel(string key) => key switch
     {
         "Product" => Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), "Quantity" => Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor"), "Price" => Tr.T("Цена", "Баасы", "Price", "Fiyat", "Narx"),
-        "Discount" => Tr.T("Скидка", "Арзандатуу", "Discount", "İndirim", "Chegirma"), "Total" => Tr.T("Сумма", "Суммасы", "Amount", "Tutar", "Summa"), "Barcode" => Tr.T("Штрихкод", "Баркод", "Barcode", "Barkod", "Shtrix-kod"), _ => key,
+        "Discount" => Tr.T("Скидка", "Арзандатуу", "Discount", "İndirim", "Chegirma"), "Total" => Tr.T("Сумма", "Суммасы", "Amount", "Tutar", "Summa"), "Barcode" => Tr.T("Штрихкод", "Штрихкод", "Barcode", "Barkod", "Shtrix-kod"), _ => key,
     };
     private static double ColumnWidth(string key) => key == "Product" ? 280 : key == "Barcode" ? 180 : 145;
 
@@ -792,7 +793,7 @@ public sealed class CustomerDisplayItemViewModel
     public string Title { get; }
     public string Barcode { get; }
     public bool HasBarcode => !string.IsNullOrWhiteSpace(Barcode);
-    public string BarcodeDisplay => Tr.T($"ШК: {Barcode}", $"Баркод: {Barcode}", $"Barcode: {Barcode}", $"Barkod: {Barcode}", $"Shtrix-kod: {Barcode}");
+    public string BarcodeDisplay => Tr.T($"ШК: {Barcode}", $"Штрихкод: {Barcode}", $"Barcode: {Barcode}", $"Barkod: {Barcode}", $"Shtrix-kod: {Barcode}");
     public string QuantityText { get; }
     public string UnitPriceText { get; }
     public string TotalText { get; }

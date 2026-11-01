@@ -38,6 +38,11 @@ public sealed class PermissionService : IPermissionService
         if (permission == PosPermissions.ViewSales)
             return true;
 
+        // 2026-11-01 (П-10): «Печать штрих-кодов» — владелец/админ без ограничений; закрыто только когда сервер явно прислал false;
+        // поля нет (старый ответ сервера) — не блокируем, чтобы никто не потерял доступ.
+        if (permission == PosPermissions.ViewLabels)
+            return IsLabelPrintAllowed(_authApi.UserPayload);
+
         // 2026-10-18: «Интерфейс кассира», «Продажа», «Смены» — со своими правилами (не запирать
         // владельца/админа и компании, где доступы сотрудникам не выставлены).
         if (PosPermissions.CashierWork.Contains(permission, StringComparer.OrdinalIgnoreCase))
@@ -82,10 +87,57 @@ public sealed class PermissionService : IPermissionService
                && (roleName.Equals("owner", StringComparison.OrdinalIgnoreCase) || roleName.Equals("admin", StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>2026-10-30, редактор накладных закупок: право «Редактор документов закупок» — ТОЛЬКО роль owner из профиля. Админ, право «Настройки»,
-    /// автономный режим и сама программа владельца (AppMode.IsOwner — она бывает у сотрудника) права не дают. Когда сервер начнёт отдавать флаг
-    /// can_edit_purchase_documents, его можно будет учитывать здесь; окончательную проверку всё равно делает сервер.</summary>
-    public static bool CanEditPurchaseDocuments(JsonElement payload) => ReceiptEditPolicy.IsOwnerRole(payload);
+    /// <summary>2026-10-30, редактор накладных закупок: право «Редактор документов закупок» — роль из профиля; право «Настройки», автономный режим и сама программа
+    /// владельца (AppMode.IsOwner — она бывает у сотрудника) права не дают. Когда сервер начнёт отдавать флаг can_edit_purchase_documents, его можно будет учитывать здесь;
+    /// окончательную проверку всё равно делает сервер.
+    /// 2026-11-01 (решение владельца «администратор тоже правит всё в накладной»): право у ролей owner И admin; менеджер, кассир и прочие — нет. Роль пишется в журнал правок (by_role).</summary>
+    public static bool CanEditPurchaseDocuments(JsonElement payload) => HasOwnerOrAdminRole(payload);
+
+    /// <summary>2026-10-31: «Удалить» приход в «Истории закупок» — владелец всегда, сотрудник — если сервер выдал ему право
+    /// can_unpost_documents в профиле. Окончательную проверку делает сервер (403 permission_denied).</summary>
+    public static bool CanDeletePurchaseDocuments(JsonElement payload)
+    {
+        if (ReceiptEditPolicy.IsOwnerRole(payload))
+            return true;
+        var user = OfflineAuthSessionStore.ResolveUserObject(payload);
+        if (user.ValueKind != JsonValueKind.Object)
+            user = payload;
+        return user.ValueKind == JsonValueKind.Object
+               && user.TryGetProperty("can_unpost_documents", out var flag)
+               && flag.ValueKind == JsonValueKind.True;
+    }
+
+    /// <summary>2026-11-01 (П-10): право «Печать штрих-кодов» (can_view_market_label). Роль owner/admin из профиля — всегда можно; иначе нельзя только
+    /// при явном false (в профиле, user, permissions и т. п.). Поле не пришло — можно.</summary>
+    public static bool IsLabelPrintAllowed(JsonElement payload)
+    {
+        if (HasOwnerOrAdminRole(payload))
+            return true;
+        return ReadExplicitFlag(payload, PosPermissions.ViewLabels, 0) != false;
+    }
+
+    private static bool? ReadExplicitFlag(JsonElement element, string name, int depth)
+    {
+        if (depth > 5)
+            return null;
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+                if (item.ValueKind == JsonValueKind.String && string.Equals(item.GetString(), name, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return null;
+        }
+        if (element.ValueKind != JsonValueKind.Object)
+            return null;
+        foreach (var property in element.EnumerateObject())
+            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+                return property.Value.ValueKind switch { JsonValueKind.True => true, JsonValueKind.False => false, _ => (bool?)null };
+        foreach (var property in element.EnumerateObject())
+            if (PermissionContainers.Contains(property.Name, StringComparer.OrdinalIgnoreCase) || property.Name is "user" or "profile" or "data" or "cashier")
+                if (ReadExplicitFlag(property.Value, name, depth + 1) is { } found)
+                    return found;
+        return null;
+    }
 
     /// <summary>Роль owner/admin именно из профиля (без AppMode.IsOwner: программа владельца бывает и у сотрудника).</summary>
     internal static bool HasOwnerOrAdminRole(JsonElement payload)

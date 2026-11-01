@@ -71,7 +71,7 @@ public static class ProductActions
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             PosLogger.Log($"Действие с товаром: остаток «{product.Title}» не получен ({ex.Message}).", "WARNING");
-            return new Result(false, T("Нет связи с сервером — остаток не получен, ничего не изменено.", "Сервер менен байланыш жок — калдык алынган жок, эч нерсе өзгөргөн жок.", "No connection to the server — nothing changed.", "Sunucuyla bağlantı yok — hiçbir şey değişmedi.", "Server bilan aloqa yo'q — hech narsa o'zgarmadi."));
+            return new Result(false, T("Сервер NurCRM недоступен — остаток не получен, ничего не изменено.", "NurCRM сервери жеткиликсиз — калдык алынган жок, эч нерсе өзгөргөн жок.", "The NurCRM server is unavailable — nothing changed.", "NurCRM sunucusu kullanılamıyor — hiçbir şey değişmedi.", "NurCRM serveri mavjud emas — hech narsa o'zgarmadi.")); // 2026-11-01 (В-08): единая фраза о сбое сервера
         }
 
         if (expectedCurrent is { } expected && Math.Abs(current - expected) >= 0.0005)

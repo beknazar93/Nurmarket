@@ -305,6 +305,13 @@ class AdminRepository {
     throw last ?? ApiException('Товар не удалён');
   }
 
+  /// 2026-11-01 (аудит 10 из 10, М-16): товар с историей удалить нельзя (409 product_has_history) — в архив: POST products/{id}/archive/.
+  /// С телефона товар убирается: в продаже архивного нет.
+  Future<void> archiveProduct(String id) async {
+    await api.post('api/main/products/$id/archive/');
+    await db.deleteProduct(id);
+  }
+
   /// Ручное начисление бонусов (POST api/main/clients/{id}/bonus/ {delta, reason: manual}) — тот же запрос, что у кассы.
   Future<void> addBonus(String clientId, double delta, String note) async {
     await api.post('api/main/clients/$clientId/bonus/', body: {'delta': delta, 'reason': 'manual', 'note': note});

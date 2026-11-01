@@ -54,7 +54,8 @@ class SyncService {
     if (!await db.hasPending()) return false;
     final me = owner();
     final legacy = await db.getSetting(OutboxMeta.legacyOwnerSetting);
-    return (await db.pending()).any((r) => OutboxMeta.belongsTo(r, me, legacyOwner: legacy));
+    // 2026-11-01 (М-07): счёт в SQL, тела ждущих записей не читаются и не разбираются
+    return await db.pendingCountFor(me, legacyOwner: legacy) > 0;
   }
 
   /// Приложение сворачивается или только что запустилось: поставить фоновую отправку, если очередь не пуста, иначе снять.
@@ -129,7 +130,7 @@ class SyncService {
   Future<void> runOnce({bool force = false}) async {
     // Таймер: очередь уже идёт — не ждём и не копим проходы.
     if (_queueRun == null) await runQueue();
-    var failed = lastError != null && (await db.pending()).isNotEmpty; // очередь не ушла (нет связи, ошибка сервера)
+    var failed = lastError != null && await db.hasPending(); // очередь не ушла (нет связи, ошибка сервера)
     if (!_quotesRunning) {
       _quotesRunning = true;
       try {
@@ -193,6 +194,8 @@ class SyncService {
           case 'sale':
             final resp = await sales.replay(row);
             await db.markSent(row.id, serverId: str(resp, 'id'), serverNumber: str(resp, 'number'));
+          case 'bonus':
+            await sales.replayBonus(row); // 2026-11-01 (М-05): бонусы клиента, не прошедшие сразу после продажи
           case 'receive':
             await stock.replayReceiving(row);
           case 'audit':
@@ -219,6 +222,13 @@ class SyncService {
           final note = ApiText.saleAlreadyPosted;
           await (db.update(db.outbox)..where((o) => o.id.equals(row.id))).write(OutboxCompanion(lastError: Value(note)));
           lastError = note;
+          continue;
+        }
+        // 2026-11-01 (М-08): чек старше 7 суток — понятная причина сразу, без трёх повторов; в «Не принято» остаётся (деньги взяты, не снимать).
+        // Провести его можно только с подтверждением владельца (accept_late + PIN) — это ждёт ответа Умара по pin/verify.
+        if (e.status == 400 && row.kind == 'sale' && SalesRepository.isTooOld(e.payload)) {
+          lastError = ApiText.saleTooOld;
+          await db.markAttempt(row.id, ApiText.saleTooOld, failed: true);
           continue;
         }
         if (e.isTransient) {

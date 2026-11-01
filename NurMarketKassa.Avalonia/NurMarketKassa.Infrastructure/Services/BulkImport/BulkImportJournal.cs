@@ -80,6 +80,51 @@ public sealed class BulkImportJournal
         return new BulkImportJournal { Hash = hash, Mode = mode, CompanyId = company, FileName = fileName, StartedAt = DateTime.Now, UpdatedAt = DateTime.Now };
     }
 
+    /// <summary>2026-11-01 (аудит 10 из 10, С-06): журнал другого файла того же прихода. Исправленный файл даёт другой хэш и новый журнал — все строки
+    /// приходовались бы второй раз. Ищем свежие (до 7 дней) журналы режима прихода той же компании, не этот самый; у которого записано больше половины
+    /// штрихкодов нового файла. Возвращает журнал и пересечение (штрихкоды, уже оприходованные), либо null. Количества в журнале не хранятся —
+    /// сравнение только по штрихкодам.</summary>
+    public static (BulkImportJournal Journal, List<string> Overlap)? FindSimilarReceipt(string currentHash, IReadOnlyCollection<string> barcodes)
+    {
+        if (barcodes.Count == 0)
+            return null;
+        var company = CompanyInfoService.LastCompany?.Id ?? "";
+        var wanted = barcodes.Select(Key).Where(b => b.Length > 0).ToHashSet(StringComparer.Ordinal);
+        if (wanted.Count == 0)
+            return null;
+        (BulkImportJournal Journal, List<string> Overlap)? best = null;
+        try
+        {
+            if (!Directory.Exists(Dir))
+                return null;
+            foreach (var path in Directory.EnumerateFiles(Dir, "bulk-journal-*.json"))
+            {
+                try
+                {
+                    var text = AtomicFile.ReadAllText(path);
+                    if (text is null || JsonSerializer.Deserialize<BulkImportJournal>(text, Json) is not { } j
+                        || j.Hash == currentHash || j.Mode != "receipt" || (j.Done.Count == 0 && (j.ReceiptBatchId is null || j.ReceiptOrder.Count == 0))
+                        || (DateTime.Now - j.UpdatedAt).TotalDays > 7
+                        || (j.CompanyId.Length > 0 && company.Length > 0 && !string.Equals(j.CompanyId, company, StringComparison.OrdinalIgnoreCase)))
+                        continue;
+                    // 2026-11-01 (приёмка С-06): пачка этого журнала ещё идёт в очереди (или окно закрыли во время загрузки) — её строки «возможно уже оприходованы».
+                    var overlap = j.Done.Concat(j.ReceiptBatchId is null ? [] : j.ReceiptOrder).Select(Key).Where(wanted.Contains).Distinct(StringComparer.Ordinal).ToList();
+                    if (overlap.Count * 2 > wanted.Count && (best is null || overlap.Count > best.Value.Overlap.Count))
+                        best = (j, overlap);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Журнал массовой загрузки {Path.GetFileName(path)} не прочитан при сверке: {ex.Message}", "WARNING");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сверка журналов массовой загрузки не удалась: {ex.Message}", "WARNING");
+        }
+        return best;
+    }
+
     [JsonIgnore]
     public int DoneCount
     {

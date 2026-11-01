@@ -772,11 +772,11 @@
   <x:String x:Key="posSettings.screen.refreshCashboxesTooltip">Kassalar ro'yxatini yangilash</x:String>
   <x:String x:Key="posSettings.screen.cashierLanguage">Kassir ekrani tili</x:String>
   <x:String x:Key="posSettings.screen.appliesImmediately">Qayta ishga tushirmasdan darhol qo'llaniladi.</x:String>
-  <x:String x:Key="posSettings.screen.langRussian">Ruscha</x:String>
-  <x:String x:Key="posSettings.screen.langKyrgyz">Qirg'izcha</x:String>
-  <x:String x:Key="posSettings.screen.langTurkish">Turkcha</x:String>
+  <x:String x:Key="posSettings.screen.langRussian">Русский</x:String>
+  <x:String x:Key="posSettings.screen.langKyrgyz">Кыргызча</x:String>
+  <x:String x:Key="posSettings.screen.langTurkish">Türkçe</x:String>
   <x:String x:Key="posSettings.screen.langUzbek">O'zbekcha</x:String>
-  <x:String x:Key="posSettings.screen.langEnglish">Inglizcha</x:String>
+  <x:String x:Key="posSettings.screen.langEnglish">English</x:String>
   <x:String x:Key="posSettings.screen.languagePackHint">Ingliz, turk va o'zbek tillari — pullik "Til paketi": Marketpleys → Qo'shimcha funksiyalar</x:String>
   <x:String x:Key="posSettings.screen.uiScale">Masshtab</x:String>
   <x:String x:Key="posSettings.screen.uiScaleDesc">Kassa ekranidagi barcha elementlarning o'lchami — 50% dan 200% gacha. Qayta ishga tushirmasdan darhol qo'llaniladi.</x:String>

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show Value;
+import 'dart:async';
+
+import 'package:drift/drift.dart' show TableUpdate, TableUpdateQuery, Value, Variable;
 
 import '../api/session_store.dart';
 import '../db/database.dart';
@@ -76,6 +78,9 @@ class OutboxMeta {
           final id = it['product']?.toString();
           final q = stockQty(it, meta);
           if (id != null && q > 0) await db.adjustStock(id, q);
+          // 2026-10-31 (одежда): снятый чек возвращает и остаток размера
+          final vid = it['variant']?.toString();
+          if (vid != null && vid.isNotEmpty && q > 0) await db.adjustVariantStock(vid, q);
         }
       } catch (_) {
         // без поправки остатка
@@ -91,4 +96,83 @@ class OutboxMeta {
     final o = ownerOfRow(row) ?? ((legacyOwner == null || legacyOwner.isEmpty) ? owner : legacyOwner);
     return o == owner;
   }
+}
+
+/// 2026-11-01 (аудит 10 из 10, М-07): счёт записей очереди этого входа средствами SQL (JSON1), без чтения и разбора тел чеков.
+/// Раньше `pendingCountProvider` и `hasOwnWork` на каждую запись очереди разбирали JSON всех ждущих тел в основном изоляте
+/// (5000 записей ≈ 6 МБ и ≈ 77 мс за проход, всё это — на каждую отправленную). Правило владельца — как [OutboxMeta.belongsTo].
+extension OutboxCounts on AppDatabase {
+  static const _sql =
+      "SELECT COUNT(*) AS c FROM outbox WHERE status = 'pending' "
+      "AND COALESCE(NULLIF(json_extract(body, '\$._meta.owner'), ''), ?) = ?";
+
+  /// Сколько ждущих отправки записей у входа [me]. Записи без `_meta` (до 22.10) принадлежат [legacyOwner] или текущему входу.
+  Future<int> pendingCountFor(String me, {String? legacyOwner}) async {
+    if (me.isEmpty) return 0;
+    final eff = (legacyOwner == null || legacyOwner.isEmpty) ? me : legacyOwner;
+    try {
+      final r = await customSelect(_sql, variables: [Variable.withString(eff), Variable.withString(me)], readsFrom: {outbox}).getSingle();
+      return r.read<int>('c');
+    } catch (_) {
+      // JSON1 нет или тело повреждено — старый путь (разбор тел)
+      return (await pending()).where((r) => OutboxMeta.belongsTo(r, me, legacyOwner: legacyOwner)).length;
+    }
+  }
+
+  /// То же, но потоком (обновляется при записи в очередь, не чаще раза в 0,7 с — приёмка, Н-10: на каждую отправленную запись
+  /// большой очереди счёт не пересчитывается; запасной путь [pendingCountFor] работает и в потоке).
+  Stream<int> watchPendingCountFor(String me, {String? legacyOwner}) => _countStream(this, () => pendingCountFor(me, legacyOwner: legacyOwner));
+
+  static const _staleSql =
+      "SELECT COUNT(*) AS c FROM outbox WHERE kind = 'sale' AND status IN ('pending', 'failed') AND created_at < ? "
+      "AND COALESCE(NULLIF(json_extract(body, '\$._meta.owner'), ''), ?) = ?";
+
+  /// 2026-11-01 (приёмка, Н-9): сколько чеков этого входа ждут отправки или не приняты и старше [age] — по ВСЕЙ очереди, а не по последним
+  /// записям на экране (плашка «чеки старше 5 суток»).
+  Future<int> staleSalesCountFor(String me, {String? legacyOwner, Duration age = const Duration(days: 5)}) async {
+    if (me.isEmpty) return 0;
+    final eff = (legacyOwner == null || legacyOwner.isEmpty) ? me : legacyOwner;
+    final cutoff = DateTime.now().subtract(age);
+    try {
+      final r = await customSelect(
+        _staleSql,
+        variables: [Variable.withInt(cutoff.millisecondsSinceEpoch ~/ 1000), Variable.withString(eff), Variable.withString(me)],
+        readsFrom: {outbox},
+      ).getSingle();
+      return r.read<int>('c');
+    } catch (_) {
+      final rows = await (select(outbox)..where((o) => o.kind.equals('sale'))..where((o) => o.status.isIn(const ['pending', 'failed']))).get();
+      return rows.where((r) => r.createdAt.isBefore(cutoff) && OutboxMeta.belongsTo(r, me, legacyOwner: legacyOwner)).length;
+    }
+  }
+
+  Stream<int> watchStaleSalesFor(String me, {String? legacyOwner}) => _countStream(this, () => staleSalesCountFor(me, legacyOwner: legacyOwner));
+}
+
+/// Поток числа: первое значение сразу, дальше — после записей в очередь, но не чаще раза в 0,7 с (записи за паузу сливаются в один пересчёт).
+Stream<int> _countStream(AppDatabase db, Future<int> Function() count) {
+  late final StreamController<int> c;
+  StreamSubscription<Set<TableUpdate>>? sub;
+  Timer? t;
+  Future<void> emit() async {
+    t = null;
+    try {
+      final v = await count();
+      if (!c.isClosed) c.add(v);
+    } catch (e) {
+      if (!c.isClosed) c.addError(e);
+    }
+  }
+
+  c = StreamController<int>(
+    onListen: () {
+      unawaited(emit());
+      sub = db.tableUpdates(TableUpdateQuery.onTable(db.outbox)).listen((_) => t ??= Timer(const Duration(milliseconds: 700), () => unawaited(emit())));
+    },
+    onCancel: () {
+      t?.cancel();
+      return sub?.cancel();
+    },
+  );
+  return c.stream;
 }

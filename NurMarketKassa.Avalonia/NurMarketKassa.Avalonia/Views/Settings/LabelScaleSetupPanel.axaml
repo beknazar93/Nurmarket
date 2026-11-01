@@ -217,7 +217,7 @@
                                      LostFocus="Field_LostFocus"/>
                         </StackPanel>
                     </Grid>
-                    <TextBlock Text="{DynamicResource loc.settings.lanScale.passwordHint}" Classes="SettingsCardBody" FontSize="11"/>
+                    <TextBlock Text="{DynamicResource loc.settings.lanScale.passwordHint}" Classes="SettingsCardBody" FontSize="12"/>
 
                     <TextBlock Text="{DynamicResource scaleSetup.route.label}" Classes="FieldLabel" Margin="0,4,0,0"/>
                     <WrapPanel>
@@ -243,7 +243,7 @@
                                      LostFocus="Field_LostFocus"/>
                         </StackPanel>
                     </Grid>
-                    <TextBlock Text="{DynamicResource scaleSetup.rongta.hint}" Classes="SettingsCardBody" FontSize="11"/>
+                    <TextBlock Text="{DynamicResource scaleSetup.rongta.hint}" Classes="SettingsCardBody" FontSize="12"/>
 
                     <TextBlock Text="{DynamicResource scaleSetup.route.label}" Classes="FieldLabel" Margin="0,4,0,0"/>
                     <WrapPanel>
@@ -277,7 +277,7 @@
                                      LostFocus="Field_LostFocus"/>
                         </StackPanel>
                     </Grid>
-                    <TextBlock Text="{DynamicResource scaleSetup.tm.hint}" Classes="SettingsCardBody" FontSize="11"/>
+                    <TextBlock Text="{DynamicResource scaleSetup.tm.hint}" Classes="SettingsCardBody" FontSize="12"/>
                 </StackPanel>
 
                 <!-- AI весы: только пояснение -->

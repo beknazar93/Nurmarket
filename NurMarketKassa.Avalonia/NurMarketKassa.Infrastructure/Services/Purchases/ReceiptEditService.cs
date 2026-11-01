@@ -42,7 +42,19 @@ public interface IReceiptEditServer
     /// <summary>Наибольшая версия правки этого прихода, найденная в комментариях возвратов и приходов поставщика на сервере (метка «[nm:код-прихода:vN:…]», для возвратов —
     /// ещё по самому приходу-источнику). Ищется по серверному id прихода, а не по номеру документа (у каждого ПК своя нумерация). 0 — не найдено. Бросает, если просмотреть не удалось.</summary>
     Task<int> RemoteEditVersionAsync(string supplierId, string docNumber, string receiptId, DateTime? receiptAt, CancellationToken ct) => Task.FromResult(0);
+
+    // 2026-11-01 (администратор правит «всё»): цена продажи и наценка товара в каталоге — единственное, что кроме количества можно изменить уже сейчас существующим
+    // вызовом сервера (PATCH товара, как после приёмки). Документ прихода при этом не меняется (PATCH прихода у сервера нет).
+
+    /// <summary>Цена продажи товара на сервере сейчас (GET товара); null — не прочиталась.</summary>
+    Task<double?> ReadSalePriceAsync(string productId, CancellationToken ct) => Task.FromResult<double?>(null);
+
+    /// <summary>PATCH товара: price (+ markup_percent). Значение абсолютное — повтор безопасен.</summary>
+    Task PatchSalePriceAsync(string productId, double price, double? markupPercent, CancellationToken ct) => throw new NotSupportedException("изменение цены продажи не поддерживается");
 }
+
+/// <summary>2026-11-01: изменение цены продажи/наценки товара из накладной (было → станет). Purchase — закупка в приходе (для пересчёта наценки).</summary>
+public sealed record PriceEdit(string ProductId, string Name, double Purchase, double? SaleBefore, double SaleAfter, double? MarkupBefore, double? MarkupAfter);
 
 public sealed class ApiReceiptEditServer : IReceiptEditServer
 {
@@ -65,6 +77,20 @@ public sealed class ApiReceiptEditServer : IReceiptEditServer
         body["idempotency_key"] = key;
         var response = await PosApp.CatalogApi.CreateSupplierReceiptAsync(supplierId, body, ct).ConfigureAwait(false);
         return (SupplierApiService.Str(response, "id") is { Length: > 0 } id ? id : null, SupplierApiService.Date(SupplierApiService.Str(response, "created_at")));
+    }
+
+    public async Task<double?> ReadSalePriceAsync(string productId, CancellationToken ct)
+    {
+        var card = await PosApp.CatalogApi.ProductsDetailAsync(productId, ct).ConfigureAwait(false);
+        return card is { ValueKind: JsonValueKind.Object } c && c.TryGetProperty("price", out _) ? SupplierApiService.Num(c, "price") : null;
+    }
+
+    public async Task PatchSalePriceAsync(string productId, double price, double? markupPercent, CancellationToken ct)
+    {
+        var fields = new Dictionary<string, object?> { ["price"] = price };
+        if (markupPercent is { } m)
+            fields["markup_percent"] = m;
+        await PosApp.CatalogApi.PatchProductFieldsAsync(productId, fields, ct).ConfigureAwait(false);
     }
 
     public async Task<bool?> KeyKnownAsync(string key, CancellationToken ct)
@@ -164,7 +190,8 @@ public sealed class ApiReceiptEditServer : IReceiptEditServer
 public sealed record EditRequest(
     SupplierReceipt Receipt, string DocNumber, ReceiptPayKind Pay, IReadOnlyList<EditLineInput> Inputs, IReadOnlyDictionary<string, double> NewQty,
     string Reason, string By, string Device, string Compensation, string? CashboxId,
-    bool IsOwner, ReceiptEditWindow Window, string BaseFingerprint, int BaseVersion, int RevertedVersion = 0, bool InQueue = false, string SupplierName = "");
+    bool IsOwner, ReceiptEditWindow Window, string BaseFingerprint, int BaseVersion, int RevertedVersion = 0, bool InQueue = false, string SupplierName = "",
+    string ById = "", string ByRole = "", IReadOnlyList<PriceEdit>? Prices = null);
 
 public sealed record EditResult(bool Ok, int Version, string? Error, bool Conflict, bool Partial, ReceiptEditRecord? Record, ReceiptEditPlan? Plan, bool NeedsManualCheck = false);
 
@@ -247,7 +274,7 @@ public sealed class ReceiptEditService
         var plan = ReceiptEditPlanner.Build(req.Inputs, req.NewQty, pay);
         if (!plan.IsValid)
             return new EditResult(false, history.Version, string.Join("\n", plan.Errors.Take(5)), false, false, null, plan);
-        if (!plan.HasChanges)
+        if (!plan.HasChanges && (req.Prices is null || req.Prices.Count == 0))
             return new EditResult(false, history.Version, Tr.T("Изменений нет.", "Өзгөртүү жок.", "No changes.", "Değişiklik yok.", "O'zgarish yo'q."), false, false, null, plan);
         if (revertTarget is not null && plan.Addenda.Count > 0 && RevertBlocked(revertTarget))
             return new EditResult(false, history.Version, RevertBlockedText, false, false, null, plan);
@@ -258,6 +285,7 @@ public sealed class ReceiptEditService
             ReceiptId = req.Receipt.Id, Version = version, BaseVersion = history.Version, Kind = req.RevertedVersion > 0 ? "revert" : "edit", RevertedVersion = req.RevertedVersion,
             At = _now(), By = req.By, Device = req.Device, Reason = req.Reason.Trim(), TotalBefore = plan.TotalBefore, TotalAfter = plan.TotalAfter,
             Compensation = req.Compensation, Fingerprint = req.BaseFingerprint, Status = "applying",
+            DocNumber = req.DocNumber, SupplierName = req.SupplierName, ReceiptAt = req.Receipt.CreatedAt, ById = req.ById, ByRole = req.ByRole, // 2026-11-01: для журнала правок
         };
         foreach (var l in plan.Lines.Where(l => l.Action != EditAction.None))
             record.Lines.Add(new EditLineChange { LineId = l.Input.LineId, ProductId = l.Input.ProductId, Name = l.Input.Name, Unit = l.Input.Unit, QtyBefore = l.Effective, QtyAfter = l.NewQty, Price = l.Input.Purchase });
@@ -271,8 +299,13 @@ public sealed class ReceiptEditService
         if (plan.Addenda.Count > 0)
             record.Steps.Add(new EditStep { Kind = "addendum", Items = plan.Addenda.Select(a => new EditStepItem { ProductId = a.ProductId, Name = a.Name, Unit = a.Unit, Qty = a.Qty, Price = a.Price }).ToList() });
 
+        // 2026-11-01: цена продажи / наценка товара — отдельный шаг на каждый товар (PATCH товара после возвратов и доприходов), свой статус и запись «было → стало».
+        foreach (var p in req.Prices ?? Array.Empty<PriceEdit>())
+            record.Steps.Add(new EditStep { Kind = "price", Items = { new EditStepItem { ProductId = p.ProductId, Name = p.Name, Price = p.Purchase, SaleBefore = p.SaleBefore, SaleAfter = p.SaleAfter, MarkupBefore = p.MarkupBefore, MarkupAfter = p.MarkupAfter } } });
+
         // Ключи и шаги — на диск ДО первого запроса.
         _store.Mutate(req.Receipt.Id, h => h.Edits.Add(record));
+        ReceiptEditAuditLog.Write(record, "started"); // 2026-11-01: запись в ленту правок ДО первого запроса к серверу — при обрыве сети правка не теряется
         return await RunAsync(req.Receipt, req.DocNumber, pay, req.Compensation, req.CashboxId, req.SupplierName, record, plan, ct).ConfigureAwait(false);
     }
 
@@ -304,6 +337,9 @@ public sealed class ReceiptEditService
         $"This invoice was already corrected from another PC (version {version}) — the edit journal here can't see it. Edit it on that PC or refresh; nothing was posted.",
         $"Bu fatura başka bir PC'den zaten düzeltildi (sürüm {version}) — buradaki düzenleme günlüğü görmüyor. O PC'de düzenleyin veya yenileyin; hiçbir şey işlenmedi.",
         $"Bu yuk xati boshqa kompyuterdan tuzatilgan (versiya {version}) — bu yerdagi tahrir jurnali uni ko'rmaydi. O'sha kompyuterda tahrirlang yoki yangilang; hech narsa o'tkazilmadi.");
+
+    // 2026-11-01: что в накладной НЕ правится без серверной поддержки (PATCH прихода у сервера нет) — подписи для выключенных полей и вопроса Умару.
+    public static string NeedsServerText => Tr.T("Требует серверной поддержки", "Сервер колдоосун талап кылат", "Requires server support", "Sunucu desteği gerekir", "Server qo'llab-quvvatlashini talab qiladi");
 
     public static string RemoteUnknownText => Tr.T("Правка с другого ПК может быть не видна — не удалось проверить сервер. Обновите данные.", "Башка ПКдагы оңдоо көрүнбөй калышы мүмкүн — серверди текшерүү мүмкүн болгон жок. Маалыматты жаңыртыңыз.",
         "An edit from another PC may be invisible — the server could not be checked. Refresh.", "Başka bir PC'deki düzenleme görünmeyebilir — sunucu kontrol edilemedi. Yenileyin.", "Boshqa kompyuterdagi tahrir ko'rinmasligi mumkin — serverni tekshirib bo'lmadi. Yangilang.");
@@ -381,7 +417,7 @@ public sealed class ReceiptEditService
         if (record.Steps.Any(s => s.Status != "done" && s.ServerId is { Length: > 0 }))
             return Fail(AbandonPostedText);
         var doubt = new List<string>();
-        foreach (var step in record.Steps.Where(s => s.Status != "done" && s.Attempts > 0 && s.Status != "failed"))
+        foreach (var step in record.Steps.Where(s => s.Status != "done" && s.Attempts > 0 && s.Status != "failed" && s.Kind != "price")) // 2026-11-01: цена товара — абсолютный PATCH, «проведён ли шаг» проверять нечем и незачем
         {
             // шаг уходил, и ответ мог дойти: проверяем ключ и метку на сервере
             var token = ReceiptEditMatcher.Token(receipt.Id, record.Version, step.Key);
@@ -413,6 +449,7 @@ public sealed class ReceiptEditService
         if (done > 0)
             MarkUnposted(record); // 2026-10-31 (приёмка 1.17.68, 4б): в истории — то, что реально проведено, а не план
         _store.Mutate(receipt.Id, _ => { });
+        ReceiptEditAuditLog.Write(record, record.Status); // 2026-11-01: abandoned / failed — в ленту правок
         PosLogger.Log($"AUDIT: владелец отказался от недоведённой правки накладной {docNumber} v{record.Version} ({done} из {record.Steps.Count} шагов проведено; сумма по плану {record.PlannedTotalAfter ?? record.TotalAfter:0.00}, проведено {record.TotalAfter:0.00}){(doubt.Count > 0 ? "; проведённость шагов не удалось проверить — проверено вручную" : "")}.", "WARNING");
         return new EditResult(true, record.Version, null, false, done > 0, record, null);
     }
@@ -422,7 +459,7 @@ public sealed class ReceiptEditService
     /// Две строки одного товара делят шаги — для них по количеству не пересчитываем, только помечаем.</summary>
     private static void MarkUnposted(ReceiptEditRecord record)
     {
-        var posted = record.Steps.Where(s => s.Status == "done").ToList();
+        var posted = record.Steps.Where(s => s.Status == "done" && s.Kind != "price").ToList(); // 2026-11-01: шаги цен товара количество и сумму прихода не меняют
         double Net(string productId) => posted.Sum(s => s.Items.Where(i => string.Equals(i.ProductId, productId, StringComparison.OrdinalIgnoreCase))
             .Sum(i => s.Kind == "return" ? -i.Qty : i.Qty));
         var delta = posted.Sum(s => s.Items.Sum(i => (s.Kind == "return" ? -1 : 1) * ReceivingPricing.LineTotal(i.Qty, i.Price)));
@@ -432,7 +469,7 @@ public sealed class ReceiptEditService
         {
             var shared = record.Lines.Count(l => string.Equals(l.ProductId, line.ProductId, StringComparison.OrdinalIgnoreCase)) > 1;
             var actual = shared ? line.QtyAfter : Math.Round(line.QtyBefore + Net(line.ProductId), 3);
-            if (shared ? posted.Count < record.Steps.Count : Math.Abs(actual - line.QtyAfter) > 0.0005)
+            if (shared ? posted.Count < record.Steps.Count(s => s.Kind != "price") : Math.Abs(actual - line.QtyAfter) > 0.0005)
             {
                 line.PlannedQtyAfter = line.QtyAfter;
                 line.QtyAfter = actual;
@@ -464,7 +501,7 @@ public sealed class ReceiptEditService
         string? stopError = null;
         var comment = EditComment(docNumber, record);
         // возвраты раньше доприходов: остаток сначала уменьшается, потом растёт
-        foreach (var step in record.Steps.OrderBy(s => s.Kind == "return" ? 0 : 1).ToList())
+        foreach (var step in record.Steps.OrderBy(s => s.Kind == "return" ? 0 : s.Kind == "price" ? 2 : 1).ToList()) // 2026-11-01: цены товара — после возвратов и доприходов
         {
             if (step.Status == "done")
                 continue;
@@ -479,7 +516,9 @@ public sealed class ReceiptEditService
             {
                 // 2026-10-30 (приёмка 1.17.67, «Важно» 4): у каждого шага своя метка в комментарии — по ней повтор находит именно ЭТОТ документ (не чужой и не другой версии).
                 var token = ReceiptEditMatcher.Token(receipt.Id, record.Version, step.Key);
-                if (step.Kind == "return")
+                if (step.Kind == "price")
+                    await DoPriceAsync(receipt.Id, step, ct).ConfigureAwait(false);
+                else if (step.Kind == "return")
                     await DoReturnAsync(receipt, step, compensation, cashboxId, token, comment, docNumber, mayBePosted, ct).ConfigureAwait(false);
                 else
                     await DoAddendumAsync(receipt, step, pay, docNumber, token, comment, supplierName, record, mayBePosted, ct).ConfigureAwait(false);
@@ -518,6 +557,7 @@ public sealed class ReceiptEditService
             record.Status = "done";
             _store.Mutate(receipt.Id, h => h.Version = Math.Max(h.Version, record.Version));
             PosLogger.Log($"AUDIT: правка накладной {docNumber} v{record.Version} ({record.Kind}): {record.TotalBefore:0.00} → {record.TotalAfter:0.00}; причина: {record.Reason}.", "INFO");
+            ReceiptEditAuditLog.Write(record, "done"); // 2026-11-01: итог правки — в ленту purchase-edits.jsonl
             try { Notifier?.Invoke(record, docNumber, supplierName); } catch (Exception ex) { PosLogger.Log($"Правка накладной: уведомление не ушло ({ex.Message}).", "WARNING"); }
             return new EditResult(true, record.Version, null, false, false, record, plan);
         }
@@ -528,6 +568,7 @@ public sealed class ReceiptEditService
         else
             _store.Mutate(receipt.Id, _ => { });
         PosLogger.Log($"AUDIT: правка накладной {docNumber} v{record.Version} не доведена до конца ({done} из {record.Steps.Count} шагов): {stopError}", "WARNING");
+        ReceiptEditAuditLog.Write(record, record.Status); // 2026-11-01: partial / applying / failed — тоже в ленту (повтор того же состояния не дублируется)
         return new EditResult(false, record.Version, stopError, false, done > 0, record, plan);
     }
 
@@ -594,6 +635,30 @@ public sealed class ReceiptEditService
             body["cashbox_id"] = cashboxId;
         step.ServerId = await _server.PostReturnAsync(receipt.SupplierId, body, step.Key, ct).ConfigureAwait(false);
         AfterReturnPosted(receipt, step);
+    }
+
+    /// <summary>2026-11-01: цена продажи / наценка товара (PATCH товара). «Было» читаем с сервера один раз — при первой отправке и до записи — и сохраняем в шаге на диск;
+    /// значение «станет» абсолютное, поэтому повтор после потерянного ответа безопасен (ничего не задвоится).</summary>
+    private async Task DoPriceAsync(string receiptId, EditStep step, CancellationToken ct)
+    {
+        var item = step.Items[0];
+        if (step.Attempts <= 1)
+        {
+            try
+            {
+                if (await _server.ReadSalePriceAsync(item.ProductId, ct).ConfigureAwait(false) is { } now)
+                {
+                    item.SaleBefore = now;
+                    item.MarkupBefore = item.Price > 0 ? ReceivingPricing.MarkupPercent(item.Price, now) : null;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                PosLogger.Log($"Правка накладной: цена продажи товара {item.ProductId} до правки не прочитана ({ex.Message}) — «было» берём из формы.", "WARNING");
+            }
+            _store.Mutate(receiptId, _ => { });
+        }
+        await _server.PatchSalePriceAsync(item.ProductId, item.SaleAfter ?? 0, item.MarkupAfter, ct).ConfigureAwait(false);
     }
 
     /// <summary>Возврат проведён (сейчас или раньше): вернули из доприхода — у него осталось меньше.</summary>
@@ -792,10 +857,18 @@ public sealed class ReceiptEditService
 
     private static void NotifyOwner(ReceiptEditRecord r, string docNumber, string supplier)
     {
+        // 2026-11-01: правка задним числом (с прихода прошло больше 7 суток) — отметка в журнале аудита и в уведомлении; по одной накладной — не чаще раза в сутки.
+        // Отдельного канала нет: «Нестандартные чеки» — про продажи, поэтому используем уже существующее уведомление владельцу о правке накладной.
+        var backdated = ReceiptEditAuditLog.IsBackdated(r.ReceiptAt, r.At) && ReceiptEditAuditLog.TakeBackdatedAlert(r.ReceiptId, r.At);
+        if (backdated)
+            PosLogger.Log($"AUDIT: правка накладной {docNumber} v{r.Version} задним числом — с прихода {(r.At - r.ReceiptAt!.Value).TotalDays:0} сут.; кто: {r.By}; причина: {r.Reason}.", "WARNING");
+        // (title ниже получает пометку «задним числом»)
         if (!TelegramBotService.IsConfigured)
             return;
+        var days = backdated ? (r.At - r.ReceiptAt!.Value).TotalDays : 0;
+        var late = !backdated ? "" : Tr.T($" задним числом ({days:0} сут. после прихода)", $" эски датада (кирүүдөн {days:0} сутка кийин)", $" retroactively ({days:0} days after the receipt)", $" geriye dönük (girişten {days:0} gün sonra)", $" orqaga sanada (kirimdan {days:0} sutka keyin)");
         var text = TelegramBotService.BuildAlert(
-            Tr.T("Накладная закупки исправлена", "Сатып алуу накладнойу оңдолду", "A purchase invoice was corrected", "Alım faturası düzeltildi", "Xarid yuk xati tuzatildi"),
+            Tr.T("Накладная закупки исправлена", "Сатып алуу накладнойу оңдолду", "A purchase invoice was corrected", "Alım faturası düzeltildi", "Xarid yuk xati tuzatildi") + late,
             Tr.T($"✎ {docNumber} («{supplier}») исправлена: {r.TotalBefore:0.00} → {r.TotalAfter:0.00} сом ({r.TotalAfter - r.TotalBefore:+0.00;-0.00}). Версия {r.Version}. Причина: {r.Reason}. Кто: {r.By}, ПК: {r.Device}.",
                 $"✎ {docNumber} («{supplier}») оңдолду: {r.TotalBefore:0.00} → {r.TotalAfter:0.00} сом ({r.TotalAfter - r.TotalBefore:+0.00;-0.00}). Версия {r.Version}. Себеби: {r.Reason}. Ким: {r.By}, ПК: {r.Device}.",
                 $"✎ {docNumber} (“{supplier}”) corrected: {r.TotalBefore:0.00} → {r.TotalAfter:0.00} som ({r.TotalAfter - r.TotalBefore:+0.00;-0.00}). Version {r.Version}. Reason: {r.Reason}. By: {r.By}, PC: {r.Device}.",

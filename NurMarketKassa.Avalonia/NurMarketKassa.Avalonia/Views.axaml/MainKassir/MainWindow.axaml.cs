@@ -134,6 +134,8 @@ public partial class MainWindow : Window
             if (e.Property == BoundsProperty)
                 FitColumnMinimums();
         };
+        // 2026-11-01 (аудит «10 из 10», Д-07): окно ниже 640 (моноблок 1024×600) — класс "shortscreen": чек плотнее, видно больше строк (стили в BasketPanelView).
+        SizeChanged += (_, _) => UpdateShortScreen();
         CatalogGridSplitter.PointerReleased += OnCatalogGridSplitterPointerReleased;
         CatalogColumn.PropertyChanged += OnCatalogColumnPropertyChanged;
         CartColumn.PropertyChanged += OnCartColumnPropertyChanged;
@@ -143,6 +145,7 @@ public partial class MainWindow : Window
         RestoreApplicationState();
         ApplyMarketSphereToCatalog(fromSettings: false);
         MarketSpheres.Changed += OnMarketSphereChanged;
+        Tr.LanguageChanged += OnLanguageChangedShiftBalance; // 2026-11-01 (Д-4): «Касса: X сом» пересчитывается при смене языка
         _viewModel.Catalog.StateChanged += OnViewModelStateChanged;
         _viewModel.Basket.StateChanged += OnViewModelStateChanged;
         // 2026-10-04: оплата проведена — состояние на диск сразу, без задержки 0,4 с (иначе после сбоя сразу
@@ -161,6 +164,11 @@ public partial class MainWindow : Window
         };
         // 2026-10-29: та же сверка смены — шаг SyncCenter.ForceSyncAllAsync (общая «Обновить»).
         SyncCenter.ShiftRefresher = _ => Dispatcher.UIThread.InvokeAsync(() => _viewModel.RefreshShiftAsync?.Invoke() ?? Task.CompletedTask);
+        // 2026-11-01 (К-03, приёмка): закрытие офлайн-смены, уже переданной серверу, сначала досылает её внесения/изъятия (CashShiftService).
+        CashShiftService.CashOperationsFlusher = (realShiftId, _) => ShiftCashFlowSync.FlushForCloseAsync(realShiftId);
+        // 2026-11-01 (К-02, code-review): офлайн-смена передана серверу автоматически — кассир видит плашку, а не молчаливый фон.
+        ShiftStateService.OfflineShiftHandedToServer -= OnOfflineShiftHandedToServer;
+        ShiftStateService.OfflineShiftHandedToServer += OnOfflineShiftHandedToServer;
         // 2026-10-29 (скорость синхронизации): режим окна и «есть товары в чеке» — для адаптивного опроса ленты (3 с / 8 с / 30–60 с).
         NurMarketKassa.AvaloniaHost.Services.SyncActivityWatcher.Attach(this, _viewModel.Basket, () => _viewModel.Basket.HasItems);
         // 2026-10-20 (живой аудит кассы, К1–К3, К6): как заплатили — для суммы возврата и «Истории чеков» после возврата.
@@ -1163,6 +1171,14 @@ public partial class MainWindow : Window
             FeedScannerFromProductSearch(productSearch, e);
             return;
         }
+        // 2026-11-01 (аудит 10 из 10, К-07): курсор в поле количества (строка чека или «Кол-во» панели чека) — скан раньше ложился туда цифрами
+        // и обрезался до 5 знаков (количество 48 700, Enter применял его). Теперь код, набранный со скоростью сканера и законченный Enter,
+        // уходит в чек как обычный скан, а в поле возвращается прежнее количество.
+        if (focused is TextBox qtyBox && IsQuantityBox(qtyBox))
+        {
+            FeedScannerFromProductSearch(qtyBox, e, quantityBox: true);
+            return;
+        }
         if (focused is TextBox)
             return;
 
@@ -1184,6 +1200,11 @@ public partial class MainWindow : Window
     }
 
     private int _searchFastRun;
+    private string _quantityBoxBeforeScan = "";
+
+    /// <summary>2026-11-01 (К-07): поле количества — в строке чека (DataContext строки) или «Кол-во» панели чека (5 знаков, привязка к панели).</summary>
+    private static bool IsQuantityBox(TextBox box) =>
+        box.DataContext is CartLineItemVm || (box.DataContext is BasketPanelViewModel && box.MaxLength == 5);
     private long _lastSearchKeyTick;
     private ulong? _lastSearchKeyRaw;
 
@@ -1191,14 +1212,19 @@ public partial class MainWindow : Window
     /// 50 мс (по времени нажатия, как у сканера — AvaloniaKeyboardWedgeBarcodeService) и Enter сразу за ними (до 150 мс) —
     /// так человек не печатает (как в поиске меню ☰ «Новое»). Тогда код — в чек, поле поиска очищается, курсор — сканеру.
     /// Иначе Enter и символы — полю, как раньше (буфер сканера забывается).</summary>
-    private void FeedScannerFromProductSearch(TextBox search, KeyEventArgs e)
+    private void FeedScannerFromProductSearch(TextBox search, KeyEventArgs e, bool quantityBox = false)
     {
         if (_barcodeInputService is not AvaloniaKeyboardWedgeBarcodeService wedge)
             return;
         var now = Environment.TickCount64;
         if (e.Key == Key.Enter)
         {
-            var fresh = now - _lastSearchKeyTick is >= 0 and < 150;
+            // 2026-11-01 (живая проверка Д-3): «свежесть» Enter — по времени нажатия клавиш (метка сообщения), а не обработки: в поле количества
+            // строки каждая цифра перерисовывает чек, обработка шла дольше 150 мс, и скан не распознавался. Нет метки — по часам, как раньше.
+            var enterRaw = AvaloniaKeyboardWedgeBarcodeService.KeyPressTimestamp();
+            var fresh = enterRaw is { } er && _lastSearchKeyRaw is { } elr && er >= elr
+                ? er - elr < 150
+                : now - _lastSearchKeyTick is >= 0 and < 150;
             if (wedge.ScanJustCompleted)
             {
                 e.Handled = true; // второй Enter сканера (CR+LF)
@@ -1217,8 +1243,16 @@ public partial class MainWindow : Window
                     _scanFromOwnPopup = false;
                 }
                 e.Handled = true;
-                search.Text = "";
-                PosLogger.Log("Скан в поле поиска каталога: код ушёл в чек, поиск очищен.", "SCAN");
+                if (quantityBox)
+                {
+                    search.Text = _quantityBoxBeforeScan; // 2026-11-01 (К-07): прежнее количество, а не цифры штрихкода
+                    PosLogger.Log("Скан в поле количества: код ушёл в чек, количество не изменено.", "SCAN");
+                }
+                else
+                {
+                    search.Text = "";
+                    PosLogger.Log("Скан в поле поиска каталога: код ушёл в чек, поиск очищен.", "SCAN");
+                }
                 RestoreScannerFocus();
                 return;
             }
@@ -1230,6 +1264,8 @@ public partial class MainWindow : Window
         var raw = AvaloniaKeyboardWedgeBarcodeService.KeyPressTimestamp();
         long delta = raw is { } r && _lastSearchKeyRaw is { } lr && r >= lr ? (long)Math.Min(r - lr, long.MaxValue) : now - _lastSearchKeyTick;
         _searchFastRun = delta is >= 0 and < 50 ? _searchFastRun + 1 : 0;
+        if (quantityBox && _searchFastRun == 0)
+            _quantityBoxBeforeScan = search.Text ?? ""; // начало возможной серии сканера: текст поля до первой цифры
         _lastSearchKeyTick = now;
         _lastSearchKeyRaw = raw;
         var handled = e.Handled;
@@ -1633,6 +1669,10 @@ public partial class MainWindow : Window
         return true;
     }
 
+    /// <summary>2026-11-01 (К-02, code-review): плашка «смена, открытая без связи, передана серверу» (событие ShiftStateService приходит с потока пула).</summary>
+    private static void OnOfflineShiftHandedToServer(string text) =>
+        Dispatcher.UIThread.Post(() => MainStatusViewModel.TryShowInfoToast(text));
+
     internal async Task OpenShiftAsync()
     {
         if (!_session.IsShiftOpen && !AuthorizeShifts())
@@ -1751,7 +1791,7 @@ public partial class MainWindow : Window
 
         var ok = await _prompts.ConfirmAsync(
             Tr.T("Задний экран сейчас повторяет экран кассы, поэтому покупатель не видит цену.\n\n" +
-            "Переключить экраны Windows в режим «Расширить», чтобы на заднем экране показывался экран покупателя?", "Арткы экран азыр кассанын экранын кайталап жатат, ошондуктан сатып алуучу бааны көрбөйт.\n\nАрткы экранда сатып алуучунун экраны көрүнүшү үчүн Windows экрандарын «Расширить» режимине которосузбу?", "The rear screen is currently mirroring the till screen, so the customer can't see the price.\n\nSwitch Windows displays to “Extend” mode so the customer display appears on the rear screen?", "Arka ekran şu anda kasa ekranını yansıtıyor, bu yüzden müşteri fiyatı göremiyor.\n\nArka ekranda müşteri ekranının görünmesi için Windows ekranları «Genişlet» moduna geçirilsin mi?", "Orqa ekran hozir kassa ekranini takrorlayapti, shuning uchun xaridor narxni ko'rmaydi.\n\nOrqa ekranda xaridor ekrani ko'rinishi uchun Windows ekranlari «Расширить» rejimiga o'tkazilsinmi?"),
+            "Переключить экраны Windows в режим «Расширить», чтобы на заднем экране показывался экран покупателя?", "Арткы экран азыр кассанын экранын кайталап жатат, ошондуктан сатып алуучу бааны көрбөйт.\n\nАрткы экранда сатып алуучунун экраны көрүнүшү үчүн Windows экрандарын «Расширить» режимине которосузбу?", "The rear screen is currently mirroring the till screen, so the customer can't see the price.\n\nSwitch Windows displays to “Extend” mode so the customer display appears on the rear screen?", "Arka ekran şu anda kasa ekranını yansıtıyor, bu yüzden müşteri fiyatı göremiyor.\n\nArka ekranda müşteri ekranının görünmesi için Windows ekranları «Genişlet» moduna geçirilsin mi?", "Orqa ekran hozir kassa ekranini takrorlayapti, shuning uchun xaridor narxni ko'rmaydi.\n\nOrqa ekranda xaridor ekrani ko'rinishi uchun Windows ekranlari «Kengaytirish» rejimiga o'tkazilsinmi?"),
             // 2026-10-22 (модалки, пакет 1): глаголы вместо «Продолжить» / «Отмена».
             Tr.T("Расширить экраны", "Экрандарды кеңейтүү", "Extend displays", "Ekranları genişlet", "Ekranlarni kengaytirish"),
             Tr.T("Не сейчас", "Азыр эмес", "Not now", "Şimdi değil", "Hozir emas"))
@@ -2303,6 +2343,17 @@ public partial class MainWindow : Window
             CartColumn.MinWidth = cartMin;
     }
 
+    /// <summary>2026-11-01 (Д-07): низкое окно (&lt; 640, с запасом 20 против мигания на границе) — класс "shortscreen".</summary>
+    private void UpdateShortScreen()
+    {
+        var h = Bounds.Height;
+        if (h <= 0)
+            return;
+        var shortScreen = Classes.Contains("shortscreen") ? h < 660 : h < 640;
+        if (Classes.Contains("shortscreen") != shortScreen)
+            Classes.Set("shortscreen", shortScreen);
+    }
+
     private double _headerOverflowAt;
     private double _headerTinyAt;
 
@@ -2534,6 +2585,7 @@ public partial class MainWindow : Window
         _balanceRefreshTimer?.Stop(); // 2026-10-27: разовый таймер обновления остатка не должен пережить окно
         ServerOutageMonitor.QueueFlushed -= OnQueueFlushed;
         MarketSpheres.Changed -= OnMarketSphereChanged;
+        Tr.LanguageChanged -= OnLanguageChangedShiftBalance;
         Screens.Changed -= OnCashierScreensChanged;
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
         PosDataEvents.ClientDebtChanged -= OnClientDebtChangedRefreshBalance;
@@ -3499,6 +3551,34 @@ public partial class MainWindow : Window
         if (!_session.IsShiftOpen || !string.Equals(_session.ActiveShiftId, shiftIdBeforeClose, StringComparison.OrdinalIgnoreCase))
             return; // пока ждали, смену закрыл сервер/другое окно
         var result = await _cashShiftService.CloseShiftAsync(closingCash, _windowCts.Token).ConfigureAwait(true);
+        var closedWithNote = false;
+        // 2026-11-01 (решение владельца «да»): внесения/изъятия смены не успели уйти на сервер — вместо тупика окно «Закрыть смену с пометкой?».
+        // Согласие: смена закрывается, расхождение — в журнал смены, «Нестандартные чеки» и владельцу (CashShiftService); операции остаются в очереди
+        // и уходят привязанными к ЭТОЙ смене. «Отмена» — смена остаётся открытой.
+        if (!result.IsSuccess && result.NeedsUnsentCashConfirm)
+        {
+            var details = string.IsNullOrWhiteSpace(result.UnsentCashOpsDetails) ? "" : "\n\n" + result.UnsentCashOpsDetails;
+            var sum = result.UnsentCashOpsSum.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+            var n = result.UnsentCashOpsCount;
+            var accepted = await _prompts.ConfirmAsync(
+                Tr.T($"Не все внесения и изъятия отправлены на сервер ({n}, на сумму {sum}). Закрыть смену с пометкой? Расхождение попадёт в журнал смены и отчёт владельцу.{details}",
+                    $"Бардык киргизүүлөр жана алуулар серверге жөнөтүлгөн жок ({n}, суммасы {sum}). Сменаны белги менен жабабызбы? Айырма смена журналына жана ээсинин отчётуна түшөт.{details}",
+                    $"Not all deposits and withdrawals have been sent to the server ({n}, total {sum}). Close the shift with a note? The discrepancy goes to the shift log and the owner's report.{details}",
+                    $"Tüm para giriş ve çıkışları sunucuya gönderilmedi ({n}, toplam {sum}). Vardiya notla kapatılsın mı? Fark vardiya günlüğüne ve sahibin raporuna işlenir.{details}",
+                    $"Barcha kiritish va olishlar serverga yuborilmadi ({n} ta, jami {sum}). Smena izoh bilan yopilsinmi? Farq smena jurnaliga va egasining hisobotiga tushadi.{details}"),
+                Tr.T("Закрыть с пометкой", "Белги менен жабуу", "Close with a note", "Notla kapat", "Izoh bilan yopish"),
+                Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+                danger: true).ConfigureAwait(true);
+            if (!accepted)
+            {
+                PosLogger.Log("Закрытие смены: кассир отказался закрывать с пометкой — внесения/изъятия ещё не ушли, смена остаётся открытой.", "SHIFT");
+                return;
+            }
+
+            closedWithNote = true;
+            result = await _cashShiftService.CloseShiftAsync(closingCash, _windowCts.Token, acceptUnsentCashOps: true).ConfigureAwait(true);
+        }
+
         if (!result.IsSuccess)
         {
             _prompts.ShowError(result.ErrorMessage ?? Tr.T("Не удалось закрыть смену.", "Сменаны жабуу мүмкүн болгон жок.", "Could not close the shift.", "Vardiya kapatılamadı.", "Smenani yopib bo'lmadi."));
@@ -3507,6 +3587,12 @@ public partial class MainWindow : Window
 
         if (!string.IsNullOrWhiteSpace(result.InfoMessage))
             _prompts.ShowToast(result.InfoMessage);
+        if (closedWithNote)
+            _prompts.ShowToast(Tr.T("Смена закрыта с пометкой: неотправленные внесения/изъятия записаны в журнал, владельцу сообщено.",
+                "Смена белги менен жабылды: жөнөтүлбөгөн киргизүүлөр/алуулар журналга жазылды, ээсине билдирилди.",
+                "Shift closed with a note: unsent deposits/withdrawals are logged, the owner is notified.",
+                "Vardiya notla kapatıldı: gönderilmeyen para giriş/çıkışları günlüğe yazıldı, sahibine bildirildi.",
+                "Smena izoh bilan yopildi: yuborilmagan kiritish/olishlar jurnalga yozildi, egasiga xabar berildi."));
 
         _viewModel.Basket.ClearAfterShiftClose(shiftIdBeforeClose); // 2026-10-17, этап 4: смена — для журнала удалений
         NurMarketKassa.App.SyncToSession(_session);
@@ -3580,7 +3666,9 @@ public partial class MainWindow : Window
                 // 2026-10-27 (С-7): но сама ожидаемая сумма (она от пересчёта кассира не зависит) — та, что показало окно закрытия:
                 // без ответа сервера Z раньше считал её запасной формулой без внесений, оплат долга и возвратов. Отчёт сервера, когда
                 // придёт, заменит её своей (ServerShiftReport.ApplyTo).
-                ExpectedCash = expectedBeforeClose,
+                // 2026-11-01 (Д-1): сумма окна закрытия уже включает поправки на ошибки сервера (NetForShift), а отчёт (ShiftDetailsDialog.ServerExpectedWithFix) прибавляет их сам —
+                // чтобы не посчитать дважды, здесь они вычитаются.
+                ExpectedCash = expectedBeforeClose is { } expectedWithFix ? expectedWithFix - ExchangeCashCorrections.ForShift(shiftId) : null,
             };
             // Отчёт собран из ответа самого закрытия — сверять его с сервером незачем.
             var dialog = new ShiftDetailsDialog(shift) { RefreshFromServer = false, LocalReport = local is not null };
@@ -3839,6 +3927,11 @@ public partial class MainWindow : Window
         await OpenShiftAsync().ConfigureAwait(true);
         return _session.IsShiftOpen;
     }
+
+    /// <summary>2026-11-01 (Д-4, живая проверка NBS): шапка «Касса: X сом» оставалась на языке прошлого шага до следующего обновления остатка.
+    /// Пересчёт — после смены словаря (Post), чтобы Tr.T уже видел новый язык.</summary>
+    private void OnLanguageChangedShiftBalance() =>
+        Avalonia.Threading.Dispatcher.UIThread.Post(UpdateShiftBalanceUi, Avalonia.Threading.DispatcherPriority.Background);
 
     private void UpdateShiftBalanceUi()
     {

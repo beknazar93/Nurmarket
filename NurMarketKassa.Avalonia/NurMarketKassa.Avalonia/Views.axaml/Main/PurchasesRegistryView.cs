@@ -184,6 +184,18 @@ internal sealed class PurchasesRegistryView : UserControl
         Avalonia.Automation.AutomationProperties.SetName(print, T("Печать списка закупок", "Сатып алуулар тизмесин басып чыгаруу", "Print the purchases list", "Alış listesini yazdır", "Xaridlar ro'yxatini chop etish"));
         print.Click += async (_, _) => await PrintAsync().ConfigureAwait(true);
 
+        // 2026-11-01: правка накладных всегда открыта, но каждая правка записывается — владелец смотрит общий «Журнал правок» (по периоду и пользователю).
+        var editJournal = UiKit.Ghost(this, T("Журнал правок", "Оңдоо журналы", "Edit journal", "Düzenleme günlüğü", "Tahrir jurnali"));
+        editJournal.Height = 44;
+        editJournal.Margin = new Thickness(0, 0, 8, 8);
+        editJournal.IsVisible = App.AuthApi is { } auth && PermissionService.CanEditPurchaseDocuments(auth.UserPayload);
+        Avalonia.Automation.AutomationProperties.SetName(editJournal, T("Журнал правок накладных закупок", "Сатып алуу накладнойлорун оңдоо журналы", "Purchase invoice edit journal", "Alım faturası düzenleme günlüğü", "Xarid yuk xatlari tahrir jurnali"));
+        editJournal.Click += async (_, _) =>
+        {
+            if (TopLevel.GetTopLevel(this) is Window owner)
+                await NurMarketKassa.AvaloniaHost.Views.Dialogs.PosDialogHost.ShowAsync(new ReceiptEditJournalDialog(), owner).ConfigureAwait(true);
+        };
+
         var modeBox = UiKit.Segment(_modeSeg);
         modeBox.Margin = new Thickness(0, 0, 8, 8);
         modeBox.VerticalAlignment = VerticalAlignment.Top;
@@ -204,6 +216,7 @@ internal sealed class PurchasesRegistryView : UserControl
         _toolbar.Children.Add(refresh);
         _toolbar.Children.Add(export);
         _toolbar.Children.Add(print);
+        _toolbar.Children.Add(editJournal);
 
         _showAll = UiKit.Ghost(this, T("Показать за всё время", "Бардык убакытка көрсөтүү", "Show all time", "Tüm zamanları göster", "Butun davr uchun ko'rsatish"));
         _showAll.Height = 40;
@@ -641,8 +654,8 @@ internal sealed class PurchasesRegistryView : UserControl
             var q = _search.Text?.Trim() ?? "";
             if (_docs.Count == 0 && (_loadFailed || _offline))
             {
-                _empty.Text = T("Закупки не загрузились: нет связи с сервером. Нажмите «Повторить».", "Сатып алуулар жүктөлгөн жок: сервер менен байланыш жок. «Кайталоо» баскычын басыңыз.",
-                    "Purchases didn't load: no connection to the server. Press “Retry”.", "Alışlar yüklenemedi: sunucuyla bağlantı yok. «Tekrar dene»ye basın.", "Xaridlar yuklanmadi: server bilan aloqa yo'q. «Qayta urinish»ni bosing.");
+                _empty.Text = T("Закупки не загрузились: сервер NurCRM недоступен. Нажмите «Повторить».", "Сатып алуулар жүктөлгөн жок: NurCRM сервери жеткиликсиз. «Кайталоо» баскычын басыңыз.", // 2026-11-01 (В-08): единая фраза о сбое сервера
+                    "Purchases didn't load: the NurCRM server is unavailable. Press “Retry”.", "Alışlar yüklenemedi: NurCRM sunucusu kullanılamıyor. «Tekrar dene»ye basın.", "Xaridlar yuklanmadi: NurCRM serveri mavjud emas. «Qayta urinish»ni bosing.");
                 _retry.IsVisible = true;
             }
             else if (_docs.Count == 0)
@@ -686,8 +699,8 @@ internal sealed class PurchasesRegistryView : UserControl
                 $"Loading items… {N(_ensureDone)} of {N(_ensureTotal)} documents", $"Kalemler yükleniyor… {N(_ensureDone)} / {N(_ensureTotal)} belge", $"Pozitsiyalar yuklanmoqda… {N(_ensureDone)} / {N(_ensureTotal)} hujjat"));
         if (_offline)
             parts.Add(_loadedAt > DateTime.MinValue
-                ? T($"Нет связи с сервером — данные от {_loadedAt:HH:mm}", $"Сервер менен байланыш жок — маалымат {_loadedAt:HH:mm}", $"No connection — data from {_loadedAt:HH:mm}", $"Bağlantı yok — veriler {_loadedAt:HH:mm}", $"Aloqa yo'q — ma'lumot {_loadedAt:HH:mm}")
-                : T("Нет связи с сервером", "Сервер менен байланыш жок", "No connection to the server", "Sunucuyla bağlantı yok", "Server bilan aloqa yo'q"));
+                ? T($"Сервер NurCRM недоступен — данные от {_loadedAt:HH:mm}", $"NurCRM сервери жеткиликсиз — маалымат {_loadedAt:HH:mm}", $"The NurCRM server is unavailable — data from {_loadedAt:HH:mm}", $"NurCRM sunucusu kullanılamıyor — veriler {_loadedAt:HH:mm}", $"NurCRM serveri mavjud emas — ma'lumot {_loadedAt:HH:mm}")
+                : T("Сервер NurCRM недоступен", "NurCRM сервери жеткиликсиз", "The NurCRM server is unavailable", "NurCRM sunucusu kullanılamıyor", "NurCRM serveri mavjud emas"));
         if (_truncated)
             parts.Add(T($"просмотрены первые {PurchasesRegistryLoader.MaxPages * PurchasesRegistryLoader.PageSize:N0} документов — сузьте период",
                 $"алгачкы {PurchasesRegistryLoader.MaxPages * PurchasesRegistryLoader.PageSize:N0} документ каралды — мөөнөттү кыскартыңыз",
@@ -995,7 +1008,7 @@ internal sealed class PurchasesRegistryView : UserControl
         var text = Txt(Money(l.Purchase), "BrushText", 13, right: true);
         if (!l.Raised)
             return text;
-        var badge = new Border { CornerRadius = new CornerRadius(8), Padding = new Thickness(5, 0), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0), Child = new TextBlock { Text = "↑", FontSize = 11, FontWeight = FontWeight.Bold } };
+        var badge = new Border { CornerRadius = new CornerRadius(8), Padding = new Thickness(5, 0), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0), Child = new TextBlock { Text = "↑", FontSize = 12, FontWeight = FontWeight.Bold } };
         Use(badge, Border.BackgroundProperty, "BrushWarningSoft");
         Use((TextBlock)badge.Child, TextBlock.ForegroundProperty, "BrushWarning");
         var up = ReceivingPricing.PurchaseRaisePercent(l.PrevPurchase, l.Purchase);
@@ -1102,7 +1115,7 @@ internal sealed class PurchasesRegistryView : UserControl
         for (var i = 0; i < cells.Count; i++)
         {
             var (caption, value, sub) = cells[i];
-            var cap = new TextBlock { Text = caption.ToUpperInvariant(), FontSize = 10.5, FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
+            var cap = new TextBlock { Text = caption.ToUpperInvariant(), FontSize = 12, FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
             Use(cap, TextBlock.ForegroundProperty, "BrushTextSoft");
             var val = new TextBlock { Text = value, FontSize = narrow ? 15 : 18, FontWeight = FontWeight.Bold };
             val.Classes.Add("num");

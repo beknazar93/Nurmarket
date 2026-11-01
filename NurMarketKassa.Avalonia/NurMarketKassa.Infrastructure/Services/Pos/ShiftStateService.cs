@@ -84,6 +84,39 @@ public sealed class ShiftStateService : IShiftStateService
                 openId = own.ShiftId;
             }
 
+            // 2026-11-01 (К-02, аудит «10 из 10»): смена, открытая без связи («offline-shift-…»), раньше обнулялась здесь же, как только сервер не находил
+            // открытой смены, — Z-отчёт и сумма открытия терялись, а чеки и внесения уходили в следующую смену (возможно, другого кассира).
+            // Теперь: сервер вернул открытую смену кассира — офлайн-смена заменяется ею (внесения перепривязывает ShiftCashFlowSync.PushPendingAsync);
+            // не вернул — офлайн-смена остаётся, касса «догоняет»: открывает серверную смену с той же начальной суммой и переходит на неё.
+            var currentShift = PosApp.ActiveShiftId;
+            string? handedOverFrom = null; // 2026-11-01: исходный офлайн-id, если ниже офлайн-смена заменяется серверной
+            // 2026-11-01 (К-02, приёмка): офлайн-смена другого кассира (в сохранённом состоянии записан иной кассир, чем вошедший) не наша — прежнее поведение:
+            // сбрасываем и пишем в журнал; серверную смену на чужую начальную сумму не открываем.
+            var foreignOffline = IsOfflineShift(currentShift) && IsOfflineShiftOfOtherCashier(currentShift!);
+            if (foreignOffline)
+                PosLogger.Log($"Смена: офлайн-смена {currentShift} принадлежит другому кассиру — сбрасываю (серверную смену для неё не открываю).", "SHIFT");
+            if (IsOfflineShift(currentShift) && !foreignOffline)
+            {
+                if (string.IsNullOrEmpty(openId))
+                    openId = await TryOpenServerShiftForOfflineAsync(currentShift!, cancellationToken).ConfigureAwait(false);
+                else
+                    PosLogger.Log($"Смена: офлайн-смена {currentShift} заменена открытой сменой сервера {openId} (чеки офлайн-смены уйдут в неё).", "SHIFT");
+
+                if (!string.IsNullOrEmpty(openId))
+                    handedOverFrom = currentShift;
+                if (string.IsNullOrEmpty(openId))
+                {
+                    PosLogger.Log($"Смена: у сервера нет открытой смены кассира — офлайн-смена {currentShift} остаётся (Z-отчёт и начальная сумма сохранены).", "SHIFT");
+                    balance = OfflinePosStateStore.ReadShiftCashBalance();
+                    StateRefreshed?.Invoke(new ShiftStateSnapshot
+                    {
+                        ActiveShiftId = PosApp.ActiveShiftId,
+                        CashBalance = balance,
+                    });
+                    return;
+                }
+            }
+
             PosApp.ActiveShiftId = string.IsNullOrEmpty(openId) ? null : openId;
             balance = ShiftBalanceHelper.FindOpenShiftBalance(list, PosApp.PosCashboxId);
             if (balance is { } apiBalance)
@@ -97,6 +130,9 @@ public sealed class ShiftStateService : IShiftStateService
                 PosLogger.Log("Не удалось определить остаток кассы из ответа API — сохранённый остаток оставлен без изменений.", "SHIFT");
                 OfflinePosStateStore.SaveFromApp(OfflinePosStateStore.ReadShiftCashBalance());
             }
+            // 2026-11-01 (code-review): чеки/внесения офлайн-смены проверяются при закрытии и после подмены id.
+            if (handedOverFrom is not null)
+                OfflinePosStateStore.RememberOriginOfflineShift(handedOverFrom);
         }
         catch (Exception ex)
         {
@@ -114,6 +150,102 @@ public sealed class ShiftStateService : IShiftStateService
             ActiveShiftId = PosApp.ActiveShiftId,
             CashBalance = balance,
         });
+    }
+
+    private static bool IsOfflineShift(string? shiftId) =>
+        !string.IsNullOrEmpty(shiftId) && shiftId.StartsWith("offline-", StringComparison.OrdinalIgnoreCase);
+
+    private static DateTime _lastCatchUpUtc = DateTime.MinValue;
+
+    /// <summary>2026-11-01 (К-02, code-review): офлайн-смена передана серверу (открыта серверная смена) — текст для кассира; подписчик — главное окно (плашка-тост).</summary>
+    public static event Action<string>? OfflineShiftHandedToServer;
+
+    /// <summary>2026-11-01 (К-02, приёмка): RefreshAsync идёт параллельно (Новый чек, опрос шапки, закрытие смены) — открытие серверной смены только одним потоком.</summary>
+    private static readonly SemaphoreSlim CatchUpGate = new(1, 1);
+
+    /// <summary>В сохранённом состоянии записан ДРУГОЙ кассир, чем вошедший. Владелец неизвестен (старый файл) или не вошли — не считаем чужой.</summary>
+    private static bool IsOfflineShiftOfOtherCashier(string offlineShiftId)
+    {
+        var saved = OfflinePosStateStore.TryLoad();
+        var me = PosApp.CurrentUserId;
+        return saved is not null
+               && string.Equals(saved.ActiveShiftId, offlineShiftId, StringComparison.OrdinalIgnoreCase)
+               && !string.IsNullOrEmpty(saved.CashierId) && !string.IsNullOrEmpty(me)
+               && !string.Equals(saved.CashierId, me, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>2026-11-01 (К-02): связь есть, а у сервера нет открытой смены кассира, хотя на кассе идёт офлайн-смена: открываем серверную смену с той же
+    /// начальной суммой (она сохранена в offline_pos_state.json вместе с id офлайн-смены) и возвращаем её id. Не чаще раза в минуту; любой сбой —
+    /// null (офлайн-смена остаётся, ничего не теряется). «Открыть смену» у сервера идемпотентна: уже открытую смену кассира он вернул бы в списке выше.</summary>
+    private async Task<string?> TryOpenServerShiftForOfflineAsync(string offlineShiftId, CancellationToken cancellationToken)
+    {
+        if (!CatchUpGate.Wait(0))
+            return null; // другой поток уже открывает
+        try
+        {
+        if (DateTime.UtcNow - _lastCatchUpUtc < TimeSpan.FromSeconds(60))
+            return null;
+        _lastCatchUpUtc = DateTime.UtcNow;
+
+        var cashboxId = PosApp.PosCashboxId;
+        var saved = OfflinePosStateStore.TryLoad();
+        // 2026-11-01 (приёмка): открываем только кассиру, чья это смена (CashierId записан и равен вошедшему); неизвестный владелец — не открываем.
+        // 2026-11-01 (code-review): сумма — именно ОТКРЫТИЯ офлайн-смены (OfflineOpeningCash), а не «текущий остаток» (ShiftCashBalance): его перезаписывают ответы
+        // сервера, и серверная смена открылась бы завышенной суммой, а офлайн-наличные продажи при досылке посчитались бы дважды. Нет поля (старый файл) — не открываем.
+        if (string.IsNullOrWhiteSpace(cashboxId)
+            || saved is null
+            || !string.Equals(saved.ActiveShiftId, offlineShiftId, StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrEmpty(saved.CashierId)
+            || !string.Equals(saved.CashierId, PosApp.CurrentUserId, StringComparison.OrdinalIgnoreCase)
+            || saved.OfflineOpeningCash is null)
+        {
+            PosLogger.Log($"Смена: офлайн-смена {offlineShiftId} — сумма открытия или кассир-владелец в сохранённом состоянии не найдены/не совпадают, серверную смену автоматически не открываю.", "SHIFT");
+            return null;
+        }
+
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(6) + ApiThrottle.RemainingBlock);
+            var opening = saved.OfflineOpeningCash.Value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+            var response = await _shiftApi.ConstructionShiftOpenAsync(cashboxId, opening, timeoutCts.Token).ConfigureAwait(false);
+            var newId = CartDisplayHelper.TryShiftIdFromOpenResponse(response);
+            var openedCashbox = response.ValueKind == JsonValueKind.Object ? ShiftHelper.ReadCashboxId(response) : null;
+            if (string.IsNullOrWhiteSpace(newId) || !Guid.TryParse(newId, out _)
+                || (!string.IsNullOrWhiteSpace(openedCashbox) && !string.Equals(openedCashbox, cashboxId, StringComparison.OrdinalIgnoreCase)))
+            {
+                PosLogger.Log($"Смена: для офлайн-смены {offlineShiftId} сервер вернул неподходящую смену (id={newId ?? "—"}, касса={openedCashbox ?? "—"}) — офлайн-смена остаётся.", "SHIFT");
+                return null;
+            }
+
+            PosLogger.Log($"Смена: офлайн-смена {offlineShiftId} передана серверу — открыта смена {newId} с начальной суммой {opening}; чеки и внесения офлайн-смены уйдут в неё.", "SHIFT");
+            // 2026-11-01 (code-review): не молчаливый фон — кассир видит плашку (главное окно показывает её тостом).
+            try
+            {
+                OfflineShiftHandedToServer?.Invoke(Tr.T(
+                    $"Смена, открытая без связи, передана серверу (начальная сумма {opening}). Чеки и внесения за это время уйдут в неё.",
+                    $"Байланышсыз ачылган смена серверге өткөрүлдү (баштапкы сумма {opening}). Ушул убакыттагы чектер жана киргизүүлөр ага түшөт.",
+                    $"The shift opened without a connection was handed to the server (opening amount {opening}). Receipts and cash operations made meanwhile go into it.",
+                    $"Bağlantısız açılan vardiya sunucuya aktarıldı (başlangıç tutarı {opening}). Bu sürede yapılan fişler ve para hareketleri ona işlenecek.",
+                    $"Aloqasiz ochilgan smena serverga o'tkazildi (boshlang'ich summa {opening}). Shu vaqtdagi cheklar va kiritish/olishlar unga tushadi."));
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Смена: уведомление о передаче офлайн-смены серверу не показано: {ex.Message}", "SHIFT");
+            }
+
+            return newId;
+        }
+        catch (Exception ex) when (!(ex is OperationCanceledException && cancellationToken.IsCancellationRequested))
+        {
+            PosLogger.Log($"Смена: открыть серверную смену для офлайн-смены {offlineShiftId} не вышло ({ex.GetType().Name}: {ex.Message}) — офлайн-смена остаётся, повтор через минуту.", "SHIFT");
+            return null;
+        }
+        }
+        finally
+        {
+            CatchUpGate.Release();
+        }
     }
 
     // 2026-10-22 (аудит новой сборки, П1): сервер сам закрыл смену владельца в 23:00:00 (closed_at 23:00:00.254), а касса

@@ -68,7 +68,7 @@ public partial class KassaLayoutPicker : UserControl
                 var badgeText = new TextBlock
                 {
                     Text = Tr.T("✓ Выбрана", "✓ Тандалган", "✓ Selected", "✓ Seçili", "✓ Tanlangan"),
-                    FontSize = 11,
+                    FontSize = 12,
                     FontWeight = FontWeight.SemiBold,
                 };
                 badgeText.Bind(TextBlock.ForegroundProperty, badgeText.GetResourceObservable("BrushAccentForeground"));
@@ -87,7 +87,7 @@ public partial class KassaLayoutPicker : UserControl
             var description = new TextBlock
             {
                 Text = option.Description(),
-                FontSize = 11.5,
+                FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
                 MaxLines = 5,
                 TextTrimming = TextTrimming.CharacterEllipsis,

@@ -374,7 +374,7 @@
                        Classes="ModernTextBox" Height="44"/>
             </Grid>
             <TextBlock Text="{DynamicResource posSettings.operations.loyaltyHint}"
-                       FontSize="11" TextWrapping="Wrap"
+                       FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushTextSoft}"/>
           </StackPanel>
         </Border>

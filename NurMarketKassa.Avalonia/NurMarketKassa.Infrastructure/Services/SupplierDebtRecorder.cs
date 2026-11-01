@@ -430,7 +430,7 @@ public static class SupplierDebtRecorder
     private static string Describe(Exception ex) => ex switch
     {
         OperationCanceledException or TimeoutException => T("сервер не ответил", "сервер жооп берген жок", "the server didn't respond", "sunucu yanıt vermedi", "server javob bermadi"),
-        HttpRequestException => T("нет связи с сервером", "сервер менен байланыш жок", "no connection to the server", "sunucuyla bağlantı yok", "server bilan aloqa yo'q"),
+        HttpRequestException => T("сервер NurCRM недоступен", "NurCRM сервери жеткиликсиз", "the NurCRM server is unavailable", "NurCRM sunucusu kullanılamıyor", "NurCRM serveri mavjud emas"), // 2026-11-01 (В-08): единая фраза о сбое сервера
         _ => ex.Message.Length > 300 ? ex.Message[..300] : ex.Message,
     };
 

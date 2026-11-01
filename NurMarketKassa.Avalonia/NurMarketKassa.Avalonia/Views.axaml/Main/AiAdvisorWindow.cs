@@ -392,7 +392,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                 "AI can make mistakes — check what matters. Numbers come from your shop's data.",
                 "Yapay zekâ hata yapabilir — önemli olanı kontrol edin. Rakamlar mağazanızın verilerinden gelir.",
                 "SI xato qilishi mumkin — muhimini tekshiring. Raqamlar do'koningiz ma'lumotlaridan olinadi."),
-            FontSize = 11, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center,
+            FontSize = 12, TextWrapping = TextWrapping.Wrap, HorizontalAlignment = HorizontalAlignment.Center,
             TextAlignment = TextAlignment.Center, Margin = new Thickness(0, 6, 0, 0),
         };
         Use(footnote, TextBlock.ForegroundProperty, "BrushTextSoft");
@@ -1128,7 +1128,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         try
         {
             System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(ChatsPath)!);
-            System.IO.File.WriteAllText(ChatsPath, System.Text.Json.JsonSerializer.Serialize(chats.Take(30).ToList()));
+            AtomicFile.WriteAllText(ChatsPath, System.Text.Json.JsonSerializer.Serialize(chats.Take(30).ToList())); // 2026-11-01 (аудит 10 из 10, Н-07)
         }
         catch (Exception ex)
         {
@@ -1213,7 +1213,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                 : T("Ранее", "Мурда", "Earlier", "Daha önce", "Avvalroq");
             if (group != lastGroup)
             {
-                var head = new TextBlock { Text = group, FontSize = 11.5, FontWeight = FontWeight.SemiBold, Margin = new Thickness(8, lastGroup is null ? 2 : 12, 0, 4) };
+                var head = new TextBlock { Text = group, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(8, lastGroup is null ? 2 : 12, 0, 4) };
                 Use(head, TextBlock.ForegroundProperty, "BrushTextSoft");
                 _historyList.Children.Add(head);
                 lastGroup = group;
@@ -2486,12 +2486,12 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             }
             else
                 thumb = new TextBlock { Text = "📄", FontSize = 22, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-            var page = new TextBlock { Text = T($"стр. {n + 1}", $"{n + 1}-бет", $"p. {n + 1}", $"s. {n + 1}", $"{n + 1}-bet"), FontSize = 11 };
+            var page = new TextBlock { Text = T($"стр. {n + 1}", $"{n + 1}-бет", $"p. {n + 1}", $"s. {n + 1}", $"{n + 1}-bet"), FontSize = 12 };
             Use(page, TextBlock.ForegroundProperty, "BrushTextSoft");
             var index = n;
             var remove = UiKit.Ghost(this, "✕");
             remove.Height = 22;
-            remove.FontSize = 11;
+            remove.FontSize = 12;
             remove.Padding = new Thickness(6, 0);
             remove.Click += (_, _) =>
             {
@@ -4944,7 +4944,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                 _ = LoadPreviewAsync(image, candidate.ImageUrl);
                 var caption = new TextBlock { Text = candidate.Product.Title, FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxWidth = 112, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis };
                 Use(caption, TextBlock.ForegroundProperty, "BrushText");
-                var source = new TextBlock { Text = candidate.Source, FontSize = 10.5, MaxWidth = 112 };
+                var source = new TextBlock { Text = candidate.Source, FontSize = 12, MaxWidth = 112 };
                 Use(source, TextBlock.ForegroundProperty, "BrushTextSoft");
                 var set = UiKit.Ghost(this, T("Поставить", "Коюу", "Set", "Ayarla", "O'rnatish"));
                 set.Height = 32;
@@ -5058,7 +5058,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             {
                 var image = new Image { Width = 132, Height = 132, Stretch = Stretch.UniformToFill };
                 Border? choiceCard = null;
-                var source = new TextBlock { Text = candidate.Source, FontSize = 10.5, MaxWidth = 132, TextTrimming = TextTrimming.CharacterEllipsis };
+                var source = new TextBlock { Text = candidate.Source, FontSize = 12, MaxWidth = 132, TextTrimming = TextTrimming.CharacterEllipsis };
                 Use(source, TextBlock.ForegroundProperty, "BrushTextSoft");
                 var set = UiKit.Ghost(this, T("Поставить это фото", "Ушул сүрөттү коюу", "Use this photo", "Bu fotoğrafı kullan", "Shu rasmni qo'yish"));
                 set.Height = 32;

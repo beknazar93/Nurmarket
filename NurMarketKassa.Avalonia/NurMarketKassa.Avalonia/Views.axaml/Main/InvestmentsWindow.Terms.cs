@@ -618,7 +618,7 @@ public sealed partial class InvestmentsWindow
                 var ended = g.Stage >= terms.Stages.Count;
                 var cell = new Border { Background = ended ? Brush.Parse("#D9DBD5") : Brush.Parse(ChartPalette.ColorFor("stage:" + g.Stage)), BorderThickness = new Thickness(0, 0, 2, 0), BorderBrush = Brushes.Transparent };
                 if ((Math.Min(g.To, 47) - g.From + 1) > 4)
-                    cell.Child = new TextBlock { Text = ended ? T("стоп", "токтоо", "stop", "dur", "stop") : (T("Э", "Э", "S", "A", "B") + (g.Stage + 1)), FontSize = 11, FontWeight = FontWeight.Bold, Foreground = ended ? Brushes.Black : Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                    cell.Child = new TextBlock { Text = ended ? T("стоп", "токтоо", "stop", "dur", "stop") : (T("Э", "Э", "S", "A", "B") + (g.Stage + 1)), FontSize = 12, FontWeight = FontWeight.Bold, Foreground = ended ? Brushes.Black : Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
                 Grid.SetColumn(cell, i);
                 line.Children.Add(cell);
             }

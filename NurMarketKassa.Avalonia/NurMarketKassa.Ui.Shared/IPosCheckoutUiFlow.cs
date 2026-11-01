@@ -6,7 +6,8 @@ public interface IPosCheckoutUiFlow
     /// <summary>Returns false to abort checkout before opening payment dialog.</summary>
     Task<bool> PrepareCheckoutAsync();
 
-    Task ShowPaymentProcessingAsync(double totalAmount);
+    /// <param name="waitProbe">2026-11-01 (К-08): (идёт ли запрос к серверу, встанет ли чек в очередь) для ЭТОЙ оплаты — текст «сервер отвечает медленно».</param>
+    Task ShowPaymentProcessingAsync(double totalAmount, Func<(bool ServerWait, bool CanQueue)>? waitProbe = null);
 
     Task ShowPaymentResultAsync(bool isSuccess, string message);
 

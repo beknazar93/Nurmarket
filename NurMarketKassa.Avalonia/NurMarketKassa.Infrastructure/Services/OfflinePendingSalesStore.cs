@@ -5,7 +5,11 @@ public static class OfflinePendingSalesStore
     private static readonly object UpdateGate = new();
     public static List<OfflineSaleEntry> LoadAll() => OfflineDatabase.LoadAll();
 
-    public static void SaveAll(List<OfflineSaleEntry> items) => OfflineDatabase.SaveAll(items);
+    public static void SaveAll(List<OfflineSaleEntry> items)
+    {
+        OfflineDatabase.SaveAll(items);
+        InvalidatePendingCache(); // 2026-11-01 (Н-02)
+    }
 
     /// <summary>2026-10-29: чек поставлен в очередь — SyncService досылает его почти сразу (если есть связь), а не ждёт очередного такта.</summary>
     public static event Action? Appended;
@@ -13,6 +17,7 @@ public static class OfflinePendingSalesStore
     public static void Append(OfflineSaleEntry entry)
     {
         OfflineDatabase.Append(entry);
+        InvalidatePendingCache(); // 2026-11-01 (Н-02)
         PosLogger.Log($"OFFLINE queue append: id={entry.Id}, receipt={entry.CreatedAt:yyyyMMdd-HHmmss}", "OFFLINE");
         try { Appended?.Invoke(); }
         catch (Exception ex) { PosLogger.Log($"OFFLINE: обработчик постановки в очередь не отработал: {ex.Message}", "WARNING"); }
@@ -25,7 +30,39 @@ public static class OfflinePendingSalesStore
     private static readonly string[] PendingStatuses = [OfflineSaleEntry.PendingSync, OfflineSaleEntry.Syncing];
 
     // 2026-10-29: в счётчик «В очереди» входят и операции без связи (возврат, оплата долга) — владелец видит всё, что ещё не дошло до сервера.
-    public static int PendingCount => OfflineDatabase.LoadByStatus(PendingStatuses).Count(IsPendingLike) + SafeOpsCount(() => OfflineOperationsStore.PendingCount);
+    public static int PendingCount => SalesPendingCount(0) + SafeOpsCount(() => OfflineOperationsStore.PendingCount);
+
+    /// <summary>2026-11-01 (Н-02, аудит «10 из 10»): число ждущих чеков считалось полным разбором JSON всех ждущих записей при КАЖДОМ чтении
+    /// (5 000 чеков — 262 мс; подсказка индикатора читала это на UI-потоке каждые 20 с, а досылка — после каждого чека, 85 % времени досылки).
+    /// Теперь результат запоминается: любая запись очереди через это хранилище сбрасывает его, плюс страховка по времени (5 с).
+    /// Схема базы не меняется.</summary>
+    private sealed record PendingCountCache(int Value, int Version, long AtMs);
+
+    private static PendingCountCache? _pendingCache;
+    private static int _pendingVersion;
+
+    private static void InvalidatePendingCache() => Interlocked.Increment(ref _pendingVersion);
+
+    /// <summary>Ждущих чеков (без операций «возврат/долг без связи»). <paramref name="maxAgeMs"/> &gt; 0 — можно вернуть значение не старше этого срока,
+    /// даже если очередь менялась (подсказка в шапке, шаги досылки: точность до секунды не нужна, а UI-поток не ждёт базу).</summary>
+    private static int SalesPendingCount(int maxAgeMs)
+    {
+        var version = Volatile.Read(ref _pendingVersion);
+        var cached = Volatile.Read(ref _pendingCache);
+        if (cached is not null)
+        {
+            var age = Environment.TickCount64 - cached.AtMs;
+            if (age >= 0 && (age < maxAgeMs || (cached.Version == version && age < 5000)))
+                return cached.Value;
+        }
+
+        var value = OfflineDatabase.LoadByStatus(PendingStatuses).Count(IsPendingLike);
+        Volatile.Write(ref _pendingCache, new PendingCountCache(value, version, Environment.TickCount64));
+        return value;
+    }
+
+    /// <summary>2026-11-01 (Н-02): то же число, но допускает значение старше изменений очереди на <paramref name="maxAgeMs"/> мс — для UI-потока и частых вызовов.</summary>
+    public static int PendingCountCached(int maxAgeMs) => SalesPendingCount(maxAgeMs) + SafeOpsCount(() => OfflineOperationsStore.PendingCount);
 
     public static int SyncedCount => LoadAll().Count(s =>
         string.Equals(s.Status, OfflineSaleEntry.Synced, StringComparison.OrdinalIgnoreCase));
@@ -68,6 +105,7 @@ public static class OfflinePendingSalesStore
                 return;
             update(entry);
             OfflineDatabase.UpdateEntry(entry);
+            InvalidatePendingCache(); // 2026-11-01 (Н-02)
         }
     }
 
@@ -171,6 +209,9 @@ public static class OfflinePendingSalesStore
         {
             // Уже проведённые на сервере не трогаем: их повтор и есть дубль.
             if (entry.CheckoutCompleted)
+                continue;
+            // 2026-11-01: «старше 7 суток» сервер снова отклонит (и владельцу уйдёт второе оповещение) — такие чеки проводятся только кнопкой «Провести по PIN владельца».
+            if (entry.TooOldForServer)
                 continue;
 
             Update(entry.Id, e =>
@@ -325,7 +366,11 @@ public static class OfflinePendingSalesStore
         return true;
     }
 
-    public static void RemoveSynced(string id) => OfflineDatabase.RemoveIds(new[] { id });
+    public static void RemoveSynced(string id)
+    {
+        OfflineDatabase.RemoveIds(new[] { id });
+        InvalidatePendingCache(); // 2026-11-01 (Н-02)
+    }
 
     // 2026-09-10: автономные продажи (см. OfflineSaleEntry.IsAutonomous) никогда не считаются
     // "ждущими" — им некуда синхронизироваться, и они не должны ни попадать в PendingCount

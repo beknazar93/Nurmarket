@@ -15,6 +15,9 @@ public partial class WarehouseWindow
     private void InitWarehouseFixes()
     {
         ReceivingClearButton.Content = Tr.T("Очистить список", "Тизмени тазалоо", "Clear the list", "Listeyi temizle", "Ro'yxatni tozalash");
+        ReceivingLabelsButton.Content = Tr.T("Этикетки на приход", "Кирешеге этикеткалар", "Labels for this receipt", "Bu giriş için etiketler", "Kirim uchun yorliqlar");
+        ToolTip.SetTip(ReceivingLabelsButton, Tr.T("Открыть печать штрихкодов с товарами накладной: копий столько, сколько принято.", "Накладнадагы товарлар менен штрих-код басууну ачуу: көчүрмө канча кабыл алынса, ошончо.",
+            "Open barcode printing with the receipt's products: as many copies as received.", "Fişteki ürünlerle barkod yazdırmayı aç: alınan miktar kadar kopya.", "Qabul qilingan mahsulotlar bilan shtrix-kod chop etishni ochish: qabul qilingan miqdorcha nusxa."));
 
         // Esc — закрыть подсказки и список поставщиков.
         AddHandler(KeyDownEvent, (_, e) =>

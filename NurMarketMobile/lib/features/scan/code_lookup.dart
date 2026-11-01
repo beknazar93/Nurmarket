@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../sale/catalog_repository.dart';
+import '../sale/variant_service.dart';
 import 'barcode_lookup.dart';
 
 /// 2026-10-22 (аудит С-4, П7): поиск товара по коду как на ПК (ProductCodeLookup.FindAsync): сначала телефон, потом
@@ -87,6 +88,16 @@ class CodeLookup {
           _missed.remove(code);
           final hit = await db.productByScan(code, allowWeightLabel: false);
           return (product: saved, qty: hit?.product.id == saved.id ? hit?.qty : null, unavailable: false);
+        }
+      }
+      // 2026-10-31 (одежда): штрихкод РАЗМЕРА сервер в списке товаров не ищет (search → 0), но products/barcode/{код}/ отдаёт
+      // товар и поле variant. Спрашиваем, только если в магазине уже есть размеры или включён режим «Одежда».
+      if (await db.hasAnyVariants() || (await db.getSetting('shop.clothing')) == '1') {
+        final vr = await VariantService(api, db).variantFromServer(code, timeout: timeout);
+        final found = vr.variant == null ? null : await db.productById(vr.variant!.productId);
+        if (found != null) {
+          _missed.remove(code);
+          return (product: found, qty: null, unavailable: false);
         }
       }
       _missed[code] = DateTime.now();

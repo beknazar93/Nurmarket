@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
 
@@ -443,6 +444,11 @@ public sealed class VariantEditorWindow : Window
 
     private async Task PrintLabelsCoreAsync()
     {
+        if (!BarcodePrintAccess.IsAllowed()) // 2026-11-01 (П-10)
+        {
+            _status.Text = BarcodePrintAccess.DeniedText;
+            return;
+        }
         await SaveAsync().ConfigureAwait(true);
         var rows = _items.Where(r => !string.IsNullOrWhiteSpace(r.Barcode.Text)).ToList();
         if (rows.Count == 0)
@@ -454,11 +460,8 @@ public sealed class VariantEditorWindow : Window
         var printer = UserPreferences.Instance.LabelPrinterDevicePath;
         if (string.IsNullOrWhiteSpace(printer))
         {
-            _status.Text = Tr.T("Принтер этикеток не выбран — выберите его один раз в окне «Этикетка» любого товара на складе.",
-                "Этикетка принтери тандалган эмес — аны кампадагы каалаган товардын «Этикетка» терезесинен бир жолу тандаңыз.",
-                "No label printer selected — choose it once in the “Label” window of any product in the warehouse.",
-                "Etiket yazıcısı seçilmedi — depodaki herhangi bir ürünün «Etiket» penceresinden bir kez seçin.",
-                "Yorliq printeri tanlanmagan — uni ombordagi istalgan mahsulotning «Yorliq» oynasida bir marta tanlang.");
+            // 2026-11-01: единая подсказка — принтер этикеток выбирается в Настройки → Печать.
+            _status.Text = LabelPrinterSelector.MissingHint();
             return;
         }
 
@@ -492,9 +495,12 @@ public sealed class VariantEditorWindow : Window
             }
         }
         PosLogger.Log($"Размеры товара {_productId}: напечатано этикеток {printed}, сбоев {failed}.", "CATALOG");
+        if (printed > 0)
+            LabelPrinterSelector.LogSent(null, printer, printed);
         _status.Text = failed == 0
             ? Tr.T($"Этикетки отправлены на печать: {printed} шт.", $"Этикеткалар басууга жөнөтүлдү: {printed} даана.", $"Labels sent to the printer: {printed}.",
                 $"Etiketler yazdırmaya gönderildi: {printed}.", $"Yorliqlar chop etishga yuborildi: {printed} dona.")
+              + " " + LabelPrinterSelector.SentText(LabelPrinterSelector.DisplayName(printer)) + "."
             : Tr.T($"Напечатано {printed} шт., не напечаталось строк: {failed} — проверьте принтер этикеток.", $"{printed} даана басылды, басылбаган саптар: {failed} — этикетка принтерин текшериңиз.",
                 $"Printed {printed}, failed rows: {failed} — check the label printer.", $"{printed} yazdırıldı, yazdırılamayan satır: {failed} — etiket yazıcısını kontrol edin.",
                 $"{printed} dona chop etildi, chop etilmagan qatorlar: {failed} — yorliq printerini tekshiring.");

@@ -419,7 +419,7 @@ public partial class ShiftDetailsDialog : Window
             // 2026-10-27 (аудит кассы, С-7): запасная формула (нет ожидаемой суммы сервера) раньше не знала внесений, оплат долгов
             // и наличных возвратов — Z и X расходились с окном закрытия. Теперь одна формула (ShiftDrawerMath).
             var cashReturnsForExpected = ReturnsForExpected(shift, _report, _serverShiftReturns);
-            var drawerExpected = shift.ExpectedCash
+            var drawerExpected = ServerExpectedWithFix(shift)
                 ?? FallbackExpected(shift, _report, drawerOpening, deposits, withdrawals, cashReturnsForExpected);
             DrawerExpectedLabel.Text = Tr.T("В ящике должно быть", "Кассада болушу керек", "Should be in the drawer", "Çekmecede olması gereken", "Qutida bo'lishi kerak");
             DrawerActualLabel.Text = Tr.T("Факт", "Чындыгында", "Actual", "Gerçek", "Haqiqatda");
@@ -428,7 +428,8 @@ public partial class ShiftDetailsDialog : Window
             // 2026-10-27 (ревью, См-4): запасная формула вычитает только НАЛИЧНЫЕ возвраты; раскладка получала все (ReturnsTotal), и при безналичном
             // возврате строки не давали итог (лишняя «Корректировка»). Без суммы сервера в раскладку идёт та же наличная часть, что и в итог.
             DrawerBreakdownBuilder.Fill(this, DrawerBreakdown, drawerOpening, shift.CashSales ?? 0m, _report?.DebtPaymentsCash ?? 0m, deposits, withdrawals,
-                shift.ExpectedCash is null ? cashReturnsForExpected : _report?.ReturnsTotal ?? 0m, drawerExpected);
+                // 2026-11-01 (Ж-07): и с суммой сервера в раскладку — наличная часть возвратов (раньше все способы: «Возвраты −12 / Корректировка +12»).
+                cashReturnsForExpected, drawerExpected);
             AppendNotOnServerRow(shift, drawerExpected);
             if (shift.ClosingCash is { } drawerActual)
             {
@@ -461,6 +462,12 @@ public partial class ShiftDetailsDialog : Window
             StatusText.Foreground = ThemeBrush("BrushTextSoft", Brushes.DimGray);
         }
     }
+
+    /// <summary>2026-11-01 (живая проверка NBS, Д-1): ожидаемая сумма сервера (expected_cash) с поправкой на известные ошибки сервера (ExchangeCashCorrections: возврат долгового
+    /// чека, обмен, предоплата безналом, выдача кассы больше записанной сервером) — как «Касса:» в шапке (ShiftCashOperationsStore.NetForShift) и окно закрытия смены. Раньше X-отчёт
+    /// показывал «В ящике должно быть 983» при 981 в ящике. Поправка прибавляется один раз: к сумме сервера; запасная формула (без сервера) считает по журналу кассы и поправки не знает.
+    /// MainWindow кладёт в ExpectedCash сумму окна закрытия БЕЗ поправки (она вычитается там же), чтобы не посчитать её дважды.</summary>
+    private static decimal? ServerExpectedWithFix(ShiftModel shift) => ShiftExpectedCash.WithFix(shift.ExpectedCash, shift.Id); // общий расчёт: Infrastructure/ShiftExpectedCash
 
     /// <summary>2026-10-27 (аудит кассы, С-7): наличная часть возвратов смены для «в ящике должно быть» без ответа сервера.
     /// Журнал кассы знает, чем вернули (cash=… в примечании); нет записей — возвраты сервера целиком.</summary>
@@ -951,7 +958,7 @@ public partial class ShiftDetailsDialog : Window
             // 2026-10-27 (С-7): запасная формула — общая (ShiftDrawerMath): начало + наличные + оплаты долгов + внесения − изъятия − наличные возвраты.
             // Раньше она не знала внесений, оплат долгов и возвратов, и Z без ответа сервера расходился с окном закрытия.
             var fallbackDeposits = server?.Deposits ?? localDeposits;
-            var expected = shift.ExpectedCash
+            var expected = ServerExpectedWithFix(shift)
                 ?? FallbackExpected(shift, server, opening, fallbackDeposits, withdrawals, ReturnsForExpected(shift, server, returns));
             sb.AppendLine($"{Tr.T("В ящике должно быть", "Кассада болушу керек", "Should be in the drawer", "Çekmecede olması gereken", "Qutida bo'lishi kerak")}: {expected.ToString("0.00", CultureInfo.InvariantCulture)} {Som}");
             if (shift.ClosingCash is { } actual)

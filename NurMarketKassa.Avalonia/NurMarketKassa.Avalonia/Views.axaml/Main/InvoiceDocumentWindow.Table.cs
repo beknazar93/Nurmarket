@@ -77,7 +77,7 @@ public sealed partial class InvoiceDocumentWindow
         {
             var t = new TextBlock
             {
-                Text = c.Title, FontSize = 11, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap,
+                Text = c.Title, FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap,
                 HorizontalAlignment = c.Right ? HorizontalAlignment.Right : HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0),
             };
             t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
@@ -157,7 +157,7 @@ public sealed partial class InvoiceDocumentWindow
     {
         var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         stack.Children.Add(Editor(nameof(InvoiceRow.QtyText), "qty"));
-        var was = new TextBlock { FontSize = 10.5, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 8, 0) };
+        var was = new TextBlock { FontSize = 12, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 8, 0) };
         was.Bind(TextBlock.TextProperty, new Binding(nameof(InvoiceRow.WasText)));
         was.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
         stack.Children.Add(was);
@@ -167,7 +167,7 @@ public sealed partial class InvoiceDocumentWindow
     private Control PurchaseCell()
     {
         var sp = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Spacing = 4, Margin = new Thickness(6, 0) };
-        var mark = new TextBlock { FontSize = 11, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
+        var mark = new TextBlock { FontSize = 12, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
         mark.Bind(TextBlock.TextProperty, new Binding(nameof(InvoiceRow.PurchaseMark)));
         mark.Bind(TextBlock.ForegroundProperty, new Binding(nameof(InvoiceRow.MarkKey)) { Converter = ThemeBrush.Instance, ConverterParameter = this });
         var val = new TextBlock { FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
@@ -373,10 +373,11 @@ public sealed partial class InvoiceDocumentWindow
         _search.Focus();
         _search.SelectAll();
         if (_edit)
-            Say(T("Новую позицию в проведённую накладную добавить пока нельзя — после обновления сервера. Найдите нужную строку и измените количество.",
-                "Өткөрүлгөн накладнойго жаңы позиция кошууга азырынча болбойт — сервер жаңырганда. Керектүү саптан санын өзгөртүңүз.",
-                "A new line can't be added to a posted invoice yet — after the server update. Find the line and change its quantity.",
-                "İşlenmiş faturaya henüz yeni satır eklenemez — sunucu güncellemesinden sonra. Satırı bulup miktarı değiştirin.", "O'tkazilgan yuk xatiga hali yangi pozitsiya qo'shib bo'lmaydi — server yangilangach. Qatorni topib miqdorini o'zgartiring."));
+            // 2026-11-01: «Требует серверной поддержки» — добавление новой позиции в проведённый приход (новый товар) без PATCH прихода не делаем.
+            Say(ReceiptEditService.NeedsServerText + ": " + T("новую позицию в проведённую накладную добавить пока нельзя. Найдите нужную строку и измените количество (0 — убрать позицию).",
+                "өткөрүлгөн накладнойго жаңы позиция кошууга азырынча болбойт. Керектүү саптан санын өзгөртүңүз (0 — позицияны алып салуу).",
+                "a new line can't be added to a posted invoice yet. Find the line and change its quantity (0 removes the line).",
+                "işlenmiş faturaya henüz yeni satır eklenemez. Satırı bulup miktarı değiştirin (0 satırı kaldırır).", "o'tkazilgan yuk xatiga hali yangi pozitsiya qo'shib bo'lmaydi. Qatorni topib miqdorini o'zgartiring (0 — pozitsiyani olib tashlash)."));
     }
 
     private void OnBarcodeKeyDown(object? sender, KeyEventArgs e)

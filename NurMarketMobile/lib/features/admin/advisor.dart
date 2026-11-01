@@ -366,7 +366,11 @@ class _AdvisorScreenState extends ConsumerState<AdvisorScreen> {
       final answer = await (() async {
         // 14.10: ключ Groq или OpenRouter тоже подходит. 2026-10-22: нет ни одного — понятное сообщение, где добавить ключ.
         // 2026-10-27: если ключи есть, но Google их временно отклонил — «Google отклонил ключ, повтор после HH:mm».
-        if (!await vision.hasChatKey()) throw vision.noKeyFailure();
+        if (!await vision.hasChatKey()) {
+          // 2026-11-01 (М-09): без связи с NurCRM — «нет связи», а не «Ключа ИИ нет»
+          if (vision.cloudUnreachable) throw VisionException(ApiText.noConnection);
+          throw vision.noKeyFailure();
+        }
         trace.mark('key');
         final shop = ref.read(sessionProvider)?.companyName ?? '';
         // 2026-10-27: сводку магазина собираем лениво — только если вопрос про цифры (или она уже собрана за последние 5 минут)

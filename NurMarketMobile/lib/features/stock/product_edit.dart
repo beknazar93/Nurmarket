@@ -20,6 +20,7 @@ import '../sale/catalog_repository.dart';
 import '../scan/scan_screen.dart';
 import '../scan/smart_camera.dart';
 import 'barcode_label.dart';
+import 'mode_product_info.dart';
 import 'product_camera_tile.dart';
 import 'product_batches.dart';
 import 'product_delete.dart';
@@ -534,6 +535,8 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
         controller: _scroll,
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
+          // 2026-10-31 (режим магазина): размеры и цвета / вес и срок годности / единица — блок под режим
+          ModeProductInfo(product: p),
           FieldLabel(l.peName),
           TextField(controller: _name, textCapitalization: TextCapitalization.sentences, onChanged: (_) => setState(() {})),
           FieldLabel(l.sellingPrice),

@@ -440,6 +440,50 @@ public sealed class SupplierApiService
         }
     }
 
+    // 2026-10-31: признак receipt_delete из GET main/capabilities/ — кнопка «Удалить» в «Истории закупок» показывается только при нём
+    // (ТЗ бэкенду п. 30). Ответ держим 10 минут; ошибка запроса = «нет» и в кэш не кладётся.
+    private static (DateTime At, bool Value)? _deleteFeature;
+
+    public async Task<bool> CanDeleteReceiptsAsync(CancellationToken ct = default)
+    {
+        if (_deleteFeature is { } cached && DateTime.UtcNow - cached.At < TimeSpan.FromMinutes(10))
+            return cached.Value;
+        try
+        {
+            var d = await GetJsonAsync("api/main/capabilities/", null, ct).ConfigureAwait(false);
+            var has = d.ValueKind == JsonValueKind.Object
+                      && d.TryGetProperty("features", out var f) && f.ValueKind == JsonValueKind.Array
+                      && f.EnumerateArray().Any(x => x.ValueKind == JsonValueKind.String && x.GetString() == "receipt_delete");
+            _deleteFeature = (DateTime.UtcNow, has);
+            return has;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Закупки: признак receipt_delete не получен: {ex.Message}", "WARNING");
+            return false;
+        }
+    }
+
+    /// <summary>2026-10-31: удаление (аннулирование) прихода DELETE suppliers/receipts/{id}/ с Idempotency-Key и причиной
+    /// (ТЗ бэкенду п. 30). Сервер откатывает остаток и долг поставщику; отказы 409 — has_sales_after / has_returns /
+    /// debt_already_paid / period_closed, 403 — нет права: текст берётся из ответа (ApiException.Message).</summary>
+    public async Task DeleteReceiptAsync(string receiptId, string reason, string idempotencyKey, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+            throw new ArgumentException("Idempotency-Key обязателен.", nameof(idempotencyKey));
+        var headers = new Dictionary<string, string> { ["Idempotency-Key"] = idempotencyKey.Trim() };
+        InvalidateSummaries(); // долг поставщику меняется — кэш сводок устарел
+        try
+        {
+            await _api.RequestWithHeadersAsync(HttpMethod.Delete, $"api/main/suppliers/receipts/{Esc(receiptId)}/",
+                new Dictionary<string, object?> { ["reason"] = reason.Trim() }, headers, ct, TimeSpan.FromSeconds(40)).ConfigureAwait(false);
+        }
+        finally
+        {
+            InvalidateSummaries();
+        }
+    }
+
     public async Task<SupplierReceipt> GetReceiptAsync(string receiptId, CancellationToken ct = default) =>
         ParseReceipt(await GetJsonAsync($"api/main/suppliers/receipts/{Esc(receiptId)}/", null, ct).ConfigureAwait(false));
 

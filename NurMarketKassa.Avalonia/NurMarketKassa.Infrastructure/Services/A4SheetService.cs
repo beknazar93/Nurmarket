@@ -38,6 +38,26 @@ public sealed class A4SheetOptions
     /// <summary>Тонкая пунктирная рамка вокруг каждой этикетки (по ней режут лист).</summary>
     public bool CutLines { get; set; } = true;
 
+    // 2026-11-01 (П-8, из веба): стили старой цены, ПЛУ и описания — как у названия и цены (размер, Ж, К, П). Умолчания веба: старая 12, ПЛУ 12 жирный, описание 10.
+    public A4TextStyle OldPrice { get; set; } = new() { SizePt = 12, Bold = false };
+    public A4TextStyle Plu { get; set; } = new() { SizePt = 12, Bold = true };
+    public A4TextStyle Description { get; set; } = new() { SizePt = 10, Bold = false };
+
+    // 2026-11-01 (П-6): самоклеящаяся бумага. Preset: "" — обычный лист с сеткой (как раньше), "custom" — свой формат (поля ниже),
+    // иначе ключ готового формата из A4SheetService.Formats. Нет поля в файле — прежний вид листа.
+    public string Preset { get; set; } = "";
+    public double MarginTopMm { get; set; } = 10;
+    public double MarginLeftMm { get; set; } = 10;
+    public double CellWmm { get; set; } = 70;
+    public double CellHmm { get; set; } = 37;
+    public double PitchXmm { get; set; } = 70;
+    public double PitchYmm { get; set; } = 37;
+    /// <summary>«Начать с ячейки №» — первый лист пропускает N−1 ячеек (доклеить начатый лист).</summary>
+    public int StartCell { get; set; } = 1;
+    /// <summary>Сдвиг принтера, мм (подгонка под лист): вправо и вниз.</summary>
+    public double OffsetXmm { get; set; }
+    public double OffsetYmm { get; set; }
+
     public A4SheetOptions Clone() => new()
     {
         Title = Title, Landscape = Landscape, Columns = Columns, Rows = Rows, BarcodeHeightPx = BarcodeHeightPx,
@@ -45,6 +65,11 @@ public sealed class A4SheetOptions
         ShowDescription = ShowDescription, CutLines = CutLines,
         Name = new A4TextStyle { SizePt = Name.SizePt, Bold = Name.Bold, Italic = Name.Italic, Underline = Name.Underline },
         Price = new A4TextStyle { SizePt = Price.SizePt, Bold = Price.Bold, Italic = Price.Italic, Underline = Price.Underline },
+        OldPrice = new A4TextStyle { SizePt = OldPrice.SizePt, Bold = OldPrice.Bold, Italic = OldPrice.Italic, Underline = OldPrice.Underline },
+        Plu = new A4TextStyle { SizePt = Plu.SizePt, Bold = Plu.Bold, Italic = Plu.Italic, Underline = Plu.Underline },
+        Description = new A4TextStyle { SizePt = Description.SizePt, Bold = Description.Bold, Italic = Description.Italic, Underline = Description.Underline },
+        Preset = Preset, MarginTopMm = MarginTopMm, MarginLeftMm = MarginLeftMm, CellWmm = CellWmm, CellHmm = CellHmm,
+        PitchXmm = PitchXmm, PitchYmm = PitchYmm, StartCell = StartCell, OffsetXmm = OffsetXmm, OffsetYmm = OffsetYmm,
     };
 }
 
@@ -53,9 +78,20 @@ public sealed record A4SheetItem(PriceTagData Data, int Copies, string? Plu = nu
 
 /// <summary>Раскладка листа: размер листа, размер ячейки и верх сетки (мм).</summary>
 public readonly record struct SheetGeometry(double PageWmm, double PageHmm, double CellWmm, double CellHmm, double GridTopMm,
-    int Columns, int Rows, bool HasHeader, double HeaderHeightMm)
+    int Columns, int Rows, bool HasHeader, double HeaderHeightMm, double GridLeftMm = A4SheetService.MarginMm, double PitchXmm = 0, double PitchYmm = 0)
 {
     public int PerPage => Columns * Rows;
+    /// <summary>Шаг по горизонтали/вертикали между ячейками; 0 — ячейка плюс промежуток обычной сетки.</summary>
+    public double StepX => PitchXmm > 0 ? PitchXmm : CellWmm + A4SheetService.GapMm;
+    public double StepY => PitchYmm > 0 ? PitchYmm : CellHmm + A4SheetService.GapMm;
+}
+
+/// <summary>2026-11-01 (П-6): готовый формат листа самоклеящейся бумаги A4. Размеры — по распространённым листам (без промежутков или с
+/// типовыми промежутками); у каждого производителя они могут отличаться на доли миллиметра — «сверьте с упаковкой бумаги» или «Свой формат».
+/// Список — данные: чтобы добавить формат, допишите строку в <see cref="A4SheetService.Formats"/>.</summary>
+public sealed record SheetFormat(string Key, int Columns, int Rows, double CellW, double CellH, double TopMm, double LeftMm, double PitchX, double PitchY)
+{
+    public int PerSheet => Columns * Rows;
 }
 
 /// <summary>2026-10-26: лист A4 с сеткой этикеток «как на сайте» — N в ряд, M рядов, книжная/альбомная, заголовок листа, размеры шрифтов
@@ -69,8 +105,47 @@ public static class A4SheetService
     public const double HeaderMm = 7;
     private const float WorldDpi = 203f; // раскладка считается в точках 203 dpi, как у всех этикеток (BarcodeLabelService.Dpi)
 
+    public const string CustomPreset = "custom";
+
+    private static SheetFormat Full(string key, int cols, int rows, double w, double h) =>
+        new(key, cols, rows, w, h, Math.Round((297 - rows * h) / 2, 2), Math.Round((210 - cols * w) / 2, 2), w, h);
+
+    /// <summary>Готовые форматы листов (книжный A4, ячейки впритык). Какие листы у клиентов — заранее неизвестно, список легко расширить.</summary>
+    public static readonly IReadOnlyList<SheetFormat> Formats = new[]
+    {
+        Full("s24", 3, 8, 70, 37),
+        Full("s21", 3, 7, 70, 42.3),
+        Full("s40", 4, 10, 52.5, 29.7),
+        Full("s16", 2, 8, 105, 37.125),
+        Full("s14", 2, 7, 105, 297.0 / 7),
+        Full("s12", 2, 6, 105, 49.5),
+        Full("s8", 2, 4, 105, 74.25),
+        Full("s4", 2, 2, 105, 148.5),
+        Full("s2", 1, 2, 210, 148.5),
+        new SheetFormat("s65", 5, 13, 38.1, 21.2, 10.7, 4.7, 40.6, 21.2),
+        new SheetFormat("s48", 4, 12, 45.7, 21.2, 21.3, 9.7, 48.3, 21.2),
+    };
+
+    public static SheetFormat? FindFormat(string? key) =>
+        string.IsNullOrEmpty(key) ? null : Formats.FirstOrDefault(f => string.Equals(f.Key, key, StringComparison.Ordinal));
+
+    /// <summary>Сколько ячеек первого листа пропустить («Начать с ячейки №»).</summary>
+    public static int SkipCells(A4SheetOptions o) => Math.Clamp(o.StartCell - 1, 0, Math.Max(GetGeometry(o).PerPage - 1, 0));
+
     public static SheetGeometry GetGeometry(A4SheetOptions o)
     {
+        var offX = Math.Clamp(o.OffsetXmm, -10, 10);
+        var offY = Math.Clamp(o.OffsetYmm, -10, 10);
+        if (FindFormat(o.Preset) is { } fmt)
+            return new SheetGeometry(210, 297, fmt.CellW, fmt.CellH, fmt.TopMm + offY, fmt.Columns, fmt.Rows, false, 0, fmt.LeftMm + offX, fmt.PitchX, fmt.PitchY);
+        if (o.Preset == CustomPreset)
+        {
+            var cw = Math.Clamp(o.CellWmm, 5, 297);
+            var ch = Math.Clamp(o.CellHmm, 5, 297);
+            return new SheetGeometry(o.Landscape ? 297 : 210, o.Landscape ? 210 : 297, cw, ch, Math.Clamp(o.MarginTopMm, 0, 100) + offY,
+                Math.Clamp(o.Columns, 1, 10), Math.Clamp(o.Rows, 1, 30), false, 0, Math.Clamp(o.MarginLeftMm, 0, 100) + offX,
+                Math.Clamp(o.PitchXmm, 5, 297), Math.Clamp(o.PitchYmm, 5, 297));
+        }
         var landscape = o.Landscape;
         var pageW = landscape ? 297.0 : 210.0;
         var pageH = landscape ? 210.0 : 297.0;
@@ -82,7 +157,7 @@ public static class A4SheetService
         var usableH = pageH - 2 * MarginMm - headerH;
         var cellW = Math.Max((usableW - GapMm * (cols - 1)) / cols, 5);
         var cellH = Math.Max((usableH - GapMm * (rows - 1)) / rows, 5);
-        return new SheetGeometry(pageW, pageH, cellW, cellH, MarginMm + headerH, cols, rows, hasHeader, headerH);
+        return new SheetGeometry(pageW, pageH, cellW, cellH, MarginMm + headerH + offY, cols, rows, hasHeader, headerH, MarginMm + offX);
     }
 
     /// <summary>Каждая копия — отдельная этикетка в сетке.</summary>
@@ -97,7 +172,13 @@ public static class A4SheetService
 
     public static int LabelCount(IReadOnlyList<A4SheetItem> items) => items.Sum(i => Math.Clamp(i.Copies, 1, 99));
 
-    public static int PageCount(int labels, A4SheetOptions o) => labels == 0 ? 0 : (labels + GetGeometry(o).PerPage - 1) / GetGeometry(o).PerPage;
+    public static int PageCount(int labels, A4SheetOptions o)
+    {
+        if (labels == 0)
+            return 0;
+        var per = GetGeometry(o).PerPage;
+        return (labels + SkipCells(o) + per - 1) / per; // 2026-11-01 (П-6): пропущенные ячейки первого листа занимают место
+    }
 
     private static float Px(double mm) => (float)(mm / 25.4 * WorldDpi);
 
@@ -142,9 +223,11 @@ public static class A4SheetService
         // Блоки сверху вниз: название, штрихкод, ПЛУ, описание, цена (старая зачёркнутая — над новой).
         using var nameFont = MakeFont(o.Name);
         using var priceFont = MakeFont(o.Price);
-        using var oldFont = MakeFont(o.Price, 0.6, strike: true);
-        using var smallBold = MakeFont(new A4TextStyle { SizePt = 8, Bold = true });
-        using var descFont = MakeFont(new A4TextStyle { SizePt = 7, Bold = false });
+        using var oldFont = MakeFont(o.OldPrice ?? new A4TextStyle { SizePt = 12, Bold = false }, 1, strike: true); // 2026-11-01 (П-8): стиль старой цены, ПЛУ и описания — из настроек листа
+        using var smallBold = MakeFont(o.Plu ?? new A4TextStyle { SizePt = 12, Bold = true });
+        using var descFont = MakeFont(o.Description ?? new A4TextStyle { SizePt = 10, Bold = false });
+        using var badgeFont = MakeFont(new A4TextStyle { SizePt = 9, Bold = true });
+        var badgeText = o.ShowDiscount && !string.IsNullOrWhiteSpace(data.DiscountText) ? data.DiscountText!.Trim() : null;
 
         var showName = o.ShowName && !string.IsNullOrWhiteSpace(data.ProductName);
         var code = data.Barcode?.Trim();
@@ -215,7 +298,20 @@ public static class A4SheetService
             if (oldText != null)
             {
                 using var gray = new SolidBrush(Color.FromArgb(90, 90, 90));
-                g.DrawString(oldText, oldFont, gray, new RectangleF(pad, y, innerW, hOld + 1), single);
+                // 2026-11-01 (П-8): значок «−N%» — чёрная плашка с белым текстом справа в строке старой цены; рисуется картинкой, поэтому печатается всегда.
+                var badgeW = 0f;
+                if (badgeText != null)
+                {
+                    var bs = mg.MeasureString(badgeText, badgeFont);
+                    badgeW = Math.Min(bs.Width + Px(1.6f), innerW * 0.45f);
+                    var bh = Math.Min(Math.Max(bs.Height, hOld), hOld + Px(1));
+                    var br = new RectangleF(pad + innerW - badgeW, y, badgeW, bh);
+                    g.FillRectangle(Brushes.Black, br);
+                    using var badgeFmt = new StringFormat(StringFormatFlags.NoWrap) { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                    g.DrawString(badgeText, badgeFont, Brushes.White, br, badgeFmt);
+                    badgeW += Px(1);
+                }
+                g.DrawString(oldText, oldFont, gray, new RectangleF(pad, y, innerW - badgeW, hOld + 1), single);
                 y += hOld;
             }
             g.DrawString(data.PriceText, priceFont, Brushes.Black, new RectangleF(pad, y, innerW, hPrice + 1), single);
@@ -253,19 +349,27 @@ public static class A4SheetService
         {
             var state = g.Save();
             g.ScaleTransform(scale, scale);
-            g.TranslateTransform(Px(MarginMm), Px(MarginMm));
+            g.TranslateTransform(Px(geo.GridLeftMm), Px(MarginMm));
             DrawHeader(g, o.Title, geo.PageWmm - 2 * MarginMm);
             g.Restore(state);
         }
-        var start = Math.Max(pageIndex, 0) * geo.PerPage;
+        var skip = SkipCells(o);
+        var start = Math.Max(pageIndex, 0) * geo.PerPage - skip;
         for (var i = 0; i < geo.PerPage && start + i < expanded.Count; i++)
         {
             var col = i % geo.Columns;
             var row = i / geo.Columns;
             var state = g.Save();
             g.ScaleTransform(scale, scale);
-            g.TranslateTransform(Px(MarginMm + col * (geo.CellWmm + GapMm)), Px(geo.GridTopMm + row * (geo.CellHmm + GapMm)));
-            DrawCell(g, expanded[start + i], o, geo.CellWmm, geo.CellHmm);
+            g.TranslateTransform(Px(geo.GridLeftMm + col * geo.StepX), Px(geo.GridTopMm + row * geo.StepY));
+            if (start + i < 0)
+            {
+                // 2026-11-01 (П-6): пропущенная ячейка («Начать с ячейки №») — серый пунктир, на печать не идёт.
+                using var skipPen = new Pen(Color.FromArgb(190, 190, 190), 1f) { DashStyle = DashStyle.Dash };
+                g.DrawRectangle(skipPen, 0.5f, 0.5f, Px(geo.CellWmm) - 1, Px(geo.CellHmm) - 1);
+            }
+            else
+                DrawCell(g, expanded[start + i], o, geo.CellWmm, geo.CellHmm);
             g.Restore(state);
         }
         return bmp;
@@ -284,9 +388,10 @@ public static class A4SheetService
         var doc = new PrintDocument();
         if (!string.IsNullOrWhiteSpace(printerName))
             doc.PrinterSettings.PrinterName = printerName;
-        doc.DefaultPageSettings.PaperSize = new PaperSize("A4", 827, 1169);
-        doc.DefaultPageSettings.Landscape = o.Landscape;
+        doc.DefaultPageSettings.PaperSize = ResolveA4Paper(doc, 827, 1169);
+        doc.DefaultPageSettings.Landscape = o.Landscape && FindFormat(o.Preset) is null;
         doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
+        var skip = SkipCells(o);
         doc.PrintPage += (_, e) =>
         {
             var g = e.Graphics!;
@@ -301,20 +406,39 @@ public static class A4SheetService
                     hg.ScaleTransform(dpi / WorldDpi, dpi / WorldDpi);
                     DrawHeader(hg, o.Title, hw);
                 }
-                BarcodeLabelService.DrawOnPrinterPage(g, hb, MarginMm, MarginMm, dpi);
+                BarcodeLabelService.DrawOnPrinterPage(g, hb, geo.GridLeftMm, MarginMm, dpi);
             }
-            var start = pageIndex * geo.PerPage;
+            var start = pageIndex * geo.PerPage - skip; // 2026-11-01 (П-6): «Начать с ячейки №» — первые ячейки первого листа пустые
             for (var i = 0; i < geo.PerPage && start + i < expanded.Count; i++)
             {
+                if (start + i < 0)
+                    continue;
                 var col = i % geo.Columns;
                 var row = i / geo.Columns;
                 using var cell = RenderCell(expanded[start + i], o, geo, dpi);
-                BarcodeLabelService.DrawOnPrinterPage(g, cell, MarginMm + col * (geo.CellWmm + GapMm), geo.GridTopMm + row * (geo.CellHmm + GapMm), dpi);
+                BarcodeLabelService.DrawOnPrinterPage(g, cell, geo.GridLeftMm + col * geo.StepX, geo.GridTopMm + row * geo.StepY, dpi);
             }
             pageIndex++;
-            e.HasMorePages = pageIndex * geo.PerPage < expanded.Count;
+            e.HasMorePages = pageIndex * geo.PerPage - skip < expanded.Count;
         };
         return doc;
+    }
+
+    /// <summary>2026-11-01 (проверка массовой печати, С-10): настоящий формат A4 из списка бумаги принтера (PaperKind.A4); если драйвер его не
+    /// отдаёт — прежний свой размер A4 в сотых долях дюйма. Свой размер часть драйверов не принимает и берёт Letter.</summary>
+    internal static PaperSize ResolveA4Paper(PrintDocument doc, int widthHundredthInch, int heightHundredthInch)
+    {
+        try
+        {
+            foreach (PaperSize size in doc.PrinterSettings.PaperSizes)
+                if (size.Kind == PaperKind.A4)
+                    return size;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"A4 paper size list not read: {ex.GetType().Name}", "WARNING");
+        }
+        return new PaperSize("A4", widthHundredthInch, heightHundredthInch);
     }
 
     /// <summary>Печать листов на выбранный принтер Windows.</summary>

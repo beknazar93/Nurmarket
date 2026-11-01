@@ -3,6 +3,7 @@ import 'dart:async';
 import 'receipt_pdf.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show TextInputFormatter;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -40,6 +41,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   ReceiptTo _receipt = ReceiptTo.none;
   Client? _client;
   bool _busy = false;
+
+  /// 2026-11-01 (приёмка, Н-2): подписи неоконченных попыток оплаты (могли пройти) — для плашки «Прошлый чек мог пройти».
+  List<String> _sentSigs = const [];
 
   /// 13.10: бонусы клиента — баланс, сколько списать, процент начисления магазина.
   double? _bonusBalance;
@@ -117,6 +121,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
     final given = a['cash_given'] is num ? (a['cash_given'] as num).toDouble() : parseNum('${a['cash_given'] ?? ''}');
     if (!mounted) return HandleOutcome.errorKey('h.screenNotReady');
+    // 2026-11-01 (приёмка, Н-11): голосом — тоже не больше 10 цифр до запятой (поле при программном вводе фильтр не применяет)
+    if (given != null && given >= 1e10) return HandleOutcome(ToolStatus.denied, ask: context.l.payReceivedHuge(money(change(given, base.total))));
     setState(() {
       _method = method;
       if (due != null) _debtDue = DateUtils.dateOnly(due);
@@ -137,6 +143,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   void initState() {
     super.initState();
     _aiHandles.register('pay', _aiHandle);
+    ref.read(salesRepoProvider).liveSentSignatures().then((v) {
+      if (mounted) setState(() => _sentSigs = v);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final repo = ref.read(debtAccessRepoProvider);
       final rules = await repo.load();
@@ -203,15 +212,29 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     // тогда «Провести оплату» стоит в конце прокручиваемого экрана, а не внизу
     final compact = MediaQuery.sizeOf(context).height < 500;
     final canPay = _canPayWith(cart, received);
+    // 2026-11-01 (Н-2): есть неоконченная попытка оплаты с другим составом (способ, клиент, строки) — повтор пойдёт под новым ключом
+    var prevMayPass = false;
+    if (_sentSigs.isNotEmpty) {
+      final payReceived = _method == PayMethod.card ? null : (parseNum(_received.text) ?? (_method == PayMethod.cash ? cart.total : null));
+      final body = SalesRepository.buildBody(cart: cart, shiftId: ref.watch(shiftProvider).shift?.id ?? '', method: _method, received: payReceived, clientId: _client?.id);
+      prevMayPass = !_sentSigs.contains(SalesRepository.signatureOf(body, _method));
+    }
     final payButton = FilledButton(
       onPressed: canPay ? _pay : null,
       child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: T.navy)) : Text(l.doPay),
     );
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: ScreenTitle(l.payment),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         children: [
+          if (prevMayPass)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: pal.warnSoft, borderRadius: BorderRadius.circular(12)),
+              child: Text(l.prevSaleMayPass, key: const ValueKey('prev-sale-may-pass'), style: TextStyle(color: pal.warn, fontWeight: FontWeight.w700, fontSize: 13)),
+            ),
           Container(
             padding: EdgeInsets.symmetric(vertical: compact ? 10 : 20),
             // 2026-10-26 (живой аудит, П1/П4, С-7): итог оплаты в тёмной теме — светлее фона и с рамкой, а не сливается с ним
@@ -368,6 +391,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             TextField(
               controller: _received,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              // 2026-11-01 (аудит 10 из 10, М-10): не больше 10 цифр до запятой и 3 после — штрихкод, отсканированный в поле,
+              // и лишние нули не уходят на сервер (он отклоняет «Получено» длиннее 12 цифр, чек потом «Не принят», деньги взяты)
+              inputFormatters: [TextInputFormatter.withFunction((old, nw) => RegExp(r'^\d{0,10}([.,]\d{0,3})?$').hasMatch(nw.text) ? nw : old)],
               onChanged: (_) => setState(() {}),
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
               decoration: InputDecoration(
@@ -447,6 +473,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               ),
             ),
     );
+    // 2026-11-01 (аудит 10 из 10, М-03): пока идёт оплата, «Назад» не закрывает экран — иначе чек следующего покупателя
+    // стирался, остаток списывался по чужим строкам, а «Оплачено» и сдача терялись.
+    return PopScope(canPop: !_busy, child: scaffold);
   }
 
   Future<void> _pickClient() async {
@@ -497,6 +526,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final l = context.l;
     final messenger = ScaffoldMessenger.maybeOf(context);
     final baseCart = ref.read(cartProvider);
+    final cartNotifier = ref.read(cartProvider.notifier); // 2026-11-01 (приёмка, Н-1/Н-4): до первого await — после закрытия экрана ref недоступен
     final redeem = _redeemSum(baseCart);
     final cart = _payCart(baseCart);
     final shift = ref.read(shiftProvider).shift;
@@ -509,6 +539,23 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final client = _client;
     final received = parseNum(_received.text);
     final debtDue = method == PayMethod.debt ? _debtDue : null;
+    // 2026-11-01 (М-10): «Получено» больше итога в 20 раз — переспросить сдачу (лишние нули или чужой штрихкод в поле).
+    if (method == PayMethod.cash && received != null && received >= 1000 && received > cart.total * 20) {
+      final sure = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          content: Text(l.payReceivedHuge(money(change(received, cart.total)))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.doPay)),
+          ],
+        ),
+      );
+      if (sure != true) {
+        _aiSink.report(HandleOutcome(ToolStatus.denied, ask: l.payReceivedHuge(money(change(received, cart.total)))));
+        return;
+      }
+    }
     // 18.10: «Доступ к долгу» — запрет или лимит на сумму, которая уходит в долг (итог минус внесённое сейчас).
     final debtAmount = method == PayMethod.debt ? roundMoney(cart.total - (received ?? 0)) : 0.0;
     if (method == PayMethod.debt) {
@@ -531,7 +578,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         return;
       }
       // Без связи сверить не с чем — продаём по цене телефона, но кассир предупреждён.
-      if (check.offline && mounted) toast(context, l.priceMaybeStale);
+      if (check.offline && mounted) {
+        toast(context, l.priceMaybeStale);
+      } else if (check.unchecked > 0 && mounted) {
+        toast(context, l.pricesPartlyUnchecked(check.unchecked)); // 2026-11-01 (М-11): часть цен не сверена
+      }
     }
     final CheckoutResult result;
     try {
@@ -543,6 +594,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         client: client,
         // Бонусы без сервера не списать — такая продажа только при связи (в очередь не встаёт).
         requireOnline: redeem > 0,
+        deferForget: true, // 2026-11-01 (М-04): ключ стираем ниже, после очистки черновика
       );
     } on PriceChangedException catch (e) {
       // Сервер отказал: цена устарела, продажа НЕ проведена. Цены строк — из ответа сервера, нет их — запрашиваем карточки.
@@ -565,10 +617,41 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
     // Чек уже проведён (или в очереди) — корзину очищаем в любом случае, даже если экран успели закрыть;
     // дальше ошибки (бонусы, срок долга, журнал) не прячут экран «Оплачено».
-    ref.read(cartProvider.notifier).clear();
+    // 2026-11-01 (М-03): очищаем только тот же чек, что оплачен (не успели начать следующий); ключ забываем после записи
+    // пустого черновика (М-04).
+    final saleId = result.response == null ? null : str(result.response, 'id');
+    // 2026-11-01 (приёмка, Н-6): бонусы записываются в очередь на диск ДО стирания ключа продажи и до отправки — падение приложения
+    // дальше не оставит выданную скидку без списания бонусов. Отправка — ниже, после «Оплачено»-подготовки.
+    final bonusKeys = <String>[];
+    final earnedBonus = client != null && _bonusEnabled && _bonusPercent > 0 ? (cart.total * _bonusPercent / 100 * 100).roundToDouble() / 100 : 0.0;
+    if (client != null && _bonusEnabled && !result.queued) {
+      for (final (delta, reason) in [(-redeem, 'redeem'), (earnedBonus, 'earn')]) {
+        if (delta == 0) continue;
+        try {
+          bonusKeys.add(await sales.queueBonus(clientId: client.id, delta: delta, reason: reason, saleId: saleId, keyRef: saleId ?? result.key));
+        } catch (e) {
+          // бонус не записался в очередь (ошибка базы) — след в журнале действий
+          unawaited(Audit.log('error', 'Бонус ${delta.toStringAsFixed(2)} ($reason) не записан в очередь: $e'));
+        }
+      }
+    }
+    try {
+      if (identical(ref.read(cartProvider), baseCart)) {
+        cartNotifier.clear();
+        await cartNotifier.flush();
+      }
+    } catch (_) {
+      // экран закрыт или черновик не записался — ключ всё равно стираем ниже
+    } finally {
+      // 2026-11-01 (Н-1): стирание ключа — в finally и без ref; а если и оно не выполнится, ключ помечен «проведено» и пустой черновик его отпустит
+      try {
+        await sales.forgetPendingKey();
+      } catch (_) {
+        // не стёрся — помечен done, следующему такому же чеку не достанется
+      }
+    }
     // 2026-10-29 (аудит мобилки, п. 1): сервер уже имел продажу с этим ключом — «проведено, сверьте», а не ошибка.
     if (result.reconcile && mounted) toast(context, ApiText.saleAlreadyPosted);
-    final saleId = result.response == null ? null : str(result.response, 'id');
     try {
       // 14.10: журнал аудита.
       Audit.log(
@@ -590,15 +673,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }
       // 13.10: бонусы клиента на сервере — сначала списание, потом начисление, с id продажи (как у кассы).
       // 2026-10-22: только у проведённой продажи (в очереди нет id продажи — начисление не к чему привязать).
-      if (client != null && _bonusEnabled && !result.queued) {
-        final earned = _bonusPercent > 0 ? (cart.total * _bonusPercent / 100 * 100).roundToDouble() / 100 : 0.0;
-        final loyalty = ref.read(loyaltyRepoProvider);
-        try {
-          if (redeem > 0) await loyalty.post(client.id, -redeem, 'redeem', saleId);
-          if (earned > 0) await loyalty.post(client.id, earned, 'earn', saleId);
-        } on ApiException catch (e) {
-          if (mounted) toast(context, e.message, error: true);
+      if (bonusKeys.isNotEmpty) {
+        // 2026-11-01 (М-05): с ключом идемпотентности; записи уже в очереди (см. выше) — сбой связи оставляет их там, уйдут сами.
+        // Начисление не зависит от списания: ошибка первого не отменяет второе.
+        var queuedLeft = false;
+        for (final key in bonusKeys) {
+          try {
+            if (!await sales.sendQueuedBonus(key)) queuedLeft = true;
+          } on ApiException catch (e) {
+            if (mounted) toast(context, e.message, error: true);
+          }
         }
+        if (queuedLeft && mounted) toast(context, l.bonusQueued);
       }
       if (method == PayMethod.debt) {
         await ref.read(debtAccessRepoProvider).recordSale(ref.read(sessionProvider)?.userId ?? '', debtAmount);

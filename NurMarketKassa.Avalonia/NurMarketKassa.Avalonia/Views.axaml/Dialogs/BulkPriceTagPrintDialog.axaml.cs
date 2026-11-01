@@ -84,6 +84,8 @@ public partial class BulkPriceTagPrintDialog : Window
         if (prefs.BulkPriceTagTargetIsA4)
             TargetA4Radio.IsChecked = true;
 
+        PrinterCombo.SelectionChanged += PrinterCombo_SelectionChanged;
+        CancelPrintButton.Content = Tr.T("Остановить печать", "Басууну токтотуу", "Stop printing", "Yazdırmayı durdur", "Chop etishni to'xtatish");
         RefreshPrinterList();
         UpdateSelectionCount();
         ApplyKindUi();
@@ -97,6 +99,8 @@ public partial class BulkPriceTagPrintDialog : Window
     /// <summary>Прежнее окно массовой печати (готовые виды ценников) — как было до 26.10.2026.</summary>
     public static async Task OpenLegacy(Window? owner)
     {
+        if (!BarcodePrintAccess.Ensure(owner)) // 2026-11-01 (П-10): право «Печать штрих-кодов»
+            return;
         // 2026-10-27 (аудит редакторов, Б-2): та же проверка покупки массовой печати, что и у нового окна.
         if (!PaidFeatureGate.EnsureUnlocked(PaidFeature.BulkPriceTag, owner))
             return;
@@ -181,19 +185,59 @@ public partial class BulkPriceTagPrintDialog : Window
 
     private void Target_Changed(object? sender, RoutedEventArgs e) => RefreshPrinterList();
 
-    private void RefreshPrinterList()
+    // 2026-11-01 (проверка массовой печати, В-2/С-4/С-6): принтер хранится по режиму отдельно (термо / A4), список ищется не на потоке интерфейса.
+    private bool _shownA4;
+    private string? _thermalChoice, _a4Choice;
+    private bool _printersLoaded, _listGuard;
+    private int _listVersion;
+
+    private void PrinterCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        // Принтер этикеток запоминаем только по явному выбору кассира в режиме «Термо» (не по факту печати, не при подстановке списка).
+        if (_listGuard || !_printersLoaded || TargetA4Radio.IsChecked == true)
+            return;
+        if (PrinterCombo.SelectedItem is DiscoveredPrinter p && !p.IsVirtual
+            && !LabelPrinterSelector.SamePrinter(p.DevicePath, UserPreferences.Instance.LabelPrinterDevicePath))
+        {
+            UserPreferences.Instance.LabelPrinterDevicePath = p.DevicePath;
+            UserPreferences.Instance.SaveToDisk();
+        }
+    }
+
+    private async void RefreshPrinterList()
     {
         var isA4 = TargetA4Radio.IsChecked == true;
-        var previouslySelected = PrinterCombo.SelectedItem as DiscoveredPrinter;
-
-        var printers = PriceTagService.GetAvailablePrinters();
-        if (isA4)
-            printers = printers.Where(p => !BarcodeLabelService.IsRawDevicePath(p.DevicePath)).ToList();
-
+        if (PrinterCombo.SelectedItem is DiscoveredPrinter prev)
+        {
+            if (_shownA4) _a4Choice = prev.DevicePath; else _thermalChoice = prev.DevicePath;
+        }
+        _shownA4 = isA4;
+        _printersLoaded = false;
+        var version = ++_listVersion;
+        IReadOnlyList<DiscoveredPrinter> printers;
+        try
+        {
+            printers = await Task.Run(() => isA4
+                ? (IReadOnlyList<DiscoveredPrinter>)PriceTagService.GetAvailablePrinters().Where(p => !BarcodeLabelService.IsRawDevicePath(p.DevicePath)).ToList()
+                : LabelPrinterSelector.GetChoices()).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Price tag printer list failed: {ex.GetType().Name}", "WARNING");
+            printers = Array.Empty<DiscoveredPrinter>();
+        }
+        if (version != _listVersion)
+            return; // за время поиска режим сменили — результат устарел
+        _listGuard = true;
         PrinterCombo.ItemsSource = printers;
-        PrinterCombo.SelectedItem = previouslySelected is not null && printers.Any(p => p.DevicePath == previouslySelected.DevicePath)
-            ? previouslySelected
-            : printers.FirstOrDefault();
+        var wanted = isA4 ? _a4Choice : _thermalChoice;
+        var keep = wanted is null ? null : printers.FirstOrDefault(p => LabelPrinterSelector.SamePrinter(p.DevicePath, wanted));
+        var resolution = isA4 ? null : LabelPrinterSelector.Resolve(printers);
+        PrinterCombo.SelectedItem = isA4
+            ? keep ?? LabelPrinterSelector.PickA4Default(printers, BarcodePrintSettingsStore.Load().A4PrinterName)
+            : keep ?? resolution!.Printer;
+        _listGuard = false;
+        _printersLoaded = true;
     }
 
     private void UpdateSelectionCount()
@@ -223,10 +267,38 @@ public partial class BulkPriceTagPrintDialog : Window
             return;
         }
 
+        if (!BarcodePrintAccess.IsAllowed()) // 2026-11-01 (П-10)
+        {
+            StatusText.Text = BarcodePrintAccess.DeniedText;
+            return;
+        }
+        if (!LabelPrinterSelector.PrintingSupported)
+        {
+            StatusText.Text = LabelPrinterSelector.UnsupportedText; // 2026-11-01 (С-9)
+            return;
+        }
+        if (PrinterCombo.SelectedItem is null && !_printersLoaded)
+        {
+            StatusText.Text = Tr.T("Ищу принтеры… повторите печать через секунду.", "Принтерлер изделүүдө… бир секунддан кийин кайра басыңыз.", "Looking for printers… try printing again in a second.", "Yazıcılar aranıyor… bir saniye sonra tekrar deneyin.", "Printerlar qidirilmoqda… bir soniyadan keyin qayta urinib ko'ring.");
+            return;
+        }
         if (PrinterCombo.SelectedItem is not DiscoveredPrinter printer)
         {
-            StatusText.Text = Tr.T("Выберите принтер.", "Принтерди тандаңыз.", "Select a printer.", "Bir yazıcı seçin.", "Printerni tanlang.");
+            StatusText.Text = TargetA4Radio.IsChecked == true
+                ? Tr.T("Выберите принтер.", "Принтерди тандаңыз.", "Select a printer.", "Bir yazıcı seçin.", "Printerni tanlang.")
+                : LabelPrinterSelector.MissingHint();
             return;
+        }
+
+        // 2026-11-01 (С-5): большая пачка — подтверждение с числом этикеток и оценкой ленты/листов.
+        var totalLabels = selected.Count * (int)(CopiesBox.Value ?? 1m);
+        if (totalLabels > LabelPrinterSelector.BigBatchLabels)
+        {
+            var bigQuestion = LabelPrinterSelector.BigBatchQuestion(totalLabels, (double)(HeightBox.Value ?? 30m), UserPreferences.Instance.LabelGapMm, 0, printer.Label);
+            if (!await PosDialogs.ConfirmYesNoModalAsync(this, bigQuestion, Tr.T("Большая печать", "Чоң басуу", "Large print job", "Büyük baskı", "Katta chop etish"),
+                    Tr.T($"Напечатать {totalLabels}", $"{totalLabels} басуу", $"Print {totalLabels}", $"{totalLabels} yazdır", $"{totalLabels} ta chop etish"),
+                    Tr.T("Отмена", "Жок", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true))
+                return;
         }
 
         // 2026-10-22 (модалки, пакет 3): второй клик/Enter во время печати ничего не делает, окно не закрывается (IsBusy).
@@ -235,6 +307,10 @@ public partial class BulkPriceTagPrintDialog : Window
         PrintButton.IsEnabled = false;
         StatusText.Text = Tr.T($"Печать {selected.Count} ценников…", $"{selected.Count} баа белгиси басып чыгарылууда…",
             $"Printing {selected.Count} price tags…", $"{selected.Count} fiyat etiketi yazdırılıyor…", $"{selected.Count} ta narx yorlig'i chop etilmoqda…");
+        var doneRows = new List<SelectionRow>();
+        string? stoppedAt = null;
+        var cancelled = false;
+        var result = LabelPrintResult.Success;
         try
         {
             var widthMm = (double)(WidthBox.Value ?? 40m);
@@ -252,20 +328,63 @@ public partial class BulkPriceTagPrintDialog : Window
             prefs.BulkPriceTagCopies = copies;
             prefs.SaveToDisk();
 
+            // 2026-11-01 (Н-4): цена с запятой, как в остальных окнах печати (BarcodePrintCatalog.LabelPrice).
             var dataList = selected.Select(row => new PriceTagData(
                 ProductName: row.Product.Title,
                 Barcode: row.Product.Barcode,
-                PriceText: row.Product.PriceLine,
+                PriceText: BarcodePrintCatalog.LabelPrice(row.Product),
                 Sku: row.Product.Article,
                 Unit: row.Product.Unit,
                 Category: row.Product.Category ?? row.Product.Brand,
                 StoreName: storeName)).ToList();
 
-            var result = option.Kind == PriceTagKind.Custom
-                ? await Task.Run(() => PriceTagService.PrintBatchCustomTemplate(
-                    dataList.Select(d => (d, copies)).ToList(), _customTemplate, printer.DevicePath, target)).ConfigureAwait(true)
-                : await Task.Run(() => PriceTagService.PrintBatch(
-                    dataList.Select(d => (option.Kind, d, copies)).ToList(), widthMm, heightMm, printer.DevicePath, target)).ConfigureAwait(true);
+            if (isA4)
+            {
+                // Лист A4 — один документ на все этикетки: частичного результата и отмены нет.
+                result = option.Kind == PriceTagKind.Custom
+                    ? await Task.Run(() => PriceTagService.PrintBatchCustomTemplate(
+                        dataList.Select(d => (d, copies)).ToList(), _customTemplate, printer.DevicePath, target)).ConfigureAwait(true)
+                    : await Task.Run(() => PriceTagService.PrintBatch(
+                        dataList.Select(d => (option.Kind, d, copies)).ToList(), widthMm, heightMm, printer.DevicePath, target)).ConfigureAwait(true);
+                if (result == LabelPrintResult.Success)
+                    doneRows.AddRange(selected);
+            }
+            else
+            {
+                // 2026-11-01 (С-6/В-3): термопечать — по товару, с ходом, отменой и учётом напечатанного.
+                _printCts = new System.Threading.CancellationTokenSource();
+                var ct = _printCts.Token;
+                CancelPrintButton.IsVisible = true;
+                CancelPrintButton.IsEnabled = true;
+                var total = selected.Count;
+                await Task.Run(() =>
+                {
+                    for (var i = 0; i < selected.Count; i++)
+                    {
+                        if (ct.IsCancellationRequested)
+                        {
+                            cancelled = true;
+                            stoppedAt = selected[i].Product.Title;
+                            break;
+                        }
+                        var data = dataList[i];
+                        var r = option.Kind == PriceTagKind.Custom
+                            ? PriceTagService.PrintBatchCustomTemplate(new[] { (data, copies) }, _customTemplate, printer.DevicePath, target)
+                            : PriceTagService.Print(new PriceTagPrintRequest(option.Kind, data, widthMm, heightMm, copies, printer.DevicePath, target));
+                        if (r != LabelPrintResult.Success)
+                        {
+                            result = r;
+                            stoppedAt = selected[i].Product.Title;
+                            break;
+                        }
+                        doneRows.Add(selected[i]);
+                        var n = i + 1;
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() => StatusText.Text = Tr.T($"Печать… {n} из {total}", $"Басып жатат… {n}/{total}", $"Printing… {n} of {total}", $"Yazdırılıyor… {n}/{total}", $"Chop etilmoqda… {n}/{total}"));
+                    }
+                }).ConfigureAwait(true);
+                if (doneRows.Count > 0)
+                    LabelPrinterSelector.LogSent(printer, printer.DevicePath, doneRows.Count * copies);
+            }
 
             // Товары, чей штрих-код напечатан иначе (Code 128 вместо EAN) или не напечатан
             // (кириллица, не влезает). Раньше один такой товар ронял всю массовую печать.
@@ -279,20 +398,55 @@ public partial class BulkPriceTagPrintDialog : Window
                 $"{problemCount} üründe barkod uyarısı var (geçersiz EAN Code 128 olarak basıldı, Kiril, çok uzun veya çok sık kod) — ayrıntılar o ürünün fiyat etiketi yazdırma penceresinde.",
                 $"{problemCount} ta mahsulotda shtrix-kod bo'yicha eslatma bor (noto'g'ri EAN Code 128 sifatida chop etildi, kirill, juda uzun yoki zich kod) — tafsilotlar shu mahsulotning narx yorlig'ini chop etish oynasida.");
 
-            StatusText.Text = result switch
+            // 2026-11-01 (Н-5): «Со штрих-кодом»/«Подробный»/QR — товары без штрих-кода печатаются без него; считаем их и пишем.
+            var needsCode = option.Kind is PriceTagKind.WithBarcode or PriceTagKind.Detailed or PriceTagKind.WithQr
+                || (option.Kind == PriceTagKind.Custom && _customTemplate.Barcode.Enabled);
+            var noCode = needsCode ? selected.Count(row => string.IsNullOrWhiteSpace(row.Product.Barcode)) : 0;
+            if (noCode > 0)
+                problemNote += " " + Tr.T($"У {noCode} товаров нет штрих-кода — на их ценниках его нет.", $"{noCode} товардо штрих-код жок — алардын баа белгилеринде ал жок.",
+                    $"{noCode} products have no barcode — their tags are printed without it.", $"{noCode} ürünün barkodu yok — etiketleri barkodsuz basıldı.", $"{noCode} ta mahsulotda shtrix-kod yo'q — ularning narx yorliqlarida u yo'q.");
+
+            if (result != LabelPrintResult.Success || cancelled)
             {
-                LabelPrintResult.Success => Tr.T($"Готово — отправлено на печать {selected.Count} ценников.", $"Даяр — {selected.Count} баа белгиси басып чыгарууга жөнөтүлдү.",
-                    $"Done — {selected.Count} price tags sent to the printer.", $"Tamamlandı — {selected.Count} fiyat etiketi yazdırmaya gönderildi.",
-                    $"Tayyor — {selected.Count} ta narx yorlig'i chop etishga yuborildi.") + problemNote,
-                LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден — обновите список.", "Принтер табылган жок — тизмени жаңыртыңыз.", "Printer not found — refresh the list.", "Yazıcı bulunamadı — listeyi yenileyin.", "Printer topilmadi — ro'yxatni yangilang."),
-                _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Толук маалымат колдонмонун журналында.", "Printing error. See the app log for details.", "Yazdırma hatası. Ayrıntılar için uygulama günlüğüne bakın.", "Chop etishda xato. Batafsil ma'lumot ilova jurnalida."),
-            };
+                // 2026-11-01 (В-3): с напечатанных строк выбор снимается — повторное «Печать» не печатает их заново.
+                foreach (var row in doneRows)
+                    row.IsSelected = false;
+                UpdateSelectionCount();
+            }
+            var partial = Tr.T($"Напечатано {doneRows.Count} из {selected.Count}, остановились на «{stoppedAt}». Выбор снят с напечатанных — повторное «Печать» допечатает остальные.",
+                $"{doneRows.Count}/{selected.Count} басылды, «{stoppedAt}» боюнча токтоду. Басылгандардан тандоо алынды — кайра «Басуу» калгандарын басат.",
+                $"Printed {doneRows.Count} of {selected.Count}, stopped at “{stoppedAt}”. Printed rows were deselected — pressing Print again prints only the rest.",
+                $"{doneRows.Count}/{selected.Count} basıldı, «{stoppedAt}» üründe durdu. Yazdırılanların seçimi kaldırıldı — tekrar «Yazdır» kalanları yazdırır.",
+                $"{doneRows.Count}/{selected.Count} chop etildi, «{stoppedAt}» da to'xtadi. Chop etilganlardan tanlov olib tashlandi — qayta «Chop etish» qolganlarini chop etadi.");
+            StatusText.Text = cancelled
+                ? Tr.T("Печать остановлена. ", "Басуу токтотулду. ", "Printing stopped. ", "Yazdırma durduruldu. ", "Chop etish to'xtatildi. ") + partial
+                : result switch
+                {
+                    LabelPrintResult.Success => Tr.T($"Готово — отправлено на печать {selected.Count} ценников.", $"Даяр — {selected.Count} баа белгиси басып чыгарууга жөнөтүлдү.",
+                        $"Done — {selected.Count} price tags sent to the printer.", $"Tamamlandı — {selected.Count} fiyat etiketi yazdırmaya gönderildi.",
+                        $"Tayyor — {selected.Count} ta narx yorlig'i chop etishga yuborildi.") + " " + LabelPrinterSelector.SentText(printer.Label) + "." + problemNote,
+                    LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден — обновите список.", "Принтер табылган жок — тизмени жаңыртыңыз.", "Printer not found — refresh the list.", "Yazıcı bulunamadı — listeyi yenileyin.", "Printer topilmadi — ro'yxatni yangilang."),
+                    _ => (doneRows.Count > 0 || stoppedAt is not null
+                            ? Tr.T("Ошибка печати. ", "Басуу катасы. ", "Printing error. ", "Yazdırma hatası. ", "Chop etishda xato. ") + partial
+                            : Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Толук маалымат колдонмонун журналында.", "Printing error. See the app log for details.", "Yazdırma hatası. Ayrıntılar için uygulama günlüğüne bakın.", "Chop etishda xato. Batafsil ma'lumot ilova jurnalida.")),
+                };
         }
         finally
         {
+            _printCts?.Dispose();
+            _printCts = null;
+            CancelPrintButton.IsVisible = false;
             PrintButton.IsEnabled = true;
             Shell.EndBusy();
         }
+    }
+
+    private System.Threading.CancellationTokenSource? _printCts;
+
+    private void CancelPrint_Click(object? sender, RoutedEventArgs e)
+    {
+        _printCts?.Cancel();
+        CancelPrintButton.IsEnabled = false;
     }
 
     private void CloseButton_Click(object? sender, RoutedEventArgs e) => Close();

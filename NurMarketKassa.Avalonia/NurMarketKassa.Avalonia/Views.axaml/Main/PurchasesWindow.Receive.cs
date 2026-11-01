@@ -1268,14 +1268,14 @@ public sealed partial class PurchasesWindow
         // Под закупкой — «▲ +12 %» (оранжевым) и «было 45,00»; под продажей — «маржа 4 %» (красным); значения те же, что в Склад → Приёмка (ReceivingLineVm).
         // 2026-10-29: под закупкой — «↑ дороже на 5 сом (+10 %)» красным / «↓ дешевле на 2 сом» зелёным / «без изменений», «новый товар» серым;
         // под продажей — статус «авто (по общей наценке 30 %)» или «вручную · Как у всех», «прибыль 14 сом с шт.», красная пометка маржи.
-        var changeText = new TextBlock { FontSize = 11.5, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
+        var changeText = new TextBlock { FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
         Use(changeText, TextBlock.ForegroundProperty, "BrushTextSoft");
-        var profitText = new TextBlock { FontSize = 11, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
+        var profitText = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
         Use(profitText, TextBlock.ForegroundProperty, "BrushTextSoft");
-        var lowText = new TextBlock { FontSize = 11, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
+        var lowText = new TextBlock { FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
         Use(lowText, TextBlock.ForegroundProperty, "BrushDanger");
         var purchaseSub = new StackPanel { Margin = new Thickness(0, -2, 10, 0), HorizontalAlignment = HorizontalAlignment.Stretch, Children = { changeText } };
-        var autoText = new TextBlock { FontSize = 11, FontWeight = FontWeight.SemiBold, Cursor = new Cursor(StandardCursorType.Hand), TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
+        var autoText = new TextBlock { FontSize = 12, FontWeight = FontWeight.SemiBold, Cursor = new Cursor(StandardCursorType.Hand), TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
         Use(autoText, TextBlock.ForegroundProperty, "BrushAccent");
         autoText.PointerPressed += (_, _) =>
         {

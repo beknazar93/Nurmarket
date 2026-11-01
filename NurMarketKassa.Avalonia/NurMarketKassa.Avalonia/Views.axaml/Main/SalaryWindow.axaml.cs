@@ -266,7 +266,7 @@ public partial class SalaryWindow : Window, IOwnerSection
         {
             PosLogger.Log($"Salary report failed: {ex}", "WARNING");
             ShowError(Tr.T("Не удалось загрузить зарплату", "Эмгек акыны жүктөө мүмкүн болгон жок", "Could not load salaries",
-                "Maaşlar yüklenemedi", "Ish haqini yuklab bo'lmadi") + ": " + ex.Message);
+                "Maaşlar yüklenemedi", "Ish haqini yuklab bo'lmadi") + ": " + ServerOutageMonitor.FriendlyError(ex)); // 2026-11-01 (В-28): без сырого текста .NET
         }
         finally
         {
@@ -429,7 +429,7 @@ public partial class SalaryWindow : Window, IOwnerSection
         catch (Exception ex)
         {
             PosLogger.Log($"Выплата зарплаты: окно не открылось: {ex}", "ERROR");
-            ShowError(ex.Message);
+            ShowError(ServerOutageMonitor.FriendlyError(ex)); // 2026-11-01 (В-28)
         }
     }
 

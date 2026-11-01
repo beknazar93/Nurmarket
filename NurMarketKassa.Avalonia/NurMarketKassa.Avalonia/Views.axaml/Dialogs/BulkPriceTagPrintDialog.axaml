@@ -56,6 +56,7 @@
         <dialogs:ModalShell.Footer>
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="modal-cancel" Click="CloseButton_Click"/>
+                <Button x:Name="CancelPrintButton" IsVisible="False" Classes="modal-cancel" Click="CancelPrint_Click"/>
                 <Button x:Name="PrintButton" Content="{DynamicResource priceTagBulk.printButton}" Classes="modal-primary" Click="PrintButton_Click"/>
             </StackPanel>
         </dialogs:ModalShell.Footer>

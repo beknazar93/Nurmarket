@@ -772,11 +772,11 @@
   <x:String x:Key="posSettings.screen.refreshCashboxesTooltip">Kasa listesini yenile</x:String>
   <x:String x:Key="posSettings.screen.cashierLanguage">Kasiyer ekranı dili</x:String>
   <x:String x:Key="posSettings.screen.appliesImmediately">Yeniden başlatmaya gerek kalmadan hemen uygulanır.</x:String>
-  <x:String x:Key="posSettings.screen.langRussian">Rusça</x:String>
-  <x:String x:Key="posSettings.screen.langKyrgyz">Kırgızca</x:String>
+  <x:String x:Key="posSettings.screen.langRussian">Русский</x:String>
+  <x:String x:Key="posSettings.screen.langKyrgyz">Кыргызча</x:String>
   <x:String x:Key="posSettings.screen.langTurkish">Türkçe</x:String>
-  <x:String x:Key="posSettings.screen.langUzbek">Özbekçe</x:String>
-  <x:String x:Key="posSettings.screen.langEnglish">İngilizce</x:String>
+  <x:String x:Key="posSettings.screen.langUzbek">O'zbekcha</x:String>
+  <x:String x:Key="posSettings.screen.langEnglish">English</x:String>
   <x:String x:Key="posSettings.screen.languagePackHint">İngilizce, Türkçe ve Özbekçe — ücretli Dil paketi: Pazaryeri → Ek özellikler</x:String>
   <x:String x:Key="posSettings.screen.uiScale">Ölçek</x:String>
   <x:String x:Key="posSettings.screen.uiScaleDesc">Kasa ekranındaki tüm öğelerin boyutu — %50 ile %200 arasında. Yeniden başlatmaya gerek kalmadan hemen uygulanır.</x:String>

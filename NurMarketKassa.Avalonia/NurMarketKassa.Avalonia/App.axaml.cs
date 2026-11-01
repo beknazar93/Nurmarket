@@ -179,6 +179,8 @@ public partial class App : Application
         OfflineOperationsReplayer.DrawerReader = shiftId => AppHost?.Services.GetService<NurMarketApiClient>() is { } api
             ? ExchangeCashCorrections.ReadExpectedCashAsync(api, shiftId)
             : Task.FromResult<decimal?>(null);
+        // 2026-11-01 (Д-1): общий расчёт «ожидаемо в ящике» (X/Z, Telegram, утренний отчёт, выплата зарплаты) знает поправки кассы.
+        ShiftExpectedCash.CorrectionProvider = ExchangeCashCorrections.ForShift;
         OfflineOperationsReplayer.DrawerCorrector = (shiftId, key, overstated, cashOut, what) =>
             ExchangeCashCorrections.RecordIfKnownServerError(shiftId, key, overstated, cashOut, what);
         OfflineClientCache.Refresher = async (fullClients, ct) =>

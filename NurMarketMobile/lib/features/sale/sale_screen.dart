@@ -23,6 +23,9 @@ import '../stock/product_packages.dart';
 import 'piece_sale_mode.dart';
 import 'cart.dart';
 import 'catalog_repository.dart';
+import 'variant_picker.dart';
+import 'variant_service.dart';
+import '../../core/shop_mode.dart';
 import '../../core/util/audit.dart';
 
 /// Продажа (Т2): поиск, избранное и категории, плитки, чек; смахнуть строку влево — убрать.
@@ -39,6 +42,9 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
   List<Product> _products = [];
   List<String> _categories = [];
   Map<String, PiecePack> _packs = {}; // 2026-10-27 (М4): поштучные упаковки товаров — остаток плитки как «12 пачек + 5 шт»
+  Map<String, ({int count, double qty})> _variants = {}; // 2026-10-31 (одежда): у каких товаров на плитке есть размеры и сколько штук всего
+  bool _clothingHint = false; // 2026-10-31: в магазине есть размеры, а режим «Одежда» не включён — подсказка
+  int _prefetchSeq = 0;
   Timer? _debounce;
 
   /// 2026-10-30 (оптимизация, п. 13): плитки берутся окном — первые [_page] по запросу, дальше при прокрутке (раньше на каждую
@@ -118,9 +124,11 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
       if (!mounted) return;
       final p = hit.product;
       if (p != null) {
-        await addProduct(context, ref, p, qty: hit.qty);
+        final before = ref.read(cartProvider).quantity;
+        await addProduct(context, ref, p, qty: hit.qty, code: q);
         if (!mounted) return;
-        toast(context, l.addedToCheckName(p.name));
+        // 2026-10-31: «Добавлено» — только если в чеке что-то прибавилось (размер закончился или отключён — там своё сообщение)
+        if (ref.read(cartProvider).quantity != before) toast(context, l.addedToCheckName(p.name));
         await _afterScan(hadFocus);
         return;
       }
@@ -204,13 +212,108 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
     final cats = refreshMeta || _categories.isEmpty ? await db.categories() : null;
     final list = await db.searchProducts(_search.text, category: _category == '' ? null : _category, favorites: _category == '', limit: _limit + 1);
     final packs = refreshMeta || cats != null ? await PackageStore.read(db) : null;
+    final shown = list.length > _limit ? list.sublist(0, _limit) : list;
+    final variants = await db.variantSummary(shown.map((x) => x.id));
+    final hint = await _needClothingHint(db);
     if (!mounted || seq != _seq) return; // пришёл более новый запрос — этот ответ устарел
     setState(() {
       if (cats != null) _categories = cats;
       _hasMore = list.length > _limit;
-      _products = _hasMore ? list.sublist(0, _limit) : list;
+      _products = shown;
       if (packs != null) _packs = packs;
+      _variants = variants;
+      _clothingHint = hint;
     });
+    unawaited(_prefetchVariants(shown, seq));
+  }
+
+  /// 2026-10-31 (режим магазина): размеры есть, режим «Одежда» выключен и на подсказку не отвечали «Не нужно».
+  Future<bool> _needClothingHint(AppDatabase db) async {
+    if (ref.read(prefsProvider).clothing) return false;
+    if ((await db.getSetting(ShopModeSync.hintOffKey)) == '1') return false;
+    return db.hasAnyVariants();
+  }
+
+  /// 2026-10-31 (одежда): в режиме «Одежда» размеры показанных товаров подтягиваются в фоне (сервер не говорит, у каких товаров они
+  /// есть), чтобы на плитках была пометка «N размеров/цветов» и остаток по размерам. По одному товару с паузой, не больше
+  /// [_prefetchMax] за раз; новый запрос списка прерывает предыдущий обход.
+  static const _prefetchMax = 40;
+  Future<void> _prefetchVariants(List<Product> shown, int seq) async {
+    if (!ref.read(prefsProvider).clothing) return;
+    final db = ref.read(databaseProvider);
+    final svc = ref.read(variantServiceProvider);
+    final mine = ++_prefetchSeq;
+    var done = 0;
+    for (final x in shown) {
+      if (!mounted || mine != _prefetchSeq) return;
+      if (x.isWeight || x.isService) continue;
+      if (done >= _prefetchMax) break;
+      if (await db.variantCheck(x.id) != null) continue;
+      final r = await svc.forProduct(x.id, timeout: const Duration(seconds: 3));
+      if (r.unknown) break; // нет связи — дальше не пробуем
+      done++;
+      if (done % 8 == 0 && mounted && mine == _prefetchSeq) {
+        final v = await db.variantSummary(shown.map((y) => y.id));
+        if (mounted && mine == _prefetchSeq) setState(() => _variants = v);
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    if (done > 0 && mounted && mine == _prefetchSeq) {
+      final v = await db.variantSummary(shown.map((y) => y.id));
+      if (mounted) setState(() => _variants = v);
+    }
+  }
+
+  /// Подсказка «Включить режим «Одежда»?» — когда в каталоге нашлись товары с размерами и цветами.
+  Widget _clothingHintCard(BuildContext context) {
+    final l = context.l;
+    final pal = context.pal;
+    return Container(
+      key: const Key('clothingHint'),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+      decoration: BoxDecoration(color: pal.panel, borderRadius: BorderRadius.circular(14), border: Border.all(color: T.accent)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.checkroom_rounded, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text(l.clothingHintTitle, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5))),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(l.clothingHintAsk, style: TextStyle(fontSize: 12.5, color: pal.textSoft)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                key: const Key('clothingHintNo'),
+                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: () async {
+                  await ref.read(databaseProvider).setSetting(ShopModeSync.hintOffKey, '1');
+                  if (mounted) setState(() => _clothingHint = false);
+                },
+                child: Text(l.clothingHintNo),
+              ),
+              FilledButton(
+                key: const Key('clothingHintYes'),
+                style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: () async {
+                  final ok = await ref.read(prefsProvider.notifier).setShop(ShopMode.clothing, toServer: true);
+                  if (!mounted) return;
+                  setState(() => _clothingHint = false);
+                  toast(this.context, '${l.shopModeOn(ShopMode.clothing.title(l))}. ${ok ? l.shopModeSavedAll : l.shopModePhoneOnly}');
+                  _reload(keepWindow: true);
+                },
+                child: Text(l.clothingHintYes),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -218,6 +321,10 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
     final l = context.l;
     final cart = ref.watch(cartProvider);
     final p = context.pal;
+    // 2026-10-31 (режим магазина): режим сменили (профиль, подсказка, сервер) — плитки, подсказки и размеры обновляются сразу
+    ref.listen<ShopMode>(prefsProvider.select((x) => x.shop), (prev, next) {
+      if (prev != next) _reload(keepWindow: true, refreshMeta: true);
+    });
     // 2026-10-26 (живой аудит, П3, С-1): чек оплачен/отложен/очищен — поиск прошлого покупателя не остаётся в поле
     ref.listen<Cart>(cartProvider, (prev, next) {
       if (prev != null && !prev.isEmpty && next.isEmpty) {
@@ -253,6 +360,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
         ),
         if (!_showCheck) ...[
           const LinkBanner(catalog: true, margin: EdgeInsets.fromLTRB(16, 0, 16, 8)), // 2026-10-29 (аудит, п. 5): «Остатки на ЧЧ:ММ»
+          if (_clothingHint) _clothingHintCard(context),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -270,7 +378,8 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                       _debounce = Timer(const Duration(milliseconds: 300), _reload);
                     },
                     decoration: InputDecoration(
-                      hintText: l.searchProduct,
+                      // 2026-10-31 (режим магазина): подсказка поиска под режим; режим не выбран — прежняя
+                      hintText: ref.watch(prefsProvider).shopChosen ? ref.watch(prefsProvider).shop.searchHint(l) : l.searchProduct,
                       prefixIcon: const Icon(Icons.search_rounded),
                       // 2026-10-26 (С-1): кнопка «×» — очистить поиск
                       suffixIcon: ValueListenableBuilder<TextEditingValue>(
@@ -301,19 +410,22 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                   ),
                 ),
                 // 2026-10-20, владелец: весовой товар умной камерой — товар и вес с табло весов сразу в чек.
-                const SizedBox(width: 8),
-                Material(
-                  color: T.navy,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
+                // 2026-10-31 (режим магазина): в «Одежде» и «Услугах» весов нет — кнопка не показывается
+                if (ref.watch(prefsProvider).shop.weighing) ...[
+                  const SizedBox(width: 8),
+                  Material(
+                    color: T.navy,
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () => weighForSale(context, ref),
-                    child: Tooltip(
-                      message: l.weighTitle,
-                      child: const SizedBox(width: 48, height: 48, child: Icon(Icons.scale_rounded, color: T.accent)),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => weighForSale(context, ref),
+                      child: Tooltip(
+                        message: l.weighTitle,
+                        child: const SizedBox(width: 48, height: 48, child: Icon(Icons.scale_rounded, color: T.accent)),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -354,7 +466,12 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                           child: Padding(
                             padding: const EdgeInsets.all(24),
                             child: Center(
-                              child: Text(l.nothingFound, style: TextStyle(color: p.textSoft)),
+                              child: Text(
+                                ref.watch(prefsProvider).shopChosen ? '${l.nothingFound}\n${ref.watch(prefsProvider).shop.emptyText(l)}' : l.nothingFound,
+                                key: const Key('saleEmpty'),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: p.textSoft),
+                              ),
                             ),
                           ),
                         )
@@ -364,12 +481,14 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                             maxCrossAxisExtent: 140,
                             mainAxisSpacing: 8,
                             crossAxisSpacing: 8,
-                            mainAxisExtent: 96 + 62 * textScale,
+                            mainAxisExtent: 96 + (_variants.isEmpty ? 62 : 76) * textScale,
                           ),
                           itemCount: _products.length,
-                          itemBuilder: (c, i) => _ProductTile(_products[i], inCart: inCart[_products[i].id], pack: _packs[_products[i].id], onTap: () {
+                          itemBuilder: (c, i) => _ProductTile(_products[i], inCart: inCart[_products[i].id], pack: _packs[_products[i].id], variants: _variants[_products[i].id], mode: ref.watch(prefsProvider).shopChosen ? ref.watch(prefsProvider).shop : null, onTap: () {
                             _hideNotice();
-                            addProduct(context, ref, _products[i]);
+                            addProduct(context, ref, _products[i]).whenComplete(() {
+                              if (mounted) _reload(keepWindow: true);
+                            });
                           }),
                         ),
                 ),
@@ -645,12 +764,16 @@ Future<({double percent, double sum})?> askDiscount(BuildContext context, {requi
   );
 }
 
-Future<void> addProduct(BuildContext context, WidgetRef ref, Product p, {double? qty}) async {
+/// [code] — штрихкод, по которому нашли товар: если это штрихкод РАЗМЕРА, нужный размер сразу идёт в чек (2026-10-31, одежда).
+Future<void> addProduct(BuildContext context, WidgetRef ref, Product p, {double? qty, String? code}) async {
   final l = context.l;
   if (!ref.read(shiftProvider).isOpen) {
     toast(context, l.openShiftFirst, error: true);
     return;
   }
+  // 2026-10-31 (владелец: «почему продажа одежды в мобилке нету?»): товар с размерами и цветами — сначала выбор варианта
+  if (!p.isWeight && !p.isService && await _addWithVariants(context, ref, p, qty: qty, code: code)) return;
+  if (!context.mounted) return;
   var q = qty ?? 1;
   // 2026-10-27 (М4): у товара есть поштучная опция (packages) — сначала «Пачка / Штука», как PackageChoiceDialog кассы.
   // Без id упаковки на сервере штуку продать нельзя (sale_package_id) — такой товар продаётся целиком, как раньше.
@@ -674,26 +797,145 @@ Future<void> addProduct(BuildContext context, WidgetRef ref, Product p, {double?
   }
   if (!context.mounted) return;
   if (p.isWeight && qty == null) {
-    final kg = await askNumber(context, title: l.weightOf(p.name), hint: l.kg);
+    // 2026-10-31 (режим «Продукты»): быстрый ввод веса — кнопки 0,25 / 0,5 / 1 / 2 / 5 и «Другой вес»
+    final quick = ref.read(prefsProvider).shopChosen && ref.read(prefsProvider).shop == ShopMode.grocery;
+    final kg = quick ? await askWeightQuick(context, p) : await askNumber(context, title: l.weightOf(p.name), hint: l.kg);
     if (kg == null || kg <= 0) return;
     q = kg;
   }
-  // 13.10, макет С5: одежда — у товара с размерами сначала выбирается размер и цвет (как VariantPickerWindow кассы).
-  if (!p.isWeight && ref.read(prefsProvider).clothing) {
-    List<ProductVariant> variants = const [];
-    try {
-      variants = (await ref.read(catalogRepoProvider).variants(p.id)).where((v) => v.active).toList();
-    } catch (_) {
-      // без связи — продаём без размера
-    }
-    if (variants.isNotEmpty && context.mounted) {
-      final v = await pickVariant(context, p, variants);
-      if (v == null) return;
-      ref.read(cartProvider.notifier).add(p, qty: q, variantId: v.id, variantLabel: v.label, variantPrice: v.price);
-      return;
+  ref.read(cartProvider.notifier).add(p, qty: q, packName: pack?.label(l.pkWordPackage));
+  // 2026-10-31 (режим «Продукты»): срок годности близко (7 дней и меньше) — предупреждение при добавлении в чек
+  final prefs = ref.read(prefsProvider);
+  final d = daysToExpiry(p.expiresOn);
+  if (prefs.shopChosen && prefs.shop == ShopMode.grocery && d != null && d <= 7 && context.mounted) {
+    toast(context, l.expirySoonToast(p.name, expiryText(p.expiresOn!)), error: true);
+  }
+}
+
+/// 2026-10-31 (режим «Продукты»): быстрый ввод веса весового товара — крупные кнопки и свой вес.
+Future<double?> askWeightQuick(BuildContext context, Product p) {
+  final l = context.l;
+  return showModalBottomSheet<double>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (c) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(l.weightOf(p.name), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            const SizedBox(height: 4),
+            Text('${money(p.price)} ${l.som} / ${p.unit}', style: TextStyle(color: c.pal.textSoft)),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final w in const [0.25, 0.5, 1.0, 2.0, 5.0])
+                  SizedBox(
+                    width: 96,
+                    height: 52,
+                    child: FilledButton.tonal(
+                      key: Key('quickWeight_$w'),
+                      onPressed: () => Navigator.pop(c, w),
+                      child: Text('${qtyText(w)} ${p.unit}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              key: const Key('quickWeightOther'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+              onPressed: () async {
+                final v = await askNumber(c, title: l.weightOf(p.name), hint: p.unit);
+                if (c.mounted && v != null) Navigator.pop(c, v);
+              },
+              child: Text(l.kg == p.unit ? '${l.weightOf(p.name)}…' : '${p.unit}…'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Сколько штук каждого размера товара уже в чеке (id размера → штук).
+Map<String, double> variantsInCart(Cart cart) {
+  final m = <String, double>{};
+  for (final ln in cart.lines) {
+    final v = ln.variantId;
+    if (v != null) m[v] = (m[v] ?? 0) + ln.qty;
+  }
+  return m;
+}
+
+/// 2026-10-31 (одежда): продажа товара с размерами и цветами. true — товар обработан (добавлен, отменён или сообщено, почему нельзя);
+/// false — вариантов у товара нет, дальше идёт обычная продажа.
+/// • штрихкод размера ([code]) кладёт этот размер в чек сразу, без окна;
+/// • иначе окно «Размер и цвет» (сетка с остатками; остатки сразу с телефона, свежие с сервера подтягиваются в открытом окне);
+/// • режим «Одежда» и размеры товара не загрузились без связи — продажа без размера не допускается;
+///   в остальных режимах такой товар продаётся как раньше.
+Future<bool> _addWithVariants(BuildContext context, WidgetRef ref, Product p, {double? qty, String? code}) async {
+  final l = context.l;
+  final db = ref.read(databaseProvider);
+  final prefs = ref.read(prefsProvider);
+  final hasAny = await db.hasAnyVariants();
+  final cart = ref.read(cartProvider);
+  // штрихкод размера этого товара — сразу в чек
+  if (code != null) {
+    final row = await db.variantByBarcode(code);
+    if (row != null && row.productId == p.id) {
+      if (!context.mounted) return true;
+      return _addScannedVariant(context, ref, p, VariantService.fromRow(row), qty: qty);
     }
   }
-  ref.read(cartProvider.notifier).add(p, qty: q, packName: pack?.label(l.pkWordPackage));
+  // Сервер не говорит, у каких товаров есть размеры, поэтому товар спрашивается при открытии. Режим выбран и это не «Одежда»,
+  // размеров в магазине нет — не спрашиваем (хозяйственный магазин не ждёт лишний запрос).
+  final discover = prefs.clothing || !prefs.shopChosen || hasAny;
+  final svc = ref.read(variantServiceProvider);
+  final set = await svc.forProduct(p.id, timeout: prefs.clothing ? VariantService.loadTimeout : const Duration(seconds: 2), allowServer: discover);
+  if (!context.mounted) return true;
+  if (set.unknown) {
+    if (prefs.clothing) {
+      toast(context, l.variantLoadFailed, error: true);
+      return true;
+    }
+    return false;
+  }
+  if (!set.has) return false;
+  if (set.active.isEmpty) {
+    toast(context, l.variantPickAllOut, error: true);
+    return true;
+  }
+  final pick = await pickVariant(context, p, set.active, inCart: variantsInCart(cart), refresh: set.refresh);
+  if (pick == null) return true;
+  ref.read(cartProvider.notifier).add(p, qty: pick.qty, variantId: pick.variant.id, variantLabel: pick.variant.lineLabel, variantPrice: pick.variant.price);
+  return true;
+}
+
+/// Размер найден по штрихкоду: неактивный или закончившийся в чек не кладётся (понятное сообщение), иначе — в чек количеством скана.
+bool _addScannedVariant(BuildContext context, WidgetRef ref, Product p, ProductVariant v, {double? qty}) {
+  final l = context.l;
+  final label = '${p.name} · ${v.lineLabel}';
+  if (!v.active) {
+    toast(context, l.variantScanInactive(label), error: true);
+    return true;
+  }
+  final double want = qty == null || qty < 1 ? 1.0 : qty.roundToDouble();
+  final avail = variantAvailable(v, variantsInCart(ref.read(cartProvider))[v.id] ?? 0);
+  if (avail < 1) {
+    toast(context, l.variantScanOut(label), error: true);
+    return true;
+  }
+  if (want > avail) {
+    toast(context, l.variantNoMore(qtyText(v.quantity)), error: true);
+  }
+  ref.read(cartProvider.notifier).add(p, qty: want > avail ? avail.floorToDouble() : want, variantId: v.id, variantLabel: v.lineLabel, variantPrice: v.price);
+  return true;
 }
 
 /// 2026-10-27 (М4): «Как продать?» — две крупные кнопки с ценами: упаковка целиком или штука из неё (остаток в штуках — упаковки × штук).
@@ -781,91 +1023,6 @@ Future<bool?> askPackOrPiece(BuildContext context, Product p, PiecePack pack, {b
   );
 }
 
-/// С5: цвет чипами, размеры с остатком; «В чек · 44». Мало осталось — переспросить.
-Future<ProductVariant?> pickVariant(BuildContext context, Product p, List<ProductVariant> variants) {
-  final l = context.l;
-  final colors = variants.map((v) => v.color).toSet().toList();
-  var color = colors.first;
-  ProductVariant? chosen;
-  return showModalBottomSheet<ProductVariant>(
-    context: context,
-    isScrollControlled: true,
-    builder: (c) => StatefulBuilder(
-      builder: (c, set) {
-        final sizes = variants.where((v) => v.color == color).toList();
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(p.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-                Text(l.chooseSize, style: TextStyle(color: c.pal.textSoft)),
-                if (colors.length > 1 || colors.first.isNotEmpty) ...[
-                  FieldLabel(l.colorLabel),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final col in colors)
-                        ChoiceChip(
-                          label: Text(col.isEmpty ? '—' : col),
-                          selected: col == color,
-                          onSelected: (_) => set(() {
-                            color = col;
-                            chosen = null;
-                          }),
-                        ),
-                    ],
-                  ),
-                ],
-                FieldLabel(l.sizeLabel),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final v in sizes)
-                      ChoiceChip(
-                        label: Text('${v.size.isEmpty ? '—' : v.size} · ${qtyText(v.quantity)}'),
-                        selected: chosen?.id == v.id,
-                        onSelected: (_) => set(() => chosen = v),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-                  onPressed: chosen == null
-                      ? null
-                      : () async {
-                          final v = chosen!;
-                          if (v.quantity < 1) {
-                            final ok = await showDialog<bool>(
-                              context: c,
-                              builder: (d) => AlertDialog(
-                                content: Text(l.sizeLowStock(qtyText(v.quantity))),
-                                actions: [
-                                  TextButton(onPressed: () => Navigator.pop(d, false), child: Text(l.cancel)),
-                                  FilledButton(onPressed: () => Navigator.pop(d, true), child: Text(l.done)),
-                                ],
-                              ),
-                            );
-                            if (ok != true) return;
-                          }
-                          if (c.mounted) Navigator.pop(c, v);
-                        },
-                  child: Text(chosen == null ? l.chooseSize : l.toCheckSize(chosen!.label)),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    ),
-  );
-}
-
 class _ProductTile extends StatelessWidget {
   final Product product;
   final VoidCallback onTap;
@@ -875,14 +1032,35 @@ class _ProductTile extends StatelessWidget {
 
   /// 2026-10-27 (М4): поштучная опция товара — остаток «12 пачек + 5 шт»
   final PiecePack? pack;
-  const _ProductTile(this.product, {required this.onTap, this.inCart, this.pack});
+
+  /// 2026-10-31 (одежда): у товара есть размеры — сколько их и сколько штук всего (остаток плитки — сумма по размерам).
+  final ({int count, double qty})? variants;
+
+  /// 2026-10-31 (режим магазина): режим-специфичный значок на фото: продукты — «кг» у весового и «до 05.11», если срок близко;
+  /// хозтовары — единица (м, м², упаковка), если не штуки. null — режим не выбран, значка нет.
+  final ShopMode? mode;
+  const _ProductTile(this.product, {required this.onTap, this.inCart, this.pack, this.variants, this.mode});
+
+  /// (текст, опасный) — значок режима для товара или null.
+  (String, bool)? _badge() {
+    if (mode == ShopMode.grocery) {
+      final d = daysToExpiry(product.expiresOn);
+      if (d != null && d <= 14) return (d < 0 ? '!' : expiryShort(product.expiresOn!), d <= 7);
+      if (product.isWeight) return (product.unit, false);
+    }
+    if (mode == ShopMode.hardware && !product.isService && !isPieceUnit(product.unit)) return (product.unit, false);
+    return null;
+  }
   @override
   Widget build(BuildContext context) {
     final p = context.pal;
     final l = context.l;
     // 2026-10-26 (живой аудит, П3): мелко остаток («12 шт» / «нет» серым) и «×2», если товар уже в чеке
+    final v = variants;
     final stock = product.isService
         ? null
+        : v != null
+        ? (v.qty <= 0 ? l.stockNone : '${qtyText(v.qty)} ${product.unit}')
         : (product.quantity <= 0
               ? l.stockNone
               : pack == null
@@ -902,6 +1080,17 @@ class _ProductTile extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     ProductThumb(name: product.name, url: product.imageUrl, fontSize: 18),
+                    if (_badge() case (final text, final danger)?)
+                      Positioned(
+                        top: 4,
+                        left: 4,
+                        child: Container(
+                          key: Key('modeBadge_${product.id}'),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: danger ? T.danger : mode!.accent, borderRadius: BorderRadius.circular(8)),
+                          child: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 10.5)),
+                        ),
+                      ),
                     if (inCart != null)
                       Positioned(
                         top: 4,
@@ -934,7 +1123,19 @@ class _ProductTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10.5, color: p.textSoft.withValues(alpha: product.quantity <= 0 ? .7 : 1)),
+                  style: TextStyle(fontSize: 10.5, color: p.textSoft.withValues(alpha: (v?.qty ?? product.quantity) <= 0 ? .7 : 1)),
+                ),
+              if (v != null)
+                // 2026-10-31: подпись сжимается по ширине плитки, а не обрезается («3 размера/цвета» целиком)
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    l.variantsTile(v.count),
+                    key: Key('variantsTile_${product.id}'),
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: p.price),
+                  ),
                 ),
             ],
           ),
@@ -975,17 +1176,40 @@ class _CartRow extends ConsumerWidget {
     final p = context.pal;
     final l = context.l;
 
+    // 2026-10-31 (одежда): остаток размера (по базе телефона, с учётом проданного без связи) — выше него строку не поднять
+    Future<double?> variantCap() async {
+      final id = line.variantId;
+      if (id == null) return null;
+      return (await ref.read(databaseProvider).variantById(id))?.quantity;
+    }
+
     Future<void> editQty() async {
       final v = await askNumber(context, title: line.name, hint: line.isWeight ? line.unit : l.packQty, initial: line.qty);
       if (v == null) return;
       // 14.10, проверка логики: штучный товар — только целое (сервер принимает штуки целыми; 1,5 уходило как 2 и сумма
       // на телефоне расходилась с NurCRM).
-      final q = line.isWeight ? v : v.roundToDouble();
+      var q = line.isWeight ? v : v.roundToDouble();
+      if (q > 0) {
+        final cap = await variantCap();
+        if (cap != null && q > cap) {
+          if (context.mounted) toast(context, l.variantNoMore(qtyText(cap)), error: true);
+          q = cap.floorToDouble();
+        }
+      }
       if (q <= 0) {
         if (context.mounted && await _removeLine(context, ref, index)) ctrl.remove(index);
       } else {
         ctrl.setQty(index, q);
       }
+    }
+
+    Future<void> plusOne() async {
+      final cap = await variantCap();
+      if (cap != null && line.qty + 1 > cap) {
+        if (context.mounted) toast(context, l.variantNoMore(qtyText(cap)), error: true);
+        return;
+      }
+      ctrl.setQty(index, line.qty + 1);
     }
 
     Future<void> discount() async {
@@ -1135,7 +1359,7 @@ class _CartRow extends ConsumerWidget {
                           fit: BoxFit.scaleDown,
                           key: ValueKey(line.qty),
                           child: Text(
-                            '${qtyText(line.qty)}${line.isWeight ? ' ${line.unit}' : ''}',
+                            '${qtyText(line.qty)}${line.isWeight || (ref.watch(prefsProvider).shopChosen && ref.watch(prefsProvider).shop == ShopMode.hardware && !isPieceUnit(line.unit)) ? ' ${line.unit}' : ''}',
                             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                           ),
                         ),
@@ -1143,7 +1367,7 @@ class _CartRow extends ConsumerWidget {
                     ),
                   ),
                   ),
-                  _Step(icon: Icons.add, dark: true, onTap: () => line.isWeight ? editQty() : ctrl.setQty(index, line.qty + 1)),
+                  _Step(icon: Icons.add, dark: true, onTap: () => line.isWeight ? editQty() : plusOne()),
                   const Spacer(),
                   IconButton(tooltip: l.lineDiscount, style: _rowBtn, onPressed: discount, icon: const Icon(Icons.percent_rounded)),
                   IconButton(

@@ -46,6 +46,11 @@ public static class AnalyticsExportService
     private static string LReceipts => Tr.T("Чеков", "Чектер", "Receipts", "Fiş sayısı", "Cheklar");
     private static string LAverage => Tr.T("Средний чек", "Орточо чек", "Average receipt", "Ortalama fiş", "O'rtacha chek");
     private static string LDiscounts => Tr.T("Скидки", "Арзандатуулар", "Discounts", "İndirimler", "Chegirmalar");
+
+    /// <summary>2026-11-01 (В-03): «Скидки» с пометкой, если сумму с сервера дочитать не удалось (чеков слишком много) — цифра неполная.</summary>
+    private static string LDiscountsFor(AnalyticsReportData data) => data.DiscountsIncomplete
+        ? LDiscounts + " — " + Tr.T("данные неполные", "маалымат толук эмес", "data incomplete", "veriler eksik", "ma'lumotlar to'liq emas")
+        : LDiscounts;
     private static string LBonuses => Tr.T("из них бонусами", "анын ичинен бонустар менен", "of which paid with bonuses", "bunun bonusla ödenen kısmı", "shundan bonuslar bilan");
     private static string LReturns => Tr.T("Возвраты", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar");
     private static string LWriteOffs => Tr.T("Списания", "Эсептен чыгаруулар", "Write-offs", "Zayiatlar", "Hisobdan chiqarishlar");
@@ -169,7 +174,7 @@ public static class AnalyticsExportService
             new XlKeyValue(ReportLabels.WithUnit(LRevenue, Currency), data.Revenue, XlKind.Money),
             new XlKeyValue(LReceipts, data.ReceiptCount, XlKind.Integer),
             new XlKeyValue(ReportLabels.WithUnit(LAverage, Currency), data.AverageReceipt, XlKind.Money),
-            new XlKeyValue(ReportLabels.WithUnit(LDiscounts, Currency), data.Discounts, XlKind.Money),
+            new XlKeyValue(ReportLabels.WithUnit(LDiscountsFor(data), Currency), data.Discounts, XlKind.Money),
             new XlKeyValue("      " + LBonuses, data.PointsRedeemed, XlKind.Money),
             new XlKeyValue(ReportLabels.WithUnit(LReturns, Currency), data.Returns, XlKind.Money),
             new XlKeyValue(ReportLabels.WithUnit(LWriteOffs, Currency), data.WriteOffs, XlKind.Money),
@@ -445,7 +450,7 @@ public static class AnalyticsExportService
                 [ReportLabels.WithUnit(LRevenue, Currency), ReportFormat.Money(data.Revenue)],
                 [LReceipts, ReportFormat.Integer(data.ReceiptCount)],
                 [ReportLabels.WithUnit(LAverage, Currency), ReportFormat.Money(data.AverageReceipt)],
-                [ReportLabels.WithUnit(LDiscounts, Currency), ReportFormat.Money(data.Discounts)],
+                [ReportLabels.WithUnit(LDiscountsFor(data), Currency), ReportFormat.Money(data.Discounts)],
                 ["      " + LBonuses, ReportFormat.Money(data.PointsRedeemed)],
                 [ReportLabels.WithUnit(LReturns, Currency), ReportFormat.Money(data.Returns)],
                 [ReportLabels.WithUnit(LWriteOffs, Currency), ReportFormat.Money(data.WriteOffs)],

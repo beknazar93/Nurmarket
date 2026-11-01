@@ -41,7 +41,7 @@ internal sealed class InvoiceEditPreviewDialog : Window
         T("Другое", "Башка", "Other", "Diğer", "Boshqa"),
     };
 
-    public InvoiceEditPreviewDialog(ReceiptEditPlan plan, ReceiptPayKind pay, string docNumber, SupplierReceipt r, string supplier, int version, bool revert, Func<string, Task<bool?>> verify)
+    public InvoiceEditPreviewDialog(ReceiptEditPlan plan, ReceiptPayKind pay, string docNumber, SupplierReceipt r, string supplier, int version, bool revert, Func<string, Task<bool?>> verify, IReadOnlyList<string>? priceLines = null)
     {
         _plan = plan;
         _verify = verify;
@@ -58,6 +58,20 @@ internal sealed class InvoiceEditPreviewDialog : Window
         var sign = diff > 0 ? "+" : "";
         panel.Children.Add(Line(T("Сумма прихода: ", "Кирүүнүн суммасы: ", "Receipt total: ", "Giriş tutarı: ", "Kirim summasi: ") + $"{MoneyText.Som(plan.TotalBefore)} → {MoneyText.Som(plan.TotalAfter)}  ({sign}{MoneyText.Som(diff)})", w: FontWeight.Bold, size: 15));
         panel.Children.Add(Line(MoneyEffect(pay, diff), "BrushTextSoft", 13));
+        // 2026-11-01 (защита): сумма накладной меняется — это затрагивает расчёты с поставщиком (оплачено / долг) и себестоимость уже проданных партий. Причина правки и так обязательна.
+        if (Math.Abs(diff) > 0.005)
+            panel.Children.Add(Line(T("Внимание: меняется сумма накладной. Если поставщику уже заплачено или товар из этой партии продан, расчёты с поставщиком и прибыль за прошлые дни не пересчитываются сами — укажите причину и сверьте оплату.",
+                "Көңүл буруңуз: накладнойдун суммасы өзгөрөт. Жеткирүүчүгө төлөнгөн же ушул партиядагы товар сатылган болсо, жеткирүүчү менен эсептешүү жана өткөн күндөрдүн пайдасы өзү кайра эсептелбейт — себебин жазып, төлөмдү салыштырыңыз.",
+                "Attention: the invoice total changes. If the supplier is already paid or goods from this batch are sold, the settlement with the supplier and past profit are not recalculated automatically — enter the reason and check the payment.",
+                "Dikkat: fatura tutarı değişiyor. Tedarikçiye ödeme yapıldıysa veya bu partideki ürün satıldıysa, tedarikçi hesabı ve geçmiş kâr kendiliğinden yeniden hesaplanmaz — nedeni yazın ve ödemeyi kontrol edin.",
+                "Diqqat: yuk xati summasi o'zgaradi. Yetkazib beruvchiga to'langan yoki shu partiyadagi mahsulot sotilgan bo'lsa, hisob-kitob va o'tgan foyda o'zi qayta hisoblanmaydi — sababni yozing va to'lovni solishtiring."), "BrushWarning", 12.5, FontWeight.SemiBold));
+        if (priceLines is { Count: > 0 })
+        {
+            panel.Children.Add(Line(T("Будет изменена цена продажи товара в каталоге (в документе прихода цен продажи нет):", "Каталогдогу товардын сатуу баасы өзгөрөт (кирүү документинде сатуу баасы жок):",
+                "The product's sale price in the catalog will change (the receipt document has no sale prices):", "Katalogdaki ürünün satış fiyatı değişecek (giriş belgesinde satış fiyatı yok):", "Katalogdagi mahsulotning sotuv narxi o'zgaradi (kirim hujjatida sotuv narxi yo'q):"), "BrushText", 13, FontWeight.SemiBold));
+            foreach (var pl in priceLines)
+                panel.Children.Add(Line(pl, "BrushTextSoft", 12.5));
+        }
 
         // таблица товаров: сейчас → станет, остаток склада
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto") };
@@ -93,8 +107,8 @@ internal sealed class InvoiceEditPreviewDialog : Window
         var box = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Child = grid };
         box.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
         panel.Children.Add(box);
-        panel.Children.Add(Line(T("Закупка в карточке товара и цена продажи не меняются. Количество уменьшается возвратом поставщику по этому приходу, увеличивается дополнительным приходом «дополнение к ", "Товардын карточкасындагы сатып алуу жана сатуу баасы өзгөрбөйт. Саны азайса — ушул кирүү боюнча жеткирүүчүгө кайтаруу, көбөйсө — кошумча кирүү «",
-            "The purchase price in the product card and the sale price do not change. A smaller quantity is a return to the supplier against this receipt, a larger one is an additional receipt “addition to ", "Ürün kartındaki alış fiyatı ve satış fiyatı değişmez. Azalan miktar bu girişe karşı tedarikçiye iade, artan miktar «", "Mahsulot kartasidagi xarid narxi va sotuv narxi o'zgarmaydi. Kamaytirish — shu kirim bo'yicha yetkazib beruvchiga qaytarish, ko'paytirish — «")
+        panel.Children.Add(Line(T("Закупка в карточке товара не меняется (цена продажи — только если указана выше). Количество уменьшается возвратом поставщику по этому приходу, увеличивается дополнительным приходом «дополнение к ", "Товардын карточкасындагы сатып алуу баасы өзгөрбөйт (сатуу баасы — жогоруда көрсөтүлсө гана). Саны азайса — ушул кирүү боюнча жеткирүүчүгө кайтаруу, көбөйсө — кошумча кирүү «",
+            "The purchase price in the product card does not change (the sale price only if shown above). A smaller quantity is a return to the supplier against this receipt, a larger one is an additional receipt “addition to ", "Ürün kartındaki alış fiyatı değişmez (satış fiyatı yalnızca yukarıda gösterilmişse). Azalan miktar bu girişe karşı tedarikçiye iade, artan miktar «", "Mahsulot kartasidagi xarid narxi o'zgarmaydi (sotuv narxi — faqat yuqorida ko'rsatilgan bo'lsa). Kamaytirish — shu kirim bo'yicha yetkazib beruvchiga qaytarish, ko'paytirish — «")
             + docNumber + T("». Продажи и прибыль в отчётах не пересчитываются.", "». Сатуулар жана отчёттордогу пайда кайра эсептелбейт.", "”. Sales and profit in reports are not recalculated.", "» ek girişi. Raporlardaki satış ve kâr yeniden hesaplanmaz.", "» qo'shimcha kirimi. Hisobotlardagi sotuv va foyda qayta hisoblanmaydi."), "BrushTextSoft", 12.5));
 
         if (plan.Returns.Count > 0)
@@ -118,7 +132,7 @@ internal sealed class InvoiceEditPreviewDialog : Window
         panel.Children.Add(_reasonKind);
         _reasonText.Watermark = T("Подробнее (не короче 5 знаков)", "Кеңири (5 белгиден кем эмес)", "Details (at least 5 characters)", "Ayrıntı (en az 5 karakter)", "Batafsil (kamida 5 belgi)");
         panel.Children.Add(_reasonText);
-        panel.Children.Add(Line(T("Подтвердите паролем владельца", "Ээсинин сырсөзү менен ырастаңыз", "Confirm with the owner's password", "Sahibin parolasıyla onaylayın", "Egasi paroli bilan tasdiqlang"), "BrushTextSoft", 12.5, FontWeight.SemiBold));
+        panel.Children.Add(Line(T("Подтвердите своим паролем (владелец или администратор)", "Өз сырсөзүңүз менен ырастаңыз (ээси же администратор)", "Confirm with your own password (owner or administrator)", "Kendi parolanızla onaylayın (sahip veya yönetici)", "O'z parolingiz bilan tasdiqlang (egasi yoki administrator)"), "BrushTextSoft", 12.5, FontWeight.SemiBold));
         _password.Watermark = T("Пароль NurCRM", "NurCRM сырсөзү", "NurCRM password", "NurCRM parolası", "NurCRM paroli");
         panel.Children.Add(_password);
         _note.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
@@ -365,6 +379,9 @@ internal sealed class InvoiceHistoryDialog : Window
                     ? T($" (не проведено, было в плане {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter.Value)})", $" (өткөрүлгөн жок, планда {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter.Value)})", $" (not posted, planned {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter.Value)})", $" (işlenmedi, planlanan {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter.Value)})", $" (o'tkazilmadi, rejada {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter.Value)})")
                     : T($" (проведено не полностью, по плану {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (толук өткөрүлгөн жок, планда {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (not fully posted, planned {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (tam işlenmedi, planlanan {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (to'liq o'tkazilmadi, rejada {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})")) : "")))
                 + (e.Lines.Count > 8 ? "…" : ""), "BrushTextSoft", 12.5));
+            // 2026-11-01: цена продажи / наценка товара, изменённые из накладной, — «было → стало» по каждому полю
+            if (ReceiptEditAuditLog.FieldChanges(e).Where(f => f.Field != "quantity").ToList() is { Count: > 0 } priceFields)
+                card.Children.Add(Line(string.Join("; ", priceFields.Select(ReceiptEditAuditLog.FieldText)), "BrushTextSoft", 12.5));
             if (canRevert && e == edits[0] && e.Status == "done")
             {
                 var revert = SectionCards.Secondary(T("Вернуть эту версию", "Бул версияны кайтаруу", "Roll back this version", "Bu sürümü geri al", "Bu versiyani qaytarish"));

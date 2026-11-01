@@ -225,6 +225,9 @@ public sealed class UserPreferences
     /// LPT/COM или WinUSB-адрес VID:PID) — см. PrinterDiscoveryService.Discover().</summary>
     public string? LabelPrinterDevicePath { get; set; }
 
+    /// <summary>2026-11-01: запомненные сетевые принтеры (LAN, TCP 9100) через «;» — «TCP:192.168.1.50:9100;…»; попадают в списки принтеров чеков и этикеток.</summary>
+    public string? KnownNetworkPrinters { get; set; }
+
     // 2026-10-01, владелец: «настройка штрихкодовой: пропускает наклейки и печатает не на том
     // месте». Калибровка принтера этикеток (на этом ПК, для этикеток и ценников):
     // LabelPageFromTemplate — размер страницы драйверу из шаблона (иначе драйвер тянул ленту по
@@ -241,6 +244,16 @@ public sealed class UserPreferences
     public double LabelOffsetXMm { get; set; }
     public double LabelOffsetYMm { get; set; }
     public string LabelRawLanguage { get; set; } = "escpos";
+
+    // 2026-11-01 (П-7, из веба): команды TSPL принтера этикеток. null — «не задавать»: в задание команда не добавляется (поведение прежнее).
+    /// <summary>DENSITY 0–15 (темнее/светлее).</summary>
+    public int? LabelTsplDensity { get; set; }
+    /// <summary>SPEED 2–6.</summary>
+    public int? LabelTsplSpeed { get; set; }
+    /// <summary>DIRECTION: true — 1 (повернуть на 180°), false — 0.</summary>
+    public bool? LabelTsplFlip { get; set; }
+    /// <summary>Датчик: "gap" — зазор (SET GAP ON + GAP), "bline" — чёрная метка (BLINE).</summary>
+    public string? LabelTsplSensor { get; set; }
     /// <summary>Ширина ленты: 58 (узкая) или 80 (широкая) мм.</summary>
     public int ReceiptPaperWidthMm { get; set; } = ReceiptPaperProfile.Paper58mm;
 
@@ -718,6 +731,10 @@ public sealed class UserPreferences
     /// на тестовом аккаунте, поэтому по умолчанию включено.</summary>
     public bool QuickCheckoutEnabled { get; set; } = true;
 
+    /// <summary>2026-11-01 (чеки старше 7 суток по PIN владельца): кнопка «Провести по PIN владельца» в «Нестандартных чеках». По умолчанию ВЫКЛЮЧЕНА, пока Умар
+    /// не подтвердил ответ POST users/auth/pin/verify/ (в каком поле токен) и поле accept_late (см. SyncService.LateAccept.cs). Включается вручную в user-settings.json: "AcceptLateEnabled": true.</summary>
+    public bool AcceptLateEnabled { get; set; }
+
     public Dictionary<string, string> PosHotkeys { get; set; } = new();
     public bool Autostart { get; set; }
     public bool AutoShowTouchKeyboard { get; set; } = true;
@@ -1097,7 +1114,12 @@ public sealed class UserPreferences
             if (settingsPath == null || !File.Exists(settingsPath))
                 return;
 
-            var json = File.ReadAllText(settingsPath);
+            // 2026-11-01 (аудит 10 из 10, Н-05): битый user-settings.json читаем через AtomicFile — он сам берёт целую копию .bak
+            // (пишется при каждом сохранении), восстанавливает рабочий файл и пишет WARNING. Раньше касса стартовала с настройками
+            // по умолчанию, а ближайшее сохранение затирало файл. Нет ни файла, ни целой копии — null → значения по умолчанию.
+            var json = AtomicFile.ReadAllText(settingsPath);
+            if (json == null)
+                return;
             var fromFile = JsonSerializer.Deserialize<UserPreferencesDto>(json, JsonOpt);
             if (fromFile == null)
                 return;
@@ -1143,6 +1165,8 @@ public sealed class UserPreferences
                 p.ReceiptDevicePath = HardwarePortHelper.NormalizeLptPort(fromFile.ReceiptDevicePath, p.ReceiptDevicePath);
             if (!string.IsNullOrWhiteSpace(fromFile.LabelPrinterDevicePath))
                 p.LabelPrinterDevicePath = fromFile.LabelPrinterDevicePath;
+            if (!string.IsNullOrWhiteSpace(fromFile.KnownNetworkPrinters))
+                p.KnownNetworkPrinters = fromFile.KnownNetworkPrinters.Length > 2000 ? fromFile.KnownNetworkPrinters[..2000] : fromFile.KnownNetworkPrinters;
             if (fromFile.LabelPageFromTemplate is not null)
                 p.LabelPageFromTemplate = fromFile.LabelPageFromTemplate.Value;
             if (fromFile.TransferAutoWaybill is not null)
@@ -1157,6 +1181,14 @@ public sealed class UserPreferences
                 p.LabelOffsetYMm = fromFile.LabelOffsetYMm.Value;
             if (fromFile.LabelRawLanguage is "escpos" or "escpos_gap" or "tspl")
                 p.LabelRawLanguage = fromFile.LabelRawLanguage;
+            if (fromFile.LabelTsplDensity is >= 0 and <= 15)
+                p.LabelTsplDensity = fromFile.LabelTsplDensity; // 2026-11-01 (П-7)
+            if (fromFile.LabelTsplSpeed is >= 2 and <= 6)
+                p.LabelTsplSpeed = fromFile.LabelTsplSpeed;
+            if (fromFile.LabelTsplFlip is not null)
+                p.LabelTsplFlip = fromFile.LabelTsplFlip;
+            if (fromFile.LabelTsplSensor is "gap" or "bline")
+                p.LabelTsplSensor = fromFile.LabelTsplSensor;
             if (fromFile.ReceiptEnabled is not null)
                 p.ReceiptEnabled = fromFile.ReceiptEnabled.Value;
             // 2026-09-29: нет в файле (кассир не трогал «Напечатать чек») — остаётся null, как раньше.
@@ -1509,6 +1541,8 @@ public sealed class UserPreferences
             // 2026-09-28, BE-11: нет в файле (старые настройки) — остаётся значение по умолчанию.
             if (fromFile.QuickCheckoutEnabled is { } quickCheckout)
                 p.QuickCheckoutEnabled = quickCheckout;
+            if (fromFile.AcceptLateEnabled is { } acceptLate)
+                p.AcceptLateEnabled = acceptLate; // 2026-11-01: нет в файле — выключено
             if (fromFile.PosHotkeys != null)
                 p.PosHotkeys = fromFile.PosHotkeys;
             if (fromFile.LastFilterDateFrom.HasValue) p.LastFilterDateFrom = fromFile.LastFilterDateFrom;
@@ -1660,6 +1694,7 @@ public sealed class UserPreferences
                 ScalePollMs = ScalePollMs,
                 ReceiptDevicePath = ReceiptDevicePath,
                 LabelPrinterDevicePath = LabelPrinterDevicePath,
+                KnownNetworkPrinters = KnownNetworkPrinters,
                 LabelPageFromTemplate = LabelPageFromTemplate,
                 TransferAutoWaybill = TransferAutoWaybill,
                 TransferAutoOther = TransferAutoOther,
@@ -1667,6 +1702,10 @@ public sealed class UserPreferences
                 LabelOffsetXMm = LabelOffsetXMm,
                 LabelOffsetYMm = LabelOffsetYMm,
                 LabelRawLanguage = LabelRawLanguage,
+                LabelTsplDensity = LabelTsplDensity,
+                LabelTsplSpeed = LabelTsplSpeed,
+                LabelTsplFlip = LabelTsplFlip,
+                LabelTsplSensor = LabelTsplSensor,
                 ReceiptEncoding = ReceiptEncoding,
                 ReceiptEscPosTable = ReceiptEscPosTable,
                 ReceiptEscR = ReceiptEscR,
@@ -1813,6 +1852,7 @@ public sealed class UserPreferences
                 ScaleKeyCount = ScaleKeyCount,
                 LoyaltyEarnPercent = LoyaltyEarnPercent,
                 QuickCheckoutEnabled = QuickCheckoutEnabled,
+                AcceptLateEnabled = AcceptLateEnabled,
                 PosHotkeys = PosHotkeys,
                 LastFilterDateFrom = LastFilterDateFrom,
                 LastFilterDateTo = LastFilterDateTo,
@@ -1996,6 +2036,7 @@ public sealed class UserPreferences
         public int? ScalePollMs { get; set; }
         public string? ReceiptDevicePath { get; set; }
         public string? LabelPrinterDevicePath { get; set; }
+        public string? KnownNetworkPrinters { get; set; }
         public bool? LabelPageFromTemplate { get; set; }
         public bool? TransferAutoWaybill { get; set; }
         public bool? TransferAutoOther { get; set; }
@@ -2003,6 +2044,10 @@ public sealed class UserPreferences
         public double? LabelOffsetXMm { get; set; }
         public double? LabelOffsetYMm { get; set; }
         public string? LabelRawLanguage { get; set; }
+        public int? LabelTsplDensity { get; set; }
+        public int? LabelTsplSpeed { get; set; }
+        public bool? LabelTsplFlip { get; set; }
+        public string? LabelTsplSensor { get; set; }
         public string? ReceiptEncoding { get; set; }
         public int? ReceiptEscPosTable { get; set; }
         public int? ReceiptEscR { get; set; }
@@ -2150,6 +2195,7 @@ public sealed class UserPreferences
         public int? ScaleKeyCount { get; set; }
         public double? LoyaltyEarnPercent { get; set; }
         public bool? QuickCheckoutEnabled { get; set; }
+        public bool? AcceptLateEnabled { get; set; }
         public Dictionary<string, string>? PosHotkeys { get; set; }
         public DateTime? LastFilterDateFrom { get; set; }
         public DateTime? LastFilterDateTo { get; set; }

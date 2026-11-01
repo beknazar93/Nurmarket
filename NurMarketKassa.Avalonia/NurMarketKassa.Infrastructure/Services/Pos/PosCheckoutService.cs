@@ -382,18 +382,26 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         // путь переносит чек несколькими запросами, и большой чек при живом сервере не должен уходить
         // в очередь. «В долг» и смешанная в очередь не ставятся — для них ожидание прежнее.
         var queueable = IsQueueablePayment(request.PaymentMethod);
+        // 2026-11-01 (К-08, code-review): срок и признаки — свойства КОНКРЕТНОЙ оплаты (локальная переменная и request.Wait), а не поля сервиса/статика:
+        // параллельная оплата не меняет срок и текст окна уже идущей.
+        var answerBudget = ChooseServerAnswerBudget(); // 5 с, если сервер недавно отвечал; иначе 1,8 с
+        if (request.Wait is { } paymentWait)
+        {
+            paymentWait.CanQueue = queueable; // окно обещает «чек сохранится и отправится сам» только для способов, которые встают в очередь
+            paymentWait.ServerWait = true;    // «сервер отвечает медленно» — только пока идёт запрос к серверу (не печать/устройства)
+        }
         using var serverWait = new CancellationTokenSource();
         // 2026-10-30 (приёмка 1.17.67, «Важно» 1): пауза 429, полученная ДО нажатия «Оплатить» (лента, пульс), уже идёт — щит ждёт её внутри запроса.
         // Срок = 1,8 с + остаток паузы, иначе он истекал внутри чужой паузы и включалось «Автономно» при живом сервере.
         if (queueable)
-            serverWait.CancelAfter(ServerAnswerBudget + ApiThrottle.RemainingBlock);
+            serverWait.CancelAfter(answerBudget + ApiThrottle.RemainingBlock);
         using var netCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, serverWait.Token);
         var net = netCts.Token;
         // 2026-10-30 (приёмка 1.17.66, «Важно» 1): 429 — сервер ЖИВ и просит паузу (Retry-After). Срок ответа на эту паузу = Retry-After + запас (до ~24 с), а не 1,8 с:
         // раньше щит ждал паузу внутри 1,8 с, срок истекал и объявлялась авария («Автономно») при живом сервере. Всего на паузы — не больше ThrottleTotalCap.
         var throttleSpent = TimeSpan.Zero;
         var watch = ServerOutageMonitor.BeginResponseWatch(
-            queueable ? () => serverWait.CancelAfter(ServerAnswerBudget + ApiThrottle.RemainingBlock) : null, // 2026-10-30 (приёмка 1.17.67): и после ответа учитываем идущую паузу
+            queueable ? () => serverWait.CancelAfter(answerBudget + ApiThrottle.RemainingBlock) : null, // 2026-10-30 (приёмка 1.17.67): и после ответа учитываем идущую паузу
             queueable
                 ? wait =>
                 {
@@ -459,7 +467,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             // 2026-09-28, BE-11: сначала — продажа одним запросом (PosCheckoutService.Quick.cs):
             // снимок чека уже со скидкой уходит на сервер целиком, без переноса корзины. null —
             // этот чек новый адрес не берёт (или выключатель в настройках), дальше старый путь.
-            var quickResult = await TryQuickCheckoutAsync(request, cancellationToken, net).ConfigureAwait(false);
+            var quickResult = await TryQuickCheckoutAsync(request, cancellationToken, net, answerBudget).ConfigureAwait(false);
             if (quickResult != null)
                 return quickResult;
 
@@ -697,7 +705,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
             // прошла ли уже» здесь не делаем — на неё нет времени; её сделает досылка: быстрый путь
             // повторит тот же ключ, старый путь сперва спросит статус отправленной корзины.
             PosLogger.Log(
-                $"PAY: сервер не ответил за {ServerAnswerBudget.TotalSeconds:0.0} с (ответов сервера в этой оплате: {watch.Answers}, " +
+                $"PAY: сервер не ответил за {answerBudget.TotalSeconds:0.0} с (ответов сервера в этой оплате: {watch.Answers}, " +
                 $"прошло {Environment.TickCount64 - paymentStartedMs} мс) — чек в очередь, досылка в фоне" +
                 (_legacyCheckoutPostedCartId != null ? $", checkout корзины {_legacyCheckoutPostedCartId} уже отправлен." : "."),
                 "PAYMENT");
@@ -729,6 +737,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         finally
         {
             ClearLegacyInFlight(); // 2026-10-30
+            request.Wait?.End(); // 2026-11-01 (К-08): оплата кончилась — «сервер отвечает медленно» больше не показывать
             watch.Stop();
             _serverWait = null;
             _responseWatch = null;
@@ -738,7 +747,24 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
     /// <summary>2026-09-29: сколько касса ждёт ответа сервера при оплате наличными/безналом,
     /// прежде чем отдать чек в очередь (владелец: «максимум 2 секунды»). 1,8 с — чтобы вместе с
     /// записью в очередь и окном результата кассир ждал не больше двух секунд.</summary>
-    internal static readonly TimeSpan ServerAnswerBudget = TimeSpan.FromSeconds(1.8);
+    internal static readonly TimeSpan ServerAnswerBudgetFast = TimeSpan.FromSeconds(1.8);
+
+    /// <summary>2026-11-01 (К-08, аудит «10 из 10»; «Касса Пальма»: 42 лишних ухода в офлайн за неделю): сервер ЖИВ, но отвечает медленно (2–3 с на запрос,
+    /// слабый мобильный интернет) — на стенде 6 оплат из 6 уходили в очередь, «авария» объявлялась в каждой, касса почти всё время «Автономно» (нет «в долг»,
+    /// нет сверки цен, номера чеков позже). Пока сервер недавно отвечал (состояние «Онлайн», успешный ответ не старше 2 минут), оплата ждёт его до 5 с;
+    /// кассир видит в окне оплаты «сервер отвечает медленно» уже со 2-й секунды (PaymentStatusDialog). Двойной продажи нет: чек в очередь уходит с ТЕМ ЖЕ
+    /// ключом идемпотентности, что и запрос. Сервер не отвечал/в аварии — прежние 1,8 с. Решение владельца: «максимум 2 секунды» (29.09) смягчено до 5 с по
+    /// ответу Умара 31.10. ОДНА константа. Решение владельца 01.11.2026: 5 с. Вернуть «2 секунды» = приравнять значение к <see cref="ServerAnswerBudgetFast"/>.</summary>
+    internal static readonly TimeSpan ServerAnswerBudgetSlow = TimeSpan.FromSeconds(5);
+
+    private static TimeSpan ChooseServerAnswerBudget()
+    {
+        if (ServerOutageMonitor.State != ServerLinkState.Online)
+            return ServerAnswerBudgetFast;
+        return ServerOutageMonitor.LastSuccessAt is { } last && DateTimeOffset.Now - last < TimeSpan.FromMinutes(2)
+            ? ServerAnswerBudgetSlow
+            : ServerAnswerBudgetFast;
+    }
 
     /// <summary>2026-10-30 (приёмка 1.17.66, «Важно» 1): сколько всего секунд пауз 429 оплата готова ждать (после — «Сервер занят: повторить / отложить в очередь»).</summary>
     internal static readonly TimeSpan ThrottleTotalCap = TimeSpan.FromSeconds(30);

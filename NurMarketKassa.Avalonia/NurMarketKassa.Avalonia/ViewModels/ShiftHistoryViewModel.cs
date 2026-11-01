@@ -90,8 +90,8 @@ public sealed class ShiftHistoryViewModel : INotifyPropertyChanged
 
     private bool _serverOffline;
 
-    public string ServerOfflineText => Tr.T("Нет связи с сервером — данные не получены.", "Сервер менен байланыш жок — маалымат алынган жок.", "No connection to the server — data was not received.",
-        "Sunucuyla bağlantı yok — veri alınamadı.", "Server bilan aloqa yo'q — ma'lumot olinmadi.");
+    public string ServerOfflineText => Tr.T("Сервер NurCRM недоступен — данные не получены.", "NurCRM сервери жеткиликсиз — маалымат алынган жок.", "The NurCRM server is unavailable — data was not received.", // 2026-11-01 (В-08): единая фраза о сбое сервера
+        "NurCRM sunucusu kullanılamıyor — veri alınamadı.", "NurCRM serveri mavjud emas — ma'lumot olinmadi.");
 
     public string RetryText => Tr.T("Повторить", "Кайталоо", "Retry", "Tekrar dene", "Qayta urinish");
 

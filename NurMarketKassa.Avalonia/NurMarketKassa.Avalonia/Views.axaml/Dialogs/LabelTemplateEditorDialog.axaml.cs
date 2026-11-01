@@ -175,6 +175,56 @@ public partial class LabelTemplateEditorDialog : Window
         LabelRawLangCombo.ItemsSource = RawLanguages.Select(l => l.Text()).ToArray();
         var index = Array.FindIndex(RawLanguages, l => l.Key == prefs.LabelRawLanguage);
         LabelRawLangCombo.SelectedIndex = index >= 0 ? index : 0;
+
+        // 2026-11-01 (П-7): плотность, скорость, поворот, датчик (TSPL); «не задавать» по умолчанию — у настроенных принтеров ничего не меняется.
+        var notSet = Tr.T("не задавать", "койбоо", "do not set", "ayarlama", "o'rnatmaslik");
+        TsplDensityText.Text = Tr.T("Плотность (темнее / светлее)", "Тыгыздык (караңгыраак / ачыгыраак)", "Density (darker / lighter)", "Yoğunluk (koyu / açık)", "Zichlik (to'qroq / ochroq)");
+        TsplSpeedText.Text = Tr.T("Скорость", "Ылдамдык", "Speed", "Hız", "Tezlik");
+        TsplFlipText.Text = Tr.T("Перевернуть на 180°", "180° буруу", "Rotate by 180°", "180° döndür", "180° ga aylantirish");
+        TsplSensorText.Text = Tr.T("Датчик", "Сенсор", "Sensor", "Sensör", "Sensor");
+        TsplCalibrateButton.Content = Tr.T("Калибровать датчик", "Сенсорду калибрлөө", "Calibrate sensor", "Sensörü kalibre et", "Sensorni kalibrlash");
+        TsplDensityCombo.ItemsSource = new[] { notSet }.Concat(Enumerable.Range(0, 16).Select(n => n.ToString())).ToArray();
+        TsplDensityCombo.SelectedIndex = prefs.LabelTsplDensity is { } dn ? Math.Clamp(dn, 0, 15) + 1 : 0;
+        TsplSpeedCombo.ItemsSource = new[] { notSet }.Concat(Enumerable.Range(2, 5).Select(n => n.ToString())).ToArray();
+        TsplSpeedCombo.SelectedIndex = prefs.LabelTsplSpeed is { } sp ? Math.Clamp(sp, 2, 6) - 1 : 0;
+        TsplFlipCombo.ItemsSource = new[] { notSet, Tr.T("нет (0)", "жок (0)", "no (0)", "hayır (0)", "yo'q (0)"), Tr.T("да, 180° (1)", "ооба, 180° (1)", "yes, 180° (1)", "evet, 180° (1)", "ha, 180° (1)") };
+        TsplFlipCombo.SelectedIndex = prefs.LabelTsplFlip is { } fl ? (fl ? 2 : 1) : 0;
+        TsplSensorCombo.ItemsSource = new[] { notSet, Tr.T("зазор между наклейками", "чаптамалардын ортосундагы боштук", "gap between labels", "etiketler arası boşluk", "yorliqlar orasidagi oraliq"), Tr.T("чёрная метка", "кара белги", "black mark", "siyah işaret", "qora belgi") };
+        TsplSensorCombo.SelectedIndex = prefs.LabelTsplSensor switch { "gap" => 1, "bline" => 2, _ => 0 };
+        LabelRawLangCombo.SelectionChanged += (_, _) => UpdateTsplVisibility();
+        UpdateTsplVisibility();
+    }
+
+    private void UpdateTsplVisibility()
+    {
+        var i = LabelRawLangCombo.SelectedIndex;
+        TsplPanel.IsVisible = i >= 0 && i < RawLanguages.Length && RawLanguages[i].Key == "tspl";
+        TsplStatusText.IsVisible = TsplPanel.IsVisible && !string.IsNullOrEmpty(TsplStatusText.Text);
+    }
+
+    private async void TsplCalibrate_Click(object? sender, RoutedEventArgs e)
+    {
+        var printerPath = UserPreferences.Instance.LabelPrinterDevicePath;
+        if (string.IsNullOrWhiteSpace(printerPath))
+        {
+            TsplStatusText.Text = LabelPrinterSelector.MissingHint();
+            TsplStatusText.IsVisible = true;
+            return;
+        }
+        SavePrinterCalibration();
+        TsplCalibrateButton.IsEnabled = false;
+        try
+        {
+            var result = await System.Threading.Tasks.Task.Run(() => BarcodeLabelService.CalibrateSensor(printerPath)).ConfigureAwait(true);
+            TsplStatusText.Text = result == LabelPrintResult.Success
+                ? Tr.T("Принтер протянет несколько этикеток и запомнит зазор (или метку).", "Принтер бир нече этикетканы тартып, боштукту (же белгини) эстеп калат.", "The printer will feed a few labels and remember the gap (or mark).", "Yazıcı birkaç etiket besleyip boşluğu (veya işareti) hatırlayacak.", "Printer bir nechta yorliqni tortib, oraliqni (yoki belgini) eslab qoladi.")
+                : Tr.T("Калибровка не отправлена: нужен принтер на прямом подключении (USB/COM/LPT) с языком TSPL. Подробности в журнале.", "Калибровка жөнөтүлгөн жок: TSPL тилиндеги түз туташкан принтер (USB/COM/LPT) керек. Чоо-жайы журналда.", "Calibration was not sent: a directly connected printer (USB/COM/LPT) with the TSPL language is required. See the log.", "Kalibrasyon gönderilmedi: TSPL dilinde doğrudan bağlı bir yazıcı (USB/COM/LPT) gerekir. Ayrıntılar günlükte.", "Kalibrlash yuborilmadi: TSPL tilidagi to'g'ridan-to'g'ri ulangan printer (USB/COM/LPT) kerak. Tafsilotlar jurnalda.");
+            TsplStatusText.IsVisible = true;
+        }
+        finally
+        {
+            TsplCalibrateButton.IsEnabled = true;
+        }
     }
 
     private void SavePrinterCalibration()
@@ -186,6 +236,11 @@ public partial class LabelTemplateEditorDialog : Window
         prefs.LabelPageFromTemplate = LabelPageFromTemplateCheck.IsChecked != false;
         var i = LabelRawLangCombo.SelectedIndex;
         prefs.LabelRawLanguage = i >= 0 && i < RawLanguages.Length ? RawLanguages[i].Key : "escpos";
+        // 2026-11-01 (П-7): 0 — «не задавать» (null)
+        prefs.LabelTsplDensity = TsplDensityCombo.SelectedIndex > 0 ? TsplDensityCombo.SelectedIndex - 1 : null;
+        prefs.LabelTsplSpeed = TsplSpeedCombo.SelectedIndex > 0 ? TsplSpeedCombo.SelectedIndex + 1 : null;
+        prefs.LabelTsplFlip = TsplFlipCombo.SelectedIndex switch { 1 => false, 2 => true, _ => (bool?)null };
+        prefs.LabelTsplSensor = TsplSensorCombo.SelectedIndex switch { 1 => "gap", 2 => "bline", _ => null };
         try
         {
             prefs.SaveToDisk();
@@ -329,7 +384,7 @@ public partial class LabelTemplateEditorDialog : Window
         var text = new TextBlock
         {
             Text = label,
-            FontSize = 10,
+            FontSize = 12,
             FontWeight = FontWeight.SemiBold,
             Foreground = Brushes.Black,
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -722,10 +777,15 @@ public partial class LabelTemplateEditorDialog : Window
 
     private async void TestPrintButton_Click(object? sender, RoutedEventArgs e)
     {
+        if (!BarcodePrintAccess.IsAllowed()) // 2026-11-01 (П-10)
+        {
+            StatusText.Text = BarcodePrintAccess.DeniedText;
+            return;
+        }
         var printerPath = UserPreferences.Instance.LabelPrinterDevicePath;
         if (string.IsNullOrWhiteSpace(printerPath))
         {
-            StatusText.Text = Tr.T("Принтер этикеток не настроен — выберите его в окне печати этикетки.", "Этикетка принтери жөндөлгөн эмес — аны этикетка басып чыгаруу терезесинен тандаңыз.", "The label printer is not set up — select it in the label print window.", "Etiket yazıcısı ayarlanmamış — etiket yazdırma penceresinden seçin.", "Yorliq printeri sozlanmagan — uni yorliqni chop etish oynasida tanlang.");
+            StatusText.Text = LabelPrinterSelector.MissingHint(); // 2026-11-01: единая подсказка
             return;
         }
 
@@ -742,7 +802,7 @@ public partial class LabelTemplateEditorDialog : Window
             var result = await System.Threading.Tasks.Task.Run(() => BarcodeLabelService.Print(request)).ConfigureAwait(true);
             StatusText.Text = result switch
             {
-                LabelPrintResult.Success => Tr.T("Этикетка отправлена на печать.", "Этикетка басып чыгарууга жөнөтүлдү.", "Label sent to the printer.", "Etiket yazdırmaya gönderildi.", "Yorliq chop etishga yuborildi."),
+                LabelPrintResult.Success => LabelPrinterSelector.SentText(LabelPrinterSelector.DisplayName(printerPath)),
                 LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден — выберите его в окне печати этикетки.", "Принтер табылган жок — аны этикетка басып чыгаруу терезесинен тандаңыз.", "Printer not found — select it in the label print window.", "Yazıcı bulunamadı — etiket yazdırma penceresinden seçin.", "Printer topilmadi — uni yorliqni chop etish oynasida tanlang."),
                 _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Чоо-жайы колдонмонун журналында.", "Print error. See the app log for details.", "Yazdırma hatası. Ayrıntılar uygulama günlüğünde.", "Chop etish xatosi. Tafsilotlar dastur jurnalida."),
             };

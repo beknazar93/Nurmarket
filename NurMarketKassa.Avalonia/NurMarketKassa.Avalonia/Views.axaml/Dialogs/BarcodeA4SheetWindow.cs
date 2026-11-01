@@ -48,6 +48,12 @@ public sealed class BarcodeA4SheetWindow : Window
     private readonly CheckBox _barcode, _name, _price, _discount, _plu, _description;
     private readonly NumericUpDown _nameSize, _priceSize;
     private readonly ToggleButton _nameB, _nameI, _nameU, _priceB, _priceI, _priceU;
+    // 2026-11-01 (П-8): стили старой цены, ПЛУ и описания; (П-6): самоклеящаяся бумага, «начать с ячейки №», сдвиг принтера
+    private readonly NumericUpDown _oldSize, _pluSize, _descSize;
+    private readonly ToggleButton _oldB, _oldI, _oldU, _pluB, _pluI, _pluU, _descB, _descI, _descU;
+    private readonly ComboBox _paper;
+    private readonly StackPanel _customPanel;
+    private readonly NumericUpDown _startCell, _offX, _offY, _marginTop, _marginLeft, _cellW, _cellH, _pitchX, _pitchY;
     private readonly TextBlock _summary;
     private readonly TextBlock _warning;
     private readonly ComboBox _printerCombo;
@@ -99,7 +105,7 @@ public sealed class BarcodeA4SheetWindow : Window
         _copies = Num(1, 99, Math.Clamp(settings.A4Copies, 1, 99));
 
         _positions = new ListBox { MaxHeight = 190, MinHeight = 60 };
-        _positions.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<Row>((row, _) => BuildRow(row), true);
+        _positions.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<Row>((row, _) => BuildRow(row), false); // 2026-11-01 (В-1): без переиспользования — иначе строки путались при прокрутке
         _resetButton = Ghost("");
         _resetButton.HorizontalAlignment = HorizontalAlignment.Right;
         _resetButton.MinHeight = 36;
@@ -122,6 +128,49 @@ public sealed class BarcodeA4SheetWindow : Window
         _description = Check(T("Описание", "Сүрөттөмө", "Description", "Açıklama", "Tavsif"), _o.ShowDescription);
         _nameSize = Num(6, 40, (decimal)_o.Name.SizePt, 84);
         _priceSize = Num(6, 60, (decimal)_o.Price.SizePt, 84);
+        _oldSize = Num(6, 60, (decimal)_o.OldPrice.SizePt, 84);
+        _pluSize = Num(6, 40, (decimal)_o.Plu.SizePt, 84);
+        _descSize = Num(6, 40, (decimal)_o.Description.SizePt, 84);
+        (_oldB, _oldI, _oldU) = StyleToggles(_o.OldPrice);
+        (_pluB, _pluI, _pluU) = StyleToggles(_o.Plu);
+        (_descB, _descI, _descU) = StyleToggles(_o.Description);
+
+        // 2026-11-01 (П-6): бумага — обычный лист или готовый формат самоклеящихся листов; «Свой формат» — поля и шаг вручную.
+        _paper = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        _paper.Items.Add(T("Обычный лист (сетка)", "Кадимки барак (тор)", "Plain sheet (grid)", "Düz sayfa (ızgara)", "Oddiy varaq (to'r)"));
+        foreach (var f in A4SheetService.Formats)
+            _paper.Items.Add($"{f.CellW:0.##}×{f.CellH:0.##} " + T("мм", "мм", "mm", "mm", "mm") + " — " + f.PerSheet + " " + T("шт.", "дана", "pcs", "adet", "dona") + $" ({f.Columns}×{f.Rows})");
+        _paper.Items.Add(T("Свой формат…", "Жеке формат…", "Custom format…", "Özel format…", "Maxsus format…"));
+        _paper.SelectedIndex = PaperIndexOf(_o.Preset);
+        _startCell = Num(1, 400, Math.Clamp(_o.StartCell, 1, 400));
+        _offX = Dec(-10, 10, _o.OffsetXmm);
+        _offY = Dec(-10, 10, _o.OffsetYmm);
+        _marginTop = Dec(0, 100, _o.MarginTopMm);
+        _marginLeft = Dec(0, 100, _o.MarginLeftMm);
+        _cellW = Dec(5, 297, _o.CellWmm);
+        _cellH = Dec(5, 297, _o.CellHmm);
+        _pitchX = Dec(5, 297, _o.PitchXmm);
+        _pitchY = Dec(5, 297, _o.PitchYmm);
+        _customPanel = new StackPanel { Spacing = 6, IsVisible = _o.Preset == A4SheetService.CustomPreset };
+        var customGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,8,*") };
+        var customFields = new (string, Control)[]
+        {
+            (T("Сверху, мм", "Жогортон, мм", "Top margin, mm", "Üst boşluk, mm", "Yuqoridan, mm"), _marginTop),
+            (T("Слева, мм", "Солдон, мм", "Left margin, mm", "Sol boşluk, mm", "Chapdan, mm"), _marginLeft),
+            (T("Ширина ячейки, мм", "Уячанын туурасы, мм", "Cell width, mm", "Hücre genişliği, mm", "Katak eni, mm"), _cellW),
+            (T("Высота ячейки, мм", "Уячанын бийиктиги, мм", "Cell height, mm", "Hücre yüksekliği, mm", "Katak balandligi, mm"), _cellH),
+            (T("Шаг по X, мм", "X боюнча кадам, мм", "Step X, mm", "X adımı, mm", "X bo'yicha qadam, mm"), _pitchX),
+            (T("Шаг по Y, мм", "Y боюнча кадам, мм", "Step Y, mm", "Y adımı, mm", "Y bo'yicha qadam, mm"), _pitchY),
+        };
+        customGrid.RowDefinitions = new RowDefinitions("Auto,Auto,Auto");
+        for (var i = 0; i < customFields.Length; i++)
+        {
+            var fld = Field(customFields[i].Item1, customFields[i].Item2);
+            Grid.SetRow(fld, i / 2);
+            Grid.SetColumn(fld, (i % 2) * 2);
+            customGrid.Children.Add(fld);
+        }
+        _customPanel.Children.Add(customGrid);
         // 2026-10-27, аудит Н-19: подписи кнопок «жирный / курсив / подчёркнутый» были жёстко по-русски (Ж К П) — теперь на языке кассы.
         (_nameB, _nameI, _nameU) = (Tog(T("Ж", "Ж", "B", "K", "B"), FontWeight.Bold, FontStyle.Normal, false, _o.Name.Bold), Tog(T("К", "К", "I", "İ", "I"), FontWeight.Normal, FontStyle.Italic, false, _o.Name.Italic), Tog(T("П", "П", "U", "A", "U"), FontWeight.Normal, FontStyle.Normal, true, _o.Name.Underline));
         (_priceB, _priceI, _priceU) = (Tog(T("Ж", "Ж", "B", "K", "B"), FontWeight.Bold, FontStyle.Normal, false, _o.Price.Bold), Tog(T("К", "К", "I", "İ", "I"), FontWeight.Normal, FontStyle.Italic, false, _o.Price.Italic), Tog(T("П", "П", "U", "A", "U"), FontWeight.Normal, FontStyle.Normal, true, _o.Price.Underline));
@@ -135,6 +184,17 @@ public sealed class BarcodeA4SheetWindow : Window
         var left = new StackPanel { Spacing = 8, Margin = new Thickness(0, 0, 8, 0) };
         left.Children.Add(Field(T("Заголовок листа (адрес и т.п.)", "Барактын аталышы (дарек ж.б.)", "Sheet title (address etc.)", "Sayfa başlığı (adres vb.)", "Varaq sarlavhasi (manzil va h.k.)"), _title));
         left.Children.Add(Field(T("Ориентация листа", "Барактын багыты", "Sheet orientation", "Sayfa yönü", "Varaq yo'nalishi"), _orientation));
+        left.Children.Add(Field(T("Бумага", "Кагаз", "Paper", "Kağıt", "Qog'oz"), _paper));
+        var paperHint = new TextBlock { Text = T("Для готовых форматов размеры сверьте с упаковкой бумаги; не подошло — «Свой формат».", "Даяр форматтарда өлчөмдөрдү кагаздын таңгагы менен салыштырыңыз; туура келбесе — «Жеке формат».",
+            "For ready formats check the sizes against the paper pack; if they do not fit, use “Custom format”.", "Hazır formatlarda ölçüleri kağıt paketiyle karşılaştırın; uymazsa «Özel format».", "Tayyor formatlarda o'lchamlarni qog'oz qadog'i bilan solishtiring; to'g'ri kelmasa — «Maxsus format»."), FontSize = 11.5, TextWrapping = TextWrapping.Wrap };
+        Use(paperHint, TextBlock.ForegroundProperty, "BrushTextSoft");
+        left.Children.Add(paperHint);
+        left.Children.Add(_customPanel);
+        var gridStart = new Grid { ColumnDefinitions = new ColumnDefinitions("*,8,*,8,*") };
+        gridStart.Children.Add(Field(T("Начать с ячейки №", "№ уячадан баштоо", "Start from cell #", "Hücre no'dan başla", "Katak №dan boshlash"), _startCell));
+        var fOx = Field(T("Сдвиг X, мм", "X жылышы, мм", "Shift X, mm", "X kayması, mm", "X siljishi, mm"), _offX); Grid.SetColumn(fOx, 2); gridStart.Children.Add(fOx);
+        var fOy = Field(T("Сдвиг Y, мм", "Y жылышы, мм", "Shift Y, mm", "Y kayması, mm", "Y siljishi, mm"), _offY); Grid.SetColumn(fOy, 4); gridStart.Children.Add(fOy);
+        left.Children.Add(gridStart);
         var grid3 = new Grid { ColumnDefinitions = new ColumnDefinitions("*,8,*,8,*") };
         grid3.Children.Add(Field(T("Товаров в ряд", "Катарда", "Per row", "Satırda", "Qatorda"), _columns));
         var f2 = Field(T("Строк на лист", "Барактагы катар", "Rows per sheet", "Sayfada satır", "Varaqda qator"), _rowsBox); Grid.SetColumn(f2, 2); grid3.Children.Add(f2);
@@ -155,9 +215,9 @@ public sealed class BarcodeA4SheetWindow : Window
         left.Children.Add(Panel(_barcode));
         left.Children.Add(Panel(StyleRow(_name, _nameSize, _nameB, _nameI, _nameU)));
         left.Children.Add(Panel(StyleRow(_price, _priceSize, _priceB, _priceI, _priceU)));
-        left.Children.Add(Panel(_discount));
-        left.Children.Add(Panel(_plu));
-        left.Children.Add(Panel(_description));
+        left.Children.Add(Panel(StyleRow(_discount, _oldSize, _oldB, _oldI, _oldU)));
+        left.Children.Add(Panel(StyleRow(_plu, _pluSize, _pluB, _pluI, _pluU)));
+        left.Children.Add(Panel(StyleRow(_description, _descSize, _descB, _descI, _descU)));
         left.Children.Add(Field(T("Принтер для листов A4", "A4 барактары үчүн принтер", "Printer for A4 sheets", "A4 sayfalar için yazıcı", "A4 varaqlar uchun printer"), _printerCombo));
         left.Children.Add(_summary);
         left.Children.Add(_warning);
@@ -225,15 +285,48 @@ public sealed class BarcodeA4SheetWindow : Window
         _heightSlider.PropertyChanged += (_, e) => { if (e.Property == RangeBase.ValueProperty) { UpdateHeightLabel(); Changed(); } };
         foreach (var c in new[] { _barcode, _name, _price, _discount, _plu, _description })
             c.IsCheckedChanged += (_, _) => Changed();
-        foreach (var n in new[] { _nameSize, _priceSize })
+        foreach (var n in new[] { _nameSize, _priceSize, _oldSize, _pluSize, _descSize, _startCell, _offX, _offY, _marginTop, _marginLeft, _cellW, _cellH, _pitchX, _pitchY })
             n.ValueChanged += (_, _) => Changed();
-        foreach (var t in new[] { _nameB, _nameI, _nameU, _priceB, _priceI, _priceU })
+        foreach (var t in new[] { _nameB, _nameI, _nameU, _priceB, _priceI, _priceU, _oldB, _oldI, _oldU, _pluB, _pluI, _pluU, _descB, _descI, _descU })
             t.IsCheckedChanged += (_, _) => Changed();
+        _paper.SelectionChanged += (_, _) => PaperChanged();
         Opened += (_, _) => _ = LoadPrintersAsync();
         Closing += (_, _) => SaveSettings();
+        ApplyPaperUi(false);
         _init = false;
         ReadOptions();
         RefreshPreview();
+    }
+
+    /// <summary>2026-11-01 (П-6): выбрана другая бумага — линии разреза у готовых форматов выключены, число в ряд/строк берётся из формата.</summary>
+    private void PaperChanged()
+    {
+        if (_init)
+            return;
+        _o.CutLines = _paper.SelectedIndex <= 0;
+        ApplyPaperUi(true);
+        Changed();
+    }
+
+    private void ApplyPaperUi(bool fromUser)
+    {
+        var idx = _paper.SelectedIndex;
+        var custom = idx == A4SheetService.Formats.Count + 1;
+        var ready = idx >= 1 && !custom;
+        _customPanel.IsVisible = custom;
+        _columns.IsEnabled = _rowsBox.IsEnabled = !ready;
+        _orientation.IsEnabled = !ready;
+        _title.IsEnabled = !ready && !custom;
+        if (ready && (fromUser || true))
+        {
+            var f = A4SheetService.Formats[idx - 1];
+            var was = _init;
+            _init = true;
+            _columns.Value = f.Columns;
+            _rowsBox.Value = f.Rows;
+            _orientation.SelectedIndex = 0;
+            _init = was;
+        }
     }
 
     // ------------------------------------------------------------------ данные
@@ -262,6 +355,20 @@ public sealed class BarcodeA4SheetWindow : Window
         _o.ShowDescription = _description.IsChecked == true;
         _o.Name = new A4TextStyle { SizePt = (double)(_nameSize.Value ?? 12), Bold = _nameB.IsChecked == true, Italic = _nameI.IsChecked == true, Underline = _nameU.IsChecked == true };
         _o.Price = new A4TextStyle { SizePt = (double)(_priceSize.Value ?? 16), Bold = _priceB.IsChecked == true, Italic = _priceI.IsChecked == true, Underline = _priceU.IsChecked == true };
+        _o.OldPrice = new A4TextStyle { SizePt = (double)(_oldSize.Value ?? 12), Bold = _oldB.IsChecked == true, Italic = _oldI.IsChecked == true, Underline = _oldU.IsChecked == true };
+        _o.Plu = new A4TextStyle { SizePt = (double)(_pluSize.Value ?? 12), Bold = _pluB.IsChecked == true, Italic = _pluI.IsChecked == true, Underline = _pluU.IsChecked == true };
+        _o.Description = new A4TextStyle { SizePt = (double)(_descSize.Value ?? 10), Bold = _descB.IsChecked == true, Italic = _descI.IsChecked == true, Underline = _descU.IsChecked == true };
+        var pi = _paper.SelectedIndex;
+        _o.Preset = pi <= 0 ? "" : pi == A4SheetService.Formats.Count + 1 ? A4SheetService.CustomPreset : A4SheetService.Formats[pi - 1].Key;
+        _o.StartCell = (int)(_startCell.Value ?? 1);
+        _o.OffsetXmm = (double)(_offX.Value ?? 0);
+        _o.OffsetYmm = (double)(_offY.Value ?? 0);
+        _o.MarginTopMm = (double)(_marginTop.Value ?? 0);
+        _o.MarginLeftMm = (double)(_marginLeft.Value ?? 0);
+        _o.CellWmm = (double)(_cellW.Value ?? 70);
+        _o.CellHmm = (double)(_cellH.Value ?? 37);
+        _o.PitchXmm = (double)(_pitchX.Value ?? 70);
+        _o.PitchYmm = (double)(_pitchY.Value ?? 37);
     }
 
     private void Changed()
@@ -314,9 +421,18 @@ public sealed class BarcodeA4SheetWindow : Window
                 $"Barkodlu ürün: {withCode} · Etiket: {labels} · Sayfa: {pages} (sayfada {geo.PerPage})",
                 $"Shtrix-kodli mahsulotlar: {withCode} · Yorliqlar: {labels} · Varaqlar: {pages} (varaqda {geo.PerPage})");
             var noCode = _rows.Count - withCode;
-            _warning.IsVisible = _o.ShowBarcode && noCode > 0;
-            _warning.Text = T($"У {noCode} товаров нет штрихкода — штрихкод на их этикетках не напечатается.", $"{noCode} товардо штрих-код жок — алардын этикеткаларында штрих-код басылбайт.",
-                $"{noCode} products have no barcode — it will not be printed on their labels.", $"{noCode} ürünün barkodu yok — etiketlerine barkod basılmaz.", $"{noCode} ta mahsulotda shtrix-kod yo'q — ularning yorliqlariga shtrix-kod chop etilmaydi.");
+            var fitText = "";
+            if (_o.Preset == A4SheetService.CustomPreset)
+            {
+                var right = geo.GridLeftMm + (geo.Columns - 1) * geo.StepX + geo.CellWmm;
+                var bottom = geo.GridTopMm + (geo.Rows - 1) * geo.StepY + geo.CellHmm;
+                if (right > geo.PageWmm + 0.5 || bottom > geo.PageHmm + 0.5)
+                    fitText = T("Своя сетка не помещается на лист — уменьшите шаг, размер ячейки или число в ряд/строк. ", "Жеке тор баракка батпайт — кадамды, уячанын өлчөмүн же катар санын азайтыңыз. ",
+                        "The custom grid does not fit the sheet — reduce the step, cell size or the number of columns/rows. ", "Özel ızgara sayfaya sığmıyor — adımı, hücre boyutunu veya sütun/satır sayısını azaltın. ", "Maxsus to'r varaqqa sig'maydi — qadam, katak o'lchami yoki qator/ustun sonini kamaytiring. ");
+            }
+            _warning.IsVisible = fitText.Length > 0 || (_o.ShowBarcode && noCode > 0);
+            _warning.Text = fitText + (_o.ShowBarcode && noCode > 0 ? T($"У {noCode} товаров нет штрихкода — штрихкод на их этикетках не напечатается.", $"{noCode} товардо штрих-код жок — алардын этикеткаларында штрих-код басылбайт.",
+                $"{noCode} products have no barcode — it will not be printed on their labels.", $"{noCode} ürünün barkodu yok — etiketlerine barkod basılmaz.", $"{noCode} ta mahsulotda shtrix-kod yo'q — ularning yorliqlariga shtrix-kod chop etilmaydi.") : "");
             _printButton.IsEnabled = labels > 0;
         }
         catch (Exception ex)
@@ -342,16 +458,38 @@ public sealed class BarcodeA4SheetWindow : Window
         }
         var plain = list.Where(p => !BarcodeLabelService.IsRawDevicePath(p.DevicePath)).ToList();
         _printerCombo.ItemsSource = plain;
-        _printerCombo.SelectedItem = plain.FirstOrDefault(p => string.Equals(p.DevicePath, _settings.A4PrinterName, StringComparison.OrdinalIgnoreCase)) ?? plain.FirstOrDefault();
+        // 2026-11-01 (два принтера, С-4): лист A4 — сохранённый, иначе принтер Windows «по умолчанию»; не чековый, не этикеточный, не факс/OneNote.
+        _printerCombo.SelectedItem = LabelPrinterSelector.PickA4Default(plain, _settings.A4PrinterName);
     }
 
     /// <summary>«Печать A4» — листы на выбранный принтер Windows (спулер).</summary>
     public async Task PrintAsync()
     {
+        if (!BarcodePrintAccess.IsAllowed()) // 2026-11-01 (П-10)
+        {
+            _status.Text = BarcodePrintAccess.DeniedText;
+            return;
+        }
+        if (!LabelPrinterSelector.PrintingSupported)
+        {
+            _status.Text = LabelPrinterSelector.UnsupportedText; // 2026-11-01 (С-9)
+            return;
+        }
         if (_printerCombo.SelectedItem is not DiscoveredPrinter printer)
         {
             _status.Text = T("Принтер не подключён — выберите принтер для листов A4.", "Принтер туташкан эмес — A4 барактары үчүн принтерди тандаңыз.", "No printer connected — choose a printer for A4 sheets.", "Yazıcı bağlı değil — A4 sayfalar için bir yazıcı seçin.", "Printer ulanmagan — A4 varaqlar uchun printerni tanlang.");
             return;
+        }
+        ReadOptions();
+        var itemsToPrint = BuildSheetItems();
+        var labelsToPrint = A4SheetService.LabelCount(itemsToPrint);
+        // 2026-11-01 (С-5): большая пачка — подтверждение с числом этикеток и листов.
+        if (labelsToPrint > LabelPrinterSelector.BigBatchLabels)
+        {
+            var bigQuestion = LabelPrinterSelector.BigBatchQuestion(labelsToPrint, 0, 0, A4SheetService.PageCount(labelsToPrint, _o.Clone()), printer.Label);
+            if (!await PosConfirmDialog.ShowModalAsync(this, T("Большая печать", "Чоң басуу", "Large print job", "Büyük baskı", "Katta chop etish"), bigQuestion,
+                    T($"Напечатать {labelsToPrint}", $"{labelsToPrint} басуу", $"Print {labelsToPrint}", $"{labelsToPrint} yazdır", $"{labelsToPrint} ta chop etish"), T("Отмена", "Жок", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true))
+                return;
         }
         if (!_shell.TryBeginBusy())
             return;
@@ -407,6 +545,26 @@ public sealed class BarcodeA4SheetWindow : Window
         };
         b.Classes.Add("sec-outline");
         return b;
+    }
+
+    private static NumericUpDown Dec(decimal min, decimal max, double value) => new()
+    {
+        Minimum = min, Maximum = max, Value = (decimal)Math.Clamp(value, (double)min, (double)max), Increment = 0.5m, FormatString = "0.0##", MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Stretch,
+    };
+
+    private (ToggleButton, ToggleButton, ToggleButton) StyleToggles(A4TextStyle s) =>
+        (Tog(T("Ж", "Ж", "B", "K", "B"), FontWeight.Bold, FontStyle.Normal, false, s.Bold), Tog(T("К", "К", "I", "İ", "I"), FontWeight.Normal, FontStyle.Italic, false, s.Italic), Tog(T("П", "П", "U", "A", "U"), FontWeight.Normal, FontStyle.Normal, true, s.Underline));
+
+    private static int PaperIndexOf(string? preset)
+    {
+        if (string.IsNullOrEmpty(preset))
+            return 0;
+        if (preset == A4SheetService.CustomPreset)
+            return A4SheetService.Formats.Count + 1;
+        for (var i = 0; i < A4SheetService.Formats.Count; i++)
+            if (A4SheetService.Formats[i].Key == preset)
+                return i + 1;
+        return 0;
     }
 
     private static NumericUpDown Num(decimal min, decimal max, decimal value, double width = double.NaN) => new()

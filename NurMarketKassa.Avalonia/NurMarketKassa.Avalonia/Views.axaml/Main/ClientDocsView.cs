@@ -165,8 +165,8 @@ public static class ClientDocsUi
             {
                 var api = SettingsCloudSync.ApiProvider?.Invoke();
                 if (api == null || string.IsNullOrEmpty(api.AccessToken))
-                    return T("Нет связи с NurCRM — клиента добавить нельзя.", "NurCRM менен байланыш жок — кардарды кошуу мүмкүн эмес.", "No connection to NurCRM — cannot add the client.",
-                        "NurCRM bağlantısı yok — müşteri eklenemiyor.", "NurCRM bilan aloqa yo'q — mijozni qo'shib bo'lmaydi.");
+                    return T("Сервер NurCRM недоступен — клиента добавить нельзя.", "NurCRM сервери жеткиликсиз — кардарды кошуу мүмкүн эмес.", "The NurCRM server is unavailable — cannot add the client.",
+                        "NurCRM sunucusu kullanılamıyor — müşteri eklenemiyor.", "NurCRM serveri mavjud emas — mijozni qo'shib bo'lmaydi.");
                 var body = new Dictionary<string, string> { ["full_name"] = name, ["phone"] = phone, ["type"] = "client" };
                 if (email.Length > 0)
                     body["email"] = email;
@@ -540,11 +540,11 @@ public sealed class ClientDocsView : UserControl
                 "No rights to shared company settings — documents are saved on this PC only (the owner or an administrator saves them).",
                 "Şirket ortak ayarlarına yetki yok — belgeler yalnızca bu bilgisayarda kaydedildi (sahibi veya yönetici kaydeder).",
                 "Kompaniya umumiy sozlamalariga huquq yo'q — hujjatlar faqat shu kompyuterda saqlandi (egasi yoki administrator saqlaydi)."),
-            ClientDocsStore.SyncState.LocalOnly => T("Нет связи с NurCRM — документы сохранены на этом ПК и уйдут на сервер, когда связь появится.",
-                "NurCRM менен байланыш жок — документтер ушул ПКда сакталды, байланыш болгондо серверге кетет.",
-                "No connection to NurCRM — documents are saved on this PC and will be sent when the connection is back.",
-                "NurCRM bağlantısı yok — belgeler bu bilgisayarda kaydedildi, bağlantı gelince sunucuya gönderilecek.",
-                "NurCRM bilan aloqa yo'q — hujjatlar shu kompyuterda saqlandi, aloqa tiklanganda serverga yuboriladi."),
+            ClientDocsStore.SyncState.LocalOnly => T("Сервер NurCRM недоступен — документы сохранены на этом ПК и уйдут на сервер, когда связь появится.",
+                "NurCRM сервери жеткиликсиз — документтер ушул ПКда сакталды, байланыш болгондо серверге кетет.",
+                "The NurCRM server is unavailable — documents are saved on this PC and will be sent when the connection is back.",
+                "NurCRM sunucusu kullanılamıyor — belgeler bu bilgisayarda kaydedildi, bağlantı gelince sunucuya gönderilecek.",
+                "NurCRM serveri mavjud emas — hujjatlar shu kompyuterda saqlandi, aloqa tiklanganda serverga yuboriladi."),
             _ => "",
         };
         // 2026-10-21 (ревью документов, A3/A5): сообщение слияния (изменён/удалён на другом устройстве, номер занят) и размер списка.

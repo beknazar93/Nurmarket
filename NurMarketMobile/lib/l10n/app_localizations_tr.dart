@@ -2080,6 +2080,46 @@ class AppLocalizationsTr extends AppLocalizations {
   String get kindSale => 'Satış';
 
   @override
+  String get prevSaleMayPass =>
+      'Önceki ödeme tamamlanmadı — o fiş geçmiş olabilir. Yeniden ödemeden önce «Fişler» bölümünü kontrol edin.';
+
+  @override
+  String get pdHasHistory =>
+      'Ürün silinemez — belgeleri var (satışlar, girişler). Arşive gönderilsin mi? Satıştan kalkar, geçmişi kalır.';
+
+  @override
+  String get pdToArchive => 'Arşive';
+
+  @override
+  String get pdArchived => 'Ürün arşive gönderildi';
+
+  @override
+  String pricesPartlyUnchecked(int n) {
+    return '$n ürünün fiyatı sunucuyla karşılaştırılamadı — güncel olmayabilir.';
+  }
+
+  @override
+  String get kindBonus => 'Müşteri bonusları';
+
+  @override
+  String get bonusQueued =>
+      'Müşterinin bonusları hemen kaydedilemedi — bağlantı gelince otomatik gönderilecek';
+
+  @override
+  String payReceivedHuge(String change) {
+    return 'Para üstü $change som — doğru mu? «Alınan» alanındaki tutarı kontrol edin.';
+  }
+
+  @override
+  String get apiSaleTooOld =>
+      'Fiş 7 günden eski: sunucu onu sahibin onayı olmadan kabul etmez. Fişi kaldırmayın, sahibine bildirin.';
+
+  @override
+  String staleSalesBanner(int n) {
+    return 'Kuyrukta 5 günden eski fişler: $n. 7 günden sonra sunucu bunları sahibin onayı olmadan kabul etmez — telefonu en kısa sürede ağa bağlayın.';
+  }
+
+  @override
   String get admin => 'Yönetim';
 
   @override
@@ -6632,4 +6672,361 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get pbNoPhone => 'Telefon belirtilmemiş';
+
+  @override
+  String get shopModeTitle => 'Mağaza modu';
+
+  @override
+  String get shopModeSub =>
+      'Kasadaki «Mağaza türü» gibi. Satış ve katalog görünümü moda göre değişir';
+
+  @override
+  String get shopModeGrocery => 'Market (gıda)';
+
+  @override
+  String get shopModeGrocerySub => 'Teraziler ve tartılı ürünler, hızlı satış';
+
+  @override
+  String get shopModeClothing => 'Giyim ve ayakkabı';
+
+  @override
+  String get shopModeClothingSub =>
+      'Satışta beden ve renk, beden barkodu, beden başına stok';
+
+  @override
+  String get shopModeServices => 'Hizmetler';
+
+  @override
+  String get shopModeServicesSub => 'Salon, tamir, kiralama: stoksuz hizmetler';
+
+  @override
+  String get shopModeHardware => 'Hırdavat ve yapı malzemeleri';
+
+  @override
+  String get shopModeHardwareSub => 'Metre, kilogram, torba ve kutu';
+
+  @override
+  String shopModeOn(String name) {
+    return '«$name» modu açık';
+  }
+
+  @override
+  String get shopModeSavedAll =>
+      'Tüm şirket için kaydedildi: kasalar ve telefonlar bir sonraki girişte değişir.';
+
+  @override
+  String get shopModePhoneOnly =>
+      'Yalnızca bu telefonda: tüm şirket için modu sahibi değiştirir.';
+
+  @override
+  String get clothingHintTitle => 'Katalogda beden ve renkli ürünler var';
+
+  @override
+  String get clothingHintAsk =>
+      '«Giyim» modu açılsın mı? Bedenler karolarda ve taramada görünür.';
+
+  @override
+  String get clothingHintYes => 'Aç';
+
+  @override
+  String get clothingHintNo => 'Gerek yok';
+
+  @override
+  String variantsTile(int n) {
+    return '$n beden/renk';
+  }
+
+  @override
+  String variantPickLeft(String qty) {
+    return 'kalan $qty';
+  }
+
+  @override
+  String variantPickInCheck(String qty) {
+    return 'Fişte: $qty';
+  }
+
+  @override
+  String get variantPickNone => 'Stokta yok';
+
+  @override
+  String get variantPickAllOut => 'Bu ürünün tüm bedenleri tükendi.';
+
+  @override
+  String get variantPickUpdating => 'Stok güncelleniyor…';
+
+  @override
+  String get variantPickStale => 'Stok telefondan — bağlantı yok';
+
+  @override
+  String variantNoMore(String qty) {
+    return 'Daha yok: bu bedenin stoku $qty';
+  }
+
+  @override
+  String get variantLoadFailed =>
+      'Ürün bedenleri yüklenemedi — bağlantı yok. İnternet gelince tekrar deneyin.';
+
+  @override
+  String variantScanOut(String label) {
+    return '$label: stokta yok';
+  }
+
+  @override
+  String variantScanInactive(String label) {
+    return '$label: beden kapalı';
+  }
+
+  @override
+  String get variantInactiveHidden => 'Kapalı bedenler gösterilmez.';
+
+  @override
+  String catalogLoadingProgress(int done, int total) {
+    return 'Katalog yükleniyor… $done / $total';
+  }
+
+  @override
+  String catalogLoadingNoTotal(int done) {
+    return 'Katalog yükleniyor… $done';
+  }
+
+  @override
+  String catalogIncomplete(int done, int total) {
+    return '$total üründen $done yüklendi — kataloğun bir kısmı henüz telefonda değil. Yükleme kendiliğinden devam eder; “Kataloğu yenile”ye dokunabilirsiniz.';
+  }
+
+  @override
+  String get catalogIncompleteNoTotal =>
+      'Katalog tam yüklenmedi. Yükleme kendiliğinden devam eder; “Kataloğu yenile”ye dokunabilirsiniz.';
+
+  @override
+  String get catalogRefresh => 'Kataloğu yenile';
+
+  @override
+  String catalogRefreshed(int n) {
+    return 'Katalog güncellendi: $n ürün';
+  }
+
+  @override
+  String stockCountShown(int shown, int total) {
+    return '$total üründen $shown gösteriliyor';
+  }
+
+  @override
+  String stockCountAll(int total) {
+    return 'Ürünler: $total';
+  }
+
+  @override
+  String get shopModeNotChosen => 'Seçilmedi';
+
+  @override
+  String get shopModeChoose => 'Mağaza modunu seç';
+
+  @override
+  String get shopSearchGrocery => 'Ad, barkod, PLU';
+
+  @override
+  String get shopSearchClothing => 'Ad, beden kodu';
+
+  @override
+  String get shopSearchServices => 'Hizmet adı';
+
+  @override
+  String get shopSearchHardware => 'Ad, makale';
+
+  @override
+  String get shopEmptyGrocery =>
+      'Bulunamadı. Tartılı ürünler adı veya terazi kodu (PLU) ile aranır.';
+
+  @override
+  String get shopEmptyClothing =>
+      'Bulunamadı. Bedenler ve renkler ürünü açınca veya beden barkodunu okutunca görünür.';
+
+  @override
+  String get shopEmptyServices =>
+      'Hizmet bulunamadı. Hizmetler sitede veya kasada oluşturulur.';
+
+  @override
+  String get shopEmptyHardware =>
+      'Bulunamadı. Ad, makale veya barkodla arayın; birimler m, m², paket.';
+
+  @override
+  String get tileSizes => 'Bedenler ve renkler';
+
+  @override
+  String get tileSizesSub => 'Beden başına stok';
+
+  @override
+  String get tileWeighed => 'Tartılı ürünler';
+
+  @override
+  String get tileWeighedSub => 'Kg fiyatı, terazi ağırlığı';
+
+  @override
+  String get tileExpiry => 'Son kullanma tarihleri';
+
+  @override
+  String get tileExpirySub => 'Yakında bozulacaklar';
+
+  @override
+  String get tileUnits => 'Metre ve paketler';
+
+  @override
+  String get tileUnitsSub => 'Birimler ve setler';
+
+  @override
+  String get tileReceive => 'Mal kabul';
+
+  @override
+  String get tileReceiveSub => 'Mal kabul et';
+
+  @override
+  String get tileStockSub => 'Depo ve stok';
+
+  @override
+  String get tileRentalsSub => 'Verme ve iade';
+
+  @override
+  String get tileDebtsSub => 'Kim borçlu';
+
+  @override
+  String get stockFilterSizes => 'Yalnızca bedenliler';
+
+  @override
+  String get stockFilterWeight => 'Yalnızca tartılılar';
+
+  @override
+  String get stockFilterExpiry => 'Son kullanma yakın';
+
+  @override
+  String get stockFilterUnits => 'Adet değil: m, m², paket';
+
+  @override
+  String get stockFilterClear => 'Temizle';
+
+  @override
+  String expiryBadge(String date) {
+    return '$date tarihine kadar';
+  }
+
+  @override
+  String expirySoonToast(String name, String date) {
+    return '$name: son kullanma $date';
+  }
+
+  @override
+  String get sizesScreenTitle => 'Bedenler ve renkler';
+
+  @override
+  String get sizesEmpty =>
+      'Henüz bedenli ürün yok. Satışta ürünü açın veya beden barkodunu okutun — bedenler yüklenir.';
+
+  @override
+  String sizesTotal(String qty) {
+    return 'Toplam: $qty';
+  }
+
+  @override
+  String get cardSizesTitle => 'Bedenler ve renkler';
+
+  @override
+  String get cardSizesNone => 'Bu ürünün bedenleri henüz yüklenmedi veya yok.';
+
+  @override
+  String get cardWeightTitle => 'Tartılı ürün';
+
+  @override
+  String cardWeightInfo(String unit, String plu) {
+    return '$unit fiyatı. Terazi kodu (PLU): $plu';
+  }
+
+  @override
+  String get cardNoPlu => 'ayarlı değil';
+
+  @override
+  String get cardExpiryTitle => 'Son kullanma tarihi';
+
+  @override
+  String get cardExpiryNone => 'Belirtilmemiş (kasada veya sitede girilir)';
+
+  @override
+  String get cardUnitTitle => 'Ölçü birimi';
+
+  @override
+  String cardUnitInfo(String unit) {
+    return 'Satış birimi: $unit';
+  }
+
+  @override
+  String get recvModeClothing =>
+      'Giyim: beden başına stok kasada veya sitede girilir; bedenli ürünlerde burada sayısı görünür.';
+
+  @override
+  String get recvModeGrocery =>
+      'Gıda: partinin son kullanma tarihini kontrol edin — tarih kasada veya sitede girilir. Tartılı ürün kg ile kabul edilir.';
+
+  @override
+  String get recvModeHardware =>
+      'Hırdavat: miktar ürünün biriminde (m, m², paket); birim her satırda gösterilir.';
+
+  @override
+  String updAvailable(String version) {
+    return '$version sürümü mevcut';
+  }
+
+  @override
+  String get updUpdate => 'Güncelle';
+
+  @override
+  String get updLater => 'Sonra';
+
+  @override
+  String get updWhatsNew => 'Yenilikler';
+
+  @override
+  String get updNoNotes => 'Açıklama yok.';
+
+  @override
+  String get updVersionTitle => 'Uygulama sürümü';
+
+  @override
+  String updVersionIs(String version) {
+    return 'Yüklü: $version';
+  }
+
+  @override
+  String get updCheck => 'Güncellemeleri kontrol et';
+
+  @override
+  String get updChecking => 'Kontrol ediliyor…';
+
+  @override
+  String get updUpToDate => 'En son sürüm yüklü';
+
+  @override
+  String get updCheckFailed =>
+      'Güncellemeler kontrol edilemedi. İnternet bağlantınızı kontrol edin.';
+
+  @override
+  String updDownloading(int percent) {
+    return 'Güncelleme indiriliyor… $percent%';
+  }
+
+  @override
+  String get updDownloadFailed =>
+      'Güncelleme indirilemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.';
+
+  @override
+  String get updCancel => 'İptal';
+
+  @override
+  String get updPermTitle => 'Yüklemeye izin verin';
+
+  @override
+  String get updPermBody =>
+      'NurCRM\'i güncellemek için uygulamanın güncelleme yüklemesine izin verin: açılan ekrandaki anahtarı açın, buraya dönün ve «Güncelle»ye tekrar dokunun.';
+
+  @override
+  String get updOpenSettings => 'Ayarları aç';
 }

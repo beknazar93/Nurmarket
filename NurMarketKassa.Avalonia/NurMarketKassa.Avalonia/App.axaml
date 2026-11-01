@@ -140,7 +140,7 @@
       <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
-      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
       <Setter Property="MinHeight" Value="38"/>
     </Style>
     <Style Selector="CalendarDatePicker /template/ TextBox#PART_TextBox">

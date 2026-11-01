@@ -8,7 +8,9 @@
   <!-- Экран покупателя, вид «Профи» (2026-09-28) — пара к раскладке кассы «Профи»: всегда тёмный
        (палитра CustomerDisplayViewModel для этого вида берёт тёмный вариант темы), узкая тёмная
        полоса слева, позиции списком с кружками букв, справа панель «Итого к оплате» с QR. -->
-  <Grid ColumnDefinitions="84,*,400">
+  <!-- 2026-11-01 (аудит «10 из 10», Д-06): на экране 800×600 правая панель фиксированной ширины съедала название товара до «…». Теперь правая колонка сужается (MinWidth), название переносится на 2 строки. -->
+  <Grid>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="84"/><ColumnDefinition Width="*"/><ColumnDefinition Width="0.7*" MinWidth="280" MaxWidth="400"/></Grid.ColumnDefinitions>
     <!-- Узкая полоса -->
     <Border Grid.Column="0" Background="{DynamicResource CustomerDisplayHeaderBrush}">
       <Grid RowDefinitions="Auto,*,Auto" Margin="0,20">
@@ -66,7 +68,7 @@
                       </Border>
                       <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2" Margin="0,0,12,0">
                         <TextBlock Classes="cd-text" Text="{Binding Title}" FontSize="{DynamicResource CdFont18}" FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis"/>
+                                   TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
                         <StackPanel Orientation="Horizontal" Spacing="14">
                           <TextBlock Classes="cd-soft cd-num" Text="{Binding QuantityTimesPriceText}" FontSize="{DynamicResource CdFont14}"/>
                           <TextBlock Classes="cd-soft cd-num" Text="{Binding Barcode}" FontSize="{DynamicResource CdFont12}" Opacity="0.8"
@@ -74,7 +76,7 @@
                         </StackPanel>
                       </StackPanel>
                       <TextBlock Grid.Column="2" Classes="cd-text cd-num" Text="{Binding TotalNumberText}" FontSize="{DynamicResource CdFont20}"
-                                 FontWeight="Bold" VerticalAlignment="Center" MinWidth="110" TextAlignment="Right"/>
+                                 FontWeight="Bold" VerticalAlignment="Center" MinWidth="90" TextAlignment="Right"/>
                     </Grid>
                   </Border>
                 </DataTemplate>

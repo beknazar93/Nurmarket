@@ -7,7 +7,8 @@ namespace NurMarketKassa.Services;
 /// по-прежнему делает редактор этикетки.</summary>
 public static class LabelAutoLayout
 {
-    /// <summary>Пикселей CSS на дюйм: «Высота штрих-кода: 44» в окне — это пиксели экрана, как на сайте.</summary>
+    /// <summary>Пикселей CSS на дюйм: внутри шаблон хранит высоту штрихкода в пикселях экрана (96 на дюйм). 2026-11-01 (П-1): в окне печати поле теперь в
+    /// миллиметрах («≈ N точек 203 dpi» — подпись рядом). На сайте у термоэтикетки «44» — это точки принтера 203 dpi (≈ 5,5 мм), а не пиксели экрана.</summary>
     private const double CssPxPerInch = 96.0;
 
     public static double PxToMm(double px) => px * 25.4 / CssPxPerInch;

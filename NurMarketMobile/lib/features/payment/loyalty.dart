@@ -13,18 +13,24 @@ class LoyaltyRepository {
   bool? _enabled;
   double _percent = 0;
 
+  /// 2026-11-01 (аудит 10 из 10, М-06): правила бонусов живут 10 минут — владелец поменял процент, телефон увидит без перезапуска.
+  DateTime? _loadedAt;
+  static const _ttl = Duration(minutes: 10);
+
   /// (баллы включены, процент начисления).
   Future<(bool, double)> settings() async {
-    if (_enabled != null) return (_enabled!, _percent);
+    final at = _loadedAt;
+    if (_enabled != null && at != null && DateTime.now().difference(at) < _ttl) return (_enabled!, _percent);
     try {
       final data = await api.get('api/main/app-shop-settings/', timeout: const Duration(seconds: 8));
       if (data is Map) {
         final m = data.cast<String, dynamic>();
         _enabled = m['points_enabled'] != false;
         _percent = num0(m, 'points_percent').clamp(0, 100).toDouble();
+        _loadedAt = DateTime.now();
       }
     } on ApiException {
-      // без связи — бонусы на этой продаже не трогаем
+      // без связи — бонусы на этой продаже не трогаем (устаревшие правила тоже не применяем: аккаунт мог смениться)
       return (false, 0.0);
     }
     return (_enabled ?? false, _percent);

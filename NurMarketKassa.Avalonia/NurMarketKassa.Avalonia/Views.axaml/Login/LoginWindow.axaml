@@ -64,11 +64,12 @@
                 </ControlTemplate>
             </Setter>
         </Style>
+        <!-- 2026-11-01 (аудит Д-04): наведение было тем же цветом, что и покой (отклика нет) — теперь шаг AccentStrong, как у остальных главных. -->
         <Style Selector="Button.LoginPrimaryButton:pointerover">
-            <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}" />
         </Style>
         <Style Selector="Button.LoginPrimaryButton:pressed">
-            <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}" />
+            <Setter Property="Background" Value="{DynamicResource BrushAccentPressed}" />
         </Style>
 
         <!-- Кнопка «Выход» -->
@@ -273,7 +274,7 @@
                                                TextWrapping="Wrap"
                                                Foreground="{DynamicResource BrushText}" />
                                     <TextBlock Text="{DynamicResource csh.login.secureSubtitle}"
-                                               Margin="0,2,0,0" FontSize="11.5" TextWrapping="Wrap"
+                                               Margin="0,2,0,0" FontSize="12" TextWrapping="Wrap"
                                                Foreground="{DynamicResource BrushTextSoft}" />
                                 </StackPanel>
                             </Grid>
@@ -291,8 +292,11 @@
                     BoxShadow="0 10 30 0 #14101828">
 
                 <!-- Форма по центру -->
+                <!-- 2026-11-01 (аудит «10 из 10», Д-08): на 1024×600 панель ☀/☾/⌨/–/✕ (сверху справа, 42+~52 px) перекрывала заголовок формы.
+                     Верхний отступ 24 → 64 (форма всегда под панелью), а при нехватке высоты форма прокручивается. -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel VerticalAlignment="Center" MaxWidth="440"
-                            Margin="56,24,56,24">
+                            Margin="56,64,56,24">
                   <StackPanel IsVisible="{Binding IsNurCrmScreen}">
 
                     <!-- Шапка формы: жёлтый замок + заголовок (по центру) -->
@@ -392,7 +396,7 @@
                               IsCheckedChanged="RememberMeCheckBox_Changed" />
 
                     <TextBlock Text="{DynamicResource csh.login.enterHint}" HorizontalAlignment="Center"
-                               Margin="0,6,2,0" FontSize="11"
+                               Margin="0,6,2,0" FontSize="12"
                                Foreground="{DynamicResource BrushTextSoft}" />
 
                     <TextBlock Text="{Binding ErrorMessage}" FontSize="13" FontWeight="SemiBold"
@@ -563,6 +567,7 @@
                             Classes="LoginLink" FontSize="13" HorizontalAlignment="Center"/>
                   </StackPanel>
                 </StackPanel>
+                </ScrollViewer>
             </Border>
         </Grid>
 

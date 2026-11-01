@@ -2151,6 +2151,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String get kindSale => 'Sale';
 
   @override
+  String get prevSaleMayPass =>
+      'The previous payment did not finish — that receipt may have gone through. Check “Receipts” before paying again.';
+
+  @override
+  String get pdHasHistory =>
+      'The product cannot be deleted — it has documents (sales, receipts). Send it to the archive? It will disappear from sale, the history stays.';
+
+  @override
+  String get pdToArchive => 'To archive';
+
+  @override
+  String get pdArchived => 'Product sent to the archive';
+
+  @override
+  String pricesPartlyUnchecked(int n) {
+    return 'Prices not checked against the server for $n items — they may be out of date.';
+  }
+
+  @override
+  String get kindBonus => 'Client bonuses';
+
+  @override
+  String get bonusQueued =>
+      'The client\'s bonuses were not saved right away — they will be sent automatically once there is a connection';
+
+  @override
+  String payReceivedHuge(String change) {
+    return 'Change $change som — is that right? Check the amount in the \"Received\" field.';
+  }
+
+  @override
+  String get apiSaleTooOld =>
+      'The receipt is older than 7 days: the server will not accept it without the owner\'s confirmation. Do not drop it, tell the owner.';
+
+  @override
+  String staleSalesBanner(int n) {
+    return 'Receipts older than 5 days in the queue: $n. After 7 days the server stops accepting them without the owner\'s confirmation — connect the phone to the network as soon as possible.';
+  }
+
+  @override
   String get admin => 'Management';
 
   @override
@@ -6758,4 +6798,369 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pbNoPhone => 'No phone number';
+
+  @override
+  String get shopModeTitle => 'Store mode';
+
+  @override
+  String get shopModeSub =>
+      'Same as «Store type» on the till. It sets how sales and the catalog look';
+
+  @override
+  String get shopModeGrocery => 'Grocery';
+
+  @override
+  String get shopModeGrocerySub => 'Scales and weighed goods, fast sales';
+
+  @override
+  String get shopModeClothing => 'Clothing and shoes';
+
+  @override
+  String get shopModeClothingSub =>
+      'Sizes and colors at sale, size barcodes, stock per size';
+
+  @override
+  String get shopModeServices => 'Services';
+
+  @override
+  String get shopModeServicesSub =>
+      'Salon, repair, rentals: services without stock';
+
+  @override
+  String get shopModeHardware => 'Hardware and building materials';
+
+  @override
+  String get shopModeHardwareSub => 'Metres, kilograms, bags and boxes';
+
+  @override
+  String shopModeOn(String name) {
+    return '«$name» mode is on';
+  }
+
+  @override
+  String get shopModeSavedAll =>
+      'Saved for the whole company: tills and phones switch at their next sign-in.';
+
+  @override
+  String get shopModePhoneOnly =>
+      'On this phone only: the owner changes the mode for the whole company.';
+
+  @override
+  String get clothingHintTitle => 'The catalog has items with sizes and colors';
+
+  @override
+  String get clothingHintAsk =>
+      'Turn on «Clothing» mode? Sizes will show on tiles and when scanning.';
+
+  @override
+  String get clothingHintYes => 'Turn on';
+
+  @override
+  String get clothingHintNo => 'No thanks';
+
+  @override
+  String variantsTile(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n sizes/colors',
+      one: '$n size/color',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String variantPickLeft(String qty) {
+    return 'left $qty';
+  }
+
+  @override
+  String variantPickInCheck(String qty) {
+    return 'In receipt: $qty';
+  }
+
+  @override
+  String get variantPickNone => 'Out of stock';
+
+  @override
+  String get variantPickAllOut => 'All sizes of this product are out of stock.';
+
+  @override
+  String get variantPickUpdating => 'Updating stock…';
+
+  @override
+  String get variantPickStale => 'Stock from the phone — offline';
+
+  @override
+  String variantNoMore(String qty) {
+    return 'No more: this size has $qty left';
+  }
+
+  @override
+  String get variantLoadFailed =>
+      'Could not load the product sizes — no connection. Try again when you are online.';
+
+  @override
+  String variantScanOut(String label) {
+    return '$label: out of stock';
+  }
+
+  @override
+  String variantScanInactive(String label) {
+    return '$label: this size is switched off';
+  }
+
+  @override
+  String get variantInactiveHidden => 'Switched-off sizes are hidden.';
+
+  @override
+  String catalogLoadingProgress(int done, int total) {
+    return 'Loading the catalog… $done of $total';
+  }
+
+  @override
+  String catalogLoadingNoTotal(int done) {
+    return 'Loading the catalog… $done';
+  }
+
+  @override
+  String catalogIncomplete(int done, int total) {
+    return 'Loaded $done of $total products — part of the catalog is not on this phone yet. Loading continues on its own; you can tap “Refresh catalog”.';
+  }
+
+  @override
+  String get catalogIncompleteNoTotal =>
+      'The catalog is not fully loaded. Loading continues on its own; you can tap “Refresh catalog”.';
+
+  @override
+  String get catalogRefresh => 'Refresh catalog';
+
+  @override
+  String catalogRefreshed(int n) {
+    return 'Catalog updated: $n products';
+  }
+
+  @override
+  String stockCountShown(int shown, int total) {
+    return 'Showing $shown of $total';
+  }
+
+  @override
+  String stockCountAll(int total) {
+    return 'Products: $total';
+  }
+
+  @override
+  String get shopModeNotChosen => 'Not chosen';
+
+  @override
+  String get shopModeChoose => 'Choose the store mode';
+
+  @override
+  String get shopSearchGrocery => 'Name, barcode, PLU';
+
+  @override
+  String get shopSearchClothing => 'Name, size code';
+
+  @override
+  String get shopSearchServices => 'Service name';
+
+  @override
+  String get shopSearchHardware => 'Name, article';
+
+  @override
+  String get shopEmptyGrocery =>
+      'Nothing found. Weighed goods are found by name or scale code (PLU).';
+
+  @override
+  String get shopEmptyClothing =>
+      'Nothing found. Sizes and colors show up after you open the item or scan a size barcode.';
+
+  @override
+  String get shopEmptyServices =>
+      'No services found. Services are created on the website or the till.';
+
+  @override
+  String get shopEmptyHardware =>
+      'Nothing found. Search by name, article or barcode; units are m, m², packs.';
+
+  @override
+  String get tileSizes => 'Sizes and colors';
+
+  @override
+  String get tileSizesSub => 'Stock per size';
+
+  @override
+  String get tileWeighed => 'Weighed goods';
+
+  @override
+  String get tileWeighedSub => 'Price per kg, weight from scales';
+
+  @override
+  String get tileExpiry => 'Expiry dates';
+
+  @override
+  String get tileExpirySub => 'What expires soon';
+
+  @override
+  String get tileUnits => 'Metres and packs';
+
+  @override
+  String get tileUnitsSub => 'Units and sets';
+
+  @override
+  String get tileReceive => 'Receiving';
+
+  @override
+  String get tileReceiveSub => 'Receive goods';
+
+  @override
+  String get tileStockSub => 'Stock and balances';
+
+  @override
+  String get tileRentalsSub => 'Issue and return';
+
+  @override
+  String get tileDebtsSub => 'Who owes';
+
+  @override
+  String get stockFilterSizes => 'Only with sizes';
+
+  @override
+  String get stockFilterWeight => 'Only weighed';
+
+  @override
+  String get stockFilterExpiry => 'Expiring soon';
+
+  @override
+  String get stockFilterUnits => 'Not pieces: m, m², packs';
+
+  @override
+  String get stockFilterClear => 'Clear';
+
+  @override
+  String expiryBadge(String date) {
+    return 'until $date';
+  }
+
+  @override
+  String expirySoonToast(String name, String date) {
+    return '$name: best before $date';
+  }
+
+  @override
+  String get sizesScreenTitle => 'Sizes and colors';
+
+  @override
+  String get sizesEmpty =>
+      'No items with sizes yet. Open an item in sales or scan a size barcode — sizes will load.';
+
+  @override
+  String sizesTotal(String qty) {
+    return 'Total: $qty';
+  }
+
+  @override
+  String get cardSizesTitle => 'Sizes and colors';
+
+  @override
+  String get cardSizesNone =>
+      'This item\'s sizes are not loaded yet, or it has none.';
+
+  @override
+  String get cardWeightTitle => 'Weighed item';
+
+  @override
+  String cardWeightInfo(String unit, String plu) {
+    return 'Price per $unit. Scale code (PLU): $plu';
+  }
+
+  @override
+  String get cardNoPlu => 'not set';
+
+  @override
+  String get cardExpiryTitle => 'Expiry date';
+
+  @override
+  String get cardExpiryNone => 'Not set (entered on the till or the website)';
+
+  @override
+  String get cardUnitTitle => 'Unit of measure';
+
+  @override
+  String cardUnitInfo(String unit) {
+    return 'Sold in: $unit';
+  }
+
+  @override
+  String get recvModeClothing =>
+      'Clothing: stock per size is entered on the till or the website; for items with sizes you see how many here.';
+
+  @override
+  String get recvModeGrocery =>
+      'Grocery: check the batch expiry date — it is entered on the till or the website. Weighed goods are received in kg.';
+
+  @override
+  String get recvModeHardware =>
+      'Hardware: quantity is in the item\'s unit (m, m², packs); the unit is shown on every line.';
+
+  @override
+  String updAvailable(String version) {
+    return 'Version $version is available';
+  }
+
+  @override
+  String get updUpdate => 'Update';
+
+  @override
+  String get updLater => 'Later';
+
+  @override
+  String get updWhatsNew => 'What\'s new';
+
+  @override
+  String get updNoNotes => 'No description.';
+
+  @override
+  String get updVersionTitle => 'App version';
+
+  @override
+  String updVersionIs(String version) {
+    return 'Installed: $version';
+  }
+
+  @override
+  String get updCheck => 'Check for updates';
+
+  @override
+  String get updChecking => 'Checking…';
+
+  @override
+  String get updUpToDate => 'You have the latest version';
+
+  @override
+  String get updCheckFailed =>
+      'Couldn\'t check for updates. Check your internet connection.';
+
+  @override
+  String updDownloading(int percent) {
+    return 'Downloading the update… $percent%';
+  }
+
+  @override
+  String get updDownloadFailed =>
+      'Couldn\'t download the update. Check your internet connection and try again.';
+
+  @override
+  String get updCancel => 'Cancel';
+
+  @override
+  String get updPermTitle => 'Allow installation';
+
+  @override
+  String get updPermBody =>
+      'To update NurCRM, allow the app to install updates: turn on the switch on the screen that opens, come back here and tap “Update” again.';
+
+  @override
+  String get updOpenSettings => 'Open settings';
 }

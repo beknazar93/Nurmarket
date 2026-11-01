@@ -194,7 +194,7 @@ public partial class ScalesPluWindow
         if (!CheckKeySheetRows(rows))
             return;
         var title = ScaleTitle;
-        var shop = UserPreferences.Instance.StoreName;
+        var shop = ReportShopName.Current; // 2026-11-01 (Ж-16): в программе владельца — название компании NurCRM, не «Market»
         StatusText.Text = Tr.T("Печать листа кнопок…", "Баскычтар барагы басылууда…", "Printing the key sheet…", "Tuş listesi yazdırılıyor…", "Tugmalar varag‘i chop etilmoqda…");
         var error = await Task.Run(() => ScaleKeySheetService.Print(printer, title, shop, rows)).ConfigureAwait(true);
         StatusText.Text = error is null
@@ -219,7 +219,7 @@ public partial class ScalesPluWindow
         if (string.IsNullOrWhiteSpace(path))
             return;
         var title = ScaleTitle;
-        var shop = UserPreferences.Instance.StoreName;
+        var shop = ReportShopName.Current;
         try
         {
             await Task.Run(() => ScaleKeySheetService.SaveWord(path!, title, shop, rows)).ConfigureAwait(true);

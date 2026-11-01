@@ -129,7 +129,9 @@ public sealed class RentalsApi
                     return v[0].ValueKind == JsonValueKind.String ? $"{p.Name}: {v[0].GetString()}" : $"{p.Name}: {v[0]}";
             }
         }
-        return SensitiveDataRedactor.Redact(ex.Message);
+        // 2026-11-01 (В-28, аудит «10 из 10»): вместо сырого ex.Message («An error occurred while sending the request.», «mock 500»).
+        // 4xx — слова сервера (повторять бесполезно), сбой сервера — единый текст.
+        return SensitiveDataRedactor.Redact(ServerOutageMonitor.FriendlyError(ex, showServerText: true));
     }
 
     private static RentalDto Parse(JsonElement d)

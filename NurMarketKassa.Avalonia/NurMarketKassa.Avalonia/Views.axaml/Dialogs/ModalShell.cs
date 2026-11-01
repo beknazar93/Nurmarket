@@ -364,9 +364,9 @@ public class ModalShell : ContentControl
     {
         if (Footer is not ILogical footer)
             return;
-        var count = Footer is Button direct && direct.Classes.Contains("modal-primary") ? 1 : 0;
+        var count = Footer is Button direct && (direct.Classes.Contains("modal-primary") || direct.Classes.Contains("nur-primary")) ? 1 : 0;
         foreach (var item in footer.GetLogicalDescendants())
-            if (item is Button { IsVisible: true } button && button.Classes.Contains("modal-primary"))
+            if (item is Button { IsVisible: true } button && (button.Classes.Contains("modal-primary") || button.Classes.Contains("nur-primary")))
                 count++;
         if (count > 1)
             NurMarketKassa.Services.PosLogger.Log($"ModalShell: в окне {_window?.GetType().Name} «{Title}» {count} главных кнопок (modal-primary) — по стандарту одна", "DEBUG");

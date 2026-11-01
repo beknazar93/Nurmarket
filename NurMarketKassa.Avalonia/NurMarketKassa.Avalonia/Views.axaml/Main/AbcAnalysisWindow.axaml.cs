@@ -291,7 +291,7 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
                 : Tr.T("Сохранить отчёт в Excel", "Отчётту Excel форматында сактоо", "Save the report to Excel", "Raporu Excel olarak kaydet", "Hisobotni Excel formatida saqlash"),
             SuggestedFileName = AnalyticsExportService.SuggestFileName(
                 Tr.T("ABC-анализ", "ABC-анализ", "ABC analysis", "ABC analizi", "ABC tahlili"),
-                _from, _to, UserPreferences.Instance.StoreName, extension),
+                _from, _to, ReportShopName.Current, extension),
             FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
         });
         if (file is null)
@@ -309,7 +309,7 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
             ShowError(Tr.T("Готовлю отчёт…", "Отчёт даярдалууда…", "Preparing the report…", "Rapor hazırlanıyor…", "Hisobot tayyorlanmoqda…"));
             // 2026-09-28: цифры выгрузки — те же, что на экране и на сайте (см. AnalyticsReportData.ServerFigures).
             var data = await AnalyticsReportData.BuildAsync(AvaloniaHost.App.SalesApi, _from, _to, full: true).ConfigureAwait(true);
-            var shop = UserPreferences.Instance.StoreName;
+            var shop = ReportShopName.Current;
 
             await Task.Run(() =>
             {

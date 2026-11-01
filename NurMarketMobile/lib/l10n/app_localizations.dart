@@ -3830,6 +3830,66 @@ abstract class AppLocalizations {
   /// **'Продажа'**
   String get kindSale;
 
+  /// No description provided for @prevSaleMayPass.
+  ///
+  /// In ru, this message translates to:
+  /// **'Прошлая оплата не закончилась — тот чек мог пройти. Проверьте раздел «Чеки», прежде чем платить заново.'**
+  String get prevSaleMayPass;
+
+  /// No description provided for @pdHasHistory.
+  ///
+  /// In ru, this message translates to:
+  /// **'Товар нельзя удалить — по нему есть документы (продажи, приходы). Отправить его в архив? Из продажи он пропадёт, история останется.'**
+  String get pdHasHistory;
+
+  /// No description provided for @pdToArchive.
+  ///
+  /// In ru, this message translates to:
+  /// **'В архив'**
+  String get pdToArchive;
+
+  /// No description provided for @pdArchived.
+  ///
+  /// In ru, this message translates to:
+  /// **'Товар отправлен в архив'**
+  String get pdArchived;
+
+  /// No description provided for @pricesPartlyUnchecked.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цены не сверены с сервером по товарам: {n} — они могут быть устаревшими.'**
+  String pricesPartlyUnchecked(int n);
+
+  /// No description provided for @kindBonus.
+  ///
+  /// In ru, this message translates to:
+  /// **'Бонусы клиента'**
+  String get kindBonus;
+
+  /// No description provided for @bonusQueued.
+  ///
+  /// In ru, this message translates to:
+  /// **'Бонусы клиента не записались сразу — отправятся сами, когда появится связь'**
+  String get bonusQueued;
+
+  /// No description provided for @payReceivedHuge.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сдача {change} сом — верно? Проверьте сумму в поле «Получено».'**
+  String payReceivedHuge(String change);
+
+  /// No description provided for @apiSaleTooOld.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чек старше 7 суток: сервер не принимает его без подтверждения владельца. Не снимайте чек, сообщите владельцу.'**
+  String get apiSaleTooOld;
+
+  /// No description provided for @staleSalesBanner.
+  ///
+  /// In ru, this message translates to:
+  /// **'В очереди чеков старше 5 суток: {n}. Через 7 суток сервер перестаёт принимать их без подтверждения владельца — подключите телефон к сети как можно скорее.'**
+  String staleSalesBanner(int n);
+
   /// No description provided for @admin.
   ///
   /// In ru, this message translates to:
@@ -11487,6 +11547,600 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Телефон не указан'**
   String get pbNoPhone;
+
+  /// No description provided for @shopModeTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Режим магазина'**
+  String get shopModeTitle;
+
+  /// No description provided for @shopModeSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Как в кассе: «Сфера магазина». От режима зависит вид продажи и каталога'**
+  String get shopModeSub;
+
+  /// No description provided for @shopModeGrocery.
+  ///
+  /// In ru, this message translates to:
+  /// **'Продукты'**
+  String get shopModeGrocery;
+
+  /// No description provided for @shopModeGrocerySub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Весы и весовые товары, быстрые продажи'**
+  String get shopModeGrocerySub;
+
+  /// No description provided for @shopModeClothing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Одежда и обувь'**
+  String get shopModeClothing;
+
+  /// No description provided for @shopModeClothingSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Размеры и цвета при продаже, штрихкод размера, остаток по размеру'**
+  String get shopModeClothingSub;
+
+  /// No description provided for @shopModeServices.
+  ///
+  /// In ru, this message translates to:
+  /// **'Услуги'**
+  String get shopModeServices;
+
+  /// No description provided for @shopModeServicesSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Салон, ремонт, прокат: услуги без остатка'**
+  String get shopModeServicesSub;
+
+  /// No description provided for @shopModeHardware.
+  ///
+  /// In ru, this message translates to:
+  /// **'Хозтовары и стройматериалы'**
+  String get shopModeHardware;
+
+  /// No description provided for @shopModeHardwareSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Метры, килограммы, мешки и коробки'**
+  String get shopModeHardwareSub;
+
+  /// No description provided for @shopModeOn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Режим «{name}» включён'**
+  String shopModeOn(String name);
+
+  /// No description provided for @shopModeSavedAll.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сохранено для всей компании: кассы и телефоны перестроятся при следующем входе.'**
+  String get shopModeSavedAll;
+
+  /// No description provided for @shopModePhoneOnly.
+  ///
+  /// In ru, this message translates to:
+  /// **'Только на этом телефоне: для всей компании режим меняет владелец.'**
+  String get shopModePhoneOnly;
+
+  /// No description provided for @clothingHintTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'В каталоге есть товары с размерами и цветами'**
+  String get clothingHintTitle;
+
+  /// No description provided for @clothingHintAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Включить режим «Одежда»? Размеры будут на плитках и при сканировании.'**
+  String get clothingHintAsk;
+
+  /// No description provided for @clothingHintYes.
+  ///
+  /// In ru, this message translates to:
+  /// **'Включить'**
+  String get clothingHintYes;
+
+  /// No description provided for @clothingHintNo.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не нужно'**
+  String get clothingHintNo;
+
+  /// No description provided for @variantsTile.
+  ///
+  /// In ru, this message translates to:
+  /// **'{n, plural, one{{n} размер/цвет} few{{n} размера/цвета} many{{n} размеров/цветов} other{{n} размера/цвета}}'**
+  String variantsTile(int n);
+
+  /// No description provided for @variantPickLeft.
+  ///
+  /// In ru, this message translates to:
+  /// **'ост. {qty}'**
+  String variantPickLeft(String qty);
+
+  /// No description provided for @variantPickInCheck.
+  ///
+  /// In ru, this message translates to:
+  /// **'В чеке: {qty}'**
+  String variantPickInCheck(String qty);
+
+  /// No description provided for @variantPickNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Нет в наличии'**
+  String get variantPickNone;
+
+  /// No description provided for @variantPickAllOut.
+  ///
+  /// In ru, this message translates to:
+  /// **'Все размеры этого товара закончились.'**
+  String get variantPickAllOut;
+
+  /// No description provided for @variantPickUpdating.
+  ///
+  /// In ru, this message translates to:
+  /// **'Обновляем остатки…'**
+  String get variantPickUpdating;
+
+  /// No description provided for @variantPickStale.
+  ///
+  /// In ru, this message translates to:
+  /// **'Остатки с телефона — без связи'**
+  String get variantPickStale;
+
+  /// No description provided for @variantNoMore.
+  ///
+  /// In ru, this message translates to:
+  /// **'Больше нет: остаток этого размера — {qty}'**
+  String variantNoMore(String qty);
+
+  /// No description provided for @variantLoadFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Размеры товара не загрузились — нет связи. Повторите, когда появится интернет.'**
+  String get variantLoadFailed;
+
+  /// No description provided for @variantScanOut.
+  ///
+  /// In ru, this message translates to:
+  /// **'{label}: нет в наличии'**
+  String variantScanOut(String label);
+
+  /// No description provided for @variantScanInactive.
+  ///
+  /// In ru, this message translates to:
+  /// **'{label}: размер отключён'**
+  String variantScanInactive(String label);
+
+  /// No description provided for @variantInactiveHidden.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отключённые размеры не показываются.'**
+  String get variantInactiveHidden;
+
+  /// No description provided for @catalogLoadingProgress.
+  ///
+  /// In ru, this message translates to:
+  /// **'Загружаем каталог… {done} из {total}'**
+  String catalogLoadingProgress(int done, int total);
+
+  /// No description provided for @catalogLoadingNoTotal.
+  ///
+  /// In ru, this message translates to:
+  /// **'Загружаем каталог… {done}'**
+  String catalogLoadingNoTotal(int done);
+
+  /// No description provided for @catalogIncomplete.
+  ///
+  /// In ru, this message translates to:
+  /// **'Загружено {done} из {total} товаров — часть каталога ещё не на телефоне. Загрузка продолжится сама; можно нажать «Обновить каталог».'**
+  String catalogIncomplete(int done, int total);
+
+  /// No description provided for @catalogIncompleteNoTotal.
+  ///
+  /// In ru, this message translates to:
+  /// **'Каталог загружен не полностью. Загрузка продолжится сама; можно нажать «Обновить каталог».'**
+  String get catalogIncompleteNoTotal;
+
+  /// No description provided for @catalogRefresh.
+  ///
+  /// In ru, this message translates to:
+  /// **'Обновить каталог'**
+  String get catalogRefresh;
+
+  /// No description provided for @catalogRefreshed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Каталог обновлён: {n} товаров'**
+  String catalogRefreshed(int n);
+
+  /// No description provided for @stockCountShown.
+  ///
+  /// In ru, this message translates to:
+  /// **'Показано {shown} из {total}'**
+  String stockCountShown(int shown, int total);
+
+  /// No description provided for @stockCountAll.
+  ///
+  /// In ru, this message translates to:
+  /// **'Товаров: {total}'**
+  String stockCountAll(int total);
+
+  /// No description provided for @shopModeNotChosen.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не выбран'**
+  String get shopModeNotChosen;
+
+  /// No description provided for @shopModeChoose.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выбрать режим магазина'**
+  String get shopModeChoose;
+
+  /// No description provided for @shopSearchGrocery.
+  ///
+  /// In ru, this message translates to:
+  /// **'Название, штрихкод, PLU'**
+  String get shopSearchGrocery;
+
+  /// No description provided for @shopSearchClothing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Название, код размера'**
+  String get shopSearchClothing;
+
+  /// No description provided for @shopSearchServices.
+  ///
+  /// In ru, this message translates to:
+  /// **'Название услуги'**
+  String get shopSearchServices;
+
+  /// No description provided for @shopSearchHardware.
+  ///
+  /// In ru, this message translates to:
+  /// **'Название, артикул'**
+  String get shopSearchHardware;
+
+  /// No description provided for @shopEmptyGrocery.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ничего не найдено. Весовой товар ищется по названию или коду весов (PLU).'**
+  String get shopEmptyGrocery;
+
+  /// No description provided for @shopEmptyClothing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ничего не найдено. Размеры и цвета видны у товара после открытия или скана штрихкода размера.'**
+  String get shopEmptyClothing;
+
+  /// No description provided for @shopEmptyServices.
+  ///
+  /// In ru, this message translates to:
+  /// **'Услуг не найдено. Услуги заводятся на сайте или на кассе.'**
+  String get shopEmptyServices;
+
+  /// No description provided for @shopEmptyHardware.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ничего не найдено. Ищите по названию, артикулу или штрихкоду; единицы — м, м², упаковки.'**
+  String get shopEmptyHardware;
+
+  /// No description provided for @tileSizes.
+  ///
+  /// In ru, this message translates to:
+  /// **'Размеры и цвета'**
+  String get tileSizes;
+
+  /// No description provided for @tileSizesSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Остатки по размерам'**
+  String get tileSizesSub;
+
+  /// No description provided for @tileWeighed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Весовые товары'**
+  String get tileWeighed;
+
+  /// No description provided for @tileWeighedSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цена за кг, вес с весов'**
+  String get tileWeighedSub;
+
+  /// No description provided for @tileExpiry.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сроки годности'**
+  String get tileExpiry;
+
+  /// No description provided for @tileExpirySub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Что скоро испортится'**
+  String get tileExpirySub;
+
+  /// No description provided for @tileUnits.
+  ///
+  /// In ru, this message translates to:
+  /// **'Метры и упаковки'**
+  String get tileUnits;
+
+  /// No description provided for @tileUnitsSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Единицы и наборы'**
+  String get tileUnitsSub;
+
+  /// No description provided for @tileReceive.
+  ///
+  /// In ru, this message translates to:
+  /// **'Приёмка'**
+  String get tileReceive;
+
+  /// No description provided for @tileReceiveSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Принять товар'**
+  String get tileReceiveSub;
+
+  /// No description provided for @tileStockSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Склад и остатки'**
+  String get tileStockSub;
+
+  /// No description provided for @tileRentalsSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выдача и возврат'**
+  String get tileRentalsSub;
+
+  /// No description provided for @tileDebtsSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Кто должен'**
+  String get tileDebtsSub;
+
+  /// No description provided for @stockFilterSizes.
+  ///
+  /// In ru, this message translates to:
+  /// **'Только с размерами'**
+  String get stockFilterSizes;
+
+  /// No description provided for @stockFilterWeight.
+  ///
+  /// In ru, this message translates to:
+  /// **'Только весовые'**
+  String get stockFilterWeight;
+
+  /// No description provided for @stockFilterExpiry.
+  ///
+  /// In ru, this message translates to:
+  /// **'Срок годности близко'**
+  String get stockFilterExpiry;
+
+  /// No description provided for @stockFilterUnits.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не штуки: м, м², упаковки'**
+  String get stockFilterUnits;
+
+  /// No description provided for @stockFilterClear.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сбросить'**
+  String get stockFilterClear;
+
+  /// No description provided for @expiryBadge.
+  ///
+  /// In ru, this message translates to:
+  /// **'до {date}'**
+  String expiryBadge(String date);
+
+  /// No description provided for @expirySoonToast.
+  ///
+  /// In ru, this message translates to:
+  /// **'{name}: срок годности до {date}'**
+  String expirySoonToast(String name, String date);
+
+  /// No description provided for @sizesScreenTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Размеры и цвета'**
+  String get sizesScreenTitle;
+
+  /// No description provided for @sizesEmpty.
+  ///
+  /// In ru, this message translates to:
+  /// **'Товаров с размерами пока нет. Откройте товар в продаже или отсканируйте штрихкод размера — размеры подтянутся.'**
+  String get sizesEmpty;
+
+  /// No description provided for @sizesTotal.
+  ///
+  /// In ru, this message translates to:
+  /// **'Всего: {qty}'**
+  String sizesTotal(String qty);
+
+  /// No description provided for @cardSizesTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Размеры и цвета'**
+  String get cardSizesTitle;
+
+  /// No description provided for @cardSizesNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Размеры этого товара ещё не загружены или их нет.'**
+  String get cardSizesNone;
+
+  /// No description provided for @cardWeightTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Весовой товар'**
+  String get cardWeightTitle;
+
+  /// No description provided for @cardWeightInfo.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цена за {unit}. Код для весов (PLU): {plu}'**
+  String cardWeightInfo(String unit, String plu);
+
+  /// No description provided for @cardNoPlu.
+  ///
+  /// In ru, this message translates to:
+  /// **'не задан'**
+  String get cardNoPlu;
+
+  /// No description provided for @cardExpiryTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Срок годности'**
+  String get cardExpiryTitle;
+
+  /// No description provided for @cardExpiryNone.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не указан (его вносят на кассе или на сайте)'**
+  String get cardExpiryNone;
+
+  /// No description provided for @cardUnitTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Единица измерения'**
+  String get cardUnitTitle;
+
+  /// No description provided for @cardUnitInfo.
+  ///
+  /// In ru, this message translates to:
+  /// **'Продаётся в: {unit}'**
+  String cardUnitInfo(String unit);
+
+  /// No description provided for @recvModeClothing.
+  ///
+  /// In ru, this message translates to:
+  /// **'Одежда: остаток по каждому размеру вносится на кассе или на сайте; у товара с размерами здесь видно, сколько их.'**
+  String get recvModeClothing;
+
+  /// No description provided for @recvModeGrocery.
+  ///
+  /// In ru, this message translates to:
+  /// **'Продукты: проверьте срок годности партии — дату вносят на кассе или на сайте. Весовой товар принимается в кг.'**
+  String get recvModeGrocery;
+
+  /// No description provided for @recvModeHardware.
+  ///
+  /// In ru, this message translates to:
+  /// **'Хозтовары: количество — в единицах товара (м, м², упаковки); единица показана у каждой строки.'**
+  String get recvModeHardware;
+
+  /// No description provided for @updAvailable.
+  ///
+  /// In ru, this message translates to:
+  /// **'Доступна версия {version}'**
+  String updAvailable(String version);
+
+  /// No description provided for @updUpdate.
+  ///
+  /// In ru, this message translates to:
+  /// **'Обновить'**
+  String get updUpdate;
+
+  /// No description provided for @updLater.
+  ///
+  /// In ru, this message translates to:
+  /// **'Позже'**
+  String get updLater;
+
+  /// No description provided for @updWhatsNew.
+  ///
+  /// In ru, this message translates to:
+  /// **'Что нового'**
+  String get updWhatsNew;
+
+  /// No description provided for @updNoNotes.
+  ///
+  /// In ru, this message translates to:
+  /// **'Описание не указано.'**
+  String get updNoNotes;
+
+  /// No description provided for @updVersionTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Версия приложения'**
+  String get updVersionTitle;
+
+  /// No description provided for @updVersionIs.
+  ///
+  /// In ru, this message translates to:
+  /// **'Установлена {version}'**
+  String updVersionIs(String version);
+
+  /// No description provided for @updCheck.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверить обновления'**
+  String get updCheck;
+
+  /// No description provided for @updChecking.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверяем…'**
+  String get updChecking;
+
+  /// No description provided for @updUpToDate.
+  ///
+  /// In ru, this message translates to:
+  /// **'Установлена последняя версия'**
+  String get updUpToDate;
+
+  /// No description provided for @updCheckFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось проверить обновления. Проверьте интернет.'**
+  String get updCheckFailed;
+
+  /// No description provided for @updDownloading.
+  ///
+  /// In ru, this message translates to:
+  /// **'Скачиваем обновление… {percent}%'**
+  String updDownloading(int percent);
+
+  /// No description provided for @updDownloadFailed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Не удалось скачать обновление. Проверьте интернет и попробуйте ещё раз.'**
+  String get updDownloadFailed;
+
+  /// No description provided for @updCancel.
+  ///
+  /// In ru, this message translates to:
+  /// **'Отмена'**
+  String get updCancel;
+
+  /// No description provided for @updPermTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Разрешите установку'**
+  String get updPermTitle;
+
+  /// No description provided for @updPermBody.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чтобы обновить NurCRM, разрешите приложению устанавливать обновления: включите переключатель на открывшемся экране, вернитесь сюда и нажмите «Обновить» ещё раз.'**
+  String get updPermBody;
+
+  /// No description provided for @updOpenSettings.
+  ///
+  /// In ru, this message translates to:
+  /// **'Открыть настройки'**
+  String get updOpenSettings;
 }
 
 class _AppLocalizationsDelegate

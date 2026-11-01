@@ -108,6 +108,19 @@ public sealed class BarcodePrintWindow : Window
     private readonly Button _cancelPrintButton;
     private double _lastWidth;
 
+    // 2026-11-01 (пакеты П-1…П-9 из веба)
+    private readonly TextBlock _barDotsHint;
+    private readonly Button _resetCopiesButton;
+    private readonly ComboBox _copiesModeCombo;
+    private readonly CheckBox _scanCheck;
+    private HashSet<string>? _onlyIds;          // П-4: окно открыто с готовым выбором — пока поиск пуст, показываем только эти товары
+    private string? _presetNote;
+    private bool _restoring, _scanClearing;
+    private int _filterVersion;
+    private readonly Dictionary<string, string?> _problemCache = new(StringComparer.Ordinal);
+    private readonly List<Action> _warnSync = new();
+    private readonly List<Action> _codeSync = new();
+
     private static readonly (double W, double H)[] SizePresets = { (30, 20), (40, 30), (58, 40), (58, 30), (100, 70) };
 
     private static string CustomSizeLabel => T("Свой размер", "Жеке өлчөм", "Custom size", "Özel boyut", "Maxsus o'lcham");
@@ -115,6 +128,8 @@ public sealed class BarcodePrintWindow : Window
     /// <summary>Открыть окно из Склада и Маркетплейса (прежняя точка входа BulkPriceTagPrintDialog.Open).</summary>
     public static async Task Open(Window? owner)
     {
+        if (!BarcodePrintAccess.Ensure(owner)) // 2026-11-01 (П-10): право «Печать штрих-кодов»
+            return;
         // 2026-10-27 (аудит редакторов, Б-2): массовая печать — платная; все входы (Склад, Маркетплейс, редактор этикеток, ценники) идут сюда.
         if (!PaidFeatureGate.EnsureUnlocked(PaidFeature.BulkPriceTag, owner))
             return;
@@ -127,7 +142,29 @@ public sealed class BarcodePrintWindow : Window
         await window.ShowDialog(owner).ConfigureAwait(true);
     }
 
-    public BarcodePrintWindow()
+    /// <summary>2026-11-01 (П-4): открыть окно с отмеченными товарами и готовыми копиями (например, «Этикетки на приход»).
+    /// Платная проверка та же, что у Open. Запомненный поиск не применяется. Товары, которых нет в каталоге кассы, пропускаются с сообщением.</summary>
+    public static async Task OpenWith(Window? owner, IReadOnlyList<(string ProductId, string? Barcode, int Copies)> items)
+    {
+        if (!BarcodePrintAccess.Ensure(owner)) // 2026-11-01 (П-10): право «Печать штрих-кодов»
+            return;
+        if (!PaidFeatureGate.EnsureUnlocked(PaidFeature.BulkPriceTag, owner))
+            return;
+        var window = new BarcodePrintWindow(false);
+        window.ApplyPreset(items);
+        if (owner is null)
+        {
+            window.Show();
+            return;
+        }
+        await window.ShowDialog(owner).ConfigureAwait(true);
+    }
+
+    public BarcodePrintWindow() : this(true)
+    {
+    }
+
+    internal BarcodePrintWindow(bool restoreLast)
     {
         _template = LabelTemplateStore.Load();
         _settings = BarcodePrintSettingsStore.Load();
@@ -154,13 +191,19 @@ public sealed class BarcodePrintWindow : Window
             InnerLeftContent = Icon("magnify", 16, 10, 0, 4, 0),
         };
         Avalonia.Automation.AutomationProperties.SetName(_search, (string)_search.Watermark!);
-        _search.TextChanged += (_, _) => { _searchTimer.Stop(); _searchTimer.Start(); };
+        _search.TextChanged += (_, _) => { if (_restoring || _scanClearing) return; _searchTimer.Stop(); _searchTimer.Start(); };
         _search.KeyDown += (_, e) =>
         {
             if (e.Key != Key.Enter)
                 return;
             e.Handled = true;
             _searchTimer.Stop();
+            // 2026-11-01 (П-5): режим сканера — Enter (скан) добавляет товар в печать, а не ищет.
+            if (_scanCheck.IsChecked == true && !string.IsNullOrWhiteSpace(_search.Text))
+            {
+                ScanToQueue(_search.Text!);
+                return;
+            }
             ApplyFilter();
         };
         _searchTimer.Tick += (_, _) => { _searchTimer.Stop(); ApplyFilter(); };
@@ -172,6 +215,7 @@ public sealed class BarcodePrintWindow : Window
                      (BarcodeFilter.All, T("Все", "Бардыгы", "All", "Tümü", "Hammasi")),
                      (BarcodeFilter.WithBarcode, T("Со штрихкодом", "Штрих-коду менен", "With barcode", "Barkodlu", "Shtrix-kodli")),
                      (BarcodeFilter.WithoutBarcode, T("Без штрихкода", "Штрих-коду жок", "No barcode", "Barkodsuz", "Shtrix-kodsiz")),
+                     (BarcodeFilter.WithProblems, T("С замечаниями", "Эскертүү менен", "With warnings", "Uyarılı", "Eslatmali")),
                  })
         {
             var b = UiKit.Seg(text, f == _filter);
@@ -193,7 +237,19 @@ public sealed class BarcodePrintWindow : Window
             ApplyFilter();
         };
 
-        var toolbar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(0, 0, 0, 8) };
+        _scanCheck = new CheckBox { Content = T("Сканер: добавлять в печать", "Сканер: басууга кошуу", "Scanner: add to print", "Tarayıcı: yazdırmaya ekle", "Skaner: chopga qo'shish"), IsChecked = _settings.ScanToQueue, MinHeight = 44, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+        ToolTip.SetTip(_scanCheck, T("Скан штрихкода отмечает товар и добавляет копию; затем «Печать выбранных».", "Штрих-кодду сканерлөө товарды белгилеп, көчүрмө кошот; андан соң «Тандалгандарды басуу».",
+            "Scanning a barcode ticks the product and adds a copy; then “Print selected”.", "Barkod okutmak ürünü işaretler ve bir kopya ekler; sonra «Seçilenleri yazdır».", "Shtrix-kodni skanerlash mahsulotni belgilaydi va nusxa qo'shadi; so'ngra «Tanlanganlarni chop etish»."));
+        _scanCheck.IsCheckedChanged += (_, _) =>
+        {
+            if (_init)
+                return;
+            _settings.ScanToQueue = _scanCheck.IsChecked == true;
+            BarcodePrintSettingsStore.Save(_settings);
+        };
+        var toolbar = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"), Margin = new Thickness(0, 0, 0, 8) };
+        Grid.SetColumn(_scanCheck, 3);
+        toolbar.Children.Add(_scanCheck);
         toolbar.Children.Add(_search);
         filterSegment.Margin = new Thickness(10, 0, 0, 0);
         Grid.SetColumn(filterSegment, 1);
@@ -221,6 +277,15 @@ public sealed class BarcodePrintWindow : Window
         _customSizePanel.Children.Add(_heightBox);
         _customSizePanel.Children.Add(new TextBlock { Text = T("мм", "мм", "mm", "mm", "mm"), VerticalAlignment = VerticalAlignment.Center });
         _copiesBox = Num(1, 99, _settings.DefaultCopies, 118);
+        // 2026-11-01 (П-4): «Копии: по умолчанию / = остаток»; (П-1): «Сбросить копии позиций».
+        _copiesModeCombo = new ComboBox { MinWidth = 150 };
+        _copiesModeCombo.Items.Add(T("по умолчанию", "демейки", "default", "varsayılan", "standart"));
+        _copiesModeCombo.Items.Add(T("= остаток", "= калдык", "= stock", "= stok", "= qoldiq"));
+        _copiesModeCombo.SelectedIndex = _settings.CopiesMode == "stock" ? 1 : 0;
+        _copiesBox.IsEnabled = _settings.CopiesMode != "stock";
+        _resetCopiesButton = Ghost(T("Сбросить копии позиций", "Позиция көчүрмөлөрүн кайтаруу", "Reset item copies", "Kalem kopyalarını sıfırla", "Pozitsiya nusxalarini tiklash"));
+        _resetCopiesButton.IsVisible = false;
+        ToolTip.SetTip(_resetCopiesButton, T("Вернуть всем позициям количество копий по умолчанию", "Бардык позицияларга демейки көчүрмө санын кайтаруу", "Give every item the default number of copies again", "Tüm kalemlere varsayılan kopya sayısını geri ver", "Barcha pozitsiyalarga standart nusxa sonini qaytarish"));
 
         _printerDot = new Ellipse { Width = 9, Height = 9, VerticalAlignment = VerticalAlignment.Center };
         _printerChipText = new TextBlock { FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, MaxWidth = 240 };
@@ -247,7 +312,10 @@ public sealed class BarcodePrintWindow : Window
         _showSku = Check(T("Артикул", "Артикул", "SKU", "Stok kodu", "Artikul"), _template.Sku.Enabled);
         _showUnit = Check(T("Ед. изм.", "Өлч. бирд.", "Unit", "Birim", "O'lchov birligi"), _template.Unit.Enabled);
         _showStore = Check(T("Магазин", "Дүкөн", "Store", "Mağaza", "Do'kon"), _template.StoreName.Enabled);
-        _barHeightBox = Num(8, 300, _barPx, 118);
+        // 2026-11-01 (П-1): высота штрихкода — в миллиметрах (внутри по-прежнему пиксели 96 dpi шаблона), рядом «≈ N точек 203 dpi».
+        _barHeightBox = new NumericUpDown { Minimum = 4, Maximum = 80, Value = BarMmFromPx(_barPx), Increment = 0.5m, FormatString = "0.0", Width = 118, MinHeight = 44, HorizontalAlignment = HorizontalAlignment.Left };
+        _barDotsHint = new TextBlock { FontSize = 11.5, VerticalAlignment = VerticalAlignment.Center };
+        Use(_barDotsHint, TextBlock.ForegroundProperty, "BrushTextSoft");
         _barHeightHint = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, IsVisible = false, MaxWidth = 520 };
         Use(_barHeightHint, TextBlock.ForegroundProperty, "BrushWarning");
         _thicknessCombo = new ComboBox { MinWidth = 160 };
@@ -257,25 +325,30 @@ public sealed class BarcodePrintWindow : Window
                      "2 " + T("(стандарт)", "(стандарт)", "(standard)", "(standart)", "(standart)"), "3 " + T("(толстый)", "(жоон)", "(thick)", "(kalın)", "(qalin)"),
                  })
             _thicknessCombo.Items.Add(s);
-        _thicknessCombo.SelectedIndex = Math.Clamp(_template.BarcodeModuleDots, 0, 3);
+        _thicknessCombo.Items.Add("4 " + T("(очень толстый)", "(өтө жоон)", "(extra thick)", "(çok kalın)", "(juda qalin)")); // 2026-11-01 (П-1)
+        _thicknessCombo.SelectedIndex = Math.Clamp(_template.BarcodeModuleDots, 0, 4);
 
         var editorButton = Ghost(T("Редактор этикетки…", "Этикетка редактору…", "Label editor…", "Etiket düzenleyici…", "Yorliq muharriri…"));
         editorButton.Click += async (_, _) => await OpenEditorAsync().ConfigureAwait(true);
         var autoButton = Ghost(T("Расставить заново", "Кайра иретке келтирүү", "Re-arrange", "Yeniden diz", "Qayta joylash"));
         ToolTip.SetTip(autoButton, T("Расставить элементы этикетки автоматически по размеру и высоте штрих-кода", "Этикетканын элементтерин өлчөмү жана штрих-кодунун бийиктиги боюнча автоматтык түрдө иретке келтирүү",
             "Arrange the label elements automatically by size and barcode height", "Etiket öğelerini boyuta ve barkod yüksekliğine göre otomatik diz", "Yorliq elementlarini o'lcham va shtrix-kod balandligiga qarab avtomatik joylashtirish"));
-        autoButton.Click += (_, _) => { if (_init) return; _barPx = (int)(_barHeightBox.Value ?? _barPx); Relayout(); };
+        autoButton.Click += (_, _) => { if (_init) return; _barPx = BarPxFromBox(); Relayout(); };
 
         _previewImage = new Image { Stretch = Stretch.Uniform };
-        _previewCaption = new TextBlock { FontSize = 11.5, TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        _previewCaption = new TextBlock { FontSize = 12, TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         Use(_previewCaption, TextBlock.ForegroundProperty, "BrushTextSoft");
 
         // Подпись слева от поля (в строку) — настройки занимают меньше высоты, карточкам товаров остаётся место.
         var rowA = new WrapPanel { Orientation = Orientation.Horizontal };
         rowA.Children.Add(Inline(T("Размер", "Өлчөм", "Size", "Boyut", "O'lcham"), _sizeCombo));
         rowA.Children.Add(Inline("", _customSizePanel));
+        rowA.Children.Add(Inline(T("Копии", "Көчүрмө", "Copies", "Kopya", "Nusxa"), _copiesModeCombo));
         rowA.Children.Add(Inline(T("Копий (по умолчанию)", "Көчүрмө (демейки)", "Copies (default)", "Kopya (varsayılan)", "Nusxa (standart)"), _copiesBox));
-        rowA.Children.Add(Inline(T("Высота штрих-кода, px", "Штрих-код бийиктиги, px", "Barcode height, px", "Barkod yüksekliği, px", "Shtrix-kod balandligi, px"), _barHeightBox));
+        _resetCopiesButton.Margin = new Thickness(0, 0, 14, 6);
+        rowA.Children.Add(_resetCopiesButton);
+        rowA.Children.Add(Inline(T("Высота штрих-кода, мм", "Штрих-код бийиктиги, мм", "Barcode height, mm", "Barkod yüksekliği, mm", "Shtrix-kod balandligi, mm"),
+            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { _barHeightBox, _barDotsHint } }));
         rowA.Children.Add(Inline(T("Толщина штриха", "Сызык калыңдыгы", "Bar thickness", "Çizgi kalınlığı", "Chiziq qalinligi"), _thicknessCombo));
 
         var rowB = new WrapPanel { Orientation = Orientation.Horizontal };
@@ -425,6 +498,8 @@ public sealed class BarcodePrintWindow : Window
         _widthBox.ValueChanged += (_, _) => CustomSize_Changed();
         _heightBox.ValueChanged += (_, _) => CustomSize_Changed();
         _copiesBox.ValueChanged += (_, _) => DefaultCopies_Changed();
+        _copiesModeCombo.SelectionChanged += (_, _) => CopiesMode_Changed();
+        _resetCopiesButton.Click += (_, _) => ResetItemCopies();
         _showName.IsCheckedChanged += (_, _) => FlagChanged(() => _template.ProductName.Enabled = _showName.IsChecked == true, relayout: true);
         _showPrice.IsCheckedChanged += (_, _) => FlagChanged(() => _template.Price.Enabled = _showPrice.IsChecked == true, relayout: true);
         _showBarcode.IsCheckedChanged += (_, _) => FlagChanged(() => _template.Barcode.Enabled = _showBarcode.IsChecked == true, relayout: true, barcodeToggled: true);
@@ -436,21 +511,24 @@ public sealed class BarcodePrintWindow : Window
         {
             if (_init)
                 return;
-            _barPx = (int)(_barHeightBox.Value ?? _barPx);
+            _barPx = BarPxFromBox();
             Relayout();
         };
         _thicknessCombo.SelectionChanged += (_, _) =>
         {
             if (_init || _thicknessCombo.SelectedIndex < 0)
                 return;
-            _template.BarcodeModuleDots = _thicknessCombo.SelectedIndex;
+            _template.BarcodeModuleDots = _thicknessCombo.SelectedIndex; // 0 — авто, 1…4 — точек на модуль
             TemplateChanged();
         };
 
+        _liveTimer.Tick += (_, _) => _ = RefreshLiveStatusAsync();
+        Closed += (_, _) => _liveTimer.Stop();
         Opened += (_, _) =>
         {
+            _liveTimer.Start();
             _ = LoadPrintersAsync();
-            _status.Text = "";
+            _status.Text = _presetNote ?? "";
             // На низком экране (1024×600) настройки свёрнуты в одну строку — карточкам остаётся место; высота известна после подгонки окна под экран.
             Dispatcher.UIThread.Post(() => SetSettingsOpen(_settings.SettingsOpen ?? ClientSize.Height >= 840));
         };
@@ -468,7 +546,12 @@ public sealed class BarcodePrintWindow : Window
         SetSettingsOpen(true, initial: true);
         UpdatePrinterChip();
         UpdateSummary();
+        UpdateBarDots();
+        if (restoreLast)
+            RestoreLast();
         ApplyFilter();
+        if (restoreLast && _filter != BarcodeFilter.WithProblems && _settings.LastPage > 0)
+            GoToPage(_settings.LastPage);
         RefreshPreview();
     }
 
@@ -587,10 +670,127 @@ public sealed class BarcodePrintWindow : Window
 
     private void ApplyFilter()
     {
-        _found = BarcodePrintCatalog.Search(CatalogCacheService.Products, _search.Text, _filter, _category);
+        var found = BarcodePrintCatalog.Search(CatalogCacheService.Products, _search.Text, _filter, _category);
+        if (_onlyIds != null)
+        {
+            // 2026-11-01 (П-4): окно открыто с готовым выбором — пока поиск и фильтры пусты, показываем только эти товары.
+            if (string.IsNullOrWhiteSpace(_search.Text) && _filter == BarcodeFilter.All && _category == null)
+                found = found.Where(p => _onlyIds.Contains(p.Id)).ToList();
+            else
+                _onlyIds = null;
+        }
+        if (_filter == BarcodeFilter.WithProblems)
+        {
+            _ = ApplyProblemFilterAsync(found);
+            return;
+        }
+        _filterVersion++;
+        _found = found;
         _page = 0;
         RenderPage();
         UpdateSelectionUi();
+    }
+
+    /// <summary>2026-11-01 (П-2): фильтр «С замечаниями» считается в фоне (на 15 000 товаров интерфейс не замирает).</summary>
+    private async Task ApplyProblemFilterAsync(List<CatalogProductTileVm> source)
+    {
+        var version = ++_filterVersion;
+        var template = _template.Clone();
+        SetStatus(T("Проверяю штрихкоды…", "Штрих-коддорду текшерип жатам…", "Checking barcodes…", "Barkodlar kontrol ediliyor…", "Shtrix-kodlar tekshirilmoqda…"));
+        List<CatalogProductTileVm> list;
+        try
+        {
+            list = await Task.Run(() => source.Where(p =>
+            {
+                var ch = BarcodePrintCatalog.Choices(p);
+                return ch.Count > 0 && ProblemOf(ch[0].Code, template) != null;
+            }).ToList()).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Barcode print window: problem filter failed: {ex.GetType().Name}", "WARNING");
+            list = new List<CatalogProductTileVm>();
+        }
+        if (version != _filterVersion)
+            return; // за время проверки поиск или фильтр поменяли
+        _found = list;
+        _page = 0;
+        RenderPage();
+        UpdateSelectionUi();
+        SetStatus(T($"С замечаниями: {list.Count}", $"Эскертүү менен: {list.Count}", $"With warnings: {list.Count}", $"Uyarılı: {list.Count}", $"Eslatmali: {list.Count}"));
+    }
+
+    /// <summary>2026-11-01 (П-9): поиск, фильтр, категория и страница — как были при закрытии окна. Копии и выбор не запоминаются.</summary>
+    private void RestoreLast()
+    {
+        _restoring = true;
+        try
+        {
+            _search.Text = _settings.LastSearch ?? "";
+            if (Enum.IsDefined(typeof(BarcodeFilter), _settings.LastFilter))
+                _filter = (BarcodeFilter)_settings.LastFilter;
+            foreach (var kv in _filterButtons)
+                UiKit.SetActive(kv.Value, kv.Key == _filter);
+            if (!string.IsNullOrWhiteSpace(_settings.LastCategory))
+            {
+                var idx = _categoryCombo.Items.IndexOf(_settings.LastCategory); // категории больше нет — «Все категории»
+                if (idx > 0)
+                {
+                    _category = _settings.LastCategory;
+                    _categoryCombo.SelectedIndex = idx;
+                }
+            }
+        }
+        finally
+        {
+            _restoring = false;
+        }
+    }
+
+    /// <summary>2026-11-01 (П-4): отметить переданные товары и копии, показать только их.</summary>
+    internal void ApplyPreset(IReadOnlyList<(string ProductId, string? Barcode, int Copies)> items)
+    {
+        foreach (var s in _sel.Values)
+            s.Selected = false;
+        _selectedCount = 0;
+        var byId = new Dictionary<string, CatalogProductTileVm>(StringComparer.Ordinal);
+        foreach (var p in CatalogCacheService.Products)
+            byId[p.Id] = p;
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        int missing = 0, noCode = 0, capped = 0;
+        foreach (var it in items)
+        {
+            if (!byId.TryGetValue(it.ProductId ?? "", out var p))
+            {
+                missing++;
+                continue;
+            }
+            if (!IsPrintable(p))
+            {
+                noCode++;
+                continue;
+            }
+            var st = GetSel(p.Id);
+            var choices = BarcodePrintCatalog.Choices(p);
+            var idx = string.IsNullOrWhiteSpace(it.Barcode) ? -1 : choices.FindIndex(c => string.Equals(c.Code, it.Barcode.Trim(), StringComparison.OrdinalIgnoreCase));
+            st.BarcodeIndex = Math.Max(idx, 0);
+            st.Copies = Math.Clamp(it.Copies, 1, 99);
+            if (it.Copies > 99)
+                capped++;
+            SetSelected(st, true);
+            ids.Add(p.Id);
+        }
+        _onlyIds = ids;
+        var notes = new List<string>();
+        if (missing > 0)
+            notes.Add(T($"{missing} товаров нет в каталоге кассы — обновите Склад.", $"{missing} товар кассанын каталогунда жок — Кампаны жаңыртыңыз.", $"{missing} products are not in the register catalog — refresh the Warehouse.", $"{missing} ürün kasa kataloğunda yok — Depoyu yenileyin.", $"{missing} ta mahsulot kassa katalogida yo'q — Omborni yangilang."));
+        if (noCode > 0)
+            notes.Add(T($"У {noCode} товаров нет штрихкода.", $"{noCode} товардо штрих-код жок.", $"{noCode} products have no barcode.", $"{noCode} ürünün barkodu yok.", $"{noCode} ta mahsulotda shtrix-kod yo'q."));
+        if (capped > 0)
+            notes.Add(T($"У {capped} товаров копий больше 99 — напечатано по 99.", $"{capped} товарда көчүрмө 99дан көп — 99дан басылат.", $"{capped} products need more than 99 copies — 99 each will be printed.", $"{capped} üründe 99'dan fazla kopya var — 99'ar basılacak.", $"{capped} ta mahsulotda nusxa 99 dan ko'p — 99 tadan chop etiladi."));
+        _presetNote = notes.Count == 0 ? null : string.Join(" ", notes);
+        ApplyFilter();
+        _status.Text = _presetNote ?? "";
     }
 
     public void GoToPage(int page)
@@ -608,6 +808,8 @@ public sealed class BarcodePrintWindow : Window
         _cards.Clear();
         _pageSync.Clear();
         _copiesSync.Clear();
+        _warnSync.Clear();
+        _codeSync.Clear();
         var start = _page * PageSize;
         var end = Math.Min(start + PageSize, _found.Count);
         // 2026-10-31 (стресс-тест 1.17.68): 48 карточек разом — окно открывалось 0,6–0,8 с. Первые 12 строим сразу, остальные — пакетами по 12 между кадрами.
@@ -683,7 +885,67 @@ public sealed class BarcodePrintWindow : Window
         return s;
     }
 
-    private bool IsPrintable(CatalogProductTileVm p) => !_template.Barcode.Enabled || BarcodePrintCatalog.HasBarcode(p);
+    private bool IsPrintable(CatalogProductTileVm p) => !_template.Barcode.Enabled || BarcodePrintCatalog.HasPrintableCode(p);
+
+    // ---- П-2: замечания по штрихкоду до печати ----
+
+    private static string TemplateSig(LabelTemplate t) =>
+        $"{t.BarcodeFormat}|{t.WidthMm:0.##}x{t.HeightMm:0.##}|{t.Barcode.XMm:0.##},{t.Barcode.WidthMm:0.##}x{t.Barcode.HeightMm:0.##}|{t.BarcodeMargin}|{t.BarcodeModuleDots}|{t.BarcodeShowDigits}";
+
+    /// <summary>Замечание по штрихкоду для шаблона (кэш по «код + размеры блока + формат»); null — замечаний нет.</summary>
+    private string? ProblemOf(string? code, LabelTemplate template)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return null;
+        var key = TemplateSig(template) + "#" + code;
+        lock (_problemCache)
+        {
+            if (_problemCache.TryGetValue(key, out var cached))
+                return cached;
+        }
+        var value = BarcodeLabelService.DescribeBarcodeProblem(code, template);
+        lock (_problemCache)
+        {
+            if (_problemCache.Count > 60000)
+                _problemCache.Clear();
+            _problemCache[key] = value;
+        }
+        return value;
+    }
+
+    /// <summary>Перед печатью: у каких выбранных есть замечания по штрихкоду. «Печатать все» / «Снять их с печати» / «Отмена» (null — отмена).</summary>
+    private async Task<List<BarcodePrintItem>?> ResolveProblemsAsync(List<BarcodePrintItem> items)
+    {
+        var template = _template.Clone();
+        var bad = items.Where(i => i.Barcode != null && ProblemOf(i.Barcode, template) != null).ToList();
+        if (bad.Count == 0 || !template.Barcode.Enabled)
+            return items;
+        var q1 = T($"У {bad.Count} товаров замечания по штрихкоду (неверный EAN — печать Code 128, кириллица, слишком длинный или плотный код). Печатать все?",
+            $"{bad.Count} товардо штрих-код боюнча эскертүүлөр бар (туура эмес EAN — Code 128 басылат, кирилл, өтө узун же тыгыз код). Баарын басасызбы?",
+            $"{bad.Count} products have barcode warnings (invalid EAN is printed as Code 128, Cyrillic, too long or too dense code). Print all?",
+            $"{bad.Count} üründe barkod uyarısı var (geçersiz EAN Code 128 olarak basılır, Kiril, çok uzun veya çok sık kod). Hepsi yazdırılsın mı?",
+            $"{bad.Count} ta mahsulotda shtrix-kod bo'yicha eslatma bor (noto'g'ri EAN Code 128 sifatida chop etiladi, kirill, juda uzun yoki zich kod). Hammasi chop etilsinmi?");
+        var title = T("Замечания по штрихкоду", "Штрих-код боюнча эскертүүлөр", "Barcode warnings", "Barkod uyarıları", "Shtrix-kod eslatmalari");
+        if (await AskAsync(title, q1, T("Печатать все", "Баарын басуу", "Print all", "Hepsini yazdır", "Hammasini chop etish"), T("Другое…", "Башка…", "Other…", "Diğer…", "Boshqa…")).ConfigureAwait(true))
+            return items;
+        var q2 = T($"Снять эти {bad.Count} товаров с печати и напечатать остальные?", $"Бул {bad.Count} товарды басуудан алып, калгандарын басасызбы?", $"Take these {bad.Count} products off the print and print the rest?",
+            $"Bu {bad.Count} ürünü yazdırmadan çıkarıp kalanları yazdıralım mı?", $"Shu {bad.Count} ta mahsulotni chopdan olib tashlab, qolganlarini chop etamizmi?");
+        if (!await AskAsync(title, q2, T("Снять их и печатать", "Алып салып басуу", "Remove them and print", "Çıkar ve yazdır", "Olib tashlab chop etish"), T("Отмена", "Жок", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true))
+            return null;
+        var badIds = new HashSet<string>(bad.Select(b => b.Product.Id), StringComparer.Ordinal);
+        foreach (var id in badIds)
+            SetSelected(GetSel(id), false);
+        foreach (var s in _pageSync)
+            s();
+        UpdateSelectionUi();
+        SchedulePreview();
+        return items.Where(i => !badIds.Contains(i.Product.Id)).ToList();
+    }
+
+    private async Task<bool> AskAsync(string title, string question, string ok, string cancel) =>
+        ConfirmOverride != null
+            ? await ConfirmOverride(question).ConfigureAwait(true)
+            : await PosConfirmDialog.ShowModalAsync(this, title, question, ok, cancel).ConfigureAwait(true);
 
     private void SetSelected(Sel st, bool value)
     {
@@ -704,7 +966,7 @@ public sealed class BarcodePrintWindow : Window
             SetSelected(st, false);
 
         var check = new CheckBox { Content = T("В печать", "Басууга", "Print", "Yazdır", "Chopga"), IsChecked = st.Selected, IsEnabled = printable, MinHeight = 44, VerticalAlignment = VerticalAlignment.Center };
-        var copies = Num(1, 99, st.Copies ?? _settings.DefaultCopies, 118);
+        var copies = Num(1, 99, CopiesOf(p, st), 118);
         copies.IsEnabled = printable;
         Avalonia.Automation.AutomationProperties.SetName(copies, T("Копий", "Көчүрмө", "Copies", "Kopya", "Nusxa"));
         var copiesLabel = new TextBlock { Text = T("Копий:", "Көчүрмө:", "Copies:", "Kopya:", "Nusxa:"), FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) };
@@ -716,14 +978,18 @@ public sealed class BarcodePrintWindow : Window
         Grid.SetColumn(copies, 2);
         top.Children.Add(copies);
 
-        var caption = new TextBlock { Text = T("ШТРИХ-КОД", "ШТРИХ-КОД", "BARCODE", "BARKOD", "SHTRIX-KOD"), FontSize = 10.5, FontWeight = FontWeight.SemiBold };
+        var caption = new TextBlock { Text = T("ШТРИХ-КОД", "ШТРИХ-КОД", "BARCODE", "BARKOD", "SHTRIX-KOD"), FontSize = 12, FontWeight = FontWeight.SemiBold };
         Use(caption, TextBlock.ForegroundProperty, "BrushTextSoft");
         Control codeControl;
         if (choices.Count > 1)
         {
             var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, FontFamily = new FontFamily("Consolas, Cascadia Mono, monospace"), IsEnabled = printable };
+            // 2026-11-01 (П-3): «(основной)», «(доп.) Клубничный», «(упаковка ×10)», «(размер) 44, Красный»
             foreach (var c in choices)
-                combo.Items.Add(c.Code + "  " + (c.IsMain ? T("(основной)", "(негизги)", "(main)", "(ana)", "(asosiy)") : T("(доп.)", "(кошумча)", "(extra)", "(ek)", "(qo'sh.)") + (c.VariantName != null ? " " + c.VariantName : "")));
+                combo.Items.Add(c.Code + "  " + (c.IsMain ? T("(основной)", "(негизги)", "(main)", "(ana)", "(asosiy)")
+                    : c.IsSize ? T("(размер)", "(өлчөм)", "(size)", "(beden)", "(o'lcham)") + " " + c.VariantName
+                    : c.Quantity > 1 ? T($"(упаковка ×{c.Quantity:0.##})", $"(таңгак ×{c.Quantity:0.##})", $"(pack ×{c.Quantity:0.##})", $"(paket ×{c.Quantity:0.##})", $"(qadoq ×{c.Quantity:0.##})") + (c.VariantName != null ? " " + c.VariantName : "")
+                    : T("(доп.)", "(кошумча)", "(extra)", "(ek)", "(qo'sh.)") + (c.VariantName != null ? " " + c.VariantName : "")));
             combo.SelectedIndex = st.BarcodeIndex;
             combo.SelectionChanged += (_, _) =>
             {
@@ -732,6 +998,7 @@ public sealed class BarcodePrintWindow : Window
                 if (st.Selected)
                     SchedulePreview();
             };
+            _codeSync.Add(() => { if (combo.SelectedIndex != st.BarcodeIndex && st.BarcodeIndex < combo.Items.Count) combo.SelectedIndex = st.BarcodeIndex; });
             codeControl = combo;
         }
         else
@@ -769,7 +1036,24 @@ public sealed class BarcodePrintWindow : Window
         Use(price, TextBlock.ForegroundProperty, "BrushTextSoft");
 
         ToolTip.SetTip(codeControl, caption.Text);
-        var stack = new StackPanel { Spacing = 2, Children = { top, codeControl, action, name, price } };
+        // 2026-11-01 (П-2): значок ⚠ с замечанием по штрихкоду (неверная контрольная цифра, кириллица, слишком длинный или плотный код) — до печати.
+        var warn = new TextBlock { Text = "⚠", FontSize = 17, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0), IsVisible = false };
+        Use(warn, TextBlock.ForegroundProperty, "BrushWarning");
+        void UpdateWarnNow()
+        {
+            var problem = choices.Count == 0 || !_template.Barcode.Enabled ? null : ProblemOf(choices[Math.Clamp(st.BarcodeIndex, 0, choices.Count - 1)].Code, _template);
+            warn.IsVisible = problem != null;
+            ToolTip.SetTip(warn, problem);
+        }
+        UpdateWarnNow();
+        _warnSync.Add(UpdateWarnNow);
+        if (codeControl is ComboBox codeCombo)
+            codeCombo.SelectionChanged += (_, _) => UpdateWarnNow();
+        var codeHost = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        codeHost.Children.Add(codeControl);
+        Grid.SetColumn(warn, 1);
+        codeHost.Children.Add(warn);
+        var stack = new StackPanel { Spacing = 2, Children = { top, codeHost, action, name, price } };
         var border = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(12, 6, 12, 10), Child = stack };
         Use(border, Border.BackgroundProperty, "BrushPanel");
 
@@ -791,11 +1075,11 @@ public sealed class BarcodePrintWindow : Window
         {
             if (_copiesGuard)
                 return;
-            var v = (int)(copies.Value ?? _settings.DefaultCopies);
-            st.Copies = v == _settings.DefaultCopies ? null : v;
+            var v = (int)(copies.Value ?? BaseCopies(p));
+            st.Copies = v == BaseCopies(p) ? null : v;
             UpdateSelectionUi();
         };
-        _copiesSync.Add(() => copies.Value = st.Copies ?? _settings.DefaultCopies);
+        _copiesSync.Add(() => copies.Value = CopiesOf(p, st));
         _pageSync.Add(() =>
         {
             if ((check.IsChecked == true) != st.Selected)
@@ -803,6 +1087,62 @@ public sealed class BarcodePrintWindow : Window
             Style();
         });
         return border;
+    }
+
+    // ------------------------------------------------------------------ сканер «скан → в печать» (П-5)
+
+    private void ScanToQueue(string raw)
+    {
+        var code = raw.Trim();
+        CatalogProductTileVm? product = null;
+        string? matchedCode = null;
+        try
+        {
+            var hit = ProductCodeLookup.FindLocal(code, allowWeightLabel: false);
+            product = hit?.Product;
+            if (hit?.Variant?.Barcode is { Length: > 0 } variantCode)
+                matchedCode = variantCode.Trim();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Barcode print window: scan lookup failed: {ex.GetType().Name}", "WARNING");
+        }
+        if (product is null)
+        {
+            SetStatus(T($"Не найден: {code}", $"Табылган жок: {code}", $"Not found: {code}", $"Bulunamadı: {code}", $"Topilmadi: {code}"));
+            _search.SelectAll();
+            return;
+        }
+        var choices = BarcodePrintCatalog.Choices(product);
+        if (choices.Count == 0 || !IsPrintable(product))
+        {
+            SetStatus(T($"У товара «{product.Title}» нет штрихкода для печати.", $"«{product.Title}» товарында басуу үчүн штрих-код жок.", $"“{product.Title}” has no barcode to print.", $"«{product.Title}» ürününün yazdırılacak barkodu yok.", $"«{product.Title}» mahsulotida chop etish uchun shtrix-kod yo'q."));
+            _search.SelectAll();
+            return;
+        }
+        var idx = choices.FindIndex(c => string.Equals(c.Code, matchedCode ?? code, StringComparison.OrdinalIgnoreCase));
+        var st = GetSel(product.Id);
+        st.BarcodeIndex = Math.Max(idx, 0);
+        if (!st.Selected)
+        {
+            SetSelected(st, true);
+            st.Copies = 1;
+        }
+        else
+            st.Copies = Math.Min(99, CopiesOf(product, st) + 1);
+        _copiesGuard = true;
+        try { foreach (var s in _copiesSync) s(); }
+        finally { _copiesGuard = false; }
+        foreach (var s in _pageSync)
+            s();
+        foreach (var s in _codeSync)
+            s();
+        UpdateSelectionUi();
+        SchedulePreview();
+        _scanClearing = true;
+        try { _search.Text = ""; }
+        finally { _scanClearing = false; }
+        SetStatus($"＋ {product.Title} · " + T($"копий: {CopiesOf(product, st)}", $"көчүрмө: {CopiesOf(product, st)}", $"copies: {CopiesOf(product, st)}", $"kopya: {CopiesOf(product, st)}", $"nusxa: {CopiesOf(product, st)}"));
     }
 
     // ------------------------------------------------------------------ выбор
@@ -844,10 +1184,12 @@ public sealed class BarcodePrintWindow : Window
 
     private int TotalLabels()
     {
+        if (_selectedCount == 0)
+            return 0;
         var n = 0;
-        foreach (var s in _sel.Values)
-            if (s.Selected)
-                n += s.Copies ?? _settings.DefaultCopies;
+        foreach (var p in CatalogCacheService.Products)
+            if (_sel.TryGetValue(p.Id, out var s) && s.Selected)
+                n += CopiesOf(p, s);
         return n;
     }
 
@@ -856,11 +1198,14 @@ public sealed class BarcodePrintWindow : Window
         var labels = TotalLabels();
         _selectionText.Text = T($"Выбрано: {_selectedCount}", $"Тандалды: {_selectedCount}", $"Selected: {_selectedCount}", $"Seçildi: {_selectedCount}", $"Tanlandi: {_selectedCount}")
             + (_selectedCount > 0 ? T($" · этикеток: {labels}", $" · этикетка: {labels}", $" · labels: {labels}", $" · etiket: {labels}", $" · yorliq: {labels}") : "");
+        // 2026-11-01 (П-1): «Печать выбранных (N · M эт.)», если этикеток больше, чем товаров
+        var nm = labels > _selectedCount ? $"{_selectedCount} · {labels} " + T("эт.", "эт.", "lbl.", "et.", "yor.") : _selectedCount.ToString();
         _printButton.Content = ButtonWithIcon("printer-outline", _compact
-            ? T($"Печать ({_selectedCount})", $"Басуу ({_selectedCount})", $"Print ({_selectedCount})", $"Yazdır ({_selectedCount})", $"Chop etish ({_selectedCount})")
-            : T($"Печать выбранных ({_selectedCount})", $"Тандалгандарды басуу ({_selectedCount})", $"Print selected ({_selectedCount})", $"Seçilenleri yazdır ({_selectedCount})", $"Tanlanganlarni chop etish ({_selectedCount})"));
+            ? T($"Печать ({nm})", $"Басуу ({nm})", $"Print ({nm})", $"Yazdır ({nm})", $"Chop etish ({nm})")
+            : T($"Печать выбранных ({nm})", $"Тандалгандарды басуу ({nm})", $"Print selected ({nm})", $"Seçilenleri yazdır ({nm})", $"Tanlanganlarni chop etish ({nm})"));
         ToolTip.SetTip(_printButton, T("Печать выбранных на термопринтер этикеток", "Тандалгандарды этикетка термопринтерине басуу", "Print the selected on the label thermal printer", "Seçilenleri etiket termal yazıcısında yazdır", "Tanlanganlarni yorliq termoprinterida chop etish"));
         _printButton.IsEnabled = _selectedCount > 0;
+        _resetCopiesButton.IsVisible = _sel.Values.Any(s => s.Copies != null);
         _a4Button.IsEnabled = _selectedCount > 0;
         _clearButton.IsEnabled = _selectedCount > 0;
     }
@@ -874,10 +1219,12 @@ public sealed class BarcodePrintWindow : Window
             if (!_sel.TryGetValue(p.Id, out var st) || !st.Selected)
                 continue;
             var choices = BarcodePrintCatalog.Choices(p);
-            var code = choices.Count == 0 ? null : choices[Math.Clamp(st.BarcodeIndex, 0, choices.Count - 1)].Code;
+            var choice = choices.Count == 0 ? null : choices[Math.Clamp(st.BarcodeIndex, 0, choices.Count - 1)];
+            var code = choice?.Code;
             if (code == null && _template.Barcode.Enabled)
                 continue;
-            list.Add(new BarcodePrintItem(p, code, Math.Clamp(st.Copies ?? _settings.DefaultCopies, 1, 99)));
+            // 2026-11-01 (проверка массовой печати, С-2): у доп. штрихкода (упаковка/размер) на этикетке — его подпись.
+            list.Add(new BarcodePrintItem(p, code, CopiesOf(p, st), choice is { IsMain: false } ? choice.VariantName : null, choice is { IsMain: false } ? choice.Quantity : 0, choice?.Price));
         }
         return list;
     }
@@ -931,7 +1278,9 @@ public sealed class BarcodePrintWindow : Window
         if (_template.ProductName.Enabled) shown.Add(T("название", "аталышы", "name", "ad", "nomi"));
         if (_template.Price.Enabled) shown.Add(T("цена", "баасы", "price", "fiyat", "narx"));
         parts.Add(string.Join(", ", shown));
-        parts.Add(T($"копий {_settings.DefaultCopies}", $"көчүрмө {_settings.DefaultCopies}", $"copies {_settings.DefaultCopies}", $"kopya {_settings.DefaultCopies}", $"nusxa {_settings.DefaultCopies}"));
+        parts.Add(_settings.CopiesMode == "stock"
+            ? T("копий = остаток", "көчүрмө = калдык", "copies = stock", "kopya = stok", "nusxa = qoldiq")
+            : T($"копий {_settings.DefaultCopies}", $"көчүрмө {_settings.DefaultCopies}", $"copies {_settings.DefaultCopies}", $"kopya {_settings.DefaultCopies}", $"nusxa {_settings.DefaultCopies}"));
         parts.Add(_printerCombo.SelectedItem is DiscoveredPrinter pr ? pr.Label : T("принтер не подключён", "принтер туташкан эмес", "no printer", "yazıcı bağlı değil", "printer ulanmagan"));
         _settingsSummary.Text = string.Join(" · ", parts.Where(s => s.Length > 0));
     }
@@ -977,6 +1326,36 @@ public sealed class BarcodePrintWindow : Window
         Relayout();
     }
 
+    /// <summary>2026-11-01 (П-4): число копий «по умолчанию» для товара: общее или остаток товара (режим «= остаток»).</summary>
+    private int BaseCopies(CatalogProductTileVm p) =>
+        _settings.CopiesMode == "stock" ? BarcodePrintCatalog.StockCopies(p, out _) : _settings.DefaultCopies;
+
+    private int CopiesOf(CatalogProductTileVm p, Sel st) => Math.Clamp(st.Copies ?? BaseCopies(p), 1, 99);
+
+    private void CopiesMode_Changed()
+    {
+        if (_init)
+            return;
+        _settings.CopiesMode = _copiesModeCombo.SelectedIndex == 1 ? "stock" : "default";
+        _copiesBox.IsEnabled = _settings.CopiesMode != "stock";
+        BarcodePrintSettingsStore.Save(_settings);
+        _copiesGuard = true;
+        try { foreach (var s in _copiesSync) s(); }
+        finally { _copiesGuard = false; }
+        UpdateSelectionUi();
+        UpdateSummary();
+    }
+
+    private void ResetItemCopies()
+    {
+        foreach (var s in _sel.Values)
+            s.Copies = null;
+        _copiesGuard = true;
+        try { foreach (var s in _copiesSync) s(); }
+        finally { _copiesGuard = false; }
+        UpdateSelectionUi();
+    }
+
     private void DefaultCopies_Changed()
     {
         if (_init)
@@ -1006,7 +1385,7 @@ public sealed class BarcodePrintWindow : Window
             var dropped = 0;
             if (_template.Barcode.Enabled)
                 foreach (var p in CatalogCacheService.Products)
-                    if (_sel.TryGetValue(p.Id, out var st) && st.Selected && !BarcodePrintCatalog.HasBarcode(p)) { SetSelected(st, false); dropped++; }
+                    if (_sel.TryGetValue(p.Id, out var st) && st.Selected && !BarcodePrintCatalog.HasPrintableCode(p)) { SetSelected(st, false); dropped++; }
             RenderPage();
             UpdateSelectionUi();
             if (dropped > 0)
@@ -1018,12 +1397,29 @@ public sealed class BarcodePrintWindow : Window
     {
         var eff = LabelAutoLayout.Apply(_template, _barPx);
         _barHeightHint.IsVisible = _template.Barcode.Enabled && eff < _barPx - 1;
-        _barHeightHint.Text = T($"Фактически {eff} px: этикетка низкая — остальное заняло место.", $"Иш жүзүндө {eff} px: этикетка аз бийик.", $"Actually {eff} px: the label is short.", $"Gerçekte {eff} px: etiket alçak.", $"Aslida {eff} px: yorliq past.");
+        var effMm = LabelAutoLayout.PxToMm(eff).ToString("0.#", System.Globalization.CultureInfo.CurrentCulture);
+        _barHeightHint.Text = T($"Фактически {effMm} мм: этикетка низкая — остальное заняло место.", $"Иш жүзүндө {effMm} мм: этикетка аз бийик.", $"Actually {effMm} mm: the label is short.", $"Gerçekte {effMm} mm: etiket alçak.", $"Aslida {effMm} mm: yorliq past.");
+        UpdateBarDots();
         TemplateChanged();
+    }
+
+    private static decimal BarMmFromPx(int px) =>
+        Math.Clamp((decimal)Math.Round(LabelAutoLayout.PxToMm(px) * 2) / 2, 4m, 80m);
+
+    private int BarPxFromBox() => LabelAutoLayout.MmToPx((double)(_barHeightBox.Value ?? BarMmFromPx(_barPx)));
+
+    /// <summary>«≈ N точек 203 dpi» — сколько точек займёт высота штрихкода на принтере 203 dpi.</summary>
+    private void UpdateBarDots()
+    {
+        var mm = (double)(_barHeightBox.Value ?? BarMmFromPx(_barPx));
+        var dots = (int)Math.Round(mm * 203 / 25.4);
+        _barDotsHint.Text = T($"≈ {dots} точек 203 dpi", $"≈ {dots} чекит 203 dpi", $"≈ {dots} dots at 203 dpi", $"≈ {dots} nokta 203 dpi", $"≈ {dots} nuqta 203 dpi");
     }
 
     private void TemplateChanged()
     {
+        foreach (var s in _warnSync)
+            s(); // П-2: значки ⚠ зависят от размера и формата штрихкода
         _templateDirty = true;
         UpdateSummary();
         SchedulePreview();
@@ -1067,6 +1463,8 @@ public sealed class BarcodePrintWindow : Window
 
     private async Task OpenEditorAsync()
     {
+        if (!BarcodePrintAccess.Ensure(this)) // 2026-11-01 (П-10)
+            return;
         // 2026-10-27 (аудит редакторов, Б-2): редактор этикеток — отдельная покупка, из массовой печати он открывался без проверки.
         if (!PaidFeatureGate.EnsureUnlocked(PaidFeature.LabelEditor, this))
             return;
@@ -1089,9 +1487,9 @@ public sealed class BarcodePrintWindow : Window
         _showUnit.IsChecked = _template.Unit.Enabled;
         _showStore.IsChecked = _template.StoreName.Enabled;
         _barPx = LabelAutoLayout.BarcodeHeightPx(_template);
-        _barHeightBox.Value = _barPx;
+        _barHeightBox.Value = BarMmFromPx(_barPx);
         _barHeightHint.IsVisible = false;
-        _thicknessCombo.SelectedIndex = Math.Clamp(_template.BarcodeModuleDots, 0, 3);
+        _thicknessCombo.SelectedIndex = Math.Clamp(_template.BarcodeModuleDots, 0, 4);
         _sizeCombo.SelectedIndex = FindPresetIndex();
         _customSizePanel.IsVisible = _sizeCombo.SelectedIndex == SizePresets.Length;
         _widthBox.Value = (decimal)_template.WidthMm;
@@ -1110,6 +1508,15 @@ public sealed class BarcodePrintWindow : Window
             LabelTemplateStore.Save(_template);
             _templateDirty = false;
         }
+        if (_onlyIds == null)
+        {
+            // 2026-11-01 (П-9): запоминаем поиск, фильтр, категорию и страницу (не копии и не выбор).
+            var q = _search.Text ?? "";
+            _settings.LastSearch = q.Length > 200 ? q[..200] : q;
+            _settings.LastFilter = (int)_filter;
+            _settings.LastCategory = _category;
+            _settings.LastPage = _page;
+        }
         BarcodePrintSettingsStore.Save(_settings);
     }
 
@@ -1123,17 +1530,40 @@ public sealed class BarcodePrintWindow : Window
             UserPreferences.Instance.LabelPrinterDevicePath = p.DevicePath;
             UserPreferences.Instance.SaveToDisk();
         }
+        _live = null;
         UpdatePrinterChip();
         UpdateSummary();
+        if (!_init)
+            _ = RefreshLiveStatusAsync();
     }
+
+    private LabelPrinterSelector.LiveStatus? _live;
+    private readonly DispatcherTimer _liveTimer = new() { Interval = TimeSpan.FromSeconds(10) };
 
     private void UpdatePrinterChip()
     {
         var connected = _printerCombo.SelectedItem is DiscoveredPrinter;
+        // 2026-11-01 (П-7): к имени принтера добавлен живой статус («Готов», «Не отвечает», «Нет бумаги»…); печать он не блокирует.
         _printerChipText.Text = connected
-            ? ((DiscoveredPrinter)_printerCombo.SelectedItem!).Label
+            ? ((DiscoveredPrinter)_printerCombo.SelectedItem!).Label + (_live is { } live ? " · " + LabelPrinterSelector.LiveText(live) : "")
             : T("Принтер не подключён", "Принтер туташкан эмес", "Printer not connected", "Yazıcı bağlı değil", "Printer ulanmagan");
-        Use(_printerDot, Shape.FillProperty, connected ? "BrushSuccess" : "BrushDanger");
+        var bad = connected && _live is LabelPrinterSelector.LiveStatus.NoAnswer or LabelPrinterSelector.LiveStatus.Offline or LabelPrinterSelector.LiveStatus.PaperOut or LabelPrinterSelector.LiveStatus.Error;
+        Use(_printerDot, Shape.FillProperty, !connected || bad ? "BrushDanger" : _live is LabelPrinterSelector.LiveStatus.Unknown ? "BrushWarning" : "BrushSuccess");
+    }
+
+    /// <summary>Раз в 10 с (и при выборе принтера), в фоне и не во время печати.</summary>
+    private async Task RefreshLiveStatusAsync()
+    {
+        if (_printCts != null || _printerCombo.SelectedItem is not DiscoveredPrinter printer)
+        {
+            return;
+        }
+        var path = printer.DevicePath;
+        var status = await Task.Run(() => LabelPrinterSelector.CheckLive(path)).ConfigureAwait(true);
+        if (status == LabelPrinterSelector.LiveStatus.Busy || _printerCombo.SelectedItem is not DiscoveredPrinter now || now.DevicePath != path)
+            return;
+        _live = status;
+        UpdatePrinterChip();
     }
 
     private async Task LoadPrintersAsync()
@@ -1141,7 +1571,8 @@ public sealed class BarcodePrintWindow : Window
         IReadOnlyList<DiscoveredPrinter> list;
         try
         {
-            list = await Task.Run(() => PrinterListOverride?.Invoke() ?? BarcodeLabelService.GetAvailablePrinters()).ConfigureAwait(true);
+            // 2026-11-01: принтер этикеток — без PDF/XPS/OneNote/факса (и без камеры/Bluetooth: см. WinUsbPrinterPort).
+            list = await Task.Run(() => PrinterListOverride?.Invoke() ?? LabelPrinterSelector.GetChoices()).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -1155,9 +1586,13 @@ public sealed class BarcodePrintWindow : Window
         _printerCombo.ItemsSource = list.ToList();
         _printerCombo.SelectedItem = list.FirstOrDefault(p => string.Equals(p.DevicePath, keep, StringComparison.OrdinalIgnoreCase));
         _init = wasInit;
+        _printersLoaded = true;
         UpdatePrinterChip();
         UpdateSummary();
+        _ = RefreshLiveStatusAsync();
     }
+
+    private bool _printersLoaded;
 
     // ------------------------------------------------------------------ печать
 
@@ -1173,8 +1608,9 @@ public sealed class BarcodePrintWindow : Window
     {
         var st = GetSel(p.Id);
         var choices = BarcodePrintCatalog.Choices(p);
-        var code = choices.Count == 0 ? null : choices[Math.Clamp(st.BarcodeIndex, 0, choices.Count - 1)].Code;
-        await PrintLabelsAsync(new[] { new BarcodePrintItem(p, code, Math.Clamp(st.Copies ?? _settings.DefaultCopies, 1, 99)) }, test: false).ConfigureAwait(true);
+        var choice = choices.Count == 0 ? null : choices[Math.Clamp(st.BarcodeIndex, 0, choices.Count - 1)];
+        await PrintLabelsAsync(new[] { new BarcodePrintItem(p, choice?.Code, CopiesOf(p, st),
+            choice is { IsMain: false } ? choice.VariantName : null, choice is { IsMain: false } ? choice.Quantity : 0, choice?.Price) }, test: false).ConfigureAwait(true);
     }
 
     /// <summary>«Печать выбранных (N)» — на термопринтер этикеток.</summary>
@@ -1186,16 +1622,54 @@ public sealed class BarcodePrintWindow : Window
             SetStatus(T("Выберите хотя бы один товар.", "Жок дегенде бир товарды тандаңыз.", "Select at least one product.", "En az bir ürün seçin.", "Kamida bitta mahsulotni tanlang."));
             return;
         }
-        await PrintLabelsAsync(items, test: false).ConfigureAwait(true);
+        var checkedItems = await ResolveProblemsAsync(items).ConfigureAwait(true); // 2026-11-01 (П-2)
+        if (checkedItems is null)
+            return;
+        if (checkedItems.Count == 0)
+        {
+            SetStatus(T("Все выбранные сняты с печати.", "Тандалгандардын баары басуудан алынды.", "All selected products were taken off the print.", "Seçilenlerin hepsi yazdırmadan çıkarıldı.", "Tanlanganlarning hammasi chopdan olib tashlandi."));
+            return;
+        }
+        await PrintLabelsAsync(checkedItems, test: false).ConfigureAwait(true);
     }
 
     private async Task PrintLabelsAsync(IReadOnlyList<BarcodePrintItem> items, bool test)
     {
+        if (!BarcodePrintAccess.IsAllowed()) // 2026-11-01 (П-10): вызов кода напрямую — понятное сообщение
+        {
+            SetStatus(BarcodePrintAccess.DeniedText);
+            return;
+        }
+        // 2026-11-01 (С-9): System.Drawing — только Windows; на Linux/Android честно говорим, что печать здесь недоступна.
+        if (!LabelPrinterSelector.PrintingSupported)
+        {
+            SetStatus(LabelPrinterSelector.UnsupportedText);
+            return;
+        }
+        if (_printerCombo.SelectedItem is null && !_printersLoaded)
+        {
+            // 2026-11-01 (Н-2): список принтеров ещё ищется (WinUSB/LPT/COM — до нескольких секунд) — не ругаемся «не выбран».
+            SetStatus(T("Ищу принтеры… повторите печать через секунду.", "Принтерлер изделүүдө… бир секунддан кийин кайра басыңыз.", "Looking for printers… try printing again in a second.", "Yazıcılar aranıyor… bir saniye sonra tekrar deneyin.", "Printerlar qidirilmoqda… bir soniyadan keyin qayta urinib ko'ring."));
+            return;
+        }
         if (_printerCombo.SelectedItem is not DiscoveredPrinter printer)
         {
-            SetStatus(T("Принтер не подключён — выберите принтер в настройках этикетки.", "Принтер туташкан эмес — этикетка жөндөөлөрүнөн принтерди тандаңыз.", "No printer connected — choose a printer in the label settings.", "Yazıcı bağlı değil — etiket ayarlarından bir yazıcı seçin.", "Printer ulanmagan — yorliq sozlamalaridan printerni tanlang."));
+            // 2026-11-01: принтер не выбран или не найден — понятная подсказка (Настройки → Печать) и открытые настройки этикетки.
+            SetStatus(LabelPrinterSelector.MissingHint());
             SetSettingsOpen(true);
             return;
+        }
+        // 2026-11-01 (С-5): большая пачка — сначала подтверждение с числом этикеток и оценкой ленты.
+        var totalLabels = items.Sum(i => i.Copies);
+        if (!test && totalLabels > LabelPrinterSelector.BigBatchLabels)
+        {
+            var bigQuestion = LabelPrinterSelector.BigBatchQuestion(totalLabels, _template.HeightMm, UserPreferences.Instance.LabelGapMm, 0, printer.Label);
+            var bigOk = ConfirmOverride != null
+                ? await ConfirmOverride(bigQuestion).ConfigureAwait(true)
+                : await PosConfirmDialog.ShowModalAsync(this, T("Большая печать", "Чоң басуу", "Large print job", "Büyük baskı", "Katta chop etish"), bigQuestion,
+                    T($"Напечатать {totalLabels}", $"{totalLabels} басуу", $"Print {totalLabels}", $"{totalLabels} yazdır", $"{totalLabels} ta chop etish"), T("Отмена", "Жок", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true);
+            if (!bigOk)
+                return;
         }
         if (!_shell.TryBeginBusy())
             return;
@@ -1217,6 +1691,9 @@ public sealed class BarcodePrintWindow : Window
         var labels = 0;
         var last = LabelPrintResult.Success;
         var cancelled = false;
+        // 2026-11-01 (В-3): какие товары напечатаны целиком и на каком остановились — выбор с напечатанных снимается после сбоя/отмены.
+        var doneIds = new List<string>();
+        string? stoppedAt = null;
         try
         {
             await Task.Run(() =>
@@ -1226,13 +1703,18 @@ public sealed class BarcodePrintWindow : Window
                     if (ct.IsCancellationRequested)
                     {
                         cancelled = true;
+                        stoppedAt = it.Product.Title;
                         break;
                     }
-                    var request = new LabelPrintRequest(it.Product.Title, it.Barcode ?? "", BarcodePrintCatalog.LabelPrice(it.Product), it.Copies, printer.DevicePath,
-                        template, it.Product.Article, it.Product.Unit, store);
+                    var request = new LabelPrintRequest(it.Product.Title, it.Barcode ?? "", BarcodePrintCatalog.LabelPrice(it), it.Copies, printer.DevicePath,
+                        template, it.Product.Article, it.Product.Unit, store, it.VariantText);
                     last = print(request);
                     if (last != LabelPrintResult.Success)
+                    {
+                        stoppedAt = it.Product.Title;
                         break;
+                    }
+                    doneIds.Add(it.Product.Id);
                     done++;
                     labels += it.Copies;
                     var d = done;
@@ -1256,6 +1738,21 @@ public sealed class BarcodePrintWindow : Window
             UpdateSelectionUi();
         }
 
+        if (labels > 0)
+            LabelPrinterSelector.LogSent(printer, printer.DevicePath, labels);
+        // 2026-11-01 (В-3): после сбоя или отмены посреди пачки с напечатанных товаров выбор снимается — повторное «Печать» не печатает их заново.
+        var partialNote = "";
+        if (!test && (last != LabelPrintResult.Success || cancelled) && doneIds.Count > 0)
+        {
+            foreach (var id in doneIds)
+                SetSelected(GetSel(id), false);
+            foreach (var s in _pageSync)
+                s();
+            UpdateSelectionUi();
+            SchedulePreview();
+            partialNote = " " + T("Выбор снят с напечатанных — повторное «Печать» допечатает остальные.", "Басылгандардан тандоо алынды — кайра «Басуу» калгандарын басат.",
+                "Printed products were deselected — pressing Print again prints only the rest.", "Yazdırılanların seçimi kaldırıldı — tekrar «Yazdır» kalanları yazdırır.", "Chop etilganlardan tanlov olib tashlandi — qayta «Chop etish» qolganlarini chop etadi.");
+        }
         var problems = test ? 0 : items.Count(i => BarcodeLabelService.DescribeBarcodeProblem(i.Barcode, template) is not null);
         var problemNote = problems == 0 ? "" : " " + T(
             $"Замечания по штрихкоду у {problems} товаров (неверный EAN — напечатан как Code 128, кириллица, слишком длинный или плотный код).",
@@ -1265,10 +1762,10 @@ public sealed class BarcodePrintWindow : Window
             $"{problems} ta mahsulotda shtrix-kod bo'yicha eslatma bor (noto'g'ri EAN Code 128 sifatida chop etildi, kirill, juda uzun yoki zich).");
         SetStatus(last switch
         {
-            LabelPrintResult.Success when cancelled => T($"Печать остановлена: отправлено {labels} этикеток ({done} из {items.Count} товаров).", $"Басуу токтотулду: {labels} этикетка жөнөтүлдү ({done}/{items.Count} товар).", $"Printing stopped: {labels} labels sent ({done} of {items.Count} products).", $"Yazdırma durduruldu: {labels} etiket gönderildi ({done}/{items.Count} ürün).", $"Chop etish to'xtatildi: {labels} ta yorliq yuborildi ({done}/{items.Count} mahsulot)."),
-            LabelPrintResult.Success => T($"Готово — отправлено на печать {labels} этикеток.", $"Даяр — {labels} этикетка басууга жөнөтүлдү.", $"Done — {labels} labels sent to the printer.", $"Tamamlandı — {labels} etiket yazdırmaya gönderildi.", $"Tayyor — {labels} ta yorliq chop etishga yuborildi.") + problemNote,
+            LabelPrintResult.Success when cancelled => T($"Печать остановлена: отправлено {labels} этикеток ({done} из {items.Count} товаров).", $"Басуу токтотулду: {labels} этикетка жөнөтүлдү ({done}/{items.Count} товар).", $"Printing stopped: {labels} labels sent ({done} of {items.Count} products).", $"Yazdırma durduruldu: {labels} etiket gönderildi ({done}/{items.Count} ürün).", $"Chop etish to'xtatildi: {labels} ta yorliq yuborildi ({done}/{items.Count} mahsulot).") + partialNote,
+            LabelPrintResult.Success => T($"Готово — отправлено на печать {labels} этикеток.", $"Даяр — {labels} этикетка басууга жөнөтүлдү.", $"Done — {labels} labels sent to the printer.", $"Tamamlandı — {labels} etiket yazdırmaya gönderildi.", $"Tayyor — {labels} ta yorliq chop etishga yuborildi.") + " " + LabelPrinterSelector.SentText(printer.Label) + "." + problemNote,
             LabelPrintResult.PrinterNotFound => T("Принтер не найден — обновите список принтеров.", "Принтер табылган жок — принтерлердин тизмесин жаңыртыңыз.", "Printer not found — refresh the printer list.", "Yazıcı bulunamadı — yazıcı listesini yenileyin.", "Printer topilmadi — printerlar ro'yxatini yangilang."),
-            _ => T($"Ошибка печати (напечатано {labels} этикеток). Подробности в журнале приложения.", $"Басуу катасы ({labels} этикетка басылды). Толук маалымат колдонмонун журналында.", $"Printing error ({labels} labels printed). See the app log.", $"Yazdırma hatası ({labels} etiket basıldı). Ayrıntılar uygulama günlüğünde.", $"Chop etishda xato ({labels} ta yorliq chop etildi). Batafsil ma'lumot ilova jurnalida."),
+            _ => T($"Ошибка печати: напечатано {done} из {items.Count} товаров ({labels} этикеток), остановились на «{stoppedAt}». Подробности в журнале приложения.", $"Басуу катасы: {done}/{items.Count} товар басылды ({labels} этикетка), «{stoppedAt}» боюнча токтоду. Толук маалымат колдонмонун журналында.", $"Printing error: {done} of {items.Count} products printed ({labels} labels), stopped at “{stoppedAt}”. See the app log.", $"Yazdırma hatası: {done}/{items.Count} ürün basıldı ({labels} etiket), «{stoppedAt}» üründe durdu. Ayrıntılar uygulama günlüğünde.", $"Chop etishda xato: {done}/{items.Count} mahsulot chop etildi ({labels} ta yorliq), «{stoppedAt}» da to'xtadi. Batafsil ma'lumot ilova jurnalida.") + partialNote,
         });
     }
 
@@ -1282,7 +1779,14 @@ public sealed class BarcodePrintWindow : Window
             SetStatus(T("Выберите хотя бы один товар.", "Жок дегенде бир товарды тандаңыз.", "Select at least one product.", "En az bir ürün seçin.", "Kamida bitta mahsulotni tanlang."));
             return;
         }
-        var overrides = items.Select(i => _sel.TryGetValue(i.Product.Id, out var s) ? s.Copies : null).ToList();
+        var checkedItems = await ResolveProblemsAsync(items).ConfigureAwait(true); // 2026-11-01 (П-2)
+        if (checkedItems is null || checkedItems.Count == 0)
+            return;
+        items = checkedItems;
+        // «= остаток»: у каждого свои копии — передаём их явно
+        var overrides = items.Select(i => _settings.CopiesMode == "stock" ? i.Copies : (_sel.TryGetValue(i.Product.Id, out var s) ? s.Copies : null)).ToList();
+        // 2026-11-01 (С-1): «Копий (по умолчанию)» главного окна — общее число копий листа A4 (раньше брался отдельный A4Copies = 1).
+        _settings.A4Copies = Math.Clamp(_settings.DefaultCopies, 1, 99);
         var a4 = new BarcodeA4SheetWindow(items, overrides, _settings, UserPreferences.Instance.StoreName);
         await a4.ShowDialog(this).ConfigureAwait(true);
         if (!string.IsNullOrEmpty(a4.ResultMessage))

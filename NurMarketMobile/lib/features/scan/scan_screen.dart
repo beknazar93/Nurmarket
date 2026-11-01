@@ -72,6 +72,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   /// Камера отдана другому экрану (сканер приёмки) — возврат в приложение её не включает.
   bool _handedOver = false;
   double? _foundQty;
+  String? _foundCode; // 2026-10-31: код, по которому нашли товар (штрихкод размера одежды)
 
   /// 2026-10-27: режим «Сканер для кассы» — штрихкоды уходят на кассу по Wi-Fi, а не в чек телефона.
   bool _kassa = false;
@@ -236,12 +237,13 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     _frame.currentState?.success();
     setState(() {
       _found = p;
+      _foundCode = code;
       _foundQty = hit.qty;
       _qty = hit.qty ?? 1;
     });
     if (_mode == ScanMode.sale && _continuous && (!p.isWeight || hit.qty != null)) {
       // Весовая этикетка несёт вес — добавляем сразу, без вопроса «сколько кг».
-      await addProduct(context, ref, p, qty: hit.qty);
+      await addProduct(context, ref, p, qty: hit.qty, code: code); // 2026-10-31: штрихкод размера — сразу нужный размер
       _popups.currentState?.add(hit.qty == null ? '+1 ${p.name}' : '+${qtyText(hit.qty!)} ${p.unit} ${p.name}');
     } else if (_mode == ScanMode.price) {
       _popups.currentState?.add('${money(p.price)} ${context.l.som}', color: T.navy);
@@ -661,7 +663,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                     onPressed: _continuous && (!p.isWeight || _foundQty != null)
                         ? null
                         : () async {
-                            await addProduct(context, ref, p, qty: _foundQty ?? (p.isWeight ? null : _qty));
+                            await addProduct(context, ref, p, qty: _foundQty ?? (p.isWeight ? null : _qty), code: _foundCode);
                             if (context.mounted) toast(context, l.addedToCheck);
                           },
                     child: Text(_continuous && (!p.isWeight || _foundQty != null) ? l.addedAutomatically : l.addToCheck),

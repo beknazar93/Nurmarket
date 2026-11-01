@@ -18,9 +18,14 @@ public sealed class EditStepItem
     public string SourceReceiptId { get; set; } = "";
     public double Qty { get; set; }
     public double Price { get; set; }
+    /// <summary>2026-11-01: только для шага «price» (цена продажи и наценка товара в каталоге): было → станет. SaleBefore, если не знали, читается с сервера перед записью.</summary>
+    public double? SaleBefore { get; set; }
+    public double? SaleAfter { get; set; }
+    public double? MarkupBefore { get; set; }
+    public double? MarkupAfter { get; set; }
 }
 
-/// <summary>Шаг правки: возврат поставщику (return) или доприход (addendum). Status: pending / done / failed / unknown (ответ не дошёл).</summary>
+/// <summary>Шаг правки: возврат поставщику (return), доприход (addendum) или (с 01.11.2026) цена продажи/наценка товара в каталоге (price — без документа на сервере, PATCH товара). Status: pending / done / failed / unknown (ответ не дошёл).</summary>
 public sealed class EditStep
 {
     public string Key { get; set; } = Guid.NewGuid().ToString();
@@ -68,6 +73,12 @@ public sealed class ReceiptEditRecord
     public string By { get; set; } = "";
     public string Device { get; set; } = "";
     public string Reason { get; set; } = "";
+    /// <summary>2026-11-01 (правка всегда открыта, всё в журнале): номер ПР-…, поставщик, дата прихода, id и роль пользователя — для «Журнала правок» и ленты purchase-edits.jsonl. У старых записей пусто.</summary>
+    public string DocNumber { get; set; } = "";
+    public string SupplierName { get; set; } = "";
+    public DateTime? ReceiptAt { get; set; }
+    public string ById { get; set; } = "";
+    public string ByRole { get; set; } = "";
     public double TotalBefore { get; set; }
     public double TotalAfter { get; set; }
     /// <summary>2026-10-31 (приёмка 1.17.68, 4б): после отказа от частично проведённой правки <see cref="TotalAfter"/> — реально проведённая сумма, плановая — здесь.</summary>
@@ -191,6 +202,13 @@ public sealed class ReceiptEditStore
 
     /// <summary>Исправлена ли накладная (есть завершённая или частичная правка).</summary>
     public bool IsEdited(string receiptId) => Get(receiptId).Edits.Any(e => e.Status is "done" or "partial" or "abandoned");
+
+    /// <summary>2026-11-01: все правки всех приходов этого ПК (для «Журнала правок» владельца).</summary>
+    public IReadOnlyList<ReceiptEditRecord> AllEdits()
+    {
+        lock (_sync)
+            return Data().Receipts.Values.SelectMany(h => h.Edits).ToList();
+    }
 
     /// <summary>Сохранить изменённую историю (под замком).</summary>
     public void Mutate(string receiptId, Action<ReceiptHistory> change)

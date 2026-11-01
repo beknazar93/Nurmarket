@@ -96,7 +96,7 @@ public static class StockSyncService
             ? $"{quantity.ToString("0.###", qtyCulture)} {Tr.T("кг", "кг", "kg", "kg", "kg")}"
             : QuantityRules.ForUnit(vm.Unit) != null
                 // 2026-10-26 (ХМ2): остаток дробной единицы «Хозтоваров» (37.4 м) — не до целого и в своей единице.
-                ? $"{quantity.ToString("0.###", qtyCulture)} {vm.Unit}"
+                ? $"{quantity.ToString("0.###", qtyCulture)} {UnitCatalog.Display(vm.Unit)}" // 2026-11-01 (Д-5): единица по языку интерфейса
                 : $"{quantity.ToString("F0", qtyCulture)} {Tr.T("шт.", "даана", "pcs", "adet", "dona")}";
         vm.IsLowStock = quantity < LowStockThreshold;
     }

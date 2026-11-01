@@ -54,6 +54,24 @@ public sealed class PosCheckoutRequest
     /// <summary>2026-10-30 (приёмка 1.17.66, «Важно» 1): кассир выбрал «Отложить в очередь» после «Сервер занят» — чек ставится в офлайн-очередь с прежним ключом без обращения к серверу
     /// (и без объявления аварии). Только для наличных/безнала.</summary>
     public bool DeferToQueue { get; set; }
+    /// <summary>2026-11-01 (К-08, code-review): состояние ожидания ЭТОЙ оплаты для окна «Проводим оплату…» (создаёт окно кассы; сервис оплаты заполняет).</summary>
+    public PaymentWaitState? Wait { get; init; }
+}
+
+/// <summary>2026-11-01 (К-08, code-review): что сейчас ждёт конкретная оплата — окно оплаты показывает «сервер отвечает медленно» только пока идёт запрос к серверу
+/// и обещает «чек сохранится и отправится сам» только для способов, которые встают в очередь. Один объект на одну оплату (не статика и не поле сервиса).</summary>
+public sealed class PaymentWaitState
+{
+    private volatile bool _serverWait;
+    private volatile bool _canQueue = true;
+
+    public bool ServerWait { get => _serverWait; set => _serverWait = value; }
+    public bool CanQueue { get => _canQueue; set => _canQueue = value; }
+
+    /// <summary>Запрос к серверу закончен (или оплата завершилась).</summary>
+    public void End() => _serverWait = false;
+
+    public (bool ServerWait, bool CanQueue) Snapshot() => (_serverWait, _canQueue);
 }
 
 /// <summary>2026-10-06: график погашения долга. Unit — "day" или "month"; Count — число платежей; Interval — через сколько

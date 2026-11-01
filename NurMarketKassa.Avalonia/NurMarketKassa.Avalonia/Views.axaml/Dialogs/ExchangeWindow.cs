@@ -17,8 +17,10 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 public sealed record ExchangeReturnLine(string LineId, string? ProductId, string Title, double MaxQuantity, decimal UnitRefund);
 
 /// <summary>Итог проведённого обмена (суммы — по серверу).</summary>
+/// <param name="Warning">2026-11-01 (аудит «10 из 10», К-05): сервер засчитал возвращённое больше, чем положено по чеку со скидкой на весь чек —
+/// текст для кассира (дальше его показывает окно возврата).</param>
 public sealed record ExchangeOutcome(string ExchangeId, string? NewSaleId, string? NewSaleNumber, decimal ReturnedAmount,
-    decimal NewAmount, decimal Difference, string PaymentMethod);
+    decimal NewAmount, decimal Difference, string PaymentMethod, string? Warning = null);
 
 /// <summary>
 /// 2026-10-06, исследование «Кассы для одежды» (О-30), владелец: «делай всё по этапно». Обмен в одном окне:
@@ -435,6 +437,18 @@ public sealed class ExchangeWindow : Window
             _go.IsEnabled = !_appliedWithoutAnswer;
             return;
         }
+        // 2026-11-01 (аудит «10 из 10», К-05): те же защиты, что у возврата — часть позиций могли уже вернуть на другой кассе или на сайте
+        // (пока окно было открыто): количество к возврату сверяем с чеком до отправки, а не ждём отказа сервера.
+        if (await StaleReturnLinesAsync(returns).ConfigureAwait(true) is { } staleText)
+        {
+            _error.Text = staleText;
+            SaleMayHaveChanged = true;
+            _running = false;
+            if (_shell != null)
+                _shell.IsBusy = false;
+            _go.IsEnabled = !_appliedWithoutAnswer;
+            return;
+        }
         var exchangeKey = PendingExchange.Get(signature);
         var client = App.GetRequiredService<NurMarketApiClient>();
         var shiftId = NurMarketKassa.PosApp.ActiveShiftId;
@@ -459,7 +473,14 @@ public sealed class ExchangeWindow : Window
             var returned = Dec("returned_amount", ReturnedTotal);
             var newAmount = Dec("new_amount", NewTotal);
             var difference = Dec("difference", newAmount - returned);
-            Outcome = new ExchangeOutcome(exchangeId, Str("new_sale"), Str("new_sale_number"), returned, newAmount, difference, method);
+            // 2026-11-01 (К-05): чек со скидкой на весь чек — сервер мог засчитать возвращённое по полной цене строк. Положено — расчёт кассы
+            // (доля скидки в UnitRefund); превышение — в журнал и «Некорректные чеки», кассиру — предупреждение.
+            string? warning = null;
+            var ours = ReturnedTotal;
+            var tolerance = 0.01m + 0.005m * (decimal)returns.Sum(r => r.Qty);
+            if (returned > ours + tolerance)
+                warning = ReportServerOverCredit(returned, ours);
+            Outcome = new ExchangeOutcome(exchangeId, Str("new_sale"), Str("new_sale_number"), returned, newAmount, difference, method, warning);
             PosLogger.Log($"Обмен по продаже {_saleId}: вернули {returned:0.00}, выдали {newAmount:0.00}, разница {difference:0.00} ({method}), новый чек №{Str("new_sale_number")}, документ {exchangeId}.", "SALES");
 
             // Наличные, реально прошедшие через ящик: доплата наличными или сдача.
@@ -467,7 +488,13 @@ public sealed class ExchangeWindow : Window
             _ = Task.Run(() => ExchangeCashCorrections.CheckAsync(client, shiftId, before, cashDelta, returned, exchangeId));
 
             // В журнал смены — как возврат (сервер тоже считает его возвратом), чтобы отчёты кассы сходились с сервером.
-            ShiftEventsStore.Record(ShiftEventsStore.KindReturn, shiftId, ShiftEventsStore.OperationKey(exchangeId), (double)returned, "exchange");
+            // 2026-11-01 (К-05): с разбивкой для окна закрытия смены — из ящика ушла только сдача (разница), а не вся сумма возвращённого;
+            // раньше заметка «exchange» без cash= считалась «наличными из ящика» на всю сумму.
+            var drawerOut = difference < 0 ? -difference : 0m;
+            ShiftEventsStore.Record(ShiftEventsStore.KindReturn, shiftId, ShiftEventsStore.OperationKey(exchangeId), (double)returned,
+                $"cash={SaleReturnLedger.Inv(drawerOut)};noncash=0.00;debt=0.00;exchange=1");
+            // 2026-11-01 (К-05): обмен — в журнал возвратов чека, иначе следующий возврат по этому чеку считал бы остаток по устаревшим данным.
+            RecordExchangeInLedger(returns, Math.Min(returned, Math.Max(ours, 0m)), drawerOut, returned, Str("return"));
             SaleDetailCache.Forget(_saleId);
             foreach (var n in _newRows.Where(n => n.VariantId != null))
                 ProductVariantCache.Adjust(n.ProductId, n.VariantId!, -n.Qty);
@@ -485,7 +512,10 @@ public sealed class ExchangeWindow : Window
         }
         catch (ApiException ex)
         {
-            _error.Text = T("Обмен не проведён: ", "Алмаштыруу жүргүзүлгөн жок: ", "Exchange failed: ", "Değişim yapılamadı: ", "Almashtirish o'tkazilmadi: ") + ex.Message;
+            // 2026-11-01 (К-05): «возврат больше положенного» — понятный текст (как в окне возврата), ключ забыт (PendingIdempotencyKey), чек перечитается.
+            _error.Text = T("Обмен не проведён: ", "Алмаштыруу жүргүзүлгөн жок: ", "Exchange failed: ", "Değişim yapılamadı: ", "Almashtirish o'tkazilmadi: ") + (ReturnSaleDialog.RefundExceedsText(ex) ?? ex.Message);
+            if (RefundAmountMath.TryParseExceeds(ex, out _))
+                SaleMayHaveChanged = true;
             PosLogger.Log($"Обмен по продаже {_saleId} не проведён: {ex.StatusCode} {ex.Message}", "WARNING");
             // 2026-10-16, ревью: 4xx (кроме 408/429) — ключ забыт; иначе исход неизвестен — сразу сверяем по чеку.
             if (PendingExchange.OnError(ex))
@@ -519,6 +549,104 @@ public sealed class ExchangeWindow : Window
             .ToDictionary(r => r.Line.LineId, r => r.Line.MaxQuantity, StringComparer.OrdinalIgnoreCase));
         SaleMayHaveChanged = true;
         await VerifyUnknownExchangeAsync(beforeRetry: false).ConfigureAwait(true);
+    }
+
+    /// <summary>2026-11-01 (К-05): запись обмена в журнал возвратов кассы (SaleReturnLedger) — только если касса этот чек знает.</summary>
+    private void RecordExchangeInLedger(IReadOnlyList<ReturnRow> returns, decimal amount, decimal cashOut, decimal serverAmount, string? serverDocId)
+    {
+        try
+        {
+            if (SaleReturnLedger.Get(_saleId) is not { Total: > 0m })
+                return;
+            SaleReturnLedger.AddRefund(_saleId, new SaleLedgerRefund
+            {
+                At = DateTimeOffset.Now,
+                Amount = amount,
+                Cash = cashOut,
+                NonCash = 0m,
+                DebtReduced = 0m,
+                ServerAmount = serverAmount,
+                ServerDocId = serverDocId,
+                Whole = false,
+                Lines = returns.Select(r => new SaleLedgerLine { LineId = r.Line.LineId, Name = r.Line.Title, Quantity = r.Qty, Total = r.Sum }).ToList(),
+            });
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Обмен по продаже {_saleId}: в журнал возвратов чека не записан: {ex.Message}", "WARNING");
+        }
+    }
+
+    /// <summary>2026-11-01 (К-05): сервер засчитал возвращённое на <paramref name="server"/>, по чеку (со скидкой на весь чек) положено <paramref name="ours"/> —
+    /// журнал, «Некорректные чеки» (как у возврата, ReturnSaleDialog.ResolveRefundAsync) и текст для кассира.</summary>
+    private string ReportServerOverCredit(decimal server, decimal ours)
+    {
+        var number = string.IsNullOrWhiteSpace(_receiptNumber) ? _saleId : _receiptNumber!.Trim().TrimStart('№');
+        PosLogger.Log($"Обмен по чеку {number} ({_saleId}): сервер засчитал возвращённое на {server:0.00} — больше, чем положено ({ours:0.00}; скидка на весь чек не учтена сервером).", "WARNING");
+        try
+        {
+            IrregularReceiptsStore.Append(new IrregularReceiptEntry
+            {
+                Tag = IrregularReceiptEntry.ReturnOverpaid,
+                CashierName = NurMarketKassa.PosApp.CurrentUserDisplayName,
+                Note = T(
+                    $"Обмен по чеку {number}: сервер засчитал возвращённое на {Money(server)}, положено {Money(ours)}.",
+                    $"{number} чеги боюнча алмаштыруу: сервер кайтарылганды {Money(server)} деп эсептеди, туурасы {Money(ours)}.",
+                    $"Exchange for receipt {number}: the server credited {Money(server)} for the returned items, due {Money(ours)}.",
+                    $"{number} fişi değişimi: sunucu iade edilenleri {Money(server)} saydı, olması gereken {Money(ours)}.",
+                    $"{number} chek bo'yicha almashtirish: server qaytarilganni {Money(server)} deb hisobladi, to'g'risi {Money(ours)}."),
+                Total = (double)(server - ours),
+                CartJson = "{}",
+            });
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Некорректный обмен не записан в журнал: {ex.Message}", "WARNING");
+        }
+        return T(
+            $"Внимание: сервер засчитал возвращённый товар на {Money(server)}, а по чеку со скидкой на весь чек положено {Money(ours)}. Разница {Money(server - ours)} записана в «Некорректные чеки» — решение о доплате покупателя принимает владелец.",
+            $"Көңүл буруңуз: сервер кайтарылган товарды {Money(server)} деп эсептеди, ал эми бүт чекке арзандатуу менен чек боюнча {Money(ours)} туура. {Money(server - ours)} айырмасы «Туура эмес чектерге» жазылды — сатып алуучудан кошумча алуу чечимин ээси кабыл алат.",
+            $"Warning: the server credited {Money(server)} for the returned items, but for a receipt with a whole-receipt discount {Money(ours)} is due. The difference of {Money(server - ours)} is recorded in “Irregular receipts” — the owner decides on any extra payment from the customer.",
+            $"Dikkat: sunucu iade edilen ürünü {Money(server)} saydı, oysa tüm fişte indirimli fişe göre {Money(ours)} olmalı. {Money(server - ours)} tutarındaki fark «Düzensiz fişler»e yazıldı — müşteriden ek ödeme kararını sahibi verir.",
+            $"Diqqat: server qaytarilgan tovarni {Money(server)} deb hisobladi, butun chekka chegirmali chek bo'yicha esa {Money(ours)} to'g'ri. {Money(server - ours)} farqi «Noto'g'ri cheklar»ga yozildi — xaridordan qo'shimcha olish haqida egasi qaror qiladi.");
+    }
+
+    /// <summary>2026-11-01 (К-05): по чеку сейчас — не меньше ли к возврату, чем собираются вернуть в обмене (вернули на другой кассе / на сайте, пока окно
+    /// было открыто)? Текст для кассира или null (можно отправлять; чек не прочитался — тоже null: сервер отклонит 409, это учтено).</summary>
+    private async Task<string?> StaleReturnLinesAsync(IReadOnlyList<ReturnRow> returns)
+    {
+        JsonElement sale;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+            sale = await App.SalesApi.PosSaleGetAsync(_saleId, cts.Token).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Обмен по продаже {_saleId}: чек перед отправкой не прочитан ({ex.GetType().Name}) — сверку делает сервер.", "WARNING");
+            return null;
+        }
+        if (sale.ValueKind != JsonValueKind.Object)
+            return null;
+        var items = CartDisplayHelper.EnumerateSaleLineItems(sale).ToList();
+        foreach (var row in returns)
+        {
+            var item = items.FirstOrDefault(it => string.Equals(CartDisplayHelper.TryRefundLineId(it), row.Line.LineId, StringComparison.OrdinalIgnoreCase));
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+            var left = CartDisplayHelper.LineLooksFullyReturned(item) ? 0 : CartDisplayHelper.RefundableQuantity(item);
+            if (row.Qty > left + 1e-6)
+            {
+                var leftText = left.ToString("0.###", CultureInfo.InvariantCulture);
+                PosLogger.Log($"Обмен по продаже {_saleId}: «{row.Line.Title}» — к возврату {row.Qty:0.###}, по чеку осталось {leftText}; обмен не отправлен.", "WARNING");
+                return T($"«{row.Line.Title}»: по чеку к возврату осталось {leftText} — часть уже вернули на другой кассе или на сайте. Закройте окно: чек перечитается, и выберите заново.",
+                    $"«{row.Line.Title}»: чек боюнча кайтарууга {leftText} калды — бир бөлүгү башка кассада же сайтта кайтарылган. Терезени жабыңыз: чек кайра окулат, кайра тандаңыз.",
+                    $"“{row.Line.Title}”: only {leftText} is left to return on the receipt — part was already returned on another till or the website. Close the window: the receipt will be reloaded; select again.",
+                    $"“{row.Line.Title}”: fişte iade için {leftText} kaldı — bir kısmı başka kasada veya sitede iade edilmiş. Pencereyi kapatın: fiş yeniden okunur, tekrar seçin.",
+                    $"«{row.Line.Title}»: chek bo'yicha qaytarish uchun {leftText} qoldi — bir qismi boshqa kassa yoki saytda qaytarilgan. Oynani yoping: chek qayta o'qiladi, qaytadan tanlang.");
+            }
+        }
+        return null;
     }
 
     /// <summary>2026-10-16, ревью: был обмен по этому чеку без ответа сервера — прошёл ли он? Перечитываем чек

@@ -96,6 +96,9 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         // перерисовываем текущую страницу и статус, иначе они остаются на прежнем языке.
         _languageChanged = () => _dispatcher.InvokeAsync(() =>
         {
+            // 2026-11-01 (Д-5, живая проверка NBS): остаток на плитках («36 шт.») считается при загрузке и оставался на прежнем языке.
+            foreach (var tile in _allProducts)
+                ProductUnitNormalizer.ApplyToTile(tile);
             ApplyFilter();
             StatusText = Tr.T($"Товаров: {_allProducts.Count}", $"Товарлар: {_allProducts.Count}", $"Products: {_allProducts.Count}", $"Ürün: {_allProducts.Count}", $"Mahsulotlar: {_allProducts.Count}");
             OnPropertyChanged(nameof(PageStatusText));

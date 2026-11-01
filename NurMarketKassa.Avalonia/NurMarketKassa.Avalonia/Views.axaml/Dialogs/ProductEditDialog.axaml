@@ -450,7 +450,7 @@
 
                                 <StackPanel Spacing="8" HorizontalAlignment="Stretch">
                                     <TextBlock Classes="FieldLabel" Text="{DynamicResource product.altBarcodesLabel}"/>
-                                    <TextBlock Text="{DynamicResource product.altBarcodesWatermark}" FontSize="11"
+                                    <TextBlock Text="{DynamicResource product.altBarcodesWatermark}" FontSize="12"
                                                TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
 
                                     <Grid ColumnDefinitions="*,12,*,12,Auto" Margin="0,6,0,0">
@@ -460,13 +460,13 @@
                                         <TextBox Grid.Column="2" Text="{Binding VariantNameSuffix}"
                                                  Watermark="{DynamicResource product.variantNameWatermark}"/>
                                         <StackPanel Grid.Column="4" Spacing="4" Width="90">
-                                            <TextBlock Classes="FieldLabel" FontSize="11" Text="{DynamicResource product.variantQuantityLabel}"/>
+                                            <TextBlock Classes="FieldLabel" FontSize="12" Text="{DynamicResource product.variantQuantityLabel}"/>
                                             <TextBox Text="{Binding VariantQuantity}"/>
                                         </StackPanel>
                                     </Grid>
 
                                     <TextBlock Margin="0,2,0,0" TextWrapping="Wrap" IsVisible="{Binding HasVariantPreview}"
-                                               Text="{Binding VariantPreviewText}" FontSize="11"
+                                               Text="{Binding VariantPreviewText}" FontSize="12"
                                                Foreground="{DynamicResource BrushTextSoft}"/>
 
                                     <Button Classes="SecondaryButton" HorizontalAlignment="Left" Margin="0,4,0,0"
@@ -474,7 +474,7 @@
                                             Click="AddVariant_Click"/>
 
                                     <StackPanel Spacing="6" Margin="0,6,0,0" IsVisible="{Binding HasVariants}">
-                                        <TextBlock Text="{DynamicResource product.variantsListHeader}" FontSize="11"
+                                        <TextBlock Text="{DynamicResource product.variantsListHeader}" FontSize="12"
                                                    Foreground="{DynamicResource BrushTextSoft}"/>
                                         <ItemsControl ItemsSource="{Binding Variants}">
                                             <ItemsControl.ItemTemplate>
@@ -486,7 +486,7 @@
                                                         <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                                                             <StackPanel Grid.Column="0" IsVisible="{Binding !IsEditing}">
                                                                 <TextBlock Text="{Binding FullName}" FontWeight="Bold"/>
-                                                                <TextBlock Text="{Binding Barcode}" FontSize="11"
+                                                                <TextBlock Text="{Binding Barcode}" FontSize="12"
                                                                            Foreground="{DynamicResource BrushTextSoft}"/>
                                                             </StackPanel>
                                                             <Grid Grid.Column="0" ColumnDefinitions="*,8,*,8,80" IsVisible="{Binding IsEditing}">

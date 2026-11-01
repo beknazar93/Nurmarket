@@ -88,7 +88,7 @@
           <StackPanel Spacing="4">
             <TextBlock Text="{DynamicResource posSettings.screen.layoutMode}" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock Text="{DynamicResource posSettings.screen.layoutModeDesc}"
-                       FontSize="11.5" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" HorizontalAlignment="Left"/>
+                       FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" HorizontalAlignment="Left"/>
             <local:KassaLayoutPicker x:Name="LayoutPicker" Margin="0,8,0,0"/>
           </StackPanel>
         </Border>
@@ -122,7 +122,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.trueFullscreen}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.trueFullscreenDesc}"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="TrueFullscreenCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"/>
               </Grid>
@@ -133,7 +133,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.quickProducts}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.quickProductsDesc}"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="QuickProductsCheck" Classes="ToggleSwitch" VerticalAlignment="Top"
                           IsCheckedChanged="QuickProductsCheck_Changed"/>
@@ -145,7 +145,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.upsell}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.upsellDesc}"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="UpsellCheck" Classes="ToggleSwitch" VerticalAlignment="Top"
                           IsCheckedChanged="UpsellCheck_Changed"/>
@@ -156,7 +156,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock x:Name="PayDockText" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock x:Name="PayDockDesc"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                   <!-- 2026-10-30: окно оплаты можно перетащить за шапку; положение запоминается — кнопка возвращает обычное место. Подпись — в коде (Tr.T). -->
                   <Button x:Name="PayDockResetButton" Margin="0,6,0,0" Padding="10,4" FontSize="12" HorizontalAlignment="Left"
                           Click="PayDockResetButton_Click"/>
@@ -189,7 +189,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.lowPerfMode}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.lowPerfModeDesc}"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="LowPerformanceModeCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"/>
               </Grid>
@@ -203,7 +203,7 @@
                 <StackPanel Grid.Column="0">
                   <TextBlock Text="{DynamicResource posSettings.screen.showCatalogPhotos}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                   <TextBlock Text="{DynamicResource posSettings.screen.showCatalogPhotosDesc}"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 </StackPanel>
                 <CheckBox Grid.Column="1" x:Name="ShowCatalogPhotosCheck" x:FieldModifier="public" Classes="ToggleSwitch" VerticalAlignment="Top"/>
               </Grid>
@@ -226,7 +226,7 @@
               <StackPanel Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.screen.cashbox}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                 <TextBlock Text="{DynamicResource posSettings.screen.cashboxDesc}"
-                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" Margin="0,0,0,6"/>
+                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" Margin="0,0,0,6"/>
                 <Grid ColumnDefinitions="*,Auto">
                   <ComboBox x:Name="CashboxCombo" x:FieldModifier="public" Grid.Column="0" HorizontalAlignment="Stretch"/>
                   <Button x:Name="RefreshCashboxesButton" x:FieldModifier="public" Grid.Column="1" Content="↻"
@@ -237,7 +237,7 @@
               <StackPanel Spacing="6">
                 <TextBlock Text="{DynamicResource posSettings.screen.cashierLanguage}" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushText}"/>
                 <TextBlock Text="{DynamicResource posSettings.screen.appliesImmediately}"
-                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="480" HorizontalAlignment="Left"/>
+                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="480" HorizontalAlignment="Left"/>
                 <!-- WrapPanel вместо фиксированной сетки колонок — легко добавлять языки дальше,
                      не переверстывая раскладку (было только 2 языка, теперь 5). -->
                 <WrapPanel Orientation="Horizontal">
@@ -279,7 +279,7 @@
                              Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
                 </Grid>
                 <TextBlock Text="{DynamicResource posSettings.screen.uiScaleDesc}"
-                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 <Slider x:Name="UiScaleSlider" x:FieldModifier="public" Minimum="50" Maximum="200"
                         TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,4,0,0"
                         ValueChanged="UiScaleSlider_ValueChanged"/>
@@ -292,7 +292,7 @@
               <StackPanel Spacing="4">
                 <TextBlock Text="{DynamicResource posSettings.screen.compactLayout}" Classes="SettingsCardTitle" FontSize="14"/>
                 <TextBlock Text="{DynamicResource posSettings.screen.compactLayoutDesc}"
-                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 <WrapPanel Orientation="Horizontal" Margin="0,4,0,0">
                   <RadioButton x:Name="CompactAutoRadio" Margin="0,0,8,8" GroupName="CompactLayout" Classes="ClickPill"
                                Content="{DynamicResource posSettings.screen.compactAuto}" IsCheckedChanged="CompactLayoutRadio_Changed"/>
@@ -313,7 +313,7 @@
                              Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
                 </Grid>
                 <TextBlock Text="{DynamicResource posSettings.screen.tileSizeDesc}"
-                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
+                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Left"/>
                 <Slider x:Name="TileSizeSlider" Minimum="70" Maximum="160"
                         TickFrequency="10" IsSnapToTickEnabled="True" Margin="0,4,0,0"
                         ValueChanged="TileSizeSlider_ValueChanged"/>
@@ -379,7 +379,7 @@
             <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
               <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="{DynamicResource posSettings.screen.showInn}" FontSize="13" Foreground="{DynamicResource BrushText}"/>
-                <TextBlock Text="{DynamicResource posSettings.screen.showInnDesc}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+                <TextBlock Text="{DynamicResource posSettings.screen.showInnDesc}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
               </StackPanel>
               <CheckBox Grid.Column="1" x:Name="ShowInnCheck" x:FieldModifier="public"
                         Classes="ToggleSwitch" VerticalAlignment="Center"

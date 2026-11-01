@@ -774,9 +774,9 @@
   <x:String x:Key="posSettings.screen.appliesImmediately">Применяется сразу, без перезапуска кассы.</x:String>
   <x:String x:Key="posSettings.screen.langRussian">Русский</x:String>
   <x:String x:Key="posSettings.screen.langKyrgyz">Кыргызча</x:String>
-  <x:String x:Key="posSettings.screen.langTurkish">Турецкий</x:String>
-  <x:String x:Key="posSettings.screen.langUzbek">Узбекский</x:String>
-  <x:String x:Key="posSettings.screen.langEnglish">Английский</x:String>
+  <x:String x:Key="posSettings.screen.langTurkish">Türkçe</x:String>
+  <x:String x:Key="posSettings.screen.langUzbek">O'zbekcha</x:String>
+  <x:String x:Key="posSettings.screen.langEnglish">English</x:String>
   <x:String x:Key="posSettings.screen.languagePackHint">Английский, турецкий и узбекский — платный «Языковой пакет»: Маркетплейс → Доп. функции</x:String>
   <x:String x:Key="posSettings.screen.uiScale">Масштаб</x:String>
   <x:String x:Key="posSettings.screen.uiScaleDesc">Размер всех элементов на экране кассы — от 50% до 200%. Применяется сразу, без перезапуска.</x:String>

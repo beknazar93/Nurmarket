@@ -197,7 +197,7 @@ public partial class KnowledgeBaseWindow : Window, IOwnerSection
             var countText = new TextBlock
             {
                 Text = bySection.Count().ToString(System.Globalization.CultureInfo.InvariantCulture),
-                FontSize = 11.5,
+                FontSize = 12,
                 Margin = new Thickness(8, 0, 6, 0),
                 Foreground = Brush("BrushTextSoft"),
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,

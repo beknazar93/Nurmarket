@@ -357,10 +357,10 @@ internal sealed class ProductReceiptsView : UserControl
             $"Gösterilen {shown.Count} / {_data.Rows.Count}", $"Ko'rsatildi {shown.Count} / {_data.Rows.Count}"));
         if (_data.Offline)
             text.Add(_data.LoadedAt > DateTime.MinValue
-                ? T($"Нет связи с сервером — данные от {_data.LoadedAt:HH:mm}", $"Сервер менен байланыш жок — маалымат {_data.LoadedAt:HH:mm}", $"No connection — data from {_data.LoadedAt:HH:mm}",
-                    $"Bağlantı yok — veriler {_data.LoadedAt:HH:mm}", $"Aloqa yo'q — ma'lumot {_data.LoadedAt:HH:mm}")
-                : T("Нет связи с сервером — показаны только приёмки этой кассы", "Сервер менен байланыш жок — ушул кассанын кабыл алуулары гана көрсөтүлдү",
-                    "No connection — only this till's receiving is shown", "Bağlantı yok — yalnızca bu kasanın mal kabulleri gösteriliyor", "Aloqa yo'q — faqat shu kassaning qabullari ko'rsatilgan"));
+                ? T($"Сервер NurCRM недоступен — данные от {_data.LoadedAt:HH:mm}", $"NurCRM сервери жеткиликсиз — маалымат {_data.LoadedAt:HH:mm}", $"The NurCRM server is unavailable — data from {_data.LoadedAt:HH:mm}", // 2026-11-01 (В-08): единая фраза о сбое сервера
+                    $"NurCRM sunucusu kullanılamıyor — veriler {_data.LoadedAt:HH:mm}", $"NurCRM serveri mavjud emas — ma'lumot {_data.LoadedAt:HH:mm}")
+                : T("Сервер NurCRM недоступен — показаны только приёмки этой кассы", "NurCRM сервери жеткиликсиз — ушул кассанын кабыл алуулары гана көрсөтүлдү",
+                    "The NurCRM server is unavailable — only this till's receiving is shown", "NurCRM sunucusu kullanılamıyor — yalnızca bu kasanın mal kabulleri gösteriliyor", "NurCRM serveri mavjud emas — faqat shu kassaning qabullari ko'rsatilgan"));
         if (_data.Truncated)
             text.Add(T($"просмотрены первые {ProductReceiptsService.MaxPages * 100} приходов", $"алгачкы {ProductReceiptsService.MaxPages * 100} кирүү каралды",
                 $"first {ProductReceiptsService.MaxPages * 100} receipts scanned", $"ilk {ProductReceiptsService.MaxPages * 100} giriş tarandı", $"dastlabki {ProductReceiptsService.MaxPages * 100} kirim ko'rildi"));

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../core/shop_mode.dart';
 import 'package:dio/dio.dart' show DioMediaType, FormData, MultipartFile;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1189,6 +1190,8 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                   ),
                 ),
               ),
+            // 2026-10-31 (режим магазина): подсказка приёмки под режим — размеры / срок годности / единицы
+            _ModeReceiveBanner(mode: ref.watch(prefsProvider).shop, chosen: ref.watch(prefsProvider).shopChosen),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
               child: Row(
@@ -1239,6 +1242,8 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                                         : '${l.onStockLabel}: ${qtyText(line.before)} ${line.unit}',
                                     style: TextStyle(fontSize: 12, color: line.isNew || costUp ? T.warn : c.pal.textSoft),
                                   ),
+                                  // 2026-10-31 (одежда): у товара есть размеры и цвета — пометка и остаток по размерам (из базы телефона)
+                                  if (!line.isNew) _VariantsNote(productId: line.productId),
                                 ],
                               ),
                             ),
@@ -1318,6 +1323,67 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+/// 2026-10-31 (одежда): под названием товара в приёмке — «5 размеров/цветов · по размерам: 24». Только если размеры товара
+/// уже известны телефону (их подтягивает продажа и режим «Одежда»); приход по каждому размеру вносится на кассе или на сайте.
+class _VariantsNote extends ConsumerStatefulWidget {
+  final String productId;
+  const _VariantsNote({required this.productId});
+  @override
+  ConsumerState<_VariantsNote> createState() => _VariantsNoteState();
+}
+
+class _VariantsNoteState extends ConsumerState<_VariantsNote> {
+  late final Future<Map<String, ({int count, double qty})>> _f = ref.read(databaseProvider).variantSummary([widget.productId]);
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, ({int count, double qty})>>(
+    future: _f,
+    builder: (c, snap) {
+      final v = snap.data?[widget.productId];
+      if (v == null) return const SizedBox.shrink();
+      final l = c.l;
+      return Text(
+        '${l.variantsTile(v.count)} · ${qtyText(v.qty)} ${l.pkPcs}',
+        key: Key('recvVariants_${widget.productId}'),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.pal.price),
+      );
+    },
+  );
+}
+
+
+/// 2026-10-31 (режим магазина): строка-подсказка над приёмкой: одежда — размеры, продукты — срок годности и вес, хозтовары — единицы.
+class _ModeReceiveBanner extends StatelessWidget {
+  final ShopMode mode;
+  final bool chosen;
+  const _ModeReceiveBanner({required this.mode, required this.chosen});
+  @override
+  Widget build(BuildContext context) {
+    if (!chosen || mode == ShopMode.services) return const SizedBox.shrink();
+    final l = context.l;
+    final text = switch (mode) {
+      ShopMode.clothing => l.recvModeClothing,
+      ShopMode.grocery => l.recvModeGrocery,
+      _ => l.recvModeHardware,
+    };
+    return Container(
+      key: const Key('recvModeBanner'),
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(color: mode.accent.withValues(alpha: 0.09), borderRadius: BorderRadius.circular(12), border: Border.all(color: mode.accent.withValues(alpha: 0.45))),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(mode.icon, size: 18, color: mode.accent),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 12.5))),
+        ],
       ),
     );
   }

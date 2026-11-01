@@ -435,7 +435,7 @@ public sealed class InvoiceImportWindow : Window
         var main = new TextBlock { FontSize = 13.5, TextTrimming = TextTrimming.CharacterEllipsis };
         main.Bind(TextBlock.TextProperty, new Binding("Line.ProductName"));
         main.Bind(TextBlock.ForegroundProperty, main.GetResourceObservable("BrushText"));
-        var sub = new TextBlock { FontSize = 11.5, TextTrimming = TextTrimming.CharacterEllipsis };
+        var sub = new TextBlock { FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis };
         sub.Bind(TextBlock.TextProperty, new Binding("SubText"));
         sub.Bind(Visual.IsVisibleProperty, new Binding("HasSubText"));
         sub.Bind(TextBlock.ForegroundProperty, sub.GetResourceObservable("BrushTextSoft"));

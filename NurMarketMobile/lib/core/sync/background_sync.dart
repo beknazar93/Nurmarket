@@ -118,7 +118,7 @@ class BackgroundSync {
       // 2026-10-30 (оптимизация, п. 14): считаются только записи этого входа — чужие под ним не уходят и повтор не вызывают
       final me = OutboxMeta.ownerOf(session);
       final legacy = await db.getSetting(OutboxMeta.legacyOwnerSetting);
-      Future<int> mine() async => (await db.pending()).where((r) => OutboxMeta.belongsTo(r, me, legacyOwner: legacy)).length;
+      Future<int> mine() => db.pendingCountFor(me, legacyOwner: legacy); // 2026-11-01 (М-07): счёт в SQL
       final before = await mine();
       if (before == 0) return true;
       final api = ApiClient(store)..attach(session);

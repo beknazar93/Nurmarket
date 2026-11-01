@@ -123,26 +123,8 @@ internal sealed class PosixPrinterTransport : IPlatformPrinterTransport
 
     // ---------------- запись ----------------
 
-    private static (string Host, int Port) ParseTcp(string port)
-    {
-        var rest = port;
-        var colon0 = rest.IndexOf(':');
-        if (rest.StartsWith("TCP:", StringComparison.OrdinalIgnoreCase) || rest.StartsWith("NET:", StringComparison.OrdinalIgnoreCase)
-            || rest.StartsWith("IP:", StringComparison.OrdinalIgnoreCase))
-            rest = rest[(colon0 + 1)..];
-        rest = rest.Trim().TrimStart('/');
-        var host = rest;
-        var tcpPort = DefaultTcpPort;
-        var colon = rest.LastIndexOf(':');
-        if (colon > 0 && int.TryParse(rest[(colon + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out var p) && p is > 0 and < 65536)
-        {
-            host = rest[..colon];
-            tcpPort = p;
-        }
-        if (string.IsNullOrWhiteSpace(host))
-            throw new InvalidOperationException(Tr.T("Не указан адрес сетевого принтера (TCP:адрес).", "Тармактык принтердин дареги көрсөтүлгөн эмес (TCP:дарек).", "Network printer address is missing (TCP:address).", "Ağ yazıcısının adresi belirtilmedi (TCP:adres).", "Tarmoq printeri manzili ko'rsatilmagan (TCP:manzil)."));
-        return (host.ToLowerInvariant(), tcpPort);
-    }
+    // 2026-11-01: разбор адреса — общий для Windows/Linux/Android (NetworkPrinterAddress в Infrastructure).
+    private static (string Host, int Port) ParseTcp(string port) => NetworkPrinterAddress.ParseOrThrow(port);
 
     private static void WriteTcp(string port, byte[] payload, TimeSpan timeout)
     {

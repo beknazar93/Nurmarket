@@ -2167,6 +2167,46 @@ class AppLocalizationsRu extends AppLocalizations {
   String get kindSale => 'Продажа';
 
   @override
+  String get prevSaleMayPass =>
+      'Прошлая оплата не закончилась — тот чек мог пройти. Проверьте раздел «Чеки», прежде чем платить заново.';
+
+  @override
+  String get pdHasHistory =>
+      'Товар нельзя удалить — по нему есть документы (продажи, приходы). Отправить его в архив? Из продажи он пропадёт, история останется.';
+
+  @override
+  String get pdToArchive => 'В архив';
+
+  @override
+  String get pdArchived => 'Товар отправлен в архив';
+
+  @override
+  String pricesPartlyUnchecked(int n) {
+    return 'Цены не сверены с сервером по товарам: $n — они могут быть устаревшими.';
+  }
+
+  @override
+  String get kindBonus => 'Бонусы клиента';
+
+  @override
+  String get bonusQueued =>
+      'Бонусы клиента не записались сразу — отправятся сами, когда появится связь';
+
+  @override
+  String payReceivedHuge(String change) {
+    return 'Сдача $change сом — верно? Проверьте сумму в поле «Получено».';
+  }
+
+  @override
+  String get apiSaleTooOld =>
+      'Чек старше 7 суток: сервер не принимает его без подтверждения владельца. Не снимайте чек, сообщите владельцу.';
+
+  @override
+  String staleSalesBanner(int n) {
+    return 'В очереди чеков старше 5 суток: $n. Через 7 суток сервер перестаёт принимать их без подтверждения владельца — подключите телефон к сети как можно скорее.';
+  }
+
+  @override
   String get admin => 'Управление';
 
   @override
@@ -6774,4 +6814,371 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get pbNoPhone => 'Телефон не указан';
+
+  @override
+  String get shopModeTitle => 'Режим магазина';
+
+  @override
+  String get shopModeSub =>
+      'Как в кассе: «Сфера магазина». От режима зависит вид продажи и каталога';
+
+  @override
+  String get shopModeGrocery => 'Продукты';
+
+  @override
+  String get shopModeGrocerySub => 'Весы и весовые товары, быстрые продажи';
+
+  @override
+  String get shopModeClothing => 'Одежда и обувь';
+
+  @override
+  String get shopModeClothingSub =>
+      'Размеры и цвета при продаже, штрихкод размера, остаток по размеру';
+
+  @override
+  String get shopModeServices => 'Услуги';
+
+  @override
+  String get shopModeServicesSub => 'Салон, ремонт, прокат: услуги без остатка';
+
+  @override
+  String get shopModeHardware => 'Хозтовары и стройматериалы';
+
+  @override
+  String get shopModeHardwareSub => 'Метры, килограммы, мешки и коробки';
+
+  @override
+  String shopModeOn(String name) {
+    return 'Режим «$name» включён';
+  }
+
+  @override
+  String get shopModeSavedAll =>
+      'Сохранено для всей компании: кассы и телефоны перестроятся при следующем входе.';
+
+  @override
+  String get shopModePhoneOnly =>
+      'Только на этом телефоне: для всей компании режим меняет владелец.';
+
+  @override
+  String get clothingHintTitle =>
+      'В каталоге есть товары с размерами и цветами';
+
+  @override
+  String get clothingHintAsk =>
+      'Включить режим «Одежда»? Размеры будут на плитках и при сканировании.';
+
+  @override
+  String get clothingHintYes => 'Включить';
+
+  @override
+  String get clothingHintNo => 'Не нужно';
+
+  @override
+  String variantsTile(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n размера/цвета',
+      many: '$n размеров/цветов',
+      few: '$n размера/цвета',
+      one: '$n размер/цвет',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String variantPickLeft(String qty) {
+    return 'ост. $qty';
+  }
+
+  @override
+  String variantPickInCheck(String qty) {
+    return 'В чеке: $qty';
+  }
+
+  @override
+  String get variantPickNone => 'Нет в наличии';
+
+  @override
+  String get variantPickAllOut => 'Все размеры этого товара закончились.';
+
+  @override
+  String get variantPickUpdating => 'Обновляем остатки…';
+
+  @override
+  String get variantPickStale => 'Остатки с телефона — без связи';
+
+  @override
+  String variantNoMore(String qty) {
+    return 'Больше нет: остаток этого размера — $qty';
+  }
+
+  @override
+  String get variantLoadFailed =>
+      'Размеры товара не загрузились — нет связи. Повторите, когда появится интернет.';
+
+  @override
+  String variantScanOut(String label) {
+    return '$label: нет в наличии';
+  }
+
+  @override
+  String variantScanInactive(String label) {
+    return '$label: размер отключён';
+  }
+
+  @override
+  String get variantInactiveHidden => 'Отключённые размеры не показываются.';
+
+  @override
+  String catalogLoadingProgress(int done, int total) {
+    return 'Загружаем каталог… $done из $total';
+  }
+
+  @override
+  String catalogLoadingNoTotal(int done) {
+    return 'Загружаем каталог… $done';
+  }
+
+  @override
+  String catalogIncomplete(int done, int total) {
+    return 'Загружено $done из $total товаров — часть каталога ещё не на телефоне. Загрузка продолжится сама; можно нажать «Обновить каталог».';
+  }
+
+  @override
+  String get catalogIncompleteNoTotal =>
+      'Каталог загружен не полностью. Загрузка продолжится сама; можно нажать «Обновить каталог».';
+
+  @override
+  String get catalogRefresh => 'Обновить каталог';
+
+  @override
+  String catalogRefreshed(int n) {
+    return 'Каталог обновлён: $n товаров';
+  }
+
+  @override
+  String stockCountShown(int shown, int total) {
+    return 'Показано $shown из $total';
+  }
+
+  @override
+  String stockCountAll(int total) {
+    return 'Товаров: $total';
+  }
+
+  @override
+  String get shopModeNotChosen => 'Не выбран';
+
+  @override
+  String get shopModeChoose => 'Выбрать режим магазина';
+
+  @override
+  String get shopSearchGrocery => 'Название, штрихкод, PLU';
+
+  @override
+  String get shopSearchClothing => 'Название, код размера';
+
+  @override
+  String get shopSearchServices => 'Название услуги';
+
+  @override
+  String get shopSearchHardware => 'Название, артикул';
+
+  @override
+  String get shopEmptyGrocery =>
+      'Ничего не найдено. Весовой товар ищется по названию или коду весов (PLU).';
+
+  @override
+  String get shopEmptyClothing =>
+      'Ничего не найдено. Размеры и цвета видны у товара после открытия или скана штрихкода размера.';
+
+  @override
+  String get shopEmptyServices =>
+      'Услуг не найдено. Услуги заводятся на сайте или на кассе.';
+
+  @override
+  String get shopEmptyHardware =>
+      'Ничего не найдено. Ищите по названию, артикулу или штрихкоду; единицы — м, м², упаковки.';
+
+  @override
+  String get tileSizes => 'Размеры и цвета';
+
+  @override
+  String get tileSizesSub => 'Остатки по размерам';
+
+  @override
+  String get tileWeighed => 'Весовые товары';
+
+  @override
+  String get tileWeighedSub => 'Цена за кг, вес с весов';
+
+  @override
+  String get tileExpiry => 'Сроки годности';
+
+  @override
+  String get tileExpirySub => 'Что скоро испортится';
+
+  @override
+  String get tileUnits => 'Метры и упаковки';
+
+  @override
+  String get tileUnitsSub => 'Единицы и наборы';
+
+  @override
+  String get tileReceive => 'Приёмка';
+
+  @override
+  String get tileReceiveSub => 'Принять товар';
+
+  @override
+  String get tileStockSub => 'Склад и остатки';
+
+  @override
+  String get tileRentalsSub => 'Выдача и возврат';
+
+  @override
+  String get tileDebtsSub => 'Кто должен';
+
+  @override
+  String get stockFilterSizes => 'Только с размерами';
+
+  @override
+  String get stockFilterWeight => 'Только весовые';
+
+  @override
+  String get stockFilterExpiry => 'Срок годности близко';
+
+  @override
+  String get stockFilterUnits => 'Не штуки: м, м², упаковки';
+
+  @override
+  String get stockFilterClear => 'Сбросить';
+
+  @override
+  String expiryBadge(String date) {
+    return 'до $date';
+  }
+
+  @override
+  String expirySoonToast(String name, String date) {
+    return '$name: срок годности до $date';
+  }
+
+  @override
+  String get sizesScreenTitle => 'Размеры и цвета';
+
+  @override
+  String get sizesEmpty =>
+      'Товаров с размерами пока нет. Откройте товар в продаже или отсканируйте штрихкод размера — размеры подтянутся.';
+
+  @override
+  String sizesTotal(String qty) {
+    return 'Всего: $qty';
+  }
+
+  @override
+  String get cardSizesTitle => 'Размеры и цвета';
+
+  @override
+  String get cardSizesNone =>
+      'Размеры этого товара ещё не загружены или их нет.';
+
+  @override
+  String get cardWeightTitle => 'Весовой товар';
+
+  @override
+  String cardWeightInfo(String unit, String plu) {
+    return 'Цена за $unit. Код для весов (PLU): $plu';
+  }
+
+  @override
+  String get cardNoPlu => 'не задан';
+
+  @override
+  String get cardExpiryTitle => 'Срок годности';
+
+  @override
+  String get cardExpiryNone => 'Не указан (его вносят на кассе или на сайте)';
+
+  @override
+  String get cardUnitTitle => 'Единица измерения';
+
+  @override
+  String cardUnitInfo(String unit) {
+    return 'Продаётся в: $unit';
+  }
+
+  @override
+  String get recvModeClothing =>
+      'Одежда: остаток по каждому размеру вносится на кассе или на сайте; у товара с размерами здесь видно, сколько их.';
+
+  @override
+  String get recvModeGrocery =>
+      'Продукты: проверьте срок годности партии — дату вносят на кассе или на сайте. Весовой товар принимается в кг.';
+
+  @override
+  String get recvModeHardware =>
+      'Хозтовары: количество — в единицах товара (м, м², упаковки); единица показана у каждой строки.';
+
+  @override
+  String updAvailable(String version) {
+    return 'Доступна версия $version';
+  }
+
+  @override
+  String get updUpdate => 'Обновить';
+
+  @override
+  String get updLater => 'Позже';
+
+  @override
+  String get updWhatsNew => 'Что нового';
+
+  @override
+  String get updNoNotes => 'Описание не указано.';
+
+  @override
+  String get updVersionTitle => 'Версия приложения';
+
+  @override
+  String updVersionIs(String version) {
+    return 'Установлена $version';
+  }
+
+  @override
+  String get updCheck => 'Проверить обновления';
+
+  @override
+  String get updChecking => 'Проверяем…';
+
+  @override
+  String get updUpToDate => 'Установлена последняя версия';
+
+  @override
+  String get updCheckFailed =>
+      'Не удалось проверить обновления. Проверьте интернет.';
+
+  @override
+  String updDownloading(int percent) {
+    return 'Скачиваем обновление… $percent%';
+  }
+
+  @override
+  String get updDownloadFailed =>
+      'Не удалось скачать обновление. Проверьте интернет и попробуйте ещё раз.';
+
+  @override
+  String get updCancel => 'Отмена';
+
+  @override
+  String get updPermTitle => 'Разрешите установку';
+
+  @override
+  String get updPermBody =>
+      'Чтобы обновить NurCRM, разрешите приложению устанавливать обновления: включите переключатель на открывшемся экране, вернитесь сюда и нажмите «Обновить» ещё раз.';
+
+  @override
+  String get updOpenSettings => 'Открыть настройки';
 }

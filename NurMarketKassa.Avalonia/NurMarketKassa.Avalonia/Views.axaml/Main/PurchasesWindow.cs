@@ -32,6 +32,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
     internal static string Q(double v) => v.ToString("0.###", Ru);
 
     private readonly SupplierApiService _svc;
+    private bool _canDelete; // 2026-10-31: кнопка «Удалить» в истории приходов — есть право и сервер объявил receipt_delete
     private readonly Panel _host = new();
     private readonly Grid _main = new() { Margin = new Thickness(24, 16, 24, 20), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto,Auto,*") };
     private readonly TextBlock _title = new() { FontSize = 22, FontWeight = FontWeight.Bold, Margin = new Thickness(0, 0, 0, 8) };
@@ -456,6 +457,9 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             return;
         }
         ApplyRegistryMode();
+        // 2026-10-31: «Удалить» приход — владельцу и сотруднику с правом can_unpost_documents; только если сервер умеет (receipt_delete, ТЗ п. 30).
+        _canDelete = App.AuthApi is { } delAuth && PermissionService.CanDeletePurchaseDocuments(delAuth.UserPayload)
+                     && await _svc.CanDeleteReceiptsAsync().ConfigureAwait(true);
         _rows.Children.Clear();
         _more.IsVisible = false;
         ApplyHead();
@@ -707,7 +711,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         }
         // Колонка кнопки строки — той же ширины, что кнопка (шапка ровно над столбцами).
         if (_head.Children.LastOrDefault() is TextBlock last)
-            last.MinWidth = _tab == "returns" ? 0 : 112;
+            last.MinWidth = _tab == "returns" ? 0 : _tab == "history" && _canDelete ? 224 : 112; // 2026-10-31: + «Удалить»
     }
 
     private void Render()
@@ -835,7 +839,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
     // ------------------------------------------------------------------ строки
 
     /// <summary>Строка: данные — кнопкой во всю ширину (щелчок, Tab+Enter — подробности), справа отдельная кнопка действия.</summary>
-    private Control RowShell(Grid data, string accessibleName, Action open, Button? action)
+    private Control RowShell(Grid data, string accessibleName, Action open, Control? action)
     {
         var row = new Button { Content = data };
         row.Classes.Add("pur-row");
@@ -924,7 +928,16 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             ToolTip.SetTip(action, T("В этом приходе нет позиций — возвращать нечего.", "Бул кирүүдө позиция жок — кайтарууга эч нерсе жок.", "This delivery has no items — nothing to return.",
                 "Bu girişte kalem yok — iade edilecek bir şey yok.", "Bu kirimda pozitsiya yo'q — qaytariladigan narsa yo'q."));
         action.Click += async (_, _) => await ReturnAsync(r.SupplierId, r.Id).ConfigureAwait(true);
-        var shell = RowShell(g, $"{number}, {r.SupplierName}, {r.CreatedAt:dd.MM.yyyy}, {MoneyText.Som(r.Total)}", () => _ = ShowReceiptAsync(r), action);
+        Control rowAction = action;
+        if (_canDelete)
+        {
+            // 2026-10-31: рядом с «Вернуть» — «Удалить» (аннулирование прихода на сервере, с причиной и подтверждением).
+            var del = RowAction(T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"), T("Удалить этот приход", "Бул кирүүнү өчүрүү", "Delete this delivery", "Bu girişi sil", "Bu kirimni o'chirish"));
+            del.Margin = new Thickness(8, 0, 0, 0);
+            del.Click += async (_, _) => await DeleteReceiptAsync(r, number).ConfigureAwait(true);
+            rowAction = new StackPanel { Orientation = Orientation.Horizontal, Children = { action, del } };
+        }
+        var shell = RowShell(g, $"{number}, {r.SupplierName}, {r.CreatedAt:dd.MM.yyyy}, {MoneyText.Som(r.Total)}", () => _ = ShowReceiptAsync(r), rowAction);
         PurchaseNumberUi.AttachCopyMenu(shell, number);
         return shell;
     }
@@ -1184,6 +1197,63 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
     }
 
     private SupplierInfo? SupplierById(string? id) => string.IsNullOrEmpty(id) ? null : _filterSupplier.All.FirstOrDefault(s => s.Id == id);
+
+    private readonly Dictionary<string, PendingIdempotencyKey> _deleteKeys = new(); // 2026-11-01: ключи повтора удаления прихода (по id накладной)
+
+    /// <summary>2026-10-31: «Удалить» приход — подтверждение, причина (5–500 знаков, как у правки), DELETE suppliers/receipts/{id}/.
+    /// Отказ сервера (есть продажи после прихода, возвраты, оплаченный долг, нет права) показывается его текстом.</summary>
+    private async Task DeleteReceiptAsync(SupplierReceipt r, string number)
+    {
+        var ask = T($"Удалить приход {number} от {r.SupplierName} на {MoneyText.Som(r.Total)}?\n\nОстаток по его позициям спишется, долг поставщику по нему отменится. Если после прихода были продажи этих товаров, возврат поставщику или оплата долга — сервер откажет.",
+            $"{number} кирүүсүн ({r.SupplierName}, {MoneyText.Som(r.Total)}) өчүрөсүзбү?\n\nПозициялар боюнча калдык алынат, жеткирүүчүгө карыз жокко чыгат. Кирүүдөн кийин сатуу, жеткирүүчүгө кайтаруу же карызды төлөө болсо — сервер четке кагат.",
+            $"Delete delivery {number} from {r.SupplierName} for {MoneyText.Som(r.Total)}?\n\nStock for its items will be written off and the supplier debt cancelled. If those goods were sold, returned to the supplier or the debt was paid after the delivery, the server will refuse.",
+            $"{number} girişi ({r.SupplierName}, {MoneyText.Som(r.Total)}) silinsin mi?\n\nKalemlerin stoku düşülür, tedarikçi borcu iptal edilir. Girişten sonra satış, tedarikçiye iade veya borç ödemesi olduysa sunucu reddeder.",
+            $"{number} kirimi ({r.SupplierName}, {MoneyText.Som(r.Total)}) o'chirilsinmi?\n\nPozitsiyalar qoldig'i yechiladi, yetkazib beruvchiga qarz bekor qilinadi. Kirimdan keyin sotuv, qaytarish yoki qarz to'lovi bo'lsa — server rad etadi.");
+        if (await PosMessageBox.ShowModalAsync(this, ask, T("Удаление прихода", "Кирүүнү өчүрүү", "Delete delivery", "Girişi sil", "Kirimni o'chirish"),
+                MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                confirmText: T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"), cancelText: T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+                danger: true).ConfigureAwait(true) != MessageBoxResult.Yes)
+            return;
+
+        var input = new SimpleInputDialog(T("Причина удаления", "Өчүрүү себеби", "Reason for deletion", "Silme nedeni", "O'chirish sababi"),
+            T("Причина (от 5 знаков):", "Себеп (5 белгиден):", "Reason (at least 5 characters):", "Neden (en az 5 karakter):", "Sabab (kamida 5 belgi):"),
+            confirmText: T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"));
+        if (!await input.ShowDialog<bool>(this).ConfigureAwait(true))
+            return;
+        var reason = input.Result.Trim();
+        if (reason.Length is < 5 or > 500)
+        {
+            await PosMessageBox.ShowModalAsync(this,
+                T("Причина должна быть от 5 до 500 знаков. Приход не удалён.", "Себеп 5тен 500 белгиге чейин болушу керек. Кирүү өчүрүлгөн жок.",
+                    "The reason must be 5 to 500 characters. The delivery was not deleted.", "Neden 5 ile 500 karakter arasında olmalı. Giriş silinmedi.",
+                    "Sabab 5 dan 500 belgigacha bo'lishi kerak. Kirim o'chirilmadi."),
+                T("Удаление прихода", "Кирүүнү өчүрүү", "Delete delivery", "Girişi sil", "Kirimni o'chirish"), MessageBoxButton.OK, MessageBoxImage.Warning).ConfigureAwait(true);
+            return;
+        }
+
+        try
+        {
+            // 2026-11-01 (код-ревью): один ключ на накладную, пока нет ответа по существу (PendingIdempotencyKey): повтор после тайм-аута не даст ложный 404/409.
+            if (!_deleteKeys.TryGetValue(r.Id, out var deleteKey))
+                _deleteKeys[r.Id] = deleteKey = new PendingIdempotencyKey();
+            var deleteKeyValue = deleteKey.Get(r.Id + "|" + reason);
+            await _svc.DeleteReceiptAsync(r.Id, reason, deleteKeyValue).ConfigureAwait(true);
+            deleteKey.OnSuccess();
+            PosLogger.Log($"Закупки: приход {number} ({r.Id}) удалён, причина: {reason}.", "INFO");
+            await ReloadAsync().ConfigureAwait(true);
+            if (_tab == "registry")
+                _registry?.Reload();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            if (_deleteKeys.TryGetValue(r.Id, out var failedKey))
+                failedKey.OnError(ex); // исход неизвестен (тайм-аут, 5xx) — ключ остаётся для повтора; отказ по существу — забыт
+            PosLogger.Log($"Закупки: приход {number} ({r.Id}) не удалён: {ex.Message}", "WARNING");
+            await PosMessageBox.ShowModalAsync(this,
+                T("Приход не удалён: ", "Кирүү өчүрүлгөн жок: ", "The delivery was not deleted: ", "Giriş silinmedi: ", "Kirim o'chirilmadi: ") + ex.Message,
+                T("Удаление прихода", "Кирүүнү өчүрүү", "Delete delivery", "Girişi sil", "Kirimni o'chirish"), MessageBoxButton.OK, MessageBoxImage.Warning).ConfigureAwait(true);
+        }
+    }
 
     /// <summary>«Вернуть» в строке / «Возврат поставщику» наверху — окно возврата «Возвратов поставщикам» (с этим поставщиком и приходом).</summary>
     private async Task ReturnAsync(string? supplierId, string? receiptId)

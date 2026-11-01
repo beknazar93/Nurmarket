@@ -626,7 +626,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             Title = toWord
                 ? Tr.T("Сохранить журнал в Word", "Журналды Word форматында сактоо", "Save the log to Word", "Günlüğü Word olarak kaydet", "Jurnalni Word formatida saqlash")
                 : Tr.T("Сохранить журнал в Excel", "Журналды Excel форматында сактоо", "Save the log to Excel", "Günlüğü Excel olarak kaydet", "Jurnalni Excel formatida saqlash"),
-            SuggestedFileName = StockTransferExportService.SuggestJournalFileName(UserPreferences.Instance.StoreName, extension),
+            SuggestedFileName = StockTransferExportService.SuggestJournalFileName(ReportShopName.Current, extension), // 2026-11-01 (Ж-16): в программе владельца — название компании NurCRM, не «Market»
             FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
         });
 
@@ -639,7 +639,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             var search = MovementsSearchBox?.Text?.Trim() ?? "";
             var status = _transferStatusFilter;
             var transfers = StockTransferService.Instance.LoadTransfers(search, status);
-            var shop = UserPreferences.Instance.StoreName;
+            var shop = ReportShopName.Current;
 
             await Task.Run(() =>
             {
@@ -1225,18 +1225,29 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         });
     }
 
+    /// <summary>«Этикетка…» — прежнее окно с предпросмотром, копиями и выбором принтера (право «Печать штрих-кодов» проверяется).</summary>
     private async void PrintLabel_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: CatalogProductTileVm product })
             return;
 
-        var dialog = new LabelPrintDialog(product);
-        await dialog.ShowDialog(this).ConfigureAwait(true);
+        await QuickLabelPrint.OpenWindowAsync(this, product).ConfigureAwait(true);
+    }
+
+    /// <summary>2026-11-01: значок «🏷» и пункт меню «Печать этикетки» — этикетка сразу на принтер этикеток, без окна (QuickLabelPrint).</summary>
+    private async void QuickLabel_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: CatalogProductTileVm product })
+            return;
+
+        await QuickLabelPrint.RunAsync(this, product).ConfigureAwait(true);
     }
 
     private async void PrintPriceTag_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: CatalogProductTileVm product })
+            return;
+        if (!BarcodePrintAccess.Ensure(this)) // 2026-11-01 (П-10)
             return;
         if (!EnsurePriceTagEditorUnlocked())
             return;
@@ -1249,6 +1260,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
 
     private async void BulkPriceTag_Click(object? sender, RoutedEventArgs e)
     {
+        if (!BarcodePrintAccess.Ensure(this)) // 2026-11-01 (П-10)
+            return;
         if (!EnsureBulkPriceTagUnlocked())
             return;
 

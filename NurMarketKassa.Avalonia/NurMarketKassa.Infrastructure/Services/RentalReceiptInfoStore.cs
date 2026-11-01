@@ -41,8 +41,8 @@ public static class RentalReceiptInfoStore
                     all.Remove(old);
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-                File.WriteAllText(FilePath, JsonSerializer.Serialize(all.Values.ToList()));
+                // 2026-11-01 (аудит 10 из 10, Н-07): запись через AtomicFile — обрыв питания не оставляет полфайла.
+                AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(all.Values.ToList()));
             }
             catch (Exception ex)
             {
@@ -64,8 +64,8 @@ public static class RentalReceiptInfoStore
         _cache = new Dictionary<int, RentalReceiptInfo>();
         try
         {
-            if (File.Exists(FilePath))
-                foreach (var info in JsonSerializer.Deserialize<List<RentalReceiptInfo>>(File.ReadAllText(FilePath)) ?? new())
+            if (AtomicFile.ReadAllText(FilePath) is { } text) // 2026-11-01 (Н-07): битый файл — из копии .bak
+                foreach (var info in JsonSerializer.Deserialize<List<RentalReceiptInfo>>(text) ?? new())
                     _cache[info.Number] = info;
         }
         catch (Exception ex)

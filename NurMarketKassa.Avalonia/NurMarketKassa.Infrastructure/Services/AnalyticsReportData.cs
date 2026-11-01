@@ -18,6 +18,11 @@ public sealed class AnalyticsReportData
 
     public double Revenue { get; init; }
     public double Discounts { get; init; }
+
+    /// <summary>2026-11-01 (В-03, аудит «10 из 10»): цифры сервера есть, а сумму скидок дочитать не удалось (чеков больше предела страниц
+    /// или сбой посреди чтения) — «Скидки» в выгрузке неполные, и файл так и подписывает; раньше на 100 000 чеков молча выходил 0.</summary>
+    public bool DiscountsIncomplete { get; init; }
+
     public double PointsRedeemed { get; init; }
     public double Returns { get; init; }
     public double WriteOffs { get; init; }
@@ -161,6 +166,9 @@ public sealed class AnalyticsReportData
         /// любой кассы); null — не считали.</summary>
         public double? Discounts { get; init; }
 
+        /// <summary>2026-11-01 (В-03): запрос был полным (с чтением скидок); тогда <c>Discounts == null</c> значит «не дочитали».</summary>
+        public bool Full { get; init; }
+
         /// <summary>Все проданные за период товары (top_by_revenue без ограничения числа строк).</summary>
         public IReadOnlyList<Product> Products { get; init; } = [];
 
@@ -253,6 +261,7 @@ public sealed class AnalyticsReportData
                 Returns = returns,
                 ByDay = byDay.OrderBy(d => d.Day).ToList(),
                 Discounts = await SumDiscountsAsync(api, from, to, ct).ConfigureAwait(false),
+                Full = true,
                 Products = products,
                 Categories = categories,
                 Brands = brands,
@@ -271,10 +280,20 @@ public sealed class AnalyticsReportData
             // историю кассы). Упёрлись в предел — сумма неполная: null (в отчёте — локальная цифра
             // и запись в журнале), а не заниженная «сумма за период».
             const int pageSize = 500;
-            const int maxPages = 100;
+            // 2026-11-01 (В-03, аудит «10 из 10»): предел был 100 страниц (50 000 чеков) — на 100 000 чеков «Скидки за год» молча
+            // выходили 0 (локальная история владельца пуста). Поднят до 300 страниц (150 000 чеков, ~1 мин при трёх страницах разом);
+            // упёрлись и в него — null, и выгрузка подписывает «данные неполные».
+            const int maxPages = 300;
             const int parallelPages = 3;
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var sum = 0.0;
+            // 2026-11-01 (приёмка, В-03): у скидок свой срок (100 с). Отмена по сроку ловится ЗДЕСЬ: иначе она поднималась до BuildAsync,
+            // весь серверный отчёт становился null, и выгрузка строилась по пустой локальной истории владельца. Теперь — отчёт без скидок
+            // (null → DiscountsIncomplete, «данные неполные»), остальное не падает.
+            var callerCt = ct;
+            using var own = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            own.CancelAfter(TimeSpan.FromSeconds(100));
+            ct = own.Token;
             try
             {
                 for (var first = 1; first <= maxPages; first += parallelPages)
@@ -305,7 +324,13 @@ public sealed class AnalyticsReportData
                 PosLogger.Log($"Аналитика: скидки {from:dd.MM.yyyy}–{to:dd.MM.yyyy} не посчитаны — больше {maxPages * pageSize} чеков.", "WARNING");
                 return null;
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (OperationCanceledException) when (!callerCt.IsCancellationRequested)
+            {
+                // 2026-11-01 (code-review): ловим только собственный срок 100 с; отмену вызывающего (закрыли окно, сменили период) пробрасываем.
+                PosLogger.Log($"Аналитика: скидки {from:dd.MM.yyyy}–{to:dd.MM.yyyy} не дочитаны за отведённое время — в отчёте «данные неполные».", "WARNING");
+                return null;
+            }
+            catch (Exception ex)
             {
                 PosLogger.Log($"Аналитика: скидки периода с сервера не получены: {ex.Message}", "WARNING");
                 return null;
@@ -370,6 +395,13 @@ public sealed class AnalyticsReportData
                 PosLogger.Log($"Аналитика: сервер недоступен ({ex.Message}) — считаю по истории кассы.", "WARNING");
                 serverFailed = true;
             }
+        }
+        else
+        {
+            // 2026-11-01 (В-27, аудит «10 из 10»): сервер не спрашивали (авария сервера или касса без связи) — данные только локальные.
+            // В программе владельца истории продаж нет, и раздел писал «продаж нет»; теперь при пустых срезах он покажет
+            // «Сервер недоступен / Повторить».
+            serverFailed = true;
         }
 
         var built = await Task.Run(() => Build(fromLocal, toLocal, includeSeasonality, server), ct).ConfigureAwait(false);
@@ -440,6 +472,7 @@ public sealed class AnalyticsReportData
             Discounts = server?.Discounts is { } serverDiscounts
                 ? Math.Max(0, serverDiscounts - adjustments.PointsRedeemed)
                 : adjustments.Discounts,
+            DiscountsIncomplete = server is { Full: true, Discounts: null },
             PointsRedeemed = adjustments.PointsRedeemed,
             Returns = server?.Returns ?? Event(ShiftEventsStore.KindReturn),
             WriteOffs = Event(ShiftEventsStore.KindWriteOff),

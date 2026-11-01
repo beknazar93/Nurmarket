@@ -251,7 +251,8 @@ public static partial class PriceTagService
 
     public static LabelPrintResult Print(PriceTagPrintRequest request) => request.Target switch
     {
-        PriceTagPrintTarget.Thermal => PrintThermal(request),
+        // 2026-11-01: очередь принтера этикеток — своя, не общая с чеками.
+        PriceTagPrintTarget.Thermal => LabelPrinterSelector.RunQueued(request.PrinterName, () => PrintThermal(request)),
         PriceTagPrintTarget.A4 => PrintA4(request),
         _ => LabelPrintResult.Failed,
     };
@@ -414,7 +415,7 @@ public static partial class PriceTagService
         var index = 0;
         var doc = new PrintDocument();
         doc.PrinterSettings.PrinterName = printerName;
-        doc.DefaultPageSettings.PaperSize = new PaperSize("A4", (int)(pageWidthMm / 25.4 * 100), (int)(pageHeightMm / 25.4 * 100));
+        doc.DefaultPageSettings.PaperSize = A4SheetService.ResolveA4Paper(doc, (int)(pageWidthMm / 25.4 * 100), (int)(pageHeightMm / 25.4 * 100));
         doc.DefaultPageSettings.Margins = new Margins(0, 0, 0, 0);
 
         doc.PrintPage += (_, e) =>

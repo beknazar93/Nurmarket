@@ -345,7 +345,7 @@
             <Setter Property="FontSize" Value="12.5"/>
         </Style>
         <Style Selector="DataGridCell.rcv-bar TextBlock">
-            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontSize" Value="12"/>
         </Style>
         <Style Selector="DataGridCell.rcv-edit">
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
@@ -392,12 +392,12 @@
             <Setter Property="FontWeight" Value="Bold"/>
         </Style>
         <Style Selector="TextBlock.rcv-sub">
-            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
         <Style Selector="TextBlock.hdr-sub">
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="Medium"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="TextWrapping" Value="NoWrap"/>
@@ -447,7 +447,7 @@
             <Setter Property="HorizontalAlignment" Value="Left"/>
         </Style>
         <Style Selector="Border.rcv-tag TextBlock">
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
@@ -471,7 +471,7 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style Selector="TextBlock.sum-cap">
-            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="Medium"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
         </Style>
@@ -532,7 +532,7 @@
         <!-- 2026-10-29: заголовки приёмки. Стили ниже общего «DataGridColumnHeader» (в Avalonia побеждает более поздний стиль, а не более точный селектор). -->
         <Style Selector="DataGrid#ReceivingGrid DataGridColumnHeader">
             <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
@@ -652,7 +652,7 @@
             <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
         </Style>
         <Style Selector="Border.expiryBadge TextBlock">
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
         </Style>
@@ -869,7 +869,7 @@
                                                                TextTrimming="CharacterEllipsis"
                                                                ToolTip.Tip="{ReflectionBinding Title}"/>
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                                        <TextBlock Text="{ReflectionBinding SubtitleText}" FontSize="11.5"
+                                                        <TextBlock Text="{ReflectionBinding SubtitleText}" FontSize="12"
                                                                    Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"
                                                                    IsVisible="{ReflectionBinding HasSubtitle}" VerticalAlignment="Center"/>
                                                         <Border Classes="expiryBadge" Classes.expired="{ReflectionBinding ExpiryExpired}"
@@ -896,7 +896,7 @@
                                                            FontSize="13" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource BrushTextMuted}"/>
                                                 <TextBlock Text="{ReflectionBinding Barcode}"
-                                                           FontSize="11.5"
+                                                           FontSize="12"
                                                            Foreground="{DynamicResource BrushTextSoft}"
                                                            TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
@@ -930,7 +930,7 @@
                                                         HorizontalAlignment="Right"
                                                         IsVisible="{ReflectionBinding HasDiscount}">
                                                     <TextBlock Text="{ReflectionBinding DiscountPercent, StringFormat=-\{0:0.##\}%}"
-                                                               FontSize="11" FontWeight="SemiBold"
+                                                               FontSize="12" FontWeight="SemiBold"
                                                                Foreground="{DynamicResource BrushWarning}"/>
                                                 </Border>
                                             </StackPanel>
@@ -955,7 +955,7 @@
                                                            Foreground="{DynamicResource BrushTextMuted}"/>
                                                 <!-- 2026-10-31 (стресс-тест 1.17.68): огромная сумма не режется молча — многоточие и полное значение в подсказке. -->
                                                 <TextBlock Text="{ReflectionBinding StockCostText}"
-                                                           FontSize="11.5"
+                                                           FontSize="12"
                                                            HorizontalAlignment="Right"
                                                            TextTrimming="CharacterEllipsis"
                                                            ToolTip.Tip="{ReflectionBinding StockCostText}"
@@ -983,7 +983,7 @@
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
                                 <!-- 2026-10-18: ширину колонки (300 с подписями / 156 значками) ставит ProductsGrid_SizeChanged. -->
-                                <DataGridTemplateColumn Width="300">
+                                <DataGridTemplateColumn Width="350">
                                     <DataGridTemplateColumn.Header>
                                         <TextBlock Text="{DynamicResource warehouse.colActions}" TextAlignment="Center"/>
                                     </DataGridTemplateColumn.Header>
@@ -1009,6 +1009,12 @@
                                                         <PathIcon Data="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/>
                                                         <TextBlock Classes="row-act-text" VerticalAlignment="Center" Text="{DynamicResource product.editRowButton}"/>
                                                     </StackPanel>
+                                                </Button>
+                                                <!-- 2026-11-01: «🏷» — печать этикетки одной кнопкой, без окна (QuickLabelPrint); «Этикетка…» с предпросмотром — в «⋯». -->
+                                                <Button Classes="sec-outline row-act" Click="QuickLabel_Click" Tag="{Binding}"
+                                                        AutomationProperties.Name="{x:Static views:WarehouseWindow.RowLabelText}"
+                                                        ToolTip.Tip="{x:Static views:WarehouseWindow.RowLabelText}">
+                                                    <PathIcon Data="M5.5,7A1.5,1.5 0 0,1 4,5.5A1.5,1.5 0 0,1 5.5,4A1.5,1.5 0 0,1 7,5.5A1.5,1.5 0 0,1 5.5,7M21.41,11.58L12.41,2.58C12.05,2.22 11.55,2 11,2H4C2.89,2 2,2.89 2,4V11C2,11.55 2.22,12.05 2.59,12.41L11.58,21.41C11.95,21.77 12.45,22 13,22C13.55,22 14.05,21.77 14.41,21.41L21.41,14.41C21.78,14.05 22,13.55 22,13C22,12.44 21.77,11.94 21.41,11.58Z"/>
                                                 </Button>
                                                 <Button Classes="sec-outline row-act row-more" Click="RowMore_Click" Tag="{Binding}"
                                                         AutomationProperties.Name="{x:Static views:WarehouseWindow.RowMoreText}"
@@ -1076,7 +1082,7 @@
                                                 </Grid>
 
                                                 <TextBlock Text="{ReflectionBinding Barcode}"
-                                                           FontSize="11" Foreground="{DynamicResource BrushTextSoft}"
+                                                           FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
                                                            TextTrimming="CharacterEllipsis"/>
 
                                                 <!-- 2026-10-18, решение владельца: в плитке — «✎ Изменить» с подписью и «⋯» (ценник, фото,
@@ -1208,6 +1214,8 @@
                             <!-- 2026-10-29: «Наценка…» (правила автонаценки) и «Очистить список» — в верхнем ряду; внизу остаётся итоговая панель (спека Fable). -->
                             <Button Classes="SecondaryButton" x:Name="ReceivingMarkupButton" Click="ReceivingMarkup_Click"/>
                             <Button Classes="SecondaryButton" x:Name="ReceivingClearButton" Click="ReceivingClear_Click"/>
+                            <!-- 2026-11-01 (П-4, из веба): «Этикетки на приход» — массовая печать с отмеченными товарами накладной, копии = количество. -->
+                            <Button Classes="SecondaryButton" x:Name="ReceivingLabelsButton" Click="ReceivingLabels_Click"/>
                         </WrapPanel>
 
                         <Border Grid.Row="2" x:Name="ReceivingSuggestionsBox" IsVisible="False"
@@ -1232,15 +1240,15 @@
                                                 <TextBlock Grid.Column="0" Text="{ReflectionBinding Title}"
                                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                                 <!-- 2026-10-24: товар выбранного поставщика (приходил раньше) — значком, такие подсказки идут первыми. -->
-                                                <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="11.5"
+                                                <TextBlock Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="12"
                                                            Foreground="{DynamicResource BrushAccent}"
                                                            Text="{x:Static views:WarehouseWindow.SupplierBadgeText}"
                                                            IsVisible="{ReflectionBinding Id, Converter={x:Static views:WarehouseWindow.IsSupplierProductConverter}}"/>
                                                 <TextBlock Grid.Column="2" Text="{ReflectionBinding Barcode}" Margin="12,0"
-                                                           VerticalAlignment="Center" FontSize="11.5"
+                                                           VerticalAlignment="Center" FontSize="12"
                                                            Foreground="{DynamicResource BrushTextSoft}"/>
                                                 <TextBlock Grid.Column="3" Text="{ReflectionBinding StockInfo}"
-                                                           VerticalAlignment="Center" FontSize="11.5"
+                                                           VerticalAlignment="Center" FontSize="12"
                                                            Foreground="{DynamicResource BrushTextSoft}"/>
                                             </Grid>
                                         </Button>
@@ -1335,7 +1343,7 @@
                                                         <TextBlock Grid.Column="0" Text="{ReflectionBinding Title}" VerticalAlignment="Center"
                                                                    TextTrimming="CharacterEllipsis"/>
                                                         <TextBlock Grid.Column="1" Text="{ReflectionBinding Info}" Margin="12,0" VerticalAlignment="Center"
-                                                                   FontSize="11.5" Foreground="{DynamicResource BrushTextSoft}"/>
+                                                                   FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
                                                         <TextBlock Grid.Column="2" Text="＋" FontSize="16" VerticalAlignment="Center"
                                                                    Foreground="{DynamicResource BrushAccent}"/>
                                                     </Grid>
@@ -1375,7 +1383,7 @@
                                                     <TextBlock Text="{ReflectionBinding ProductName}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis"/>
                                                     <Border Classes="rcv-newbadge" IsVisible="{ReflectionBinding IsNew}">
-                                                        <TextBlock Text="{ReflectionBinding NewBadgeText}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
+                                                        <TextBlock Text="{ReflectionBinding NewBadgeText}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                                                     </Border>
                                                 </StackPanel>
                                                 <TextBlock Classes="rcv-sub" Text="{ReflectionBinding NameSubText}"/>
@@ -1447,7 +1455,7 @@
                                                 <Border Classes="rcv-tag low" IsVisible="{ReflectionBinding IsModeLow}"><TextBlock Text="{ReflectionBinding ModeText}"/></Border>
                                                 <Border Classes="rcv-tag below" IsVisible="{ReflectionBinding IsModeBelow}"><TextBlock Text="{ReflectionBinding ModeText}"/></Border>
                                                 <Button Content="{ReflectionBinding ReturnToAutoText}" Tag="{Binding}" Click="ReceivingAutoSale_Click"
-                                                        Classes="SecondaryButton row-x" Padding="8,0" Height="24" MinHeight="24" MinWidth="0" FontSize="11.5"
+                                                        Classes="SecondaryButton row-x" Padding="8,0" Height="24" MinHeight="24" MinWidth="0" FontSize="12"
                                                         HorizontalAlignment="Left" HorizontalContentAlignment="Center"
                                                         IsVisible="{ReflectionBinding ShowReturnButton}"/>
                                             </StackPanel>
@@ -1520,7 +1528,7 @@
                                         <Border x:Name="SumFlagLowBox" Classes="sum-flag low" IsVisible="False"><TextBlock x:Name="SumFlagLow" Classes="sum-flagtext"/></Border>
                                         <Border x:Name="SumFlagBelowBox" Classes="sum-flag below" IsVisible="False"><TextBlock x:Name="SumFlagBelow" Classes="sum-flagtext"/></Border>
                                     </StackPanel>
-                                    <TextBlock x:Name="ReceivingSummaryText" FontSize="11.5" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
+                                    <TextBlock x:Name="ReceivingSummaryText" FontSize="12" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis"
                                                Foreground="{DynamicResource BrushTextSoft}"/>
                                 </StackPanel>
                                 <!-- 2026-10-24, ТЗ «Склад» (Б0/Б1): «Обновить цены продажи (N)» — видна, если есть строки с подорожанием и непоправленной продажей. -->

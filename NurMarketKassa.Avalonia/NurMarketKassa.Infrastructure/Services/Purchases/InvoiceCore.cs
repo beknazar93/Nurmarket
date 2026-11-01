@@ -21,15 +21,12 @@ public static class ReceiptEditPolicy
 {
     public const string SettingsKey = "PurchaseEditWindow";
 
-    /// <summary>Значение настройки компании: "24" (по умолчанию) / "48" / "always".</summary>
-    public static ReceiptEditWindow Parse(string? raw) => (raw ?? "").Trim().ToLowerInvariant() switch
-    {
-        "48" => ReceiptEditWindow.Hours48,
-        "always" or "всегда" => ReceiptEditWindow.Always,
-        _ => ReceiptEditWindow.Hours24,
-    };
+    /// <summary>2026-11-01 (просьба владельца «правка постоянно открыта, но все изменения записывай»): ограничения по сроку больше нет — любое значение
+    /// настройки ("24", "48", "always", пусто, мусор) читается как «Всегда». Старые 24/48 в user-settings и в облаке не ломаются, просто не действуют;
+    /// перечисление сохранено ради совместимости. Каждая правка пишется в журнал (ReceiptEditStore + ReceiptEditAuditLog).</summary>
+    public static ReceiptEditWindow Parse(string? raw) => ReceiptEditWindow.Always;
 
-    public static string ToKey(ReceiptEditWindow w) => w switch { ReceiptEditWindow.Hours48 => "48", ReceiptEditWindow.Always => "always", _ => "24" };
+    public static string ToKey(ReceiptEditWindow w) => "always";
 
     public static TimeSpan? Length(ReceiptEditWindow w) => w switch
     {
@@ -103,7 +100,8 @@ public static class ReceiptEditPolicy
             "Giriş tamamen tedarikçiye iade edildi", "Kirim to'liq yetkazib beruvchiga qaytarilgan"),
         ReceiptEditDenied.NoDate => Tr.T("У прихода нет даты — окно правки не определить", "Кирүүнүн күнү жок — оңдоо мөөнөтүн аныктоого болбойт", "The receipt has no date — the edit window can't be determined",
             "Girişin tarihi yok — düzenleme süresi belirlenemiyor", "Kirimning sanasi yo'q — tahrirlash muddatini aniqlab bo'lmaydi"),
-        ReceiptEditDenied.NotOwner => Tr.T("Правка накладных — только у владельца", "Накладнойлорду оңдоо — ээсинде гана", "Only the owner can edit invoices", "Faturaları yalnızca sahip düzenleyebilir", "Yuk xatlarini faqat egasi tahrirlay oladi"),
+        // 2026-11-01: право у владельца и администратора.
+        ReceiptEditDenied.NotOwner => Tr.T("Правка накладных — только у владельца и администратора", "Накладнойлорду оңдоо — ээсинде жана администраторде гана", "Only the owner and the administrator can edit invoices", "Faturaları yalnızca sahip ve yönetici düzenleyebilir", "Yuk xatlarini faqat egasi va administrator tahrirlay oladi"),
         _ => "",
     };
 

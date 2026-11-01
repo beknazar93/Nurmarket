@@ -541,6 +541,13 @@ public static class AccentThemeService
         "ToggleSwitchKnobFillOn", "ToggleSwitchKnobFillOnPointerOver", "ToggleSwitchKnobFillOnPressed",
     ];
 
+    /// <summary>2026-11-01 (Д-12): ключи из <see cref="ThemeKeys"/>, которые ApplyCore ставит НЕ всегда (только своя тема, ApplyStatusColors) —
+    /// их снимаем перед применением; остальные заменяются без предварительного снятия.</summary>
+    private static readonly HashSet<string> StatusThemeKeys = new(StringComparer.Ordinal)
+    {
+        "BrushSuccess", "BrushSuccessSoft", "BrushWarning", "BrushWarningSoft", "BrushDanger", "BrushDangerSoft", "BrushUiStatusOk", "BrushUiStatusWarn",
+    };
+
     /// <summary>Применяет тему поверх выбранного светлого/тёмного варианта.</summary>
     private static Skin? _lastSkin;
 
@@ -668,8 +675,13 @@ public static class AccentThemeService
             app.Resources["DialogWindowBackground"] = Brushes.Transparent;
         }
 
+        // 2026-11-01 (аудит «10 из 10», Д-12): раньше снимали ВСЕ ~80 ключей и ставили заново — каждое изменение словаря будит все привязки
+        // DynamicResource во всех открытых окнах (≈160 пробуждений вместо ≈80: смена темы 1,7–6,5 с). Ключи, которые тело ApplyCore ставит
+        // всегда (кисти палитры, галочки/радио/переключатели), заменяются поверх — снимать их не нужно. Снимаем только цвета состояний:
+        // их задаёт лишь своя тема, у встроенных они берутся из AppThemeLight/Dark, и от прошлой темы остаться не должны.
         foreach (var key in ThemeKeys)
-            app.Resources.Remove(key);
+            if (StatusThemeKeys.Contains(key))
+                app.Resources.Remove(key);
 
         app.Resources["BrushWindow"] = Brush(p.Window);
         app.Resources["BrushWindowAlt"] = Brush(p.WindowAlt);

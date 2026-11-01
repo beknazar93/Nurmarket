@@ -50,7 +50,7 @@ public sealed class BonusAnalyticsWindow : Window
         _excel = MakeButton("Excel", primary: false);
         _word = MakeButton("Word", primary: false);
         _csv = MakeButton("CSV", primary: false);
-        _refresh.Click += (_, _) => _ = ReloadAsync();
+        _refresh.Click += (_, _) => _ = ReloadAsync(force: true); // «Обновить» — всегда свежие цифры, мимо кэша
         _excel.Click += async (_, _) => await ExportAsync("xlsx");
         _word.Click += async (_, _) => await ExportAsync("docx");
         _csv.Click += async (_, _) => await ExportAsync("csv");
@@ -171,14 +171,41 @@ public sealed class BonusAnalyticsWindow : Window
 
     // ------------------------------------------------------------------ загрузка
 
-    private async Task ReloadAsync()
+    /// <summary>2026-11-01 (В-05/В-06, аудит «10 из 10»): готовый отчёт по периоду живёт в памяти — возврат в раздел (окно закрывали ради памяти
+    /// или меняли период туда-обратно) показывает его сразу, а не считает 7–15 с заново. Моложе 60 с — запросов нет вовсе; старше — отчёт
+    /// показан сразу и пересчитывается в фоне с пометкой «обновляю…», не блокируя окно. «Обновить» (force) кэш не использует.</summary>
+    private static readonly Dictionary<string, (DateTime AtUtc, BonusAnalyticsData Data)> ReportCache = new();
+    private static readonly TimeSpan ReportFresh = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan ReportMaxAge = TimeSpan.FromMinutes(15);
+
+    private async Task ReloadAsync(bool force = false)
     {
         _cts?.Cancel();
         var cts = new CancellationTokenSource();
         _cts = cts;
         var (from, to) = Range();
         _periodLabel.Text = PeriodRange.Label(from, to);
-        _status.Text = Tr.T("Считаю…", "Эсептеп жатам…", "Calculating…", "Hesaplanıyor…", "Hisoblanmoqda…");
+        var cacheKey = $"{CompanyInfoService.LastCompany?.Id}|{from:yyyyMMdd}-{to:yyyyMMdd}"; // компания в ключе: при смене аккаунта чужой отчёт не показываем
+        var cachedShown = false;
+        if (force)
+            BonusAnalyticsData.ClearClosedShiftCache(); // 2026-11-01 (приёмка, В-05): «Обновить» — и отчёты закрытых смен заново
+        if (!force && CompanyInfoService.LastCompany?.Id is { Length: > 0 } && ReportCache.TryGetValue(cacheKey, out var hit) && DateTime.UtcNow - hit.AtUtc <= ReportMaxAge)
+        {
+            Data = hit.Data;
+            _body.Children.Clear();
+            ShowReport(hit.Data);
+            cachedShown = true;
+            if (DateTime.UtcNow - hit.AtUtc <= ReportFresh)
+            {
+                _status.Text = "";
+                _loading.IsVisible = false;
+                SetActionsEnabled(true);
+                return;
+            }
+            _status.Text = Tr.T("Обновляю…", "Жаңыртып жатам…", "Updating…", "Güncelleniyor…", "Yangilanmoqda…");
+        }
+        else
+            _status.Text = Tr.T("Считаю…", "Эсептеп жатам…", "Calculating…", "Hesaplanıyor…", "Hisoblanmoqda…");
         _loading.IsVisible = true;
         SetActionsEnabled(false);
         try
@@ -189,18 +216,29 @@ public sealed class BonusAnalyticsWindow : Window
                 summary?.Revenue is { } rv ? (double)rv : null, summary?.Transactions, cts.Token).ConfigureAwait(true);
             if (cts.IsCancellationRequested)
                 return;
+            if (data is null && cachedShown)
+            {
+                // Сервер не ответил, а на экране уже отчёт из памяти — оставляем его, честно пометив.
+                _status.Text = ServerOutageMonitor.UnavailableText + " — " + Tr.T("показаны данные от", "көрсөтүлгөн маалымат:", "showing data from", "gösterilen veriler:", "ko'rsatilgan ma'lumot:")
+                    + $" {ReportCache[cacheKey].AtUtc.ToLocalTime():HH:mm}";
+                return;
+            }
             Data = data;
             _body.Children.Clear();
             if (data is null)
             {
-                _status.Text = Tr.T("Нет связи с сервером NurCRM — аналитика бонусов считается только по серверу, чтобы цифры совпадали со «Сводкой». Проверьте интернет и нажмите «Обновить».",
-                    "NurCRM серверине байланыш жок — бонустар аналитикасы «Жыйынтык» менен дал келиши үчүн сервер боюнча гана эсептелет. Интернетти текшериңиз да «Жаңыртуу» басыңыз.",
-                    "No connection to the NurCRM server — bonus analytics is calculated from the server only, so the figures match “Summary”. Check the internet and press “Refresh”.",
-                    "NurCRM sunucusuna bağlanılamadı — bonus analizi yalnızca sunucudan hesaplanır, böylece rakamlar «Özet» ile aynı olur. İnterneti kontrol edip «Yenile»ye basın.",
-                    "NurCRM serveriga ulanib bo'lmadi — bonuslar tahlili «Xulosa» bilan mos bo'lishi uchun faqat serverdan hisoblanadi. Internetni tekshirib, «Yangilash»ni bosing.");
+                _status.Text = Tr.T("Сервер NurCRM недоступен — аналитика бонусов считается только по серверу, чтобы цифры совпадали со «Сводкой». Проверьте интернет и нажмите «Обновить».",
+                    "NurCRM сервери жеткиликсиз — бонустар аналитикасы «Жыйынтык» менен дал келиши үчүн сервер боюнча гана эсептелет. Интернетти текшериңиз да «Жаңыртуу» басыңыз.",
+                    "The NurCRM server is unavailable — bonus analytics is calculated from the server only, so the figures match “Summary”. Check the internet and press “Refresh”.",
+                    "NurCRM sunucusu kullanılamıyor — bonus analizi yalnızca sunucudan hesaplanır, böylece rakamlar «Özet» ile aynı olur. İnterneti kontrol edip «Yenile»ye basın.",
+                    "NurCRM serveri mavjud emas — bonuslar tahlili «Xulosa» bilan mos bo'lishi uchun faqat serverdan hisoblanadi. Internetni tekshirib, «Yangilash»ni bosing.");
                 return;
             }
             _status.Text = "";
+            ReportCache[cacheKey] = (DateTime.UtcNow, data);
+            if (ReportCache.Count > 12)
+                foreach (var old in ReportCache.OrderBy(kv => kv.Value.AtUtc).Take(ReportCache.Count - 12).Select(kv => kv.Key).ToList())
+                    ReportCache.Remove(old);
             ShowReport(data);
         }
         catch (OperationCanceledException)
@@ -209,7 +247,7 @@ public sealed class BonusAnalyticsWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Аналитика бонусов: {ex}", "WARNING");
-            _status.Text = Tr.T("Не удалось посчитать: ", "Эсептөө мүмкүн болгон жок: ", "Could not calculate: ", "Hesaplanamadı: ", "Hisoblab bo'lmadi: ") + ex.Message;
+            _status.Text = Tr.T("Не удалось посчитать: ", "Эсептөө мүмкүн болгон жок: ", "Could not calculate: ", "Hesaplanamadı: ", "Hisoblab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex); // 2026-11-01 (В-28)
         }
         finally
         {
@@ -520,7 +558,7 @@ public sealed class BonusAnalyticsWindow : Window
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = Tr.T("Сохранить отчёт по бонусам", "Бонустар боюнча отчётту сактоо", "Save the bonus report", "Bonus raporunu kaydet", "Bonuslar hisobotini saqlash"),
-            SuggestedFileName = AnalyticsExportService.SuggestFileName(BonusAnalyticsExport.FileTitle, data.From, data.To, UserPreferences.Instance.StoreName, extension),
+            SuggestedFileName = AnalyticsExportService.SuggestFileName(BonusAnalyticsExport.FileTitle, data.From, data.To, ReportShopName.Current, extension),
             FileTypeChoices = [new FilePickerFileType(extension == "xlsx" ? "Excel" : extension == "docx" ? "Word" : "CSV") { Patterns = [$"*.{extension}"] }],
         });
         if (file is null)
@@ -535,7 +573,7 @@ public sealed class BonusAnalyticsWindow : Window
         try
         {
             _status.Text = Tr.T("Готовлю отчёт…", "Отчёт даярдалууда…", "Preparing the report…", "Rapor hazırlanıyor…", "Hisobot tayyorlanmoqda…");
-            var shop = UserPreferences.Instance.StoreName;
+            var shop = ReportShopName.Current;
             await Task.Run(() =>
             {
                 if (extension == "docx")

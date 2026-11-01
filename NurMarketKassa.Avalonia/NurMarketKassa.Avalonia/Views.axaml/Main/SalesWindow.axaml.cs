@@ -499,16 +499,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 // 2026-09-29: «Данные на 14:05, сервер не отвечает» — с какого времени нет данных сервера.
                 ? ServerOutageMonitor.StaleDataNote(null) + ServerOutageMonitor.LocalDataSuffix
                 : sales.Count > 0
-                ? Tr.T("Нет связи с сервером — показаны данные этой кассы за выбранный период.",
-                    "Сервер менен байланыш жок — тандалган мезгил үчүн ушул кассанын маалыматтары көрсөтүлдү.",
-                    "No connection to the server — showing this till's data for the selected period.",
-                    "Sunucuyla bağlantı yok — seçilen dönem için bu kasanın verileri gösteriliyor.",
-                    "Server bilan aloqa yo'q — tanlangan davr uchun shu kassaning ma'lumotlari ko'rsatildi.")
-                : Tr.T("Нет связи с сервером, а локальных продаж за выбранный период нет.",
-                    "Сервер менен байланыш жок, ал эми тандалган мезгилде жергиликтүү сатуулар жок.",
-                    "No connection to the server, and there are no local sales for the selected period.",
-                    "Sunucuyla bağlantı yok ve seçilen dönemde yerel satış yok.",
-                    "Server bilan aloqa yo'q, tanlangan davrda esa mahalliy sotuvlar yo'q.");
+                ? Tr.T("Сервер NurCRM недоступен — показаны данные этой кассы за выбранный период.", // 2026-11-01 (В-08): единая фраза о сбое сервера
+                    "NurCRM сервери жеткиликсиз — тандалган мезгил үчүн ушул кассанын маалыматтары көрсөтүлдү.",
+                    "The NurCRM server is unavailable — showing this till's data for the selected period.",
+                    "NurCRM sunucusu kullanılamıyor — seçilen dönem için bu kasanın verileri gösteriliyor.",
+                    "NurCRM serveri mavjud emas — tanlangan davr uchun shu kassaning ma'lumotlari ko'rsatildi.")
+                : Tr.T("Сервер NurCRM недоступен, а локальных продаж за выбранный период нет.",
+                    "NurCRM сервери жеткиликсиз, ал эми тандалган мезгилде жергиликтүү сатуулар жок.",
+                    "The NurCRM server is unavailable, and there are no local sales for the selected period.",
+                    "NurCRM sunucusu kullanılamıyor ve seçilen dönemde yerel satış yok.",
+                    "NurCRM serveri mavjud emas, tanlangan davrda esa mahalliy sotuvlar yo'q.");
         }
 
         /// <summary>2026-09-10: офлайн-эквивалент LoadDataAsync — источник данных
@@ -1015,7 +1015,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     ? Tr.T("Сохранить отчёт в Word", "Отчётту Word'го сактоо", "Save report to Word", "Raporu Word olarak kaydet", "Hisobotni Word'ga saqlash")
                     : Tr.T("Сохранить отчёт в Excel", "Отчётту Excel'ге сактоо", "Save report to Excel", "Raporu Excel olarak kaydet", "Hisobotni Excel'ga saqlash"),
                 SuggestedFileName = AnalyticsExportService.SuggestFileName(AnalyticsExportService.FileTitle,
-                    _historyFrom, _historyTo, UserPreferences.Instance.StoreName, extension),
+                    _historyFrom, _historyTo, ReportShopName.Current, extension),
                 FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
             });
             if (file is null)
@@ -1033,7 +1033,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 ErrorMessage = Tr.T("Готовлю отчёт…", "Отчёт даярдалууда…", "Preparing the report…", "Rapor hazırlanıyor…", "Hisobot tayyorlanmoqda…");
                 // 2026-09-28: цифры выгрузки — те же, что на экране и на сайте (см. AnalyticsReportData.ServerFigures).
                 var data = await AnalyticsReportData.BuildAsync(App.SalesApi, _historyFrom, _historyTo, full: true).ConfigureAwait(true);
-                var shop = UserPreferences.Instance.StoreName;
+                var shop = ReportShopName.Current;
 
                 await Task.Run(() =>
                 {

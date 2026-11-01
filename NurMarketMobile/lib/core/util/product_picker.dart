@@ -38,6 +38,15 @@ Future<int> countLowStock(AppDatabase db) async {
   return (await q.getSingle()).read(c) ?? 0;
 }
 
+/// 2026-10-31 («в мобилке не отображаются все товары»): тот же фильтр остатка условием для запроса. Раньше фильтр применялся уже к
+/// первым найденным 300–500 товарам: «Нет в наличии» на 15 000 товаров искал только среди первых 500 по алфавиту.
+Expression<bool> stockFilterSql($ProductsTable p, StockFilter f) => switch (f) {
+  StockFilter.all => const Constant(true),
+  StockFilter.inStock => p.isService.equals(true) | p.quantity.isBiggerThanValue(0),
+  StockFilter.low => p.isService.equals(false) & p.quantity.isBiggerThanValue(0) & lowStockSql(p),
+  StockFilter.out => p.isService.equals(false) & p.quantity.isSmallerOrEqualValue(0),
+};
+
 bool stockFilterMatch(Product p, StockFilter f) => switch (f) {
   StockFilter.all => true,
   StockFilter.inStock => p.isService || p.quantity > 0,
@@ -136,22 +145,51 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
   String? _category;
   List<Product>? _rows;
 
+  /// 2026-10-31: список окном по [_page] товаров, дальше при прокрутке; фильтры остатка и «без услуг» — в SQL, а число «найдено» — из базы.
+  static const _page = 500;
+  int _limit = _page;
+  bool _hasMore = false;
+  bool _moreBusy = false;
+  int _total = 0;
+  int _seq = 0;
+  final _scroll = ScrollController();
+
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(_onScrollMore);
     _load();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _scroll.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    final rows = await ref.read(databaseProvider).searchProducts(_q.text, category: _category, limit: 500);
-    if (!mounted) return;
-    setState(() => _rows = rows.where((p) => (!widget.noServices || !p.isService) && stockFilterMatch(p, _stock)).toList());
+  void _onScrollMore() {
+    if (!_hasMore || _moreBusy || !_scroll.hasClients || _scroll.position.extentAfter > 600) return;
+    _moreBusy = true;
+    _limit += _page;
+    _load(keepWindow: true).whenComplete(() => _moreBusy = false);
+  }
+
+  Future<void> _load({bool keepWindow = false}) async {
+    final seq = ++_seq;
+    if (!keepWindow) _limit = _page;
+    final db = ref.read(databaseProvider);
+    final stock = _stock;
+    final noServices = widget.noServices;
+    Expression<bool> extra($ProductsTable p) => (noServices ? p.isService.equals(false) : const Constant(true)) & stockFilterSql(p, stock);
+    final rows = await db.searchProducts(_q.text, category: _category, limit: _limit + 1, extra: extra);
+    final total = keepWindow ? _total : await db.countProducts(_q.text, category: _category, extra: extra);
+    if (!mounted || seq != _seq) return;
+    setState(() {
+      _hasMore = rows.length > _limit;
+      _rows = _hasMore ? rows.sublist(0, _limit) : rows;
+      _total = total;
+    });
   }
 
   // 2026-10-21, владелец: «на Enter при добавлении товара в КП и счёт он удаляет или дублирует». Выбор — один раз: повторное
@@ -214,6 +252,12 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
                   _load();
                 },
               ),
+              // 2026-10-31: найдено больше, чем показано — видно, сколько всего (дальше список подгружается при прокрутке)
+              if (_rows != null && _total > _rows!.length)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+                  child: Text(l.stockCountShown(_rows!.length, _total), style: TextStyle(fontSize: 12, color: pal.textSoft)),
+                ),
               Flexible(
                 child: _rows == null
                     ? const Padding(
@@ -230,6 +274,7 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
                         ),
                       )
                     : ListView.builder(
+                        controller: _scroll,
                         shrinkWrap: true,
                         itemCount: _rows!.length,
                         itemBuilder: (c, i) {

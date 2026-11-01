@@ -467,7 +467,9 @@ public static class EmployeeAccessGate
             }
             if (!changed)
                 return;
-            File.WriteAllText(path, root!.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            AtomicFile.WriteAllText(path, root!.ToJsonString(new JsonSerializerOptions { WriteIndented = true })); // 2026-11-01 (аудит 10 из 10, Н-07)
+            // 2026-11-01 (приёмка Н-07): AtomicFile оставляет прежнюю версию в .bak — а в ней как раз те коды/пароли сотрудников, что мы стёрли. Копию удаляем.
+            try { File.Delete(path + ".bak"); } catch { }
             File.SetLastWriteTimeUtc(path, writtenUtc);
             PosLogger.Log($"Настройки другой программы ({Path.GetFileName(Path.GetDirectoryName(path))}): {(hashCodes ? "коды сотрудников переведены в хэш, " : "")}пароли сотрудников стёрты.", "INFO");
         }

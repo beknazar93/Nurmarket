@@ -38,7 +38,29 @@ public static class PrinterDiscoveryService
     private static string? _lastWinUsbLine;
     private static long _lastWinUsbLineAt;
 
+    /// <summary>Все варианты подключения: USB/очереди/LPT/COM и запомненные сетевые принтеры («🌐 Сеть: 192.168.1.50:9100»).
+    /// 2026-11-01: сеть сама не сканируется — «Найти в сети» запускается только кнопкой.</summary>
     public static IReadOnlyList<DiscoveredPrinter> Discover()
+    {
+        var result = DiscoverLocal().ToList();
+        try
+        {
+            var saved = new List<string>(NetworkPrinterAddress.Known());
+            foreach (var current in new[] { UserPreferences.Instance.ReceiptDevicePath, UserPreferences.Instance.LabelPrinterDevicePath })
+                if (NetworkPrinterAddress.IsNetworkPort(current))
+                    saved.Add(NetworkPrinterAddress.Canonical(current));
+            foreach (var net in saved.Distinct(StringComparer.OrdinalIgnoreCase))
+                if (!result.Any(r => string.Equals(NetworkPrinterAddress.Canonical(r.DevicePath), net, StringComparison.OrdinalIgnoreCase)))
+                    result.Add(NetworkPrinterAddress.ToDiscovered(net));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Network printer list failed: {ex.GetType().Name}", "WARNING");
+        }
+        return result;
+    }
+
+    private static IReadOnlyList<DiscoveredPrinter> DiscoverLocal()
     {
         var result = new List<DiscoveredPrinter>();
 

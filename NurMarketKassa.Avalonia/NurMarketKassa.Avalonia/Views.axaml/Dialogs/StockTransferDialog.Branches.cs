@@ -233,16 +233,43 @@ public partial class StockTransferDialog
                 $"Kasa deposu, belge {_transfer.Number}", $"Kassa ombori, hujjat {_transfer.Number}");
             if (!string.IsNullOrWhiteSpace(_transfer.Carrier) || !string.IsNullOrWhiteSpace(_transfer.TrackingNumber))
                 comment += " · " + string.Join(" ", new[] { _transfer.Carrier, _transfer.TrackingNumber }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            // 2026-11-01 (аудит 10 из 10, С-05): ключ повтора — из документа, маршрута и состава (тот же при повторе «Отправить» после обрыва) уходит
+            // заголовком Idempotency-Key, а его метка « [8 символов]» — в конец комментария. Исход неизвестен (таймаут, обрыв) — сначала ищем СВОЁ
+            // перемещение на сервере (метка + склады + состав; номер документа у каждой кассы свой, по нему не ищем) и второй раз не шлём.
+            var transferDate = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var transferKey = MakeTransferKey(_transferId, route.FromId, route.ToId, transferDate, lines.Select(l => (l.ProductId, l.Quantity)));
+            if (comment.Length > 480)
+                comment = comment[..480];
+            comment += KeyTag(transferKey);
             // Как у сайта и раздела «Филиалы»: главный склад — null, количество — число.
             var body = new Dictionary<string, object?>
             {
                 ["from_branch"] = route.FromId,
                 ["to_branch"] = route.ToId,
-                ["date"] = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                ["comment"] = comment.Length > 500 ? comment[..500] : comment,
+                ["date"] = transferDate,
+                ["comment"] = comment,
                 ["items"] = lines.Select(l => new Dictionary<string, object?> { ["product"] = l.ProductId, ["quantity"] = l.Quantity }).ToList(),
             };
-            var data = await api.RequestAsync(HttpMethod.Post, "api/main/branch-transfers/", body, null, CancellationToken.None, TimeSpan.FromSeconds(45)).ConfigureAwait(true);
+            JsonElement data;
+            try
+            {
+                data = await api.PostWithIdempotencyKeyAsync("api/main/branch-transfers/", body, transferKey, CancellationToken.None, TimeSpan.FromSeconds(45)).ConfigureAwait(true);
+            }
+            catch (Exception postEx) when (PendingIdempotencyKey.IsOutcomeUnknown(postEx))
+            {
+                PosLogger.Log($"Перемещение {_transfer.Number}: ответа нет ({postEx.GetType().Name}) — проверяем, прошло ли оно на сервере.", "WARNING");
+                ShowWarning(T("Связь прервалась — проверяем, прошло ли перемещение…", "Байланыш үзүлдү — жылдыруу өттүбү, текшерип жатабыз…", "Connection lost — checking whether the transfer went through…",
+                    "Bağlantı koptu — transferin yapılıp yapılmadığı kontrol ediliyor…", "Aloqa uzildi — ko'chirish o'tdimi, tekshirilmoqda…"));
+                var posted = await FindPostedTransferAsync(api, transferKey, route.FromId, route.ToId, lines).ConfigureAwait(true);
+                if (posted is null)
+                {
+                    ShowWarning(null);
+                    throw;
+                }
+                data = posted.Value;
+                ShowWarning(null);
+                PosLogger.Log($"Перемещение {_transfer.Number}: найдено на сервере — второй раз не отправляем.", "INFO");
+            }
             var number = BranchesWindow.Str(data, "number");
             var id = BranchesWindow.Str(data, "id");
             StockTransferService.Instance.SetNote(_transferId, $"NurCRM №{number} [{id}]");
@@ -254,13 +281,89 @@ public partial class StockTransferDialog
         {
             PosLogger.Log($"Перемещение {_transfer.Number} на сервере не проведено ({ex.Message}).", "WARNING");
             PosDialogs.Warning(this, T("Перемещение не проведено на сервере: ", "Жылдыруу серверде өткөрүлгөн жок: ", "The transfer was not made on the server: ",
-                "Transfer sunucuda yapılmadı: ", "Ko'chirish serverda o'tkazilmadi: ") + ServerTelegramBotApi.DescribeFields(ex));
+                "Transfer sunucuda yapılmadı: ", "Ko'chirish serverda o'tkazilmadi: ") + ServerTelegramBotApi.DescribeFields(ex)
+                // 2026-11-01 (С-05): исход неизвестен — просим проверить список перед повтором, чтобы не задвоить товар.
+                + (PendingIdempotencyKey.IsOutcomeUnknown(ex)
+                    ? "\n" + T("Связь прервалась, проверить не удалось. Перед повтором откройте «Филиалы» → «Перемещения» и убедитесь, что такого перемещения там нет.",
+                        "Байланыш үзүлдү, текшерүү мүмкүн болгон жок. Кайра жиберүүдөн мурун «Филиалдар» → «Жылдыруулар» бөлүмүндө мындай жылдыруу жок экенин текшериңиз.",
+                        "The connection was lost and the check failed. Before retrying, open “Branches” → “Transfers” and make sure this transfer is not there.",
+                        "Bağlantı koptu, kontrol edilemedi. Tekrar etmeden önce «Şubeler» → «Transferler» bölümünde bu transferin olmadığından emin olun.",
+                        "Aloqa uzildi, tekshirib bo'lmadi. Qayta urinishdan oldin «Filiallar» → «Ko'chirishlar» bo'limida bunday ko'chirish yo'qligiga ishonch hosil qiling.")
+                    : ""));
         }
         finally
         {
             _serverBusy = false;
             Reload();
         }
+    }
+
+    /// <summary>2026-11-01 (аудит 10 из 10, С-05, приёмка): метка ключа в комментарии перемещения — « [8 символов ключа]». Общая для окна склада и окна «Филиалы».</summary>
+    internal static string KeyTag(string transferKey) => " [" + transferKey[9..17] + "]";
+
+    /// <summary>Ключ перемещения: из документа/попытки, маршрута и состава (тот же при повторе после обрыва).</summary>
+    internal static string MakeTransferKey(string seed, string? fromId, string? toId, string? date, IEnumerable<(string ProductId, double Quantity)> lines) =>
+        "transfer-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(
+            seed + "|" + fromId + ">" + toId + "|" + date + "|"
+            + string.Join(";", lines.Select(l => l.ProductId + ":" + l.Quantity.ToString("0.###", CultureInfo.InvariantCulture)).OrderBy(x => x, StringComparer.Ordinal)))))[..32].ToLowerInvariant();
+
+    /// <summary>2026-11-01 (аудит 10 из 10, С-05, приёмка): после обрыва ищем СВОЁ перемещение за вчера–сегодня: метка ключа в комментарии, не отменено,
+    /// тот же склад-источник и получатель и тот же состав (товар:количество). Номер документа у каждой кассы свой, поэтому по нему не ищем.
+    /// Совпало ровно одно — его строка; нет совпадений, больше одного, состав не удалось прочитать — null (не считаем своим; вызывающий просит проверить вручную).</summary>
+    internal static async Task<JsonElement?> FindPostedTransferAsync(NurMarketApiClient api, string transferKey, string? fromId, string? toId,
+        IReadOnlyCollection<(string ProductId, double Quantity)> lines)
+    {
+        try
+        {
+            var tag = KeyTag(transferKey).Trim();
+            var query = new Dictionary<string, string>
+            {
+                ["date_from"] = DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                ["date_to"] = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                ["page_size"] = "100",
+            };
+            var data = await api.RequestAsync(HttpMethod.Get, "api/main/branch-transfers/", null, query, CancellationToken.None, TimeSpan.FromSeconds(20)).ConfigureAwait(true);
+            var candidates = BranchesWindow.Rows(data)
+                .Where(r => BranchesWindow.Str(r, "comment").Contains(tag, StringComparison.Ordinal)
+                            && !BranchesWindow.Str(r, "status").Contains("cancel", StringComparison.OrdinalIgnoreCase))
+                .Select(r => r.Clone()).ToList();
+            if (candidates.Count != 1)
+            {
+                if (candidates.Count > 1)
+                    PosLogger.Log($"Перемещение: по метке {tag} найдено {candidates.Count} документов — неоднозначно, своим не считаем.", "WARNING");
+                return null;
+            }
+            var row = candidates[0];
+            string BranchId(string field) => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(field, out var b)
+                ? (b.ValueKind == JsonValueKind.Object ? BranchesWindow.Str(b, "id") : b.ValueKind is JsonValueKind.String or JsonValueKind.Number ? b.ToString() : "")
+                : "";
+            if (!string.Equals(BranchId("from_branch"), fromId ?? "", StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(BranchId("to_branch"), toId ?? "", StringComparison.OrdinalIgnoreCase))
+                return null;
+            // Состав: из строки списка, а если его там нет — из карточки перемещения.
+            var items = row.TryGetProperty("items", out var rowItems) && rowItems.ValueKind == JsonValueKind.Array ? rowItems : default;
+            if (items.ValueKind != JsonValueKind.Array && BranchesWindow.Str(row, "id") is { Length: > 0 } rowId)
+            {
+                var detail = await api.RequestAsync(HttpMethod.Get, $"api/main/branch-transfers/{Uri.EscapeDataString(rowId)}/", null, null, CancellationToken.None, TimeSpan.FromSeconds(20)).ConfigureAwait(true);
+                if (detail.ValueKind == JsonValueKind.Object && detail.TryGetProperty("items", out var detailItems) && detailItems.ValueKind == JsonValueKind.Array)
+                    items = detailItems.Clone();
+            }
+            if (items.ValueKind != JsonValueKind.Array)
+                return null; // состав не прочитали — не угадываем
+            static string Sig(string product, double qty) => product.Trim() + ":" + Math.Round(qty, 3).ToString("0.###", CultureInfo.InvariantCulture);
+            var serverSig = items.EnumerateArray()
+                .Select(it => Sig(it.TryGetProperty("product", out var p) && p.ValueKind == JsonValueKind.Object ? BranchesWindow.Str(p, "id") : BranchesWindow.Str(it, "product"),
+                    BranchesWindow.Num(it, "quantity")))
+                .OrderBy(x => x, StringComparer.Ordinal).ToList();
+            var ownSig = lines.GroupBy(l => l.ProductId.Trim()).Select(g => Sig(g.Key, g.Sum(x => x.Quantity)))
+                .OrderBy(x => x, StringComparer.Ordinal).ToList();
+            return serverSig.SequenceEqual(ownSig, StringComparer.Ordinal) ? row : null;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Перемещение: проверка на сервере не удалась ({ex.GetType().Name}).", "WARNING");
+        }
+        return null;
     }
 
     // 2026-10-22 (модалки, пакет 3): идёт запрос к серверу (отправка или отмена) — окно не закрывается (StockTransferDialog: Closing).

@@ -76,7 +76,7 @@ public sealed class ProductAnalyticsWindow : Window
                     "Bu qator uchun mahsulot nomi bo'yicha sotuv tarixi yo'q. «Kategoriyalar» va «Brendlar» kesimlarida shunday bo'ladi: u yerda qator — bitta mahsulot emas, mahsulotlar guruhi."),
                 FontSize = 13,
                 TextWrapping = TextWrapping.Wrap,
-                Foreground = Brushes.Gray,
+                Foreground = ThemeInk.Soft,
             });
             return root;
         }
@@ -330,7 +330,7 @@ public sealed class ProductAnalyticsWindow : Window
         Text = text,
         FontSize = 12,
         TextWrapping = TextWrapping.Wrap,
-        Foreground = Brushes.Gray,
+        Foreground = ThemeInk.Soft,
     };
 
     private sealed class MovementVm
@@ -360,7 +360,7 @@ public sealed class ProductAnalyticsWindow : Window
     private Border Tile(string caption, string value)
     {
         var panel = new StackPanel { Spacing = 2 };
-        panel.Children.Add(new TextBlock { Text = caption, FontSize = 11, Foreground = Brushes.Gray });
+        panel.Children.Add(new TextBlock { Text = caption, FontSize = 12, Foreground = ThemeInk.Soft });
         panel.Children.Add(new TextBlock
         {
             Text = value,

@@ -363,9 +363,12 @@ public partial class CloseShiftDialog : Window
             // Возвраты: ReturnsTotal сервера пока 0 всегда (у возвратов нет смены) — тогда берём журнал возвратов кассы, как было.
             var debtCash = (_report?.DebtPaymentsCash ?? (totals.TryGetValue(ShiftEventsStore.KindDebtPayment, out var dc) ? (decimal)dc : 0m))
                            + (_report?.DebtPaymentsCash is not null ? OfflineOperationsStore.UnsentDebtCash(shiftId) : 0m); // 2026-10-29 (В-4): + оплаты без связи, не дошедшие до сервера
-            var returns = _report is { ReturnsTotal: > 0m } withReturns
-                ? withReturns.ReturnsTotal
-                : (decimal)ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindReturn).Sum(r => r.Amount);
+            // 2026-11-01 (Ж-07): строка «Возвраты» — наличная часть (cash= в примечании журнала), как в X-отчёте; безнал и списание долга
+            // из ящика не берутся. Журнала нет — сумма возвратов сервера.
+            var returnEvents = ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindReturn);
+            var returns = returnEvents.Count > 0
+                ? returnEvents.Sum(r => (decimal)(ParseNote(r.Note, "cash") ?? r.Amount))
+                : _report?.ReturnsTotal ?? 0m;
             var (deposits, withdrawals) = _report is { } depReport ? (depReport.Deposits, depReport.Withdrawals) : ShiftCashOperationsStore.SumsForShift(shiftId);
             DrawerBreakdownBuilder.Fill(this, DrawerBreakdown, opening, Totals.CashSales ?? 0m, debtCash, deposits, withdrawals, returns, expected);
             DrawerBreakdownBorder.IsVisible = true;

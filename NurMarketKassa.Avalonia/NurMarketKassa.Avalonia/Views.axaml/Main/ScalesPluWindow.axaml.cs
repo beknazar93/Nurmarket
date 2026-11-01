@@ -467,8 +467,8 @@ public partial class ScalesPluWindow : Window
                 "Отмеченные товары уйдут прямо на весы по сети. У каждого товара постоянный номер PLU (колонка PLU) — отправки его не меняют; в штрих-код этикетки весы напечатают «Код в ШК». Запасной путь — файл для «Русского масштаба» («Сохранить файл»).",
                 "Белгиленген товарлар тармак аркылуу түз таразага кетет. Ар бир товардын туруктуу PLU номери бар (PLU тилкеси) — жөнөтүүлөр аны өзгөртпөйт; этикетканын штрих-кодуна тараза «ШКдагы код» басат. Запас жол — «Русский масштаб» үчүн файл («Файлды сактоо»).",
                 "The ticked goods go straight to the scale over the network. Every product has a fixed PLU number (PLU column) that sending does not change; the scale prints the “Code in barcode” into the label barcode. Fallback — a file for “Russian Scale” (“Save file”).",
-                "İşaretli ürünler ağ üzerinden doğrudan tartıya gider. Her ürünün sabit bir PLU numarası var (PLU sütunu) — gönderimler onu değiştirmez; tartı etiket barkoduna «Barkoddaki kod»u basar. Yedek yol — «Русский масштаб» için dosya («Dosyayı kaydet»).",
-                "Belgilangan tovarlar tarmoq orqali to‘g‘ridan-to‘g‘ri taroziga ketadi. Har bir tovarning doimiy PLU raqami bor (PLU ustuni) — yuborishlar uni o‘zgartirmaydi; tarozi yorliq shtrix-kodiga «Shtrix-koddagi kod»ni chop etadi. Zaxira yo‘l — «Русский масштаб» uchun fayl («Faylni saqlash»)."),
+                "İşaretli ürünler ağ üzerinden doğrudan tartıya gider. Her ürünün sabit bir PLU numarası var (PLU sütunu) — gönderimler onu değiştirmez; tartı etiket barkoduna «Barkoddaki kod»u basar. Yedek yol — «Russkiy Masshtab» için dosya («Dosyayı kaydet»).",
+                "Belgilangan tovarlar tarmoq orqali to‘g‘ridan-to‘g‘ri taroziga ketadi. Har bir tovarning doimiy PLU raqami bor (PLU ustuni) — yuborishlar uni o‘zgartirmaydi; tarozi yorliq shtrix-kodiga «Shtrix-koddagi kod»ni chop etadi. Zaxira yo‘l — «Russkiy Masshtab» uchun fayl («Faylni saqlash»)."),
             BrandAi => Tr.T(
                 "Касса сохранит файл (PLU, название, единица, цена) — загрузите его программой весов. Прямой заливки нет: у AI-весов нет общего протокола.",
                 "Касса файлды сактайт (PLU, аталышы, бирдиги, баасы) — аны тараза программасы менен жүктөңүз. Түз жүктөө жок: AI таразанын жалпы протоколу жок.",
@@ -516,7 +516,7 @@ public partial class ScalesPluWindow : Window
 
         var csv = new MenuItem { Header = Tr.T("CSV (PLU; название; единица; цена)", "CSV (PLU; аталышы; бирдиги; баасы)", "CSV (PLU; name; unit; price)", "CSV (PLU; ad; birim; fiyat)", "CSV (PLU; nomi; birligi; narxi)") };
         csv.Click += ExportCsv_Click;
-        var digi = new MenuItem { Header = Tr.T("Файл для «Русского масштаба» (DIGI_TOP2000)", "«Русский масштаб» үчүн файл (DIGI_TOP2000)", "File for “Russian Scale” (DIGI_TOP2000)", "«Русский масштаб» için dosya (DIGI_TOP2000)", "«Русский масштаб» uchun fayl (DIGI_TOP2000)") };
+        var digi = new MenuItem { Header = Tr.T("Файл для «Русского масштаба» (DIGI_TOP2000)", "«Русский масштаб» үчүн файл (DIGI_TOP2000)", "File for “Russian Scale” (DIGI_TOP2000)", "«Russkiy Masshtab» için dosya (DIGI_TOP2000)", "«Russkiy Masshtab» uchun fayl (DIGI_TOP2000)") };
         digi.Click += TmExport_Click;
         var flyout = new MenuFlyout { Placement = PlacementMode.TopEdgeAlignedRight };
         flyout.Items.Add(digi);
@@ -1243,7 +1243,7 @@ public partial class ScalesPluWindow : Window
     private static string TmErrorText(DahuaTmError error, bool rongta = false) => error switch
     {
         DahuaTmError.ConnectFailed when rongta => Tr.T("нет подключения к весам Rongta (IP, Wi-Fi/кабель, порт 4001; весы включены и не в меню настроек)", "Rongta таразасына туташуу жок (IP, Wi-Fi/кабель, 4001 порт; тараза күйүк жана жөндөө менюсунда эмес)", "no connection to the Rongta scale (IP, Wi-Fi/cable, port 4001; the scale is on and not in its settings menu)", "Rongta tartıya bağlantı yok (IP, Wi-Fi/kablo, port 4001; tartı açık ve ayar menüsünde değil)", "Rongta taroziga ulanish yo‘q (IP, Wi-Fi/kabel, 4001 port; tarozi yoqilgan va sozlamalar menyusida emas)"),
-        DahuaTmError.ConnectFailed => Tr.T("нет подключения к весам (IP, порт, кабель; закройте «Русский масштаб», если он подключён к весам)", "таразага туташуу жок (IP, порт, кабель; «Русский масштаб» таразага туташып турса, аны жабыңыз)", "no connection to the scale (IP, port, cable; close “Russian Scale” if it is connected to the scale)", "tartıya bağlantı yok (IP, port, kablo; «Русский масштаб» tartıya bağlıysa kapatın)", "taroziga ulanish yo‘q (IP, port, kabel; «Русский масштаб» taroziga ulangan bo‘lsa, uni yoping)"),
+        DahuaTmError.ConnectFailed => Tr.T("нет подключения к весам (IP, порт, кабель; закройте «Русский масштаб», если он подключён к весам)", "таразага туташуу жок (IP, порт, кабель; «Русский масштаб» таразага туташып турса, аны жабыңыз)", "no connection to the scale (IP, port, cable; close “Russian Scale” if it is connected to the scale)", "tartıya bağlantı yok (IP, port, kablo; «Russkiy Masshtab» tartıya bağlıysa kapatın)", "taroziga ulanish yo‘q (IP, port, kabel; «Russkiy Masshtab» taroziga ulangan bo‘lsa, uni yoping)"),
         DahuaTmError.NoReply => Tr.T("весы не ответили за 2,5 с после 4 повторов", "тараза 4 кайталоодон кийин 2,5 с ичинде жооп берген жок", "the scale did not answer within 2.5 s after 4 retries", "tartı 4 tekrardan sonra 2,5 sn içinde yanıt vermedi", "tarozi 4 takrordan keyin 2,5 s ichida javob bermadi"),
         DahuaTmError.ConnectionLost => Tr.T("весы разорвали соединение", "тараза туташууну үздү", "the scale closed the connection", "tartı bağlantıyı kesti", "tarozi ulanishni uzdi"),
         DahuaTmError.SendFailed => Tr.T("не удалось отправить данные", "маалыматтарды жөнөтүү мүмкүн болгон жок", "could not send the data", "veriler gönderilemedi", "ma’lumotlarni yuborib bo‘lmadi"),
@@ -1392,8 +1392,8 @@ public partial class ScalesPluWindow : Window
                 : Tr.T($" Сменился PLU у товаров: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. Старые ячейки и клавиши TM-30F проверьте в «Русском масштабе».",
                        $" PLU өзгөргөн товарлар: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. TM-30F'тин эски уячаларын жана баскычтарын «Русский масштаб»та текшериңиз.",
                        $" PLU changed for: {string.Join(", ", tmPlan.PluMoves.Select(m => $"“{rowsById.GetValueOrDefault(m.ProductId)?.Name}” {m.From} → {m.To}"))}. Check the old slots and keys of the TM-30F in “Russian Scale”.",
-                       $" PLU'su değişen ürünler: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. TM-30F'in eski hücrelerini ve tuşlarını «Русский масштаб»da kontrol edin.",
-                       $" PLU o‘zgargan tovarlar: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. TM-30F eski kataklari va tugmalarini «Русский масштаб»da tekshiring.");
+                       $" PLU'su değişen ürünler: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. TM-30F'in eski hücrelerini ve tuşlarını «Russkiy Masshtab»da kontrol edin.",
+                       $" PLU o‘zgargan tovarlar: {string.Join(", ", tmPlan.PluMoves.Select(m => $"«{rowsById.GetValueOrDefault(m.ProductId)?.Name}» {m.From} → {m.To}"))}. TM-30F eski kataklari va tugmalarini «Russkiy Masshtab»da tekshiring.");
 
             var autoRuleNote = _codeReplaceNote + hotkeyNote + movedNote + (autoAmountPrefix is null
                 ? ""
@@ -1485,7 +1485,7 @@ public partial class ScalesPluWindow : Window
 
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = Tr.T("Файл для «Русского масштаба» (DIGI_TOP2000)", "«Русский масштаб» үчүн файл (DIGI_TOP2000)", "File for “Russian Scale” (DIGI_TOP2000)", "«Русский масштаб» için dosya (DIGI_TOP2000)", "«Русский масштаб» uchun fayl (DIGI_TOP2000)"),
+            Title = Tr.T("Файл для «Русского масштаба» (DIGI_TOP2000)", "«Русский масштаб» үчүн файл (DIGI_TOP2000)", "File for “Russian Scale” (DIGI_TOP2000)", "«Russkiy Masshtab» için dosya (DIGI_TOP2000)", "«Russkiy Masshtab» uchun fayl (DIGI_TOP2000)"),
             SuggestedFileName = $"tm30f-digi_top2000-{DateTime.Now:yyyy-MM-dd}.txt",
             FileTypeChoices = [new FilePickerFileType("TXT") { Patterns = ["*.txt", "*.plu"] }],
         });
@@ -1504,8 +1504,8 @@ public partial class ScalesPluWindow : Window
         StatusText.Text = Tr.T($"Сохранено строк: {records.Count}. В «Русском масштабе»: Настройки товаров → Импорт → Text Files → DIGI_TOP2000, затем «Скачать» на весы.",
                                $"Сакталган саптар: {records.Count}. «Русский масштаб»та: Настройки товаров → Импорт → Text Files → DIGI_TOP2000, андан кийин таразага «Скачать».",
                                $"Rows saved: {records.Count}. In “Russian Scale”: Merchandise settings → Import → Text Files → DIGI_TOP2000, then “Download” to the scale.",
-                               $"Kaydedilen satır: {records.Count}. «Русский масштаб»da: Настройки товаров → Импорт → Text Files → DIGI_TOP2000, sonra tartıya «Скачать».",
-                               $"Saqlangan qatorlar: {records.Count}. «Русский масштаб»da: Настройки товаров → Импорт → Text Files → DIGI_TOP2000, so‘ng taroziga «Скачать».")
+                               $"Kaydedilen satır: {records.Count}. «Russkiy Masshtab»da: Ürün ayarları → İçe aktar → Text Files → DIGI_TOP2000, sonra tartıya «Yükle».",
+                               $"Saqlangan qatorlar: {records.Count}. «Russkiy Masshtab»da: Tovar sozlamalari → Import → Text Files → DIGI_TOP2000, so‘ng taroziga «Yuklash».")
                           + (problems.Count > 0 ? Tr.T($" Пропущено с ошибками: {problems.Count} — ", $" Ката менен өткөрүлдү: {problems.Count} — ", $" Skipped with errors: {problems.Count} — ", $" Hatalı atlanan: {problems.Count} — ", $" Xato bilan o‘tkazib yuborildi: {problems.Count} — ") + problems[0] : "");
     }
 

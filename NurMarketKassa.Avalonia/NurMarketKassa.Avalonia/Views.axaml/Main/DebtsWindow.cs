@@ -330,6 +330,8 @@ public sealed class DebtsView : UserControl
             var suppliersTask = PosApp.CatalogApi.ListSuppliersAsync(ct);
             var withDebtsTask = api.RequestAsync(System.Net.Http.HttpMethod.Get, "api/main/clients/with-debts/", null,
                 new Dictionary<string, string> { ["page_size"] = "500" }, ct);
+            Observe(suppliersTask); // 2026-11-01 (В-29): упал один из двух параллельных запросов — второй не должен остаться «ненаблюдаемым»
+            Observe(withDebtsTask);
             var supplierIds = new HashSet<string>(
                 NurMarketApiClient.UnwrapList(await suppliersTask.ConfigureAwait(true)).Select(s => Str(s, "id") ?? "").Where(x => x.Length > 0),
                 StringComparer.OrdinalIgnoreCase);
@@ -437,6 +439,10 @@ public sealed class DebtsView : UserControl
         // 2026-10-23 (аудит, круг 6: «Долги клиентов» ~5 с): список клиентов (телефоны) грузится параллельно с долговыми продажами.
         var salesTask = App.GetRequiredService<ISalesApiService>().PosDebtSalesAsync(null, ct);
         var clientsTask = withPhones ? App.GetRequiredService<IClientsApiService>().GetClientsAsync(null, ct) : null;
+        // 2026-11-01 (В-29, аудит «10 из 10»): продажи упали (500/обрыв) раньше, чем ждём список клиентов, — его сбой нигде не наблюдался
+        // и попадал в журнал как ERROR «Unobserved task exception». Теперь оба сбоя «наблюдаются» сразу (await всё равно бросит свой).
+        Observe(salesTask);
+        Observe(clientsTask);
         var sales = await salesTask.ConfigureAwait(true);
         // Телефоны — из списка клиентов (в продаже только имя). Не получилось — без телефонов.
         var phones = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -559,7 +565,7 @@ public sealed class DebtsView : UserControl
             PosLogger.Log($"Долги клиентов: {_debtors.Count} клиент(ов), {_debtors.Sum(d => d.Sales.Count)} чек(ов) в долг{(progressive ? ", точные остатки — постепенно" : "")}.", "INFO");
             Render();
             if (progressive)
-                _ = RefineProgressivelyAsync(gen, startVersion, debtors, byClient);
+                Observe(RefineProgressivelyAsync(gen, startVersion, debtors, byClient), "постепенное уточнение остатков"); // 2026-11-01 (В-29): сбой фоновой задачи — наблюдаем, а не теряем
             else
                 RememberExact(startVersion);
             // «Неизвестно чьё» изменение во время загрузки — полная перезагрузка придёт сама (DebouncedDebtChanged).
@@ -581,13 +587,25 @@ public sealed class DebtsView : UserControl
             if (gen != _loadGen)
                 return;
             PosLogger.Log($"Долги клиентов: не загружены ({ex.GetType().Name}: {ex.Message}).", "WARNING");
-            SetSummary(T("Не удалось загрузить долги: ", "Карыздарды жүктөө мүмкүн болгон жок: ", "Couldn't load debts: ", "Borçlar yüklenemedi: ", "Qarzlarni yuklab bo'lmadi: ")
-                       + (ex is OperationCanceledException ? T("сервер не ответил", "сервер жооп берген жок", "the server didn't respond", "sunucu yanıt vermedi", "server javob bermadi") : ex.Message));
-            ShowLoadError(ex is OperationCanceledException ? T("сервер не ответил", "сервер жооп берген жок", "the server didn't respond", "sunucu yanıt vermedi", "server javob bermadi") : "");
+            // 2026-11-01 (В-28/В-08): вместо сырого ex.Message («An error occurred…», «mock 500») — единый понятный текст сбоя сервера.
+            var friendly = ServerOutageMonitor.FriendlyError(ex);
+            SetSummary(T("Не удалось загрузить долги: ", "Карыздарды жүктөө мүмкүн болгон жок: ", "Couldn't load debts: ", "Borçlar yüklenemedi: ", "Qarzlarni yuklab bo'lmadi: ") + friendly);
+            ShowLoadError(friendly);
         }
     }
 
     private long _lastRefineRender;
+
+    /// <summary>2026-11-01 (В-29, аудит «10 из 10»): «наблюдать» сбой фоновой задачи, которую не ждём (или ждём позже): при 500 и обрыве связи
+    /// такие задачи заканчивались ошибкой без читателя, и .NET писал в журнал ERROR «Unobserved task exception (AggregateException)» —
+    /// владелец видел красную ошибку в «Логах». Сам сбой по-прежнему бросается тому, кто делает await, и пишется его catch'ем.</summary>
+    private static void Observe(Task? task, string? what = null) =>
+        task?.ContinueWith(t =>
+        {
+            var ex = t.Exception?.GetBaseException();
+            if (what is not null && ex is not null and not OperationCanceledException)
+                PosLogger.Log($"Долги клиентов: {what} не удалось ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+        }, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
 
     /// <summary>2026-10-18, десятый круг (п.4): точные остатки после первой отрисовки — по клиенту (от крупных долгов), не больше
     /// 4 запросов одновременно; отрисовка — каждые 5 клиентов и в конце. Новая полная загрузка — прекращаем; карточка клиента,
@@ -816,6 +834,7 @@ public sealed class DebtsView : UserControl
         // 2026-10-23 (аудит, круг 7: «Долги клиентов» 4–5 с): поиск таких клиентов не ждёт уточнения остатков — идёт рядом с ним
         // (число запросов то же; у обоих свой лимит 4 одновременных).
         var noSaleTask = NoSaleOnlyDebtorsAsync(debtors, ct);
+        Observe(noSaleTask); // 2026-11-01 (В-29): уточнение остатков ниже упало до await noSaleTask — его сбой не должен уйти в «Unobserved task exception»
         if (debtors.Sum(d => d.Sales.Count) > ExactBeforeRenderLimit)
             return (debtors.Select(d => ApplyExact(d, null)!).Concat(await noSaleTask.ConfigureAwait(true)).ToList(), true, byClient);
         using var exactCts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
@@ -1036,16 +1055,19 @@ public sealed class DebtsView : UserControl
             Avalonia.Automation.AutomationProperties.SetName(why, NoWhatsAppReason(d));
             buttons.Children.Add(why);
         }
-        // 2026-10-18, владелец: «Принять оплату» — главная (жёлтая) кнопка карточки, только в программе владельца и только
-        // у долга с клиентом (без клиента сервер не знает, чей долг гасить). WhatsApp — обводкой рядом.
+        // 2026-11-01: по решению владельца — одна главная кнопка на экран (решение 18.10 «жёлтая в каждой карточке» отменено).
+        // Список долгов — много одинаковых действий, главной (жёлтой) на этом экране нет: в строке клиента «Принять оплату» — вторичная
+        // nur-secondary (обводка, жирный текст, 36 px, цвет текста темы на панели — контраст ≥ 4,5:1). Показ — только в программе
+        // владельца и только у долга с клиентом (без клиента сервер не знает, чей долг гасить). WhatsApp — обводкой рядом.
         if (AppMode.IsOwner && d.ClientId.Length > 0)
         {
-            // 2026-10-21: аудит предлагал обводку («жёлтая в каждой карточке»), но владелец 18.10 прямо просил жёлтую —
-            // оставлена жёлтая (решение владельца важнее правила «одна жёлтая на экран»).
-            var pay = UiKit.Primary(this, T("Принять оплату", "Төлөм кабыл алуу", "Accept payment", "Ödeme al", "To'lov qabul qilish"));
-            pay.Height = 32;
-            pay.MinHeight = 32;
-            pay.FontSize = 12.5;
+            var pay = UiKit.Ghost(this, T("Принять оплату", "Төлөм кабыл алуу", "Accept payment", "Ödeme al", "To'lov qabul qilish"));
+            pay.Classes.Remove("sec-outline");
+            pay.Classes.Add("nur-secondary");
+            pay.Height = 36;
+            pay.MinHeight = 36;
+            pay.MinWidth = 0;
+            pay.FontSize = 13;
             pay.FontWeight = FontWeight.Bold;
             pay.Padding = new Thickness(14, 0);
             pay.Margin = new Thickness(6, 0, 0, 0);

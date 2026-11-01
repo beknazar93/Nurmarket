@@ -418,11 +418,11 @@ public sealed class AcceptDebtPaymentWindow : Window
     }
 
     private static string OfflineText => T(
-        "Нет связи с сервером. Принять оплату долга можно только при связи — долг и оплата хранятся на сервере.",
-        "Сервер менен байланыш жок. Карыз төлөмүн байланыш болгондо гана кабыл алса болот — карыз жана төлөм серверде сакталат.",
-        "No connection to the server. A debt payment can only be taken online — the debt and the payment live on the server.",
-        "Sunucu bağlantısı yok. Borç ödemesi yalnızca bağlantı varken alınabilir — borç ve ödeme sunucuda tutulur.",
-        "Server bilan aloqa yo'q. Qarz to'lovini faqat aloqa bo'lganda qabul qilish mumkin — qarz va to'lov serverda saqlanadi.");
+        "Сервер NurCRM недоступен. Принять оплату долга можно только при связи — долг и оплата хранятся на сервере.", // 2026-11-01 (В-08): единая фраза о сбое сервера
+        "NurCRM сервери жеткиликсиз. Карыз төлөмүн байланыш болгондо гана кабыл алса болот — карыз жана төлөм серверде сакталат.",
+        "The NurCRM server is unavailable. A debt payment can only be taken online — the debt and the payment live on the server.",
+        "NurCRM sunucusu kullanılamıyor. Borç ödemesi yalnızca bağlantı varken alınabilir — borç ve ödeme sunucuda tutulur.",
+        "NurCRM serveri mavjud emas. Qarz to'lovini faqat aloqa bo'lganda qabul qilish mumkin — qarz va to'lov serverda saqlanadi.");
 
     private void ShowLoadError(string text)
     {

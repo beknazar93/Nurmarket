@@ -38,7 +38,7 @@
             <Setter Property="Background" Value="{DynamicResource BrushWarningSoft}"/>
         </Style>
         <Style Selector="TextBlock.onec-colhead">
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
         </Style>
@@ -51,8 +51,9 @@
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Width" Value="34"/>
-            <Setter Property="Height" Value="34"/>
+            <!-- 2026-11-01 (Д-01): «−/+» вне строки чека 34 → 40 px (в строке чека — 36, плотный вид). -->
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
             <Setter Property="CornerRadius" Value="7"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
@@ -191,7 +192,7 @@
                                     <StackPanel Spacing="1">
                                         <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold"
                                                    MaxWidth="150" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}, ConverterParameter=som}" FontSize="11"
+                                        <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}, ConverterParameter=som}" FontSize="12"
                                                    Foreground="{DynamicResource BrushCatalogPrice}"/>
                                     </StackPanel>
                                 </Button>
@@ -303,11 +304,11 @@
                                                Foreground="{DynamicResource BrushText}"/>
                                     <TextBlock Grid.Column="2" Text="{Binding UnitPriceDisplay}" FontSize="14" VerticalAlignment="Center"/>
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
-                                        <Button Content="−" Classes="onec-step" Width="26" Height="26" FontSize="12"
+                                        <Button Content="−" Classes="onec-step" Width="36" Height="36" FontSize="12"
                                                 AutomationProperties.Name="{Binding DecreaseName}" Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"/>
                                         <!-- 2026-09-28: количество вводится с клавиатуры, как в «Классике» (раньше здесь был
                                              только текст — точное количество в этом виде кассы ввести было нельзя). -->
-                                        <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="46" Height="26" MinHeight="0"
+                                        <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="46" Height="32" MinHeight="0"
                                                  Padding="4,0" FontSize="14" FontWeight="Normal" TextAlignment="Center" VerticalContentAlignment="Center"
                                                  VerticalAlignment="Center"
                                                  Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}"
@@ -317,7 +318,7 @@
                                                 <KeyBinding Gesture="Enter" Command="{Binding SetQuantityCommand}" CommandParameter="{Binding}"/>
                                             </TextBox.KeyBindings>
                                         </TextBox>
-                                        <Button Content="+" Classes="onec-step" Width="26" Height="26" FontSize="12"
+                                        <Button Content="+" Classes="onec-step" Width="36" Height="36" FontSize="12"
                                                 IsEnabled="{Binding CanIncrease}"
                                                 AutomationProperties.Name="{Binding IncreaseName}" Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"/>
                                     </StackPanel>

@@ -44,6 +44,11 @@ public static class ClientLoyaltyStore
     public static (double Discounts, double PointsRedeemed, int Receipts) AdjustmentsForShift(string? shiftId) =>
         Db.GetShiftAdjustmentsForShift(shiftId);
 
+    /// <summary>2026-11-01 (Ж-08): сколько баллов по этой продаже ещё не отменено (чистое изменение): &gt; 0 — начислено и будет снято при полном возврате,
+    /// &lt; 0 — списано на оплату и будет возвращено; 0 — нет записи. Только чтение (для строки «ожидаемо» в подтверждении возврата).</summary>
+    public static double RemainingForSale(string saleId) =>
+        string.IsNullOrWhiteSpace(saleId) ? 0 : Db.GetRemainingClientLoyaltyForSale(saleId)?.Remaining ?? 0;
+
     /// <summary>Отменяет весь ещё не отменённый остаток баллов, начисленных/списанных при
     /// продаже — используется при полном возврате чека. Безопасно вызывать даже если для
     /// продажи не было транзакции (лояльность была выключена, продажа без клиента) — тогда

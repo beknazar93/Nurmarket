@@ -673,12 +673,20 @@ public sealed partial class CatalogApiService : ICatalogApiService
             "api/main/agents/me/products/",
         };
 
+        // 2026-11-01 (аудит 10 из 10, С-03): ключ повтора — заголовком Idempotency-Key (сервер, не знающий заголовка, его игнорирует).
+        var keyHeaders = request.IdempotencyKey is { Length: > 0 } idemKey
+            ? new Dictionary<string, string> { ["Idempotency-Key"] = idemKey.Trim() }
+            : null;
+
         ApiException? last = null;
         foreach (var path in paths)
         {
             try
             {
-                return await _client.RequestAsync(HttpMethod.Post, path, body, null, ct).ConfigureAwait(false);
+                if (keyHeaders is null)
+                    return await _client.RequestAsync(HttpMethod.Post, path, body, null, ct).ConfigureAwait(false);
+                var (created, _) = await _client.RequestWithHeadersAsync(HttpMethod.Post, path, body, keyHeaders, ct).ConfigureAwait(false);
+                return created;
             }
             catch (ApiException ex) when (ex.StatusCode is 404 or 405)
             {
@@ -788,9 +796,21 @@ public sealed partial class CatalogApiService : ICatalogApiService
         return _client.RequestAsync(HttpMethod.Post, "api/main/clients/", body, null, ct);
     }
 
-    public Task<JsonElement> CreateSupplierReceiptAsync(string supplierId, object body, CancellationToken ct = default) =>
-        _client.RequestAsync(
-            HttpMethod.Post, $"api/main/suppliers/{Uri.EscapeDataString(supplierId.Trim())}/receipt/", body, null, ct);
+    public async Task<JsonElement> CreateSupplierReceiptAsync(string supplierId, object body, CancellationToken ct = default)
+    {
+        var path = $"api/main/suppliers/{Uri.EscapeDataString(supplierId.Trim())}/receipt/";
+        // 2026-11-01 (аудит 10 из 10, С-07): ключ повтора прихода уходит и в заголовке Idempotency-Key (как у возврата поставщику) —
+        // сервер c8958b4 смотрит заголовок и на повтор отвечает replayed: true. Тело прежнее (idempotency_key остаётся); сервер заголовок
+        // игнорирует — вред нулевой. Ключа в теле нет — запрос как раньше.
+        if (body is IDictionary<string, object?> dict && dict.TryGetValue("idempotency_key", out var keyObj)
+            && keyObj is string key && !string.IsNullOrWhiteSpace(key))
+        {
+            var headers = new Dictionary<string, string> { ["Idempotency-Key"] = key.Trim() };
+            var (data, _) = await _client.RequestWithHeadersAsync(HttpMethod.Post, path, body, headers, ct).ConfigureAwait(false);
+            return data;
+        }
+        return await _client.RequestAsync(HttpMethod.Post, path, body, null, ct).ConfigureAwait(false);
+    }
 
     public Task<JsonElement> ListSupplierReceiptsAsync(int page, int limit, CancellationToken ct = default) =>
         _client.RequestAsync(
@@ -928,6 +948,7 @@ public sealed partial class CatalogApiService : ICatalogApiService
         // вместо «не трогать» — значит обнулить остаток или цену живого товара. Для обычной
         // формы редактирования все признаки true, и тело остаётся прежним.
         if (!r.SendQuantity) body.Remove("quantity");
+        if (!r.SendAlternateBarcodes) body.Remove("alternate_barcodes"); // 2026-11-01 (С-01, приёмка)
         if (!r.SendPrice) body.Remove("price");
         if (!r.SendPurchasePrice) body.Remove("purchase_price");
         if (!r.SendMarkupPercent) body.Remove("markup_percent");

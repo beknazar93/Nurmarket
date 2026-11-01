@@ -76,7 +76,7 @@
         <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
     </Style>
     <Style Selector="TextBlock.lx-colhead">
-        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="FontSize" Value="12"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -308,21 +308,25 @@
     <Style Selector="Button.lx-chip.filter-on:pointerover /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
     </Style>
+    <!-- 2026-11-01 (аудит «10 из 10», Д-04): выбранный чип был жёлтым и спорил с жёлтой «Оплатить» («одна жёлтая на экран») —
+         теперь тёмная/светлая заливка цветом текста темы (BrushText на BrushPanel), жёлтая остаётся главной кнопке. -->
     <Style Selector="Button.lx-chip.active">
-        <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
-        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
     </Style>
     <Style Selector="Button.lx-chip.active:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.lx-chip.active:pressed /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
-        <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
+        <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
+        <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
     </Style>
 
     <!-- +/− у строки чека. -->
+    <!-- 2026-11-01 (аудит «10 из 10», Д-01): «−/+» были 32×32 — меньше пальца (44). Теперь 44×44 (значок остался 12 px — больше хит-бокс, не рисунок).
+         Плотные виды («Табличная», «Профи», «Минимал») задают 36–40 у себя в строке чека. -->
     <Style Selector="Button.lx-step">
-        <Setter Property="Width" Value="32"/>
-        <Setter Property="Height" Value="32"/>
+        <Setter Property="Width" Value="44"/>
+        <Setter Property="Height" Value="44"/>
         <Setter Property="Padding" Value="0"/>
         <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
         <Setter Property="BorderThickness" Value="0"/>
@@ -414,7 +418,7 @@
     </Style>
     <Style Selector="Border.lx-badge-danger TextBlock">
         <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
-        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontSize" Value="12"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
 

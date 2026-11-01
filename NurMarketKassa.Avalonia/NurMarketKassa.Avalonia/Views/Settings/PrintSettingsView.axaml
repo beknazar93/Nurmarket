@@ -101,6 +101,31 @@
           </StackPanel>
         </Border>
 
+        <!-- 2026-11-01 (просьба владельца: «2 принтера разной модели одновременно, штрихкоды сразу на выбранный принтер»):
+             два явных выбора. Принтер чеков — в блоке «Оборудование» ниже (виден, пока включена печать чека), принтер этикеток —
+             здесь, всегда: этикетки печатаются независимо от чеков. Подписи — в коде (5 языков). -->
+        <Border Classes="SettingsCard" Padding="14">
+          <StackPanel Spacing="8">
+            <TextBlock x:Name="LabelPrinterTitleText" x:FieldModifier="public" Classes="SettingsCardTitle" FontSize="14"/>
+            <TextBlock x:Name="LabelPrinterHintText" x:FieldModifier="public" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="ReceiptPrinterSummaryText" x:FieldModifier="public" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushText}"/>
+            <Grid ColumnDefinitions="*,8,Auto">
+              <ComboBox Grid.Column="0" x:Name="LabelPrinterCombo" x:FieldModifier="public"
+                        Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="44"/>
+              <Button Grid.Column="2" x:Name="BtnFindLabelPrinters" x:FieldModifier="public"
+                      Content="{DynamicResource printSettings.findButton}" Classes="PrintGoldButton"/>
+            </Grid>
+            <!-- 2026-11-01: принтер этикеток по сети (LAN, TCP 9100) -->
+            <ContentControl x:Name="LabelNetHost" x:FieldModifier="public" Margin="0,4,0,0"/>
+            <TextBlock x:Name="LabelPrinterKindText" x:FieldModifier="public" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+            <TextBlock x:Name="LabelPrinterWarnText" x:FieldModifier="public" FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource BrushWarning}" IsVisible="False"/>
+          </StackPanel>
+        </Border>
+
         <!-- Все настройки ниже относятся только к самой печати чека — если "Печать чека
              после оплаты" выключена, показывать их нет смысла (2026-09-05, по просьбе
              пользователя: "если выключить, пропадает всё что стоит после него"). -->
@@ -130,7 +155,9 @@
                           Content="{DynamicResource printSettings.testButton}" Classes="PrintGoldButton"/>
                 </Grid>
                 <TextBlock x:Name="StatusPortText" x:FieldModifier="public"
-                           Text="{DynamicResource printSettings.lptNotFound}" FontSize="11" Foreground="{DynamicResource BrushDanger}"/>
+                           Text="{DynamicResource printSettings.lptNotFound}" FontSize="12" Foreground="{DynamicResource BrushDanger}"/>
+                <!-- 2026-11-01: принтер чеков по сети (LAN, TCP 9100) — блок создаётся в коде (NetworkPrinterPanel). -->
+                <ContentControl x:Name="ReceiptNetHost" x:FieldModifier="public" Margin="0,8,0,0"/>
               </StackPanel>
 
               <StackPanel Grid.Column="2" Spacing="4">
@@ -381,17 +408,17 @@
             <TextBlock Text="{DynamicResource posSettings.print.logAndStatus}" Classes="SettingsCardTitle" FontSize="13"/>
             <TextBox x:Name="StatusText" x:FieldModifier="public"
                      Classes="ModernTextBox" Height="48"
-                     IsReadOnly="True" TextWrapping="Wrap" FontSize="11"
+                     IsReadOnly="True" TextWrapping="Wrap" FontSize="12"
                      Foreground="{DynamicResource BrushText}"/> <!-- 2026-10-19, О7: фон поля из общего стиля (был серый) -->
 
             <Border x:Name="PrintErrorPanel" x:FieldModifier="public"
                     IsVisible="False" CornerRadius="6" Padding="8"
                     Background="{DynamicResource BrushDangerSoft}" BorderBrush="{DynamicResource BrushDanger}" BorderThickness="1">
               <StackPanel Spacing="4">
-                <TextBlock Text="{DynamicResource posSettings.print.errorDetails}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"/>
+                <TextBlock Text="{DynamicResource posSettings.print.errorDetails}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BrushDanger}"/>
                 <TextBox x:Name="TxtPrintErrorDetails" x:FieldModifier="public"
                          IsReadOnly="True" TextWrapping="Wrap"
-                         FontFamily="Consolas" FontSize="11" MaxHeight="100"
+                         FontFamily="Consolas" FontSize="12" MaxHeight="100"
                          BorderThickness="0" Background="Transparent" Foreground="{DynamicResource BrushDanger}"/>
               </StackPanel>
             </Border>

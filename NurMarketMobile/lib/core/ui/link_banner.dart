@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/sale/catalog_repository.dart';
 import '../api/api_client.dart';
 import '../providers.dart';
 import '../util/ui.dart';
@@ -27,7 +28,7 @@ class LinkBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final api = ref.watch(apiProvider);
-    return ValueListenableBuilder<LinkStatus>(
+    final link = ValueListenableBuilder<LinkStatus>(
       valueListenable: api.link,
       builder: (c, st, _) {
         if (!st.offline && !force) return const SizedBox.shrink();
@@ -38,6 +39,9 @@ class LinkBanner extends ConsumerWidget {
         );
       },
     );
+    // 2026-10-31 («в мобилке не отображаются все товары»): под плашкой связи — ход загрузки каталога («Загружено N из M»)
+    if (!catalog) return link;
+    return Column(mainAxisSize: MainAxisSize.min, children: [link, CatalogLoadBanner(margin: margin)]);
   }
 
   static String _hm(BuildContext c, DateTime t) => TimeOfDay.fromDateTime(t).format(c);
@@ -68,6 +72,85 @@ class LinkBanner extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 2026-10-31 («в мобилке не отображаются все товары»): пока каталог догружается — «Загружаем каталог… N из M» с полосой хода;
+/// загрузка оборвалась и на телефоне не все товары — «Загружено N из M …» и кнопка «Обновить каталог» (продолжает с места обрыва).
+/// Каталог полный — плашки нет.
+class CatalogLoadBanner extends ConsumerStatefulWidget {
+  final EdgeInsetsGeometry margin;
+  const CatalogLoadBanner({super.key, this.margin = EdgeInsets.zero});
+  @override
+  ConsumerState<CatalogLoadBanner> createState() => _CatalogLoadBannerState();
+}
+
+class _CatalogLoadBannerState extends ConsumerState<CatalogLoadBanner> {
+  @override
+  void initState() {
+    super.initState();
+    // после запуска приложения, пока синхронизация не отработала, состояние берётся из настроек телефона
+    ref.read(catalogRepoProvider).restoreProgress();
+  }
+
+  Future<void> _refresh() async {
+    final repo = ref.read(catalogRepoProvider);
+    if (repo.progress.value.running) return;
+    try {
+      await repo.sync();
+    } on ApiException catch (e) {
+      if (mounted) toast(context, e.message, error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final repo = ref.watch(catalogRepoProvider);
+    return ValueListenableBuilder<CatalogProgress>(
+      valueListenable: repo.progress,
+      builder: (c, st, _) {
+        if (!st.running && !st.incomplete) return const SizedBox.shrink();
+        final l = c.l;
+        final p = c.pal;
+        final text = st.running
+            ? (st.total > 0 ? l.catalogLoadingProgress(st.loaded, st.total) : l.catalogLoadingNoTotal(st.loaded))
+            : (st.total > 0 ? l.catalogIncomplete(st.loaded, st.total) : l.catalogIncompleteNoTotal);
+        return Padding(
+          padding: widget.margin,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+            decoration: BoxDecoration(color: p.warnSoft, borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (st.running)
+                      const Padding(padding: EdgeInsets.only(top: 1), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+                    else
+                      Icon(Icons.sync_problem_rounded, color: p.warn, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(text, style: TextStyle(color: p.warn, fontSize: 12.5, fontWeight: FontWeight.w700))),
+                  ],
+                ),
+                if (st.running && st.total > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, right: 4),
+                    child: LinearProgressIndicator(value: (st.loaded / st.total).clamp(0.0, 1.0), minHeight: 4, borderRadius: BorderRadius.circular(2)),
+                  ),
+                if (!st.running)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(onPressed: _refresh, icon: const Icon(Icons.refresh_rounded, size: 18), label: Text(l.catalogRefresh)),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

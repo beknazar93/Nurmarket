@@ -4,6 +4,7 @@ using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
 
@@ -48,6 +49,7 @@ public partial class PriceTagPrintDialog : Window
         var hasBarcode = !string.IsNullOrWhiteSpace(_product.Barcode);
         KindCombo.SelectedIndex = hasBarcode ? 1 : 0;
 
+        PrinterCombo.SelectionChanged += PrinterCombo_SelectionChanged;
         RefreshPrinterList();
 
         _isInitializing = false;
@@ -104,20 +106,61 @@ public partial class PriceTagPrintDialog : Window
 
     private void Target_Changed(object? sender, RoutedEventArgs e) => RefreshPrinterList();
 
-    private void RefreshPrinterList()
+    // 2026-11-01 (проверка массовой печати, В-2/С-4/С-6): принтер хранится по режиму отдельно (термо / A4), список ищется не на потоке интерфейса.
+    private bool _shownA4;
+    private string? _thermalChoice, _a4Choice;
+    private bool _printersLoaded, _listGuard;
+    private int _listVersion;
+
+    private void PrinterCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        // Принтер этикеток запоминаем только по явному выбору кассира в режиме «Термо» (не по факту печати, не при подстановке списка).
+        if (_listGuard || !_printersLoaded || TargetA4Radio.IsChecked == true)
+            return;
+        if (PrinterCombo.SelectedItem is DiscoveredPrinter p && !p.IsVirtual
+            && !LabelPrinterSelector.SamePrinter(p.DevicePath, UserPreferences.Instance.LabelPrinterDevicePath))
+        {
+            UserPreferences.Instance.LabelPrinterDevicePath = p.DevicePath;
+            UserPreferences.Instance.SaveToDisk();
+        }
+    }
+
+    private async void RefreshPrinterList()
     {
         var isA4 = TargetA4Radio.IsChecked == true;
-        var previouslySelected = PrinterCombo.SelectedItem as DiscoveredPrinter;
-
-        var printers = PriceTagService.GetAvailablePrinters();
-        if (isA4)
-            printers = printers.Where(p => !BarcodeLabelService.IsRawDevicePath(p.DevicePath)).ToList();
-
+        if (PrinterCombo.SelectedItem is DiscoveredPrinter prev)
+        {
+            if (_shownA4) _a4Choice = prev.DevicePath; else _thermalChoice = prev.DevicePath;
+        }
+        _shownA4 = isA4;
+        _printersLoaded = false;
+        var version = ++_listVersion;
+        IReadOnlyList<DiscoveredPrinter> printers;
+        try
+        {
+            printers = await Task.Run(() => isA4
+                ? (IReadOnlyList<DiscoveredPrinter>)PriceTagService.GetAvailablePrinters().Where(p => !BarcodeLabelService.IsRawDevicePath(p.DevicePath)).ToList()
+                : LabelPrinterSelector.GetChoices()).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Price tag printer list failed: {ex.GetType().Name}", "WARNING");
+            printers = Array.Empty<DiscoveredPrinter>();
+        }
+        if (version != _listVersion)
+            return; // за время поиска режим сменили — результат устарел
+        _listGuard = true;
         PrinterCombo.ItemsSource = printers;
-        PrinterCombo.SelectedItem = previouslySelected is not null && printers.Any(p => p.DevicePath == previouslySelected.DevicePath)
-            ? previouslySelected
-            : printers.FirstOrDefault();
-
+        var wanted = isA4 ? _a4Choice : _thermalChoice;
+        var keep = wanted is null ? null : printers.FirstOrDefault(p => LabelPrinterSelector.SamePrinter(p.DevicePath, wanted));
+        var resolution = isA4 ? null : LabelPrinterSelector.Resolve(printers);
+        PrinterCombo.SelectedItem = isA4
+            ? keep ?? LabelPrinterSelector.PickA4Default(printers, BarcodePrintSettingsStore.Load().A4PrinterName)
+            : keep ?? resolution!.Printer;
+        _listGuard = false;
+        _printersLoaded = true;
+        if (!isA4 && PrinterCombo.SelectedItem is null && printers.Count > 0)
+            StatusText.Text = LabelPrinterSelector.HintText(resolution!.State);
         if (printers.Count == 0)
             StatusText.Text = isA4
                 ? Tr.T("Не найдено ни одного установленного в Windows принтера.", "Windows'то орнотулган принтер табылган жок.", "No printers installed in Windows were found.", "Windows'ta yüklü hiçbir yazıcı bulunamadı.", "Windows'da o'rnatilgan printer topilmadi.")
@@ -195,9 +238,26 @@ public partial class PriceTagPrintDialog : Window
         if (KindCombo.SelectedItem is not PriceTagKindOption option)
             return;
 
+        if (!BarcodePrintAccess.IsAllowed()) // 2026-11-01 (П-10)
+        {
+            StatusText.Text = BarcodePrintAccess.DeniedText;
+            return;
+        }
+        if (!LabelPrinterSelector.PrintingSupported)
+        {
+            StatusText.Text = LabelPrinterSelector.UnsupportedText; // 2026-11-01 (С-9)
+            return;
+        }
+        if (PrinterCombo.SelectedItem is null && !_printersLoaded)
+        {
+            StatusText.Text = Tr.T("Ищу принтеры… повторите печать через секунду.", "Принтерлер изделүүдө… бир секунддан кийин кайра басыңыз.", "Looking for printers… try printing again in a second.", "Yazıcılar aranıyor… bir saniye sonra tekrar deneyin.", "Printerlar qidirilmoqda… bir soniyadan keyin qayta urinib ko'ring.");
+            return;
+        }
         if (PrinterCombo.SelectedItem is not DiscoveredPrinter printer)
         {
-            StatusText.Text = Tr.T("Выберите принтер.", "Принтерди тандаңыз.", "Select a printer.", "Bir yazıcı seçin.", "Printerni tanlang.");
+            StatusText.Text = TargetA4Radio.IsChecked == true
+                ? Tr.T("Выберите принтер.", "Принтерди тандаңыз.", "Select a printer.", "Bir yazıcı seçin.", "Printerni tanlang.")
+                : LabelPrinterSelector.MissingHint();
             return;
         }
 
@@ -226,9 +286,12 @@ public partial class PriceTagPrintDialog : Window
                 : await System.Threading.Tasks.Task.Run(() => PriceTagService.Print(new PriceTagPrintRequest(
                     option.Kind, data, widthMm, heightMm,
                     copies, printer.DevicePath, target))).ConfigureAwait(true);
+            // 2026-11-01 (В-2): принтер этикеток больше не запоминается по факту печати (лист A4 на офисный принтер портил настройку); в журнал — одна строка.
+            if (result == LabelPrintResult.Success && target == PriceTagPrintTarget.Thermal)
+                LabelPrinterSelector.LogSent(printer, printer.DevicePath, copies);
             StatusText.Text = result switch
             {
-                LabelPrintResult.Success => Tr.T("Ценник отправлен на печать.", "Баа белгиси басып чыгарууга жөнөтүлдү.", "Price tag sent to the printer.", "Fiyat etiketi yazdırmaya gönderildi.", "Narx yorlig'i chop etishga yuborildi."),
+                LabelPrintResult.Success => LabelPrinterSelector.SentText(printer.Label),
                 LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден — обновите список.", "Принтер табылган жок — тизмени жаңыртыңыз.", "Printer not found — refresh the list.", "Yazıcı bulunamadı — listeyi yenileyin.", "Printer topilmadi — ro'yxatni yangilang."),
                 _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Толук маалымат колдонмонун журналында.", "Printing error. See the app log for details.", "Yazdırma hatası. Ayrıntılar için uygulama günlüğüne bakın.", "Chop etishda xato. Batafsil ma'lumot ilova jurnalida."),
             };

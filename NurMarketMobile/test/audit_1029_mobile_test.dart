@@ -91,6 +91,7 @@ void main() {
     var version = 5;
 
     setUp(() {
+      CatalogRepository.pageRetryBase = Duration.zero; // 2026-10-31: повтор страницы без пауз
       version = 5;
       db = AppDatabase(NativeDatabase.memory());
       list = [_p('p1', 'Вода', barcode: '4600000000001', sku: 'V1'), _p('p2', 'Хлеб', barcode: '4600000000002')];
@@ -271,7 +272,7 @@ void main() {
       expect(await db.getSetting(CatalogRepository.fullAtKey), isNull); // загрузка не считается полной — повторится
     });
 
-    test('обрыв посреди загрузки — база не тронута', () async {
+    test('обрыв посреди загрузки — старые товары на месте (2026-10-31: прочитанные страницы остаются, ничего не стирается)', () async {
       await db.replaceProducts([for (var i = 0; i < 369; i++) ProductsCompanion.insert(id: 'old$i', name: 'Старый $i')]);
       api.handler = (path, q) async {
         if (path == 'api/main/products/list/') {
@@ -281,8 +282,9 @@ void main() {
         throw ApiException('нет', status: 404);
       };
       await expectLater(CatalogRepository(api, db).sync(), throwsA(isA<ApiException>()));
-      expect(await db.productCount(), 369);
+      expect(await db.productCount(), 369 + 100); // старые на месте, первая страница (100) записана сразу и не потеряется
       expect(await db.productById('old0'), isNotNull);
+      expect(await db.productById('n0'), isNotNull);
     });
 
     test('ETag ленты: If-None-Match уходит без W/, ответ 304 — ничего не меняется', () async {

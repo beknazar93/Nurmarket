@@ -23,6 +23,7 @@ public partial class WarehouseWindow
     public static string RowStockText => Tr.T("Остаток", "Калдык", "Stock", "Stok", "Qoldiq");
     public static string RowStockName => Tr.T("Изменить остаток", "Калдыкты өзгөртүү", "Change stock", "Stoğu değiştir", "Qoldiqni o'zgartirish");
     public static string RowEditName => Tr.T("Изменить товар", "Товарды түзөтүү", "Edit product", "Ürünü düzenle", "Mahsulotni tahrirlash");
+    public static string RowLabelText => Tr.T("Печать этикетки", "Этикетка басып чыгаруу", "Print label", "Etiket yazdır", "Yorliq chop etish"); // 2026-11-01
     public static string RowMoreText => Tr.T("Ещё действия", "Дагы аракеттер", "More actions", "Diğer işlemler", "Boshqa amallar");
 
     /// <summary>2026-10-19, этап О9: «нет в наличии» — остаток 0 и меньше (красная плашка). Флаг IsLowStock у товара с нулём
@@ -32,11 +33,12 @@ public partial class WarehouseWindow
 
     // Ширина колонки «Действия»: с подписями и только значками (3 × 36 + промежутки + отступ 12 от полосы прокрутки
     // + поля ячейки 12 + 12).
-    private const double RowActionsWideWidth = 300;
+    private const double RowActionsWideWidth = 350;
     // 2026-10-29: «⋯» 48 dp и отступ справа 20 — 156 → 172.
-    private const double RowActionsCompactWidth = 172;
+    private const double RowActionsCompactWidth = 222;
     // Наименьшая ширина названия (MinWidth в WarehouseWindow.axaml) и в узкой таблице: в разделе владельца на экране
     // 1024 (таблица ~868) иначе появлялась прокрутка вбок, и полоса прокрутки ложилась на «⋯».
+    // 2026-11-01: в строке добавлен значок «🏷 Печать этикетки» (44 px) — колонка действий шире на 50 px.
     private const double NameMinWidth = 200;
     private const double NameMinWidthCompact = 170;
 
@@ -78,7 +80,10 @@ public partial class WarehouseWindow
         // 2026-10-30, просьба владельца: «Поступления и партии» — от кого, когда и по какой накладной пришёл товар (вкладка карточки товара).
         menu.Items.Add(RowMenuItem(Tr.T("Поступления и партии", "Кирүүлөр жана партиялар", "Receipts and batches", "Girişler ve partiler", "Kirimlar va partiyalar"),
             IconReceipts, ProductReceipts_Click, product));
+        // 2026-11-01: «Печать этикетки» — сразу, без окна; «Этикетка…» — прежнее окно с предпросмотром и копиями.
         menu.Items.Add(RowMenuItem(Tr.T("Печать этикетки", "Этикетка басып чыгаруу", "Print label", "Etiket yazdır", "Yorliq chop etish"),
+            IconLabel, QuickLabel_Click, product));
+        menu.Items.Add(RowMenuItem(Tr.T("Этикетка…", "Этикетка…", "Label…", "Etiket…", "Yorliq…"),
             IconLabel, PrintLabel_Click, product));
         menu.Items.Add(RowMenuItem(Tr.T("Ценник", "Баа белгиси", "Price tag", "Fiyat etiketi", "Narx yorlig'i"),
             IconPriceTag, PrintPriceTag_Click, product));

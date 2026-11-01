@@ -112,7 +112,7 @@ public partial class OwnerShellWindow
         var bar = new ProgressBar { Minimum = 0, Maximum = 100, Value = Math.Min(100, percent), Height = 8, CornerRadius = new CornerRadius(4) };
         // 2026-10-18, этап О1 (у цвета одна роль): полоса — цветом текста темы, а не синим акцентом Fluent; «успеваем/отстаём» —
         // обычным текстом (красный/зелёный в сводке — только стрелки изменений и просрочка).
-        bar.Bind(ProgressBar.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        bar.Bind(ProgressBar.ForegroundProperty, bar.GetResourceObservable("BrushText"));
         SalesPlanHost.Children.Add(bar);
         if (sold >= target)
         {
@@ -193,7 +193,7 @@ public partial class OwnerShellWindow
     private TextBlock Line(string text, bool bold = false, bool good = false, bool bad = false)
     {
         var t = new TextBlock { Text = text, FontSize = 13, TextWrapping = TextWrapping.Wrap, FontWeight = bold ? FontWeight.SemiBold : FontWeight.Normal };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(good ? "BrushSuccess" : bad ? "BrushDanger" : "BrushText"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable(good ? "BrushSuccess" : bad ? "BrushDanger" : "BrushText"));
         return t;
     }
 

@@ -340,7 +340,7 @@ public sealed class VariantPickerWindow : Window
         var small = new TextBlock
         {
             Text = stock > 0 ? Tr.T($"{stock:0} шт", $"{stock:0} даана", $"{stock:0} pcs", $"{stock:0} adet", $"{stock:0} dona") : Tr.T("нет", "жок", "none", "yok", "yo'q"),
-            FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center,
+            FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center,
         };
         Use(big, TextBlock.ForegroundProperty, "BrushText");
         Use(small, TextBlock.ForegroundProperty, stock > 0 ? "BrushTextSoft" : "BrushDanger");

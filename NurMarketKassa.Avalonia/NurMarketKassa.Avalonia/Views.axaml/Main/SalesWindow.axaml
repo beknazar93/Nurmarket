@@ -152,7 +152,7 @@
                 <StackPanel Spacing="4">
                     <TextBlock Classes="sec-kpi-label" Text="{DynamicResource sales.returns}" />
                     <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="TotalRefundsText" Classes="sec-kpi-value" /></Viewbox>
-                    <TextBlock x:Name="RefundsNoteText" FontSize="11" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                    <TextBlock x:Name="RefundsNoteText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
             <Border Classes="sec-kpi">
@@ -166,7 +166,7 @@
                     <TextBlock Classes="sec-kpi-label" Text="{DynamicResource sales.nonCashShort}" />
                     <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="NonCashText" Classes="sec-kpi-value" /></Viewbox>
                     <!-- 2026-09-28: смешанная оплата отдельно, как на сайте (см. UpdateStats). -->
-                    <TextBlock x:Name="NonCashBreakdownText" FontSize="11" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" IsVisible="False" TextWrapping="Wrap" />
+                    <TextBlock x:Name="NonCashBreakdownText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" IsVisible="False" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
             <Border Classes="sec-kpi compact">
@@ -238,7 +238,7 @@
                       ItemsSource="{Binding SalesView}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="{DynamicResource common.date}" MinWidth="60" Binding="{ReflectionBinding DateText}" />
-                    <DataGridTextColumn Header="{DynamicResource common.time}" MinWidth="60" Binding="{ReflectionBinding TimeText}" />
+                    <DataGridTextColumn Header="{DynamicResource common.time}" MinWidth="84" Binding="{ReflectionBinding TimeText}" />
                     <DataGridTextColumn Header="{DynamicResource sales.colReceipt}" Width="*" Binding="{ReflectionBinding ReceiptText}" />
                     <DataGridTextColumn Header="{DynamicResource common.amount}" Width="130" Binding="{ReflectionBinding TotalAmount, StringFormat='{}{0:N2} сом'}" />
                     <!-- 2026-10-20, аудит программы владельца: «Смешанный» обрезался до «Смешанны» — ширина по надписи. -->

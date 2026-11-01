@@ -14,8 +14,8 @@ namespace NurMarketKassa.AvaloniaHost.Views.Main.Controls;
 /// в 250 мс, события очереди приходят не с UI-потока.</summary>
 public sealed class BackgroundReceiptsBadge : StackPanel
 {
-    private readonly Border _active = Pill("BrushUiStatusWarn");
-    private readonly Border _failed = Pill("BrushDanger");
+    private readonly Border _active = Pill("BrushWarning"); // 2026-11-01 (Д-05): белый на BrushUiStatusWarn — 1,67:1 в тёмной; BrushWarning + BrushOnWarning ≥ 4,5:1
+    private readonly Border _failed = Pill("BrushDangerFill"); // 2026-11-01 (Д-05): белый на BrushDanger в тёмной — 3,6:1, DangerFill — 4,8:1
     private readonly TextBlock _activeText;
     private readonly TextBlock _failedText;
     private bool _refreshPending;
@@ -45,6 +45,8 @@ public sealed class BackgroundReceiptsBadge : StackPanel
     private static Border Pill(string brushKey)
     {
         var text = new TextBlock { FontSize = 12, FontWeight = FontWeight.Bold, Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center };
+        if (brushKey == "BrushWarning")
+            text.Bind(TextBlock.ForegroundProperty, text.GetResourceObservable("BrushOnWarning"));
         var pill = new Border
         {
             CornerRadius = new CornerRadius(10), Padding = new Thickness(10, 4), MinHeight = 24, VerticalAlignment = VerticalAlignment.Center,

@@ -105,7 +105,8 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
 
         try
         {
-            foreach (var printer in BarcodeLabelService.GetAvailablePrinters())
+            // 2026-11-01: список принтеров этикеток — без PDF/XPS/OneNote/факса.
+            foreach (var printer in LabelPrinterSelector.GetChoices())
                 Printers.Add(printer);
         }
         catch (Exception ex)
@@ -113,17 +114,21 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
             PosLogger.Log($"Label dialog: printer enumeration failed: {ex.GetType().Name}", "WARNING");
         }
 
-        var savedPath = UserPreferences.Instance.LabelPrinterDevicePath;
+        // 2026-11-01 (два принтера): печать — сразу на принтер этикеток из Настроек; «первый попавшийся» из списка больше не
+        // подставляется (им часто оказывался принтер чеков). Не выбран/не найден — подсказка, список ниже остаётся для выбора.
+        var resolution = LabelPrinterSelector.Resolve(Printers);
         _initializing = true;
-        SelectedPrinter = (savedPath is not null
-            ? Printers.FirstOrDefault(p => string.Equals(p.DevicePath, savedPath, StringComparison.OrdinalIgnoreCase))
-            : null) ?? Printers.FirstOrDefault(p => !p.IsVirtual) ?? Printers.FirstOrDefault();
+        SelectedPrinter = resolution.Printer;
         _initializing = false;
 
         if (!CanPrint)
             StatusMessage = Tr.T("У товара не указан штрих-код — печать недоступна.", "Товардын штрихкоду көрсөтүлгөн эмес — басып чыгаруу мүмкүн эмес.", "The product has no barcode — printing is unavailable.", "Ürünün barkodu yok — yazdırılamaz.", "Mahsulotda shtrix-kod ko'rsatilmagan — chop etib bo'lmaydi.");
         else if (Printers.Count == 0)
             StatusMessage = Tr.T("Не найдено ни одного установленного принтера в Windows.", "Windows'то бир дагы орнотулган принтер табылган жок.", "No printers are installed in Windows.", "Windows'ta yüklü yazıcı bulunamadı.", "Windows'da birorta ham o'rnatilgan printer topilmadi.");
+        else if (!resolution.IsReady)
+            StatusMessage = LabelPrinterSelector.HintText(resolution.State);
+        else if (LabelPrinterSelector.LooksLikeTextOnlyQueue(resolution.Printer?.Label))
+            StatusMessage = LabelPrinterSelector.TextOnlyWarning; // 2026-11-01 (С-8)
 
         RefreshPreview();
     }
@@ -159,9 +164,19 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
         if (!CanPrint)
             return;
 
+        if (!BarcodePrintAccess.IsAllowed()) // 2026-11-01 (П-10)
+        {
+            StatusMessage = BarcodePrintAccess.DeniedText;
+            return;
+        }
+        if (!LabelPrinterSelector.PrintingSupported)
+        {
+            StatusMessage = LabelPrinterSelector.UnsupportedText; // 2026-11-01 (С-9)
+            return;
+        }
         if (SelectedPrinter is null)
         {
-            StatusMessage = Tr.T("Выберите принтер.", "Принтерди тандаңыз.", "Select a printer.", "Bir yazıcı seçin.", "Printerni tanlang.");
+            StatusMessage = LabelPrinterSelector.MissingHint();
             return;
         }
 
@@ -170,10 +185,13 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
         try
         {
             var request = new LabelPrintRequest(ProductName, Barcode, PriceText, (int)(Copies ?? 1), SelectedPrinter.DevicePath, _template, Sku, Unit, StoreName);
+            var printerUsed = SelectedPrinter;
             var result = await Task.Run(() => BarcodeLabelService.Print(request)).ConfigureAwait(true);
+            if (result == LabelPrintResult.Success)
+                LabelPrinterSelector.LogSent(printerUsed, printerUsed.DevicePath, request.Copies);
             StatusMessage = result switch
             {
-                LabelPrintResult.Success => Tr.T("Этикетка отправлена на печать.", "Этикетка басып чыгарууга жөнөтүлдү.", "Label sent to the printer.", "Etiket yazdırmaya gönderildi.", "Yorliq chop etishga yuborildi."),
+                LabelPrintResult.Success => LabelPrinterSelector.SentText(printerUsed.Label),
                 LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден — обновите список.", "Принтер табылган жок — тизмени жаңыртыңыз.", "Printer not found — refresh the list.", "Yazıcı bulunamadı — listeyi yenileyin.", "Printer topilmadi — ro'yxatni yangilang."),
                 _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Чоо-жайы колдонмонун журналында.", "Print error. See the application log for details.", "Yazdırma hatası. Ayrıntılar uygulama günlüğünde.", "Chop etish xatosi. Tafsilotlar dastur jurnalida."),
             };

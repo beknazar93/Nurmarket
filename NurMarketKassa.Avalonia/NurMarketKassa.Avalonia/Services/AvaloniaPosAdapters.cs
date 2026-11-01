@@ -46,15 +46,15 @@ public sealed class AvaloniaPosCheckoutUiFlow : IPosCheckoutUiFlow
         }).GetTask();
     }
 
-    public async Task ShowPaymentProcessingAsync(double totalAmount)
+    public async Task ShowPaymentProcessingAsync(double totalAmount, Func<(bool ServerWait, bool CanQueue)>? waitProbe = null)
     {
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            await Dispatcher.UIThread.InvokeAsync(() => ShowPaymentProcessingCoreAsync(totalAmount));
+            await Dispatcher.UIThread.InvokeAsync(() => ShowPaymentProcessingCoreAsync(totalAmount, waitProbe));
             return;
         }
 
-        await ShowPaymentProcessingCoreAsync(totalAmount).ConfigureAwait(true);
+        await ShowPaymentProcessingCoreAsync(totalAmount, waitProbe).ConfigureAwait(true);
     }
 
     public async Task ShowPaymentResultAsync(bool isSuccess, string message)
@@ -79,7 +79,7 @@ public sealed class AvaloniaPosCheckoutUiFlow : IPosCheckoutUiFlow
         await ClosePaymentStatusDialogAsync().ConfigureAwait(true);
     }
 
-    private async Task ShowPaymentProcessingCoreAsync(double totalAmount)
+    private async Task ShowPaymentProcessingCoreAsync(double totalAmount, Func<(bool ServerWait, bool CanQueue)>? waitProbe)
     {
         await ClosePaymentStatusDialogAsync().ConfigureAwait(true);
 
@@ -87,7 +87,7 @@ public sealed class AvaloniaPosCheckoutUiFlow : IPosCheckoutUiFlow
         if (owner is not { IsVisible: true })
             return;
 
-        _paymentStatusDialog = new PaymentStatusDialog(totalAmount);
+        _paymentStatusDialog = new PaymentStatusDialog(totalAmount, waitProbe);
         _paymentStatusTask = _paymentStatusDialog.ShowDialog<bool?>(owner);
 
         // Allow the first loading frame to render before starting network work.

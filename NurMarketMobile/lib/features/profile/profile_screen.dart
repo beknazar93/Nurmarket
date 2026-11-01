@@ -8,10 +8,13 @@ import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
 import '../../core/link/kassa_link.dart';
 import '../../core/providers.dart';
+import '../../core/shop_mode.dart';
 import '../../core/sync/outbox_meta.dart';
 import '../../core/theme/brand_mark.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/tester/tester_mode.dart';
+import '../../core/update/app_update_service.dart';
+import '../../core/update/update_ui.dart';
 import '../../core/util/ui.dart';
 import '../sale/piece_sale_mode.dart';
 import '../admin/advisor.dart';
@@ -34,12 +37,12 @@ class ProfileScreen extends ConsumerWidget {
     final pending = ref.watch(pendingCountProvider).value ?? 0;
     // 2026-10-26 (владелец: ИИ — не больше 2 сотрудникам): правило «кому разрешён ИИ» — статус рядом с «Настройкой ИИ».
     final aiPolicy = ref.watch(aiPolicyProvider).value;
-    Widget item(IconData icon, String title, {String? sub, Widget? trailing, VoidCallback? onTap}) => ListTile(
+    Widget item(IconData icon, String title, {String? sub, Widget? trailing, VoidCallback? onTap, Color? tint}) => ListTile(
       leading: Container(
         width: 36,
         height: 36,
-        decoration: BoxDecoration(color: pal.window, borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, size: 20),
+        decoration: BoxDecoration(color: tint?.withValues(alpha: 0.16) ?? pal.window, borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, size: 20, color: tint),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
       subtitle: sub == null ? null : Text(sub, style: TextStyle(fontSize: 12, color: pal.textSoft)),
@@ -116,6 +119,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
+          const UpdateBanner(margin: EdgeInsets.only(bottom: 12)), // 2026-11-01: обновление через GitHub
           const AiAccessBanner(), // 2026-10-26: «Рекомендуем ограничить ИИ двумя сотрудниками» — только владельцу и пока список не задан
           Panel(
             padding: EdgeInsets.zero,
@@ -145,13 +149,15 @@ class ProfileScreen extends ConsumerWidget {
                     if (code != null) ref.read(prefsProvider.notifier).setLocale(code);
                   },
                 ),
-                // 13.10, макет С5: магазин одежды — размер и цвет при продаже.
+                // 2026-10-31 (владелец: «режим магазина тоже добавь в мобилку»): сфера магазина, как «Сфера магазина» кассы.
+                // Заменила переключатель «Размеры и цвета при продаже» (13.10, С5): теперь это режим «Одежда».
                 item(
-                  Icons.checkroom_rounded,
-                  l.clothingMode,
-                  sub: l.clothingModeSub,
-                  // 2026-10-27 (аудит мобилки, Н-5): у переключателя своя подпись для TalkBack (раньше читалось только «выключено»)
-                  trailing: Semantics(label: l.clothingMode, child: Switch(value: prefs.clothing, onChanged: (v) => ref.read(prefsProvider.notifier).setClothing(v))),
+                  prefs.shopChosen ? prefs.shop.icon : Icons.storefront_outlined,
+                  l.shopModeTitle,
+                  tint: prefs.shopChosen ? prefs.shop.accent : null,
+                  sub: prefs.shopChosen ? prefs.shop.title(l) : l.shopModeNotChosen,
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => chooseShopMode(context, ref),
                 ),
                 // 2026-10-27 (ревью М-6): быстро выключить продажу штуки из упаковки, если сервер её не понимает
                 item(
@@ -265,6 +271,15 @@ class ProfileScreen extends ConsumerWidget {
                         error: (_, _) => l.globalCatalogOff,
                       ),
                 ),
+                // 2026-11-01, владелец: «обновление через GitHub» — версия приложения и ручная проверка (только Android)
+                if (AppUpdateController.supported)
+                  item(
+                    Icons.system_update_alt_rounded,
+                    l.updVersionTitle,
+                    sub: updateRowSubtitle(context, ref.watch(appUpdateProvider)),
+                    trailing: Text(l.updCheck, style: TextStyle(color: T.accent, fontWeight: FontWeight.w600, fontSize: 12.5)),
+                    onTap: () => checkForUpdatesManually(context, ref),
+                  ),
               ],
             ),
           ),
@@ -308,12 +323,21 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
   /// и всё, что дальше первых 150, в SQL отсекаются (на экран идут последние 100 записей своего аккаунта).
   late final Stream<List<OutboxData>> _outbox;
 
+  /// 2026-11-01 (приёмка, Н-9): чеки старше 5 суток считаются SQL по всей очереди, а не по последним записям экрана.
+  Stream<int>? _stale;
+
   @override
   void initState() {
     super.initState();
     _outbox = ref.read(databaseProvider).watchOutbox(hideDropped: true, limit: 150);
     _readCatalogAt().then((v) => mounted ? setState(() => _catalogAt = v) : null);
-    ref.read(databaseProvider).getSetting(OutboxMeta.legacyOwnerSetting).then((v) => mounted ? setState(() => _legacyOwner = v) : null);
+    ref.read(databaseProvider).getSetting(OutboxMeta.legacyOwnerSetting).then((v) {
+      if (!mounted) return;
+      setState(() {
+        _legacyOwner = v;
+        _stale = ref.read(databaseProvider).watchStaleSalesFor(OutboxMeta.ownerOf(ref.read(sessionProvider)), legacyOwner: v);
+      });
+    });
   }
 
   /// 2026-10-29 (аудит, п. 2): «каталог обновлён» — время последней сверки с сервером (лента без изменений тоже сверка).
@@ -340,6 +364,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
     'sale' => context.l.kindSale,
     'receive' => context.l.receiving,
     'audit' => context.l.audit,
+    'bonus' => context.l.kindBonus, // 2026-11-01 (М-05)
     _ => k,
   };
 
@@ -369,7 +394,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
               child: Text(l.nothingToSend, style: TextStyle(color: pal.textSoft)),
             );
           }
-          return ListView.separated(
+          final list = ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: rows.length,
             separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -448,6 +473,26 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
               );
             },
           );
+          // 2026-11-01 (аудит 10 из 10, М-08): чеки старше 5 суток ещё в очереди — через 7 суток сервер их не примет без владельца
+          return StreamBuilder<int>(
+            stream: _stale,
+            builder: (c, st) {
+              final stale = st.data ?? 0;
+              if (stale == 0) return list;
+              return Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: pal.dangerSoft, borderRadius: BorderRadius.circular(12)),
+                    child: Text(l.staleSalesBanner(stale), style: TextStyle(color: pal.danger, fontWeight: FontWeight.w700, fontSize: 13)),
+                  ),
+                  Expanded(child: list),
+                ],
+              );
+            },
+          );
         },
       ),
       bottomNavigationBar: SafeArea(
@@ -461,4 +506,58 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
       ),
     );
   }
+}
+
+
+/// 2026-10-31: окно «Режим магазина» — четыре режима как сферы кассы (Продукты, Одежда, Услуги, Хозтовары). Выбор сохраняется на
+/// телефоне и, если можно (владелец), на сервере для всей компании; остальным сервер откажет — режим остаётся только здесь.
+Future<void> chooseShopMode(BuildContext context, WidgetRef ref) async {
+  final l = context.l;
+  final cur = ref.read(prefsProvider).shop;
+  final picked = await showModalBottomSheet<ShopMode>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (c) => SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l.shopModeTitle, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                  const SizedBox(height: 2),
+                  Text(l.shopModeSub, style: TextStyle(fontSize: 12.5, color: c.pal.textSoft)),
+                ],
+              ),
+            ),
+            for (final m in ShopMode.values)
+              Semantics(
+                button: true,
+                selected: m == cur,
+                label: '${m.title(l)}. ${m.subtitle(l)}',
+                excludeSemantics: true,
+                child: ListTile(
+                  key: Key('shopMode_${m.code}'),
+                  minVerticalPadding: 10,
+                  leading: Icon(m.icon),
+                  title: Text(m.title(l), style: const TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text(m.subtitle(l), style: TextStyle(fontSize: 12, color: c.pal.textSoft)),
+                  trailing: m == cur ? const Icon(Icons.check_circle_rounded, color: T.success) : null,
+                  onTap: () => Navigator.pop(c, m),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+  if (picked == null || picked == cur || !context.mounted) return;
+  final ok = await ref.read(prefsProvider.notifier).setShop(picked, toServer: true);
+  if (context.mounted) toast(context, '${l.shopModeOn(picked.title(l))}. ${ok ? l.shopModeSavedAll : l.shopModePhoneOnly}');
 }

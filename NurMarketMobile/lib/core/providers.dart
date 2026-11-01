@@ -9,12 +9,14 @@ import '../features/ops/ops_repository.dart';
 import '../features/payment/sales_repository.dart';
 import '../features/sale/cart.dart';
 import '../features/sale/catalog_repository.dart';
+import '../features/sale/variant_service.dart';
 import '../features/shift/shift_repository.dart';
 import '../features/stock/product_packages.dart' show PiecePack;
 import '../features/stock/stock_repository.dart';
 import 'api/api_client.dart';
 import 'api/session_store.dart';
 import 'db/database.dart';
+import 'shop_mode.dart';
 import 'ai/ai_access.dart';
 import 'ai/vision.dart';
 import 'sync/account_reset.dart';
@@ -33,6 +35,9 @@ final sessionStoreProvider = Provider<SessionStore>((ref) => SessionStore());
 final apiProvider = Provider<ApiClient>((ref) => ApiClient(ref.watch(sessionStoreProvider)));
 
 final catalogRepoProvider = Provider((ref) => CatalogRepository(ref.watch(apiProvider), ref.watch(databaseProvider)));
+
+/// 2026-10-31 (одежда): варианты товара (размер/цвет) на телефоне.
+final variantServiceProvider = Provider((ref) => VariantService(ref.watch(apiProvider), ref.watch(databaseProvider)));
 final shiftRepoProvider = Provider((ref) => ShiftRepository(ref.watch(apiProvider)));
 final salesRepoProvider = Provider((ref) => SalesRepository(ref.watch(apiProvider), ref.watch(databaseProvider)));
 final stockRepoProvider = Provider((ref) => StockRepository(ref.watch(apiProvider), ref.watch(databaseProvider)));
@@ -59,11 +64,11 @@ final pendingCountProvider = StreamProvider<int>((ref) {
   final me = OutboxMeta.ownerOf(ref.watch(sessionProvider));
   // 2026-10-30 (оптимизация, п. 1): раньше — вся таблица очереди (с телами чеков) на каждую её запись; теперь только ждущие
   // записи (индекс по статусу), а изменения без смены числа дальше не идут (distinct).
-  return db.watchPendingRows().asyncMap((rows) async {
-    if (rows.isEmpty) return 0;
+  // 2026-11-01 (аудит 10 из 10, М-07): счёт делает SQL (JSON1), тела чеков в основной изолят не переносятся и не разбираются.
+  return (() async* {
     final legacy = await db.getSetting(OutboxMeta.legacyOwnerSetting);
-    return rows.where((r) => OutboxMeta.belongsTo(r, me, legacyOwner: legacy)).length;
-  }).distinct();
+    yield* db.watchPendingCountFor(me, legacyOwner: legacy);
+  })().distinct();
 });
 
 // ------------------------------------------------------------------ загрузка данных аккаунта
@@ -265,6 +270,8 @@ class SessionController extends Notifier<Session?> {
         await CamAliases.ensure(db, api, force: true);
         await ref.read(debtAccessRepoProvider).load();
         await ref.read(payQrRepoProvider).load();
+        // 2026-10-31: режим магазина компании (market_sphere) — не критично, без связи остаётся прежний
+        unawaited(ref.read(prefsProvider.notifier).syncShopFromServer());
         return true;
       },
       () async {
@@ -449,6 +456,7 @@ class CartController extends Notifier<Cart> {
     // 2026-10-26 (живой аудит, П3, В-1): чек пишется в настройки телефона при каждом изменении — переживает перезапуск
     // приложения (Android выгружает его в фоне). Схема базы не меняется: обычная запись `cart.draft`.
     listenSelf((_, next) => _persist(next));
+    ref.onDispose(() => _debounce?.cancel());
     return const Cart();
   }
 
@@ -457,9 +465,31 @@ class CartController extends Notifier<Cart> {
   Future<void> _writing = Future.value();
 
   /// 2026-10-29: дождаться записи черновика (выход стирает базу — отложенная запись не должна её воскресить).
-  Future<void> flush() => _writing;
+  /// 2026-11-01 (аудит 10 из 10, М-22): сначала записывается отложенное состояние чека (см. [_persist]).
+  Future<void> flush() {
+    final t = _debounce;
+    if (t != null && t.isActive) {
+      t.cancel();
+      _writeDraft(state);
+    }
+    return _writing;
+  }
+
+  /// 2026-11-01 (М-22): чек пишется в базу не на каждое нажатие, а через 300 мс после последнего изменения (длинный чек и
+  /// частые «+» давали десятки записей в секунду). Пустой чек (очистка после оплаты) и [flush] при сворачивании — сразу.
+  Timer? _debounce;
+  static const _debounceFor = Duration(milliseconds: 300);
 
   void _persist(Cart cart) {
+    _debounce?.cancel();
+    if (cart.isEmpty) {
+      _writeDraft(cart);
+      return;
+    }
+    _debounce = Timer(_debounceFor, () => _writeDraft(state));
+  }
+
+  void _writeDraft(Cart cart) {
     try {
       final owner = OutboxMeta.ownerOf(ref.read(sessionProvider));
       if (!cart.isEmpty && owner.isEmpty) return; // сессии нет (истекла) — старый черновик не трогаем
@@ -499,7 +529,8 @@ class CartController extends Notifier<Cart> {
   void add(Product p, {double qty = 1, String? variantId, String? variantLabel, double? variantPrice, PiecePack? piece, String? packName}) {
     final line = CartLine(
       productId: p.id,
-      name: variantLabel == null ? p.name : '${p.name} ($variantLabel)',
+      // 2026-10-31 (одежда): «Футболка · M · Красный» — размер и цвет в названии строки (чек, очередь, история)
+      name: variantLabel == null || variantLabel.isEmpty ? p.name : '${p.name} · $variantLabel',
       price: piece?.piecePrice ?? variantPrice ?? p.price,
       qty: qty,
       isWeight: p.isWeight,
@@ -539,9 +570,19 @@ class CartController extends Notifier<Cart> {
     if (changes.isEmpty) return;
     final lines = [...state.lines];
     for (final l in lines) {
-      if (l.custom || l.variantId != null || l.salePackageId != null) continue;
+      if (l.custom || l.salePackageId != null) continue;
+      // 2026-10-31 (одежда): у строки размера цена своя — меняется только по изменению именно этого размера (или без указания размера)
+      if (l.variantId != null) {
+        for (final c in changes) {
+          if (c.productId != l.productId || (c.variantId != null && c.variantId != l.variantId)) continue;
+          l.retailPrice = c.newPrice;
+          l.price = c.newPrice;
+          if (l.discount > l.gross) l.discount = l.gross;
+        }
+        continue;
+      }
       for (final c in changes) {
-        if (c.productId != l.productId) continue;
+        if (c.productId != l.productId || c.variantId != null) continue;
         if (c.retail != null) l.retailPrice = c.retail!;
         if (c.wholesale != null && c.wholesale! > 0) l.wholesalePrice = c.wholesale!;
         if (c.retail == null && c.wholesale == null) {
@@ -598,8 +639,13 @@ class Prefs {
   final int darkFrom;
   final int darkTo;
 
+  /// 2026-10-31: режим магазина (сфера, как «Сфера магазина» кассы). Не выбирали — «Продукты» ([shopChosen] = false).
+  final ShopMode shop;
+  final bool shopChosen;
+
   /// 13.10, макет С5: магазин одежды — при продаже выбор размера и цвета (как MarketSpheres.IsClothing кассы).
-  final bool clothing;
+  /// 2026-10-31: теперь это режим магазина «Одежда».
+  bool get clothing => shop == ShopMode.clothing;
   const Prefs({
     this.locale = const Locale('ru'),
     this.dark = false,
@@ -607,17 +653,19 @@ class Prefs {
     this.auto = false,
     this.darkFrom = 19 * 60,
     this.darkTo = 7 * 60,
-    this.clothing = false,
+    this.shop = ShopMode.grocery,
+    this.shopChosen = false,
   });
 
-  Prefs copyWith({Locale? locale, bool? dark, bool? system, bool? auto, int? darkFrom, int? darkTo, bool? clothing}) => Prefs(
+  Prefs copyWith({Locale? locale, bool? dark, bool? system, bool? auto, int? darkFrom, int? darkTo, ShopMode? shop, bool? shopChosen}) => Prefs(
     locale: locale ?? this.locale,
     dark: dark ?? this.dark,
     system: system ?? this.system,
     auto: auto ?? this.auto,
     darkFrom: darkFrom ?? this.darkFrom,
     darkTo: darkTo ?? this.darkTo,
-    clothing: clothing ?? this.clothing,
+    shop: shop ?? this.shop,
+    shopChosen: shopChosen ?? this.shopChosen,
   );
 
   String get mode => auto ? 'auto' : (system ? 'system' : (dark ? 'dark' : 'light'));
@@ -664,6 +712,7 @@ class PrefsController extends Notifier<Prefs> {
   Future<void> load() async {
     final db = ref.read(databaseProvider);
     final dark = await db.getSetting('ui.dark');
+    final shop = await ShopModeSync.read(db);
     state = Prefs(
       locale: Locale(await db.getSetting('ui.lang') ?? 'ru'),
       dark: dark == '1',
@@ -671,7 +720,8 @@ class PrefsController extends Notifier<Prefs> {
       auto: dark == 'auto',
       darkFrom: _minutes(await db.getSetting('ui.darkFrom'), 19 * 60),
       darkTo: _minutes(await db.getSetting('ui.darkTo'), 7 * 60),
-      clothing: (await db.getSetting('shop.clothing')) == '1',
+      shop: shop ?? ShopMode.grocery,
+      shopChosen: shop != null,
     );
     _lastDark = state.darkNow;
   }
@@ -686,9 +736,22 @@ class PrefsController extends Notifier<Prefs> {
     state = state.copyWith(dark: v, system: false, auto: false);
   }
 
-  Future<void> setClothing(bool v) async {
-    await ref.read(databaseProvider).setSetting('shop.clothing', v ? '1' : '0');
-    state = state.copyWith(clothing: v);
+  /// 2026-10-31: режим магазина выбран (в профиле) или пришёл с сервера. [toServer] — записать и на сервер (владелец; у остальных
+  /// сервер ответит отказом — режим остаётся только на этом телефоне). Возвращает true, если сервер принял (или не спрашивали).
+  Future<bool> setShop(ShopMode m, {bool toServer = false}) async {
+    final db = ref.read(databaseProvider);
+    await ShopModeSync.write(db, m);
+    state = state.copyWith(shop: m, shopChosen: true);
+    if (!toServer) return true;
+    return ShopModeSync.saveToServer(db, ref.read(apiProvider), m);
+  }
+
+  /// Прочитать сферу компании с сервера и применить (правила — ShopModeSync.applyServer). true — режим сменился.
+  Future<bool> syncShopFromServer() async {
+    final m = await ShopModeSync.syncFromServer(ref.read(databaseProvider), ref.read(apiProvider));
+    if (m == null) return false;
+    state = state.copyWith(shop: m, shopChosen: true);
+    return true;
   }
 
   /// light / dark / system / auto.

@@ -70,7 +70,7 @@
             <Setter Property="HorizontalAlignment" Value="Left"/>
         </Style>
         <Style Selector="Border.StatusBadge TextBlock">
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style Selector="Border.StatusBadge.urgent">
@@ -174,7 +174,7 @@
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>
         <Style Selector="TextBlock.CellSub">
-            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
         </Style>

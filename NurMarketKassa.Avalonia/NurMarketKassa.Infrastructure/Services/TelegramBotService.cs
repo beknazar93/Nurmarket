@@ -779,7 +779,8 @@ public static class TelegramBotService
                 // (ExpectedCash), иначе формула сервера: с полем расхода сервера — начальная + наличные − расход (прочие приходы
                 // сервер в ожидаемый остаток не включает), без него — как раньше, с внесениями. Раньше бот всегда прибавлял внесения
                 // и не смотрел ExpectedCash: «Недостача/Излишек» в телефоне расходились с бумажкой на сумму внесений и оплат долгов.
-                var expected = shift.ExpectedCash
+                // 2026-11-01 (Д-1): ожидаемая сумма сервера — с поправкой на ошибки сервера, как «Касса:» в шапке и X/Z-отчёт (ShiftExpectedCash).
+                var expected = ShiftExpectedCash.WithFix(shift.ExpectedCash, shift.Id)
                     ?? (shift.ExpenseTotal is not null
                         ? opening + (shift.CashSales ?? 0m) - withdrawals
                         : opening + (shift.CashSales ?? 0m) + deposits - withdrawals);

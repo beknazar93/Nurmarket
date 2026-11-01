@@ -9,6 +9,9 @@ using NurMarketKassa.Services.Hardware;
 
 namespace NurMarketKassa.Services;
 
+/// <summary>2026-11-01: внесения/изъятия смены, которые не ушли на сервер к моменту закрытия: сколько, на какую сумму, строки «время вид сумма» через перевод строки.</summary>
+public sealed record UnsentCashOps(int Count, decimal Sum, string Details);
+
 public sealed class CashShiftService : ICashShiftService
 {
     private readonly IShiftApiService _shiftApi;
@@ -41,6 +44,11 @@ public sealed class CashShiftService : ICashShiftService
     /// SyncService и у MainWindow.FlushBeforeShiftCloseAsync). Подменяется только стендом (чтобы не трогать настоящую базу).</summary>
     internal static Func<string, int> QueuedSalesOfShift = shiftId =>
         OfflinePendingSalesStore.LoadPendingForSync().Count(e => string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>2026-11-01 (К-03, приёмка): досылка внесений/изъятий смены перед её закрытием — перепривязывает хвосты офлайн-смены к серверной смене и отправляет их
+    /// (ShiftCashFlowSync.FlushForCloseAsync, задаёт главное окно). Принимает id серверной смены, возвращает, что не ушло (число, сумма, строки «время вид сумма»). null (стенд) — без досылки.</summary>
+    public static Func<string, CancellationToken, Task<UnsentCashOps>>? CashOperationsFlusher { get; set; }
+
 
     /// <summary>Стенд: вместо SyncService досылает чеки сам.</summary>
     internal static Func<CancellationToken, Task>? FlushQueuedSalesOverride;
@@ -323,6 +331,7 @@ public sealed class CashShiftService : ICashShiftService
             PosApp.ActiveShiftId = "offline-shift-" + Guid.NewGuid().ToString("N");
             ShiftService.IsShiftOpen = true;
             _offlinePosStateStore.SaveFromApp(openingCash);
+            OfflinePosStateStore.RememberOfflineOpening(openingCash); // 2026-11-01 (К-02, code-review): сумма открытия — отдельно от «текущего остатка»
             return CashShiftOperationResult.Success(
                 openingCash,
                 isOffline: true,
@@ -391,6 +400,7 @@ public sealed class CashShiftService : ICashShiftService
         PosApp.ActiveShiftId = "offline-shift-" + Guid.NewGuid().ToString("N");
         ShiftService.IsShiftOpen = true;
         _offlinePosStateStore.SaveFromApp(openingCash);
+        OfflinePosStateStore.RememberOfflineOpening(openingCash); // 2026-11-01 (К-02, code-review): сумма открытия — отдельно от «текущего остатка»
         return CashShiftOperationResult.Success(openingCash, isOffline: true, infoMessage: Tr.T("Смена открыта офлайн.",
             "Смена офлайн режимде ачылды.", "Shift opened offline.", "Vardiya çevrimdışı açıldı.", "Smena oflayn rejimda ochildi."));
     }
@@ -441,8 +451,14 @@ public sealed class CashShiftService : ICashShiftService
         }
     }
 
-    public async Task<CashShiftOperationResult> CloseShiftAsync(decimal? closingCash, CancellationToken cancellationToken = default)
+    /// <summary>2026-11-01: кассир подтвердил «Закрыть с пометкой»; запись о расхождении делается при УСПЕШНОМ закрытии (TakeUnsentMark).</summary>
+    private UnsentCashOps? _unsentCashMark;
+
+    private string? _unsentCashMarkShiftId;
+
+    public async Task<CashShiftOperationResult> CloseShiftAsync(decimal? closingCash, CancellationToken cancellationToken = default, bool acceptUnsentCashOps = false)
     {
+        _unsentCashMark = null;
         if (string.IsNullOrWhiteSpace(PosApp.ActiveShiftId))
             return CashShiftOperationResult.Failed(Tr.T("Смена уже закрыта.", "Смена мурунтан эле жабык.",
                 "The shift is already closed.", "Vardiya zaten kapalı.", "Smena allaqachon yopilgan."));
@@ -453,6 +469,13 @@ public sealed class CashShiftService : ICashShiftService
 
         if (OfflineModeHelper.UseLocalOperations)
         {
+            // 2026-11-01 (К-04, аудит «10 из 10»): вход был без связи, но смена НАСТОЯЩАЯ (восстановлена из offline_pos_state, id — GUID сервера).
+            // Раньше она закрывалась только в кассе, без очереди: на сервере оставалась открытой, утром «Открыть смену» продолжала вчерашнюю
+            // (два дня в одном Z, вчерашний пересчёт терялся). Теперь, как в аварии сервера: закрытие встаёт в очередь (PendingShiftCloseStore)
+            // и уйдёт на сервер, когда появится связь и уйдут чеки смены. Офлайн-смена («offline-…») серверу неизвестна — только в кассе.
+            if (!IsOfflineShiftId(shiftId) && Guid.TryParse(shiftId, out _))
+                return CloseLocallyAndQueue(shiftId!, closing, closingCash, "вход без связи");
+
             PosApp.ActiveShiftId = null;
             ShiftService.IsShiftOpen = false;
             _offlinePosStateStore.SaveFromApp(0m);
@@ -467,6 +490,88 @@ public sealed class CashShiftService : ICashShiftService
             return IsOfflineShiftId(shiftId)
                 ? CloseOfflineShiftLocally(shiftId, closingCash)
                 : CloseLocallyAndQueue(shiftId!, closing, closingCash, "сервер NurCRM не отвечает");
+
+        // 2026-11-01 (К-03, аудит «10 из 10»): смена офлайн («offline-shift-…»), а сервер жив. Раньше сюда шёл обычный POST shifts/offline-shift-…/close/:
+        // 404 → ветка «сервер не находит смену» закрывала ДРУГУЮ открытую смену кассира чужим пересчётом. Теперь сначала сверяем смену с сервером
+        // (ShiftStateService берёт только открытую смену ЭТОГО кассира на ЭТОЙ кассе, при необходимости открывает её с той же начальной суммой — К-02):
+        // нашлась серверная — закрываем именно её (после досылки чеков офлайн-смены); нет — смена закрывается только в кассе.
+        // 2026-11-01 (code-review): после первого отказа (чеки/внесения ещё не ушли) RefreshAsync уже подменил ActiveShiftId на серверный GUID, и повторное «Закрыть»
+        // пропускало эти проверки. Исходный офлайн-id хранится в состоянии (OriginOfflineShiftId): чеки очереди и хвосты внесений проверяются и после подмены.
+        var originOffline = IsOfflineShiftId(shiftId) ? shiftId : OfflinePosStateStore.OriginOfflineShiftFor(shiftId);
+        if (originOffline is not null)
+        {
+            var offlineId = originOffline;
+            string? realId;
+            if (IsOfflineShiftId(shiftId))
+            {
+                try
+                {
+                    await _shiftStateService.RefreshAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    PosLogger.Log($"Закрытие офлайн-смены {offlineId}: сверка смены с сервером не удалась: {ex.Message}", "SHIFT");
+                }
+
+                realId = PosApp.ActiveShiftId;
+                if (string.IsNullOrWhiteSpace(realId) || IsOfflineShiftId(realId))
+                {
+                    PosApp.ActiveShiftId = offlineId;
+                    return CloseOfflineShiftLocally(offlineId, closingCash);
+                }
+            }
+            else
+            {
+                realId = shiftId!; // смена уже серверная (передана ранее), но чеки под офлайн-id могли ещё не уйти
+            }
+
+            var queuedLeft = QueuedSalesOfShift(offlineId);
+            if (queuedLeft > 0)
+            {
+                PosLogger.Log($"Закрытие смены: офлайн-смена {offlineId} уже передана серверу как {realId}, но {queuedLeft} чек(ов) ещё в очереди — досылаю до закрытия.", "SHIFT");
+                queuedLeft = await FlushQueuedSalesAsync(offlineId, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (queuedLeft > 0)
+                return CashShiftOperationResult.Failed(Tr.T(
+                    $"Не все чеки смены отправлены на сервер: осталось {queuedLeft}. Дождитесь отправки (минута-две, нужна связь) и закройте смену ещё раз — иначе их выручка не попадёт в Z-отчёт этой смены.",
+                    $"Сменанын бардык чектери серверге жөнөтүлгөн жок: {queuedLeft} калды. Жөнөтүлгүчө күтүңүз (бир-эки мүнөт, байланыш керек) жана сменаны кайра жабыңыз — болбосо алардын түшүмү бул сменанын Z-отчётуна кирбейт.",
+                    $"Not all receipts of the shift have been sent to the server: {queuedLeft} left. Wait until they are sent (a minute or two, a connection is needed) and close the shift again — otherwise their revenue will not get into this shift's Z report.",
+                    $"Vardiyanın tüm fişleri sunucuya gönderilmedi: {queuedLeft} kaldı. Gönderilmesini bekleyin (bir iki dakika, bağlantı gerekir) ve vardiyayı tekrar kapatın — aksi halde gelirleri bu vardiyanın Z raporuna girmez.",
+                    $"Smenaning barcha cheklari serverga yuborilmadi: {queuedLeft} ta qoldi. Yuborilishini kuting (bir-ikki daqiqa, aloqa kerak) va smenani qaytadan yoping — aks holda ularning tushumi bu smenaning Z-hisobotiga kirmaydi."));
+
+            // 2026-11-01 (приёмка, ВЫСОКАЯ-2): внесения и изъятия офлайн-смены тоже должны попасть в ЭТУ смену до её закрытия: иначе сервер закроет её без них
+            // (недостача в закрытой), а PushPendingAsync позже привяжет их к следующей смене (излишек там). Перепривязываем к realId и отправляем.
+            if (CashOperationsFlusher is { } flushCash)
+            {
+                UnsentCashOps cashLeft;
+                try
+                {
+                    cashLeft = await flushCash(realId, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // 2026-11-01 (code-review): посчитать не вышло — «закрыть с пометкой» с выдуманными числами НЕ предлагаем: отказ «повторите», в журнал — тип исключения.
+                    PosLogger.Log($"Закрытие смены: не удалось проверить неотправленные внесения/изъятия смены {realId} ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+                    return CashShiftOperationResult.Failed(Tr.T(
+                        "Не удалось проверить неотправленные внесения и изъятия. Повторите закрытие смены через несколько секунд.",
+                        "Жөнөтүлбөгөн киргизүүлөрдү жана алууларды текшерүү мүмкүн болгон жок. Сменаны жабууну бир нече секунддан кийин кайталаңыз.",
+                        "Could not check the unsent deposits and withdrawals. Try closing the shift again in a few seconds.",
+                        "Gönderilmeyen para giriş ve çıkışları kontrol edilemedi. Vardiyayı birkaç saniye sonra tekrar kapatmayı deneyin.",
+                        "Yuborilmagan kiritish va olishlarni tekshirib bo'lmadi. Bir necha soniyadan keyin smenani yopishni qaytaring."));
+                }
+
+                // 2026-11-01 (code-review, решение владельца «да» на окно): молча закрывать смену без внесений/изъятий нельзя (ложная недостача в Z). Окно кассы
+                // спрашивает «Закрыть с пометкой?» (NeedsUnsentCashConfirm) и повторяет закрытие с acceptUnsentCashOps = true.
+                if (cashLeft.Count > 0 && !acceptUnsentCashOps)
+                    return UnsentCashRefusal(cashLeft);
+                if (cashLeft.Count > 0)
+                    MarkUnsentCash(realId, cashLeft);
+            }
+
+            PosLogger.Log($"Закрытие смены: офлайн-смена {offlineId} → закрываю серверную смену {realId}.", "SHIFT");
+            shiftId = realId;
+        }
 
         // 2026-10-04, стенд «сбои сервера»: молчащий сервер — не дольше CloseShiftServerAnswerBudget с
         // последнего ответа, дальше смена закрывается в кассе, закрытие на сервере — в очередь (catch
@@ -512,6 +617,7 @@ public sealed class CashShiftService : ICashShiftService
             ShiftService.IsShiftOpen = false;
             // 2026-10-27 (В-7): смена закрыта на сервере — запись очереди закрытий (если была) больше не нужна.
             PendingShiftCloseStore.Remove(shiftId!);
+            RecordUnsentCashMark(closingCash);
             // A successful close is authoritative. An immediate list refresh may
             // still return the closed shift or restore it from the offline cache.
             _offlinePosStateStore.SaveFromApp(0m);
@@ -531,6 +637,28 @@ public sealed class CashShiftService : ICashShiftService
             // Кассир повторяет закрытие через несколько секунд (смена остаётся открытой, ничего не потеряно).
             PosLogger.Log($"Закрытие смены: сервер занят (429) — смена не закрыта, повтор через {ApiThrottle.RemainingBlock.TotalSeconds:0} с.", "SHIFT");
             return CashShiftOperationResult.Failed(ApiThrottle.BusyText());
+        }
+        catch (ApiException ex) when (IsShiftNotOwned(ex))
+        {
+            // 2026-11-01 (К-03, аудит «10 из 10»): по ответу Умара 31.10 сервер на запрос с кассы в смену ДРУГОГО кассира отвечает 403 shift_not_owned (и владельцу тоже).
+            // Раньше кассир видел сырой текст. Чужую смену не закрываем и не «чиним» (404-ветка закрыла бы другую смену этим пересчётом): сверяем свою смену
+            // с сервером, чтобы следующее закрытие шло в смену этого кассира, и объясняем, что делать.
+            PosLogger.Log($"Закрытие смены {shiftId}: сервер ответил shift_not_owned — смена принадлежит другому кассиру. {ex.Message}", "SHIFT");
+            try
+            {
+                await _shiftStateService.RefreshAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception refreshEx) when (refreshEx is not OperationCanceledException)
+            {
+                PosLogger.Log($"Закрытие смены: после shift_not_owned сверка смены не удалась: {refreshEx.Message}", "SHIFT");
+            }
+
+            return CashShiftOperationResult.Failed(Tr.T(
+                "Эта смена на сервере принадлежит другому кассиру — закрыть её отсюда нельзя. Закройте её под тем кассиром, который её открыл (или на сайте), а здесь откройте свою смену. Касса сверила смену с сервером.",
+                "Бул смена серверде башка кассирге таандык — бул жактан жаба албайсыз. Аны ачкан кассир менен (же сайттан) жабыңыз, ал эми бул жерде өз сменаңызды ачыңыз. Касса сменаны сервер менен салыштырды.",
+                "This shift belongs to another cashier on the server — it cannot be closed from here. Close it as the cashier who opened it (or on the website) and open your own shift here. The till has re-checked the shift with the server.",
+                "Bu vardiya sunucuda başka bir kasiyere ait — buradan kapatılamaz. Onu açan kasiyer olarak (veya siteden) kapatın, burada kendi vardiyanızı açın. Kasa vardiyayı sunucuyla yeniden kontrol etti.",
+                "Bu smena serverda boshqa kassirga tegishli — bu yerdan yopib bo'lmaydi. Uni ochgan kassir sifatida (yoki saytda) yoping, bu yerda esa o'z smenangizni oching. Kassa smenani server bilan solishtirdi."));
         }
         catch (Exception ex) when (ex is not HttpRequestException
                                    && ServerOutageMonitor.IsServerFailure(ex)
@@ -578,6 +706,7 @@ public sealed class CashShiftService : ICashShiftService
             PosApp.ActiveShiftId = null;
             ShiftService.IsShiftOpen = false;
             PendingShiftCloseStore.Remove(shiftId!); // 2026-10-27 (В-7)
+            RecordUnsentCashMark(closingCash);
             _offlinePosStateStore.SaveFromApp(0m);
             _auditDb.LogShift("close_already_closed", closingCash, shiftId);
             return CashShiftOperationResult.Success(
@@ -615,6 +744,7 @@ public sealed class CashShiftService : ICashShiftService
                 PosApp.ActiveShiftId = null;
                 ShiftService.IsShiftOpen = false;
                 PendingShiftCloseStore.Remove(freshId); // 2026-10-27 (В-7)
+                RecordUnsentCashMark(closingCash);
                 _offlinePosStateStore.SaveFromApp(0m);
                 _auditDb.LogShift("close", closingCash, freshId);
                 return CashShiftOperationResult.Success(closingCash, totals: ReadClosingTotals(retryResponse, freshId, cancellationToken));
@@ -654,6 +784,86 @@ public sealed class CashShiftService : ICashShiftService
         }
     }
 
+    private void MarkUnsentCash(string shiftId, UnsentCashOps ops)
+    {
+        _unsentCashMark = ops;
+        _unsentCashMarkShiftId = shiftId;
+    }
+
+    private CashShiftOperationResult UnsentCashRefusal(UnsentCashOps ops) =>
+        CashShiftOperationResult.Failed(Tr.T(
+            $"Не все внесения и изъятия этой смены отправлены на сервер: осталось {ops.Count}. Дождитесь отправки (минута-две, нужна связь) и закройте смену ещё раз — иначе в Z-отчёте будет ложная недостача или излишек.",
+            $"Бул сменанын бардык киргизүүлөрү жана алуулары серверге жөнөтүлгөн жок: {ops.Count} калды. Жөнөтүлгүчө күтүңүз (бир-эки мүнөт, байланыш керек) жана сменаны кайра жабыңыз — болбосо Z-отчётто жалган жетишпестик же ашыкча болот.",
+            $"Not all deposits and withdrawals of this shift have been sent to the server: {ops.Count} left. Wait until they are sent (a minute or two, a connection is needed) and close the shift again — otherwise the Z report will show a false shortage or surplus.",
+            $"Bu vardiyanın tüm para girişleri ve çıkışları sunucuya gönderilmedi: {ops.Count} kaldı. Gönderilmesini bekleyin (bir iki dakika, bağlantı gerekir) ve vardiyayı tekrar kapatın — aksi halde Z raporunda sahte eksik veya fazla görünür.",
+            $"Bu smenaning barcha kiritish va olishlari serverga yuborilmadi: {ops.Count} ta qoldi. Yuborilishini kuting (bir-ikki daqiqa, aloqa kerak) va smenani qaytadan yoping — aks holda Z-hisobotda soxta kamomad yoki ortiqcha bo'ladi."))
+        with { NeedsUnsentCashConfirm = true, UnsentCashOpsCount = ops.Count, UnsentCashOpsSum = ops.Sum, UnsentCashOpsDetails = ops.Details };
+
+    /// <summary>2026-11-01: смена ЗАКРЫТА с пометкой (кассир подтвердил) — запись в журнал смены и оповещение владельцу. Неотправленные внесения/изъятия остаются в очереди,
+    /// привязанные к ЭТОЙ (закрытой) смене: RebindOfflineShifts трогает только «offline-…», а хвосты закрытых смен досылает ShiftCashFlowSync.PushPendingForOtherShiftsAsync, —
+    /// к следующей смене они не прилипают. Вызывается только при успешном закрытии; один раз.</summary>
+    private void RecordUnsentCashMark(decimal? closingCash)
+    {
+        var ops = _unsentCashMark;
+        var shiftId = _unsentCashMarkShiftId;
+        _unsentCashMark = null;
+        _unsentCashMarkShiftId = null;
+        if (ops is null)
+            return;
+
+        var sum = ops.Sum.ToString("0.00", CultureInfo.InvariantCulture);
+        var detail = string.IsNullOrWhiteSpace(ops.Details) ? "" : " " + ops.Details.Replace("\n", "; ");
+        var note = Tr.T(
+            $"Смена закрыта с пометкой: не отправлено операций (внесения/изъятия) — {ops.Count} на сумму {sum}.{detail} Они остаются в очереди и уйдут на сервер, привязанные к этой смене, когда появится связь.",
+            $"Смена белги менен жабылды: жөнөтүлгөн эмес операциялар (киргизүү/алуу) — {ops.Count}, суммасы {sum}.{detail} Алар кезекте калат жана байланыш пайда болгондо ушул сменага байланышып серверге жөнөтүлөт.",
+            $"Shift closed with a note: operations (deposits/withdrawals) not sent — {ops.Count}, total {sum}.{detail} They stay in the queue and go to the server bound to this shift once there is a connection.",
+            $"Vardiya notla kapatıldı: gönderilmeyen işlemler (para giriş/çıkışı) — {ops.Count}, toplam {sum}.{detail} Kuyrukta kalır ve bağlantı gelince bu vardiyaya bağlı olarak sunucuya gönderilir.",
+            $"Smena izoh bilan yopildi: yuborilmagan operatsiyalar (kiritish/olish) — {ops.Count} ta, jami {sum}.{detail} Ular navbatda qoladi va aloqa paydo bo'lganda shu smenaga bog'langan holda serverga yuboriladi.");
+        PosLogger.Log($"Смена {shiftId}: {note}", "SHIFT");
+        try { _auditDb.LogShift("close_marked_unsent_cash", closingCash, shiftId); }
+        catch (Exception ex) { PosLogger.Log($"Журнал смены: запись «закрыта с пометкой» не сделана: {ex.Message}", "WARNING"); }
+        try
+        {
+            IrregularReceiptsStore.Append(new IrregularReceiptEntry
+            {
+                Tag = IrregularReceiptEntry.ShiftClosedUnsentCash,
+                CashierName = PosApp.CurrentUserDisplayName,
+                Note = note,
+                Total = (double)ops.Sum,
+                CartJson = "{}",
+            });
+            if (TelegramBotService.IsConfigured)
+            {
+                var alert = TelegramBotService.BuildAlert(
+                    Tr.T("Смена закрыта с пометкой", "Смена белги менен жабылды", "Shift closed with a note", "Vardiya notla kapatıldı", "Smena izoh bilan yopildi"),
+                    note);
+                _ = Task.Run(async () =>
+                {
+                    var error = await TelegramBotService.SendAsync(alert).ConfigureAwait(false);
+                    if (error != null)
+                        PosLogger.Log($"Оповещение владельцу о смене, закрытой с пометкой, не ушло ({error}).", "WARNING");
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Смена, закрытая с пометкой, не записана в «Нестандартные чеки»/оповещение: {ex.Message}", "WARNING");
+        }
+    }
+
+    /// <summary>2026-11-01 (К-03): ответ сервера «shift_not_owned» (код может быть в теле или в тексте).</summary>
+    private static bool IsShiftNotOwned(ApiException ex)
+    {
+        try
+        {
+            return ((ex.Payload is { } p ? p.GetRawText() : "") + " " + ex.Message).Contains("shift_not_owned", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (InvalidOperationException)
+        {
+            return ex.Message.Contains("shift_not_owned", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     private static bool IsOfflineShiftId(string? shiftId) =>
         shiftId?.StartsWith("offline-", StringComparison.OrdinalIgnoreCase) == true;
 
@@ -676,6 +886,7 @@ public sealed class CashShiftService : ICashShiftService
         string shiftId, string? closingText, decimal? closingCash, string serverError)
     {
         PendingShiftCloseStore.Enqueue(shiftId, closingText, serverError);
+        RecordUnsentCashMark(closingCash);
 
         PosApp.ActiveShiftId = null;
         ShiftService.IsShiftOpen = false;

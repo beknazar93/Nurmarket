@@ -339,7 +339,7 @@ public partial class AccountView : UserControl
             ("WhatsApp", "", company.CanViewWhatsapp),
             ("Instagram", "", company.CanViewInstagram),
             ("Telegram", "", company.CanViewTelegram),
-            (Tr.T("Витрина (showcase)", "Витрина (showcase)", "Showcase", "Vitrin (showcase)", "Vitrina (showcase)"), "", company.CanViewShowcase),
+            (Tr.T("Витрина (showcase)", "Витрина", "Showcase", "Vitrin (showcase)", "Vitrina (showcase)"), "", company.CanViewShowcase),
         };
 
         foreach (var (label, _, enabled) in services)

@@ -207,7 +207,7 @@
 
             <Border Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="6" Padding="10">
               <TextBlock x:Name="CatalogDiagnosticsText" x:FieldModifier="public"
-                         FontSize="11" Foreground="{DynamicResource BrushText}"
+                         FontSize="12" Foreground="{DynamicResource BrushText}"
                          TextWrapping="Wrap" FontFamily="Consolas"/>
             </Border>
           </StackPanel>

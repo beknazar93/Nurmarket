@@ -12,6 +12,9 @@ public sealed class IrregularReceiptEntry
     /// кассиру показана сумма кассы, расхождение — сюда, чтобы владелец видел.</summary>
     public const string ReturnOverpaid = "return_overpaid";
 
+    /// <summary>2026-11-01: смена закрыта «с пометкой» — внесения/изъятия не успели уйти на сервер (CashShiftService). Строка для владельца: что и на какую сумму.</summary>
+    public const string ShiftClosedUnsentCash = "shift_closed_unsent_cash";
+
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;

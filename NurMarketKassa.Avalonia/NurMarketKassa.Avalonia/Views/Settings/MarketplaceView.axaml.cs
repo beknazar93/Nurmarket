@@ -238,8 +238,8 @@ public partial class MarketplaceView : UserControl
                     break;
                 case ServerAddons.RequestStatus.NoConnection:
                     AddonRequestAlert(owner, title,
-                        Tr.T("Нет связи с сервером. Проверьте интернет и повторите — заявка не отправлена.", "Сервер менен байланыш жок. Интернетти текшерип, кайталаңыз — өтүнмө жөнөтүлгөн жок.",
-                             "No connection to the server. Check the internet and retry — the request was not sent.", "Sunucuyla bağlantı yok. İnterneti kontrol edip tekrar deneyin — talep gönderilmedi.", "Server bilan aloqa yo'q. Internetni tekshirib, qayta urinib ko'ring — ariza yuborilmadi."),
+                        Tr.T("Сервер NurCRM недоступен. Проверьте интернет и повторите — заявка не отправлена.", "NurCRM сервери жеткиликсиз. Интернетти текшерип, кайталаңыз — өтүнмө жөнөтүлгөн жок.", // 2026-11-01 (В-08): единая фраза о сбое сервера
+                             "The NurCRM server is unavailable. Check the internet and retry — the request was not sent.", "NurCRM sunucusu kullanılamıyor. İnterneti kontrol edip tekrar deneyin — talep gönderilmedi.", "NurCRM serveri mavjud emas. Internetni tekshirib, qayta urinib ko'ring — ariza yuborilmadi."),
                         PosAlertKind.Warning);
                     break;
                 default:
@@ -567,7 +567,7 @@ public partial class MarketplaceView : UserControl
             Child = new TextBlock
             {
                 Text = unlocked ? Tr.T("✓ Включено", "✓ Күйгүзүлгөн", "✓ Enabled", "✓ Etkin", "✓ Yoqilgan") : Tr.T("🔒 Платно", "🔒 Акылуу", "🔒 Paid", "🔒 Ücretli", "🔒 Pullik"),
-                FontSize = 10,
+                FontSize = 12,
                 FontWeight = FontWeight.SemiBold,
                 Foreground = ThemeBrush(badgeKey, Brushes.DarkOrange),
             },
@@ -612,7 +612,7 @@ public partial class MarketplaceView : UserControl
             {
                 Text = Tr.T("Работает автоматически на кассе — отдельно ничего открывать не нужно.",
                     "Кассада автоматтык түрдө иштейт — өзүнчө эч нерсе ачуунун кереги жок.", "Works automatically at the till — nothing to open separately.", "Kasada otomatik çalışır — ayrıca bir şey açmanıza gerek yok.", "Kassada avtomatik ishlaydi — alohida hech narsani ochish shart emas."),
-                FontSize = 11,
+                FontSize = 12,
                 FontStyle = FontStyle.Italic,
                 Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
                 TextWrapping = TextWrapping.Wrap,
@@ -704,7 +704,7 @@ public partial class MarketplaceView : UserControl
             Child = new TextBlock
             {
                 Text = unlocked ? Tr.T("✓ Разблокировано", "✓ Ачылды", "✓ Unlocked", "✓ Kilidi açıldı", "✓ Ochildi") : Tr.T("🔒 Платно", "🔒 Акылуу", "🔒 Paid", "🔒 Ücretli", "🔒 Pullik"),
-                FontSize = 10,
+                FontSize = 12,
                 FontWeight = FontWeight.SemiBold,
                 Foreground = ThemeBrush(badgeKey, Brushes.DarkOrange),
             },
@@ -848,7 +848,7 @@ public partial class MarketplaceView : UserControl
             Child = new TextBlock
             {
                 Text = unlocked ? Tr.T("✓ Разблокировано", "✓ Ачылды", "✓ Unlocked", "✓ Kilidi açıldı", "✓ Ochildi") : Tr.T("🔒 Платно на тарифе «Старт»", "🔒 «Старт» тарифинде акылуу", "🔒 Paid on the “Start” plan", "🔒 «Start» tarifesinde ücretli", "🔒 «Start» tarifida pullik"),
-                FontSize = 10,
+                FontSize = 12,
                 FontWeight = FontWeight.SemiBold,
                 Foreground = ThemeBrush(badgeKey, Brushes.DarkOrange),
             },
@@ -893,7 +893,7 @@ public partial class MarketplaceView : UserControl
             {
                 Text = Tr.T("Открыто на вкладке Настройки → Весы.", "Жөндөөлөр → Тараза бетинде ачык.",
                     "Available on the Settings → Scales tab.", "Ayarlar → Tartılar sekmesinde açık.", "Sozlamalar → Tarozilar bo'limida ochiq."),
-                FontSize = 11,
+                FontSize = 12,
                 FontStyle = FontStyle.Italic,
                 Foreground = ThemeBrush("BrushTextSoft", Brushes.Gray),
                 TextWrapping = TextWrapping.Wrap,
@@ -984,7 +984,7 @@ public partial class MarketplaceView : UserControl
             Child = new TextBlock
             {
                 Text = unlocked ? Tr.T("✓ Разблокировано", "✓ Ачылды", "✓ Unlocked", "✓ Kilidi açıldı", "✓ Ochildi") : Tr.T("🔒 Платно", "🔒 Акылуу", "🔒 Paid", "🔒 Ücretli", "🔒 Pullik"),
-                FontSize = 10,
+                FontSize = 12,
                 FontWeight = FontWeight.SemiBold,
                 Foreground = ThemeBrush(badgeKey, Brushes.DarkOrange),
             },
@@ -1712,7 +1712,7 @@ public partial class MarketplaceView : UserControl
         {
             Text = Tr.T("Переключается мгновенно, без перезапуска. Также: Настройки → Экран.",
                         "Дароо которулат, кайра ачуунун кереги жок. Ошондой эле: Жөндөөлөр → Экран.", "Switches instantly, no restart needed. Also in Settings → Screen.", "Yeniden başlatma gerekmeden anında geçiş yapılır. Ayrıca: Ayarlar → Ekran.", "Qayta ishga tushirmasdan darhol almashadi. Shuningdek: Sozlamalar → Ekran."),
-            FontSize = 11,
+            FontSize = 12,
             Foreground = ThemeBrush("BrushTextMuted", Brushes.Gray),
             TextWrapping = TextWrapping.Wrap,
         };
@@ -1778,7 +1778,7 @@ public partial class MarketplaceView : UserControl
         Child = new TextBlock
         {
             Text = text,
-            FontSize = 10,
+            FontSize = 12,
             FontWeight = FontWeight.SemiBold,
             Foreground = ThemeBrush(mutedText ? "BrushTextSoft" : brushKey, Brushes.Gray),
         },
@@ -1881,7 +1881,7 @@ public partial class MarketplaceView : UserControl
             Child = new TextBlock
             {
                 Text = unlocked ? Tr.T("✓ Разблокировано", "✓ Ачылды", "✓ Unlocked", "✓ Kilidi açıldı", "✓ Ochildi") : Tr.T("🔒 Платно", "🔒 Акылуу", "🔒 Paid", "🔒 Ücretli", "🔒 Pullik"),
-                FontSize = 10,
+                FontSize = 12,
                 FontWeight = FontWeight.SemiBold,
                 Foreground = ThemeBrush(badgeKey, Brushes.DarkOrange),
             },

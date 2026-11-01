@@ -226,6 +226,17 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _expiresOnMeta = const VerificationMeta(
+    'expiresOn',
+  );
+  @override
+  late final GeneratedColumn<String> expiresOn = GeneratedColumn<String>(
+    'expires_on',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -247,6 +258,7 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
     promoRules,
     minQuantity,
     purchasePrice,
+    expiresOn,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -387,6 +399,12 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         ),
       );
     }
+    if (data.containsKey('expires_on')) {
+      context.handle(
+        _expiresOnMeta,
+        expiresOn.isAcceptableOrUnknown(data['expires_on']!, _expiresOnMeta),
+      );
+    }
     return context;
   }
 
@@ -472,6 +490,10 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         DriftSqlType.double,
         data['${effectivePrefix}purchase_price'],
       ),
+      expiresOn: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}expires_on'],
+      ),
     );
   }
 
@@ -520,6 +542,9 @@ class Product extends DataClass implements Insertable<Product> {
   /// (сервер не прислал или у товара не задана): в ревизии сумма разницы тогда считается по цене продажи с пометкой «*».
   /// Показывается только владельцу и администратору (Session.canSeePurchase).
   final double? purchasePrice;
+
+  /// 2026-10-31 (режим «Продукты»): срок годности товара (expiration_date сервера), «ГГГГ-ММ-ДД». null — не указан.
+  final String? expiresOn;
   const Product({
     required this.id,
     required this.name,
@@ -540,6 +565,7 @@ class Product extends DataClass implements Insertable<Product> {
     required this.promoRules,
     required this.minQuantity,
     this.purchasePrice,
+    this.expiresOn,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -573,6 +599,9 @@ class Product extends DataClass implements Insertable<Product> {
     if (!nullToAbsent || purchasePrice != null) {
       map['purchase_price'] = Variable<double>(purchasePrice);
     }
+    if (!nullToAbsent || expiresOn != null) {
+      map['expires_on'] = Variable<String>(expiresOn);
+    }
     return map;
   }
 
@@ -603,6 +632,9 @@ class Product extends DataClass implements Insertable<Product> {
       purchasePrice: purchasePrice == null && nullToAbsent
           ? const Value.absent()
           : Value(purchasePrice),
+      expiresOn: expiresOn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expiresOn),
     );
   }
 
@@ -631,6 +663,7 @@ class Product extends DataClass implements Insertable<Product> {
       promoRules: serializer.fromJson<String>(json['promoRules']),
       minQuantity: serializer.fromJson<double>(json['minQuantity']),
       purchasePrice: serializer.fromJson<double?>(json['purchasePrice']),
+      expiresOn: serializer.fromJson<String?>(json['expiresOn']),
     );
   }
   @override
@@ -656,6 +689,7 @@ class Product extends DataClass implements Insertable<Product> {
       'promoRules': serializer.toJson<String>(promoRules),
       'minQuantity': serializer.toJson<double>(minQuantity),
       'purchasePrice': serializer.toJson<double?>(purchasePrice),
+      'expiresOn': serializer.toJson<String?>(expiresOn),
     };
   }
 
@@ -679,6 +713,7 @@ class Product extends DataClass implements Insertable<Product> {
     String? promoRules,
     double? minQuantity,
     Value<double?> purchasePrice = const Value.absent(),
+    Value<String?> expiresOn = const Value.absent(),
   }) => Product(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -701,6 +736,7 @@ class Product extends DataClass implements Insertable<Product> {
     purchasePrice: purchasePrice.present
         ? purchasePrice.value
         : this.purchasePrice,
+    expiresOn: expiresOn.present ? expiresOn.value : this.expiresOn,
   );
   Product copyWithCompanion(ProductsCompanion data) {
     return Product(
@@ -735,6 +771,7 @@ class Product extends DataClass implements Insertable<Product> {
       purchasePrice: data.purchasePrice.present
           ? data.purchasePrice.value
           : this.purchasePrice,
+      expiresOn: data.expiresOn.present ? data.expiresOn.value : this.expiresOn,
     );
   }
 
@@ -759,7 +796,8 @@ class Product extends DataClass implements Insertable<Product> {
           ..write('searchKey: $searchKey, ')
           ..write('promoRules: $promoRules, ')
           ..write('minQuantity: $minQuantity, ')
-          ..write('purchasePrice: $purchasePrice')
+          ..write('purchasePrice: $purchasePrice, ')
+          ..write('expiresOn: $expiresOn')
           ..write(')'))
         .toString();
   }
@@ -785,6 +823,7 @@ class Product extends DataClass implements Insertable<Product> {
     promoRules,
     minQuantity,
     purchasePrice,
+    expiresOn,
   );
   @override
   bool operator ==(Object other) =>
@@ -808,7 +847,8 @@ class Product extends DataClass implements Insertable<Product> {
           other.searchKey == this.searchKey &&
           other.promoRules == this.promoRules &&
           other.minQuantity == this.minQuantity &&
-          other.purchasePrice == this.purchasePrice);
+          other.purchasePrice == this.purchasePrice &&
+          other.expiresOn == this.expiresOn);
 }
 
 class ProductsCompanion extends UpdateCompanion<Product> {
@@ -831,6 +871,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
   final Value<String> promoRules;
   final Value<double> minQuantity;
   final Value<double?> purchasePrice;
+  final Value<String?> expiresOn;
   final Value<int> rowid;
   const ProductsCompanion({
     this.id = const Value.absent(),
@@ -852,6 +893,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.promoRules = const Value.absent(),
     this.minQuantity = const Value.absent(),
     this.purchasePrice = const Value.absent(),
+    this.expiresOn = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ProductsCompanion.insert({
@@ -874,6 +916,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.promoRules = const Value.absent(),
     this.minQuantity = const Value.absent(),
     this.purchasePrice = const Value.absent(),
+    this.expiresOn = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name);
@@ -897,6 +940,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Expression<String>? promoRules,
     Expression<double>? minQuantity,
     Expression<double>? purchasePrice,
+    Expression<String>? expiresOn,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -919,6 +963,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       if (promoRules != null) 'promo_rules': promoRules,
       if (minQuantity != null) 'min_quantity': minQuantity,
       if (purchasePrice != null) 'purchase_price': purchasePrice,
+      if (expiresOn != null) 'expires_on': expiresOn,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -943,6 +988,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Value<String>? promoRules,
     Value<double>? minQuantity,
     Value<double?>? purchasePrice,
+    Value<String?>? expiresOn,
     Value<int>? rowid,
   }) {
     return ProductsCompanion(
@@ -965,6 +1011,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       promoRules: promoRules ?? this.promoRules,
       minQuantity: minQuantity ?? this.minQuantity,
       purchasePrice: purchasePrice ?? this.purchasePrice,
+      expiresOn: expiresOn ?? this.expiresOn,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1029,6 +1076,9 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     if (purchasePrice.present) {
       map['purchase_price'] = Variable<double>(purchasePrice.value);
     }
+    if (expiresOn.present) {
+      map['expires_on'] = Variable<String>(expiresOn.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1057,6 +1107,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
           ..write('promoRules: $promoRules, ')
           ..write('minQuantity: $minQuantity, ')
           ..write('purchasePrice: $purchasePrice, ')
+          ..write('expiresOn: $expiresOn, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2069,12 +2120,783 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
   }
 }
 
+class $ProductVariantsTable extends ProductVariants
+    with TableInfo<$ProductVariantsTable, VariantRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ProductVariantsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
+    'product_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sizeMeta = const VerificationMeta('size');
+  @override
+  late final GeneratedColumn<String> size = GeneratedColumn<String>(
+    'size',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<String> color = GeneratedColumn<String>(
+    'color',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _barcodeMeta = const VerificationMeta(
+    'barcode',
+  );
+  @override
+  late final GeneratedColumn<String> barcode = GeneratedColumn<String>(
+    'barcode',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _quantityMeta = const VerificationMeta(
+    'quantity',
+  );
+  @override
+  late final GeneratedColumn<double> quantity = GeneratedColumn<double>(
+    'quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _priceMeta = const VerificationMeta('price');
+  @override
+  late final GeneratedColumn<double> price = GeneratedColumn<double>(
+    'price',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    productId,
+    size,
+    color,
+    barcode,
+    quantity,
+    price,
+    isActive,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'product_variants';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<VariantRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_productIdMeta);
+    }
+    if (data.containsKey('size')) {
+      context.handle(
+        _sizeMeta,
+        size.isAcceptableOrUnknown(data['size']!, _sizeMeta),
+      );
+    }
+    if (data.containsKey('color')) {
+      context.handle(
+        _colorMeta,
+        color.isAcceptableOrUnknown(data['color']!, _colorMeta),
+      );
+    }
+    if (data.containsKey('barcode')) {
+      context.handle(
+        _barcodeMeta,
+        barcode.isAcceptableOrUnknown(data['barcode']!, _barcodeMeta),
+      );
+    }
+    if (data.containsKey('quantity')) {
+      context.handle(
+        _quantityMeta,
+        quantity.isAcceptableOrUnknown(data['quantity']!, _quantityMeta),
+      );
+    }
+    if (data.containsKey('price')) {
+      context.handle(
+        _priceMeta,
+        price.isAcceptableOrUnknown(data['price']!, _priceMeta),
+      );
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  VariantRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VariantRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_id'],
+      )!,
+      size: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}size'],
+      )!,
+      color: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color'],
+      )!,
+      barcode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}barcode'],
+      ),
+      quantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}quantity'],
+      )!,
+      price: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}price'],
+      ),
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
+      )!,
+    );
+  }
+
+  @override
+  $ProductVariantsTable createAlias(String alias) {
+    return $ProductVariantsTable(attachedDatabase, alias);
+  }
+}
+
+class VariantRow extends DataClass implements Insertable<VariantRow> {
+  final String id;
+  final String productId;
+  final String size;
+  final String color;
+  final String? barcode;
+  final double quantity;
+
+  /// null — цена размера не задана, берётся цена товара.
+  final double? price;
+  final bool isActive;
+  const VariantRow({
+    required this.id,
+    required this.productId,
+    required this.size,
+    required this.color,
+    this.barcode,
+    required this.quantity,
+    this.price,
+    required this.isActive,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['product_id'] = Variable<String>(productId);
+    map['size'] = Variable<String>(size);
+    map['color'] = Variable<String>(color);
+    if (!nullToAbsent || barcode != null) {
+      map['barcode'] = Variable<String>(barcode);
+    }
+    map['quantity'] = Variable<double>(quantity);
+    if (!nullToAbsent || price != null) {
+      map['price'] = Variable<double>(price);
+    }
+    map['is_active'] = Variable<bool>(isActive);
+    return map;
+  }
+
+  ProductVariantsCompanion toCompanion(bool nullToAbsent) {
+    return ProductVariantsCompanion(
+      id: Value(id),
+      productId: Value(productId),
+      size: Value(size),
+      color: Value(color),
+      barcode: barcode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(barcode),
+      quantity: Value(quantity),
+      price: price == null && nullToAbsent
+          ? const Value.absent()
+          : Value(price),
+      isActive: Value(isActive),
+    );
+  }
+
+  factory VariantRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VariantRow(
+      id: serializer.fromJson<String>(json['id']),
+      productId: serializer.fromJson<String>(json['productId']),
+      size: serializer.fromJson<String>(json['size']),
+      color: serializer.fromJson<String>(json['color']),
+      barcode: serializer.fromJson<String?>(json['barcode']),
+      quantity: serializer.fromJson<double>(json['quantity']),
+      price: serializer.fromJson<double?>(json['price']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'productId': serializer.toJson<String>(productId),
+      'size': serializer.toJson<String>(size),
+      'color': serializer.toJson<String>(color),
+      'barcode': serializer.toJson<String?>(barcode),
+      'quantity': serializer.toJson<double>(quantity),
+      'price': serializer.toJson<double?>(price),
+      'isActive': serializer.toJson<bool>(isActive),
+    };
+  }
+
+  VariantRow copyWith({
+    String? id,
+    String? productId,
+    String? size,
+    String? color,
+    Value<String?> barcode = const Value.absent(),
+    double? quantity,
+    Value<double?> price = const Value.absent(),
+    bool? isActive,
+  }) => VariantRow(
+    id: id ?? this.id,
+    productId: productId ?? this.productId,
+    size: size ?? this.size,
+    color: color ?? this.color,
+    barcode: barcode.present ? barcode.value : this.barcode,
+    quantity: quantity ?? this.quantity,
+    price: price.present ? price.value : this.price,
+    isActive: isActive ?? this.isActive,
+  );
+  VariantRow copyWithCompanion(ProductVariantsCompanion data) {
+    return VariantRow(
+      id: data.id.present ? data.id.value : this.id,
+      productId: data.productId.present ? data.productId.value : this.productId,
+      size: data.size.present ? data.size.value : this.size,
+      color: data.color.present ? data.color.value : this.color,
+      barcode: data.barcode.present ? data.barcode.value : this.barcode,
+      quantity: data.quantity.present ? data.quantity.value : this.quantity,
+      price: data.price.present ? data.price.value : this.price,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VariantRow(')
+          ..write('id: $id, ')
+          ..write('productId: $productId, ')
+          ..write('size: $size, ')
+          ..write('color: $color, ')
+          ..write('barcode: $barcode, ')
+          ..write('quantity: $quantity, ')
+          ..write('price: $price, ')
+          ..write('isActive: $isActive')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    productId,
+    size,
+    color,
+    barcode,
+    quantity,
+    price,
+    isActive,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VariantRow &&
+          other.id == this.id &&
+          other.productId == this.productId &&
+          other.size == this.size &&
+          other.color == this.color &&
+          other.barcode == this.barcode &&
+          other.quantity == this.quantity &&
+          other.price == this.price &&
+          other.isActive == this.isActive);
+}
+
+class ProductVariantsCompanion extends UpdateCompanion<VariantRow> {
+  final Value<String> id;
+  final Value<String> productId;
+  final Value<String> size;
+  final Value<String> color;
+  final Value<String?> barcode;
+  final Value<double> quantity;
+  final Value<double?> price;
+  final Value<bool> isActive;
+  final Value<int> rowid;
+  const ProductVariantsCompanion({
+    this.id = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.size = const Value.absent(),
+    this.color = const Value.absent(),
+    this.barcode = const Value.absent(),
+    this.quantity = const Value.absent(),
+    this.price = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ProductVariantsCompanion.insert({
+    required String id,
+    required String productId,
+    this.size = const Value.absent(),
+    this.color = const Value.absent(),
+    this.barcode = const Value.absent(),
+    this.quantity = const Value.absent(),
+    this.price = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       productId = Value(productId);
+  static Insertable<VariantRow> custom({
+    Expression<String>? id,
+    Expression<String>? productId,
+    Expression<String>? size,
+    Expression<String>? color,
+    Expression<String>? barcode,
+    Expression<double>? quantity,
+    Expression<double>? price,
+    Expression<bool>? isActive,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (productId != null) 'product_id': productId,
+      if (size != null) 'size': size,
+      if (color != null) 'color': color,
+      if (barcode != null) 'barcode': barcode,
+      if (quantity != null) 'quantity': quantity,
+      if (price != null) 'price': price,
+      if (isActive != null) 'is_active': isActive,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ProductVariantsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? productId,
+    Value<String>? size,
+    Value<String>? color,
+    Value<String?>? barcode,
+    Value<double>? quantity,
+    Value<double?>? price,
+    Value<bool>? isActive,
+    Value<int>? rowid,
+  }) {
+    return ProductVariantsCompanion(
+      id: id ?? this.id,
+      productId: productId ?? this.productId,
+      size: size ?? this.size,
+      color: color ?? this.color,
+      barcode: barcode ?? this.barcode,
+      quantity: quantity ?? this.quantity,
+      price: price ?? this.price,
+      isActive: isActive ?? this.isActive,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (productId.present) {
+      map['product_id'] = Variable<String>(productId.value);
+    }
+    if (size.present) {
+      map['size'] = Variable<String>(size.value);
+    }
+    if (color.present) {
+      map['color'] = Variable<String>(color.value);
+    }
+    if (barcode.present) {
+      map['barcode'] = Variable<String>(barcode.value);
+    }
+    if (quantity.present) {
+      map['quantity'] = Variable<double>(quantity.value);
+    }
+    if (price.present) {
+      map['price'] = Variable<double>(price.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ProductVariantsCompanion(')
+          ..write('id: $id, ')
+          ..write('productId: $productId, ')
+          ..write('size: $size, ')
+          ..write('color: $color, ')
+          ..write('barcode: $barcode, ')
+          ..write('quantity: $quantity, ')
+          ..write('price: $price, ')
+          ..write('isActive: $isActive, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $VariantChecksTable extends VariantChecks
+    with TableInfo<$VariantChecksTable, VariantCheck> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VariantChecksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
+    'product_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _checkedAtMeta = const VerificationMeta(
+    'checkedAt',
+  );
+  @override
+  late final GeneratedColumn<int> checkedAt = GeneratedColumn<int>(
+    'checked_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _totalMeta = const VerificationMeta('total');
+  @override
+  late final GeneratedColumn<int> total = GeneratedColumn<int>(
+    'total',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [productId, checkedAt, total];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'variant_checks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<VariantCheck> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_productIdMeta);
+    }
+    if (data.containsKey('checked_at')) {
+      context.handle(
+        _checkedAtMeta,
+        checkedAt.isAcceptableOrUnknown(data['checked_at']!, _checkedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_checkedAtMeta);
+    }
+    if (data.containsKey('total')) {
+      context.handle(
+        _totalMeta,
+        total.isAcceptableOrUnknown(data['total']!, _totalMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {productId};
+  @override
+  VariantCheck map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VariantCheck(
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_id'],
+      )!,
+      checkedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}checked_at'],
+      )!,
+      total: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}total'],
+      )!,
+    );
+  }
+
+  @override
+  $VariantChecksTable createAlias(String alias) {
+    return $VariantChecksTable(attachedDatabase, alias);
+  }
+}
+
+class VariantCheck extends DataClass implements Insertable<VariantCheck> {
+  final String productId;
+  final int checkedAt;
+  final int total;
+  const VariantCheck({
+    required this.productId,
+    required this.checkedAt,
+    required this.total,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['product_id'] = Variable<String>(productId);
+    map['checked_at'] = Variable<int>(checkedAt);
+    map['total'] = Variable<int>(total);
+    return map;
+  }
+
+  VariantChecksCompanion toCompanion(bool nullToAbsent) {
+    return VariantChecksCompanion(
+      productId: Value(productId),
+      checkedAt: Value(checkedAt),
+      total: Value(total),
+    );
+  }
+
+  factory VariantCheck.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VariantCheck(
+      productId: serializer.fromJson<String>(json['productId']),
+      checkedAt: serializer.fromJson<int>(json['checkedAt']),
+      total: serializer.fromJson<int>(json['total']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'productId': serializer.toJson<String>(productId),
+      'checkedAt': serializer.toJson<int>(checkedAt),
+      'total': serializer.toJson<int>(total),
+    };
+  }
+
+  VariantCheck copyWith({String? productId, int? checkedAt, int? total}) =>
+      VariantCheck(
+        productId: productId ?? this.productId,
+        checkedAt: checkedAt ?? this.checkedAt,
+        total: total ?? this.total,
+      );
+  VariantCheck copyWithCompanion(VariantChecksCompanion data) {
+    return VariantCheck(
+      productId: data.productId.present ? data.productId.value : this.productId,
+      checkedAt: data.checkedAt.present ? data.checkedAt.value : this.checkedAt,
+      total: data.total.present ? data.total.value : this.total,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VariantCheck(')
+          ..write('productId: $productId, ')
+          ..write('checkedAt: $checkedAt, ')
+          ..write('total: $total')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(productId, checkedAt, total);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VariantCheck &&
+          other.productId == this.productId &&
+          other.checkedAt == this.checkedAt &&
+          other.total == this.total);
+}
+
+class VariantChecksCompanion extends UpdateCompanion<VariantCheck> {
+  final Value<String> productId;
+  final Value<int> checkedAt;
+  final Value<int> total;
+  final Value<int> rowid;
+  const VariantChecksCompanion({
+    this.productId = const Value.absent(),
+    this.checkedAt = const Value.absent(),
+    this.total = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  VariantChecksCompanion.insert({
+    required String productId,
+    required int checkedAt,
+    this.total = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : productId = Value(productId),
+       checkedAt = Value(checkedAt);
+  static Insertable<VariantCheck> custom({
+    Expression<String>? productId,
+    Expression<int>? checkedAt,
+    Expression<int>? total,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (productId != null) 'product_id': productId,
+      if (checkedAt != null) 'checked_at': checkedAt,
+      if (total != null) 'total': total,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  VariantChecksCompanion copyWith({
+    Value<String>? productId,
+    Value<int>? checkedAt,
+    Value<int>? total,
+    Value<int>? rowid,
+  }) {
+    return VariantChecksCompanion(
+      productId: productId ?? this.productId,
+      checkedAt: checkedAt ?? this.checkedAt,
+      total: total ?? this.total,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (productId.present) {
+      map['product_id'] = Variable<String>(productId.value);
+    }
+    if (checkedAt.present) {
+      map['checked_at'] = Variable<int>(checkedAt.value);
+    }
+    if (total.present) {
+      map['total'] = Variable<int>(total.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VariantChecksCompanion(')
+          ..write('productId: $productId, ')
+          ..write('checkedAt: $checkedAt, ')
+          ..write('total: $total, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $ProductsTable products = $ProductsTable(this);
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
+  late final $ProductVariantsTable productVariants = $ProductVariantsTable(
+    this,
+  );
+  late final $VariantChecksTable variantChecks = $VariantChecksTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2083,6 +2905,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     products,
     outbox,
     settings,
+    productVariants,
+    variantChecks,
   ];
 }
 
@@ -2106,6 +2930,7 @@ typedef $$ProductsTableCreateCompanionBuilder = ProductsCompanion Function({
   Value<String> promoRules,
   Value<double> minQuantity,
   Value<double?> purchasePrice,
+  Value<String?> expiresOn,
   Value<int> rowid,
 });
 typedef $$ProductsTableUpdateCompanionBuilder = ProductsCompanion Function({
@@ -2128,6 +2953,7 @@ typedef $$ProductsTableUpdateCompanionBuilder = ProductsCompanion Function({
   Value<String> promoRules,
   Value<double> minQuantity,
   Value<double?> purchasePrice,
+  Value<String?> expiresOn,
   Value<int> rowid,
 });
 
@@ -2232,6 +3058,11 @@ class $$ProductsTableFilterComposer
 
   ColumnFilters<double> get purchasePrice => $composableBuilder(
     column: $table.purchasePrice,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get expiresOn => $composableBuilder(
+    column: $table.expiresOn,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2339,6 +3170,11 @@ class $$ProductsTableOrderingComposer
     column: $table.purchasePrice,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get expiresOn => $composableBuilder(
+    column: $table.expiresOn,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ProductsTableAnnotationComposer
@@ -2418,6 +3254,9 @@ class $$ProductsTableAnnotationComposer
     column: $table.purchasePrice,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get expiresOn =>
+      $composableBuilder(column: $table.expiresOn, builder: (column) => column);
 }
 
 class $$ProductsTableTableManager
@@ -2467,6 +3306,7 @@ class $$ProductsTableTableManager
                 Value<String> promoRules = const Value.absent(),
                 Value<double> minQuantity = const Value.absent(),
                 Value<double?> purchasePrice = const Value.absent(),
+                Value<String?> expiresOn = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProductsCompanion(
                 id: id,
@@ -2488,6 +3328,7 @@ class $$ProductsTableTableManager
                 promoRules: promoRules,
                 minQuantity: minQuantity,
                 purchasePrice: purchasePrice,
+                expiresOn: expiresOn,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2511,6 +3352,7 @@ class $$ProductsTableTableManager
                 Value<String> promoRules = const Value.absent(),
                 Value<double> minQuantity = const Value.absent(),
                 Value<double?> purchasePrice = const Value.absent(),
+                Value<String?> expiresOn = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProductsCompanion.insert(
                 id: id,
@@ -2532,6 +3374,7 @@ class $$ProductsTableTableManager
                 promoRules: promoRules,
                 minQuantity: minQuantity,
                 purchasePrice: purchasePrice,
+                expiresOn: expiresOn,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -3075,6 +3918,445 @@ typedef $$SettingsTableProcessedTableManager =
       Setting,
       PrefetchHooks Function()
     >;
+typedef $$ProductVariantsTableCreateCompanionBuilder =
+    ProductVariantsCompanion Function({
+      required String id,
+      required String productId,
+      Value<String> size,
+      Value<String> color,
+      Value<String?> barcode,
+      Value<double> quantity,
+      Value<double?> price,
+      Value<bool> isActive,
+      Value<int> rowid,
+    });
+typedef $$ProductVariantsTableUpdateCompanionBuilder =
+    ProductVariantsCompanion Function({
+      Value<String> id,
+      Value<String> productId,
+      Value<String> size,
+      Value<String> color,
+      Value<String?> barcode,
+      Value<double> quantity,
+      Value<double?> price,
+      Value<bool> isActive,
+      Value<int> rowid,
+    });
+
+class $$ProductVariantsTableFilterComposer
+    extends Composer<_$AppDatabase, $ProductVariantsTable> {
+  $$ProductVariantsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get size => $composableBuilder(
+    column: $table.size,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get barcode => $composableBuilder(
+    column: $table.barcode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get quantity => $composableBuilder(
+    column: $table.quantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get price => $composableBuilder(
+    column: $table.price,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ProductVariantsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ProductVariantsTable> {
+  $$ProductVariantsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get size => $composableBuilder(
+    column: $table.size,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get color => $composableBuilder(
+    column: $table.color,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get barcode => $composableBuilder(
+    column: $table.barcode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get quantity => $composableBuilder(
+    column: $table.quantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get price => $composableBuilder(
+    column: $table.price,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ProductVariantsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ProductVariantsTable> {
+  $$ProductVariantsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get productId =>
+      $composableBuilder(column: $table.productId, builder: (column) => column);
+
+  GeneratedColumn<String> get size =>
+      $composableBuilder(column: $table.size, builder: (column) => column);
+
+  GeneratedColumn<String> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
+
+  GeneratedColumn<String> get barcode =>
+      $composableBuilder(column: $table.barcode, builder: (column) => column);
+
+  GeneratedColumn<double> get quantity =>
+      $composableBuilder(column: $table.quantity, builder: (column) => column);
+
+  GeneratedColumn<double> get price =>
+      $composableBuilder(column: $table.price, builder: (column) => column);
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+}
+
+class $$ProductVariantsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ProductVariantsTable,
+          VariantRow,
+          $$ProductVariantsTableFilterComposer,
+          $$ProductVariantsTableOrderingComposer,
+          $$ProductVariantsTableAnnotationComposer,
+          $$ProductVariantsTableCreateCompanionBuilder,
+          $$ProductVariantsTableUpdateCompanionBuilder,
+          (
+            VariantRow,
+            BaseReferences<_$AppDatabase, $ProductVariantsTable, VariantRow>,
+          ),
+          VariantRow,
+          PrefetchHooks Function()
+        > {
+  $$ProductVariantsTableTableManager(
+    _$AppDatabase db,
+    $ProductVariantsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ProductVariantsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ProductVariantsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ProductVariantsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> productId = const Value.absent(),
+                Value<String> size = const Value.absent(),
+                Value<String> color = const Value.absent(),
+                Value<String?> barcode = const Value.absent(),
+                Value<double> quantity = const Value.absent(),
+                Value<double?> price = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProductVariantsCompanion(
+                id: id,
+                productId: productId,
+                size: size,
+                color: color,
+                barcode: barcode,
+                quantity: quantity,
+                price: price,
+                isActive: isActive,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String productId,
+                Value<String> size = const Value.absent(),
+                Value<String> color = const Value.absent(),
+                Value<String?> barcode = const Value.absent(),
+                Value<double> quantity = const Value.absent(),
+                Value<double?> price = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ProductVariantsCompanion.insert(
+                id: id,
+                productId: productId,
+                size: size,
+                color: color,
+                barcode: barcode,
+                quantity: quantity,
+                price: price,
+                isActive: isActive,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ProductVariantsTable, VariantRow>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $ProductVariantsTable,
+                    VariantRow
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ProductVariantsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ProductVariantsTable,
+      VariantRow,
+      $$ProductVariantsTableFilterComposer,
+      $$ProductVariantsTableOrderingComposer,
+      $$ProductVariantsTableAnnotationComposer,
+      $$ProductVariantsTableCreateCompanionBuilder,
+      $$ProductVariantsTableUpdateCompanionBuilder,
+      (
+        VariantRow,
+        BaseReferences<_$AppDatabase, $ProductVariantsTable, VariantRow>,
+      ),
+      VariantRow,
+      PrefetchHooks Function()
+    >;
+typedef $$VariantChecksTableCreateCompanionBuilder =
+    VariantChecksCompanion Function({
+      required String productId,
+      required int checkedAt,
+      Value<int> total,
+      Value<int> rowid,
+    });
+typedef $$VariantChecksTableUpdateCompanionBuilder =
+    VariantChecksCompanion Function({
+      Value<String> productId,
+      Value<int> checkedAt,
+      Value<int> total,
+      Value<int> rowid,
+    });
+
+class $$VariantChecksTableFilterComposer
+    extends Composer<_$AppDatabase, $VariantChecksTable> {
+  $$VariantChecksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get checkedAt => $composableBuilder(
+    column: $table.checkedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get total => $composableBuilder(
+    column: $table.total,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$VariantChecksTableOrderingComposer
+    extends Composer<_$AppDatabase, $VariantChecksTable> {
+  $$VariantChecksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get checkedAt => $composableBuilder(
+    column: $table.checkedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get total => $composableBuilder(
+    column: $table.total,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$VariantChecksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VariantChecksTable> {
+  $$VariantChecksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get productId =>
+      $composableBuilder(column: $table.productId, builder: (column) => column);
+
+  GeneratedColumn<int> get checkedAt =>
+      $composableBuilder(column: $table.checkedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get total =>
+      $composableBuilder(column: $table.total, builder: (column) => column);
+}
+
+class $$VariantChecksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $VariantChecksTable,
+          VariantCheck,
+          $$VariantChecksTableFilterComposer,
+          $$VariantChecksTableOrderingComposer,
+          $$VariantChecksTableAnnotationComposer,
+          $$VariantChecksTableCreateCompanionBuilder,
+          $$VariantChecksTableUpdateCompanionBuilder,
+          (
+            VariantCheck,
+            BaseReferences<_$AppDatabase, $VariantChecksTable, VariantCheck>,
+          ),
+          VariantCheck,
+          PrefetchHooks Function()
+        > {
+  $$VariantChecksTableTableManager(_$AppDatabase db, $VariantChecksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VariantChecksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VariantChecksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VariantChecksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> productId = const Value.absent(),
+                Value<int> checkedAt = const Value.absent(),
+                Value<int> total = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VariantChecksCompanion(
+                productId: productId,
+                checkedAt: checkedAt,
+                total: total,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String productId,
+                required int checkedAt,
+                Value<int> total = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VariantChecksCompanion.insert(
+                productId: productId,
+                checkedAt: checkedAt,
+                total: total,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$VariantChecksTable, VariantCheck>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $VariantChecksTable,
+                    VariantCheck
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$VariantChecksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $VariantChecksTable,
+      VariantCheck,
+      $$VariantChecksTableFilterComposer,
+      $$VariantChecksTableOrderingComposer,
+      $$VariantChecksTableAnnotationComposer,
+      $$VariantChecksTableCreateCompanionBuilder,
+      $$VariantChecksTableUpdateCompanionBuilder,
+      (
+        VariantCheck,
+        BaseReferences<_$AppDatabase, $VariantChecksTable, VariantCheck>,
+      ),
+      VariantCheck,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3085,4 +4367,8 @@ class $AppDatabaseManager {
       $$OutboxTableTableManager(_db, _db.outbox);
   $$SettingsTableTableManager get settings =>
       $$SettingsTableTableManager(_db, _db.settings);
+  $$ProductVariantsTableTableManager get productVariants =>
+      $$ProductVariantsTableTableManager(_db, _db.productVariants);
+  $$VariantChecksTableTableManager get variantChecks =>
+      $$VariantChecksTableTableManager(_db, _db.variantChecks);
 }

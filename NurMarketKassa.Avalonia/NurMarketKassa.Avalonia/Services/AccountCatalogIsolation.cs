@@ -157,7 +157,8 @@ public static class PosRefundService
     {
         // 2026-10-15, ревью: idempotencyKey — тот же при повторе того же возврата (ReturnSaleDialog), null — новый.
         // 2026-10-06, владелец: «главное не трогай продуктовый» — в «Продуктах» прежний запрос возврата.
-        if ((MarketSpheres.IsClothing || isDefect) && api is Api.IPosExchangeApi details)
+        // 2026-11-01 (аудит «10 из 10», Ж-03): причина есть — тоже запрос с деталями: в «Продуктах» прежний запрос причину терял, и у владельца в «Возвратах» стояло «—».
+        if ((MarketSpheres.IsClothing || isDefect || !string.IsNullOrWhiteSpace(reason)) && api is Api.IPosExchangeApi details)
         {
             await details.PosReturnWithDetailsAsync(saleId, null, reason, isDefect, ct, idempotencyKey).ConfigureAwait(false);
             return;
@@ -184,7 +185,8 @@ public static class PosRefundService
         if (lines.Count == 0)
             throw new ArgumentException("Нет строк для возврата.", nameof(lines));
         // 2026-10-06, владелец: «главное не трогай продуктовый» — в «Продуктах» прежний запрос возврата.
-        if ((MarketSpheres.IsClothing || isDefect) && api is Api.IPosExchangeApi details)
+        // 2026-11-01 (Ж-03): см. выше — причина должна дойти до документа возврата и в «Продуктах».
+        if ((MarketSpheres.IsClothing || isDefect || !string.IsNullOrWhiteSpace(reason)) && api is Api.IPosExchangeApi details)
         {
             await details.PosReturnWithDetailsAsync(saleId, lines, reason, isDefect, ct, idempotencyKey).ConfigureAwait(false);
             return;

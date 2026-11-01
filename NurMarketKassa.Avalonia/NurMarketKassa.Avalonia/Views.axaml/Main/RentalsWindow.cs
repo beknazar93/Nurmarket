@@ -38,6 +38,9 @@ public sealed class RentalsWindow : Window
     private IReadOnlyList<RentalDto> _active = Array.Empty<RentalDto>();
     private IReadOnlyList<RentalDto> _returned = Array.Empty<RentalDto>();
 
+    /// <summary>2026-11-01 (В-28): список проката не загрузился — пустые вкладки не должны писать «Сейчас на руках ничего нет».</summary>
+    private bool _loadFailed;
+
     /// <param name="ensureShift">Открыть смену, если закрыта (залог приходуется в кассу смены).</param>
     /// <param name="addRentLine">Добавить в текущий чек строку «Прокат…» на сумму — для оплаты проката.</param>
     public RentalsWindow(Func<Task<bool>>? ensureShift, Func<string, double, bool>? addRentLine)
@@ -199,6 +202,7 @@ public sealed class RentalsWindow : Window
             "Kiralamalar NurCRM sunucusundan yükleniyor…", "Prokat NurCRM serveridan yuklanmoqda…");
         try
         {
+            _loadFailed = false;
             var api = App.GetRequiredService<RentalsApi>();
             var active = await api.ListAsync("active").ConfigureAwait(true);
             var overdueList = await api.ListAsync("overdue").ConfigureAwait(true);
@@ -217,6 +221,7 @@ public sealed class RentalsWindow : Window
         }
         catch (Exception ex)
         {
+            _loadFailed = true;
             _status.IsVisible = true;
             _status.Text = T("Не удалось загрузить прокат: ", "Прокатты жүктөө болбой калды: ", "Could not load rentals: ", "Kiralamalar yüklenemedi: ", "Prokatni yuklab bo'lmadi: ")
                            + RentalsApi.Describe(ex);
@@ -272,7 +277,10 @@ public sealed class RentalsWindow : Window
             {
                 // 2026-10-18, этап О4: в программе владельца кнопки «+ Новый прокат» нет — без отсылки к ней.
                 // Доводка О4: пусто — по вкладке и с подсказкой, что делать.
-                Text = _tab == "overdue"
+                Text = _loadFailed
+                    ? ServerOutageMonitor.UnavailableText + ". " + T("Проверьте интернет и нажмите «Обновить».", "Интернетти текшериңиз да «Жаңыртуу» басыңыз.", "Check the internet and press “Refresh”.",
+                        "İnterneti kontrol edip «Yenile»ye basın.", "Internetni tekshirib, «Yangilash»ni bosing.") // 2026-11-01 (В-28): сбой загрузки, а не «ничего нет»
+                    : _tab == "overdue"
                     ? T("Просроченных нет — все вещи возвращают вовремя.", "Мөөнөтү өткөн жок — бардык буюмдар убагында кайтарылууда.", "Nothing overdue — everything comes back on time.",
                         "Gecikmiş yok — her şey zamanında iade ediliyor.", "Muddati o'tganlar yo'q — hammasi o'z vaqtida qaytarilmoqda.")
                     : _tab == "returned"

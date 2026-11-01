@@ -89,7 +89,7 @@
               </StackPanel>
 
               <TextBlock Text="{Binding BackgroundImagePath}"
-                         FontSize="11" Foreground="{DynamicResource BrushTextSoft}"
+                         FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
                          TextWrapping="Wrap" Margin="0,2,0,0"
                          IsVisible="{Binding HasBackgroundImage}"/>
 
@@ -97,7 +97,7 @@
                 <StackPanel>
                   <TextBlock Text="{DynamicResource posSettings.customization.applyToCashierTitle}" FontSize="13" FontWeight="SemiBold"/>
                   <TextBlock Text="{DynamicResource posSettings.customization.applyToCashierDesc}"
-                             FontSize="11" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="420" HorizontalAlignment="Left"/>
+                             FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="420" HorizontalAlignment="Left"/>
                 </StackPanel>
               </CheckBox>
             </StackPanel>

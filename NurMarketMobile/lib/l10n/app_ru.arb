@@ -1242,6 +1242,37 @@
   "sent": "отправлено",
   "sendNow": "Отправить сейчас",
   "kindSale": "Продажа",
+  "prevSaleMayPass": "Прошлая оплата не закончилась — тот чек мог пройти. Проверьте раздел «Чеки», прежде чем платить заново.",
+  "pdHasHistory": "Товар нельзя удалить — по нему есть документы (продажи, приходы). Отправить его в архив? Из продажи он пропадёт, история останется.",
+  "pdToArchive": "В архив",
+  "pdArchived": "Товар отправлен в архив",
+  "pricesPartlyUnchecked": "Цены не сверены с сервером по товарам: {n} — они могут быть устаревшими.",
+  "@pricesPartlyUnchecked": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "kindBonus": "Бонусы клиента",
+  "bonusQueued": "Бонусы клиента не записались сразу — отправятся сами, когда появится связь",
+  "payReceivedHuge": "Сдача {change} сом — верно? Проверьте сумму в поле «Получено».",
+  "@payReceivedHuge": {
+    "placeholders": {
+      "change": {
+        "type": "String"
+      }
+    }
+  },
+  "apiSaleTooOld": "Чек старше 7 суток: сервер не принимает его без подтверждения владельца. Не снимайте чек, сообщите владельцу.",
+  "staleSalesBanner": "В очереди чеков старше 5 суток: {n}. Через 7 суток сервер перестаёт принимать их без подтверждения владельца — подключите телефон к сети как можно скорее.",
+  "@staleSalesBanner": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "admin": "Управление",
   "adminSub": "Цены, смены, заказы, клиенты",
   "revenueToday": "Выручка сегодня",
@@ -4762,5 +4793,266 @@
   "pbSupplier": "Поставщик",
   "pbCall": "Позвонить",
   "pbWhatsApp": "WhatsApp",
-  "pbNoPhone": "Телефон не указан"
+  "pbNoPhone": "Телефон не указан",
+  "shopModeTitle": "Режим магазина",
+  "shopModeSub": "Как в кассе: «Сфера магазина». От режима зависит вид продажи и каталога",
+  "shopModeGrocery": "Продукты",
+  "shopModeGrocerySub": "Весы и весовые товары, быстрые продажи",
+  "shopModeClothing": "Одежда и обувь",
+  "shopModeClothingSub": "Размеры и цвета при продаже, штрихкод размера, остаток по размеру",
+  "shopModeServices": "Услуги",
+  "shopModeServicesSub": "Салон, ремонт, прокат: услуги без остатка",
+  "shopModeHardware": "Хозтовары и стройматериалы",
+  "shopModeHardwareSub": "Метры, килограммы, мешки и коробки",
+  "shopModeOn": "Режим «{name}» включён",
+  "@shopModeOn": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shopModeSavedAll": "Сохранено для всей компании: кассы и телефоны перестроятся при следующем входе.",
+  "shopModePhoneOnly": "Только на этом телефоне: для всей компании режим меняет владелец.",
+  "clothingHintTitle": "В каталоге есть товары с размерами и цветами",
+  "clothingHintAsk": "Включить режим «Одежда»? Размеры будут на плитках и при сканировании.",
+  "clothingHintYes": "Включить",
+  "clothingHintNo": "Не нужно",
+  "variantsTile": "{n, plural, one{{n} размер/цвет} few{{n} размера/цвета} many{{n} размеров/цветов} other{{n} размера/цвета}}",
+  "@variantsTile": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "variantPickLeft": "ост. {qty}",
+  "@variantPickLeft": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "variantPickInCheck": "В чеке: {qty}",
+  "@variantPickInCheck": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "variantPickNone": "Нет в наличии",
+  "variantPickAllOut": "Все размеры этого товара закончились.",
+  "variantPickUpdating": "Обновляем остатки…",
+  "variantPickStale": "Остатки с телефона — без связи",
+  "variantNoMore": "Больше нет: остаток этого размера — {qty}",
+  "@variantNoMore": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "variantLoadFailed": "Размеры товара не загрузились — нет связи. Повторите, когда появится интернет.",
+  "variantScanOut": "{label}: нет в наличии",
+  "@variantScanOut": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "variantScanInactive": "{label}: размер отключён",
+  "@variantScanInactive": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "variantInactiveHidden": "Отключённые размеры не показываются.",
+  "catalogLoadingProgress": "Загружаем каталог… {done} из {total}",
+  "@catalogLoadingProgress": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "catalogLoadingNoTotal": "Загружаем каталог… {done}",
+  "@catalogLoadingNoTotal": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "catalogIncomplete": "Загружено {done} из {total} товаров — часть каталога ещё не на телефоне. Загрузка продолжится сама; можно нажать «Обновить каталог».",
+  "@catalogIncomplete": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "catalogIncompleteNoTotal": "Каталог загружен не полностью. Загрузка продолжится сама; можно нажать «Обновить каталог».",
+  "catalogRefresh": "Обновить каталог",
+  "catalogRefreshed": "Каталог обновлён: {n} товаров",
+  "@catalogRefreshed": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "stockCountShown": "Показано {shown} из {total}",
+  "@stockCountShown": {
+    "placeholders": {
+      "shown": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "stockCountAll": "Товаров: {total}",
+  "@stockCountAll": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "shopModeNotChosen": "Не выбран",
+  "shopModeChoose": "Выбрать режим магазина",
+  "shopSearchGrocery": "Название, штрихкод, PLU",
+  "shopSearchClothing": "Название, код размера",
+  "shopSearchServices": "Название услуги",
+  "shopSearchHardware": "Название, артикул",
+  "shopEmptyGrocery": "Ничего не найдено. Весовой товар ищется по названию или коду весов (PLU).",
+  "shopEmptyClothing": "Ничего не найдено. Размеры и цвета видны у товара после открытия или скана штрихкода размера.",
+  "shopEmptyServices": "Услуг не найдено. Услуги заводятся на сайте или на кассе.",
+  "shopEmptyHardware": "Ничего не найдено. Ищите по названию, артикулу или штрихкоду; единицы — м, м², упаковки.",
+  "tileSizes": "Размеры и цвета",
+  "tileSizesSub": "Остатки по размерам",
+  "tileWeighed": "Весовые товары",
+  "tileWeighedSub": "Цена за кг, вес с весов",
+  "tileExpiry": "Сроки годности",
+  "tileExpirySub": "Что скоро испортится",
+  "tileUnits": "Метры и упаковки",
+  "tileUnitsSub": "Единицы и наборы",
+  "tileReceive": "Приёмка",
+  "tileReceiveSub": "Принять товар",
+  "tileStockSub": "Склад и остатки",
+  "tileRentalsSub": "Выдача и возврат",
+  "tileDebtsSub": "Кто должен",
+  "stockFilterSizes": "Только с размерами",
+  "stockFilterWeight": "Только весовые",
+  "stockFilterExpiry": "Срок годности близко",
+  "stockFilterUnits": "Не штуки: м, м², упаковки",
+  "stockFilterClear": "Сбросить",
+  "expiryBadge": "до {date}",
+  "@expiryBadge": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "expirySoonToast": "{name}: срок годности до {date}",
+  "@expirySoonToast": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "sizesScreenTitle": "Размеры и цвета",
+  "sizesEmpty": "Товаров с размерами пока нет. Откройте товар в продаже или отсканируйте штрихкод размера — размеры подтянутся.",
+  "sizesTotal": "Всего: {qty}",
+  "@sizesTotal": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "cardSizesTitle": "Размеры и цвета",
+  "cardSizesNone": "Размеры этого товара ещё не загружены или их нет.",
+  "cardWeightTitle": "Весовой товар",
+  "cardWeightInfo": "Цена за {unit}. Код для весов (PLU): {plu}",
+  "@cardWeightInfo": {
+    "placeholders": {
+      "unit": {
+        "type": "String"
+      },
+      "plu": {
+        "type": "String"
+      }
+    }
+  },
+  "cardNoPlu": "не задан",
+  "cardExpiryTitle": "Срок годности",
+  "cardExpiryNone": "Не указан (его вносят на кассе или на сайте)",
+  "cardUnitTitle": "Единица измерения",
+  "cardUnitInfo": "Продаётся в: {unit}",
+  "@cardUnitInfo": {
+    "placeholders": {
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "recvModeClothing": "Одежда: остаток по каждому размеру вносится на кассе или на сайте; у товара с размерами здесь видно, сколько их.",
+  "recvModeGrocery": "Продукты: проверьте срок годности партии — дату вносят на кассе или на сайте. Весовой товар принимается в кг.",
+  "recvModeHardware": "Хозтовары: количество — в единицах товара (м, м², упаковки); единица показана у каждой строки.",
+  "updAvailable": "Доступна версия {version}",
+  "@updAvailable": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updUpdate": "Обновить",
+  "updLater": "Позже",
+  "updWhatsNew": "Что нового",
+  "updNoNotes": "Описание не указано.",
+  "updVersionTitle": "Версия приложения",
+  "updVersionIs": "Установлена {version}",
+  "@updVersionIs": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updCheck": "Проверить обновления",
+  "updChecking": "Проверяем…",
+  "updUpToDate": "Установлена последняя версия",
+  "updCheckFailed": "Не удалось проверить обновления. Проверьте интернет.",
+  "updDownloading": "Скачиваем обновление… {percent}%",
+  "@updDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "updDownloadFailed": "Не удалось скачать обновление. Проверьте интернет и попробуйте ещё раз.",
+  "updCancel": "Отмена",
+  "updPermTitle": "Разрешите установку",
+  "updPermBody": "Чтобы обновить NurCRM, разрешите приложению устанавливать обновления: включите переключатель на открывшемся экране, вернитесь сюда и нажмите «Обновить» ещё раз.",
+  "updOpenSettings": "Открыть настройки"
 }

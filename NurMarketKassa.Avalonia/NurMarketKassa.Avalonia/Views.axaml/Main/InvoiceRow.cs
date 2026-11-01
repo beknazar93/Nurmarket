@@ -187,6 +187,9 @@ internal sealed class InvoiceRow : INotifyPropertyChanged
     /// <summary>Наценку или цену реализации правили руками в этой форме (расчёт «а что если»: в карточку товара не пишется).</summary>
     public bool PriceTouched { get; private set; }
 
+    /// <summary>2026-11-01: цену продажи/наценку изменили против открытой формы — при сохранении правки уйдёт в карточку товара (отдельный шаг «было → стало»).</summary>
+    public bool SaleChanged => PriceTouched && _sale > 0 && Math.Abs(_sale - OrigSale) > 0.004;
+
     public string ProfitText => InvoiceMath.ProfitPerUnit(Purchase, _sale) is var p && _sale > 0 && Purchase > 0 ? p.ToString("0.##", Ru) : "—";
 
     /// <summary>«↑ +12 %» рядом с закупкой, если она выросла против прошлой.</summary>

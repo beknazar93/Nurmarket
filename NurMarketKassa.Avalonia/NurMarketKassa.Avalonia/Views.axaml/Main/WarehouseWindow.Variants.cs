@@ -139,9 +139,40 @@ public partial class WarehouseWindow
         return true;
     }
 
+    /// <summary>2026-11-01 (П-4): «Этикетки на приход» — окно массовой печати с товарами накладной; копии = принятое количество (целое 1…99; весовые и дробные — 1).
+    /// Размеры одежды остаются в печати размеров прихода (OfferVariantLabelsAsync) — здесь не дублируются. Новые товары без карточки пропускаются.</summary>
+    private async void ReceivingLabels_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (!BarcodePrintAccess.Ensure(this)) // 2026-11-01 (П-10)
+            return;
+        var lines = _viewModel.ReceivingLines
+            .Where(l => !string.IsNullOrWhiteSpace(l.ProductId) && l.Quantity > 0 && l.VariantQuantities is not { Count: > 0 })
+            .ToList();
+        if (lines.Count == 0)
+        {
+            PosMessageBox.Show(this, Tr.T("В накладной нет принятых товаров с карточкой — добавьте товары и укажите количество.", "Накладнада карточкасы бар кабыл алынган товарлар жок — товарларды кошуп, санын көрсөтүңүз.",
+                    "The receipt has no received products with a card — add products and set the quantity.", "Fişte kartı olan alınmış ürün yok — ürün ekleyip miktarı girin.", "Nakladnoyda kartochkali qabul qilingan mahsulotlar yo'q — mahsulot qo'shib, miqdorini kiriting."),
+                Tr.T("Этикетки на приход", "Кирешеге этикеткалар", "Labels for this receipt", "Bu giriş için etiketler", "Kirim uchun yorliqlar"), MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var tiles = new Dictionary<string, NurMarketKassa.Models.Pos.CatalogProductTileVm>(StringComparer.OrdinalIgnoreCase);
+        foreach (var t in CatalogCacheService.Products)
+            tiles[t.Id] = t;
+        var items = new List<(string ProductId, string? Barcode, int Copies)>();
+        foreach (var l in lines)
+        {
+            var mustWeigh = tiles.TryGetValue(l.ProductId!, out var tile) && tile.MustWeigh;
+            var copies = BarcodePrintCatalog.CopiesForQuantity(l.Quantity, l.Unit, mustWeigh, out var capped);
+            items.Add((l.ProductId!, string.IsNullOrWhiteSpace(l.Barcode) ? null : l.Barcode.Trim(), capped ? 100 : copies)); // 100 — окно покажет «копий больше 99»
+        }
+        await BarcodePrintWindow.OpenWith(this, items).ConfigureAwait(true);
+    }
+
     /// <summary>После проведения: этикетки на принятые размеры — столько, сколько пришло каждого размера.</summary>
     private async Task OfferVariantLabelsAsync(IReadOnlyList<ReceivingLineVm> lines)
     {
+        if (!BarcodePrintAccess.IsAllowed()) // 2026-11-01 (П-10): без права «Печать штрих-кодов» предложение напечатать этикетки не показываем
+            return;
         var items = new List<(string Title, string Barcode, string VariantText, double Price, int Copies)>();
         var missing = 0;
         foreach (var line in lines.Where(l => l.VariantQuantities is { Count: > 0 } && !string.IsNullOrWhiteSpace(l.ProductId)))
@@ -188,9 +219,8 @@ public partial class WarehouseWindow
         var printer = UserPreferences.Instance.LabelPrinterDevicePath;
         if (string.IsNullOrWhiteSpace(printer))
         {
-            PosMessageBox.Show(this, Tr.T("Принтер этикеток не выбран — выберите его один раз в окне «Этикетка» любого товара.", "Этикетка принтери тандалган эмес — аны каалаган товардын «Этикетка» терезесинен бир жолу тандаңыз.",
-                    "No label printer selected — choose it once in the “Label” window of any product.", "Etiket yazıcısı seçilmedi — herhangi bir ürünün «Etiket» penceresinden bir kez seçin.",
-                    "Yorliq printeri tanlanmagan — uni istalgan mahsulotning «Yorliq» oynasida bir marta tanlang."),
+            // 2026-11-01: единая подсказка — принтер этикеток выбирается в Настройки → Печать.
+            PosMessageBox.Show(this, LabelPrinterSelector.MissingHint(),
                 Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
@@ -213,6 +243,8 @@ public partial class WarehouseWindow
             }
         }
         PosLogger.Log($"Приёмка: этикетки размеров напечатаны {printed} шт., сбоев {failed}.", "CATALOG");
+        if (printed > 0)
+            LabelPrinterSelector.LogSent(null, printer, printed);
         if (failed > 0)
             PosMessageBox.Show(this, Tr.T($"Напечатано {printed} шт., сбоев печати: {failed} — проверьте принтер этикеток.", $"{printed} даана басылды, басуу каталары: {failed} — этикетка принтерин текшериңиз.",
                     $"Printed {printed}, print failures: {failed} — check the label printer.", $"{printed} adet yazdırıldı, hata: {failed} — etiket yazıcısını kontrol edin.",

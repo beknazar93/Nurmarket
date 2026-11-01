@@ -71,7 +71,7 @@
         </StackPanel>
       </Grid>
 
-      <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"
+      <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"
                  Text="{DynamicResource loc.settings.scaleConn.hint}"/>
 
       <Button x:Name="TestButton" Classes="btn-ok" Content="{DynamicResource loc.settings.scaleConn.test}"

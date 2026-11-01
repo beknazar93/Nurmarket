@@ -78,6 +78,13 @@ public static class ShiftEventsStore
             ? new Dictionary<string, double>(StringComparer.Ordinal)
             : Db.GetShiftEventTotals(shiftId!);
 
+    /// <summary>2026-11-01 (code-review, Ж-01): сколько оплат долга (наличные + безнал) этого клиента записано на этой кассе за всё время (примечание события — имя клиента).
+    /// Пустое имя — 0 (оплаты не подтверждены).</summary>
+    public static double DebtPaidByClientName(string? clientName) =>
+        string.IsNullOrWhiteSpace(clientName)
+            ? 0
+            : Db.SumShiftEventsByNote(new[] { KindDebtPayment, KindDebtPaymentNonCash }, clientName.Trim());
+
     /// <summary>Записи одного вида за смену — подробный отчёт по плитке смены.</summary>
     public static List<(DateTime CreatedAt, double Amount, string? Note)> ListForShift(string? shiftId, string kind) =>
         string.IsNullOrWhiteSpace(shiftId)

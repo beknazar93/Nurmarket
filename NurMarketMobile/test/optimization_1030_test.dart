@@ -325,19 +325,21 @@ void main() {
       // ListView.separated: детей = 2 × строк − 1
       final list = find.byWidgetPredicate((w) => w is ListView && w.childrenDelegate is SliverChildBuilderDelegate);
       int items() => (((t.widget(list.last) as ListView).childrenDelegate as SliverChildBuilderDelegate).estimatedChildCount! + 1) ~/ 2;
-      expect(items(), 401, reason: '400 товаров окна + строка подсказки; раньше читались все 1000 сразу');
-      for (var i = 0; i < 20 && items() == 401; i++) {
+      // 2026-10-31: + строка «Показано N из M / Обновить каталог» сверху списка
+      expect(items(), 402, reason: '400 товаров окна + строка счётчика + строка подсказки; раньше читались все 1000 сразу');
+      expect(find.textContaining('Показано 400 из 1000'), findsOneWidget);
+      for (var i = 0; i < 20 && items() == 402; i++) {
         await t.drag(list.last, const Offset(0, -2500));
         await t.pumpAndSettle();
       }
       // ignore: avoid_print
-      print('ЗАМЕР п.13  склад, 1000 товаров: первый экран ${401 - 1}, после прокрутки в тестовом окне ${items() - 1}');
-      expect(items(), greaterThan(401), reason: 'дошли до конца окна — подгрузилась следующая страница');
+      print('ЗАМЕР п.13  склад, 1000 товаров: первый экран ${402 - 2}, после прокрутки в тестовом окне ${items() - 2}');
+      expect(items(), greaterThan(402), reason: 'дошли до конца окна — подгрузилась следующая страница');
       // поиск — в SQL: ровно один товар
       await t.enterText(find.byType(TextField).first, 'товар 0777');
       await t.pump(const Duration(milliseconds: 400));
       await t.pumpAndSettle();
-      expect(items(), 2);
+      expect(items(), 3);
       await t.pumpWidget(const SizedBox());
       await t.pump(const Duration(milliseconds: 50));
     });

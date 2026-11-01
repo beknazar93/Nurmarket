@@ -21,6 +21,17 @@ public sealed class BarcodePrintSettings
 
     /// <summary>Принтер для листов A4 (имя очереди Windows); пусто — первый подходящий.</summary>
     public string? A4PrinterName { get; set; }
+
+    // 2026-11-01 (пакеты из веба, П-4/П-5/П-9). Всё необязательно: нет поля в файле — прежнее поведение.
+    /// <summary>«Копии»: "default" — «по умолчанию», "stock" — «= остаток» (целое 1..99; дробное и весовое = 1).</summary>
+    public string CopiesMode { get; set; } = "default";
+    /// <summary>Режим сканера «скан → в печать».</summary>
+    public bool ScanToQueue { get; set; }
+    /// <summary>Что было в окне при закрытии (копии и выбор товаров не запоминаются).</summary>
+    public string? LastSearch { get; set; }
+    public int LastFilter { get; set; }
+    public string? LastCategory { get; set; }
+    public int LastPage { get; set; }
 }
 
 /// <summary>Файл barcode-print-settings.json рядом с шаблоном этикетки. Ошибки чтения/записи не бросаются — окно работает с умолчаниями.</summary>
@@ -41,6 +52,18 @@ public static class BarcodePrintSettingsStore
                 s.A4 ??= new A4SheetOptions();
                 s.A4.Name ??= new A4TextStyle();
                 s.A4.Price ??= new A4TextStyle { SizePt = 16 };
+                s.A4.OldPrice ??= new A4TextStyle { SizePt = 12, Bold = false }; // 2026-11-01 (П-8)
+                s.A4.Plu ??= new A4TextStyle { SizePt = 12, Bold = true };
+                s.A4.Description ??= new A4TextStyle { SizePt = 10, Bold = false };
+                s.A4.Preset ??= "";
+                s.A4.StartCell = Math.Clamp(s.A4.StartCell, 1, 400);
+                s.A4.OffsetXmm = Math.Clamp(s.A4.OffsetXmm, -10, 10);
+                s.A4.OffsetYmm = Math.Clamp(s.A4.OffsetYmm, -10, 10);
+                if (s.CopiesMode != "stock")
+                    s.CopiesMode = "default";
+                if (s.LastSearch is { Length: > 200 })
+                    s.LastSearch = s.LastSearch[..200];
+                s.LastPage = Math.Max(s.LastPage, 0);
                 s.DefaultCopies = Math.Clamp(s.DefaultCopies, 1, 99);
                 s.A4Copies = Math.Clamp(s.A4Copies, 1, 99);
                 return s;
@@ -68,7 +91,7 @@ public static class BarcodePrintSettingsStore
             var dir = Path.GetDirectoryName(FilePath);
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir!);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(settings, JsonOptions));
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(settings, JsonOptions)); // 2026-11-01 (аудит 10 из 10, Н-07): без риска полфайла
         }
         catch (Exception ex)
         {

@@ -7,7 +7,9 @@ namespace NurMarketKassa.Core.Contracts;
 public interface ICashShiftService
 {
     Task<CashShiftOperationResult> OpenShiftAsync(decimal openingCash, CancellationToken cancellationToken = default);
-    Task<CashShiftOperationResult> CloseShiftAsync(decimal? closingCash, CancellationToken cancellationToken = default);
+    /// <param name="acceptUnsentCashOps">2026-11-01: кассир подтвердил «Закрыть с пометкой» — внесения/изъятия смены ещё не отправлены на сервер; смена закрывается,
+    /// расхождение записывается в журнал смены и сообщается владельцу (CashShiftService).</param>
+    Task<CashShiftOperationResult> CloseShiftAsync(decimal? closingCash, CancellationToken cancellationToken = default, bool acceptUnsentCashOps = false);
     Task<bool> PrintReportAsync(string reportText, CancellationToken cancellationToken = default);
 
     /// <summary>2026-09-15, живой баг ("Долг для уже закрытых смен в Истории смен показывает
@@ -38,6 +40,16 @@ public sealed record CashShiftOperationResult(
     /// <summary>2026-10-27 (ревью, См-2): InfoMessage — не просто «сообщение», а предупреждение (например, о потерянном пересчёте ящика
     /// прошлой смены): его надо показать так, чтобы кассир не пропустил, а не тостом.</summary>
     public bool InfoIsWarning { get; init; }
+
+    /// <summary>2026-11-01: закрытие отказало, потому что внесения/изъятия смены ещё не отправлены на сервер. Окно кассы спрашивает «Закрыть с пометкой?» и при согласии
+    /// повторяет закрытие с acceptUnsentCashOps = true. Count/Sum/Details — для текста вопроса (время, вид, сумма; без лишних данных).</summary>
+    public bool NeedsUnsentCashConfirm { get; init; }
+
+    public int UnsentCashOpsCount { get; init; }
+
+    public decimal UnsentCashOpsSum { get; init; }
+
+    public string? UnsentCashOpsDetails { get; init; }
 
     public static CashShiftOperationResult Success(
         decimal? balance, bool isOffline = false, string? infoMessage = null, CashShiftClosingTotals? totals = null) =>

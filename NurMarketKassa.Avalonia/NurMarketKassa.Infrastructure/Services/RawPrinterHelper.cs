@@ -258,6 +258,39 @@ public static class RawPrinterHelper
         }
     }
 
+    /// <summary>2026-11-01 (П-7): краткое состояние очереди Windows для значка принтера этикеток. Ничего не печатает и не меняет.</summary>
+    public enum QueueState { Unknown, Ready, Offline, PaperOut, Error }
+
+    public static QueueState GetQueueState(string printerName)
+    {
+        if (!OperatingSystem.IsWindows() || string.IsNullOrWhiteSpace(printerName))
+            return QueueState.Unknown;
+        IntPtr h = IntPtr.Zero;
+        try
+        {
+            if (!OpenPrinter(printerName, out h, IntPtr.Zero))
+                return QueueState.Unknown;
+            var status = TryGetStatus(h);
+            if (IsWorkOffline(h) || (status & (PrinterStatusOffline | PrinterStatusNotAvailable)) != 0)
+                return QueueState.Offline;
+            if ((status & PrinterStatusPaperOut) != 0)
+                return QueueState.PaperOut;
+            if ((status & (PrinterStatusError | PrinterStatusPaperJam | PrinterStatusUserIntervention | PrinterStatusDoorOpen)) != 0)
+                return QueueState.Error;
+            return QueueState.Ready;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Queue state check failed: {ex.GetType().Name}", "DEBUG");
+            return QueueState.Unknown;
+        }
+        finally
+        {
+            if (h != IntPtr.Zero)
+                ClosePrinter(h);
+        }
+    }
+
     private static uint TryGetStatus(IntPtr hPrinter)
     {
         try

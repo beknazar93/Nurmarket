@@ -515,6 +515,14 @@ final List<ScreenDef> _screens = [
     'rental|rentals|hire',
     'kiralama|kiralik',
   ]),
+  // 2026-10-31 (режим «Одежда»): остатки по размерам и цветам
+  _def('sizes', '/sizes', ['Размеры и цвета', 'Өлчөмдөр жана түстөр', "O'lcham va ranglar", 'Sizes and colors', 'Bedenler ve renkler'], [
+    'размеры|размеры и цвета|остатки по размерам',
+    'өлчөмдөр|өлчөм жана түс',
+    "o'lchamlar|o'lcham va rang",
+    'sizes|sizes and colors|size stock',
+    'bedenler|beden ve renk',
+  ]),
   _def('rental_new', '/rentals/new', ['Новый прокат', 'Жаңы ижара', 'Yangi ijara', 'New rental', 'Yeni kiralama'], [
     'новый прокат|новая аренда|выдать в прокат',
     'жаны ижара',

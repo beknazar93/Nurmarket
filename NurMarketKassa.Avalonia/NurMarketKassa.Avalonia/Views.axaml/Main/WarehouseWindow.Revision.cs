@@ -1416,7 +1416,7 @@ public partial class WarehouseWindow
     {
         var r = await RevisionSyncCatalogAsync(ct).ConfigureAwait(true);
         if (!r.Ok)
-            throw new InvalidOperationException(string.IsNullOrWhiteSpace(r.Error) ? RevT("нет связи с сервером", "сервер менен байланыш жок", "no connection to the server", "sunucuyla bağlantı yok", "server bilan aloqa yo'q") : r.Error);
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(r.Error) ? RevT("сервер NurCRM недоступен", "NurCRM сервери жеткиликсиз", "the NurCRM server is unavailable", "NurCRM sunucusu kullanılamıyor", "NurCRM serveri mavjud emas") : r.Error); // 2026-11-01 (В-08): единая фраза о сбое сервера
         return CatalogCacheService.Products.ToList();
     }
 
@@ -1484,7 +1484,7 @@ public partial class WarehouseWindow
             var rows = RevisionBuildExportRows(current, recorded);
             var meta = new RevisionExportMeta
             {
-                ShopName = UserPreferences.Instance.StoreName,
+                ShopName = ReportShopName.Current, // 2026-11-01 (Ж-16): в программе владельца — название компании NurCRM, не «Market»
                 IsDraft = isDraft,
                 StartedAt = current.StartedAt,
                 ConductedBy = current.UserName,
@@ -1566,7 +1566,7 @@ public partial class WarehouseWindow
 
         var meta = new RevisionExportMeta
         {
-            ShopName = UserPreferences.Instance.StoreName,
+            ShopName = ReportShopName.Current,
             IsDraft = false,
             StartedAt = whenUtc.ToLocalTime(),
             FinishedAt = whenUtc.ToLocalTime(),
@@ -1593,7 +1593,7 @@ public partial class WarehouseWindow
         var rows = act.Rows.Select(r => new RevisionExportRow(r.Name, r.Barcode, r.Expected, r.Fact, r.SalePrice, buy ? r.PurchasePrice : null, r.CountedAt, r.Written)).ToList();
         var meta = new RevisionExportMeta
         {
-            ShopName = UserPreferences.Instance.StoreName,
+            ShopName = ReportShopName.Current,
             IsDraft = false,
             StartedAt = act.StartedAt,
             FinishedAt = act.FinishedAt,

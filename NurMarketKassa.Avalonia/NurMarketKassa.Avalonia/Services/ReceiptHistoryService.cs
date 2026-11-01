@@ -598,11 +598,11 @@ public static class ReceiptHistoryService
             if (last is null)
             {
                 return (false, history.ServerUnavailable
-                    ? Tr.T("Нет связи с сервером — последний чек не найден.",
-                        "Сервер менен байланыш жок — акыркы чек табылган жок.",
-                        "No connection to the server — the last receipt was not found.",
-                        "Sunucuyla bağlantı yok — son fiş bulunamadı.",
-                        "Server bilan aloqa yo'q — oxirgi chek topilmadi.")
+                    ? Tr.T("Сервер NurCRM недоступен — последний чек не найден.", // 2026-11-01 (В-08): единая фраза о сбое сервера
+                        "NurCRM сервери жеткиликсиз — акыркы чек табылган жок.",
+                        "The NurCRM server is unavailable — the last receipt was not found.",
+                        "NurCRM sunucusu kullanılamıyor — son fiş bulunamadı.",
+                        "NurCRM serveri mavjud emas — oxirgi chek topilmadi.")
                     : Tr.T("Чеков пока нет — печатать нечего.",
                         "Азырынча чек жок — басып чыгара турган эч нерсе жок.",
                         "No receipts yet — nothing to print.",
@@ -777,11 +777,11 @@ public static class ReceiptHistoryService
                     "Fiş sunucuya gönderildi.", "Chek serverga yuborildi."));
 
             if (!sync.IsOnline)
-                return (false, Tr.T("Нет связи с сервером — чек уйдёт сам, когда связь появится.",
-                    "Сервер менен байланыш жок — байланыш пайда болгондо чек өзү жөнөтүлөт.",
-                    "No connection to the server — the receipt will be sent automatically when the connection is back.",
-                    "Sunucuyla bağlantı yok — bağlantı geldiğinde fiş kendiliğinden gönderilecek.",
-                    "Server bilan aloqa yo'q — aloqa paydo bo'lganda chek o'zi yuboriladi."));
+                return (false, Tr.T("Сервер NurCRM недоступен — чек уйдёт сам, когда связь появится.",
+                    "NurCRM сервери жеткиликсиз — байланыш пайда болгондо чек өзү жөнөтүлөт.",
+                    "The NurCRM server is unavailable — the receipt will be sent automatically when the connection is back.",
+                    "NurCRM sunucusu kullanılamıyor — bağlantı geldiğinde fiş kendiliğinden gönderilecek.",
+                    "NurCRM serveri mavjud emas — aloqa paydo bo'lganda chek o'zi yuboriladi."));
 
             if (string.Equals(left.Status, OfflineSaleEntry.Syncing, StringComparison.OrdinalIgnoreCase))
                 return (false, SendingNowText);

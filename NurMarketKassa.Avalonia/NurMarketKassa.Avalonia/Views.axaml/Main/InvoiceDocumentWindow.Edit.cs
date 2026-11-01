@@ -56,11 +56,12 @@ public sealed partial class InvoiceDocumentWindow
             }
         }
         else
-            Say(T("Меняйте количество в строках. Наценка и цена реализации здесь — расчёт для сверки: цену продажи в карточку товара правка не пишет.",
-                "Саптардагы санды өзгөртүңүз. Үстөк жана сатуу баасы бул жерде салыштыруу үчүн эсеп: оңдоо товардын карточкасындагы баага жазылбайт.",
-                "Change the quantities in the lines. Markup and sale price here are a calculation for comparison: the edit does not write the sale price to the product.",
-                "Satırlardaki miktarları değiştirin. Burada kâr ve satış fiyatı karşılaştırma içindir: düzenleme satış fiyatını ürüne yazmaz.",
-                "Qatorlardagi miqdorni o'zgartiring. Ustama va sotuv narxi bu yerda solishtirish uchun hisob: tahrir sotuv narxini mahsulotga yozmaydi."));
+            // 2026-11-01: цена продажи/наценка теперь пишутся в карточку товара (после подтверждения); закупка, поставщик, дата, скидка, НДС — после обновления сервера.
+            Say(T("Меняйте количество, цену продажи и наценку в строках. Изменённая цена продажи запишется в карточку товара (покажем перед сохранением). Закупка, поставщик, дата, скидка и НДС правятся после обновления сервера.",
+                "Саптардагы санды, сатуу баасын жана үстөктү өзгөртүңүз. Өзгөргөн сатуу баасы товардын карточкасына жазылат (сактоодон мурун көрсөтөбүз). Сатып алуу баасы, жеткирүүчү, күнү, арзандатуу жана КНС сервер жаңыргандан кийин оңделет.",
+                "Change quantities, sale price and markup in the lines. A changed sale price is written to the product card (shown before saving). Purchase price, supplier, date, discount and VAT can be edited after the server update.",
+                "Satırlardaki miktarı, satış fiyatını ve kârı değiştirin. Değişen satış fiyatı ürün kartına yazılır (kaydetmeden önce gösterilir). Alış fiyatı, tedarikçi, tarih, indirim ve KDV sunucu güncellemesinden sonra düzenlenir.",
+                "Qatorlardagi miqdor, sotuv narxi va ustamani o'zgartiring. O'zgargan sotuv narxi mahsulot kartasiga yoziladi (saqlashdan oldin ko'rsatamiz). Xarid narxi, yetkazib beruvchi, sana, chegirma va QQS server yangilangandan keyin tahrirlanadi."));
         UpdateTitle();
         UpdateStatus();
         _strip.Child = BuildRequisites();
@@ -107,6 +108,24 @@ public sealed partial class InvoiceDocumentWindow
     {
         var u = App.AuthApi?.UserPayload ?? default;
         return PayloadText(u, "full_name") is { Length: > 0 } n ? n : PayloadText(u, "email");
+    }
+
+    /// <summary>2026-11-01: изменения цены продажи / наценки по строкам (по одному на товар) — уходят шагами «price» (PATCH товара). «Было» — из формы, при отправке уточняется по серверу.</summary>
+    private List<PriceEdit> PriceEdits() =>
+        _rows.Where(r => r.SaleChanged && r.ProductId.Length > 0).GroupBy(r => r.ProductId, StringComparer.OrdinalIgnoreCase).Select(g => g.Last())
+            .Select(r => new PriceEdit(r.ProductId, r.Name, r.Purchase, r.OrigSale > 0 ? r.OrigSale : null, r.Sale,
+                r.Purchase > 0 && r.OrigSale > 0 ? InvoiceMath.MarkupFromSale(r.Purchase, r.OrigSale) : null, r.Purchase > 0 ? InvoiceMath.MarkupFromSale(r.Purchase, r.Sale) : null)).ToList();
+
+    /// <summary>2026-11-01: id пользователя из профиля (число или строка) — в журнал правок вместе с именем и ролью.</summary>
+    private static string UserId()
+    {
+        var u = App.AuthApi?.UserPayload ?? default;
+        if (u.ValueKind != JsonValueKind.Object)
+            return "";
+        foreach (var holder in new[] { u }.Concat(new[] { "user", "profile", "data" }.Select(n => u.TryGetProperty(n, out var h) && h.ValueKind == JsonValueKind.Object ? h : default)))
+            if (holder.ValueKind == JsonValueKind.Object && holder.TryGetProperty("id", out var id))
+                return id.ValueKind switch { JsonValueKind.String => id.GetString() ?? "", JsonValueKind.Number => id.GetRawText(), _ => "" };
+        return "";
     }
 
     private static string PayloadText(JsonElement payload, string name)
@@ -168,9 +187,10 @@ public sealed partial class InvoiceDocumentWindow
                 return;
             }
             var changed = _rows.Where(r => r.Changed).ToList();
-            if (changed.Count == 0)
+            var priced = PriceEdits();
+            if (changed.Count == 0 && priced.Count == 0)
             {
-                Say(T("Изменений нет — поменяйте количество хотя бы в одной строке.", "Өзгөртүү жок — жок дегенде бир саптагы санды өзгөртүңүз.", "No changes — change the quantity in at least one line.", "Değişiklik yok — en az bir satırda miktarı değiştirin.", "O'zgarish yo'q — kamida bitta qatorda miqdorni o'zgartiring."));
+                Say(T("Изменений нет — поменяйте количество или цену продажи хотя бы в одной строке.", "Өзгөртүү жок — жок дегенде бир саптагы санды же сатуу баасын өзгөртүңүз.", "No changes — change the quantity or the sale price in at least one line.", "Değişiklik yok — en az bir satırda miktarı veya satış fiyatını değiştirin.", "O'zgarish yo'q — kamida bitta qatorda miqdor yoki sotuv narxini o'zgartiring."));
                 return;
             }
             Say(T("Проверяю остатки на складе…", "Кампадагы калдыктарды текшерүүдө…", "Checking stock…", "Stok kontrol ediliyor…", "Ombor qoldig'i tekshirilmoqda…"));
@@ -208,10 +228,19 @@ public sealed partial class InvoiceDocumentWindow
             }
             Say("");
 
-            var dialog = new InvoiceEditPreviewDialog(plan, PayForEdit, _docNumber, _r, _supplier?.Name ?? _r.SupplierName, _baseVersion, _revertOf > 0, VerifyOwnerPasswordAsync);
+            var dialog = new InvoiceEditPreviewDialog(plan, PayForEdit, _docNumber, _r, _supplier?.Name ?? _r.SupplierName, _baseVersion, _revertOf > 0, VerifyOwnerPasswordAsync,
+                priced.Select(p => ReceiptEditAuditLog.FieldText(new ReceiptEditAuditField { Field = "sale_price", Subject = p.Name, Before = p.SaleBefore?.ToString("0.##") ?? "?", After = p.SaleAfter.ToString("0.##") })
+                    + (p.MarkupAfter is { } mk ? $" ({T("наценка", "үстөк", "markup", "kâr", "ustama")} {p.MarkupBefore?.ToString("0.#") ?? "?"} → {mk:0.#} %)" : "")).ToList());
             await PosDialogHost.ShowAsync(dialog, this).ConfigureAwait(true);
             if (dialog.Result is not { } result)
                 return;
+            if (result.Queue && priced.Count > 0)
+            {
+                // 2026-11-01: без связи в очередь встают только количества; цена продажи — PATCH товара, его вслепую не ставим.
+                Say(T("Без связи цену продажи сохранить нельзя: уберите её изменение или повторите, когда появится связь.", "Байланышсыз сатуу баасын сактоого болбойт: өзгөртүүнү алып салыңыз же байланыш пайда болгондо кайталаңыз.",
+                    "The sale price can't be saved offline: undo its change or retry when the connection is back.", "Bağlantı yokken satış fiyatı kaydedilemez: değişikliği geri alın veya bağlantı gelince tekrar deneyin.", "Aloqasiz sotuv narxini saqlab bo'lmaydi: o'zgarishni bekor qiling yoki aloqa tiklanganda qayta urining."));
+                return;
+            }
             if (result.Queue)
             {
                 _store.Enqueue(new QueuedEdit
@@ -220,6 +249,10 @@ public sealed partial class InvoiceDocumentWindow
                     Compensation = result.Compensation, NewQty = changed.ToDictionary(r => r.LineId, r => r.Qty), RevertedVersion = _revertOf,
                 });
                 PosLogger.Log($"AUDIT: правка накладной {_docNumber} поставлена в очередь без связи ({changed.Count} строк).", "INFO");
+                // 2026-11-01: правка без связи — тоже в ленту purchase-edits.jsonl (кто, что было → стало, причина), чтобы она не терялась.
+                ReceiptEditAuditLog.WriteQueued(_store.Queue(_r.Id).LastOrDefault() ?? new QueuedEdit { ReceiptId = _r.Id, By = Operator(), Reason = result.Reason, CreatedAt = DateTime.Now }, _docNumber, _r.SupplierName, _r.CreatedAt,
+                    UserId(), PayloadText(App.AuthApi?.UserPayload ?? default, "role"),
+                    changed.Select(r => new ReceiptEditAuditLine { Product = r.Name, ProductId = r.ProductId, Unit = r.Unit, LineId = r.LineId, QtyBefore = r.OrigQty, QtyAfter = r.Qty, Price = r.Purchase }).ToList());
                 CancelEdit();
                 UpdateStatus();
                 UpdateBanner();
@@ -279,7 +312,8 @@ public sealed partial class InvoiceDocumentWindow
         Say(T("Сохраняю правку…", "Оңдоо сакталууда…", "Saving the edit…", "Düzenleme kaydediliyor…", "Tahrir saqlanmoqda…"));
         var cashbox = result.Compensation == "cash" && plan.Returns.Count > 0 ? await MainCashboxIdAsync().ConfigureAwait(true) : null;
         var req = new EditRequest(_r, _docNumber, _pay, _rows.Where(r => r.Input is not null).Select(r => r.Input!).ToList(), _rows.Where(r => r.Changed).ToDictionary(r => r.LineId, r => r.Qty),
-            result.Reason, Operator(), Environment.MachineName, result.Compensation, cashbox, IsOwner(), ReceiptEditPolicy.Current, _baseFingerprint, _baseVersion, _revertOf, InQueue(), _r.SupplierName);
+            result.Reason, Operator(), Environment.MachineName, result.Compensation, cashbox, IsOwner(), ReceiptEditPolicy.Current, _baseFingerprint, _baseVersion, _revertOf, InQueue(), _r.SupplierName,
+            UserId(), PayloadText(App.AuthApi?.UserPayload ?? default, "role"), PriceEdits());
         var res = await NewService().ApplyAsync(req).ConfigureAwait(true);
         if (res.Ok)
         {

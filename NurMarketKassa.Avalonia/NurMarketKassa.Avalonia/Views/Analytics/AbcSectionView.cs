@@ -207,7 +207,7 @@ public sealed class AbcSectionView : UserControl
                             : Tr.T("На складе нет товаров с остатком и закупочной ценой — считать ABC не на чем.", "Кампада калдыгы жана сатып алуу баасы бар товар жок — ABC эсептөө үчүн маалымат жок.", "No products in stock with a purchase price — nothing to run ABC analysis on.", "Depoda stoğu ve alış fiyatı olan ürün yok — ABC analizi yapılamıyor.", "Omborda qoldig'i va xarid narxi bor mahsulot yo'q — ABC tahlili uchun ma'lumot yo'q."),
                         Margin = new Thickness(12),
                         TextWrapping = TextWrapping.Wrap,
-                        Foreground = Brushes.Gray,
+                        Foreground = ThemeInk.Soft,
                     });
             }
 
@@ -238,7 +238,7 @@ public sealed class AbcSectionView : UserControl
             FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 10),
-            Foreground = Brushes.Gray,
+            Foreground = ThemeInk.Soft,
         };
 
         public event Action<string>? ProductAnalyticsRequested;
@@ -295,10 +295,10 @@ public sealed class AbcSectionView : UserControl
 
         private readonly TextBlock _paretoColumnsHint = new()
         {
-            FontSize = 11,
+            FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 8),
-            Foreground = Brushes.Gray,
+            Foreground = ThemeInk.Soft,
         };
         private readonly StackPanel _groups = new();
 
@@ -321,10 +321,10 @@ public sealed class AbcSectionView : UserControl
         /// вопрос «какие товары держат магазин».</summary>
         private readonly TextBlock _paretoHint = new()
         {
-            FontSize = 11,
+            FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 8),
-            Foreground = Brushes.Gray,
+            Foreground = ThemeInk.Soft,
         };
 
         private readonly DataGrid _grid = new()
@@ -368,7 +368,7 @@ public sealed class AbcSectionView : UserControl
                         Text = row.Group,
                         Foreground = Brushes.White,
                         FontWeight = FontWeight.Bold,
-                        FontSize = 11,
+                        FontSize = 12,
                         HorizontalAlignment = HorizontalAlignment.Center,
                         VerticalAlignment = VerticalAlignment.Center,
                     },

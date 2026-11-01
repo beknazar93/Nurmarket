@@ -19,14 +19,17 @@ import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -50,6 +53,7 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val CHANNEL = "kg.nurcrm.nurmarket/printer"
         private const val BEEP_CHANNEL = "kg.nurcrm.nurmarket/beep"
+        private const val UPDATE_CHANNEL = "kg.nurcrm.nurmarket/update"
         private val SPP: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
         private const val REQ_BT = 7101
         private const val USB_PERMISSION = "kg.nurcrm.nurmarket.USB_PERMISSION"
@@ -72,6 +76,39 @@ class MainActivity : FlutterActivity() {
                 result.success(null)
             } else {
                 result.notImplemented()
+            }
+        }
+        // 2026-11-01 (владелец: «обновление через GitHub»): установка скачанного APK поверх. APK лежит в cacheDir/updates
+        // (см. res/xml/update_paths.xml), системное окно установки открывается через FileProvider (androidx.core уже
+        // приходит вместе с Flutter, зависимости не добавлялись).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATE_CHANNEL).setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "canInstall" -> result.success(Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls())
+                    "openInstallSettings" -> {
+                        startActivity(
+                            Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                        result.success(null)
+                    }
+                    "install" -> {
+                        val file = File(call.argument<String>("path") ?: "")
+                        if (!file.isFile) {
+                            result.error("noFile", null, null)
+                            return@setMethodCallHandler
+                        }
+                        val uri = FileProvider.getUriForFile(this, "$packageName.updates", file)
+                        startActivity(
+                            Intent(Intent.ACTION_VIEW)
+                                .setDataAndType(uri, "application/vnd.android.package-archive")
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            } catch (e: Exception) {
+                result.error("io", e.message, null)
             }
         }
     }

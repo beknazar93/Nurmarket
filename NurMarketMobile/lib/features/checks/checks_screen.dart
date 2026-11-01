@@ -1,5 +1,6 @@
 import '../payment/receipt_pdf.dart';
 
+import '../sale/variant_service.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -303,7 +304,7 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
     return [
       for (final m in asList(items))
         (
-          str(m, 'product_name') ?? str(m, 'name') ?? str(m, 'title') ?? '',
+          saleItemName(m),
           num0(m, 'quantity') > 0 ? num0(m, 'quantity') : num0(m, 'qty'),
           num0(m, 'unit_price') > 0 ? num0(m, 'unit_price') : num0(m, 'price'),
           num0(m, 'total') > 0 ? num0(m, 'total') : num0(m, 'line_total'),

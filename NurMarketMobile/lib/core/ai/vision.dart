@@ -156,6 +156,10 @@ class VisionService {
   static List<GeminiKeyEntry> _cloudList = const [];
   static DateTime _cachedAt = DateTime(2000);
   static DateTime _noKeyUntil = DateTime(2000);
+
+  /// 2026-11-01 (аудит 10 из 10, М-09): ключей на телефоне нет, а облако не ответило — это «нет связи», а не «ключа ИИ нет».
+  static bool _cloudOffline = false;
+  bool get cloudUnreachable => _cloudOffline;
   static String? _cachedFor;
   static Set<String>? _bad;
 
@@ -335,7 +339,9 @@ class VisionService {
     if (list.isEmpty && cloud == null && _list.isNotEmpty) list = _list.where((e) => !bad.contains(_fp(e.key))).toList();
     _list = list;
     _cachedAt = now;
-    if (list.isEmpty) _noKeyUntil = now.add(const Duration(minutes: 5));
+    // 2026-11-01 (М-09): «ключа нет» помним 5 минут только когда облако ответило; без связи спросим снова при следующем вопросе.
+    _cloudOffline = list.isEmpty && cloud == null;
+    if (list.isEmpty && !_cloudOffline) _noKeyUntil = now.add(const Duration(minutes: 5));
   }
 
   /// 2026-10-27: пользователь заменил или убрал ключ — старый больше не берём ни из облака, ни из «общего» ключа телефона.

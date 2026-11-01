@@ -86,6 +86,7 @@ void main() {
     test('записывается, восстанавливается с оптом и скидкой, стирается после очистки', () async {
       final a = container(_session('a@x.kg'));
       a.read(cartProvider.notifier).restore(_cart());
+      await a.read(cartProvider.notifier).flush(); // 2026-11-01 (М-22): черновик пишется через 300 мс — сбрасываем на диск сразу
       await _settle();
       expect((await db.getSetting('cart.draft')) ?? '', isNotEmpty, reason: 'чек записан при изменении');
 
@@ -113,6 +114,7 @@ void main() {
     test('чужой аккаунт чек не получает; в непустой чек восстановление не пишет', () async {
       final a = container(_session('a@x.kg'));
       a.read(cartProvider.notifier).restore(_cart());
+      await a.read(cartProvider.notifier).flush(); // 2026-11-01 (М-22): черновик пишется через 300 мс — сбрасываем на диск сразу
       await _settle();
 
       final other = container(_session('b@x.kg'));

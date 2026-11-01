@@ -47,6 +47,9 @@ class Products extends Table {
   /// Показывается только владельцу и администратору (Session.canSeePurchase).
   RealColumn get purchasePrice => real().nullable()();
 
+  /// 2026-10-31 (режим «Продукты»): срок годности товара (expiration_date сервера), «ГГГГ-ММ-ДД». null — не указан.
+  TextColumn get expiresOn => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -80,6 +83,36 @@ class Outbox extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// 2026-10-31 (одежда в мобилке): варианты товара — размер и цвет со своим остатком, ценой и штрихкодом (GET products/{id}/variants/).
+/// Хранятся на телефоне, чтобы выбор размера, скан штрихкода размера и остаток по размеру работали без связи.
+@DataClassName('VariantRow')
+class ProductVariants extends Table {
+  TextColumn get id => text()();
+  TextColumn get productId => text()();
+  TextColumn get size => text().withDefault(const Constant(''))();
+  TextColumn get color => text().withDefault(const Constant(''))();
+  TextColumn get barcode => text().nullable()();
+  RealColumn get quantity => real().withDefault(const Constant(0))();
+
+  /// null — цена размера не задана, берётся цена товара.
+  RealColumn get price => real().nullable()();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// 2026-10-31: когда варианты товара последний раз спрашивали у сервера и сколько их нашлось (0 — вариантов нет:
+/// повторно такой товар не спрашиваем сутки). Список товаров сервера признака «есть варианты» не отдаёт.
+class VariantChecks extends Table {
+  TextColumn get productId => text()();
+  IntColumn get checkedAt => integer()(); // миллисекунды с 1970
+  IntColumn get total => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {productId};
+}
+
 class Settings extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
@@ -88,12 +121,16 @@ class Settings extends Table {
   Set<Column> get primaryKey => {key};
 }
 
-@DriftDatabase(tables: [Products, Outbox, Settings])
+/// 2026-10-31: условие «у товара есть активные размеры» для списков (склад, «Размеры и цвета»).
+Expression<bool> productHasVariants() =>
+    const CustomExpression<bool>('products.id IN (SELECT product_id FROM product_variants WHERE is_active = 1)');
+
+@DriftDatabase(tables: [Products, Outbox, Settings, ProductVariants, VariantChecks])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'nurmarket'));
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -102,6 +139,13 @@ class AppDatabase extends _$AppDatabase {
     beforeOpen: (details) async {
       // 2026-10-29 (аудит, п. 3): фоновая отправка очереди открывает ту же базу из другого изолята — занятая база ждёт, а не падает
       await customStatement('PRAGMA busy_timeout = 5000');
+      // 2026-10-31 (одежда): индексы вариантов — по товару и по штрихкоду размера (скан этикетки размера)
+      try {
+        await customStatement('CREATE INDEX IF NOT EXISTS ix_variants_product ON product_variants(product_id)');
+        await customStatement('CREATE INDEX IF NOT EXISTS ix_variants_barcode ON product_variants(barcode)');
+      } catch (_) {
+        // таблицы вариантов нет (урезанная база в тесте) — без индексов только медленнее
+      }
       await customStatement('CREATE INDEX IF NOT EXISTS ix_products_barcode ON products(barcode)');
       await customStatement('CREATE INDEX IF NOT EXISTS ix_products_sku ON products(sku)');
       await customStatement('CREATE INDEX IF NOT EXISTS ix_products_plu_int ON products(CAST(plu AS INTEGER))');
@@ -147,6 +191,12 @@ class AppDatabase extends _$AppDatabase {
       if (from < 6) await m.addColumn(products, products.minQuantity);
       // 2026-10-30 (ревизия в деньгах): закупка товара; у старых товаров null (неизвестна), каталог заполнит при ближайшей загрузке.
       if (from < 7) await m.addColumn(products, products.purchasePrice);
+      // 2026-10-31 (одежда): варианты товара (размер/цвет) и отметки проверки — новые таблицы, прежние данные не трогаются
+      if (from < 8) {
+        await m.addColumn(products, products.expiresOn);
+        await m.createTable(productVariants);
+        await m.createTable(variantChecks);
+      }
     },
   );
 
@@ -155,6 +205,7 @@ class AppDatabase extends _$AppDatabase {
   Future<void> replaceProducts(List<ProductsCompanion> rows) => transaction(() async {
     await delete(products).go();
     await batch((b) => b.insertAll(products, rows));
+    await pruneOrphanVariants();
   });
 
   /// 2026-10-29 (аудит, п. 2): применить страницу ленты изменений — новые товары вставить, известные обновить (в [updates]
@@ -167,6 +218,8 @@ class AppDatabase extends _$AppDatabase {
         }
         for (var i = 0; i < deletedIds.length; i += 500) {
           await (delete(products)..where((p) => p.id.isIn(deletedIds.skip(i).take(500)))).go();
+          await (delete(productVariants)..where((v) => v.productId.isIn(deletedIds.skip(i).take(500)))).go();
+          await (delete(variantChecks)..where((v) => v.productId.isIn(deletedIds.skip(i).take(500)))).go();
         }
       });
 
@@ -175,6 +228,8 @@ class AppDatabase extends _$AppDatabase {
   /// Очередь продаж, клиенты, должники, чеки, настройки аккаунта и ключи ИИ не трогаются (очередь привязана к аккаунту — OutboxMeta).
   Future<void> wipeCatalogForAccountSwitch() => transaction(() async {
     await delete(products).go();
+    await delete(productVariants).go();
+    await delete(variantChecks).go();
     await (delete(settings)..where((s) => s.key.like('catalog.%'))).go();
   });
 
@@ -198,6 +253,9 @@ class AppDatabase extends _$AppDatabase {
     };
   }
 
+  /// 2026-10-31: id всех товаров на телефоне (полная загрузка каталога убирает те, которых сервер больше не отдаёт).
+  Future<List<String>> allProductIds() async => [for (final r in await customSelect('SELECT id FROM products', readsFrom: {products}).get()) r.read<String>('id')];
+
   Future<int> productCount() async => (await (selectOnly(products)..addColumns([products.id.count()])).getSingle()).read(products.id.count()) ?? 0;
 
   /// Поиск по названию, штрихкоду и артикулу.
@@ -212,33 +270,54 @@ class AppDatabase extends _$AppDatabase {
     return _searchRows(query, sq, fuzzy: true, category: category, favorites: favorites, limit: limit, extra: extra);
   }
 
+  /// 2026-10-31 (мобилка «не все товары»): условие поиска вынесено — один и тот же фильтр для списка (_searchRows) и для счётчика
+  /// «Найдено M» ([countProducts]); счётчик раньше брали из длины окна, а не из базы.
+  Expression<bool> _searchWhere($ProductsTable p, String query, SearchQuery sq, {required bool fuzzy, String? category, required bool favorites, Expression<bool> Function($ProductsTable p)? extra}) {
+    Expression<bool> e = const Constant(true);
+    if (!sq.isEmpty) {
+      // каждое слово запроса — в любом месте ключа («кола 2л» найдёт «Кока-Кола (ПЭТ) 2л»)
+      Expression<bool> text = const Constant(true);
+      for (var i = 0; i < sq.tokens.length; i++) {
+        Expression<bool> one = p.searchKey.like('%${sq.tokens[i]}%');
+        if (fuzzy) {
+          for (final v in sq.variants[i]) {
+            one = one | p.searchKey.like('%$v%');
+          }
+        }
+        text = text & one;
+      }
+      e = text | p.barcode.equals(query.trim()) | p.altBarcodes.like('%${query.trim()}%');
+    }
+    if (category != null && category.isNotEmpty) e = e & p.category.equals(category);
+    if (favorites) e = e & p.isFavorite.equals(true);
+    if (extra != null) e = e & extra(p);
+    return e;
+  }
+
   Future<List<Product>> _searchRows(String query, SearchQuery sq, {required bool fuzzy, String? category, required bool favorites, required int limit, Expression<bool> Function($ProductsTable p)? extra}) {
     final s = select(products);
-    s.where((p) {
-      Expression<bool> e = const Constant(true);
-      if (!sq.isEmpty) {
-        // каждое слово запроса — в любом месте ключа («кола 2л» найдёт «Кока-Кола (ПЭТ) 2л»)
-        Expression<bool> text = const Constant(true);
-        for (var i = 0; i < sq.tokens.length; i++) {
-          Expression<bool> one = p.searchKey.like('%${sq.tokens[i]}%');
-          if (fuzzy) {
-            for (final v in sq.variants[i]) {
-              one = one | p.searchKey.like('%$v%');
-            }
-          }
-          text = text & one;
-        }
-        e = text | p.barcode.equals(query.trim()) | p.altBarcodes.like('%${query.trim()}%');
-      }
-      if (category != null && category.isNotEmpty) e = e & p.category.equals(category);
-      if (favorites) e = e & p.isFavorite.equals(true);
-      if (extra != null) e = e & extra(p);
-      return e;
-    });
+    s.where((p) => _searchWhere(p, query, sq, fuzzy: fuzzy, category: category, favorites: favorites, extra: extra));
     // 2026-10-30 (оптимизация, п. 13): id вторым ключом — порядок товаров с одинаковым ключом не меняется между запросами
     s.orderBy([(p) => OrderingTerm(expression: p.searchKey), (p) => OrderingTerm(expression: p.id)]);
     s.limit(limit);
     return s.get();
+  }
+
+  /// 2026-10-31: сколько товаров найдёт [searchProducts] без окна (LIMIT) — для строки «Найдено M из базы телефона». Та же логика:
+  /// сначала точный поиск, при нуле — «не та раскладка» и транслит.
+  Future<int> countProducts(String query, {String? category, bool favorites = false, Expression<bool> Function($ProductsTable p)? extra}) async {
+    final sq = SearchQuery(query);
+    Future<int> count(bool fuzzy) async {
+      final c = products.id.count();
+      final q = selectOnly(products)
+        ..addColumns([c])
+        ..where(_searchWhere(products, query, sq, fuzzy: fuzzy, category: category, favorites: favorites, extra: extra));
+      return (await q.getSingle()).read(c) ?? 0;
+    }
+
+    final strict = await count(false);
+    if (strict > 0 || sq.isEmpty) return strict;
+    return count(true);
   }
 
   /// 13.10: товар по скану: штрихкод в любом написании (UPC-A ↔ EAN-13), потом весовая этикетка (PLU или артикул).
@@ -254,6 +333,13 @@ class AppDatabase extends _$AppDatabase {
     for (final v in variants) {
       final p = byVariant[v];
       if (p != null) return (product: p, qty: packQuantity(p, v));
+    }
+    // 2026-10-31 (одежда): штрихкод размера (этикетка «Платье — 44, Красный») — товар этого размера; до весовой этикетки
+    for (final v in variants) {
+      final row = await variantByBarcode(v);
+      if (row == null) continue;
+      final p = await productById(row.productId);
+      if (p != null) return (product: p, qty: null);
     }
     if (!allowWeightLabel || variants.isEmpty) return null;
     final label = parseWeightLabel(variants.first, clothing: (await getSetting('shop.clothing')) == '1');
@@ -343,7 +429,11 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// 13.10: товар удалён на сервере — убираем и с телефона, не дожидаясь синхронизации каталога.
-  Future<void> deleteProduct(String id) => (delete(products)..where((p) => p.id.equals(id))).go();
+  Future<void> deleteProduct(String id) async {
+    await (delete(products)..where((p) => p.id.equals(id))).go();
+    await (delete(productVariants)..where((v) => v.productId.equals(id))).go();
+    await (delete(variantChecks)..where((v) => v.productId.equals(id))).go();
+  }
 
   Future<Product?> productById(String id) => (select(products)..where((p) => p.id.equals(id))).getSingleOrNull();
 
@@ -361,6 +451,102 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> setStock(String productId, double quantity) =>
       (update(products)..where((p) => p.id.equals(productId))).write(ProductsCompanion(quantity: Value(quantity)));
+
+  // ------------------------------------------------------------------ варианты товара (одежда)
+
+  /// Варианты товара из базы телефона (по цвету и размеру). Пусто — вариантов нет или ещё не спрашивали (см. [variantCheck]).
+  Future<List<VariantRow>> variantsOf(String productId) =>
+      (select(productVariants)
+            ..where((v) => v.productId.equals(productId))
+            ..orderBy([(v) => OrderingTerm(expression: v.color), (v) => OrderingTerm(expression: v.size)]))
+          .get();
+
+  /// Варианты нескольких товаров одним запросом (экран «Размеры и цвета»): id товара → его варианты.
+  Future<Map<String, List<VariantRow>>> variantsOfMany(Iterable<String> productIds) async {
+    final ids = productIds.toList();
+    final out = <String, List<VariantRow>>{};
+    for (var i = 0; i < ids.length; i += 400) {
+      for (final v in await (select(productVariants)..where((x) => x.productId.isIn(ids.skip(i).take(400)))).get()) {
+        (out[v.productId] ??= []).add(v);
+      }
+    }
+    return out;
+  }
+
+  Future<VariantRow?> variantById(String id) => (select(productVariants)..where((v) => v.id.equals(id))).getSingleOrNull();
+
+  /// Вариант по штрихкоду размера (в любом написании кода) — этикетка размера в скане.
+  Future<VariantRow?> variantByBarcode(String code) async {
+    final forms = barcodeVariants(code).where((c) => c.trim().isNotEmpty).toList();
+    if (forms.isEmpty) return null;
+    final rows = await (select(productVariants)..where((v) => v.barcode.isIn(forms))).get();
+    for (final f in forms) {
+      for (final r in rows) {
+        if (r.barcode == f) return r;
+      }
+    }
+    return null;
+  }
+
+  /// Когда и с каким числом вариантов товар проверен; null — не проверялся.
+  Future<VariantCheck?> variantCheck(String productId) => (select(variantChecks)..where((c) => c.productId.equals(productId))).getSingleOrNull();
+
+  /// Записать свежий список вариантов товара целиком (старые варианты этого товара заменяются) и отметку проверки.
+  Future<void> replaceVariants(String productId, List<ProductVariantsCompanion> rows, {DateTime? at}) => transaction(() async {
+    await (delete(productVariants)..where((v) => v.productId.equals(productId))).go();
+    if (rows.isNotEmpty) await batch((b) => b.insertAll(productVariants, rows, mode: InsertMode.insertOrReplace));
+    await into(variantChecks).insertOnConflictUpdate(
+      VariantChecksCompanion.insert(productId: productId, checkedAt: (at ?? DateTime.now()).millisecondsSinceEpoch, total: Value(rows.length)),
+    );
+  });
+
+  /// Один вариант, найденный по штрихкоду на сервере: добавить или обновить, не трогая остальные варианты товара.
+  Future<void> upsertVariant(ProductVariantsCompanion row) => into(productVariants).insertOnConflictUpdate(row);
+
+  /// Остаток размера после продажи/снятия чека — сразу, не дожидаясь обновления вариантов с сервера.
+  Future<void> adjustVariantStock(String variantId, double delta) => customUpdate(
+    'UPDATE product_variants SET quantity = quantity + ? WHERE id = ?',
+    variables: [Variable.withReal(delta), Variable.withString(variantId)],
+    updates: {productVariants},
+  );
+
+  /// Сколько у товаров активных вариантов и сколько штук всего — для надписи на плитке. Только товары с вариантами.
+  Future<Map<String, ({int count, double qty})>> variantSummary([Iterable<String>? productIds]) async {
+    final ids = productIds?.toList();
+    final out = <String, ({int count, double qty})>{};
+    Future<void> read(List<String>? chunk) async {
+      final rows = await customSelect(
+        'SELECT product_id, COUNT(*) AS n, SUM(CASE WHEN quantity > 0 THEN quantity ELSE 0 END) AS q FROM product_variants WHERE is_active = 1'
+        '${chunk == null ? '' : ' AND product_id IN (${List.filled(chunk.length, '?').join(',')})'} GROUP BY product_id',
+        variables: [if (chunk != null) for (final c in chunk) Variable.withString(c)],
+        readsFrom: {productVariants},
+      ).get();
+      for (final r in rows) {
+        out[r.read<String>('product_id')] = (count: r.read<int>('n'), qty: r.read<double?>('q') ?? 0);
+      }
+    }
+
+    if (ids == null) {
+      await read(null);
+    } else {
+      for (var i = 0; i < ids.length; i += 400) {
+        await read(ids.skip(i).take(400).toList());
+      }
+    }
+    return out;
+  }
+
+  /// Есть ли на телефоне хоть один вариант — магазин торгует размерами и цветами.
+  Future<bool> hasAnyVariants() async {
+    final r = await customSelect('SELECT 1 FROM product_variants LIMIT 1', readsFrom: {productVariants}).get();
+    return r.isNotEmpty;
+  }
+
+  /// Варианты и отметки товаров, которых больше нет в каталоге (полная загрузка заменила список).
+  Future<void> pruneOrphanVariants() async {
+    await customStatement('DELETE FROM product_variants WHERE product_id NOT IN (SELECT id FROM products)');
+    await customStatement('DELETE FROM variant_checks WHERE product_id NOT IN (SELECT id FROM products)');
+  }
 
   // ------------------------------------------------------------------ очередь
 

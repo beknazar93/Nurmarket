@@ -75,7 +75,7 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style Selector="Border.NewBadge TextBlock">
-            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/>
         </Style>
@@ -167,7 +167,7 @@
         </Style>
         <!-- Мелкая подпись под названием: клавиша (Ctrl+M) или пояснение («без закрытия смены»). -->
         <Style Selector="TextBlock.km-tile-hint">
-            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="TextAlignment" Value="Center"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
@@ -279,7 +279,7 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style Selector="Border.km-chip TextBlock">
-            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
         </Style>
@@ -541,9 +541,9 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Grid.Column="0" Text="{DynamicResource sideMenu.sectionWork}"
                                        FontSize="12.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextSoft}"/>
-                            <TextBlock Grid.Column="1" Text="&#xE70E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                            <TextBlock Grid.Column="1" Text="&#xE70E;" FontFamily="Segoe MDL2 Assets" FontSize="12"
                                        Foreground="{DynamicResource BrushTextSoft}" IsVisible="{Binding IsWorkSectionExpanded}"/>
-                            <TextBlock Grid.Column="1" Text="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                            <TextBlock Grid.Column="1" Text="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="12"
                                        Foreground="{DynamicResource BrushTextSoft}" IsVisible="{Binding !IsWorkSectionExpanded}"/>
                         </Grid>
                     </Button>
@@ -722,9 +722,9 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Grid.Column="0" Text="{DynamicResource sideMenu.sectionInfoClients}"
                                        FontSize="12.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextSoft}"/>
-                            <TextBlock Grid.Column="1" Text="&#xE70E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                            <TextBlock Grid.Column="1" Text="&#xE70E;" FontFamily="Segoe MDL2 Assets" FontSize="12"
                                        Foreground="{DynamicResource BrushTextSoft}" IsVisible="{Binding IsInfoSectionExpanded}"/>
-                            <TextBlock Grid.Column="1" Text="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                            <TextBlock Grid.Column="1" Text="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="12"
                                        Foreground="{DynamicResource BrushTextSoft}" IsVisible="{Binding !IsInfoSectionExpanded}"/>
                         </Grid>
                     </Button>
@@ -868,9 +868,9 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <TextBlock Grid.Column="0" Text="{DynamicResource sideMenu.sectionSystem}"
                                        FontSize="12.5" FontWeight="Bold" Foreground="{DynamicResource BrushTextSoft}"/>
-                            <TextBlock Grid.Column="1" Text="&#xE70E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                            <TextBlock Grid.Column="1" Text="&#xE70E;" FontFamily="Segoe MDL2 Assets" FontSize="12"
                                        Foreground="{DynamicResource BrushTextSoft}" IsVisible="{Binding IsSystemSectionExpanded}"/>
-                            <TextBlock Grid.Column="1" Text="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                            <TextBlock Grid.Column="1" Text="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="12"
                                        Foreground="{DynamicResource BrushTextSoft}" IsVisible="{Binding !IsSystemSectionExpanded}"/>
                         </Grid>
                     </Button>
@@ -1558,7 +1558,7 @@
                     </WrapPanel>
                 </StackPanel>
 
-                <TextBlock x:Name="NewVersionText" FontSize="11.5" HorizontalAlignment="Center" Margin="0,18,0,0"
+                <TextBlock x:Name="NewVersionText" FontSize="12" HorizontalAlignment="Center" Margin="0,18,0,0"
                            Foreground="{DynamicResource BrushTextMuted}"/>
             </StackPanel>
         </ScrollViewer>

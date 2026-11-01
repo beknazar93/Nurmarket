@@ -54,6 +54,10 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     private string _purchasePrice = "";
     private string _markupPercent = "";
     private string _price = "";
+    // 2026-11-01 (аудит 10 из 10, С-01): значения цен при открытии карточки — при сохранении шлём на сервер только изменённые.
+    private string _origPurchasePrice = "";
+    private string _origMarkupPercent = "";
+    private string _origPrice = "";
     private string _hotkeyGroup = "Без горячей клавиши";
     private string _description = "";
     private string _plu = "";
@@ -178,6 +182,9 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             }
             _markupPercent = existing.MarkupPercent > 0
                 ? existing.MarkupPercent.ToString("0.##", CultureInfo.InvariantCulture) : "";
+            _origPurchasePrice = _purchasePrice;
+            _origMarkupPercent = _markupPercent;
+            _origPrice = _price;
             _description = existing.Description ?? "";
             _wholesalePrice = existing.WholesalePrice > 0
                 ? existing.WholesalePrice.ToString("0.##", CultureInfo.InvariantCulture) : "";
@@ -2104,6 +2111,18 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 Unit = string.IsNullOrWhiteSpace(_unit) ? "шт" : _unit,
                 IsWeight = _isWeight,
                 Quantity = quantityValue ?? 0,
+                // 2026-11-01 (аудит 10 из 10, С-01): правка существующего товара шлёт остаток и цены, только если кассир их менял.
+                // Раньше PATCH нёс значения, прочитанные при открытии, и затирал продажи с других касс и цену, изменённую на сайте.
+                SendQuantity = _existing is null || quantityChanged,
+                // доп. штрихкоды (с количествами/названиями, прочитанными при открытии) — только если список менялся (приёмка С-01)
+                // код-ревью: сравниваем полный состав (штрихкод + название + количество), а не только коды — правка названия/количества тоже должна уйти
+                SendAlternateBarcodes = _existing is null || !_variants.Select(v => $"{v.Barcode.Trim().ToLowerInvariant()}|{(v.Name ?? "").Trim()}|{Math.Round(v.Quantity, 3).ToString("0.###", CultureInfo.InvariantCulture)}")
+                    .Where(s => !s.StartsWith('|')).OrderBy(s => s, StringComparer.Ordinal)
+                    .SequenceEqual((_existing.AlternateBarcodeVariants ?? new()).Select(v => $"{(v.Barcode ?? "").Trim().ToLowerInvariant()}|{(v.Name ?? "").Trim()}|{Math.Round(v.Quantity, 3).ToString("0.###", CultureInfo.InvariantCulture)}")
+                        .Where(s => !s.StartsWith('|')).OrderBy(s => s, StringComparer.Ordinal), StringComparer.Ordinal),
+                SendPurchasePrice = _existing is null || !string.Equals(_purchasePrice.Trim(), _origPurchasePrice, StringComparison.Ordinal),
+                SendMarkupPercent = _existing is null || !string.Equals(_markupPercent.Trim(), _origMarkupPercent, StringComparison.Ordinal),
+                SendPrice = _existing is null || !string.Equals(_price.Trim(), _origPrice, StringComparison.Ordinal),
                 PurchasePrice = purchaseValue,
                 MarkupPercent = TryParseNumber(_markupPercent),
                 Price = saleValue,
@@ -2166,6 +2185,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         }
     }
 
+    private readonly Dictionary<string, string> _createKeys = new(); // 2026-11-01 (С-03): ключи повтора создания по содержимому карточки
+
     /// <summary>Мгновенное создание нового товара: короткая попытка создать на сервере (несколько
     /// секунд) — этого достаточно в норме, и товар сразу получает настоящий id без риска
     /// рассинхронизации. Если сеть реально тормозит или недоступна — товар всё равно СРАЗУ
@@ -2175,6 +2196,12 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     /// товара-варианта из "доп. штрихкодов".</summary>
     private async Task CreateNewProductLocalFirstAsync(ProductEditRequest request)
     {
+        // 2026-11-01 (аудит 10 из 10, С-03): один ключ повтора на создание — и для быстрой попытки, и для фонового повтора.
+        // Приёмка С-03: ключ держим на всё время диалога, пока ввод не изменился (повторное «Сохранить» после ошибки/таймаута — тот же ключ).
+        var createSignature = string.Join("|", request.Name, request.Barcode, request.Article, request.Unit, request.Quantity, request.Price, request.PurchasePrice, request.Kind);
+        if (!_createKeys.TryGetValue(createSignature, out var createKey))
+            _createKeys[createSignature] = createKey = Guid.NewGuid().ToString("N");
+        request.IdempotencyKey = createKey;
         try
         {
             using var cts = new CancellationTokenSource(FastCreateTimeout);
@@ -2182,7 +2209,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             var realId = ProductCatalogMapper.TryId(created) ?? Guid.NewGuid().ToString("N");
             LocalProductEditor.SaveLocally(request, realId);
         }
-        catch (Exception ex) when (ex is OperationCanceledException or HttpRequestException)
+        catch (Exception ex) when (ex is OperationCanceledException or HttpRequestException or ApiException { StatusCode: 408 or 502 or 503 or 504 })
         {
             var tempId = LocalProductEditor.SaveLocally(request, null);
             _ = CreateOnServerInBackgroundAsync(request, tempId);
@@ -2197,7 +2224,33 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     {
         try
         {
-            var created = await _catalogApi.CreateProductAsync(request).ConfigureAwait(false);
+            // 2026-11-01 (аудит 10 из 10, С-03): первый POST мог дойти до сервера (он отвечает и по 40–60 с) — прежде чем создавать
+            // второй раз, ищем товар на сервере по штрихкоду; не нашёлся — ждём ещё и ищем снова, и только потом создаём (с тем же
+            // ключом Idempotency-Key). Раньше повтор слался вслепую и заводил два товара с одним штрихкодом.
+            var found = await FindOwnCreatedOnServerAsync(request, waitFirst: false).ConfigureAwait(false);
+            if (found is null)
+                found = await FindOwnCreatedOnServerAsync(request, waitFirst: true).ConfigureAwait(false);
+            System.Text.Json.JsonElement created;
+            if (found is { } already)
+            {
+                PosLogger.Log($"Background product create: товар «{request.Name}» уже есть на сервере (первая попытка дошла) — второй не создаём.", "WAREHOUSE");
+                created = already;
+            }
+            else
+            {
+                try
+                {
+                    created = await _catalogApi.CreateProductAsync(request).ConfigureAwait(false);
+                }
+                catch (ApiException)
+                {
+                    // отказ второй попытки, а товар на сервере уже есть (создала первая) — берём его, иначе ошибка как раньше
+                    var late = await FindOwnCreatedOnServerAsync(request, waitFirst: false).ConfigureAwait(false);
+                    if (late is null)
+                        throw;
+                    created = late.Value;
+                }
+            }
             var realId = ProductCatalogMapper.TryId(created);
             if (string.IsNullOrEmpty(realId) || string.Equals(realId, tempLocalId, StringComparison.OrdinalIgnoreCase))
                 return;
@@ -2216,6 +2269,33 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                     "Yeni ürün sunucuya gönderilemedi — yalnızca yerel olarak kaydedildi.",
                     "Yangi mahsulotni serverga yuborib bo'lmadi — u faqat shu kompyuterda saqlandi."),
                 true);
+        }
+    }
+
+    /// <summary>2026-11-01 (аудит 10 из 10, С-03): ищет на сервере только что создаваемый товар по штрихкоду. waitFirst — сначала подождать 25 с
+    /// (первая, «потерянная» попытка могла ещё обрабатываться). Нашёлся с тем же названием — вернуть его; иначе (или поиск не удался) null.</summary>
+    private async Task<System.Text.Json.JsonElement?> FindOwnCreatedOnServerAsync(ProductEditRequest request, bool waitFirst)
+    {
+        var barcode = request.Barcode?.Trim();
+        if (string.IsNullOrEmpty(barcode))
+            return null;
+        try
+        {
+            if (waitFirst)
+                await Task.Delay(TimeSpan.FromSeconds(25)).ConfigureAwait(false);
+            var found = await _catalogApi.FindWarehouseProductByBarcodeAsync(barcode).ConfigureAwait(false);
+            if (found is not { ValueKind: System.Text.Json.JsonValueKind.Object } product)
+                return null;
+            // Товар с таким штрихкодом, но другим названием — не наш (заведён раньше): не подменяем.
+            if (product.TryGetProperty("name", out var nameProp) && nameProp.ValueKind == System.Text.Json.JsonValueKind.String
+                && !string.Equals(nameProp.GetString()?.Trim(), request.Name?.Trim(), StringComparison.OrdinalIgnoreCase))
+                return null;
+            return product;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Background product create: поиск товара по штрихкоду не удался ({ex.GetType().Name}).", "WAREHOUSE");
+            return null;
         }
     }
 

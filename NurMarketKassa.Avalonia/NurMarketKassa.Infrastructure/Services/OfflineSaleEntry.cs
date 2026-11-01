@@ -124,4 +124,8 @@ public sealed class OfflineSaleEntry
     /// <summary>«Требует проверки» (а не обычная «Ошибка отправки»): сервер отказал по существу — лимит, клиент удалён и т. п. Чек не потерян,
     /// решает человек; автоповтор для таких чеков не включается.</summary>
     public bool ReviewNeeded { get; set; }
+
+    /// <summary>2026-11-01 (чеки старше 7 суток по PIN владельца): сервер отказал «offline_too_old» — чек ждёт явного проведения владельцем
+    /// (кнопка «Провести по PIN владельца», SyncService.LateAccept.cs). Лежит в JSON записи (схема таблицы не меняется).</summary>
+    public bool TooOldForServer { get; set; }
 }

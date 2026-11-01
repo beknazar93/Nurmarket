@@ -1193,7 +1193,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     ? Tr.T("Сохранить отчёт в Word", "Отчётту Word'го сактоо", "Save report to Word", "Raporu Word olarak kaydet", "Hisobotni Word'ga saqlash")
                     : Tr.T("Сохранить отчёт в Excel", "Отчётту Excel'ге сактоо", "Save report to Excel", "Raporu Excel olarak kaydet", "Hisobotni Excel'ga saqlash"),
                 SuggestedFileName = AnalyticsExportService.SuggestFileName(categoryExport != null ? CategoryAnalyticsExport.FileTitle : AnalyticsExportService.FileTitle,
-                    _historyFrom, _historyTo, UserPreferences.Instance.StoreName, extension),
+                    _historyFrom, _historyTo, ReportShopName.Current, extension),
                 FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
             });
             if (file is null)
@@ -1211,7 +1211,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 ErrorMessage = Tr.T("Готовлю отчёт…", "Отчёт даярдалууда…", "Preparing the report…", "Rapor hazırlanıyor…", "Hisobot tayyorlanmoqda…");
                 if (categoryExport != null)
                 {
-                    var shopName = UserPreferences.Instance.StoreName;
+                    var shopName = ReportShopName.Current;
                     await Task.Run(() =>
                     {
                         if (toWord)
@@ -1224,7 +1224,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     return;
                 }
                 var data = await AnalyticsReportData.BuildAsync(App.SalesApi, _historyFrom, _historyTo, full: true).ConfigureAwait(true);
-                var shop = UserPreferences.Instance.StoreName;
+                var shop = ReportShopName.Current;
 
                 await Task.Run(() =>
                 {
@@ -1282,16 +1282,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 // 2026-09-29: «Данные на 14:05, сервер не отвечает» — с какого времени нет данных сервера.
                 ? ServerOutageMonitor.StaleDataNote(null) + ServerOutageMonitor.LocalDataSuffix
                 : sales.Count > 0
-                ? Tr.T("Нет связи с сервером — показаны данные этой кассы за выбранный период.",
-                    "Сервер менен байланыш жок — тандалган мезгил үчүн ушул кассанын маалыматтары көрсөтүлдү.",
-                    "No connection to the server — showing this till's data for the selected period.",
-                    "Sunucuyla bağlantı yok — seçilen dönem için bu kasanın verileri gösteriliyor.",
-                    "Server bilan aloqa yo'q — tanlangan davr uchun shu kassaning ma'lumotlari ko'rsatildi.")
-                : Tr.T("Нет связи с сервером, а локальных продаж за выбранный период нет.",
-                    "Сервер менен байланыш жок, ал эми тандалган мезгилде жергиликтүү сатуулар жок.",
-                    "No connection to the server, and there are no local sales for the selected period.",
-                    "Sunucuyla bağlantı yok ve seçilen dönemde yerel satış yok.",
-                    "Server bilan aloqa yo'q, tanlangan davrda esa mahalliy sotuvlar yo'q.");
+                ? Tr.T("Сервер недоступен — показаны данные этой кассы за выбранный период.",
+                    "Сервер жеткиликсиз — тандалган мезгил үчүн ушул кассанын маалыматтары көрсөтүлдү.",
+                    "The server is unavailable — showing this till's data for the selected period.",
+                    "Sunucu kullanılamıyor — seçilen dönem için bu kasanın verileri gösteriliyor.",
+                    "Server mavjud emas — tanlangan davr uchun shu kassaning ma'lumotlari ko'rsatildi.")
+                : Tr.T("Сервер недоступен, а локальных продаж за выбранный период нет.",
+                    "Сервер жеткиликсиз, ал эми тандалган мезгилде жергиликтүү сатуулар жок.",
+                    "The server is unavailable, and there are no local sales for the selected period.",
+                    "Sunucu kullanılamıyor ve seçilen dönemde yerel satış yok.",
+                    "Server mavjud emas, tanlangan davrda esa mahalliy sotuvlar yo'q.");
         }
 
         /// <summary>Пересчёт по сигналу «продажи изменились».
@@ -1473,6 +1473,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     .ToList();
 
                 AssignFallbackReceiptNumbers(sales);
+
+                // 2026-11-01 (В-27, аудит «10 из 10»): сервер не дал ни сводки, ни чеков (ответил 500 без исключения) — раньше экран
+                // показывал пустые плитки без пояснения. Теперь — «Сервер недоступен».
+                if (_serverSummary is null && sales.Count == 0)
+                    ErrorMessage = ServerOfflineNotice.Text;
 
                 // Возвраты — с сервера (GET api/main/pos/returns/, полные и частичные); журнал
                 // удалений строк корзины — только если сервер список не дал (см. FetchRefundsAsync).
@@ -2788,7 +2793,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгил боюнча маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
                     FontSize = 12,
-                    Foreground = Brushes.Gray,
+                    Foreground = ThemeInk.Soft,
                 });
                 return;
             }
@@ -2819,7 +2824,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     Text = $"{entry.Label}: {AmtText(entry.Total)} {Som} ({pct:N1}%)",
                     FontSize = 12,
-                    Foreground = Brushes.Gray,
+                    Foreground = ThemeInk.Soft,
                 });
                 PaymentLegend.Children.Add(legendItem);
             }
@@ -2835,7 +2840,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                         $"Ayrıca veresiye: {debtOutside:N0} som — müşteri ödeyene kadar ciroya dahil değil",
                         $"Yana qarzga: {debtOutside:N0} so'm — mijoz to'lamaguncha tushumga kirmaydi"),
                     FontSize = 12,
-                    Foreground = Brushes.Gray,
+                    Foreground = ThemeInk.Soft,
                     TextWrapping = TextWrapping.Wrap,
                 });
             }
@@ -2855,7 +2860,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгил боюнча маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
                     FontSize = 12,
-                    Foreground = Brushes.Gray,
+                    Foreground = ThemeInk.Soft,
                     VerticalAlignment = VerticalAlignment.Bottom,
                     Margin = new Thickness(4, 0, 0, 8),
                 });
@@ -2895,8 +2900,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 column.Children.Add(new TextBlock
                 {
                     Text = $"{hour:00}",
-                    FontSize = 8,
-                    Foreground = Brushes.Gray,
+                    FontSize = 12,
+                    Foreground = ThemeInk.Soft,
                     HorizontalAlignment = HorizontalAlignment.Center,
                 });
                 HourlyRevenueBars.Children.Add(column);
@@ -2928,7 +2933,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 {
                     Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгил боюнча маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
                     FontSize = 12,
-                    Foreground = Brushes.Gray,
+                    Foreground = ThemeInk.Soft,
                     VerticalAlignment = VerticalAlignment.Bottom,
                     Margin = new Thickness(4, 0, 0, 8),
                 });
@@ -2958,8 +2963,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 column.Children.Add(new TextBlock
                 {
                     Text = day.Total > 0 ? $"{day.Total:N0}" : "",
-                    FontSize = 9,
-                    Foreground = Brushes.Gray,
+                    FontSize = 12,
+                    Foreground = ThemeInk.Soft,
                     HorizontalAlignment = HorizontalAlignment.Center,
                 });
                 var dayBar = new Border
@@ -2975,8 +2980,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 column.Children.Add(new TextBlock
                 {
                     Text = day.Date.ToString("dd.MM"),
-                    FontSize = 10,
-                    Foreground = Brushes.Gray,
+                    FontSize = 12,
+                    Foreground = ThemeInk.Soft,
                     HorizontalAlignment = HorizontalAlignment.Center,
                 });
                 DailyRevenueBars.Children.Add(column);

@@ -169,7 +169,8 @@
                        VerticalAlignment="Center" Margin="0,0,16,0" Foreground="{DynamicResource BrushTextSoft}"/>
             <StackPanel Grid.Column="2" x:Name="ClientsActions" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <Button x:Name="RefreshButton" Classes="sec-outline" Content="{DynamicResource clients.refreshButton}" Click="RefreshButton_Click"/>
-                <Button x:Name="AddClientButton" Classes="sec-primary" Content="{DynamicResource clients.addButton}" Click="AddClientButton_Click"/>
+                <!-- 2026-11-01 (аудит Д-04): «Добавить клиента» — вторичная: рядом, в карточке выбранного клиента, жёлтая «Сохранить» (одна главная на экран). -->
+                <Button x:Name="AddClientButton" Classes="sec-outline" Content="{DynamicResource clients.addButton}" Click="AddClientButton_Click"/>
             </StackPanel>
         </Grid>
 
@@ -191,7 +192,7 @@
                 <StackPanel Spacing="4">
                     <TextBlock x:Name="KpiDebtLabel" Classes="sec-kpi-label"/>
                     <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="KpiDebtValue" Classes="sec-kpi-value"/></Viewbox>
-                    <TextBlock x:Name="KpiDebtNote" FontSize="11.5" TextWrapping="Wrap" IsVisible="False"
+                    <TextBlock x:Name="KpiDebtNote" FontSize="12" TextWrapping="Wrap" IsVisible="False"
                                Foreground="{DynamicResource BrushTextSoft}"/>
                 </StackPanel>
             </Border>
@@ -254,7 +255,7 @@
                                             <DockPanel IsVisible="{Binding HasSecondLine}" Margin="0,2,0,0">
                                                 <Border DockPanel.Dock="Left" IsVisible="{Binding IsNew}" CornerRadius="8" Padding="7,1" Margin="0,0,8,0"
                                                         VerticalAlignment="Center" Background="{DynamicResource BrushText}">
-                                                    <TextBlock Text="{Binding NewBadgeText}" FontSize="11" FontWeight="SemiBold"
+                                                    <TextBlock Text="{Binding NewBadgeText}" FontSize="12" FontWeight="SemiBold"
                                                                Foreground="{DynamicResource BrushPanel}"/>
                                                 </Border>
                                                 <TextBlock Text="{Binding SubLine}" Classes="sub" Margin="0" VerticalAlignment="Center"

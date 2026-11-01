@@ -40,7 +40,8 @@ public static class DrawerBreakdownBuilder
         if (withdrawals > 0m)
             Row(Tr.T("Изъятия", "Алуулар", "Withdrawals", "Para çıkışları", "Olishlar"), withdrawals, "−");
         if (returns > 0m)
-            Row(Tr.T("Возвраты", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar"), returns, "−");
+            // 2026-11-01 (Ж-07): в ящик влияет только наличная часть возврата (безнал и списание долга денег из ящика не берут).
+            Row(Tr.T("Возвраты наличными", "Накталай кайтаруулар", "Cash returns", "Nakit iadeler", "Naqd qaytarishlar"), returns, "−");
         var sum = opening + cashSales + debtPaidCash + deposits - withdrawals - returns;
         var rest = expected - sum;
         // 2026-10-23 (аудит, круг 8, В-7): строка «Корректировка» — только если |остаток| ≥ 0,01 (копеечный хвост округления не показываем).

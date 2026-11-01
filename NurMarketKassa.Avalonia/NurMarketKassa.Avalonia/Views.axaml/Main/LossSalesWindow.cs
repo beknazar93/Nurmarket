@@ -118,12 +118,14 @@ public sealed class LossSalesWindow : Window
         var gen = ++_renderGen;
         var from = From();
         List<ServerLossSale>? server = null;
+        var serverFailed = false;
         try
         {
             server = await LoadServerAsync(from).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
+            serverFailed = true; // 2026-11-01 (В-27): сбой сервера (не «адреса нет») — не выдавать пустой локальный журнал за «убытков нет»
             PosLogger.Log($"Продажи в убыток: отчёт сервера не получен ({ex.GetType().Name}: {ex.Message}) — журнал кассы.", "WARNING");
         }
         if (gen != _renderGen)
@@ -131,7 +133,7 @@ public sealed class LossSalesWindow : Window
         if (server != null)
             RenderServer(server);
         else
-            RenderLocal(from);
+            RenderLocal(from, serverFailed);
     }
 
     private static async Task<List<ServerLossSale>?> LoadServerAsync(DateTimeOffset from)
@@ -199,7 +201,7 @@ public sealed class LossSalesWindow : Window
         }
     }
 
-    private void RenderLocal(DateTimeOffset from)
+    private void RenderLocal(DateTimeOffset from, bool serverFailed = false)
     {
         _hint.Text = Tr.T("Чеки, где из-за скидки товар продан дешевле закупочной цены. Записывает касса этого компьютера при оплате.",
             "Арзандатуудан улам товар сатып алуу баасынан арзан сатылган чектер. Бул компьютердеги касса төлөөдө жазат.",
@@ -210,6 +212,13 @@ public sealed class LossSalesWindow : Window
         var records = LossSalesStore.ReadAll().Where(r => r.At >= from).ToList();
         var total = records.Sum(r => r.Loss);
         ShowTotals(records.Count, total);
+        if (serverFailed)
+        {
+            // 2026-11-01 (В-27, аудит «10 из 10»): сервер не ответил — вместо «За этот период продаж в убыток нет» плашка «Сервер недоступен /
+            // Повторить»; если в журнале этой кассы что-то есть, оно показано ниже как есть.
+            _summary.IsVisible = false;
+            _list.Children.Add(ServerOfflineNotice.Build(this, Render));
+        }
         ShowByProduct(records.SelectMany(r => r.Lines.Select(l => (l.Title, l.Loss))));
 
         foreach (var r in records.Take(300))

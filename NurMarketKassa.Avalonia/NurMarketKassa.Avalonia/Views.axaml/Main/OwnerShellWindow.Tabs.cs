@@ -154,7 +154,7 @@ public partial class OwnerShellWindow
         if (navBadge is { IsVisible: true, Child: TextBlock count })
         {
             var urgent = Equals(navBadge.Tag, "urgent");
-            var number = new TextBlock { Text = count.Text, FontSize = 11.5, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center };
+            var number = new TextBlock { Text = count.Text, FontSize = 12, FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center };
             var pill = new Border
             {
                 Child = number, MinWidth = 20, Padding = new Thickness(6, 1, 6, 2), CornerRadius = new CornerRadius(10),

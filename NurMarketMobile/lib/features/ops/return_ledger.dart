@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../sale/variant_service.dart';
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../sale/cart.dart' show roundMoney;
@@ -188,7 +189,9 @@ class SaleLineInfo {
   static SaleLineInfo fromJson(Map<String, dynamic> m) {
     final qty = num0(m, 'quantity') > 0 ? num0(m, 'quantity') : num0(m, 'qty');
     // Уже возвращено — как CartDisplayHelper.RefundableQuantity кассы.
-    final returned = _num(m, 'quantity_refunded') ?? _num(m, 'returned_quantity') ?? _num(m, 'qty_returned') ?? _num(m, 'refunded_quantity') ?? 0;
+    // 2026-11-01: сервер c8958b4 отдаёт returned_qty / returnable_qty (М-02 аудита), quantity после возврата не уменьшается.
+    final returned = _num(m, 'returned_qty') ?? _num(m, 'quantity_refunded') ?? _num(m, 'returned_quantity') ?? _num(m, 'qty_returned') ?? _num(m, 'refunded_quantity') ?? 0;
+    final returnable = _num(m, 'returnable_qty') ?? _num(m, 'refundable_quantity');
     final price = num0(m, 'unit_price') > 0 ? num0(m, 'unit_price') : num0(m, 'price');
     var total = 0.0;
     for (final k in ['line_total', 'line_total_amount', 'line_amount', 'amount', 'total', 'sum', 'total_price', 'subtotal']) {
@@ -199,10 +202,10 @@ class SaleLineInfo {
     }
     if (total <= 0) total = roundMoney(qty * price - num0(m, 'discount_total'));
     final fully = m['is_returned'] == true || m['fully_returned'] == true || m['fully_refunded'] == true;
-    final left = qty - returned;
+    final left = returnable ?? qty - returned;
     return SaleLineInfo(
       id: str(m, 'id') ?? '',
-      name: str(m, 'product_name') ?? str(m, 'name') ?? '',
+      name: saleItemName(m), // 2026-10-31: возврат по строке видит размер и цвет
       qty: qty,
       refundable: fully || left <= 1e-6 ? 0 : left,
       price: price,

@@ -392,7 +392,37 @@ public partial class PayDebtDialog
         // 2026-10-18, девятый круг (п.7): предупреждение к успеху — отдельной плашкой.
         if (DebtPaymentRunner.OutcomeWarning(attempt) is { } warning)
             WarningMessage = warning;
+        // 2026-11-01 (Ж-06): сразу после оплаты сервер ещё не отдал остаток по сделке — строка оставалась «остаток уточняется»
+        // до ручного «Обновить». Перечитываем сами (до трёх раз, окно открыто, ничего не оплачивается).
+        if (attempt.Outcome == DebtPayOutcome.Success && DebtSales.Any(r => r.RemainingUnknown))
+            _ = RecheckUnknownRemainingAsync(client.Id);
         return true;
+    }
+
+    /// <summary>2026-11-01 (Ж-06): после оплаты строки с неуточнённым остатком перечитываются через 1,5 / 3 / 6 с, пока остаток не
+    /// придёт. Введённые кассиром суммы и сообщения не трогаются (keepInput). Любой сбой — тихо (есть кнопка «Обновить»).</summary>
+    private async Task RecheckUnknownRemainingAsync(string clientId)
+    {
+        try
+        {
+            foreach (var delayMs in new[] { 1500, 3000, 6000 })
+            {
+                await Task.Delay(delayMs, _closedCts.Token).ConfigureAwait(true);
+                if (_paying || _selectedClient?.Id != clientId)
+                    return;
+                if (!await LoadDebtSalesAsync(clientId, keepInput: true).ConfigureAwait(true))
+                    return;
+                if (!DebtSales.Any(r => r.RemainingUnknown))
+                    return;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Оплата долга: повторное чтение остатка после оплаты не удалось ({ex.GetType().Name}).", "WARNING");
+        }
     }
 
     /// <summary>«Повторить» — ТОЛЬКО повтор записи по её ключу (RetryAsync), никогда не новая оплата. Любая ошибка — замок

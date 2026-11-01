@@ -116,9 +116,9 @@ public partial class SiteSettingsWindow : Window, IOwnerSection
         PhoneHintText.Text = Tr.T(
             "Покупатель нажимает «Оформить заказ» на витрине — сайт открывает WhatsApp с текстом заказа на этот номер. Один номер, с кодом страны 996.",
             "Кардар витринада «Оформить заказ» («Заказ берүү») баскычын басат — сайт заказдын тексти менен WhatsApp'ты ушул номерге ачат. Бир номер, 996 өлкө коду менен.",
-            "The customer taps “Оформить заказ” (Place order) on the showcase — the site opens WhatsApp with the order text to this number. One number, with the 996 country code.",
-            "Müşteri vitrinde «Оформить заказ» (Sipariş ver) düğmesine basar — site sipariş metniyle WhatsApp'ı bu numaraya açar. Tek numara, 996 ülke koduyla.",
-            "Xaridor vitrinada «Оформить заказ» (Buyurtma berish) tugmasini bosadi — sayt buyurtma matni bilan WhatsApp'ni shu raqamga ochadi. Bitta raqam, 996 mamlakat kodi bilan.");
+            "The customer taps “Place order” on the showcase — the site opens WhatsApp with the order text to this number. One number, with the 996 country code.",
+            "Müşteri vitrinde «Sipariş ver» düğmesine basar — site sipariş metniyle WhatsApp'ı bu numaraya açar. Tek numara, 996 ülke koduyla.",
+            "Xaridor vitrinada «Buyurtma berish» tugmasini bosadi — sayt buyurtma matni bilan WhatsApp'ni shu raqamga ochadi. Bitta raqam, 996 mamlakat kodi bilan.");
 
         ReadonlyTitle.Text = Tr.T("Что меняется в NurCRM, а не здесь", "Бул жерде эмес, NurCRMде эмне өзгөрөт", "What is changed in NurCRM, not here",
             "Burada değil, NurCRM'de değiştirilenler", "Bu yerda emas, NurCRMda nima o'zgaradi");

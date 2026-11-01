@@ -381,7 +381,7 @@
                             <TextBlock Text="{DynamicResource csh.catalog.filter}" VerticalAlignment="Center"/>
                             <Border IsVisible="{Binding HasActiveFilter}" CornerRadius="9" MinWidth="18" Height="18" Padding="5,0"
                                     Background="{DynamicResource BrushAccent}" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding ActiveFilterCount}" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center"
+                                <TextBlock Text="{Binding ActiveFilterCount}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"
                                            VerticalAlignment="Center" Foreground="{DynamicResource BrushAccentForeground}"/>
                             </Border>
                         </StackPanel>
@@ -413,7 +413,7 @@
                                TextWrapping="Wrap"/>
                 </Border>
                 <TextBlock Text="{Binding StatusText}"
-                           FontSize="11"
+                           FontSize="12"
                            Foreground="{DynamicResource BrushTextSoft}"
                            TextWrapping="Wrap"/>
                 <Border IsVisible="{Binding HasHotkeyGroupFilter}"
@@ -429,7 +429,7 @@
                         <Button Classes="main-ghost"
                                 Content="✕"
                                 Padding="2"
-                                FontSize="11"
+                                FontSize="12"
                                 Command="{Binding ClearHotkeyGroupFilterCommand}"/>
                     </StackPanel>
                 </Border>
@@ -616,7 +616,7 @@
                                                                        Foreground="{DynamicResource BrushCatalogPrice}"
                                                                        VerticalAlignment="Bottom"/>
                                                             <TextBlock Text="{DynamicResource csh.catalog.currency}"
-                                                                       FontSize="11"
+                                                                       FontSize="12"
                                                                        Foreground="{DynamicResource BrushCatalogMeta}"
                                                                        Margin="0,0,0,4"
                                                                        VerticalAlignment="Bottom"/>
@@ -642,7 +642,7 @@
                                                             Classes.badge-bundle="{Binding IsBundle}"
                                                             Background="{DynamicResource BrushBadgePieceBg}">
                                                         <TextBlock Text="{Binding , Converter={x:Static conv:TypeBadgeTextConverter.Instance}}"
-                                                                   FontSize="10"
+                                                                   FontSize="12"
                                                                    FontWeight="SemiBold"
                                                                    Classes.badge-weighted="{Binding IsWeighted}"
                                                                    Classes.badge-bundle="{Binding IsBundle}"
@@ -781,7 +781,7 @@
                                                             <!-- Здесь цвет типа товара — это ЦВЕТ ТЕКСТА, поэтому берём
                                                                  насыщенный TypeBadgeForeground, а не бледный фон плашки:
                                                                  бледным по белой строке текст был бы не виден. -->
-                                                            <TextBlock Text="{Binding , Converter={x:Static conv:TypeBadgeTextConverter.Instance}}" FontSize="11"
+                                                            <TextBlock Text="{Binding , Converter={x:Static conv:TypeBadgeTextConverter.Instance}}" FontSize="12"
                                                                        Classes.badge-weighted="{Binding IsWeighted}"
                                                                        Classes.badge-bundle="{Binding IsBundle}"
                                                                        Foreground="{DynamicResource BrushBadgePieceFg}"/>
@@ -803,7 +803,7 @@
                                                             <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
                                                                        FontSize="18" FontWeight="Bold"
                                                                        Foreground="{DynamicResource BrushCatalogPrice}"/>
-                                                            <TextBlock Text="{DynamicResource csh.catalog.currency}" FontSize="11"
+                                                            <TextBlock Text="{DynamicResource csh.catalog.currency}" FontSize="12"
                                                                        Foreground="{DynamicResource BrushCatalogMeta}"
                                                                        VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                                                         </StackPanel>
@@ -891,7 +891,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     <TextBlock Text="{Binding PageStatusText}"
-                               FontSize="11"
+                               FontSize="12"
                                Foreground="{DynamicResource BrushTextSoft}"
                                HorizontalAlignment="Center"/>
                 </StackPanel>

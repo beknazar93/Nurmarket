@@ -302,11 +302,11 @@ public sealed class DebtReminderWindow : Window
             if (gen != _loadGen)
                 return;
             PosLogger.Log($"Напоминания должникам: список не загружен ({ex.GetType().Name}: {ex.Message}).", "WARNING");
-            SetStatus(T("Нет связи с сервером NurCRM — список должников не загружен. Проверьте интернет и нажмите «Обновить».",
-                "NurCRM сервери менен байланыш жок — карыздардын тизмеси жүктөлгөн жок. Интернетти текшерип, «Жаңылоо» басыңыз.",
-                "No connection to the NurCRM server — the debtor list did not load. Check the internet and press Refresh.",
-                "NurCRM sunucusuna bağlantı yok — borçlu listesi yüklenmedi. İnterneti kontrol edip Yenile'ye basın.",
-                "NurCRM serveri bilan aloqa yo'q — qarzdorlar ro'yxati yuklanmadi. Internetni tekshirib, «Yangilash»ni bosing."), "BrushDanger");
+            SetStatus(T("Сервер NurCRM недоступен — список должников не загружен. Проверьте интернет и нажмите «Обновить».",
+                "NurCRM сервери жеткиликсиз — карыздардын тизмеси жүктөлгөн жок. Интернетти текшерип, «Жаңылоо» басыңыз.",
+                "The NurCRM server is unavailable — the debtor list did not load. Check the internet and press Refresh.",
+                "NurCRM sunucusu kullanılamıyor — borçlu listesi yüklenmedi. İnterneti kontrol edip Yenile'ye basın.",
+                "NurCRM serveri mavjud emas — qarzdorlar ro'yxati yuklanmadi. Internetni tekshirib, «Yangilash»ni bosing."), "BrushDanger");
         }
         finally
         {

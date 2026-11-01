@@ -36,7 +36,7 @@
                 <Border x:Name="ChangeBlock" Grid.Column="2" IsVisible="False" VerticalAlignment="Center"
                         CornerRadius="12" Background="#0B2A3C" Padding="12,6">
                     <StackPanel>
-                        <TextBlock x:Name="ChangeLabel" FontSize="11.5" Foreground="#C9D6DF"
+                        <TextBlock x:Name="ChangeLabel" FontSize="12" Foreground="#C9D6DF"
                                    HorizontalAlignment="Right"/>
                         <TextBlock x:Name="ChangeText" FontSize="24" FontWeight="Bold" Foreground="#FFD600"
                                    TextWrapping="NoWrap" HorizontalAlignment="Right"/>

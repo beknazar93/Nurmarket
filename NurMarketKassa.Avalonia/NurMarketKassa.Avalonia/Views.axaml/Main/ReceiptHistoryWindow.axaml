@@ -114,7 +114,7 @@
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style Selector="Border.badge TextBlock">
-      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontSize" Value="12"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushUiStatusOk}"/>
       <Setter Property="TextWrapping" Value="Wrap"/>

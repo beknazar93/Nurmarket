@@ -22,6 +22,9 @@ class ApiText {
   static String get badResponse => l?.apiBadResponse ?? 'Сервер ответил непонятно. Повторите позже.';
   // 2026-10-29 (аудит мобилки, пп. 1, 6)
   static String get saleAlreadyPosted => l?.apiSaleAlreadyPosted ?? 'Сервер уже провёл этот чек (ключ совпал) — сверьте его в разделе «Чеки».';
+  // 2026-11-01 (аудит 10 из 10, М-08): офлайн-чек старше 7 суток — сервер отвечает offline_too_old
+  static String get saleTooOld =>
+      l?.apiSaleTooOld ?? 'Чек старше 7 суток: сервер не принимает его без подтверждения владельца. Не снимайте чек, сообщите владельцу.';
   static String get auditStale => l?.apiAuditStale ?? 'Ревизия не проведена вовремя — остатки могли измениться. Пересчитайте заново (акт остался черновиком).';
 }
 

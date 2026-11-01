@@ -5,6 +5,7 @@ import '../../features/admin/analytics.dart';
 import '../../features/admin/quotes_store.dart';
 import '../../features/assistant/ai_log_screen.dart';
 import '../../features/assistant/call_controller.dart';
+import '../../features/payment/loyalty.dart';
 import '../../features/sale/piece_sale_mode.dart';
 import '../../features/staff/staff_providers.dart';
 import '../ai/ai_access.dart';
@@ -33,5 +34,6 @@ void resetAccountProviders(Ref ref) {
   ref.invalidate(aiPolicyProvider);
   ref.invalidate(visionProvider);
   ref.invalidate(pieceSaleProvider);
+  ref.invalidate(loyaltyRepoProvider); // 2026-11-01 (М-06): правила бонусов прошлого магазина не переходят к новому аккаунту
   ref.read(callControllerProvider).resetForAccountSwitch();
 }

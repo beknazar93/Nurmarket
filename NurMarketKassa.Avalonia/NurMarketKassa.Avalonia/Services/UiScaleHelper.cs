@@ -74,6 +74,16 @@ public static class UiScaleHelper
 
     private static readonly ConditionalWeakTable<LayoutTransformControl, RootState> States = new();
 
+    /// <summary>2026-11-01, жалоба владельца (ThinkPad): окно программы владельца не знало, что масштаб посчитан заново (смена экрана/DPI,
+    /// открытие окна), и не пересчитывало меню и положение раздела. Вызывается в конце каждого применения; только из потока интерфейса.</summary>
+    public static event Action<LayoutTransformControl, double>? ScaleApplied;
+
+    /// <summary>2026-11-01: выбор «Масштаб интерфейса» / «Компактный вид» изменён в настройках — окна без своей связи с настройками
+    /// (программа владельца) пересчитывают масштаб сразу, пока ползунок тянут. Вызывать после записи UserPreferences.UiScalePercent.</summary>
+    public static event Action? PreferenceChanged;
+
+    public static void NotifyPreferenceChanged() => PreferenceChanged?.Invoke();
+
     /// <param name="designWidth">Ширина, на которую реально рассчитан макет ЭТОГО конкретного
     /// окна (обычно то же число, что и XAML Width) — у разных окон разный "родной" размер
     /// (MainWindow ~1280×840, PosSettingsWindow ~1000×820), поэтому общей константы на все
@@ -137,6 +147,14 @@ public static class UiScaleHelper
         else
             WatchWindow(transformRoot, state, window);
 
+        // 2026-11-01: окно раздела, встроенное в программу владельца (Настройки), масштабирует обёртка окна владельца
+        // (OwnerShellWindow.WrapSectionForScale) — своё второе уменьшение здесь удвоило бы масштаб.
+        if (window is not null && FullscreenHelper.IsEmbedded(window))
+        {
+            transformRoot.LayoutTransform = null;
+            return 1.0;
+        }
+
         var screen = MeasureScreen(window);
         var availableWidth = screen.Width - SafetyMarginPx;
         var availableHeight = screen.Height - SafetyMarginPx;
@@ -193,6 +211,15 @@ public static class UiScaleHelper
         {
             FitMinSizeToScreen(window, screen.Width, screen.Height);
             LogScreenOnce(state, screen, fitWidth, fitHeight, scale);
+        }
+
+        try
+        {
+            ScaleApplied?.Invoke(transformRoot, scale);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"UI scale: подписчик масштаба упал: {ex.Message}", "WARNING");
         }
 
         return scale;

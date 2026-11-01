@@ -239,7 +239,9 @@ public partial class ScreenSettingsView : UserControl
     {
         try
         {
+            // 2026-11-01: настройки встроены в программу владельца — масштаб стоит на её окне (Owner), а не на самих настройках.
             return UiScaleHelper.GetAppliedPercent(App.GetRequiredService<MainWindowHostBridge>().Window)
+                   ?? UiScaleHelper.GetAppliedPercent((TopLevel.GetTopLevel(this) as Window)?.Owner as Control)
                    ?? UiScaleHelper.GetAppliedPercent(TopLevel.GetTopLevel(this) as Control);
         }
         catch (Exception)
@@ -266,6 +268,7 @@ public partial class ScreenSettingsView : UserControl
         // диск/UI-поток на слабых устройствах — SaveToDisk откладываем до остановки.
         UserPreferences.Instance.UiScalePercent = e.NewValue;
         App.GetRequiredService<MainWindowHostBridge>().Window?.RefreshUiScale();
+        UiScaleHelper.NotifyPreferenceChanged(); // 2026-11-01: и программа владельца (у неё нет MainWindow)
         UiScaleChanged?.Invoke(this, EventArgs.Empty);
         // После применения — чтобы подпись показала, что реально получилось на этом экране.
         UpdateUiScaleValueText(e.NewValue);
@@ -288,6 +291,7 @@ public partial class ScreenSettingsView : UserControl
 
         UserPreferences.Instance.CompactLayoutMode = mode;
         App.GetRequiredService<MainWindowHostBridge>().Window?.RefreshUiScale();
+        UiScaleHelper.NotifyPreferenceChanged(); // 2026-11-01: и программа владельца
         UiScaleChanged?.Invoke(this, EventArgs.Empty);
         UpdateUiScaleValueText(UiScaleSlider.Value);
         ScheduleUiScaleSaveDebounce();

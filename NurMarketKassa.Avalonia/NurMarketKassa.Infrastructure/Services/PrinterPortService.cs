@@ -28,9 +28,15 @@ public static class PrinterPortService
         if (PlatformTransport is { } platform && platform.Handles(port))
             return platform.Probe(port);
 
+        // 2026-11-01: сетевой принтер (TCP 9100) — только проба подключения, данные не отправляются. Идёт печать на этот адрес — не подключаемся
+        // (многие принтеры принимают одно соединение): «занят».
+        if (NetworkPrinterAddress.IsNetworkPort(port))
+            return ProbeNetworkIdle(port, throttle: false)
+                   ?? new PortProbeResult(true, Tr.T("● Занят — идёт печать", "● Бош эмес — басып жатат", "● Busy — printing", "● Meşgul — yazdırıyor", "● Band — chop etmoqda"), "tcp");
+
         if (WinUsbPrinterPort.IsWinUsbDevicePath(port))
         {
-            return WinUsbPrinterPort.TryParseDevicePath(port, out var vid, out var pid) && WinUsbPrinterPort.Probe(vid, pid)
+            return WinUsbPrinterPort.TryParseDevicePath(port, out var vid, out var pid, out var instTag) && WinUsbPrinterPort.Probe(vid, pid, instTag)
                 ? new PortProbeResult(true, Tr.T("● Доступен (WinUSB)", "● Жеткиликтүү (WinUSB)", "● Available (WinUSB)", "● Kullanılabilir (WinUSB)", "● Mavjud (WinUSB)"), "winusb")
                 : new PortProbeResult(false, Tr.T("○ Устройство WinUSB не найдено", "○ WinUSB түзмөгү табылган жок", "○ WinUSB device not found", "○ WinUSB cihazı bulunamadı", "○ WinUSB qurilmasi topilmadi"), "winusb");
         }
@@ -76,6 +82,36 @@ public static class PrinterPortService
         new(StringComparer.OrdinalIgnoreCase);
 
     private static object GetPortLock(string port) => PortLocks.GetOrAdd(port, static _ => new object());
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long At, PortProbeResult Result)> NetProbeCache =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>2026-11-01 (ревью): проба сетевого принтера под ЗАМКОМ порта, без ожидания. Идёт печать на этот адрес — null («занят»), к принтеру не
+    /// подключаемся: многие LAN-принтеры принимают одно соединение, проба сорвала бы печать. <paramref name="throttle"/> — фоновый статус: не чаще
+    /// раза в 10 с на адрес (в остальное время отдаётся прежний результат).</summary>
+    public static PortProbeResult? ProbeNetworkIdle(string? rawPort, bool throttle)
+    {
+        var port = NormalizePort(rawPort);
+        if (string.IsNullOrWhiteSpace(port))
+            return NetworkPrinterAddress.Probe(rawPort);
+        if (throttle && NetProbeCache.TryGetValue(port, out var cached) && Environment.TickCount64 - cached.At < 10_000)
+            return cached.Result;
+        var portLock = GetPortLock(port);
+        if (!Monitor.TryEnter(portLock))
+            return null;
+        try
+        {
+            var result = NetworkPrinterAddress.Probe(port);
+            NetProbeCache[port] = (Environment.TickCount64, result);
+            return result;
+        }
+        finally
+        {
+            Monitor.Exit(portLock);
+        }
+    }
+
+
 
     // 2026-09-26, живой баг «касса иногда перестаёт печатать чеки до перезапуска»: запись в порт
     // не была ограничена по времени (WinUSB — без тайм-аута канала, copy /b — ReadToEnd до выхода
@@ -177,6 +213,10 @@ public static class PrinterPortService
 
         try
         {
+            // 2026-11-01: сеть (TCP) — keep-alive только проверяет подключение: постоянного соединения нет, в принтер ничего не уходит.
+            if (NetworkPrinterAddress.IsNetworkPort(port))
+                return NetworkPrinterAddress.Probe(port, 1500).IsAvailable;
+
             if (IsSpoolerPort(port) && RawPrinterHelper.HasQueuedJobs(port))
                 return false;
 
@@ -196,6 +236,7 @@ public static class PrinterPortService
         && !WinUsbPrinterPort.IsWinUsbDevicePath(port)
         && !HardwarePortHelper.LooksLikeComPort(port)
         && !HardwarePortHelper.LooksLikeLptPort(port)
+        && !NetworkPrinterAddress.IsNetworkPort(port)
         && !port.StartsWith(@"\\", StringComparison.Ordinal);
 
     /// <summary>Запись с жёстким лимитом времени. Сами способы записи тоже ограничены (WinUSB —
@@ -235,8 +276,12 @@ public static class PrinterPortService
         write.GetAwaiter().GetResult();
     }
 
-    public static string NormalizePort(string? raw) =>
-        HardwarePortHelper.NormalizeLptPort(raw, "");
+    // 2026-11-01: сетевые адреса «TCP:ip:9100», «NET:ip», «ip» приводятся к одному виду — один и тот же принтер = одна очередь/блокировка.
+    public static string NormalizePort(string? raw)
+    {
+        var normalized = HardwarePortHelper.NormalizeLptPort(raw, "");
+        return NetworkPrinterAddress.IsNetworkPort(normalized) ? NetworkPrinterAddress.Canonical(normalized) : normalized;
+    }
 
     /// <summary>Проверяет, существует ли LPT-устройство в системе (QueryDosDevice), не открывая порт.</summary>
     public static bool LptDeviceExists(string? rawPort)
@@ -274,15 +319,22 @@ public static class PrinterPortService
             return;
         }
 
+        // 2026-11-01: сетевой принтер (LAN/Wi-Fi, TCP 9100) — чеки (ESC/POS) и этикетки (TSPL/ZPL/RAW) одинаково, соединение на одно задание.
+        if (NetworkPrinterAddress.IsNetworkPort(port))
+        {
+            NetworkPrinterAddress.Write(port, payload, WriteTimeout(payload.Length));
+            return;
+        }
+
         if (WinUsbPrinterPort.IsWinUsbDevicePath(port))
         {
-            if (!WinUsbPrinterPort.TryParseDevicePath(port, out var vid, out var pid))
+            if (!WinUsbPrinterPort.TryParseDevicePath(port, out var vid, out var pid, out var instTag))
                 throw new InvalidOperationException($"Не удалось разобрать адрес WinUSB-устройства «{port}».");
 
             // Тайм-аут канала чуть короче общего лимита записи, чтобы сработал именно он: WinUSB
             // тогда сам прерывает передачу и отпускает устройство.
             WinUsbPrinterPort.SendRawBytes(vid, pid, payload,
-                (uint)Math.Max(3_000, WriteTimeout(payload.Length).TotalMilliseconds - 2_000));
+                (uint)Math.Max(3_000, WriteTimeout(payload.Length).TotalMilliseconds - 2_000), instTag);
             return;
         }
 

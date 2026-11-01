@@ -312,7 +312,9 @@ public static class SyncCenter
         if (at is null)
             return "";
         var queued = 0;
-        try { queued = OfflinePendingSalesStore.PendingCount; } catch { /* не критично */ }
+        // 2026-11-01 (Н-02): вызывается на UI-потоке (подсказка индикатора) — число из памяти (не старше 30 с; опрос шапки обновляет его каждые ~20 с),
+        // а не полный разбор очереди (5 000 чеков — 262 мс фриза).
+        try { queued = OfflinePendingSalesStore.PendingCountCached(30000); } catch { /* не критично */ }
         var line = Tr.T($"Синхронизация: {at:HH:mm:ss}", $"Шайкештирүү: {at:HH:mm:ss}", $"Synced: {at:HH:mm:ss}",
             $"Senkronizasyon: {at:HH:mm:ss}", $"Sinxronlash: {at:HH:mm:ss}");
         if (queued > 0)

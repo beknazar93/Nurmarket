@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../sale/sale_screen.dart' show addProduct;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -151,8 +152,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           context.go('/sale');
                           return;
                         }
-                        ref.read(cartProvider.notifier).add(prod);
-                        toast(context, l.addedToCheckName(prod.name));
+                        // 2026-10-31 (одежда): через общий путь продажи — у товара с размерами откроется выбор размера и цвета
+                        final before = ref.read(cartProvider).quantity;
+                        addProduct(context, ref, prod).then((_) {
+                          if (context.mounted && ref.read(cartProvider).quantity != before) toast(context, l.addedToCheckName(prod.name));
+                        });
                       },
                       child: Text(l.toCheck),
                     ),

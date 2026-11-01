@@ -355,12 +355,53 @@ public sealed class DatabaseService
             AddWriteOffsUnitCostColumn(connection);
             AddSoldLineItemsSaleIdColumn(connection);
             AddCompanyHistoryIndexes(connection);
+            EnsureSoldLineItemsSaleIndex(connection);
             MigrateLegacyCatalogDb(connection);
             MigrateLegacyOfflineDb(connection);
             if (!_legacyImportDone)
                 MigrateLegacyJsonSales(connection);
 
             _initialized = true;
+        }
+    }
+
+    /// <summary>2026-11-01 (Н-04, «да» владельца): индекс строк продаж по номеру чека. Чек читается по
+    /// <c>WHERE sale_id = $id</c> (отчёт смены, история чеков, экспорт, удаление чека при сверке), а индекса не было:
+    /// старый код создавал <c>idx_sold_line_items_sale</c> только сразу после ALTER TABLE ADD COLUMN, но колонка
+    /// sale_id давно входит в CREATE TABLE — ALTER падал, и индекс не создавался НИКОГДА. На 1 млн строк чек читался
+    /// 167–233 мс и больше (полный перебор таблицы).
+    ///
+    /// Строим СИНХРОННО в EnsureSchema, до запуска остальных писателей и до показа окон. Фоновое построение не годится:
+    /// другие писатели той же pos_local.db (LocalProductRepository, LocalAccountsManager и др.) работают со своими
+    /// соединениями и не знают про _dbLock этого класса, а CREATE INDEX держит блокировку записи SQLite секунды —
+    /// они ждали бы busy_timeout и падали с «database is locked». Здесь же пока никто, кроме нас, в базу не пишет.
+    /// Разово на базу (~2,3 с на 1 млн строк, на обычной базе мгновенно); повторный запуск — только проверка sqlite_master.
+    /// Таймаут команды 120 с; ошибка не ломает запуск (WARNING) — без индекса всё работает, просто медленнее.
+    /// Откат: <c>DROP INDEX idx_sold_line_items_sale;</c></summary>
+    private static void EnsureSoldLineItemsSaleIndex(SqliteConnection connection)
+    {
+        try
+        {
+            using var check = connection.CreateCommand();
+            check.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'idx_sold_line_items_sale';";
+            if (check.ExecuteScalar() is not null)
+                return;
+
+            using var count = connection.CreateCommand();
+            count.CommandText = "SELECT COUNT(*) FROM SoldLineItems;";
+            var rows = Convert.ToInt64(count.ExecuteScalar() ?? 0L);
+            PosLogger.Log($"Создаётся индекс idx_sold_line_items_sale по {rows} строкам истории продаж (разово).", "INFO");
+
+            var started = DateTime.UtcNow;
+            using var create = connection.CreateCommand();
+            create.CommandTimeout = 120;
+            create.CommandText = "CREATE INDEX IF NOT EXISTS idx_sold_line_items_sale ON SoldLineItems(sale_id);";
+            create.ExecuteNonQuery();
+            PosLogger.Log($"Индекс idx_sold_line_items_sale создан за {(DateTime.UtcNow - started).TotalMilliseconds:F0} мс.", "INFO");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Индекс idx_sold_line_items_sale не создан: {ex.Message}", "WARNING");
         }
     }
 
@@ -1565,6 +1606,35 @@ public sealed class DatabaseService
         finally
         {
             _dbLock.ExitWriteLock();
+        }
+    }
+
+    /// <summary>2026-11-01 (code-review, Ж-01): сумма событий смены видов <paramref name="kinds"/> с этим примечанием (имя клиента у оплат долга) за всё время.</summary>
+    public double SumShiftEventsByNote(string[] kinds, string note)
+    {
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            var names = new List<string>();
+            for (var i = 0; i < kinds.Length; i++)
+            {
+                names.Add("$k" + i);
+                command.Parameters.AddWithValue("$k" + i, kinds[i]);
+            }
+            command.CommandText = $"SELECT COALESCE(SUM(amount), 0) FROM ShiftEvents WHERE kind IN ({string.Join(",", names)}) AND note = $note;";
+            command.Parameters.AddWithValue("$note", note);
+            return Convert.ToDouble(command.ExecuteScalar() ?? 0.0, CultureInfo.InvariantCulture);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ShiftEvents sum by note read failed: {ex.Message}", "WARNING");
+            return 0;
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
         }
     }
 

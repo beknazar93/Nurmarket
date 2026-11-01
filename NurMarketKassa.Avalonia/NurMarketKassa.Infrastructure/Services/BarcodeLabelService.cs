@@ -24,6 +24,9 @@ public sealed record LabelPrintRequest(
     string? StoreName = null,
     string? VariantText = null);
 
+/// <summary>2026-11-01 (П-7): необязательные команды TSPL. null в поле — команда не отправляется.</summary>
+public sealed record TsplExtras(int? Density, int? Speed, bool? Flip, string? Sensor);
+
 /// <summary>
 /// Генерирует изображение этикетки (штрих-код + название товара + цена) по шаблону
 /// <see cref="LabelTemplate"/> и печатает его на выбранном Windows-принтере.
@@ -646,12 +649,17 @@ public static partial class BarcodeLabelService
     /// должна идти в обход GDI, напрямую через PrinterPortService (WinUSB/LPT/COM/raw-USB).</summary>
     public static bool IsRawDevicePath(string printerName) =>
         UsbRawPrinterPort.IsRawPortLabel(printerName) ||
+        NetworkPrinterAddress.IsNetworkPort(printerName) || // 2026-11-01: сетевой принтер этикеток (LAN, TCP 9100) — как прямой порт, язык LabelRawLanguage
         WinUsbPrinterPort.IsWinUsbDevicePath(printerName) ||
         HardwarePortHelper.LooksLikeComPort(printerName) ||
         HardwarePortHelper.LooksLikeLptPort(printerName) ||
         printerName.StartsWith(@"\\.\", StringComparison.Ordinal);
 
-    public static LabelPrintResult Print(LabelPrintRequest request)
+    // 2026-11-01: своя очередь на каждый принтер этикеток (LabelPrinterSelector.RunQueued) — не общая с чеками.
+    public static LabelPrintResult Print(LabelPrintRequest request) =>
+        LabelPrinterSelector.RunQueued(request.PrinterName, () => PrintUnqueued(request));
+
+    private static LabelPrintResult PrintUnqueued(LabelPrintRequest request)
     {
         if (IsRawDevicePath(request.PrinterName))
             return PrintToRawDevice(request);
@@ -769,8 +777,12 @@ public static partial class BarcodeLabelService
         copies = Math.Clamp(copies, 1, 99);
         if (prefs.LabelRawLanguage == "tspl")
         {
+            // 2026-11-01 (П-7): плотность, скорость, поворот, датчик — только если заданы в настройках принтера этикеток; иначе задание прежнее.
+            var extras = prefs.LabelTsplDensity is null && prefs.LabelTsplSpeed is null && prefs.LabelTsplFlip is null && prefs.LabelTsplSensor is null
+                ? null
+                : new TsplExtras(prefs.LabelTsplDensity, prefs.LabelTsplSpeed, prefs.LabelTsplFlip, prefs.LabelTsplSensor);
             PrinterPortService.SendRawBytes(devicePath, BuildTsplJob(label, widthMm, heightMm, prefs.LabelGapMm,
-                prefs.LabelOffsetXMm, prefs.LabelOffsetYMm, copies));
+                prefs.LabelOffsetXMm, prefs.LabelOffsetYMm, copies, extras));
             return;
         }
 
@@ -791,7 +803,7 @@ public static partial class BarcodeLabelService
     /// <summary>Задание TSPL (TSC, Xprinter, Gprinter, Rongta в режиме этикеток): размер, зазор,
     /// картинка BITMAP (в TSPL бит 0 — печать, поэтому байты инвертируются), копии.</summary>
     internal static byte[] BuildTsplJob(Bitmap label, double widthMm, double heightMm, double gapMm,
-        double offsetXMm, double offsetYMm, int copies)
+        double offsetXMm, double offsetYMm, int copies, TsplExtras? extras = null)
     {
         var ci = System.Globalization.CultureInfo.InvariantCulture;
         var raster = BitmapToEscPosRaster(label);
@@ -803,7 +815,19 @@ public static partial class BarcodeLabelService
         using var ms = new MemoryStream();
         void W(string s) { var b = System.Text.Encoding.ASCII.GetBytes(s); ms.Write(b, 0, b.Length); }
         W(string.Format(ci, "SIZE {0:0.##} mm,{1:0.##} mm\r\n", widthMm, heightMm));
-        W(string.Format(ci, "GAP {0:0.##} mm,0 mm\r\n", Math.Max(0, gapMm)));
+        // 2026-11-01 (П-7): без extras задание побайтно такое же, как раньше.
+        if (extras?.Sensor == "gap")
+            W("SET GAP ON\r\n");
+        if (extras?.Sensor == "bline")
+            W(string.Format(ci, "BLINE {0:0.##} mm,0 mm\r\n", Math.Max(0, gapMm)));
+        else
+            W(string.Format(ci, "GAP {0:0.##} mm,0 mm\r\n", Math.Max(0, gapMm)));
+        if (extras?.Density is { } density)
+            W(string.Format(ci, "DENSITY {0}\r\n", Math.Clamp(density, 0, 15)));
+        if (extras?.Speed is { } speed)
+            W(string.Format(ci, "SPEED {0}\r\n", Math.Clamp(speed, 2, 6)));
+        if (extras?.Flip is { } flip)
+            W(flip ? "DIRECTION 1\r\n" : "DIRECTION 0\r\n");
         W("CLS\r\n");
         W(string.Format(ci, "BITMAP {0},{1},{2},{3},0,", x, y, bytesPerRow, height));
         for (var i = 8; i < raster.Length; i++)
@@ -811,6 +835,38 @@ public static partial class BarcodeLabelService
         W("\r\n");
         W(string.Format(ci, "PRINT 1,{0}\r\n", Math.Clamp(copies, 1, 99)));
         return ms.ToArray();
+    }
+
+    /// <summary>2026-11-01 (П-7): калибровка датчика принтера этикеток по TSPL — принтер протянет несколько этикеток и запомнит зазор/метку.
+    /// Только для прямого подключения на языке TSPL; идёт по очереди принтера этикеток, чековый принтер не затрагивается.</summary>
+    public static LabelPrintResult CalibrateSensor(string printerPath)
+    {
+        if (string.IsNullOrWhiteSpace(printerPath) || !IsRawDevicePath(printerPath))
+            return LabelPrintResult.Failed;
+        var prefs = UserPreferences.Instance;
+        if (prefs.LabelRawLanguage != "tspl")
+            return LabelPrintResult.Failed;
+        var template = LabelTemplateStore.Load();
+        var ci = System.Globalization.CultureInfo.InvariantCulture;
+        var devicePath = UsbRawPrinterPort.IsRawPortLabel(printerPath) ? UsbRawPrinterPort.ToDevicePath(printerPath) : printerPath;
+        var command = string.Format(ci, "SIZE {0:0.##} mm,{1:0.##} mm\r\n", template.WidthMm, template.HeightMm)
+            + (prefs.LabelTsplSensor == "bline"
+                ? string.Format(ci, "BLINE {0:0.##} mm,0 mm\r\nBLINEDETECT\r\n", Math.Max(0, prefs.LabelGapMm))
+                : string.Format(ci, "GAP {0:0.##} mm,0 mm\r\nGAPDETECT\r\n", Math.Max(0, prefs.LabelGapMm)));
+        return LabelPrinterSelector.RunQueued(printerPath, () =>
+        {
+            try
+            {
+                PrinterPortService.SendRawBytes(devicePath, System.Text.Encoding.ASCII.GetBytes(command));
+                PosLogger.Log("Принтер этикеток: отправлена калибровка датчика.", "PRINTER");
+                return LabelPrintResult.Success;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Label sensor calibration failed: {ex.GetType().Name}", "ERROR");
+                return LabelPrintResult.Failed;
+            }
+        });
     }
 
     /// <summary>Encodes a monochrome ESC/POS "GS v 0" raster bit-image command (m=0, no scaling).</summary>

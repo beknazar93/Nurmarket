@@ -109,7 +109,7 @@ public static class EscPosTextReceiptPrinter
     public static void ValidateSettings(ReceiptPrinterSettings cfg)
     {
         if (string.IsNullOrWhiteSpace(cfg.DevicePath))
-            throw new InvalidOperationException("Укажите порт принтера: LPT1, COM3 или имя очереди Windows.");
+            throw new InvalidOperationException("Укажите порт принтера: LPT1, COM3, имя очереди Windows или сетевой адрес TCP:192.168.1.50:9100.");
 
         if (cfg.RetryCount < 1)
             throw new InvalidOperationException("Количество повторов печати должно быть не меньше 1.");

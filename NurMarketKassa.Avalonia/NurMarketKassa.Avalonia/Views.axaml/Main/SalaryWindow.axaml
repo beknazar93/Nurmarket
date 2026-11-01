@@ -34,7 +34,7 @@
             <Setter Property="Margin" Value="0,0,12,0"/>
         </Style>
         <Style Selector="TextBlock.sub">
-            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="Margin" Value="0,2,12,0"/>
@@ -107,7 +107,7 @@
                     <TextBlock x:Name="CardPayrollLabel" Classes="sec-kpi-label"/>
                     <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="CardPayrollValue" Classes="sec-kpi-value" FontWeight="Bold"/></Viewbox>
                     <!-- 2026-10-20, аудит владельца: под «Начислено» — «Выплачено · Осталось» (раньше плитка «К выплате» не вычитала выплаченное). -->
-                    <TextBlock x:Name="CardPayrollPaidText" FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" IsVisible="False"/>
+                    <TextBlock x:Name="CardPayrollPaidText" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}" IsVisible="False"/>
                 </StackPanel>
             </Border>
             <Border Classes="sec-kpi">

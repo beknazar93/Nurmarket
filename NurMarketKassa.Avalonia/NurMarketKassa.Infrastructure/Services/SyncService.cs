@@ -771,6 +771,14 @@ public sealed partial class SyncService : IDisposable
         if (quick.Handled)
             return quick.SaleId;
 
+        // 2026-11-01 (К-06): старый путь не передаёт дату продажи (sold_at) — чек старше 7 суток он провёл бы сегодняшним числом.
+        if (IsTooOldForDatelessReplay(entry))
+        {
+            PosLogger.Log($"OFFLINE replay: чек {entry.Id} от {entry.CreatedAt:yyyy-MM-dd HH:mm} старше 7 суток, быстрый путь не взял — старым путём без даты не провожу, на проверку.", "WARNING");
+            OfflinePendingSalesStore.Update(entry.Id, e => { e.ReviewNeeded = true; e.TooOldForServer = true; }); // 2026-11-01: признак для кнопки «Провести по PIN владельца»
+            throw new ReplayDeferredException(TooOldReviewText(entry)) { NeedsReview = true };
+        }
+
         // 2026-10-29: «в долг» без связи старым путём (корзина → позиции → checkout) не отправляется: он не умеет передать клиента, предоплату и график долга,
         // и чек превратился бы в обычную продажу. Быстрый путь не взял чек — «Требует проверки», чек остаётся в кассе.
         if (entry.OfflineDebt)
@@ -971,7 +979,9 @@ public sealed partial class SyncService : IDisposable
 
     private void UpdateStatusText()
     {
-        var pending = OfflinePendingSalesStore.PendingCount;
+        // 2026-11-01 (Н-02): во время досылки счётчик берём из памяти (устаревание до 1 с) — раньше полный пересчёт после КАЖДОГО чека
+        // (5 000 в очереди: 156–230 мс на чек, ~85 % времени досылки). В покое — точное значение.
+        var pending = OfflinePendingSalesStore.PendingCountCached(IsSyncInProgress ? 1000 : 0);
         if (IsSyncInProgress)
         {
             StatusText = pending > 0

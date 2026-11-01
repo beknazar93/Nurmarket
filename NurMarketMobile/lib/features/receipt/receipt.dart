@@ -1,4 +1,5 @@
 import '../../core/api/api_client.dart';
+import '../sale/variant_service.dart';
 import '../../core/api/session_store.dart';
 import '../../core/util/ui.dart';
 import '../payment/receipt_qr.dart' as qr;
@@ -199,7 +200,7 @@ class Receipt {
       final lineTotal = num0(m, 'total') > 0 ? num0(m, 'total') : (num0(m, 'line_total') > 0 ? num0(m, 'line_total') : roundMoney(qty * price));
       lines.add(
         ReceiptLine(
-          name: str(m, 'product_name') ?? str(m, 'name') ?? str(m, 'title') ?? '',
+          name: saleItemName(m), // 2026-10-31: с размером и цветом
           qty: qty,
           // 2026-10-27 (М4): штука из упаковки (sale_package_id в строке продажи) — «3 шт × 12», а не единица упаковки товара
           unit: (str(m, 'sale_package_id') ?? '').isNotEmpty ? 'шт' : (str(m, 'unit') ?? ''),

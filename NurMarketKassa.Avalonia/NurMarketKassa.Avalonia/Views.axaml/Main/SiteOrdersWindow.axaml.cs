@@ -306,11 +306,11 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         {
             SetDot("BrushTextSoft");
             ShowcaseStateText.Text = Tr.T("Витрина: нет данных", "Витрина: маалымат жок", "Showcase: no data", "Vitrin: veri yok", "Vitrina: ma'lumot yo'q");
-            ShowcaseHowText.Text = Tr.T("Нет связи с сервером NurCRM — состояние витрины появится, когда связь вернётся.",
-                "NurCRM сервери менен байланыш жок — витринанын абалы байланыш калыбына келгенде чыгат.",
-                "No connection to the NurCRM server — the showcase status will appear when the connection is back.",
+            ShowcaseHowText.Text = Tr.T("Сервер NurCRM недоступен — состояние витрины появится, когда связь вернётся.",
+                "NurCRM сервери жеткиликсиз — витринанын абалы байланыш калыбына келгенде чыгат.",
+                "The NurCRM server is unavailable — the showcase status will appear when the connection is back.",
                 "NurCRM sunucusuyla bağlantı yok — vitrin durumu bağlantı geri geldiğinde görünecek.",
-                "NurCRM serveri bilan aloqa yo'q — vitrina holati aloqa tiklanganda chiqadi.");
+                "NurCRM serveri mavjud emas — vitrina holati aloqa tiklanganda chiqadi.");
             return;
         }
 
@@ -427,11 +427,11 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         EmptyText.IsVisible = shown.Count == 0;
         EmptyText.Text = _accessError
             ?? (_offline && _lastSuccess == null
-                ? Tr.T("Нет связи с сервером NurCRM. Заказы появятся, когда связь вернётся.",
-                    "NurCRM сервери менен байланыш жок. Заказдар байланыш калыбына келгенде чыгат.",
-                    "No connection to the NurCRM server. Orders will appear when the connection is back.",
+                ? Tr.T("Сервер NurCRM недоступен. Заказы появятся, когда связь вернётся.",
+                    "NurCRM сервери жеткиликсиз. Заказдар байланыш калыбына келгенде чыгат.",
+                    "The NurCRM server is unavailable. Orders will appear when the connection is back.",
                     "NurCRM sunucusuyla bağlantı yok. Siparişler bağlantı geri geldiğinde görünecek.",
-                    "NurCRM serveri bilan aloqa yo'q. Buyurtmalar aloqa tiklanganda chiqadi.")
+                    "NurCRM serveri mavjud emas. Buyurtmalar aloqa tiklanganda chiqadi.")
                 : _lastSuccess == null
                     ? Tr.T("Загружаю заказы…", "Заказдар жүктөлүүдө…", "Loading orders…", "Siparişler yükleniyor…", "Buyurtmalar yuklanmoqda…")
                     : _orders.Count == 0
@@ -887,7 +887,7 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
             if (index >= 0)
                 _orders[index] = updated;
             ShowcaseApiService.PublishNewOrdersCount(_orders.Count(o => o.IsNew));
-            ShowNotice(Tr.T($"Заказ {NumberText(updated)}: «{StatusLabel(updated.Status)}»", $"Заказ {NumberText(updated)}: «{StatusLabel(updated.Status)}»",
+            ShowNotice(Tr.T($"Заказ {NumberText(updated)}: «{StatusLabel(updated.Status)}»", $"Буйрутма {NumberText(updated)}: «{StatusLabel(updated.Status)}»",
                 $"Order {NumberText(updated)}: “{StatusLabel(updated.Status)}”", $"Sipariş {NumberText(updated)}: «{StatusLabel(updated.Status)}»",
                 $"Buyurtma {NumberText(updated)}: «{StatusLabel(updated.Status)}»"), success: true);
         }
@@ -987,9 +987,9 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         {
             UseBrush(LiveDot, Shape.FillProperty, "BrushWarning");
             UpdatedText.Text = _lastSuccess is { } at
-                ? Tr.T($"Нет связи · данные на {at:HH:mm}", $"Байланыш жок · маалымат {at:HH:mm} боюнча", $"Offline · data as of {at:HH:mm}",
-                    $"Bağlantı yok · veriler {at:HH:mm} itibarıyla", $"Aloqa yo'q · ma'lumotlar {at:HH:mm} holatiga ko'ra")
-                : Tr.T("Нет связи с сервером", "Сервер менен байланыш жок", "No connection to the server", "Sunucuyla bağlantı yok", "Server bilan aloqa yo'q");
+                ? Tr.T($"Сервер недоступен · данные на {at:HH:mm}", $"Сервер жеткиликсиз · маалымат {at:HH:mm} боюнча", $"Server unavailable · data as of {at:HH:mm}",
+                    $"Sunucu kullanılamıyor · veriler {at:HH:mm} itibarıyla", $"Server mavjud emas · ma'lumotlar {at:HH:mm} holatiga ko'ra")
+                : Tr.T("Сервер недоступен", "Сервер жеткиликсиз", "The server is unavailable", "Sunucu kullanılamıyor", "Server mavjud emas");
             return;
         }
 
@@ -1129,7 +1129,7 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
     {
         var pill = new Border { CornerRadius = new CornerRadius(8), Padding = new Thickness(8, 2), VerticalAlignment = VerticalAlignment.Center };
         UseBrush(pill, Border.BackgroundProperty, backgroundKey);
-        var label = new TextBlock { Text = text, FontSize = 11.5, FontWeight = FontWeight.SemiBold };
+        var label = new TextBlock { Text = text, FontSize = 12, FontWeight = FontWeight.SemiBold };
         UseBrush(label, TextBlock.ForegroundProperty, foregroundKey);
         pill.Child = label;
         return pill;

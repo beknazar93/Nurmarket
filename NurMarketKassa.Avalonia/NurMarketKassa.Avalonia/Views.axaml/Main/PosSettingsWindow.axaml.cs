@@ -71,6 +71,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private TextBox ReceiptLptBox => _printView.ReceiptLptBox;
         private ComboBox DiscoveredPrintersCombo => _printView.DiscoveredPrintersCombo;
         private Button BtnFindPrinters => _printView.BtnFindPrinters;
+        private ComboBox LabelPrinterCombo => _printView.LabelPrinterCombo;
+        private Button BtnFindLabelPrinters => _printView.BtnFindLabelPrinters;
         private TextBlock StatusPortText => _printView.StatusPortText;
         private Button BtnPhysicalPrint => _printView.BtnPhysicalPrint;
         private TextBox ReceiptRetryBox => _printView.ReceiptRetryBox;
@@ -307,6 +309,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             ReceiptEnabledCheck.IsChecked = prefs.ReceiptEnabled;
             ReceiptLptBox.Text = prefs.ReceiptDevicePath;
+            _printView.ReceiptNetPanel.SetAddress(prefs.ReceiptDevicePath); // 2026-11-01: «Сеть (LAN)» принтера чеков
             ReceiptEscRBox.Text = prefs.ReceiptEscR?.ToString() ?? "";
             ReceiptRetryBox.Text = prefs.ReceiptRetryCount.ToString();
             CashDrawerEnabledCheck.IsChecked = prefs.CashDrawerEnabled;
@@ -451,6 +454,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             RefreshCatalogDiagnostics();
             RefreshPrinterPortStatus();
             RefreshDiscoveredPrinters();
+            RefreshLabelPrinters();
         }
 
         /// <summary>Список изменений установленной версии. Он и раньше существовал
@@ -478,6 +482,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             ReceiptLptBox.TextChanged += ReceiptLptBox_TextChanged;
             BtnFindPrinters.Click += FindPrinters_Click;
+            BtnFindLabelPrinters.Click += (_, _) => RefreshLabelPrinters();
+            // 2026-11-01 (LAN): адрес принтера чеков из блока «Сеть» сразу попадает в поле порта; принтер этикеток — по «Использовать этот принтер»
+            _printView.ReceiptNetPanel.AddressApplied += (_, _) =>
+            {
+                if (_printView.ReceiptNetPanel.CurrentAddress is { } netAddress && !string.Equals(ReceiptLptBox.Text, netAddress, StringComparison.OrdinalIgnoreCase))
+                    ReceiptLptBox.Text = netAddress;
+            };
+            _printView.LabelNetPanel.UseRequested += (_, address) => UseLabelNetwork(address);
+            LabelPrinterCombo.SelectionChanged += LabelPrinterCombo_SelectionChanged;
             DiscoveredPrintersCombo.SelectionChanged += DiscoveredPrintersCombo_SelectionChanged;
             ReceiptPaperWidthCombo.SelectionChanged += ReceiptPaperWidthCombo_SelectionChanged;
             BtnPhysicalPrint.Click += BtnPhysicalPrint_Click;
@@ -824,8 +837,156 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
         }
 
-        private void ReceiptLptBox_TextChanged(object? sender, TextChangedEventArgs e) =>
+        private void ReceiptLptBox_TextChanged(object? sender, TextChangedEventArgs e)
+        {
+            if (NetworkPrinterAddress.IsNetworkPort(ReceiptLptBox.Text))
+                _printView.ReceiptNetPanel.SetAddress(ReceiptLptBox.Text);
             RefreshPrinterPortStatus();
+            UpdateLabelPrinterInfo();
+        }
+
+        // 2026-11-01 (LAN): принтер этикеток по сети — добавить в список и выбрать (адрес запоминается при «Сохранить»).
+        private void UseLabelNetwork(string address)
+        {
+            var canon = NetworkPrinterAddress.Canonical(address);
+            var list = (LabelPrinterCombo.ItemsSource as IEnumerable<DiscoveredPrinter>)?.ToList() ?? new List<DiscoveredPrinter>();
+            var item = list.FirstOrDefault(p => LabelPrinterSelector.SamePrinter(p.DevicePath, canon));
+            if (item is null)
+            {
+                item = NetworkPrinterAddress.ToDiscovered(canon);
+                list.Add(item);
+            }
+            _labelPrinterInit = true;
+            LabelPrinterCombo.ItemsSource = list;
+            LabelPrinterCombo.SelectedItem = item;
+            _labelPrinterInit = false;
+            _labelPrinterChoice = canon;
+            _labelLiveText = "";
+            UpdateLabelPrinterInfo();
+            RefreshLabelLiveStatus();
+        }
+
+        // 2026-11-01 (просьба владельца: два принтера разной модели одновременно): принтер этикеток и штрихкодов — отдельный выбор,
+        // не связанный с принтером чеков. Список — без PDF/XPS/OneNote/факса, камеры и Bluetooth; записывается при «Сохранить».
+        private bool _labelPrinterInit;
+        private string? _labelPrinterChoice;
+        // 2026-11-01 (П-7): живой статус принтера этикеток — при открытии и раз в 10 с, пока окно открыто (в фоне, не во время печати)
+        private string _labelLiveText = "";
+        private Avalonia.Threading.DispatcherTimer? _labelLiveTimer;
+
+        private async void RefreshLabelLiveStatus()
+        {
+            if (LabelPrinterCombo.SelectedItem is not DiscoveredPrinter printer)
+            {
+                _labelLiveText = "";
+                return;
+            }
+            var path = printer.DevicePath;
+            var status = await Task.Run(() => LabelPrinterSelector.CheckLive(path));
+            if (LabelPrinterCombo.SelectedItem is not DiscoveredPrinter now || now.DevicePath != path)
+                return;
+            _labelLiveText = LabelPrinterSelector.LiveText(status);
+            UpdateLabelPrinterInfo();
+        }
+
+        private void StartLabelLiveTimer()
+        {
+            if (_labelLiveTimer != null)
+                return;
+            _labelLiveTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+            _labelLiveTimer.Tick += (_, _) => RefreshLabelLiveStatus();
+            _labelLiveTimer.Start();
+            Closed += (_, _) => _labelLiveTimer?.Stop();
+        }
+
+        private async void RefreshLabelPrinters()
+        {
+            IReadOnlyList<DiscoveredPrinter> list;
+            try
+            {
+                list = await Task.Run(LabelPrinterSelector.GetChoices);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Label printer list failed: {ex.GetType().Name}", "WARNING");
+                list = Array.Empty<DiscoveredPrinter>();
+            }
+            var keep = _labelPrinterChoice ?? UserPreferences.Instance.LabelPrinterDevicePath;
+            _labelPrinterInit = true;
+            LabelPrinterCombo.ItemsSource = list;
+            LabelPrinterCombo.SelectedItem = list.FirstOrDefault(p => LabelPrinterSelector.SamePrinter(p.DevicePath, keep));
+            _labelPrinterInit = false;
+            if (LabelPrinterCombo.SelectedItem is DiscoveredPrinter netSel && NetworkPrinterAddress.IsNetworkPort(netSel.DevicePath))
+                _printView.LabelNetPanel.SetAddress(netSel.DevicePath);
+            _labelLiveText = "";
+            UpdateLabelPrinterInfo();
+            RefreshLabelLiveStatus();
+            StartLabelLiveTimer();
+        }
+
+        private void LabelPrinterCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (_labelPrinterInit)
+                return;
+            if (LabelPrinterCombo.SelectedItem is DiscoveredPrinter p)
+            {
+                _labelPrinterChoice = p.DevicePath;
+                if (NetworkPrinterAddress.IsNetworkPort(p.DevicePath))
+                    _printView.LabelNetPanel.SetAddress(p.DevicePath);
+            }
+            _labelLiveText = "";
+            UpdateLabelPrinterInfo();
+            RefreshLabelLiveStatus();
+        }
+
+        /// <summary>Подписи под выбором: что за принтер этикеток, чем печатает, и предупреждение, если это тот же принтер, что для чеков.</summary>
+        private void UpdateLabelPrinterInfo()
+        {
+            if (_printView.LabelPrinterKindText is null)
+                return;
+            var receiptPath = HardwarePortHelper.NormalizeLptPort(ReceiptLptBox.Text);
+            var receiptName = (DiscoveredPrintersCombo.ItemsSource as IEnumerable<DiscoveredPrinter>)
+                ?.FirstOrDefault(p => LabelPrinterSelector.SamePrinter(p.DevicePath, receiptPath))?.Label ?? receiptPath;
+            var receiptKind = LabelPrinterSelector.DescribeKind(receiptPath);
+            _printView.ReceiptPrinterSummaryText.Text = Tr.T(
+                $"Принтер чеков: {receiptName} — {receiptKind} (меняется ниже, в блоке «Оборудование»).",
+                $"Чек принтери: {receiptName} — {receiptKind} (төмөндө, «Жабдуулар» блогунда өзгөртүлөт).",
+                $"Receipt printer: {receiptName} — {receiptKind} (change it below, in the “Equipment” block).",
+                $"Fiş yazıcısı: {receiptName} — {receiptKind} (aşağıdaki «Donanım» bölümünden değiştirilir).",
+                $"Chek printeri: {receiptName} — {receiptKind} (pastda, «Uskunalar» blokida o'zgartiriladi).");
+
+            var selected = LabelPrinterCombo.SelectedItem as DiscoveredPrinter;
+            var saved = _labelPrinterChoice ?? UserPreferences.Instance.LabelPrinterDevicePath;
+            if (selected is null)
+            {
+                _printView.LabelPrinterKindText.Text = "";
+                var notFound = !string.IsNullOrWhiteSpace(saved);
+                _printView.LabelPrinterWarnText.Text = LabelPrinterSelector.HintText(notFound ? LabelPrinterState.NotFound : LabelPrinterState.NotSelected);
+                _printView.LabelPrinterWarnText.IsVisible = true;
+                return;
+            }
+            var kind = LabelPrinterSelector.DescribeKind(selected.DevicePath);
+            var how = LabelPrinterSelector.DescribeLanguage(selected.DevicePath);
+            _printView.LabelPrinterKindText.Text = Tr.T(
+                $"Подключение: {kind}. Как печатает: {how}." + (_labelLiveText.Length > 0 ? $" Состояние: {_labelLiveText}." : ""),
+                $"Туташуу: {kind}. Кандай басат: {how}." + (_labelLiveText.Length > 0 ? $" Абалы: {_labelLiveText}." : ""),
+                $"Connection: {kind}. Printing method: {how}." + (_labelLiveText.Length > 0 ? $" State: {_labelLiveText}." : ""),
+                $"Bağlantı: {kind}. Yazdırma yöntemi: {how}." + (_labelLiveText.Length > 0 ? $" Durum: {_labelLiveText}." : ""),
+                $"Ulanish: {kind}. Qanday chop etadi: {how}." + (_labelLiveText.Length > 0 ? $" Holati: {_labelLiveText}." : ""));
+            var same = LabelPrinterSelector.IsSameAsReceiptPrinter(selected.DevicePath, receiptPath);
+            // 2026-11-01 (С-8): очередь «Generic / Text Only» печатает картинку пустой или мусором — предупреждаем.
+            var textOnly = LabelPrinterSelector.LooksLikeTextOnlyQueue(selected.Label);
+            _printView.LabelPrinterWarnText.IsVisible = same || textOnly;
+            if (textOnly && !same)
+                _printView.LabelPrinterWarnText.Text = LabelPrinterSelector.TextOnlyWarning;
+            if (same)
+                _printView.LabelPrinterWarnText.Text = Tr.T(
+                    "Для этикеток выбран тот же принтер, что и для чеков: задания пойдут в один порт по очереди, одновременной работы двух принтеров не будет. Если у вас два принтера — выберите для этикеток второй.",
+                    "Этикеткага чек принтери эле тандалды: тапшырмалар бир портко кезек менен барат, эки принтер бир убакта иштебейт. Эки принтериңиз болсо — этикеткага экинчисин тандаңыз.",
+                    "The same printer is chosen for labels and receipts: jobs go to one port one after another, so two printers will not work at the same time. If you have two printers, pick the second one for labels.",
+                    "Etiket için fiş yazıcısı ile aynı yazıcı seçildi: işler tek porta sırayla gider, iki yazıcı aynı anda çalışmaz. İki yazıcınız varsa etiket için ikincisini seçin.",
+                    "Yorliq uchun chek printeri bilan bir xil printer tanlandi: vazifalar bitta portga navbat bilan boradi, ikki printer bir vaqtda ishlamaydi. Ikkita printeringiz bo'lsa — yorliq uchun ikkinchisini tanlang.");
+        }
 
         /// <summary>Сканирует установленные принтеры Windows + LPT/COM-порты и заполняет список выбора.</summary>
         private void RefreshDiscoveredPrinters()
@@ -833,7 +994,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             var found = PrinterDiscoveryService.Discover();
             DiscoveredPrintersCombo.ItemsSource = found;
             DiscoveredPrintersCombo.SelectedItem = found.FirstOrDefault(p =>
-                string.Equals(p.DevicePath, ReceiptLptBox.Text, StringComparison.OrdinalIgnoreCase));
+                string.Equals(p.DevicePath, ReceiptLptBox.Text, StringComparison.OrdinalIgnoreCase)
+                || (NetworkPrinterAddress.IsNetworkPort(ReceiptLptBox.Text) && LabelPrinterSelector.SamePrinter(p.DevicePath, ReceiptLptBox.Text)));
         }
 
         private void FindPrinters_Click(object? sender, RoutedEventArgs e) => RefreshDiscoveredPrinters();
@@ -931,11 +1093,36 @@ namespace NurMarketKassa.AvaloniaHost.Views
             return ReceiptPaperProfile.Paper58mm;
         }
 
+        private int _netStatusVersion;
+
+        /// <summary>2026-11-01 (LAN): проверка подключения к сетевому принтеру чеков — с задержкой после ввода и в фоне (таймаут 2 с), интерфейс не ждёт.</summary>
+        private async Task RefreshNetworkPortStatusAsync(string port)
+        {
+            var version = ++_netStatusVersion;
+            StatusPortText.Text = Tr.T("… проверяю сеть", "… тармакты текшерип жатам", "… checking the network", "… ağ kontrol ediliyor", "… tarmoq tekshirilmoqda");
+            StatusPortText.Foreground = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+            await Task.Delay(600);
+            if (version != _netStatusVersion)
+                return;
+            var probe = await Task.Run(() => PrinterPortService.ProbePort(port));
+            if (version != _netStatusVersion)
+                return;
+            StatusPortText.Text = probe.Message;
+            StatusPortText.Foreground = probe.IsAvailable
+                ? new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A))
+                : new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
+        }
+
         private void RefreshPrinterPortStatus()
         {
             if (StatusPortText == null)
                 return;
 
+            if (NetworkPrinterAddress.IsNetworkPort(ReceiptLptBox.Text))
+            {
+                _ = RefreshNetworkPortStatusAsync(ReceiptLptBox.Text!);
+                return;
+            }
             var probe = PrinterPortService.ProbePort(ReceiptLptBox.Text);
             StatusPortText.Text = probe.Message;
             StatusPortText.Foreground = probe.IsAvailable
@@ -1043,7 +1230,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 return;
             }
 
-            var probe = PrinterPortService.ProbePort(devicePath);
+            // 2026-11-01 (LAN): у сетевого принтера отдельной пробы на потоке интерфейса нет — недоступность покажет сама печать (таймаут 3 с, в фоне)
+            var probe = NetworkPrinterAddress.IsNetworkPort(devicePath) ? new PrinterPortService.PortProbeResult(true, "", "tcp") : PrinterPortService.ProbePort(devicePath);
             if (!probe.IsAvailable)
             {
                 StatusText.Text = Tr.T($"❌ Порт недоступен: {probe.Message}", $"❌ Порт жеткиликсиз: {probe.Message}", $"❌ Port unavailable: {probe.Message}", $"❌ Port kullanılamıyor: {probe.Message}", $"❌ Port mavjud emas: {probe.Message}");
@@ -1577,6 +1765,28 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (!receiptWasEnabled && prefs.ReceiptEnabled)
                 prefs.CheckoutPrintReceipt = null;
             prefs.ReceiptDevicePath = HardwarePortHelper.NormalizeLptPort(ReceiptLptBox.Text);
+            // 2026-11-01 (LAN): сетевой адрес — в едином виде TCP:ХОСТ:ПОРТ; неверный адрес не сохраняется (прежний остаётся)
+            if (NetworkPrinterAddress.IsNetworkPort(prefs.ReceiptDevicePath))
+            {
+                if (NetworkPrinterAddress.TryParse(prefs.ReceiptDevicePath, out _, out _, out var netError))
+                {
+                    prefs.ReceiptDevicePath = NetworkPrinterAddress.Canonical(prefs.ReceiptDevicePath);
+                    NetworkPrinterAddress.Remember(prefs.ReceiptDevicePath);
+                }
+                else
+                {
+                    _printView.SaveStatusText.Text = Tr.T("Настройки не сохранены.", "Жөндөөлөр сакталган жок.", "Settings not saved.", "Ayarlar kaydedilmedi.", "Sozlamalar saqlanmadi.");
+                    PosMessageBox.Show(netError ?? "", Tr.T("Настройки печати", "Басып чыгаруу жөндөөлөрү", "Print settings", "Yazdırma ayarları", "Chop etish sozlamalari"), MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                    return false;
+                }
+            }
+            // 2026-11-01: принтер этикеток и штрихкодов — отдельная настройка (виртуальные PDF/XPS/OneNote/факс не запоминаются).
+            if (LabelPrinterCombo.SelectedItem is DiscoveredPrinter labelPrinter && !labelPrinter.IsVirtual)
+            {
+                prefs.LabelPrinterDevicePath = labelPrinter.DevicePath;
+                if (NetworkPrinterAddress.IsNetworkPort(labelPrinter.DevicePath))
+                    NetworkPrinterAddress.Remember(labelPrinter.DevicePath);
+            }
             // Процент начисления бонусов. Пустое или нечисловое значение оставляет прежнее, а не
             // обнуляет программу молча; диапазон тот же, что при чтении файла настроек (0..100).
             if (double.TryParse(
@@ -1673,6 +1883,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             prefs.UiScalePercent = UiScaleSlider.Value;
             App.GetRequiredService<MainWindowHostBridge>().Window?.RefreshUiScale();
+            UiScaleHelper.NotifyPreferenceChanged(); // 2026-11-01: и программа владельца
             RefreshUiScale();
 
             var newLanguage = LanguageRadios().FirstOrDefault(r => r.Radio.IsChecked == true).Language;

@@ -150,7 +150,7 @@ public static class ProductUnitNormalizer
             : QuantityRules.ForUnit(unitDisplay) != null
                 ? vm.Quantity.ToString("0.###", qtyCulture) // 2026-10-26 (ХМ2): остаток м/м²/л «Хозтоваров» не до целого
                 : vm.Quantity.ToString("F0", qtyCulture);
-        vm.StockInfo = $"{qtyStr} {unitDisplay}";
+        vm.StockInfo = $"{qtyStr} {UnitCatalog.Display(unitDisplay)}"; // 2026-11-01 (Д-5): единица на языке интерфейса (шт/кг/л/м/уп), «своя» — как есть
         vm.IsLowStock = vm.Quantity < StockSyncService.LowStockThreshold;
     }
 }

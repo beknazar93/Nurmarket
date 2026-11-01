@@ -1081,6 +1081,12 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         {
             EnsureCartInitialized();
             var qty = ParseQuantity(ManualQuantity, product.MustWeigh, QuantityRules.ForTile(product)); // 2026-10-26 (ХМ2)
+            if (qty > MaxLineQuantity) // 2026-11-01 (К-07): в «Кол-во» попал штрихкод — товар не добавляем, количество сбрасываем
+            {
+                ManualQuantity = "1";
+                CartMessage = QuantityTooLargeMessage();
+                return;
+            }
             if (string.IsNullOrWhiteSpace(lineNameOverride))
                 _cart.AddItem(product, qty);
             else
@@ -1755,6 +1761,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     private async Task<IReadOnlyList<ReceiptSnapshotCartEditor.LinePriceChange>> ApplyServerRejectedPricesAsync(
         IReadOnlyList<ServerPriceMismatch>? mismatches)
     {
+        CartPriceSync.Invalidate(); // код-ревью (Ж-02): сервер отклонил цену (409) — кэш «сверено недавно» больше не верим
         var changes = new List<ReceiptSnapshotCartEditor.LinePriceChange>();
         try
         {
@@ -1775,7 +1782,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 CartPriceSync.Outcome? outcome = null;
                 await _dispatcher.InvokeAsync(async () =>
                     outcome = await CartPriceSync.RefreshAsync(_cart, api is null ? null : api.ProductsDetailAsync, OfflineModeHelper.SellLocally,
-                        applyOnCartThread: PriceApplyOnUi(GetActiveSession()?.Id)).ConfigureAwait(true)).ConfigureAwait(false);
+                        applyOnCartThread: PriceApplyOnUi(GetActiveSession()?.Id),
+                        budget: CartPriceSync.RetryBudget, force: true).ConfigureAwait(true)).ConfigureAwait(false); // 2026-11-01 (Ж-02): после отказа сервера цены берём с сервера, а не из кэша «сверено недавно»
                 if (outcome is not null)
                     changes.AddRange(outcome.Changes);
             }
@@ -1954,9 +1962,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 $"consultant={checkoutVm.ConsultantIdForApi ?? "-"}",
                 "PAYMENT");
 
+            // 2026-11-01 (К-08, code-review): состояние ожидания ЭТОЙ оплаты — окно «Проводим оплату…» берёт из него текст про медленный сервер.
+            var paymentWait = new PaymentWaitState();
             if (_checkoutUiFlow != null)
             {
-                await _checkoutUiFlow.ShowPaymentProcessingAsync(totals.TotalDue).ConfigureAwait(false);
+                await _checkoutUiFlow.ShowPaymentProcessingAsync(totals.TotalDue, paymentWait.Snapshot).ConfigureAwait(false);
                 paymentStatusActive = true;
             }
 
@@ -1985,6 +1995,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 // 2026-10-20, владелец (долг Д5): клиент — в чек продажи «в долг» (имя и телефон маской).
                 ClientNameForReceipt = checkoutVm.IsDebtMode ? checkoutVm.SelectedClient?.Name : null,
                 ClientPhoneForReceipt = checkoutVm.IsDebtMode ? checkoutVm.SelectedClient?.Phone : null,
+                Wait = paymentWait,
             };
             var result = await _checkout.CheckoutAsync(payRequest).ConfigureAwait(false);
 
@@ -2009,7 +2020,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                     PosLogger.Log("PAY: кассир отказался повторять оплату после «Сервер занят» (способ без очереди).", "PAYMENT");
                     if (_checkoutUiFlow != null)
                     {
-                        await _checkoutUiFlow.ShowPaymentProcessingAsync(totals.TotalDue).ConfigureAwait(false);
+                        await _checkoutUiFlow.ShowPaymentProcessingAsync(totals.TotalDue, paymentWait.Snapshot).ConfigureAwait(false);
                         paymentStatusActive = true;
                     }
 
@@ -2029,7 +2040,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
                 if (_checkoutUiFlow != null)
                 {
-                    await _checkoutUiFlow.ShowPaymentProcessingAsync(totals.TotalDue).ConfigureAwait(false);
+                    await _checkoutUiFlow.ShowPaymentProcessingAsync(totals.TotalDue, paymentWait.Snapshot).ConfigureAwait(false);
                     paymentStatusActive = true;
                 }
 
@@ -3223,6 +3234,14 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        // 2026-11-01 (аудит 10 из 10, К-07, живая проверка Д-3): штрихкод, попавший в поле количества строки («20001»), не должен стать количеством.
+        if (typed > MaxLineQuantity)
+        {
+            line.QuantityInput = line.QuantityDisplay;
+            CartMessage = QuantityTooLargeMessage();
+            return;
+        }
+
         // 2026-10-27 (приёмка 1.17.63, Д-8): «1,5» у штучного товара молча округлялось (до 2 шт.) и, упираясь в остаток, открывало сразу два
         // модальных окна. Теперь — одно понятное сообщение в чеке (без окна), поле возвращается к прежнему количеству.
         if (!line.IsWeight && rule == null && Math.Abs(typed - Math.Round(typed)) > 1e-9 && Math.Abs(line.Quantity - Math.Round(line.Quantity)) < 1e-6)
@@ -3911,6 +3930,16 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             return null;
         }
     }
+
+    /// <summary>2026-11-01 (К-07): предел количества в одной строке чека; больше — почти наверняка штрихкод в поле количества.</summary>
+    private const double MaxLineQuantity = 10000;
+
+    private static string QuantityTooLargeMessage() => Tr.T(
+        "Количество больше 10 000 — похоже, в поле попал штрихкод. Введите количество вручную.",
+        "Саны 10 000ден ашык — талаага штрихкод түшкөн окшойт. Санды кол менен киргизиңиз.",
+        "The quantity is over 10,000 — a barcode probably got into the field. Enter the quantity by hand.",
+        "Miktar 10.000'den fazla — alana muhtemelen bir barkod girdi. Miktarı elle girin.",
+        "Miqdor 10 000 dan ko'p — maydonga shtrix-kod tushgan ko'rinadi. Miqdorni qo'lda kiriting.");
 
     /// <param name="rule">2026-10-26 (ХМ2): правило дробной единицы «Хозтоваров» (м, м², л) — шаг и минимум вместо целого; null — как раньше.</param>
     private static double ParseQuantity(string? raw, bool mustWeigh, QuantityRule? rule = null)

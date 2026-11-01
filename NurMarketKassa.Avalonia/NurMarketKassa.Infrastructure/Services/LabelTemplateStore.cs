@@ -44,7 +44,7 @@ public static class LabelTemplateStore
             var dir = Path.GetDirectoryName(FilePath);
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir!);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(template, JsonOptions));
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(template, JsonOptions)); // 2026-11-01 (аудит 10 из 10, Н-07): без риска полфайла
         }
         catch (Exception ex)
         {

@@ -134,6 +134,8 @@ class AccountSwitch {
     await db.transaction(() async {
       await db.delete(db.outbox).go();
       await db.delete(db.products).go();
+      await db.delete(db.productVariants).go(); // 2026-10-31: размеры и цвета прошлого аккаунта
+      await db.delete(db.variantChecks).go();
       await (db.delete(db.settings)..where((s) => s.key.isNotIn(_keepKeys))).go();
     });
     await _wipeSecrets(deleteSecret);

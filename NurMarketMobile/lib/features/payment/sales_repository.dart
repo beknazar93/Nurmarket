@@ -8,6 +8,7 @@ import '../../core/db/database.dart';
 import '../../core/sync/outbox_meta.dart';
 import '../../core/util/audit.dart';
 import '../sale/cart.dart';
+import '../sale/variant_service.dart';
 import 'receipt_qr.dart';
 
 /// Способ оплаты: как у кассы (cash | transfer | debt). QR и терминал — часть 21 бэкенда, этап 3.
@@ -54,7 +55,10 @@ class PriceChange {
   /// Новые розничная и оптовая цены товара (для обновления строки чека); null — сервер их не прислал.
   final double? retail;
   final double? wholesale;
-  const PriceChange(this.productId, this.name, this.oldPrice, this.newPrice, {this.retail, this.wholesale});
+
+  /// 2026-10-31 (одежда): цена изменилась у размера (variant) — меняется строка этого размера, а не все строки товара.
+  final String? variantId;
+  const PriceChange(this.productId, this.name, this.oldPrice, this.newPrice, {this.retail, this.wholesale, this.variantId});
 }
 
 /// 2026-10-29 (аудит мобилки, п. 8): сервер отказал в продаже — 409 price_changed (строгая проверка цены,
@@ -72,7 +76,10 @@ class PriceCheck {
 
   /// Сервер не ответил ни по одному товару — цена в чеке может быть устаревшей.
   final bool offline;
-  const PriceCheck(this.changes, {this.offline = false});
+
+  /// 2026-11-01 (аудит 10 из 10, М-11): товаров, по которым сервер не ответил за отведённое время (остальные сверены).
+  final int unchecked;
+  const PriceCheck(this.changes, {this.offline = false, this.unchecked = 0});
 }
 
 /// 2026-10-27 (ревью М-6): расхождение остатка после продажи штуки из упаковки.
@@ -189,16 +196,97 @@ class SalesRepository {
     return jsonEncode(c);
   }
 
+  /// 2026-11-01 (аудит 10 из 10, М-20): отложенные попытки — до 5 штук по подписи. Раньше ключ был один: чек A с неизвестным исходом
+  /// отложили и оплатили чек B — ключ A затирался, и вернувшийся из «Отложенных» чек A получал новый ключ (дубль продажи).
+  /// Текущая попытка по-прежнему в [pendingKeySetting] (формат тот же), прежние — здесь.
+  static const shelvedKeysSetting = 'checkout.pendingKeys';
+  static const _shelvedMax = 5;
+
+  static bool _alive(Map<String, dynamic> m) {
+    final at = DateTime.tryParse(m['at'] as String? ?? '');
+    final sold = DateTime.tryParse(m['sold'] as String? ?? '');
+    return m['key'] is String && m['body'] is Map && sold != null && at != null && DateTime.now().difference(at) < _pendingKeyLife;
+  }
+
+  Future<Map<String, dynamic>?> _readCurrent() async {
+    final raw = await db.getSetting(pendingKeySetting);
+    if (raw == null || raw.isEmpty) return null;
+    return (jsonDecode(raw) as Map).cast<String, dynamic>();
+  }
+
+  Future<List<Map<String, dynamic>>> _readShelved() async {
+    try {
+      final raw = await db.getSetting(shelvedKeysSetting);
+      if (raw == null || raw.isEmpty) return [];
+      return [for (final m in (jsonDecode(raw) as List).cast<Map>()) m.cast<String, dynamic>()].where(_alive).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _writeShelved(List<Map<String, dynamic>> list) => db.setSetting(shelvedKeysSetting, list.isEmpty ? '' : jsonEncode(list.take(_shelvedMax).toList()));
+
+  /// 2026-11-01 (приёмка, Н-1): «зомби-ключ» — продажа проведена (done), а черновик чека уже пуст: ключ остался из-за сбоя между очисткой
+  /// чека и его стиранием. Такой ключ нельзя отдавать следующему чеку того же состава (сервер вернул бы прежнюю продажу, новая не записалась бы).
+  /// Пока черновик не пуст (падение до очистки), ключ нужен: повтор оплаты вернёт прежнюю продажу.
+  static const _draftSetting = 'cart.draft'; // CartController.draftKey
+  Future<bool> _isZombie(Map<String, dynamic> m) async {
+    if (m['done'] != true) return false;
+    final d = await db.getSetting(_draftSetting);
+    return d == null || d.isEmpty;
+  }
+
+  /// Подписи живых попыток, исход которых мог быть «проведено» (отправлялись): для плашки «Прошлый чек мог пройти».
+  Future<List<String>> liveSentSignatures() async {
+    final out = <String>[];
+    try {
+      final cur = await _readCurrent();
+      if (cur != null && _alive(cur) && cur['sent'] == true && !await _isZombie(cur)) out.add('${cur['sig']}');
+      for (final m in await _readShelved()) {
+        if (m['sent'] == true) out.add('${m['sig']}');
+      }
+    } catch (_) {
+      // плашка — подсказка
+    }
+    return out;
+  }
+
+  /// Живая попытка с такой подписью: текущая или отложенная.
+  Future<Map<String, dynamic>?> _findAttempt(String signature) async {
+    final cur = await _readCurrent();
+    if (cur != null && cur['sig'] == signature && _alive(cur) && !await _isZombie(cur)) return cur;
+    for (final m in await _readShelved()) {
+      if (m['sig'] == signature) return m;
+    }
+    return null;
+  }
+
   Future<_Attempt> _attempt(String signature, Map<String, dynamic> body) async {
     try {
-      final raw = await db.getSetting(pendingKeySetting);
-      if (raw != null && raw.isNotEmpty) {
-        final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
-        final at = DateTime.tryParse(m['at'] as String? ?? '');
-        final sold = DateTime.tryParse(m['sold'] as String? ?? '');
-        if (m['sig'] == signature && m['key'] is String && m['body'] is Map && sold != null && at != null && DateTime.now().difference(at) < _pendingKeyLife) {
-          return _Attempt(m['key'] as String, (m['body'] as Map).cast<String, dynamic>(), sold, m['cashbox'] as String?, m['sent'] == true, signature, at);
+      final cur0 = await _readCurrent();
+      // зомби-ключ проведённой продажи (Н-1) не используется и не откладывается — просто перезапишется новым
+      final cur = cur0 != null && await _isZombie(cur0) ? null : cur0;
+      final shelved = await _readShelved();
+      Map<String, dynamic>? found = cur != null && cur['sig'] == signature && _alive(cur) ? cur : null;
+      if (found == null) {
+        // 2026-11-01 (М-20): чек вернули из «Отложенных» — берём его прежний ключ, текущая попытка уходит в отложенные.
+        // Проведённая продажа (done) не откладывается: она закончена, её ключ чеку-двойнику не нужен (приёмка, Н-1).
+        final i = shelved.indexWhere((m) => m['sig'] == signature);
+        if (i >= 0) found = shelved.removeAt(i);
+        final shelveCur = cur != null && _alive(cur) && cur['done'] != true;
+        if (shelveCur) shelved.insert(0, cur);
+        if (found != null || shelveCur) {
+          // две записи — одной транзакцией (приёмка, Н-13): сбой между ними не теряет ключ
+          final pick = found;
+          await db.transaction(() async {
+            await _writeShelved(shelved);
+            if (pick != null) await db.setSetting(pendingKeySetting, jsonEncode(pick));
+          });
         }
+      }
+      if (found != null) {
+        final m = found;
+        return _Attempt(m['key'] as String, (m['body'] as Map).cast<String, dynamic>(), DateTime.parse(m['sold'] as String), m['cashbox'] as String?, m['sent'] == true, signature, DateTime.parse(m['at'] as String));
       }
     } catch (_) {
       // испорченная запись — новый ключ
@@ -215,19 +303,30 @@ class SalesRepository {
     jsonEncode({'key': a.key, 'sig': a.signature, 'at': a.at.toIso8601String(), 'body': a.body, 'sold': a.soldAt.toIso8601String(), 'cashbox': a.cashbox, 'sent': sent || a.sentBefore}),
   );
 
+  /// Продажа проведена (или в очереди): отметка на текущей попытке — см. [_isZombie].
+  Future<void> _markDone(String key) async {
+    try {
+      final cur = await _readCurrent();
+      if (cur != null && cur['key'] == key) await db.setSetting(pendingKeySetting, jsonEncode({...cur, 'done': true}));
+    } catch (_) {
+      // отметка — страховка
+    }
+  }
+
   /// Продажа проведена, встала в очередь или сервер отказал по существу — следующая оплата будет новой.
   Future<void> _forgetKey() => db.setSetting(pendingKeySetting, '');
+
+  /// 2026-11-01 (аудит 10 из 10, М-04): ключ проведённой оплаты забывается ПОСЛЕ очистки черновика чека (вызывает экран оплаты).
+  /// Раньше ключ стирался сразу после ответа сервера, а черновик — через секунды (запись очереди, остатки, сверка упаковок):
+  /// при падении приложения в этот промежуток чек восстанавливался без ключа и продавался второй раз.
+  Future<void> forgetPendingKey() => _forgetKey();
 
   /// 2026-10-29 (аудит мобилки, п. 9): есть ли живая попытка оплаты именно этого чека (исход неизвестен). Тогда цены чека
   /// сверять и менять нельзя — повтор должен уйти тем же телом и ключом.
   Future<bool> hasLiveAttempt({required Cart cart, required String shiftId, required PayMethod method, double? received, Client? client}) async {
     try {
       final body = buildBody(cart: cart, shiftId: shiftId, method: method, received: received, clientId: client?.id);
-      final raw = await db.getSetting(pendingKeySetting);
-      if (raw == null || raw.isEmpty) return false;
-      final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
-      final at = DateTime.tryParse(m['at'] as String? ?? '');
-      return m['sig'] == signatureOf(body, method) && m['body'] is Map && at != null && DateTime.now().difference(at) < _pendingKeyLife;
+      return await _findAttempt(signatureOf(body, method)) != null; // 2026-11-01 (М-20): и среди отложенных
     } catch (_) {
       return false;
     }
@@ -238,6 +337,9 @@ class SalesRepository {
 
   /// 2026-10-29 (аудит мобилки, п. 1): 409 idempotency_conflict — продажа с этим ключом у сервера уже есть (тело отличается).
   static bool isKeyConflict(Object? payload) => _payloadHas(payload, 'idempotency_conflict');
+
+  /// 2026-11-01 (аудит 10 из 10, М-08): 400 offline_too_old — офлайн-продажа старше 7 суток (до 90 суток — только с подтверждением владельца).
+  static bool isTooOld(Object? payload) => _payloadHas(payload, 'offline_too_old');
 
   static bool _payloadHas(Object? payload, String code) {
     if (payload == null) return false;
@@ -270,8 +372,9 @@ class SalesRepository {
       final id = str(row, 'product_id') ?? str(row, 'product') ?? str(row, 'id');
       final current = num0(row, 'current');
       if (id == null || current <= 0) continue;
-      final line = cart.lines.where((l) => l.productId == id).firstOrNull;
-      out.add(PriceChange(id, str(row, 'name') ?? line?.name ?? id, row['sent'] == null ? (line?.price ?? 0) : num0(row, 'sent'), current));
+      final variantId = str(row, 'variant_id') ?? str(row, 'variant');
+      final line = cart.lines.where((l) => l.productId == id && (variantId == null || l.variantId == variantId)).firstOrNull;
+      out.add(PriceChange(id, str(row, 'name') ?? line?.name ?? id, row['sent'] == null ? (line?.price ?? 0) : num0(row, 'sent'), current, variantId: variantId));
     }
     return out;
   }
@@ -279,10 +382,12 @@ class SalesRepository {
   /// 2026-10-29 (аудит мобилки, п. 8): сверка цен чека с сервером перед оплатой, как SyncPricesBeforePaymentAsync кассы:
   /// карточки товаров (до 2 с на запрос, все сразу). Сервер не ответил ни по одному товару — [PriceCheck.offline].
   Future<PriceCheck> checkPrices(Cart cart, {Duration timeout = const Duration(seconds: 2)}) async {
-    final lines = cart.lines.where((l) => !l.custom && l.variantId == null && l.salePackageId == null).toList();
+    final lines = cart.lines.where((l) => !l.custom && l.salePackageId == null).toList();
     final ids = {for (final l in lines) l.productId}.toList();
     if (ids.isEmpty) return const PriceCheck([]);
     final fresh = <String, Map<String, dynamic>>{};
+    // 2026-10-31 (одежда): цена размера — из api/main/products/{id}/variants/ (у размера может быть своя цена; иначе — цена товара)
+    final freshVariants = <String, Map<String, double?>>{};
     await Future.wait([
       for (final id in ids)
         () async {
@@ -291,6 +396,14 @@ class SalesRepository {
             if (m is Map) fresh[id] = m.cast<String, dynamic>();
           } catch (_) {
             // нет ответа по этому товару — цену не сверили
+          }
+          if (lines.any((l) => l.productId == id && l.variantId != null)) {
+            try {
+              final v = await api.get('api/main/products/$id/variants/', timeout: timeout).timeout(timeout);
+              freshVariants[id] = {for (final x in VariantService.parse(v, productId: id)) x.id: x.price};
+            } catch (_) {
+              // размеры не получены — цену размера не сверили
+            }
           }
         }(),
     ]);
@@ -301,11 +414,19 @@ class SalesRepository {
       if (srv == null) continue;
       final retail = num0(srv, 'price');
       final wholesale = num0(srv, 'wholesale_price');
+      if (l.variantId != null) {
+        final prices = freshVariants[l.productId];
+        if (prices == null || !prices.containsKey(l.variantId)) continue;
+        final now = prices[l.variantId] ?? retail;
+        if (now <= 0 || (now - l.price).abs() < 0.005) continue;
+        changes.add(PriceChange(l.productId, l.name, l.price, now, variantId: l.variantId));
+        continue;
+      }
       final now = l.wholesale ? wholesale : retail;
       if (now <= 0 || (now - l.price).abs() < 0.005) continue;
       changes.add(PriceChange(l.productId, l.name, l.price, now, retail: retail > 0 ? retail : null, wholesale: wholesale));
     }
-    return PriceCheck(changes);
+    return PriceCheck(changes, unchecked: ids.where((id) => !fresh.containsKey(id)).length);
   }
 
   /// Провести чек. Без связи (или сервер не ответил) — в очередь с тем же ключом; отказ по существу — исключение.
@@ -317,10 +438,11 @@ class SalesRepository {
     double? received,
     Client? client,
     bool requireOnline = false,
+    bool deferForget = false,
   }) {
     // 2026-10-22: оплаты — по одной: вторая ждёт исход первой и берёт её ключ, если исход неизвестен.
     final run = _lock.then(
-      (_) => _checkout(cart: cart, shiftId: shiftId, method: method, received: received, client: client, requireOnline: requireOnline),
+      (_) => _checkout(cart: cart, shiftId: shiftId, method: method, received: received, client: client, requireOnline: requireOnline, deferForget: deferForget),
     );
     _lock = run.then((_) {}, onError: (_) {});
     return run;
@@ -335,10 +457,14 @@ class SalesRepository {
     double? received,
     Client? client,
     bool requireOnline = false,
+    bool deferForget = false,
   }) async {
+    // 2026-11-01 (М-04): deferForget — ключ стирает вызывающий (forgetPendingKey) после очистки черновика чека.
     final plain = buildBody(cart: cart, shiftId: shiftId, method: method, received: received, clientId: client?.id);
     // 2026-10-29: тело, время продажи и касса — из запомненной попытки (повтор уходит ровно с теми же полями, что и первая отправка).
     final att = await _attempt(signatureOf(plain, method), plain);
+    // при deferForget ключ получает отметку «проведено» (приёмка, Н-1): если стереть его не успели, он не достанется следующему такому же чеку
+    Future<void> forgetDone() => deferForget ? _markDone(att.key) : _forgetKey();
     final key = att.key;
     final body = att.body;
     final session = api.session;
@@ -376,7 +502,7 @@ class SalesRepository {
       }
       // 2026-10-29 (аудит мобилки, п. 1): 409 idempotency_conflict — продажа с этим ключом уже проведена: «проведено, сверить».
       if (e.status == 409 && isKeyConflict(e.payload)) {
-        await _forgetKey();
+        await forgetDone();
         await db.enqueue(row);
         await db.markSent(key);
         await _applyStock(cart);
@@ -390,11 +516,12 @@ class SalesRepository {
       if (method == PayMethod.debt || requireOnline) throw CheckoutUnknownException(e.message, debt: method == PayMethod.debt);
       await db.enqueue(row);
       await _applyStock(cart);
-      await _forgetKey();
+      await forgetDone();
       return CheckoutResult(queued: true, key: key, total: cart.total);
     }
-    // Сервер ответил — продажа проведена. Ключ забываем сразу: сбой записи ниже не должен вести к новой продаже.
-    await _forgetKey();
+    // Сервер ответил — продажа проведена. Ключ забываем (при deferForget — после очистки черновика): сбой или падение ниже
+    // не должны вести к новой продаже.
+    await forgetDone();
     await db.enqueue(row);
     await db.markSent(key, serverId: str(resp, 'id'), serverNumber: str(resp, 'number'));
     await _applyStock(cart);
@@ -532,6 +659,59 @@ class SalesRepository {
     return false;
   }
 
+  // ------------------------------------------------------------------ бонусы клиента
+
+  /// 2026-11-01 (аудит 10 из 10, М-05): списание/начисление бонусов — отдельный запрос ПОСЛЕ продажи. Раньше без ключа и без повтора:
+  /// оборвался — скидка выдана, баланс не уменьшен. Теперь запрос идёт с ключом `bonus-<продажа>-<redeem|earn>`, а при сбое связи/сервера
+  /// встаёт в очередь (kind 'bonus') и досылается тем же ключом. Отказ по существу (4xx) — исключение.
+  /// Поддерживает ли сервер Idempotency-Key на clients/{id}/bonus/ — вопрос Умару; без этого повтор после обрыва ответа может задвоиться.
+  /// 2026-11-01 (приёмка, Н-6): запись в очередь — ДО отправки ([queueBonus]) и до стирания ключа продажи, чтобы падение приложения
+  /// не оставило скидку выданной, а баланс клиента нетронутым. Отправка — [sendQueuedBonus].
+  Future<String> queueBonus({required String clientId, required double delta, required String reason, String? saleId, required String keyRef}) async {
+    final key = 'bonus-$keyRef-$reason';
+    final body = <String, dynamic>{'client': clientId, 'delta': double.parse(delta.toStringAsFixed(2)), 'reason': reason, if (saleId != null && saleId.isNotEmpty) 'sale': saleId};
+    await db.enqueue(
+      OutboxCompanion.insert(
+        id: key,
+        kind: 'bonus',
+        body: jsonEncode(OutboxMeta.attach(body, owner: OutboxMeta.ownerOf(api.session), cashboxId: api.session?.cashboxId)),
+        createdAt: DateTime.now(),
+        summary: Value('${delta > 0 ? '+' : ''}${delta.toStringAsFixed(2)}'),
+      ),
+    );
+    return key;
+  }
+
+  /// Отправить бонус, уже записанный [queueBonus]. true — применён, false — остался в очереди (связь, 5xx; уйдёт сам).
+  /// Отказ по существу: запись уходит в «Не принято», исключение пробрасывается.
+  Future<bool> sendQueuedBonus(String key) async {
+    final row = await (db.select(db.outbox)..where((o) => o.id.equals(key))).getSingleOrNull();
+    if (row == null || row.status == 'sent') return true;
+    if (row.status != 'pending') return false;
+    try {
+      await replayBonus(row);
+      return true;
+    } on ApiException catch (e) {
+      if (e.isTransient) return false;
+      await db.markAttempt(key, e.message, failed: true);
+      rethrow;
+    }
+  }
+
+  Future<void> _sendBonus(Map<String, dynamic> body, String key, {Duration timeout = const Duration(seconds: 15)}) => api.post(
+    'api/main/clients/${body['client']}/bonus/',
+    body: {'delta': body['delta'], 'reason': body['reason'], if (body['sale'] != null) 'sale': body['sale']},
+    headers: {'Idempotency-Key': key},
+    timeout: timeout,
+  );
+
+  /// Досылка бонусов из очереди (SyncService) тем же ключом.
+  Future<void> replayBonus(OutboxData row) async {
+    final body = OutboxMeta.strip((jsonDecode(row.body) as Map).cast<String, dynamic>());
+    await _sendBonus(body, row.id, timeout: const Duration(seconds: 30));
+    await db.markSent(row.id);
+  }
+
   /// 2026-10-27 (М4): {sale_package_id: штук в упаковке} по штукам из упаковки чека — для остатка телефона при снятии и пересчёте
   /// очереди (остаток товара хранится в упаковках). null — таких строк нет, тело очереди прежнее.
   static Map<String, double>? _packFactors(Cart cart) {
@@ -543,6 +723,8 @@ class SalesRepository {
     for (final l in cart.lines) {
       // 2026-10-27 (М4): штука из упаковки списывает долю упаковки (stockQty = qty / штук в упаковке); у остальных строк = qty
       if (!l.custom) await db.adjustStock(l.productId, -l.stockQty);
+      // 2026-10-31 (одежда): и остаток размера — сразу, в том числе когда чек ушёл в очередь без связи
+      if (!l.custom && l.variantId != null) await db.adjustVariantStock(l.variantId!, -l.qty);
     }
   }
 

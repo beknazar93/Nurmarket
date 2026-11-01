@@ -3469,6 +3469,120 @@
           "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: kart ve düğme kesilmez."
         ]
       }
+    },
+    {
+      "id": "1.18.14/github-update",
+      "version": "1.18.14",
+      "area": "profile",
+      "severity": "important",
+      "title": {
+        "ru": "Обновление приложения через GitHub",
+        "ky": "Тиркемени GitHub аркылуу жаңыртуу",
+        "uz": "Ilovani GitHub orqali yangilash",
+        "en": "Updating the app through GitHub",
+        "tr": "Uygulamayı GitHub üzerinden güncelleme"
+      },
+      "changed": {
+        "ru": "Когда выходит новая версия, на главной и в профиле появляется баннер «Доступна версия X»; «Обновить» скачивает файл и открывает системную установку; в профиле есть «Проверить обновления»; «Позже» прячет баннер на сутки.",
+        "ky": "Жаңы версия чыкканда башкы экранда жана профилде «X версиясы жеткиликтүү» баннери пайда болот; «Жаңыртуу» файлды жүктөп, системалык орнотууну ачат; профилде «Жаңыртууларды текшерүү» бар; «Кийинчерээк» баннерди бир күнгө жашырат.",
+        "uz": "Yangi versiya chiqqanda bosh ekranda va profilda «X versiyasi mavjud» banneri paydo bo'ladi; «Yangilash» faylni yuklab, tizim o'rnatishini ochadi; profilda «Yangilanishlarni tekshirish» bor; «Keyinroq» bannerni bir kunga yashiradi.",
+        "en": "When a new version is out, a banner “Version X is available” appears on the home screen and in the profile; “Update” downloads the file and opens the system installer; the profile has “Check for updates”; “Later” hides the banner for a day.",
+        "tr": "Yeni sürüm çıktığında ana ekranda ve profilde «X sürümü mevcut» başlığı görünür; «Güncelle» dosyayı indirir ve sistem kurulumunu açar; profilde «Güncellemeleri denetle» vardır; «Sonra» başlığı bir gün gizler."
+      },
+      "steps": {
+        "ru": [
+          "Зайдите в приложение. Профиль → строка «Версия приложения»: видна установленная версия. Нажмите «Проверить обновления» при актуальной версии — «Установлена последняя версия».",
+          "Когда на GitHub выложена более новая версия: «Проверить обновления» — на главной и в профиле баннер «Доступна версия». Нажмите «Обновить»: окно «Что нового», затем скачивание с процентами.",
+          "Если установка из этого источника не разрешена, приложение объяснит и откроет настройки; включите разрешение и нажмите «Обновить» ещё раз. После скачивания подтвердите системную установку — вход и очередь на месте.",
+          "«Позже» прячет баннер; после перезапуска он не возвращается сутки, «Проверить обновления» его возвращает. Положите товар в чек: на главной баннера нет, пока чек не пуст.",
+          "Включите авиарежим и нажмите «Проверить обновления»: понятное сообщение, приложение не падает. Проверьте на кыргызском и узбекском, в тёмной теме и при крупном шрифте (360 dp)."
+        ],
+        "ky": [
+          "Тиркемеге кириңиз. Профиль → «Тиркеме версиясы» сабы: орнотулган версия көрүнөт. Версия акыркы болгондо «Жаңыртууларды текшерүү» басыңыз — «Акыркы версия орнотулган».",
+          "GitHub'та жаңыраак версия чыкканда: «Жаңыртууларды текшерүү» — башкы экранда жана профилде «Версия жеткиликтүү» баннери. «Жаңыртуу» басыңыз: «Эмне жаңы» терезеси, андан соң пайыз менен жүктөө.",
+          "Бул булактан орнотууга уруксат жок болсо, тиркеме түшүндүрүп, жөндөөлөрдү ачат; уруксатты күйгүзүп, «Жаңыртуу» дагы бир жолу басыңыз. Жүктөлгөндөн кийин системалык орнотууну ырастаңыз — кирүү жана кезек сакталат.",
+          "«Кийинчерээк» баннерди жашырат; кайра иштеткенден кийин бир күн кайтпайт, «Жаңыртууларды текшерүү» аны кайтарат. Чекке товар салыңыз: чек бош болмоюнча башкы экранда баннер жок.",
+          "Учак режимин күйгүзүп, «Жаңыртууларды текшерүү» басыңыз: түшүнүктүү билдирүү, тиркеме кулабайт. Кыргызча жана өзбекче, кара темада жана чоң арипте (360 dp) текшериңиз."
+        ],
+        "uz": [
+          "Ilovaga kiring. Profil → «Ilova versiyasi» qatori: o'rnatilgan versiya ko'rinadi. Versiya yangi bo'lganda «Yangilanishlarni tekshirish»ni bosing — «Oxirgi versiya o'rnatilgan».",
+          "GitHub'da yangiroq versiya chiqqanda: «Yangilanishlarni tekshirish» — bosh ekranda va profilda «Versiya mavjud» banneri. «Yangilash»ni bosing: «Yangiliklar» oynasi, so'ng foiz bilan yuklash.",
+          "Bu manbadan o'rnatishga ruxsat bo'lmasa, ilova tushuntirib, sozlamalarni ochadi; ruxsatni yoqib, «Yangilash»ni yana bosing. Yuklangandan so'ng tizim o'rnatishini tasdiqlang — kirish va navbat joyida.",
+          "«Keyinroq» bannerni yashiradi; qayta ishga tushirgandan keyin bir kun qaytmaydi, «Yangilanishlarni tekshirish» uni qaytaradi. Chekka mahsulot qo'ying: chek bo'sh bo'lmaguncha bosh ekranda banner yo'q.",
+          "Parvoz rejimini yoqib, «Yangilanishlarni tekshirish»ni bosing: tushunarli xabar, ilova qulamaydi. Qirg'izcha va o'zbekchada, qora mavzuda va yirik shriftda (360 dp) tekshiring."
+        ],
+        "en": [
+          "Open the app. Profile → the “App version” row shows the installed version. Tap “Check for updates” on the latest version — “The latest version is installed”.",
+          "When a newer version is published on GitHub: “Check for updates” — a “Version available” banner appears on the home screen and in the profile. Tap “Update”: the “What's new” window, then the download with percent.",
+          "If installing from this source is not allowed, the app explains and opens the settings; turn the permission on and tap “Update” again. After the download confirm the system install — sign-in and queue are intact.",
+          "“Later” hides the banner; after a restart it does not return for a day, “Check for updates” brings it back. Put a product in the receipt: no banner on the home screen until the receipt is empty.",
+          "Turn on airplane mode and tap “Check for updates”: a clear message, the app does not crash. Check in Kyrgyz and Uzbek, in the dark theme and at a large font (360 dp)."
+        ],
+        "tr": [
+          "Uygulamaya girin. Profil → «Uygulama sürümü» satırı: yüklü sürüm görünür. Sürüm güncelken «Güncellemeleri denetle»ye dokunun — «En son sürüm yüklü».",
+          "GitHub'da daha yeni bir sürüm yayınlandığında: «Güncellemeleri denetle» — ana ekranda ve profilde «Sürüm mevcut» başlığı. «Güncelle»ye dokunun: «Yenilikler» penceresi, sonra yüzdeyle indirme.",
+          "Bu kaynaktan kuruluma izin yoksa uygulama açıklar ve ayarları açar; izni açıp «Güncelle»ye bir kez daha dokunun. İndirmeden sonra sistem kurulumunu onaylayın — giriş ve sıra yerinde.",
+          "«Sonra» başlığı gizler; yeniden başlatmadan sonra bir gün dönmez, «Güncellemeleri denetle» geri getirir. Fişe ürün koyun: fiş boşalana kadar ana ekranda başlık yok.",
+          "Uçak modunu açıp «Güncellemeleri denetle»ye dokunun: anlaşılır mesaj, uygulama çökmez. Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin."
+        ]
+      }
+    },
+    {
+      "id": "1.18.14/return-pay-guards",
+      "version": "1.18.14",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Возврат, оплата и бонусы надёжнее",
+        "ky": "Кайтаруу, төлөм жана бонустар ишенимдүүрөөк",
+        "uz": "Qaytarish, to'lov va bonuslar ishonchliroq",
+        "en": "Returns, payment and bonuses are more reliable",
+        "tr": "İade, ödeme ve bonuslar daha güvenilir"
+      },
+      "changed": {
+        "ru": "Возврат учитывает уже возвращённое с сервера; «Назад» не прерывает оплату; ключ оплаты хранится, пока чек не очищен, поэтому после сбоя продажа не задвоится; бонусы уходят с повтором; в «Получено» не войдёт штрихкод, а слишком большая сумма вызывает вопрос про сдачу; чеки старше 5 суток в очереди видны плашкой.",
+        "ky": "Кайтаруу серверден мурун кайтарылганды эсепке алат; «Артка» төлөмдү үзбөйт; төлөм ачкычы чек тазаланмайынча сакталат, ошондуктан сбоодон кийин сатуу эки эселенбейт; бонустар кайталоо менен жөнөтүлөт; «Алынды» талаасына штрих-код кирбейт, өтө чоң сумма кайтарым тууралуу суроо чыгарат; кезектеги 5 суткадан эски чектер белги менен көрүнөт.",
+        "uz": "Qaytarish serverdan avval qaytarilganini hisobga oladi; «Orqaga» to'lovni uzmaydi; to'lov kaliti chek tozalanmaguncha saqlanadi, shuning uchun nosozlikdan keyin sotuv ikki marta yozilmaydi; bonuslar takror bilan yuboriladi; «Qabul qilindi» maydoniga shtrix-kod kirmaydi, juda katta summa qaytim haqida savol chiqaradi; navbatdagi 5 kundan eski cheklar belgi bilan ko'rinadi.",
+        "en": "A return accounts for what was already returned according to the server; “Back” does not interrupt a payment; the payment key is kept until the receipt is cleared, so after a failure the sale is not doubled; bonuses are sent with retry; a barcode cannot get into “Received”, and a too large amount raises a question about the change; receipts older than 5 days in the queue are flagged by a banner.",
+        "tr": "İade, sunucudan önceden iade edileni hesaba katar; «Geri» ödemeyi kesmez; ödeme anahtarı fiş temizlenene kadar saklanır, bu yüzden arızadan sonra satış çiftlenmez; bonuslar tekrar denemeyle gönderilir; «Alınan» alanına barkod giremez, çok büyük tutar para üstü sorusu çıkarır; sıradaki 5 günden eski fişler uyarıyla görünür."
+      },
+      "steps": {
+        "ru": [
+          "Зайдите кассиром. «Чеки» → найдите чек, по которому уже делали частичный возврат. Откройте возврат: «Можно вернуть» равно остатку, а не полному количеству. Попробуйте вернуть больше — приложение не даёт.",
+          "Добавьте товар в чек, откройте оплату и нажмите «Оплатить». Пока идёт оплата, нажмите системную кнопку «Назад» и стрелку в шапке: экран не закрывается. После оплаты открывается чек, корзина пуста.",
+          "Выключите связь, проведите продажу с клиентом, у которого есть бонусы (списать часть и начислить): чек и бонусы встают в очередь («Синхронизация»). Включите связь: всё ушло, бонусы списаны и начислены по одному разу.",
+          "В оплате в поле «Получено» отсканируйте штрихкод: цифры не вводятся. Введите сумму больше итога в 20 раз и более 1000 — перед оплатой вопрос «Сдача N сом — верно?».",
+          "Если в очереди есть чек старше 5 суток — на экране «Синхронизация» красная плашка. Проверьте на кыргызском и узбекском, в тёмной теме и при крупном шрифте (360 dp)."
+        ],
+        "ky": [
+          "Кассир менен кириңиз. «Чектер» → мурун жарым-жартылай кайтарылган чекти табыңыз. Кайтарууну ачыңыз: «Кайтарууга болот» толук санга эмес, калдыкка барабар. Көбүрөөк кайтарып көрүңүз — тиркеме уруксат бербейт.",
+          "Чекке товар кошуңуз, төлөмдү ачып, «Төлөө» басыңыз. Төлөм жүрүп жатканда системалык «Артка» баскычын жана башындагы жебени басыңыз: экран жабылбайт. Төлөмдөн кийин чек ачылат, корзина бош.",
+          "Байланышты өчүрүңүз, бонусу бар кардар менен сатууну өткөрүңүз (бир бөлүгүн чыгымдоо жана эсептөө): чек жана бонустар кезекке турат («Синхрондоштуруу»). Байланышты күйгүзүңүз: баары жөнөдү, бонустар бир жолу гана чыгымдалып, эсептелди.",
+          "Төлөмдө «Алынды» талаасында штрих-кодду сканерлеңиз: цифралар киргизилбейт. Жыйынтыктан 20 эсе чоң жана 1000ден ашык сумманы киргизиңиз — төлөмдөн мурун «Кайтарым N сом — туурабы?» деген суроо.",
+          "Кезекте 5 суткадан эски чек болсо — «Синхрондоштуруу» экранында кызыл белги. Кыргызча жана өзбекче, кара темада жана чоң арипте (360 dp) текшериңиз."
+        ],
+        "uz": [
+          "Kassir bilan kiring. «Cheklar» → avval qisman qaytarilgan chekni toping. Qaytarishni oching: «Qaytarish mumkin» to'liq songa emas, qoldiqqa teng. Ko'proq qaytarib ko'ring — ilova ruxsat bermaydi.",
+          "Chekka mahsulot qo'shing, to'lovni ochib, «To'lash»ni bosing. To'lov ketayotganda tizim «Orqaga» tugmasini va sarlavhadagi strelkani bosing: ekran yopilmaydi. To'lovdan so'ng chek ochiladi, savat bo'sh.",
+          "Aloqani o'chiring, bonusi bor mijoz bilan sotuv o'tkazing (bir qismini sarflash va hisoblash): chek va bonuslar navbatga turadi («Sinxronlash»). Aloqani yoqing: hammasi ketdi, bonuslar bir martadan sarflandi va hisoblandi.",
+          "To'lovda «Qabul qilindi» maydonida shtrix-kodni skanerlang: raqamlar kiritilmaydi. Jamidan 20 baravar katta va 1000 dan ortiq summa kiriting — to'lovdan oldin «Qaytim N so'm — to'g'rimi?» savoli.",
+          "Navbatda 5 kundan eski chek bo'lsa — «Sinxronlash» ekranida qizil belgi. Qirg'izcha va o'zbekchada, qora mavzuda va yirik shriftda (360 dp) tekshiring."
+        ],
+        "en": [
+          "Sign in as a cashier. Receipts → find a receipt that already had a partial return. Open the return: “Can return” equals the rest, not the full quantity. Try to return more — the app does not allow it.",
+          "Add a product to the receipt, open payment and tap “Pay”. While the payment is in progress press the system “Back” button and the arrow in the header: the screen does not close. After payment the receipt opens and the cart is empty.",
+          "Turn off the connection, make a sale with a customer who has bonuses (spend part and earn): the receipt and the bonuses wait in the queue (“Sync”). Turn the connection on: everything went out, the bonuses were spent and earned once each.",
+          "In payment, scan a barcode into the “Received” field: no digits are entered. Type an amount 20 times the total and above 1000 — before paying you get “Change N som — correct?”.",
+          "If the queue holds a receipt older than 5 days, the “Sync” screen shows a red banner. Check in Kyrgyz and Uzbek, in the dark theme and at a large font (360 dp)."
+        ],
+        "tr": [
+          "Kasiyer olarak girin. «Fişler» → daha önce kısmen iade edilmiş bir fiş bulun. İadeyi açın: «İade edilebilir» tam miktar değil, kalana eşittir. Daha fazlasını iade etmeyi deneyin — uygulama izin vermez.",
+          "Fişe ürün ekleyin, ödemeyi açıp «Öde»ye dokunun. Ödeme sürerken sistem «Geri» düğmesine ve başlıktaki oka basın: ekran kapanmaz. Ödemeden sonra fiş açılır, sepet boştur.",
+          "Bağlantıyı kapatın, bonusu olan bir müşteriyle satış yapın (bir kısmını harcama ve ekleme): fiş ve bonuslar sıraya girer («Eşitleme»). Bağlantıyı açın: hepsi gitti, bonuslar birer kez harcandı ve eklendi.",
+          "Ödemede «Alınan» alanında barkod okutun: rakamlar girilmez. Toplamın 20 katı ve 1000'den fazla bir tutar yazın — ödemeden önce «Para üstü N som — doğru mu?» sorusu.",
+          "Sırada 5 günden eski fiş varsa «Eşitleme» ekranında kırmızı uyarı çıkar. Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin."
+        ]
+      }
     }
   ]
 }

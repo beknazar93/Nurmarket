@@ -221,9 +221,9 @@
                                                     <TextBlock Text="{Binding NoteDisplay}" IsVisible="{Binding HasNoteDisplay}" FontSize="12"
                                                                TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
                                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                                        <TextBlock Text="{Binding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
-                                                        <TextBlock Text="•" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
-                                                        <TextBlock Text="{Binding Cashier}" FontSize="11" Foreground="{DynamicResource BrushTextSoft}"/>
+                                                        <TextBlock Text="{Binding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                                                        <TextBlock Text="•" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+                                                        <TextBlock Text="{Binding Cashier}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
                                                     </StackPanel>
                                                 </StackPanel>
 

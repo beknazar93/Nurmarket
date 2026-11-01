@@ -165,6 +165,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         ActualThemeVariantChanged += (_, _) => QueueRailBrushes();
         // До 1366 точек колонка пунктов меню сворачивается сама, пока открыт раздел.
         SizeChanged += (_, _) => OnShellSizeChangedForNav();
+        // 2026-11-01, ThinkPad: «Масштаб интерфейса» действует и на программу владельца (OwnerShellWindow.Nav.cs → AttachUiScale).
+        AttachUiScale();
         // 2026-10-04, владелец: «у владельца тоже адаптацию под экраны сделай» (Android, вертикальный телефон).
         // «Сводка»: на узком месте показатели — 2×2, «Выручка | Способы оплаты» и «Последние | Лучшие» — друг под другом.
         // 2026-10-18, этап О1 (редизайн сводки): то же и в Windows/Linux — на 1024×768 колонки сводки складываются
@@ -204,6 +206,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         // или владелец работал в другой программе) — обновить сразу, не дожидаясь таймера.
         Activated += async (_, _) =>
         {
+            RenderDebtsCardIfStale(); // 2026-11-01 (Н-01): карточка «Долги» не рисовалась, пока окно было свёрнуто
             if (DateTime.UtcNow - _lastRefreshStartedUtc >= RefreshInterval)
                 await RefreshWhenShownAsync().ConfigureAwait(true);
         };
@@ -801,7 +804,10 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// <summary>2026-10-20, живой аудит (п. 9, память): к концу аудита ≈ 25 спрятанных разделов держали 933 МБ рабочего
     /// набора / 1 165 МБ private — рядом с кассой на ПК с 7,8 ГБ это много. Теперь спрятанными живут только несколько
     /// последних разделов, остальные закрываются штатно (Close — их Closed отписывает события и таймеры).</summary>
-    private const int HiddenSectionsKept = 3;
+    // 2026-11-01 (В-06, аудит «10 из 10»): было 3 — на кругу из 17 разделов каждый переход заново грузил данные (3,2 запроса на переход, фриз
+    // >200 мс в 12,7 % переходов). Лёгкие разделы (Долги, Клиенты, Зарплата, Прибыль — 5–15 МБ каждый) держим 5; тяжёлые (HeavySections)
+    // по-прежнему закрываются. Данные «Бонусов» кэшируются отдельно (BonusAnalyticsWindow.ReportCache). Память замерить, см. отчёт.
+    private const int HiddenSectionsKept = 5;
 
     /// <summary>Тяжёлые разделы (предпросмотр сайта, графики аналитики) — закрываются вскоре после ухода из них.
     /// 2026-10-30 (оптимизация кассы, Б4): + «CRM» и «WhatsApp» (WebView2: 6–9 процессов Chromium, свёрнутый WhatsApp Web продолжал гонять JS и сокет).
@@ -868,6 +874,9 @@ public partial class OwnerShellWindow : Window, IMainShell
     private void PrepareEmbeddedWindow(Window window)
     {
         FullscreenHelper.MarkEmbedded(window); // 2026-10-27: встроенный раздел не разворачивается сам (FullscreenHelper.TryApplySectionWindowMode)
+        // 2026-11-01: «Масштаб интерфейса» и на раздел — содержимое в общей обёртке масштаба (OwnerShellWindow.Nav.cs).
+        WrapSectionForScale(window);
+        ApplySectionScale(window);
         window.SystemDecorations = SystemDecorations.None;
         window.ExtendClientAreaToDecorationsHint = false;
         window.WindowStartupLocation = WindowStartupLocation.Manual;
@@ -1006,6 +1015,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         var size = SectionHost.Bounds.Size;
         if (size.Width < 50 || size.Height < 50)
             return;
+        // 2026-11-01: размер области раздела — в точках макета, а окно раздела — отдельное окно в реальных точках (масштаб интерфейса).
+        size = new Size(size.Width * _shellScale, size.Height * _shellScale);
 
         var topLeft = SectionHost.PointToScreen(new Point(0, 0));
         var window = section.Window;
@@ -1311,9 +1322,9 @@ public partial class OwnerShellWindow : Window, IMainShell
             UpdatedText.Text = NurMarketKassa.Services.ServerOutageMonitor.IsOutage
                 ? NurMarketKassa.Services.ServerOutageMonitor.StaleDataNote(_lastSuccess)
                 : _lastSuccess is { } at
-                    ? Tr.T($"Нет связи · данные на {at:HH:mm}", $"Байланыш жок · маалымат {at:HH:mm} боюнча", $"Offline · data as of {at:HH:mm}",
-                        $"Bağlantı yok · veriler {at:HH:mm} itibarıyla", $"Aloqa yo'q · ma'lumotlar {at:HH:mm} holatiga ko'ra")
-                    : Tr.T("Нет связи с сервером", "Сервер менен байланыш жок", "No connection to the server", "Sunucuyla bağlantı yok", "Server bilan aloqa yo'q");
+                    ? Tr.T($"Сервер недоступен · данные на {at:HH:mm}", $"Сервер жеткиликсиз · маалымат {at:HH:mm} боюнча", $"Server unavailable · data as of {at:HH:mm}",
+                        $"Sunucu kullanılamıyor · veriler {at:HH:mm} itibarıyla", $"Server mavjud emas · ma'lumotlar {at:HH:mm} holatiga ko'ra")
+                    : Tr.T("Сервер недоступен", "Сервер жеткиликсиз", "The server is unavailable", "Sunucu kullanılamıyor", "Server mavjud emas");
         // 2026-10-18, ревью О1: каталог локальный — товары на исходе видны и без связи (иначе «Требует внимания» пустой).
         ApplyLowStock();
     }
@@ -1574,16 +1585,16 @@ public partial class OwnerShellWindow : Window, IMainShell
         }
 
         UpdatedText.Text = hasBase && _lastSuccess is { } at
-            ? Tr.T($"Нет связи · данные на {at:HH:mm} + {count} чек. с касс по локальной сети",
-                $"Байланыш жок · маалымат {at:HH:mm} боюнча + жергиликтүү тармактагы кассалардан {count} чек",
-                $"Offline · data as of {at:HH:mm} + {count} receipts from tills on the local network",
-                $"Bağlantı yok · veriler {at:HH:mm} itibarıyla + yerel ağdaki kasalardan {count} fiş",
-                $"Aloqa yo'q · ma'lumotlar {at:HH:mm} holatiga ko'ra + mahalliy tarmoqdagi kassalardan {count} ta chek")
-            : Tr.T($"Нет связи · по данным касс в локальной сети ({count} чек.)",
-                $"Байланыш жок · жергиликтүү тармактагы кассалардын маалыматы боюнча ({count} чек)",
-                $"Offline · from tills on the local network ({count} receipts)",
-                $"Bağlantı yok · yerel ağdaki kasaların verilerine göre ({count} fiş)",
-                $"Aloqa yo'q · mahalliy tarmoqdagi kassalar ma'lumotlari bo'yicha ({count} ta chek)");
+            ? Tr.T($"Сервер недоступен · данные на {at:HH:mm} + {count} чек. с касс по локальной сети",
+                $"Сервер жеткиликсиз · маалымат {at:HH:mm} боюнча + жергиликтүү тармактагы кассалардан {count} чек",
+                $"Server unavailable · data as of {at:HH:mm} + {count} receipts from tills on the local network",
+                $"Sunucu kullanılamıyor · veriler {at:HH:mm} itibarıyla + yerel ağdaki kasalardan {count} fiş",
+                $"Server mavjud emas · ma'lumotlar {at:HH:mm} holatiga ko'ra + mahalliy tarmoqdagi kassalardan {count} ta chek")
+            : Tr.T($"Сервер недоступен · по данным касс в локальной сети ({count} чек.)",
+                $"Сервер жеткиликсиз · жергиликтүү тармактагы кассалардын маалыматы боюнча ({count} чек)",
+                $"Server unavailable · from tills on the local network ({count} receipts)",
+                $"Sunucu kullanılamıyor · yerel ağdaki kasaların verilerine göre ({count} fiş)",
+                $"Server mavjud emas · mahalliy tarmoqdagi kassalar ma'lumotlari bo'yicha ({count} ta chek)");
         return true;
     }
 
@@ -1778,7 +1789,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     private void SetMoney(TextBlock target, double value)
     {
         var currency = new Run(" " + Som()) { FontSize = 17, FontWeight = FontWeight.Medium };
-        UseBrush(currency, TextElement.ForegroundProperty, "BrushTextSoft");
+        UseBrush(currency, TextElement.ForegroundProperty, "BrushTextSoft", target);
         target.Text = null;
         target.Inlines = new InlineCollection { new Run(Whole(value)), currency };
     }
@@ -1800,7 +1811,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         var up = change > 0;
         var number = abs >= 100 ? abs.ToString("0", CultureInfo.InvariantCulture) : abs.ToString("0.#", UiCulture);
         var head = new Run((flat ? "" : up ? "▲ " : "▼ ") + Percent(flat ? 0 : abs, flat ? "0" : number)) { FontWeight = FontWeight.SemiBold };
-        UseBrush(head, TextElement.ForegroundProperty, flat ? "BrushText" : up ? "BrushSuccess" : "BrushDanger");
+        UseBrush(head, TextElement.ForegroundProperty, flat ? "BrushText" : up ? "BrushSuccess" : "BrushDanger", line);
         line.Text = null;
         line.Inlines = new InlineCollection { head, new Run($" {hintText} ({Whole(prev)})") };
     }
@@ -2042,9 +2053,9 @@ public partial class OwnerShellWindow : Window, IMainShell
 
             var name = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 8, 0), TextTrimming = TextTrimming.CharacterEllipsis };
             var nameRun = new Run(PaymentLabel(method)) { FontSize = 14 };
-            UseBrush(nameRun, TextElement.ForegroundProperty, "BrushText");
+            UseBrush(nameRun, TextElement.ForegroundProperty, "BrushText", name);
             var countRun = new Run("  " + ChecksWord(count)) { FontSize = 13 };
-            UseBrush(countRun, TextElement.ForegroundProperty, "BrushTextSoft");
+            UseBrush(countRun, TextElement.ForegroundProperty, "BrushTextSoft", name);
             name.Inlines = new InlineCollection { nameRun, countRun };
             Grid.SetColumn(name, 1);
             row.Children.Add(name);
@@ -2185,7 +2196,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             var soldText = new TextBlock
             {
                 Text = Tr.T($"продано {Qty(sold)}", $"{Qty(sold)} сатылды", $"sold {Qty(sold)}", $"satılan: {Qty(sold)}", $"sotildi {Qty(sold)}"),
-                FontSize = 11.5,
+                FontSize = 12,
                 HorizontalAlignment = HorizontalAlignment.Right,
             };
             UseBrush(soldText, TextBlock.ForegroundProperty, "BrushTextSoft");
@@ -2361,7 +2372,7 @@ public partial class OwnerShellWindow : Window, IMainShell
                 TextTrimming = TextTrimming.CharacterEllipsis,
             };
             var nameRun = new Run(string.IsNullOrWhiteSpace(itemName) ? Tr.T("Продажа", "Сатуу", "Sale", "Satış", "Sotuv") : itemName);
-            UseBrush(nameRun, TextElement.ForegroundProperty, "BrushText");
+            UseBrush(nameRun, TextElement.ForegroundProperty, "BrushText", title);
             var titleInlines = new InlineCollection { nameRun };
             var saleId = Str(sale, "id");
             var itemsCount = (int)Math.Round(Num(sale, "items_count"));
@@ -2375,7 +2386,7 @@ public partial class OwnerShellWindow : Window, IMainShell
                     FontWeight = FontWeight.Normal,
                     FontSize = 12.5,
                 };
-                UseBrush(moreRun, TextElement.ForegroundProperty, "BrushTextSoft");
+                UseBrush(moreRun, TextElement.ForegroundProperty, "BrushTextSoft", title);
                 titleInlines.Add(moreRun);
             }
             title.Inlines = titleInlines;
@@ -2498,8 +2509,15 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     /// <summary>Цвет из темы с подпиской: при смене светлой/тёмной темы элементы, собранные в
     /// коде, перекрашиваются сами, как DynamicResource в разметке.</summary>
-    private void UseBrush(AvaloniaObject target, AvaloniaProperty property, string resourceKey) =>
-        target.Bind(property, this.GetResourceObservable(resourceKey));
+    /// <remarks>2026-11-01 (Н-01, аудит «10 из 10»): подписка на ресурсы раньше шла от самого долгоживущего окна
+    /// (<c>this</c>) — окно держало ссылку на каждый пересобранный элемент «Сводки» (столбики, строки, списки), и за
+    /// рабочий день память росла до 3,5 ГБ. Теперь подписка — от самого элемента (для <c>Run</c> — от его
+    /// <paramref name="owner"/>-текста): умирает вместе с ним, и сборщик мусора забирает старую разметку.</remarks>
+    private void UseBrush(AvaloniaObject target, AvaloniaProperty property, string resourceKey, StyledElement? owner = null)
+    {
+        StyledElement host = target is Control own ? own : owner ?? this;
+        target.Bind(property, host.GetResourceObservable(resourceKey));
+    }
 
     // ------------------------------------------------------------------ шапка окна
 
@@ -2543,7 +2561,8 @@ public partial class OwnerShellWindow : Window, IMainShell
     private void UpdateWindowChrome()
     {
         var maximized = WindowState == WindowState.Maximized;
-        RootGrid.Margin = maximized ? OffScreenMargin : default;
+        // 2026-11-01: отступ — на обёртке масштаба, а не на RootGrid: рамка Windows не должна уменьшаться/расти вместе с масштабом.
+        UiScaleTransform.Margin = maximized ? OffScreenMargin : default;
         MaximizeIconPath.Data = Geometry.Parse(maximized
             ? "M2.5,0.5 H9.5 V7.5 M0.5,2.5 H7.5 V9.5 H0.5 Z"
             : "M0.5,0.5 H9.5 V9.5 H0.5 Z");

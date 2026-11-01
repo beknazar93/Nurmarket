@@ -99,7 +99,7 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="Padding" Value="5,4"/>
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -114,6 +114,8 @@
             <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <!-- 2026-11-01 (Д-07): высота — стилем (раньше Height=56 на кнопке), чтобы класс окна "shortscreen" мог её уменьшить. -->
+            <Setter Property="Height" Value="56"/>
         </Style>
 
         <Style Selector="ListBox.cart-list">
@@ -380,8 +382,52 @@
         <Style Selector=".compact TextBlock.cart-action-text">
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="MaxLines" Value="2"/>
-            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="TextAlignment" Value="Center"/>
+        </Style>
+        <!-- 2026-11-01 (аудит «10 из 10», Д-07): «Классика» на 1024×600 показывала 1,5 строки чека. Класс окна "shortscreen" (высота &lt; 640,
+             MainWindow.UpdateShortScreen) — вкладки, строки, поле ввода и итог ещё плотнее; идёт после .compact и переопределяет его. -->
+        <!-- Высоты строки ввода (поле, −/+, «Добавить») были литералами 44 на элементах — теперь стили: 44 обычно, 40 на низком экране. -->
+        <Style Selector="Grid.cart-entry-row TextBox">
+            <Setter Property="MinHeight" Value="44"/>
+        </Style>
+        <Style Selector="Grid.cart-entry-row RepeatButton">
+            <Setter Property="Height" Value="44"/>
+        </Style>
+        <Style Selector=".shortscreen Grid.cart-entry-row TextBox">
+            <Setter Property="MinHeight" Value="40"/>
+        </Style>
+        <Style Selector=".shortscreen Grid.cart-entry-row RepeatButton">
+            <Setter Property="Height" Value="40"/>
+        </Style>
+        <Style Selector=".shortscreen Button.cart-action">
+            <Setter Property="Height" Value="40"/>
+        </Style>
+        <Style Selector=".shortscreen Button.cart-accent">
+            <Setter Property="Height" Value="48"/>
+        </Style>
+        <Style Selector=".shortscreen Border.cart-tabs-row">
+            <Setter Property="MinHeight" Value="46"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
+        </Style>
+        <Style Selector=".shortscreen Border.cart-tabs-pad">
+            <Setter Property="Padding" Value="0,0,0,4"/>
+        </Style>
+        <Style Selector=".shortscreen Border.cart-line">
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="0,0,0,3"/>
+        </Style>
+        <Style Selector=".shortscreen Grid.line-controls">
+            <Setter Property="Margin" Value="0,2,0,0"/>
+        </Style>
+        <Style Selector=".shortscreen Grid.cart-entry-row">
+            <Setter Property="Margin" Value="0,0,0,2"/>
+        </Style>
+        <Style Selector=".shortscreen Grid.cart-total-row">
+            <Setter Property="Margin" Value="0,0,0,2"/>
+        </Style>
+        <Style Selector=".shortscreen TextBlock.cart-total">
+            <Setter Property="FontSize" Value="28"/>
         </Style>
         <!-- 2026-10-23 (аудит К6): узкое окно 1024 без "compact" — подписи кнопок («Удалить чек», «Доп. услуга») в две строки, не обрезаются. -->
         <Style Selector=".headernarrow Button.cart-action">
@@ -390,7 +436,7 @@
         <Style Selector=".headernarrow TextBlock.cart-action-text">
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="MaxLines" Value="2"/>
-            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="TextAlignment" Value="Center"/>
         </Style>
     </UserControl.Styles>
@@ -794,7 +840,6 @@
                                  BorderThickness="0"
                                  Background="Transparent"
                                  Foreground="{DynamicResource BrushText}"
-                                 MinHeight="44"
                                  FontSize="13"
                                  VerticalContentAlignment="Center"
                                  HorizontalAlignment="Stretch">
@@ -814,7 +859,6 @@
                         <Grid ColumnDefinitions="44,40,44" VerticalAlignment="Center">
                             <RepeatButton Grid.Column="0"
                                           Width="44"
-                                          Height="44"
                                           Padding="0"
                                           Background="Transparent"
                                           BorderThickness="0"
@@ -829,7 +873,6 @@
                             </RepeatButton>
                             <TextBox Grid.Column="1"
                                      Text="{Binding ManualQuantity}" MaxLength="5"
-                                     MinHeight="44"
                                      VerticalContentAlignment="Center"
                                      BorderThickness="0"
                                      Background="Transparent"
@@ -839,7 +882,6 @@
                                      VerticalAlignment="Center"/>
                             <RepeatButton Grid.Column="2"
                                           Width="44"
-                                          Height="44"
                                           Padding="0"
                                           Background="Transparent"
                                           BorderThickness="0"
@@ -861,7 +903,6 @@
                             MinWidth="120"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Center"
-                            Height="44"
                             Padding="10,8"
                             FontSize="13"
                             Content="{DynamicResource csh.cart.add}"
@@ -1121,7 +1162,6 @@
                 <!-- Кнопка оплаты -->
                 <Button Grid.Row="6"
                         Classes="cart-accent"
-                        Height="56"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Center"
                         VerticalContentAlignment="Center"

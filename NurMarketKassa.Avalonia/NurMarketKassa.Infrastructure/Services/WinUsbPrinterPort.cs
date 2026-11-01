@@ -40,7 +40,37 @@ public static class WinUsbPrinterPort
 
     public sealed record WinUsbDeviceInfo(int VendorId, int ProductId, string Label, string DevicePath);
 
-    private sealed record NativeDevice(int VendorId, int ProductId, string NativePath);
+    private sealed record NativeDevice(int VendorId, int ProductId, string NativePath,
+        string? Service = null, string? DeviceClass = null, bool FromGenericGuid = false)
+    {
+        /// <summary>2026-11-01: экземпляр устройства (из пути Windows: usb#vid_..&pid_..#ЭКЗЕМПЛЯР#{guid}) — серийный номер или адрес порта.
+        /// Одно физическое устройство под двумя GUID имеет один экземпляр; два принтера на одной плате — разные.</summary>
+        public string Instance
+        {
+            get
+            {
+                var parts = NativePath.Split('#');
+                return (parts.Length >= 3 ? parts[2] : NativePath).ToLowerInvariant();
+            }
+        }
+    }
+
+    /// <summary>Короткая метка экземпляра для адреса (FNV-1a, одинаковая при каждом запуске).</summary>
+    private static string InstanceTag(string instance)
+    {
+        var h = 2166136261u;
+        foreach (var c in instance)
+            h = (h ^ c) * 16777619u;
+        return h.ToString("X8");
+    }
+
+    /// <summary>Устройства без повторов (один экземпляр = одно устройство), по порядку экземпляров — для стабильной нумерации.</summary>
+    private static List<NativeDevice> DistinctDevices(Func<NativeDevice, bool> filter) => EnumerateNativeDevices()
+        .Where(filter)
+        .GroupBy(d => d.Instance)
+        .Select(g => g.OrderBy(d => d.FromGenericGuid).First())
+        .OrderBy(d => d.VendorId).ThenBy(d => d.ProductId).ThenBy(d => d.Instance, StringComparer.Ordinal)
+        .ToList();
 
     /// <summary>Перечисляет USB-устройства, доступные через WinUSB (после установки драйвера
     /// Zadig) — обычные Windows-принтеры сюда не попадают, у них свой драйвер.</summary>
@@ -49,12 +79,24 @@ public static class WinUsbPrinterPort
         var result = new List<WinUsbDeviceInfo>();
         try
         {
-            foreach (var device in EnumerateNativeDevices())
+            // 2026-11-01: в списке принтеров этикеток были камера и Bluetooth — общий список USB-устройств Windows
+            // (GUID a5dcbf10…) содержит вообще все USB-устройства. Показываем только то, чем можно печатать.
+            // Одно устройство под двумя GUID — одна строка; два принтера на одной плате (одинаковые VID/PID) — две строки:
+            // первый с прежним адресом, остальные с меткой экземпляра (&INST_…), чтобы чековый и этикеточный принтер не склеивались.
+            var number = new Dictionary<(int, int), int>();
+            foreach (var device in DistinctDevices(LooksLikePrinterCandidate))
             {
-                result.Add(new WinUsbDeviceInfo(
-                    device.VendorId, device.ProductId,
-                    $"VID_{device.VendorId:X4}&PID_{device.ProductId:X4}",
-                    ToDevicePath(device.VendorId, device.ProductId)));
+                var key = (device.VendorId, device.ProductId);
+                var n = number.GetValueOrDefault(key) + 1;
+                number[key] = n;
+                var label = $"VID_{device.VendorId:X4}&PID_{device.ProductId:X4}";
+                var path = ToDevicePath(device.VendorId, device.ProductId);
+                if (n > 1)
+                {
+                    label += $" #{n}";
+                    path += "&INST_" + InstanceTag(device.Instance);
+                }
+                result.Add(new WinUsbDeviceInfo(device.VendorId, device.ProductId, label, path));
             }
         }
         catch (Exception ex)
@@ -66,16 +108,38 @@ public static class WinUsbPrinterPort
         return result;
     }
 
+    // 2026-11-01: классы устройств Windows, которые точно не принтер (камера, Bluetooth, ввод, звук, диски, сеть, хабы).
+    private static readonly string[] NonPrinterClasses =
+        ["Bluetooth", "Camera", "Image", "MEDIA", "AudioEndpoint", "Mouse", "Keyboard", "HIDClass", "USB", "DiskDrive", "WPD", "Net", "SmartCardReader"];
+
+    /// <summary>Можно ли показывать устройство в списке принтеров. Если свойства драйвера прочитать не удалось — показываем (как раньше).
+    /// Из общего списка USB-устройств берём только те, у которых драйвер winusb.sys (Zadig): иначе запись через WinUSB всё равно невозможна.</summary>
+    private static bool LooksLikePrinterCandidate(NativeDevice d)
+    {
+        if (!string.IsNullOrEmpty(d.DeviceClass)
+            && NonPrinterClasses.Any(c => string.Equals(c, d.DeviceClass, StringComparison.OrdinalIgnoreCase)))
+            return false;
+        if (d.FromGenericGuid && !string.IsNullOrEmpty(d.Service)
+            && !string.Equals(d.Service, "WinUSB", StringComparison.OrdinalIgnoreCase))
+            return false;
+        return true;
+    }
+
     public static bool IsWinUsbDevicePath(string? devicePath) =>
         !string.IsNullOrWhiteSpace(devicePath) && devicePath.StartsWith(SchemePrefix, StringComparison.OrdinalIgnoreCase);
 
     public static string ToDevicePath(int vendorId, int productId) =>
         $"{SchemePrefix}VID_{vendorId:X4}&PID_{productId:X4}";
 
-    public static bool TryParseDevicePath(string devicePath, out int vendorId, out int productId)
+    public static bool TryParseDevicePath(string devicePath, out int vendorId, out int productId) =>
+        TryParseDevicePath(devicePath, out vendorId, out productId, out _);
+
+    /// <summary><paramref name="instanceTag"/> — метка экземпляра (&amp;INST_…) для второго и следующих принтеров с теми же VID/PID; null — первый.</summary>
+    public static bool TryParseDevicePath(string devicePath, out int vendorId, out int productId, out string? instanceTag)
     {
         vendorId = 0;
         productId = 0;
+        instanceTag = null;
         if (!IsWinUsbDevicePath(devicePath))
             return false;
 
@@ -88,17 +152,19 @@ public static class WinUsbPrinterPort
             else if (part.StartsWith("PID_", StringComparison.OrdinalIgnoreCase)
                 && int.TryParse(part.AsSpan(4), System.Globalization.NumberStyles.HexNumber, null, out var pid))
                 productId = pid;
+            else if (part.StartsWith("INST_", StringComparison.OrdinalIgnoreCase))
+                instanceTag = part[5..].ToUpperInvariant();
         }
 
         return vendorId != 0 && productId != 0;
     }
 
     /// <summary>Проверка доступности без отправки данных — используется в настройках принтера.</summary>
-    public static bool Probe(int vendorId, int productId)
+    public static bool Probe(int vendorId, int productId, string? instanceTag = null)
     {
         try
         {
-            return EnumerateNativeDevices().Any(d => d.VendorId == vendorId && d.ProductId == productId);
+            return FindDevice(vendorId, productId, instanceTag) is not null;
         }
         catch (Exception ex)
         {
@@ -110,13 +176,22 @@ public static class WinUsbPrinterPort
     /// <param name="transferTimeoutMs">Тайм-аут одной передачи (PIPE_TRANSFER_TIMEOUT). Без него
     /// WinUsb_WritePipe на принтере, который перестал забирать данные (кончилась бумага, открыта
     /// крышка), ждёт вечно — и касса больше не печатала до перезапуска (2026-09-26).</param>
-    public static void SendRawBytes(int vendorId, int productId, byte[] payload, uint transferTimeoutMs = 10_000)
+    /// <summary>Устройство по VID/PID; при нескольких одинаковых — по метке экземпляра (нет метки — первое, как раньше).</summary>
+    private static NativeDevice? FindDevice(int vendorId, int productId, string? instanceTag)
+    {
+        var list = DistinctDevices(d => d.VendorId == vendorId && d.ProductId == productId);
+        if (string.IsNullOrEmpty(instanceTag))
+            return list.FirstOrDefault();
+        return list.FirstOrDefault(d => string.Equals(InstanceTag(d.Instance), instanceTag, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static void SendRawBytes(int vendorId, int productId, byte[] payload, uint transferTimeoutMs = 10_000, string? instanceTag = null)
     {
         ArgumentNullException.ThrowIfNull(payload);
         if (payload.Length == 0)
             throw new InvalidOperationException("Пустой буфер печати.");
 
-        var device = EnumerateNativeDevices().FirstOrDefault(d => d.VendorId == vendorId && d.ProductId == productId)
+        var device = FindDevice(vendorId, productId, instanceTag)
             ?? throw new InvalidOperationException(
                 $"USB-устройство VID_{vendorId:X4}&PID_{productId:X4} не найдено. " +
                 "Проверьте подключение и что для него установлен драйвер WinUSB (Zadig).");
@@ -298,7 +373,7 @@ public static class WinUsbPrinterPort
 
                 index++;
 
-                var path = TryGetDevicePath(deviceInfoSet, ref interfaceData);
+                var path = TryGetDevicePath(deviceInfoSet, ref interfaceData, out var devInfo);
                 if (path is null)
                     continue;
 
@@ -310,7 +385,10 @@ public static class WinUsbPrinterPort
                 if (!int.TryParse(match.Groups[2].Value, System.Globalization.NumberStyles.HexNumber, null, out var pid))
                     continue;
 
-                yield return new NativeDevice(vid, pid, path);
+                // 2026-11-01: драйвер (Service) и класс устройства — чтобы не показывать камеру/Bluetooth как принтер.
+                var service = devInfo.cbSize != 0 ? TryReadRegistryText(deviceInfoSet, ref devInfo, SPDRP_SERVICE) : null;
+                var deviceClass = devInfo.cbSize != 0 ? TryReadRegistryText(deviceInfoSet, ref devInfo, SPDRP_CLASS) : null;
+                yield return new NativeDevice(vid, pid, path, service, deviceClass, guid == GenericUsbDeviceInterfaceGuid);
             }
         }
         finally
@@ -319,8 +397,9 @@ public static class WinUsbPrinterPort
         }
     }
 
-    private static string? TryGetDevicePath(IntPtr deviceInfoSet, ref SP_DEVICE_INTERFACE_DATA interfaceData)
+    private static string? TryGetDevicePath(IntPtr deviceInfoSet, ref SP_DEVICE_INTERFACE_DATA interfaceData, out SP_DEVINFO_DATA devInfo)
     {
+        devInfo = default;
         SetupDiGetDeviceInterfaceDetail(deviceInfoSet, ref interfaceData, IntPtr.Zero, 0, out var requiredSize, IntPtr.Zero);
         if (requiredSize == 0)
             return null;
@@ -332,7 +411,11 @@ public static class WinUsbPrinterPort
             // значение (не sizeof всей структуры с переменной строкой). Проект собирается только
             // под win-x64, поэтому используем именно это значение.
             Marshal.WriteInt32(buffer, 8);
-            if (!SetupDiGetDeviceInterfaceDetail(deviceInfoSet, ref interfaceData, buffer, requiredSize, out _, IntPtr.Zero))
+            // 2026-11-01: заодно просим у Windows описание устройства (SP_DEVINFO_DATA) — по нему читаем драйвер и класс.
+            var info = new SP_DEVINFO_DATA { cbSize = Marshal.SizeOf<SP_DEVINFO_DATA>() };
+            if (SetupDiGetDeviceInterfaceDetailWithInfo(deviceInfoSet, ref interfaceData, buffer, requiredSize, out _, ref info))
+                devInfo = info;
+            else if (!SetupDiGetDeviceInterfaceDetail(deviceInfoSet, ref interfaceData, buffer, requiredSize, out _, IntPtr.Zero))
                 return null;
 
             var pathPtr = buffer + 4;
@@ -353,6 +436,46 @@ public static class WinUsbPrinterPort
         public Guid InterfaceClassGuid;
         public int Flags;
         public IntPtr Reserved;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SP_DEVINFO_DATA
+    {
+        public int cbSize;
+        public Guid ClassGuid;
+        public int DevInst;
+        public IntPtr Reserved;
+    }
+
+    private const uint SPDRP_SERVICE = 0x4;
+    private const uint SPDRP_CLASS = 0x7;
+
+    [DllImport("setupapi.dll", SetLastError = true, CharSet = CharSet.Auto, EntryPoint = "SetupDiGetDeviceInterfaceDetail")]
+    private static extern bool SetupDiGetDeviceInterfaceDetailWithInfo(
+        IntPtr deviceInfoSet, ref SP_DEVICE_INTERFACE_DATA deviceInterfaceData,
+        IntPtr deviceInterfaceDetailData, uint deviceInterfaceDetailDataSize,
+        out uint requiredSize, ref SP_DEVINFO_DATA deviceInfoData);
+
+    [DllImport("setupapi.dll", SetLastError = true, CharSet = CharSet.Auto)]
+    private static extern bool SetupDiGetDeviceRegistryProperty(
+        IntPtr deviceInfoSet, ref SP_DEVINFO_DATA deviceInfoData, uint property,
+        out uint propertyRegDataType, byte[]? propertyBuffer, uint propertyBufferSize, out uint requiredSize);
+
+    /// <summary>Текстовое свойство устройства из реестра Windows (драйвер, класс); null — не удалось прочитать.</summary>
+    private static string? TryReadRegistryText(IntPtr deviceInfoSet, ref SP_DEVINFO_DATA devInfo, uint property)
+    {
+        try
+        {
+            var buffer = new byte[512];
+            if (!SetupDiGetDeviceRegistryProperty(deviceInfoSet, ref devInfo, property, out _, buffer, (uint)buffer.Length, out var size) || size < 2)
+                return null;
+            var text = System.Text.Encoding.Unicode.GetString(buffer, 0, (int)Math.Min(size, (uint)buffer.Length)).TrimEnd((char)0);
+            return text.Length == 0 ? null : text;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private const uint DIGCF_PRESENT = 0x02;

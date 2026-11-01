@@ -147,16 +147,27 @@ public partial class OwnerShellWindow
         RenderDebtsCard(_cardDebtors);
     }
 
+    /// <summary>2026-11-01 (Н-01): отпечаток данных, по которым нарисована карточка «Долги»; null — карточка устарела.</summary>
+    private string? _debtsCardSig;
+
+    /// <summary>2026-11-01 (Н-01): окно снова активно — дорисовать карточку «Долги», пропущенную, пока окно было свёрнуто.</summary>
+    private void RenderDebtsCardIfStale()
+    {
+        if (_debtsCardSig is null && _cardDebtors is { Count: > 0 } && WindowState != WindowState.Minimized && IsVisible)
+            RenderDebtsCard(_cardDebtors);
+    }
+
     private void RenderDebtsCard(List<DebtsView.Debtor> debtors)
     {
         DebtsCard.IsVisible = true;
         DebtsTitle.Text = DebtsView.TitleText;
         DebtsLinkText.Text = T5("Подробно", "Толугу менен", "Details", "Ayrıntılar", "Batafsil");
-        DebtsHost.Children.Clear();
         // 2026-10-18, ревью О1: «Всё в порядке» в «Требует внимания» — только после того, как долги действительно получены.
         _attnDebtsLoaded = true;
         if (debtors.Count == 0)
         {
+            DebtsHost.Children.Clear();
+            _debtsCardSig = null;
             LogDebtsCardState("empty", "Сводка: долгов нет — строка долгов в «Требует внимания» убрана.");
             _attnDebts = null;
             RenderAttention();
@@ -179,8 +190,23 @@ public partial class OwnerShellWindow
         RenderAttention();
         // 2026-10-18, этап О1: сумма — крупно цветом текста (красный — только просрочка «больше 30 дней»), итоги — по строкам,
         // без склейки « · » и без линии-разделителя.
+        // 2026-11-01 (Н-01, аудит «10 из 10»): карточку пересобираем, только если видны другие данные, и не пока окно свёрнуто
+        // (раньше — по каждому точному расчёту долгов, ~145 раз за день, при любом состоянии окна). Свёрнуто — карточка
+        // помечается устаревшей и перерисуется при возврате в окно (Activated).
+        var sig = string.Join("|", approx, Math.Round(total, 2), debtors.Count, old, note, T5("r", "k", "e", "t", "u"),
+            string.Join(";", debtors.OrderByDescending(d => d.Total).Take(3).Select(d => $"{d.Name}/{d.Total:0.##}/{d.Oldest:yyyyMMdd}")),
+            debtors.Sum(d => d.Sales.Count), DateTime.Today.DayOfYear);
+        if (WindowState == WindowState.Minimized || !IsVisible)
+        {
+            _debtsCardSig = null;
+            return;
+        }
+        if (sig == _debtsCardSig && DebtsHost.Children.Count > 0)
+            return;
+        _debtsCardSig = sig;
+        DebtsHost.Children.Clear();
         var sum = new TextBlock { Text = (approx ? "≈ " : "") + Money(total), FontSize = 30, FontWeight = FontWeight.SemiBold, Classes = { "num" } };
-        sum.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        sum.Bind(TextBlock.ForegroundProperty, sum.GetResourceObservable("BrushText"));
         DebtsHost.Children.Add(sum);
         if (note is not null)
             DebtsHost.Children.Add(Line(note));
@@ -198,19 +224,19 @@ public partial class OwnerShellWindow
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
             var who = new StackPanel { Spacing = 1 };
             var name = new TextBlock { Text = d.Name, FontSize = 14, TextTrimming = TextTrimming.CharacterEllipsis };
-            name.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            name.Bind(TextBlock.ForegroundProperty, name.GetResourceObservable("BrushText"));
             var since = new TextBlock
             {
                 Text = T5($"с {d.Oldest:dd.MM} · {DebtsView.Days(d.Oldest)}", $"{d.Oldest:dd.MM} баштап · {DebtsView.Days(d.Oldest)}",
                     $"since {d.Oldest:dd.MM} · {DebtsView.Days(d.Oldest)}", $"{d.Oldest:dd.MM} tarihinden · {DebtsView.Days(d.Oldest)}", $"{d.Oldest:dd.MM} dan · {DebtsView.Days(d.Oldest)}"),
                 FontSize = 13,
             };
-            since.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(DebtsView.AgeDays(d.Oldest) > 30 ? "BrushDanger" : "BrushTextSoft"));
+            since.Bind(TextBlock.ForegroundProperty, since.GetResourceObservable(DebtsView.AgeDays(d.Oldest) > 30 ? "BrushDanger" : "BrushTextSoft"));
             who.Children.Add(name);
             who.Children.Add(since);
             row.Children.Add(who);
             var amount = new TextBlock { Text = Money(d.Total), FontSize = 14, FontWeight = FontWeight.SemiBold, Classes = { "num" }, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
-            amount.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            amount.Bind(TextBlock.ForegroundProperty, amount.GetResourceObservable("BrushText"));
             Grid.SetColumn(amount, 1);
             row.Children.Add(amount);
             DebtsHost.Children.Add(row);

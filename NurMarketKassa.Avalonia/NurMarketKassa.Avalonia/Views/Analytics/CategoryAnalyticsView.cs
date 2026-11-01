@@ -190,11 +190,11 @@ public sealed class CategoryAnalyticsView : UserControl
             _body.Children.Clear();
             if (data is null)
             {
-                _status.Text = Tr.T("Нет связи с сервером NurCRM — аналитика по категориям считается только по серверу, чтобы цифры совпадали со «Сводкой». Проверьте интернет и нажмите «Обновить».",
-                    "NurCRM серверине байланыш жок — категориялар боюнча аналитика «Жыйынтык» менен дал келиши үчүн сервер боюнча гана эсептелет. Интернетти текшериңиз да «Жаңыртуу» басыңыз.",
-                    "No connection to the NurCRM server — category analytics is calculated from the server only, so the figures match “Summary”. Check the internet and press “Refresh”.",
-                    "NurCRM sunucusuna bağlanılamadı — kategori analizi yalnızca sunucudan hesaplanır, böylece rakamlar «Özet» ile aynı olur. İnterneti kontrol edip «Yenile»ye basın.",
-                    "NurCRM serveriga ulanib bo'lmadi — kategoriyalar tahlili «Xulosa» bilan mos bo'lishi uchun faqat serverdan hisoblanadi. Internetni tekshirib, «Yangilash»ni bosing.");
+                _status.Text = Tr.T("Сервер NurCRM недоступен — аналитика по категориям считается только по серверу, чтобы цифры совпадали со «Сводкой». Проверьте интернет и нажмите «Обновить».",
+                    "NurCRM сервери жеткиликсиз — категориялар боюнча аналитика «Жыйынтык» менен дал келиши үчүн сервер боюнча гана эсептелет. Интернетти текшериңиз да «Жаңыртуу» басыңыз.",
+                    "The NurCRM server is unavailable — category analytics is calculated from the server only, so the figures match “Summary”. Check the internet and press “Refresh”.",
+                    "NurCRM sunucusu kullanılamıyor — kategori analizi yalnızca sunucudan hesaplanır, böylece rakamlar «Özet» ile aynı olur. İnterneti kontrol edip «Yenile»ye basın.",
+                    "NurCRM serveri mavjud emas — kategoriyalar tahlili «Xulosa» bilan mos bo'lishi uchun faqat serverdan hisoblanadi. Internetni tekshirib, «Yangilash»ni bosing.");
                 return;
             }
             _status.Text = "";

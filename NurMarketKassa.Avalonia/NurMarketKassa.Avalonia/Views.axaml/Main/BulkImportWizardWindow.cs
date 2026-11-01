@@ -1374,6 +1374,34 @@ public sealed class BulkImportWizardWindow : Window
                 _status.Text = ResumeNote();
                 return;
             }
+            // 2026-11-01 (аудит 10 из 10, С-06): исправленный файл (другой хэш) — новый журнал, и все строки приходовались бы второй раз.
+            // Ищем свежий журнал того же прихода, где записано больше половины этих штрихкодов, и спрашиваем: только новые строки или всё заново.
+            if (journal.DoneCount == 0 && !SkipConfirmations
+                && BulkImportJournal.FindSimilarReceipt(journal.Hash, sendLines.Select(l => l.Barcode).ToList()) is { } similar)
+            {
+                var loadedAt = similar.Journal.UpdatedAt.ToString("dd.MM.yyyy HH:mm");
+                var onlyNew = await PosConfirmDialog.ShowModalAsync(this,
+                    T("Похоже, этот файл уже загружали", "Бул файл мурда жүктөлгөн окшойт", "This file seems to be loaded already", "Bu dosya daha önce yüklenmiş gibi", "Bu fayl avval yuklangan ko'rinadi"),
+                    T($"{similar.Overlap.Count} из {sendLines.Count} строк уже оприходованы файлом «{similar.Journal.FileName}» ({loadedAt}). Загрузить только новые строки? Если в уже загруженных строках вы поправили количество — внесите разницу вручную.",
+                        $"{sendLines.Count} саптын {similar.Overlap.Count} «{similar.Journal.FileName}» файлы менен кирешеленген ({loadedAt}). Жаңы саптарды гана жүктөйбүзбү? Жүктөлгөн саптарда санды оңдосоңуз — айырманы кол менен киргизиңиз.",
+                        $"{similar.Overlap.Count} of {sendLines.Count} rows were already received by the file “{similar.Journal.FileName}” ({loadedAt}). Load only the new rows? If you corrected a quantity in the already loaded rows, add the difference by hand.",
+                        $"{sendLines.Count} satırdan {similar.Overlap.Count} tanesi «{similar.Journal.FileName}» dosyasıyla ({loadedAt}) zaten girildi. Yalnızca yeni satırlar yüklensin mi? Yüklenmiş satırlarda miktarı düzelttiyseniz farkı elle girin.",
+                        $"{sendLines.Count} qatordan {similar.Overlap.Count} tasi «{similar.Journal.FileName}» fayli bilan ({loadedAt}) allaqachon kirim qilingan. Faqat yangi qatorlar yuklansinmi? Yuklangan qatorlarda miqdorni tuzatgan bo'lsangiz, farqni qo'lda kiriting."),
+                    T("Только новые", "Жаңылары гана", "Only new", "Yalnızca yeni", "Faqat yangilari"),
+                    T("Другое…", "Башка…", "Other…", "Diğer…", "Boshqa…")).ConfigureAwait(true);
+                if (onlyNew)
+                    journal.MarkDone(similar.Overlap);
+                else
+                {
+                    var all = await PosConfirmDialog.ShowModalAsync(this,
+                        T("Загрузить всё заново?", "Баарын кайра жүктөйбүзбү?", "Load everything again?", "Hepsi yeniden yüklensin mi?", "Hammasi qayta yuklansinmi?"),
+                        T("Остаток уже загруженных строк прибавится ещё раз.", "Жүктөлгөн саптардын калдыгы дагы бир жолу кошулат.", "The stock of the already loaded rows will be added again.",
+                            "Daha önce yüklenen satırların stoku bir kez daha eklenecek.", "Allaqachon yuklangan qatorlarning qoldig'i yana qo'shiladi."),
+                        T("Загрузить всё", "Баарын жүктөө", "Load all", "Hepsini yükle", "Hammasini yuklash"), T("Не загружать", "Жүктөбөө", "Do not load", "Yükleme", "Yuklamaslik")).ConfigureAwait(true);
+                    if (!all)
+                        return;
+                }
+            }
             if (journal.DoneCount > 0)
             {
                 var keep = Enumerable.Range(0, sendLines.Count).Where(i => !journal.IsDone(sendLines[i].Barcode)).ToList();

@@ -293,13 +293,14 @@ public sealed partial class InvoiceDocumentWindow : Window
                 ToolTip.SetTip(box, tip);
             wrap.Children.Add(box);
         }
-        var soon = T("Станет доступно после обновления сервера", "Сервер жаңырганда жеткиликтүү болот", "Available after the server update", "Sunucu güncellemesinden sonra kullanılabilir olacak", "Server yangilangach mavjud bo'ladi");
+        // 2026-11-01: PATCH прихода у сервера нет — поставщик, дата, оплата, закупка, скидка, НДС, комментарий выключены с подсказкой «Требует серверной поддержки».
+        var soon = ReceiptEditService.NeedsServerText;
         Item(T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"), _r.SupplierName.Length > 0 ? _r.SupplierName : "—", _edit ? soon : null, grey: _edit);
         if (PurchaseNumberUi.SupplierDocText(_r.SupplierDocNumber, _r.SupplierDocDate).Length > 0)
             Item(T("№ накладной поставщика", "Жеткирүүчүнүн накладной №", "Supplier invoice no.", "Tedarikçi irsaliye no.", "Yetkazuvchi yuk xati №"),
                 _r.SupplierDocNumber + (_r.SupplierDocDate is { } sd ? " · " + sd.ToString("dd.MM.yyyy", Ru) : ""));
         Item(T("Принял", "Кабыл алды", "Received by", "Kabul eden", "Qabul qildi"), _r.CreatedBy.Length > 0 ? _r.CreatedBy : "—");
-        Item(T("Дата", "Күнү", "Date", "Tarih", "Sana"), _r.CreatedAt?.ToString("dd.MM.yyyy HH:mm", Ru) ?? "—");
+        Item(T("Дата", "Күнү", "Date", "Tarih", "Sana"), _r.CreatedAt?.ToString("dd.MM.yyyy HH:mm", Ru) ?? "—", _edit ? soon : null, grey: _edit);
         if (_showMoney)
             Item(T("Оплата", "Төлөм", "Payment", "Ödeme", "To'lov"), PayText(), _edit ? soon : null, grey: _edit);
         if (_r.ReturnedAmount > 0.005)
@@ -459,7 +460,8 @@ public sealed partial class InvoiceDocumentWindow : Window
             }
             else
             {
-                text = T("Правка без ограничения времени", "Оңдоо убакыт чектөөсүз", "Editing has no time limit", "Düzenleme süre sınırsız", "Tahrirlash vaqt cheklovisiz");
+                // 2026-11-01: срока правки больше нет, зато каждая правка пишется в журнал (кто, когда, было → стало, причина).
+                text = T("Правка всегда открыта · каждое изменение записывается в журнал", "Оңдоо дайыма ачык · ар бир өзгөртүү журналга жазылат", "Editing is always open · every change is logged", "Düzenleme her zaman açık · her değişiklik günlüğe yazılır", "Tahrirlash doim ochiq · har bir o'zgarish jurnalga yoziladi");
                 brush = "BrushSuccess";
             }
         }

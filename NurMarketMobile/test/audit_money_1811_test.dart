@@ -79,7 +79,7 @@ void main() {
       await (db.update(db.products)..where((x) => x.id.equals('old1'))).write(const ProductsCompanion(purchasePrice: Value(7.5)));
       expect((await db.productById('old1'))!.purchasePrice, 7.5);
       expect((await db.productById('old1'))!.quantity, 9);
-      expect(db.schemaVersion, 7);
+      expect(db.schemaVersion, 8); // 2026-10-31: схема 8 — размеры и цвета, срок годности
       await db.close();
     });
 

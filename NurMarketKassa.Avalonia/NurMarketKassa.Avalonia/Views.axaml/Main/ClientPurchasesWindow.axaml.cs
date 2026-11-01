@@ -162,7 +162,7 @@ public sealed class ClientPurchasesWindow : Window
                 .GroupBy(r => r.Id).Select(g => g.First()).OrderByDescending(r => r.CreatedAt).ToList();
             _rentals.Children.Clear();
             _rentalsHead.IsVisible = mine.Count > 0;
-            _rentalsHead.Text = Tr.T($"Прокат: {mine.Count}", $"Прокат: {mine.Count}", $"Rentals: {mine.Count}", $"Kiralama: {mine.Count}", $"Prokat: {mine.Count}");
+            _rentalsHead.Text = Tr.T($"Прокат: {mine.Count}", $"Ижара: {mine.Count}", $"Rentals: {mine.Count}", $"Kiralama: {mine.Count}", $"Prokat: {mine.Count}");
             foreach (var r in mine)
             {
                 var status = r.IsOverdue ? Tr.T("просрочен", "мөөнөтү өттү", "overdue", "gecikmiş", "muddati o'tgan")

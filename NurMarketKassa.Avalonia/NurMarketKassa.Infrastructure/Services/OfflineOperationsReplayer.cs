@@ -11,7 +11,8 @@ public interface IOfflineOpsApi
     Task<JsonElement> GetSaleAsync(string saleId, CancellationToken ct);
 
     /// <summary>lines = null — вернуть чек целиком. Ключ идемпотентности — всегда ключ операции.</summary>
-    Task<JsonElement> ReturnSaleAsync(string saleId, IReadOnlyList<PosRefundLineRequest>? lines, string idempotencyKey, CancellationToken ct);
+    /// <remarks>2026-11-01 (аудит «10 из 10»): reason — причина возврата, записанная кассиром без связи; уходит так же, как в онлайн-пути.</remarks>
+    Task<JsonElement> ReturnSaleAsync(string saleId, IReadOnlyList<PosRefundLineRequest>? lines, string idempotencyKey, string? reason, CancellationToken ct);
 
     Task<PayDebtResult> PayDebtAsync(string clientId, double amount, string method, string? shiftId, string idempotencyKey, CancellationToken ct);
 }
@@ -28,11 +29,14 @@ public sealed class SalesOfflineOpsApi : IOfflineOpsApi
 
     public Task<JsonElement> GetSaleAsync(string saleId, CancellationToken ct) => _sales.PosSaleGetAsync(saleId, ct);
 
-    public Task<JsonElement> ReturnSaleAsync(string saleId, IReadOnlyList<PosRefundLineRequest>? lines, string idempotencyKey, CancellationToken ct)
+    public Task<JsonElement> ReturnSaleAsync(string saleId, IReadOnlyList<PosRefundLineRequest>? lines, string idempotencyKey, string? reason, CancellationToken ct)
     {
         // 2026-10-29 (ревью, Б-1): пустой (не null) список строк — ошибка вызова: PosReturnSaleAsync без items возвращает ВЕСЬ чек. «Весь чек» — только явный null.
         if (lines is { Count: 0 })
             throw new InvalidOperationException("Возврат без строк не отправляется (без items сервер вернул бы весь чек).");
+        // 2026-11-01 (аудит «10 из 10»): причина возврата терялась при отправке из очереди — как в PosRefundService: есть причина → запрос с деталями.
+        if (!string.IsNullOrWhiteSpace(reason) && _sales is IPosExchangeApi details)
+            return details.PosReturnWithDetailsAsync(saleId, lines, reason.Trim(), false, ct, idempotencyKey);
         return _sales.PosReturnSaleAsync(saleId, lines, ct, idempotencyKey);
     }
 
@@ -417,7 +421,7 @@ public static class OfflineOperationsReplayer
 
         if (op.Whole && !op.WholeSent)
             OfflineOperationsStore.Update(op.Id, o => o.WholeSent = true); // 2026-10-30: на диск ДО запроса
-        var response = await api.ReturnSaleAsync(saleId!, op.Whole ? null : lines, op.Id, ct).ConfigureAwait(false);
+        var response = await api.ReturnSaleAsync(saleId!, op.Whole ? null : lines, op.Id, op.Reason, ct).ConfigureAwait(false);
 
         OfflineOperationsStore.Update(op.Id, o =>
         {

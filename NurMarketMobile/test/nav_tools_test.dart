@@ -102,7 +102,7 @@ void main() {
     final appRoutes = RegExp(r"path:\s*'([^']+)'").allMatches(src).map((m) => m.group(1)!).toList();
 
     test('в app.dart 49 маршрутов, и каждый есть в реестре (новый маршрут нельзя забыть)', () {
-      expect(appRoutes.length, 51); // 2026-10-27: +/admin/invoice, +/tester (в реестре: /tester исключён, /admin/invoice — экран invoice); -/bookings (запись к мастерам убрана); 2026-10-26 (В5): +/ai/settings, +/ai/log; (В7): +/admin/tasks, +/tasks/my, +/admin/salary
+      expect(appRoutes.length, 52); // 2026-10-31: +/sizes (режим «Одежда»); 2026-10-27: +/admin/invoice, +/tester (в реестре: /tester исключён, /admin/invoice — экран invoice); -/bookings (запись к мастерам убрана); 2026-10-26 (В5): +/ai/settings, +/ai/log; (В7): +/admin/tasks, +/tasks/my, +/admin/salary
       final inRegistry = screens.routes;
       final missing = appRoutes.where((r) => !inRegistry.contains(r) && !ScreenRegistry.excludedRoutes.contains(r)).toList();
       expect(missing, isEmpty, reason: 'маршруты app.dart без записи в screen_registry.dart: $missing');

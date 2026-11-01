@@ -25,7 +25,8 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// пунктов одна группа за раз; поле настроек оставлено, чтобы не трогать файл настроек.</summary>
 public partial class OwnerShellWindow
 {
-    private const double NavRailWidth = 76;
+    // 2026-11-01 (ThinkPad): 76 → 84 вместе с кнопкой группы 72 → 80 в OwnerShellWindow.axaml — «Управление» помещается целиком.
+    private const double NavRailWidth = 84;
     private const double NavItemsWidth = 232;
 
     /// <summary>Шире этого (точек, без запаса развёрнутого окна) колонка пунктов сама не сворачивается.</summary>
@@ -65,7 +66,8 @@ public partial class OwnerShellWindow
             // 2026-10-18: сама колонка сворачивается только в новом виде (у бургера и старого вида своя разметка).
             if (_activeSection == null || _phoneLayout || MenuStyle != OwnerMenuStyles.New)
                 return false;
-            var width = Bounds.Width - OffScreenMargin.Left - OffScreenMargin.Right;
+            // 2026-11-01: ширина — в точках содержимого (с учётом «Масштаба интерфейса»: при 80 % окно 1366 вмещает ~1700 точек макета).
+            var width = (Bounds.Width - OffScreenMargin.Left - OffScreenMargin.Right) / _shellScale;
             return width > 0 && width <= NavAutoCollapseWidth;
         }
     }
@@ -88,6 +90,8 @@ public partial class OwnerShellWindow
         ExpandNavButton.IsVisible = !open && !_phoneLayout && !TabsMenu;
         RailSearchButton.IsVisible = TabsMenu && !_phoneLayout;
         ApplyPhoneColumns();
+        // 2026-11-01: «»» вверху колонки появляется/исчезает — высота верхней части меняется, плотность пересчитать.
+        ApplyRailDensity();
         if (_navOpenApplied != open)
         {
             _navOpenApplied = open;
@@ -104,31 +108,158 @@ public partial class OwnerShellWindow
     }
 
     private string? _railDensity;
+    private bool _railDensityPending;
+
+    /// <summary>2026-11-01: во сколько раз сейчас увеличено/уменьшено всё окно («Масштаб интерфейса», UiScaleHelper). Размеры
+    /// элементов (Bounds) — в точках макета; размер окна и положение встроенного раздела на экране — в реальных точках.</summary>
+    private double _shellScale = 1.0;
+
+    /// <summary>2026-11-01, жалоба владельца (ThinkPad): «Масштаб интерфейса» не действовал на программу владельца — окно не имело
+    /// LayoutTransformControl (его были только у кассы и у окна настроек). Масштаб = min(выбор владельца, что помещается на экран;
+    /// не мельче 80 % «под экран»). «Родной» размер макета 1180×640: на 1366×768, 1280×720 и 1920×1080 при 125–150 % масштаб остаётся
+    /// 100 % (там меню подстраивается плотностью, см. ApplyRailDensity), мельче — уменьшается. Ползунок (50–200 %) действует сразу.</summary>
+    internal void RefreshUiScale() =>
+        NurMarketKassa.AvaloniaHost.Services.UiScaleHelper.Apply(UiScaleTransform, 1180, 640);
+
+    /// <summary>UiScaleHelper применил масштаб (сам или после смены экрана/DPI): пересчитать всё, что зависит от размера.</summary>
+    private void OnShellScaleApplied(LayoutTransformControl root, double scale)
+    {
+        if (!ReferenceEquals(root, UiScaleTransform) || Math.Abs(scale - _shellScale) < 0.001)
+            return;
+        _shellScale = scale;
+        foreach (var section in _sections)
+            ApplySectionScale(section.Window);
+        Dispatcher.UIThread.Post(() =>
+        {
+            OnShellSizeChangedForNav();
+            SyncSectionBounds();
+        }, DispatcherPriority.Loaded);
+    }
+
+    private const string SectionScaleName = "OwnerSectionScale";
+
+    /// <summary>2026-11-01, ThinkPad: «Масштаб интерфейса» должен действовать и на разделы (Склад, Продажи, Клиенты, Финансы…) — это
+    /// отдельные встроенные окна. Не правя десятки окон, при встраивании (PrepareEmbeddedWindow) их содержимое оборачивается в общий
+    /// LayoutTransformControl с тем же масштабом, что у окна владельца. Окно раздела имеет реальный размер области × масштаб
+    /// (SyncSectionBounds), содержимое получает ровно область в точках макета. Окно, у которого содержимое не Control, не трогаем.</summary>
+    private static void WrapSectionForScale(Window window)
+    {
+        if (OperatingSystem.IsAndroid() || window.Content is not Control content || content is LayoutTransformControl { Name: SectionScaleName })
+            return;
+        window.Content = null;
+        window.Content = new LayoutTransformControl { Name = SectionScaleName, Child = content };
+    }
+
+    private void ApplySectionScale(Window window)
+    {
+        if (window.Content is not LayoutTransformControl { Name: SectionScaleName } wrap)
+            return;
+        wrap.LayoutTransform = Math.Abs(_shellScale - 1.0) < 0.001 ? null : new ScaleTransform(_shellScale, _shellScale);
+    }
+
+    /// <summary>2026-11-01: подключение масштаба (из конструктора): ползунок «Масштаб интерфейса» применяется сразу, пока его тянут.</summary>
+    private void AttachUiScale()
+    {
+        Action preferenceChanged = RefreshUiScale; // сразу, в потоке интерфейса: подпись в настройках читает уже применённый масштаб
+        NurMarketKassa.AvaloniaHost.Services.UiScaleHelper.ScaleApplied += OnShellScaleApplied;
+        NurMarketKassa.AvaloniaHost.Services.UiScaleHelper.PreferenceChanged += preferenceChanged;
+        Closed += (_, _) =>
+        {
+            NurMarketKassa.AvaloniaHost.Services.UiScaleHelper.ScaleApplied -= OnShellScaleApplied;
+            NurMarketKassa.AvaloniaHost.Services.UiScaleHelper.PreferenceChanged -= preferenceChanged;
+        };
+        NavRail.SizeChanged += (_, _) => ApplyRailDensity();
+        RefreshUiScale();
+    }
 
     /// <summary>2026-10-18, ревью О2: при 1366×768 и масштабе 125 % окно ~580 точек в высоту — «Управление» и «Помощь» уходили
     /// под низ тёмной колонки. Ниже 720 точек колонка плотнее (меньше отступы, логотип меньше), ниже 620 — только значки
-    /// (подпись — во всплывающей подсказке, для диктора — AutomationProperties.Name, он задан всегда). Прокрутка — запасной вариант.</summary>
+    /// (подпись — во всплывающей подсказке, для диктора — AutomationProperties.Name, он задан всегда). Прокрутка — запасной вариант.
+    /// 2026-11-01 (ThinkPad): пороги по высоте окна не учитывали «»» вверху, перенос подписей и масштаб — внизу «Помощь/Тема/Вид/Выйти»
+    /// налезали друг на друга. Теперь плотность подбирается по ИЗМЕРЕННОЙ высоте: от обычной к более плотной (обычная → плотная →
+    /// «tight» → только значки → без логотипа и профиля) берётся первая, при которой логотип, группы и нижний блок помещаются
+    /// в колонку. Если не помещается и последняя ступень — группы прокручиваются, а верх и низ остаются на месте.</summary>
     private void ApplyRailDensity()
     {
-        var height = Bounds.Height - OffScreenMargin.Top - OffScreenMargin.Bottom;
-        // 2026-10-18: внизу колонки добавилась кнопка «Вид» (вид меню) — пороги выше на её высоту, и ступень «tight» между
-        // плотной и «только значки»: на 1366×768 (окно ~728) колонка чуть плотнее, «Помощь» не уходит под «Тему».
-        var density = _phoneLayout || height <= 0 || height >= 790 ? "normal"
-            : height >= 712 ? "dense" : height >= 650 ? "tight" : "icons";
+        if (_railDensityPending)
+            return;
+        _railDensityPending = true;
+        // После разметки: измерение нужно на готовых размерах колонки.
+        Dispatcher.UIThread.Post(() =>
+        {
+            _railDensityPending = false;
+            try
+            {
+                ApplyRailDensityCore();
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Owner app: плотность меню не подобрана: {ex.Message}", "WARNING");
+            }
+        }, DispatcherPriority.Loaded);
+    }
+
+    private static readonly string[] RailDensities = { "normal", "dense", "tight", "icons", "micro" };
+
+    private void ApplyRailDensityCore()
+    {
+        if (_phoneLayout)
+        {
+            SetRailDensity("normal");
+            return;
+        }
+        var available = NavRail.Bounds.Height;
+        var width = NavRail.Bounds.Width;
+        if (available <= 0 || width <= 0)
+        {
+            // Колонка не показана (старый вид, бургер закрыт) или ещё не размечена — прежняя ступень, подсказки всё равно ставим.
+            if (_railDensity == null)
+                SetRailDensity("normal");
+            return;
+        }
+
+        var chosen = RailDensities[^1];
+        foreach (var density in RailDensities)
+        {
+            SetRailDensity(density);
+            NavRailDock.Measure(new Size(width, double.PositiveInfinity));
+            if (NavRailDock.DesiredSize.Height <= available + 0.5)
+            {
+                chosen = density;
+                break;
+            }
+        }
+        if (_railDensity != chosen)
+            SetRailDensity(chosen);
+        // Измеряли с «бесконечной» высотой — пусть разметка заново измерит колонку по её настоящему размеру.
+        NavRailDock.InvalidateMeasure();
+        NavRailDock.InvalidateArrange();
+    }
+
+    private void SetRailDensity(string density)
+    {
         if (density == _railDensity)
             return;
         _railDensity = density;
-        var icons = density == "icons";
-        NavRail.Classes.Set("dense", density != "normal");
+        var normal = density == "normal";
+        var icons = density is "icons" or "micro";
+        NavRail.Classes.Set("dense", !normal);
         NavRail.Classes.Set("tight", density == "tight");
         NavRail.Classes.Set("iconsOnly", icons);
-        RailPanel.Spacing = density == "normal" ? 4 : density == "dense" ? 3 : 1;
-        LogoImage.Width = LogoImage.Height = density == "normal" ? 44 : 36;
-        LogoGrid.Margin = density == "normal" ? new Thickness(0, 16, 0, 10) : new Thickness(0, 10, 0, 6);
+        RailPanel.Spacing = normal ? 4 : density == "dense" ? 3 : 1;
+        LogoImage.Width = LogoImage.Height = normal ? 44 : 36;
+        LogoImage.IsVisible = density != "micro";
+        LogoGrid.Margin = normal ? new Thickness(0, 16, 0, 10) : new Thickness(0, 10, 0, 6);
+        RailBottom.Margin = normal ? new Thickness(0, 6, 0, 14) : new Thickness(0, 4, 0, 8);
+        AvatarBadge.Width = AvatarBadge.Height = normal ? 40 : 32;
+        AvatarBadge.CornerRadius = new CornerRadius(normal ? 20 : 16);
+        AvatarBadge.Margin = normal ? new Thickness(0, 6, 0, 0) : new Thickness(0, 2, 0, 0);
+        AvatarBadge.IsVisible = density != "micro";
+        // 2026-11-01: полное название группы — во всплывающей подсказке всегда (подпись теперь не переносится, а обрезается многоточием).
         foreach (var group in _navGroups)
         {
             if (group.Rail is { } rail)
-                ToolTip.SetTip(rail, icons ? group.Title : null);
+                ToolTip.SetTip(rail, group.Title);
         }
         // У «Темы» и «Выйти» подсказка есть всегда (ApplyTexts); имя для диктора — тоже.
     }
@@ -265,7 +396,7 @@ public partial class OwnerShellWindow
         // 2026-10-18: старый вид — число на плашке (красной — просрочено, акцент — ждёт), как в выпуске 1.17.58.
         if (badge.Classes.Contains("navBadge"))
         {
-            UseBrush(badge, Border.BackgroundProperty, urgent ? "BrushDanger" : "BrushAccent");
+            UseBrush(badge, Border.BackgroundProperty, urgent ? "BrushDangerFill" : "BrushAccent"); // 2026-11-01 (Д-05): белый на BrushDanger в тёмной 3,6:1 → DangerFill 4,8:1
             if (badge.Child is TextBlock pill)
             {
                 if (urgent)

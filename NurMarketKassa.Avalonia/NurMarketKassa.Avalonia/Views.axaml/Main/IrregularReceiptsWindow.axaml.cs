@@ -117,7 +117,7 @@ public partial class IrregularReceiptsWindow : Window
 
     // 2026-10-30 («Некорректные чеки»: 8 возвратов + 1 продажа висели без действий, «Отправить повторно» была бесполезна): строки сгруппированы
     // по причине (фильтры сверху), у каждой — свои кнопки: «Показать», «Отправить» (только отклонённые сервером чеки очереди) и «Закрыть».
-    private enum Kind { Failed, Overpaid, Stock, Pending }
+    private enum Kind { Failed, Overpaid, Stock, Pending, ShiftNote }
 
     private List<RowVm> _rows = new();
     private Kind? _filter;
@@ -129,6 +129,8 @@ public partial class IrregularReceiptsWindow : Window
     {
         Kind.Failed => Tr.T("Ошибка отправки на сервер", "Серверге жиберүү катасы", "Error sending to the server", "Sunucuya gönderme hatası", "Serverga yuborishda xato"),
         Kind.Overpaid => Tr.T("Возврат больше положенного", "Кайтаруу тийиштүүдөн көп", "Return above the due amount", "İade gerekenden fazla", "Qaytarish keragidan ko'p"),
+        // 2026-11-01: смена закрыта «с пометкой» — внесения/изъятия не успели уйти на сервер.
+        Kind.ShiftNote => Tr.T("Смена закрыта с пометкой", "Смена белги менен жабылды", "Shift closed with a note", "Vardiya notla kapatıldı", "Smena izoh bilan yopildi"),
         Kind.Stock => Tr.T("Не хватило остатка", "Калдык жетпей калды", "Not enough stock", "Stok yetersiz", "Qoldiq yetarli emas"),
         _ => Tr.T("В процессе (ожидает выгрузку)", "Жүрүп жатат (жүктөлүүнү күтүүдө)", "In progress (awaiting upload)", "İşlemde (gönderilmeyi bekliyor)", "Jarayonda (yuklashni kutmoqda)"),
     };
@@ -148,14 +150,15 @@ public partial class IrregularReceiptsWindow : Window
             }
             // 2026-10-20 (живой аудит кассы, К1): сервер записал возврат больше положенного — своя строка состояния.
             var overpaid = entry.Tag == IrregularReceiptEntry.ReturnOverpaid;
-            var kind = overpaid ? Kind.Overpaid : Kind.Stock;
+            var shiftNote = entry.Tag == IrregularReceiptEntry.ShiftClosedUnsentCash;
+            var kind = shiftNote ? Kind.ShiftNote : overpaid ? Kind.Overpaid : Kind.Stock;
             var hasCart = !string.IsNullOrEmpty(entry.CartJson) && entry.CartJson != "{}";
             rows.Add(new RowVm
             {
                 CreatedAt = entry.CreatedAt,
                 Kind = kind,
-                IsInsufficientStock = !overpaid,
-                IsError = overpaid,
+                IsInsufficientStock = !overpaid && !shiftNote,
+                IsError = overpaid || shiftNote,
                 StatusText = KindTitle(kind),
                 Note = (entry.Note ?? "") + (entry.ClosedAt is null ? "" : "  [" + Tr.T("Закрыто: ", "Жабылды: ", "Closed: ", "Kapatıldı: ", "Yopildi: ") + entry.ClosedReason + "]"),
                 RawNote = entry.Note ?? "",
@@ -174,11 +177,15 @@ public partial class IrregularReceiptsWindow : Window
                 continue;
 
             var isFailed = string.Equals(sale.Status, OfflineSaleEntry.Failed, System.StringComparison.OrdinalIgnoreCase);
-            if (isFailed && !sale.CheckoutCompleted)
+            // 2026-11-01 (чеки старше 7 суток по PIN владельца): такой чек сервер сам не примет — «Отправить» ему не нужна, есть «Провести по PIN владельца».
+            var lateState = SyncService.GetLateAcceptState(sale);
+            var late = lateState != LateAcceptState.NotApplicable;
+            if (isFailed && !sale.CheckoutCompleted && !late)
                 _failedCount++;
             // 2026-10-30 (приёмка): отказ «не хватило остатка» — в группу «Не хватило остатка» (оприходовать и отправить / закрыть).
-            var stockFail = isFailed && LooksLikeStockError(sale.LastError);
+            var stockFail = isFailed && !late && LooksLikeStockError(sale.LastError);
             var kind = stockFail ? Kind.Stock : isFailed ? Kind.Failed : Kind.Pending;
+            var lateEnabled = late && SyncService.LateAcceptEnabled;
             rows.Add(new RowVm
             {
                 CreatedAt = sale.CreatedAt,
@@ -186,16 +193,17 @@ public partial class IrregularReceiptsWindow : Window
                 IsPending = !isFailed,
                 IsError = isFailed && !stockFail,
                 IsInsufficientStock = stockFail,
-                StatusText = KindTitle(kind),
-                Note = sale.LastError ?? "",
+                StatusText = late ? LateStatusText(lateState) : KindTitle(kind),
+                Note = (lateEnabled && lateState == LateAcceptState.Allowed ? LateHintText(sale) + " " : lateState == LateAcceptState.MaybePosted ? SyncService.MaybePostedText() + " " : "") + (sale.LastError ?? ""),
                 RawNote = sale.LastError ?? "",
                 TotalText = TryComputeTotalText(sale.CartJson),
                 Id = sale.Id,
                 QueueId = sale.Id,
                 CartJson = sale.CartJson,
-                CanSendRow = isFailed && !stockFail && !sale.CheckoutCompleted,
+                CanSendRow = isFailed && !stockFail && !late && !sale.CheckoutCompleted,
                 CanReplenishRow = stockFail && !sale.CheckoutCompleted,
                 CanCloseRow = isFailed,
+                CanLateAcceptRow = lateEnabled && lateState == LateAcceptState.Allowed,
             });
         }
 
@@ -207,7 +215,7 @@ public partial class IrregularReceiptsWindow : Window
 
     private void ApplyFilter()
     {
-        var order = new Dictionary<Kind, int> { [Kind.Failed] = 0, [Kind.Overpaid] = 1, [Kind.Stock] = 2, [Kind.Pending] = 3 };
+        var order = new Dictionary<Kind, int> { [Kind.Failed] = 0, [Kind.Overpaid] = 1, [Kind.Stock] = 2, [Kind.Pending] = 3, [Kind.ShiftNote] = 1 };
         var shown = _rows
             .Where(r => _filter is null || r.Kind == _filter)
             .OrderBy(r => r.IsClosed)
@@ -260,7 +268,7 @@ public partial class IrregularReceiptsWindow : Window
         if (_filter is { } f && open.All(r => r.Kind != f))
             _filter = null; // выбранной причины больше нет (всё закрыто) — показать все
         FilterPanel.Children.Add(Chip(Tr.T($"Все: {open.Count}", $"Баары: {open.Count}", $"All: {open.Count}", $"Tümü: {open.Count}", $"Hammasi: {open.Count}"), _filter is null, () => { _filter = null; BuildFilterChips(); ApplyFilter(); }));
-        foreach (var kind in new[] { Kind.Failed, Kind.Overpaid, Kind.Stock, Kind.Pending })
+        foreach (var kind in new[] { Kind.Failed, Kind.Overpaid, Kind.ShiftNote, Kind.Stock, Kind.Pending })
         {
             var count = open.Count(r => r.Kind == kind);
             if (count == 0)
@@ -454,6 +462,145 @@ public partial class IrregularReceiptsWindow : Window
         }
     }
 
+    // ── 2026-11-01 (К-06, продолжение): «Провести по PIN владельца» — чек из очереди старше 7 суток (SyncService.LateAccept.cs). ──
+
+    private static string LateStatusText(LateAcceptState state) => state == LateAcceptState.MaybePosted
+        ? Tr.T("Возможно, уже проведён — сверьте в «Чеках»", "Өткөрүлүп калган болушу мүмкүн — «Чектерден» салыштырыңыз", "May already be posted — check “Receipts”", "Zaten işlenmiş olabilir — «Fişler»i kontrol edin", "Allaqachon o'tkazilgan bo'lishi mumkin — «Cheklar»ni tekshiring")
+        : state == LateAcceptState.TooOld
+        ? Tr.T("Старше 90 суток", "90 суткадан эски", "Older than 90 days", "90 günden eski", "90 kundan eski")
+        : Tr.T("Старше 7 суток — ждёт владельца", "7 суткадан эски — ээсин күтүүдө", "Older than 7 days — awaiting owner", "7 günden eski — sahibi bekleniyor", "7 kundan eski — egasini kutmoqda");
+
+    private static string LateHintText(OfflineSaleEntry sale)
+    {
+        var date = sale.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture);
+        return Tr.T($"Чек будет проведён с датой продажи {date}; нужен PIN владельца.",
+            $"Чек сатуу датасы {date} менен өткөрүлөт; ээсинин PIN коду керек.",
+            $"The receipt will be posted with the sale date {date}; the owner PIN is required.",
+            $"Fiş {date} satış tarihiyle işlenecek; sahip PIN'i gerekli.",
+            $"Chek {date} sotuv sanasi bilan o'tkaziladi; egasining PIN kodi kerak.");
+    }
+
+    private bool _lateBusy;
+
+    /// <summary>Вид чека до ввода PIN: дата продажи, сумма, оплата, состав.</summary>
+    private static string LateReceiptSummary(OfflineSaleEntry sale)
+    {
+        var lines = new List<string>
+        {
+            Tr.T("Дата продажи: ", "Сатуу датасы: ", "Sale date: ", "Satış tarihi: ", "Sotuv sanasi: ") + sale.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture),
+            Tr.T("Сумма: ", "Сумма: ", "Total: ", "Tutar: ", "Summa: ") + TryComputeTotalText(sale.CartJson),
+            Tr.T("Оплата: ", "Төлөм: ", "Payment: ", "Ödeme: ", "To'lov: ") + (string.IsNullOrWhiteSpace(sale.PaymentMethod) ? "—" : sale.PaymentMethod)
+                + (string.IsNullOrWhiteSpace(sale.CashReceived) ? "" : " (" + Tr.T("получено ", "алынды ", "received ", "alındı ", "olindi ") + sale.CashReceived + ")"),
+        };
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(sale.CartJson) ? "{}" : sale.CartJson);
+            var items = CartDisplayHelper.EnumerateSaleLineItems(doc.RootElement).ToList();
+            foreach (var line in items.Take(10))
+                lines.Add($"• {CartDisplayHelper.ItemName(line)} — {CartDisplayHelper.LineQuantity(line):0.###} × {CartDisplayHelper.UnitPrice(line):N2} = {CartDisplayHelper.LineTotal(line)}");
+            if (items.Count > 10)
+                lines.Add("…");
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+        {
+            // состав не разобран — показываем то, что есть
+        }
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>«Провести по PIN владельца»: показ чека → ввод PIN (3 попытки, затем пауза 30 с) → отправка с настоящей датой продажи и accept_late.
+    /// PIN нигде не сохраняется и не пишется в журнал.</summary>
+    private async void LateAccept_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: RowVm row } || !row.CanLateAccept || row.QueueId is null || _lateBusy)
+            return;
+        _lateBusy = true;
+        try
+        {
+            var sync = App.GetRequiredService<SyncService>();
+            var sale = OfflinePendingSalesStore.TryGetById(row.QueueId);
+            if (sale is null)
+            {
+                LoadRows();
+                return;
+            }
+            if (SyncService.GetLateAcceptState(sale) != LateAcceptState.Allowed)
+            {
+                ShowMessage(Tr.T("Этот чек нельзя провести по PIN: он старше 90 суток или уже обработан. Остаётся «Закрыть без отправки».",
+                    "Бул чекти PIN менен өткөрүүгө болбойт: ал 90 суткадан эски же иштетилген. «Жөнөтпөй жабуу» калат.",
+                    "This receipt cannot be posted with a PIN: it is older than 90 days or already handled. “Close without sending” remains.",
+                    "Bu fiş PIN ile işlenemez: 90 günden eski veya zaten işlendi. «Göndermeden kapat» kalır.",
+                    "Bu chekni PIN bilan o'tkazib bo'lmaydi: 90 kundan eski yoki allaqachon ishlangan. «Yubormasdan yopish» qoladi."));
+                LoadRows();
+                return;
+            }
+
+            // 1) Чек целиком — до PIN.
+            if (await PosMessageBox.ShowModalAsync(this,
+                    LateHintText(sale) + "\n\n" + LateReceiptSummary(sale)
+                    + "\n\n" + Tr.T("Деньги по чеку приняты в кассе; на сервере продажи пока нет. Проводите, если данные верные.",
+                        "Чек боюнча акча кассада алынган; серверде сатуу азырынча жок. Маалыматтар туура болсо өткөрүңүз.",
+                        "The money was taken at the till; the sale is not on the server yet. Post it if the data is correct.",
+                        "Para kasada alındı; satış henüz sunucuda yok. Veriler doğruysa işleyin.",
+                        "Pul kassada olingan; sotuv hali serverda yo'q. Ma'lumotlar to'g'ri bo'lsa o'tkazing."),
+                    Tr.T("Провести по PIN владельца", "Ээсинин PIN коду менен өткөрүү", "Post with the owner PIN", "Sahip PIN'iyle işle", "Egasining PIN i bilan o'tkazish"),
+                    MessageBoxButton.YesNo, MessageBoxImage.Question,
+                    confirmText: Tr.T("Ввести PIN", "PIN киргизүү", "Enter PIN", "PIN gir", "PIN kiritish"),
+                    cancelText: Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true) != MessageBoxResult.Yes)
+                return;
+
+            // 2) PIN владельца (существующее окно ввода кода; сама проверка — на сервере).
+            var prompts = App.GetRequiredService<NurMarketKassa.Core.Contracts.IUserPrompts>();
+            string? token = null;
+            var info = Tr.T("Введите PIN владельца (не пароль от входа).", "Ээсинин PIN кодун киргизиңиз (кирүү сырсөзү эмес).", "Enter the owner PIN (not the login password).", "Sahip PIN'ini girin (giriş şifresi değil).", "Egasining PIN kodini kiriting (kirish paroli emas).");
+            while (token is null)
+            {
+                var wait = SyncService.LatePinLockSecondsLeft;
+                if (wait > 0)
+                {
+                    ShowMessage(Tr.T($"Слишком много неверных PIN. Подождите {wait} с и повторите.", $"PIN өтө көп жолу туура эмес киргизилди. {wait} с күтүп, кайталаңыз.", $"Too many incorrect PINs. Wait {wait} s and try again.", $"Çok fazla yanlış PIN. {wait} sn bekleyip tekrar deneyin.", $"PIN juda ko'p marta noto'g'ri kiritildi. {wait} s kutib, qayta urining."));
+                    return;
+                }
+                string? entered = null;
+                var granted = await prompts.ConfirmWithCodeAsync(
+                    Tr.T("PIN владельца", "Ээсинин PIN коду", "Owner PIN", "Sahip PIN'i", "Egasining PIN kodi"),
+                    info,
+                    code => { entered = code?.Trim(); return !string.IsNullOrEmpty(entered); }).ConfigureAwait(true);
+                if (!granted || string.IsNullOrEmpty(entered))
+                    return;
+                var verified = await sync.VerifyOwnerPinForLateAsync(entered).ConfigureAwait(true);
+                entered = null;
+                switch (verified.Status)
+                {
+                    case LatePinStatus.Ok:
+                        token = verified.Token;
+                        break;
+                    case LatePinStatus.Wrong:
+                        info = verified.Message;
+                        break;
+                    default:
+                        ShowMessage(verified.Message);
+                        return;
+                }
+            }
+
+            // 3) Отправка с датой продажи и accept_late тем же ключом.
+            ErrorText.IsVisible = false;
+            var result = await sync.SendLateAcceptedAsync(row.QueueId, token, PosApp.CurrentUserDisplayName).ConfigureAwait(true);
+            ShowMessage(result.Message);
+            LoadRows();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Проведение старого чека по PIN владельца не удалось: {ex.GetType().Name}: {ex.Message}", "WARNING");
+            ShowMessage(ex.Message);
+        }
+        finally
+        {
+            _lateBusy = false;
+        }
+    }
+
     private static string Som => Tr.T("сом", "сом", "som", "som", "so'm");
 
     // 2026-10-20 (живой аудит кассы, К18): «387 378,89 сом» (MoneyText) вместо «387378.89 сом» и «931 сом» без копеек.
@@ -613,6 +760,9 @@ public partial class IrregularReceiptsWindow : Window
         public bool CanSendRow { get; set; }
         public bool CanReplenishRow { get; set; }
         public bool CanCloseRow { get; set; }
+        public bool CanLateAcceptRow { get; set; }
+        public bool CanLateAccept => CanLateAcceptRow;
+        public string LateAcceptText => Tr.T("Провести по PIN владельца", "Ээсинин PIN коду менен өткөрүү", "Post with the owner PIN", "Sahip PIN'iyle işle", "Egasining PIN i bilan o'tkazish");
         public bool HasCart => !string.IsNullOrEmpty(Id) && !string.IsNullOrEmpty(CartJson) && CartJson != "{}";
         public bool CanView => HasCart || !string.IsNullOrWhiteSpace(RawNote);
         public bool CanSend => CanSendRow;

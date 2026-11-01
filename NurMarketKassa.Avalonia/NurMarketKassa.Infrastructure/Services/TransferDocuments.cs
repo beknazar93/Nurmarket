@@ -193,8 +193,9 @@ public static class TransferDocuments
 
     public static string SnapshotPath(string documentPath) => documentPath + ".json";
 
+    // 2026-11-01 (аудит 10 из 10, Н-07): снимок пишется через AtomicFile (временный файл + замена), UTF-8 без BOM — как было.
     public static void SaveSnapshot(TransferDocData data, string documentPath) =>
-        File.WriteAllText(SnapshotPath(documentPath), JsonSerializer.Serialize(data, Json), new System.Text.UTF8Encoding(false));
+        AtomicFile.WriteAllText(SnapshotPath(documentPath), JsonSerializer.Serialize(data, Json));
 
     /// <summary>Снимок созданного документа; null — файл прикреплён вручную (снимка нет) или повреждён.</summary>
     public static TransferDocData? LoadSnapshot(string documentPath)

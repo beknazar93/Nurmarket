@@ -202,3 +202,14 @@ public static class ReportLabels
     /// остаются числами и их можно складывать.</summary>
     public static string WithUnit(string title, string unit) => title + ", " + unit;
 }
+
+/// <summary>2026-11-01 (Ж-16, живой прогон NBS): в имени файла и шапке Excel стояло «Market» (название магазина из настроек кассы), а в программе
+/// компания называется «NBS». В программе владельца для выгрузок берётся название компании NurCRM; нет его (не загружено) — прежнее
+/// название магазина из настроек.</summary>
+public static class ReportShopName
+{
+    public static string? Current =>
+        AppMode.IsOwner && CompanyInfoService.LastCompany?.Name is { } name && !string.IsNullOrWhiteSpace(name)
+            ? name.Trim()
+            : UserPreferences.Instance.StoreName;
+}

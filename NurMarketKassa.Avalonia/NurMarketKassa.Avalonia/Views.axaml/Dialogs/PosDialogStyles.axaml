@@ -3,6 +3,12 @@
         xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs">
   <Styles.Resources>
     <ResourceDictionary>
+      <!-- 2026-11-01 (аудит «10 из 10», Д-03/Д-04): общие кнопки — «главная» (класс nur-primary, акцент темы, одна на экран) и
+           «вторичная» (nur-secondary, обводка). Это псевдонимы modal-primary / modal-secondary: все их стили (наведение, нажатие,
+           выключенная, .danger, фокус) подхвачены ниже в тех же списках селекторов. Новые и переделанные экраны берут их, а не свой стиль.
+           Радиусы без привязки к теме — токены: NurRadiusControl (кнопки/поля/значки) и NurRadiusCard (карточки, «таблетки»). -->
+      <CornerRadius x:Key="NurRadiusControl">8</CornerRadius>
+      <CornerRadius x:Key="NurRadiusCard">12</CornerRadius>
       <ResourceDictionary.ThemeDictionaries>
         <!-- Light theme: amber warning action. -->
         <ResourceDictionary x:Key="Light">
@@ -163,7 +169,7 @@
 
   <!-- «Отмена»: обводка, слева от главной. modal-secondary (этап 3) — такая же кнопка с обводкой для
        остальных действий окна («Назад», «Сбросить», «Только выйти»). -->
-  <Style Selector="Button.modal-cancel, Button.modal-secondary">
+  <Style Selector="Button.modal-cancel, Button.modal-secondary, Button.nur-secondary">
     <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
@@ -179,19 +185,19 @@
   </Style>
   <!-- 2026-10-18, отклик кнопок: наведение — мягкий фон BrushPanelSoft (BrushInputAlt у «NurMarket» почти белый —
        наведения не было видно), рамка прежняя; нажатие — ещё темнее и рамка цветом текста. -->
-  <Style Selector="Button.modal-cancel:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.modal-cancel:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.nur-secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
   </Style>
-  <Style Selector="Button.modal-cancel:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.modal-cancel:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.nur-secondary:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BrushText}" />
   </Style>
 
   <!-- Главная кнопка: акцент темы и его текст (у «NurMarket» — жёлтый #FFD600 и тёмно-синий). -->
-  <Style Selector="Button.modal-primary">
+  <Style Selector="Button.modal-primary, Button.nur-primary">
     <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
     <Setter Property="BorderThickness" Value="0" />
@@ -204,30 +210,30 @@
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="Cursor" Value="Hand" />
   </Style>
-  <Style Selector="Button.modal-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.modal-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.nur-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
   </Style>
-  <Style Selector="Button.modal-primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.modal-primary:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.nur-primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <!-- 2026-10-18: нажатая — темнее наведения (BrushAccentPressed считает AccentThemeService). -->
     <Setter Property="Background" Value="{DynamicResource BrushAccentPressed}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
   </Style>
   <!-- Длинная надпись (ky/tr/uz) переносится на вторую строку внутри MaxWidth кнопки, а не обрезается. -->
-  <Style Selector="Button.modal-cancel /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary /template/ ContentPresenter#PART_ContentPresenter, Button.modal-primary /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.modal-cancel /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary /template/ ContentPresenter#PART_ContentPresenter, Button.nur-secondary /template/ ContentPresenter#PART_ContentPresenter, Button.modal-primary /template/ ContentPresenter#PART_ContentPresenter, Button.nur-primary /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="TextWrapping" Value="Wrap" />
     <Setter Property="TextAlignment" Value="Center" />
   </Style>
   <!-- Опасное действие — красная главная (тот же #DC2626, что был у PosConfirmDialog/PosAlertDialog). -->
-  <Style Selector="Button.modal-primary.danger">
+  <Style Selector="Button.modal-primary.danger, Button.nur-primary.danger">
     <Setter Property="Background" Value="#DC2626" />
     <Setter Property="Foreground" Value="#FFFFFF" />
   </Style>
-  <Style Selector="Button.modal-primary.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.modal-primary.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.nur-primary.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="#B91C1C" />
     <Setter Property="Foreground" Value="#FFFFFF" />
   </Style>
-  <Style Selector="Button.modal-primary.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.modal-primary.danger:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.nur-primary.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="#991B1B" />
     <Setter Property="Foreground" Value="#FFFFFF" />
   </Style>
@@ -235,11 +241,11 @@
   <!-- 2026-10-17, этап 3: второстепенное опасное действие («Удалить выбранные» в отложенных чеках) —
        обводка и текст цветом ошибки. 2026-10-18: текст — BrushDangerOnSoft (цвет ошибки, читаемый ≥ 4,5:1 и на
        мягком красном фоне наведения; в светлой теме тот же BrushDanger). -->
-  <Style Selector="Button.modal-secondary.danger">
+  <Style Selector="Button.modal-secondary.danger, Button.nur-secondary.danger">
     <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}" />
   </Style>
-  <Style Selector="Button.modal-secondary.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.modal-secondary.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.nur-secondary.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary.danger:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.nur-secondary.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource BrushDangerSoft}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}" />
@@ -639,7 +645,7 @@
        Сенсор: Avalonia снимает «наведение» при отпускании пальца, а главный отклик — нажатие (темнее + вдавливание),
        поэтому подсветка наведения нарочно слабая — даже если на каком-то экране она задержится, это едва заметно.
        =================================================================================== -->
-  <Style Selector="Button.modal-primary, Button.modal-cancel, Button.modal-secondary, Button.modal-close, Button.modal-chip, Button.sec-primary, Button.sec-outline, Button.sec-seg, Button.sec-chip, Button.btn-primary, Button.main-primary, Button.main-secondary, Button.main-outline, Button.cart-action, Button.cart-accent">
+  <Style Selector="Button.modal-primary, Button.nur-primary, Button.modal-cancel, Button.modal-secondary, Button.nur-secondary, Button.modal-close, Button.modal-chip, Button.sec-primary, Button.sec-outline, Button.sec-seg, Button.sec-chip, Button.btn-primary, Button.main-primary, Button.main-secondary, Button.main-outline, Button.cart-action, Button.cart-accent">
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
     <Setter Property="Transitions">
@@ -664,7 +670,7 @@
       </FocusAdornerTemplate>
     </Setter>
   </Style>
-  <Style Selector="Button.modal-primary /template/ ContentPresenter#PART_ContentPresenter, Button.modal-cancel /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary /template/ ContentPresenter#PART_ContentPresenter, Button.modal-close /template/ ContentPresenter#PART_ContentPresenter, Button.modal-chip /template/ ContentPresenter#PART_ContentPresenter, Button.sec-primary /template/ ContentPresenter#PART_ContentPresenter, Button.sec-outline /template/ ContentPresenter#PART_ContentPresenter, Button.sec-seg /template/ ContentPresenter#PART_ContentPresenter, Button.sec-chip /template/ ContentPresenter#PART_ContentPresenter, Button.btn-primary /template/ ContentPresenter#PART_ContentPresenter, Button.main-primary /template/ ContentPresenter#PART_ContentPresenter, Button.main-secondary /template/ ContentPresenter#PART_ContentPresenter, Button.main-outline /template/ ContentPresenter#PART_ContentPresenter, Button.cart-action /template/ ContentPresenter#PART_ContentPresenter, Button.cart-accent /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.modal-primary /template/ ContentPresenter#PART_ContentPresenter, Button.nur-primary /template/ ContentPresenter#PART_ContentPresenter, Button.modal-cancel /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary /template/ ContentPresenter#PART_ContentPresenter, Button.nur-secondary /template/ ContentPresenter#PART_ContentPresenter, Button.modal-close /template/ ContentPresenter#PART_ContentPresenter, Button.modal-chip /template/ ContentPresenter#PART_ContentPresenter, Button.sec-primary /template/ ContentPresenter#PART_ContentPresenter, Button.sec-outline /template/ ContentPresenter#PART_ContentPresenter, Button.sec-seg /template/ ContentPresenter#PART_ContentPresenter, Button.sec-chip /template/ ContentPresenter#PART_ContentPresenter, Button.btn-primary /template/ ContentPresenter#PART_ContentPresenter, Button.main-primary /template/ ContentPresenter#PART_ContentPresenter, Button.main-secondary /template/ ContentPresenter#PART_ContentPresenter, Button.main-outline /template/ ContentPresenter#PART_ContentPresenter, Button.cart-action /template/ ContentPresenter#PART_ContentPresenter, Button.cart-accent /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Transitions">
       <Transitions>
         <BrushTransition Property="Background" Duration="0:0:0.12" />
@@ -672,14 +678,14 @@
       </Transitions>
     </Setter>
   </Style>
-  <Style Selector="Button.modal-primary:pointerover, Button.modal-cancel:pointerover, Button.modal-secondary:pointerover, Button.modal-close:pointerover, Button.modal-chip:pointerover, Button.sec-primary:pointerover, Button.sec-outline:pointerover, Button.sec-seg:pointerover, Button.sec-chip:pointerover, Button.btn-primary:pointerover, Button.main-primary:pointerover, Button.main-secondary:pointerover, Button.main-outline:pointerover, Button.cart-action:pointerover, Button.cart-accent:pointerover">
+  <Style Selector="Button.modal-primary:pointerover, Button.nur-primary:pointerover, Button.modal-cancel:pointerover, Button.modal-secondary:pointerover, Button.nur-secondary:pointerover, Button.modal-close:pointerover, Button.modal-chip:pointerover, Button.sec-primary:pointerover, Button.sec-outline:pointerover, Button.sec-seg:pointerover, Button.sec-chip:pointerover, Button.btn-primary:pointerover, Button.main-primary:pointerover, Button.main-secondary:pointerover, Button.main-outline:pointerover, Button.cart-action:pointerover, Button.cart-accent:pointerover">
     <Setter Property="RenderTransform" Value="scale(1)" />
   </Style>
-  <Style Selector="Button.modal-primary:pressed, Button.modal-cancel:pressed, Button.modal-secondary:pressed, Button.modal-close:pressed, Button.modal-chip:pressed, Button.sec-primary:pressed, Button.sec-outline:pressed, Button.sec-seg:pressed, Button.sec-chip:pressed, Button.btn-primary:pressed, Button.main-primary:pressed, Button.main-secondary:pressed, Button.main-outline:pressed, Button.cart-action:pressed, Button.cart-accent:pressed">
+  <Style Selector="Button.modal-primary:pressed, Button.nur-primary:pressed, Button.modal-cancel:pressed, Button.modal-secondary:pressed, Button.nur-secondary:pressed, Button.modal-close:pressed, Button.modal-chip:pressed, Button.sec-primary:pressed, Button.sec-outline:pressed, Button.sec-seg:pressed, Button.sec-chip:pressed, Button.btn-primary:pressed, Button.main-primary:pressed, Button.main-secondary:pressed, Button.main-outline:pressed, Button.cart-action:pressed, Button.cart-accent:pressed">
     <Setter Property="RenderTransform" Value="scale(0.97)" />
   </Style>
   <!-- 2026-10-27: прозрачность выключенной 0.45 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
-  <Style Selector="Button.modal-primary:disabled, Button.modal-cancel:disabled, Button.modal-secondary:disabled, Button.modal-close:disabled, Button.modal-chip:disabled, Button.sec-primary:disabled, Button.sec-outline:disabled, Button.sec-seg:disabled, Button.sec-chip:disabled, Button.btn-primary:disabled, Button.main-primary:disabled, Button.main-secondary:disabled, Button.main-outline:disabled, Button.cart-action:disabled, Button.cart-accent:disabled">
+  <Style Selector="Button.modal-primary:disabled, Button.nur-primary:disabled, Button.modal-cancel:disabled, Button.modal-secondary:disabled, Button.nur-secondary:disabled, Button.modal-close:disabled, Button.modal-chip:disabled, Button.sec-primary:disabled, Button.sec-outline:disabled, Button.sec-seg:disabled, Button.sec-chip:disabled, Button.btn-primary:disabled, Button.main-primary:disabled, Button.main-secondary:disabled, Button.main-outline:disabled, Button.cart-action:disabled, Button.cart-accent:disabled">
     <Setter Property="Opacity" Value="0.7" />
   </Style>
 
@@ -687,14 +693,14 @@
        2026-10-18, ревью: кроме ГЛАВНЫХ (жёлтая/синяя/красная заливка): бледно-жёлтая «Оплатить» (CanPay = false) почти не
        отличалась от включённой, особенно в тёмной теме. Выключенная главная — нейтральный мягкий фон и приглушённый текст
        (BrushTextMuted — BrushTextSoft у «Классической» давал 3,9:1), без прозрачности: от 7,8:1. main-primary и cart-accent — так же в своих файлах. -->
-  <Style Selector="Button.modal-primary:disabled, Button.sec-primary:disabled, Button.btn-primary:disabled">
+  <Style Selector="Button.modal-primary:disabled, Button.nur-primary:disabled, Button.sec-primary:disabled, Button.btn-primary:disabled">
     <Setter Property="Opacity" Value="1" />
   </Style>
-  <Style Selector="Button.modal-primary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.sec-primary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.btn-primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.modal-primary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.nur-primary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.sec-primary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.btn-primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}" />
   </Style>
-  <Style Selector="Button.modal-cancel:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.modal-chip:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.sec-chip:disabled /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.modal-cancel:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.modal-secondary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.nur-secondary:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.modal-chip:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.sec-chip:disabled /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource BrushPanel}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
@@ -704,7 +710,7 @@
     <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}" />
   </Style>
-  <Style Selector="Button.modal-secondary.danger:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.sec-outline.danger:disabled /template/ ContentPresenter#PART_ContentPresenter">
+  <Style Selector="Button.modal-secondary.danger:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.nur-secondary.danger:disabled /template/ ContentPresenter#PART_ContentPresenter, Button.sec-outline.danger:disabled /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BrushDanger}" />
   </Style>

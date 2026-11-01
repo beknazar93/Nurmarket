@@ -8,6 +8,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Analytics;
@@ -87,7 +88,7 @@ public sealed class SeasonalityView : UserControl
                 {
                     Text = row.Kind,
                     Foreground = Brushes.White,
-                    FontSize = 11,
+                    FontSize = 12,
                     FontWeight = FontWeight.SemiBold,
                 },
             }),
@@ -151,7 +152,7 @@ public sealed class SeasonalityView : UserControl
     public void Show(AnalyticsReportData.SeasonalityReport report)
     {
         _note.Text = report.Note;
-        _note.Foreground = Brushes.Gray;
+        _note.Foreground = ThemeInk.Soft;
 
         _warning.IsVisible = !report.Reliable && report.Rows.Count > 0;
         // 2026-10-19, этап О10 (аудит: «история покрывает 1 / 4» — непонятно; оранжевый текст по светлому не читался):
@@ -238,7 +239,7 @@ public sealed class SeasonalityView : UserControl
             {
                 Text = Tr.T("Продаж в истории нет.", "Тарыхта сатуу жок.", "No sales history.", "Geçmişte satış yok.", "Tarixda sotuv yo'q."),
                 FontSize = 12,
-                Foreground = Brushes.Gray,
+                Foreground = ThemeInk.Soft,
             });
             return;
         }
@@ -256,8 +257,8 @@ public sealed class SeasonalityView : UserControl
                 Text = covered
                     ? value.ToString("N0", CultureInfo.CurrentCulture) + (m == partialMonth ? "…" : "")
                     : Tr.T("нет", "жок", "none", "yok", "yo'q"),
-                FontSize = 10,
-                Foreground = Brushes.Gray,
+                FontSize = 12,
+                Foreground = ThemeInk.Soft,
                 TextAlignment = TextAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 3),
             });
@@ -278,10 +279,10 @@ public sealed class SeasonalityView : UserControl
             column.Children.Add(new TextBlock
             {
                 Text = MonthShort[m],
-                FontSize = 11,
+                FontSize = 12,
                 TextAlignment = TextAlignment.Center,
                 Margin = new Thickness(0, 5, 0, 0),
-                Foreground = covered ? Brushes.Gray : Brush.Parse(ColorUnknown),
+                Foreground = covered ? ThemeInk.Soft : Brush.Parse(ColorUnknown),
             });
 
             row.Children.Add(column);
@@ -297,8 +298,8 @@ public sealed class SeasonalityView : UserControl
         _shopChart.Children.Add(new TextBlock
         {
             Text = Tr.T("Пустая рамка — за этот месяц истории нет, а не ноль продаж.", "Бош алкак — бул ай боюнча тарых жок дегенди билдирет, сатуу нөл дегенди эмес.", "An empty frame means no history for that month, not zero sales.", "Boş çerçeve, o ay için veri olmadığını gösterir; sıfır satış anlamına gelmez.", "Bo'sh ramka — bu oy uchun tarix yo'q degani, nol sotuv emas."),
-            FontSize = 11,
-            Foreground = Brushes.Gray,
+            FontSize = 12,
+            Foreground = ThemeInk.Soft,
             Margin = new Thickness(0, 8, 0, 0),
         });
     }
@@ -318,7 +319,7 @@ public sealed class SeasonalityView : UserControl
                     ? Tr.T("Сезонных товаров не нашлось — продажи распределены по месяцам ровно.", "Мезгилдүү товарлар табылган жок — сатуулар айлар боюнча бир калыпта бөлүнгөн.", "No seasonal products found — sales are spread evenly across the months.", "Mevsimlik ürün bulunamadı — satışlar aylara eşit dağılmış.", "Mavsumiy mahsulotlar topilmadi — sotuvlar oylar bo'yicha bir tekis taqsimlangan.")
                     : Tr.T("Пока история короткая, сезонные товары не выделяются.", "Тарых азырынча кыска болгондуктан, мезгилдүү товарлар бөлүнүп көрсөтүлбөйт.", "Seasonal products can't be identified while the history is short.", "Geçmiş kısa olduğu sürece mevsimlik ürünler belirlenemez.", "Tarix hali qisqa, shuning uchun mavsumiy mahsulotlar ajratilmaydi."),
                 FontSize = 12,
-                Foreground = Brushes.Gray,
+                Foreground = ThemeInk.Soft,
             });
             return;
         }
@@ -347,7 +348,7 @@ public sealed class SeasonalityView : UserControl
                         + "; " + Tr.T("не продаётся", "сатылбайт", "not sold", "satılmıyor", "sotilmaydi") + ": " + item.QuietMonths,
                     FontSize = 12,
                     TextWrapping = TextWrapping.Wrap,
-                    Foreground = Brushes.Gray,
+                    Foreground = ThemeInk.Soft,
                     Margin = new Thickness(8, 0, 0, 2),
                 });
             }

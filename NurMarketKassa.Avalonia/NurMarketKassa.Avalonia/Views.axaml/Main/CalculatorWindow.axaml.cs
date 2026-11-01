@@ -751,11 +751,11 @@ public partial class CalculatorWindow : Window, IOwnerSection
         catch (Exception ex)
         {
             PosLogger.Log($"Калькуляция: продажи не загружены: {ex.Message}", "WARNING");
-            FillFromSalesHint.Text = Tr.T("Нет связи с сервером — введите маржу и средний чек вручную.",
-                "Сервер менен байланыш жок — маржаны жана орточо чекти кол менен жазыңыз.",
-                "No connection to the server — enter margin and average receipt manually.",
-                "Sunucuyla bağlantı yok — marjı ve ortalama fişi elle girin.",
-                "Server bilan aloqa yo'q — marja va o'rtacha chekni qo'lda kiriting.");
+            FillFromSalesHint.Text = Tr.T("Сервер NurCRM недоступен — введите маржу и средний чек вручную.", // 2026-11-01 (В-08): единая фраза о сбое сервера
+                "NurCRM сервери жеткиликсиз — маржаны жана орточо чекти кол менен жазыңыз.",
+                "The NurCRM server is unavailable — enter margin and average receipt manually.",
+                "NurCRM sunucusu kullanılamıyor — marjı ve ortalama fişi elle girin.",
+                "NurCRM serveri mavjud emas — marja va o'rtacha chekni qo'lda kiriting.");
         }
         finally
         {

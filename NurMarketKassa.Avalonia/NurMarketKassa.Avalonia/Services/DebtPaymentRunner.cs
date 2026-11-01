@@ -1190,11 +1190,11 @@ internal static class DebtPaymentRunner
         "Qayta urinish muvaffaqiyatsiz — blok qoladi, kalit o'sha. Sababi: ") + ex.Message;
 
     public static string NotSentText => T(
-        "Нет связи с сервером — оплата не проведена. Повторите, когда связь появится.",
-        "Сервер менен байланыш жок — төлөм өткөн жок. Байланыш болгондо кайталаңыз.",
-        "No connection to the server — the payment was not made. Try again when the connection is back.",
-        "Sunucu bağlantısı yok — ödeme yapılmadı. Bağlantı gelince tekrar deneyin.",
-        "Server bilan aloqa yo'q — to'lov o'tmadi. Aloqa tiklanganda qayta urining.");
+        "Сервер NurCRM недоступен — оплата не проведена. Повторите, когда связь появится.", // 2026-11-01 (В-08): единая фраза о сбое сервера
+        "NurCRM сервери жеткиликсиз — төлөм өткөн жок. Байланыш болгондо кайталаңыз.",
+        "The NurCRM server is unavailable — the payment was not made. Try again when the connection is back.",
+        "NurCRM sunucusu kullanılamıyor — ödeme yapılmadı. Bağlantı gelince tekrar deneyin.",
+        "NurCRM serveri mavjud emas — to'lov o'tmadi. Aloqa tiklanganda qayta urining.");
 
     public static string ShiftClosedText => T(
         "Смена, в которой брали деньги, закрыта. Проверьте оплату на сайте NurCRM: если её нет — снимите блокировку и примите оплату заново в текущей смене.",
@@ -1219,11 +1219,11 @@ internal static class DebtPaymentRunner
 
     /// <summary>2026-10-18, четвёртый круг: повтор не отправлен — это НЕ значит, что первая оплата не прошла.</summary>
     public static string RetryNotSentText => T(
-        "Нет связи — повтор не отправлен. Исход первой оплаты по-прежнему неизвестен, блокировку не снимайте.",
-        "Байланыш жок — кайталоо жөнөтүлгөн жок. Биринчи төлөмдүн натыйжасы дагы эле белгисиз, бөгөттү албаңыз.",
-        "No connection — the retry was not sent. The outcome of the first payment is still unknown; don't unlock.",
-        "Bağlantı yok — tekrar gönderilmedi. İlk ödemenin sonucu hâlâ bilinmiyor, kilidi kaldırmayın.",
-        "Aloqa yo'q — qayta urinish yuborilmadi. Birinchi to'lov natijasi hamon noma'lum, blokni olib tashlamang.");
+        "Сервер NurCRM недоступен — повтор не отправлен. Исход первой оплаты по-прежнему неизвестен, блокировку не снимайте.",
+        "NurCRM сервери жеткиликсиз — кайталоо жөнөтүлгөн жок. Биринчи төлөмдүн натыйжасы дагы эле белгисиз, бөгөттү албаңыз.",
+        "The NurCRM server is unavailable — the retry was not sent. The outcome of the first payment is still unknown; don't unlock.",
+        "NurCRM sunucusu kullanılamıyor — tekrar gönderilmedi. İlk ödemenin sonucu hâlâ bilinmiyor, kilidi kaldırmayın.",
+        "NurCRM serveri mavjud emas — qayta urinish yuborilmadi. Birinchi to'lov natijasi hamon noma'lum, blokni olib tashlamang.");
 
     /// <summary>2026-10-18, четвёртый круг: текст успеха — один на кассу и владельца (касса «Оплачено», владелец «Принято»).</summary>
     public static string SuccessText(PayDebtResult result, bool bySale, bool owner) =>

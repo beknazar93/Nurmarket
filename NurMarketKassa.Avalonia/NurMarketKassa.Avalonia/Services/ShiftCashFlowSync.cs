@@ -75,6 +75,29 @@ public static class ShiftCashFlowSync
         return left;
     }
 
+    /// <summary>2026-11-01 (К-03, приёмка): перед закрытием смены, которая была офлайн-сменой: хвосты офлайн-смены привязываются к серверной смене и отправляются.
+    /// Возвращает число операций смены, которые НЕ ушли (0 — всё на сервере). Задаётся в CashShiftService.CashOperationsFlusher.</summary>
+    public static async Task<UnsentCashOps> FlushForCloseAsync(string realShiftId)
+    {
+        await PushPendingAsync(realShiftId).ConfigureAwait(false);
+        var left = ShiftCashOperationsStore.PendingDetailsForShift(realShiftId);
+        if (left.Count == 0)
+            return new UnsentCashOps(0, 0m, "");
+
+        // 2026-11-01: детали для окна «Закрыть с пометкой» и журнала — время, вид, сумма (до 8 строк; остальное «и ещё N»).
+        var lines = left.Take(8).Select(x =>
+        {
+            var withdrawal = CashOperationModel.ResolveKind(x.Type) == CashOperationKind.Withdrawal;
+            var kind = withdrawal
+                ? Tr.T("изъятие", "алуу", "withdrawal", "çıkış", "olish")
+                : Tr.T("внесение", "киргизүү", "deposit", "giriş", "kiritish");
+            return $"{x.At:HH:mm} {kind} {x.Amount.ToString("0.00", CultureInfo.InvariantCulture)}";
+        }).ToList();
+        if (left.Count > lines.Count)
+            lines.Add(Tr.T($"… и ещё {left.Count - lines.Count}", $"… дагы {left.Count - lines.Count}", $"… and {left.Count - lines.Count} more", $"… ve {left.Count - lines.Count} tane daha", $"… yana {left.Count - lines.Count} ta"));
+        return new UnsentCashOps(left.Count, left.Sum(x => x.Amount), string.Join("\n", lines));
+    }
+
     public static async Task PushPendingAsync(string? shiftId)
     {
         if (string.IsNullOrWhiteSpace(shiftId) || !Guid.TryParse(shiftId, out _))

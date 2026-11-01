@@ -249,6 +249,28 @@
                                 <CheckBox x:Name="LabelPageFromTemplateCheck" VerticalAlignment="Bottom" Margin="0,0,0,12"
                                           Foreground="{DynamicResource BrushText}"/>
                             </WrapPanel>
+                            <!-- 2026-11-01 (П-7, из веба): команды TSPL принтера этикеток; «не задавать» — в задание ничего не добавляется. Видно только для языка TSPL. -->
+                            <WrapPanel x:Name="TsplPanel" IsVisible="False">
+                                <StackPanel Spacing="4" Margin="0,0,16,8">
+                                    <TextBlock x:Name="TsplDensityText" Classes="field-label"/>
+                                    <ComboBox x:Name="TsplDensityCombo" Width="150"/>
+                                </StackPanel>
+                                <StackPanel Spacing="4" Margin="0,0,16,8">
+                                    <TextBlock x:Name="TsplSpeedText" Classes="field-label"/>
+                                    <ComboBox x:Name="TsplSpeedCombo" Width="150"/>
+                                </StackPanel>
+                                <StackPanel Spacing="4" Margin="0,0,16,8">
+                                    <TextBlock x:Name="TsplFlipText" Classes="field-label"/>
+                                    <ComboBox x:Name="TsplFlipCombo" Width="190"/>
+                                </StackPanel>
+                                <StackPanel Spacing="4" Margin="0,0,16,8">
+                                    <TextBlock x:Name="TsplSensorText" Classes="field-label"/>
+                                    <ComboBox x:Name="TsplSensorCombo" Width="190"/>
+                                </StackPanel>
+                                <Button x:Name="TsplCalibrateButton" Classes="sec-outline" VerticalAlignment="Bottom" Margin="0,0,16,8" Click="TsplCalibrate_Click"/>
+                            </WrapPanel>
+                            <TextBlock x:Name="TsplStatusText" FontSize="12" TextWrapping="Wrap" IsVisible="False"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
                             <TextBlock x:Name="LabelCalibHint" FontSize="12" TextWrapping="Wrap"
                                        Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>

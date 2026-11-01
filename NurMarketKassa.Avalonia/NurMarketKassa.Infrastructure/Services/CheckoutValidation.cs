@@ -88,6 +88,9 @@ public static class CheckoutValidation
                 $"Verguldan keyin {maxDecimals} tadan ko'p raqam bo'lmaydi. Ming — 1000 yoki 1000,00.")
             : AmountProblemText(parse);
 
+    /// <summary>2026-11-01 (К-09): верхний предел суммы «получено наличными» — 9 цифр в целой части.</summary>
+    public const double MaxCashReceived = 1_000_000_000;
+
     /// <summary>null = ок, иначе текст ошибки (как validate_cash_received).</summary>
     public static string? ValidateCashReceived(string? raw, double totalDue)
     {
@@ -106,6 +109,15 @@ public static class CheckoutValidation
         if (v < 0)
             return Tr.T("Сумма не может быть отрицательной", "Сумма терс болушу мүмкүн эмес", "The amount cannot be negative",
                 "Tutar negatif olamaz", "Summa manfiy bo'lishi mumkin emas");
+
+        // 2026-11-01 (аудит 10 из 10, К-09): в целой части больше 9 цифр (от миллиарда) — это не деньги, а штрихкод, попавший в поле суммы
+        // (сканер без Enter в конце или медленный). Раньше такая «сдача» шла на сервер, и тот отказывал (живой случай: payment.received из 12+ знаков).
+        if (v >= MaxCashReceived)
+            return Tr.T("Похоже на штрихкод — проверьте сумму «получено» (не больше 999 999 999)",
+                "Штрихкодго окшош — «алынды» суммасын текшериңиз (999 999 999дан ашпасын)",
+                "This looks like a barcode — check the amount received (at most 999,999,999)",
+                "Barkoda benziyor — alınan tutarı kontrol edin (en fazla 999.999.999)",
+                "Shtrix-kodga o'xshaydi — «olingan» summasini tekshiring (999 999 999 dan oshmasin)");
 
         if (totalDue > 0 && v + 1e-9 < totalDue)
         {

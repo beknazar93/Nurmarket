@@ -15,8 +15,12 @@ public partial class PaymentStatusDialog : Window
 
     public PaymentStatusDialog() : this(0) { }
 
-    public PaymentStatusDialog(double totalAmount)
+    /// <summary>2026-11-01 (К-08, code-review): состояние ожидания ЭТОЙ оплаты (идёт ли запрос к серверу / встанет ли чек в очередь); null — как раньше (сервер, очередь).</summary>
+    private readonly Func<(bool ServerWait, bool CanQueue)>? _waitProbe;
+
+    public PaymentStatusDialog(double totalAmount, Func<(bool ServerWait, bool CanQueue)>? waitProbe = null)
     {
+        _waitProbe = waitProbe;
         InitializeComponent();
         // 2026-10-22 (модалки, пакет 1): сумма с разрядами («1 620,00 сом»), как в остальной кассе.
         AmountText.Text = MoneyText.Som(totalAmount);
@@ -211,7 +215,45 @@ public partial class PaymentStatusDialog : Window
             _busyShown = false;
             StatusMessage.Text = _normalMessage;
         }
+        else
+        {
+            // 2026-11-01 (К-08, code-review): «сервер отвечает медленно» — только пока идёт запрос к серверу; на печати/устройствах не показываем (и убираем, если этап сменился).
+            var (serverWait, canQueue) = _waitProbe?.Invoke() ?? (true, true);
+            if (!_slowShown)
+            {
+                if (serverWait && Environment.TickCount64 - _openedAtMs >= 2000)
+                {
+                    _slowShown = true;
+                    // «В долг» и смешанная в очередь не встают — про очередь им не обещаем; цифру срока не пишем (каждый ответ сервера продлевает ожидание).
+                    _slowText = canQueue
+                        ? Tr.T(
+                            "Сервер отвечает медленно — ждём ответ. Если ответа не будет, чек сохранится в кассе и отправится сам, продажа не задвоится. Не закрывайте кассу.",
+                            "Сервер жай жооп берүүдө — жооп күтүлүүдө. Жооп келбесе, чек кассада сакталып, өзү жөнөтүлөт, сатуу кайталанбайт. Кассаны жаппаңыз.",
+                            "The server is answering slowly — waiting for the reply. If there is none, the receipt is saved in the till and sent automatically, the sale will not be doubled. Don't close the till.",
+                            "Sunucu yavaş yanıt veriyor — yanıt bekleniyor. Yanıt gelmezse fiş kasada saklanır ve kendiliğinden gönderilir, satış çiftlenmez. Kasayı kapatmayın.",
+                            "Server sekin javob bermoqda — javob kutilmoqda. Javob kelmasa, chek kassada saqlanadi va o'zi yuboriladi, sotuv ikki marta yozilmaydi. Kassani yopmang.")
+                        : Tr.T(
+                            "Сервер отвечает медленно — ждём ответ. Не закрывайте кассу и не пробивайте чек заново.",
+                            "Сервер жай жооп берүүдө — жооп күтүлүүдө. Кассаны жаппаңыз жана чекти кайра өткөрбөңүз.",
+                            "The server is answering slowly — waiting for the reply. Don't close the till and don't ring the receipt again.",
+                            "Sunucu yavaş yanıt veriyor — yanıt bekleniyor. Kasayı kapatmayın ve fişi yeniden vurmayın.",
+                            "Server sekin javob bermoqda — javob kutilmoqda. Kassani yopmang va chekni qayta o'tkazmang.");
+                    _baseMessage = StatusMessage.Text;
+                    StatusMessage.Text = _slowText;
+                }
+            }
+            else if (!serverWait && StatusMessage.Text == _slowText)
+            {
+                StatusMessage.Text = _baseMessage;
+                _slowShown = false;
+            }
+        }
     }
+
+    private readonly long _openedAtMs = Environment.TickCount64;
+    private bool _slowShown;
+    private string? _slowText;
+    private string? _baseMessage;
 
     private void StopSpinner()
     {

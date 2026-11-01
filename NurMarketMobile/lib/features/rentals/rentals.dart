@@ -10,7 +10,7 @@ import '../../core/util/ui.dart';
 import '../payment/sales_repository.dart';
 import '../sale/cart.dart' show roundMoney;
 import '../sale/catalog_repository.dart';
-import '../sale/sale_screen.dart';
+import '../sale/variant_picker.dart';
 
 /// 13.10, макет С8 «Телефон — прокат»: тот же прокат NurCRM, что у кассы (api/rentals/, RentalsApi): создание списывает
 /// вещь со склада и приходует денежный залог в кассу смены, возврат возвращает вещь и залог (штраф удерживается).
@@ -465,7 +465,7 @@ class _NewRentalScreenState extends ConsumerState<NewRentalScreen> {
       try {
         final vs = (await ref.read(catalogRepoProvider).variants(p.id)).where((x) => x.active).toList();
         if (vs.isNotEmpty && mounted) {
-          v = await pickVariant(context, p, vs);
+          v = (await pickVariant(context, p, vs))?.variant; // 2026-10-31: окно выбора размера общее с продажей
           if (v == null) return;
         }
       } catch (_) {

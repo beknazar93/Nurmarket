@@ -142,6 +142,7 @@ public static class NurCrmReportsApi
                         continue;
                     added++;
                     var names = new List<string>();
+                    var itemReasons = new List<string>();
                     var qty = 0m;
                     if (row.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
                     {
@@ -149,6 +150,9 @@ public static class NurCrmReportsApi
                         {
                             var q = Dec(it, "qty") ?? 0m;
                             qty += q;
+                            // 2026-11-01 (Ж-03): причина может лежать у позиции документа, а не в самом документе.
+                            if (ReasonOf(it) is { Length: > 0 } itemReason && !itemReasons.Contains(itemReason))
+                                itemReasons.Add(itemReason);
                             if (Str(it, "name") is { Length: > 0 } itemName)
                                 names.Add(q > 0 && q != 1m ? $"{itemName} × {q:0.###}" : itemName);
                         }
@@ -167,7 +171,7 @@ public static class NurCrmReportsApi
                             : null,
                         names.Count > 0 ? string.Join(", ", names) : null,
                         qty,
-                        Str(row, "reason")));
+                        ReasonOf(row) ?? (itemReasons.Count > 0 ? string.Join("; ", itemReasons) : null)));
                 }
 
                 var hasNext = data.ValueKind == JsonValueKind.Object
@@ -188,6 +192,18 @@ public static class NurCrmReportsApi
             PosLogger.Log($"Список возвратов с сервера не получен: {ex.Message}", "SALES");
             return null;
         }
+    }
+
+    /// <summary>2026-11-01 (Ж-03, живой прогон NBS): причина возврата у владельца везде «—», хотя кассир её вводил. Раньше читалось
+    /// только поле <c>reason</c>; сервер может отдавать её под другим именем (касса шлёт и reason, и refund_reason) — берём первое
+    /// непустое из известных имён.</summary>
+    private static string? ReasonOf(JsonElement o)
+    {
+        // 2026-11-01 (приёмка): comment/note убраны — служебный комментарий документа не должен выдаваться за причину.
+        foreach (var name in new[] { "reason", "refund_reason", "return_reason" })
+            if (Str(o, name) is { Length: > 0 } text && !string.IsNullOrWhiteSpace(text))
+                return text.Trim();
+        return null;
     }
 
     /// <summary>Число и сумма возвратов за дни [from; to] включительно — те же цифры, что

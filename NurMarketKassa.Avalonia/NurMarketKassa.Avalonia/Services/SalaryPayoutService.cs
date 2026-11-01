@@ -214,6 +214,9 @@ internal static class SalaryPayoutService
                 var who = Opt(x, "cashier_display") ?? Opt(x, "user_display") ?? Opt(x, "cashier_name") ?? "";
                 var label = Tr.T("Из кассы смены", "Смена кассасынан", "From the shift till", "Vardiya kasasından", "Smena kassasidan")
                             + $": {box.Name}" + (who.Length > 0 ? $" · {who}" : "");
+                // 2026-11-01 (Д-1): остаток ящика — expected_cash с поправкой на ошибки сервера (ShiftExpectedCash), как «Касса:» в шапке; без поправок — как есть.
+                if (expected is { } rawExpected)
+                    expected = rawExpected + (double)ShiftExpectedCash.Correction(id);
                 list.Add(new PayoutSource(PayoutSourceKind.Shift, label, box, id, expected));
             }
             // 2026-10-22 (аудит новой сборки, П6): смен нет — пункт не пропадает молча, а стоит серым с пояснением.

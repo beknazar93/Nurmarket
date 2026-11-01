@@ -65,7 +65,7 @@ public sealed class UnitPickerBox : UserControl
         _arrow.Click += (_, _) => SetOpen(!_panel!.IsVisible);
 
         _chips = new WrapPanel { Orientation = Orientation.Horizontal };
-        _customHint = new TextBlock { FontSize = 11.5, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0), IsVisible = false };
+        _customHint = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0), IsVisible = false };
         _customHint.Bind(TextBlock.ForegroundProperty, _customHint.GetResourceObservable("BrushTextSoft"));
         var panelStack = new StackPanel();
         panelStack.Children.Add(_chips);

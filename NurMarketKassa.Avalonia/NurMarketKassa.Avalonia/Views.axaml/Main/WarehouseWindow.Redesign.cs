@@ -395,7 +395,7 @@ public partial class WarehouseWindow
             var v = new TextBlock { Text = value, Classes = { "sec-kpi-value" }, FontSize = 20 };
             if (accent != null)
                 v.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(accent));
-            var s = new TextBlock { Text = sub, FontSize = 11.5, TextWrapping = TextWrapping.Wrap, Classes = { "kpi-sub" } };
+            var s = new TextBlock { Text = sub, FontSize = 12, TextWrapping = TextWrapping.Wrap, Classes = { "kpi-sub" } };
             s.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
             stack.Children.Add(l);
             stack.Children.Add(new Viewbox { Classes = { "sec-kpi-fit" }, Child = v });

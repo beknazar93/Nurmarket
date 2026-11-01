@@ -32,7 +32,9 @@
                  FontWeight="SemiBold" VerticalAlignment="Center" IsVisible="{Binding ShowClock}"/>
     </Grid>
 
-    <Grid Grid.Row="1" ColumnDefinitions="*,20,340">
+    <!-- 2026-11-01 (аудит «10 из 10», Д-06): на экране 800×600 правая панель фиксированной ширины съедала название товара до «…». Теперь правая колонка сужается (MinWidth), название переносится на 2 строки. -->
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="20"/><ColumnDefinition Width="0.6*" MinWidth="250" MaxWidth="340"/></Grid.ColumnDefinitions>
       <!-- Позиции карточками -->
       <Grid Grid.Column="0">
         <Border Classes="cd-card" IsVisible="{Binding IsEmpty}">

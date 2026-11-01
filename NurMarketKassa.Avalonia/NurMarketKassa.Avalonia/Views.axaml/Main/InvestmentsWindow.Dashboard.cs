@@ -333,7 +333,7 @@ public sealed partial class InvestmentsWindow
             var i = from + c;
             var m = R.Months[i];
             var col = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(4, 0), Height = h + 44 };
-            var val = new TextBlock { Text = Short(m.Net), FontSize = 11, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 2) };
+            var val = new TextBlock { Text = Short(m.Net), FontSize = 12, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 2) };
             Use(val, TextBlock.ForegroundProperty, m.Net < 0m ? "BrushDanger" : "BrushText");
             var bars = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom, Spacing = 1 };
             if (m.Net < 0m)
@@ -350,7 +350,7 @@ public sealed partial class InvestmentsWindow
                         bars.Children.Insert(0, new Border { Height = Math.Max(1, (double)(pay / maxAbs) * h), Background = Brush.Parse(invColors[k]) });
                 }
             }
-            var lab = new TextBlock { Text = m.From.ToString("MM.yy", CultureInfo.InvariantCulture), FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0) };
+            var lab = new TextBlock { Text = m.From.ToString("MM.yy", CultureInfo.InvariantCulture), FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0) };
             Use(lab, TextBlock.ForegroundProperty, "BrushTextSoft");
             Grid.SetRow(bars, 1);
             Grid.SetRow(lab, 2);
@@ -385,11 +385,11 @@ public sealed partial class InvestmentsWindow
         {
             var r = shown[c];
             var col = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(4, 0) };
-            var val = new TextBlock { Text = Short(r.Cumulative), FontSize = 11, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Center };
+            var val = new TextBlock { Text = Short(r.Cumulative), FontSize = 12, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Center };
             Use(val, TextBlock.ForegroundProperty, r.Cumulative < 0m ? "BrushDanger" : "BrushText");
             var barH = r.Cumulative > 0m ? Math.Max(2, (double)(r.Cumulative / maxV) * h) : 0;
             var barBorder = new Border { Height = barH, VerticalAlignment = VerticalAlignment.Bottom, Background = Brush.Parse(cumColor), CornerRadius = new CornerRadius(5, 5, 0, 0) };
-            var lab = new TextBlock { Text = r.Month.ToString("MM.yy", CultureInfo.InvariantCulture), FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0) };
+            var lab = new TextBlock { Text = r.Month.ToString("MM.yy", CultureInfo.InvariantCulture), FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0) };
             Use(lab, TextBlock.ForegroundProperty, "BrushTextSoft");
             Grid.SetRow(barBorder, 1);
             Grid.SetRow(lab, 2);

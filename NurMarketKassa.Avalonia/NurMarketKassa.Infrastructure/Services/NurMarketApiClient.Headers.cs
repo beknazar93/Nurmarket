@@ -13,6 +13,17 @@ namespace NurMarketKassa.Services;
 /// JwtBearerRefreshHandler и переносит заголовки в повторный запрос.</summary>
 public sealed partial class NurMarketApiClient
 {
+    /// <summary>2026-11-01 (аудит 10 из 10, С-05): публичная обёртка — POST с заголовком Idempotency-Key для окон кассы
+    /// (<see cref="RequestWithHeadersAsync"/> виден только этой сборке). Один ключ на одно намерение: повтор после обрыва
+    /// сервер, знающий заголовок, не проведёт второй раз.</summary>
+    public async Task<JsonElement> PostWithIdempotencyKeyAsync(string relativePath, object? jsonBody, string idempotencyKey,
+        CancellationToken ct = default, TimeSpan? requestTimeout = null)
+    {
+        var headers = new Dictionary<string, string> { ["Idempotency-Key"] = idempotencyKey.Trim() };
+        var (body, _) = await RequestWithHeadersAsync(HttpMethod.Post, relativePath, jsonBody, headers, ct, requestTimeout).ConfigureAwait(false);
+        return body;
+    }
+
     internal async Task<(JsonElement Body, int StatusCode)> RequestWithHeadersAsync(
         HttpMethod method,
         string relativePath,

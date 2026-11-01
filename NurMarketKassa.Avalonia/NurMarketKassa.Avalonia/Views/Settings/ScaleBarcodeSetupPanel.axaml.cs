@@ -132,7 +132,7 @@ public partial class ScaleBarcodeSetupPanel : UserControl
                 : asks
                     ? L("касса спросит при первом скане", "касса биринчи сканда сурайт", "the till asks on the first scan", "kasa ilk okutmada sorar", "kassa birinchi skanda so‘raydi")
                     : L("по режиму компании", "компаниянын режими боюнча", "company mode", "şirket moduna göre", "kompaniya rejimi bo‘yicha"),
-            FontSize = 11,
+            FontSize = 12,
             FontWeight = isExplicit ? FontWeight.SemiBold : FontWeight.Normal,
             Foreground = Brush("BrushTextSoft", Brushes.Gray),
             TextWrapping = TextWrapping.Wrap,
@@ -379,7 +379,7 @@ public partial class ScaleBarcodeSetupPanel : UserControl
         stack.Children.Add(new TextBlock
         {
             Text = caption,
-            FontSize = 10,
+            FontSize = 12,
             Foreground = Brush("BrushTextSoft", Brushes.Gray),
             HorizontalAlignment = HorizontalAlignment.Center,
         });

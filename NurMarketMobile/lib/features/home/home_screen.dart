@@ -5,8 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
+import '../../core/shop_mode.dart';
+import '../profile/profile_screen.dart' show chooseShopMode;
 import '../../core/theme/tokens.dart';
 import '../../core/ui/link_banner.dart';
+import '../../core/update/update_ui.dart';
 import '../../core/ui/infographic/infographics.dart' show PaymentSplit;
 import '../../core/util/product_picker.dart';
 import '../../core/ui/account_banners.dart';
@@ -284,19 +287,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
           // 2026-10-29 (аудит мобилки, п. 5): плашка следит за связью сама (ApiClient.link) и уходит, когда связь вернулась
           // 2026-10-29 (полная изоляция аккаунтов): загрузка данных этого аккаунта и неотправленные продажи других аккаунтов
+          // 2026-10-31 (владелец: «режимы должны отличаться в интерфейсе»): режим магазина виден на главной — значок, цвет, название
+          Padding(padding: const EdgeInsets.only(top: 12), child: _ShopModeChip(mode: ref.watch(prefsProvider).shop, chosen: ref.watch(prefsProvider).shopChosen)),
           const AccountLoadBanner(margin: EdgeInsets.only(top: 10)),
           LinkBanner(force: shift.error != null, dataAt: shift.fetchedAt, detail: l.offlineWorking, margin: const EdgeInsets.only(top: 10)),
+          // 2026-11-01 (обновление через GitHub): «Доступна версия X»; пока в чеке есть позиции (идёт продажа) — не показывается
+          const UpdateBanner(margin: EdgeInsets.only(top: 10), hideWhenSelling: true),
           const SizedBox(height: 14),
           GridView(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, mainAxisExtent: tileExtent),
-            children: [
-              _Tile(icon: Icons.shopping_cart_outlined, title: l.tabSale, sub: l.newCheck, accent: true, onTap: () => context.go('/sale')),
-              _Tile(icon: Icons.qr_code_scanner_rounded, title: l.tabScan, sub: l.scanTileSub, onTap: () => context.go('/scan?mode=price')),
-              _Tile(icon: Icons.receipt_long_outlined, title: l.tabChecks, sub: l.checksTileSub, onTap: () => context.go('/checks')),
-              _Tile(icon: Icons.inventory_2_outlined, title: l.tabStock, sub: l.stockTileSub, onTap: () => context.go('/stock')),
-            ],
+            children: homeTiles(context, ref.watch(prefsProvider).shop, ref.watch(prefsProvider).shopChosen),
           ),
           // 13.10: операции старой кассы — внесение/изъятие, долги, отложенные чеки. 2026-10-26 (П2, С-2): подписи в 2 строки.
           const SizedBox(height: 10),
@@ -377,13 +379,114 @@ class _ActionButton extends StatelessWidget {
   );
 }
 
+/// 2026-10-31 (режим магазина): набор и порядок плиток главной. Режим не выбран — прежний набор (Продажа, Сканер, Чеки, Склад).
+/// Продажа всегда первая; остальные плитки ведут в готовые разделы с нужным фильтром.
+List<Widget> homeTiles(BuildContext context, ShopMode mode, bool chosen) {
+  final l = context.l;
+  final sale = _Tile(icon: Icons.shopping_cart_outlined, title: l.tabSale, sub: l.newCheck, accent: true, onTap: () => context.go('/sale'));
+  if (!chosen) {
+    return [
+      sale,
+      _Tile(icon: Icons.qr_code_scanner_rounded, title: l.tabScan, sub: l.scanTileSub, onTap: () => context.go('/scan?mode=price')),
+      _Tile(icon: Icons.receipt_long_outlined, title: l.tabChecks, sub: l.checksTileSub, onTap: () => context.go('/checks')),
+      _Tile(icon: Icons.inventory_2_outlined, title: l.tabStock, sub: l.stockTileSub, onTap: () => context.go('/stock')),
+    ];
+  }
+  final receive = _Tile(key: const Key('tileReceive'), icon: Icons.move_to_inbox_outlined, title: l.tileReceive, sub: l.tileReceiveSub, onTap: () => context.push('/stock/receive'));
+  switch (mode) {
+    case ShopMode.clothing:
+      return [
+        sale,
+        _Tile(key: const Key('tileSizes'), icon: Icons.checkroom_rounded, title: l.tileSizes, sub: l.tileSizesSub, onTap: () => context.push('/sizes')),
+        receive,
+        _Tile(icon: Icons.inventory_2_outlined, title: l.tabStock, sub: l.tileStockSub, onTap: () => context.go('/stock')),
+      ];
+    case ShopMode.grocery:
+      return [
+        sale,
+        _Tile(key: const Key('tileWeighed'), icon: Icons.scale_rounded, title: l.tileWeighed, sub: l.tileWeighedSub, onTap: () => context.go('/stock?filter=weight')),
+        _Tile(key: const Key('tileExpiry'), icon: Icons.event_busy_outlined, title: l.tileExpiry, sub: l.tileExpirySub, onTap: () => context.go('/stock?filter=expiry')),
+        receive,
+      ];
+    case ShopMode.hardware:
+      return [
+        sale,
+        _Tile(key: const Key('tileUnits'), icon: Icons.straighten_rounded, title: l.tileUnits, sub: l.tileUnitsSub, onTap: () => context.go('/stock?filter=units')),
+        receive,
+        _Tile(icon: Icons.inventory_2_outlined, title: l.tabStock, sub: l.tileStockSub, onTap: () => context.go('/stock')),
+      ];
+    case ShopMode.services:
+      return [
+        sale,
+        _Tile(key: const Key('tileRentals'), icon: Icons.event_repeat_rounded, title: l.rentals, sub: l.tileRentalsSub, onTap: () => context.push('/rentals')),
+        _Tile(icon: Icons.receipt_long_outlined, title: l.tabChecks, sub: l.checksTileSub, onTap: () => context.go('/checks')),
+        _Tile(icon: Icons.account_balance_wallet_outlined, title: l.debts, sub: l.tileDebtsSub, onTap: () => context.push('/debts')),
+      ];
+  }
+}
+
+/// Плашка режима магазина на главной: цветной значок режима, название, «изменить». Касание — окно выбора режима.
+class _ShopModeChip extends StatelessWidget {
+  final ShopMode mode;
+  final bool chosen;
+  const _ShopModeChip({required this.mode, required this.chosen});
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pal = context.pal;
+    final color = chosen ? mode.accent : pal.textSoft;
+    return Consumer(
+      builder: (c, ref, _) => Semantics(
+        button: true,
+        label: '${l.shopModeTitle}: ${chosen ? mode.title(l) : l.shopModeNotChosen}',
+        excludeSemantics: true,
+        child: InkWell(
+          key: const Key('shopModeChip'),
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => chooseShopMode(c, ref),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 48),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: color.withValues(alpha: 0.55)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                  child: Icon(chosen ? mode.icon : Icons.storefront_outlined, size: 18, color: Colors.white),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l.shopModeTitle, style: TextStyle(fontSize: 11, color: pal.textSoft)),
+                      Text(chosen ? mode.title(l) : l.shopModeNotChosen, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: pal.textSoft),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _Tile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String sub;
   final bool accent;
   final VoidCallback onTap;
-  const _Tile({required this.icon, required this.title, required this.sub, required this.onTap, this.accent = false});
+  const _Tile({super.key, required this.icon, required this.title, required this.sub, required this.onTap, this.accent = false});
   @override
   Widget build(BuildContext context) => Panel(
     color: accent ? T.accent : null,

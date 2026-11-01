@@ -8,13 +8,25 @@ using NurMarketKassa.Models.Pos;
 namespace NurMarketKassa.Services;
 
 /// <summary>Фильтр списка окна «Печать штрихкодов и ценников» по наличию штрихкода.</summary>
-public enum BarcodeFilter { All, WithBarcode, WithoutBarcode }
+public enum BarcodeFilter { All, WithBarcode, WithoutBarcode, WithProblems }
 
 /// <summary>Один штрихкод товара для выбора на карточке: основной или дополнительный (alternate_barcodes).</summary>
-public sealed record BarcodeChoice(string Code, bool IsMain, string? VariantName);
+public sealed record BarcodeChoice(string Code, bool IsMain, string? VariantName, double Quantity = 0, bool IsSize = false, double? Price = null);
 
 /// <summary>Товар, поставленный в печать: сам товар, выбранный штрихкод и число копий.</summary>
-public sealed record BarcodePrintItem(CatalogProductTileVm Product, string? Barcode, int Copies);
+public sealed record BarcodePrintItem(CatalogProductTileVm Product, string? Barcode, int Copies, string? VariantName = null, double VariantQuantity = 0, double? VariantPrice = null)
+{
+    /// <summary>2026-11-01 (С-2): подпись доп. штрихкода на этикетке — название упаковки/размера и «×N» при количестве больше 1. null — основной код.</summary>
+    public string? VariantText
+    {
+        get
+        {
+            var name = string.IsNullOrWhiteSpace(VariantName) ? null : VariantName!.Trim();
+            var qty = VariantQuantity > 1 ? "×" + VariantQuantity.ToString("0.##", CultureInfo.InvariantCulture) : null;
+            return name is null ? qty : qty is null ? name : name + " " + qty;
+        }
+    }
+}
 
 /// <summary>2026-10-26, окно «Печать штрихкодов и ценников» (как «Печать штрих-кодов» на сайте NurCRM): поиск, фильтры, выбор
 /// штрихкода и сборка данных для печати — без интерфейса, чтобы то же самое делали стенд проверки и обе печати (термопринтер, A4).</summary>
@@ -46,10 +58,48 @@ public static class BarcodePrintCatalog
                 var code = v.Barcode?.Trim();
                 if (string.IsNullOrWhiteSpace(code) || list.Any(c => string.Equals(c.Code, code, StringComparison.OrdinalIgnoreCase)))
                     continue;
-                list.Add(new BarcodeChoice(code!, false, string.IsNullOrWhiteSpace(v.Name) ? null : v.Name!.Trim()));
+                list.Add(new BarcodeChoice(code!, false, string.IsNullOrWhiteSpace(v.Name) ? null : v.Name!.Trim(), v.Quantity));
             }
         }
+        // 2026-11-01 (П-3, из веба): штрихкоды размеров одежды («44, Красный») с ценой размера — как печатает «Размеры и цвета».
+        foreach (var hit in VariantBarcodeIndex.ForProduct(p.Id))
+        {
+            var code = hit.Variant.Barcode?.Trim();
+            if (string.IsNullOrWhiteSpace(code) || list.Any(c => string.Equals(c.Code, code, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            var text = string.Join(", ", new[] { hit.Variant.Size?.Trim(), hit.Variant.Color?.Trim() }.Where(x => !string.IsNullOrWhiteSpace(x)));
+            list.Add(new BarcodeChoice(code!, false, text.Length == 0 ? null : text, 0, true, hit.Variant.Price is > 0 ? hit.Variant.Price : null));
+        }
         return list;
+    }
+
+    /// <summary>Можно ли что-то напечатать: есть основной, дополнительный штрихкод или штрихкод размера.</summary>
+    public static bool HasPrintableCode(CatalogProductTileVm p) => HasBarcode(p) || VariantBarcodeIndex.ForProduct(p.Id).Count > 0;
+
+    /// <summary>2026-11-01 (П-4): «Копии = остаток» — целая часть остатка 1..99. Весовые, дробные и измеряемые (кг, л, м) товары — 1.
+    /// <paramref name="capped"/> — остаток был больше 99.</summary>
+    public static int StockCopies(CatalogProductTileVm p, out bool capped) => CopiesForQuantity(p.Quantity, p.Unit, p.MustWeigh, out capped);
+
+    /// <summary>Число копий по количеству (остаток или принято): целое 1..99; весовые, дробные и измеряемые (кг, л, м) — 1; больше 99 — 99 и <paramref name="capped"/>.</summary>
+    public static int CopiesForQuantity(double q, string? unit, bool mustWeigh, out bool capped)
+    {
+        capped = false;
+        if (mustWeigh || double.IsNaN(q) || q < 1 || Math.Abs(q - Math.Round(q)) > 1e-9 || IsMeasuredUnit(unit))
+            return 1;
+        if (q > 99)
+        {
+            capped = true;
+            return 99;
+        }
+        return (int)Math.Floor(q);
+    }
+
+    private static readonly string[] MeasuredUnits = ["кг", "kg", "г", "g", "гр", "л", "l", "lt", "мл", "ml", "м", "m", "см", "cm", "мм", "mm"];
+
+    private static bool IsMeasuredUnit(string? unit)
+    {
+        var u = unit?.Trim().TrimEnd('.').ToLowerInvariant();
+        return !string.IsNullOrEmpty(u) && MeasuredUnits.Contains(u);
     }
 
     /// <summary>Поиск по названию, штрихкоду (основному и дополнительным), артикулу и коду товара; несколько слов — все должны найтись.
@@ -79,7 +129,7 @@ public static class BarcodePrintCatalog
             var p = source[i];
             if (hasCategory && !string.Equals(p.Category?.Trim(), category!.Trim(), StringComparison.OrdinalIgnoreCase))
                 continue;
-            if (filter != BarcodeFilter.All)
+            if (filter is BarcodeFilter.WithBarcode or BarcodeFilter.WithoutBarcode)
             {
                 var has = HasBarcode(p);
                 if (has != (filter == BarcodeFilter.WithBarcode))
@@ -141,6 +191,18 @@ public static class BarcodePrintCatalog
     public static string LabelPrice(CatalogProductTileVm p) =>
         Regex.Replace(p.PriceLine ?? "", @"(?<=\d)\.(?=\d)", ",");
 
+    /// <summary>Цена на этикетке для позиции печати: у размера — цена размера (если задана), иначе цена товара. Копейки не округляются.</summary>
+    public static string LabelPrice(BarcodePrintItem item)
+    {
+        if (item.VariantPrice is > 0 and var vp)
+        {
+            var suffix = ParsePrice(item.Product.PriceLine)?.Suffix;
+            var text = ((decimal)vp).ToString("0.00", CultureInfo.InvariantCulture).Replace('.', ',');
+            return string.IsNullOrEmpty(suffix) ? text + " сом" : text + " " + suffix;
+        }
+        return LabelPrice(item.Product);
+    }
+
     /// <summary>Число для листа A4: без «,00» у целых («85»), с копейками у дробных («85,50»).</summary>
     public static string SheetNumber(decimal value) =>
         (value == decimal.Truncate(value) ? value.ToString("0", CultureInfo.InvariantCulture) : value.ToString("0.00", CultureInfo.InvariantCulture)).Replace('.', ',');
@@ -151,7 +213,7 @@ public static class BarcodePrintCatalog
     public static A4SheetItem ToSheetItem(BarcodePrintItem item, bool showDiscount, string? storeName = null)
     {
         var p = item.Product;
-        var parsed = ParsePrice(p.PriceLine);
+        var parsed = ParsePrice(item.VariantPrice is > 0 ? LabelPrice(item) : p.PriceLine);
         string price;
         string? old = null;
         string? discountText = null;
@@ -170,7 +232,9 @@ public static class BarcodePrintCatalog
         }
         else
             price = p.PriceLine ?? "";
-        var data = new PriceTagData(p.Title, item.Barcode, price, old, discountText, p.Article, p.Unit, p.Category ?? p.Brand, storeName);
+        // 2026-11-01 (С-2): у доп. штрихкода (упаковка/размер) к названию добавляется его подпись.
+        var title = item.VariantText is { } vt ? p.Title + " — " + vt : p.Title;
+        var data = new PriceTagData(title, item.Barcode, price, old, discountText, p.Article, p.Unit, p.Category ?? p.Brand, storeName);
         return new A4SheetItem(data, Math.Clamp(item.Copies, 1, 99), p.Plu?.ToString(CultureInfo.InvariantCulture), string.IsNullOrWhiteSpace(p.Description) ? null : p.Description!.Trim());
     }
 }

@@ -229,7 +229,7 @@ public sealed class ProfitPayWindow : Window
     private static string ProfitStoreNote() => ProfitPayStore.State switch
     {
         ProfitPayStore.SyncState.Forbidden => T("Схемы сохранены только на этом компьютере: общие настройки магазина меняет владелец или администратор.", "Схемалар ушул компьютерде гана сакталды: дүкөндүн жалпы жөндөөлөрүн ээси же администратор өзгөртөт.", "Schemes are saved on this computer only: shop-wide settings are changed by the owner or an administrator.", "Şemalar yalnızca bu bilgisayarda: genel ayarları sahip veya yönetici değiştirir.", "Sxemalar faqat shu kompyuterda: umumiy sozlamalarni egasi yoki administrator o'zgartiradi."),
-        ProfitPayStore.SyncState.LocalOnly => T("Нет связи с сервером: схемы сохранены на этом компьютере и уйдут при следующем сохранении.", "Сервер менен байланыш жок: схемалар ушул компьютерде сакталды, кийинки сактоодо жөнөтүлөт.", "No connection: schemes are saved on this computer and will be sent on the next save.", "Bağlantı yok: şemalar bu bilgisayarda, bir sonraki kayıtta gönderilir.", "Aloqa yo'q: sxemalar shu kompyuterda saqlandi, keyingi saqlashda yuboriladi."),
+        ProfitPayStore.SyncState.LocalOnly => T("Сервер NurCRM недоступен: схемы сохранены на этом компьютере и уйдут при следующем сохранении.", "NurCRM сервери жеткиликсиз: схемалар ушул компьютерде сакталды, кийинки сактоодо жөнөтүлөт.", "The NurCRM server is unavailable: schemes are saved on this computer and will be sent on the next save.", "NurCRM sunucusu kullanılamıyor: şemalar bu bilgisayarda, bir sonraki kayıtta gönderilir.", "NurCRM serveri mavjud emas: sxemalar shu kompyuterda saqlandi, keyingi saqlashda yuboriladi."), // 2026-11-01 (В-08): единая фраза о сбое сервера
         _ => T("Схемы «от прибыли» хранятся в общих настройках магазина NurCRM — их видят все компьютеры владельца и администраторов.", "«Пайдадан» схемалары NurCRM дүкөнүнүн жалпы жөндөөлөрүндө сакталат — аларды ээсинин жана администраторлордун бардык компьютерлери көрөт.", "“Profit-based” schemes are stored in the shop's shared NurCRM settings — all owner and administrator computers see them.", "«Kârdan» şemaları NurCRM mağaza ortak ayarlarında saklanır — sahip ve yöneticilerin tüm bilgisayarları görür.", "«Foydadan» sxemalari NurCRM do'konining umumiy sozlamalarida saqlanadi — egasi va administratorlarning barcha kompyuterlari ko'radi."),
     };
 
@@ -430,7 +430,7 @@ public sealed class ProfitPayWindow : Window
     {
         if (_data?.Result is not { } res || _data.Rows.Count == 0)
             return;
-        var shop = UserPreferences.Instance.StoreName;
+        var shop = ReportShopName.Current;
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title = T("Сохранить ведомость", "Ведомостту сактоо", "Save the statement", "Bordroyu kaydet", "Qaydnomani saqlash"),

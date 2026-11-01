@@ -363,7 +363,7 @@ public sealed class OwnerMenuStylePicker : UserControl
                 var badgeText = new TextBlock
                 {
                     Text = Tr.T("✓ Выбрано", "✓ Тандалган", "✓ Selected", "✓ Seçili", "✓ Tanlangan"),
-                    FontSize = 11, FontWeight = FontWeight.SemiBold,
+                    FontSize = 12, FontWeight = FontWeight.SemiBold,
                 };
                 badgeText.Bind(TextBlock.ForegroundProperty, badgeText.GetResourceObservable("BrushPanel"));
                 var badge = new Border { CornerRadius = new CornerRadius(6), Padding = new Thickness(8, 2), VerticalAlignment = VerticalAlignment.Center, Child = badgeText };

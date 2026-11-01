@@ -2092,6 +2092,46 @@ class AppLocalizationsUz extends AppLocalizations {
   String get kindSale => 'Sotuv';
 
   @override
+  String get prevSaleMayPass =>
+      'Oldingi to\'lov tugamadi — o\'sha chek o\'tib ketgan bo\'lishi mumkin. Qayta to\'lashdan oldin «Cheklar» bo\'limini tekshiring.';
+
+  @override
+  String get pdHasHistory =>
+      'Tovarni o\'chirib bo\'lmaydi — unga hujjatlar bog\'langan (sotuvlar, kirimlar). Arxivga yuborilsinmi? Sotuvdan yo\'qoladi, tarixi qoladi.';
+
+  @override
+  String get pdToArchive => 'Arxivga';
+
+  @override
+  String get pdArchived => 'Tovar arxivga yuborildi';
+
+  @override
+  String pricesPartlyUnchecked(int n) {
+    return '$n ta tovarning narxi server bilan solishtirilmadi — eskirgan bo\'lishi mumkin.';
+  }
+
+  @override
+  String get kindBonus => 'Mijoz bonuslari';
+
+  @override
+  String get bonusQueued =>
+      'Mijoz bonuslari darhol yozilmadi — aloqa paydo bo\'lganda o\'zi yuboriladi';
+
+  @override
+  String payReceivedHuge(String change) {
+    return 'Qaytim $change so\'m — to\'g\'rimi? «Olindi» maydonidagi summani tekshiring.';
+  }
+
+  @override
+  String get apiSaleTooOld =>
+      'Chek 7 sutkadan eski: server uni egasining tasdig\'isiz qabul qilmaydi. Chekni olib tashlamang, egasiga xabar bering.';
+
+  @override
+  String staleSalesBanner(int n) {
+    return 'Navbatda 5 sutkadan eski cheklar: $n. 7 sutkadan keyin server ularni egasining tasdig\'isiz qabul qilmaydi — telefonni imkon qadar tezroq tarmoqqa ulang.';
+  }
+
+  @override
   String get admin => 'Boshqaruv';
 
   @override
@@ -6674,4 +6714,368 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get pbNoPhone => 'Telefon ko\'rsatilmagan';
+
+  @override
+  String get shopModeTitle => 'Do\'kon rejimi';
+
+  @override
+  String get shopModeSub =>
+      'Kassadagidek: «Do\'kon turi». Sotuv va katalog ko\'rinishi rejimga bog\'liq';
+
+  @override
+  String get shopModeGrocery => 'Oziq-ovqat';
+
+  @override
+  String get shopModeGrocerySub =>
+      'Tarozilar va tortiladigan mahsulotlar, tez sotuv';
+
+  @override
+  String get shopModeClothing => 'Kiyim va poyabzal';
+
+  @override
+  String get shopModeClothingSub =>
+      'Sotuvda o\'lcham va ranglar, o\'lcham shtrix-kodi, o\'lcham bo\'yicha qoldiq';
+
+  @override
+  String get shopModeServices => 'Xizmatlar';
+
+  @override
+  String get shopModeServicesSub =>
+      'Salon, ta\'mirlash, prokat: qoldiqsiz xizmatlar';
+
+  @override
+  String get shopModeHardware => 'Xo\'jalik mollari va qurilish materiallari';
+
+  @override
+  String get shopModeHardwareSub => 'Metr, kilogramm, qop va quti';
+
+  @override
+  String shopModeOn(String name) {
+    return '«$name» rejimi yoqildi';
+  }
+
+  @override
+  String get shopModeSavedAll =>
+      'Butun kompaniya uchun saqlandi: kassalar va telefonlar keyingi kirishda o\'zgaradi.';
+
+  @override
+  String get shopModePhoneOnly =>
+      'Faqat shu telefonda: butun kompaniya uchun rejimni egasi o\'zgartiradi.';
+
+  @override
+  String get clothingHintTitle =>
+      'Katalogda o\'lcham va ranglari bor mahsulotlar bor';
+
+  @override
+  String get clothingHintAsk =>
+      '«Kiyim» rejimi yoqilsinmi? O\'lchamlar plitkalarda va skanerlashda ko\'rinadi.';
+
+  @override
+  String get clothingHintYes => 'Yoqish';
+
+  @override
+  String get clothingHintNo => 'Kerak emas';
+
+  @override
+  String variantsTile(int n) {
+    return '$n ta o\'lcham/rang';
+  }
+
+  @override
+  String variantPickLeft(String qty) {
+    return 'qoldi $qty';
+  }
+
+  @override
+  String variantPickInCheck(String qty) {
+    return 'Chekda: $qty';
+  }
+
+  @override
+  String get variantPickNone => 'Mavjud emas';
+
+  @override
+  String get variantPickAllOut =>
+      'Bu mahsulotning barcha o\'lchamlari tugagan.';
+
+  @override
+  String get variantPickUpdating => 'Qoldiqlar yangilanmoqda…';
+
+  @override
+  String get variantPickStale => 'Qoldiqlar telefondan — aloqa yo\'q';
+
+  @override
+  String variantNoMore(String qty) {
+    return 'Boshqa yo\'q: bu o\'lchamning qoldig\'i — $qty';
+  }
+
+  @override
+  String get variantLoadFailed =>
+      'Mahsulot o\'lchamlari yuklanmadi — aloqa yo\'q. Internet paydo bo\'lganda qayta urining.';
+
+  @override
+  String variantScanOut(String label) {
+    return '$label: mavjud emas';
+  }
+
+  @override
+  String variantScanInactive(String label) {
+    return '$label: o\'lcham o\'chirilgan';
+  }
+
+  @override
+  String get variantInactiveHidden =>
+      'O\'chirilgan o\'lchamlar ko\'rsatilmaydi.';
+
+  @override
+  String catalogLoadingProgress(int done, int total) {
+    return 'Katalog yuklanmoqda… $done / $total';
+  }
+
+  @override
+  String catalogLoadingNoTotal(int done) {
+    return 'Katalog yuklanmoqda… $done';
+  }
+
+  @override
+  String catalogIncomplete(int done, int total) {
+    return '$total tadan $done ta mahsulot yuklandi — katalogning bir qismi hali telefonda yo\'q. Yuklash o\'zi davom etadi; «Katalogni yangilash» tugmasini bosishingiz mumkin.';
+  }
+
+  @override
+  String get catalogIncompleteNoTotal =>
+      'Katalog to\'liq yuklanmadi. Yuklash o\'zi davom etadi; «Katalogni yangilash» tugmasini bosishingiz mumkin.';
+
+  @override
+  String get catalogRefresh => 'Katalogni yangilash';
+
+  @override
+  String catalogRefreshed(int n) {
+    return 'Katalog yangilandi: $n ta mahsulot';
+  }
+
+  @override
+  String stockCountShown(int shown, int total) {
+    return '$total tadan $shown tasi ko\'rsatilmoqda';
+  }
+
+  @override
+  String stockCountAll(int total) {
+    return 'Mahsulotlar: $total';
+  }
+
+  @override
+  String get shopModeNotChosen => 'Tanlanmagan';
+
+  @override
+  String get shopModeChoose => 'Do\'kon rejimini tanlash';
+
+  @override
+  String get shopSearchGrocery => 'Nomi, shtrix-kod, PLU';
+
+  @override
+  String get shopSearchClothing => 'Nomi, o\'lcham kodi';
+
+  @override
+  String get shopSearchServices => 'Xizmat nomi';
+
+  @override
+  String get shopSearchHardware => 'Nomi, artikul';
+
+  @override
+  String get shopEmptyGrocery =>
+      'Hech narsa topilmadi. Tortiladigan mahsulot nomi yoki tarozi kodi (PLU) bo\'yicha qidiriladi.';
+
+  @override
+  String get shopEmptyClothing =>
+      'Hech narsa topilmadi. O\'lcham va ranglar mahsulot ochilgach yoki o\'lcham shtrix-kodi skanerlangach ko\'rinadi.';
+
+  @override
+  String get shopEmptyServices =>
+      'Xizmat topilmadi. Xizmatlar saytda yoki kassada yaratiladi.';
+
+  @override
+  String get shopEmptyHardware =>
+      'Hech narsa topilmadi. Nomi, artikul yoki shtrix-kod bo\'yicha qidiring; birliklar — m, m², qadoq.';
+
+  @override
+  String get tileSizes => 'O\'lcham va ranglar';
+
+  @override
+  String get tileSizesSub => 'O\'lcham bo\'yicha qoldiqlar';
+
+  @override
+  String get tileWeighed => 'Tortiladigan mahsulotlar';
+
+  @override
+  String get tileWeighedSub => 'Kg narxi, tarozi vazni';
+
+  @override
+  String get tileExpiry => 'Yaroqlilik muddati';
+
+  @override
+  String get tileExpirySub => 'Nima tez buziladi';
+
+  @override
+  String get tileUnits => 'Metr va qadoqlar';
+
+  @override
+  String get tileUnitsSub => 'Birliklar va to\'plamlar';
+
+  @override
+  String get tileReceive => 'Qabul qilish';
+
+  @override
+  String get tileReceiveSub => 'Mahsulot qabul qilish';
+
+  @override
+  String get tileStockSub => 'Ombor va qoldiqlar';
+
+  @override
+  String get tileRentalsSub => 'Berish va qaytarish';
+
+  @override
+  String get tileDebtsSub => 'Kim qarzdor';
+
+  @override
+  String get stockFilterSizes => 'Faqat o\'lchamlilar';
+
+  @override
+  String get stockFilterWeight => 'Faqat tortiladiganlar';
+
+  @override
+  String get stockFilterExpiry => 'Muddati yaqin';
+
+  @override
+  String get stockFilterUnits => 'Dona emas: m, m², qadoq';
+
+  @override
+  String get stockFilterClear => 'Tozalash';
+
+  @override
+  String expiryBadge(String date) {
+    return '$date gacha';
+  }
+
+  @override
+  String expirySoonToast(String name, String date) {
+    return '$name: yaroqlilik muddati $date gacha';
+  }
+
+  @override
+  String get sizesScreenTitle => 'O\'lcham va ranglar';
+
+  @override
+  String get sizesEmpty =>
+      'O\'lchamli mahsulotlar hali yo\'q. Sotuvda mahsulotni oching yoki o\'lcham shtrix-kodini skanerlang — o\'lchamlar yuklanadi.';
+
+  @override
+  String sizesTotal(String qty) {
+    return 'Jami: $qty';
+  }
+
+  @override
+  String get cardSizesTitle => 'O\'lcham va ranglar';
+
+  @override
+  String get cardSizesNone =>
+      'Bu mahsulotning o\'lchamlari hali yuklanmagan yoki yo\'q.';
+
+  @override
+  String get cardWeightTitle => 'Tortiladigan mahsulot';
+
+  @override
+  String cardWeightInfo(String unit, String plu) {
+    return '$unit narxi. Tarozi kodi (PLU): $plu';
+  }
+
+  @override
+  String get cardNoPlu => 'belgilanmagan';
+
+  @override
+  String get cardExpiryTitle => 'Yaroqlilik muddati';
+
+  @override
+  String get cardExpiryNone =>
+      'Ko\'rsatilmagan (kassada yoki saytda kiritiladi)';
+
+  @override
+  String get cardUnitTitle => 'O\'lchov birligi';
+
+  @override
+  String cardUnitInfo(String unit) {
+    return 'Sotiladi: $unit';
+  }
+
+  @override
+  String get recvModeClothing =>
+      'Kiyim: har bir o\'lcham qoldig\'i kassada yoki saytda kiritiladi; o\'lchamli mahsulotda bu yerda soni ko\'rinadi.';
+
+  @override
+  String get recvModeGrocery =>
+      'Oziq-ovqat: partiya yaroqlilik muddatini tekshiring — sana kassada yoki saytda kiritiladi. Tortiladigan mahsulot kg bilan qabul qilinadi.';
+
+  @override
+  String get recvModeHardware =>
+      'Xo\'jalik mollari: miqdor mahsulot birligida (m, m², qadoq); birlik har qatorda ko\'rsatilgan.';
+
+  @override
+  String updAvailable(String version) {
+    return '$version versiyasi mavjud';
+  }
+
+  @override
+  String get updUpdate => 'Yangilash';
+
+  @override
+  String get updLater => 'Keyinroq';
+
+  @override
+  String get updWhatsNew => 'Yangiliklar';
+
+  @override
+  String get updNoNotes => 'Tavsif yo\'q.';
+
+  @override
+  String get updVersionTitle => 'Ilova versiyasi';
+
+  @override
+  String updVersionIs(String version) {
+    return 'O\'rnatilgan: $version';
+  }
+
+  @override
+  String get updCheck => 'Yangilanishlarni tekshirish';
+
+  @override
+  String get updChecking => 'Tekshirilmoqda…';
+
+  @override
+  String get updUpToDate => 'Eng so\'nggi versiya o\'rnatilgan';
+
+  @override
+  String get updCheckFailed =>
+      'Yangilanishlarni tekshirib bo\'lmadi. Internetni tekshiring.';
+
+  @override
+  String updDownloading(int percent) {
+    return 'Yangilanish yuklanmoqda… $percent%';
+  }
+
+  @override
+  String get updDownloadFailed =>
+      'Yangilanishni yuklab bo\'lmadi. Internetni tekshirib, qayta urinib ko\'ring.';
+
+  @override
+  String get updCancel => 'Bekor qilish';
+
+  @override
+  String get updPermTitle => 'O\'rnatishga ruxsat bering';
+
+  @override
+  String get updPermBody =>
+      'NurCRM\'ni yangilash uchun ilovaga yangilanishlarni o\'rnatishga ruxsat bering: ochilgan ekrandagi tugmani yoqing, bu yerga qaytib, «Yangilash»ni yana bosing.';
+
+  @override
+  String get updOpenSettings => 'Sozlamalarni ochish';
 }

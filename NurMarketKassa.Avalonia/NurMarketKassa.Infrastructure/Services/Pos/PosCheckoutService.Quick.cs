@@ -61,7 +61,8 @@ public sealed partial class PosCheckoutService
     private async Task<PosCheckoutResult?> TryQuickCheckoutAsync(
         PosCheckoutRequest request,
         CancellationToken cancellationToken,
-        CancellationToken serverWait)
+        CancellationToken serverWait,
+        TimeSpan answerBudget)
     {
         if (!UserPreferences.Instance.QuickCheckoutEnabled
             || OfflineModeHelper.SellLocally
@@ -274,7 +275,7 @@ public sealed partial class PosCheckoutService
                 if (serverWait.IsCancellationRequested)
                 {
                     budgetExpired = true;
-                    PosLogger.Log($"PAY quick: сервер не ответил за {ServerAnswerBudget.TotalSeconds:0.0} с (попытка {attempt}).", "WARNING");
+                    PosLogger.Log($"PAY quick: сервер не ответил за {answerBudget.TotalSeconds:0.0} с (попытка {attempt}).", "WARNING");
                     break;
                 }
 
@@ -333,11 +334,11 @@ public sealed partial class PosCheckoutService
             if (!throttledOnly && (transient is not ApiException { StatusCode: >= 400 and < 500 } refused || IsQuickTransientStatus(refused.StatusCode)))
                 ServerOutageMonitor.ReportFailure(Tr.T("оплата", "төлөм", "payment", "ödeme", "to'lov"),
                     budgetExpired
-                        ? Tr.T($"сервер не ответил за {ServerAnswerBudget.TotalSeconds:0.0} с",
-                            $"сервер {ServerAnswerBudget.TotalSeconds:0.0} с ичинде жооп берген жок",
-                            $"the server did not answer within {ServerAnswerBudget.TotalSeconds:0.0} s",
-                            $"sunucu {ServerAnswerBudget.TotalSeconds:0.0} sn içinde yanıt vermedi",
-                            $"server {ServerAnswerBudget.TotalSeconds:0.0} s ichida javob bermadi")
+                        ? Tr.T($"сервер не ответил за {answerBudget.TotalSeconds:0.0} с",
+                            $"сервер {answerBudget.TotalSeconds:0.0} с ичинде жооп берген жок",
+                            $"the server did not answer within {answerBudget.TotalSeconds:0.0} s",
+                            $"sunucu {answerBudget.TotalSeconds:0.0} sn içinde yanıt vermedi",
+                            $"server {answerBudget.TotalSeconds:0.0} s ichida javob bermadi")
                         : ServerOutageMonitor.Describe(transient ?? new TimeoutException()),
                     hard: true);
             // 2026-10-29 (аварийный аудит, п. 2): «в долг» и смешанную очередь не принимает, а продажа с этим ключом МОГЛА пройти. Раньше кассира
@@ -367,6 +368,7 @@ public sealed partial class PosCheckoutService
 
         // Сервер провёл продажу — окно ожидания больше не нужно (см. CheckoutAsync).
         DisarmServerWait();
+        request.Wait?.End(); // 2026-11-01 (К-08): дальше печать/устройства — не «сервер отвечает медленно»
         ForgetQuickKey();
         // 2026-10-29: продажа с ключом из записи «неясная оплата» подтверждена сервером.
         // 2026-10-30 (приёмка 1.17.65, «Важно»: двойная продажа при сбое): запись НЕ стираем до сброса корзины — помечаем «оплата подтверждена» и сохраняем на диск.

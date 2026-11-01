@@ -38,7 +38,7 @@ public static class BarChartRenderer
             {
                 Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"),
                 FontSize = 12,
-                Foreground = Brushes.Gray,
+                Foreground = ThemeInk.Soft,
             });
             return;
         }
@@ -103,7 +103,7 @@ public static class BarChartRenderer
         container.Children.Clear();
         if (items.Count == 0)
         {
-            container.Children.Add(new TextBlock { Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"), FontSize = 12, Foreground = Brushes.Gray });
+            container.Children.Add(new TextBlock { Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"), FontSize = 12, Foreground = ThemeInk.Soft });
             return;
         }
 
@@ -211,14 +211,14 @@ public static class BarChartRenderer
                 Width = 12, Height = 12, CornerRadius = new CornerRadius(3), Background = fill, Opacity = opacity,
                 BorderBrush = border, BorderThickness = border == null ? new Thickness(0) : new Thickness(1.5), VerticalAlignment = VerticalAlignment.Center,
             });
-            var t = new TextBlock { Text = text, FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+            var t = new TextBlock { Text = text, FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
             t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft")); // 2026-10-31: источник — сам элемент (container держал диаграммы после перерисовки)
             chip.Children.Add(t);
             legend.Children.Add(chip);
         }
         if (hasBest) Chip(Brush.Parse(AccentYellow), bestWord, Brush.Parse("#8A6200"));
         if (hasWorst) Chip(Brush.Parse("#64748B"), worstWord, null, 0.5);
-        if (hasCurrent) Chip(Brushes.Transparent, currentWord, Brushes.Gray);
+        if (hasCurrent) Chip(Brushes.Transparent, currentWord, ThemeInk.Soft);
         return legend.Children.Count > 0 ? legend : null;
     }
 
@@ -235,7 +235,7 @@ public static class BarChartRenderer
             {
                 Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"),
                 FontSize = 12,
-                Foreground = Brushes.Gray,
+                Foreground = ThemeInk.Soft,
             });
             return;
         }
@@ -346,7 +346,7 @@ public static class BarChartRenderer
             {
                 Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгилде маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
                 FontSize = 12,
-                Foreground = Brushes.Gray,
+                Foreground = ThemeInk.Soft,
             });
             return;
         }
@@ -425,8 +425,8 @@ public static class BarChartRenderer
             var label = new TextBlock
             {
                 Text = points[i].Label,
-                FontSize = 10,
-                Foreground = Brushes.Gray,
+                FontSize = 12,
+                Foreground = ThemeInk.Soft,
                 Width = stepWidth,
                 TextAlignment = TextAlignment.Center,
             };
@@ -496,7 +496,7 @@ public static class BarChartRenderer
             {
                 Text = Tr.T("Нет продаж за выбранный период", "Тандалган мезгилде сатуу жок", "No sales in the selected period", "Seçilen dönemde satış yok", "Tanlangan davrda sotuv yo'q"),
                 FontSize = 12,
-                Foreground = Brushes.Gray,
+                Foreground = ThemeInk.Soft,
             });
             return;
         }
@@ -535,8 +535,8 @@ public static class BarChartRenderer
             var right = new TextBlock
             {
                 Text = percent.ToString(CultureInfo.InvariantCulture) + " %",
-                FontSize = 10,
-                Foreground = Brushes.Gray,
+                FontSize = 12,
+                Foreground = ThemeInk.Soft,
                 Width = rightPad - 6,
             };
             Canvas.SetLeft(right, leftPad + plotWidth + 6);
@@ -560,7 +560,7 @@ public static class BarChartRenderer
             var tag = new TextBlock
             {
                 Text = boundary.Value.ToString("0", CultureInfo.InvariantCulture) + " %",
-                FontSize = 10,
+                FontSize = 12,
                 FontWeight = FontWeight.SemiBold,
                 Foreground = Brush.Parse(AbcColor(boundary.Group)),
             };
@@ -668,8 +668,8 @@ public static class BarChartRenderer
         var label = new TextBlock
         {
             Text = text,
-            FontSize = 11,
-            Foreground = Brushes.Gray,
+            FontSize = 12,
+            Foreground = ThemeInk.Soft,
             Width = width,
             TextTrimming = TextTrimming.CharacterEllipsis,
             RenderTransform = new RotateTransform(48),
@@ -703,7 +703,7 @@ public static class BarChartRenderer
             {
                 Text = Tr.T("Нет продаж за выбранный период", "Тандалган мезгилде сатуу жок", "No sales in the selected period", "Seçilen dönemde satış yok", "Tanlangan davrda sotuv yo'q"),
                 FontSize = 12,
-                Foreground = Brushes.Gray,
+                Foreground = ThemeInk.Soft,
             });
             return;
         }
@@ -744,8 +744,8 @@ public static class BarChartRenderer
             var left = new TextBlock
             {
                 Text = (maxValue * percent / 100.0).ToString("N0", CultureInfo.CurrentCulture),
-                FontSize = 10,
-                Foreground = Brushes.Gray,
+                FontSize = 12,
+                Foreground = ThemeInk.Soft,
                 Width = leftPad - 8,
                 TextAlignment = TextAlignment.Right,
             };
@@ -756,8 +756,8 @@ public static class BarChartRenderer
             var right = new TextBlock
             {
                 Text = percent.ToString(CultureInfo.InvariantCulture) + " %",
-                FontSize = 10,
-                Foreground = Brushes.Gray,
+                FontSize = 12,
+                Foreground = ThemeInk.Soft,
                 Width = rightPad - 6,
             };
             Canvas.SetLeft(right, leftPad + plotWidth + 6);
@@ -836,7 +836,7 @@ public static class BarChartRenderer
                 Background = Brush.Parse(color),
                 VerticalAlignment = VerticalAlignment.Center,
             });
-            row.Children.Add(new TextBlock { Text = text, FontSize = 11, Foreground = Brushes.Gray });
+            row.Children.Add(new TextBlock { Text = text, FontSize = 12, Foreground = ThemeInk.Soft });
             legend.Children.Add(row);
         }
 
@@ -866,7 +866,7 @@ public static class BarChartRenderer
             {
                 Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"),
                 FontSize = 12,
-                Foreground = Brushes.Gray,
+                Foreground = ThemeInk.Soft,
             });
             return;
         }
@@ -1013,7 +1013,7 @@ public static class BarChartRenderer
             {
                 Text = Tr.T("Нет данных", "Маалымат жок", "No data", "Veri yok", "Ma'lumot yo'q"),
                 FontSize = 12,
-                Foreground = Brushes.Gray,
+                Foreground = ThemeInk.Soft,
             });
             return;
         }
@@ -1072,8 +1072,8 @@ public static class BarChartRenderer
             {
                 // 2026-10-18, доводка О4: «товаров: 4» вместо «4 поз.».
                 Text = (itemsWord ?? Tr.T("позиций", "позиция", "items", "kalem", "pozitsiya")) + ": " + group.Count.ToString(CultureInfo.CurrentCulture),
-                FontSize = 11,
-                Foreground = Brushes.Gray,
+                FontSize = 12,
+                Foreground = ThemeInk.Soft,
                 TextAlignment = TextAlignment.Center,
             });
 
@@ -1142,7 +1142,7 @@ public static class BarChartRenderer
             {
                 Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгилде маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
                 FontSize = 12,
-                Foreground = Brushes.Gray,
+                Foreground = ThemeInk.Soft,
             });
             return;
         }
@@ -1185,8 +1185,8 @@ public static class BarChartRenderer
             var label = new TextBlock
             {
                 Text = items[i].Label,
-                FontSize = 10,
-                Foreground = Brushes.Gray,
+                FontSize = 12,
+                Foreground = ThemeInk.Soft,
                 Width = stepWidth,
                 TextAlignment = TextAlignment.Center,
             };
@@ -1236,7 +1236,7 @@ public static class BarChartRenderer
             Width = 10, Height = 10, Background = Brush.Parse(colorHex),
             CornerRadius = new CornerRadius(2), VerticalAlignment = VerticalAlignment.Center,
         });
-        chip.Children.Add(new TextBlock { Text = text, FontSize = 11, Foreground = Brushes.Gray, VerticalAlignment = VerticalAlignment.Center });
+        chip.Children.Add(new TextBlock { Text = text, FontSize = 12, Foreground = ThemeInk.Soft, VerticalAlignment = VerticalAlignment.Center });
         return new Border { Child = chip };
     }
 }

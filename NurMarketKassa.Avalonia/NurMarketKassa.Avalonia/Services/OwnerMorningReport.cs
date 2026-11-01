@@ -624,7 +624,8 @@ public static class OwnerMorningReport
                     var diffs = new List<CashDiff>();
                     foreach (var s in closed)
                     {
-                        if (s.ClosingCash is { } fact && s.ExpectedCash is { } expected)
+                        // 2026-11-01 (Д-1): ожидаемая сумма с поправкой на ошибки сервера (ShiftExpectedCash), как в X/Z-отчёте кассы.
+                        if (s.ClosingCash is { } fact && ShiftExpectedCash.WithFix(s.ExpectedCash, s.ShiftNumber) is { } expected)
                         {
                             var diff = (double)(fact - expected);
                             if (Math.Abs(diff) >= 1)

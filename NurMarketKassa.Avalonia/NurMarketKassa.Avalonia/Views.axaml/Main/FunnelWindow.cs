@@ -279,7 +279,7 @@ public sealed class FunnelWindow : Window, IOwnerSection
         };
         Use(meta, TextBlock.ForegroundProperty, "BrushTextSoft");
         stack.Children.Add(meta);
-        var sourceText = new TextBlock { Text = SourceTitle(card.Source), FontSize = 11.5, FontWeight = FontWeight.SemiBold };
+        var sourceText = new TextBlock { Text = SourceTitle(card.Source), FontSize = 12, FontWeight = FontWeight.SemiBold };
         // 2026-10-05, проверка на телефоне: тёмно-синий текст на синем значке в тёмной теме не читался — текст обычного цвета.
         Use(sourceText, TextBlock.ForegroundProperty, string.IsNullOrEmpty(card.Source) ? "BrushTextSoft" : "BrushText");
         var sourceBadge = new Border

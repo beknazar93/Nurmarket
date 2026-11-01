@@ -271,7 +271,7 @@ public partial class WarehouseWindow
     {
         TextBlock Cap(string text, int col, HorizontalAlignment align = HorizontalAlignment.Left)
         {
-            var t = new TextBlock { Text = text, FontSize = 11.5, FontWeight = FontWeight.SemiBold, HorizontalAlignment = align, VerticalAlignment = VerticalAlignment.Center };
+            var t = new TextBlock { Text = text, FontSize = 12, FontWeight = FontWeight.SemiBold, HorizontalAlignment = align, VerticalAlignment = VerticalAlignment.Center };
             t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
             Grid.SetColumn(t, col);
             return t;
@@ -476,7 +476,7 @@ public partial class WarehouseWindow
     /// <summary>Подпись над полем (маленькая, серая) — чтобы у заполненного поля не пропадала его суть, как пропала бы подсказка-watermark.</summary>
     private static Control Labeled(string caption, Control input)
     {
-        var cap = new TextBlock { Text = caption, FontSize = 11, FontWeight = FontWeight.SemiBold, Margin = new Thickness(2, 0, 0, 2) };
+        var cap = new TextBlock { Text = caption, FontSize = 12, FontWeight = FontWeight.SemiBold, Margin = new Thickness(2, 0, 0, 2) };
         cap.Bind(TextBlock.ForegroundProperty, cap.GetResourceObservable("BrushTextSoft"));
         var stack = new StackPanel();
         stack.Children.Add(cap);
@@ -561,14 +561,14 @@ public partial class WarehouseWindow
         // Строка 1: галочка | код/вид | название | количество | ✕.
         var barcode = new TextBlock { Text = row.Line.Barcode, FontSize = 13, FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
         barcode.Bind(TextBlock.ForegroundProperty, barcode.GetResourceObservable("BrushText"));
-        var kind = new TextBlock { FontSize = 11.5, TextWrapping = TextWrapping.Wrap };
+        var kind = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap };
         kind.Bind(TextBlock.ForegroundProperty, kind.GetResourceObservable("BrushTextSoft"));
         kind.Bind(TextBlock.TextProperty, new MultiBinding
         {
             Bindings = { new Binding(nameof(BulkScanRow.KindText)), new Binding(nameof(BulkScanRow.StockInfo)) },
             Converter = new JoinConverter(),
         });
-        var price = new TextBlock { FontSize = 11.5 };
+        var price = new TextBlock { FontSize = 12 };
         price.Bind(TextBlock.ForegroundProperty, price.GetResourceObservable("BrushTextSoft"));
         price.Bind(TextBlock.TextProperty, new Binding("Line.SalePriceText")
         {
@@ -576,7 +576,7 @@ public partial class WarehouseWindow
         });
         price.Bind(Visual.IsVisibleProperty, new Binding(nameof(BulkScanRow.IsKnown)));
         // 2026-10-29: у товара склада единица видна в строке (задаётся карточкой товара).
-        var unitInfo = new TextBlock { FontSize = 11.5 };
+        var unitInfo = new TextBlock { FontSize = 12 };
         unitInfo.Bind(TextBlock.ForegroundProperty, unitInfo.GetResourceObservable("BrushTextSoft"));
         unitInfo.Bind(Visual.IsVisibleProperty, new Binding(nameof(BulkScanRow.IsKnown)));
         void UnitInfoText() => unitInfo.Text = TrB($"ед.: {UnitCatalog.Display(row.Line.Unit)}", $"бирдик: {UnitCatalog.Display(row.Line.Unit)}",
