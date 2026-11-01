@@ -8,6 +8,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Core.Application;
 using NurMarketKassa.Services;
 
@@ -33,7 +34,7 @@ public sealed partial class InvoiceDocumentWindow
             new("bar", "118", T("Штрихкод", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod"), false, Wide: true),
             new("name", "*", T("Наименование", "Аталышы", "Name", "Ad", "Nomi"), false),
             new("unit", "44", T("Ед.", "Бирд.", "Unit", "Birim", "Birl."), false, Wide: true),
-            new("qty", _edit ? "112" : "88", T("Кол-во", "Саны", "Qty", "Adet", "Soni")),
+            new("qty", _edit ? "200" : "88", /* 2026-11-01: в режиме правки в ячейке «−» [число] «+» «🗑» */ T("Кол-во", "Саны", "Qty", "Adet", "Soni")),
             new("buy", "112", T("Цена покупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), Money: true),
             new("sum", "104", T("Сумма", "Сумма", "Amount", "Tutar", "Summa"), Money: true),
             new("mk", _edit ? "92" : "84", T("Наценка %", "Үстөк %", "Markup %", "Kâr marjı %", "Ustama %"), Money: true),
@@ -129,13 +130,13 @@ public sealed partial class InvoiceDocumentWindow
                 "no" => Cell(nameof(InvoiceRow.NoText), false, "BrushTextSoft"),
                 "code" => Cell(nameof(InvoiceRow.Code), false, "BrushTextSoft"),
                 "bar" => Cell(nameof(InvoiceRow.Barcode), false, "BrushTextSoft"),
-                "name" => Cell(nameof(InvoiceRow.Name), false, weight: FontWeight.SemiBold),
+                "name" => NameCell(row),
                 "unit" => Cell(nameof(InvoiceRow.Unit), false, "BrushTextSoft"),
                 "qty" => _edit ? QtyEditor(row) : Cell(nameof(InvoiceRow.QtyText), true, weight: FontWeight.SemiBold),
-                "buy" => PurchaseCell(),
+                "buy" => _edit && _patchMode && !row.ReadOnlyRow ? Editor(nameof(InvoiceRow.PurchaseEditText), "buy") : PurchaseCell(), // 2026-11-01: цена закупки правится при серверном PATCH
                 "sum" => Cell(nameof(InvoiceRow.SumText), true),
-                "mk" => _edit ? Editor(nameof(InvoiceRow.MarkupText), "mk") : Cell(nameof(InvoiceRow.MarkupText), true),
-                "sale" => _edit ? Editor(nameof(InvoiceRow.SaleText), "sale") : Cell(nameof(InvoiceRow.SaleText), true),
+                "mk" => _edit && !row.ReadOnlyRow ? Editor(nameof(InvoiceRow.MarkupText), "mk") : Cell(nameof(InvoiceRow.MarkupText), true),
+                "sale" => _edit && !row.ReadOnlyRow ? Editor(nameof(InvoiceRow.SaleText), "sale") : Cell(nameof(InvoiceRow.SaleText), true),
                 "pf" => Cell(nameof(InvoiceRow.ProfitText), true, "BrushTextSoft"),
                 _ => Cell(nameof(InvoiceRow.NoteText), false, "BrushTextSoft", wrap: true),
             };
@@ -146,6 +147,8 @@ public sealed partial class InvoiceDocumentWindow
         }
         // серая строка (количество 0) и зачёркнутая (удалена при правке)
         g.Bind(OpacityProperty, new Binding(nameof(InvoiceRow.Dim)) { Converter = DimOpacity.Instance });
+        // 2026-11-01: изменённая в этой правке строка подсвечена (было → стало видно в «было …» под количеством)
+        g.Bind(Panel.BackgroundProperty, new Binding(nameof(InvoiceRow.RowChanged)) { Converter = ChangedBackground.Instance, ConverterParameter = this });
         var line = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Bottom };
         line.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushBorder"));
         Grid.SetColumnSpan(line, 40);
@@ -153,10 +156,109 @@ public sealed partial class InvoiceDocumentWindow
         return g;
     }
 
+    /// <summary>2026-11-01: шаг кнопок «−»/«+»: 1 для штучных, 0,1 для весовых (кг, л, м) и дробных.</summary>
+    private static double StepFor(InvoiceRow row) =>
+        row.Unit.Trim().ToLowerInvariant() is "кг" or "kg" or "л" or "l" or "м" or "m" or "г" || Math.Abs(row.OrigQty - Math.Round(row.OrigQty)) > 0.0005 ? 0.1 : 1;
+
+    private Button QtyButton(string text, string tip, Action click)
+    {
+        var b = SectionCards.Secondary(text);
+        b.Width = b.MinWidth = 36;
+        b.Height = b.MinHeight = 36; // цель нажатия не меньше 36 px
+        b.Padding = new Thickness(0);
+        b.Margin = new Thickness(1, 0);
+        b.FontSize = 16;
+        b.HorizontalContentAlignment = HorizontalAlignment.Center;
+        ToolTip.SetTip(b, tip);
+        Avalonia.Automation.AutomationProperties.SetName(b, tip);
+        b.Click += (_, _) => click();
+        return b;
+    }
+
+    /// <summary>Удалить позицию = количество 0: остаток уменьшается, поставщику оформляется возврат (для добавляемого в этой правке товара — просто убирается из списка).</summary>
+    private async Task DeleteLineAsync(InvoiceRow row)
+    {
+        if (row.IsPendingAdd)
+        {
+            _rows.Remove(row);
+            Refresh();
+            return;
+        }
+        var ok = await PosConfirmDialog.ShowModalAsync(this, T("Удалить позицию?", "Позицияны өчүрөбүзбү?", "Delete the line?", "Satır silinsin mi?", "Pozitsiya o'chirilsinmi?"),
+            T($"«{row.Name}»: количество станет 0. Остаток на складе уменьшится, поставщику оформится возврат по этой накладной. Саму накладную это не удаляет, а правка запишется в журнал.",
+                $"«{row.Name}»: саны 0 болот. Кампадагы калдык азаят, жеткирүүчүгө ушул накладной боюнча кайтаруу түзүлөт. Накладнойдун өзүн өчүрбөйт, оңдоо журналга жазылат.",
+                $"“{row.Name}”: the quantity becomes 0. Stock is reduced and a return to the supplier is created against this invoice. The invoice itself is not deleted; the edit is written to the journal.",
+                $"«{row.Name}»: miktar 0 olur. Stok azalır, bu faturaya karşı tedarikçiye iade oluşturulur. Faturanın kendisi silinmez; düzenleme günlüğe yazılır.",
+                $"«{row.Name}»: miqdor 0 bo'ladi. Ombor qoldig'i kamayadi, shu yuk xati bo'yicha yetkazib beruvchiga qaytarish rasmiylashtiriladi. Yuk xatining o'zi o'chirilmaydi; tahrir jurnalga yoziladi."),
+            T("Удалить позицию", "Позицияны өчүрүү", "Delete the line", "Satırı sil", "Pozitsiyani o'chirish"), T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), PosConfirmAccent.Danger).ConfigureAwait(true);
+        if (ok)
+            row.Qty = 0;
+    }
+
+    /// <summary>Подсвечивает изменённую строку (было → стало) мягким фоном.</summary>
+    private sealed class ChangedBackground : Avalonia.Data.Converters.IValueConverter
+    {
+        public static readonly ChangedBackground Instance = new();
+
+        public object? Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+            value is true && parameter is Control host && host.TryFindResource("BrushAccentSoft", host.ActualThemeVariant, out var res) && res is IBrush brush ? brush : Brushes.Transparent;
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) => BindingOperations.DoNothing;
+    }
+
+    /// <summary>2026-11-01: введённое в ячейку число записывается в строку до нажатия «−»/«+» (иначе оно теряется при потере фокуса).</summary>
+    private void CommitFocusedCell()
+    {
+        if (FocusManager?.GetFocusedElement() is TextBox tb)
+            CommitCell(tb);
+    }
+
+    /// <summary>2026-11-01 (просьба владельца): название товара и под ним мелким шрифтом (12 px) отметка последней правки позиции — «✎ Имя (роль), 01.11 15:42 · количество 10 → 8».
+    /// Нажатие (или наведение) показывает всю историю правок этой позиции. Не правилась — отметки нет.</summary>
+    private Control NameCell(InvoiceRow row)
+    {
+        var sp = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        sp.Children.Add(Cell(nameof(InvoiceRow.Name), false, weight: FontWeight.SemiBold));
+        var mark = new TextBlock { FontSize = 12, Margin = new Thickness(6, 0), TextWrapping = TextWrapping.Wrap, Cursor = new Cursor(StandardCursorType.Hand) };
+        mark.Bind(TextBlock.TextProperty, new Binding(nameof(InvoiceRow.MarkText)));
+        mark.Bind(Visual.IsVisibleProperty, new Binding(nameof(InvoiceRow.HasMark)));
+        mark.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        ToolTip.SetTip(mark, row.MarkTip);
+        mark.PointerPressed += (_, _) => _ = ShowLineHistoryAsync(row);
+        sp.Children.Add(mark);
+        return sp;
+    }
+
+    private async Task ShowLineHistoryAsync(InvoiceRow row)
+    {
+        if (row.LineEdits.Count == 0)
+            return;
+        await PosDialogHost.ShowAsync(new LineHistoryDialog(row.Name, _docNumber, row.LineEdits), this).ConfigureAwait(true);
+    }
+
     private Control QtyEditor(InvoiceRow row)
     {
         var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        stack.Children.Add(Editor(nameof(InvoiceRow.QtyText), "qty"));
+        var qtyBox = Editor(nameof(InvoiceRow.QtyText), "qty");
+        qtyBox.Width = 64;
+        qtyBox.MinHeight = 36;
+        qtyBox.Height = 36;
+        if (row.ReadOnlyRow)
+        {
+            qtyBox.IsEnabled = false;
+            ToolTip.SetTip(qtyBox, T("Товар из дополнительного прихода: уменьшить его можно возвратом поставщику в карточке товара.", "Кошумча кирүүдөн келген товар: аны товардын карточкасында жеткирүүчүгө кайтаруу менен азайтууга болот.",
+                "A product from an additional receipt: reduce it with a return to the supplier in the product card.", "Ek girişten gelen ürün: ürün kartında tedarikçiye iadeyle azaltılabilir.", "Qo'shimcha kirimdan mahsulot: uni mahsulot kartasida yetkazib beruvchiga qaytarish bilan kamaytirish mumkin."));
+            stack.Children.Add(qtyBox);
+            return stack;
+        }
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+        buttons.Children.Add(QtyButton("−", T("Уменьшить количество (возврат поставщику)", "Санды азайтуу (жеткирүүчүгө кайтаруу)", "Decrease quantity (return to the supplier)", "Miktarı azalt (tedarikçiye iade)", "Miqdorni kamaytirish (yetkazib beruvchiga qaytarish)"),
+            () => { CommitFocusedCell(); row.Qty = Math.Max(0, row.Qty - StepFor(row)); }));
+        buttons.Children.Add(qtyBox);
+        buttons.Children.Add(QtyButton("+", T("Увеличить количество (дополнительный приход)", "Санды көбөйтүү (кошумча кирүү)", "Increase quantity (additional receipt)", "Miktarı artır (ek giriş)", "Miqdorni oshirish (qo'shimcha kirim)"),
+            () => { CommitFocusedCell(); row.Qty += StepFor(row); }));
+        buttons.Children.Add(QtyButton("🗑", T("Удалить позицию (количество 0)", "Позицияны өчүрүү (саны 0)", "Delete the line (quantity 0)", "Satırı sil (miktar 0)", "Pozitsiyani o'chirish (miqdor 0)"), () => _ = DeleteLineAsync(row)));
+        stack.Children.Add(buttons);
         var was = new TextBlock { FontSize = 12, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 8, 0) };
         was.Bind(TextBlock.TextProperty, new Binding(nameof(InvoiceRow.WasText)));
         was.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
@@ -234,6 +336,7 @@ public sealed partial class InvoiceDocumentWindow
             "changed" => r.Changed,
             "error" => r.HasError,
             "returned" => r.ReturnedQty > 0.0005,
+            "removed" => r.IsRemoved,
             _ => true,
         };
         if (!chip)
@@ -276,6 +379,7 @@ public sealed partial class InvoiceDocumentWindow
         }
         defs.Add(("zero", T("Без количества", "Саны жок", "No quantity", "Miktar yok", "Miqdor yo'q"), r => r.Qty <= 0.0005));
         defs.Add(("returned", T("С возвратом", "Кайтаруу менен", "With return", "İadeli", "Qaytarish bilan"), r => r.ReturnedQty > 0.0005));
+        defs.Add(("removed", T("Удалённые", "Өчүрүлгөндөр", "Removed", "Silinenler", "O'chirilgan"), r => r.IsRemoved)); // 2026-11-01: удалённые позиции остаются в списке с пометкой «удалил …»
         if (_edit)
         {
             defs.Add(("changed", T("Изменённые", "Өзгөргөндөр", "Changed", "Değişenler", "O'zgargan"), r => r.Changed));
@@ -370,10 +474,14 @@ public sealed partial class InvoiceDocumentWindow
     /// <summary>Insert: фокус в поиск по накладной. Новые позиции в готовую накладную добавляются после обновления сервера (Б-лайт правит только количество).</summary>
     private void FocusSearchForInsert()
     {
+        if (_edit && IsOwner())
+        {
+            _ = AddItemAsync(); // 2026-11-01: Insert в режиме правки открывает «Добавить товар» (дополнительный приход)
+            return;
+        }
         _search.Focus();
         _search.SelectAll();
         if (_edit)
-            // 2026-11-01: «Требует серверной поддержки» — добавление новой позиции в проведённый приход (новый товар) без PATCH прихода не делаем.
             Say(ReceiptEditService.NeedsServerText + ": " + T("новую позицию в проведённую накладную добавить пока нельзя. Найдите нужную строку и измените количество (0 — убрать позицию).",
                 "өткөрүлгөн накладнойго жаңы позиция кошууга азырынча болбойт. Керектүү саптан санын өзгөртүңүз (0 — позицияны алып салуу).",
                 "a new line can't be added to a posted invoice yet. Find the line and change its quantity (0 removes the line).",
@@ -418,7 +526,7 @@ public sealed partial class InvoiceDocumentWindow
         {
             e.Handled = true;
             CommitCell(tb);
-            var order = _showMoney ? new[] { "qty", "mk", "sale" } : new[] { "qty" };
+            var order = CellOrder();
             var idx = Array.IndexOf(order, tag);
             if (idx >= 0 && idx < order.Length - 1)
                 FocusCell(row, order[idx + 1]);
@@ -429,7 +537,7 @@ public sealed partial class InvoiceDocumentWindow
         {
             e.Handled = true;
             CommitCell(tb);
-            var order = _showMoney ? new[] { "qty", "mk", "sale" } : new[] { "qty" };
+            var order = CellOrder();
             var idx = Array.IndexOf(order, tag);
             if (idx > 0)
                 FocusCell(row, order[idx - 1]);
@@ -455,6 +563,9 @@ public sealed partial class InvoiceDocumentWindow
         }
     }
 
+    /// <summary>Порядок ячеек при Tab/Enter: количество, (закупка при серверном PATCH), наценка, цена реализации.</summary>
+    private string[] CellOrder() => !_showMoney ? new[] { "qty" } : _patchMode ? new[] { "qty", "buy", "mk", "sale" } : new[] { "qty", "mk", "sale" };
+
     /// <summary>Записать текст ячейки в строку сейчас (без ожидания потери фокуса).</summary>
     private static void CommitCell(TextBox tb)
     {
@@ -463,6 +574,7 @@ public sealed partial class InvoiceDocumentWindow
         switch (tb.Tag as string)
         {
             case "qty": row.QtyText = tb.Text ?? ""; break;
+            case "buy": row.PurchaseEditText = tb.Text ?? ""; break;
             case "mk": row.MarkupText = tb.Text ?? ""; break;
             case "sale": row.SaleText = tb.Text ?? ""; break;
         }

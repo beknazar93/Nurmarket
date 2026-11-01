@@ -1084,7 +1084,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             if (qty > MaxLineQuantity) // 2026-11-01 (К-07): в «Кол-во» попал штрихкод — товар не добавляем, количество сбрасываем
             {
                 ManualQuantity = "1";
-                CartMessage = QuantityTooLargeMessage();
+                ShowQuantityWarning(QuantityTooLargeMessage());
                 return;
             }
             if (string.IsNullOrWhiteSpace(lineNameOverride))
@@ -2156,7 +2156,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 try
                 {
                     decimal.TryParse(cashReceived, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var prepaidNow);
-                    var debtNow = Math.Round((decimal)result.TotalAmount, 2) - Math.Max(0m, prepaidNow);
+                    var debtNow = Math.Round((decimal)result.TotalAmount, 2, MidpointRounding.AwayFromZero) - Math.Max(0m, prepaidNow); // 2026-11-01: половина вверх, как сервер (раньше банковское)
                     if (debtNow > 0m)
                         NurMarketKassa.Services.OfflineClientCache.ApplyConfirmed(checkoutVm.ClientId, "sale:" + (TryReadSaleId(result) ?? Guid.NewGuid().ToString("N")), debtNow);
                 }
@@ -3238,7 +3238,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         if (typed > MaxLineQuantity)
         {
             line.QuantityInput = line.QuantityDisplay;
-            CartMessage = QuantityTooLargeMessage();
+            ShowQuantityWarning(QuantityTooLargeMessage());
             return;
         }
 
@@ -3933,6 +3933,14 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
     /// <summary>2026-11-01 (К-07): предел количества в одной строке чека; больше — почти наверняка штрихкод в поле количества.</summary>
     private const double MaxLineQuantity = 10000;
+
+    /// <summary>2026-11-01 (живая регрессия Р-4): отказ по количеству — жёлтая плашка-предупреждение (зелёный CartMessage читается как успех);
+    /// нет главного окна — старый путь через сообщение корзины.</summary>
+    private void ShowQuantityWarning(string message)
+    {
+        if (!MainStatusViewModel.TryShowInfoToast(message, warning: true))
+            CartMessage = message;
+    }
 
     private static string QuantityTooLargeMessage() => Tr.T(
         "Количество больше 10 000 — похоже, в поле попал штрихкод. Введите количество вручную.",

@@ -190,6 +190,30 @@ public static class CartDisplayHelper
         }
     }
 
+    /// <summary>2026-11-01 (сверка контракта с NBS): реальные значения return_status чека — «none» (не возвращался) / «partial» (частично, остальное вернуть можно) / «full» (целиком).
+    /// «Целиком» = «full» + прежние «returned», «fully_returned», «fully_refunded», «refunded» (на случай других версий сервера). «complete / completed» НЕ добавлять — могут значить
+    /// «чек завершён». Неизвестное значение игнорируется. Регистр не важен. Статус сам по себе блокирует возврат только если количество не говорит обратного
+    /// (см. LineLooksFullyReturned: есть returnable_qty — решает он).</summary>
+    private static readonly HashSet<string> FullyReturnedStatuses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "full", "returned", "fully_returned", "fully_refunded", "refunded",
+    };
+
+    /// <summary>2026-11-01 (сверка контракта с NBS, п. 5): чек возвращён целиком (return_status = full или status = canceled). У такого долгового чека сервер оставляет старые
+    /// remaining_debt / debt_remaining / debt_amount — «долг по чеку» не показываем (остаток долга по нему 0).</summary>
+    public static bool IsSaleFullyReturned(JsonElement sale)
+    {
+        if (sale.ValueKind != JsonValueKind.Object)
+            return false;
+        if (sale.TryGetProperty("return_status", out var rs) && rs.ValueKind == JsonValueKind.String && IsFullyReturnedStatus(rs.GetString()))
+            return true;
+        return sale.TryGetProperty("status", out var st) && st.ValueKind == JsonValueKind.String
+               && st.GetString()?.Trim().ToLowerInvariant() is "canceled" or "cancelled";
+    }
+
+    public static bool IsFullyReturnedStatus(string? status) =>
+        !string.IsNullOrWhiteSpace(status) && FullyReturnedStatuses.Contains(status.Trim());
+
     /// <summary>Позиция полностью возвращена — кнопку «Возврат» скрываем.</summary>
     public static bool LineLooksFullyReturned(JsonElement it)
     {
@@ -197,6 +221,15 @@ public static class CartDisplayHelper
             return true;
 
         if (TruthyBool(it, "is_returned") || TruthyBool(it, "fully_returned") || TruthyBool(it, "fully_refunded"))
+            return true;
+
+        // 2026-11-01 (ответ Умара: в строке чека есть returnable_qty и return_status): сколько можно вернуть — ноль при ненулевом количестве, или статус «возвращено».
+        if (TryDouble(it, "returnable_qty") is { } returnableLeft && returnableLeft <= 1e-6 && TryDouble(it, "quantity") is > 0)
+            return true;
+        // Статус блокирует, только если у строки нет ни returnable_qty, ни данных о возвращённом количестве (иначе решает количество: returnable_qty > 0 — статус игнорируется).
+        if (it.TryGetProperty("return_status", out var rst) && rst.ValueKind == JsonValueKind.String && IsFullyReturnedStatus(rst.GetString())
+            && TryDouble(it, "returnable_qty") is null
+            && (TryDouble(it, "returned_qty") ?? TryDouble(it, "quantity_refunded") ?? TryDouble(it, "returned_quantity") ?? TryDouble(it, "qty_returned") ?? TryDouble(it, "refunded_quantity")) is null)
             return true;
 
         if (it.TryGetProperty("refund_status", out var rs) && rs.ValueKind == JsonValueKind.String)
@@ -207,7 +240,8 @@ public static class CartDisplayHelper
         }
 
         var q = TryDouble(it, "quantity");
-        var qr = TryDouble(it, "quantity_refunded")
+        var qr = TryDouble(it, "returned_qty")
+                 ?? TryDouble(it, "quantity_refunded")
                  ?? TryDouble(it, "returned_quantity")
                  ?? TryDouble(it, "qty_returned")
                  ?? TryDouble(it, "refunded_quantity");
@@ -615,7 +649,11 @@ public static class CartDisplayHelper
     public static double RefundableQuantity(JsonElement it)
     {
         var qty = LineQuantity(it);
-        var returned = TryDouble(it, "quantity_refunded")
+        // 2026-11-01 (ответ Умара): сервер сам называет остаток к возврату — returnable_qty точнее, чем разность количеств.
+        if (TryDouble(it, "returnable_qty") is { } serverReturnable)
+            return serverReturnable > 1e-6 ? serverReturnable : 0;
+        var returned = TryDouble(it, "returned_qty")
+                       ?? TryDouble(it, "quantity_refunded")
                        ?? TryDouble(it, "returned_quantity")
                        ?? TryDouble(it, "qty_returned")
                        ?? TryDouble(it, "refunded_quantity")
@@ -722,8 +760,10 @@ public static class CartDisplayHelper
 
         if (TryDouble(it, "discount_percent") is { } pct && pct > 0)
         {
-            var gross = Math.Round(LineQuantity(it) * UnitPrice(it), 2, MidpointRounding.AwayFromZero);
-            return Math.Round(gross * Math.Min(pct, 100) / 100.0, 2, MidpointRounding.AwayFromZero);
+            // 2026-11-01 (ответ Умара, округление): процент — от НЕокруглённой суммы строки (количество × цена), а не от суммы, уже
+            // округлённой до копейки; сама скидка уходит на сервер суммой, поэтому её округляем до копейки (половина вверх).
+            var grossExact = QuantityRules.GrossExact(LineQuantity(it), UnitPrice(it));
+            return (double)Math.Round(grossExact * QuantityRules.ToMoneyDecimal(Math.Min(pct, 100)) / 100m, 2, MidpointRounding.AwayFromZero);
         }
 
         return 0;

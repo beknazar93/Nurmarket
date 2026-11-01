@@ -56,6 +56,7 @@ public sealed partial class SyncService : IDisposable
         _sales = sales;
         _auth = auth;
         _syncConflictResolver = syncConflictResolver;
+        Core.Application.SyncConflictResolver.Log ??= message => PosLogger.Log(message, "STOCK"); // 2026-11-01: «stale server qty … keeping» в журнале
         _catalogCache = catalogCache;
         _shiftApi = shiftApi;
     }
@@ -953,8 +954,9 @@ public sealed partial class SyncService : IDisposable
             var productId = CartDisplayHelper.TryProductId(item);
             if (string.IsNullOrEmpty(productId))
                 continue;
-
-            var soldQty = CartDisplayHelper.LineQuantity(item);
+            // 2026-11-01 (расследование «остаток не меняется»): штучная продажа из упаковки — в единицах остатка (qty / штук в упаковке), как при списании.
+            var tile = CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+            var soldQty = CartDisplayHelper.LineQuantityInStockUnits(item, tile);
             if (soldQty <= 0)
                 continue;
 
@@ -969,6 +971,8 @@ public sealed partial class SyncService : IDisposable
                     -soldQty,
                     SyncStrategy.ServerWins,
                     ct).ConfigureAwait(false);
+                StockSyncService.MarkLocallyTouched(productId); // 2026-11-01: пока сервер мог не учесть продажу, лента (90 с) остаток не откатывает
+                StockSyncService.ScheduleStockReread(productId, FeedStockGuard.LocalTouchWindow + TimeSpan.FromSeconds(10)); // 2026-11-01 (С-4): приход с другого ПК, пропущенный защитой, подтянется после неё
             }
             catch
             {

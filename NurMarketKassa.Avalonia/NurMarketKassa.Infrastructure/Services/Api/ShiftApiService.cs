@@ -76,6 +76,7 @@ public sealed class ShiftApiService : IShiftApiService
 
     // 2026-10-23 (аудит, круг 6): остаток закрытой смены для «Открыть смену» — кэш на минуту (ответ тот же, пока смены не менялись).
     private decimal? _lastClosedCash;
+    private bool _lastClosedCashEstimated; // 2026-11-01: значение — расчётное (expected_cash), а не пересчёт кассира
     private DateTime _lastClosedCashAtUtc = DateTime.MinValue;
     private string? _lastClosedCashKey;
 
@@ -86,7 +87,10 @@ public sealed class ShiftApiService : IShiftApiService
         {
             if (_lastClosedCashAtUtc != DateTime.MinValue && _lastClosedCashKey == key
                 && DateTime.UtcNow - _lastClosedCashAtUtc <= TimeSpan.FromMinutes(1))
+            {
+                ShiftBalanceHelper.LastClosedCashEstimated = _lastClosedCashEstimated;
                 return _lastClosedCash;
+            }
         }
 
         // Свежий полный список уже есть — запрос не нужен; иначе одна первая страница (самые новые смены).
@@ -98,11 +102,13 @@ public sealed class ShiftApiService : IShiftApiService
             payload = rows;
         }
 
-        var cash = ShiftBalanceHelper.FindLastClosedShiftCash(payload, cashboxId);
+        var cash = ShiftBalanceHelper.FindLastClosedShiftCash(payload, cashboxId, out var estimated);
+        ShiftBalanceHelper.LastClosedCashEstimated = estimated;
         if (cash is not null)
             lock (_openListSync)
             {
                 _lastClosedCash = cash;
+                _lastClosedCashEstimated = estimated;
                 _lastClosedCashAtUtc = DateTime.UtcNow;
                 _lastClosedCashKey = key;
             }

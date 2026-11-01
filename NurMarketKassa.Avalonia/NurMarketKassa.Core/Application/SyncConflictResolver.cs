@@ -9,6 +9,9 @@ public sealed class SyncConflictResolver : ISyncConflictResolver
     private readonly ILocalStockLedger _ledger;
     private readonly IStockCatalogUpdater _catalogUpdater;
 
+    /// <summary>2026-11-01: журнал событий пересчёта (в Core своего журнала нет; ставит Infrastructure).</summary>
+    public static Action<string>? Log { get; set; }
+
     public SyncConflictResolver(
         IServerStockGateway serverStock,
         ILocalStockProvider localStock,
@@ -41,6 +44,14 @@ public sealed class SyncConflictResolver : ISyncConflictResolver
         switch (strategy)
         {
             case SyncStrategy.ServerWins:
+                // 2026-11-01 (расследование «остаток не меняется», П-3; приёмка С-4): ответ считаем устаревшим, только если он равен остатку ДО этой
+                // продажи (локальный + проданное): сервер ещё не учёл именно её. Любое другое число (в т.ч. больше — владелец оприходовал товар на
+                // другом ПК) — законное, принимаем. Раньше отбрасывался любой остаток больше локального, и приход с другого ПК не доходил до плитки.
+                if (localDelta < 0 && Math.Abs(serverStock.Value - (catalogStock - localDelta)) < 1e-6)
+                {
+                    Log?.Invoke($"stale server qty for {productId} ({serverStock.Value} = local {catalogStock} + sold {-localDelta}) — keeping local value");
+                    break;
+                }
                 await ApplyServerWinsAsync(productId, serverStock.Value, ledgerDelta, cancellationToken)
                     .ConfigureAwait(false);
                 break;

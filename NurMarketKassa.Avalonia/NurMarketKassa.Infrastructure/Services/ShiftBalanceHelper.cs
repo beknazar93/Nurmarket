@@ -49,30 +49,62 @@ public static class ShiftBalanceHelper
 
     /// <summary>2026-10-23 (аудит, круг 6): при закрытой смене «Остаток по системе» в «Открыть смену» не приходил — открытых смен
     /// в ответе нет. Берём closing_cash последней ЗАКРЫТОЙ смены (по closed_at), предпочитая смены этой кассы.</summary>
-    public static decimal? FindLastClosedShiftCash(JsonElement shiftsPayload, string? cashboxId)
+    public static decimal? FindLastClosedShiftCash(JsonElement shiftsPayload, string? cashboxId) =>
+        FindLastClosedShiftCash(shiftsPayload, cashboxId, out _);
+
+    /// <summary>2026-11-01 (приёмка 1.17.72): последняя ПОСЛЕДНЯЯ закрытая смена отдаёт фактическую сумму пересчёта (closing_cash) — ей приоритет. Нет её (смену закрыл сервер/сайт без пересчёта) —
+    /// запасной вариант: расчётная expected_cash этой смены с поправками кассы (ShiftExpectedCash.WithFix); <paramref name="estimated"/> = true — значение расчётное (в окне помечается «расчётный»).</summary>
+    public static decimal? FindLastClosedShiftCash(JsonElement shiftsPayload, string? cashboxId, out bool estimated)
     {
         decimal? best = null, bestOwn = null;
+        bool bestEst = false, bestOwnEst = false;
         var bestAt = DateTimeOffset.MinValue;
         var bestOwnAt = DateTimeOffset.MinValue;
         foreach (var row in EnumerateRows(shiftsPayload))
         {
             if (row.ValueKind != JsonValueKind.Object || RowLooksOpen(row))
                 continue;
-            if (TryReadDecimal(row, "closing_cash") is not { } cash)
+            // 2026-11-01 (жалоба клиента «сумма не меняется»): закрытая смена без closing_cash (закрыл сервер в 23:00/01:00, закрыли на сайте без пересчёта, закрыта офлайн) раньше
+            // ПРОПУСКАЛАСЬ, и «Остаток по системе» день за днём показывал число более ранней смены. Берём closing_cash, а если его нет, — расчётную expected_cash ЭТОЙ же смены.
+            decimal cash;
+            bool est;
+            if (TryReadDecimal(row, "closing_cash") is { } actual)
+            {
+                cash = actual;
+                est = false;
+            }
+            else if (TryReadDecimal(row, "expected_cash") is { } expected)
+            {
+                string? rowId = row.TryGetProperty("id", out var idEl) ? JsonScalar(idEl) : null;
+                cash = ShiftExpectedCash.WithFix(expected, rowId) ?? expected;
+                est = true;
+            }
+            else
                 continue;
             if (!row.TryGetProperty("closed_at", out var ca) || ca.ValueKind != JsonValueKind.String
                 || !DateTimeOffset.TryParse(ca.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var at))
                 continue;
-            if (at > bestAt) { bestAt = at; best = cash; }
+            if (at > bestAt) { bestAt = at; best = cash; bestEst = est; }
             if (!string.IsNullOrWhiteSpace(cashboxId) && RowMatchesCashbox(row, cashboxId) && at > bestOwnAt)
             {
                 bestOwnAt = at;
                 bestOwn = cash;
+                bestOwnEst = est;
             }
         }
 
-        return bestOwn ?? best;
+        if (bestOwn is not null)
+        {
+            estimated = bestOwnEst;
+            return bestOwn;
+        }
+
+        estimated = bestEst;
+        return best;
     }
+
+    /// <summary>2026-11-01: значение, которое только что вернул LastClosedShiftCashAsync, — расчётное (expected_cash), а не пересчитанное кассиром. Для пометки в окне «Открыть смену».</summary>
+    public static volatile bool LastClosedCashEstimated;
 
     public static ShiftTotals? FindOpenShiftTotals(JsonElement shiftsPayload, string? cashboxId)
     {

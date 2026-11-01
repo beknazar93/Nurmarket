@@ -407,6 +407,8 @@ public sealed partial class CatalogApiService : ICatalogApiService
             ["price"] = variant.Price is { } p ? p.ToString("0.00", CultureInfo.InvariantCulture) : null,
             ["is_active"] = variant.IsActive,
         };
+        if (!variant.SendQuantity && !string.IsNullOrWhiteSpace(variant.Id))
+            body.Remove("quantity"); // 2026-11-01: остаток размера не менялся — не затираем продажи
         var data = string.IsNullOrWhiteSpace(variant.Id)
             ? await _client.RequestAsync(HttpMethod.Post, $"api/main/products/{pid}/variants/", body, null, ct).ConfigureAwait(false)
             : await _client.RequestAsync(HttpMethod.Patch, $"api/main/products/{pid}/variants/{Uri.EscapeDataString(variant.Id!)}/", body, null, ct).ConfigureAwait(false);

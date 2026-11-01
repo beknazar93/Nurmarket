@@ -233,7 +233,7 @@ public static class SaleReceiptTextBuilder
             {
                 Line($"Вернуть до: {dueDate:dd.MM.yyyy}");
             }
-            if (Money(sale, "remaining_debt") is { } remaining)
+            if (!CartDisplayHelper.IsSaleFullyReturned(sale) && Money(sale, "remaining_debt") is { } remaining) // 2026-11-01: возвращённый целиком чек — долг 0
             {
                 Line(ReceiptLineLayout.FormatLabelAmount(
                     "Остаток долга", ReceiptLineLayout.WithSom(remaining.ToString("N2", CultureInfo.CurrentCulture)), w));

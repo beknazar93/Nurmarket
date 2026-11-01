@@ -577,7 +577,7 @@ class CartController extends Notifier<Cart> {
           if (c.productId != l.productId || (c.variantId != null && c.variantId != l.variantId)) continue;
           l.retailPrice = c.newPrice;
           l.price = c.newPrice;
-          if (l.discount > l.gross) l.discount = l.gross;
+          l.clampDiscount();
         }
         continue;
       }
@@ -593,7 +593,7 @@ class CartController extends Notifier<Cart> {
           }
         }
         l.price = l.wholesale && l.wholesalePrice > 0 ? l.wholesalePrice : l.retailPrice;
-        if (l.discount > l.gross) l.discount = l.gross;
+        l.clampDiscount();
       }
     }
     state = state.copyWith(lines: lines);

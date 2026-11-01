@@ -134,6 +134,8 @@ public sealed class ProductVariantDto
     public double Quantity { get; set; }
     public double? Price { get; set; }
     public bool IsActive { get; set; } = true;
+    /// <summary>2026-11-01 (расследование «остаток не меняется»): false — остаток размера в PATCH не шлём (кассир его не менял; продажи других касс не затираем).</summary>
+    public bool SendQuantity { get; set; } = true;
 }
 
 /// <summary>Поля формы добавления/редактирования товара — соответствуют полям, которые

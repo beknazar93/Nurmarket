@@ -52,6 +52,9 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
     private bool _loading;
     private bool _busy;
     private string _filter = "all";
+    // 2026-11-01 (ИИ-3, «Откуда заказ»): all | site | telegram | assistant | other; _originCap — сервер объявил showcase_order_source_detail.
+    private string _origin = "all";
+    private bool _originCap;
     private List<SiteOrder> _orders = new();
     private string? _selectedId;
     private DateTime? _lastSuccess;
@@ -147,6 +150,9 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         {
             if (manual || _settings == null || DateTime.Now - _settingsLoadedAt > SettingsInterval)
                 await LoadSettingsAsync(cts.Token).ConfigureAwait(true);
+
+            // 2026-11-01 (ИИ-3): признак сервера (кэш 10 минут, ошибка = «нет») — чип «Откуда» и фильтр.
+            _originCap = await ShowcaseCapabilities.HasAsync(App.GetRequiredService<NurMarketApiClient>(), ShowcaseCapabilities.OrderSourceDetail, cts.Token).ConfigureAwait(true);
 
             // 2026-09-30: список «Закупок» выключен до доработки NurCRM (ShowcaseApiService.OrdersListEnabled).
             IReadOnlyList<SiteOrder> orders = ShowcaseApiService.OrdersListEnabled
@@ -402,16 +408,100 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         FilterCompletedButton.Content = Tr.T("Завершённые", "Аякталгандар", "Completed", "Tamamlanan", "Yakunlangan") + $" · {c}";
         foreach (var button in new[] { FilterAllButton, FilterNewButton, FilterPendingButton, FilterCompletedButton })
             button.Classes.Set("active", Equals(button.Tag, _filter));
+        RenderOriginFilters();
     }
 
-    private IEnumerable<SiteOrder> Filtered() =>
-        _filter switch
+    /// <summary>2026-11-01 (ИИ-3): строка «Откуда: Все · Сайт · Telegram · Помощник» со счётчиками. Видна, если сервер объявил
+    /// showcase_order_source_detail или хоть у одного заказа есть source_detail; иначе — как раньше (панель скрыта). Отбор — по уже
+    /// загруженному списку (поля source и source_detail приходят в каждом заказе, лишних запросов не нужно).</summary>
+    private void RenderOriginFilters()
+    {
+        var show = _originCap || _orders.Any(o => !string.IsNullOrWhiteSpace(o.SourceDetail));
+        OriginPanel.IsVisible = show;
+        OriginPanel.Children.Clear();
+        if (!show)
+        {
+            _origin = "all";
+            return;
+        }
+        var title = new TextBlock { Text = Tr.T("Откуда:", "Кайдан:", "From:", "Nereden:", "Qayerdan:"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 6) };
+        title.Classes.Add("soft");
+        OriginPanel.Children.Add(title);
+        void Add(string code, string label, int count)
+        {
+            if (code != "all" && count == 0 && _origin != code)
+                return; // пустые источники не показываем
+            var button = new Button { Classes = { "period" }, Tag = "origin:" + code, Content = label + $" · {count}", Margin = new Thickness(0, 0, 8, 6) };
+            button.Classes.Set("active", _origin == code);
+            button.Click += Filter_Click;
+            OriginPanel.Children.Add(button);
+        }
+        Add("all", Tr.T("Все", "Баары", "All", "Tümü", "Barchasi"), _orders.Count);
+        foreach (var code in new[] { "site", "telegram", "assistant", "other" })
+            Add(code, OriginLabel(code), _orders.Count(o => OriginOf(o) == code));
+    }
+
+    private IEnumerable<SiteOrder> Filtered()
+    {
+        var byStatus = _filter switch
         {
             "all" => _orders,
             ShowcaseApiService.StatusPending => _orders.Where(o => ShowcaseApiService.IsInProgress(o.Status)),
             ShowcaseApiService.StatusCompleted => _orders.Where(o => ShowcaseApiService.IsFinished(o.Status)),
             _ => _orders.Where(o => o.Status == _filter),
         };
+        return _origin == "all" || !OriginPanel.IsVisible ? byStatus : byStatus.Where(o => OriginOf(o) == _origin);
+    }
+
+    // ------------------------------------------------------------------ «Откуда заказ» (ИИ-3)
+
+    /// <summary>Группа источника: site (сайт: корзина, кнопка, карточка), telegram (бот), assistant (помощник и чат сайта), other (прочее: голос,
+    /// WhatsApp и т.д.). Пусто — сервер не прислал источник. Значения source: showcase | telegram_bot | web_chat | voice_ai | whatsapp …;
+    /// source_detail: site_button | site_product | site_cart | site_chat | assistant | chat_handoff | bot_menu | bot_ai (неизвестное — как есть).</summary>
+    private static string OriginOf(SiteOrder o)
+    {
+        var s = (o.Source ?? "").Trim().ToLowerInvariant();
+        var d = (o.SourceDetail ?? "").Trim().ToLowerInvariant();
+        if (s == "web_chat" || d is "assistant" or "site_chat")
+            return "assistant";
+        if (s is "telegram_bot" or "telegram" or "bot" or "tg" || (s is "" or "showcase" or "site" or "website" or "web" && IsBotComment(o.Comment)))
+            return "telegram";
+        if (s is "showcase" or "site" or "website" or "web" || d.StartsWith("site_", StringComparison.Ordinal))
+            return "site";
+        return s.Length > 0 || d.Length > 0 ? "other" : "";
+    }
+
+    private static string OriginLabel(string code) => code switch
+    {
+        "site" => Tr.T("Сайт", "Сайт", "Website", "Web sitesi", "Sayt"),
+        "telegram" => "Telegram",
+        "assistant" => Tr.T("Помощник", "Жардамчы", "Assistant", "Asistan", "Yordamchi"),
+        "other" => Tr.T("Другое", "Башка", "Other", "Diğer", "Boshqa"),
+        _ => "",
+    };
+
+    /// <summary>Чип источника заказа: «Сайт», «Сайт → Telegram» (корзина сайта, оформленная в боте), «Telegram», «Помощник»; пусто — источник неизвестен.</summary>
+    private static string OriginChipText(SiteOrder o)
+    {
+        var origin = OriginOf(o);
+        if (origin == "telegram" && string.Equals(o.SourceDetail, "site_cart", StringComparison.OrdinalIgnoreCase))
+            return Tr.T("Сайт → Telegram", "Сайт → Telegram", "Website → Telegram", "Web sitesi → Telegram", "Sayt → Telegram");
+        return OriginLabel(origin);
+    }
+
+    /// <summary>Подробно: «корзина сайта», «чат-помощник»…; неизвестный код — как прислал сервер.</summary>
+    private static string? DetailText(string? detail) => (detail ?? "").Trim().ToLowerInvariant() switch
+    {
+        "" => null,
+        "site_cart" => Tr.T("корзина сайта", "сайттын себети", "website cart", "site sepeti", "sayt savati"),
+        "site_button" => Tr.T("кнопка на сайте", "сайттагы баскыч", "button on the website", "sitedeki düğme", "saytdagi tugma"),
+        "site_product" => Tr.T("карточка товара на сайте", "сайттагы товар карточкасы", "product card on the website", "sitedeki ürün kartı", "saytdagi mahsulot kartochkasi"),
+        "site_chat" or "assistant" => Tr.T("помощник магазина на сайте", "сайттагы дүкөн жардамчысы", "shop assistant on the website", "sitedeki mağaza asistanı", "saytdagi do'kon yordamchisi"),
+        "chat_handoff" => Tr.T("чат сайта продолжен в Telegram", "сайттын чаты Telegram'да уланды", "website chat continued in Telegram", "site sohbeti Telegram'da sürdü", "sayt chati Telegram'da davom etdi"),
+        "bot_menu" => Tr.T("меню бота", "боттун менюсу", "bot menu", "bot menüsü", "bot menyusi"),
+        "bot_ai" => Tr.T("ИИ-консультант бота", "боттун ЖИ-кеңешчиси", "the bot's AI consultant", "botun yapay zekâ danışmanı", "botning SI maslahatchisi"),
+        var other => other,
+    };
 
     private void RenderList()
     {
@@ -462,6 +552,9 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         var pills = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         if (_arrivedIds.Contains(order.Id))
             pills.Children.Add(Pill(Tr.T("Только что", "Жаңы эле", "Just now", "Az önce", "Hozirgina"), "BrushAccent", "BrushAccentForeground"));
+        // 2026-11-01 (ИИ-3): чип «Откуда заказ» — только когда сервер отдаёт source_detail (иначе строка выглядит как раньше).
+        if (OriginPanel.IsVisible && OriginChipText(order) is { Length: > 0 } originChip)
+            pills.Children.Add(Pill(originChip, "BrushInputAlt", "BrushTextSoft"));
         pills.Children.Add(StatusPill(order.Status));
         Grid.SetColumn(pills, 1);
         top.Children.Add(pills);
@@ -591,6 +684,9 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         Field(Tr.T("Адрес", "Дарек", "Address", "Adres", "Manzil"), order.Address);
         Field(Tr.T("Комментарий", "Комментарий", "Comment", "Yorum", "Izoh"), order.Comment);
         Field(Tr.T("Источник", "Булак", "Source", "Kaynak", "Manba"), SourceText(order.Source, order.Comment));
+        // 2026-11-01 (ИИ-3): откуда именно — «Сайт → Telegram · корзина сайта»; поле source_detail есть не у всех заказов.
+        if (DetailText(order.SourceDetail) is { } detailText)
+            Field(Tr.T("Откуда", "Кайдан", "From", "Nereden", "Qayerdan"), OriginChipText(order) is { Length: > 0 } chipText ? $"{chipText} · {detailText}" : detailText);
         DetailPanel.Children.Add(fields);
 
         DetailPanel.Children.Add(BuildItemsTable(order));
@@ -800,10 +896,15 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
     // 2026-10-20 (живой аудит: «Комментарий: Заказ через телеграм-бота», а «Источник: Сайт (витрина)»): наш Телеграм-бот
     // оформляет заказ через публичный адрес витрины (ShowcaseApiService, delivery pickup), и сервер пишет ему source «showcase».
     // Отличить можно только по комментарию, который ставит сам бот: «Заказ через телеграм-бота» или «Телеграм-бот: …».
-    private static string? SourceText(string? source, string? comment)
+    private static bool IsBotComment(string? comment)
     {
         var c = (comment ?? "").Trim();
-        if (c.StartsWith("Заказ через телеграм-бота", StringComparison.OrdinalIgnoreCase) || c.StartsWith("Телеграм-бот:", StringComparison.OrdinalIgnoreCase))
+        return c.StartsWith("Заказ через телеграм-бота", StringComparison.OrdinalIgnoreCase) || c.StartsWith("Телеграм-бот:", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? SourceText(string? source, string? comment)
+    {
+        if (IsBotComment(comment))
         {
             var s = (source ?? "").Trim().ToLowerInvariant();
             if (s is "" or "showcase" or "site" or "website" or "web")
@@ -1014,7 +1115,19 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
 
     private void Filter_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: string filter } || filter == _filter)
+        if (sender is not Button { Tag: string filter })
+            return;
+        if (filter.StartsWith("origin:", StringComparison.Ordinal)) // 2026-11-01 (ИИ-3): чипы «Откуда»
+        {
+            var origin = filter["origin:".Length..];
+            if (origin == _origin)
+                return;
+            _origin = origin;
+            RenderFilters();
+            RenderList();
+            return;
+        }
+        if (filter == _filter)
             return;
         _filter = filter;
         RenderFilters();

@@ -621,6 +621,7 @@
   "sent": "yuborildi",
   "sendNow": "Hozir yuborish",
   "kindSale": "Sotuv",
+  "returnNetTotal": "Qaytarishlardan keyingi chek jami: {sum} so'm",
   "prevSaleMayPass": "Oldingi to'lov tugamadi — o'sha chek o'tib ketgan bo'lishi mumkin. Qayta to'lashdan oldin «Cheklar» bo'limini tekshiring.",
   "pdHasHistory": "Tovarni o'chirib bo'lmaydi — unga hujjatlar bog'langan (sotuvlar, kirimlar). Arxivga yuborilsinmi? Sotuvdan yo'qoladi, tarixi qoladi.",
   "pdToArchive": "Arxivga",

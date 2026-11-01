@@ -30,6 +30,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
     {
         public SettingsViewModel SettingsVm { get; }
 
+        // 2026-11-01 (Р-6): первым полем — до создания страниц; запоминание переводов Tr.T только пока окно строится (выключается сразу
+        // после конструктора и на время NavigateTo), чтобы не нагружать всю программу.
+        private readonly IDisposable _trCapture = Tr.BeginCapture();
         private readonly ScaleSettingsView _scaleView = new();
         private readonly PrintSettingsView _printView = new();
         private readonly ScreenSettingsView _screenView = new();
@@ -181,6 +184,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
         public PosSettingsWindow(SettingsViewModel settingsVm)
         {
             SettingsVm = settingsVm;
+            // 2026-11-01 (Р-6): конструктор синхронный — Post выполнится после него; запоминание переводов выключается.
+            Dispatcher.UIThread.Post(() => _trCapture.Dispose(), DispatcherPriority.Send);
             DataContext = this;
             InitializeComponent();
             // 2026-10-29: окно известно опросу общих настроек (SettingsCloudSync.EditingProbe) — см. HasUnsavedEdits.
@@ -201,6 +206,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _operationsView.LoadBankQrSettings();
 
             _navButtons = new[] { NavScales, NavPrint, NavScreen, NavMonitor, NavUpdates, NavOperations, NavCustomization, NavAccount, NavEmployees, NavKeys };
+            // 2026-11-01 («дизайн верхних кнопок»): стрелки прокрутки ряда вкладок — подсказка и имя для диктора на 5 языках.
+            var navPrev = Tr.T("Назад", "Артка", "Previous", "Geri", "Orqaga");
+            var navNext = Tr.T("Вперёд", "Алдыга", "Next", "İleri", "Oldinga");
+            ToolTip.SetTip(NavScrollLeft, navPrev);
+            Avalonia.Automation.AutomationProperties.SetName(NavScrollLeft, navPrev);
+            ToolTip.SetTip(NavScrollRight, navNext);
+            Avalonia.Automation.AutomationProperties.SetName(NavScrollRight, navNext);
             // Клавиши кассира в программе владельца не нужны: там нет ни чека, ни каталога.
             NavKeys.IsVisible = !NurMarketKassa.Services.AppMode.IsOwner;
             // 2026-10-05, владелец: «убери кастомизацию из настроек» — вкладка (обои, «стекло», размытие) скрыта;
@@ -230,7 +242,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     Dispatcher.UIThread.Post(UpdateNavColumns, DispatcherPriority.Loaded);
             };
             Tr.LanguageChanged += OnNavLanguageChanged;
-            Closed += (_, _) => Tr.LanguageChanged -= OnNavLanguageChanged;
+            Closed += (_, _) => { Tr.LanguageChanged -= OnNavLanguageChanged; _trCapture.Dispose(); Tr.ClearCaptured(); };
+            // 2026-11-01 (Р-6, П-1 приёмки): скрытое окно (раздел владельца) не держит запомненные переводы.
+            DetachedFromVisualTree += (_, _) => Tr.ClearCaptured();
             // 2026-10-27, аудит С-22: правки на вкладках «Весы / Печать / Экран» при закрытии окна без «Сохранить» терялись молча.
             // Состояние полей запоминается перед первым действием пользователя; при закрытии, если оно изменилось, — вопрос.
             AddHandler(PointerPressedEvent, (_, _) => _dirtyBaseline ??= SnapshotEditable(), Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -490,6 +504,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     ReceiptLptBox.Text = netAddress;
             };
             _printView.LabelNetPanel.UseRequested += (_, address) => UseLabelNetwork(address);
+            _printView.BtnForgetLabelPrinter.Click += ForgetLabelPrinter_Click;
             LabelPrinterCombo.SelectionChanged += LabelPrinterCombo_SelectionChanged;
             DiscoveredPrintersCombo.SelectionChanged += DiscoveredPrintersCombo_SelectionChanged;
             ReceiptPaperWidthCombo.SelectionChanged += ReceiptPaperWidthCombo_SelectionChanged;
@@ -573,7 +588,51 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private void OnNavLanguageChanged()
         {
             ApplyOwnerModeTexts();
+            RetranslateCodeTexts();
             Dispatcher.UIThread.Post(UpdateNavColumns, DispatcherPriority.Loaded);
+        }
+
+        /// <summary>2026-11-01 (Р-6, живая регрессия 1.17.71): подписи, заданные кодом через Tr.T один раз (вкладки Печать, Экран, Операции,
+        /// Весы, принтеры и LAN), после смены языка внутри открытого окна оставались прежними. Все страницы окна обходятся, а текст, который
+        /// раньше выдал Tr.T (Tr.Retranslate), заменяется на текущий язык. Поля ввода, списки и подписи из ресурсов (DynamicResource) не трогаются.</summary>
+        private void RetranslateCodeTexts()
+        {
+            try
+            {
+                var roots = new Control?[] { this, _scaleView, _printView, _screenView, _monitorView, _updatesView, _operationsView, _customizationView,
+                    _accountView, _employeesView, _keysView };
+                var done = new HashSet<Control>();
+                foreach (var root in roots)
+                {
+                    if (root is null)
+                        continue;
+                    Fix(root, done);
+                    foreach (var c in root.GetLogicalDescendants().OfType<Control>())
+                        Fix(c, done);
+                }
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                PosLogger.Log($"Настройки: подписи не переведены после смены языка ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+            }
+
+            static void Fix(Control c, HashSet<Control> done)
+            {
+                if (!done.Add(c))
+                    return;
+                if (c is TextBlock tb && (tb.Inlines is null || tb.Inlines.Count == 0) && Tr.Retranslate(tb.Text) is { } t)
+                    tb.Text = t;
+                if (c is ContentControl cc && cc.Content is string s && Tr.Retranslate(s) is { } cs)
+                    cc.Content = cs;
+                if (c is Avalonia.Controls.Primitives.HeaderedContentControl hc && hc.Header is string h && Tr.Retranslate(h) is { } hs)
+                    hc.Header = hs;
+                if (c is TextBox box && box.Watermark is string w && Tr.Retranslate(w) is { } ws)
+                    box.Watermark = ws;
+                if (ToolTip.GetTip(c) is string tip && Tr.Retranslate(tip) is { } tipText)
+                    ToolTip.SetTip(c, tipText);
+                if (Avalonia.Automation.AutomationProperties.GetName(c) is { Length: > 0 } an && Tr.Retranslate(an) is { } ans)
+                    Avalonia.Automation.AutomationProperties.SetName(c, ans);
+            }
         }
 
         /// <summary>2026-10-20, аудит программы владельца (п. 11): название окна и подпись про железо кассы — только у владельца.</summary>
@@ -590,16 +649,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 "Kassa uskunalari sozlamalari (tarozi, printer, xaridor ekrani) kassaning o'zida o'zgartiriladi.");
         }
 
-        /// <summary>2026-09-29, владелец: «настройки таб меню сделай». Сколько вкладок в ряд —
-        /// по самой широкой подписи (на кыргызском «Ыңгайлаштыруу», на узбекском «Yangilanishlar»
-        /// заметно длиннее русских): все помещаются — один ряд на всю ширину, как вкладки «Весов»;
-        /// нет — несколько рядов поровну (10 вкладок → 5 + 5, а не 7 + 3), подпись не обрезается
-        /// и не рвётся посередине слова. Скрытые вкладки («Клавиши» у владельца) не считаются.</summary>
+        /// <summary>2026-11-01 («дизайн верхних кнопок»): вкладки настроек — ВСЕГДА один ровный ряд (раньше при нехватке ширины — два неровных
+        /// ряда вроде 5 + 4). Помещаются — растягиваются на всю ширину; нет (кыргызский «Ыңгайлаштыруу», узбекский «Yangilanishlar», окно
+        /// 800×600, масштаб 125 %) — каждой вкладке остаётся ширина самой длинной подписи, ряд прокручивается, по краям стрелки ‹ ›.
+        /// Скрытые вкладки («Клавиши» у владельца) не считаются. Ширина «внутри карточки» берётся от самой карточки, а не от прокрутки, —
+        /// иначе показ стрелок менял бы ширину прокрутки и расчёт «мигал».</summary>
         private void UpdateNavColumns()
         {
             var visible = _navButtons.Where(b => b.IsVisible).ToList();
-            double available = NavTabsGrid.Bounds.Width;
-            if (visible.Count == 0 || available <= 0)
+            double full = (NavScroll.Parent as Grid)?.Bounds.Width ?? 0;
+            if (visible.Count == 0 || full <= 0)
                 return;
 
             double widest = 0;
@@ -611,14 +670,43 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             // Запас на полужирную подпись выбранной вкладки — она чуть шире обычной.
             widest += 4;
-            int maxColumns = Math.Clamp((int)(available / widest), 1, visible.Count);
-            int rows = (visible.Count + maxColumns - 1) / maxColumns;
-            int columns = (visible.Count + rows - 1) / rows;
-            if (NavTabsGrid.Columns != columns || NavTabsGrid.Rows != rows)
+            double need = widest * visible.Count;
+            bool scroll = need > full + 0.5;
+            const double arrowsWidth = 64; // две стрелки по 32
+            double viewport = scroll ? full - arrowsWidth : full;
+            if (NavTabsGrid.Rows != 1 || NavTabsGrid.Columns != visible.Count)
             {
-                NavTabsGrid.Columns = columns;
-                NavTabsGrid.Rows = rows;
+                NavTabsGrid.Rows = 1;
+                NavTabsGrid.Columns = visible.Count;
             }
+            NavTabsGrid.MinWidth = Math.Max(viewport, need);
+            NavScrollLeft.IsVisible = scroll;
+            NavScrollRight.IsVisible = scroll;
+        }
+
+        private void NavScrollLeft_Click(object? sender, RoutedEventArgs e) =>
+            NavScroll.Offset = new Vector(Math.Max(0, NavScroll.Offset.X - NavScroll.Viewport.Width * 0.6), 0);
+
+        private void NavScrollRight_Click(object? sender, RoutedEventArgs e) =>
+            NavScroll.Offset = new Vector(Math.Min(Math.Max(0, NavScroll.Extent.Width - NavScroll.Viewport.Width), NavScroll.Offset.X + NavScroll.Viewport.Width * 0.6), 0);
+
+        /// <summary>2026-11-01: ←/→ на вкладке переключают вкладки (фокус и страница), как у сегментов; крайняя вкладка — остаётся на месте.</summary>
+        private void NavTabsGrid_KeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+        {
+            if (e.Key != Avalonia.Input.Key.Left && e.Key != Avalonia.Input.Key.Right)
+                return;
+            var visible = _navButtons.Where(b => b.IsVisible).ToList();
+            var index = visible.FindIndex(b => b.IsFocused);
+            if (index < 0)
+                index = visible.FindIndex(b => b.Classes.Contains("nav-active"));
+            if (index < 0)
+                return;
+            e.Handled = true;
+            var next = Math.Clamp(index + (e.Key == Avalonia.Input.Key.Right ? 1 : -1), 0, visible.Count - 1);
+            if (next == index)
+                return;
+            visible[next].Focus();
+            SidebarNav_Click(visible[next], new RoutedEventArgs());
         }
 
         /// <summary>Раздел программы владельца (см. <see cref="IOwnerSection"/>): «Закрыть» внизу
@@ -807,6 +895,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
         private void NavigateTo(int index)
         {
+            using var trCapture = Tr.BeginCapture(); // 2026-11-01 (Р-6): страницы, строящиеся при первом показе, тоже запоминаются — на время метода
             ContentHost.Content = index switch
             {
                 0 => _scaleView,
@@ -835,6 +924,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 else
                     _navButtons[i].Classes.Remove("nav-active");
             }
+            // 2026-11-01: ряд вкладок может прокручиваться — выбранная вкладка не должна уйти за край.
+            if (index >= 0 && index < _navButtons.Length)
+            {
+                var activeTab = _navButtons[index];
+                Dispatcher.UIThread.Post(() => activeTab.BringIntoView(), DispatcherPriority.Loaded);
+            }
         }
 
         private void ReceiptLptBox_TextChanged(object? sender, TextChangedEventArgs e)
@@ -856,6 +951,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 item = NetworkPrinterAddress.ToDiscovered(canon);
                 list.Add(item);
             }
+            if (!list.Any(x => x.DevicePath.Length == 0))
+                list.Insert(0, NoLabelPrinter);
             _labelPrinterInit = true;
             LabelPrinterCombo.ItemsSource = list;
             LabelPrinterCombo.SelectedItem = item;
@@ -873,12 +970,24 @@ namespace NurMarketKassa.AvaloniaHost.Views
         // 2026-11-01 (П-7): живой статус принтера этикеток — при открытии и раз в 10 с, пока окно открыто (в фоне, не во время печати)
         private string _labelLiveText = "";
         private Avalonia.Threading.DispatcherTimer? _labelLiveTimer;
+        private bool _labelNoAnswer;
+
+        /// <summary>2026-11-01 (Р-3): пункт «— не выбран —» (пустой путь) — выбранный принтер этикеток можно сбросить; «Забыть принтер» выбирает его же.</summary>
+        private static DiscoveredPrinter NoLabelPrinter => new(
+            Tr.T("— не выбран —", "— тандалган эмес —", "— not selected —", "— seçilmedi —", "— tanlanmagan —"), "");
+
+        private void ForgetLabelPrinter_Click(object? sender, RoutedEventArgs e)
+        {
+            if (LabelPrinterCombo.ItemsSource is IEnumerable<DiscoveredPrinter> items && items.FirstOrDefault(p => p.DevicePath.Length == 0) is { } none)
+                LabelPrinterCombo.SelectedItem = none;
+        }
 
         private async void RefreshLabelLiveStatus()
         {
-            if (LabelPrinterCombo.SelectedItem is not DiscoveredPrinter printer)
+            if (LabelPrinterCombo.SelectedItem is not DiscoveredPrinter printer || printer.DevicePath.Length == 0)
             {
                 _labelLiveText = "";
+                _labelNoAnswer = false;
                 return;
             }
             var path = printer.DevicePath;
@@ -886,6 +995,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (LabelPrinterCombo.SelectedItem is not DiscoveredPrinter now || now.DevicePath != path)
                 return;
             _labelLiveText = LabelPrinterSelector.LiveText(status);
+            _labelNoAnswer = status == LabelPrinterSelector.LiveStatus.NoAnswer; // Р-3: выбор не сбрасывается молча — только предупреждение
             UpdateLabelPrinterInfo();
         }
 
@@ -912,9 +1022,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 list = Array.Empty<DiscoveredPrinter>();
             }
             var keep = _labelPrinterChoice ?? UserPreferences.Instance.LabelPrinterDevicePath;
+            var withNone = new List<DiscoveredPrinter> { NoLabelPrinter };
+            withNone.AddRange(list);
             _labelPrinterInit = true;
-            LabelPrinterCombo.ItemsSource = list;
-            LabelPrinterCombo.SelectedItem = list.FirstOrDefault(p => LabelPrinterSelector.SamePrinter(p.DevicePath, keep));
+            LabelPrinterCombo.ItemsSource = withNone;
+            // пусто — «— не выбран —»; сохранённый, но не найденный принтер остаётся невыбранным в списке с предупреждением (не сбрасывается молча)
+            LabelPrinterCombo.SelectedItem = string.IsNullOrWhiteSpace(keep)
+                ? withNone[0]
+                : withNone.FirstOrDefault(p => p.DevicePath.Length > 0 && LabelPrinterSelector.SamePrinter(p.DevicePath, keep));
             _labelPrinterInit = false;
             if (LabelPrinterCombo.SelectedItem is DiscoveredPrinter netSel && NetworkPrinterAddress.IsNetworkPort(netSel.DevicePath))
                 _printView.LabelNetPanel.SetAddress(netSel.DevicePath);
@@ -930,7 +1045,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 return;
             if (LabelPrinterCombo.SelectedItem is DiscoveredPrinter p)
             {
-                _labelPrinterChoice = p.DevicePath;
+                _labelPrinterChoice = p.DevicePath; // "" — «не выбран»
+                _labelNoAnswer = false;
                 if (NetworkPrinterAddress.IsNetworkPort(p.DevicePath))
                     _printView.LabelNetPanel.SetAddress(p.DevicePath);
             }
@@ -956,6 +1072,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 $"Chek printeri: {receiptName} — {receiptKind} (pastda, «Uskunalar» blokida o'zgartiriladi).");
 
             var selected = LabelPrinterCombo.SelectedItem as DiscoveredPrinter;
+            if (selected is { DevicePath.Length: 0 })
+                selected = null; // «— не выбран —»
             var saved = _labelPrinterChoice ?? UserPreferences.Instance.LabelPrinterDevicePath;
             if (selected is null)
             {
@@ -974,11 +1092,19 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 $"Bağlantı: {kind}. Yazdırma yöntemi: {how}." + (_labelLiveText.Length > 0 ? $" Durum: {_labelLiveText}." : ""),
                 $"Ulanish: {kind}. Qanday chop etadi: {how}." + (_labelLiveText.Length > 0 ? $" Holati: {_labelLiveText}." : ""));
             var same = LabelPrinterSelector.IsSameAsReceiptPrinter(selected.DevicePath, receiptPath);
+            var notAnswering = _labelNoAnswer;
             // 2026-11-01 (С-8): очередь «Generic / Text Only» печатает картинку пустой или мусором — предупреждаем.
             var textOnly = LabelPrinterSelector.LooksLikeTextOnlyQueue(selected.Label);
-            _printView.LabelPrinterWarnText.IsVisible = same || textOnly;
+            _printView.LabelPrinterWarnText.IsVisible = same || textOnly || notAnswering;
             if (textOnly && !same)
                 _printView.LabelPrinterWarnText.Text = LabelPrinterSelector.TextOnlyWarning;
+            if (notAnswering && !same && !textOnly)
+                _printView.LabelPrinterWarnText.Text = Tr.T(
+                    "Принтер не отвечает — проверьте питание, кабель или сеть. Выбор не сброшен; чтобы убрать принтер, нажмите «Забыть принтер».",
+                    "Принтер жооп бербейт — кубатты, кабелди же тармакты текшериңиз. Тандоо өзгөргөн жок; принтерди алып салуу үчүн «Принтерди унутуу» басыңыз.",
+                    "The printer is not responding — check power, cable or network. The choice was not reset; to remove the printer press “Forget printer”.",
+                    "Yazıcı yanıt vermiyor — güç, kablo veya ağı kontrol edin. Seçim sıfırlanmadı; yazıcıyı kaldırmak için «Yazıcıyı unut»a basın.",
+                    "Printer javob bermayapti — quvvat, kabel yoki tarmoqni tekshiring. Tanlov o'chirilmadi; printerni olib tashlash uchun «Printerni unutish» ni bosing.");
             if (same)
                 _printView.LabelPrinterWarnText.Text = Tr.T(
                     "Для этикеток выбран тот же принтер, что и для чеков: задания пойдут в один порт по очереди, одновременной работы двух принтеров не будет. Если у вас два принтера — выберите для этикеток второй.",
@@ -1781,11 +1907,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 }
             }
             // 2026-11-01: принтер этикеток и штрихкодов — отдельная настройка (виртуальные PDF/XPS/OneNote/факс не запоминаются).
-            if (LabelPrinterCombo.SelectedItem is DiscoveredPrinter labelPrinter && !labelPrinter.IsVirtual)
+            if (LabelPrinterCombo.SelectedItem is DiscoveredPrinter labelPrinter && labelPrinter.DevicePath.Length == 0)
+                prefs.LabelPrinterDevicePath = null; // «— не выбран —» / «Забыть принтер»: печать этикеток без принтера покажет подсказку «Настройки → Печать»
+            else if (LabelPrinterCombo.SelectedItem is DiscoveredPrinter labelPrinter2 && !labelPrinter2.IsVirtual)
             {
-                prefs.LabelPrinterDevicePath = labelPrinter.DevicePath;
-                if (NetworkPrinterAddress.IsNetworkPort(labelPrinter.DevicePath))
-                    NetworkPrinterAddress.Remember(labelPrinter.DevicePath);
+                prefs.LabelPrinterDevicePath = labelPrinter2.DevicePath;
+                if (NetworkPrinterAddress.IsNetworkPort(labelPrinter2.DevicePath))
+                    NetworkPrinterAddress.Remember(labelPrinter2.DevicePath);
             }
             // Процент начисления бонусов. Пустое или нечисловое значение оставляет прежнее, а не
             // обнуляет программу молча; диапазон тот же, что при чтении файла настроек (0..100).

@@ -457,9 +457,12 @@ public sealed class BarcodeA4SheetWindow : Window
             list = Array.Empty<DiscoveredPrinter>();
         }
         var plain = list.Where(p => !BarcodeLabelService.IsRawDevicePath(p.DevicePath)).ToList();
-        _printerCombo.ItemsSource = plain;
+        // 2026-11-01 (Р-3): пункт «— не выбран —» (пустой путь): принтер A4 можно сбросить; "" в настройках = выбрано «не выбран», умолчание не подставляется.
+        var withNone = new List<DiscoveredPrinter> { new(T("— не выбран —", "— тандалган эмес —", "— not selected —", "— seçilmedi —", "— tanlanmagan —"), "") };
+        withNone.AddRange(plain);
+        _printerCombo.ItemsSource = withNone;
         // 2026-11-01 (два принтера, С-4): лист A4 — сохранённый, иначе принтер Windows «по умолчанию»; не чековый, не этикеточный, не факс/OneNote.
-        _printerCombo.SelectedItem = LabelPrinterSelector.PickA4Default(plain, _settings.A4PrinterName);
+        _printerCombo.SelectedItem = _settings.A4PrinterName is { Length: 0 } ? withNone[0] : LabelPrinterSelector.PickA4Default(plain, _settings.A4PrinterName);
     }
 
     /// <summary>«Печать A4» — листы на выбранный принтер Windows (спулер).</summary>
@@ -475,7 +478,7 @@ public sealed class BarcodeA4SheetWindow : Window
             _status.Text = LabelPrinterSelector.UnsupportedText; // 2026-11-01 (С-9)
             return;
         }
-        if (_printerCombo.SelectedItem is not DiscoveredPrinter printer)
+        if (_printerCombo.SelectedItem is not DiscoveredPrinter printer || printer.DevicePath.Length == 0)
         {
             _status.Text = T("Принтер не подключён — выберите принтер для листов A4.", "Принтер туташкан эмес — A4 барактары үчүн принтерди тандаңыз.", "No printer connected — choose a printer for A4 sheets.", "Yazıcı bağlı değil — A4 sayfalar için bir yazıcı seçin.", "Printer ulanmagan — A4 varaqlar uchun printerni tanlang.");
             return;

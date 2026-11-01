@@ -1135,6 +1135,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         CanEditProcurement = ReadOptionalBool(item, "can_edit_procurement"),
         CanEditDocuments = ReadOptionalBool(item, "can_edit_documents"),
         CanViewDebts = ReadOptionalBool(item, "can_view_debts"),
+        CanEditPurchaseDocuments = ReadOptionalBool(item, "can_edit_purchase_documents"),
         CanUsePos = ReadOptionalBool(item, "can_use_pos"),
         CanViewCashbox = ReadTopLevelBool(item, "can_view_cashbox"),
         CanViewAnalytics = ReadTopLevelBool(item, "can_view_analytics"),

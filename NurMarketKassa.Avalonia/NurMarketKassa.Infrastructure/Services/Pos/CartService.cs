@@ -205,7 +205,10 @@ public sealed class CartService : ICartService, IDisposable
     {
         var quantity = CartDisplayHelper.LineQuantity(line);
         var unitPrice = CartDisplayHelper.UnitPrice(line);
-        var gross = QuantityRules.Active ? QuantityRules.Gross(quantity, unitPrice) : quantity * unitPrice; // 2026-10-26 (ХМ2)
+        // 2026-11-01 (ответ Умара, округление): показываемая сумма строки — decimal, округляется один раз (половина вверх);
+        // итог чека (CartTotalsCalculator) складывает строки без округления.
+        var grossExact = QuantityRules.GrossExact(quantity, unitPrice);
+        var gross = (double)grossExact;
         var discount = ReadLineDiscount(line, gross);
         var (discountPercent, fixedDiscountAmount) = ReadDiscountDefinition(line);
 
@@ -218,7 +221,9 @@ public sealed class CartService : ICartService, IDisposable
             UnitPrice: (decimal)unitPrice,
             LineDiscount: (decimal)discount,
             // Отрицательная строка = «Расход» (доп. услуга, 2026-09-07) — не обнуляем её сумму.
-            LineTotal: (decimal)(gross < 0 ? gross : Math.Max(0, gross - discount)),
+            LineTotal: grossExact < 0
+                ? QuantityRules.RoundMoney(grossExact)
+                : Math.Max(0m, QuantityRules.RoundMoney(grossExact - QuantityRules.ToMoneyDecimal(discount))),
             MustWeigh: CartDisplayHelper.LineMustWeigh(line),
             DiscountPercent: discountPercent,
             FixedDiscountAmount: fixedDiscountAmount,

@@ -19,35 +19,54 @@
          прежние — переход по вкладкам (SidebarNav_Click → NavigateTo) не менялся. -->
     <Style Selector="Button.SettingsTab">
       <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
       <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Margin" Value="2"/>
+      <Setter Property="Margin" Value="1"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
       <Setter Property="VerticalAlignment" Value="Stretch"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template">
         <ControlTemplate TargetType="Button">
-          <Border x:Name="seg" Background="{TemplateBinding Background}" CornerRadius="8" Padding="6,8" MinHeight="52"
-                  BorderBrush="Transparent" BorderThickness="1">
-            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                              TextElement.Foreground="{TemplateBinding Foreground}"/>
-          </Border>
+          <!-- 2026-11-01 («дизайн верхних кнопок»): радиус — токен NurRadiusControl, высота 56, активная вкладка — акцентная нижняя линия
+               (tabline) вместо белой плашки; значки одного размера и цвета подписи (PathIcon, Foreground кнопки). -->
+          <Grid>
+            <Border x:Name="seg" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource NurRadiusControl}" Padding="6,6,6,9" MinHeight="56" MinWidth="64"
+                    BorderBrush="Transparent" BorderThickness="1">
+              <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                TextElement.Foreground="{TemplateBinding Foreground}"/>
+            </Border>
+            <Border x:Name="tabline" Height="3" Margin="12,0" VerticalAlignment="Bottom" CornerRadius="2" Background="Transparent" IsHitTestVisible="False"/>
+          </Grid>
         </ControlTemplate>
       </Setter>
     </Style>
     <Style Selector="Button.SettingsTab:pointerover /template/ Border#seg">
       <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
     </Style>
+    <Style Selector="Button.SettingsTab:pointerover">
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+    </Style>
+    <Style Selector="Button.SettingsTab:pressed /template/ Border#seg">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
+    </Style>
+    <Style Selector="Button.SettingsTab:disabled">
+      <Setter Property="Opacity" Value="0.55"/>
+    </Style>
     <!-- 2026-10-19, этап О7: выбранная вкладка — тёмно-синяя (цвет текста темы, надпись цветом панели), как sec-seg и
          modal-seg; была жёлтая плитка (жёлтый — только главная кнопка). Рамка фокуса — BrushFocusRing. -->
     <Style Selector="Button.SettingsTab:focus-visible /template/ Border#seg">
       <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
     </Style>
+    <!-- 2026-11-01: выбранная вкладка — не белая плашка (BrushText), а мягкий фон панели, цвет текста темы и акцентная нижняя линия
+         (BrushAccentText — акцент, доведённый до читаемого на панели; жёлтая заливка остаётся только главной кнопке). -->
     <Style Selector="Button.SettingsTab.nav-active /template/ Border#seg">
-      <Setter Property="Background" Value="{DynamicResource BrushText}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+    </Style>
+    <Style Selector="Button.SettingsTab.nav-active /template/ Border#tabline">
+      <Setter Property="Background" Value="{DynamicResource BrushAccentText}"/>
     </Style>
     <Style Selector="Button.SettingsTab.nav-active">
-      <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <!-- Подпись в одну строку: сколько вкладок встанет в ряд, считает UpdateNavColumns по самой
@@ -55,9 +74,18 @@
          13): при 13 десять русских вкладок не вставали в один ряд даже на 1920. -->
     <Style Selector="Button.SettingsTab TextBlock">
       <Setter Property="TextWrapping" Value="NoWrap"/>
+      <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
       <Setter Property="TextAlignment" Value="Center"/>
       <Setter Property="HorizontalAlignment" Value="Center"/>
       <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <!-- 2026-11-01: значки вкладок — векторные AppIcons одного размера 18 и цвета подписи (раньше шрифт Segoe MDL2: у части вкладок
+         на машине без шрифта подставлялся цветной эмодзи — розовый «Операции», разноцветные «Сотрудники»). -->
+    <Style Selector="Button.SettingsTab PathIcon">
+      <Setter Property="Width" Value="18"/>
+      <Setter Property="Height" Value="18"/>
+      <Setter Property="Margin" Value="0,0,0,4"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
     </Style>
     <Style Selector="Button.SettingsTab TextBlock.mdl2">
       <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
@@ -85,10 +113,11 @@
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
-      <Setter Property="Padding" Value="14,8"/>
-      <Setter Property="Margin" Value="8,0,0,0"/>
-      <Setter Property="MinWidth" Value="84"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
+      <Setter Property="Padding" Value="16,8"/>
+      <Setter Property="Margin" Value="12,0,0,0"/>
+      <Setter Property="MinWidth" Value="96"/>
+      <Setter Property="MinHeight" Value="44"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
       <Setter Property="VerticalAlignment" Value="Stretch"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
@@ -135,33 +164,45 @@
              (весы, принтер, экран покупателя) здесь не меняется; вкладки скрыты, подпись — в коде (5 языков). -->
         <TextBlock x:Name="OwnerHardwareHint" Grid.Row="0" Grid.ColumnSpan="2" IsVisible="False"
                    FontSize="12" TextWrapping="Wrap" Margin="4,0,4,8" Foreground="{DynamicResource BrushTextSoft}"/>
+        <!-- 2026-11-01: вкладки — всегда один ровный ряд. Не помещаются (кыргызский, окно 800×600) — ряд прокручивается, по краям стрелки
+             ‹ › (UpdateNavColumns); ←/→ на вкладке переключают вкладки (NavTabsGrid_KeyDown). Раньше — два неровных ряда 5 + 4. -->
         <Border Grid.Row="1" Classes="SettingsCard" Padding="4">
-          <UniformGrid x:Name="NavTabsGrid" Rows="1">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Button x:Name="NavScrollLeft" Grid.Column="0" Classes="top-tool" IsVisible="False" Focusable="False" Width="32" MinWidth="32"
+                    Click="NavScrollLeft_Click">
+              <PathIcon Data="{StaticResource IconChevronLeft}" Width="16" Height="16"/>
+            </Button>
+            <ScrollViewer x:Name="NavScroll" Grid.Column="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled">
+              <UniformGrid x:Name="NavTabsGrid" Rows="1" KeyDown="NavTabsGrid_KeyDown">
             <Button x:Name="NavScales" Classes="SettingsTab nav-active" Tag="0" Click="SidebarNav_Click"
-                    AutomationProperties.Name="{DynamicResource posSettings.navScales}">
+                    AutomationProperties.Name="{DynamicResource posSettings.navScales}"
+                    ToolTip.Tip="{DynamicResource posSettings.navScales}">
               <StackPanel>
-                <TextBlock Classes="mdl2" Text="&#xE9D9;"/>
+                <PathIcon Data="{StaticResource IconScale}"/>
                 <TextBlock Text="{DynamicResource posSettings.navScales}"/>
               </StackPanel>
             </Button>
             <Button x:Name="NavPrint" Classes="SettingsTab" Tag="1" Click="SidebarNav_Click"
-                    AutomationProperties.Name="{DynamicResource common.print}">
+                    AutomationProperties.Name="{DynamicResource common.print}"
+                    ToolTip.Tip="{DynamicResource common.print}">
               <StackPanel>
-                <TextBlock Classes="mdl2" Text="&#xE749;"/>
+                <PathIcon Data="{StaticResource IconPrinter}"/>
                 <TextBlock Text="{DynamicResource common.print}"/>
               </StackPanel>
             </Button>
             <Button x:Name="NavScreen" Classes="SettingsTab" Tag="2" Click="SidebarNav_Click"
-                    AutomationProperties.Name="{DynamicResource posSettings.navScreen}">
+                    AutomationProperties.Name="{DynamicResource posSettings.navScreen}"
+                    ToolTip.Tip="{DynamicResource posSettings.navScreen}">
               <StackPanel>
-                <TextBlock Classes="mdl2" Text="&#xE7F4;"/>
+                <PathIcon Data="{StaticResource IconMonitor}"/>
                 <TextBlock Text="{DynamicResource posSettings.navScreen}"/>
               </StackPanel>
             </Button>
             <Button x:Name="NavMonitor" Classes="SettingsTab" Tag="3" Click="SidebarNav_Click"
-                    AutomationProperties.Name="{DynamicResource posSettings.navMonitor}">
+                    AutomationProperties.Name="{DynamicResource posSettings.navMonitor}"
+                    ToolTip.Tip="{DynamicResource posSettings.navMonitor}">
               <StackPanel>
-                <Path Width="16" Height="16" Stretch="Uniform" Fill="Transparent" HorizontalAlignment="Center" Margin="0,0,0,4"
+                <Path Width="18" Height="18" Stretch="Uniform" Fill="Transparent" HorizontalAlignment="Center" Margin="0,0,0,4"
                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                       StrokeThickness="1.6" StrokeLineCap="Round"
                       Data="M3,4 H21 V16 H3 Z M8,20 H16 M12,16 V20 M17,7 H19 V11"/>
@@ -169,56 +210,69 @@
               </StackPanel>
             </Button>
             <Button x:Name="NavUpdates" Classes="SettingsTab" Tag="4" Click="SidebarNav_Click"
-                    AutomationProperties.Name="{DynamicResource posSettings.navUpdates}">
+                    AutomationProperties.Name="{DynamicResource posSettings.navUpdates}"
+                    ToolTip.Tip="{DynamicResource posSettings.navUpdates}">
               <StackPanel>
-                <TextBlock Classes="mdl2" Text="&#xE895;"/>
+                <PathIcon Data="{StaticResource IconRefresh}"/>
                 <TextBlock Text="{DynamicResource posSettings.navUpdates}"/>
               </StackPanel>
             </Button>
             <Button x:Name="NavOperations" Classes="SettingsTab" Tag="5" Click="SidebarNav_Click"
-                    AutomationProperties.Name="{DynamicResource posSettings.navOperations}">
+                    AutomationProperties.Name="{DynamicResource posSettings.navOperations}"
+                    ToolTip.Tip="{DynamicResource posSettings.navOperations}">
               <StackPanel>
-                <TextBlock Classes="mdl2" Text="&#xE825;"/>
+                <PathIcon Data="{StaticResource IconCash}"/>
                 <TextBlock Text="{DynamicResource posSettings.navOperations}"/>
               </StackPanel>
             </Button>
             <Button x:Name="NavCustomization" Classes="SettingsTab" Tag="6" Click="SidebarNav_Click"
-                    AutomationProperties.Name="{DynamicResource posSettings.navCustomization}">
+                    AutomationProperties.Name="{DynamicResource posSettings.navCustomization}"
+                    ToolTip.Tip="{DynamicResource posSettings.navCustomization}">
               <StackPanel>
-                <TextBlock Classes="mdl2" Text="&#xE790;"/>
+                <PathIcon Data="{StaticResource IconPalette}"/>
                 <TextBlock Text="{DynamicResource posSettings.navCustomization}"/>
               </StackPanel>
             </Button>
             <Button x:Name="NavAccount" Classes="SettingsTab" Tag="7" Click="SidebarNav_Click"
-                    AutomationProperties.Name="{DynamicResource posSettings.navAccount}">
+                    AutomationProperties.Name="{DynamicResource posSettings.navAccount}"
+                    ToolTip.Tip="{DynamicResource posSettings.navAccount}">
               <StackPanel>
-                <TextBlock Classes="mdl2" Text="&#xE77B;"/>
+                <PathIcon Data="{StaticResource IconAccount}"/>
                 <TextBlock Text="{DynamicResource posSettings.navAccount}"/>
               </StackPanel>
             </Button>
             <Button x:Name="NavEmployees" Classes="SettingsTab" Tag="8" Click="SidebarNav_Click"
-                    AutomationProperties.Name="{DynamicResource posSettings.navEmployees}">
+                    AutomationProperties.Name="{DynamicResource posSettings.navEmployees}"
+                    ToolTip.Tip="{DynamicResource posSettings.navEmployees}">
               <StackPanel>
-                <TextBlock Classes="mdl2" Text="&#xE716;"/>
+                <PathIcon Data="{StaticResource IconClients}"/>
                 <TextBlock Text="{DynamicResource posSettings.navEmployees}"/>
               </StackPanel>
             </Button>
             <Button x:Name="NavKeys" Classes="SettingsTab" Tag="9" Click="SidebarNav_Click"
-                    AutomationProperties.Name="{DynamicResource posSettings.navKeys}">
+                    AutomationProperties.Name="{DynamicResource posSettings.navKeys}"
+                    ToolTip.Tip="{DynamicResource posSettings.navKeys}">
               <StackPanel>
-                <TextBlock Classes="mdl2" Text="&#xE765;"/>
+                <PathIcon Data="{StaticResource IconKeyboard}"/>
                 <TextBlock Text="{DynamicResource posSettings.navKeys}"/>
               </StackPanel>
             </Button>
-          </UniformGrid>
+              </UniformGrid>
+            </ScrollViewer>
+            <Button x:Name="NavScrollRight" Grid.Column="2" Classes="top-tool" IsVisible="False" Focusable="False" Width="32" MinWidth="32"
+                    Click="NavScrollRight_Click">
+              <PathIcon Data="{StaticResource IconChevronRight}" Width="16" Height="16"/>
+            </Button>
+          </Grid>
         </Border>
 
         <Button IsCancel="True" Grid.Row="1" Grid.Column="1" x:Name="SidebarCloseButton"
                 Classes="SidebarCloseButton"
                 Click="SidebarClose_Click">
-          <StackPanel>
-            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="14" HorizontalAlignment="Center" Margin="0,0,0,5"/>
-            <TextBlock Text="{DynamicResource common.close}" HorizontalAlignment="Center"/>
+          <!-- 2026-11-01: «Закрыть» — вторичная кнопка с крестом в одну строку (значок AppIcons, цвет текста), отделена от ряда вкладок отступом. -->
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <PathIcon Data="{StaticResource IconClose}" Width="14" Height="14"/>
+            <TextBlock Text="{DynamicResource common.close}" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
       </Grid>

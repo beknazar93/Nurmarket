@@ -39,6 +39,9 @@ public sealed class EditStep
     public string? Error { get; set; }
     public string? Warning { get; set; }
     public int Attempts { get; set; }
+    /// <summary>2026-11-01: шаг «patch» — одна правка прихода серверным PATCH: тело запроса (JSON) и версия, на которой правка начата. Ключ повтора — <see cref="Key"/>.</summary>
+    public string? Payload { get; set; }
+    public int BaseServerVersion { get; set; }
     /// <summary>2026-10-30 (приёмка 1.17.66): когда шаг ушёл впервые — по нему повтор после потерянного ответа ищет уже проведённый документ на сервере.</summary>
     public DateTime? FirstSentAt { get; set; }
     /// <summary>Для возврата: id строки → «возвращено» на сервере ДО первой отправки. Если сейчас больше на количество шага — возврат уже проведён.</summary>
@@ -79,6 +82,9 @@ public sealed class ReceiptEditRecord
     public DateTime? ReceiptAt { get; set; }
     public string ById { get; set; } = "";
     public string ByRole { get; set; } = "";
+    /// <summary>2026-11-01: правка серверным PATCH — каждое изменённое поле «было → стало» (количество, закупка, цена продажи, поставщик, дата, номер, комментарий, оплата, скидка, добавлено / удалено) и версия сервера после правки.</summary>
+    public List<ReceiptEditAuditField> Diffs { get; set; } = new();
+    public int ServerVersion { get; set; }
     public double TotalBefore { get; set; }
     public double TotalAfter { get; set; }
     /// <summary>2026-10-31 (приёмка 1.17.68, 4б): после отказа от частично проведённой правки <see cref="TotalAfter"/> — реально проведённая сумма, плановая — здесь.</summary>

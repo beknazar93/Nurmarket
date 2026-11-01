@@ -192,6 +192,7 @@ public static class AccountDataIsolation
                 PrepareForSwap();
             WipeCompanyFiles();
             OfflineClientCache.ResetMemory(); // 2026-10-29: кэш клиентов прежней компании не должен остаться в памяти
+            NurMarketKassa.Services.Api.ServerCapabilities.Reset(); // 2026-11-01: признаки сервера прежнего аккаунта (receipt_edit и др.) не должны жить в новом
             ServerAddons.ResetMemory(); // 2026-10-31: функции, включённые сервером прежней компании, не должны открывать функции новой
             SettingsCloudSync.RunAccountReset(() =>
             {

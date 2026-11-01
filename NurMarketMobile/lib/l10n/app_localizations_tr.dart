@@ -2080,6 +2080,11 @@ class AppLocalizationsTr extends AppLocalizations {
   String get kindSale => 'Satış';
 
   @override
+  String returnNetTotal(String sum) {
+    return 'İadelerden sonra fiş toplamı: $sum som';
+  }
+
+  @override
   String get prevSaleMayPass =>
       'Önceki ödeme tamamlanmadı — o fiş geçmiş olabilir. Yeniden ödemeden önce «Fişler» bölümünü kontrol edin.';
 

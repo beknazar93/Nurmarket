@@ -657,7 +657,7 @@
                                             <!-- 2026-10-20, аудит владельца («Время» у всех возвратов «—»): колонка даты была двусторонней — таблица
                                                  записывала «20.10» обратно в CreatedAt и стирала время (18:52 → 00:00). Только чтение. -->
                                             <DataGridTextColumn Header="{DynamicResource common.date}" Width="80" Binding="{ReflectionBinding CreatedAt, StringFormat=dd.MM, Mode=OneWay}" />
-                                            <DataGridTextColumn Header="{DynamicResource common.time}" Width="84" Binding="{ReflectionBinding TimeDisplay}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.time}" Width="108" Binding="{ReflectionBinding TimeDisplay}" />
                                             <!-- 2026-09-30: настоящие возвраты сервера — чек, вид (полный/частичный), точная сумма. -->
                                             <DataGridTextColumn Header="{DynamicResource sales.colReceipt}" Width="80" Binding="{ReflectionBinding ReceiptNumber}" />
                                             <!-- 2026-10-20, аудит программы владельца: «Полный возвра», «Частичный возв» и причина обрезались —

@@ -366,15 +366,17 @@ public static class LocalCartService
     {
         var qty = JsonNumericReader.ToDouble(line["quantity"]);
         var unitPrice = JsonNumericReader.ToDouble(line["unit_price"]);
-        var gross = QuantityRules.Gross(qty, unitPrice); // 2026-10-26 (ХМ2)
-        double discount = 0;
+        // 2026-11-01 (ответ Умара, округление): сумма строки — без округления, процент скидки от неё, округляется один раз —
+        // это показываемая сумма строки (в итог чека идёт неокруглённая, см. CartTotalsCalculator).
+        var gross = QuantityRules.GrossExact(qty, unitPrice);
+        decimal discount = 0;
         if (line.TryGetPropertyValue("discount_total", out var dt) && dt != null)
-            discount = JsonNumericReader.ToDouble(dt);
+            discount = QuantityRules.ToMoneyDecimal(JsonNumericReader.ToDouble(dt));
         else if (line.TryGetPropertyValue("discount_percent", out var dp) && dp != null)
-            discount = gross * JsonNumericReader.ToDouble(dp) / 100.0;
+            discount = gross * QuantityRules.ToMoneyDecimal(JsonNumericReader.ToDouble(dp)) / 100m;
 
-        discount = Math.Round(discount, 2, MidpointRounding.AwayFromZero);
-        line["line_total"] = Math.Max(0, Math.Round(gross - discount, 2, MidpointRounding.AwayFromZero));
+        discount = QuantityRules.RoundMoney(discount);
+        line["line_total"] = (double)Math.Max(0m, QuantityRules.RoundMoney(gross - discount));
     }
 
     private static void RecalcCartTotals(JsonObject root)

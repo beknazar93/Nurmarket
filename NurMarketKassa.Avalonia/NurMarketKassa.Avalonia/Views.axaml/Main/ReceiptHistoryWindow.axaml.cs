@@ -798,7 +798,7 @@ public partial class ReceiptHistoryWindow : Window
                 break;
         }
 
-        if (!entry.IsLocal && method == "debt"
+        if (!entry.IsLocal && method == "debt" && !CartDisplayHelper.IsSaleFullyReturned(detail) // 2026-11-01: у возвращённого целиком чека сервер оставляет старый долг
             && (Money(detail, "remaining_debt") ?? Money(detail, "debt_amount")) is { } debt && debt > 0)
             pay.Add(new SummaryVm(Tr.T("Долг", "Карыз", "Debt", "Borç", "Qarz"), SaleReceiptCardData.Fmt(debt), accent: 1));
         if (!entry.IsLocal && method == "debt")

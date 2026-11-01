@@ -472,7 +472,7 @@ public sealed class DebtsView : UserControl
         {
             var total = Num(s, "total") ?? 0;
             var left = Num(s, "debt_remaining") ?? Num(s, "debt_amount") ?? total;
-            if (left <= 0.005)
+            if (left <= 0.005 || CartDisplayHelper.IsSaleFullyReturned(s)) // 2026-11-01: возвращённый целиком чек не долг (сервер оставляет старый остаток)
                 continue;
             var clientId = Str(s, "client") ?? "";
             var key = clientId.Length > 0 ? clientId : "—";

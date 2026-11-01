@@ -21,11 +21,80 @@ internal sealed class InvoiceRow : INotifyPropertyChanged
     /// <summary>Сколько «живёт» в приходе при открытии формы (проведено − возвращено + доприходы).</summary>
     public double OrigQty { get; init; }
     public double ReturnedQty { get; init; }
-    public double Purchase { get; init; }
+    private double _purchase;
+    private bool _purchaseSet;
+
+    /// <summary>Цена закупки строки. С 01.11.2026 правится в режиме серверного PATCH (<see cref="PurchaseEditText"/>); исходное значение — <see cref="OrigPurchase"/>.</summary>
+    public double Purchase
+    {
+        get => _purchase;
+        set
+        {
+            if (!_purchaseSet)
+            {
+                _purchaseSet = true;
+                OrigPurchase = value;
+            }
+            _purchase = Math.Round(Math.Max(0, value), 3);
+            RaiseAll(nameof(Purchase), nameof(PurchaseText), nameof(PurchaseEditText), nameof(SumText), nameof(MarkupText), nameof(ProfitText), nameof(StripeKey), nameof(NoteText),
+                nameof(FlagKey), nameof(PurchaseMark), nameof(MarkKey), nameof(RowChanged));
+        }
+    }
+
+    public double OrigPurchase { get; private set; }
+
+    public bool PurchaseChanged => _purchaseSet && Math.Abs(_purchase - OrigPurchase) > 0.0005;
+
+    public string PurchaseEditText
+    {
+        get => _purchase > 0 ? Num(_purchase) : "";
+        set
+        {
+            if (TryParse(value, out var v) && v > 0)
+            {
+                Purchase = v;
+                PriceEdited?.Invoke(this);
+            }
+            else
+                RaiseAll(nameof(PurchaseEditText));
+        }
+    }
     /// <summary>Закупка в приходе, на которой строка открыта (для «было» при отмене).</summary>
     public double OrigSale { get; init; }
     public bool SaleEstimated { get; init; }
     public bool IsExtra { get; init; }
+
+    /// <summary>2026-11-01: товар добавлен в этой правке (ещё не сохранён) — при сохранении уйдёт ДОПОЛНИТЕЛЬНЫМ приходом к накладной. Строки прихода у него нет.</summary>
+    public bool IsPendingAdd { get; init; }
+    /// <summary>2026-11-01: товар из ранее созданного дополнительного прихода (строки в самом приходе нет): виден и в истории, меняется через «Вернуть» в карточке товара.</summary>
+    public bool ReadOnlyRow { get; init; }
+    /// <summary>Закупочная цена и единица добавленного товара не правятся в таблице; признак «позицию удалили правкой» (количество 0 по журналу).</summary>
+    public bool IsRemoved { get; set; }
+
+    private string _mark = "";
+    private string _markTip = "";
+    private IReadOnlyList<LineEdit> _lineEdits = Array.Empty<LineEdit>();
+
+    /// <summary>Отметка последней правки позиции («✎ Имя (роль), 01.11 15:42 · количество 10 → 8»); пусто — позицию не правили.</summary>
+    public string MarkText
+    {
+        get => _mark;
+        private set { _mark = value; RaiseAll(nameof(MarkText), nameof(HasMark)); }
+    }
+
+    public bool HasMark => _mark.Length > 0;
+    public string MarkTip => _markTip;
+    public IReadOnlyList<LineEdit> LineEdits => _lineEdits;
+
+    public void SetEdits(IReadOnlyList<LineEdit> edits)
+    {
+        _lineEdits = edits;
+        _markTip = ReceiptEditLineHistory.Full(edits);
+        MarkText = edits.Count > 0 ? ReceiptEditLineHistory.Mark(edits[0]) : "";
+    }
+
+    /// <summary>Строка изменена в этой правке (количество или цена продажи) — подсвечивается.</summary>
+    public bool RowChanged => Changed || SaleChanged || PurchaseChanged;
 
     public EditLineInput? Input { get; set; }
     /// <summary>Остаток товара на складе (читается при проверке правки). null — ещё не читали.</summary>
@@ -62,7 +131,7 @@ internal sealed class InvoiceRow : INotifyPropertyChanged
 
     private static readonly string[] QtyDependents =
     {
-        nameof(QtyText), nameof(SumText), nameof(Dim), nameof(Struck), nameof(StripeKey), nameof(WasText), nameof(Changed), nameof(Qty),
+        nameof(QtyText), nameof(SumText), nameof(Dim), nameof(Struck), nameof(StripeKey), nameof(WasText), nameof(Changed), nameof(Qty), nameof(RowChanged),
     };
 
     public double Qty
@@ -93,7 +162,7 @@ internal sealed class InvoiceRow : INotifyPropertyChanged
         private set
         {
             _sale = Math.Round(Math.Max(0, value), 2);
-            RaiseAll(nameof(Sale), nameof(SaleText), nameof(MarkupText), nameof(ProfitText), nameof(StripeKey), nameof(NoteText), nameof(FlagKey));
+            RaiseAll(nameof(Sale), nameof(SaleText), nameof(MarkupText), nameof(ProfitText), nameof(StripeKey), nameof(NoteText), nameof(FlagKey), nameof(RowChanged));
         }
     }
 
@@ -224,6 +293,10 @@ internal sealed class InvoiceRow : INotifyPropertyChanged
                 parts.Add(Tr.T("0 шт", "0 даана", "0 pcs", "0 adet", "0 dona"));
             if (ReturnedQty > 0.0005)
                 parts.Add(Tr.T("возврат ", "кайтаруу ", "returned ", "iade ", "qaytarildi ") + Num(ReturnedQty));
+            if (IsPendingAdd)
+                parts.Add(Tr.T("добавляется доп. приходом", "кошумча кирүү менен кошулат", "added by an additional receipt", "ek girişle eklenir", "qo'shimcha kirim bilan qo'shiladi"));
+            else if (ReadOnlyRow)
+                parts.Add(Tr.T("из доп. прихода", "кошумча кирүүдөн", "from an additional receipt", "ek girişten", "qo'shimcha kirimdan"));
             if (IsExtra)
                 parts.Add(Tr.T("доприход", "кошумча", "addition", "ek giriş", "qo'shimcha"));
             return string.Join(" · ", parts);

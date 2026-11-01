@@ -91,7 +91,16 @@ public sealed class PermissionService : IPermissionService
     /// владельца (AppMode.IsOwner — она бывает у сотрудника) права не дают. Когда сервер начнёт отдавать флаг can_edit_purchase_documents, его можно будет учитывать здесь;
     /// окончательную проверку всё равно делает сервер.
     /// 2026-11-01 (решение владельца «администратор тоже правит всё в накладной»): право у ролей owner И admin; менеджер, кассир и прочие — нет. Роль пишется в журнал правок (by_role).</summary>
-    public static bool CanEditPurchaseDocuments(JsonElement payload) => HasOwnerOrAdminRole(payload);
+    public static bool CanEditPurchaseDocuments(JsonElement payload)
+    {
+        if (HasOwnerOrAdminRole(payload))
+            return true;
+        // 2026-11-01 (ответ Умара): сотрудник, которому владелец или администратор выдал право can_edit_purchase_documents (флаг в профиле), тоже правит накладные; менеджер без права — нет.
+        var user = OfflineAuthSessionStore.ResolveUserObject(payload);
+        if (user.ValueKind != JsonValueKind.Object)
+            user = payload;
+        return user.ValueKind == JsonValueKind.Object && user.TryGetProperty("can_edit_purchase_documents", out var flag) && flag.ValueKind == JsonValueKind.True;
+    }
 
     /// <summary>2026-10-31: «Удалить» приход в «Истории закупок» — владелец всегда, сотрудник — если сервер выдал ему право
     /// can_unpost_documents в профиле. Окончательную проверку делает сервер (403 permission_denied).</summary>

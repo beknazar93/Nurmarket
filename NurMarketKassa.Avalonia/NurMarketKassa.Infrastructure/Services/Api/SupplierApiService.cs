@@ -70,7 +70,18 @@ public sealed record SupplierReceipt(
     IReadOnlyList<SupplierReceiptLine> Lines,
     // 2026-10-30 (нумерация закупок): служебный комментарий прихода («№ ПР-2026-000123», если сервер его хранит), номер сервера (number),
     // номер и дата накладной поставщика (document_number / document_date). Сервер этих полей пока не отдаёт — тогда пусто.
-    string Comment = "", string ServerNumber = "", string SupplierDocNumber = "", DateTime? SupplierDocDate = null);
+    string Comment = "", string ServerNumber = "", string SupplierDocNumber = "", DateTime? SupplierDocDate = null,
+    // 2026-11-01 (ответ Умара: PATCH прихода): версия документа (для If-Match / version), оплата и скидка накладной, если сервер их отдаёт.
+    int Version = 0, string PaymentType = "", double PaidAmount = 0, double Discount = 0, double DiscountPercent = 0);
+
+/// <summary>2026-11-01: версия прихода из серверной истории (GET suppliers/receipts/{id}/history/ — то же, что versions/).</summary>
+public sealed record ServerEditVersion(int Version, DateTime? At, string User, string Device, string Reason, double Total, string Summary);
+
+/// <summary>2026-11-01: признаки GET main/capabilities/ для редактора накладных: receipt_edit (PATCH прихода), receipt_edit_discount, receipt_edit_sale_price.</summary>
+public sealed record ReceiptEditCaps(bool Edit, bool Discount, bool SalePrice)
+{
+    public static readonly ReceiptEditCaps None = new(false, false, false);
+}
 
 /// <summary>Товар поставщика (GET suppliers/{id}/products/ — товары с полем client = этот поставщик).</summary>
 public sealed record SupplierProduct(string Id, string Name, string Code, string Article, double Price, double PurchasePrice, double Quantity);
@@ -440,29 +451,10 @@ public sealed class SupplierApiService
         }
     }
 
-    // 2026-10-31: признак receipt_delete из GET main/capabilities/ — кнопка «Удалить» в «Истории закупок» показывается только при нём
-    // (ТЗ бэкенду п. 30). Ответ держим 10 минут; ошибка запроса = «нет» и в кэш не кладётся.
-    private static (DateTime At, bool Value)? _deleteFeature;
-
-    public async Task<bool> CanDeleteReceiptsAsync(CancellationToken ct = default)
-    {
-        if (_deleteFeature is { } cached && DateTime.UtcNow - cached.At < TimeSpan.FromMinutes(10))
-            return cached.Value;
-        try
-        {
-            var d = await GetJsonAsync("api/main/capabilities/", null, ct).ConfigureAwait(false);
-            var has = d.ValueKind == JsonValueKind.Object
-                      && d.TryGetProperty("features", out var f) && f.ValueKind == JsonValueKind.Array
-                      && f.EnumerateArray().Any(x => x.ValueKind == JsonValueKind.String && x.GetString() == "receipt_delete");
-            _deleteFeature = (DateTime.UtcNow, has);
-            return has;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            PosLogger.Log($"Закупки: признак receipt_delete не получен: {ex.Message}", "WARNING");
-            return false;
-        }
-    }
+    // 2026-10-31: признак receipt_delete из GET main/capabilities/ — кнопка «Удалить» в «Истории закупок» показывается только при нём (ТЗ бэкенду п. 30).
+    // 2026-11-01 (контрольное ревью): запрос, разбор и кэш общие с остальными признаками — ServerCapabilities (кэш привязан к аккаунту).
+    public async Task<bool> CanDeleteReceiptsAsync(CancellationToken ct = default) =>
+        await ServerCapabilities.HasAsync(_api, "receipt_delete", ct).ConfigureAwait(false);
 
     /// <summary>2026-10-31: удаление (аннулирование) прихода DELETE suppliers/receipts/{id}/ с Idempotency-Key и причиной
     /// (ТЗ бэкенду п. 30). Сервер откатывает остаток и долг поставщику; отказы 409 — has_sales_after / has_returns /
@@ -482,6 +474,51 @@ public sealed class SupplierApiService
         {
             InvalidateSummaries();
         }
+    }
+
+    // 2026-11-01 (ответ Умара 01.11): PATCH suppliers/receipts/{id}/ уже на сервере. Признаки receipt_edit (раньше receipt_patch), receipt_edit_discount, receipt_edit_sale_price —
+    // из общего ServerCapabilities; ошибка запроса = «нет» (работает запасной путь: возврат / доприход).
+    public async Task<ReceiptEditCaps> GetReceiptEditCapsAsync(CancellationToken ct = default)
+    {
+        var features = await ServerCapabilities.LoadAsync(_api, ct).ConfigureAwait(false);
+        return new ReceiptEditCaps(features.Contains("receipt_edit") || features.Contains("receipt_patch"), features.Contains("receipt_edit_discount"), features.Contains("receipt_edit_sale_price"));
+    }
+
+    /// <summary>PATCH suppliers/receipts/{id}/ с Idempotency-Key и If-Match: "версия". Тело — только изменяемые поля (reason обязателен). Повтор тем же ключом сервер
+    /// отдаёт как replayed. Отказы (version_conflict 412/409, negative_stock, has_returns, debt_already_paid, period_closed, permission_denied) — ApiException с кодом в Payload.</summary>
+    public async Task<JsonElement> PatchReceiptAsync(string receiptId, int version, IDictionary<string, object?> body, string idempotencyKey, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+            throw new ArgumentException("Idempotency-Key обязателен.", nameof(idempotencyKey));
+        var headers = new Dictionary<string, string> { ["Idempotency-Key"] = idempotencyKey.Trim() };
+        if (version > 0)
+        {
+            headers["If-Match"] = "\"" + version.ToString(CultureInfo.InvariantCulture) + "\"";
+            body["version"] = version;
+        }
+        try
+        {
+            var (data, _) = await _api.RequestWithHeadersAsync(HttpMethod.Patch, $"api/main/suppliers/receipts/{Esc(receiptId)}/", body, headers, ct, TimeSpan.FromSeconds(60)).ConfigureAwait(false);
+            return data;
+        }
+        finally
+        {
+            InvalidateSummaries();
+        }
+    }
+
+    /// <summary>Код ошибки сервера из ответа ({"code": "..."}); пусто — нет.</summary>
+    public static string ErrorCode(Exception ex) =>
+        ex is ApiException { Payload: { ValueKind: JsonValueKind.Object } p } && p.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() ?? "" : "";
+
+    /// <summary>Серверная история правок прихода (GET suppliers/receipts/{id}/history/ = versions/). Не отдаёт — пустой список.</summary>
+    public async Task<List<ServerEditVersion>> GetReceiptHistoryAsync(string receiptId, CancellationToken ct = default)
+    {
+        var d = await GetJsonAsync($"api/main/suppliers/receipts/{Esc(receiptId)}/history/", null, ct).ConfigureAwait(false);
+        return Rows(d).Select(x => new ServerEditVersion((int)Num(x, "version"), Date(Str(x, "at")) ?? Date(Str(x, "created_at")),
+            Str(x, "user") is { Length: > 0 } u ? u : x.TryGetProperty("user", out var uo) && uo.ValueKind == JsonValueKind.Object ? Str(uo, "name") : Str(x, "user_name"),
+            Str(x, "device"), Str(x, "reason"), Num(x, "total"), Str(x, "lines_diff") is { Length: > 0 } ld ? ld : x.TryGetProperty("lines_diff", out var arr) && arr.ValueKind == JsonValueKind.Array ? arr.GetRawText() : ""))
+            .OrderByDescending(v => v.Version).ToList();
     }
 
     public async Task<SupplierReceipt> GetReceiptAsync(string receiptId, CancellationToken ct = default) =>
@@ -726,7 +763,8 @@ public sealed class SupplierApiService
             Has(x, "items_count") ? (int)Num(x, "items_count") : lines.Count, Num(x, "total_amount"), Num(x, "returned_amount"), lines,
             comment, Str(x, "number"),
             Str(x, "supplier_document_number") is { Length: > 0 } sdn ? sdn : Str(x, "document_number") is { Length: > 0 } dn ? dn : DocumentNumberingCore.SupplierDocFromText(comment).Number,
-            Date(Str(x, "supplier_document_date")) ?? Date(Str(x, "document_date")) ?? DocumentNumberingCore.SupplierDocFromText(comment).Date);
+            Date(Str(x, "supplier_document_date")) ?? Date(Str(x, "document_date")) ?? DocumentNumberingCore.SupplierDocFromText(comment).Date,
+            (int)Num(x, "version"), Str(x, "payment_type"), Num(x, "paid_amount"), Num(x, "discount"), Num(x, "discount_percent"));
     }
 
     private static SupplierReturnInfo ParseReturn(JsonElement x)

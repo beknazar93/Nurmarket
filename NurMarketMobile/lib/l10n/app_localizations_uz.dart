@@ -2092,6 +2092,11 @@ class AppLocalizationsUz extends AppLocalizations {
   String get kindSale => 'Sotuv';
 
   @override
+  String returnNetTotal(String sum) {
+    return 'Qaytarishlardan keyingi chek jami: $sum so\'m';
+  }
+
+  @override
   String get prevSaleMayPass =>
       'Oldingi to\'lov tugamadi — o\'sha chek o\'tib ketgan bo\'lishi mumkin. Qayta to\'lashdan oldin «Cheklar» bo\'limini tekshiring.';
 

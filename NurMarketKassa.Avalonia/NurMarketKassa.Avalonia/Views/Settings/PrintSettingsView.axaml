@@ -111,11 +111,13 @@
                        Foreground="{DynamicResource BrushTextSoft}"/>
             <TextBlock x:Name="ReceiptPrinterSummaryText" x:FieldModifier="public" FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource BrushText}"/>
-            <Grid ColumnDefinitions="*,8,Auto">
+            <Grid ColumnDefinitions="*,8,Auto,8,Auto">
               <ComboBox Grid.Column="0" x:Name="LabelPrinterCombo" x:FieldModifier="public"
                         Classes="TouchComboBox" HorizontalAlignment="Stretch" Height="44"/>
               <Button Grid.Column="2" x:Name="BtnFindLabelPrinters" x:FieldModifier="public"
                       Content="{DynamicResource printSettings.findButton}" Classes="PrintGoldButton"/>
+              <!-- 2026-11-01 (живая регрессия, Р-3): сбросить выбранный принтер этикеток (пустое значение, подпись — в коде, 5 языков). -->
+              <Button Grid.Column="4" x:Name="BtnForgetLabelPrinter" x:FieldModifier="public" Classes="PrintGoldButton"/>
             </Grid>
             <!-- 2026-11-01: принтер этикеток по сети (LAN, TCP 9100) -->
             <ContentControl x:Name="LabelNetHost" x:FieldModifier="public" Margin="0,4,0,0"/>

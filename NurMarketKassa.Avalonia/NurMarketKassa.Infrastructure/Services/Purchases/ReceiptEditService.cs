@@ -51,7 +51,21 @@ public interface IReceiptEditServer
 
     /// <summary>PATCH товара: price (+ markup_percent). Значение абсолютное — повтор безопасен.</summary>
     Task PatchSalePriceAsync(string productId, double price, double? markupPercent, CancellationToken ct) => throw new NotSupportedException("изменение цены продажи не поддерживается");
+
+    // 2026-11-01 (ответ Умара: PATCH suppliers/receipts/{id}/ уже на сервере): признаки сервера и сама правка одним вызовом.
+    Task<ReceiptEditCaps> GetCapsAsync(CancellationToken ct) => Task.FromResult(ReceiptEditCaps.None);
+
+    Task<JsonElement> PatchReceiptAsync(string receiptId, int version, IDictionary<string, object?> body, string key, CancellationToken ct) => throw new NotSupportedException("PATCH прихода не поддерживается");
 }
+
+/// <summary>2026-11-01: строка серверного PATCH. Изменить: LineId + Qty / PurchasePrice / SalePrice; удалить: LineId + Delete; добавить: IsNew + ProductId + Qty + PurchasePrice.</summary>
+public sealed record PatchLine(string LineId, string ProductId, string Name, double? Qty, double? PurchasePrice, double? SalePrice, bool Delete, bool IsNew, string ClientRowId = "");
+
+/// <summary>2026-11-01: реквизиты накладной (null — не менять). Скидка: сумма или процент (если сервер сообщает receipt_edit_discount).</summary>
+public sealed record PatchHeader(string? SupplierId, string? DocumentNumber, DateTime? DocumentDate, string? Comment, string? PaymentType, double? PaidAmount, double? Discount, double? DiscountPercent);
+
+/// <summary>2026-11-01: что отправить серверным PATCH + журнал «было → стало» по каждому полю. Version — версия документа, прочитанная окном (If-Match).</summary>
+public sealed record PatchPlan(PatchHeader? Header, IReadOnlyList<PatchLine> Lines, IReadOnlyList<ReceiptEditAuditField> Diffs, double TotalBefore, double TotalAfter, int Version, bool SalePriceInLines);
 
 /// <summary>2026-11-01: изменение цены продажи/наценки товара из накладной (было → станет). Purchase — закупка в приходе (для пересчёта наценки).</summary>
 public sealed record PriceEdit(string ProductId, string Name, double Purchase, double? SaleBefore, double SaleAfter, double? MarkupBefore, double? MarkupAfter);
@@ -78,6 +92,11 @@ public sealed class ApiReceiptEditServer : IReceiptEditServer
         var response = await PosApp.CatalogApi.CreateSupplierReceiptAsync(supplierId, body, ct).ConfigureAwait(false);
         return (SupplierApiService.Str(response, "id") is { Length: > 0 } id ? id : null, SupplierApiService.Date(SupplierApiService.Str(response, "created_at")));
     }
+
+    public Task<ReceiptEditCaps> GetCapsAsync(CancellationToken ct) => _suppliers.GetReceiptEditCapsAsync(ct);
+
+    public Task<JsonElement> PatchReceiptAsync(string receiptId, int version, IDictionary<string, object?> body, string key, CancellationToken ct) =>
+        _suppliers.PatchReceiptAsync(receiptId, version, body, key, ct);
 
     public async Task<double?> ReadSalePriceAsync(string productId, CancellationToken ct)
     {
@@ -191,7 +210,11 @@ public sealed record EditRequest(
     SupplierReceipt Receipt, string DocNumber, ReceiptPayKind Pay, IReadOnlyList<EditLineInput> Inputs, IReadOnlyDictionary<string, double> NewQty,
     string Reason, string By, string Device, string Compensation, string? CashboxId,
     bool IsOwner, ReceiptEditWindow Window, string BaseFingerprint, int BaseVersion, int RevertedVersion = 0, bool InQueue = false, string SupplierName = "",
-    string ById = "", string ByRole = "", IReadOnlyList<PriceEdit>? Prices = null);
+    string ById = "", string ByRole = "", IReadOnlyList<PriceEdit>? Prices = null, IReadOnlyList<AddedItem>? Added = null,
+    PatchPlan? Patch = null);
+
+/// <summary>2026-11-01: товар, которого нет в накладной, добавляется ДОПОЛНИТЕЛЬНЫМ приходом к ней (PATCH прихода у сервера нет): тот же поставщик, способ оплаты как у правки.</summary>
+public sealed record AddedItem(string ProductId, string Name, string Unit, double Qty, double Price);
 
 public sealed record EditResult(bool Ok, int Version, string? Error, bool Conflict, bool Partial, ReceiptEditRecord? Record, ReceiptEditPlan? Plan, bool NeedsManualCheck = false);
 
@@ -258,6 +281,10 @@ public sealed class ReceiptEditService
         if (!string.Equals(InvoiceMath.Fingerprint(fresh), req.BaseFingerprint, StringComparison.Ordinal))
             return new EditResult(false, history.Version, ConflictText, true, false, null, null);
 
+        // 2026-11-01: сервер умеет PATCH прихода (признак receipt_edit) — правка идёт одним вызовом; возвраты / доприходы остаются запасным путём для старого сервера.
+        if (req.Patch is { } patchPlan)
+            return await ApplyPatchAsync(req, patchPlan, fresh, history, pay, ct).ConfigureAwait(false);
+
         // 2026-10-30 (3в): правку мог сделать другой ПК — его журнал здесь не виден, но пометка «версия N» осталась в комментариях возвратов/доприходов на сервере.
         try
         {
@@ -274,7 +301,17 @@ public sealed class ReceiptEditService
         var plan = ReceiptEditPlanner.Build(req.Inputs, req.NewQty, pay);
         if (!plan.IsValid)
             return new EditResult(false, history.Version, string.Join("\n", plan.Errors.Take(5)), false, false, null, plan);
-        if (!plan.HasChanges && (req.Prices is null || req.Prices.Count == 0))
+        var added = req.Added ?? Array.Empty<AddedItem>();
+        if (added.Count > 0)
+        {
+            if (!ReceiptEditPlanner.CanAddendum(pay))
+                return Fail(Tr.T("Добавить товар можно только в накладную, оплаченную наличными или взятую в долг (способ оплаты прихода неизвестен — сервер его не хранит).", "Товарды накладнойго накталай төлөнгөн же карызга алынган болсо гана кошууга болот (кирүүнүн төлөм ыкмасы белгисиз — сервер сактабайт).",
+                    "A product can be added only to an invoice paid in cash or taken on credit (the payment type is unknown — the server does not store it).", "Ürün yalnızca nakit ödenmiş veya veresiye alınmış faturaya eklenebilir (ödeme türü bilinmiyor — sunucu saklamaz).", "Mahsulotni faqat naqd to'langan yoki qarzga olingan yuk xatiga qo'shish mumkin (to'lov turi noma'lum — server saqlamaydi)."));
+            if (added.Any(a => a.ProductId.Length == 0 || a.Qty <= 0.0005 || a.Price <= 0))
+                return Fail(Tr.T("У добавляемого товара должны быть количество и закупочная цена.", "Кошулуучу товарда саны жана сатып алуу баасы болушу керек.", "A product being added needs a quantity and a purchase price.", "Eklenen ürünün miktarı ve alış fiyatı olmalı.", "Qo'shiladigan mahsulotda miqdor va xarid narxi bo'lishi kerak."));
+        }
+        var addedSum = added.Sum(a => ReceivingPricing.LineTotal(a.Qty, a.Price));
+        if (!plan.HasChanges && added.Count == 0 && (req.Prices is null || req.Prices.Count == 0))
             return new EditResult(false, history.Version, Tr.T("Изменений нет.", "Өзгөртүү жок.", "No changes.", "Değişiklik yok.", "O'zgarish yo'q."), false, false, null, plan);
         if (revertTarget is not null && plan.Addenda.Count > 0 && RevertBlocked(revertTarget))
             return new EditResult(false, history.Version, RevertBlockedText, false, false, null, plan);
@@ -283,7 +320,7 @@ public sealed class ReceiptEditService
         var record = new ReceiptEditRecord
         {
             ReceiptId = req.Receipt.Id, Version = version, BaseVersion = history.Version, Kind = req.RevertedVersion > 0 ? "revert" : "edit", RevertedVersion = req.RevertedVersion,
-            At = _now(), By = req.By, Device = req.Device, Reason = req.Reason.Trim(), TotalBefore = plan.TotalBefore, TotalAfter = plan.TotalAfter,
+            At = _now(), By = req.By, Device = req.Device, Reason = req.Reason.Trim(), TotalBefore = plan.TotalBefore, TotalAfter = Math.Round(plan.TotalAfter + addedSum, 2),
             Compensation = req.Compensation, Fingerprint = req.BaseFingerprint, Status = "applying",
             DocNumber = req.DocNumber, SupplierName = req.SupplierName, ReceiptAt = req.Receipt.CreatedAt, ById = req.ById, ByRole = req.ByRole, // 2026-11-01: для журнала правок
         };
@@ -296,8 +333,16 @@ public sealed class ReceiptEditService
                 Kind = "return", ReceiptId = g.Key,
                 Items = g.Select(r => new EditStepItem { ProductId = r.ProductId, Name = r.Name, LineId = r.LineId, SourceReceiptId = r.ReceiptId, Qty = r.Qty, Price = r.Price }).ToList(),
             });
-        if (plan.Addenda.Count > 0)
-            record.Steps.Add(new EditStep { Kind = "addendum", Items = plan.Addenda.Select(a => new EditStepItem { ProductId = a.ProductId, Name = a.Name, Unit = a.Unit, Qty = a.Qty, Price = a.Price }).ToList() });
+        // 2026-11-01: новые товары идут в тот же дополнительный приход, что и увеличение количества (один документ «Дополнение к ПР-…»).
+        foreach (var a in added)
+            record.Lines.Add(new EditLineChange { LineId = "new:" + a.ProductId, ProductId = a.ProductId, Name = a.Name, Unit = a.Unit, QtyBefore = 0, QtyAfter = a.Qty, Price = a.Price });
+        if (plan.Addenda.Count > 0 || added.Count > 0)
+            record.Steps.Add(new EditStep
+            {
+                Kind = "addendum",
+                Items = plan.Addenda.Select(a => new EditStepItem { ProductId = a.ProductId, Name = a.Name, Unit = a.Unit, Qty = a.Qty, Price = a.Price })
+                    .Concat(added.Select(a => new EditStepItem { ProductId = a.ProductId, Name = a.Name, Unit = a.Unit, Qty = a.Qty, Price = a.Price })).ToList(),
+            });
 
         // 2026-11-01: цена продажи / наценка товара — отдельный шаг на каждый товар (PATCH товара после возвратов и доприходов), свой статус и запись «было → стало».
         foreach (var p in req.Prices ?? Array.Empty<PriceEdit>())
@@ -308,6 +353,138 @@ public sealed class ReceiptEditService
         ReceiptEditAuditLog.Write(record, "started"); // 2026-11-01: запись в ленту правок ДО первого запроса к серверу — при обрыве сети правка не теряется
         return await RunAsync(req.Receipt, req.DocNumber, pay, req.Compensation, req.CashboxId, req.SupplierName, record, plan, ct).ConfigureAwait(false);
     }
+
+    // ------------------------------------------------------------------ серверный PATCH прихода (2026-11-01)
+
+    private static string F3(double v) => v.ToString("0.###", CultureInfo.InvariantCulture);
+
+    /// <summary>Тело PATCH suppliers/receipts/{id}/ — только изменённые поля; строки: изменить {id, qty, purchase_price, sale_price}, удалить {id, delete}, добавить {product, qty, purchase_price, client_row_id}.</summary>
+    public static Dictionary<string, object?> BuildPatchBody(string reason, PatchPlan patch, string device)
+    {
+        var body = new Dictionary<string, object?> { ["reason"] = reason, ["reason_code"] = "other", ["source"] = "kassa", ["device"] = device };
+        if (patch.Header is { } h)
+        {
+            if (h.SupplierId is { Length: > 0 } sid)
+                body["supplier_id"] = sid;
+            if (h.DocumentNumber is not null)
+                body["document_number"] = h.DocumentNumber;
+            if (h.DocumentDate is { } dd)
+                body["document_date"] = dd.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            if (h.Comment is not null)
+                body["comment"] = h.Comment;
+            if (h.PaymentType is { Length: > 0 } pt)
+            {
+                var pay = new Dictionary<string, object?> { ["type"] = pt };
+                if (h.PaidAmount is { } paid)
+                    pay["paid_amount"] = paid.ToString("0.00", CultureInfo.InvariantCulture);
+                body["payment"] = pay;
+            }
+            if (h.Discount is { } dis)
+                body["discount"] = dis.ToString("0.00", CultureInfo.InvariantCulture);
+            if (h.DiscountPercent is { } dp)
+                body["discount_percent"] = dp.ToString("0.##", CultureInfo.InvariantCulture);
+        }
+        var lines = new List<Dictionary<string, object?>>();
+        foreach (var l in patch.Lines)
+        {
+            var d = new Dictionary<string, object?>();
+            if (l.IsNew)
+            {
+                d["product"] = l.ProductId;
+                d["client_row_id"] = l.ClientRowId.Length > 0 ? l.ClientRowId : Guid.NewGuid().ToString();
+            }
+            else
+                d["id"] = l.LineId;
+            if (l.Delete)
+                d["delete"] = true;
+            else
+            {
+                if (l.Qty is { } q)
+                    d["qty"] = F3(q);
+                if (l.PurchasePrice is { } p)
+                    d["purchase_price"] = F3(p);
+                if (l.SalePrice is { } s && patch.SalePriceInLines)
+                    d["sale_price"] = F3(s);
+            }
+            lines.Add(d);
+        }
+        if (lines.Count > 0)
+            body["lines"] = lines;
+        return body;
+    }
+
+    private async Task<EditResult> ApplyPatchAsync(EditRequest req, PatchPlan patch, SupplierReceipt fresh, ReceiptHistory history, ReceiptPayKind pay, CancellationToken ct)
+    {
+        // версия документа на сервере изменилась после открытия правки (другой ПК, сайт, телефон) — ничего не отправляем, окно перечитает накладную
+        if (fresh.Version > 0 && patch.Version > 0 && fresh.Version != patch.Version)
+            return new EditResult(false, history.Version, ConflictText, true, false, null, null);
+        var version = history.Version + 1;
+        var record = new ReceiptEditRecord
+        {
+            ReceiptId = req.Receipt.Id, Version = version, BaseVersion = history.Version, Kind = "edit", At = _now(), By = req.By, Device = req.Device, Reason = req.Reason.Trim(),
+            TotalBefore = patch.TotalBefore, TotalAfter = patch.TotalAfter, Compensation = "none", Fingerprint = req.BaseFingerprint, Status = "applying",
+            DocNumber = req.DocNumber, SupplierName = req.SupplierName, ReceiptAt = req.Receipt.CreatedAt, ById = req.ById, ByRole = req.ByRole,
+            Diffs = patch.Diffs.Select(d => new ReceiptEditAuditField { Field = d.Field, LineId = d.LineId, Subject = d.Subject, ProductId = d.ProductId, Before = d.Before, After = d.After }).ToList(),
+        };
+        var body = BuildPatchBody(record.Reason, patch, req.Device);
+        record.Steps.Add(new EditStep { Kind = "patch", Payload = JsonSerializer.Serialize(body), BaseServerVersion = fresh.Version > 0 ? fresh.Version : patch.Version });
+        // цена продажи без признака receipt_edit_sale_price — отдельным шагом PATCH товара (как раньше)
+        foreach (var p in req.Prices ?? Array.Empty<PriceEdit>())
+            record.Steps.Add(new EditStep { Kind = "price", Items = { new EditStepItem { ProductId = p.ProductId, Name = p.Name, Price = p.Purchase, SaleBefore = p.SaleBefore, SaleAfter = p.SaleAfter, MarkupBefore = p.MarkupBefore, MarkupAfter = p.MarkupAfter } } });
+        _store.Mutate(req.Receipt.Id, h => h.Edits.Add(record)); // ключ и тело — на диск ДО первого запроса
+        ReceiptEditAuditLog.Write(record, "started");
+        return await RunAsync(req.Receipt, req.DocNumber, pay, "none", req.CashboxId, req.SupplierName, record, null, ct).ConfigureAwait(false);
+    }
+
+    private async Task DoPatchAsync(SupplierReceipt receipt, ReceiptEditRecord record, EditStep step, CancellationToken ct)
+    {
+        var raw = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(step.Payload ?? "{}") ?? new();
+        var body = raw.ToDictionary(kv => kv.Key, kv => (object?)kv.Value);
+        var response = await _server.PatchReceiptAsync(receipt.Id, step.BaseServerVersion, body, step.Key, ct).ConfigureAwait(false);
+        if (response.ValueKind == JsonValueKind.Object)
+        {
+            if (response.TryGetProperty("receipt", out var rc) && rc.ValueKind == JsonValueKind.Object && rc.TryGetProperty("version", out var ver) && ver.TryGetInt32(out var nv))
+                record.ServerVersion = nv;
+            if (response.TryGetProperty("deltas", out var dl) && dl.ValueKind == JsonValueKind.Object && dl.TryGetProperty("total", out var tot) && tot.ValueKind == JsonValueKind.Object
+                && tot.TryGetProperty("after", out var af) && double.TryParse(af.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var after))
+                record.TotalAfter = after; // итог по расчёту сервера (он округляет только итог)
+        }
+    }
+
+    private static readonly HashSet<string> PatchRefusalCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "version_conflict", "negative_stock", "has_returns", "debt_already_paid", "period_closed", "edit_window_expired", "permission_denied", "reason_required",
+        "receipt_fully_returned", "idempotency_conflict", "validation_error", "fractional_not_allowed", "variants_not_supported",
+    };
+
+    /// <summary>2026-11-01 (приёмка 1.17.72, Н-1): для шага patch СНАЧАЛА разбираем ответ сервера. Определённый отказ — код из списка (409 / 412 / 423 / 403 / 400 / 422) или любая
+    /// 4xx-ошибка с телом, кроме «ключ ещё выполняется» (409 / 423 / 425 без известного кода), 408 и 429: ничего не изменено, шаг → failed, можно начинать новую правку.
+    /// «Исход неизвестен» — только таймаут / обрыв / 5xx без тела. Общий <see cref="PendingIdempotencyKey.IsOutcomeUnknown"/> не меняем: им пользуются возвраты и продажи.</summary>
+    internal static bool IsDefinitePatchRefusal(ApiException ex)
+    {
+        var code = SupplierApiService.ErrorCode(ex);
+        if (code.Length > 0 && PatchRefusalCodes.Contains(code) && ex.StatusCode is >= 400 and < 500)
+            return true;
+        return ex.StatusCode is >= 400 and < 500 and not (408 or 409 or 423 or 425 or 429) && !PendingIdempotencyKey.IsOutcomeUnknown(ex);
+    }
+
+    /// <summary>Понятный текст отказа сервера по коду ({"code": …}); неизвестный код — сообщение сервера.</summary>
+    public static string PatchErrorText(string code, Exception ex) => code switch
+    {
+        "version_conflict" => Tr.T("Накладную уже изменили (с другого ПК, сайта или телефона). Обновите накладную — закройте и откройте её заново; ничего не проведено.", "Накладнойду башка ПКдан, сайттан же телефондон өзгөрттү. Накладнойду жаңыртыңыз — жаап кайра ачыңыз; эч нерсе өткөрүлгөн жок.",
+            "The invoice was already changed (from another PC, the site or a phone). Refresh it — close and reopen; nothing was posted.", "Fatura zaten değiştirildi (başka PC, site veya telefondan). Yenileyin — kapatıp yeniden açın; hiçbir şey işlenmedi.", "Yuk xati allaqachon o'zgartirilgan (boshqa kompyuter, sayt yoki telefondan). Yangilang — yopib qayta oching; hech narsa o'tkazilmadi."),
+        "edit_window_expired" => Tr.T("Сервер отказал по сроку правки (старая версия сервера: срока правки больше нет). Обратитесь в поддержку NurCRM; ничего не проведено.", "Сервер оңдоо мөөнөтү боюнча баш тартты (сервердин эски версиясы: мөөнөт жок). NurCRM колдоосуна кайрылыңыз; эч нерсе өткөрүлгөн жок.",
+            "The server refused because of the edit window (an old server version: there is no edit window any more). Contact NurCRM support; nothing was posted.", "Sunucu düzenleme süresi nedeniyle reddetti (eski sunucu sürümü: süre sınırı kalktı). NurCRM desteğine başvurun; hiçbir şey işlenmedi.", "Server tahrir muddati sababli rad etdi (server eski versiyasi: muddat bekor qilingan). NurCRM yordamiga murojaat qiling; hech narsa o'tkazilmadi."),
+        "negative_stock" => Tr.T("Остаток уйдёт в минус: часть товара из этого прихода уже продана. Уменьшите изменение. ", "Калдык минуска кетет: бул кирүүдөгү товардын бир бөлүгү сатылган. Өзгөртүүнү азайтыңыз. ",
+            "Stock would go negative: part of the goods from this receipt is already sold. Reduce the change. ", "Stok eksiye düşer: bu girişteki ürünün bir kısmı satıldı. Değişikliği azaltın. ", "Qoldiq minusga ketadi: shu kirimdagi mahsulotning bir qismi sotilgan. O'zgarishni kamaytiring. ") + ex.Message,
+        "has_returns" => Tr.T("По этой строке уже был возврат поставщику: количество ниже возвращённого, смена цены, удаление и смена поставщика недоступны. ", "Бул сап боюнча жеткирүүчүгө кайтаруу болгон: кайтарылгандан аз сан, баа, өчүрүү жана жеткирүүчүнү алмаштыруу мүмкүн эмес. ",
+            "This line already has a return to the supplier: a quantity below the returned one, a price change, deletion and a supplier change are not allowed. ", "Bu satırda tedarikçiye iade var: iade edilenin altında miktar, fiyat değişimi, silme ve tedarikçi değişimi yapılamaz. ", "Bu qator bo'yicha yetkazib beruvchiga qaytarish bo'lgan: qaytarilgandan kam miqdor, narx o'zgarishi, o'chirish va yetkazib beruvchini almashtirish mumkin emas. ") + ex.Message,
+        "period_closed" => Tr.T("Период закрыт: правку документов за него сервер не принимает. ", "Мезгил жабык: аны оңдоону сервер кабыл албайт. ", "The period is closed: the server does not accept edits for it. ", "Dönem kapalı: sunucu bu dönem için düzenleme kabul etmez. ", "Davr yopilgan: server u uchun tahrirni qabul qilmaydi. ") + ex.Message,
+        "permission_denied" => Tr.T("У вас нет права править накладные закупок (его выдаёт владелец или администратор). ", "Сизде сатып алуу накладнойлорун оңдоо укугу жок (аны ээси же администратор берет). ", "You have no right to edit purchase invoices (the owner or an administrator grants it). ", "Alım faturalarını düzenleme yetkiniz yok (sahip veya yönetici verir). ", "Xarid yuk xatlarini tahrirlash huquqingiz yo'q (uni egasi yoki administrator beradi). ") + ex.Message,
+        "debt_already_paid" => Tr.T("Долг по этому приходу уже оплачен: новая сумма меньше оплаченного. ", "Бул кирүү боюнча карыз төлөнүп калган: жаңы сумма төлөнгөндөн аз. ",
+            "The debt for this receipt is already paid: the new total is below the paid amount. ", "Bu girişin borcu zaten ödendi: yeni tutar ödenenin altında. ", "Shu kirim bo'yicha qarz allaqachon to'langan: yangi summa to'langandan kam. ") + ex.Message,
+        _ => Tr.T("Сервер отказал: ", "Сервер баш тартты: ", "The server refused: ", "Sunucu reddetti: ", "Server rad etdi: ") + (ReceivingServerMessages.Humanize(ex.Message) ?? ex.Message),
+    };
 
     /// <summary>2026-10-31 (приёмка 1.17.68, «Важно» 4а): версия «своя» только если попытка не отклонена целиком: done/partial/abandoned (есть проведённый шаг)
     /// или applying (шаг мог дойти — пометка на сервере тогда наша). Отклонённая (failed, ничего не проведено) попытка с тем же номером не своя:
@@ -417,7 +594,7 @@ public sealed class ReceiptEditService
         if (record.Steps.Any(s => s.Status != "done" && s.ServerId is { Length: > 0 }))
             return Fail(AbandonPostedText);
         var doubt = new List<string>();
-        foreach (var step in record.Steps.Where(s => s.Status != "done" && s.Attempts > 0 && s.Status != "failed" && s.Kind != "price")) // 2026-11-01: цена товара — абсолютный PATCH, «проведён ли шаг» проверять нечем и незачем
+        foreach (var step in record.Steps.Where(s => s.Status != "done" && s.Attempts > 0 && s.Status != "failed" && s.Kind is not ("price" or "patch"))) // 2026-11-01: цена товара — абсолютный PATCH; серверный PATCH сам дедуплицирует по ключу
         {
             // шаг уходил, и ответ мог дойти: проверяем ключ и метку на сервере
             var token = ReceiptEditMatcher.Token(receipt.Id, record.Version, step.Key);
@@ -438,6 +615,9 @@ public sealed class ReceiptEditService
                 doubt.Add(ex.Message);
             }
         }
+        if (record.Steps.Any(s => s.Kind == "patch" && s.Status != "done" && s.Attempts > 0 && s.Status != "failed"))
+            doubt.Add(Tr.T("Правка уходила серверным запросом, и ответ мог дойти: откройте накладную на сервере и проверьте, применилась ли она.", "Оңдоо сервер суроосу менен кеткен, жооп жетиши мүмкүн: серверде накладнойду ачып, колдонулганын текшериңиз.",
+                "The edit went as a server request and the answer may have arrived: open the invoice on the server and check whether it was applied.", "Düzenleme sunucu isteğiyle gitti ve yanıt gelmiş olabilir: faturayı sunucuda açıp uygulanıp uygulanmadığını kontrol edin.", "Tahrir server so'rovi bilan ketgan, javob yetib kelgan bo'lishi mumkin: yuk xatini serverda ochib, qo'llanganini tekshiring.")); // 2026-11-01 (ревью): свой текст, общий AbandonUnverifiedText добавляется ниже один раз: ответ на серверный PATCH мог дойти — отказ только после ручной проверки накладной
         if (doubt.Count > 0 && !manuallyChecked)
             return new EditResult(false, record.Version, AbandonUnverifiedText + "\n" + string.Join("\n", doubt.Take(3)), false, false, record, null, NeedsManualCheck: true);
 
@@ -499,9 +679,10 @@ public sealed class ReceiptEditService
         ReceiptEditRecord record, ReceiptEditPlan? plan, CancellationToken ct)
     {
         string? stopError = null;
+        var conflict = false;
         var comment = EditComment(docNumber, record);
         // возвраты раньше доприходов: остаток сначала уменьшается, потом растёт
-        foreach (var step in record.Steps.OrderBy(s => s.Kind == "return" ? 0 : s.Kind == "price" ? 2 : 1).ToList()) // 2026-11-01: цены товара — после возвратов и доприходов
+        foreach (var step in record.Steps.OrderBy(s => s.Kind is "return" or "patch" ? 0 : s.Kind == "price" ? 2 : 1).ToList()) // 2026-11-01: цены товара — после возвратов и доприходов
         {
             if (step.Status == "done")
                 continue;
@@ -516,7 +697,9 @@ public sealed class ReceiptEditService
             {
                 // 2026-10-30 (приёмка 1.17.67, «Важно» 4): у каждого шага своя метка в комментарии — по ней повтор находит именно ЭТОТ документ (не чужой и не другой версии).
                 var token = ReceiptEditMatcher.Token(receipt.Id, record.Version, step.Key);
-                if (step.Kind == "price")
+                if (step.Kind == "patch")
+                    await DoPatchAsync(receipt, record, step, ct).ConfigureAwait(false);
+                else if (step.Kind == "price")
                     await DoPriceAsync(receipt.Id, step, ct).ConfigureAwait(false);
                 else if (step.Kind == "return")
                     await DoReturnAsync(receipt, step, compensation, cashboxId, token, comment, docNumber, mayBePosted, ct).ConfigureAwait(false);
@@ -537,6 +720,15 @@ public sealed class ReceiptEditService
             {
                 step.Status = "unknown";
                 stopError = Tr.T("Ответ сервера не получен — повторите отправку.", "Сервердин жообу алынган жок — жөнөтүүнү кайталаңыз.", "No answer from the server — retry sending.", "Sunucudan yanıt alınamadı — tekrar gönderin.", "Serverdan javob olinmadi — yuborishni takrorlang.");
+            }
+            catch (ApiException ex) when (step.Kind == "patch" && IsDefinitePatchRefusal(ex))
+            {
+                // 2026-11-01: отказ сервера по существу (код в ответе): версия устарела, остаток в минус, возврат, оплаченный долг… — ничего не изменено, ключ освобождён
+                var code = SupplierApiService.ErrorCode(ex);
+                step.Error = ex.Message;
+                step.Status = "failed";
+                conflict = code == "version_conflict" || ex.StatusCode == 412;
+                stopError = PatchErrorText(conflict ? "version_conflict" : code, ex);
             }
             catch (Exception ex)
             {
@@ -569,7 +761,7 @@ public sealed class ReceiptEditService
             _store.Mutate(receipt.Id, _ => { });
         PosLogger.Log($"AUDIT: правка накладной {docNumber} v{record.Version} не доведена до конца ({done} из {record.Steps.Count} шагов): {stopError}", "WARNING");
         ReceiptEditAuditLog.Write(record, record.Status); // 2026-11-01: partial / applying / failed — тоже в ленту (повтор того же состояния не дублируется)
-        return new EditResult(false, record.Version, stopError, false, done > 0, record, plan);
+        return new EditResult(false, record.Version, stopError, conflict, done > 0, record, plan);
     }
 
     /// <summary>Сервер не ответил на вопрос «проведён ли шаг» — повторно не шлём (лучше остановиться, чем задвоить деньги).</summary>

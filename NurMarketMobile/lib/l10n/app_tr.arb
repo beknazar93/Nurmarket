@@ -621,6 +621,7 @@
   "sent": "gönderildi",
   "sendNow": "Şimdi gönder",
   "kindSale": "Satış",
+  "returnNetTotal": "İadelerden sonra fiş toplamı: {sum} som",
   "prevSaleMayPass": "Önceki ödeme tamamlanmadı — o fiş geçmiş olabilir. Yeniden ödemeden önce «Fişler» bölümünü kontrol edin.",
   "pdHasHistory": "Ürün silinemez — belgeleri var (satışlar, girişler). Arşive gönderilsin mi? Satıştan kalkar, geçmişi kalır.",
   "pdToArchive": "Arşive",

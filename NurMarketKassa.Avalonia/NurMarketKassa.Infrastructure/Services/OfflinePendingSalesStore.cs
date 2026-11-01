@@ -363,6 +363,7 @@ public static class OfflinePendingSalesStore
             e.ReviewNeeded = false;
         });
         PosLogger.Log($"OFFLINE: чек {id} закрыт без отправки на сервер; причина: {reason}; последняя ошибка: {entry.LastError}", "OFFLINE");
+        StockSyncService.ScheduleStockRereadForCart(entry.CartJson, TimeSpan.Zero); // 2026-11-01 (приёмка С-5): решение по чеку принято — остаток его товаров перечитывается с сервера
         return true;
     }
 

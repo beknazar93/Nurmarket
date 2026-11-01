@@ -146,7 +146,7 @@ public static class PosRefundService
 {
     /// <param name="isDefect">2026-10-06 (О-33): возврат брака — сервер не возвращает товар на склад. Причина теперь тоже
     /// уходит на сервер (проверено 06.10: хранится в документе возврата, раньше сервер её не принимал).</param>
-    public static async Task RefundWholeSaleAsync(
+    public static async Task<System.Text.Json.JsonElement> RefundWholeSaleAsync(
         Api.ISalesApiService api,
         string saleId,
         string reason,
@@ -160,13 +160,13 @@ public static class PosRefundService
         // 2026-11-01 (аудит «10 из 10», Ж-03): причина есть — тоже запрос с деталями: в «Продуктах» прежний запрос причину терял, и у владельца в «Возвратах» стояло «—».
         if ((MarketSpheres.IsClothing || isDefect || !string.IsNullOrWhiteSpace(reason)) && api is Api.IPosExchangeApi details)
         {
-            await details.PosReturnWithDetailsAsync(saleId, null, reason, isDefect, ct, idempotencyKey).ConfigureAwait(false);
-            return;
+            // 2026-11-01 (ответ Умара, п. 3): ответ сервера (refund.cash, debt_adjustment) возвращается наружу — окно возврата берёт из него выдачу.
+            return await details.PosReturnWithDetailsAsync(saleId, null, reason, isDefect, ct, idempotencyKey).ConfigureAwait(false);
         }
-        await api.PosReturnWholeSaleAsync(saleId, reason, ct, idempotencyKey).ConfigureAwait(false);
+        return await api.PosReturnWholeSaleAsync(saleId, reason, ct, idempotencyKey).ConfigureAwait(false);
     }
 
-    public static async Task RefundLinesAsync(
+    public static async Task<System.Text.Json.JsonElement> RefundLinesAsync(
         Api.ISalesApiService api,
         string saleId,
         IReadOnlyList<PosRefundLineRequest> lines,
@@ -188,10 +188,9 @@ public static class PosRefundService
         // 2026-11-01 (Ж-03): см. выше — причина должна дойти до документа возврата и в «Продуктах».
         if ((MarketSpheres.IsClothing || isDefect || !string.IsNullOrWhiteSpace(reason)) && api is Api.IPosExchangeApi details)
         {
-            await details.PosReturnWithDetailsAsync(saleId, lines, reason, isDefect, ct, idempotencyKey).ConfigureAwait(false);
-            return;
+            return await details.PosReturnWithDetailsAsync(saleId, lines, reason, isDefect, ct, idempotencyKey).ConfigureAwait(false);
         }
         // 2026-10-15, ревью: ключ — от ReturnSaleDialog, тот же при повторе того же возврата.
-        await api.PosReturnSaleAsync(saleId, lines, ct, idempotencyKey).ConfigureAwait(false);
+        return await api.PosReturnSaleAsync(saleId, lines, ct, idempotencyKey).ConfigureAwait(false);
     }
 }

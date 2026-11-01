@@ -28,6 +28,8 @@ public sealed class ReceiptEditAuditField
     public string Field { get; set; } = "";
     public string Subject { get; set; } = "";
     public string ProductId { get; set; } = "";
+    /// <summary>Id строки прихода ("new:…" — товар добавлен дополнительным приходом); по нему и по ProductId правка привязывается к позиции.</summary>
+    public string LineId { get; set; } = "";
     public string Before { get; set; } = "";
     public string After { get; set; } = "";
     public string Status { get; set; } = "";
@@ -107,15 +109,27 @@ public static class ReceiptEditAuditLog
     };
 
     /// <summary>«Молоко: цена продажи 100 → 110» для окон истории и журнала (5 языков); не применённое поле помечено.</summary>
+    /// <summary>Подпись поля правки (5 языков).</summary>
+    public static string FieldLabel(string field) => field switch
+    {
+        "sale_price" => Tr.T("цена продажи", "сатуу баасы", "sale price", "satış fiyatı", "sotuv narxi"),
+        "markup_percent" => Tr.T("наценка %", "үстөк %", "markup %", "kâr %", "ustama %"),
+        "quantity" => Tr.T("количество", "саны", "quantity", "miktar", "miqdor"),
+        "purchase_price" => Tr.T("цена закупки", "сатып алуу баасы", "purchase price", "alış fiyatı", "xarid narxi"),
+        "supplier" => Tr.T("поставщик", "жеткирүүчү", "supplier", "tedarikçi", "yetkazib beruvchi"),
+        "document_date" => Tr.T("дата", "күнү", "date", "tarih", "sana"),
+        "document_number" => Tr.T("номер накладной", "накладной номери", "invoice number", "fatura numarası", "yuk xati raqami"),
+        "comment" => Tr.T("комментарий", "комментарий", "comment", "yorum", "izoh"),
+        "payment" => Tr.T("оплата", "төлөм", "payment", "ödeme", "to'lov"),
+        "discount" => Tr.T("скидка", "арзандатуу", "discount", "indirim", "chegirma"),
+        "removed" => Tr.T("удалена позиция, количество", "позиция өчүрүлдү, саны", "line removed, quantity", "satır silindi, miktar", "pozitsiya o'chirildi, miqdor"),
+        "added_item" => Tr.T("добавлена в накладную, количество", "накладнойго кошулду, саны", "added to the invoice, quantity", "faturaya eklendi, miktar", "yuk xatiga qo'shildi, miqdor"),
+        _ => field,
+    };
+
     public static string FieldText(ReceiptEditAuditField f)
     {
-        var label = f.Field switch
-        {
-            "sale_price" => Tr.T("цена продажи", "сатуу баасы", "sale price", "satış fiyatı", "sotuv narxi"),
-            "markup_percent" => Tr.T("наценка %", "үстөк %", "markup %", "kâr %", "ustama %"),
-            "quantity" => Tr.T("количество", "саны", "quantity", "miktar", "miqdor"),
-            _ => f.Field,
-        };
+        var label = FieldLabel(f.Field);
         var pending = f.Status is "failed" or "unknown" or "pending" or "applying" or "abandoned" or "not_posted" or "partial"
             ? Tr.T(" (не применено)", " (колдонулган жок)", " (not applied)", " (uygulanmadı)", " (qo'llanmadi)") : "";
         return $"{f.Subject}: {label} {f.Before} → {f.After}{pending}";
@@ -127,8 +141,13 @@ public static class ReceiptEditAuditLog
     public static List<ReceiptEditAuditField> FieldChanges(ReceiptEditRecord r)
     {
         var result = new List<ReceiptEditAuditField>();
+        // 2026-11-01: правка серверным PATCH — поля уже разложены «было → стало» (Diffs), статус — у шага patch
+        var patchStatus = r.Steps.FirstOrDefault(s => s.Kind == "patch")?.Status ?? r.Status;
+        foreach (var d in r.Diffs)
+            result.Add(new ReceiptEditAuditField { Field = d.Field, LineId = d.LineId, Subject = d.Subject, ProductId = d.ProductId, Before = d.Before, After = d.After, Status = patchStatus });
         foreach (var l in r.Lines)
-            result.Add(new ReceiptEditAuditField { Field = "quantity", Subject = l.Name, ProductId = l.ProductId, Before = N(l.QtyBefore), After = N(l.QtyAfter), Status = l.NotPosted ? "not_posted" : r.Status is "failed" or "applying" ? r.Status : "done" });
+            result.Add(new ReceiptEditAuditField { Field = l.LineId.StartsWith("new:", StringComparison.Ordinal) ? "added_item" : l.QtyAfter <= 0.0005 && l.QtyBefore > 0.0005 ? "removed" : "quantity",
+                LineId = l.LineId, Subject = l.Name, ProductId = l.ProductId, Before = N(l.QtyBefore), After = N(l.QtyAfter), Status = l.NotPosted ? "not_posted" : r.Status is "failed" or "applying" ? r.Status : "done" });
         foreach (var s in r.Steps.Where(s => s.Kind == "price"))
             foreach (var i in s.Items)
             {

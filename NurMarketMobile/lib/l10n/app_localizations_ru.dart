@@ -2167,6 +2167,11 @@ class AppLocalizationsRu extends AppLocalizations {
   String get kindSale => 'Продажа';
 
   @override
+  String returnNetTotal(String sum) {
+    return 'Итог чека после возвратов: $sum сом';
+  }
+
+  @override
   String get prevSaleMayPass =>
       'Прошлая оплата не закончилась — тот чек мог пройти. Проверьте раздел «Чеки», прежде чем платить заново.';
 

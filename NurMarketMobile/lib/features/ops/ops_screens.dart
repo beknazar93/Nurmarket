@@ -778,6 +778,12 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Text(l.returnPaidInfo(money(led.total), money(led.refunded)), style: TextStyle(color: pal.textSoft, fontSize: 12.5)),
                   ),
+                // 2026-11-01 (ответ Умара): итог чека после возвратов — net_total сервера (чек после возврата сам не меняется)
+                if (widget.sale['net_total'] != null && num0(widget.sale, 'refunded_total') > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(l.returnNetTotal(money(num0(widget.sale, 'net_total'))), style: TextStyle(color: pal.textSoft, fontSize: 12.5)),
+                  ),
                 for (var i = 0; i < _lines.length; i++)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),

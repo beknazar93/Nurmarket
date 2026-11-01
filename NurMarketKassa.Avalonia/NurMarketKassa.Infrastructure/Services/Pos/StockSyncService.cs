@@ -97,7 +97,8 @@ public static class StockSyncService
             : QuantityRules.ForUnit(vm.Unit) != null
                 // 2026-10-26 (ХМ2): остаток дробной единицы «Хозтоваров» (37.4 м) — не до целого и в своей единице.
                 ? $"{quantity.ToString("0.###", qtyCulture)} {UnitCatalog.Display(vm.Unit)}" // 2026-11-01 (Д-5): единица по языку интерфейса
-                : $"{quantity.ToString("F0", qtyCulture)} {Tr.T("шт.", "даана", "pcs", "adet", "dona")}";
+                // 2026-11-01 (расследование, П-5): штучный товар с дробным остатком (поштучная продажа из упаковки: 49,875) — без округления до «50».
+                : $"{(Math.Abs(quantity - Math.Round(quantity)) < 0.0005 ? quantity.ToString("F0", qtyCulture) : quantity.ToString("0.###", qtyCulture))} {Tr.T("шт.", "даана", "pcs", "adet", "dona")}";
         vm.IsLowStock = quantity < LowStockThreshold;
     }
 
@@ -161,6 +162,11 @@ public static class StockSyncService
         return at != 0 && Environment.TickCount64 - at < window.TotalMilliseconds;
     }
 
+    /// <summary>2026-11-01 (расследование «остаток не меняется», П-4): остаток товара менялся на этом ПК ПОСЛЕ указанного момента (начала загрузки каталога) —
+    /// страницы, скачанные до этого, несут остаток без этой операции.</summary>
+    public static bool TouchedSince(string productId, DateTime sinceUtc) =>
+        LocalTouches.TryGetValue(productId, out var at) && Environment.TickCount64 - at <= (DateTime.UtcNow - sinceUtc).TotalMilliseconds;
+
     public static bool WasLocallyTouched(string productId, TimeSpan window) =>
         LocalTouches.TryGetValue(productId, out var at) && Environment.TickCount64 - at < window.TotalMilliseconds;
 
@@ -198,6 +204,8 @@ public static class StockSyncService
                 continue;
             var tile = CatalogCacheService.Products.FirstOrDefault(p =>
                 string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+            if (tile is null)
+                PosLogger.Log($"STOCK: проданный товар {productId} не найден в каталоге кассы — плитка не уменьшена (остаток придёт из ленты/сверки).", "STOCK"); // 2026-11-01 (расследование, п. 6)
             var qty = CartDisplayHelper.LineQuantityInStockUnits(line, tile);
             sold[productId] = (sold.TryGetValue(productId, out var before) ? before : 0) + qty;
         }
@@ -274,6 +282,157 @@ public static class StockSyncService
                 PosLogger.Log($"RefreshReturnedItemsStock failed for {productId}: {ex.Message}", "STOCK");
             }
         }
+    }
+
+    // ---- 2026-11-01 (приёмка 1.17.72, С-4/С-5): отложенное перечитывание остатка ----
+    // Защита остатка (FeedStockGuard: очередь неотправленных чеков, «трогали недавно») отбрасывает изменения товара из ленты, а курсор ленты уходит вперёд —
+    // пропущенное законное изменение (приход с другого ПК) больше не повторяется. Поэтому такие товары ставятся в очередь: когда защита с них
+    // снята, остаток читается с сервера (ProductsDetailAsync) и кладётся на плитку и в базу. Срок жизни записи — 30 минут.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long Due, long Since)> RereadQueue = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly object RereadLoopGate = new();
+    private static bool _rereadLoopRunning;
+    private static readonly long RereadMaxAgeMs = (long)TimeSpan.FromMinutes(30).TotalMilliseconds;
+
+    /// <summary>Поставить товар в очередь перечитывания остатка через <paramref name="delay"/> (если он уже в очереди — срок не сдвигается).</summary>
+    public static void ScheduleStockReread(string productId, TimeSpan delay)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+            return;
+        var now = Environment.TickCount64;
+        RereadQueue.AddOrUpdate(productId.Trim(), (now + (long)delay.TotalMilliseconds, now), (_, old) => old);
+        lock (RereadLoopGate)
+        {
+            if (_rereadLoopRunning)
+                return;
+            _rereadLoopRunning = true;
+        }
+        _ = Task.Run(RereadLoopAsync);
+    }
+
+    /// <summary>Товары чека (JSON корзины) — в очередь перечитывания (после решения по чеку: «Отклонить», досылка).</summary>
+    public static void ScheduleStockRereadForCart(string cartJson, TimeSpan delay)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(cartJson) ? "{}" : cartJson);
+            foreach (var line in CartDisplayHelper.EnumerateItems(doc.RootElement))
+                if (CartDisplayHelper.TryProductId(line) is { Length: > 0 } id)
+                    ScheduleStockReread(id, delay);
+        }
+        catch (JsonException)
+        {
+            // чек с битым JSON — перечитывать нечего
+        }
+    }
+
+    private static async Task RereadLoopAsync()
+    {
+        try
+        {
+            while (!RereadQueue.IsEmpty)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                var now = Environment.TickCount64;
+                var due = RereadQueue.Where(kv => kv.Value.Due <= now).Select(kv => kv.Key).ToList();
+                if (due.Count == 0)
+                    continue;
+
+                foreach (var id in due)
+                {
+                    if (!RereadQueue.TryGetValue(id, out var entry))
+                        continue;
+                    if (now - entry.Since > RereadMaxAgeMs)
+                    {
+                        RereadQueue.TryRemove(id, out _);
+                        continue;
+                    }
+                    if (FeedStockGuard.IsHeldByLocalActivity(id))
+                    {
+                        RereadQueue[id] = (now + 30_000, entry.Since); // защита ещё действует — позже
+                        continue;
+                    }
+                    RereadQueue.TryRemove(id, out _);
+                    await RefreshStockFromServerAsync(id).ConfigureAwait(false);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"STOCK: перечитывание остатков остановлено ({ex.GetType().Name}: {ex.Message}).", "STOCK");
+        }
+        finally
+        {
+            lock (RereadLoopGate)
+                _rereadLoopRunning = false;
+            if (!RereadQueue.IsEmpty)
+                ScheduleStockReread(RereadQueue.Keys.First(), TimeSpan.FromSeconds(5));
+        }
+    }
+
+    /// <summary>Остаток товара с сервера — на плитку и в базу (без вычитания), безопасно по отношению к локальным операциям (контрольное ревью):
+    /// (1) запрос стартует с отметкой времени; (2) после ответа — если за время запроса остаток товара менялся здесь (продажа/правка), ответ мог быть построен
+    /// до неё: не пишем, повтор позже; то же при недавней операции (окно защиты) и продаже соседней кассы по LAN; (3) если у товара есть неотправленные чеки
+    /// (очередь, свежие «Ошибка отправки»), сервер о них не знает — пишем серверный остаток минус эти количества. true — записано.</summary>
+    private static async Task<bool> RefreshStockFromServerAsync(string productId)
+    {
+        try
+        {
+            var startedUtc = DateTime.UtcNow;
+            var detail = await PosApp.CatalogApi.ProductsDetailAsync(productId, CancellationToken.None).ConfigureAwait(false);
+            if (detail is not { } el)
+                return false;
+            var tile = CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+            if (tile is null)
+                return false;
+            if (TouchedSince(productId, startedUtc) || FeedStockGuard.IsHeldByLocalActivity(productId))
+            {
+                PosLogger.Log($"STOCK: остаток товара {productId} менялся здесь во время запроса — серверное значение не записано, повтор позже.", "STOCK");
+                ScheduleStockReread(productId, FeedStockGuard.LocalTouchWindow + TimeSpan.FromSeconds(5));
+                return false;
+            }
+            var server = ResolveStockQuantity(el, tile.MustWeigh);
+            var unsent = FeedStockGuard.UnsentQuantity(productId);
+            var qty = unsent > 0 ? Math.Max(0, server - unsent) : server;
+            if (Math.Abs(qty - tile.Quantity) > 1e-6)
+                PosLogger.Log($"STOCK: перечитан остаток товара {productId}: {tile.Quantity:0.###} → {qty:0.###}" + (unsent > 0 ? $" (сервер {server:0.###} минус неотправленные чеки {unsent:0.###})." : "."), "STOCK");
+            UiDispatcherHolder.Post(() => ApplyQuantityCore(tile, qty, tile.MustWeigh));
+            CatalogCacheService.PersistProductStock(productId, qty, tile.MustWeigh);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"STOCK: остаток товара {productId} не перечитан ({ex.GetType().Name}: {ex.Message}).", "STOCK");
+            return false;
+        }
+    }
+
+    /// <summary>2026-11-01 (расследование «остаток не меняется», П-5): «оплата уже прошла на сервере (ответ потерялся)» — локально остаток НЕ вычитаем
+    /// (лента могла уже принести серверный, было бы двойное списание); в фоне читаем остаток проданных товаров с сервера и кладём его на плитки и в базу.
+    /// Ошибки не мешают завершению чека.</summary>
+    public static void ResyncCartStockFromServerInBackground(string cartJson)
+    {
+        if (string.IsNullOrWhiteSpace(cartJson))
+            return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(cartJson);
+                var done = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var line in CartDisplayHelper.EnumerateItems(doc.RootElement))
+                {
+                    var productId = CartDisplayHelper.TryProductId(line);
+                    if (string.IsNullOrEmpty(productId) || !done.Add(productId))
+                        continue;
+                    await RefreshStockFromServerAsync(productId).ConfigureAwait(false); // контрольное ревью: с проверкой локальных операций и неотправленных чеков
+                }
+                ProductVariantCache.ApplySale(doc.RootElement);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                PosLogger.Log($"STOCK: остаток после «оплата уже прошла на сервере» не прочитан ({ex.GetType().Name}: {ex.Message}).", "STOCK");
+            }
+        });
     }
 
     /// <param name="alreadyDecremented">2026-10-04: остаток уже уменьшен ApplySoldItemsDecrement — здесь только

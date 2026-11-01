@@ -116,9 +116,37 @@ public static class QuantityRules
     /// как на сервере: 0,1 × 41,05 = 4,105 → 4,11, а в double выходило 4,10 (двоичная погрешность, расхождение в копейку с чеком
     /// сервера). Везде кроме «Хозтоваров» — прежний расчёт в double без изменений.</summary>
     public static double Gross(double qty, double price) =>
-        Active && double.IsFinite(qty) && double.IsFinite(price) && Math.Abs(qty) < 1e9 && Math.Abs(price) < 1e9
+        // 2026-11-01: decimal для всех магазинов (раньше вне «Хозтоваров» — double: 0,1 × 41,05 давало 4,10 вместо 4,11). Это только ПОКАЗ строки.
+        double.IsFinite(qty) && double.IsFinite(price) && Math.Abs(qty) < 1e9 && Math.Abs(price) < 1e9
             ? (double)Math.Round((decimal)qty * (decimal)price, 2, MidpointRounding.AwayFromZero)
             : Math.Round(qty * price, 2, MidpointRounding.AwayFromZero);
+
+    /// <summary>2026-11-01 (ответ Умара, округление): сумма строки как у сервера — количество × цена в decimal БЕЗ округления
+    /// (полная точность). Сервер складывает такие строки и округляет только итог чека (HALF_UP до 0,01), поэтому в итог идёт
+    /// это значение, а <see cref="Gross"/> (с округлением до копейки) остаётся для ПОКАЗА суммы строки.</summary>
+    public static decimal GrossExact(double qty, double price) =>
+        double.IsFinite(qty) && double.IsFinite(price) && Math.Abs(qty) < 1e9 && Math.Abs(price) < 1e9
+            ? (decimal)qty * (decimal)price
+            : 0m;
+
+    /// <summary>2026-11-01 (живая сверка с сервером NBS): сумма строки для ПОДЫТОГА. Обычная строка — без округления (<see cref="GrossExact"/>);
+    /// ВЕСОВАЯ строка (товар, не «Доп. услуга») — вниз до 0,01 (0,343 кг × 66 = 22,638 → 22,63, чек 1979). Вниз имеет смысл, только если
+    /// у суммы есть доли копейки — поэтому признак «весовая» (он считается по нескольким полям) проверяется лишь тогда.</summary>
+    public static decimal LineAmount(JsonElement it, double qty, double price)
+    {
+        var exact = GrossExact(qty, price);
+        var floored = Math.Floor(exact * 100m) / 100m;
+        if (floored == exact || exact < 0)
+            return exact;
+        return !string.IsNullOrEmpty(CartDisplayHelper.TryProductId(it)) && CartDisplayHelper.LineMustWeigh(it) ? floored : exact;
+    }
+
+    /// <summary>2026-11-01: единственная точка округления денег чека — до 0,01, половина вверх (ROUND_HALF_UP сервера).</summary>
+    public static decimal RoundMoney(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+    /// <summary>2026-11-01: double → decimal для денег; нечисло и бесконечность дают 0 (приведение выбросило бы исключение).</summary>
+    public static decimal ToMoneyDecimal(double value) =>
+        double.IsFinite(value) && Math.Abs(value) < 1e15 ? (decimal)value : 0m;
 
     /// <summary>Подсказка «минимум» для кассира, 5 языков, например «Минимум — 1 м.».</summary>
     public static string MinimumMessage(QuantityRule rule, string unitText) =>

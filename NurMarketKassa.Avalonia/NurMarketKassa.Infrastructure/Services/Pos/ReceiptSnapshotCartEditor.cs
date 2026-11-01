@@ -694,19 +694,19 @@ public static class ReceiptSnapshotCartEditor
     {
         var qty = JsonNumericReader.ToDouble(line["quantity"]);
         var unitPrice = JsonNumericReader.ToDouble(line["unit_price"]);
-        var gross = QuantityRules.Gross(qty, unitPrice); // 2026-10-26 (ХМ2)
+        var gross = QuantityRules.GrossExact(qty, unitPrice); // 2026-11-01 (ответ Умара): без округления, округляется один раз — показываемая сумма строки
         // 2026-09-28, продажа №1136: сумма строки — с той же скидкой, что в итоге чека и в запросе
         // на сервер (CartDisplayHelper.EffectiveLineDiscount: скидка кассира или акция товара).
         // Раньше здесь был свой разбор (только discount_total / discount_percent, без акций).
-        double discount;
+        double discountValue;
         using (var lineDoc = JsonDocument.Parse(line.ToJsonString()))
-            discount = CartDisplayHelper.EffectiveLineDiscount(lineDoc.RootElement);
+            discountValue = CartDisplayHelper.EffectiveLineDiscount(lineDoc.RootElement);
 
-        discount = Math.Round(discount, 2, MidpointRounding.AwayFromZero);
+        var discount = QuantityRules.RoundMoney(QuantityRules.ToMoneyDecimal(discountValue));
         // Отрицательная строка = «Расход» (доп. услуга, 2026-09-07) — её сумму не обнуляем.
         line["line_total"] = gross < 0
-            ? Math.Round(gross, 2, MidpointRounding.AwayFromZero)
-            : Math.Max(0, Math.Round(gross - discount, 2, MidpointRounding.AwayFromZero));
+            ? (double)QuantityRules.RoundMoney(gross)
+            : (double)Math.Max(0m, QuantityRules.RoundMoney(gross - discount));
     }
 
     private static void RecalcCartTotals(JsonObject root)

@@ -764,10 +764,12 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             // взят до того, как сервер учёл операцию: оставляем локальный (иначе «остаток откатывается» после продажи).
             foreach (var vm in newList)
             {
-                if (vm.Id is null || !StockSyncService.WasLocallyTouched(vm.Id, FeedStockGuard.LocalTouchWindow))
+                // 2026-11-01 (П-4): и всё, что менялось ПОСЛЕ начала загрузки (долгая загрузка 2–6 мин): страницы до продажи несут остаток без неё.
+                if (vm.Id is null || !(StockSyncService.WasLocallyTouched(vm.Id, FeedStockGuard.LocalTouchWindow) || StockSyncService.TouchedSince(vm.Id, snapshotStartedUtc)))
                     continue;
                 if (LocalProductRepository.Instance.LoadTileCopy(vm.Id) is { } keep)
                     StockSyncService.ApplyQuantityToTile(vm, keep.Quantity, vm.MustWeigh);
+                StockSyncService.ScheduleStockReread(vm.Id, FeedStockGuard.LocalTouchWindow + TimeSpan.FromSeconds(5)); // 2026-11-01 (С-4): оставили локальный — потом перечитаем с сервера
             }
 
             // Продажи соседних касс, которых сервер ещё не знает, вычитаются из снимка до записи.

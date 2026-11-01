@@ -80,10 +80,10 @@ public static class ShiftEventsStore
 
     /// <summary>2026-11-01 (code-review, Ж-01): сколько оплат долга (наличные + безнал) этого клиента записано на этой кассе за всё время (примечание события — имя клиента).
     /// Пустое имя — 0 (оплаты не подтверждены).</summary>
-    public static double DebtPaidByClientName(string? clientName) =>
+    public static double DebtPaidByClientName(string? clientName, bool cashOnly = false, DateTime? sinceUtc = null) =>
         string.IsNullOrWhiteSpace(clientName)
             ? 0
-            : Db.SumShiftEventsByNote(new[] { KindDebtPayment, KindDebtPaymentNonCash }, clientName.Trim());
+            : Db.SumShiftEventsByNote(cashOnly ? new[] { KindDebtPayment } : new[] { KindDebtPayment, KindDebtPaymentNonCash }, clientName.Trim(), sinceUtc);
 
     /// <summary>Записи одного вида за смену — подробный отчёт по плитке смены.</summary>
     public static List<(DateTime CreatedAt, double Amount, string? Note)> ListForShift(string? shiftId, string kind) =>

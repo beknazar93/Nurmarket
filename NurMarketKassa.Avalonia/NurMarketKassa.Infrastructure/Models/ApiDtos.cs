@@ -288,6 +288,8 @@ namespace NurMarketKassa.Models
         public bool? CanEditProcurement { get; set; }
         public bool? CanEditDocuments { get; set; }
         public bool? CanViewDebts { get; set; }
+        /// <summary>2026-11-01 (ответ Умара): право «Редактор документов закупок» — выдают и снимают владелец ИЛИ администратор; у владельца и администратора оно всегда есть.</summary>
+        public bool? CanEditPurchaseDocuments { get; set; }
         public bool? CanUsePos { get; set; }
 
         /// <summary>2026-10-28: только изменившиеся флаги (PATCH не шлёт то, что владелец не трогал, и не затирает чужие правки
@@ -334,7 +336,7 @@ namespace NurMarketKassa.Models
          .WithOptional("can_edit_employees", CanEditEmployees).WithOptional("can_edit_products", CanEditProducts)
          .WithOptional("can_edit_clients", CanEditClients).WithOptional("can_edit_cashbox", CanEditCashbox)
          .WithOptional("can_edit_settings", CanEditSettings).WithOptional("can_edit_procurement", CanEditProcurement)
-         .WithOptional("can_edit_documents", CanEditDocuments).WithOptional("can_view_debts", CanViewDebts)
+         .WithOptional("can_edit_documents", CanEditDocuments).WithOptional("can_view_debts", CanViewDebts).WithOptional("can_edit_purchase_documents", CanEditPurchaseDocuments)
          .WithOptional("can_use_pos", CanUsePos);
     }
 

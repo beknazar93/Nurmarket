@@ -111,6 +111,10 @@ namespace NurMarketKassa.ViewModels
         private bool _isDiscountPercent = true;
         private string _discountInput = "0";
         private double _orderDiscountAmount;
+        // 2026-11-01 (ответ Умара, округление): суммы строк и скидки строк без округления — скидка чека считается от них, итог округляется один раз.
+        private decimal _subtotalExact;
+        private decimal _lineDiscountsExact;
+        private decimal _orderDiscountExact;
         private double _effectiveTotalDue;
         private double _changeAmount;
         private bool _isInsufficientCash;
@@ -148,6 +152,9 @@ namespace NurMarketKassa.ViewModels
             _customerDisplay = customerDisplay;
             _subtotal = totals.Subtotal;
             _lineDiscounts = totals.LineDiscounts;
+            // Если «точных» сумм нет (CartTotals собран вручную) — берём округлённые.
+            _subtotalExact = totals.SubtotalExact != 0m ? totals.SubtotalExact : (decimal)totals.Subtotal;
+            _lineDiscountsExact = totals.LineDiscountsExact != 0m ? totals.LineDiscountsExact : (decimal)totals.LineDiscounts;
             _effectiveTotalDue = totals.TotalDue;
             _initialPercent = initialPercent ?? "";
             _initialSum = initialSum ?? "";
@@ -252,7 +259,8 @@ namespace NurMarketKassa.ViewModels
         public double PointsRedeemed => _pointsRedeemed;
 
         /// <summary>Обычная скидка на чек в сомах (без бонусов) — нужна отчётам смены.</summary>
-        public double OrderDiscountAmount => _orderDiscountAmount;
+        // 2026-11-01: наружу (журнал смены, оценка потерь) — до копейки, как раньше; внутри скидка хранится без округления.
+        public double OrderDiscountAmount => (double)Math.Round(_orderDiscountExact, 2, MidpointRounding.AwayFromZero);
 
         /// <summary>Сколько бонусов начислится клиенту при успешной оплате — считается от
         /// ИТОГОВОЙ суммы к оплате (после всех скидок и списания баллов), не от подытога, чтобы
@@ -1108,7 +1116,8 @@ namespace NurMarketKassa.ViewModels
                     // законно, хотя речь шла о тех же десяти сомах.
                     return new Dictionary<string, string>
                     {
-                        ["order_discount_total"] = (_orderDiscountAmount + _pointsRedeemed)
+                        // 2026-11-01: скидка чека теперь не округлена — сумма округляется здесь (половина вверх), один раз.
+                        ["order_discount_total"] = Math.Round(_orderDiscountExact + (decimal)_pointsRedeemed, 2, MidpointRounding.AwayFromZero)
                             .ToString("0.00", CultureInfo.InvariantCulture),
                     };
                 }
@@ -1147,10 +1156,20 @@ namespace NurMarketKassa.ViewModels
         private void RecalculateTotals()
         {
             var previousTotal = _effectiveTotalDue;
-            _orderDiscountAmount = ComputeOrderDiscountAmount();
-            var afterDiscount = Math.Max(0, _subtotal - _lineDiscounts - _orderDiscountAmount);
+            _orderDiscountExact = ComputeOrderDiscountAmount();
+            _orderDiscountAmount = (double)_orderDiscountExact;
+            // 2026-11-01 (ответ Умара, округление): итог округляется ОДИН раз (до 0,01, половина вверх) — от неокруглённых сумм строк.
+            var baseExact = Math.Max(0m, _subtotalExact - _lineDiscountsExact);
+            // 2026-11-01 (сверка с чеками NBS): подытог округляется один раз, скидка чека уже округлена отдельно, итог = подытог − скидка.
+            var baseRounded = Math.Round(baseExact, 2, MidpointRounding.AwayFromZero);
+            var afterDiscount = (double)Math.Max(0m, baseRounded - _orderDiscountExact);
             _pointsRedeemed = ComputePointsRedeemed(afterDiscount);
-            _effectiveTotalDue = Math.Max(0, afterDiscount - _pointsRedeemed);
+            // Бонусы уходят на сервер вместе со скидкой ОДНОЙ суммой до копейки (см. свойство с "order_discount_total") —
+            // итог считаем от неё, как сервер.
+            var discountAndPoints = _pointsRedeemed > 1e-9
+                ? Math.Round(_orderDiscountExact + (decimal)_pointsRedeemed, 2, MidpointRounding.AwayFromZero)
+                : _orderDiscountExact;
+            _effectiveTotalDue = (double)Math.Max(0m, baseRounded - discountAndPoints);
             _discountDirty = IsDiscountChangedFromInitial();
 
             OnPropertyChanged(nameof(BigTotalDisplay));
@@ -1181,25 +1200,25 @@ namespace NurMarketKassa.ViewModels
             UpdateCashState();
         }
 
-        private double ComputeOrderDiscountAmount()
+        private decimal ComputeOrderDiscountAmount()
         {
             var normalized = OrderDiscountHelper.NormalizeDecimal(_discountInput);
             if (string.IsNullOrWhiteSpace(normalized) || OrderDiscountHelper.IsEmptyOrZeroLike(normalized))
                 return 0;
 
-            if (!double.TryParse(normalized, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var val) || val <= 0)
+            if (!decimal.TryParse(normalized, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var val) || val <= 0)
                 return 0;
 
+            var baseAmount = Math.Max(0m, _subtotalExact - _lineDiscountsExact);
             if (_isDiscountPercent)
             {
-                var baseAmount = Math.Max(0, _subtotal - _lineDiscounts);
-                // 2026-09-28, продажа №1136: до копейки — так же, как итог чека
-                // (CartTotalsCalculator) и сервер; иначе окно оплаты и запрос расходились
-                // на доли копейки (33,33 × 7 % = 2,3331).
-                return Math.Min(baseAmount, Math.Round(baseAmount * val / 100.0, 2, MidpointRounding.AwayFromZero));
+                // 2026-11-01 (живая сверка с сервером NBS): процент — от ОКРУГЛЁННОГО подытога (чек 1977: 1,425 → 1,43, 50 % = 0,715 → 0,72),
+                // сумма скидки округляется отдельно (половина вверх); 17,00 × 2,5 % → 0,43 → 16,57; 5,00 × 2,5 % → 0,13 → 4,87.
+                var baseRounded = Math.Round(baseAmount, 2, MidpointRounding.AwayFromZero);
+                return Math.Min(baseRounded, Math.Round(baseRounded * Math.Min(val, 100m) / 100m, 2, MidpointRounding.AwayFromZero));
             }
 
-            return Math.Min(Math.Max(0, _subtotal - _lineDiscounts), val);
+            return Math.Min(Math.Round(baseAmount, 2, MidpointRounding.AwayFromZero), val);
         }
 
         /// <summary>Сколько бонусов реально спишется — не больше баланса клиента и не больше

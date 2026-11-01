@@ -285,7 +285,8 @@ public sealed class CashShiftService : ICashShiftService
             // строки пришлось восстанавливать по косвенным признакам).
             PosLogger.Log(
                 $"Смена открыта: id={PosApp.ActiveShiftId}, касса={PosApp.PosCashboxDisplayName ?? PosApp.PosCashboxId}, " +
-                $"кассир={PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId}, открыта сервером в {(response.TryGetProperty("opened_at", out var oa) ? oa.ToString() : "?")}",
+                $"кассир={PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId}, открыта сервером в {(response.TryGetProperty("opened_at", out var oa) ? oa.ToString() : "?")}, " +
+                $"введена начальная сумма {openingCash:0.00}, связь есть",
                 "SHIFT");
 
             ShiftService.IsShiftOpen = true;
@@ -308,7 +309,7 @@ public sealed class CashShiftService : ICashShiftService
                         $"Vardiya {since} itibarıyla devam ediyor: zaten açıktı, başlangıç tutarı {sum}. Girdiğiniz tutar uygulanmadı.",
                         $"Smena {since} dan davom etdi: u allaqachon ochiq edi, boshlang'ich summa {sum}. Kiritilgan summa qo'llanmadi.")
                         + (carryOverHint is null ? "" : "\n\n" + carryOverHint))
-                    with { Resumed = true, ResumedOpenedAt = serverOpenedAt, InfoIsWarning = carryOverHint is not null };
+                    with { Resumed = true, ResumedOpenedAt = serverOpenedAt, InfoIsWarning = carryOverHint is not null, ResumedBy = ReadOpenedBy(response), ResumedHint = carryOverHint };
             }
 
             _offlinePosStateStore.SaveFromApp(openingCash);
@@ -332,12 +333,15 @@ public sealed class CashShiftService : ICashShiftService
             ShiftService.IsShiftOpen = true;
             _offlinePosStateStore.SaveFromApp(openingCash);
             OfflinePosStateStore.RememberOfflineOpening(openingCash); // 2026-11-01 (К-02, code-review): сумма открытия — отдельно от «текущего остатка»
+            PosLogger.Log($"Смена открыта без связи (обрыв): id={PosApp.ActiveShiftId}, введена начальная сумма {openingCash:0.00}, будет передана серверу.", "SHIFT");
             return CashShiftOperationResult.Success(
                 openingCash,
                 isOffline: true,
-                infoMessage: Tr.T($"Смена открыта офлайн ({ex.Message}).", $"Смена офлайн режимде ачылды ({ex.Message}).",
-                    $"Shift opened offline ({ex.Message}).", $"Vardiya çevrimdışı açıldı ({ex.Message}).",
-                    $"Smena oflayn rejimda ochildi ({ex.Message})."));
+                infoMessage: Tr.T($"Смена открыта без связи ({ex.Message}). Она будет передана на сервер, как только появится связь; повторно открывать не нужно.",
+                    $"Смена байланышсыз ачылды ({ex.Message}). Байланыш пайда болгондо серверге өткөрүлөт; кайра ачуунун кереги жок.",
+                    $"Shift opened without a connection ({ex.Message}). It will be handed to the server as soon as there is a connection; no need to open it again.",
+                    $"Vardiya bağlantısız açıldı ({ex.Message}). Bağlantı gelir gelmez sunucuya aktarılacak; tekrar açmanıza gerek yok.",
+                    $"Smena aloqasiz ochildi ({ex.Message}). Aloqa paydo bo'lishi bilan serverga o'tkaziladi; qayta ochish shart emas."));
         }
         catch (Exception ex) when (ServerOutageMonitor.IsServerFailure(ex) && !cancellationToken.IsCancellationRequested)
         {
@@ -401,8 +405,13 @@ public sealed class CashShiftService : ICashShiftService
         ShiftService.IsShiftOpen = true;
         _offlinePosStateStore.SaveFromApp(openingCash);
         OfflinePosStateStore.RememberOfflineOpening(openingCash); // 2026-11-01 (К-02, code-review): сумма открытия — отдельно от «текущего остатка»
-        return CashShiftOperationResult.Success(openingCash, isOffline: true, infoMessage: Tr.T("Смена открыта офлайн.",
-            "Смена офлайн режимде ачылды.", "Shift opened offline.", "Vardiya çevrimdışı açıldı.", "Smena oflayn rejimda ochildi."));
+        PosLogger.Log($"Смена открыта без связи: id={PosApp.ActiveShiftId}, касса={PosApp.PosCashboxDisplayName ?? PosApp.PosCashboxId}, введена начальная сумма {openingCash:0.00}, будет передана серверу.", "SHIFT");
+        return CashShiftOperationResult.Success(openingCash, isOffline: true, infoMessage: Tr.T(
+            "Смена открыта без связи. Она будет передана на сервер, как только появится связь; повторно открывать не нужно.",
+            "Смена байланышсыз ачылды. Байланыш пайда болгондо серверге өткөрүлөт; кайра ачуунун кереги жок.",
+            "Shift opened without a connection. It will be handed to the server as soon as there is a connection; no need to open it again.",
+            "Vardiya bağlantısız açıldı. Bağlantı gelir gelmez sunucuya aktarılacak; tekrar açmanıza gerek yok.",
+            "Smena aloqasiz ochildi. Aloqa paydo bo'lishi bilan serverga o'tkaziladi; qayta ochish shart emas."));
     }
 
     /// <summary>Узнаёт именно ошибку "cashbox_id: Касса не найдена или не принадлежит этому
@@ -478,7 +487,7 @@ public sealed class CashShiftService : ICashShiftService
 
             PosApp.ActiveShiftId = null;
             ShiftService.IsShiftOpen = false;
-            _offlinePosStateStore.SaveFromApp(0m);
+            _offlinePosStateStore.SaveFromApp(closingCash ?? 0m); // 2026-11-01: запасной остаток после закрытия — пересчитанная сумма, а не 0
             _auditDb.LogShift("close_offline", closingCash, shiftId);
             return CashShiftOperationResult.Success(closingCash, isOffline: true);
         }
@@ -620,7 +629,7 @@ public sealed class CashShiftService : ICashShiftService
             RecordUnsentCashMark(closingCash);
             // A successful close is authoritative. An immediate list refresh may
             // still return the closed shift or restore it from the offline cache.
-            _offlinePosStateStore.SaveFromApp(0m);
+            _offlinePosStateStore.SaveFromApp(closingCash ?? 0m); // 2026-11-01: запасной остаток после закрытия — пересчитанная сумма, а не 0
             _auditDb.LogShift("close", closingCash, shiftId);
             // 2026-09-15, живой баг: "система не считает наличную и безналичную" — отчёт по
             // смене раньше брал разбивку из _shiftTotals, снятого В ФОНЕ ЕЩЁ ДО закрытия (пока
@@ -628,6 +637,10 @@ public sealed class CashShiftService : ICashShiftService
             // продажи, этот снимок мог не успеть учесть её. Ответ САМОГО закрытия — гарантированно
             // свежий, читаем разбивку из него.
             var totals = ReadClosingTotals(response, shiftId, cancellationToken);
+            // 2026-11-01 (жалоба клиента): по журналу видно, что ввёл кассир и что получил сервер (только суммы и id смены).
+            PosLogger.Log($"Смена закрыта: id={shiftId}, пересчитано кассиром {(closingCash is { } cc ? cc.ToString("0.00", CultureInfo.InvariantCulture) : "—")}, " +
+                          $"у сервера: начальная {totals?.OpeningCash?.ToString("0.00", CultureInfo.InvariantCulture) ?? "—"}, выручка {totals?.TotalSales?.ToString("0.00", CultureInfo.InvariantCulture) ?? "—"}, " +
+                          $"наличные {totals?.CashSales?.ToString("0.00", CultureInfo.InvariantCulture) ?? "—"}; связь есть.", "SHIFT");
             return CashShiftOperationResult.Success(closingCash, totals: totals);
         }
         catch (Exception ex) when ((ApiThrottle.IsThrottled(ex) || (ex is OperationCanceledException && ApiThrottle.ThrottledSince(closeStartedUtc)))
@@ -686,7 +699,7 @@ public sealed class CashShiftService : ICashShiftService
             // а не оставляем кассира с зависшей открытой сменой без связи с сервером.
             PosApp.ActiveShiftId = null;
             ShiftService.IsShiftOpen = false;
-            _offlinePosStateStore.SaveFromApp(0m);
+            _offlinePosStateStore.SaveFromApp(closingCash ?? 0m); // 2026-11-01: запасной остаток после закрытия — пересчитанная сумма, а не 0
             _auditDb.LogShift("close_offline", closingCash, shiftId);
             return CashShiftOperationResult.Success(
                 closingCash,
@@ -707,7 +720,7 @@ public sealed class CashShiftService : ICashShiftService
             ShiftService.IsShiftOpen = false;
             PendingShiftCloseStore.Remove(shiftId!); // 2026-10-27 (В-7)
             RecordUnsentCashMark(closingCash);
-            _offlinePosStateStore.SaveFromApp(0m);
+            _offlinePosStateStore.SaveFromApp(closingCash ?? 0m); // 2026-11-01: запасной остаток после закрытия — пересчитанная сумма, а не 0
             _auditDb.LogShift("close_already_closed", closingCash, shiftId);
             return CashShiftOperationResult.Success(
                 closingCash,
@@ -745,7 +758,7 @@ public sealed class CashShiftService : ICashShiftService
                 ShiftService.IsShiftOpen = false;
                 PendingShiftCloseStore.Remove(freshId); // 2026-10-27 (В-7)
                 RecordUnsentCashMark(closingCash);
-                _offlinePosStateStore.SaveFromApp(0m);
+                _offlinePosStateStore.SaveFromApp(closingCash ?? 0m); // 2026-11-01: запасной остаток после закрытия — пересчитанная сумма, а не 0
                 _auditDb.LogShift("close", closingCash, freshId);
                 return CashShiftOperationResult.Success(closingCash, totals: ReadClosingTotals(retryResponse, freshId, cancellationToken));
             }
@@ -864,6 +877,20 @@ public sealed class CashShiftService : ICashShiftService
         }
     }
 
+    /// <summary>2026-11-01: имя того, кто открыл уже открытую смену (если сервер его прислал в ответе «открыть смену»); без имени — null (в окне не показывается).</summary>
+    private static string? ReadOpenedBy(JsonElement response)
+    {
+        var body = response;
+        if (body.ValueKind == JsonValueKind.Object && body.TryGetProperty("shift", out var inner) && inner.ValueKind == JsonValueKind.Object)
+            body = inner;
+        if (body.ValueKind != JsonValueKind.Object)
+            return null;
+        foreach (var name in new[] { "cashier_name", "opened_by_name", "user_name", "cashier" })
+            if (body.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString()))
+                return v.GetString()!.Trim();
+        return null;
+    }
+
     private static bool IsOfflineShiftId(string? shiftId) =>
         shiftId?.StartsWith("offline-", StringComparison.OrdinalIgnoreCase) == true;
 
@@ -873,7 +900,7 @@ public sealed class CashShiftService : ICashShiftService
     {
         PosApp.ActiveShiftId = null;
         ShiftService.IsShiftOpen = false;
-        _offlinePosStateStore.SaveFromApp(0m);
+        _offlinePosStateStore.SaveFromApp(closingCash ?? 0m); // 2026-11-01: запасной остаток после закрытия — пересчитанная сумма, а не 0
         _auditDb.LogShift("close_offline", closingCash, shiftId);
         PosLogger.Log($"Офлайн-смена {shiftId} закрыта в кассе (сервер не отвечает).", "SHIFT");
         return CashShiftOperationResult.Success(closingCash, isOffline: true);
@@ -890,7 +917,7 @@ public sealed class CashShiftService : ICashShiftService
 
         PosApp.ActiveShiftId = null;
         ShiftService.IsShiftOpen = false;
-        _offlinePosStateStore.SaveFromApp(0m);
+        _offlinePosStateStore.SaveFromApp(closingCash ?? 0m); // 2026-11-01: запасной остаток после закрытия — пересчитанная сумма, а не 0
         _auditDb.LogShift("close_local_pending_server", closingCash, shiftId);
 
         PosLogger.Log(

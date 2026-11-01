@@ -40,6 +40,7 @@ public partial class PrintSettingsView : UserControl
             "Barcodes, price tags and labels are printed straight to this printer, separately from the receipt printer. Both printers work at the same time and do not interfere.",
             "Barkodlar, fiyat etiketleri ve etiketler doğrudan bu yazıcıya basılır — fiş yazıcısından ayrı. İki yazıcı aynı anda çalışır ve birbirini engellemez.",
             "Shtrix-kodlar, narx yorliqlari va yorliqlar to'g'ridan-to'g'ri shu printerga chop etiladi — chek printeridan alohida. Ikkala printer bir vaqtda ishlaydi va bir-biriga xalaqit bermaydi.");
+        BtnForgetLabelPrinter.Content = NurMarketKassa.Services.Tr.T("Забыть принтер", "Принтерди унутуу", "Forget printer", "Yazıcıyı unut", "Printerni unutish");
         LabelPrinterCombo.PlaceholderText = NurMarketKassa.Services.Tr.T(
             "Принтер этикеток не выбран", "Этикетка принтери тандалган эмес", "No label printer selected",
             "Etiket yazıcısı seçilmedi", "Yorliq printeri tanlanmagan");

@@ -93,11 +93,8 @@ internal static class EmployeeAccessChecklist
 
         panel.Children.Add(GroupHeader(Tr.T("Касса Маркета", "Маркеттин кассасы", "Market till", "Market kasası", "Market kassasi")));
         panel.Children.Add(Row(boxes.MarketDiscount, boxes.MarketEditPrice, boxes.MarketDeleteCartItem, boxes.MarketEmployeeReturn));
-        // 2026-10-30: «Редактор документов закупок» (правка проведённых накладных) — пока только у владельца: строка видна, но выключена и в сохранение не входит.
-        var purchaseEditor = Check(Tr.T("Редактор документов закупок (пока только владелец)", "Сатып алуу документтеринин редактору (азырынча ээси гана)", "Purchase documents editor (owner only for now)", "Alım belgeleri düzenleyicisi (şimdilik yalnızca sahip)", "Xarid hujjatlari muharriri (hozircha faqat egasi)"), false);
-        purchaseEditor.IsEnabled = false;
-        Avalonia.Controls.ToolTip.SetTip(purchaseEditor, Tr.T("Пока право выдано только владельцу; сотрудникам и администратору не выдаётся.", "Азырынча укук ээсине гана берилген; кызматкерлерге жана администраторго берилбейт.", "For now the right is given only to the owner; it is not given to staff or the administrator.", "Yetki şimdilik yalnızca sahibe verildi; personele ve yöneticiye verilmez.", "Huquq hozircha faqat egasiga berilgan; xodimlar va administratorga berilmaydi."));
-        panel.Children.Add(purchaseEditor);
+        // 2026-11-01 (ответ Умара): право «Редактор документов закупок» (can_edit_purchase_documents) выдают и снимают владелец ИЛИ администратор — строка в блоке «Редактирование и зарплата» ниже
+        // (показывается, когда сервер вернул поле; у владельца и администратора право есть всегда).
 
         panel.Children.Add(GroupHeader(Tr.T("Дополнительные услуги", "Кошумча кызматтар", "Add-on services", "Ek hizmetler", "Qo'shimcha xizmatlar")));
         panel.Children.Add(Row(boxes.MarketLabel, boxes.MarketScales, boxes.Whatsapp, boxes.Telegram, boxes.Instagram, boxes.Documents));
@@ -116,6 +113,7 @@ internal static class EmployeeAccessChecklist
             ("edit_procurement", Tr.T("Закупки: редактирование", "Сатып алуулар: түзөтүү", "Purchasing: edit", "Satın alma: düzenleme", "Xaridlar: tahrirlash"), flags.CanEditProcurement),
             ("edit_documents", Tr.T("Документы: редактирование", "Документтер: түзөтүү", "Documents: edit", "Belgeler: düzenleme", "Hujjatlar: tahrirlash"), flags.CanEditDocuments),
             ("view_debts", Tr.T("Долги: просмотр", "Карыздар: көрүү", "Debts: view", "Borçlar: görüntüleme", "Qarzlar: ko'rish"), flags.CanViewDebts),
+            ("edit_purchase_documents", Tr.T("Редактор документов закупок (правка накладных)", "Сатып алуу документтеринин редактору (накладнойлорду оңдоо)", "Purchase documents editor (invoice edits)", "Alım belgeleri düzenleyicisi (fatura düzenleme)", "Xarid hujjatlari muharriri (yuk xatlarini tahrirlash)"), flags.CanEditPurchaseDocuments),
         };
         var extraBoxes = extra.Where(e => e.Value.HasValue).ToList();
         if (extraBoxes.Count > 0)
@@ -155,6 +153,7 @@ internal static class EmployeeAccessChecklist
         CanEditProcurement = ReadExtra(b, "edit_procurement"),
         CanEditDocuments = ReadExtra(b, "edit_documents"),
         CanViewDebts = ReadExtra(b, "view_debts"),
+        CanEditPurchaseDocuments = ReadExtra(b, "edit_purchase_documents"),
         CanViewCashbox = b.Cashbox.IsChecked == true,
         CanViewAnalytics = b.Analytics.IsChecked == true,
         CanViewProducts = b.Products.IsChecked == true,

@@ -1610,7 +1610,7 @@ public sealed class DatabaseService
     }
 
     /// <summary>2026-11-01 (code-review, Ж-01): сумма событий смены видов <paramref name="kinds"/> с этим примечанием (имя клиента у оплат долга) за всё время.</summary>
-    public double SumShiftEventsByNote(string[] kinds, string note)
+    public double SumShiftEventsByNote(string[] kinds, string note, DateTime? sinceUtc = null)
     {
         _dbLock.EnterReadLock();
         try
@@ -1623,8 +1623,12 @@ public sealed class DatabaseService
                 names.Add("$k" + i);
                 command.Parameters.AddWithValue("$k" + i, kinds[i]);
             }
-            command.CommandText = $"SELECT COALESCE(SUM(amount), 0) FROM ShiftEvents WHERE kind IN ({string.Join(",", names)}) AND note = $note;";
+            // 2026-11-01 (приёмка 1.17.72, С-2): только события не раньше sinceUtc (дата продажи чека) — оплаты старых долгов клиента к этому чеку не относятся.
+            command.CommandText = $"SELECT COALESCE(SUM(amount), 0) FROM ShiftEvents WHERE kind IN ({string.Join(",", names)}) AND note = $note"
+                                  + (sinceUtc is null ? ";" : " AND created_at >= $since;");
             command.Parameters.AddWithValue("$note", note);
+            if (sinceUtc is { } since)
+                command.Parameters.AddWithValue("$since", since.ToUniversalTime().ToString("O"));
             return Convert.ToDouble(command.ExecuteScalar() ?? 0.0, CultureInfo.InvariantCulture);
         }
         catch (Exception ex)

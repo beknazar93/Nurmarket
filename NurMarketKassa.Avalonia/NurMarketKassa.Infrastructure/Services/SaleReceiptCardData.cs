@@ -221,7 +221,7 @@ public sealed class SaleReceiptCardData
                 }
                 else if (ledger?.DebtDueDate is { } dueDate)
                     d.Payment.Add(new Row(Tr.T("Вернуть до", "Кайтаруу мөөнөтү", "Pay by", "Son ödeme", "Qaytarish muddati"), dueDate.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture), 1));
-                if (Money(sale, "remaining_debt") is { } remaining)
+                if (!CartDisplayHelper.IsSaleFullyReturned(sale) && Money(sale, "remaining_debt") is { } remaining) // 2026-11-01: возвращённый целиком чек — долг 0, сервер оставляет старое число
                 {
                     debtNow = remaining;
                     d.Payment.Add(new Row(Tr.T("Остаток долга сейчас", "Азыркы карыз калдыгы", "Debt balance now", "Şu anki borç bakiyesi", "Hozirgi qarz qoldig'i"), Fmt(remaining), 1));

@@ -66,15 +66,8 @@ public static class ReceiptEditPolicy
             return new ReceiptEditAccess(false, ReceiptEditDenied.InQueue, null, null);
         if (fullyReturned)
             return new ReceiptEditAccess(false, ReceiptEditDenied.FullyReturned, null, null);
-        if (Length(window) is not { } len)
-            return new ReceiptEditAccess(true, ReceiptEditDenied.None, null, null);
-        if (receiptAt is not { } at)
-            return new ReceiptEditAccess(false, ReceiptEditDenied.NoDate, null, null);
-        var until = at + len;
-        var left = until - now;
-        return left > TimeSpan.Zero
-            ? new ReceiptEditAccess(true, ReceiptEditDenied.None, left, until)
-            : new ReceiptEditAccess(false, ReceiptEditDenied.Expired, null, until);
+        // 2026-11-01 (ответ Умара: срока правки больше нет, edit_window = always): окна времени не проверяем — параметры window / receiptAt / now оставлены для совместимости.
+        return new ReceiptEditAccess(true, ReceiptEditDenied.None, null, null);
     }
 
     /// <summary>«13 ч 20 мин» / «45 мин» / «меньше минуты».</summary>
@@ -92,14 +85,10 @@ public static class ReceiptEditPolicy
 
     public static string DeniedText(ReceiptEditAccess a) => a.Reason switch
     {
-        ReceiptEditDenied.Expired => Tr.T($"Время правки истекло {a.Until:dd.MM в HH:mm}", $"Оңдоо убактысы өттү {a.Until:dd.MM HH:mm}", $"The edit window ended {a.Until:dd.MM at HH:mm}",
-            $"Düzenleme süresi doldu {a.Until:dd.MM HH:mm}", $"Tahrirlash vaqti tugadi {a.Until:dd.MM HH:mm}"),
         ReceiptEditDenied.InQueue => Tr.T("Приход ещё отправляется — правьте его в очереди", "Кирүү дагы жөнөтүлүүдө — кезекте оңдоңуз", "The receipt is still being sent — edit it in the queue",
             "Giriş hâlâ gönderiliyor — kuyrukta düzenleyin", "Kirim hali yuborilmoqda — navbatda tahrirlang"),
         ReceiptEditDenied.FullyReturned => Tr.T("Приход полностью возвращён поставщику", "Кирүү толугу менен жеткирүүчүгө кайтарылды", "The receipt was fully returned to the supplier",
             "Giriş tamamen tedarikçiye iade edildi", "Kirim to'liq yetkazib beruvchiga qaytarilgan"),
-        ReceiptEditDenied.NoDate => Tr.T("У прихода нет даты — окно правки не определить", "Кирүүнүн күнү жок — оңдоо мөөнөтүн аныктоого болбойт", "The receipt has no date — the edit window can't be determined",
-            "Girişin tarihi yok — düzenleme süresi belirlenemiyor", "Kirimning sanasi yo'q — tahrirlash muddatini aniqlab bo'lmaydi"),
         // 2026-11-01: право у владельца и администратора.
         ReceiptEditDenied.NotOwner => Tr.T("Правка накладных — только у владельца и администратора", "Накладнойлорду оңдоо — ээсинде жана администраторде гана", "Only the owner and the administrator can edit invoices", "Faturaları yalnızca sahip ve yönetici düzenleyebilir", "Yuk xatlarini faqat egasi va administrator tahrirlay oladi"),
         _ => "",

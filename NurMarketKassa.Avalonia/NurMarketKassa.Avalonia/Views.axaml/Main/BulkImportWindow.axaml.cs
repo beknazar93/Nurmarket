@@ -344,6 +344,7 @@ public partial class BulkImportWindow : Window
                 // живого товара. Для нового товара разницы нет — сервер подставит свой ноль.
                 Quantity = row.Source.Quantity ?? 0,
                 SendQuantity = row.Source.Quantity.HasValue,
+                SendAlternateBarcodes = row.ExistingProductId is null, // 2026-11-01: у существующего товара доп. штрихкоды (с остатками) не перезаписываем
                 PurchasePrice = row.Source.PurchasePrice,
                 SendPurchasePrice = row.Source.PurchasePrice.HasValue,
                 MarkupPercent = row.Source.MarkupPercent,

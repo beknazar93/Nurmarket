@@ -364,6 +364,22 @@ public sealed class CatalogFeedSync
 
     private static readonly string[] NameKeys = ["name", "title", "display_name", "label"];
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> StockSkipLogged = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>2026-11-01 (расследование «остаток не меняется», п. 6): остаток товара из ленты не применён (защита: очередь неотправленных чеков / недавняя продажа) —
+    /// строка в журнале, не чаще одного раза в минуту на товар.</summary>
+    private static void NoteStockSkipped(string id)
+    {
+        StockSyncService.ScheduleStockReread(id, FeedStockGuard.LocalTouchWindow + TimeSpan.FromSeconds(5)); // 2026-11-01 (приёмка С-4/С-5): пропущенное изменение остатка перечитаем, когда защита снимется
+        var now = Environment.TickCount64;
+        if (StockSkipLogged.TryGetValue(id, out var last) && now - last < 60_000)
+            return;
+        StockSkipLogged[id] = now;
+        if (StockSkipLogged.Count > 2000)
+            StockSkipLogged.Clear();
+        PosLogger.Log($"STOCK: лента: остаток товара {id} не применён (защита: очередь/недавняя продажа).", "STOCK");
+    }
+
     /// <summary>Применить страницу ленты к локальной базе. Карточка товара (есть название) — как при полной загрузке; без названия — только
     /// присланные поля (цена, закупка, опт, остаток) поверх записи из базы. Товар, которого нет локально и карточки нет, — просьба о полной загрузке.</summary>
     /// <param name="allowStockFor">2026-10-29: решение по товару (id → можно ли применить остаток из ленты); null — решает только allowStock.</param>
@@ -378,6 +394,8 @@ public sealed class CatalogFeedSync
             if (string.IsNullOrEmpty(id))
                 continue;
             var stockOk = allowStock && (allowStockFor?.Invoke(id) ?? true);
+            if (!stockOk)
+                NoteStockSkipped(id); // 2026-11-01 (расследование «остаток не меняется», п. 6): диагностика
             if (HasName(item))
             {
                 var tile = ProductCatalogMapper.TryTile(item, apiBaseUrl);

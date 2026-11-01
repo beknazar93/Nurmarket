@@ -153,9 +153,24 @@ public sealed partial class InvoiceDocumentWindow : Window
             };
             if (!double.IsNaN(stock))
                 row.Stock = stock;
+            row.SetEdits(ReceiptEditLineHistory.For(history, l.Id, l.ProductId, _r.Lines.Count(x => string.Equals(x.ProductId, l.ProductId, StringComparison.OrdinalIgnoreCase)) > 1)); // 2026-11-01: отметка «✎ кто, когда» рядом с товаром
+            row.IsRemoved = effective <= 0.0005 && row.LineEdits.Any(e => e.Field == "removed");
             row.QtyEdited += OnQtyEdited;
             row.PriceEdited += _ => Recalc();
             _rows.Add(row);
+        }
+        // 2026-11-01: товары, добавленные дополнительным приходом к этой накладной (строки в самом приходе нет) — показываем отдельными строками с пометкой.
+        foreach (var g in history.Addenda.Where(a => !_r.Lines.Any(l => string.Equals(l.ProductId, a.ProductId, StringComparison.OrdinalIgnoreCase))).GroupBy(a => a.ProductId, StringComparer.OrdinalIgnoreCase))
+        {
+            var step = history.Edits.SelectMany(e => e.Steps).Where(s => s.Kind == "addendum").SelectMany(s => s.Items).FirstOrDefault(i => string.Equals(i.ProductId, g.Key, StringComparison.OrdinalIgnoreCase));
+            var extra = new InvoiceRow(g.Sum(a => a.Remaining), 0)
+            {
+                No = _rows.Count + 1, LineId = "new:" + g.Key, ProductId = g.Key, Name = step?.Name is { Length: > 0 } nm ? nm : g.Key, Unit = step?.Unit is { Length: > 0 } un ? un : "шт",
+                Purchase = _showMoney ? step?.Price ?? 0 : 0, ReadOnlyRow = true,
+            };
+            extra.SetEdits(ReceiptEditLineHistory.For(history, extra.LineId, g.Key));
+            extra.PriceEdited += _ => Recalc();
+            _rows.Add(extra);
         }
     }
 
@@ -295,14 +310,14 @@ public sealed partial class InvoiceDocumentWindow : Window
         }
         // 2026-11-01: PATCH прихода у сервера нет — поставщик, дата, оплата, закупка, скидка, НДС, комментарий выключены с подсказкой «Требует серверной поддержки».
         var soon = ReceiptEditService.NeedsServerText;
-        Item(T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"), _r.SupplierName.Length > 0 ? _r.SupplierName : "—", _edit ? soon : null, grey: _edit);
+        Item(T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"), _r.SupplierName.Length > 0 ? _r.SupplierName : "—", _edit && !_patchMode ? soon : null, grey: _edit && !_patchMode);
         if (PurchaseNumberUi.SupplierDocText(_r.SupplierDocNumber, _r.SupplierDocDate).Length > 0)
             Item(T("№ накладной поставщика", "Жеткирүүчүнүн накладной №", "Supplier invoice no.", "Tedarikçi irsaliye no.", "Yetkazuvchi yuk xati №"),
                 _r.SupplierDocNumber + (_r.SupplierDocDate is { } sd ? " · " + sd.ToString("dd.MM.yyyy", Ru) : ""));
         Item(T("Принял", "Кабыл алды", "Received by", "Kabul eden", "Qabul qildi"), _r.CreatedBy.Length > 0 ? _r.CreatedBy : "—");
-        Item(T("Дата", "Күнү", "Date", "Tarih", "Sana"), _r.CreatedAt?.ToString("dd.MM.yyyy HH:mm", Ru) ?? "—", _edit ? soon : null, grey: _edit);
+        Item(T("Дата", "Күнү", "Date", "Tarih", "Sana"), _r.CreatedAt?.ToString("dd.MM.yyyy HH:mm", Ru) ?? "—", _edit ? soon : null, grey: _edit); // дата проведения (created_at) сервер не меняет
         if (_showMoney)
-            Item(T("Оплата", "Төлөм", "Payment", "Ödeme", "To'lov"), PayText(), _edit ? soon : null, grey: _edit);
+            Item(T("Оплата", "Төлөм", "Payment", "Ödeme", "To'lov"), PayText(), _edit && !_patchMode ? soon : null, grey: _edit && !_patchMode);
         if (_r.ReturnedAmount > 0.005)
             Item(T("Возвращено", "Кайтарылды", "Returned", "İade edilen", "Qaytarildi"), MoneyText.Som(_r.ReturnedAmount));
         return wrap;
@@ -452,13 +467,6 @@ public sealed partial class InvoiceDocumentWindow : Window
         string brush = "BrushTextSoft";
         if (_access.Allowed)
         {
-            if (_access.Remaining is { } left)
-            {
-                text = "⏱ " + T($"Можно править ещё {ReceiptEditPolicy.RemainingText(left)}", $"Дагы {ReceiptEditPolicy.RemainingText(left)} оңдоого болот", $"Editable for {ReceiptEditPolicy.RemainingText(left)} more",
-                    $"{ReceiptEditPolicy.RemainingText(left)} daha düzenlenebilir", $"Yana {ReceiptEditPolicy.RemainingText(left)} tahrirlash mumkin");
-                brush = left < TimeSpan.FromHours(1) ? "BrushWarning" : "BrushSuccess";
-            }
-            else
             {
                 // 2026-11-01: срока правки больше нет, зато каждая правка пишется в журнал (кто, когда, было → стало, причина).
                 text = T("Правка всегда открыта · каждое изменение записывается в журнал", "Оңдоо дайыма ачык · ар бир өзгөртүү журналга жазылат", "Editing is always open · every change is logged", "Düzenleme her zaman açık · her değişiklik günlüğe yazılır", "Tahrirlash doim ochiq · har bir o'zgarish jurnalga yoziladi");
@@ -524,10 +532,7 @@ public sealed partial class InvoiceDocumentWindow : Window
                 "An edit was queued without a connection. Press “Edit” and confirm it with your password — the receipt is checked against the server before sending.",
                 "Bağlantısız kuyruğa alınmış bir düzenleme var. «Düzenle»ye basıp parolayla onaylayın — göndermeden önce giriş sunucuyla karşılaştırılır.",
                 "Aloqasiz navbatga qo'yilgan tahrir bor. «O'zgartirish»ni bosib parol bilan tasdiqlang — yuborishdan oldin kirim server bilan solishtiriladi.");
-        else if (_edit && _access.Remaining is { } left && left < TimeSpan.FromHours(1))
-            text = T($"Осталось {ReceiptEditPolicy.RemainingText(left)} — после этого проверить и сохранить правку будет нельзя.", $"{ReceiptEditPolicy.RemainingText(left)} калды — андан кийин оңдоону сактоого болбойт.",
-                $"{ReceiptEditPolicy.RemainingText(left)} left — after that the edit can't be saved.", $"{ReceiptEditPolicy.RemainingText(left)} kaldı — sonra düzenleme kaydedilemez.", $"{ReceiptEditPolicy.RemainingText(left)} qoldi — undan keyin tahrirni saqlab bo'lmaydi.");
-        else if (_edit && !_access.Allowed)
+        else if (_edit && !_access.Allowed) // 2026-11-01: срока правки нет; осталось только «в очереди» / «возвращён целиком» / нет права
             text = ReceiptEditPolicy.DeniedText(_access);
         else if (_notice is { Length: > 0 })
             text = _notice;
@@ -565,6 +570,23 @@ public sealed partial class InvoiceDocumentWindow : Window
             var cancel = Outline(T("Отменить правки", "Оңдоолорду жокко чыгаруу", "Discard edits", "Düzenlemeleri iptal et", "Tahrirlarni bekor qilish"), () => CancelEdit());
             Add(close);
             Add(cancel);
+            // 2026-11-01: «+ Добавить товар» — дополнительный приход к накладной (PATCH прихода у сервера нет); без связи кнопка выключена с подсказкой.
+            var addItem = Outline(T("＋ Добавить товар", "＋ Товар кошуу", "＋ Add product", "＋ Ürün ekle", "＋ Mahsulot qo'shish"), () => _ = AddItemAsync());
+            var offline = OfflineModeHelper.UseLocalOperations;
+            addItem.IsEnabled = !offline;
+            ToolTip.SetTip(addItem, offline
+                ? T("Без связи добавить товар нельзя: дополнительный приход создаётся на сервере.", "Байланышсыз товар кошууга болбойт: кошумча кирүү серверде түзүлөт.", "A product can't be added offline: the additional receipt is created on the server.", "Bağlantısız ürün eklenemez: ek giriş sunucuda oluşturulur.", "Aloqasiz mahsulot qo'shib bo'lmaydi: qo'shimcha kirim serverda yaratiladi.")
+                : _patchMode ? T("Товар будет добавлен в эту накладную отдельной строкой.", "Товар ушул накладнойго өзүнчө сап болуп кошулат.", "The product will be added to this invoice as a separate line.", "Ürün bu faturaya ayrı bir satır olarak eklenir.", "Mahsulot shu yuk xatiga alohida qator bo'lib qo'shiladi.")
+                : T("Будет создан дополнительный приход к этой накладной (тот же поставщик).", "Ушул накладнойго кошумча кирүү түзүлөт (ошол эле жеткирүүчү).", "An additional receipt will be created for this invoice (same supplier).", "Bu faturaya ek giriş oluşturulur (aynı tedarikçi).", "Shu yuk xatiga qo'shimcha kirim yaratiladi (o'sha yetkazib beruvchi)."));
+            Add(addItem);
+            if (_patchMode)
+            {
+                // 2026-11-01: реквизиты накладной (поставщик, номер, дата, комментарий, оплата, скидка) правятся серверным PATCH
+                var header = Outline(T("Реквизиты…", "Реквизиттер…", "Details…", "Bilgiler…", "Rekvizitlar…"), () => _ = EditHeaderAsync());
+                header.IsEnabled = !offline;
+                ToolTip.SetTip(header, T("Поставщик, номер и дата накладной поставщика, комментарий, оплата, скидка.", "Жеткирүүчү, накладной номери жана күнү, комментарий, төлөм, арзандатуу.", "Supplier, supplier invoice number and date, comment, payment, discount.", "Tedarikçi, fatura numarası ve tarihi, yorum, ödeme, indirim.", "Yetkazib beruvchi, yuk xati raqami va sanasi, izoh, to'lov, chegirma."));
+                Add(header);
+            }
             Add(Outline(T("История версий", "Версиялар тарыхы", "Version history", "Sürüm geçmişi", "Versiyalar tarixi"), () => _ = ShowHistoryAsync()));
             var check = SectionCards.Primary(T("Проверить →", "Текшерүү →", "Review →", "Gözden geçir →", "Tekshirish →"));
             check.IsEnabled = _access.Allowed;
@@ -622,7 +644,7 @@ public sealed partial class InvoiceDocumentWindow : Window
 
     private ClientDocRenderer.Input BuildDoc(bool withMarkup)
     {
-        var lines = _rows.Where(x => x.Qty > 0).Select(x => new PurchaseDocs.DocLine(x.Name, x.Unit, x.Qty, x.Purchase,
+        var lines = _rows.Where(x => x.Qty > 0).Select(x => new PurchaseDocs.DocLine(x.Name + (x.HasMark ? "  " + x.MarkText : ""), x.Unit, /* 2026-11-01: отметка последней правки позиции — и в печатной копии */ x.Qty, x.Purchase,
             withMarkup && _showMoney && x.Sale > 0 ? PurchaseDocs.MarkupSuffix(new MarkupView(InvoiceMath.MarkupFromSale(x.Purchase, x.Sale), x.Sale, InvoiceMath.ProfitPerUnit(x.Purchase, x.Sale), x.SaleEstimated, false, false)) : null)).ToList();
         var supplierDoc = PurchaseNumberUi.SupplierDocText(_r.SupplierDocNumber, _r.SupplierDocDate);
         var totals = withMarkup && _showMoney ? (MarkupTotals?)ReceiptMarkupLog.Totals(_rows.Where(x => x.Qty > 0).Select(x => (x.Qty, x.Purchase, new MarkupView(InvoiceMath.MarkupFromSale(x.Purchase, x.Sale), x.Sale, 0, x.SaleEstimated, false, false)))) : null;

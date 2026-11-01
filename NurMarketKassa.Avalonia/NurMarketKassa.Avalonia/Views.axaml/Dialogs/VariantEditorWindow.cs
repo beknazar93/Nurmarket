@@ -324,6 +324,7 @@ public sealed class VariantEditorWindow : Window
                     Color = color,
                     Price = price,
                     Quantity = qty,
+                    SendQuantity = row.Source.Id == null || Math.Abs(row.Source.Quantity - qty) >= 0.0005, // 2026-11-01: остаток шлём, только если его меняли
                     Barcode = string.IsNullOrWhiteSpace(row.Barcode.Text) ? null : row.Barcode.Text.Trim(),
                     IsActive = row.Active.IsChecked == true,
                 };

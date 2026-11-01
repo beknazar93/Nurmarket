@@ -13,6 +13,15 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Смена: сумма открытия не теряется, если сервер отвечает медленно; если смена уже открыта, появляется понятное окно «Смена уже открыта»",
+        "При открытии «Остаток по системе» подставляется из последней закрытой смены; после закрытия шапка показывает пересчитанную сумму; пока остаток загружается, виден индикатор",
+        "Остаток товара после продажи больше не затирается: ни правкой карточки, ни импортом, ни размерами, ни перечитыванием с сервера, ни устаревшим ответом",
+        "Округление чека как на сервере: строки не округляются, итог округляется один раз",
+        "Возврат: сумма выдачи берётся из ответа сервера, «К выдаче (ожидаемо)» показывается до проведения, повторный возврат блокируется",
+        "Накладная: правка идёт через сервер (все поля, добавление и удаление позиций, администратору тоже); журнал правок и отметка «кто и когда» у позиции; срока правки нет",
+        "Редактор сайта: Telegram-кнопки и «Помощник магазина» (ключ Gemini); чип «Откуда заказ»",
+        "Настройки: верхние кнопки и вкладки обновлены, принтер этикеток можно сбросить, язык переключается в открытых настройках",
+        "Штрихкод, отсканированный в поле количества, не портит число; в «Возвратах» есть столбец «Время»",
         "Возврат чека «в долг» после частичной оплаты выдаёт правильную сумму: перед возвратом касса показывает «К выдаче (ожидаемо)»; если сервер отказал («возврат больше положенного»), деньги не считаются выданными",
         "Повторный возврат того же чека блокируется сразу; причина возврата доходит до сервера и видна владельцу; обмен чека «в долг» защищён от ошибок в суммах",
         "Смена, открытая без связи, не теряется после возвращения связи",
@@ -97,6 +106,15 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Смена: ачылыш суммасы сервер жай болгондо жоголбойт; смена мурунтан эле ачык болсо, «Смена мурунтан эле ачык» деген түшүнүктүү терезе чыгат",
+        "Ачууда «Система боюнча калдык» акыркы жабылган сменадан коюлат; жапкандан кийин баш жагы кайра эсептелген сумманы көрсөтөт; калдык жүктөлүп жатканда жүктөө көрсөткүчү көрүнөт",
+        "Сатуудан кийин товардын калдыгы мындан ары өчүрүлбөйт: карточканы оңдоо, импорт, өлчөмдөр, серверден кайра окуу жана эскирген жооп аны бузбайт",
+        "Чектин тегиздөөсү сервердегидей: саптар тегизделбейт, жыйынтык бир жолу тегизделет",
+        "Кайтаруу: берилүүчү сумма серверден келген жооптон алынат, «Берүүгө (күтүлүүдө)» өткөрүүгө чейин көрсөтүлөт, кайталап кайтарууга тыюу салынат",
+        "Накладной: оңдоо сервер аркылуу өтөт (бардык талаалар, позицияларды кошуу жана өчүрүү, администратор үчүн да); оңдоолор журналы жана позицияда «ким жана качан» белгиси бар; оңдоого мөөнөт жок",
+        "Сайт редактору: Telegram баскычтары жана «Дүкөн жардамчысы» (Gemini ачкычы); «Заказ кайдан» чипи",
+        "Жөндөөлөр: жогорку баскычтар жана өтмөктөр жаңыланды, энбелги принтерин кайра баштапкы абалга келтирүүгө болот, ачык жөндөөлөрдө тил которулат",
+        "Сан талаасына сканерленген штрих-код санды бузбайт; «Кайтаруулар» терезесинде «Убакыт» тилкеси бар",
         "«Карызга» чекти жарым-жартылай төлөгөндөн кийин кайтаруу так сумманы берет: кайтаруунун алдында касса «Берүүгө (күтүлүүдө)» сумманы көрсөтөт; сервер четке какса («кайтаруу тийиштүүдөн ашык»), акча берилди деп эсептелбейт",
         "Бир эле чекти кайра кайтарууга дароо тыюу салынат; кайтаруунун себеби серверге жетет жана ээси көрөт; «карызга» чекти алмаштыруу сумма каталарынан корголгон",
         "Байланышсыз ачылган смена байланыш калыбына келгенден кийин жоголбойт",
@@ -181,6 +199,15 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Shift: the opening amount is not lost when the server is slow; if a shift is already open you see a clear “A shift is already open” window",
+        "At opening the “System balance” is filled in from the last closed shift; after closing, the header shows the recalculated amount; a loading indicator shows while the balance loads",
+        "A product's stock after a sale is no longer overwritten: not by editing the card, an import, sizes, re-reading from the server or a stale server answer",
+        "Receipt rounding as on the server: lines are not rounded, the total is rounded once",
+        "Returns: the payout comes from the server's answer, “To pay out (expected)” is shown before posting, and a repeat return is blocked",
+        "Invoice: editing goes through the server (all fields, adding and removing items, administrators too); an edit log and a “who and when” mark on each item; there is no time limit for editing",
+        "Site editor: Telegram buttons and the “Store assistant” (Gemini key); an “Order source” chip",
+        "Settings: the top buttons and tabs are refreshed, the label printer can be reset, the language switches in open settings",
+        "A barcode scanned into the quantity field does not spoil the number; a “Time” column in “Returns”",
         "Returning an “on credit” receipt after a partial payment gives the right amount: before the return the till shows “To pay out (expected)”; if the server refuses (“return exceeds what is due”), the money is not counted as paid out",
         "A repeat return of the same receipt is blocked at once; the return reason reaches the server and the owner can see it; exchanging an “on credit” receipt is protected against amount errors",
         "A shift opened without a connection is no longer lost when the connection returns",
@@ -265,6 +292,15 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Vardiya: açılış tutarı sunucu yavaşken kaybolmaz; vardiya zaten açıksa anlaşılır bir «Vardiya zaten açık» penceresi çıkar",
+        "Açılışta «Sistem bakiyesi» son kapatılan vardiyadan doldurulur; kapattıktan sonra başlık yeniden hesaplanan tutarı gösterir; bakiye yüklenirken yükleme göstergesi görünür",
+        "Satıştan sonra ürün stoku artık ezilmez: ne kart düzenlemesi, ne içe aktarma, ne bedenler, ne sunucudan yeniden okuma, ne de eski bir yanıt bozar",
+        "Fiş yuvarlaması sunucudaki gibi: satırlar yuvarlanmaz, toplam bir kez yuvarlanır",
+        "İade: ödenecek tutar sunucu yanıtından alınır, «Verilecek (beklenen)» işlemeden önce gösterilir, tekrar iade engellenir",
+        "İrsaliye: düzenleme sunucu üzerinden geçer (tüm alanlar, kalem ekleme ve silme, yöneticiler için de); düzenleme günlüğü ve her kalemde «kim ve ne zaman» işareti; düzenleme için süre sınırı yok",
+        "Site düzenleyici: Telegram düğmeleri ve «Mağaza yardımcısı» (Gemini anahtarı); «Sipariş nereden» etiketi",
+        "Ayarlar: üst düğmeler ve sekmeler yenilendi, etiket yazıcısı sıfırlanabilir, dil açık ayarlarda değişir",
+        "Miktar alanına okutulan barkod sayıyı bozmaz; «İadeler» penceresinde «Saat» sütunu",
         "Kısmi ödemeden sonra «veresiye» fişin iadesi doğru tutarı verir: iadeden önce kasa «Verilecek (beklenen)» tutarı gösterir; sunucu reddederse («iade, hak edilenden fazla»), para verilmiş sayılmaz",
         "Aynı fişin tekrar iadesi hemen engellenir; iade nedeni sunucuya ulaşır ve sahip tarafından görülür; «veresiye» fişin değişimi tutar hatalarına karşı korunur",
         "Bağlantısız açılan vardiya, bağlantı geri geldikten sonra kaybolmaz",
@@ -349,6 +385,15 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Smena: ochilish summasi server sekin bo'lganda yo'qolmaydi; smena allaqachon ochiq bo'lsa, tushunarli «Smena allaqachon ochiq» oynasi chiqadi",
+        "Ochishda «Tizim bo'yicha qoldiq» oxirgi yopilgan smenadan qo'yiladi; yopgandan keyin sarlavha qayta hisoblangan summani ko'rsatadi; qoldiq yuklanayotganda yuklash ko'rsatkichi ko'rinadi",
+        "Sotuvdan keyin mahsulot qoldig'i endi o'chib ketmaydi: kartani tahrirlash, import, o'lchamlar, serverdan qayta o'qish va eskirgan javob uni buzmaydi",
+        "Chekni yaxlitlash serverdagidek: qatorlar yaxlitlanmaydi, jami bir marta yaxlitlanadi",
+        "Qaytarish: beriladigan summa server javobidan olinadi, «Berish (kutilmoqda)» o'tkazishdan oldin ko'rsatiladi, takroriy qaytarish bloklanadi",
+        "Yuk xati: tahrirlash server orqali o'tadi (barcha maydonlar, pozitsiya qo'shish va o'chirish, administrator uchun ham); tahrirlar jurnali va pozitsiyada «kim va qachon» belgisi; tahrirlash muddati yo'q",
+        "Sayt muharriri: Telegram tugmalari va «Do'kon yordamchisi» (Gemini kaliti); «Buyurtma qayerdan» belgisi",
+        "Sozlamalar: yuqori tugmalar va yorliqlar yangilandi, yorliq printerini tashlash mumkin, ochiq sozlamalarda til almashadi",
+        "Miqdor maydoniga skanerlangan shtrix-kod sonni buzmaydi; «Qaytarishlar» oynasida «Vaqt» ustuni",
         "Qisman to'lovdan keyin «nasiya» chekni qaytarish to'g'ri summani beradi: qaytarishdan oldin kassa «Berish (kutilmoqda)» ni ko'rsatadi; server rad etsa («qaytarish tegishlidan ortiq»), pul berilgan deb hisoblanmaydi",
         "Bir xil chekni qayta qaytarish darhol bloklanadi; qaytarish sababi serverga yetadi va egasi ko'radi; «nasiya» chekni almashtirish summa xatolaridan himoyalangan",
         "Aloqasiz ochilgan smena aloqa qaytgandan keyin yo'qolmaydi",
@@ -442,6 +487,7 @@ public static class AppChangelog
     // 2026-10-31: 1.17.68 + «Программа владельца: закрытые окна не остаются в памяти» (стресс-тест Продажи/Клиенты) первым пунктом всех Latest* (Windows).
     // 2026-10-30: 1.17.68 + «Сводка владельца: гонка периодов, ABC без подвисания, симулятор окупаемости» первым пунктом Latest* (стресс-тест «Отчёты и Сайт»).
     // 2026-10-30: 1.17.68 — Latest* (только Windows): сверху добавлены «Оплата долга не «зависает»» (полоса и секунды, запись после оплаты вне UI-потока) и «Приём товара: поля строки на одной линии».
+    // 2026-11-01: 1.17.72 — сверху добавлены изменения этой версии (смена и остаток, округление чека, возврат, правка накладной, редактор сайта, настройки); пункты 1.17.71 и старше сохранены ниже (список накопительный). Android: без редактора сайта.
     // 2026-11-01: 1.17.71 — в списки Latest*/AndroidLatest* сверху добавлены изменения этой версии (деньги и возвраты, смены и офлайн, скорость, товары и склад, печать, дизайн); 12 новых пунктов 1.17.71 стоят сверху, пункты 1.17.70 и старше сохранены ниже (решение владельца: список накопительный).
     // 2026-10-30: 1.17.67 — Latest*/AndroidLatest*: пункты 1.17.66 сохранены, сверху добавлены Склад (сортировка), окна и окно оплаты, правка накладной, деньги и синхронизация, Нур Советник.
     // 2026-10-30: 1.17.66 — Latest*/AndroidLatest*: пункты 1.17.65 сохранены, сверху добавлены закупки ПР-, накладная прихода, реестр, Советник, каталог 15 тыс.
@@ -465,6 +511,14 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Смена: сумма открытия не теряется, если сервер отвечает медленно; если смена уже открыта, появляется понятное окно «Смена уже открыта»",
+        "При открытии «Остаток по системе» подставляется из последней закрытой смены; после закрытия шапка показывает пересчитанную сумму; пока остаток загружается, виден индикатор",
+        "Остаток товара после продажи больше не затирается: ни правкой карточки, ни импортом, ни размерами, ни перечитыванием с сервера, ни устаревшим ответом",
+        "Округление чека как на сервере: строки не округляются, итог округляется один раз",
+        "Возврат: сумма выдачи берётся из ответа сервера, «К выдаче (ожидаемо)» показывается до проведения, повторный возврат блокируется",
+        "Накладная: правка идёт через сервер (все поля, добавление и удаление позиций, администратору тоже); журнал правок и отметка «кто и когда» у позиции; срока правки нет",
+        "Настройки: принтер этикеток можно сбросить, язык переключается в открытых настройках",
+        "Штрихкод, отсканированный в поле количества, не портит число; в «Возвратах» есть столбец «Время»",
         "Возврат чека «в долг» после частичной оплаты выдаёт правильную сумму: перед возвратом касса показывает «К выдаче (ожидаемо)»; если сервер отказал («возврат больше положенного»), деньги не считаются выданными",
         "Повторный возврат того же чека блокируется сразу; причина возврата доходит до сервера и видна владельцу; обмен чека «в долг» защищён от ошибок в суммах",
         "Смена, открытая без связи, не теряется после возвращения связи",
@@ -524,6 +578,14 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Смена: ачылыш суммасы сервер жай болгондо жоголбойт; смена мурунтан эле ачык болсо, «Смена мурунтан эле ачык» деген түшүнүктүү терезе чыгат",
+        "Ачууда «Система боюнча калдык» акыркы жабылган сменадан коюлат; жапкандан кийин баш жагы кайра эсептелген сумманы көрсөтөт; калдык жүктөлүп жатканда жүктөө көрсөткүчү көрүнөт",
+        "Сатуудан кийин товардын калдыгы мындан ары өчүрүлбөйт: карточканы оңдоо, импорт, өлчөмдөр, серверден кайра окуу жана эскирген жооп аны бузбайт",
+        "Чектин тегиздөөсү сервердегидей: саптар тегизделбейт, жыйынтык бир жолу тегизделет",
+        "Кайтаруу: берилүүчү сумма серверден келген жооптон алынат, «Берүүгө (күтүлүүдө)» өткөрүүгө чейин көрсөтүлөт, кайталап кайтарууга тыюу салынат",
+        "Накладной: оңдоо сервер аркылуу өтөт (бардык талаалар, позицияларды кошуу жана өчүрүү, администратор үчүн да); оңдоолор журналы жана позицияда «ким жана качан» белгиси бар; оңдоого мөөнөт жок",
+        "Жөндөөлөр: энбелги принтерин кайра баштапкы абалга келтирүүгө болот, ачык жөндөөлөрдө тил которулат",
+        "Сан талаасына сканерленген штрих-код санды бузбайт; «Кайтаруулар» терезесинде «Убакыт» тилкеси бар",
         "«Карызга» чекти жарым-жартылай төлөгөндөн кийин кайтаруу так сумманы берет: кайтаруунун алдында касса «Берүүгө (күтүлүүдө)» сумманы көрсөтөт; сервер четке какса («кайтаруу тийиштүүдөн ашык»), акча берилди деп эсептелбейт",
         "Бир эле чекти кайра кайтарууга дароо тыюу салынат; кайтаруунун себеби серверге жетет жана ээси көрөт; «карызга» чекти алмаштыруу сумма каталарынан корголгон",
         "Байланышсыз ачылган смена байланыш калыбына келгенден кийин жоголбойт",
@@ -583,6 +645,14 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Shift: the opening amount is not lost when the server is slow; if a shift is already open you see a clear “A shift is already open” window",
+        "At opening the “System balance” is filled in from the last closed shift; after closing, the header shows the recalculated amount; a loading indicator shows while the balance loads",
+        "A product's stock after a sale is no longer overwritten: not by editing the card, an import, sizes, re-reading from the server or a stale server answer",
+        "Receipt rounding as on the server: lines are not rounded, the total is rounded once",
+        "Returns: the payout comes from the server's answer, “To pay out (expected)” is shown before posting, and a repeat return is blocked",
+        "Invoice: editing goes through the server (all fields, adding and removing items, administrators too); an edit log and a “who and when” mark on each item; there is no time limit for editing",
+        "Settings: the label printer can be reset, the language switches in open settings",
+        "A barcode scanned into the quantity field does not spoil the number; a “Time” column in “Returns”",
         "Returning an “on credit” receipt after a partial payment gives the right amount: before the return the till shows “To pay out (expected)”; if the server refuses (“return exceeds what is due”), the money is not counted as paid out",
         "A repeat return of the same receipt is blocked at once; the return reason reaches the server and the owner can see it; exchanging an “on credit” receipt is protected against amount errors",
         "A shift opened without a connection is no longer lost when the connection returns",
@@ -642,6 +712,14 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Vardiya: açılış tutarı sunucu yavaşken kaybolmaz; vardiya zaten açıksa anlaşılır bir «Vardiya zaten açık» penceresi çıkar",
+        "Açılışta «Sistem bakiyesi» son kapatılan vardiyadan doldurulur; kapattıktan sonra başlık yeniden hesaplanan tutarı gösterir; bakiye yüklenirken yükleme göstergesi görünür",
+        "Satıştan sonra ürün stoku artık ezilmez: ne kart düzenlemesi, ne içe aktarma, ne bedenler, ne sunucudan yeniden okuma, ne de eski bir yanıt bozar",
+        "Fiş yuvarlaması sunucudaki gibi: satırlar yuvarlanmaz, toplam bir kez yuvarlanır",
+        "İade: ödenecek tutar sunucu yanıtından alınır, «Verilecek (beklenen)» işlemeden önce gösterilir, tekrar iade engellenir",
+        "İrsaliye: düzenleme sunucu üzerinden geçer (tüm alanlar, kalem ekleme ve silme, yöneticiler için de); düzenleme günlüğü ve her kalemde «kim ve ne zaman» işareti; düzenleme için süre sınırı yok",
+        "Ayarlar: etiket yazıcısı sıfırlanabilir, dil açık ayarlarda değişir",
+        "Miktar alanına okutulan barkod sayıyı bozmaz; «İadeler» penceresinde «Saat» sütunu",
         "Kısmi ödemeden sonra «veresiye» fişin iadesi doğru tutarı verir: iadeden önce kasa «Verilecek (beklenen)» tutarı gösterir; sunucu reddederse («iade, hak edilenden fazla»), para verilmiş sayılmaz",
         "Aynı fişin tekrar iadesi hemen engellenir; iade nedeni sunucuya ulaşır ve sahip tarafından görülür; «veresiye» fişin değişimi tutar hatalarına karşı korunur",
         "Bağlantısız açılan vardiya, bağlantı geri geldikten sonra kaybolmaz",
@@ -701,6 +779,14 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Smena: ochilish summasi server sekin bo'lganda yo'qolmaydi; smena allaqachon ochiq bo'lsa, tushunarli «Smena allaqachon ochiq» oynasi chiqadi",
+        "Ochishda «Tizim bo'yicha qoldiq» oxirgi yopilgan smenadan qo'yiladi; yopgandan keyin sarlavha qayta hisoblangan summani ko'rsatadi; qoldiq yuklanayotganda yuklash ko'rsatkichi ko'rinadi",
+        "Sotuvdan keyin mahsulot qoldig'i endi o'chib ketmaydi: kartani tahrirlash, import, o'lchamlar, serverdan qayta o'qish va eskirgan javob uni buzmaydi",
+        "Chekni yaxlitlash serverdagidek: qatorlar yaxlitlanmaydi, jami bir marta yaxlitlanadi",
+        "Qaytarish: beriladigan summa server javobidan olinadi, «Berish (kutilmoqda)» o'tkazishdan oldin ko'rsatiladi, takroriy qaytarish bloklanadi",
+        "Yuk xati: tahrirlash server orqali o'tadi (barcha maydonlar, pozitsiya qo'shish va o'chirish, administrator uchun ham); tahrirlar jurnali va pozitsiyada «kim va qachon» belgisi; tahrirlash muddati yo'q",
+        "Sozlamalar: yorliq printerini tashlash mumkin, ochiq sozlamalarda til almashadi",
+        "Miqdor maydoniga skanerlangan shtrix-kod sonni buzmaydi; «Qaytarishlar» oynasida «Vaqt» ustuni",
         "Qisman to'lovdan keyin «nasiya» chekni qaytarish to'g'ri summani beradi: qaytarishdan oldin kassa «Berish (kutilmoqda)» ni ko'rsatadi; server rad etsa («qaytarish tegishlidan ortiq»), pul berilgan deb hisoblanmaydi",
         "Bir xil chekni qayta qaytarish darhol bloklanadi; qaytarish sababi serverga yetadi va egasi ko'radi; «nasiya» chekni almashtirish summa xatolaridan himoyalangan",
         "Aloqasiz ochilgan smena aloqa qaytgandan keyin yo'qolmaydi",

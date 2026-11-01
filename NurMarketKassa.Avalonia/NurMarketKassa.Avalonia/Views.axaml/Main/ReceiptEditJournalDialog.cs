@@ -113,7 +113,9 @@ internal sealed class ReceiptEditJournalDialog : Window
             {
                 var more = new Expander
                 {
-                    Header = T($"Что изменено: {lines.Count} стр.", $"Эмне өзгөрдү: {lines.Count} саптар", $"What changed: {lines.Count} lines", $"Neler değişti: {lines.Count} satır", $"Nima o'zgardi: {lines.Count} qator"),
+                    // 2026-11-01: «Позиция» — названия позиций, затронутых правкой (добавленные, удалённые, с новым количеством или ценой)
+                    Header = T("Позиции: ", "Позициялар: ", "Lines: ", "Satırlar: ", "Pozitsiyalar: ") + string.Join(", ", ReceiptEditAuditLog.FieldChanges(e).Select(f => f.Subject).Distinct().Take(3)) + (ReceiptEditAuditLog.FieldChanges(e).Select(f => f.Subject).Distinct().Count() > 3 ? "…" : "")
+                        + T($" · что изменено: {lines.Count}", $" · эмне өзгөрдү: {lines.Count}", $" · changes: {lines.Count}", $" · değişiklik: {lines.Count}", $" · o'zgarishlar: {lines.Count}"),
                     Content = Line(string.Join("\n", lines), "BrushTextSoft", 12.5), MinHeight = 36, HorizontalAlignment = HorizontalAlignment.Stretch,
                 };
                 card.Children.Add(more);

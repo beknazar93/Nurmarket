@@ -159,7 +159,7 @@
         </Border>
 
         <!-- Фильтр по статусу и время обновления. -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,0,0,10">
             <WrapPanel x:Name="FilterPanel" Orientation="Horizontal">
                 <Button x:Name="FilterAllButton" Classes="period" Tag="all" Click="Filter_Click"/>
                 <Button x:Name="FilterNewButton" Classes="period" Tag="new" Click="Filter_Click"/>
@@ -170,6 +170,8 @@
                 <Ellipse x:Name="LiveDot" Width="8" Height="8" VerticalAlignment="Center" Fill="{DynamicResource BrushSuccess}"/>
                 <TextBlock x:Name="UpdatedText" FontSize="12" VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}"/>
             </StackPanel>
+            <!-- 2026-11-01 (ИИ-3): «Откуда заказ» — чипы источника; строятся в коде, пока сервер не прислал source_detail, панель скрыта. -->
+            <WrapPanel x:Name="OriginPanel" Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" IsVisible="False" Margin="0,6,0,0"/>
         </Grid>
 
         <!-- Список слева, карточка заказа справа. -->

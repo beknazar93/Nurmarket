@@ -798,7 +798,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     private readonly Dictionary<string, string> _saleClientNames = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>2026-11-01 (Ж-08): «к выдаче», показанное кассиру в подтверждении до отправки (чек → сумма). Итоговое окно сверяет с ним фактическую выдачу.</summary>
-    private readonly Dictionary<string, decimal> _expectedPayouts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, decimal?> _expectedPayouts = new(StringComparer.OrdinalIgnoreCase); // null — «сумму определит сервер» (подпись кнопки без суммы)
 
     /// <summary>2026-10-20 (К8): id строки → единиц остатка каталога в одной единице строки.</summary>
     private readonly Dictionary<string, double> _stockUnitsPerQty = new(StringComparer.OrdinalIgnoreCase);
@@ -855,6 +855,12 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         if (string.IsNullOrWhiteSpace(_currentSaleId) || sale.ValueKind != JsonValueKind.Object)
             return;
         var saleId = _currentSaleId;
+        // 2026-11-01 (сверка контракта с NBS, п. 5): чек возвращён целиком — остаток долга по нему 0 (сервер оставляет старое число), «долг по чеку» не берём.
+        if (CartDisplayHelper.IsSaleFullyReturned(sale))
+        {
+            _serverDebtLeft[saleId] = Task.FromResult<decimal?>(0m);
+            return;
+        }
         var method = (_ledger?.Method is { Length: > 0 } known ? known : _currentSaleMethod ?? "").Trim().ToLowerInvariant();
         if (method != "debt" && _ledger is not { Debt: > 0.005m })
         {
@@ -950,6 +956,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         // и суммы строк, как их отдаёт сервер (итог = строки − скидка на чек), а ранее возвращённое оценивается для подсказки.
         _noLedgerPriorReturned = 0m;
         _noLedgerTouched = false;
+        // 2026-11-01 (ответ Умара: в чеке есть return_status): чек возвращён целиком — строки не возвращаются повторно, «Вернуть весь чек» неактивна.
+        var saleFullyReturned = sale.ValueKind == JsonValueKind.Object && sale.TryGetProperty("return_status", out var saleReturnStatus)
+            && saleReturnStatus.ValueKind == JsonValueKind.String
+            && CartDisplayHelper.IsFullyReturnedStatus(saleReturnStatus.GetString())
+            && CartDisplayHelper.EnumerateSaleLineItems(sale).All(it => CartDisplayHelper.RefundableQuantity(it) <= 1e-6); // статус — только вместе с количеством (контрольное ревью)
         var factor = _ledger?.Factor ?? 1m;
         if (_ledger is null)
         {
@@ -975,7 +986,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             var qty = CartDisplayHelper.RefundableQuantity(lineItem);
             // 2026-10-29 (ревью, В-5): возвраты, оформленные без связи и ещё не дошедшие до сервера, вычитаются из «можно вернуть» — сервер их пока не знает.
             qty = Math.Max(0, qty - NurMarketKassa.Services.OfflineOperationsStore.UnsentRefundQuantity(_currentSaleId, CartDisplayHelper.TryProductId(lineItem), CartDisplayHelper.ItemName(lineItem)));
-            var canReturn = qty > 0 && !CartDisplayHelper.LineLooksFullyReturned(lineItem);
+            var canReturn = qty > 0 && !CartDisplayHelper.LineLooksFullyReturned(lineItem) && !saleFullyReturned;
 
             // Сумма к возврату — пропорционально остатку к возврату, а не полная сумма строки:
             // из 5×100 при уже возвращённых 2 к возврату идут 300, а не 500.
@@ -1236,7 +1247,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 Tr.T("Подтверждение возврата", "Кайтарууну ырастоо", "Confirm return", "İadeyi onayla", "Qaytarishni tasdiqlash"),
                 MessageBoxButton.YesNo, MessageBoxImage.Question,
                 // 2026-10-22 (модалки, пакет 1): кнопки — глагол с суммой («Вернуть 1 620,00 сом» / «Отмена») вместо «Продолжить?».
-                confirmText: Tr.T($"Вернуть {totalShown}", $"{totalShown} кайтаруу", $"Refund {totalShown}", $"{totalShown} iade et", $"{totalShown} qaytarish")).ConfigureAwait(true) != MessageBoxResult.Yes)
+                confirmText: ConfirmButtonText(saleId, total, whole: false, totalShown)).ConfigureAwait(true) != MessageBoxResult.Yes)
             return;
 
         // 2026-10-06 (О-31, О-32): срок обмена и товары «без обмена» — в сфере «Одежда».
@@ -1275,7 +1286,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 .Select(r => r.LineId + ":" + r.Quantity.ToString("0.###", CultureInfo.InvariantCulture))));
 
             var cashBefore = await ReadDrawerBeforeRefundAsync().ConfigureAwait(true);
-            await PosRefundService.RefundLinesAsync(
+            var refundResponse = await PosRefundService.RefundLinesAsync(
                 App.SalesApi,
                 saleId,
                 requests,
@@ -1296,7 +1307,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // «Некорректные чеки»); к выдаче — только внесённые деньги (наличными / на карту), долг уменьшается.
             var estimatedTotal = linesSum;
             var outcome = await ResolveRefundAsync(saleId, total, whole: false,
-                selected.Select(l => new SaleLedgerLine { LineId = l.LineId, Name = l.Title, Quantity = l.Quantity, Total = l.RefundSum }).ToList())
+                selected.Select(l => new SaleLedgerLine { LineId = l.LineId, Name = l.Title, Quantity = l.Quantity, Total = l.RefundSum }).ToList(),
+                ServerRefundFigures.TryRead(refundResponse)) // 2026-11-01 (ответ Умара): выдача — из refund.cash
                 .ConfigureAwait(true);
             total = outcome.Amount;
             CheckDrawerAfterRefund(cashBefore, outcome.Cash, "lines|" + returnKey, saleId, outcome.NonCash, outcome.ServerCashOut);
@@ -1509,7 +1521,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// (предоплата + оплаты долга, текущий долг) — кассиру показывается сумма и причина расхождения; null — совпало или сервер не сказал.</param>
     /// <param name="CalcOverServer">2026-11-01 (code-review, Ж-01): расчёт по журналу кассы был выше цифры сервера и не объяснён оплатами на этой кассе — выдана меньшая (сервера), это расчёт кассы.</param>
     private sealed record RefundOutcome(decimal Amount, decimal Cash, decimal NonCash, decimal DebtReduced, bool SplitKnown, bool DebtUnknown = false,
-        decimal ServerOver = 0m, decimal? ServerCashOut = null, decimal? CalcOverServer = null)
+        decimal ServerOver = 0m, decimal? ServerCashOut = null, decimal? CalcOverServer = null, decimal? DebtRemaining = null, decimal Balance = 0m, decimal? ServerRejected = null, decimal? ServerDiffersCalc = null)
     {
         public decimal Money => Cash + NonCash;
 
@@ -1524,7 +1536,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// учтена: 001837 — 80 из 75) — его число кассиру не показываем: журнал (WARNING) и «Некорректные чеки». Деньги:
     /// у продажи «в долг» сначала уменьшается долг, выдаётся только внесённое (если сервер сказал, сколько выдал, — его
     /// цифра); у смешанной — пропорционально тому, что ещё не возвращено наличными и безналом.</summary>
-    private async Task<RefundOutcome> ResolveRefundAsync(string saleId, decimal expected, bool whole, List<SaleLedgerLine> lines)
+    /// <param name="figures">2026-11-01 (ответ Умара, п. 3): цифры из ответа сервера на возврат — выдача наличными в <c>refund.cash</c> (не <c>debt_adjustment.reduced_by</c>, это уменьшение долга).
+    /// Есть <c>refund.cash</c> — сервер называет выдачу, касса ему доверяет (без «Расчёт кассы X, сервер Y» и поправок ящика); нет (старый сервер, ответ не дошёл) — прежний расчёт.</param>
+    private async Task<RefundOutcome> ResolveRefundAsync(string saleId, decimal expected, bool whole, List<SaleLedgerLine> lines, ServerRefundFigures? figures = null)
     {
         // 2026-10-21 (ревью денег, мелочь 4): журнал и способ оплаты — именно этого чека, даже если кассир уже открыл другой.
         var ledger = _ledger is { Total: > 0m } known && string.Equals(known.SaleId, saleId, StringComparison.OrdinalIgnoreCase)
@@ -1576,8 +1590,69 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         }
 
         // 2026-11-01 (code-review, Ж-01): сколько оплат долга по этому клиенту записано на этой кассе — объясняет ли оно расхождение расчёта и цифры сервера.
-        var localDebtPaid = (decimal)ShiftEventsStore.DebtPaidByClientName(_saleClientNames.TryGetValue(saleId, out var payerName) ? payerName : null);
-        var (cash, nonCash, debtReduced, splitKnown, debtUnknown, serverCashOut, calcOverServer) = ComputeRefundSplit(ledger, saleMethod, amount, cashOut, serverDebtLeft, localDebtPaid);
+        var localDebtPaid = LocalDebtPaidHere(saleId, ledger, serverDebtLeft, cashOnly: false);
+        var localDebtCash = LocalDebtPaidHere(saleId, ledger, serverDebtLeft, cashOnly: true);
+        var (cash, nonCash, debtReduced, splitKnown, debtUnknown, serverCashOut, calcOverServer) = ComputeRefundSplit(ledger, saleMethod, amount, cashOut, serverDebtLeft, localDebtPaid, localDebtCash);
+        decimal? debtRemaining = null;
+        var balancePart = 0m;
+        decimal? rejectedServerMoney = null;
+        decimal? serverDiffersCalc = null; // расчёт кассы, если выдача по серверу допустима, но отличается от суммы возврата
+        if (figures is { HasCash: true } trusted)
+        {
+            // 2026-11-01 (ответ Умара, п. 3): сервер назвал выдачу — доверяем ему, НО только если цифры правдоподобны (приёмка 1.17.72, В-1). Расчёт кассы остаётся для блока
+            // «К выдаче (ожидаемо)» ДО проведения, для старых серверов и как запасной вариант, когда ответ сервера не сходится с суммой возврата.
+            var local = ComputeRefundSplit(ledger, saleMethod, amount, null, serverDebtLeft, null, localDebtCash);
+            var methodNow = (ledger?.Method is { Length: > 0 } knownMethodNow ? knownMethodNow : saleMethod ?? "").Trim().ToLowerInvariant();
+            var debtSaleNow = ledger is { Debt: > 0.005m } || methodNow == "debt";
+            var rawCash = trusted.Cash!.Value;
+            var srvCash = Math.Max(0m, rawCash);
+            var srvBalance = Math.Max(0m, trusted.Balance ?? 0m);
+            decimal srvNon, srvDebt;
+            bool plausible;
+            if (!debtSaleNow)
+            {
+                // Продажа не в долг. Цифру сервера отбрасываем ТОЛЬКО при явной нелепости (контрольное ревью): наличные < 0, наличные больше суммы возврата, либо чек оплачен
+                // только наличными, а сервер говорит «наличных 0» при положительной сумме. Расхождение суммы частей с суммой возврата (чек оплачен бонусами, часть возвращена
+                // на другой кассе/сайте) — не повод отбрасывать: выдаём по серверу и предупреждаем. Безнал без refund.noncash — доля расчёта кассы по способу оплаты чека, не «сумма − наличные».
+                srvNon = Math.Max(0m, trusted.NonCash ?? local.NonCash);
+                srvDebt = 0m;
+                plausible = rawCash >= -0.005m && rawCash <= amount + 0.01m
+                            && !(methodNow == "cash" && srvCash <= 0.005m && amount > 0.005m);
+            }
+            else
+            {
+                // Чек в долг: 0 ≤ выдача ≤ сумма возврата − уменьшение долга (если сервер его назвал).
+                srvNon = Math.Max(0m, trusted.NonCash ?? (local.DebtUnknown ? 0m : local.NonCash));
+                srvDebt = trusted.DebtReducedBy is { } reducedBy ? Math.Max(0m, reducedBy) : Math.Max(0m, amount - srvCash - srvNon - srvBalance);
+                plausible = rawCash >= -0.005m && srvCash + srvNon + srvBalance <= amount - (trusted.DebtReducedBy is not null ? srvDebt : 0m) + 0.01m;
+            }
+            if (plausible)
+            {
+                cash = srvCash;
+                nonCash = srvNon;
+                balancePart = srvBalance;
+                debtReduced = srvDebt;
+                // «Остаток долга» — только из ответа на ЭТОТ возврат и если чек не возвращён целиком (у full сервер оставляет старый остаток; фактически долг по чеку 0).
+                debtRemaining = CartDisplayHelper.IsFullyReturnedStatus(trusted.ReturnStatus) ? null : trusted.RemainingDebt;
+                splitKnown = true;
+                debtUnknown = false;
+                serverCashOut = null;
+                calcOverServer = null;
+                if (!local.DebtUnknown && Math.Abs(local.Cash + local.NonCash - (cash + nonCash)) > 0.009m)
+                {
+                    PosLogger.Log($"Возврат по чеку {number} ({saleId}): сервер (refund.cash) выдаёт {cash + nonCash:0.00}, расчёт кассы был {local.Cash + local.NonCash:0.00} — берём сервер.", "SALES");
+                    // Не-долговой чек: сумма выдачи сервера не равна сумме возврата — это допустимо, но кассиру «Сервер выдаёт X, расчёт кассы Y — проверьте».
+                    if (!debtSaleNow && Math.Abs(cash + nonCash + balancePart - amount) > 0.01m)
+                        serverDiffersCalc = local.Cash + local.NonCash;
+                }
+            }
+            else
+            {
+                rejectedServerMoney = srvCash + srvNon + srvBalance;
+                PosLogger.Log($"Возврат по чеку {number} ({saleId}): ответ сервера не сходится с суммой возврата {amount:0.00} (наличными {srvCash:0.00}, безнал {srvNon:0.00}, на баланс {srvBalance:0.00}, долг −{srvDebt:0.00}) — "
+                              + $"используется расчёт кассы {cash + nonCash:0.00}, проверить возврат.", "WARNING");
+            }
+        }
         if (calcOverServer is { } calcShown)
             PosLogger.Log($"Возврат по чеку {number} ({saleId}): расчёт по журналу кассы {calcShown:0.00}, сервер {cash + nonCash:0.00}; оплаты долга на этой кассе ({localDebtPaid:0.00}) разницу не объясняют — выдаётся меньшая, проверить долг клиента.", "WARNING");
         if (serverCashOut is { } serverGave)
@@ -1607,7 +1682,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         }
 
         PosLogger.Log($"Возврат по чеку {number}: {amount:0.00} (наличными {cash:0.00}, безнал {nonCash:0.00}, долг −{debtReduced:0.00}); документ сервера {(doc is { } d ? d.ToString("0.00", CultureInfo.InvariantCulture) : "—")}.", "SALES");
-        return new RefundOutcome(amount, cash, nonCash, debtReduced, splitKnown, debtUnknown, serverOver, serverCashOut, calcOverServer);
+        return new RefundOutcome(amount, cash, nonCash, debtReduced, splitKnown, debtUnknown, serverOver, serverCashOut, calcOverServer, debtRemaining, balancePart, rejectedServerMoney, serverDiffersCalc);
     }
 
     /// <summary>2026-10-20 (живой аудит, К2, К3): чем вернуть <paramref name="amount"/>. Продажа «в долг» — сначала уменьшается
@@ -1617,7 +1692,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// <param name="serverDebtLeft">2026-10-21 (ревью денег, п. 2): текущий остаток долга по чеку с сервера (null — не получен).
     /// Долг уменьшается не больше него: клиент мог уже погасить долг, тогда возврат выдаётся деньгами.</param>
     internal static (decimal Cash, decimal NonCash, decimal DebtReduced, bool SplitKnown, bool DebtUnknown, decimal? ServerCashOut, decimal? CalcOverServer) ComputeRefundSplit(
-        SaleLedgerEntry? ledger, string? fallbackMethod, decimal amount, decimal? cashOut, decimal? serverDebtLeft = null, decimal? localDebtPaid = null)
+        SaleLedgerEntry? ledger, string? fallbackMethod, decimal amount, decimal? cashOut, decimal? serverDebtLeft = null, decimal? localDebtPaid = null, decimal? localDebtCash = null)
     {
         decimal cash, nonCash, debtReduced;
         var splitKnown = true;
@@ -1677,7 +1752,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // 2026-10-21 (ревью денег, п. 2): к выдаче больше внесённого при продаже — разница пришла оплатами долга, способ
             // которых касса не знает: внесённое делим по способам, остальное — одной суммой (наличными, без «на карту»).
             var prepaidMoney = ledger is not null ? Math.Min(money, cashShareLeft + nonCashShareLeft) : money;
-            if (money - prepaidMoney > 0.005m)
+            // 2026-11-01 (живая регрессия, Р-5): оплаты долга наличными записаны на этой кассе (журнал событий смены) — их способ известен, «неизвестно» не пишем.
+            if (money - prepaidMoney > 0.005m && !(localDebtCash is { } paidHereCash && paidHereCash >= money - prepaidMoney - 0.009m))
                 splitKnown = false;
             cash = cashShareLeft + nonCashShareLeft > 0m
                 ? Math.Round(prepaidMoney * cashShareLeft / (cashShareLeft + nonCashShareLeft), 2, MidpointRounding.AwayFromZero)
@@ -1713,6 +1789,55 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         return (cash, nonCash, debtReduced, splitKnown, debtUnknown, serverCashOut, calcOverServer);
     }
 
+    /// <summary>2026-11-01 (приёмка 1.17.72, С-2): сколько оплат долга по ЭТОМУ чеку записано на этой кассе. Журнал смены хранит имя клиента, а не id сделки/чека, поэтому
+    /// берутся только оплаты этого клиента не раньше даты продажи чека и не больше, чем сервер считает погашенным по сделке (журнальный долг чека − текущий остаток).
+    /// Нет даты продажи, журнала кассы, имени или остатка долга сервера — 0 (не подтверждено: нейтральная пометка «возвращайте тем же способом»).</summary>
+    private decimal LocalDebtPaidHere(string saleId, SaleLedgerEntry? ledger, decimal? serverDebtLeft, bool cashOnly)
+    {
+        try
+        {
+            var since = string.Equals(_currentSaleId, saleId, StringComparison.OrdinalIgnoreCase) ? _currentSaleDate : null;
+            since ??= ledger?.SoldAt?.LocalDateTime;
+            if (since is null || ledger is null || serverDebtLeft is not { } debtNow
+                || !_saleClientNames.TryGetValue(saleId, out var name) || string.IsNullOrWhiteSpace(name))
+                return 0m;
+            var paidOnDeal = Math.Max(0m, ledger.DebtLeft - Math.Max(0m, debtNow));
+            if (paidOnDeal <= 0.005m)
+                return 0m;
+            var sinceUtc = since.Value.Kind == DateTimeKind.Utc ? since.Value : since.Value.ToUniversalTime();
+            var recorded = (decimal)ShiftEventsStore.DebtPaidByClientName(name, cashOnly, sinceUtc);
+            return Math.Min(recorded, paidOnDeal);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Возврат: оплаты долга на этой кассе не подсчитаны: {ex.Message}", "WARNING");
+            return 0m;
+        }
+    }
+
+    /// <summary>2026-11-01 (живая регрессия, Р-5): подпись кнопки подтверждения. Сумма чека/возврата и сумма К ВЫДАЧЕ — разные вещи: если к выдаче иная сумма — «Вернуть весь чек (к выдаче 2,00)»,
+    /// если сумму определит сервер — без суммы; иначе прежняя подпись с суммой возврата.</summary>
+    private string ConfirmButtonText(string saleId, decimal amount, bool whole, string amountShown)
+    {
+        if (_expectedPayouts.TryGetValue(saleId, out var payout))
+        {
+            if (payout is null)
+                return whole
+                    ? Tr.T("Вернуть весь чек", "Бүт чекти кайтаруу", "Refund whole receipt", "Tüm fişi iade et", "Butun chekni qaytarish")
+                    : Tr.T("Вернуть выбранное", "Тандалганды кайтаруу", "Refund selected", "Seçilenleri iade et", "Tanlanganlarni qaytarish");
+            if (Math.Abs(payout.Value - amount) > 0.009m)
+            {
+                var give = MoneyText.Som(payout.Value);
+                return whole
+                    ? Tr.T($"Вернуть весь чек (к выдаче {give})", $"Бүт чекти кайтаруу (берүүгө {give})", $"Refund whole receipt (pay out {give})", $"Tüm fişi iade et (verilecek {give})", $"Butun chekni qaytarish (berish {give})")
+                    : Tr.T($"Вернуть (к выдаче {give})", $"Кайтаруу (берүүгө {give})", $"Refund (pay out {give})", $"İade et (verilecek {give})", $"Qaytarish (berish {give})");
+            }
+        }
+        return whole
+            ? Tr.T($"Вернуть весь чек — {amountShown}", $"Бүт чекти кайтаруу — {amountShown}", $"Refund whole receipt — {amountShown}", $"Tüm fişi iade et — {amountShown}", $"Butun chekni qaytarish — {amountShown}")
+            : Tr.T($"Вернуть {amountShown}", $"{amountShown} кайтаруу", $"Refund {amountShown}", $"{amountShown} iade et", $"{amountShown} qaytarish");
+    }
+
     /// <summary>2026-11-01 (Ж-08): забирает «к выдаче», показанное в подтверждении (один раз).</summary>
     private decimal? TakeExpectedPayout(string saleId) => _expectedPayouts.Remove(saleId, out var v) ? v : null;
 
@@ -1739,10 +1864,12 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                     debtLeft = debtTask.Result;
             }
 
-            var (cash, nonCash, debtReduced, splitKnown, debtUnknown, _, _) = ComputeRefundSplit(ledger, method, Math.Max(0m, amount), null, debtLeft);
+            var previewCashPaid = LocalDebtPaidHere(saleId, ledger, debtLeft, cashOnly: true);
+            var (cash, nonCash, debtReduced, splitKnown, debtUnknown, _, _) = ComputeRefundSplit(ledger, method, Math.Max(0m, amount), null, debtLeft, null, previewCashPaid);
             var lead = "\n\n";
             if (debtUnknown)
             {
+                _expectedPayouts[saleId] = null;
                 return lead + Tr.T(
                     "К выдаче: сумму определит сервер — остаток долга клиента или оплаты чека кассе неизвестны. Проверьте долг клиента перед выдачей.",
                     "Берүүгө: сумманы сервер аныктайт — кардардын карызынын калдыгы же чектин төлөмдөрү кассага белгисиз. Берүүдөн мурун кардардын карызын текшериңиз.",
@@ -1827,6 +1954,41 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 $"The client's debt is reduced by {debt} — this money is not paid out.",
                 $"Müşterinin borcu {debt} azaldı — bu para verilmez.",
                 $"Mijozning qarzi {debt} ga kamaydi — bu pul berilmaydi.");
+        }
+        if (outcome.DebtReduced > 0.005m && outcome.DebtRemaining is { } debtLeftNow && !outcome.DebtUnknown)
+        {
+            // 2026-11-01 (ответ Умара, п. 3): сервер называет остаток долга после возврата (debt_adjustment.remaining_debt).
+            var left = MoneyText.Som(debtLeftNow);
+            text += " " + Tr.T($"Остаток долга: {left}.", $"Карыздын калдыгы: {left}.", $"Remaining debt: {left}.", $"Kalan borç: {left}.", $"Qarz qoldig'i: {left}.");
+        }
+        if (outcome.Balance > 0.005m)
+        {
+            var onBalance = MoneyText.Som(outcome.Balance);
+            text += "\n" + Tr.T($"На баланс клиента: {onBalance}.", $"Кардардын балансына: {onBalance}.", $"To the client's balance: {onBalance}.", $"Müşteri bakiyesine: {onBalance}.", $"Mijoz balansiga: {onBalance}.");
+        }
+        if (outcome.ServerDiffersCalc is { } calcDiffers)
+        {
+            // Контрольное ревью: выдача по серверу допустима, но не равна сумме возврата / расчёту кассы (чек частично оплачен бонусами, часть возвращена на другой кассе или сайте).
+            var srvGives = MoneyText.Som(outcome.Money);
+            var calcGives = MoneyText.Som(calcDiffers);
+            text += "\n" + Tr.T(
+                $"Внимание: сервер выдаёт {srvGives}, расчёт кассы {calcGives} — проверьте. Выдайте {srvGives} (по серверу).",
+                $"Көңүл буруңуз: сервер {srvGives} берет, касса эсеби {calcGives} — текшериңиз. {srvGives} бериңиз (сервер боюнча).",
+                $"Warning: the server pays out {srvGives}, the till's calculation is {calcGives} — please check. Pay out {srvGives} (per the server).",
+                $"Dikkat: sunucu {srvGives} veriyor, kasa hesabı {calcGives} — kontrol edin. {srvGives} verin (sunucuya göre).",
+                $"Diqqat: server {srvGives} beradi, kassa hisobi {calcGives} — tekshiring. {srvGives} bering (server bo'yicha).");
+        }
+        if (outcome.ServerRejected is { } rejectedShown)
+        {
+            // 2026-11-01 (приёмка 1.17.72, В-1): цифры сервера не сходятся с суммой возврата — выдаётся расчёт кассы, кассиру — предупреждение.
+            var calcMoney = MoneyText.Som(outcome.Money);
+            var srvMoney = MoneyText.Som(rejectedShown);
+            text += "\n" + Tr.T(
+                $"Внимание: расчёт кассы {calcMoney}, сервер {srvMoney} — проверьте. Выдаётся расчёт кассы; сверьте возврат в «Возвратах» и долг клиента.",
+                $"Көңүл буруңуз: касса эсеби {calcMoney}, сервер {srvMoney} — текшериңиз. Касса эсеби берилет; кайтарууну «Кайтаруулардан» жана кардардын карызын салыштырыңыз.",
+                $"Warning: the till's calculation is {calcMoney}, the server's is {srvMoney} — please check. The till's amount is paid out; compare the return in “Returns” and the client's debt.",
+                $"Dikkat: kasa hesabı {calcMoney}, sunucu {srvMoney} — kontrol edin. Kasa hesabı verilir; iadeyi «İadeler»de ve müşterinin borcunu karşılaştırın.",
+                $"Diqqat: kassa hisobi {calcMoney}, server {srvMoney} — tekshiring. Kassa hisobi beriladi; qaytarishni «Qaytarishlar»da va mijoz qarzini solishtiring.");
         }
         if (outcome.CalcOverServer is { } calcShown)
         {
@@ -2335,8 +2497,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                     $"Butun chek bitta amal bilan qaytarilsinmi? Pozitsiyalarni birma-bir qaytarish shart bo'lmaydi.\nQaytarish summasi: {wholeShown}") + payoutPreview,
                 Tr.T("Полный возврат", "Толук кайтаруу", "Full return", "Tam iade", "To'liq qaytarish"), MessageBoxButton.YesNo, MessageBoxImage.Question,
                 // 2026-10-22 (модалки, пакет 1): глагол с суммой вместо «Продолжить».
-                confirmText: Tr.T($"Вернуть весь чек — {wholeShown}", $"Бүт чекти кайтаруу — {wholeShown}", $"Refund whole receipt — {wholeShown}",
-                    $"Tüm fişi iade et — {wholeShown}", $"Butun chekni qaytarish — {wholeShown}")).ConfigureAwait(true) != MessageBoxResult.Yes)
+                confirmText: ConfirmButtonText(saleId, estimatedWhole, whole: true, wholeShown)).ConfigureAwait(true) != MessageBoxResult.Yes)
             return;
 
         // 2026-10-06 (О-31, О-32): срок обмена и товары «без обмена» — в сфере «Одежда».
@@ -2362,7 +2523,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // 2026-10-15, ревью: повтор полного возврата того же чека — тот же ключ (см. PendingReturn).
             var returnKey = PendingReturn.Get("whole|" + saleId);
             var cashBeforeWhole = await ReadDrawerBeforeRefundAsync().ConfigureAwait(true);
-            await PosRefundService.RefundWholeSaleAsync(
+            var wholeResponse = await PosRefundService.RefundWholeSaleAsync(
                 App.SalesApi,
                 saleId,
                 reasonDialog.ReasonText,
@@ -2382,7 +2543,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // 2026-10-20 (живой аудит, К1–К3): «Вернуть весь чек» после частичного — только остаток оплаченного
             // (estimatedWhole: остаток по журналу кассы), к выдаче — внесённые деньги с разбивкой, у долга — уменьшение долга.
             var wholeOutcome = await ResolveRefundAsync(saleId, estimatedWhole, whole: true,
-                Lines.Where(l => l.CanReturn).Select(l => new SaleLedgerLine { LineId = l.LineId, Name = l.Title, Quantity = l.Quantity, Total = l.RefundSum }).ToList())
+                Lines.Where(l => l.CanReturn).Select(l => new SaleLedgerLine { LineId = l.LineId, Name = l.Title, Quantity = l.Quantity, Total = l.RefundSum }).ToList(),
+                ServerRefundFigures.TryRead(wholeResponse)) // 2026-11-01 (ответ Умара): выдача — из refund.cash
                 .ConfigureAwait(true);
             var wholeTotal = wholeOutcome.Amount;
             CheckDrawerAfterRefund(cashBeforeWhole, wholeOutcome.Cash, "whole|" + returnKey, saleId, wholeOutcome.NonCash, wholeOutcome.ServerCashOut);

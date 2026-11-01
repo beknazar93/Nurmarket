@@ -3830,6 +3830,12 @@ abstract class AppLocalizations {
   /// **'Продажа'**
   String get kindSale;
 
+  /// No description provided for @returnNetTotal.
+  ///
+  /// In ru, this message translates to:
+  /// **'Итог чека после возвратов: {sum} сом'**
+  String returnNetTotal(String sum);
+
   /// No description provided for @prevSaleMayPass.
   ///
   /// In ru, this message translates to:

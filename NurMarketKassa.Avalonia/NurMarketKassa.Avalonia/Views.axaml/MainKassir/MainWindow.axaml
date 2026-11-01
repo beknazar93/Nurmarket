@@ -130,10 +130,17 @@
         <Style Selector="Border.kassa-header">
             <Setter Property="Padding" Value="16,10"/>
         </Style>
+        <!-- 2026-11-01: единая кнопка верхней панели (общий стиль top-tool, PosDialogStyles): 72×52 (подпись «Клавиатура» при 58 обрезалась у края). -->
         <Style Selector="Button.header-tool">
-            <Setter Property="Width" Value="58"/>
-            <Setter Property="Height" Value="46"/>
-            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Width" Value="72"/>
+            <Setter Property="Height" Value="52"/>
+            <Setter Property="Padding" Value="2,4"/>
+        </Style>
+        <Style Selector="TextBlock.header-tool-label">
+            <Setter Property="MaxWidth" Value="66"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+            <Setter Property="TextAlignment" Value="Center"/>
         </Style>
         <Style Selector="Button.header-menu">
             <Setter Property="Width" Value="44"/>
@@ -240,6 +247,9 @@
         </Style>
         <!-- «Касса: N сом» в ширину телефона не помещается (оставалась буква «К») — она есть в окне смены. -->
         <Style Selector=".portrait TextBlock.header-network">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector=".portrait Border.header-sep">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
         <Style Selector=".portrait TextBlock.header-balance">
@@ -480,6 +490,8 @@
                     </Border>
 
                     <!-- Баланс кассы, по умолчанию "Касса: 0.00 сом" -->
+                    <!-- 2026-11-01: тонкий разделитель между статусом («Онлайн», режим сети) и балансом кассы. -->
+                    <Border Classes="header-sep" Width="1" Height="18" VerticalAlignment="Center" Background="{DynamicResource BrushBorder}"/>
                     <TextBlock Classes="header-balance"
                                Text="{Binding Toolbar.Status.ShiftBalanceText}"
                                FontSize="13"
@@ -513,7 +525,7 @@
                             Orientation="Horizontal"
                             Spacing="8"
                             VerticalAlignment="Center">
-                    <Button Classes="main-ghost header-tool header-secondary"
+                    <Button Classes="top-tool header-tool header-secondary"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{DynamicResource mainWindow.checkCustomerDisplayTooltip}"
@@ -521,24 +533,22 @@
                         <StackPanel Spacing="1" VerticalAlignment="Center">
                             <PathIcon Classes="header-icon" Data="{StaticResource IconMonitor}"/>
                             <TextBlock Classes="header-tool-label" Text="{DynamicResource header.labelCustomerDisplay}" FontSize="12"
-                                       HorizontalAlignment="Center"
-                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                                       HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Classes="main-ghost header-tool header-secondary"
+                    <Button Classes="top-tool header-tool header-secondary"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{Binding Toolbar.ThemeTooltip}"
                             AutomationProperties.Name="{Binding Toolbar.ThemeTooltip}"
                             Click="ToggleTheme_Click">
                         <StackPanel Spacing="1" VerticalAlignment="Center">
-                            <TextBlock Classes="mdl2" Text="{Binding Toolbar.ThemeGlyph}" FontSize="17" HorizontalAlignment="Center"/>
+                            <TextBlock Classes="mdl2" Text="{Binding Toolbar.ThemeGlyph}" FontSize="17" Width="18" Height="18" LineHeight="18" TextAlignment="Center" HorizontalAlignment="Center"/>
                             <TextBlock Classes="header-tool-label" Text="{DynamicResource header.labelTheme}" FontSize="12"
-                                       HorizontalAlignment="Center"
-                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                                       HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Classes="main-ghost header-tool"
+                    <Button Classes="top-tool header-tool"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{DynamicResource mainWindow.onScreenKeyboardTooltip}"
@@ -550,11 +560,10 @@
                             <PathIcon Classes="header-icon" Data="{StaticResource IconKeyboard}"/>
                             <!-- 2026-10-21 (пакет 6, п. 58): «Клавиатура» (экранная), а не «Клавиши» — рядом «Горячие» (горячие клавиши) путали. -->
                             <TextBlock Classes="header-tool-label" Text="{DynamicResource keyboard.title}" FontSize="12"
-                                       HorizontalAlignment="Center"
-                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                                       HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                    <Button Classes="main-ghost header-tool header-secondary"
+                    <Button Classes="top-tool header-tool header-secondary"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{DynamicResource mainWindow.hotkeysTooltip}"
@@ -562,14 +571,13 @@
                         <StackPanel Spacing="1" VerticalAlignment="Center">
                             <PathIcon Classes="header-icon" Data="{StaticResource IconBolt}"/>
                             <TextBlock Classes="header-tool-label" Text="{DynamicResource header.labelHotkeys}" FontSize="12"
-                                       HorizontalAlignment="Center"
-                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                                       HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <!-- 2026-10-04: «⋯ Ещё» — только в компактном виде (см. стиль Button.header-more). Без
                          фокуса, как кнопка клавиатуры: Enter сканера не должен открывать меню. Пункты меню —
                          те же действия, что у спрятанных кнопок, крупные (48 точек) для пальца. -->
-                    <Button Classes="main-ghost header-tool header-more"
+                    <Button Classes="top-tool header-tool header-more"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             Focusable="False"
@@ -601,6 +609,8 @@
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>
+                    <!-- 2026-11-01: группа «Экран / Тема / Клавиатура / Горячие» отделена от кнопок смены. -->
+                    <Border Classes="header-sep" Width="1" Height="28" Margin="2,0" VerticalAlignment="Center" Background="{DynamicResource BrushBorder}"/>
                     <Button Classes="main-outline shift-action"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"

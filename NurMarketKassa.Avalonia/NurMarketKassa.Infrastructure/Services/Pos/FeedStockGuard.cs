@@ -18,13 +18,60 @@ public static class FeedStockGuard
     /// <summary>Окно «остаток менялся здесь недавно»: за это время запрос продажи/возврата успевает дойти до сервера.</summary>
     public static readonly TimeSpan LocalTouchWindow = TimeSpan.FromSeconds(90);
 
+    /// <summary>2026-11-01 (приёмка 1.17.72, С-5): сколько после отказа сервера чек «Ошибка отправки» ещё защищает остаток своих товаров. Дольше (дни) нельзя:
+    /// из ленты терялись бы законные изменения (приход владельца). Потом остаток читается с сервера заново (StockSyncService.ScheduleStockReread).</summary>
+    public static readonly TimeSpan FailedBlockWindow = TimeSpan.FromMinutes(10);
+
+    /// <summary>Контрольное ревью: остаток товара держит локальная активность — менялся здесь недавно (<see cref="LocalTouchWindow"/>) или продан соседней кассой по LAN
+    /// (сервер ещё не знает). Очередь неотправленных чеков сюда НЕ входит: для неё серверный остаток уменьшается на <see cref="UnsentQuantity"/>.</summary>
+    public static bool IsHeldByLocalActivity(string id)
+    {
+        if (StockSyncService.WasLocallyTouched(id, LocalTouchWindow))
+            return true;
+        try
+        {
+            return UserPreferences.Instance.LanSyncEnabled
+                && Lan.LanStockAdjuster.PendingProductIds().Any(p => string.Equals(p, id, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return true;
+        }
+    }
+
+    /// <summary>Контрольное ревью: сколько единиц остатка товара продано в неотправленных чеках (очередь + свежие «Ошибка отправки»): сервер о них не знает.</summary>
+    public static double UnsentQuantity(string productId)
+    {
+        var total = 0.0;
+        try
+        {
+            var tile = CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+            foreach (var entry in OfflinePendingSalesStore.LoadPendingForSync().Concat(OfflineDatabase.LoadByStatus([OfflineSaleEntry.Failed])
+                         .Where(e => !e.IsAutonomous && DateTimeOffset.Now - (e.LastAttemptAt ?? e.CreatedAt) < FailedBlockWindow)))
+            {
+                using var doc = JsonDocument.Parse(entry.CartJson);
+                foreach (var line in CartDisplayHelper.EnumerateItems(doc.RootElement))
+                    if (string.Equals(CartDisplayHelper.TryProductId(line), productId, StringComparison.OrdinalIgnoreCase))
+                        total += CartDisplayHelper.LineQuantityInStockUnits(line, tile);
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"STOCK: неотправленные количества товара {productId} не посчитаны ({ex.Message}).", "STOCK");
+        }
+        return total;
+    }
+
     /// <summary>Строит предикат «остаток этого товара из ленты применять можно» на один проход ленты (очередь и журнал LAN читаются один раз).</summary>
     public static Func<string, bool> Create()
     {
         HashSet<string> blocked = new(StringComparer.OrdinalIgnoreCase);
         try
         {
-            foreach (var entry in OfflinePendingSalesStore.LoadPendingForSync())
+            // 2026-11-01 (расследование «остаток не меняется», П-3): и чеки, которые сервер отклонил (статус Failed, ждут решения; автономные закрытые
+            // не считаем) — сервер о такой продаже не знает, и серверный остаток из ленты откатил бы плитку, пока чек не решён («Удалить»/«Провести»).
+            var unsent = OfflinePendingSalesStore.LoadPendingForSync().Concat(OfflineDatabase.LoadByStatus([OfflineSaleEntry.Failed]).Where(e => !e.IsAutonomous && DateTimeOffset.Now - (e.LastAttemptAt ?? e.CreatedAt) < FailedBlockWindow));
+            foreach (var entry in unsent)
             {
                 try
                 {

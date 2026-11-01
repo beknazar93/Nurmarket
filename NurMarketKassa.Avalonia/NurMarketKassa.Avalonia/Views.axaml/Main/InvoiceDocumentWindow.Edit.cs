@@ -16,6 +16,10 @@ public sealed partial class InvoiceDocumentWindow
 {
     private int _revertOf;
     private bool _busy;
+    // 2026-11-01 (ответ Умара: PATCH suppliers/receipts/{id}/ есть на сервере): признаки сервера и несохранённые реквизиты накладной
+    private ReceiptEditCaps _caps = ReceiptEditCaps.None;
+    private bool _patchMode => _caps.Edit;
+    private HeaderEdit? _header;
 
     private async Task EnterEditAsync()
     {
@@ -33,6 +37,17 @@ public sealed partial class InvoiceDocumentWindow
             Say(ReceiptEditPolicy.DeniedText(_access));
             return;
         }
+        try
+        {
+            using var capsCts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            _caps = await new ApiReceiptEditServer(App.GetRequiredService<NurMarketApiClient>()).GetCapsAsync(capsCts.Token).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _caps = ReceiptEditCaps.None; // признаков нет — запасной путь (возврат / доприход)
+            PosLogger.Log($"Накладная: признаки редактора не получены ({ex.Message}).", "WARNING");
+        }
+        _header = null;
         _edit = true;
         _undo.Clear();
         _revertOf = 0;
@@ -72,6 +87,8 @@ public sealed partial class InvoiceDocumentWindow
 
     private void CancelEdit()
     {
+        _rows.RemoveAll(r => r.IsPendingAdd); // 2026-11-01: добавленные в этой правке товары снимаются вместе с правкой
+        _header = null;
         foreach (var r in _rows)
         {
             r.SetQtySilently(r.OrigQty);
@@ -108,6 +125,137 @@ public sealed partial class InvoiceDocumentWindow
     {
         var u = App.AuthApi?.UserPayload ?? default;
         return PayloadText(u, "full_name") is { Length: > 0 } n ? n : PayloadText(u, "email");
+    }
+
+    /// <summary>2026-11-01: товары, добавленные в этой правке (количество больше 0) — уйдут одним ДОПОЛНИТЕЛЬНЫМ приходом к накладной.</summary>
+    private List<AddedItem> AddedItems() =>
+        _rows.Where(r => r.IsPendingAdd && r.Qty > 0.0005 && r.ProductId.Length > 0).Select(r => new AddedItem(r.ProductId, r.Name, r.Unit, r.Qty, r.Purchase)).ToList();
+
+    private static string N3(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>2026-11-01: что отправить серверным PATCH — изменённые строки (количество / закупка / цена продажи / добавить / удалить) и реквизиты накладной + «было → стало» по каждому полю для журнала.</summary>
+    private PatchPlan BuildPatchPlan()
+    {
+        var diffs = new List<ReceiptEditAuditField>();
+        var lines = new List<PatchLine>();
+        ReceiptEditAuditField D(string field, InvoiceRow r, string before, string after, string? lineId = null) =>
+            new() { Field = field, LineId = lineId ?? r.LineId, ProductId = r.ProductId, Subject = r.Name, Before = before, After = after };
+        double before = 0, after = 0;
+        foreach (var r in _rows.Where(r => !r.ReadOnlyRow))
+        {
+            if (r.IsPendingAdd)
+            {
+                if (r.Qty <= 0.0005 || r.ProductId.Length == 0)
+                    continue;
+                lines.Add(new PatchLine("", r.ProductId, r.Name, r.Qty, r.Purchase, r.SaleChanged && _caps.SalePrice ? r.Sale : null, false, true, Guid.NewGuid().ToString()));
+                diffs.Add(D("added_item", r, "0", N3(r.Qty), "new:" + r.ProductId));
+                diffs.Add(D("purchase_price", r, "—", N3(r.Purchase), "new:" + r.ProductId));
+                after += ReceivingPricing.LineTotal(r.Qty, r.Purchase);
+                continue;
+            }
+            if (r.Input is not { } input)
+                continue;
+            before += ReceivingPricing.LineTotal(r.OrigQty, r.OrigPurchase);
+            after += ReceivingPricing.LineTotal(r.Qty, r.Purchase);
+            // количество в приходе = «живёт» + возвращено − доприходы старым путём (возврат / доприход прошлых версий)
+            var extra = r.OrigQty - (input.OriginalQty - input.ReturnedQty);
+            if (r.Changed && r.Qty <= 0.0005 && input.ReturnedQty <= 0.0005 && extra <= 0.0005)
+            {
+                lines.Add(new PatchLine(r.LineId, r.ProductId, r.Name, null, null, null, true, false));
+                diffs.Add(D("removed", r, N3(r.OrigQty), "0"));
+                continue;
+            }
+            double? qty = r.Changed ? Math.Round(r.Qty - extra + input.ReturnedQty, 3) : null;
+            double? price = r.PurchaseChanged ? r.Purchase : null;
+            double? sale = r.SaleChanged && _caps.SalePrice ? r.Sale : null;
+            if (qty is null && price is null && sale is null)
+                continue;
+            lines.Add(new PatchLine(r.LineId, r.ProductId, r.Name, qty, price, sale, false, false));
+            if (r.Changed)
+                diffs.Add(D("quantity", r, N3(r.OrigQty), N3(r.Qty)));
+            if (r.PurchaseChanged)
+                diffs.Add(D("purchase_price", r, N3(r.OrigPurchase), N3(r.Purchase)));
+            if (sale is not null)
+                diffs.Add(D("sale_price", r, N3(r.OrigSale), N3(r.Sale)));
+        }
+        PatchHeader? header = null;
+        if (_header is { } h)
+        {
+            header = new PatchHeader(h.SupplierId, h.DocNumber, h.DocDate, h.Comment, h.PayType, h.Paid, h.Discount, h.DiscountPercent);
+            ReceiptEditAuditField H(string field, string was, string now) => new() { Field = field, Subject = T("Накладная", "Накладной", "Invoice", "Fatura", "Yuk xati"), Before = was, After = now };
+            if (h.SupplierId is not null)
+                diffs.Add(H("supplier", _r.SupplierName, h.SupplierName ?? h.SupplierId));
+            if (h.DocNumber is not null)
+                diffs.Add(H("document_number", _r.SupplierDocNumber, h.DocNumber));
+            if (h.DocDate is { } dd)
+                diffs.Add(H("document_date", _r.SupplierDocDate?.ToString("dd.MM.yyyy") ?? "—", dd.ToString("dd.MM.yyyy")));
+            if (h.Comment is not null)
+                diffs.Add(H("comment", _r.Comment, h.Comment));
+            if (h.PayType is not null)
+                diffs.Add(H("payment", PayText(), h.PayType + (h.Paid is { } pd ? $" ({N3(pd)})" : "")));
+            if (h.Discount is { } dsc)
+                diffs.Add(H("discount", N3(_r.Discount), N3(dsc)));
+            if (h.DiscountPercent is { } dsp)
+                diffs.Add(H("discount", N3(_r.DiscountPercent) + " %", N3(dsp) + " %"));
+        }
+        return new PatchPlan(header, lines, diffs, _r.Total, Math.Round(_r.Total + after - before, 2), _r.Version, _caps.SalePrice);
+    }
+
+    /// <summary>«Реквизиты…»: поставщик, номер и дата накладной поставщика, комментарий, оплата, скидка — уйдут вместе с остальной правкой одним PATCH.</summary>
+    private async Task EditHeaderAsync()
+    {
+        if (!_edit || !_patchMode)
+            return;
+        var dialog = new InvoiceHeaderDialog(_r, new SupplierApiService(App.GetRequiredService<NurMarketApiClient>()), _caps, _header);
+        await PosDialogHost.ShowAsync(dialog, this).ConfigureAwait(true);
+        if (!dialog.Saved)
+            return;
+        _header = dialog.Result;
+        Say(_header is null ? T("Реквизиты не менялись.", "Реквизиттер өзгөргөн жок.", "Details unchanged.", "Bilgiler değişmedi.", "Rekvizitlar o'zgarmadi.")
+            : T("Реквизиты накладной изменены — они уйдут при сохранении правки.", "Накладнойдун реквизиттери өзгөрдү — оңдоону сактаганда жөнөтүлөт.", "Invoice details changed — they are sent when the edit is saved.", "Fatura bilgileri değişti — düzenleme kaydedilince gönderilir.", "Yuk xati rekvizitlari o'zgardi — tahrir saqlanganda yuboriladi."));
+    }
+
+    /// <summary>«+ Добавить товар»: поиск → количество и закупка → строка в таблице. Уже есть в накладной — просто «+» к его строке.</summary>
+    private async Task AddItemAsync()
+    {
+        if (!_edit || _busy)
+            return;
+        var dialog = new InvoiceAddItemDialog(_docNumber, _supplier?.Name ?? _r.SupplierName, _patchMode);
+        await PosDialogHost.ShowAsync(dialog, this).ConfigureAwait(true);
+        if (dialog.Result is not { } pick)
+            return;
+        var existing = _rows.FirstOrDefault(r => !r.ReadOnlyRow && string.Equals(r.ProductId, pick.ProductId, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            existing.Qty += pick.Qty;
+            _chip = "all";
+            _search.Text = "";
+            Refresh();
+            _list.SelectedItem = existing;
+            _list.ScrollIntoView(existing);
+            Say(T($"«{existing.Name}» уже есть в накладной: количество увеличено до {existing.QtyText} (доприход).", $"«{existing.Name}» накладнойдо бар: саны {existing.QtyText} болуп көбөйдү (кошумча кирүү).",
+                $"“{existing.Name}” is already in the invoice: the quantity is raised to {existing.QtyText} (additional receipt).", $"«{existing.Name}» faturada zaten var: miktar {existing.QtyText} oldu (ek giriş).", $"«{existing.Name}» yuk xatida bor: miqdor {existing.QtyText} ga oshirildi (qo'shimcha kirim)."));
+            return;
+        }
+        var row = new InvoiceRow(0, pick.Sale)
+        {
+            No = _rows.Count + 1, LineId = "new:" + pick.ProductId, ProductId = pick.ProductId, Code = pick.Code, Barcode = pick.Barcode, Name = pick.Name, Unit = pick.Unit,
+            Purchase = pick.Price, IsPendingAdd = true, IsNew = true,
+        };
+        row.QtyEdited += OnQtyEdited;
+        row.PriceEdited += _ => Recalc();
+        _rows.Add(row);
+        row.Qty = pick.Qty;
+        _chip = "all";
+        _search.Text = "";
+        Refresh();
+        _list.SelectedItem = row;
+        _list.ScrollIntoView(row);
+        Say(_patchMode
+            ? T($"«{pick.Name}» добавлен в правку. При сохранении он будет добавлен в эту накладную отдельной строкой.", $"«{pick.Name}» оңдоого кошулду. Сактаганда ал ушул накладнойго өзүнчө сап болуп кошулат.",
+                $"“{pick.Name}” is added to the edit. Saving adds it to this invoice as a separate line.", $"«{pick.Name}» düzenlemeye eklendi. Kaydedince bu faturaya ayrı bir satır olarak eklenir.", $"«{pick.Name}» tahrirga qo'shildi. Saqlaganda u shu yuk xatiga alohida qator bo'lib qo'shiladi.")
+            : T($"«{pick.Name}» добавлен в правку. При сохранении будет создан дополнительный приход к этой накладной.", $"«{pick.Name}» оңдоого кошулду. Сактаганда ушул накладнойго кошумча кирүү түзүлөт.",
+                $"“{pick.Name}” is added to the edit. Saving creates an additional receipt for this invoice.", $"«{pick.Name}» düzenlemeye eklendi. Kaydedince bu faturaya ek giriş oluşturulur.", $"«{pick.Name}» tahrirga qo'shildi. Saqlaganda shu yuk xatiga qo'shimcha kirim yaratiladi."));
     }
 
     /// <summary>2026-11-01: изменения цены продажи / наценки по строкам (по одному на товар) — уходят шагами «price» (PATCH товара). «Было» — из формы, при отправке уточняется по серверу.</summary>
@@ -186,9 +334,12 @@ public sealed partial class InvoiceDocumentWindow
                 BuildFooter();
                 return;
             }
-            var changed = _rows.Where(r => r.Changed).ToList();
-            var priced = PriceEdits();
-            if (changed.Count == 0 && priced.Count == 0)
+            var changed = _rows.Where(r => r.Changed && r.Input is not null).ToList(); // 2026-11-01: добавляемые товары (Input нет) идут отдельным списком
+            var priced = _patchMode && _caps.SalePrice ? new List<PriceEdit>() : PriceEdits(); // с receipt_edit_sale_price цена продажи едет в строке PATCH
+            var addedRows = AddedItems();
+            var patch = _patchMode ? BuildPatchPlan() : null;
+            var patchExtra = patch is not null && (patch.Header is not null || patch.Lines.Count > 0);
+            if (changed.Count == 0 && priced.Count == 0 && addedRows.Count == 0 && !patchExtra)
             {
                 Say(T("Изменений нет — поменяйте количество или цену продажи хотя бы в одной строке.", "Өзгөртүү жок — жок дегенде бир саптагы санды же сатуу баасын өзгөртүңүз.", "No changes — change the quantity or the sale price in at least one line.", "Değişiklik yok — en az bir satırda miktarı veya satış fiyatını değiştirin.", "O'zgarish yo'q — kamida bitta qatorda miqdor yoki sotuv narxini o'zgartiring."));
                 return;
@@ -211,7 +362,7 @@ public sealed partial class InvoiceDocumentWindow
                 }
                 else if (changed.Contains(r))
                     r.Input = r.Input! with { Stock = null }; // остаток не получен — уменьшать нельзя
-            var plan = ReceiptEditPlanner.Build(_rows.Where(r => r.Input is not null).Select(r => r.Input!).ToList(), changed.ToDictionary(r => r.LineId, r => r.Qty), PayForEdit);
+            var plan = ReceiptEditPlanner.Build(_rows.Where(r => r.Input is not null).Select(r => r.Input!).ToList(), changed.ToDictionary(r => r.LineId, r => r.Qty), _patchMode ? ReceiptPayKind.Cash : PayForEdit); // при PATCH деньги считает сервер: проверка «доприход для способа оплаты» не нужна
             foreach (var lp in plan.Lines)
             {
                 var row = _rows.First(r => r.LineId == lp.Input.LineId);
@@ -230,15 +381,15 @@ public sealed partial class InvoiceDocumentWindow
 
             var dialog = new InvoiceEditPreviewDialog(plan, PayForEdit, _docNumber, _r, _supplier?.Name ?? _r.SupplierName, _baseVersion, _revertOf > 0, VerifyOwnerPasswordAsync,
                 priced.Select(p => ReceiptEditAuditLog.FieldText(new ReceiptEditAuditField { Field = "sale_price", Subject = p.Name, Before = p.SaleBefore?.ToString("0.##") ?? "?", After = p.SaleAfter.ToString("0.##") })
-                    + (p.MarkupAfter is { } mk ? $" ({T("наценка", "үстөк", "markup", "kâr", "ustama")} {p.MarkupBefore?.ToString("0.#") ?? "?"} → {mk:0.#} %)" : "")).ToList());
+                    + (p.MarkupAfter is { } mk ? $" ({T("наценка", "үстөк", "markup", "kâr", "ustama")} {p.MarkupBefore?.ToString("0.#") ?? "?"} → {mk:0.#} %)" : "")).Concat(patch is null ? Array.Empty<string>() : patch.Diffs.Where(d => d.Field is not ("quantity" or "removed" or "added_item")).Select(ReceiptEditAuditLog.FieldText)).ToList(), addedRows, patch);
             await PosDialogHost.ShowAsync(dialog, this).ConfigureAwait(true);
             if (dialog.Result is not { } result)
                 return;
-            if (result.Queue && priced.Count > 0)
+            if (result.Queue && (priced.Count > 0 || addedRows.Count > 0 || patchExtra))
             {
-                // 2026-11-01: без связи в очередь встают только количества; цена продажи — PATCH товара, его вслепую не ставим.
-                Say(T("Без связи цену продажи сохранить нельзя: уберите её изменение или повторите, когда появится связь.", "Байланышсыз сатуу баасын сактоого болбойт: өзгөртүүнү алып салыңыз же байланыш пайда болгондо кайталаңыз.",
-                    "The sale price can't be saved offline: undo its change or retry when the connection is back.", "Bağlantı yokken satış fiyatı kaydedilemez: değişikliği geri alın veya bağlantı gelince tekrar deneyin.", "Aloqasiz sotuv narxini saqlab bo'lmaydi: o'zgarishni bekor qiling yoki aloqa tiklanganda qayta urining."));
+                // 2026-11-01: без связи в очередь встают только количества; цена продажи — PATCH товара, а новый товар — дополнительный приход: их вслепую не ставим.
+                Say(T("Без связи цену продажи и добавление товара сохранить нельзя: уберите их из правки или повторите, когда появится связь.", "Байланышсыз сатуу баасын жана товар кошууну сактоого болбойт: аларды оңдоодон алып салыңыз же байланыш пайда болгондо кайталаңыз.",
+                    "The sale price and adding a product can't be saved offline: remove them from the edit or retry when the connection is back.", "Bağlantı yokken satış fiyatı ve ürün ekleme kaydedilemez: bunları düzenlemeden çıkarın veya bağlantı gelince tekrar deneyin.", "Aloqasiz sotuv narxi va mahsulot qo'shishni saqlab bo'lmaydi: ularni tahrirdan olib tashlang yoki aloqa tiklanganda qayta urining."));
                 return;
             }
             if (result.Queue)
@@ -311,9 +462,9 @@ public sealed partial class InvoiceDocumentWindow
     {
         Say(T("Сохраняю правку…", "Оңдоо сакталууда…", "Saving the edit…", "Düzenleme kaydediliyor…", "Tahrir saqlanmoqda…"));
         var cashbox = result.Compensation == "cash" && plan.Returns.Count > 0 ? await MainCashboxIdAsync().ConfigureAwait(true) : null;
-        var req = new EditRequest(_r, _docNumber, _pay, _rows.Where(r => r.Input is not null).Select(r => r.Input!).ToList(), _rows.Where(r => r.Changed).ToDictionary(r => r.LineId, r => r.Qty),
+        var req = new EditRequest(_r, _docNumber, _pay, _rows.Where(r => r.Input is not null).Select(r => r.Input!).ToList(), _rows.Where(r => r.Changed && r.Input is not null).ToDictionary(r => r.LineId, r => r.Qty),
             result.Reason, Operator(), Environment.MachineName, result.Compensation, cashbox, IsOwner(), ReceiptEditPolicy.Current, _baseFingerprint, _baseVersion, _revertOf, InQueue(), _r.SupplierName,
-            UserId(), PayloadText(App.AuthApi?.UserPayload ?? default, "role"), PriceEdits());
+            UserId(), PayloadText(App.AuthApi?.UserPayload ?? default, "role"), _patchMode && _caps.SalePrice ? null : PriceEdits(), _patchMode ? null : AddedItems(), _patchMode ? BuildPatchPlan() : null);
         var res = await NewService().ApplyAsync(req).ConfigureAwait(true);
         if (res.Ok)
         {
@@ -328,6 +479,14 @@ public sealed partial class InvoiceDocumentWindow
         if (res.Conflict)
         {
             Say(res.Error ?? ReceiptEditService.ConflictText);
+            if (_patchMode)
+            {
+                // 2026-11-01: накладную изменили (версия на сервере другая) — показываем причину, закрываем и открываем заново с актуальными данными
+                await Task.Delay(2500).ConfigureAwait(true);
+                Action = "edited";
+                _closeConfirmed = true;
+                Close();
+            }
             return;
         }
         if (res.Partial || res.Record is { Status: "applying" })
@@ -423,7 +582,18 @@ public sealed partial class InvoiceDocumentWindow
     private async Task ShowHistoryAsync()
     {
         var canRevert = _access.Allowed && IsOwner() && !_edit;
-        var dialog = new InvoiceHistoryDialog(_r, _docNumber, _store.Get(_r.Id), canRevert, _showMoney);
+        // 2026-11-01: серверная история правок (GET suppliers/receipts/{id}/history/) показывается вместе с локальным журналом; не отдаёт — только локальный
+        List<ServerEditVersion>? server = null;
+        try
+        {
+            using var hCts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+            server = await new SupplierApiService(App.GetRequiredService<NurMarketApiClient>()).GetReceiptHistoryAsync(_r.Id, hCts.Token).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Накладная {_docNumber}: серверная история правок не получена ({ex.Message}).", "INFO");
+        }
+        var dialog = new InvoiceHistoryDialog(_r, _docNumber, _store.Get(_r.Id), canRevert, _showMoney, server);
         await PosDialogHost.ShowAsync(dialog, this).ConfigureAwait(true);
         if (dialog.RevertVersion is not { } v)
             return;

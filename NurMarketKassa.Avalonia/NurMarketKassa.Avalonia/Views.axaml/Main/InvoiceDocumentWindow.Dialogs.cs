@@ -31,6 +31,7 @@ internal sealed class InvoiceEditPreviewDialog : Window
     private bool _offlineMode;
     private readonly ReceiptEditPlan _plan;
     private readonly string[] _compKeys = { "debt_offset", "cash", "none" };
+    private readonly bool _patch; // 2026-11-01: правка серверным PATCH — возмещение и деньги считает сервер
 
     private static string[] ReasonKinds() => new[]
     {
@@ -41,8 +42,9 @@ internal sealed class InvoiceEditPreviewDialog : Window
         T("Другое", "Башка", "Other", "Diğer", "Boshqa"),
     };
 
-    public InvoiceEditPreviewDialog(ReceiptEditPlan plan, ReceiptPayKind pay, string docNumber, SupplierReceipt r, string supplier, int version, bool revert, Func<string, Task<bool?>> verify, IReadOnlyList<string>? priceLines = null)
+    public InvoiceEditPreviewDialog(ReceiptEditPlan plan, ReceiptPayKind pay, string docNumber, SupplierReceipt r, string supplier, int version, bool revert, Func<string, Task<bool?>> verify, IReadOnlyList<string>? priceLines = null, IReadOnlyList<AddedItem>? added = null, PatchPlan? patch = null)
     {
+        _patch = patch is not null;
         _plan = plan;
         _verify = verify;
         Title = T("Проверьте правку", "Оңдоону текшериңиз", "Review changes", "Değişiklikleri gözden geçirin", "Tuzatishni tekshiring");
@@ -54,10 +56,14 @@ internal sealed class InvoiceEditPreviewDialog : Window
             t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
             return t;
         }
-        var diff = plan.Diff;
+        var addedSum = added?.Sum(a => ReceivingPricing.LineTotal(a.Qty, a.Price)) ?? 0; // 2026-11-01: новые товары (дополнительный приход) входят в итог
+        var diff = patch is not null ? Math.Round(patch.TotalAfter - patch.TotalBefore, 2) : Math.Round(plan.Diff + addedSum, 2);
         var sign = diff > 0 ? "+" : "";
-        panel.Children.Add(Line(T("Сумма прихода: ", "Кирүүнүн суммасы: ", "Receipt total: ", "Giriş tutarı: ", "Kirim summasi: ") + $"{MoneyText.Som(plan.TotalBefore)} → {MoneyText.Som(plan.TotalAfter)}  ({sign}{MoneyText.Som(diff)})", w: FontWeight.Bold, size: 15));
-        panel.Children.Add(Line(MoneyEffect(pay, diff), "BrushTextSoft", 13));
+        panel.Children.Add(Line(T("Сумма прихода: ", "Кирүүнүн суммасы: ", "Receipt total: ", "Giriş tutarı: ", "Kirim summasi: ") + $"{MoneyText.Som(patch?.TotalBefore ?? plan.TotalBefore)} → {MoneyText.Som(patch?.TotalAfter ?? plan.TotalAfter + addedSum)}  ({sign}{MoneyText.Som(diff)})", w: FontWeight.Bold, size: 15));
+        panel.Children.Add(Line(patch is not null
+            ? T("Остатки, закупку в карточке товара, долг поставщику и деньги пересчитает сервер.", "Калдыктарды, товардын карточкасындагы сатып алуу баасын, жеткирүүчүгө карызды жана акчаны сервер кайра эсептейт.",
+                "The server recalculates stock, the purchase price in the product card, the supplier debt and the money.", "Stok, ürün kartındaki alış fiyatı, tedarikçi borcu ve parayı sunucu yeniden hesaplar.", "Ombor qoldig'i, mahsulot kartasidagi xarid narxi, yetkazib beruvchi qarzi va pulni server qayta hisoblaydi.")
+            : MoneyEffect(pay, diff), "BrushTextSoft", 13));
         // 2026-11-01 (защита): сумма накладной меняется — это затрагивает расчёты с поставщиком (оплачено / долг) и себестоимость уже проданных партий. Причина правки и так обязательна.
         if (Math.Abs(diff) > 0.005)
             panel.Children.Add(Line(T("Внимание: меняется сумма накладной. Если поставщику уже заплачено или товар из этой партии продан, расчёты с поставщиком и прибыль за прошлые дни не пересчитываются сами — укажите причину и сверьте оплату.",
@@ -65,6 +71,12 @@ internal sealed class InvoiceEditPreviewDialog : Window
                 "Attention: the invoice total changes. If the supplier is already paid or goods from this batch are sold, the settlement with the supplier and past profit are not recalculated automatically — enter the reason and check the payment.",
                 "Dikkat: fatura tutarı değişiyor. Tedarikçiye ödeme yapıldıysa veya bu partideki ürün satıldıysa, tedarikçi hesabı ve geçmiş kâr kendiliğinden yeniden hesaplanmaz — nedeni yazın ve ödemeyi kontrol edin.",
                 "Diqqat: yuk xati summasi o'zgaradi. Yetkazib beruvchiga to'langan yoki shu partiyadagi mahsulot sotilgan bo'lsa, hisob-kitob va o'tgan foyda o'zi qayta hisoblanmaydi — sababni yozing va to'lovni solishtiring."), "BrushWarning", 12.5, FontWeight.SemiBold));
+        if (added is { Count: > 0 } && patch is null)
+            panel.Children.Add(Line(T($"Будет создан дополнительный приход к накладной {docNumber}: {added.Count} нов. товар(ов), сумма {MoneyText.Som(addedSum)}. В накладной они появятся строками «из доп. прихода», отметка «кто и когда добавил» — рядом с товаром.",
+                $"{docNumber} накладнойуна кошумча кирүү түзүлөт: {added.Count} жаңы товар, суммасы {MoneyText.Som(addedSum)}. Накладнойдо алар «кошумча кирүүдөн» сап болуп чыгат, «ким жана качан кошту» белгиси — товардын жанында.",
+                $"An additional receipt will be created for invoice {docNumber}: {added.Count} new product(s), total {MoneyText.Som(addedSum)}. They appear in the invoice as “from an additional receipt” lines, with a “who added it and when” mark next to the product.",
+                $"{docNumber} faturası için ek giriş oluşturulur: {added.Count} yeni ürün, tutar {MoneyText.Som(addedSum)}. Faturada «ek girişten» satırları olarak görünür, «kim ne zaman ekledi» işareti ürünün yanındadır.",
+                $"{docNumber} yuk xatiga qo'shimcha kirim yaratiladi: {added.Count} ta yangi mahsulot, summa {MoneyText.Som(addedSum)}. Yuk xatida ular «qo'shimcha kirimdan» qatorlari bo'lib chiqadi, «kim va qachon qo'shdi» belgisi mahsulot yonida."), "BrushText", 13, FontWeight.SemiBold));
         if (priceLines is { Count: > 0 })
         {
             panel.Children.Add(Line(T("Будет изменена цена продажи товара в каталоге (в документе прихода цен продажи нет):", "Каталогдогу товардын сатуу баасы өзгөрөт (кирүү документинде сатуу баасы жок):",
@@ -74,7 +86,7 @@ internal sealed class InvoiceEditPreviewDialog : Window
         }
 
         // таблица товаров: сейчас → станет, остаток склада
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto") };
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto,Auto") };
         var row = 0;
         void Cell(string text, int col, bool head = false, string brush = "BrushText", bool bold = false)
         {
@@ -93,6 +105,7 @@ internal sealed class InvoiceEditPreviewDialog : Window
         Cell(T("Изменение", "Өзгөрүү", "Change", "Değişim", "O'zgarish"), 2, true);
         Cell(T("Станет", "Болот", "Will be", "Olacak", "Bo'ladi"), 3, true);
         Cell(T("Остаток склада", "Кампа калдыгы", "Stock", "Stok", "Ombor qoldig'i"), 4, true);
+        Cell(T("Сумма", "Сумма", "Amount", "Tutar", "Summa"), 5, true);
         foreach (var l in plan.Lines.Where(l => l.Action != EditAction.None))
         {
             row++;
@@ -103,15 +116,29 @@ internal sealed class InvoiceEditPreviewDialog : Window
             Cell((l.Delta > 0 ? "+" : "") + ReceiptEditPlanner.Fmt(l.Delta), 2, brush: l.Delta < 0 ? "BrushDanger" : "BrushSuccess", bold: true);
             Cell(ReceiptEditPlanner.Fmt(l.NewQty), 3);
             Cell(stockBefore is { } sb ? $"{ReceiptEditPlanner.Fmt(sb)} → {ReceiptEditPlanner.Fmt(sb + l.Delta)}" : "—", 4);
+            Cell((l.Delta > 0 ? "+" : "−") + MoneyText.Som(ReceivingPricing.LineTotal(Math.Abs(l.Delta), l.Input.Purchase)), 5);
+        }
+        // 2026-11-01: товары, которых нет в накладной, — строки дополнительного прихода (было 0)
+        foreach (var a in added ?? Array.Empty<AddedItem>())
+        {
+            row++;
+            grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            Cell(a.Name + " ＋", 0, bold: true);
+            Cell("0", 1);
+            Cell("+" + ReceiptEditPlanner.Fmt(a.Qty), 2, brush: "BrushSuccess", bold: true);
+            Cell(ReceiptEditPlanner.Fmt(a.Qty), 3);
+            Cell("—", 4);
+            Cell("+" + MoneyText.Som(ReceivingPricing.LineTotal(a.Qty, a.Price)), 5);
         }
         var box = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Child = grid };
         box.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
         panel.Children.Add(box);
-        panel.Children.Add(Line(T("Закупка в карточке товара не меняется (цена продажи — только если указана выше). Количество уменьшается возвратом поставщику по этому приходу, увеличивается дополнительным приходом «дополнение к ", "Товардын карточкасындагы сатып алуу баасы өзгөрбөйт (сатуу баасы — жогоруда көрсөтүлсө гана). Саны азайса — ушул кирүү боюнча жеткирүүчүгө кайтаруу, көбөйсө — кошумча кирүү «",
+        if (patch is null)
+            panel.Children.Add(Line(T("Закупка в карточке товара не меняется (цена продажи — только если указана выше). Количество уменьшается возвратом поставщику по этому приходу, увеличивается дополнительным приходом «дополнение к ", "Товардын карточкасындагы сатып алуу баасы өзгөрбөйт (сатуу баасы — жогоруда көрсөтүлсө гана). Саны азайса — ушул кирүү боюнча жеткирүүчүгө кайтаруу, көбөйсө — кошумча кирүү «",
             "The purchase price in the product card does not change (the sale price only if shown above). A smaller quantity is a return to the supplier against this receipt, a larger one is an additional receipt “addition to ", "Ürün kartındaki alış fiyatı değişmez (satış fiyatı yalnızca yukarıda gösterilmişse). Azalan miktar bu girişe karşı tedarikçiye iade, artan miktar «", "Mahsulot kartasidagi xarid narxi o'zgarmaydi (sotuv narxi — faqat yuqorida ko'rsatilgan bo'lsa). Kamaytirish — shu kirim bo'yicha yetkazib beruvchiga qaytarish, ko'paytirish — «")
             + docNumber + T("». Продажи и прибыль в отчётах не пересчитываются.", "». Сатуулар жана отчёттордогу пайда кайра эсептелбейт.", "”. Sales and profit in reports are not recalculated.", "» ek girişi. Raporlardaki satış ve kâr yeniden hesaplanmaz.", "» qo'shimcha kirimi. Hisobotlardagi sotuv va foyda qayta hisoblanmaydi."), "BrushTextSoft", 12.5));
 
-        if (plan.Returns.Count > 0)
+        if (plan.Returns.Count > 0 && patch is null)
         {
             panel.Children.Add(Line(T("Чем компенсируется возврат поставщику", "Жеткирүүчүгө кайтарууну эмне менен толуктоо", "How the return to the supplier is compensated", "Tedarikçiye iade nasıl telafi edilir", "Yetkazib beruvchiga qaytarish nima bilan qoplanadi"), "BrushTextSoft", 12.5, FontWeight.SemiBold));
             _comp.ItemsSource = new[]
@@ -193,7 +220,7 @@ internal sealed class InvoiceEditPreviewDialog : Window
     private async Task SaveAsync()
     {
         _error.IsVisible = false;
-        var comp = _plan.Returns.Count > 0 && _comp.SelectedIndex >= 0 ? _compKeys[_comp.SelectedIndex] : "none";
+        var comp = !_patch && _plan.Returns.Count > 0 && _comp.SelectedIndex >= 0 ? _compKeys[_comp.SelectedIndex] : "none";
         if (_offlineMode)
         {
             Result = new PreviewResult(ReasonText, comp, true);
@@ -343,7 +370,7 @@ internal sealed class InvoiceHistoryDialog : Window
     /// <summary>Версия, которую просят откатить (последняя правка).</summary>
     public int? RevertVersion { get; private set; }
 
-    public InvoiceHistoryDialog(SupplierReceipt r, string docNumber, ReceiptHistory history, bool canRevert, bool showMoney = true)
+    public InvoiceHistoryDialog(SupplierReceipt r, string docNumber, ReceiptHistory history, bool canRevert, bool showMoney = true, IReadOnlyList<ServerEditVersion>? server = null)
     {
         Title = T("История версий", "Версиялар тарыхы", "Version history", "Sürüm geçmişi", "Versiyalar tarixi");
         SectionCards.AsModal(this, 760);
@@ -380,7 +407,7 @@ internal sealed class InvoiceHistoryDialog : Window
                     : T($" (проведено не полностью, по плану {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (толук өткөрүлгөн жок, планда {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (not fully posted, planned {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (tam işlenmedi, planlanan {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (to'liq o'tkazilmadi, rejada {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})")) : "")))
                 + (e.Lines.Count > 8 ? "…" : ""), "BrushTextSoft", 12.5));
             // 2026-11-01: цена продажи / наценка товара, изменённые из накладной, — «было → стало» по каждому полю
-            if (ReceiptEditAuditLog.FieldChanges(e).Where(f => f.Field != "quantity").ToList() is { Count: > 0 } priceFields)
+            if (ReceiptEditAuditLog.FieldChanges(e).Where(f => f.Field is "sale_price" or "markup_percent").ToList() is { Count: > 0 } priceFields)
                 card.Children.Add(Line(string.Join("; ", priceFields.Select(ReceiptEditAuditLog.FieldText)), "BrushTextSoft", 12.5));
             if (canRevert && e == edits[0] && e.Status == "done")
             {
@@ -399,6 +426,25 @@ internal sealed class InvoiceHistoryDialog : Window
             box.Bind(Border.BackgroundProperty, this.GetResourceObservable(e == edits[0] ? "BrushAccentSoft" : "BrushPanelSoft"));
             panel.Children.Add(box);
         }
+        // 2026-11-01: история с сервера (то, что правили на сайте, с телефона и с других касс) — рядом с локальным журналом этой кассы
+        if (server is { Count: > 0 })
+        {
+            panel.Children.Add(Line(T("История на сервере (все кассы, сайт, телефон)", "Серверде тарых (бардык кассалар, сайт, телефон)", "Server history (all tills, site, phone)", "Sunucudaki geçmiş (tüm kasalar, site, telefon)", "Serverdagi tarix (barcha kassalar, sayt, telefon)"), "BrushTextSoft", 12.5, FontWeight.SemiBold));
+            foreach (var sv in server.Take(30))
+            {
+                var sp = new StackPanel { Spacing = 2 };
+                sp.Children.Add(Line($"v{sv.Version} · {sv.At:dd.MM.yyyy HH:mm} · {sv.User}" + (sv.Device.Length > 0 ? " · " + sv.Device : ""), size: 13, w: FontWeight.SemiBold));
+                if (sv.Reason.Length > 0)
+                    sp.Children.Add(Line(T("Причина: ", "Себеби: ", "Reason: ", "Neden: ", "Sabab: ") + sv.Reason, "BrushTextSoft", 12.5));
+                if (showMoney && sv.Total > 0)
+                    sp.Children.Add(Line(MoneyText.Som(sv.Total), "BrushTextSoft", 12.5));
+                if (sv.Summary.Length > 0)
+                    sp.Children.Add(Line(sv.Summary.Length > 400 ? sv.Summary[..400] + "…" : sv.Summary, "BrushTextSoft", 12));
+                var sbox = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Child = sp };
+                sbox.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
+                panel.Children.Add(sbox);
+            }
+        }
         // исходный документ — v1
         var first = new StackPanel { Spacing = 2 };
         first.Children.Add(Line("v1 · " + T("исходный документ", "баштапкы документ", "original document", "orijinal belge", "asl hujjat"), w: FontWeight.Bold, size: 14));
@@ -410,5 +456,34 @@ internal sealed class InvoiceHistoryDialog : Window
         var close = SectionCards.Cancel(T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
         close.Click += (_, _) => Close();
         Content = SectionCards.Shell(Title, $"{docNumber} · {r.SupplierName} · " + T($"сейчас версия {history.Version}", $"азыр {history.Version}-версия", $"now version {history.Version}", $"şimdi sürüm {history.Version}", $"hozir {history.Version}-versiya"), panel, SectionCards.Buttons(close));
+    }
+}
+
+/// <summary>2026-11-01 (просьба владельца «рядом с товаром пишется, кто и когда редактировал»): вся история правок ОДНОЙ позиции накладной — время, кто (роль), было → стало, причина.</summary>
+internal sealed class LineHistoryDialog : Window
+{
+    private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
+
+    public LineHistoryDialog(string product, string docNumber, IReadOnlyList<LineEdit> edits)
+    {
+        Title = T("История позиции", "Позиция тарыхы", "Line history", "Satır geçmişi", "Pozitsiya tarixi");
+        SectionCards.AsModal(this, 680);
+        var panel = new StackPanel { Spacing = 6 };
+        foreach (var e in edits)
+        {
+            var card = new StackPanel { Spacing = 2 };
+            var head = new TextBlock { Text = ReceiptEditLineHistory.Mark(e), FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
+            head.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            var why = new TextBlock { Text = T("Причина: ", "Себеби: ", "Reason: ", "Neden: ", "Sabab: ") + e.Reason + $"  ·  v{e.Version}", FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
+            why.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            card.Children.Add(head);
+            card.Children.Add(why);
+            var box = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Child = card };
+            box.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
+            panel.Children.Add(box);
+        }
+        var close = SectionCards.Cancel(T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
+        close.Click += (_, _) => Close();
+        Content = SectionCards.Shell(Title, $"{docNumber} · {product}", panel, SectionCards.Buttons(close));
     }
 }

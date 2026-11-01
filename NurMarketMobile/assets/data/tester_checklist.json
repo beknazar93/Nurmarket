@@ -3583,6 +3583,177 @@
           "Sırada 5 günden eski fiş varsa «Eşitleme» ekranında kırmızı uyarı çıkar. Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin."
         ]
       }
+    },
+    {
+      "id": "1.18.15/server-rounding",
+      "version": "1.18.15",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Итог чека считается как на сервере",
+        "ky": "Чектин жыйынтыгы сервердегидей эсептелет",
+        "uz": "Chek jami serverdagidek hisoblanadi",
+        "en": "The receipt total is calculated as on the server",
+        "tr": "Fiş toplamı sunucudaki gibi hesaplanır"
+      },
+      "changed": {
+        "ru": "Строки чека не округляются, итог округляется один раз до 0,01 по правилу сервера (половина — вверх); сумма на экране, в чеке и в оплате совпадает с серверной.",
+        "ky": "Чектин саптары тегизделбейт, жыйынтык бир жолу 0,01ге сервердин эрежеси боюнча тегизделет (жарымы — жогору); экрандагы, чектеги жана төлөмдөгү сумма сервердикине дал келет.",
+        "uz": "Chek qatorlari yaxlitlanmaydi, jami bir marta 0,01 gacha server qoidasi bo'yicha yaxlitlanadi (yarmi — yuqoriga); ekrandagi, chekdagi va to'lovdagi summa serverniki bilan mos keladi.",
+        "en": "Receipt lines are not rounded, the total is rounded once to 0.01 by the server's rule (half rounds up); the amount on the screen, in the receipt and in payment matches the server's.",
+        "tr": "Fiş satırları yuvarlanmaz, toplam sunucunun kuralına göre (yarım — yukarı) bir kez 0,01'e yuvarlanır; ekrandaki, fişteki ve ödemedeki tutar sunucununkiyle aynıdır."
+      },
+      "steps": {
+        "ru": [
+          "Зайдите кассиром. Добавьте товар с ценой, дающей хвост (например 33,333) в количестве 3 — на экране чека сумма строки не округляется до копеек заранее, итог один раз округлён до 0,01.",
+          "Добавьте несколько таких строк (три по 33,333 и ещё одну): итог равен сумме строк без округления, округлённой один раз (например 99,999 → 100,00).",
+          "Проведите продажу: сумма в окне оплаты, в чеке и в «Чеках» совпадает с суммой, которую показывает сайт.",
+          "Весовой товар: количество 0,375 кг по цене 99,99 — итог такой же, как на сайте; упаковка с ценой 100/3 считается без накопления копеек.",
+          "Проверьте на кыргызском и узбекском, в тёмной теме и при крупном шрифте (360 dp): суммы не обрезаны."
+        ],
+        "ky": [
+          "Кассир менен кириңиз. Үтүрдөн кийин «куйругу» бар баадагы (мисалы 33,333) товарды 3 даана кошуңуз — чек экранында сап суммасы алдын ала тыйынга чейин тегизделбейт, жыйынтык бир жолу 0,01ге тегизделет.",
+          "Мындай бир нече сап кошуңуз (үч 33,333 жана дагы бир): жыйынтык саптардын тегиздөөсүз суммасына барабар, бир жолу тегизделет (мисалы 99,999 → 100,00).",
+          "Сатууну өткөрүңүз: төлөм терезесиндеги, чектеги жана «Чектердеги» сумма сайт көрсөткөн сумма менен дал келет.",
+          "Салмактуу товар: 0,375 кг, баасы 99,99 — жыйынтык сайттагыдай; баасы 100/3 болгон таңгак тыйындарды топтобой эсептелет.",
+          "Кыргызча жана өзбекче, кара темада жана чоң арипте (360 dp) текшериңиз: суммалар кесилбейт."
+        ],
+        "uz": [
+          "Kassir bilan kiring. Narxi «dumli» (masalan 33,333) mahsulotni 3 dona qo'shing — chek ekranida qator summasi oldindan tiyingacha yaxlitlanmaydi, jami bir marta 0,01 gacha yaxlitlanadi.",
+          "Bunday bir nechta qator qo'shing (uchta 33,333 va yana bitta): jami qatorlarning yaxlitlanmagan yig'indisiga teng, bir marta yaxlitlanadi (masalan 99,999 → 100,00).",
+          "Sotuvni o'tkazing: to'lov oynasidagi, chekdagi va «Cheklar»dagi summa sayt ko'rsatgan summa bilan mos keladi.",
+          "Vaznli mahsulot: 0,375 kg, narxi 99,99 — jami saytdagidek; narxi 100/3 bo'lgan qadoq tiyinlarni yig'masdan hisoblanadi.",
+          "Qirg'izcha va o'zbekchada, qora mavzuda va yirik shriftda (360 dp) tekshiring: summalar kesilmaydi."
+        ],
+        "en": [
+          "Sign in as a cashier. Add a product whose price has a tail (e.g. 33.333), quantity 3 — on the receipt screen the line amount is not rounded to cents in advance, the total is rounded once to 0.01.",
+          "Add several such lines (three at 33.333 and one more): the total equals the sum of the unrounded lines, rounded once (e.g. 99.999 → 100.00).",
+          "Complete the sale: the amount in the payment window, in the receipt and in “Receipts” matches the amount the website shows.",
+          "A weighed product: 0.375 kg at 99.99 — the total is the same as on the website; a pack priced 100/3 is calculated without accumulating cents.",
+          "Check in Kyrgyz and Uzbek, in the dark theme and at a large font (360 dp): amounts are not cut off."
+        ],
+        "tr": [
+          "Kasiyer olarak girin. Fiyatı «kuyruklu» (örneğin 33,333) bir ürünü 3 adet ekleyin — fiş ekranında satır tutarı önceden kuruşa yuvarlanmaz, toplam bir kez 0,01'e yuvarlanır.",
+          "Böyle birkaç satır ekleyin (üç tane 33,333 ve bir tane daha): toplam, yuvarlanmamış satırların toplamına eşittir ve bir kez yuvarlanır (örneğin 99,999 → 100,00).",
+          "Satışı tamamlayın: ödeme penceresindeki, fişteki ve «Fişler»deki tutar sitenin gösterdiği tutarla aynıdır.",
+          "Tartılı ürün: 0,375 kg, 99,99 fiyatla — toplam sitedekiyle aynı; fiyatı 100/3 olan paket kuruşlar birikmeden hesaplanır.",
+          "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: tutarlar kesilmez."
+        ]
+      }
+    },
+    {
+      "id": "1.18.15/return-net-total",
+      "version": "1.18.15",
+      "area": "sale",
+      "severity": "important",
+      "title": {
+        "ru": "Возврат: «Итог чека после возвратов»",
+        "ky": "Кайтаруу: «Кайтаруулардан кийинки чектин жыйынтыгы»",
+        "uz": "Qaytarish: «Qaytarishlardan keyingi chek jami»",
+        "en": "Return: “Receipt total after returns”",
+        "tr": "İade: «İadelerden sonraki fiş toplamı»"
+      },
+      "changed": {
+        "ru": "На экране возврата чека, по которому уже были возвраты, показан итог чека после возвратов (net_total сервера).",
+        "ky": "Мурун кайтаруулар болгон чектин кайтаруу экранында кайтаруулардан кийинки чектин жыйынтыгы көрсөтүлөт (сервердин net_total).",
+        "uz": "Avval qaytarishlar bo'lgan chekning qaytarish ekranida qaytarishlardan keyingi chek jami ko'rsatiladi (serverning net_total).",
+        "en": "The return screen of a receipt that already had returns shows the receipt total after returns (the server's net_total).",
+        "tr": "Daha önce iadeleri olan fişin iade ekranında iadelerden sonraki fiş toplamı gösterilir (sunucunun net_total değeri)."
+      },
+      "steps": {
+        "ru": [
+          "Зайдите кассиром. «Чеки» → выберите чек, по которому ещё не было возвратов, откройте возврат: строки «Итог чека после возвратов» нет.",
+          "Верните часть товара и проведите возврат. Снова откройте возврат этого чека: внизу строка «Итог чека после возвратов: N сом» — исходная сумма минус возвращённое.",
+          "Сверьте число с сайтом (чек после возврата): суммы совпадают.",
+          "Без связи откройте тот же чек: приложение не падает, строка показана по последним полученным данным или скрыта.",
+          "Проверьте на кыргызском и узбекском, в тёмной теме и при крупном шрифте (360 dp): строка не обрезана."
+        ],
+        "ky": [
+          "Кассир менен кириңиз. «Чектер» → дагы кайтаруу болбогон чекти тандап, кайтарууну ачыңыз: «Кайтаруулардан кийинки чектин жыйынтыгы» сабы жок.",
+          "Товардын бир бөлүгүн кайтарып, кайтарууну өткөрүңүз. Бул чектин кайтарууну кайра ачыңыз: төмөндө «Кайтаруулардан кийинки чектин жыйынтыгы: N сом» сабы — баштапкы сумма минус кайтарылган.",
+          "Санды сайт менен салыштырыңыз (кайтаруудан кийинки чек): суммалар дал келет.",
+          "Байланышсыз ошол чекти ачыңыз: тиркеме кулабайт, сап акыркы алынган маалымат боюнча көрсөтүлөт же жашырылат.",
+          "Кыргызча жана өзбекче, кара темада жана чоң арипте (360 dp) текшериңиз: сап кесилбейт."
+        ],
+        "uz": [
+          "Kassir bilan kiring. «Cheklar» → hali qaytarish bo'lmagan chekni tanlab, qaytarishni oching: «Qaytarishlardan keyingi chek jami» qatori yo'q.",
+          "Mahsulotning bir qismini qaytarib, qaytarishni o'tkazing. Shu chekning qaytarishini yana oching: pastda «Qaytarishlardan keyingi chek jami: N so'm» qatori — dastlabki summa minus qaytarilgani.",
+          "Sonni sayt bilan solishtiring (qaytarishdan keyingi chek): summalar mos keladi.",
+          "Aloqasiz shu chekni oching: ilova qulamaydi, qator oxirgi olingan ma'lumot bo'yicha ko'rsatiladi yoki yashiriladi.",
+          "Qirg'izcha va o'zbekchada, qora mavzuda va yirik shriftda (360 dp) tekshiring: qator kesilmaydi."
+        ],
+        "en": [
+          "Sign in as a cashier. Receipts → pick a receipt with no returns yet and open the return: there is no “Receipt total after returns” line.",
+          "Return part of the goods and post the return. Open the return of this receipt again: at the bottom is the line “Receipt total after returns: N som” — the original amount minus what was returned.",
+          "Compare the number with the website (the receipt after the return): the amounts match.",
+          "Without a connection open the same receipt: the app does not crash, the line shows the last received data or is hidden.",
+          "Check in Kyrgyz and Uzbek, in the dark theme and at a large font (360 dp): the line is not cut off."
+        ],
+        "tr": [
+          "Kasiyer olarak girin. «Fişler» → henüz iadesi olmayan bir fiş seçip iadeyi açın: «İadelerden sonraki fiş toplamı» satırı yok.",
+          "Ürünün bir kısmını iade edip iadeyi işleyin. Bu fişin iadesini yeniden açın: altta «İadelerden sonraki fiş toplamı: N som» satırı — ilk tutar eksi iade edilen.",
+          "Sayıyı site ile karşılaştırın (iadeden sonraki fiş): tutarlar aynı.",
+          "Bağlantısız aynı fişi açın: uygulama çökmez, satır son alınan verilere göre gösterilir veya gizlenir.",
+          "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: satır kesilmez."
+        ]
+      }
+    },
+    {
+      "id": "1.18.15/discount-cap",
+      "version": "1.18.15",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Ручная скидка не больше суммы строки",
+        "ky": "Кол менен берилген арзандатуу сап суммасынан ашпайт",
+        "uz": "Qo'lda chegirma qator summasidan oshmaydi",
+        "en": "A manual discount cannot exceed the line amount",
+        "tr": "Elle indirim satır tutarını aşamaz"
+      },
+      "changed": {
+        "ru": "Скидка, введённая вручную на строку, не может быть больше суммы самой строки: итог строки не уходит в минус.",
+        "ky": "Сапка кол менен киргизилген арзандатуу сап суммасынан чоң болушу мүмкүн эмес: сап жыйынтыгы минуска кетпейт.",
+        "uz": "Qatorga qo'lda kiritilgan chegirma qatorning o'z summasidan katta bo'la olmaydi: qator jami minusga ketmaydi.",
+        "en": "A discount entered by hand on a line cannot be larger than the line's own amount: the line total does not go negative.",
+        "tr": "Satıra elle girilen indirim satırın kendi tutarından büyük olamaz: satır toplamı eksiye düşmez."
+      },
+      "steps": {
+        "ru": [
+          "Зайдите кассиром (или владельцем с правом скидок). Добавьте товар ценой 100 в количестве 1. Откройте скидку строки.",
+          "Введите скидку 150 сом: приложение не принимает больше 100 (сумма строки) — значение уменьшается до 100 или показывается подсказка; итог строки не отрицательный.",
+          "Введите скидку 100 %: строка становится 0,00, оплата возможна по правилам магазина; больше 100 % не принимается.",
+          "Скидка 30 сом: итог строки 70,00, итог чека пересчитан. Измените количество на 2: скидка остаётся, но не больше новой суммы строки.",
+          "Проверьте на кыргызском и узбекском, в тёмной теме и при крупном шрифте (360 dp): подсказки не обрезаны."
+        ],
+        "ky": [
+          "Кассир менен (же арзандатуу укугу бар ээси менен) кириңиз. Баасы 100 болгон товарды 1 даана кошуңуз. Сап арзандатуусун ачыңыз.",
+          "150 сом арзандатуу киргизиңиз: тиркеме 100дөн (сап суммасы) ашыкты кабыл албайт — маани 100гө чейин азаят же кеңеш көрүнөт; сап жыйынтыгы терс эмес.",
+          "100 % арзандатуу киргизиңиз: сап 0,00 болот, төлөм дүкөндүн эрежеси боюнча мүмкүн; 100 %дан ашыгы кабыл алынбайт.",
+          "30 сом арзандатуу: сап жыйынтыгы 70,00, чектин жыйынтыгы кайра эсептелди. Санын 2ге өзгөртүңүз: арзандатуу калат, бирок жаңы сап суммасынан ашпайт.",
+          "Кыргызча жана өзбекче, кара темада жана чоң арипте (360 dp) текшериңиз: кеңештер кесилбейт."
+        ],
+        "uz": [
+          "Kassir bilan (yoki chegirma huquqi bor egasi bilan) kiring. Narxi 100 bo'lgan mahsulotni 1 dona qo'shing. Qator chegirmasini oching.",
+          "150 so'm chegirma kiriting: ilova 100 dan (qator summasi) ortig'ini qabul qilmaydi — qiymat 100 gacha kamayadi yoki maslahat ko'rinadi; qator jami manfiy emas.",
+          "100 % chegirma kiriting: qator 0,00 bo'ladi, to'lov do'kon qoidalari bo'yicha mumkin; 100 % dan ortig'i qabul qilinmaydi.",
+          "30 so'm chegirma: qator jami 70,00, chek jami qayta hisoblandi. Miqdorni 2 ga o'zgartiring: chegirma qoladi, lekin yangi qator summasidan oshmaydi.",
+          "Qirg'izcha va o'zbekchada, qora mavzuda va yirik shriftda (360 dp) tekshiring: maslahatlar kesilmaydi."
+        ],
+        "en": [
+          "Sign in as a cashier (or as the owner with the discount permission). Add a product priced 100, quantity 1. Open the line discount.",
+          "Enter a discount of 150 som: the app does not accept more than 100 (the line amount) — the value is cut to 100 or a hint is shown; the line total is not negative.",
+          "Enter a 100 % discount: the line becomes 0.00, payment is possible under the shop's rules; more than 100 % is not accepted.",
+          "A discount of 30 som: the line total is 70.00, the receipt total is recalculated. Change the quantity to 2: the discount stays, but not more than the new line amount.",
+          "Check in Kyrgyz and Uzbek, in the dark theme and at a large font (360 dp): the hints are not cut off."
+        ],
+        "tr": [
+          "Kasiyer olarak (veya indirim yetkisi olan sahip olarak) girin. Fiyatı 100 olan bir ürünü 1 adet ekleyin. Satır indirimini açın.",
+          "150 som indirim yazın: uygulama 100'den (satır tutarı) fazlasını kabul etmez — değer 100'e düşer veya ipucu gösterilir; satır toplamı eksi olmaz.",
+          "%100 indirim yazın: satır 0,00 olur, ödeme mağazanın kurallarına göre mümkündür; %100'den fazlası kabul edilmez.",
+          "30 som indirim: satır toplamı 70,00, fiş toplamı yeniden hesaplandı. Miktarı 2 yapın: indirim kalır ama yeni satır tutarını aşmaz.",
+          "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: ipuçları kesilmez."
+        ]
+      }
     }
   ]
 }

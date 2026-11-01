@@ -24,6 +24,12 @@ public static class CartTotalsCalculator
         /// сами суммы на экране (сдача и т.п.) по-прежнему считаются от неотрицательного TotalDue.</summary>
         public double RawTotal { get; init; }
 
+        /// <summary>2026-11-01 (ответ Умара): суммы БЕЗ округления — сумма строк (цена × количество) и скидки строк.
+        /// Сервер складывает строки не округляя и округляет только итог чека; окно оплаты считает скидку чека от этих значений.
+        /// Subtotal / LineDiscounts выше — те же суммы, округлённые до копейки для показа.</summary>
+        public decimal SubtotalExact { get; init; }
+        public decimal LineDiscountsExact { get; init; }
+
         public string SubtotalFormatted => FormatMoney(Subtotal);
         public string LineDiscountsFormatted => FormatMoney(LineDiscounts);
         public string OrderDiscountFormatted => FormatMoney(OrderDiscount);
@@ -35,8 +41,12 @@ public static class CartTotalsCalculator
         if (cart.ValueKind != JsonValueKind.Object)
             return Empty();
 
-        double subtotal = 0;
-        double lineDiscounts = 0;
+        // 2026-11-01 (ответ Умара, округление): как у сервера — строки складываются БЕЗ округления (decimal, полная точность),
+        // скидка чека процентом считается от неокруглённой суммы, и округляется ОДИН раз — итог чека (до 0,01, половина вверх).
+        // Раньше каждая строка и каждая промежуточная сумма округлялись отдельно — у весовых чеков копейки расходились с сервером.
+        // Скидки строк — уже суммы (до копейки, их кассир ввёл или они ушли на сервер так же), в decimal не округляются повторно.
+        decimal subtotalExact = 0;
+        decimal lineDiscountsExact = 0;
         var lineCount = 0;
 
         foreach (var it in CartDisplayHelper.EnumerateItems(cart))
@@ -44,28 +54,32 @@ public static class CartTotalsCalculator
             lineCount++;
             var qty = CartDisplayHelper.LineQuantity(it);
             var unitPrice = CartDisplayHelper.UnitPrice(it);
-            var gross = QuantityRules.Gross(qty, unitPrice); // 2026-10-26 (ХМ2): в «Хозтоварах» — decimal, иначе прежнее RoundMoney(qty * unitPrice)
-            subtotal = RoundMoney(subtotal + gross);
+            subtotalExact += QuantityRules.LineAmount(it, qty, unitPrice); // 2026-11-01: весовая — вниз до 0,01, обычная — без округления
 
             var disc = ReadDiscount(it);
             if (disc > 0)
-                lineDiscounts = RoundMoney(lineDiscounts + disc);
+                lineDiscountsExact += QuantityRules.ToMoneyDecimal(disc);
         }
 
-        var orderDiscountBase = Math.Max(0, RoundMoney(subtotal - lineDiscounts));
-        var orderDiscount = RoundMoney(ReadOrderDiscount(cart, orderDiscountBase, lineDiscounts));
-        var rawTotal = RoundMoney(subtotal - lineDiscounts - orderDiscount);
-        var computed = Math.Max(0, rawTotal);
-        var totalDue = lineCount == 0 ? 0 : computed;
+        // 2026-11-01 (живая сверка с сервером NBS, чеки 1974–1980): подытог (сумма строк минус скидки строк) округляется ОДИН раз;
+        // процент скидки чека берётся от ОКРУГЛЁННОГО подытога, сумма скидки округляется отдельно (половина вверх); итог = подытог − скидка.
+        // Чек 1977: 1,425 → подытог 1,43, 50 % = 0,715 → 0,72, итог 0,71; 17,00 × 2,5 % → 0,43 → 16,57; 5,00 × 2,5 % → 0,13 → 4,87.
+        var orderDiscountBase = Math.Max(0m, QuantityRules.RoundMoney(subtotalExact - lineDiscountsExact));
+        var orderDiscountExact = QuantityRules.RoundMoney(ReadOrderDiscount(cart, orderDiscountBase, lineDiscountsExact));
+        var rawTotal = QuantityRules.RoundMoney(subtotalExact - lineDiscountsExact) - orderDiscountExact;
+        var computed = Math.Max(0m, rawTotal);
+        var totalDue = lineCount == 0 ? 0m : computed;
 
         return new CartTotals
         {
-            Subtotal = subtotal,
-            LineDiscounts = lineDiscounts,
-            OrderDiscount = orderDiscount,
-            TotalDue = totalDue,
-            RawTotal = lineCount == 0 ? 0 : rawTotal,
+            Subtotal = (double)QuantityRules.RoundMoney(subtotalExact),
+            LineDiscounts = (double)QuantityRules.RoundMoney(lineDiscountsExact),
+            OrderDiscount = (double)QuantityRules.RoundMoney(orderDiscountExact),
+            TotalDue = (double)totalDue,
+            RawTotal = lineCount == 0 ? 0 : (double)rawTotal,
             LineCount = lineCount,
+            SubtotalExact = subtotalExact,
+            LineDiscountsExact = lineDiscountsExact,
         };
     }
 
@@ -102,31 +116,32 @@ public static class CartTotalsCalculator
         return 0;
     }
 
-    private static double ReadOrderDiscount(JsonElement cart, double discountBase, double lineDiscounts)
+    /// <summary>2026-11-01: скидка чека в decimal БЕЗ округления: сумма — как задана, процент — от неокруглённой базы.</summary>
+    private static decimal ReadOrderDiscount(JsonElement cart, decimal discountBase, decimal lineDiscounts)
     {
         if (cart.ValueKind != JsonValueKind.Object)
             return 0;
 
         if (TryDouble(cart, "order_discount_total") is { } explicitTotal && explicitTotal > 0)
-            return Math.Min(discountBase, explicitTotal);
+            return Math.Min(discountBase, QuantityRules.ToMoneyDecimal(explicitTotal));
         if (TryDouble(cart, "cart_discount") is { } cartDiscount && cartDiscount > 0)
-            return Math.Min(discountBase, cartDiscount);
+            return Math.Min(discountBase, QuantityRules.ToMoneyDecimal(cartDiscount));
         foreach (var key in new[] { "discount_total", "total_discount" })
             if (TryDouble(cart, key) is { } aggregate && aggregate > 0)
-                return Math.Min(discountBase, Math.Max(0, aggregate - lineDiscounts));
+                return Math.Min(discountBase, Math.Max(0m, QuantityRules.ToMoneyDecimal(aggregate) - lineDiscounts));
 
         var totals = TryTotals(cart);
         if (totals.ValueKind == JsonValueKind.Object)
         {
             if (TryDouble(totals, "order_discount_total") is { } nestedOrder && nestedOrder > 0)
-                return Math.Min(discountBase, nestedOrder);
+                return Math.Min(discountBase, QuantityRules.ToMoneyDecimal(nestedOrder));
             foreach (var key in new[] { "discount_total", "total_discount" })
                 if (TryDouble(totals, key) is { } aggregate && aggregate > 0)
-                    return Math.Min(discountBase, Math.Max(0, aggregate - lineDiscounts));
+                    return Math.Min(discountBase, Math.Max(0m, QuantityRules.ToMoneyDecimal(aggregate) - lineDiscounts));
         }
 
         if (TryDouble(cart, "order_discount_percent") is { } pct && pct > 0)
-            return RoundMoney(discountBase * Math.Min(pct, 100) / 100.0);
+            return discountBase * QuantityRules.ToMoneyDecimal(Math.Min(pct, 100)) / 100m;
 
         return 0;
     }

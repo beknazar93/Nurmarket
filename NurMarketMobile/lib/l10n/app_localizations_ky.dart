@@ -2087,6 +2087,11 @@ class AppLocalizationsKy extends AppLocalizations {
   String get kindSale => 'Сатуу';
 
   @override
+  String returnNetTotal(String sum) {
+    return 'Кайтаруулардан кийинки чектин жыйынтыгы: $sum сом';
+  }
+
+  @override
   String get prevSaleMayPass =>
       'Мурунку төлөм бүтпөй калды — ал чек өтүп кетиши мүмкүн. Кайра төлөөдөн мурун «Чектер» бөлүмүн текшериңиз.';
 

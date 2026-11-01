@@ -2161,7 +2161,11 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 await CreateNewProductLocalFirstAsync(request).ConfigureAwait(true);
             }
             else
+            {
+                // 2026-11-01 (расследование «остаток не меняется», п. 6): в журнале видно, что именно ушло на сервер.
+                PosLogger.Log($"PRODUCT save: id={_existing.Id}, остаток отправлен: {(request.SendQuantity ? "да" : "нет")}, цены: {(request.SendPrice ? "да" : "нет")}, закупка: {(request.SendPurchasePrice ? "да" : "нет")}.", "WAREHOUSE");
                 await _catalogApi.UpdateProductAsync(_existing.Id, request).ConfigureAwait(true);
+            }
 
             Saved = true;
             Close(true);

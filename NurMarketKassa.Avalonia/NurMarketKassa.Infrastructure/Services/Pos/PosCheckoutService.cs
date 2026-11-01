@@ -1026,6 +1026,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
     private PosCheckoutResult CompleteAlreadyAppliedCheckout(string cartJsonSnapshot, double total, string? extraInfo = null)
     {
         var appliedCartId = _cart.CartId;
+        StockSyncService.ResyncCartStockFromServerInBackground(cartJsonSnapshot); // 2026-11-01 (П-5): остаток с сервера, без локального вычитания
         if (!string.IsNullOrWhiteSpace(appliedCartId))
             Lan.LanSalePublisher.Publish($"cart:{appliedCartId}", null, uploaded: true, cartJsonSnapshot, total, null);
         LocalCartService.StartNewLocalCart(_cart);

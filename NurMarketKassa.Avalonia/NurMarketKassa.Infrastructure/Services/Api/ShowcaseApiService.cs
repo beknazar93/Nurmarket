@@ -49,6 +49,9 @@ public sealed class SiteOrder
     public string? Address { get; init; }
     public string? Comment { get; init; }
     public string? Source { get; init; }
+    /// <summary>2026-11-01 (ответ Умара по ТЗ 01.11, ИИ-3): подробный источник — site_cart (корзина сайта), site_button, site_product,
+    /// site_chat / assistant (помощник сайта), chat_handoff, bot_menu, bot_ai; неизвестное сервер сохраняет как есть. Пусто — сервер без поля.</summary>
+    public string? SourceDetail { get; init; }
 
     public bool IsNew => string.Equals(Status, ShowcaseApiService.StatusNew, StringComparison.OrdinalIgnoreCase);
 }
@@ -192,6 +195,31 @@ public sealed class ShowcaseApiService
         return data.ValueKind == JsonValueKind.Object && data.TryGetProperty("count", out var c) && c.TryGetInt32(out var n)
             ? n
             : null;
+    }
+
+    /// <summary>2026-11-01 (Т4, ответ Умара по ТЗ 01.11): что витрина отдаёт покупателям про Telegram сейчас — публичный блок `telegram`
+    /// в showcase/design/ ({enabled, url, product_url_template, placement, label}; токена в нём нет). enabled=true только при серверном боте
+    /// с рабочим вебхуком и включённой кнопке в опубликованном виде. null — блока нет (старый сервер) или запрос не удался.</summary>
+    public async Task<(bool Enabled, string? Url, string? Label)?> GetPublicTelegramBlockAsync(string slug, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+            return null;
+        try
+        {
+            var data = await GetRetryingAsync($"api/main/public/companies/{Uri.EscapeDataString(slug.Trim())}/showcase/design/", null, ct).ConfigureAwait(false);
+            if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("telegram", out var tg) || tg.ValueKind != JsonValueKind.Object)
+                return null;
+            // label — словарь по языкам ({"ru": "Написать в Telegram"}); показываем русский или первый непустой.
+            string? label = null;
+            if (tg.TryGetProperty("label", out var lb) && lb.ValueKind == JsonValueKind.Object)
+                label = Str(lb, "ru") ?? lb.EnumerateObject().Select(x => x.Value.ValueKind == JsonValueKind.String ? x.Value.GetString() : null).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+            return (tg.TryGetProperty("enabled", out var en) && en.ValueKind == JsonValueKind.True, Str(tg, "url"), label);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Витрина: публичный блок Telegram не получен: {ex.Message}", "SHOWCASE");
+            return null;
+        }
     }
 
     // ── Заказ из телеграм-бота ─────────────────────────────────────────────────────
@@ -485,6 +513,7 @@ public sealed class ShowcaseApiService
             Address = FirstStr(row, "delivery_address", "address"),
             Comment = FirstStr(row, "comment", "customer_comment", "note", "notes"),
             Source = FirstStr(row, "source", "channel"),
+            SourceDetail = Str(row, "source_detail"), // 2026-11-01: ИИ-3, «Откуда заказ»
             StockReserved = row.ValueKind == JsonValueKind.Object && row.TryGetProperty("stock_reserved", out var reserved) && reserved.ValueKind == JsonValueKind.True,
             SaleId = Str(row, "sale"),
         };

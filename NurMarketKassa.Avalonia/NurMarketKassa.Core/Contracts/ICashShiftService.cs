@@ -37,6 +37,12 @@ public sealed record CashShiftOperationResult(
 
     public DateTime? ResumedOpenedAt { get; init; }
 
+    /// <summary>2026-11-01 (жалоба клиента «сумма не меняется»): кто открыл уже открытую смену (если сервер прислал имя) и подсказка «запишите внесение/изъятие» (carry-over).
+    /// Окно кассы показывает их в вопросе «Продолжить смену / Закрыть и открыть заново».</summary>
+    public string? ResumedBy { get; init; }
+
+    public string? ResumedHint { get; init; }
+
     /// <summary>2026-10-27 (ревью, См-2): InfoMessage — не просто «сообщение», а предупреждение (например, о потерянном пересчёте ящика
     /// прошлой смены): его надо показать так, чтобы кассир не пропустил, а не тостом.</summary>
     public bool InfoIsWarning { get; init; }

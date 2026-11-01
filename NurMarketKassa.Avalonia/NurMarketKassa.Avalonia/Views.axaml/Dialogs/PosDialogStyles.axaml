@@ -27,6 +27,46 @@
     </ResourceDictionary>
   </Styles.Resources>
 
+  <!-- 2026-11-01 («сделай дизайн верхних кнопок красивым и удобным»): единая «кнопка верхней панели» top-tool — шапка кассы (Экран / Тема /
+       Клавиатура / Горячие), стрелки вкладок настроек. Значок и подпись одного цвета (наследуют Foreground кнопки: покой — BrushTextSoft,
+       наведение/нажатие — BrushText), цель нажатия ≥ 44, радиус — токен NurRadiusControl. Состояния: наведение, нажатие, фокус клавиатуры
+       (рамка BrushFocusRing), выключена (прозрачность), активная (.active — акцент темы с контрастным текстом). -->
+  <Style Selector="Button.top-tool">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="4,4" />
+    <Setter Property="MinWidth" Value="44" />
+    <Setter Property="MinHeight" Value="44" />
+    <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.top-tool /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="2" />
+  </Style>
+  <Style Selector="Button.top-tool:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushInputAlt}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+  </Style>
+  <Style Selector="Button.top-tool:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+  </Style>
+  <Style Selector="Button.top-tool:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}" />
+  </Style>
+  <Style Selector="Button.top-tool:disabled">
+    <Setter Property="Opacity" Value="0.55" />
+  </Style>
+  <Style Selector="Button.top-tool.active /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BrushAccent}" />
+    <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}" />
+  </Style>
+
   <!-- Open shift: stable blue primary action in both light and dark themes.
        2026-09-30: цвет — ресурсы BrushPrimaryAction* (App.axaml: тот же синий); тема «Кыргыз»
        красит их своим акцентом с орнаментом (AccentThemeService.ApplyOrnament). -->

@@ -232,7 +232,7 @@ internal static class SalesExcelExport
         {
             if (own.Count > 0)
                 lines[id] = own.Select(l => new SalesExportService.Line(l.ProductName, l.Quantity,
-                    UnitOf(null, null, l.ProductName, l.Quantity, byId, byName), l.UnitPrice, Math.Round(l.Quantity * l.UnitPrice, 2))).ToList();
+                    UnitOf(null, null, l.ProductName, l.Quantity, byId, byName), l.UnitPrice, QuantityRules.Gross(l.Quantity, l.UnitPrice))).ToList(); // 2026-11-01: умножение в decimal (0,1 × 41,05 = 4,11), половина вверх, как сервер
         }
 
         var missing = ids.Where(id => !lines.ContainsKey(id)).ToList();
@@ -301,7 +301,7 @@ internal static class SalesExcelExport
             .Select((g, index) =>
             {
                 var items = g.Select(l => new SalesExportService.Line(l.ProductName, l.Quantity,
-                    UnitOf(null, l.ProductId, l.ProductName, l.Quantity, byId, byName), l.UnitPrice, Math.Round(l.Quantity * l.UnitPrice, 2))).ToList();
+                    UnitOf(null, l.ProductId, l.ProductName, l.Quantity, byId, byName), l.UnitPrice, QuantityRules.Gross(l.Quantity, l.UnitPrice))).ToList(); // 2026-11-01: умножение в decimal (0,1 × 41,05 = 4,11), половина вверх, как сервер
                 return new SalesExportService.Receipt(
                     "local-" + g.Key.Ticks.ToString(CultureInfo.InvariantCulture),
                     g.Key.ToLocalTime(),

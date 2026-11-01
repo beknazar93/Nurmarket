@@ -54,6 +54,12 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
 
     private JsonObject _draft = new();
     private JsonObject _patch = new();
+    // 2026-11-01 (приёмка 1.17.72, В-1): новые ключи cart.telegram.* и shop.info.knowledge.* уходят ОТДЕЛЬНЫМИ PATCH черновика (по группе):
+    // если сервер отвергнет такой ключ, это не блокирует сохранение остального черновика. _isoFailed — группы, которые сервер не принял
+    // (повторно уходят только после новой правки в этой группе); значения при этом остаются в окне и в _draft.
+    private readonly Dictionary<string, JsonObject> _isoPatches = new();
+    private readonly HashSet<string> _isoFailed = new();
+    private bool _closeConfirmed;
     private string _lang = "ru";
     private string? _slug;
     private bool _locked;
@@ -61,7 +67,7 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
 
     /// <summary>2026-10-20, доработка п. 9 аудита: правки уходят в черновик на сервере через 0,8 с — пока не ушли (таймер, запрос,
     /// очередь после ошибки), раздел не закрывается ради памяти. Сохранённый черновик не теряется и при закрытии.</summary>
-    public bool? HasUnsavedChanges => _saving || _saveTimer.IsEnabled || _patch.Count > 0;
+    public bool? HasUnsavedChanges => _saving || _saveTimer.IsEnabled || _patch.Count > 0 || _isoPatches.Values.Any(p => p.Count > 0);
     private bool _hasUnpublished;
     private int _version;
     private string _publishedAt = "";
@@ -213,6 +219,34 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
             _loadedOnce = true;
             await ApplyPendingThemeAsync().ConfigureAwait(true); // 2026-10-27: пришли из Маркетплейса («Открыть в редакторе сайта»)
         };
+        // 2026-11-01 (приёмка 1.17.72, В-1): закрыл окно сам владелец, а правки ещё не ушли в черновик (или сервер отказал) — вопрос, а не молчаливая потеря.
+        Closing += async (_, e) =>
+        {
+            if (_closeConfirmed || e.CloseReason != WindowCloseReason.WindowClosing || !IsVisible || HasUnsavedChanges != true || _locked)
+                return;
+            e.Cancel = true;
+            var save = await ConfirmAsync(T("В редакторе есть несохранённые правки сайта. Сохранить их в черновик перед закрытием?",
+                    "Редакторда сакталбаган оңдоолор бар. Жабуудан мурун долбоорго сактайсызбы?", "The editor has unsaved website edits. Save them to the draft before closing?",
+                    "Düzenleyicide kaydedilmemiş düzenlemeler var. Kapatmadan önce taslağa kaydedilsin mi?", "Muharrirda saqlanmagan tuzatishlar bor. Yopishdan oldin qoralamaga saqlansinmi?"),
+                T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"), T("Отменить", "Жокко чыгаруу", "Discard", "Vazgeç", "Bekor qilish")).ConfigureAwait(true);
+            if (save)
+            {
+                _saveTimer.Stop();
+                _isoFailed.Clear(); // владелец просил сохранить — пробуем и группы, которые отклонялись
+                await SaveDraftAsync().ConfigureAwait(true);
+                if (_patch.Count > 0 || _isoPatches.Values.Any(p => p.Count > 0))
+                    return; // не сохранилось (баннер с причиной уже показан) — окно остаётся открытым
+            }
+            else
+            {
+                _saveTimer.Stop();
+                _patch = new JsonObject();
+                _isoPatches.Clear();
+                _isoFailed.Clear();
+            }
+            _closeConfirmed = true;
+            Close();
+        };
         Closed += (_, _) =>
         {
             _saveTimer.Stop();
@@ -361,6 +395,8 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
         }
         _lang = (Get("languages.default") as JsonValue)?.ToString() is { Length: > 0 } lang ? lang : "ru";
         _patch = new JsonObject();
+        _isoPatches.Clear();
+        _isoFailed.Clear();
         BuildEditor();
         RefreshState();
         await RefreshPreviewAsync().ConfigureAwait(true);
@@ -441,7 +477,15 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
         if (_locked || !_editorReady || JsonNode.DeepEquals(Get(path), value))
             return;
         SetIn(_draft, path, value?.DeepClone());
-        SetIn(_patch, path, value?.DeepClone());
+        if (IsolatedGroup(path) is { } iso)
+        {
+            if (!_isoPatches.TryGetValue(iso, out var isoPatch))
+                _isoPatches[iso] = isoPatch = new JsonObject();
+            SetIn(isoPatch, path, value?.DeepClone());
+            _isoFailed.Remove(iso); // новая правка в группе — пробуем отправить снова
+        }
+        else
+            SetIn(_patch, path, value?.DeepClone());
         _saveTimer.Stop();
         _saveTimer.Start();
         RefreshState();
@@ -500,11 +544,12 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
     {
         while (_saveTask is { IsCompleted: false } running)
             await running.ConfigureAwait(true);
-        if (_locked || _patch.Count == 0)
+        if (_locked || (_patch.Count == 0 && !_isoPatches.Any(p => p.Value.Count > 0 && !_isoFailed.Contains(p.Key))))
             return;
         var task = SaveDraftCoreAsync();
         _saveTask = task;
         var ok = await task.ConfigureAwait(true);
+        await SaveIsolatedAsync().ConfigureAwait(true); // 2026-11-01 (В-1): после основной пачки; отказ по ним основную не трогает
         if (ok && _patch.Count > 0 && !_locked)
         {
             _saveTimer.Stop();
@@ -516,7 +561,7 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
     {
         var ok = false;
         if (_locked || _saving || _patch.Count == 0)
-            return false;
+            return true; // 2026-11-01: пустая основная пачка — не ошибка (могут быть только отдельные группы)
         var patch = _patch;
         _patch = new JsonObject();
         _saving = true;
@@ -553,11 +598,75 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
         return ok;
     }
 
+    private static string? IsolatedGroup(string path) =>
+        path.StartsWith("cart.telegram.", StringComparison.Ordinal) ? "cart.telegram"
+        : path.StartsWith("shop.info.knowledge", StringComparison.Ordinal) ? "shop.info.knowledge"
+        : null;
+
+    private static IEnumerable<string> FlattenKeys(JsonObject o, string prefix = "")
+    {
+        foreach (var (k, v) in o)
+        {
+            var path = prefix.Length == 0 ? k : prefix + "." + k;
+            if (v is JsonObject child)
+                foreach (var inner in FlattenKeys(child, path))
+                    yield return inner;
+            else
+                yield return path;
+        }
+    }
+
+    /// <summary>2026-11-01 (приёмка 1.17.72, В-1): отдельные PATCH черновика для групп с новыми ключами. Не приняло — группа остаётся в очереди
+    /// (значения в окне не трогаем), баннер называет ключи и причину сервера; основной черновик сохраняется дальше как обычно.</summary>
+    private async Task SaveIsolatedAsync()
+    {
+        foreach (var group in _isoPatches.Keys.ToList())
+        {
+            if (_locked || _isoFailed.Contains(group) || !_isoPatches.TryGetValue(group, out var patch) || patch.Count == 0)
+                continue;
+            _isoPatches[group] = new JsonObject();
+            _saving = true;
+            RefreshState();
+            try
+            {
+                var data = await _api.RequestAsync(new HttpMethod("PATCH"), DesignPath + "draft/", patch, null, CancellationToken.None, TimeSpan.FromSeconds(25)).ConfigureAwait(true);
+                _hasUnpublished = data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("has_unpublished_changes", out var hu) || hu.ValueKind != JsonValueKind.False;
+                ShowWarningsAppend(data);
+                PosLogger.Log($"Редактор сайта: черновик сохранён отдельно ({group}).", "INFO");
+                await RefreshPreviewAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Возвращаем в очередь то, что не ушло (правки за время запроса уже лежат в новом _isoPatches[group]).
+                var current = _isoPatches[group];
+                foreach (var (key, value) in patch.ToList())
+                    if (!current.ContainsKey(key))
+                    {
+                        patch.Remove(key);
+                        current[key] = value;
+                    }
+                _isoFailed.Add(group);
+                ShowBanner(T("Сервер не принял настройки (", "Сервер жөндөөлөрдү кабыл алган жок (", "The server didn't accept these settings (", "Sunucu bu ayarları kabul etmedi (", "Server bu sozlamalarni qabul qilmadi (")
+                           + string.Join(", ", FlattenKeys(current)) + "): "
+                           + ServerTelegramBotApi.DescribeFields(ex)
+                           + T(". Значения остаются в окне; остальные правки сайта сохраняются.", ". Маанилер терезеде калат; сайттын калган оңдоолору сакталат.",
+                               ". The values stay in the window; the other website edits are saved.", ". Değerler pencerede kalır; sitenin diğer düzenlemeleri kaydedilir.", ". Qiymatlar oynada qoladi; saytning qolgan tuzatishlari saqlanadi."),
+                    warning: true);
+                PosLogger.Log($"Редактор сайта: отдельный черновик ({group}) не сохранён ({SensitiveDataRedactor.Redact(ex.Message)}).", "WARNING");
+            }
+            finally
+            {
+                _saving = false;
+                RefreshState();
+            }
+        }
+    }
+
     private void ShowWarnings(JsonElement data)
     {
         if (data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("warnings", out var warnings) || warnings.ValueKind != JsonValueKind.Array || warnings.GetArrayLength() == 0)
         {
-            if (!_locked)
+            if (!_locked && _isoFailed.Count == 0) // 2026-11-01: ошибку отдельной группы успешная основная пачка не прячет
                 _banner.IsVisible = false;
             return;
         }
@@ -614,8 +723,20 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
             return;
         _saveTimer.Stop();
         await SaveDraftAsync().ConfigureAwait(true);
-        if (_patch.Count > 0)
+        if (_patch.Count > 0 || _isoPatches.Any(p => p.Value.Count > 0 && !_isoFailed.Contains(p.Key)))
             return;
+        // 2026-11-01 (В-1): часть правок (Telegram / знания помощника) сервер не принял — в публикацию они не попадут; спрашиваем.
+        if (_isoFailed.Count > 0)
+        {
+            var names = string.Join(", ", _isoFailed);
+            if (!await ConfirmAsync(T("Часть правок (" + names + ") сервер не принял, на сайт они не попадут. Опубликовать остальное?",
+                    "Айрым оңдоолорду (" + names + ") сервер кабыл алган жок, алар сайтка чыкпайт. Калганын жарыялайсызбы?",
+                    "The server didn't accept some edits (" + names + "); they won't reach the website. Publish the rest?",
+                    "Sunucu bazı düzenlemeleri (" + names + ") kabul etmedi, siteye gitmeyecek. Gerisi yayınlansın mı?",
+                    "Server ba'zi tuzatishlarni (" + names + ") qabul qilmadi, ular saytga chiqmaydi. Qolganini e'lon qilasizmi?"),
+                    T("Опубликовать", "Жарыялоо", "Publish", "Yayınla", "E'lon qilish"), T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true))
+                return;
+        }
         // Публикацию не блокируем — только предупреждаем; «Отмена» оставляет черновик как есть.
         if (askMisfit && MisfitPublishNote() is { Length: > 0 } misfitNote
             && !await ConfirmAsync(misfitNote + " " + T("Опубликовать всё равно?", "Баары бир жарыялайсызбы?", "Publish anyway?", "Yine de yayınlansın mı?", "Baribir e'lon qilinsinmi?"),
@@ -664,6 +785,8 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
             return;
         _saveTimer.Stop();
         _patch = new JsonObject();
+        _isoPatches.Clear();
+        _isoFailed.Clear();
         try
         {
             await _api.RequestAsync(HttpMethod.Post, DesignPath + "discard/", new Dictionary<string, object?>(), null, CancellationToken.None, TimeSpan.FromSeconds(20)).ConfigureAwait(true);
@@ -1011,6 +1134,8 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
         });
         TextField(cart, T("Надпись на кнопке заказа", "Заказ баскычындагы жазуу", "Order button text", "Sipariş düğmesi metni", "Buyurtma tugmasidagi yozuv"), "cart.checkout_button_text", i18n: true);
         TextField(cart, T("Текст после заказа", "Заказдан кийинки текст", "Text after ordering", "Sipariş sonrası metin", "Buyurtmadan keyingi matn"), "cart.success_text", i18n: true);
+        BuildTelegramGroup(); // 2026-11-01: Т4 — кнопки Telegram на сайте (SiteEditorWindow.Telegram.cs)
+        BuildChatGroup(); // 2026-11-01: ИИ-1/ИИ-2 — «Чат на сайте»: помощник магазина и знания (SiteEditorWindow.Chat.cs)
 
         var footer = Group(T("Подвал сайта", "Сайттын төмөнкү бөлүгү", "Website footer", "Site alt bilgisi", "Sayt pastki qismi"));
         Toggle(footer, T("Показывать подвал", "Төмөнкү бөлүктү көрсөтүү", "Show the footer", "Alt bilgiyi göster", "Pastki qismni ko'rsatish"), "footer.enabled");

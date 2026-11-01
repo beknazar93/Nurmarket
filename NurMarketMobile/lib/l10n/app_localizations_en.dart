@@ -2151,6 +2151,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get kindSale => 'Sale';
 
   @override
+  String returnNetTotal(String sum) {
+    return 'Receipt total after returns: $sum som';
+  }
+
+  @override
   String get prevSaleMayPass =>
       'The previous payment did not finish — that receipt may have gone through. Check “Receipts” before paying again.';
 

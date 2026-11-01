@@ -188,6 +188,7 @@ public partial class MainWindow : Window
         Screens.Changed += OnCashierScreensChanged;
         _barcodeInputService.BarcodeScanned += OnBarcodeScanned;
         AddHandler(PointerPressedEvent, OnGlobalPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(TextBox.TextChangedEvent, OnQuantityTextChanged, RoutingStrategies.Bubble); // 2026-11-01 (Р-4): штрихкод, установленный в поле количества целиком
         // Tunnel, а не обычный (Bubble) KeyDown="OnMainWindowKeyDown": пока фокус стоит на
         // каком-нибудь тулбарном Button (обычное состояние покоя), встроенная в Avalonia
         // директивная навигация по стрелкам перехватывает Up/Down/Left/Right раньше, чем
@@ -1176,7 +1177,16 @@ public partial class MainWindow : Window
         // уходит в чек как обычный скан, а в поле возвращается прежнее количество.
         if (focused is TextBox qtyBox && IsQuantityBox(qtyBox))
         {
+            // Живая регрессия Р-4: если быстрая серия не распозналась (синтетический ввод, медленный сканер), цифры штрихкода копим сами —
+            // поле количества обрезает их до 5 знаков, а Enter с 8+ цифрами подряд это всегда штрихкод, не количество.
+            TrackQuantityDigits(qtyBox, e);
             FeedScannerFromProductSearch(qtyBox, e, quantityBox: true);
+            if (e.Key == Key.Enter)
+            {
+                if (!e.Handled)
+                    TryScanFromQuantityDigits(qtyBox, e);
+                _qtyScanDigits = "";
+            }
             return;
         }
         if (focused is TextBox)
@@ -1200,6 +1210,117 @@ public partial class MainWindow : Window
     }
 
     private int _searchFastRun;
+    // ---- 2026-11-01 (живая регрессия Р-4): штрихкод в поле количества — по накопленным цифрам и по «значение установлено целиком» ----
+    private string _qtyScanDigits = "";
+    private string _qtyScanBefore = "";
+    private TextBox? _qtyScanBox;
+    private long _qtyScanLastTick;
+    private ulong? _qtyScanLastRaw;
+    private bool _qtyTextGuard;
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<TextBox, string> _qtyLastShortText = new();
+    private const int QuantityBarcodeMinDigits = 8;
+
+    private void TrackQuantityDigits(TextBox box, KeyEventArgs e)
+    {
+        var digit = e.Key is >= Key.D0 and <= Key.D9 ? (char)('0' + (e.Key - Key.D0))
+            : e.Key is >= Key.NumPad0 and <= Key.NumPad9 ? (char)('0' + (e.Key - Key.NumPad0))
+            : '\0';
+        if (digit == '\0')
+        {
+            // Приёмка Р-4: любая клавиша, кроме цифры (Enter и Shift не в счёт), — Backspace, Delete, стрелки, Esc — обнуляет счётчик: это правка, а не скан.
+            if (e.Key is not (Key.Enter or Key.LeftShift or Key.RightShift))
+                _qtyScanDigits = "";
+            return;
+        }
+        // Пауза между цифрами — по времени нажатия (метка сообщения Windows), не обработки: чек в строке перерисовывается долго. Нет метки — по часам.
+        var raw = AvaloniaKeyboardWedgeBarcodeService.KeyPressTimestamp();
+        var now = Environment.TickCount64;
+        var gap = raw is { } r && _qtyScanLastRaw is { } lr && r >= lr ? (long)(r - lr) : now - _qtyScanLastTick;
+        // Цифры, набранные вручную (пауза больше 300 мс), штрихкодом не считаются: счёт начинается заново.
+        if (!ReferenceEquals(box, _qtyScanBox) || _qtyScanDigits.Length == 0 || gap > 300 || gap < 0)
+        {
+            _qtyScanDigits = "";
+            _qtyScanBefore = box.Text ?? "";
+            _qtyScanBox = box;
+        }
+        _qtyScanDigits += digit;
+        _qtyScanLastTick = now;
+        _qtyScanLastRaw = raw;
+    }
+
+    /// <summary>Enter сразу за серией цифр (до 500 мс по времени нажатия) — иначе это ручной ввод, а не скан.</summary>
+    private bool EnterFollowsDigits()
+    {
+        var raw = AvaloniaKeyboardWedgeBarcodeService.KeyPressTimestamp();
+        return raw is { } r && _qtyScanLastRaw is { } lr && r >= lr
+            ? r - lr <= 500
+            : Environment.TickCount64 - _qtyScanLastTick <= 500;
+    }
+
+    /// <summary>Enter в поле количества, накоплено 8+ цифр подряд — это штрихкод: поле возвращает прежнее количество, товар добавляется как обычным сканом.</summary>
+    private void TryScanFromQuantityDigits(TextBox box, KeyEventArgs e)
+    {
+        if (!ReferenceEquals(box, _qtyScanBox) || _qtyScanDigits.Length < QuantityBarcodeMinDigits || !EnterFollowsDigits()
+            || _barcodeInputService is not AvaloniaKeyboardWedgeBarcodeService wedge)
+            return;
+        var code = _qtyScanDigits;
+        e.Handled = true;
+        box.Text = _qtyScanBefore;
+        wedge.DiscardBuffer();
+        _scanFromOwnPopup = true;
+        try
+        {
+            wedge.Inject(code);
+        }
+        finally
+        {
+            _scanFromOwnPopup = false;
+        }
+        PosLogger.Log("Скан в поле количества: код ушёл в чек, количество не изменено.", "SCAN");
+        RestoreScannerFocus();
+    }
+
+    /// <summary>Значение поля количества установлено целиком (вставка, ввод через автоматизацию, сканер-«клавиатура» без событий клавиш):
+    /// 8+ цифр подряд — штрихкод; поле возвращает прежнее количество, товар добавляется как сканом.</summary>
+    private void OnQuantityTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (_qtyTextGuard || e.Source is not TextBox box || !IsQuantityBox(box))
+            return;
+        var text = box.Text ?? "";
+        if (text.Length < QuantityBarcodeMinDigits || !text.All(char.IsDigit))
+        {
+            if (_qtyLastShortText.TryGetValue(box, out var prevShort) && text.Length < prevShort.Length)
+                _qtyScanDigits = ""; // приёмка Р-4: стирание (Backspace/очистка) — не добавление цифры
+            _qtyLastShortText.AddOrUpdate(box, text);
+            return;
+        }
+        _qtyLastShortText.TryGetValue(box, out var previous);
+        _qtyTextGuard = true;
+        try
+        {
+            box.Text = string.IsNullOrEmpty(previous) ? "1" : previous;
+        }
+        finally
+        {
+            _qtyTextGuard = false;
+        }
+        if (_barcodeInputService is AvaloniaKeyboardWedgeBarcodeService wedge)
+            Dispatcher.UIThread.Post(() =>
+            {
+                _scanFromOwnPopup = true;
+                try
+                {
+                    wedge.Inject(text);
+                }
+                finally
+                {
+                    _scanFromOwnPopup = false;
+                }
+                PosLogger.Log("Скан в поле количества (значение целиком): код ушёл в чек, количество не изменено.", "SCAN");
+                RestoreScannerFocus();
+            });
+    }
+
     private string _quantityBoxBeforeScan = "";
 
     /// <summary>2026-11-01 (К-07): поле количества — в строке чека (DataContext строки) или «Кол-во» панели чека (5 знаков, привязка к панели).</summary>
@@ -1695,9 +1816,10 @@ public partial class MainWindow : Window
             if (!_session.IsShiftOpen && !ServerOutageMonitor.IsOutage
                 && !App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous)
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8)); // 2026-11-01 (приёмка 1.17.72, С-3): было 20 с × 2 попытки — «Открыть смену» стояла до ~40 с
                 try
                 {
+                    ShiftBalanceHelper.LastClosedCashEstimated = false;
                     if (await App.ShiftApi.LastClosedShiftCashAsync(App.PosCashboxId, cts.Token).ConfigureAwait(true) is { } closed)
                         return closed;
                 }
@@ -1709,6 +1831,7 @@ public partial class MainWindow : Window
                 return EffectiveShiftCashBalance ?? OfflinePosStateStore.ReadShiftCashBalance();
             }
 
+            ShiftBalanceHelper.LastClosedCashEstimated = false;
             await RefreshShiftStateAsync(CancellationToken.None, balanceTimeout: TimeSpan.FromSeconds(20)).ConfigureAwait(true);
             return EffectiveShiftCashBalance;
         };
@@ -3403,7 +3526,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(result.InfoMessage))
+        if (!string.IsNullOrWhiteSpace(result.InfoMessage) && !result.Resumed)
         {
             // 2026-10-27 (ревью, См-2): предупреждение о потерянном пересчёте ящика прошлой смены — окном, а не тостом, который пропустят.
             if (result.InfoIsWarning)
@@ -3411,6 +3534,10 @@ public partial class MainWindow : Window
             else
                 _prompts.ShowToast(result.InfoMessage);
         }
+
+        // 2026-11-01 (жалоба клиента «сумма не меняется»): суммы открытия — в журнал (что ввёл кассир, что у смены на самом деле).
+        PosLogger.Log($"Открытие смены (окно кассы): введено {openingCash:0.00}, итог в кассе {(result.Balance ?? openingCash):0.00}, смена {NurMarketKassa.PosApp.ActiveShiftId}, " +
+                      $"{(result.IsOffline ? "без связи (будет передана серверу)" : result.Resumed ? "продолжена уже открытая" : "открыта новая")}.", "SHIFT");
 
         NurMarketKassa.App.SyncToSession(_session);
         App.PosCashboxId = NurMarketKassa.App.PosCashboxId;
@@ -3435,11 +3562,44 @@ public partial class MainWindow : Window
             $"Smena {openedText} da ochildi, boshlang'ich summa {openingText}.");
         if (result.Resumed)
             _ = RefreshShiftBalanceQuietAsync();
+        if (result.IsOffline && !result.Resumed)
+            _viewModel.Catalog.StatusText = Tr.T($"Смена открыта без связи в {openedText}, начальная сумма {openingText}. Будет передана на сервер, когда появится связь.",
+                $"Смена {openedText} байланышсыз ачылды, баштапкы сумма {openingText}. Байланыш пайда болгондо серверге өткөрүлөт.",
+                $"Shift opened without a connection at {openedText}, opening cash {openingText}. It will be handed to the server once there is a connection.",
+                $"Vardiya {openedText} bağlantısız açıldı, başlangıç tutarı {openingText}. Bağlantı gelince sunucuya aktarılacak.",
+                $"Smena {openedText} da aloqasiz ochildi, boshlang'ich summa {openingText}. Aloqa paydo bo'lganda serverga o'tkaziladi.");
         if (UserPreferences.Instance.CustomerDisplay.IsEnabled)
         {
             var displayResult = _customerDisplay.OpenForSession(this, "открытие смены");
             if (displayResult.IsSuccess)
                 Dispatcher.UIThread.Post(Activate, DispatcherPriority.Background);
+        }
+
+        // 2026-11-01 (жалоба клиента «при открытии сумма не меняется»): сервер вернул УЖЕ открытую смену — введённая сумма не применена. Раньше — только тост, который пропускали.
+        // Теперь вопрос: «Продолжить смену» (по умолчанию, Esc) или «Закрыть и открыть заново» (закрытие — по обычным правилам: пересчёт, досылка хвостов, с пометкой при необходимости).
+        if (result.Resumed)
+        {
+            var serverOpening = result.Balance ?? openingCash;
+            var by = string.IsNullOrWhiteSpace(result.ResumedBy) ? "" : Tr.T($" Открыл: {result.ResumedBy}.", $" Ачкан: {result.ResumedBy}.", $" Opened by: {result.ResumedBy}.", $" Açan: {result.ResumedBy}.", $" Ochgan: {result.ResumedBy}.");
+            var when = result.ResumedOpenedAt?.ToString("dd.MM HH:mm", System.Globalization.CultureInfo.InvariantCulture) ?? "—";
+            var notApplied = Math.Abs(serverOpening - openingCash) > 0.01m;
+            var hint = string.IsNullOrWhiteSpace(result.ResumedHint) ? "" : "\n\n" + result.ResumedHint;
+            var question = Tr.T($"Смена уже открыта (с {when}, сумма открытия на сервере {MoneyText.Som(serverOpening)}).{by} {(notApplied ? $"Введённая вами сумма {MoneyText.Som(openingCash)} не применена." : "Введённая сумма совпадает.")} Продолжить эту смену или закрыть её и открыть заново?{hint}",
+                $"Смена мурунтан эле ачык ({when} тартып, серверде ачылыш суммасы {MoneyText.Som(serverOpening)}).{by} {(notApplied ? $"Сиз киргизген сумма {MoneyText.Som(openingCash)} колдонулган жок." : "Киргизилген сумма дал келет.")} Бул сменаны улантабызбы же жаап, кайра ачабызбы?{hint}",
+                $"The shift is already open (since {when}, opening amount on the server {MoneyText.Som(serverOpening)}).{by} {(notApplied ? $"The amount you entered, {MoneyText.Som(openingCash)}, was not applied." : "The amount you entered matches.")} Continue this shift or close it and open a new one?{hint}",
+                $"Vardiya zaten açık ({when} itibarıyla, sunucudaki açılış tutarı {MoneyText.Som(serverOpening)}).{by} {(notApplied ? $"Girdiğiniz {MoneyText.Som(openingCash)} tutarı uygulanmadı." : "Girdiğiniz tutar aynı.")} Bu vardiya devam etsin mi, yoksa kapatıp yeniden mi açalım?{hint}",
+                $"Smena allaqachon ochiq ({when} dan, serverdagi ochilish summasi {MoneyText.Som(serverOpening)}).{by} {(notApplied ? $"Siz kiritgan {MoneyText.Som(openingCash)} summa qo'llanmadi." : "Kiritilgan summa mos keladi.")} Bu smenani davom ettiramizmi yoki yopib qaytadan ochamizmi?{hint}");
+            var closeAndReopen = await _prompts.ConfirmAsync(question,
+                Tr.T("Закрыть и открыть заново", "Жаап, кайра ачуу", "Close and open anew", "Kapat ve yeniden aç", "Yopib qayta ochish"),
+                Tr.T("Продолжить смену", "Сменаны улантуу", "Continue the shift", "Vardiyaya devam", "Smenani davom ettirish"),
+                danger: true).ConfigureAwait(true);
+            PosLogger.Log($"Открытие смены: сервер вернул уже открытую смену (с {when}, у сервера {serverOpening:0.00}, введено {openingCash:0.00}) — кассир выбрал «{(closeAndReopen ? "Закрыть и открыть заново" : "Продолжить смену")}».", "SHIFT");
+            if (closeAndReopen)
+            {
+                await CloseShiftAsync().ConfigureAwait(true);
+                if (!_session.IsShiftOpen)
+                    await OpenShiftAsync().ConfigureAwait(true);
+            }
         }
     }
 
@@ -3587,6 +3747,10 @@ public partial class MainWindow : Window
 
         if (!string.IsNullOrWhiteSpace(result.InfoMessage))
             _prompts.ShowToast(result.InfoMessage);
+        // 2026-11-01 (жалоба клиента): суммы закрытия — в журнал (ожидалось в ящике по системе, пересчитано кассиром, разница), без персональных данных.
+        PosLogger.Log($"Закрытие смены (окно кассы): смена {shiftIdBeforeClose}, ожидалось в ящике {(expectedBeforeClose is { } exp ? exp.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "—")}, " +
+                      $"пересчитано {(closingCash is { } counted ? counted.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "—")}, " +
+                      $"разница {(expectedBeforeClose is { } e2 && closingCash is { } c2 ? (c2 - e2).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "—")}, {(result.IsOffline ? "без связи" : "связь есть")}.", "SHIFT");
         if (closedWithNote)
             _prompts.ShowToast(Tr.T("Смена закрыта с пометкой: неотправленные внесения/изъятия записаны в журнал, владельцу сообщено.",
                 "Смена белги менен жабылды: жөнөтүлбөгөн киргизүүлөр/алуулар журналга жазылды, ээсине билдирилди.",
@@ -3942,7 +4106,11 @@ public partial class MainWindow : Window
         var balanceText = _session.IsShiftOpen
             ? Tr.T($"Касса: {ShiftBalanceHelper.FormatBalance(balance)}", $"Касса: {ShiftBalanceHelper.FormatBalance(balance)}", $"Till: {ShiftBalanceHelper.FormatBalance(balance)}", $"Kasa: {ShiftBalanceHelper.FormatBalance(balance)}", $"Kassa: {ShiftBalanceHelper.FormatBalance(balance)}")
             // 2026-10-20 (живой аудит кассы, К18): «0,00 сом», как после открытия смены.
-            : Tr.T("Касса: ", "Касса: ", "Till: ", "Kasa: ", "Kassa: ") + MoneyText.Som(0m);
+            // 2026-11-01 (жалоба клиента «сумма не меняется»): после закрытия в ящике остаётся пересчитанная сумма — показываем её до открытия новой смены, а не 0,00.
+            : balance is { } closedCash && closedCash > 0m
+                ? Tr.T($"Касса: {MoneyText.Som(closedCash)} (смена закрыта)", $"Касса: {MoneyText.Som(closedCash)} (смена жабылды)", $"Till: {MoneyText.Som(closedCash)} (shift closed)",
+                    $"Kasa: {MoneyText.Som(closedCash)} (vardiya kapalı)", $"Kassa: {MoneyText.Som(closedCash)} (smena yopilgan)")
+                : Tr.T("Касса: ", "Касса: ", "Till: ", "Kasa: ", "Kassa: ") + MoneyText.Som(0m);
 
         // 2026-10-22 (П1): смену закрыл сервер — вместо «Касса: 0,00» понятная подпись со временем.
         if (!_session.IsShiftOpen && ServerShiftClosedState.Current is { } closedByServer)
