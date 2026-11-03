@@ -135,7 +135,20 @@ public sealed class BulkImportRow
     public string? LoadOutcome { get; internal set; }
 
     /// <summary>2026-10-30: окно помечает строку, не принятую очередью приходов (причина — в CSV с ошибками).</summary>
-    public void SetLoadError(string? error) => LoadError = string.IsNullOrWhiteSpace(error) ? "не загружено" : error;
+    public void SetLoadError(string? error, bool needsCheck = false)
+    {
+        LoadError = string.IsNullOrWhiteSpace(error) ? "не загружено" : error;
+        LoadNeedsCheck = needsCheck;
+        if (needsCheck)
+            LoadError = Tr.T("исход неизвестен — приход мог пройти: проверьте остаток товара на складе (строка не попадает в файл ошибок, чтобы не оприходовать её второй раз). ",
+                "жыйынтык белгисиз — кирүү өтүп кетиши мүмкүн: товардын калдыгын кампадан текшериңиз (экинчи жолу кирүү болбошу үчүн сап ката файлына кирбейт). ",
+                "outcome unknown — the receipt may have gone through: check the product stock in the warehouse (the row is not put into the error file so it is not received twice). ",
+                "sonuç bilinmiyor — giriş geçmiş olabilir: ürün stokunu depoda kontrol edin (satır iki kez girilmesin diye hata dosyasına konmaz). ",
+                "natija noma'lum — kirim o'tgan bo'lishi mumkin: mahsulot qoldig'ini ombordan tekshiring (ikki marta kirim bo'lmasligi uchun qator xato fayliga qo'shilmaydi). ") + LoadError;
+    }
+
+    /// <summary>2026-11-01 (контрольный аудит, С2-08): строка с неизвестным исходом (приход мог пройти) — в «Скачать строки с ошибками» НЕ кладётся.</summary>
+    public bool LoadNeedsCheck { get; private set; }
 
     /// <summary>2026-10-30: ключ группы ошибки для группировки («15 412: укажите закупку»): без чисел и названий в кавычках.</summary>
     public string? ErrorKey => Error is null ? null : ErrorKeyRegex.Replace(Error, "…");
@@ -331,6 +344,14 @@ public sealed class BulkImportPlan
                     "barkod 64 karakterden uzun", "shtrix-kod 64 belgidan uzun"), ProductImportField.Barcode, cBarcode);
                 continue;
             }
+            // 2026-11-02 (аудит №2, С2-30): число из Excel без текстового формата теряет ведущий ноль — 7 цифр с верной контрольной цифрой EAN-8 после «0» или 11 цифр UPC-A после «0»:
+            // не дописываем сами (код может быть чужим), а предупреждаем и просим сохранить столбец как текст.
+            if (src.IsNumeric(cBarcode) && barcode.All(char.IsAsciiDigit) && barcode.Length is 7 or 11 && NurMarketKassa.Services.InvoiceImport.InvoiceText.HasValidCheckDigit("0" + barcode))
+                row.Warning = Tr.T($"возможно, Excel срезал ноль в начале штрихкода: «{barcode}» → «0{barcode}»? Сохраните столбец штрихкода как текст и загрузите заново",
+                    $"Excel штрих-коддун башындагы нөлдү кесип салган окшойт: «{barcode}» → «0{barcode}»? Штрих-код мамычасын текст катары сактап, кайра жүктөңүз",
+                    $"Excel may have cut the leading zero of the barcode: “{barcode}” → “0{barcode}”? Save the barcode column as text and load again",
+                    $"Excel barkodun başındaki sıfırı kesmiş olabilir: «{barcode}» → «0{barcode}»? Barkod sütununu metin olarak kaydedip yeniden yükleyin",
+                    $"Excel shtrix-kod boshidagi nolni kesgan bo'lishi mumkin: «{barcode}» → «0{barcode}»? Shtrix-kod ustunini matn sifatida saqlab, qayta yuklang");
             if (src.IsNumeric(cBarcode) && barcode.Length >= 16 && barcode.All(char.IsDigit))
                 row.Warning = Tr.T("Excel мог обрезать цифры штрихкода — сохраните столбец как текст",
                     "Excel штрих-коддун сандарын кыскартып салышы мүмкүн — мамычаны текст катары сактаңыз",
@@ -345,6 +366,13 @@ public sealed class BulkImportPlan
                 || !TryNumber(row, ProductImportField.Markup, cMarkup, cMarkup < 0 ? "" : src[cMarkup], 1e6, out var markup))
                 continue;
 
+            // 2026-11-02 (аудит №2, С2-19): цена продажи не выше закупки — скорее всего, в «Цену» попала закупка; строка не блокируется, но помечается
+            if (purchase is > 0 && sale is > 0 && sale.Value <= purchase.Value)
+                row.Warning = AppendWarning(row.Warning, Tr.T($"цена продажи {sale.Value:0.####} не выше закупки {purchase.Value:0.####} — проверьте столбцы «Цена» и «Закупка»",
+                    $"сатуу баасы {sale.Value:0.####} сатып алуудан жогору эмес {purchase.Value:0.####} — «Баа» жана «Сатып алуу» мамычаларын текшериңиз",
+                    $"the sale price {sale.Value:0.####} is not above the purchase price {purchase.Value:0.####} — check the “Price” and “Purchase” columns",
+                    $"satış fiyatı {sale.Value:0.####} alış fiyatı {purchase.Value:0.####} değerinin üstünde değil — «Fiyat» ve «Alış» sütunlarını kontrol edin",
+                    $"sotuv narxi {sale.Value:0.####} xarid narxi {purchase.Value:0.####} dan yuqori emas — «Narx» va «Xarid» ustunlarini tekshiring"));
             var name = row.Name;
             if (name.Length > 255)
             {
@@ -946,7 +974,7 @@ public sealed class BulkImportPlan
         sb.Append(CsvCell(Tr.T("Строка в файле", "Файлдагы сап", "Row in file", "Dosyadaki satır", "Fayldagi qator"))).Append(';');
         sb.Append(CsvCell(Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"))).Append("\r\n");
 
-        foreach (var row in Rows.Where(r => r.Kind == BulkImportRowKind.Error))
+        foreach (var row in Rows.Where(r => r.Kind == BulkImportRowKind.Error && !r.LoadNeedsCheck))
         {
             for (var i = 0; i < width; i++)
             {

@@ -172,7 +172,7 @@ public partial class EmployeesSettingsView : UserControl
                     FontSize = 13,
                 },
             };
-            ((TextBlock)empty.Child).Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            ((TextBlock)empty.Child).Bind(TextBlock.ForegroundProperty, ((TextBlock)empty.Child).GetResourceObservable("BrushTextSoft"));
             EmployeeListPanel.Children.Add(empty);
         }
     }
@@ -233,14 +233,14 @@ public partial class EmployeesSettingsView : UserControl
             FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
         };
-        subtitleText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        subtitleText.Bind(TextBlock.ForegroundProperty, subtitleText.GetResourceObservable("BrushTextSoft"));
 
         var textPanel = new StackPanel { Spacing = 2 };
         textPanel.Children.Add(nameText);
         textPanel.Children.Add(subtitleText);
 
         var chevron = new TextBlock { Text = "›", FontSize = 18, VerticalAlignment = VerticalAlignment.Center };
-        chevron.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        chevron.Bind(TextBlock.ForegroundProperty, chevron.GetResourceObservable("BrushTextSoft"));
 
         var cardContent = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         Grid.SetColumn(textPanel, 0);
@@ -268,6 +268,10 @@ public partial class EmployeesSettingsView : UserControl
                 if (!string.IsNullOrWhiteSpace(me) && string.Equals(employee.ServerId, me, System.StringComparison.OrdinalIgnoreCase))
                     throw new ApiException(Tr.T("Нельзя удалить сотрудника, под которым вы сейчас вошли.", "Азыр кирген кызматкериңизди өчүрүүгө болбойт.",
                         "You cannot delete the employee you are signed in as.", "Şu anda giriş yaptığınız personeli silemezsiniz.", "Hozir kirgan xodimingizni o'chirib bo'lmaydi."), 409);
+                // 2026-11-02 (аудит №2, В-10): справочник сотрудников не загружен (нет связи/ошибка) — роль неизвестна, владельца не отличить: отказ, а не молчаливый пропуск проверки.
+                if (EmployeeDirectory.TryGet(employee.ServerId) is null)
+                    throw new ApiException(Tr.T("Справочник сотрудников не загружен — обновите список и повторите.", "Кызматкерлер тизмеси жүктөлгөн жок — тизмени жаңыртып, кайталаңыз.",
+                        "The employee directory is not loaded — refresh the list and try again.", "Personel dizini yüklenmedi — listeyi yenileyip tekrar deneyin.", "Xodimlar ro'yxati yuklanmagan — ro'yxatni yangilab, qayta urinib ko'ring."), 409);
                 if (string.Equals(EmployeeDirectory.TryGet(employee.ServerId)?.RoleCode, "owner", System.StringComparison.OrdinalIgnoreCase))
                     throw new ApiException(Tr.T("Владельца магазина удалить нельзя.", "Дүкөндүн ээсин өчүрүүгө болбойт.", "The store owner cannot be deleted.",
                         "Mağaza sahibi silinemez.", "Do'kon egasini o'chirib bo'lmaydi."), 409);
@@ -415,11 +419,12 @@ public partial class EmployeesSettingsView : UserControl
         List<EmployeeInfoDto>? employees;
         try
         {
-            employees = await authApi.GetEmployeesAsync();
+            // 2026-11-03 (С-06/С-15, аудит «зависание при медленном сервере»): не дольше 8 с, а таймаут/«медленно» — понятная строка, не потерянная ошибка.
+            employees = await ServerAnswerWait.ForegroundAsync("users/employees", t => authApi.GetEmployeesAsync(t));
         }
-        catch (ApiException ex)
+        catch (Exception ex) when (ex is ApiException or ServerNotAnsweringException or OperationCanceledException or System.Net.Http.HttpRequestException)
         {
-            ShowLoadStatus(ex.Message, isError: true);
+            ShowLoadStatus(ServerOutageMonitor.FriendlyError(ex), isError: true);
             return;
         }
 
@@ -475,11 +480,17 @@ public partial class EmployeesSettingsView : UserControl
         EmployeeInfoDto? match;
         try
         {
-            match = (await authApi.GetEmployeesAsync())?.FirstOrDefault(e => e.Id == employee.ServerId);
+            // 2026-11-03 (С-06/С-15): не дольше 8 с, таймаут — понятная строка.
+            match = (await ServerAnswerWait.ForegroundAsync("users/employees", t => authApi.GetEmployeesAsync(t)))?.FirstOrDefault(e => e.Id == employee.ServerId);
         }
         catch (ApiException ex)
         {
             ShowLoadStatus(EmployeeApiMessages.Describe(ex), isError: true);
+            return;
+        }
+        catch (Exception ex) when (ex is ServerNotAnsweringException or OperationCanceledException or System.Net.Http.HttpRequestException)
+        {
+            ShowLoadStatus(ServerOutageMonitor.FriendlyError(ex), isError: true);
             return;
         }
         if (match is null)
@@ -704,11 +715,11 @@ public partial class EmployeesSettingsView : UserControl
         {
             ShowLoadStatus(
                 Tr.T(
-                    $"Ошибка при загрузке сотрудников: {ex.Message}",
-                    $"Кызматкерлерди жүктөөдө ката: {ex.Message}",
-                    $"Error loading employees: {ex.Message}",
-                    $"Personel yüklenirken hata: {ex.Message}",
-                    $"Xodimlarni yuklashda xatolik: {ex.Message}"),
+                    $"Ошибка при загрузке сотрудников: {ServerOutageMonitor.FriendlyError(ex)}",
+                    $"Кызматкерлерди жүктөөдө ката: {ServerOutageMonitor.FriendlyError(ex)}",
+                    $"Error loading employees: {ServerOutageMonitor.FriendlyError(ex)}",
+                    $"Personel yüklenirken hata: {ServerOutageMonitor.FriendlyError(ex)}",
+                    $"Xodimlarni yuklashda xatolik: {ServerOutageMonitor.FriendlyError(ex)}"),
                 isError: true);
         }
         finally
@@ -770,10 +781,10 @@ public partial class EmployeesSettingsView : UserControl
             ShowRolesStatus(
                 Tr.T(
                     $"Ошибка при загрузке ролей: {ex.Message}",
-                    $"Ролдорду жүктөөдө ката: {ex.Message}",
-                    $"Error loading roles: {ex.Message}",
-                    $"Roller yüklenirken hata: {ex.Message}",
-                    $"Rollarni yuklashda xatolik: {ex.Message}"),
+                    $"Ролдорду жүктөөдө ката: {ServerOutageMonitor.FriendlyError(ex)}",
+                    $"Error loading roles: {ServerOutageMonitor.FriendlyError(ex)}",
+                    $"Roller yüklenirken hata: {ServerOutageMonitor.FriendlyError(ex)}",
+                    $"Rollarni yuklashda xatolik: {ServerOutageMonitor.FriendlyError(ex)}"),
                 isError: true);
         }
     }
@@ -912,7 +923,7 @@ public partial class EmployeesSettingsView : UserControl
         };
 
         var line = new Border { Child = row, BorderThickness = new Avalonia.Thickness(0, 0, 0, 1), Padding = new Avalonia.Thickness(0, 2) };
-        line.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
+        line.Bind(Border.BorderBrushProperty, line.GetResourceObservable("BrushBorder"));
         return line;
     }
 

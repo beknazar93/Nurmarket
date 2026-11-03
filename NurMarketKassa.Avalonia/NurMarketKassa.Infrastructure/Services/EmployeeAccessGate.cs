@@ -170,6 +170,49 @@ public static class EmployeeAccessGate
         matchedBy = null;
         if (string.IsNullOrWhiteSpace(enteredCode))
             return false;
+        // 2026-11-02 (аудит №2, В-11): после 5 неверных кодов подряд — пауза 60 с (код из 6 цифр иначе перебирается быстро).
+        // Верный код во время паузы тоже не принимается — это окно ожидания, а не подсказка.
+        lock (AttemptsSync)
+        {
+            if (_lockedUntilUtc > DateTime.UtcNow)
+                return false;
+        }
+        var ok = TryValidateCore(action, enteredCode, out matchedBy);
+        lock (AttemptsSync)
+        {
+            if (ok)
+                _failedAttempts = 0;
+            else if (++_failedAttempts >= MaxFailedAttempts)
+            {
+                _failedAttempts = 0;
+                _lockedUntilUtc = DateTime.UtcNow.AddSeconds(LockoutSeconds);
+                PosLogger.Log($"Коды действий: {MaxFailedAttempts} неверных кодов подряд — ввод заблокирован на {LockoutSeconds} с.", "WARNING");
+            }
+        }
+        return ok;
+    }
+
+    private const int MaxFailedAttempts = 5;
+    private const int LockoutSeconds = 60;
+    private static readonly object AttemptsSync = new();
+    private static int _failedAttempts;
+    private static DateTime _lockedUntilUtc = DateTime.MinValue;
+
+    /// <summary>Идёт пауза после серии неверных кодов (для подсказки в окне ввода).</summary>
+    public static bool IsLockedOut
+    {
+        get
+        {
+            lock (AttemptsSync)
+                return _lockedUntilUtc > DateTime.UtcNow;
+        }
+    }
+
+    private static bool TryValidateCore(string action, string? enteredCode, out string? matchedBy)
+    {
+        matchedBy = null;
+        if (string.IsNullOrWhiteSpace(enteredCode))
+            return false;
 
         var trimmed = enteredCode.Trim();
 

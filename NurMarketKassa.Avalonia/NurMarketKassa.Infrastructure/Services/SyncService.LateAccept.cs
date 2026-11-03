@@ -101,6 +101,17 @@ public sealed partial class SyncService
         {
             return new LatePinResult(LatePinStatus.Error, null, NoConnectionText());
         }
+        catch (ApiException ex) when (ex.StatusCode == 429)
+        {
+            // 2026-11-01: сервер сам блокирует проверку PIN на 15 минут после 5 ошибок подряд (проверка бэкенда 01.11).
+            PosLogger.Log("OFFLINE late-accept: сервер заблокировал проверку PIN (429).", "WARNING");
+            return new LatePinResult(LatePinStatus.Locked, null, Tr.T(
+                "Сервер временно заблокировал проверку PIN (слишком много ошибок). Подождите около 15 минут и повторите.",
+                "Сервер PIN текшерүүнү убактылуу бөгөттөдү (өтө көп ката). Болжолдуу 15 мүнөт күтүп, кайталаңыз.",
+                "The server temporarily blocked PIN checks (too many errors). Wait about 15 minutes and try again.",
+                "Sunucu PIN kontrolünü geçici olarak engelledi (çok fazla hata). Yaklaşık 15 dakika bekleyip tekrar deneyin.",
+                "Server PIN tekshiruvini vaqtincha bloklab qo'ydi (xatolar juda ko'p). Taxminan 15 daqiqa kutib, qayta urining."));
+        }
         catch (ApiException ex)
         {
             PosLogger.Log($"OFFLINE late-accept: проверка PIN владельца — ошибка сервера {ex.StatusCode}.", "WARNING");

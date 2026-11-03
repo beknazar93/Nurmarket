@@ -233,7 +233,7 @@ public static class QuickCheckoutBody
             ["price"] = CartDisplayHelper.FormatMoney(CartDisplayHelper.UnitPrice(it)),
         };
         // 2026-11-01: признак «весовая» нужен только для сверки итога (ComputeTotal) и в тело запроса не попадает.
-        if (CartDisplayHelper.LineMustWeigh(it))
+        if (CartDisplayHelper.LineIsWeightProduct(it))
             WeighedLines.AddOrUpdate(line, WeighedMark);
         // 2026-10-01: вариант (размер/цвет) шёл только старым путём (add-item с variant_id).
         // 2026-10-04, владелец: «по одеждам очень тормозит» — каждый чек с одеждой шёл старым путём
@@ -278,7 +278,8 @@ public static class QuickCheckoutBody
         // 2026-11-01 (ответ Умара + живая сверка с NBS): как у сервера и как CartTotalsCalculator — обычные строки без округления,
         // весовая — вниз до 0,01; подытог округляется один раз (половина вверх); скидка чека процентом — от ОКРУГЛЁННОГО подытога
         // и сама округляется отдельно; итог = подытог − скидка.
-        decimal subtotal = 0;
+        decimal weighedSum = 0;
+        decimal otherSum = 0;
         decimal lineDiscounts = 0;
         if (body["items"] is JsonArray items)
         {
@@ -289,13 +290,16 @@ public static class QuickCheckoutBody
                 var qty = ReadMoney(line["qty"]);
                 var price = ReadMoney(line["price"]);
                 var exact = QuantityRules.GrossExact(qty, price);
-                if (exact > 0 && WeighedLines.TryGetValue(line, out _))
-                    exact = Math.Floor(exact * 100m) / 100m;
-                subtotal += exact;
+                if (WeighedLines.TryGetValue(line, out _))
+                    weighedSum += exact;
+                else
+                    otherSum += exact;
                 lineDiscounts += QuantityRules.ToMoneyDecimal(ReadMoney(line["discount"]));
             }
         }
 
+        // 2026-11-01 (опыты на сервере NBS): подытог = вниз(Σ весовых) + вверх(Σ остальных), как в CartTotalsCalculator.
+        var subtotal = QuantityRules.Subtotal(weighedSum, otherSum);
         var discountBase = Math.Max(0m, QuantityRules.RoundMoney(subtotal - lineDiscounts));
         decimal orderDiscount = 0;
         if (body["order_discount_percent"] is { } pct)

@@ -18,7 +18,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// Чего сервер не отдаёт («начислено», «сгорело», средний чек с оплатой бонусами, траты бонусов по клиентам), показано как
 /// «нет данных на сервере» — цифры не выдуманы (потребность — Б-99 в ТЗ Умару). Выручка — «как в Сводке» (ServerSalesSummary).
 /// Окно собрано в коде; цвета — из темы, диаграммы — BarChartRenderer / ChartPalette, как в «Сводке».</summary>
-public sealed class BonusAnalyticsWindow : Window
+public sealed class BonusAnalyticsWindow : Window, IOwnerSectionRefresh
 {
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private readonly StackPanel _periods = new() { Orientation = Orientation.Horizontal, Spacing = 2 };
@@ -178,8 +178,21 @@ public sealed class BonusAnalyticsWindow : Window
     private static readonly TimeSpan ReportFresh = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan ReportMaxAge = TimeSpan.FromMinutes(15);
 
+    /// <summary>2026-11-01 (В2-03): когда раздел последний раз начинал загрузку — для RefreshOnShow.</summary>
+    private DateTime _loadedUtc = DateTime.UtcNow;
+
+    public DateTime? RefreshOnShow()
+    {
+        if (DateTime.UtcNow - _loadedUtc <= TimeSpan.FromSeconds(60))
+            return null;
+        var dataAt = _loadedUtc.ToLocalTime();
+        _ = ReloadAsync();
+        return dataAt;
+    }
+
     private async Task ReloadAsync(bool force = false)
     {
+        _loadedUtc = DateTime.UtcNow;
         _cts?.Cancel();
         var cts = new CancellationTokenSource();
         _cts = cts;
@@ -593,5 +606,5 @@ public sealed class BonusAnalyticsWindow : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

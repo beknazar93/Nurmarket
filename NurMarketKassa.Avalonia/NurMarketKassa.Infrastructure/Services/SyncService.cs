@@ -315,7 +315,7 @@ public sealed partial class SyncService : IDisposable
             {
                 await ProbeNowAsync().ConfigureAwait(false);
                 if (IsOnline)
-                    await SyncPendingAsync(CancellationToken.None).ConfigureAwait(false);
+                    await SyncPendingAsync(_cts.Token).ConfigureAwait(false); // 2026-11-03 (С-14): с токеном службы — выход не ждёт эту досылку
             }
             catch (Exception ex)
             {
@@ -772,11 +772,14 @@ public sealed partial class SyncService : IDisposable
         if (quick.Handled)
             return quick.SaleId;
 
-        // 2026-11-01 (К-06): старый путь не передаёт дату продажи (sold_at) — чек старше 7 суток он провёл бы сегодняшним числом.
+        // 2026-11-01 (К-06, К2-07): старый путь не передаёт дату продажи (sold_at) — чек старше суток он провёл бы сегодняшним числом (в CRM и в чужую смену).
         if (IsTooOldForDatelessReplay(entry))
         {
-            PosLogger.Log($"OFFLINE replay: чек {entry.Id} от {entry.CreatedAt:yyyy-MM-dd HH:mm} старше 7 суток, быстрый путь не взял — старым путём без даты не провожу, на проверку.", "WARNING");
-            OfflinePendingSalesStore.Update(entry.Id, e => { e.ReviewNeeded = true; e.TooOldForServer = true; }); // 2026-11-01: признак для кнопки «Провести по PIN владельца»
+            // 2026-11-02 (К3-05, аудит №2): текст журнала — по настоящему возрасту, а признак «старше срока сервера» (кнопка «Провести по PIN владельца») — только для чека старше 7 суток;
+            // чек 1–7 суток отклонён по другой причине, PIN-проведение ему не к месту.
+            var olderThanServer = DateTimeOffset.Now - entry.CreatedAt > ServerOfflineMaxAge;
+            PosLogger.Log($"OFFLINE replay: чек {entry.Id} от {entry.CreatedAt:yyyy-MM-dd HH:mm} старше {(olderThanServer ? "7 суток" : "суток")}, быстрый путь не взял — старым путём без даты не провожу, на проверку.", "WARNING");
+            OfflinePendingSalesStore.Update(entry.Id, e => { e.ReviewNeeded = true; if (olderThanServer) e.TooOldForServer = true; }); // 2026-11-01: признак для кнопки «Провести по PIN владельца»
             throw new ReplayDeferredException(TooOldReviewText(entry)) { NeedsReview = true };
         }
 
@@ -1033,11 +1036,21 @@ public sealed partial class SyncService : IDisposable
 
         try { _cts.Cancel(); } catch { /* ignore */ }
 
+        // 2026-11-03 (С-14, аудит «зависание при медленном сервере»): раньше здесь стояло бессрочное GetAwaiter().GetResult() на UI-потоке при выходе
+        // (App.axaml.cs desktop.Exit → DisposeApplicationHost): шаг цикла, не слушавший токен, при медленном сервере вешал закрытие («Не отвечает»). Ждём не дольше 2 с;
+        // цикл не вышел — токены не освобождаем (процесс всё равно завершается), чтобы он не упал на освобождённом.
+        var loopDone = true;
         try
         {
-            _loopTask?.GetAwaiter().GetResult();
+            loopDone = _loopTask?.Wait(TimeSpan.FromSeconds(2)) ?? true;
         }
         catch { /* ignore */ }
+
+        if (!loopDone)
+        {
+            PosLogger.Log("Выход: цикл синхронизации не остановился за 2 с — закрываем, не дожидаясь.", "SYNC");
+            return;
+        }
 
         _cts.Dispose();
         _syncGate.Dispose();

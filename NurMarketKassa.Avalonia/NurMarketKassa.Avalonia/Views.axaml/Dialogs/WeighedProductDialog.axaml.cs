@@ -137,7 +137,8 @@ public partial class WeighedProductDialog : Window
             _timer.Tick += (_, _) =>
             {
                 LiveScaleText.Text = FormatLiveScaleText();
-                if (_scale?.LastWeight is double w && w > 0)
+                // 2026-11-01 (контрольный аудит, С2-01): в режиме «По сумме» поле занято суммой кассира — вес в него не пишем (он виден в «живом» весе LiveScaleText).
+                if (!_isAmountMode && _scale?.LastWeight is double w && w > 0)
                     // Без TrimEnd: у целого веса формат не печатает точку, и TrimEnd('0') отрезал
                     // нули самого числа — ровно 10 кг с весов подставлялись в поле как 1.
                     WeightBox.Text = w.ToString("0.###", CultureInfo.InvariantCulture);
@@ -328,8 +329,15 @@ public partial class WeighedProductDialog : Window
         }
 
         var weightKg = amount / _pricePerKg;
-        ComputedPreviewText.Text = "≈ " + weightKg.ToString("0.###", CultureInfo.InvariantCulture) + " " +
-            Tr.T("кг", "кг", "kg", "kg", "kg");
+        // 2026-11-02 (аудит №2, С3-11): в чек идёт вес до грамма, поэтому сумма строки может отличаться от введённой на копейки (100 сом при 120 сом/кг → 0,833 кг → 99,96).
+        // Показываем её до «В чек», чтобы кассир и покупатель видели итог заранее.
+        var roundedKg = Math.Round(weightKg, 3, MidpointRounding.AwayFromZero);
+        var lineTotal = Math.Round(roundedKg * _pricePerKg, 2, MidpointRounding.AwayFromZero);
+        ComputedPreviewText.Text = "≈ " + roundedKg.ToString("0.###", CultureInfo.InvariantCulture) + " " +
+            Tr.T("кг", "кг", "kg", "kg", "kg")
+            + (Math.Abs(lineTotal - amount) >= 0.005
+                ? " · " + Tr.T("в чеке: ", "чекте: ", "on the receipt: ", "fişte: ", "chekda: ") + MoneyText.Som(lineTotal)
+                : "");
         ComputedPreviewText.IsVisible = true;
     }
 

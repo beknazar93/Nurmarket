@@ -400,8 +400,9 @@
     <Style Selector="ListBox.lx-tiles ListBoxItem:pointerover /template/ ContentPresenter, ListBox.lx-tiles ListBoxItem:selected /template/ ContentPresenter, ListBox.lx-tiles ListBoxItem:selected:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="Transparent"/>
     </Style>
+    <!-- 2026-11-01 (контрольный аудит, Д2-01): рамка фокуса — BrushFocusRing (≥ 3:1, считает AccentThemeService); BrushAccentStrong был 2,3:1. -->
     <Style Selector="ListBox.lx-tiles ListBoxItem:focus-visible">
-        <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
         <Setter Property="BorderThickness" Value="2"/>
     </Style>
 

@@ -135,7 +135,7 @@ internal sealed class HardwareCalcWindow : Window
     private static TextBlock Value(double size = 20) => new() { FontSize = size, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap };
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 
     private TextBlock ErrorLine()
     {

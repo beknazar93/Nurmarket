@@ -48,7 +48,7 @@ public sealed class ScaleGuideWindow : Window
     /// <summary>2026-10-22 (модалки, пакет 3): цвет из темы привязкой — меняется вместе с темой (ThemeBrush читал его один раз).</summary>
     private T Themed<T>(T target, AvaloniaProperty property, string key) where T : AvaloniaObject
     {
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
         return target;
     }
 

@@ -964,7 +964,7 @@ public sealed class BranchesWindow : Window, IOwnerSection
         double.TryParse(Str(e, name), NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0;
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }
 
 /// <summary>Новый филиал или правка: те же поля, что в форме сайта. Результат ShowDialog — true, если сохранено на сервере.</summary>
@@ -1121,7 +1121,7 @@ public sealed class BranchEditDialog : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }
 
 /// <summary>«Новое перемещение»: откуда и куда (главный склад или активный филиал), дата, товары с остатком отправителя
@@ -1508,24 +1508,50 @@ public sealed class BranchTransferDialog : Window
         };
         // 2026-11-01 (С-05): ключ повтора из состава перемещения; метка ключа в комментарии — по ней (плюс склады и состав) после обрыва ищем СВОЁ перемещение на сервере.
         var transferLines = _rows.Select(r => (r.ProductId, Math.Round(ParseQty(r.Qty.Text), 3))).ToList();
-        var transferKey = Views.Dialogs.StockTransferDialog.MakeTransferKey(_transferKeyBase, FromId, ToId, date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), transferLines);
-        var comment = ((_comment.Text ?? "").Trim() + Views.Dialogs.StockTransferDialog.KeyTag(transferKey)).Trim();
-        body["comment"] = comment;
+        // 2026-11-01 (контрольный аудит С2-07 + финальная приёмка В-1, В-2): область = ЭТО перемещение (маршрут + выбранная дата + состав), а не маршрут вообще: после повторного открытия окна
+        // ключ с неизвестным исходом того же перемещения находится и проверяется, а другое перемещение по тому же маршруту его не подхватывает. Ключ нового перемещения — от случайной основы
+        // окна (`_transferKeyBase`) + маршрут + дата + состав, поэтому два настоящих одинаковых перемещения за день имеют разные ключи и метки. Дата — выбранная в поле.
+        var dateText = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var compositionKey = string.Join(";", transferLines.GroupBy(l => l.ProductId.Trim()).Select(g => g.Key + ":" + Math.Round(g.Sum(x => x.Item2), 3).ToString("0.###", CultureInfo.InvariantCulture)).OrderBy(x => x, StringComparer.Ordinal));
+        var scope = "branches|" + FromId + ">" + ToId + "|" + dateText + "|" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(compositionKey)))[..16];
         if (!_shell.TryBeginBusy())
             return;
+        var (alreadyPosted, blocked, transferKey, transferDate, canForce) = await Views.Dialogs.StockTransferDialog.ResolveAsync(_api, scope, FromId, ToId,
+            (day, _) => Views.Dialogs.StockTransferDialog.MakeTransferKey(_transferKeyBase, FromId, ToId, day, transferLines), transferLines, dateText).ConfigureAwait(true);
+        if (blocked is not null)
+        {
+            _shell.EndBusy();
+            ShowError(blocked);
+            if (canForce && TopLevel.GetTopLevel(this) is Window ownerWindow && await Views.Dialogs.StockTransferDialog.OfferForceResendAsync(ownerWindow, blocked, scope).ConfigureAwait(true))
+                ShowError(T("Запись о прошлой отправке снята. Нажмите «Провести» ещё раз.", "Мурунку жөнөтүү жөнүндөгү жазуу алынды. «Өткөрүү» баскычын дагы бир жолу басыңыз.", "The record of the previous send was removed. Press “Make transfer” again.",
+                    "Önceki gönderim kaydı kaldırıldı. «Transferi yap»a yeniden basın.", "Oldingi yuborish yozuvi olib tashlandi. «O'tkazish»ni yana bosing."));
+            return;
+        }
+        body["date"] = transferDate; // выбранная дата (у найденной отложенной записи она та же — входит в область)
+        var comment = ((_comment.Text ?? "").Trim() + Views.Dialogs.StockTransferDialog.KeyTag(transferKey)).Trim();
+        body["comment"] = comment;
         _save.IsEnabled = false;
         try
         {
             JsonElement data;
+            if (alreadyPosted is { } already)
+                data = already;
+            else
             try
             {
                 data = await _api.PostWithIdempotencyKeyAsync("api/main/branch-transfers/", body, transferKey, CancellationToken.None, TimeSpan.FromSeconds(45)).ConfigureAwait(true);
+                NurMarketKassa.Services.PendingTransferKeys.Clear(scope);
+            }
+            catch (Exception postEx) when (postEx is ApiException { StatusCode: >= 400 and < 500 } && !PendingIdempotencyKey.IsOutcomeUnknown(postEx))
+            {
+                NurMarketKassa.Services.PendingTransferKeys.Clear(scope); // определённый отказ сервера — ключ забываем
+                throw;
             }
             catch (Exception postEx) when (PendingIdempotencyKey.IsOutcomeUnknown(postEx))
             {
-                // Исход неизвестен (таймаут, обрыв): сначала ищем перемещение по метке в комментарии, второй раз не шлём.
+                // Исход неизвестен (таймаут, обрыв): ключ — на диск; ищем перемещение по метке сразу и ещё раз через 25 с, второй раз не шлём.
                 PosLogger.Log($"Перемещение: ответа нет ({postEx.GetType().Name}) — проверяем, прошло ли оно на сервере.", "WARNING");
-                var posted = await Views.Dialogs.StockTransferDialog.FindPostedTransferAsync(_api, transferKey, FromId, ToId, transferLines).ConfigureAwait(true);
+                var posted = await Views.Dialogs.StockTransferDialog.RememberUnknownAsync(_api, scope, transferKey, transferDate, FromId, ToId, transferLines, ShowError).ConfigureAwait(true);
                 if (posted is null)
                 {
                     ShowError(T("Связь прервалась, проверить не удалось. Перед повтором откройте «Филиалы» → «Перемещения» и убедитесь, что такого перемещения нет.",
@@ -1538,6 +1564,7 @@ public sealed class BranchTransferDialog : Window
                 data = posted.Value;
                 PosLogger.Log("Перемещение: найдено на сервере — второй раз не отправляем.", "INFO");
             }
+            NurMarketKassa.Services.PendingTransferKeys.Clear(scope);
             PosLogger.Log($"Перемещение {BranchesWindow.Str(data, "number")}: {fromName} → {toName}, {_rows.Count} поз., {qtyTotal:0.###} ед.", "INFO");
             _shell.EndBusy();
             Close(true);
@@ -1583,5 +1610,5 @@ public sealed class BranchTransferDialog : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

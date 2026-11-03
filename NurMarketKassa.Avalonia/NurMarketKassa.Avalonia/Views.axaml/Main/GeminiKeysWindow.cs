@@ -63,11 +63,11 @@ internal sealed class GeminiKeysWindow : Window
                 + "Kalitni Google AI Studio'dan bepul olish mumkin (aistudio.google.com/apikey); turli hisoblar uchun — turli loyihalar."),
             FontSize = 13, TextWrapping = TextWrapping.Wrap,
         };
-        intro.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
-        _counter.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        intro.Bind(TextBlock.ForegroundProperty, intro.GetResourceObservable("BrushTextSoft"));
+        _counter.Bind(TextBlock.ForegroundProperty, _counter.GetResourceObservable("BrushText"));
         _empty.Text = Tr.T("Ключей пока нет — нажмите «Добавить ключ».", "Азырынча ачкыч жок — «Ачкыч кошуу» басыңыз.", "No keys yet — press “Add key”.",
             "Henüz anahtar yok — «Anahtar ekle»ye basın.", "Hozircha kalit yo'q — «Kalit qo'shish» ni bosing.");
-        _empty.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        _empty.Bind(TextBlock.ForegroundProperty, _empty.GetResourceObservable("BrushTextSoft"));
 
         // Честное предупреждение — не прячем: правила Google и использование запросов на бесплатном уровне.
         var warn = new TextBlock
@@ -86,8 +86,8 @@ internal sealed class GeminiKeysWindow : Window
             FontSize = 12.5, TextWrapping = TextWrapping.Wrap,
         };
         var warnBox = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 10), Child = warn };
-        warnBox.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushShiftWarnBg"));
-        warn.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        warnBox.Bind(Border.BackgroundProperty, warnBox.GetResourceObservable("BrushShiftWarnBg"));
+        warn.Bind(TextBlock.ForegroundProperty, warn.GetResourceObservable("BrushText"));
 
         var body = new StackPanel { Spacing = 12, Children = { intro, _counter, _list, _empty, warnBox } };
 
@@ -187,15 +187,15 @@ internal sealed class GeminiKeysWindow : Window
     private Border BuildCard(Row row, int index)
     {
         var card = new Border { CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Padding = new Thickness(12, 10), Tag = row };
-        card.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanel"));
-        card.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
+        card.Bind(Border.BackgroundProperty, card.GetResourceObservable("BrushPanel"));
+        card.Bind(Border.BorderBrushProperty, card.GetResourceObservable("BrushBorder"));
 
         var status = new TextBlock { FontSize = 13, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap, MaxWidth = 230 };
         void ShowStatus()
         {
             var (text, brush) = StatusOf(row);
             status.Text = text;
-            status.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
+            status.Bind(TextBlock.ForegroundProperty, status.GetResourceObservable(brush));
         }
         ShowStatus();
 

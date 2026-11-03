@@ -274,6 +274,7 @@ public static class InvoiceXmlParser
         var article = Get(InvoiceField.Article);
         if (barcode.Length == 0 && InvoiceText.LooksLikeBarcode(article))
             barcode = InvoiceText.CleanBarcode(article);
+        var mangled = barcode.Length == 0 && InvoiceText.IsMangledBarcode(Get(InvoiceField.Barcode));
         if (name.Length == 0 && barcode.Length == 0)
             return null;
 
@@ -301,7 +302,9 @@ public static class InvoiceXmlParser
         item.VatText = rate;
         if (rate.Length > 0 && InvoiceText.TryParseNumber(rate, out var pct))
             item.VatPercent = pct > 0 && pct < 1 ? Math.Round(pct * 100, 2) : pct;
-        if (barcode.Length > 0 && !InvoiceText.HasValidCheckDigit(barcode))
+        if (mangled)
+            item.Warnings.Add(InvoiceText.MangledBarcodeWarning(Get(InvoiceField.Barcode))); // 2026-11-01 (С2-09)
+        if (barcode.Length > 0 && barcode.All(char.IsAsciiDigit) && barcode.Length is 8 or 12 or 13 or 14 && !InvoiceText.HasValidCheckDigit(barcode))
             item.Warnings.Add(Tr.T($"у штрихкода {barcode} не сходится контрольная цифра", $"{barcode} штрих-кодунун контролдук цифрасы дал келбейт",
                 $"barcode {barcode} has a wrong check digit", $"{barcode} barkodunun kontrol hanesi uyuşmuyor", $"{barcode} shtrix-kodining nazorat raqami mos kelmaydi"));
         // 2026-10-27 (ревью Ск-15): CommerceML — «УчтеноВСумме = true» у налога: цена и сумма строки УЖЕ с НДС. Раньше «Закупка с НДС» прибавляла налог второй раз.

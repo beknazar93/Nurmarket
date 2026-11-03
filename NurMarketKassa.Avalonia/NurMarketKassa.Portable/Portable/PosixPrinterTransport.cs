@@ -126,17 +126,9 @@ internal sealed class PosixPrinterTransport : IPlatformPrinterTransport
     // 2026-11-01: разбор адреса — общий для Windows/Linux/Android (NetworkPrinterAddress в Infrastructure).
     private static (string Host, int Port) ParseTcp(string port) => NetworkPrinterAddress.ParseOrThrow(port);
 
-    private static void WriteTcp(string port, byte[] payload, TimeSpan timeout)
-    {
-        var (host, tcpPort) = ParseTcp(port);
-        using var client = new TcpClient { NoDelay = true, SendTimeout = (int)timeout.TotalMilliseconds };
-        if (!client.ConnectAsync(host, tcpPort).Wait(TimeSpan.FromSeconds(4)) || !client.Connected)
-            throw new IOException(Tr.T($"Сетевой принтер {host}:{tcpPort} не отвечает.", $"Тармактык принтер {host}:{tcpPort} жооп бербейт.", $"Network printer {host}:{tcpPort} is not responding.", $"Ağ yazıcısı {host}:{tcpPort} yanıt vermiyor.", $"Tarmoq printeri {host}:{tcpPort} javob bermayapti."));
-        using var stream = client.GetStream();
-        stream.Write(payload, 0, payload.Length);
-        stream.Flush();
-        try { client.Client.Shutdown(SocketShutdown.Send); } catch { /* принтер мог закрыть сам */ }
-    }
+    // 2026-11-02 (финальная приёмка 1.17.73): запись по сети — общая с Windows (NetworkPrinterAddress.Write): подключение можно повторить, а обрыв
+    // после начала записи — PrinterStalledException, SendRawBytes его не повторяет (иначе частичный чек и дубли).
+    private static void WriteTcp(string port, byte[] payload, TimeSpan timeout) => NetworkPrinterAddress.Write(port, payload, timeout);
 
     private static string CupsName(string port) => port[(port.IndexOf(':') + 1)..].Trim();
 

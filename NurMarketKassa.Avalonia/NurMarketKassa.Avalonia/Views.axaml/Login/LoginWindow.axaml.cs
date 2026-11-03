@@ -119,8 +119,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
             UpdateThemeButtons(UserPreferences.Instance.DarkTheme);
         }
 
+        /// <summary>2026-11-03 (С-03): отменяется при закрытии окна входа — загрузка компании и запуск кассы больше не идут с CancellationToken.None.</summary>
+        private readonly CancellationTokenSource _closedCts = new();
+
         private void OnClosed(object sender, EventArgs e)
         {
+            try { _closedCts.Cancel(); } catch (ObjectDisposedException) { }
             _viewModel.ClearCredentialInputs();
             _viewModel.LoginSuccess -= OnLoginSuccess;
             _viewModel.CredentialsClearRequested -= ClearCredentialControls;
@@ -147,7 +151,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 if (!isAutonomous)
                 {
                     _viewModel.SetLoadingStatus(Tr.T("Загрузка компании…", "Компания жүктөлүүдө…", "Loading company…", "Şirket yükleniyor…", "Kompaniya yuklanmoqda…"));
-                    await CompanyInfoService.RefreshAsync(App.AuthApi, CancellationToken.None).ConfigureAwait(true);
+                    await CompanyInfoService.RefreshAsync(App.AuthApi, _closedCts.Token).ConfigureAwait(true);
                     App.AuditDb.LogEvent("auth", "login", new { userId }, userId);
 
                     // Разделение данных — ДО очистки каталога и до запуска синхронизации:
@@ -191,7 +195,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                         _viewModel.SetLoadingStatus(status);
                 });
 
-                var canOpen = await shell.InitializeApplicationAsync(progress, CancellationToken.None)
+                var canOpen = await shell.InitializeApplicationAsync(progress, _closedCts.Token)
                     .ConfigureAwait(true);
                 if (!canOpen)
                 {

@@ -85,8 +85,8 @@ public sealed class BackgroundReceiptsWindow : Window
         Bind(TransparencyLevelHintProperty, this.GetResourceObservable("DialogTransparencyHint"));
         KeyDown += (_, e) => { if (e.Key == Key.Escape && !e.Handled) { e.Handled = true; Close(); } };
 
-        _empty.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
-        _closedNote.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
+        _empty.Bind(TextBlock.ForegroundProperty, _empty.GetResourceObservable("BrushTextSoft"));
+        _closedNote.Bind(TextBlock.ForegroundProperty, _closedNote.GetResourceObservable("BrushDanger"));
         var root = new StackPanel { Spacing = 10 };
         root.Children.Add(_closedNote);
         root.Children.Add(_list);
@@ -233,19 +233,19 @@ public sealed class BackgroundReceiptsWindow : Window
         row.Head.FontSize = 15;
         row.Head.FontWeight = FontWeight.SemiBold;
         row.Head.TextWrapping = TextWrapping.Wrap;
-        row.Head.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        row.Head.Bind(TextBlock.ForegroundProperty, row.Head.GetResourceObservable("BrushText"));
         row.Info.FontSize = 13;
         row.Info.TextWrapping = TextWrapping.Wrap;
-        row.Info.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        row.Info.Bind(TextBlock.ForegroundProperty, row.Info.GetResourceObservable("BrushTextSoft"));
         row.Status.FontSize = 13;
         row.Status.FontWeight = FontWeight.SemiBold;
         row.Status.TextWrapping = TextWrapping.Wrap;
         row.Notice.FontSize = 13;
         row.Notice.TextWrapping = TextWrapping.Wrap;
-        row.Notice.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushWarning"));
+        row.Notice.Bind(TextBlock.ForegroundProperty, row.Notice.GetResourceObservable("BrushWarning"));
         row.Detail.FontSize = 12;
         row.Detail.TextWrapping = TextWrapping.Wrap;
-        row.Detail.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        row.Detail.Bind(TextBlock.ForegroundProperty, row.Detail.GetResourceObservable("BrushTextSoft"));
 
         row.Retry = SmallButton(UiKit.Primary(this, T("Повторить", "Кайра аракет", "Retry", "Tekrar dene", "Qayta urinish")));
         row.TakeBack = SmallButton(UiKit.Ghost(this, T("Вернуть строки в приёмку", "Саптарды кабыл алууга кайтаруу", "Return lines to receiving", "Satırları mal kabule geri al", "Qatorlarni qabulga qaytarish")));
@@ -273,8 +273,8 @@ public sealed class BackgroundReceiptsWindow : Window
         body.Children.Add(buttons);
 
         row.Card = new Border { CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 12, 14, 4), BorderThickness = new Thickness(1), Child = body };
-        row.Card.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushSurfaceSubtle"));
-        row.Card.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
+        row.Card.Bind(Border.BackgroundProperty, row.Card.GetResourceObservable("BrushSurfaceSubtle"));
+        row.Card.Bind(Border.BorderBrushProperty, row.Card.GetResourceObservable("BrushBorder"));
         return row;
     }
 
@@ -306,7 +306,7 @@ public sealed class BackgroundReceiptsWindow : Window
         if (!string.Equals(row.StatusBrush, brush, StringComparison.Ordinal))
         {
             row.StatusBrush = brush;
-            row.Status.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
+            row.Status.Bind(TextBlock.ForegroundProperty, row.Status.GetResourceObservable(brush));
         }
 
         // 2026-10-29: отказ сервера по существу (4xx с JSON) — «Повторить» не поможет, вместо кнопки подсказка «исправьте данные».
@@ -365,7 +365,7 @@ public sealed class BackgroundReceiptsWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Приходы в фоне: «Повторить» не удалось: {ex.Message}", "WARNING");
-            SetNotice(row, ex.Message);
+            SetNotice(row, ServerOutageMonitor.FriendlyError(ex));
         }
     }
 
@@ -427,7 +427,7 @@ public sealed class BackgroundReceiptsWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Приходы в фоне: «Вернуть строки» не удалось: {ex}", "WARNING");
-            SetNotice(row, ex.Message);
+            SetNotice(row, ServerOutageMonitor.FriendlyError(ex));
         }
     }
 
@@ -466,7 +466,7 @@ public sealed class BackgroundReceiptsWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Приходы в фоне: «Убрать из списка» не удалось: {ex.Message}", "WARNING");
-            SetNotice(row, ex.Message);
+            SetNotice(row, ServerOutageMonitor.FriendlyError(ex));
         }
     }
 

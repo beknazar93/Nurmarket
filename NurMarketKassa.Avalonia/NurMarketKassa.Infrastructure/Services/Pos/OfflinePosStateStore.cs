@@ -107,7 +107,8 @@ public static class OfflinePosStateStore
         if (state == null)
             return;
 
-        if (!string.IsNullOrWhiteSpace(state.ActiveShiftId))
+        // 2026-11-02 (К3-01): смена стоит в очереди закрытия (закрыта локально, сервер ещё не закрыл) — текущей её не возвращаем, иначе очередь закрытий её пропустит («смена активна»).
+        if (!string.IsNullOrWhiteSpace(state.ActiveShiftId) && PendingShiftCloseStore.TryGet(state.ActiveShiftId) is null)
             PosApp.ActiveShiftId = state.ActiveShiftId;
         if (!string.IsNullOrWhiteSpace(state.PosCashboxId))
             PosApp.PosCashboxId = state.PosCashboxId;
@@ -121,20 +122,45 @@ public static class OfflinePosStateStore
         return state?.ShiftCashBalance ?? 0m;
     }
 
+    // 2026-11-02 (аудит №2 кассы, К3-01; приёмка круга 3): «файл занят» ≠ «состояния нет». Раньше ошибка чтения давала null — терялись сумма открытия, офлайн-id и владелец смены, а закрытая
+    // смена могла вернуться текущей. Теперь: файл не прочитан или записать не вышло — запись откладывается (AtomicFile.DeferWrite), свежее состояние читается из памяти ПЕРВЫМ,
+    // таймер дописывает его в файл (побеждает более новое SavedAt), при закрытии — запасной файл *.pending.
+    private static OfflinePosState? _lastKnown;
+    private static bool _blocked;
+
+    private static OfflinePosState? ParseState(string? text)
+    {
+        try
+        {
+            return text is null ? null : JsonSerializer.Deserialize<OfflinePosState>(text, JsonOpts);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string MergeState(string? fileText, string memoryText)
+    {
+        var file = ParseState(fileText);
+        var memory = ParseState(memoryText);
+        return file is not null && (memory is null || file.SavedAt > memory.SavedAt) ? fileText! : memoryText;
+    }
+
     public static OfflinePosState? TryLoad()
     {
         lock (SyncRoot)
         {
-            try
+            var read = AtomicFile.TryRead(FilePath, attempts: 3, pauseMs: 100);
+            var parsed = ParseState(read.Text);
+            if (read.Status == AtomicFile.ReadStatus.Unreadable)
             {
-                if (!File.Exists(FilePath))
-                    return null;
-                return JsonSerializer.Deserialize<OfflinePosState>(File.ReadAllText(FilePath), JsonOpts);
+                _blocked = true;
+                return _lastKnown ?? parsed;
             }
-            catch
-            {
-                return null;
-            }
+            _blocked = read.FromMemory; // состояние из памяти ещё не в файле — писать только через отложенную запись с объединением
+            _lastKnown = parsed;
+            return parsed;
         }
     }
 
@@ -145,16 +171,28 @@ public static class OfflinePosStateStore
     {
         lock (SyncRoot)
         {
+            _lastKnown = state;
+            var json = JsonSerializer.Serialize(state, JsonOpts);
+            if (_blocked)
+            {
+                AtomicFile.DeferWrite(FilePath, "offline_pos_state.json", json, MergeState);
+                return;
+            }
             var dir = Path.GetDirectoryName(FilePath);
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
 
-            var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(state, JsonOpts));
-            if (File.Exists(FilePath))
-                File.Replace(tmp, FilePath, null);
-            else
-                File.Move(tmp, FilePath);
+            // 2026-11-01 (контрольный аудит, Н2-01): запись через AtomicFile — сброс на диск, замена и копия .bak (офлайн-смена не пропадёт при отключении света).
+            // 2026-11-02 (К3-01): короткие повторы, а не исключение наружу (CloseLocallyAndQueue не должен падать на занятом файле); не вышло — отложенная запись.
+            try
+            {
+                AtomicFile.WriteAllTextWithRetry(FilePath, json);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _blocked = true;
+                AtomicFile.DeferWrite(FilePath, "offline_pos_state.json", json, MergeState);
+            }
         }
     }
 }

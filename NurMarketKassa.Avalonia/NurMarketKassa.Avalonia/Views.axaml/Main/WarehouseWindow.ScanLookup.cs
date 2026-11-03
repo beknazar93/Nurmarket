@@ -134,7 +134,7 @@ public partial class WarehouseWindow
         var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
         if (catalogApi is null)
         {
-            prompts?.ShowToast(Tr.T("Добавление товара недоступно в этом режиме.", "Бул режимде товар кошууга болбойт.", "Adding products isn't available in this mode.", "Bu modda ürün eklenemez.", "Bu rejimda mahsulot qo'shib bo'lmaydi."), isWarning: true);
+            prompts?.ShowToast(Tr.T("Добавление товара недоступно в этом режиме.", "Бул режимде товар кошууга болбойт.", "Adding products isn't available in this mode.", "Bu modda ürün eklenemez.", "Bu rejimda mahsulot qo'shib bo'lmaydi."));
             return null;
         }
 

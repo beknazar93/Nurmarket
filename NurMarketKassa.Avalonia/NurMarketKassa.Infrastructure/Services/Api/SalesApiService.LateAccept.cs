@@ -25,9 +25,10 @@ public sealed partial class SalesApiService : IPosLateAcceptApi
     /// <summary>Заголовок подтверждения владельца (ответ Умара 31.10, п. 2).</summary>
     internal const string ConfirmTokenHeader = "X-Confirm-Token";
 
-    // TODO(Умар): в ответе POST users/auth/pin/verify/ НЕ описано, в каком поле лежит токен. Здесь только явные имена подтверждения —
-    // 2026-11-01 (ревью): "token"/"access" убраны намеренно, чтобы не принять JWT сессии за X-Confirm-Token. После ответа Умара оставить одно настоящее имя.
-    private static readonly string[] ConfirmTokenFieldCandidates = ["confirm_token", "confirmation_token", "x_confirm_token"];
+    // 2026-11-01: проверка бэкенда (OPTIONS users/auth/pin/verify/): «{pin} → {token, expires_in}; 5 ошибок подряд — блокировка на 15 минут».
+    // Сначала явные имена подтверждения, затем `token` — но только если в ответе нет access/refresh (иначе это ответ входа, а не подтверждение).
+    // access/refresh НЕ принимаются никогда: токен сессии нельзя подставлять в X-Confirm-Token. Значение токена не логируется.
+    private static readonly string[] ConfirmTokenFieldCandidates = ["confirm_token", "confirmation_token", "x_confirm_token", "token"];
 
     public async Task<OwnerPinResult> VerifyOwnerPinAsync(string pin, CancellationToken ct = default)
     {
@@ -43,8 +44,11 @@ public sealed partial class SalesApiService : IPosLateAcceptApi
                 // 2026-11-01 (ревью): явное «PIN неверен» в ответе 200 ({"valid": false}).
                 if (response.TryGetProperty("valid", out var valid) && valid.ValueKind == JsonValueKind.False)
                     return new OwnerPinResult(false, true, null, null);
+                // Ответ с access/refresh — это токены сессии, а не подтверждение: никакого токена из него не берём.
+                if (response.TryGetProperty("access", out _) || response.TryGetProperty("refresh", out _))
+                    return new OwnerPinResult(false, false, null, "session_tokens_in_reply");
                 foreach (var name in ConfirmTokenFieldCandidates)
-                    if (response.TryGetProperty(name, out var t) && t.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(t.GetString()))
+                    if (response.TryGetProperty(name, out var t)&& t.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(t.GetString()))
                         return new OwnerPinResult(true, false, t.GetString(), null);
                 // Токена не нашли: в сообщение — только имена полей ответа (значения могут быть секретом).
                 var keys = string.Join(", ", response.EnumerateObject().Select(p => p.Name));

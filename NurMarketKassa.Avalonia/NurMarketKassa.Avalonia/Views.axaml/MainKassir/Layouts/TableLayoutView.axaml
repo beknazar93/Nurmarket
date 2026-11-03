@@ -238,7 +238,7 @@
                                                     <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="48" Height="36" MinHeight="0"
                                                              Padding="4,0" FontSize="14" FontWeight="SemiBold" TextAlignment="Center" VerticalContentAlignment="Center"
                                                              VerticalAlignment="Center"
-                                                             Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}"
+                                                             Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushInputBorder}"
                                                              BorderThickness="1" CornerRadius="6" Foreground="{DynamicResource BrushText}"
                                                              ToolTip.Tip="{DynamicResource csh.cart.typeQuantityTooltip}" LostFocus="QuantityInput_LostFocus">
                                                         <TextBox.KeyBindings>

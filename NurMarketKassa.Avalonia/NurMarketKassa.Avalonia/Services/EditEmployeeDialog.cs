@@ -31,7 +31,7 @@ public sealed class EditEmployeeDialog : Window
         TextBlock Label(string text)
         {
             var label = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 4, 0, 0) };
-            label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushTextSoft"));
             return label;
         }
 

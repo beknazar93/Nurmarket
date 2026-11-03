@@ -206,7 +206,7 @@ public sealed class CategoryAnalyticsView : UserControl
         catch (Exception ex)
         {
             PosLogger.Log($"Аналитика по категориям: {ex}", "WARNING");
-            _status.Text = Tr.T("Не удалось посчитать: ", "Эсептөө мүмкүн болгон жок: ", "Could not calculate: ", "Hesaplanamadı: ", "Hisoblab bo'lmadi: ") + ex.Message;
+            _status.Text = Tr.T("Не удалось посчитать: ", "Эсептөө мүмкүн болгон жок: ", "Could not calculate: ", "Hesaplanamadı: ", "Hisoblab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
         }
     }
 

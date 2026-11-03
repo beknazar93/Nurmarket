@@ -84,6 +84,11 @@ public static class QuickLabelPrint
             SuccessToast.Show(LabelPrinterSelector.SentText(outcome.Printer.Label));
             return true;
         }
+        if (outcome.Result == LabelPrintResult.PartiallySent)
+        {
+            PosMessageBox.Show(owner, LabelPrinterSelector.PartialText(outcome.Printer.DevicePath), Tr.T("Этикетка", "Этикетка", "Label", "Etiket", "Yorliq"));
+            return true;
+        }
         PosMessageBox.Show(owner, outcome.Result == LabelPrintResult.PrinterNotFound
                 ? Tr.T("Принтер не найден — проверьте питание и кабель или выберите другой в «Этикетка…».", "Принтер табылган жок — кубатты жана кабелди текшериңиз же «Этикетка…» ичинен башкасын тандаңыз.", "Printer not found — check power and cable, or choose another in “Label…”.", "Yazıcı bulunamadı — güç ve kabloyu kontrol edin veya «Etiket…» içinden başkasını seçin.", "Printer topilmadi — quvvat va kabelni tekshiring yoki «Yorliq…» dan boshqasini tanlang.")
                 : Tr.T("Ошибка печати этикетки. Подробности в журнале приложения; можно открыть «Этикетка…» и выбрать другой принтер.", "Этикетка басуу катасы. Чоо-жайы колдонмонун журналында; «Этикетка…» ачып, башка принтерди тандаса болот.", "Label print error. See the application log; you can open “Label…” and choose another printer.", "Etiket yazdırma hatası. Ayrıntılar uygulama günlüğünde; «Etiket…» açıp başka bir yazıcı seçebilirsiniz.", "Yorliq chop etish xatosi. Tafsilotlar dastur jurnalida; «Yorliq…» ni ochib, boshqa printerni tanlash mumkin."),

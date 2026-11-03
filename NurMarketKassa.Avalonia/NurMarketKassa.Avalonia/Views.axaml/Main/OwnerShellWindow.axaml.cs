@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Documents;
 using Avalonia.Controls.Shapes;
@@ -75,6 +76,10 @@ public partial class OwnerShellWindow : Window, IMainShell
     private DateTime _customFrom = DateTime.Today;
     private DateTime _customTo = DateTime.Today;
     private bool _refreshing;
+    // 2026-11-03 (С-13, аудит «зависание при медленном сервере»): токен текущей загрузки «Сводки» и признак «начать заново» — смена периода и «Обновить» отменяют идущую
+    // загрузку, а не ждут её до 55 с (раньше новый запрос просто не стартовал, цифры нового периода приходили после старой загрузки).
+    private CancellationTokenSource? _refreshCts;
+    private bool _refreshAgain;
     private bool _loggingOut;
     private DateTime? _lastSuccess;
 
@@ -217,7 +222,16 @@ public partial class OwnerShellWindow : Window, IMainShell
             RefreshAbcWhenVisible();
         };
         _siteOrdersTimer = new DispatcherTimer { Interval = SiteOrdersPollInterval };
-        _siteOrdersTimer.Tick += (_, _) => _ = PollSiteOrdersAsync();
+        _siteOrdersTimer.Tick += (_, _) =>
+        {
+            // 2026-11-02: опрос заказов (значок и «Требует внимания») — раз в минуту при работе, раз в 2 минуты, когда окно не в фокусе или свёрнуто,
+            // раз в 5 минут в простое. Открытый раздел «Заказы» обновляется сам (SiteOrdersWindow).
+            var gap = SyncCenter.IsQuiet() ? TimeSpan.FromMinutes(5) : (!IsActive || WindowState == WindowState.Minimized) ? TimeSpan.FromMinutes(2) : TimeSpan.Zero;
+            if (DateTime.UtcNow - _siteOrdersPolledUtc < gap - TimeSpan.FromSeconds(5))
+                return;
+            _siteOrdersPolledUtc = DateTime.UtcNow;
+            _ = PollSiteOrdersAsync();
+        };
         Opened += async (_, _) =>
         {
             // 2026-10-21 (сенсорный моноблок): окно оказалось на другом экране, чем основной, — минимум ещё раз по его рабочей области.
@@ -279,7 +293,37 @@ public partial class OwnerShellWindow : Window, IMainShell
             Grid.SetColumn(bgReceiptsBadge, 0);
             HeaderGrid.Children.Add(bgReceiptsBadge);
         }
-        Closing += (_, _) => CloseAllSections();
+        // 2026-11-02 (аудит №2, В3-01): несохранённые правки разделов (редактор сайта, настройки, приёмка…) при выходе не теряются молча —
+        // вопрос «Сохранить и выйти / Выйти без сохранения / Остаться».
+        Closing += async (_, e) =>
+        {
+            if (_exitConfirmed || _loggingOut || _closingAllSections)
+            {
+                CloseAllSections();
+                return;
+            }
+            if (DirtySections().Count == 0)
+            {
+                CloseAllSections();
+                return;
+            }
+            e.Cancel = true;
+            if (_exitAsking)
+                return;
+            _exitAsking = true;
+            try
+            {
+                if (await ConfirmLeaveAsync().ConfigureAwait(true))
+                {
+                    _exitConfirmed = true;
+                    Close();
+                }
+            }
+            finally
+            {
+                _exitAsking = false;
+            }
+        };
         PositionChanged += (_, _) => SyncSectionBounds();
         // Не сразу, а после разметки: размер области раздела меняется раньше, чем её родитель
         // встаёт на новое место (Avalonia ставит Bounds родителю после детей), и при сворачивании
@@ -300,7 +344,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         progress?.Report(Tr.T("Загрузка профиля…", "Профиль жүктөлүүдө…", "Loading profile…", "Profil yükleniyor…", "Profil yuklanmoqda…"));
         try
         {
-            var subscription = await CompanyInfoService.RefreshAsync(App.AuthApi, cancellationToken).ConfigureAwait(true);
+            // 2026-11-03 (С-03): startup — свежую компанию окна входа не грузим второй раз, а при медленном сервере (8 с) открываемся с кэшем подписки.
+            var subscription = await CompanyInfoService.RefreshAsync(App.AuthApi, cancellationToken, startup: true).ConfigureAwait(true);
             AccountDataIsolation.SwitchTo(CompanyInfoService.LastCompany?.Id);
             await AccountDataIsolation.EnsureAccountDataLoadedAsync(progress, cancellationToken).ConfigureAwait(true); // 2026-10-29: «Загружаем данные аккаунта…» до открытия окна
             // 2026-10-25, ТЗ «оприходование в фоне» (Q5): очередь приходов в фоне догружает незавершённое.
@@ -614,7 +659,10 @@ public partial class OwnerShellWindow : Window, IMainShell
                 catch (Exception ex)
                 {
                     PosLogger.Log($"Owner app: section failed to open: {ex}", "ERROR");
-                    PosMessageBox.Show(this, ex.Message, Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    // 2026-11-02 (В3-02): без сырого текста исключения — подробности в журнале.
+                    PosMessageBox.Show(this, Tr.T("Раздел не открылся. Подробности — в журнале ошибок.", "Бөлүм ачылган жок. Чоо-жайы — каталар журналында.",
+                        "The section did not open. See the error log for details.", "Bölüm açılamadı. Ayrıntılar hata günlüğünde.", "Bo'lim ochilmadi. Tafsilotlar xatolar jurnalida."),
+                        Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
                 }
                 if (fromBurger)
                     RestoreSectionAfterBurger();
@@ -947,6 +995,8 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-18, вид «Бургер ☰»: переход в раздел закрывает выехавшее меню и убирает снимок раздела под ним.
         CloseBurgerQuietly();
         _activeSection = section;
+        UpdateSectionExcelButton(section);
+        var returning = section is { LastShown: > 0 };
         if (section != null)
             section.LastShown = ++_sectionShowCounter;
         // 2026-10-18, этап О2: в колонке пунктов — группа открытого раздела; раскрытая нажатием колонка сворачивается,
@@ -980,6 +1030,31 @@ public partial class OwnerShellWindow : Window, IMainShell
         if (section != null)
             SectionTitleText.Text = TitleFor(section);
         UpdateNavHighlight();
+        // 2026-11-01 (В2-03): возврат в спрятанный раздел — он сам обновляет данные старше 60 с (со своим индикатором загрузки).
+        if (returning && section!.Window is IOwnerSectionRefresh refresh)
+        {
+            try
+            {
+                if (refresh.RefreshOnShow() is { } dataAt)
+                {
+                    // Тихо, с пометкой в шапке раздела: данные старые, идёт обновление (пометка гаснет через 6 с).
+                    var baseTitle = TitleFor(section);
+                    var note = baseTitle + " · " + Tr.T($"обновляется · данные на {dataAt:HH:mm}", $"жаңырууда · маалымат {dataAt:HH:mm} боюнча",
+                        $"updating · data as of {dataAt:HH:mm}", $"güncelleniyor · veriler {dataAt:HH:mm} itibarıyla", $"yangilanmoqda · ma'lumot {dataAt:HH:mm} holatiga ko'ra");
+                    SectionTitleText.Text = note;
+                    var shown = section;
+                    DispatcherTimer.RunOnce(() =>
+                    {
+                        if (ReferenceEquals(_activeSection, shown) && SectionTitleText.Text == note)
+                            SectionTitleText.Text = baseTitle;
+                    }, TimeSpan.FromSeconds(6));
+                }
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Owner app: раздел «{TitleFor(section)}» не обновился при показе ({ex.Message}).", "WARNING");
+            }
+        }
         if (section == null)
         {
             if (_abcStale)
@@ -1184,6 +1259,158 @@ public partial class OwnerShellWindow : Window, IMainShell
         }
     }
 
+    // ------------------------------------------------------------------ Excel раздела (2026-11-02, аудит №2, В-07)
+
+    private Button? _sectionExcelButton;
+
+    private void UpdateSectionExcelButton(Section? section)
+    {
+        if (_sectionExcelButton is null)
+        {
+            _sectionExcelButton = new Button
+            {
+                Content = "Excel",
+                Classes = { "link" },
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
+                IsVisible = false,
+            };
+            Avalonia.Automation.AutomationProperties.SetName(_sectionExcelButton, Tr.T("Выгрузить в Excel", "Excel'ге чыгаруу", "Export to Excel", "Excel'e aktar", "Excel'ga chiqarish"));
+            _sectionExcelButton.Click += async (_, _) => await ExportSectionExcelAsync().ConfigureAwait(true);
+            CaptionButtons.Children.Insert(0, _sectionExcelButton);
+        }
+        _sectionExcelButton.IsVisible = section?.Window is IOwnerSectionExcel;
+    }
+
+    private async Task ExportSectionExcelAsync()
+    {
+        if (_activeSection?.Window is not IOwnerSectionExcel exporter)
+            return;
+        try
+        {
+            if (!TariffGate.CanUseAnalyticsExport)
+            {
+                PosMessageBox.Show(this, TariffGate.AnalyticsExportLockedMessage, Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                return;
+            }
+            var table = exporter.BuildExportTable();
+            if (table is null || table.Rows.Count == 0)
+            {
+                PosMessageBox.Show(this, Tr.T("Выгружать пока нечего: данные ещё не загружены или список пуст.", "Чыгара турган нерсе жок: маалымат жүктөлө элек же тизме бош.",
+                    "Nothing to export yet: the data is not loaded or the list is empty.", "Henüz aktarılacak bir şey yok: veri yüklenmedi veya liste boş.", "Hozircha chiqariladigan narsa yo'q: ma'lumot yuklanmagan yoki ro'yxat bo'sh."),
+                    Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                return;
+            }
+            var shop = ReportShopName.Current;
+            var file = await StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+            {
+                Title = Tr.T("Сохранить в Excel", "Excel'ге сактоо", "Save to Excel", "Excel olarak kaydet", "Excel'ga saqlash"),
+                SuggestedFileName = SectionTableExport.SuggestFileName(table, shop),
+                FileTypeChoices = [new Avalonia.Platform.Storage.FilePickerFileType("Excel") { Patterns = ["*.xlsx"] }],
+            }).ConfigureAwait(true);
+            if (file is null)
+                return;
+            var path = file.TryGetLocalPath();
+            if (string.IsNullOrEmpty(path))
+                return;
+            await Task.Run(() => SectionTableExport.ExportToExcel(path, table, shop)).ConfigureAwait(true);
+            PosMessageBox.Show(this, Tr.T($"Файл сохранён: {path}", $"Файл сакталды: {path}", $"File saved: {path}", $"Dosya kaydedildi: {path}", $"Fayl saqlandi: {path}"),
+                Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Owner app: выгрузка раздела в Excel не удалась: {ex}", "WARNING");
+            PosMessageBox.Show(this, Tr.T("Не удалось сохранить файл: ", "Файлды сактоо мүмкүн болгон жок: ", "Could not save the file: ", "Dosya kaydedilemedi: ", "Faylni saqlab bo'lmadi: ")
+                + ServerOutageMonitor.FriendlyError(ex), Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+        }
+    }
+
+    private bool _exitConfirmed;
+    private bool _exitAsking;
+
+    /// <summary>Разделы с несохранённым (явный признак раздела или общий признак ввода — как в SectionBusy).</summary>
+    private List<Section> DirtySections() => _sections
+        .Where(s => (s.Window as IOwnerSection)?.HasUnsavedChanges ?? UnsavedInputTracker.IsDirty(s.Window))
+        .ToList();
+
+    /// <summary>2026-11-02 (В3-01): спросить, что делать с несохранённым, прежде чем выйти из программы или из учётной записи.
+    /// true — можно уходить (сохранено или владелец отказался от правок); false — остаёмся (открыт первый раздел с правками).</summary>
+    private async Task<bool> ConfirmLeaveAsync()
+    {
+        var dirty = DirtySections();
+        if (dirty.Count == 0)
+            return true;
+        var names = string.Join(", ", dirty.Select(TitleFor));
+        // 2026-11-02 (приёмка круга 3, п. 6): «Сохранить и выйти» предлагается, ТОЛЬКО если сохранить умеют ВСЕ разделы с правками (сейчас —
+        // редактор сайта). Иначе кнопка обещала бы невозможное: остальные формы (настройки, зарплата, приёмка…) сохраняются своей кнопкой в самом
+        // разделе. Тогда в вопросе перечислены разделы, которые автоматически не сохранить, и остаются «Остаться» / «Выйти без сохранения».
+        var canSave = dirty.All(s => s.Window is IOwnerSectionExit);
+        var manualOnly = string.Join(", ", dirty.Where(s => s.Window is not IOwnerSectionExit).Select(TitleFor));
+        var manualNote = manualOnly.Length == 0 ? "" : " " + Tr.T($"Автоматически сохранить нельзя: {manualOnly} — вернитесь в раздел и нажмите «Сохранить».",
+            $"Автоматтык сактоого болбойт: {manualOnly} — бөлүмгө кайтып, «Сактоо» баскычын басыңыз.",
+            $"Cannot be saved automatically: {manualOnly} — go back to the section and press “Save”.",
+            $"Otomatik kaydedilemez: {manualOnly} — bölüme dönüp «Kaydet»e basın.",
+            $"Avtomatik saqlab bo'lmaydi: {manualOnly} — bo'limga qaytib, «Saqlash»ni bosing.");
+        var tcs = new TaskCompletionSource<int>(); // 0 — остаться, 1 — выйти без сохранения, 2 — сохранить и выйти
+        var dialog = new Window { Title = Title };
+        SectionCards.AsModal(dialog, 512);
+        var label = new TextBlock
+        {
+            Text = Tr.T($"В разделах есть несохранённые правки: {names}. Если выйти сейчас, они пропадут.",
+                $"Бөлүмдөрдө сакталбаган оңдоолор бар: {names}. Азыр чыксаңыз, алар жоголот.",
+                $"There are unsaved changes in: {names}. If you leave now, they will be lost.",
+                $"Şu bölümlerde kaydedilmemiş değişiklikler var: {names}. Şimdi çıkarsanız kaybolur.",
+                $"Bo'limlarda saqlanmagan o'zgarishlar bor: {names}. Hozir chiqsangiz, ular yo'qoladi.") + manualNote,
+            TextWrapping = TextWrapping.Wrap, FontSize = 14,
+        };
+        UseBrush(label, TextBlock.ForegroundProperty, "BrushText");
+        var stay = SectionCards.Cancel(Tr.T("Остаться", "Калуу", "Stay", "Kal", "Qolish"));
+        var discard = SectionCards.Danger(Tr.T("Выйти без сохранения", "Сактабай чыгуу", "Leave without saving", "Kaydetmeden çık", "Saqlamasdan chiqish"));
+        stay.Click += (_, _) => { tcs.TrySetResult(0); dialog.Close(); };
+        discard.Click += (_, _) => { tcs.TrySetResult(1); dialog.Close(); };
+        Button? save = null;
+        if (canSave)
+        {
+            save = SectionCards.Primary(Tr.T("Сохранить и выйти", "Сактап чыгуу", "Save and leave", "Kaydet ve çık", "Saqlab chiqish"), isDefault: true);
+            save.Click += (_, _) => { tcs.TrySetResult(2); dialog.Close(); };
+        }
+        dialog.Closed += (_, _) => tcs.TrySetResult(0);
+        var shell = SectionCards.Shell(Title ?? "NurCRM", null, label, save is null ? SectionCards.Buttons(stay, discard) : SectionCards.Buttons(stay, discard, save));
+        shell.InitialFocus = stay;
+        dialog.Content = shell;
+        await dialog.ShowDialog(this).ConfigureAwait(true);
+        var choice = await tcs.Task.ConfigureAwait(true);
+        if (choice == 0)
+        {
+            ShowSection(dirty[0]);
+            return false;
+        }
+        if (choice == 2)
+        {
+            foreach (var section in dirty.Where(s => s.Window is IOwnerSectionExit))
+            {
+                bool saved;
+                try
+                {
+                    saved = await ((IOwnerSectionExit)section.Window).SaveForExitAsync().ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Owner app: раздел «{TitleFor(section)}» не сохранился при выходе ({ex.Message}).", "WARNING");
+                    saved = false;
+                }
+                if (!saved)
+                {
+                    ShowSection(section); // причина — в самом разделе
+                    return false;
+                }
+            }
+        }
+        foreach (var section in dirty)
+            (section.Window as IOwnerSectionExit)?.ConfirmExit();
+        return true;
+    }
+
     private void CloseAllSections()
     {
         _closingAllSections = true;
@@ -1337,8 +1564,10 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// <summary>Обновление по таймеру и при возврате в окно — только когда «Сводку» видно (см. RefreshInterval).</summary>
     private Task RefreshWhenShownAsync()
     {
+        // 2026-11-02 (живая проверка круга 3): в простое программа владельца делала ~19 запросов в минуту (касса — ~5,6). «Сводка» (несколько
+        // запросов за раз) обновлялась каждые 30 с даже при простое, а видимая-но-неактивная — тоже каждые 30 с. Теперь тихо: см. OverviewIntervalNow.
         if (IsOverviewShown)
-            return RefreshAsync();
+            return DateTime.UtcNow - _lastRefreshStartedUtc >= OverviewIntervalNow(inactive: false) - TimeSpan.FromSeconds(5) ? RefreshAsync() : Task.CompletedTask;
         // 2026-10-22 (аудит 1.17.59, П-З): окно владельца видно, но не активно (владелец работает в кассе рядом) — сводка
         // раньше стояла («Обновлено в 07:10» в 07:45, «Чеки 0» при прошедших возвратах). Теперь обновляется и так, но реже —
         // раз в 5 минут, одним запросом сводки, без пересборки окна; не во время ввода текста.
@@ -1346,17 +1575,40 @@ public partial class OwnerShellWindow : Window, IMainShell
         // обновление пропускалось бы до следующего тика), а «не во время ввода» — только если печатали менее 15 с назад
         // (раньше любое поле с фокусом, даже пустое «Найти раздел», останавливало обновление насовсем).
         var visibleInactive = IsVisible && WindowState != WindowState.Minimized && OverviewScroll.IsVisible && !IsActive;
-        if (visibleInactive && DateTime.UtcNow - _lastRefreshStartedUtc >= RefreshInterval - TimeSpan.FromSeconds(5)
+        if (visibleInactive && DateTime.UtcNow - _lastRefreshStartedUtc >= OverviewIntervalNow(inactive: true) - TimeSpan.FromSeconds(5)
             && !(TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox
                  && DateTime.UtcNow - _lastKeyInputUtc < TypingQuietPeriod))
             return RefreshAsync();
         return Task.CompletedTask;
     }
 
-    private async Task RefreshAsync(bool forceChart = false)
+    /// <summary>2026-11-02: как часто обновлять «Сводку» по таймеру. Работаю в окне — <see cref="RefreshInterval"/> (30 с); окно не в фокусе или нет ввода
+    /// дольше <see cref="SyncCenter.IdleAfter"/> — 60 с; нет ввода дольше <see cref="SyncCenter.DeepIdleAfter"/> — 5 минут. Возврат в окно (Activated) и сигнал
+    /// продаж обновляют сразу, поэтому видимые цифры не устаревают.</summary>
+    private static TimeSpan OverviewIntervalNow(bool inactive)
     {
-        if (_refreshing || _loggingOut || _cts.IsCancellationRequested)
+        var idle = SyncCenter.InputIdle();
+        if (idle >= SyncCenter.DeepIdleAfter)
+            return TimeSpan.FromMinutes(5);
+        if (idle >= SyncCenter.IdleAfter || inactive)
+            return TimeSpan.FromSeconds(60);
+        return RefreshInterval;
+    }
+
+    private async Task RefreshAsync(bool forceChart = false, bool supersede = false)
+    {
+        if (_loggingOut || _cts.IsCancellationRequested)
             return;
+        if (_refreshing)
+        {
+            if (supersede)
+            {
+                _refreshAgain = true;
+                try { _refreshCts?.Cancel(); } catch (ObjectDisposedException) { }
+            }
+
+            return;
+        }
 
         // 2026-09-29: сервер не отвечает — «Сводку» не перезапрашиваем каждые 20 с (таймауты и
         // лишняя нагрузка на лежащий сервер), показываем последние данные с пометкой времени.
@@ -1368,14 +1620,16 @@ public partial class OwnerShellWindow : Window, IMainShell
         }
 
         _refreshing = true;
-        RefreshButton.IsEnabled = false;
+        // 2026-11-03 (С-13): «Обновить» во время загрузки не серая — нажатие отменяет идущую загрузку и начинает заново.
         _lastRefreshStartedUtc = DateTime.UtcNow;
         string? startedKey = null;
+        var refreshCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+        _refreshCts = refreshCts;
         try
         {
             var (from, to) = CurrentRange();
             startedKey = RangeKey(from, to);
-            var ct = _cts.Token;
+            var ct = refreshCts.Token;
             var fetchStartedUtc = DateTime.UtcNow;
 
             // 2026-09-28, «аналитика грузится долго»: все запросы «Сводки» (период, прошлый период,
@@ -1470,11 +1724,26 @@ public partial class OwnerShellWindow : Window, IMainShell
         finally
         {
             _refreshing = false;
+            if (ReferenceEquals(_refreshCts, refreshCts))
+                _refreshCts = null;
+            refreshCts.Dispose();
             RefreshButton.IsEnabled = true;
+            // 2026-11-03 (С-13): загрузку отменили («Обновить» / смена периода) — сразу начинаем новую.
+            var restarted = false;
+            if (_refreshAgain)
+            {
+                _refreshAgain = false;
+                if (!_loggingOut && !_cts.IsCancellationRequested)
+                {
+                    restarted = true;
+                    _ = RefreshAsync(forceChart: true);
+                }
+            }
+
             // 2026-10-30 (стресс-тест «Отчёты», гонка периодов): пока шла загрузка, владелец нажал другой период — его RefreshAsync вернулся
             // сразу (идёт предыдущая), а предыдущая закончилась для прежнего периода: на кнопке новый период, цифры — прежнего, до таймера
             // (до минуты). Теперь, если период сменился за время загрузки, обновляем ещё раз — уже по нему.
-            if (startedKey != null && !_loggingOut && !_cts.IsCancellationRequested)
+            if (!restarted && startedKey != null && !_loggingOut && !_cts.IsCancellationRequested)
             {
                 var (nowFrom, nowTo) = CurrentRange();
                 if (RangeKey(nowFrom, nowTo) != startedKey)
@@ -1789,7 +2058,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     private void SetMoney(TextBlock target, double value)
     {
         var currency = new Run(" " + Som()) { FontSize = 17, FontWeight = FontWeight.Medium };
-        UseBrush(currency, TextElement.ForegroundProperty, "BrushTextSoft", target);
+        UseRunBrush(currency, "BrushTextSoft", target);
         target.Text = null;
         target.Inlines = new InlineCollection { new Run(Whole(value)), currency };
     }
@@ -1799,6 +2068,8 @@ public partial class OwnerShellWindow : Window, IMainShell
     private void SetDelta(TextBlock line, double current, double? previous, string hintText, string? noneBefore)
     {
         line.Inlines = null;
+        if (_runBrushSubs.Remove(line, out var oldSub))
+            oldSub.Dispose();
         if (previous is not { } prev || prev <= 0)
         {
             line.Text = noneBefore ?? "— " + hintText;
@@ -1811,7 +2082,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         var up = change > 0;
         var number = abs >= 100 ? abs.ToString("0", CultureInfo.InvariantCulture) : abs.ToString("0.#", UiCulture);
         var head = new Run((flat ? "" : up ? "▲ " : "▼ ") + Percent(flat ? 0 : abs, flat ? "0" : number)) { FontWeight = FontWeight.SemiBold };
-        UseBrush(head, TextElement.ForegroundProperty, flat ? "BrushText" : up ? "BrushSuccess" : "BrushDanger", line);
+        UseRunBrush(head, flat ? "BrushText" : up ? "BrushSuccess" : "BrushDanger", line);
         line.Text = null;
         line.Inlines = new InlineCollection { head, new Run($" {hintText} ({Whole(prev)})") };
     }
@@ -2513,10 +2784,21 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// (<c>this</c>) — окно держало ссылку на каждый пересобранный элемент «Сводки» (столбики, строки, списки), и за
     /// рабочий день память росла до 3,5 ГБ. Теперь подписка — от самого элемента (для <c>Run</c> — от его
     /// <paramref name="owner"/>-текста): умирает вместе с ним, и сборщик мусора забирает старую разметку.</remarks>
-    private void UseBrush(AvaloniaObject target, AvaloniaProperty property, string resourceKey, StyledElement? owner = null)
+    private IDisposable UseBrush(AvaloniaObject target, AvaloniaProperty property, string resourceKey, StyledElement? owner = null)
     {
         StyledElement host = target is Control own ? own : owner ?? this;
-        target.Bind(property, host.GetResourceObservable(resourceKey));
+        return target.Bind(property, host.GetResourceObservable(resourceKey));
+    }
+
+    /// <summary>2026-11-01 (В2-01в): <c>Run</c> в постоянном TextBlock («Сводка»: деньги, дельты) пересоздаётся при каждом обновлении, а его подписка
+    /// на ресурсы живёт на TextBlock, который не умирает. Прошлая подписка этого TextBlock снимается перед новой — не копятся +7 за обновление.</summary>
+    private readonly Dictionary<StyledElement, IDisposable> _runBrushSubs = new();
+
+    private void UseRunBrush(Run run, string resourceKey, TextBlock owner)
+    {
+        if (_runBrushSubs.Remove(owner, out var old))
+            old.Dispose();
+        _runBrushSubs[owner] = UseBrush(run, TextElement.ForegroundProperty, resourceKey, owner);
     }
 
     // ------------------------------------------------------------------ шапка окна
@@ -2587,7 +2869,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         foreach (var b in new[] { TodayButton, WeekButton, MonthButton, CustomButton })
             b.Classes.Set("active", ReferenceEquals(b, sender));
         ApplyTexts();
-        _ = RefreshAsync();
+        _ = RefreshAsync(supersede: true); // 2026-11-03 (С-13): смена периода отменяет идущую загрузку
         _ = RefreshAbcAsync();
     }
 
@@ -2595,7 +2877,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         // 2026-09-29: «Обновить» — всегда свежие цифры сервера, мимо короткого кэша отчётов.
         NurMarketKassa.Services.Api.SalesApiService.InvalidateReportCache();
-        _ = RefreshAsync(forceChart: true);
+        _ = RefreshAsync(forceChart: true, supersede: true); // 2026-11-03 (С-13): «Обновить» во время загрузки начинает заново
         _ = RefreshAbcAsync();
         // 2026-10-29: заодно общие настройки компании, права, каталог и остатки — SyncCenter.ForceSyncAllAsync (то же делает «Обновить» кассы).
         _ = NurMarketKassa.Services.SyncCenter.ForceSyncAllAsync();
@@ -2624,6 +2906,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     // во время паузы 429. Пока раздел открыт на экране, он обновляет список сам — тогда не спрашиваем.
     private static readonly TimeSpan SiteOrdersPollInterval = TimeSpan.FromSeconds(60);
     private readonly DispatcherTimer _siteOrdersTimer;
+    private DateTime _siteOrdersPolledUtc = DateTime.MinValue;
     private Border? _siteOrdersBadge;
     private int _siteOrdersNewCount;
     private bool _siteOrdersPolling;
@@ -3007,6 +3290,9 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// («Выйти», AccountView.LogoutButton_Click), а не внизу меню.</summary>
     public async Task SignOutAsync()
     {
+        // 2026-11-02 (В3-01): выход из учётной записи тоже не теряет несохранённое молча.
+        if (!_exitConfirmed && !await ConfirmLeaveAsync().ConfigureAwait(true))
+            return;
         _loggingOut = true;
         _timer.Stop();
         _siteOrdersTimer.Stop();

@@ -26,7 +26,8 @@
       <FontFamily x:Key="AppFontFamily">avares://NurMarketKassa.Avalonia/Assets/Fonts#Montserrat, Noto Sans, Segoe UI</FontFamily>
       <!-- 2026-10-22, брендбук NUR CRM: шрифт заголовков и крупных чисел — Onest Bold (OFL, вшит), ближайший бесплатный к TT Firs Neue Bold;
            класс TextBlock.brand-h; когда появится TT Firs Neue — заменить только эту строку. -->
-      <FontFamily x:Key="AppHeadingFontFamily">avares://NurMarketKassa.Avalonia/Assets/Fonts#Onest Heading</FontFamily>
+      <!-- 2026-11-01 (контрольный аудит, Д-17): у Onest нет запасного и нет символа ʻ (U+02BB, узбекское oʻ) — запас Montserrat, Noto Sans, как у AppFontFamily. -->
+      <FontFamily x:Key="AppHeadingFontFamily">avares://NurMarketKassa.Avalonia/Assets/Fonts#Onest Heading, Montserrat, Noto Sans, Segoe UI</FontFamily>
       <x:Double x:Key="AppFontSize">14</x:Double>
 
       <!-- Раскладка каталога и элементов — базовые значения «как всегда было». Тема из
@@ -114,22 +115,23 @@
       <Setter Property="FontFamily" Value="{DynamicResource AppFontFamily}"/>
       <Setter Property="FontSize" Value="{DynamicResource AppFontSize}"/>
     </Style>
+    <!-- 2026-11-01 (контрольный аудит, Д2-01): рамка полей ввода — BrushInputBorder (≥ 3:1 к фону поля в любой теме; BrushBorder был 1,4–1,7:1, WCAG 1.4.11). -->
     <Style Selector="TextBox">
       <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
       <Setter Property="CaretBrush" Value="{DynamicResource BrushText}"/>
       <Setter Property="SelectionBrush" Value="{DynamicResource BrushAccentSoft}"/>
     </Style>
     <Style Selector="ComboBox">
       <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
     </Style>
     <Style Selector="DatePicker">
       <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
     </Style>
     <!-- Календарь. Раньше не оформлялся вообще: выпадающая панель приходила из темы Fluent
          со своим фоном и своими цветами, поэтому в окне ABC-анализа она выглядела чужеродной
@@ -139,7 +141,7 @@
     <Style Selector="CalendarDatePicker">
       <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
       <Setter Property="CornerRadius" Value="{DynamicResource NurRadiusControl}"/>
       <Setter Property="MinHeight" Value="38"/>
     </Style>
@@ -237,7 +239,7 @@
     <Style Selector="NumericUpDown">
       <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
     </Style>
     <Style Selector="Button">
       <Setter Property="HorizontalContentAlignment" Value="Center"/>

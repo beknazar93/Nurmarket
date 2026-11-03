@@ -757,7 +757,7 @@
                                                 <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5"
                                                          MinWidth="52" Height="44"
                                                          Background="{DynamicResource BrushInputAlt}"
-                                                         BorderBrush="{DynamicResource BrushBorder}"
+                                                         BorderBrush="{DynamicResource BrushInputBorder}"
                                                          BorderThickness="1"
                                                          CornerRadius="6"
                                                          Padding="6,0"
@@ -1129,6 +1129,12 @@
                       VerticalAlignment="Bottom">
                     <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Bottom" Margin="0,0,0,8">
                         <!-- 2026-10-22 (аудит 1.17.59, П-В, Б9): скидка на чек отдельной строкой — видно, откуда «Итого» меньше суммы товаров. -->
+                        <!-- 2026-11-02 (К3-07): «Округление весовых −0,01» — сумма показанных строк + округление = итог (сервер округляет сумму весовых вниз). -->
+                        <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasRoundingAdjustment}">
+                            <TextBlock Text="{Binding RoundingAdjustmentText}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                            <TextBlock Text="{Binding RoundingAdjustmentValue}" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource BrushTextSoft}"/>
+                        </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding HasOrderDiscount}">
                             <TextBlock Text="{Binding OrderDiscountText}" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
                             <TextBlock Text="{Binding OrderDiscountValue}" FontSize="13" FontWeight="SemiBold"

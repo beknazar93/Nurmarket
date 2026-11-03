@@ -125,7 +125,7 @@ internal static class ModalWindowManager
     private static bool IsExempt(Window w)
     {
         var name = w.GetType().Name;
-        return name.Contains("CustomerDisplay", StringComparison.Ordinal) || name is "SplashWindow" or "FrmKeyboard"
+        return name.Contains("CustomerDisplay", StringComparison.Ordinal) || name is "SplashWindow"
             || (w.Topmost && !Modals.Contains(w));
     }
 

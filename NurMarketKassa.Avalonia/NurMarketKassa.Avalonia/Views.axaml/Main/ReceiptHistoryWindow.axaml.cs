@@ -285,13 +285,37 @@ public partial class ReceiptHistoryWindow : Window
         _loadCts = cts;
 
         LoadingBar.IsVisible = true;
+        _historyPending = true; // 2026-11-03 (Д-3): пока сервер не ответил, «чеков нет» не пишем
         try
         {
+            // 2026-11-03 (Д-3, живая проверка 1.17.73): при медленном сервере окно 8 с было пустым, потом писало «нет связи» и «чеков нет», хотя продажи
+            // этой кассы есть в её базе. Теперь первым делом — чеки, которые касса знает сама (очередь и свои продажи), с пометкой «данные сервера
+            // обновляются»; ответ сервера заменяет список. Уже показанный список того же периода не трогаем (кассир мог открыть чек).
+            if (_rowsPeriod != _period || _rows.Count == 0)
+            {
+                var quick = await Task.Run(() => ReceiptHistoryService.LoadLocalQuick(_period)).ConfigureAwait(true);
+                if (cts.IsCancellationRequested)
+                    return;
+                _rows = quick.Entries.Select(entry => new RowVm(entry)).ToList();
+                _rowsPeriod = _period;
+                _serverUnavailable = false;
+                NoticeText.Text = _rows.Count > 0
+                    ? Tr.T("Показаны чеки этой кассы. Данные сервера обновляются…", "Ушул кассанын чектери көрсөтүлдү. Сервердин маалыматы жаңыртылууда…",
+                        "Showing this till's receipts. Server data is being updated…", "Bu kasanın fişleri gösteriliyor. Sunucu verileri güncelleniyor…",
+                        "Shu kassaning cheklari ko'rsatildi. Server ma'lumotlari yangilanmoqda…")
+                    : Tr.T("Загружаем чеки с сервера…", "Чектер серверден жүктөлүүдө…", "Loading receipts from the server…", "Fişler sunucudan yükleniyor…", "Cheklar serverdan yuklanmoqda…");
+                NoticeBorder.IsVisible = true;
+                ApplyFilter(keepSelectedId);
+            }
+
             var result = await ReceiptHistoryService.LoadAsync(_period, cts.Token).ConfigureAwait(true);
             if (cts.IsCancellationRequested)
                 return;
 
+            _historyPending = false;
+            _serverUnavailable = result.ServerUnavailable;
             _rows = result.Entries.Select(entry => new RowVm(entry)).ToList();
+            _rowsPeriod = _period;
             ShowNotice(result);
             ApplyFilter(keepSelectedId);
         }
@@ -311,11 +335,17 @@ public partial class ReceiptHistoryWindow : Window
             {
                 _loadCts = null;
                 LoadingBar.IsVisible = false;
+                _historyPending = false;
             }
 
             cts.Dispose();
         }
     }
+
+    // 2026-11-03 (Д-3): сервер ещё не ответил / не ответил вовсе — надпись «чеков нет» была бы неправдой.
+    private bool _historyPending;
+    private bool _serverUnavailable;
+    private ReceiptHistoryPeriod? _rowsPeriod;
 
     private void ShowNotice(ReceiptHistoryResult result)
     {
@@ -327,18 +357,25 @@ public partial class ReceiptHistoryWindow : Window
                 "Vardiya açık değil — bu kasanın bugünkü fişleri gösteriliyor.",
                 "Smena ochilmagan — shu kassaning bugungi cheklari ko'rsatildi."));
         // 2026-10-27 (аудит кассы, С-13): список обрезан по числу страниц — кассир должен это знать (искать старый чек — через «Вчера»/«Продажи»).
-        if (result.Truncated)
+        if (result.TruncatedSlow)
+            parts.Add(Tr.T("Показаны не все чеки: сервер отвечает медленно, загружены самые новые. Нажмите «Обновить» позже или выберите период короче.",
+                "Бардык чектер көрсөтүлгөн жок: сервер жай жооп берип жатат, эң жаңылары жүктөлдү. Кийинчерээк «Жаңыртуу» басыңыз же кыскараак мезгилди тандаңыз.",
+                "Not all receipts are shown: the server is slow, the newest ones are loaded. Press “Refresh” later or pick a shorter period.",
+                "Tüm fişler gösterilmiyor: sunucu yavaş yanıt veriyor, en yeniler yüklendi. Daha sonra «Yenile»ye basın veya daha kısa bir dönem seçin.",
+                "Hamma cheklar ko'rsatilmadi: server sekin javob beryapti, eng yangilari yuklandi. Keyinroq «Yangilash»ni bosing yoki qisqaroq davrni tanlang."));
+        else if (result.Truncated)
             parts.Add(Tr.T("Показаны не все чеки: за период их очень много, загружены самые новые. Старый чек ищите по номеру в «Продажах» или выберите другой период.",
                 "Бардык чектер көрсөтүлгөн жок: мезгил ичинде алар өтө көп, эң жаңылары жүктөлдү. Эски чекти «Сатуулардан» номери боюнча издеңиз же башка мезгилди тандаңыз.",
                 "Not all receipts are shown: there are very many for the period, the newest ones are loaded. Look for an older receipt by number in “Sales” or pick another period.",
                 "Tüm fişler gösterilmiyor: dönemde çok fazla var, en yeniler yüklendi. Eski bir fişi «Satışlar»da numarayla arayın veya başka bir dönem seçin.",
                 "Hamma cheklar ko'rsatilmadi: davr ichida ular juda ko'p, eng yangilari yuklandi. Eski chekni «Sotuvlar»da raqami bo'yicha qidiring yoki boshqa davrni tanlang."));
         if (result.ServerUnavailable)
-            parts.Add(Tr.T("Нет связи с сервером — история чеков с сервера недоступна. Показаны только чеки, сохранённые на этой кассе и ещё не отправленные.",
-                "Сервер менен байланыш жок — сервердеги чектердин тарыхы жеткиликсиз. Ушул кассада сакталган жана али жөнөтүлө элек чектер гана көрсөтүлдү.",
-                "No connection to the server — the server receipt history is unavailable. Only receipts saved on this till and not yet sent are shown.",
-                "Sunucuyla bağlantı yok — sunucudaki fiş geçmişi kullanılamıyor. Yalnızca bu kasada kayıtlı ve henüz gönderilmemiş fişler gösteriliyor.",
-                "Server bilan aloqa yo'q — serverdagi cheklar tarixi mavjud emas. Faqat shu kassada saqlangan va hali yuborilmagan cheklar ko'rsatildi."));
+            // 2026-11-03 (Д-3): текст без «нет связи» — связь могла быть, сервер просто не ответил за 8 с; показаны чеки из базы кассы.
+            parts.Add(Tr.T("Историю чеков с сервера получить не удалось (нет связи или сервер отвечает медленно). Показаны чеки, проведённые на этой кассе; состав чека откроется, когда сервер ответит. Нажмите «Обновить» позже.",
+                "Сервердеги чектердин тарыхын алуу мүмкүн болгон жок (байланыш жок же сервер жай жооп берет). Ушул кассада өткөрүлгөн чектер көрсөтүлдү; чектин курамы сервер жооп бергенде ачылат. Кийинчерээк «Жаңыртуу» басыңыз.",
+                "Could not get the receipt history from the server (no connection or the server is slow). Showing the receipts made on this till; the receipt items will open once the server answers. Press “Refresh” later.",
+                "Sunucudan fiş geçmişi alınamadı (bağlantı yok veya sunucu yavaş). Bu kasada yapılan fişler gösteriliyor; fişin içeriği sunucu yanıt verince açılacak. Daha sonra «Yenile»ye basın.",
+                "Serverdan cheklar tarixini olib bo'lmadi (aloqa yo'q yoki server sekin). Shu kassada o'tkazilgan cheklar ko'rsatildi; chek tarkibi server javob bergach ochiladi. Keyinroq «Yangilash»ni bosing."));
 
         NoticeText.Text = string.Join("\n", parts);
         NoticeBorder.IsVisible = parts.Count > 0;
@@ -353,7 +390,7 @@ public partial class ReceiptHistoryWindow : Window
 
         var selectId = keepSelectedId ?? _selected?.Entry.Id;
         ReceiptsList.ItemsSource = visible;
-        EmptyText.IsVisible = _rows.Count == 0;
+        EmptyText.IsVisible = _rows.Count == 0 && !_historyPending && !_serverUnavailable; // 2026-11-03 (Д-3)
         NoMatchText.IsVisible = _rows.Count > 0 && visible.Count == 0;
 
         var again = selectId == null
@@ -437,7 +474,7 @@ public partial class ReceiptHistoryWindow : Window
             if (!ReferenceEquals(_selected, row))
                 return;
             PosLogger.Log($"История чеков: состав чека {row.Entry.Id} не загружен: {ex.Message}", "WARNING");
-            DetailErrorText.Text = Tr.T("Не удалось загрузить состав чека: ", "Чектин курамын жүктөө мүмкүн болгон жок: ", "Could not load the receipt items: ", "Fiş içeriği yüklenemedi: ", "Chek tarkibini yuklab bo'lmadi: ") + ex.Message;
+            DetailErrorText.Text = Tr.T("Не удалось загрузить состав чека: ", "Чектин курамын жүктөө мүмкүн болгон жок: ", "Could not load the receipt items: ", "Fiş içeriği yüklenemedi: ", "Chek tarkibini yuklab bo'lmadi: ") + (ex is ServerNotAnsweringException ? ServerOutageMonitor.FriendlyError(ex) : ex.Message); // 2026-11-03 (ревью Н-4)
             DetailErrorText.IsVisible = true;
         }
         finally
@@ -1061,6 +1098,13 @@ public partial class ReceiptHistoryWindow : Window
             _shownDetailId = null;
             _selectedDetail = null;
             await LoadAsync(row.Entry.Id).ConfigureAwait(true);
+            return;
+        }
+
+        // 2026-11-01 (М-1, контрольный аудит): онлайн-возврат без открытой смены не попадал ни в один Z — сначала «откройте смену».
+        if (string.IsNullOrEmpty(PosApp.ActiveShiftId))
+        {
+            ShowAction(Tr.T("Откройте смену, чтобы оформить возврат.", "Кайтарууну жасоо үчүн сменаны ачыңыз.", "Open a shift to make a return.", "İade yapmak için vardiya açın.", "Qaytarishni rasmiylashtirish uchun smenani oching."), ok: false);
             return;
         }
 

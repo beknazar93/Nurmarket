@@ -197,7 +197,7 @@ public sealed class ClientPurchasesWindow : Window
 
     /// <summary>2026-10-22 (модалки, пакет 2): цвет — привязкой к ресурсу темы (меняется вместе с темой).</summary>
     private void UseBrush(Avalonia.AvaloniaObject target, Avalonia.AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 
     private void BuildColumns()
     {
@@ -270,7 +270,7 @@ public sealed class ClientPurchasesWindow : Window
         {
             _summary.Text = Tr.T("Не удалось загрузить покупки", "Сатып алууларды жүктөө мүмкүн болгон жок",
                 "Could not load purchases", "Satın almalar yüklenemedi",
-                "Xaridlarni yuklab bo'lmadi") + ": " + ex.Message;
+                "Xaridlarni yuklab bo'lmadi") + ": " + ServerOutageMonitor.FriendlyError(ex);
         }
     }
 
@@ -388,7 +388,7 @@ public sealed class ClientPurchasesWindow : Window
             _paper.Content = null;
             _bar.IsVisible = false;
             _receiptNote.Text = Tr.T("Чек не загрузился", "Чек жүктөлгөн жок", "Could not load the receipt",
-                "Fiş yüklenemedi", "Chek yuklanmadi") + ": " + ex.Message;
+                "Fiş yüklenemedi", "Chek yuklanmadi") + ": " + ServerOutageMonitor.FriendlyError(ex);
             _receiptNote.IsVisible = true;
         }
     }

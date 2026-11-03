@@ -258,7 +258,7 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
         catch (Exception ex)
         {
             PosLogger.Log($"ABC-анализ не построен: {ex}", "WARNING");
-            ShowError(Tr.T("Не удалось построить ABC-анализ", "ABC-анализди түзүү мүмкүн болгон жок", "Could not build the ABC analysis", "ABC analizi oluşturulamadı", "ABC tahlilini tuzib bo'lmadi") + ": " + ex.Message);
+            ShowError(Tr.T("Не удалось построить ABC-анализ", "ABC-анализди түзүү мүмкүн болгон жок", "Could not build the ABC analysis", "ABC analizi oluşturulamadı", "ABC tahlilini tuzib bo'lmadi") + ": " + ServerOutageMonitor.FriendlyError(ex));
         }
         finally
         {

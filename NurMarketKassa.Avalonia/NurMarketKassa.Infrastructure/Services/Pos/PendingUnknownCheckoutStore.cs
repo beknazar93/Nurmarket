@@ -74,17 +74,33 @@ public static class PendingUnknownCheckoutStore
         public bool PaidConfirmed { get; set; }
     }
 
+    // 2026-11-02 (аудит №2 кассы, К3-01): «файл занят» ≠ «неясной оплаты нет». Раньше ошибка чтения давала null — запись «в полёте» не восстанавливалась, и повтор «Оплатить»
+    // уходил с новым ключом (вторая продажа). Теперь: 5 повторов чтения, затем последняя известная запись (память) или копия .bak, и только потом null.
+    private static Entry? _lastKnown;
+
     public static Entry? Load()
     {
         lock (Gate)
         {
             try
             {
-                if (!File.Exists(FilePath))
-                    return null;
-                var entry = JsonSerializer.Deserialize<Entry>(AtomicFile.ReadWithRetry(FilePath), Json); // 2026-10-30: «файл занят» — повтор 3×50 мс
+                var read = AtomicFile.TryRead(FilePath, attempts: 5, pauseMs: 150);
+                Entry? entry = null;
+                if (read.Text is { } text)
+                    entry = JsonSerializer.Deserialize<Entry>(text, Json);
+                if (read.Status == AtomicFile.ReadStatus.Unreadable)
+                {
+                    entry ??= _lastKnown;
+                    PosLogger.Log(entry is null
+                        ? "Запись неясной оплаты занята другой программой и не прочитана; последней известной записи нет — если оплата зависла, проверьте «Продажи» перед повтором."
+                        : "Запись неясной оплаты занята другой программой — используем последнюю известную.", "WARNING");
+                }
                 if (entry == null || string.IsNullOrWhiteSpace(entry.CartId))
+                {
+                    if (read.Status != AtomicFile.ReadStatus.Unreadable)
+                        _lastKnown = null;
                     return null;
+                }
                 if (DateTime.UtcNow - entry.AtUtc > MaxAge)
                 {
                     PosLogger.Log($"Неясная оплата корзины {entry.CartId} ({entry.Method}) старше {MaxAge.TotalHours:0} ч — сверка снята, проверьте «Продажи».", "WARNING");
@@ -92,12 +108,13 @@ public static class PendingUnknownCheckoutStore
                     return null;
                 }
 
+                _lastKnown = entry;
                 return entry;
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Запись неясной оплаты не прочитана: {ex.Message}", "WARNING");
-                return null;
+                return _lastKnown;
             }
         }
     }
@@ -106,6 +123,7 @@ public static class PendingUnknownCheckoutStore
     {
         lock (Gate)
         {
+            _lastKnown = entry; // 2026-11-02 (К3-01)
             try
             {
                 var dir = Path.GetDirectoryName(FilePath);
@@ -122,10 +140,20 @@ public static class PendingUnknownCheckoutStore
                 }
 
                 File.Move(tmp, FilePath, overwrite: true);
+                AtomicFile.CancelDeferred(FilePath); // 2026-11-02: записали напрямую — отложенное состояние устарело
             }
             catch (Exception ex)
             {
-                PosLogger.Log($"Запись неясной оплаты не сохранена (после перезапуска сверки не будет): {ex.Message}", "WARNING");
+                PosLogger.Log($"Запись неясной оплаты не сохранена сразу: {ex.Message}", "WARNING");
+                // 2026-11-02 (К3-01, приёмка круга 3): файл занят — запись откладывается (память читается первой, таймер допишет, при закрытии — запасной файл *.pending).
+                try
+                {
+                    AtomicFile.DeferWrite(FilePath, "pending-unknown-checkout.json", JsonSerializer.Serialize(entry, Json));
+                }
+                catch (Exception deferEx)
+                {
+                    PosLogger.Log($"Запись неясной оплаты не отложена: {deferEx.Message}", "ERROR");
+                }
             }
         }
     }
@@ -138,6 +166,8 @@ public static class PendingUnknownCheckoutStore
 
     private static void ClearNoLock()
     {
+        _lastKnown = null;
+        AtomicFile.CancelDeferred(FilePath); // 2026-11-02: и отложенная запись, и запасной файл
         try
         {
             if (File.Exists(FilePath))

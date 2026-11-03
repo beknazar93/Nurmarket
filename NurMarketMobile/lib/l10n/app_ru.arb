@@ -1242,6 +1242,16 @@
   "sent": "отправлено",
   "sendNow": "Отправить сейчас",
   "kindSale": "Продажа",
+  "payInProgressScan": "Идёт оплата — дождитесь ответа, потом отсканируйте товар",
+  "updMobileWarn": "Файл около {mb} МБ, вы не в Wi‑Fi — скачать?",
+  "@updMobileWarn": {
+    "placeholders": {
+      "mb": {
+        "type": "String"
+      }
+    }
+  },
+  "returnedPartly": "Возвращён частично",
   "returnNetTotal": "Итог чека после возвратов: {sum} сом",
   "@returnNetTotal": {
     "placeholders": {

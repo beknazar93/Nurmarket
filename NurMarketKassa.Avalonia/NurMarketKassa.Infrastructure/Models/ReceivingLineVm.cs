@@ -671,11 +671,11 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         : "";
 
     /// <summary>Закупка отличается от прежней (вверх или вниз) — под ценой мелко «было 45,00».</summary>
-    public bool IsPurchaseChanged => OriginalPurchasePrice > 0 && Math.Abs(PurchasePrice - OriginalPurchasePrice) > 0.004;
+    public bool IsPurchaseChanged => OriginalPurchasePrice > 0 && Math.Abs(PurchasePrice - OriginalPurchasePrice) > 0.00005; // 2026-11-02: закупка до 4 знаков
 
     public string PreviousPurchaseText => IsPurchaseChanged
-        ? NurMarketKassa.Services.Tr.T($"было {OriginalPurchasePrice:0.00}", $"мурда {OriginalPurchasePrice:0.00}", $"was {OriginalPurchasePrice:0.00}",
-            $"önceki {OriginalPurchasePrice:0.00}", $"avval {OriginalPurchasePrice:0.00}")
+        ? NurMarketKassa.Services.Tr.T($"было {OriginalPurchasePrice:0.00##}", $"мурда {OriginalPurchasePrice:0.00##}", $"was {OriginalPurchasePrice:0.00##}",
+            $"önceki {OriginalPurchasePrice:0.00##}", $"avval {OriginalPurchasePrice:0.00##}")
         : "";
 
     /// <summary>Наценка ниже порога (ReceivingPricing.LowMarginPercent) или продажа ниже закупки — красная пометка.</summary>

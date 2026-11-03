@@ -92,6 +92,7 @@ Cart cloneCart(Cart c) => Cart(
         price: l.price,
         qty: l.qty,
         isWeight: l.isWeight,
+        weightFlag: l.weightFlag,
         unit: l.unit,
         custom: l.custom,
         discount: l.discount,

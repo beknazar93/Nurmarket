@@ -8,6 +8,10 @@ public sealed class ShiftHistoryEntry
     public DateTime? OpenedAt { get; init; }
     public DateTime? ClosedAt { get; init; }
     public string Cashier { get; init; } = "—";
+
+    /// <summary>2026-11-02 (аудит №2, В-13): id кассира на сервере (поле cashier ответа) — табель группирует по нему, а не по имени
+    /// (однофамильцы не сливаются, переименование не делит). Пусто — сервер id не дал, группируем по имени.</summary>
+    public string CashierId { get; init; } = "";
     public string Status { get; init; } = "Закрыта";
     public decimal Revenue { get; init; }
 

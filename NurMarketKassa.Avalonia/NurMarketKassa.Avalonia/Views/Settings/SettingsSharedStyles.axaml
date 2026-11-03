@@ -171,7 +171,7 @@
     <Setter Property="Height" Value="42"/>
     <Setter Property="Padding" Value="12,8"/>
     <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="FontSize" Value="14"/>
     <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
@@ -183,7 +183,7 @@
     <Setter Property="Height" Value="42"/>
     <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
     <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="FontSize" Value="14"/>
     <Setter Property="Padding" Value="8,6"/>

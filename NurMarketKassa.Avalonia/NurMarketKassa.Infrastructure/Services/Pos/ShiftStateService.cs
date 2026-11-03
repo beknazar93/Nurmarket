@@ -60,6 +60,7 @@ public sealed class ShiftStateService : IShiftStateService
             // 2026-10-30 (приёмка 1.17.65, «Важно» 2): 429 («Сервер занят») не обрыв — состояние смены не сбрасываем. Запрос критичный (идёт первым после паузы
             // сервера), при 429 — до трёх попыток с паузой Retry-After; каждой попытке 6 с + оставшаяся пауза. Не вышло — ниже последнее известное состояние.
             using var critical = ApiThrottle.BeginCritical();
+            var shiftAtStart = PosApp.ActiveShiftId; // 2026-11-01 (К2-02): смена на момент начала сверки — после await присваиваем, только если она не менялась
             var list = await ApiThrottle.RunWithRetryAsync(async () =>
             {
                 using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -78,16 +79,37 @@ public sealed class ShiftStateService : IShiftStateService
                     $"Открытая смена кассира найдена на другой кассе: {own.CashboxName ?? own.CashboxId} "
                     + $"(была {PosApp.PosCashboxDisplayName ?? PosApp.PosCashboxId}) — касса переключена на неё.",
                     "SHIFT");
+                // 2026-11-02 (К2-15, аудит №2): раньше — только строка в журнале. Две кассы одного кассира молча садились в одну смену; теперь кассир видит, что касса переключена,
+                // и что делать, если это другой компьютер.
+                var wasCashbox = PosApp.PosCashboxDisplayName ?? PosApp.PosCashboxId ?? "—";
+                var nowCashbox = own.CashboxName ?? own.CashboxId;
                 PosApp.PosCashboxId = own.CashboxId;
                 if (!string.IsNullOrWhiteSpace(own.CashboxName))
                     PosApp.PosCashboxDisplayName = own.CashboxName;
                 openId = own.ShiftId;
+                RaiseShiftNotice(Tr.T($"Ваша смена открыта на кассе «{nowCashbox}» (здесь была «{wasCashbox}»), поэтому касса переключена на неё. Если это другой компьютер, закрепите нужную кассу в Настройках, иначе продажи с двух компьютеров пойдут в одну смену.",
+                    $"Сиздин смена «{nowCashbox}» кассасында ачык (бул жерде «{wasCashbox}» болчу), ошондуктан касса ага которулду. Бул башка компьютер болсо, керектүү кассаны Жөндөөлөрдө бекитиңиз, болбосо эки компьютердин сатуулары бир сменага түшөт.",
+                    $"Your shift is open on till “{nowCashbox}” (this one was “{wasCashbox}”), so the till has switched to it. If this is another computer, pin the right till in Settings, otherwise sales from both computers go into one shift.",
+                    $"Vardiyanız «{nowCashbox}» kasasında açık (burası «{wasCashbox}» idi), bu yüzden kasa ona geçti. Bu başka bir bilgisayarsa Ayarlar'da doğru kasayı sabitleyin, aksi halde iki bilgisayarın satışları tek vardiyaya düşer.",
+                    $"Smenangiz «{nowCashbox}» kassasida ochiq (bu yerda «{wasCashbox}» edi), shuning uchun kassa unga o'tdi. Bu boshqa kompyuter bo'lsa, Sozlamalarda kerakli kassani mahkamlang, aks holda ikkala kompyuterning sotuvlari bir smenaga tushadi."), true);
             }
 
             // 2026-11-01 (К-02, аудит «10 из 10»): смена, открытая без связи («offline-shift-…»), раньше обнулялась здесь же, как только сервер не находил
             // открытой смены, — Z-отчёт и сумма открытия терялись, а чеки и внесения уходили в следующую смену (возможно, другого кассира).
             // Теперь: сервер вернул открытую смену кассира — офлайн-смена заменяется ею (внесения перепривязывает ShiftCashFlowSync.PushPendingAsync);
             // не вернул — офлайн-смена остаётся, касса «догоняет»: открывает серверную смену с той же начальной суммой и переходит на неё.
+            // 2026-11-01 (К2-01, контрольный аудит): сервер вернул открытую смену, которая стоит в очереди закрытия (её закрыли на кассе без связи, а на сервере она ещё открыта).
+            // Раньше она подхватывалась: утренние продажи шли во вчерашнюю смену, вчерашний пересчёт и сумма открытия терялись. Теперь такую смену НЕ принимаем: пробуем закрыть её
+            // на сервере (после досылки её чеков), смену кассы оставляем как есть (офлайн-смена — остаётся, иначе — «откройте смену»). Уже активную смену правило не трогает.
+            if (!string.IsNullOrEmpty(openId)
+                && !string.Equals(openId, PosApp.ActiveShiftId, StringComparison.OrdinalIgnoreCase)
+                && PendingShiftCloseStore.TryGet(openId) is { } queuedClose)
+            {
+                // 2026-11-02 (К3-06, аудит №2): попытка закрытия идёт В ФОНЕ и не чаще раза в минуту — «Новый чек»/опрос шапки не ждут до 6 с на каждый вызов.
+                StartQueuedShiftCloseInBackground(openId, queuedClose.ClosingCash);
+                openId = null;
+            }
+
             var currentShift = PosApp.ActiveShiftId;
             string? handedOverFrom = null; // 2026-11-01: исходный офлайн-id, если ниже офлайн-смена заменяется серверной
             // 2026-11-01 (К-02, приёмка): офлайн-смена другого кассира (в сохранённом состоянии записан иной кассир, чем вошедший) не наша — прежнее поведение:
@@ -115,6 +137,19 @@ public sealed class ShiftStateService : IShiftStateService
                     });
                     return;
                 }
+            }
+
+            // 2026-11-01 (К2-02): пока шла сверка/открытие на сервере, смену могли закрыть или сменить (кассир нажал «Закрыть») — тогда результат не применяем,
+            // иначе закрытая смена снова «откроется». Серверную смену, успевшую открыться в это время, ставит в очередь закрытия TryOpenServerShiftForOfflineAsync.
+            if (!string.Equals(PosApp.ActiveShiftId, shiftAtStart, StringComparison.OrdinalIgnoreCase))
+            {
+                PosLogger.Log($"Смена: пока шла сверка с сервером, смена на кассе изменилась ({shiftAtStart ?? "нет"} → {PosApp.ActiveShiftId ?? "нет"}) — результат сверки не применяю.", "SHIFT");
+                StateRefreshed?.Invoke(new ShiftStateSnapshot
+                {
+                    ActiveShiftId = PosApp.ActiveShiftId,
+                    CashBalance = OfflinePosStateStore.ReadShiftCashBalance(),
+                });
+                return;
             }
 
             PosApp.ActiveShiftId = string.IsNullOrEmpty(openId) ? null : openId;
@@ -150,6 +185,78 @@ public sealed class ShiftStateService : IShiftStateService
             ActiveShiftId = PosApp.ActiveShiftId,
             CashBalance = balance,
         });
+    }
+
+    private static readonly Dictionary<string, DateTime> QueuedCloseAttempts = new(StringComparer.OrdinalIgnoreCase);
+    private static int _queuedCloseRunning;
+
+    /// <summary>2026-11-02 (К3-06): сообщение кассиру от сверки смены (текст, предупреждение ли). Подписчик — главное окно (тост / окно). Приходит с потока пула.</summary>
+    public static event Action<string, bool>? ShiftNotice;
+
+    private static void RaiseShiftNotice(string text, bool warning)
+    {
+        try { ShiftNotice?.Invoke(text, warning); }
+        catch (Exception ex) { PosLogger.Log($"Смена: сообщение кассиру не показано: {ex.Message}", "SHIFT"); }
+    }
+
+    /// <summary>2026-11-01 (К2-01) / 2026-11-02 (К3-06): смена из очереди закрытия ещё открыта на сервере — пробуем закрыть её в фоне (не чаще раза в минуту на смену, по одной попытке за раз),
+    /// если чеки этой смены уже ушли; иначе ждёт фоновую очередь (SyncService). Вызывающий не ждёт: кассе смена не принимается в любом случае.</summary>
+    private void StartQueuedShiftCloseInBackground(string shiftId, string? closingCash)
+    {
+        lock (QueuedCloseAttempts)
+        {
+            if (QueuedCloseAttempts.TryGetValue(shiftId, out var last) && DateTime.UtcNow - last < TimeSpan.FromSeconds(60))
+                return;
+            QueuedCloseAttempts[shiftId] = DateTime.UtcNow;
+        }
+
+        if (Interlocked.Exchange(ref _queuedCloseRunning, 1) == 1)
+            return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (await TryCloseQueuedShiftAsync(shiftId, closingCash).ConfigureAwait(false))
+                    RaiseShiftNotice(Tr.T("Вчерашняя смена, закрытая без связи, теперь закрыта и на сервере.",
+                        "Байланышсыз жабылган кечээки смена эми серверде да жабылды.",
+                        "The previous shift, closed without a connection, is now closed on the server too.",
+                        "Bağlantısız kapatılan önceki vardiya artık sunucuda da kapatıldı.",
+                        "Aloqasiz yopilgan oldingi smena endi serverda ham yopildi."), false);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Смена: фоновое закрытие смены {shiftId} из очереди: {ex.GetType().Name}: {ex.Message}", "SHIFT");
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _queuedCloseRunning, 0);
+            }
+        });
+    }
+
+    private async Task<bool> TryCloseQueuedShiftAsync(string shiftId, string? closingCash)
+    {
+        var queuedSales = OfflinePendingSalesStore.LoadPendingForSync().Count(e => string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase));
+        if (queuedSales > 0)
+        {
+            PosLogger.Log($"Смена: открытая на сервере смена {shiftId} стоит в очереди закрытия и не принимается; её чеков в очереди {queuedSales} — закроется после досылки.", "SHIFT");
+            return false;
+        }
+
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(6));
+            var (outcome, error) = await ShiftCloseRetry.CloseAsync(_shiftApi, shiftId, closingCash, cts.Token).ConfigureAwait(false);
+            if (outcome != ShiftCloseOutcome.Failed)
+                PendingShiftCloseStore.Remove(shiftId);
+            PosLogger.Log($"Смена: смена {shiftId} из очереди закрытия не принята кассой как текущая; закрытие на сервере: {outcome}{(error is null ? "" : " (" + error + ")")}.", "SHIFT");
+            return outcome != ShiftCloseOutcome.Failed;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Смена: закрыть на сервере смену {shiftId} из очереди не вышло ({ex.GetType().Name}: {ex.Message}) — повторит фоновая очередь.", "SHIFT");
+            return false;
+        }
     }
 
     private static bool IsOfflineShift(string? shiftId) =>
@@ -215,6 +322,21 @@ public sealed class ShiftStateService : IShiftStateService
                 || (!string.IsNullOrWhiteSpace(openedCashbox) && !string.Equals(openedCashbox, cashboxId, StringComparison.OrdinalIgnoreCase)))
             {
                 PosLogger.Log($"Смена: для офлайн-смены {offlineShiftId} сервер вернул неподходящую смену (id={newId ?? "—"}, касса={openedCashbox ?? "—"}) — офлайн-смена остаётся.", "SHIFT");
+                return null;
+            }
+
+            // 2026-11-01 (К2-01): «открыть смену» у сервера идемпотентна — если вчерашняя смена из очереди закрытия ещё открыта, он вернул её. Принимать нельзя.
+            if (PendingShiftCloseStore.TryGet(newId) is not null)
+            {
+                PosLogger.Log($"Смена: сервер вернул для офлайн-смены {offlineShiftId} вчерашнюю смену {newId}, стоящую в очереди закрытия, — не принимаю (офлайн-смена остаётся, очередь закроет вчерашнюю).", "SHIFT");
+                return null;
+            }
+
+            // 2026-11-01 (К2-02): пока шёл запрос, кассир мог закрыть офлайн-смену. Серверная смена уже открыта — не оставляем её висеть: закрытие в очередь (SyncService закроет её после досылки чеков).
+            if (!string.Equals(PosApp.ActiveShiftId, offlineShiftId, StringComparison.OrdinalIgnoreCase))
+            {
+                PendingShiftCloseStore.Enqueue(newId, null, "офлайн-смена закрыта кассиром, пока передавалась серверу");
+                PosLogger.Log($"Смена: офлайн-смена {offlineShiftId} закрыта, пока передавалась серверу, — открытая смена {newId} поставлена в очередь закрытия.", "SHIFT");
                 return null;
             }
 

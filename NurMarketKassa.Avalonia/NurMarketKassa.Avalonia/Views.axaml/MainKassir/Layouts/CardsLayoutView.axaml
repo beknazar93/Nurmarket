@@ -296,7 +296,7 @@
                                                     <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="44" Height="40" MinHeight="0"
                                                              Padding="4,0" FontSize="15" FontWeight="Bold" TextAlignment="Center" VerticalContentAlignment="Center"
                                                              VerticalAlignment="Center"
-                                                             Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushBorder}"
+                                                             Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushInputBorder}"
                                                              BorderThickness="1" CornerRadius="6" Foreground="{DynamicResource BrushText}"
                                                              ToolTip.Tip="{DynamicResource csh.cart.typeQuantityTooltip}" LostFocus="QuantityInput_LostFocus">
                                                         <TextBox.KeyBindings>
@@ -352,6 +352,11 @@
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Text="{DynamicResource csh.cart.subtotal}" Classes="lx-muted" FontSize="13"/>
                         <TextBlock Grid.Column="1" Text="{Binding Basket.SubtotalDisplay}" FontSize="13" Foreground="{DynamicResource BrushTextMuted}"/>
+                    </Grid>
+                    <!-- 2026-11-02 (К3-07): сумма строк + округление = подытог; видно только при разности. -->
+                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Basket.HasRoundingAdjustment}">
+                        <TextBlock Text="{Binding Basket.RoundingAdjustmentText}" Classes="lx-muted" FontSize="12"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Basket.RoundingAdjustmentValue}" FontSize="12" Foreground="{DynamicResource BrushTextMuted}"/>
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Text="{DynamicResource onecLayout.discountLabel}" Classes="lx-muted" FontSize="13"/>

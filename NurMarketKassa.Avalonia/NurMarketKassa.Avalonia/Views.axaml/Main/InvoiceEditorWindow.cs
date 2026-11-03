@@ -173,7 +173,7 @@ public sealed class InvoiceEditorWindow : Window
                 foreach (var l in lines.Where(x => !string.IsNullOrWhiteSpace(x.ProductId)))
                 {
                     var i = Entries.FindLastIndex(e => e.SupplierId == supplier.Id && string.Equals(e.ProductId, l.ProductId, StringComparison.OrdinalIgnoreCase)
-                        && Math.Abs(e.Qty - l.Quantity) < 0.0005 && Math.Abs(e.Purchase - l.PurchasePrice) < 0.005);
+                        && Math.Abs(e.Qty - l.Quantity) < 0.0005 && Math.Abs(e.Purchase - l.PurchasePrice) < 0.00005);
                     if (i >= 0)
                         Entries.RemoveAt(i);
                 }
@@ -190,7 +190,7 @@ public sealed class InvoiceEditorWindow : Window
             {
                 return Entries.LastOrDefault(e => DateTime.Now - e.At <= TimeSpan.FromDays(1)
                     && (supplierId is null || e.SupplierId == supplierId)
-                    && Math.Abs(e.Qty - qty) < 0.0005 && Math.Abs(e.Purchase - purchase) < 0.005
+                    && Math.Abs(e.Qty - qty) < 0.0005 && Math.Abs(e.Purchase - purchase) < 0.00005
                     && ((!string.IsNullOrWhiteSpace(productId) && string.Equals(e.ProductId, productId, StringComparison.OrdinalIgnoreCase))
                         || keys.Any(e.NameKeys.Contains)));
             }
@@ -646,7 +646,7 @@ public sealed class InvoiceEditorWindow : Window
         {
             PosLogger.Log($"Закупка по накладной: список поставщиков не загружен: {ex.Message}", "WARNING");
             _supplierStatus.Text = T("Список поставщиков не загрузился: ", "Жеткирүүчүлөрдүн тизмеси жүктөлгөн жок: ", "The supplier list didn't load: ",
-                "Tedarikçi listesi yüklenemedi: ", "Yetkazib beruvchilar ro'yxati yuklanmadi: ") + ex.Message
+                "Tedarikçi listesi yüklenemedi: ", "Yetkazib beruvchilar ro'yxati yuklanmadi: ") + ServerOutageMonitor.FriendlyError(ex)
                 + T(" — нажмите «Обновить список».", " — «Тизмени жаңыртуу» баскычын басыңыз.", " — press “Refresh list”.", " — «Listeyi yenile»ye basın.", " — «Ro'yxatni yangilash»ni bosing.");
             _supplierStatus.IsVisible = true;
         }
@@ -723,7 +723,7 @@ public sealed class InvoiceEditorWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Закупка по накладной: поставщик не создан: {ex.Message}", "WARNING");
-            ShowError(T("Не удалось создать поставщика: ", "Жеткирүүчүнү түзүү мүмкүн болгон жок: ", "Could not create the supplier: ", "Tedarikçi oluşturulamadı: ", "Yetkazib beruvchini yaratib bo'lmadi: ") + ex.Message);
+            ShowError(T("Не удалось создать поставщика: ", "Жеткирүүчүнү түзүү мүмкүн болгон жок: ", "Could not create the supplier: ", "Tedarikçi oluşturulamadı: ", "Yetkazib beruvchini yaratib bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex));
         }
         finally
         {
@@ -1208,20 +1208,20 @@ public sealed class InvoiceEditorWindow : Window
             problems.Add(T($"строка {n}: цена закупки", $"{n}-сап: сатып алуу баасы", $"line {n}: purchase price", $"{n}. satır: alış fiyatı", $"{n}-qator: xarid narxi"));
         else
         {
-            // 2026-10-31 («Не округляй»): сервер хранит цену закупки товара с 2 знаками (проверено на NBS 29.10: PATCH больше 2 знаков отклоняет).
-            // Цена за единицу из накладной (сумма / количество) бывает с 4 знаками — молча её не округляем: ставим 2 знака в ячейку, говорим,
+            // 2026-10-31 («Не округляй»): сервер хранит цену закупки товара с 4 знаками (проверка бэкенда 01.11; раньше было 2).
+            // Цена за единицу из накладной (сумма / количество) бывает с 4 знаками — молча её не округляем: ставим округлённое до 4 знаков значение в ячейку, говорим,
             // как изменится сумма строки против бумаги, и просим проверить; второе нажатие «Провести» проходит.
             var stored = (double)Math.Round((decimal)purchase, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero);
             line.PurchasePrice = stored;
             if (Math.Abs(stored - purchase) > 1e-9)
             {
-                row.Purchase = Num(stored, "0.##");
+                row.Purchase = Num(stored, "0.####");
                 var paper = TryNum(row.Qty, out var pq) && pq > 0 ? $"{Money(ReceivingPricing.LineTotal(pq, purchase))} → {Money(ReceivingPricing.LineTotal(pq, stored))}" : "";
-                problems.Add(T($"строка {n}: сервер хранит цену закупки с 2 знаками — {Num(purchase, "0.####")} округлено до {Num(stored, "0.##")}" + (paper.Length > 0 ? $" (сумма строки {paper})" : "") + ", проверьте и проведите ещё раз",
-                    $"{n}-сап: сервер сатып алуу баасын 2 цифра менен сактайт — {Num(purchase, "0.####")} {Num(stored, "0.##")} чейин тегизделди" + (paper.Length > 0 ? $" (сап суммасы {paper})" : "") + ", текшерип, кайра өткөрүңүз",
-                    $"line {n}: the server stores the purchase price with 2 decimals — {Num(purchase, "0.####")} rounded to {Num(stored, "0.##")}" + (paper.Length > 0 ? $" (line total {paper})" : "") + ", check and post again",
-                    $"{n}. satır: sunucu alış fiyatını 2 basamakla saklar — {Num(purchase, "0.####")}, {Num(stored, "0.##")} olarak yuvarlandı" + (paper.Length > 0 ? $" (satır tutarı {paper})" : "") + ", kontrol edip tekrar işleyin",
-                    $"{n}-qator: server xarid narxini 2 raqam bilan saqlaydi — {Num(purchase, "0.####")} {Num(stored, "0.##")} gacha yaxlitlandi" + (paper.Length > 0 ? $" (qator summasi {paper})" : "") + ", tekshirib, qayta o'tkazing"));
+                problems.Add(T($"строка {n}: сервер хранит цену закупки с {ReceivingPricing.PurchaseDecimals} знаками — {Num(purchase, "0.####")} округлено до {Num(stored, "0.####")}" + (paper.Length > 0 ? $" (сумма строки {paper})" : "") + ", проверьте и проведите ещё раз",
+                    $"{n}-сап: сервер сатып алуу баасын {ReceivingPricing.PurchaseDecimals} цифра менен сактайт — {Num(purchase, "0.####")} {Num(stored, "0.####")} чейин тегизделди" + (paper.Length > 0 ? $" (сап суммасы {paper})" : "") + ", текшерип, кайра өткөрүңүз",
+                    $"line {n}: the server stores the purchase price with {ReceivingPricing.PurchaseDecimals} decimals — {Num(purchase, "0.####")} rounded to {Num(stored, "0.####")}" + (paper.Length > 0 ? $" (line total {paper})" : "") + ", check and post again",
+                    $"{n}. satır: sunucu alış fiyatını {ReceivingPricing.PurchaseDecimals} basamakla saklar — {Num(purchase, "0.####")}, {Num(stored, "0.####")} olarak yuvarlandı" + (paper.Length > 0 ? $" (satır tutarı {paper})" : "") + ", kontrol edip tekrar işleyin",
+                    $"{n}-qator: server xarid narxini {ReceivingPricing.PurchaseDecimals} raqam bilan saqlaydi — {Num(purchase, "0.####")} {Num(stored, "0.####")} gacha yaxlitlandi" + (paper.Length > 0 ? $" (qator summasi {paper})" : "") + ", tekshirib, qayta o'tkazing"));
             }
         }
         if (!TryNum(row.Price, out var price) || price <= 0)
@@ -1328,7 +1328,7 @@ public sealed class InvoiceEditorWindow : Window
             var hit = PostedLines.Find(supplier.Id, l.ProductId, names, l.Quantity, l.PurchasePrice)
                       ?? (row.PostedBefore is not null ? PostedLines.Find(null, l.ProductId, names, l.Quantity, l.PurchasePrice) : null);
             if (hit is not null)
-                repeats.Add($"«{(row.Existing?.Title ?? l.ProductName)}» {l.Quantity.ToString("0.###", CultureInfo.CurrentCulture)} × {l.PurchasePrice.ToString("0.##", CultureInfo.CurrentCulture)} — {hit.At:HH:mm}, «{hit.SupplierName}»");
+                repeats.Add($"«{(row.Existing?.Title ?? l.ProductName)}» {l.Quantity.ToString("0.###", CultureInfo.CurrentCulture)} × {l.PurchasePrice.ToString("0.####", CultureInfo.CurrentCulture)} — {hit.At:HH:mm}, «{hit.SupplierName}»");
         }
         if (repeats.Count > 0)
         {
@@ -1374,7 +1374,7 @@ public sealed class InvoiceEditorWindow : Window
             _post.Content = T("Провести закупку", "Сатып алууну өткөрүү", "Post purchase", "Alımı işle", "Xaridni o'tkazish");
             RebuildRows();
             UpdateTotal();
-            ShowError(T("Не удалось провести закупку: ", "Сатып алуу өткөрүлгөн жок: ", "The purchase failed: ", "Alım işlenemedi: ", "Xaridni o'tkazib bo'lmadi: ") + ex.Message);
+            ShowError(T("Не удалось провести закупку: ", "Сатып алуу өткөрүлгөн жок: ", "The purchase failed: ", "Alım işlenemedi: ", "Xaridni o'tkazib bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex));
             return;
         }
 
@@ -1419,7 +1419,7 @@ public sealed class InvoiceEditorWindow : Window
                     continue;
                 var b = back[bi];
                 var l = rows[i].Line;
-                if (b.Barcode != l.Barcode || b.ProductName != l.ProductName || Math.Abs(b.Quantity - l.Quantity) > 0.0005 || Math.Abs(b.PurchasePrice - l.PurchasePrice) > 0.005)
+                if (b.Barcode != l.Barcode || b.ProductName != l.ProductName || Math.Abs(b.Quantity - l.Quantity) > 0.0005 || Math.Abs(b.PurchasePrice - l.PurchasePrice) > 0.00005)
                     continue;
                 if (!string.IsNullOrWhiteSpace(b.ProductId))
                     l.ProductId = b.ProductId; // созданный при этой попытке товар второй раз не создаётся

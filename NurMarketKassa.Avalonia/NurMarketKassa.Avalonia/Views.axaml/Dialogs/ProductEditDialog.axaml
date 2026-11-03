@@ -22,7 +22,7 @@
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="MinHeight" Value="44"/>
             <Setter Property="Padding" Value="12,9"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -39,7 +39,7 @@
             <!-- 2026-10-22 (модалки, пакет 3): 44 px — касание пальцем. -->
             <Setter Property="MinHeight" Value="44"/>
             <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
         </Style>
         <Style Selector="TextBlock.FieldLabel">

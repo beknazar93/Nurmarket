@@ -802,7 +802,7 @@ public sealed partial class PurchasesWindow
             "Жеткирүүчүнүн товарын табуу: аталышы же штрихкод — Enter биринчисин кошот", "Find a supplier product: name or barcode — Enter adds the first",
             "Tedarikçi ürününü bul: ad veya barkod — Enter ilkini ekler", "Yetkazib beruvchi mahsulotini topish: nomi yoki shtrix-kod — Enter birinchisini qo'shadi"), 40);
         Avalonia.Automation.AutomationProperties.SetName(s.GoodsSearch, s.GoodsSearch.Watermark);
-        s.GoodsSearch.TextChanged += (_, _) => ReceiveApplyGoodsFilter(s);
+        UiKit.OnTypedDebounced(s.GoodsSearch, () => ReceiveApplyGoodsFilter(s)); // 2026-11-01: пауза 250 мс (товары поставщика)
         s.GoodsSearch.KeyDown += (_, e) =>
         {
             if (e.Key != Key.Enter)

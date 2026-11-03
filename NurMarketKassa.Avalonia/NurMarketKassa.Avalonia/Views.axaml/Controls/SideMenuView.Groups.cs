@@ -70,11 +70,11 @@ public partial class SideMenuView
             }
             var g = new MenuGroup { Key = key, Box = box, Caption = caption, Body = body, Collapsed = collapsed.Contains(key) };
             g.Chevron = new TextBlock { FontSize = 16, Width = 20, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Center };
-            g.Chevron.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            g.Chevron.Bind(TextBlock.ForegroundProperty, g.Chevron.GetResourceObservable("BrushText"));
             g.Title = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis };
             g.Title.Classes.Add("km-caption");
             g.Count = new TextBlock { FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
-            g.Count.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            g.Count.Bind(TextBlock.ForegroundProperty, g.Count.GetResourceObservable("BrushTextSoft"));
             g.Badges = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto") };
             row.Children.Add(g.Chevron);

@@ -9,7 +9,27 @@ using ZXing.Rendering;
 
 namespace NurMarketKassa.Services;
 
-public enum LabelPrintResult { Success, PrinterNotFound, Failed }
+/// <summary>PartiallySent (2026-11-02, финальная приёмка 1.17.73): часть этикеток задания отправлена, исход остального неизвестен — автоповтора нет,
+/// сколько ушло — в <see cref="BarcodeLabelService.LastPartial"/>.</summary>
+public enum LabelPrintResult { Success, PrinterNotFound, Failed, PartiallySent }
+
+/// <summary>Сколько этикеток задания отправлено целиком (<paramref name="Sent"/>) из <paramref name="Total"/>.</summary>
+/// <summary>2026-11-02 (аудит №2, С3-16): сколько этикеток задания ушло. Printer — принтер, JobId — идентификатор задания; запись неизменяема, хранится по принтеру
+/// (<see cref="BarcodeLabelService.PartialFor"/>), поэтому две одновременные печати на разные принтеры (этикетки и ценники) не показывают чужое «N из M».</summary>
+public sealed record LabelPartial(int Sent, int Total, string Printer = "", string JobId = "", DateTime AtUtc = default);
+
+/// <summary>Сбой отправки этикеток по частям: <see cref="Sent"/> этикеток из <see cref="Total"/> ушли целиком, исход текущей части неизвестен.</summary>
+internal sealed class LabelSendException : IOException
+{
+    public LabelSendException(int sent, int total, Exception inner) : base(inner.Message, inner)
+    {
+        Sent = sent;
+        Total = total;
+    }
+
+    public int Sent { get; }
+    public int Total { get; }
+}
 
 /// <summary>Параметры печати одной этикетки со штрих-кодом по заданному шаблону раскладки.</summary>
 public sealed record LabelPrintRequest(
@@ -22,7 +42,8 @@ public sealed record LabelPrintRequest(
     string? Sku = null,
     string? Unit = null,
     string? StoreName = null,
-    string? VariantText = null);
+    string? VariantText = null,
+    string? JobId = null);
 
 /// <summary>2026-11-01 (П-7): необязательные команды TSPL. null в поле — команда не отправляется.</summary>
 public sealed record TsplExtras(int? Density, int? Speed, bool? Flip, string? Sensor);
@@ -724,6 +745,7 @@ public static partial class BarcodeLabelService
     /// </summary>
     private static LabelPrintResult PrintToRawDevice(LabelPrintRequest request)
     {
+        ClearPartial(request.PrinterName); // новое задание на этот принтер — прежний «N из M» устарел
         try
         {
             using var label = GenerateLabelBitmap(
@@ -736,6 +758,12 @@ public static partial class BarcodeLabelService
             SendRawLabel(devicePath, label, request.Template.WidthMm, request.Template.HeightMm, copies);
 
             return LabelPrintResult.Success;
+        }
+        catch (LabelSendException ex)
+        {
+            ReportPartial(request.PrinterName, ex.Sent, ex.Total, request.JobId);
+            PosLogger.Log($"Raw device label print interrupted: sent {ex.Sent} of {ex.Total} ({ex.InnerException?.GetType().Name}); no automatic retry.", "ERROR");
+            return LabelPrintResult.PartiallySent;
         }
         catch (Exception ex)
         {
@@ -775,30 +803,88 @@ public static partial class BarcodeLabelService
     {
         var prefs = UserPreferences.Instance;
         copies = Math.Clamp(copies, 1, 99);
+        Func<int, byte[]> buildJob;
         if (prefs.LabelRawLanguage == "tspl")
         {
             // 2026-11-01 (П-7): плотность, скорость, поворот, датчик — только если заданы в настройках принтера этикеток; иначе задание прежнее.
             var extras = prefs.LabelTsplDensity is null && prefs.LabelTsplSpeed is null && prefs.LabelTsplFlip is null && prefs.LabelTsplSensor is null
                 ? null
                 : new TsplExtras(prefs.LabelTsplDensity, prefs.LabelTsplSpeed, prefs.LabelTsplFlip, prefs.LabelTsplSensor);
-            PrinterPortService.SendRawBytes(devicePath, BuildTsplJob(label, widthMm, heightMm, prefs.LabelGapMm,
-                prefs.LabelOffsetXMm, prefs.LabelOffsetYMm, copies, extras));
-            return;
+            buildJob = n => BuildTsplJob(label, widthMm, heightMm, prefs.LabelGapMm, prefs.LabelOffsetXMm, prefs.LabelOffsetYMm, n, extras);
         }
-
-        var raster = BitmapToEscPosRaster(label);
-        if (prefs.LabelRawLanguage == "escpos_gap")
+        else
         {
-            var withFeed = new byte[raster.Length + 2];
-            Buffer.BlockCopy(raster, 0, withFeed, 0, raster.Length);
-            withFeed[^2] = 0x1D; // GS FF — подать до начала следующей этикетки
-            withFeed[^1] = 0x0C;
-            raster = withFeed;
+            var raster = BitmapToEscPosRaster(label);
+            if (prefs.LabelRawLanguage == "escpos_gap")
+            {
+                var withFeed = new byte[raster.Length + 2];
+                Buffer.BlockCopy(raster, 0, withFeed, 0, raster.Length);
+                withFeed[^2] = 0x1D; // GS FF — подать до начала следующей этикетки
+                withFeed[^1] = 0x0C;
+                raster = withFeed;
+            }
+            var rasterCopy = raster;
+            buildJob = n =>
+            {
+                var job = new byte[rasterCopy.Length * n];
+                for (var i = 0; i < n; i++)
+                    Buffer.BlockCopy(rasterCopy, 0, job, i * rasterCopy.Length, rasterCopy.Length);
+                return job;
+            };
         }
 
-        for (var i = 0; i < copies; i++)
-            PrinterPortService.SendRawBytes(devicePath, raster);
+        // 2026-11-02 (финальная приёмка 1.17.73): копии уходят ЧАСТЯМИ по RawChunkLabels этикеток, по очереди, с учётом уже отправленного. Раньше все копии
+        // шли одним заданием: потолок 60 с и повтор всего задания при сбое давали дубли. Теперь таймаут пропорционален размеру части (PrinterPortService.WriteTimeout),
+        // повтор после сбоя касается только текущей части, а при неизвестном исходе (принтер не забирает данные, обрыв посреди записи) автоповтора нет —
+        // LabelSendException: «Напечатано N из M, проверьте ленту».
+        var sent = 0;
+        while (sent < copies)
+        {
+            var n = Math.Min(RawChunkLabels, copies - sent);
+            try
+            {
+                PrinterPortService.SendRawBytes(devicePath, buildJob(n));
+            }
+            catch (Exception ex) when (sent > 0 || ex is PrinterPortService.PrinterStalledException)
+            {
+                throw new LabelSendException(sent, copies, ex);
+            }
+            sent += n;
+        }
     }
+
+    /// <summary>Сколько этикеток уходит принтеру за одну отправку (остальные — следующими частями).</summary>
+    public const int RawChunkLabels = 50;
+
+    /// <summary>Последнее задание, у которого часть этикеток ушла, а исход остальных неизвестен (для сообщения «Напечатано N из M, проверьте ленту»).</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, LabelPartial> PartialByPrinter = new(StringComparer.OrdinalIgnoreCase);
+    private static volatile LabelPartial? _lastPartial;
+
+    /// <summary>Совместимость: последнее неполное задание по всем принтерам (запись неизменяемая — чтение и запись потокобезопасны). Присвоение null сбрасывает только это поле; точный ответ
+    /// для конкретного принтера или задания — <see cref="PartialFor"/> / <see cref="PartialOfJob"/>.</summary>
+    public static LabelPartial? LastPartial
+    {
+        get => _lastPartial;
+        set => _lastPartial = value;
+    }
+
+    /// <summary>Записать неполное задание принтера (JobId пуст — создаётся новый).</summary>
+    public static LabelPartial ReportPartial(string? printer, int sent, int total, string? jobId = null)
+    {
+        var p = new LabelPartial(sent, total, printer ?? "", string.IsNullOrEmpty(jobId) ? Guid.NewGuid().ToString("N") : jobId, DateTime.UtcNow);
+        PartialByPrinter[p.Printer] = p;
+        _lastPartial = p;
+        return p;
+    }
+
+    /// <summary>Неполное задание ИМЕННО этого принтера; null — у него такого нет.</summary>
+    public static LabelPartial? PartialFor(string? printer) => PartialByPrinter.TryGetValue(printer ?? "", out var p) ? p : null;
+
+    /// <summary>Неполное задание по идентификатору задания.</summary>
+    public static LabelPartial? PartialOfJob(string? jobId) =>
+        string.IsNullOrEmpty(jobId) ? null : PartialByPrinter.Values.FirstOrDefault(p => p.JobId == jobId);
+
+    public static void ClearPartial(string? printer) => PartialByPrinter.TryRemove(printer ?? "", out _);
 
     /// <summary>Задание TSPL (TSC, Xprinter, Gprinter, Rongta в режиме этикеток): размер, зазор,
     /// картинка BITMAP (в TSPL бит 0 — печать, поэтому байты инвертируются), копии.</summary>

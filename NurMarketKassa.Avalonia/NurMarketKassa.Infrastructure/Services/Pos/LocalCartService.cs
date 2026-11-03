@@ -59,7 +59,7 @@ public static class LocalCartService
         }
         else
         {
-            var line = BuildLine(productId, product.Title, unitPrice, qty, product.MustWeigh);
+            var line = BuildLine(productId, product.Title, unitPrice, qty, product.MustWeigh, product.ServerIsWeight);
             QuantityRules.StampLine(line, product, null); // 2026-10-26 (ХМ2): метка дробной строки (только «Хозтовары»)
             items.Add(line);
         }
@@ -341,7 +341,7 @@ public static class LocalCartService
         return null;
     }
 
-    private static JsonObject BuildLine(string productId, string title, double unitPrice, double qty, bool mustWeigh)
+    private static JsonObject BuildLine(string productId, string title, double unitPrice, double qty, bool mustWeigh, bool? serverIsWeight = null)
     {
         var line = new JsonObject
         {
@@ -358,6 +358,9 @@ public static class LocalCartService
                 ["must_weigh"] = mustWeigh,
             },
         };
+        // 2026-11-01 (владелец «10 из 10», is_weight): признак товара с сервера — по нему считается округление подытога (CartDisplayHelper.LineIsWeightProduct).
+        if (serverIsWeight is { } serverFlag)
+            line["server_is_weight"] = serverFlag;
         RecalcLine(line);
         return line;
     }

@@ -87,7 +87,7 @@ public sealed partial class PurchasesWindow
         s.Picker.Changed += async _ => await RecommendLoadAsync().ConfigureAwait(true);
         s.Search = UiKit.Search(this, T("Поиск: название или штрихкод", "Издөө: аты же штрихкод", "Search: name or barcode", "Ara: ad veya barkod", "Qidirish: nomi yoki shtrix-kod"), 44);
         Avalonia.Automation.AutomationProperties.SetName(s.Search, s.Search.Watermark);
-        s.Search.TextChanged += (_, _) => RecommendRender();
+        UiKit.OnTypedDebounced(s.Search, RecommendRender); // 2026-11-01: пауза 250 мс
         var pick = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), Margin = new Thickness(0, 0, 0, 10) };
         pick.Children.Add(s.Picker);
         Grid.SetColumn(s.Search, 1);

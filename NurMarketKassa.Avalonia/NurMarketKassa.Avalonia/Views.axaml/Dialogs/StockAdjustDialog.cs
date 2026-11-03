@@ -208,6 +208,16 @@ public sealed class StockAdjustDialog : Window
             NurMarketKassa.AvaloniaHost.Views.SuccessToast.Show(result.Message);
             Close(true);
         }
+        catch (OperationCanceledException)
+        {
+            // 2026-11-01 (контрольный аудит, С2-15): тайм-аут «провести» раньше вылетал из async void. Теперь — понятный текст; повторное нажатие сначала проверит прошлый акт.
+            _error.Text = T("Сервер не ответил вовремя — неизвестно, прошло ли изменение. Нажмите «Применить» ещё раз: касса сначала проверит прошлое изменение и не добавит остаток дважды.",
+                "Сервер өз убагында жооп берген жок — өзгөртүү өткөнү белгисиз. «Колдонуу» баскычын дагы бир жолу басыңыз: касса адегенде мурунку өзгөртүүнү текшерет жана калдыкты эки жолу кошпойт.",
+                "The server did not answer in time — it is unknown whether the change went through. Press Apply again: the till will first check the previous change and will not add the stock twice.",
+                "Sunucu zamanında yanıt vermedi — değişikliğin yapılıp yapılmadığı bilinmiyor. «Uygula»ya tekrar basın: kasa önce önceki değişikliği kontrol eder ve stoğu iki kez eklemez.",
+                "Server o'z vaqtida javob bermadi — o'zgarish o'tgani noma'lum. «Qo'llash»ni yana bosing: kassa avval oldingi o'zgarishni tekshiradi va qoldiqni ikki marta qo'shmaydi.");
+            _error.IsVisible = true;
+        }
         finally
         {
             _apply.IsEnabled = true;
@@ -216,5 +226,5 @@ public sealed class StockAdjustDialog : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

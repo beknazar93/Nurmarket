@@ -252,14 +252,14 @@
                      доп. весы уже включены (чтобы их можно было выключить). -->
                 <Border x:Name="ExtraScalesCard" x:FieldModifier="public" Classes="SettingsCard" Padding="14" IsVisible="False">
                     <StackPanel Spacing="12">
-                        <TextBlock x:Name="ExtraScalesTitle" x:FieldModifier="public" Text="Дополнительные весы"
+                        <TextBlock x:Name="ExtraScalesTitle" x:FieldModifier="public" Text="{DynamicResource scaleSetup.extraScalesTitle}"
                                    FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}"/>
                         <TextBlock x:Name="ExtraScalesDesc" x:FieldModifier="public" FontSize="12.5"
                                    Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
                         <Grid ColumnDefinitions="Auto,10,80,*,16,120" RowDefinitions="Auto,10,Auto">
                             <CheckBox Grid.Row="0" Grid.Column="0" x:Name="Scale2EnabledCheck" x:FieldModifier="public"
                                       Classes="ToggleSwitch" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Row="0" Grid.Column="2" x:Name="Scale2Label" x:FieldModifier="public" Text="Весы 2"
+                            <TextBlock Grid.Row="0" Grid.Column="2" x:Name="Scale2Label" x:FieldModifier="public" Text="{DynamicResource scaleSetup.scale2}"
                                        VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
                             <ComboBox Grid.Row="0" Grid.Column="3" x:Name="Scale2ComCombo" x:FieldModifier="public"
                                       Classes="TouchComboBox" HorizontalAlignment="Stretch"
@@ -270,7 +270,7 @@
 
                             <CheckBox Grid.Row="2" Grid.Column="0" x:Name="Scale3EnabledCheck" x:FieldModifier="public"
                                       Classes="ToggleSwitch" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Row="2" Grid.Column="2" x:Name="Scale3Label" x:FieldModifier="public" Text="Весы 3"
+                            <TextBlock Grid.Row="2" Grid.Column="2" x:Name="Scale3Label" x:FieldModifier="public" Text="{DynamicResource scaleSetup.scale3}"
                                        VerticalAlignment="Center" Foreground="{DynamicResource BrushText}"/>
                             <ComboBox Grid.Row="2" Grid.Column="3" x:Name="Scale3ComCombo" x:FieldModifier="public"
                                       Classes="TouchComboBox" HorizontalAlignment="Stretch"
@@ -327,7 +327,7 @@
                         <Separator Background="{DynamicResource BrushPanelSoft}" Height="1" Margin="0,2"/>
 
                         <StackPanel Spacing="4">
-                            <TextBlock x:Name="PoleDisplayProtocolLabel" x:FieldModifier="public" Text="Тип табло" Classes="FieldLabel"/>
+                            <TextBlock x:Name="PoleDisplayProtocolLabel" x:FieldModifier="public" Text="{DynamicResource scaleSetup.poleDisplayType}" Classes="FieldLabel"/>
                             <ComboBox x:Name="PoleDisplayProtocolCombo" x:FieldModifier="public"
                                       Classes="TouchComboBox" HorizontalAlignment="Stretch"
                                       IsEnabled="{Binding IsChecked, ElementName=PoleDisplayEnabledCheck}"/>
@@ -363,7 +363,7 @@
                                      (см. PoleDisplayService.ProbeLedAsync). -->
                                 <Button x:Name="FindPoleDisplayButton"
                                         x:FieldModifier="public"
-                                        Content="Найти табло"
+                                        Content="{DynamicResource scaleSetup.findPoleDisplay}"
                                         Classes="ScaleGoldButton"
                                         HorizontalAlignment="Left"
                                         VerticalAlignment="Center"

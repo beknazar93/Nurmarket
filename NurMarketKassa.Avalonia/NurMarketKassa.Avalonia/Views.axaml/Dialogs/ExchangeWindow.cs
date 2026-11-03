@@ -19,8 +19,10 @@ public sealed record ExchangeReturnLine(string LineId, string? ProductId, string
 /// <summary>Итог проведённого обмена (суммы — по серверу).</summary>
 /// <param name="Warning">2026-11-01 (аудит «10 из 10», К-05): сервер засчитал возвращённое больше, чем положено по чеку со скидкой на весь чек —
 /// текст для кассира (дальше его показывает окно возврата).</param>
+/// <param name="CorrectedDifference">2026-11-01 (контрольный аудит, К2-03): разница по расчёту кассы, когда сервер засчитал возвращённое больше положенного (скидка на весь чек): именно её
+/// кассир выдаёт/берёт. null — сервер посчитал верно (берётся <c>Difference</c>).</param>
 public sealed record ExchangeOutcome(string ExchangeId, string? NewSaleId, string? NewSaleNumber, decimal ReturnedAmount,
-    decimal NewAmount, decimal Difference, string PaymentMethod, string? Warning = null);
+    decimal NewAmount, decimal Difference, string PaymentMethod, string? Warning = null, decimal? CorrectedDifference = null);
 
 /// <summary>
 /// 2026-10-06, исследование «Кассы для одежды» (О-30), владелец: «делай всё по этапно». Обмен в одном окне:
@@ -464,7 +466,8 @@ public sealed class ExchangeWindow : Window
             PendingExchange.OnSuccess();
 
             string? Str(string name) => res.ValueKind == JsonValueKind.Object && res.TryGetProperty(name, out var v) && v.ValueKind is JsonValueKind.String or JsonValueKind.Number ? v.ToString() : null;
-            decimal Dec(string name, decimal fallback) => decimal.TryParse(Str(name), NumberStyles.Number, CultureInfo.InvariantCulture, out var d) ? d : fallback;
+            // 2026-11-01 (контрольный аудит, К2-05): «-2,00» не должно стать −200 — общий культурно-независимый разбор денег.
+            decimal Dec(string name, decimal fallback) => ServerRefundFigures.ParseMoney(Str(name)) ?? fallback;
             // 2026-10-15, ревью: сервер не прислал id обмена — берём ключ идемпотентности, а не новый Guid: он тот же
             // при повторе, и сверка наличных (ExchangeCashCorrections) и журнал смены не задвоят один обмен.
             // 2026-10-16, ревью: и у двух настоящих обменов ключ не общий — после успеха он забыт, а повторно уходит только
@@ -478,20 +481,34 @@ public sealed class ExchangeWindow : Window
             string? warning = null;
             var ours = ReturnedTotal;
             var tolerance = 0.01m + 0.005m * (decimal)returns.Sum(r => r.Qty);
+            decimal? correctedDifference = null;
             if (returned > ours + tolerance)
+            {
                 warning = ReportServerOverCredit(returned, ours);
-            Outcome = new ExchangeOutcome(exchangeId, Str("new_sale"), Str("new_sale_number"), returned, newAmount, difference, method, warning);
+                // К2-03: сервер засчитал лишнее — кассир выдаёт/берёт разницу по расчёту кассы (новый товар − положенное за возвращённое), а не цифру сервера.
+                correctedDifference = newAmount - ours;
+            }
+            Outcome = new ExchangeOutcome(exchangeId, Str("new_sale"), Str("new_sale_number"), returned, newAmount, difference, method, warning, correctedDifference);
             PosLogger.Log($"Обмен по продаже {_saleId}: вернули {returned:0.00}, выдали {newAmount:0.00}, разница {difference:0.00} ({method}), новый чек №{Str("new_sale_number")}, документ {exchangeId}.", "SALES");
 
             // Наличные, реально прошедшие через ящик: доплата наличными или сдача.
             var cashDelta = difference > 0 ? (method == "cash" ? difference : 0m) : difference;
             _ = Task.Run(() => ExchangeCashCorrections.CheckAsync(client, shiftId, before, cashDelta, returned, exchangeId));
+            // К2-03: наличные по расчёту кассы отличаются от записанных сервером — поправка ящика на разницу (один раз на обмен), «Касса:» и X/Z сходятся.
+            var payDifference = correctedDifference ?? difference;
+            if (correctedDifference is { } fixedDiff)
+            {
+                var realCash = fixedDiff > 0 ? (method == "cash" ? fixedDiff : 0m) : fixedDiff;
+                ExchangeCashCorrections.RecordAdjustment(shiftId, "exchange-overcredit:" + exchangeId, realCash - cashDelta, "Обмен (скидка на весь чек)");
+            }
 
             // В журнал смены — как возврат (сервер тоже считает его возвратом), чтобы отчёты кассы сходились с сервером.
             // 2026-11-01 (К-05): с разбивкой для окна закрытия смены — из ящика ушла только сдача (разница), а не вся сумма возвращённого;
             // раньше заметка «exchange» без cash= считалась «наличными из ящика» на всю сумму.
-            var drawerOut = difference < 0 ? -difference : 0m;
-            ShiftEventsStore.Record(ShiftEventsStore.KindReturn, shiftId, ShiftEventsStore.OperationKey(exchangeId), (double)returned,
+            var drawerOut = payDifference < 0 ? -payDifference : 0m;
+            // 2026-11-02 (аудит №2, К3-02): «засчитано за возвращённое» — одна цифра на экране, в журнале смены и на бумаге: при превышении сервера это расчёт кассы (ours).
+            var shownReturned = correctedDifference is null ? returned : ours;
+            ShiftEventsStore.Record(ShiftEventsStore.KindReturn, shiftId, ShiftEventsStore.OperationKey(exchangeId), (double)shownReturned,
                 $"cash={SaleReturnLedger.Inv(drawerOut)};noncash=0.00;debt=0.00;exchange=1");
             // 2026-11-01 (К-05): обмен — в журнал возвратов чека, иначе следующий возврат по этому чеку считал бы остаток по устаревшим данным.
             RecordExchangeInLedger(returns, Math.Min(returned, Math.Max(ours, 0m)), drawerOut, returned, Str("return"));
@@ -503,8 +520,18 @@ public sealed class ExchangeWindow : Window
             var returnedLines = returns.Select(r => (r.Line.Title, r.Qty, r.Line.UnitRefund, r.Sum)).ToList();
             var issuedLines = _newRows.Select(n => (n.Title, n.Qty, n.UnitPrice, n.Sum)).ToList();
             var cashier = NurMarketKassa.PosApp.CurrentUserDisplayName;
+            // К3-02: чек обмена — ТЕ ЖЕ суммы, что кассир видит и выдаёт (payDifference, засчитано ours), а цифра сервера — отдельной строкой в примечании, а не в «к выдаче».
+            var printDifference = payDifference;
+            var printReason = correctedDifference is null
+                ? _reason
+                : ((string.IsNullOrWhiteSpace(_reason) ? "" : _reason + "; ")
+                   + T($"сервер засчитал {Money(returned)}, по скидке на весь чек положено {Money(ours)}",
+                       $"сервер {Money(returned)} деп эсептеди, бүт чекке арзандатуу боюнча туурасы {Money(ours)}",
+                       $"the server credited {Money(returned)}, by the whole-receipt discount {Money(ours)} is due",
+                       $"sunucu {Money(returned)} saydı, tüm fiş indirimine göre {Money(ours)} olmalı",
+                       $"server {Money(returned)} deb hisobladi, butun chek chegirmasi bo'yicha {Money(ours)} to'g'ri"));
             var printError = await Task.Run(() => OperationReceiptPrinter.PrintExchange(_receiptNumber, _saleDate, Outcome.NewSaleNumber,
-                returnedLines, issuedLines, returned, newAmount, difference, method, _reason, cashier)).ConfigureAwait(true);
+                returnedLines, issuedLines, shownReturned, newAmount, printDifference, method, printReason, cashier)).ConfigureAwait(true);
             if (printError is not null)
                 PosMessageBox.Show(this, printError, Title ?? "", MessageBoxButton.OK, MessageBoxImage.Warning);
             _closingWithResult = true;
@@ -525,7 +552,8 @@ public sealed class ExchangeWindow : Window
         catch (Exception ex)
         {
             _error.Text = T("Обмен не проведён (нет связи с сервером?): ", "Алмаштыруу жүргүзүлгөн жок (сервер менен байланыш жокпу?): ", "Exchange failed (no connection?): ",
-                "Değişim yapılamadı (bağlantı yok mu?): ", "Almashtirish o'tkazilmadi (server bilan aloqa yo'qmi?): ") + ex.Message;
+                "Değişim yapılamadı (bağlantı yok mu?): ", "Almashtirish o'tkazilmadi (server bilan aloqa yo'qmi?): ")
+                + T("подробности в журнале кассы.", "чоо-жайы касса журналында.", "details are in the till log.", "ayrıntılar kasa günlüğünde.", "tafsilotlar kassa jurnalida."); // 2026-11-02 (К2-24): без сырого ex.Message
             PosLogger.Log($"Обмен по продаже {_saleId} не проведён: {ex}", "WARNING");
             // 2026-10-16, ревью: таймаут/обрыв — исход неизвестен, сразу сверяем по чеку.
             if (PendingExchange.OnError(ex))
@@ -788,5 +816,5 @@ public sealed class ExchangeWindow : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

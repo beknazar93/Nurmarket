@@ -97,43 +97,86 @@ public partial class MainWindow
     /// из корзины этой продажи (как копия офлайн-чека). Деньги и печать не меняются: «Печать» — та же «Печать копии» плашки.</summary>
     private async Task ShowSaleDoneReceiptAsync(LastSaleInfo sale)
     {
-        System.Text.Json.JsonElement json = default;
-        string? number = null;
-        var fromServer = false;
-        if (!sale.SavedOffline && !string.IsNullOrWhiteSpace(sale.SaleId))
+        // 2026-11-03 (Д-2, живая проверка 1.17.73): чек сервера (с составом из базы) запрашивается, но окно не ждёт его 8 с в тишине и не открывает
+        // поверх модалку «Показан чек кассы». Сервер ответил быстро (до 1,5 с) — чек сервера, как раньше. Нет — окно сразу с чеком кассы
+        // (номер из ответа оплаты) и пометкой внутри бумаги; чек сервера заменяет бумагу на месте, когда придёт. Второго окна нет.
+        SaleReceiptCardData BuildLocal(string? note)
         {
+            using var doc = System.Text.Json.JsonDocument.Parse(string.IsNullOrWhiteSpace(sale.CartJson) ? "{}" : sale.CartJson);
+            var cart = doc.RootElement;
+            var totals = CartTotalsCalculator.Calculate(cart);
+            var local = SaleReceiptCardData.Build(cart, sale.SaleNumber, (decimal)(totals.LineDiscounts + totals.OrderDiscount), (decimal)sale.Total,
+                paymentMethodOverride: sale.PaymentMethod, cashReceivedOverride: sale.CashReceivedText, soldAt: sale.SoldAt, savedOffline: sale.SavedOffline);
+            if (!string.IsNullOrEmpty(note))
+                local.OfflineNote = note;
+            return local;
+        }
+
+        static SaleReceiptCardData BuildFromServer(System.Text.Json.JsonElement json) =>
+            SaleReceiptCardData.Build(json, SalesWindow.TryReceiptNumber(json), SalesWindow.ReadSaleDiscount(json), SalesWindow.ReadSaleTotal(json));
+
+        var print = new Func<Task<(bool Ok, string Message)>>(async () => await ReceiptHistoryService.PrintSaleCopyAsync(sale).ConfigureAwait(true));
+
+        if (sale.SavedOffline || string.IsNullOrWhiteSpace(sale.SaleId))
+        {
+            await PosDialogHost.ShowAsync(new ReceiptViewDialog(BuildLocal(null), print), this).ConfigureAwait(true);
+            return;
+        }
+
+        // 2026-11-03 (С-05, аудит «зависание при медленном сервере»): запрос не дольше 8 с (раньше до 55 с без индикатора); строка «Ждём ответ сервера…» в корзине.
+        using var wait = new NurMarketKassa.AvaloniaHost.Services.ServerWaitIndicator(text => _viewModel.Basket.CartMessage = text ?? "");
+        var saleId = sale.SaleId;
+        var serverTask = wait.RunAsync("pos/sales/get", ct => App.SalesApi.PosSaleGetAsync(saleId, ct));
+        await Task.WhenAny(serverTask, Task.Delay(TimeSpan.FromMilliseconds(1500))).ConfigureAwait(true);
+
+        if (serverTask.IsCompleted)
+        {
+            SaleReceiptCardData ready;
             try
             {
-                json = await App.SalesApi.PosSaleGetAsync(sale.SaleId, CancellationToken.None).ConfigureAwait(true);
-                number = SalesWindow.TryReceiptNumber(json);
-                fromServer = true;
+                ready = BuildFromServer(await serverTask.ConfigureAwait(true));
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Окно «Чек» с плашки: сервер не отдал продажу {sale.SaleId} ({ex.Message}) — из корзины.", "PAYMENT");
+                ready = BuildLocal(NoServerDataNote);
             }
-        }
-        if (!fromServer)
-        {
-            using var doc = System.Text.Json.JsonDocument.Parse(string.IsNullOrWhiteSpace(sale.CartJson) ? "{}" : sale.CartJson);
-            json = doc.RootElement.Clone();
+            await PosDialogHost.ShowAsync(new ReceiptViewDialog(ready, print), this).ConfigureAwait(true);
+            return;
         }
 
-        SaleReceiptCardData card;
-        if (fromServer)
-        {
-            card = SaleReceiptCardData.Build(json, number, SalesWindow.ReadSaleDiscount(json), SalesWindow.ReadSaleTotal(json));
-        }
-        else
-        {
-            var totals = CartTotalsCalculator.Calculate(json);
-            card = SaleReceiptCardData.Build(json, null, (decimal)(totals.LineDiscounts + totals.OrderDiscount), (decimal)sale.Total,
-                paymentMethodOverride: sale.PaymentMethod, cashReceivedOverride: sale.CashReceivedText, soldAt: sale.SoldAt, savedOffline: sale.SavedOffline);
-        }
+        var slowDialog = new ReceiptViewDialog(BuildLocal(string.IsNullOrWhiteSpace(sale.SaleNumber)
+            ? Tr.T("Показан чек кассы. Номер появится после ответа сервера…", "Кассанын чеги көрсөтүлдү. Номери сервер жооп бергенде чыгат…",
+                "The register's receipt is shown. The number will appear once the server answers…", "Kasanın fişi gösteriliyor. Numara sunucu yanıt verince görünecek…", "Kassa cheki ko'rsatildi. Raqam server javob bergach chiqadi…")
+            : Tr.T("Показан чек кассы. Данные сервера обновляются…", "Кассанын чеги көрсөтүлдү. Сервердин маалыматы жаңыртылууда…",
+                "The register's receipt is shown. Server data is being updated…", "Kasanın fişi gösteriliyor. Sunucu verileri güncelleniyor…", "Kassa cheki ko'rsatildi. Server ma'lumotlari yangilanmoqda…")), print);
+        _ = ApplyServerReceiptAsync();
+        await PosDialogHost.ShowAsync(slowDialog, this).ConfigureAwait(true);
 
-        var dialog = new ReceiptViewDialog(card, async () => await ReceiptHistoryService.PrintSaleCopyAsync(sale).ConfigureAwait(true));
-        await PosDialogHost.ShowAsync(dialog, this).ConfigureAwait(true);
+        async Task ApplyServerReceiptAsync()
+        {
+            SaleReceiptCardData next;
+            try
+            {
+                next = BuildFromServer(await serverTask.ConfigureAwait(true));
+            }
+            catch (Exception ex)
+            {
+                // Окно закрыли (ожидание отменено вместе с индикатором) — менять нечего.
+                if (!slowDialog.IsVisible)
+                    return;
+                PosLogger.Log($"Окно «Чек» с плашки: сервер не отдал продажу {sale.SaleId} ({ex.Message}) — остался чек кассы.", "PAYMENT");
+                next = BuildLocal(NoServerDataNote);
+            }
+
+            if (slowDialog.IsVisible)
+                slowDialog.ReplaceCard(next);
+        }
     }
+
+    /// <summary>2026-11-03 (Д-2): пометка внутри бумаги, когда чек сервера не пришёл.</summary>
+    private static string NoServerDataNote => Tr.T("Показан чек кассы; данные сервера не пришли.", "Кассанын чеги көрсөтүлдү; сервердин маалыматы келген жок.",
+        "Showing the register's receipt; server data did not arrive.", "Kasanın fişi gösteriliyor; sunucu verileri gelmedi.", "Kassa cheki ko'rsatildi; server ma'lumotlari kelmadi.");
 
     /// <summary>2026-10-18, ревью этапа 6: «Печать копии» с плашки — как «Печать последнего чека» в меню «Ещё»
     /// (сообщение строкой под чеком, ошибка — уведомлением), но копия именно этой продажи.</summary>

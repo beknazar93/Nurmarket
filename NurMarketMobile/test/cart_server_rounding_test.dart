@@ -1,10 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nurmarket/features/sale/cart.dart';
 
-// 2026-11-01 (аудит 10 из 10, М-01; ответ Умара 01.11; живая сверка NBS, чеки 1974–1980): модель сервера —
-// обычные строки не округляются, весовая строка округляется ВНИЗ до 0,01; подытог — один раз HALF_UP;
-// процент скидки чека берётся от ОКРУГЛЁННОГО подытога, сумма скидки округляется отдельно HALF_UP; итог = подытог − скидка.
-// Чистая арифметика, без сети и базы.
+// 2026-11-01 (аудит 10 из 10, М-01; ответ Умара 01.11; опыты на сервере, чеки 1971–1988): строки считаются точно, затем
+// подытог = FLOOR(Σ весовых строк, 0,01) + HALF_UP(Σ остальных, 0,01); скидка чека в процентах = HALF_UP((подытог − скидки строк) × p / 100);
+// итог = подытог − скидки строк − скидка чека. Чистая арифметика, без сети и базы.
 void main() {
   CartLine n(double qty, double price) => CartLine(productId: 'n', name: 'Обычный', price: price, qty: qty); // не весовой
   CartLine w(double qty, double price) => CartLine(productId: 'w', name: 'Весовой', price: price, qty: qty, isWeight: true);
@@ -19,6 +18,43 @@ void main() {
 
   test('чек 1979: весовая строка 0,343 кг × 66 = 22,638 → ВНИЗ 22,63', () {
     expect(Cart(lines: [w(0.343, 66)]).total, 22.63);
+  });
+
+  test('чек 1981: вниз округляется СУММА весовых строк: 4,875 + 22,638 = 27,513 → 27,51 (а не 27,50)', () {
+    expect(Cart(lines: [w(0.375, 13), w(0.343, 66)]).total, 27.51);
+  });
+
+  test('чек 1984: весовая 22,638 + штучная 5,00 → 22,63 + 5,00 = 27,63', () {
+    expect(Cart(lines: [w(0.343, 66), n(1, 5)]).total, 27.63);
+  });
+
+  test('чек 1985: весовая 22,638 + «Доп. услуга» 4,472 (не весовая) → 22,63 + 4,47 = 27,10', () {
+    final extra = CartLine(productId: 'x', name: 'Доп. услуга', price: 13, qty: 0.344, custom: true);
+    expect(Cart(lines: [w(0.343, 66), extra]).total, 27.10);
+  });
+
+  test('«Алма»: единица кг, но is_weight=false на сервере (weightFlag=false) → не весовая: 2,295 × 45 = 103,275 → 103,28 (HALF_UP)', () {
+    final alma = CartLine(productId: 'alma', name: 'Алма', price: 45, qty: 2.295, isWeight: true, weightFlag: false);
+    expect(Cart(lines: [alma]).total, 103.28);
+  });
+
+  test('is_weight=true на сервере (weightFlag=true) даёт весовое округление вниз, даже если телефон считает строку невесовой', () {
+    final line = CartLine(productId: 'w2', name: 'Весовой', price: 66, qty: 0.343, weightFlag: true);
+    expect(Cart(lines: [line]).total, 22.63);
+  });
+
+  test('чек 1987: весовая 0,341 × 66 = 22,506 → 22,50', () {
+    expect(Cart(lines: [w(0.341, 66)]).total, 22.50);
+  });
+
+  test('чек 1986: весовая 22,638, скидка строки 0,07, скидка чека 15 % → подытог 22,63, скидка 3,45 (0,07 + 3,38), итог 19,18', () {
+    final line = CartLine(productId: 'w', name: 'Весовой', price: 66, qty: 0.343, isWeight: true, discount: 0.07);
+    final cart = Cart(lines: [line], orderDiscountPercent: 15);
+    expect(cart.subtotal, 22.63);
+    expect(cart.lineDiscounts, 0.07);
+    expect(cart.orderDiscount, 3.38);
+    expect(cart.lineDiscounts + cart.orderDiscount, closeTo(3.45, 1e-9));
+    expect(cart.total, 19.18);
   });
 
   test('чек 1980: то же со скидкой 10 % → скидка 2,26, итог 20,37', () {
@@ -62,17 +98,26 @@ void main() {
     expect(Cart(lines: [n(0.375, 3.80)], orderDiscountPercent: 10).total, 1.29);
   });
 
-  test('цена упаковки 100/3 не теряет точность: 3 × 33,33333333 = 100,00 (а не 99,99)', () {
+  test('цена 100/3: на сервер уходит `33.33` (два знака), поэтому 3 × 33,33 = 99,99 — телефон считает то же, что получит сервер', () {
     final price = 100 / 3;
-    expect(Cart(lines: [CartLine(productId: 'p', name: 'Штука', price: price, qty: 3)]).total, 100.0);
-    // три отдельные строки по одной штуке: сумма неокруглённых строк 99,99999999 → 100,00
-    final three = Cart(lines: [for (var i = 0; i < 3; i++) CartLine(productId: 'p$i', name: 'Штука', price: price, qty: 1)]);
-    expect(three.total, 100.0);
+    expect(Cart(lines: [CartLine(productId: 'p', name: 'Штука', price: price, qty: 3)]).total, 99.99);
   });
 
-  test('вес с 6 знаками: обычная 0,333333 × 3 = 0,999999 → 1,00; весовая — вниз 0,99', () {
+  test('вес считается с тремя знаками, как уходит на сервер: 0,333333 → 0,333; обычная 0,333 × 3 = 0,999 → 1,00; весовая — вниз 0,99', () {
     expect(Cart(lines: [n(0.333333, 3)]).total, 1.0);
     expect(Cart(lines: [w(0.333333, 3)]).total, 0.99);
+  });
+
+  test('М2-01: два взвешивания одного товара по одной цене (0,375 × 3,80 дважды) — как одна позиция 0,750: весовой итог 2,85', () {
+    expect(Cart(lines: [w(0.375, 3.80), w(0.375, 3.80)]).total, 2.85);
+  });
+
+  test('М2-01: акция «от 100 сом −10 %» на сумме двух взвешиваний по 60 сом: порог по сумме группы 120 → скидка 12,00, итог 108,00', () {
+    const promo = [PromoRule(minAmount: 100, percent: 10)];
+    CartLine weigh() => CartLine(productId: 'ap', name: 'Яблоки', price: 120, qty: 0.5, isWeight: true, promo: promo);
+    final cart = Cart(lines: [weigh(), weigh()]);
+    expect(cart.lineDiscounts, 12.0);
+    expect(cart.total, 108.0);
   });
 
   test('ручная скидка строки больше её суммы: строка не уходит в минус и не уменьшает другую', () {

@@ -27,7 +27,10 @@ public sealed partial class SyncService
 
         // Если чек уже уходил этим адресом (ответ мог потеряться), дослать его можно только им же —
         // даже при выключенном в настройках быстром пути.
-        if (!entry.QuickCheckoutAttempted && !UserPreferences.Instance.QuickCheckoutEnabled)
+        // 2026-11-01 (приёмка Ф-6, К2-07): чек старше суток старый путь провёл бы без даты продажи (сегодняшним числом), поэтому для него быстрый путь (с sold_at)
+        // используется и при выключенной настройке; на проверку уходят только чеки, которые сервер реально отклонил.
+        if (!entry.QuickCheckoutAttempted && !UserPreferences.Instance.QuickCheckoutEnabled
+            && DateTimeOffset.Now - entry.CreatedAt <= DatelessReplayMaxAge)
             return (false, null);
 
         if (_sales is not IPosQuickCheckoutApi quickApi)
@@ -118,6 +121,9 @@ public sealed partial class SyncService
     /// <summary>2026-11-01 (К-06): максимальный возраст офлайн-продажи, которую сервер принимает без подтверждения владельца (max_days в ответе Умара 31.10).</summary>
     internal static readonly TimeSpan ServerOfflineMaxAge = TimeSpan.FromDays(7);
 
+    /// <summary>2026-11-01 (К2-07): чек старше суток старым путём (без sold_at) не проводим — попал бы в CRM сегодняшним числом и в чужую смену.</summary>
+    internal static readonly TimeSpan DatelessReplayMaxAge = TimeSpan.FromHours(24);
+
     /// <summary>2026-11-01 (К-06): отказ «продажа старше 7 суток» (400, code offline_too_old; у старой версии сервера — текст про offline_created_at).</summary>
     internal static bool IsOfflineTooOld(ApiException ex, OfflineSaleEntry entry)
     {
@@ -142,6 +148,14 @@ public sealed partial class SyncService
     private static string TooOldReviewText(OfflineSaleEntry entry)
     {
         var date = entry.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm");
+        // 2026-11-01 (К2-07, контрольный аудит): чек 1–7 суток, который быстрый путь (с датой продажи) не принял, а старый путь даты не передаёт, — свой текст.
+        if (DateTimeOffset.Now - entry.CreatedAt <= ServerOfflineMaxAge)
+            return Tr.T(
+                $"Требует проверки: чек от {date} старше суток, а быстрый способ отправки (с датой продажи) сервер не принял; старый способ дату не передаёт — продажа попала бы в CRM сегодняшним числом. Чек и деньги сохранены. Проведите продажу на сайте с нужной датой и закройте этот чек кнопкой «Закрыть без отправки» либо нажмите «Повторить отправку», если причина отказа устранена.",
+                $"Текшерүү керек: {date} чеги бир суткадан эски, сервер сатуу датасы менен тез жөнөтүүнү кабыл албады; эски ыкма датаны бербейт — сатуу CRM'ге бүгүнкү күн менен түшмөк. Чек жана акча сакталды. Сатууну сайтта керектүү датасы менен өткөрүп, бул чекти «Жөнөтпөй жабуу» баскычы менен жабыңыз, же себеп жоюлса «Жөнөтүүнү кайталоо» басыңыз.",
+                $"Needs review: the receipt from {date} is more than a day old; the server did not accept the fast submission (with the sale date) and the old method does not pass the date — the sale would land in the CRM with today's date. The receipt and the money are kept. Post the sale on the website with the right date and close this receipt with “Close without sending”, or press “Retry sending” if the cause of the refusal is fixed.",
+                $"Kontrol gerekli: {date} tarihli fiş bir günden eski; sunucu satış tarihli hızlı gönderimi kabul etmedi, eski yöntem tarihi iletmiyor — satış CRM'e bugünün tarihiyle düşerdi. Fiş ve para saklandı. Satışı sitede doğru tarihle işleyin ve bu fişi «Göndermeden kapat» ile kapatın veya red nedeni giderildiyse «Göndermeyi tekrarla»'ya basın.",
+                $"Tekshirish kerak: {date} dagi chek bir kundan eski; server sotuv sanasi bilan tez yuborishni qabul qilmadi, eski usul sanani uzatmaydi — sotuv CRMga bugungi sana bilan tushardi. Chek va pul saqlandi. Sotuvni saytda kerakli sana bilan o'tkazing va bu chekni «Yubormasdan yopish» bilan yoping, yoki rad sababi bartaraf etilgan bo'lsa «Yuborishni takrorlash»ni bosing.");
         return Tr.T(
             $"Требует проверки: чек от {date} старше 7 суток, сервер не принимает такие продажи автоматически. Провести его «сегодняшним числом» нельзя — выручка попала бы не в тот день и не в ту смену. Чек и деньги сохранены. Проведите продажу на сайте с нужной датой (владелец/администратор) и закройте этот чек кнопкой «Закрыть без отправки».",
             $"Текшерүү керек: {date} чеги 7 суткадан эски, сервер мындай сатууларды автоматтык кабыл албайт. Аны «бүгүнкү күн менен» өткөрүүгө болбойт — түшүм башка күнгө жана башка сменага түшөт. Чек жана акча сакталды. Сатууну сайтта керектүү датасы менен өткөрүңүз (ээси/администратор) жана бул чекти «Жөнөтпөй жабуу» баскычы менен жабыңыз.",
@@ -152,7 +166,7 @@ public sealed partial class SyncService
 
     /// <summary>2026-11-01 (К-06): чек, который быстрый путь не взял, старше срока сервера — старым путём (он не передаёт sold_at) не проводим.</summary>
     private static bool IsTooOldForDatelessReplay(OfflineSaleEntry entry) =>
-        DateTimeOffset.Now - entry.CreatedAt > ServerOfflineMaxAge
+        DateTimeOffset.Now - entry.CreatedAt > DatelessReplayMaxAge
         && entry.CheckoutSubmittedAt is null
         && string.IsNullOrWhiteSpace(entry.SyncCartId);
 

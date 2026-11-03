@@ -130,7 +130,9 @@ public sealed class BulkReceivingFeeder
     public static int PrepareParallel { get; set; } = 8;
 
     /// <summary>Сколько частей одной пачки может одновременно стоять в очереди.</summary>
-    public static int MaxParallelParts { get; set; } = 2;
+    // 2026-11-01 (контрольный аудит, С2-14): было 2. Приход без поставщика пишет остаток «прочитанное + принятое»; один товар в строках двух частей (основной и доп. код)
+    // при параллельных частях терял прибавку. Части идут друг за другом, строки внутри части — параллельно (одинаковый товар внутри части уже идёт по очереди).
+    public static int MaxParallelParts { get; set; } = 1;
 
     /// <summary>Через сколько повторить постановку части, если очередь отказала (файл занят и т. п.) и подавать больше нечем будить.</summary>
     public static TimeSpan RetryPumpDelay { get; set; } = TimeSpan.FromSeconds(5);
@@ -502,8 +504,14 @@ public sealed class BulkReceivingFeeder
             {
                 var now = Account(b, p, job);
                 // Индекс переписывается после каждой части — тексты ошибок копим не бесконечно (счётчики остаются точными, сами строки — в задачах очереди).
+                // 2026-11-02 (аудит №2, С2-20): больше 2000 ошибок в пачке — тексты и названия не копим, но КОДЫ и номера строк оставляем всегда: иначе журнал считает такие строки загруженными
+                // (FoldReceipt берёт неудачные коды из этого списка) и повтор файла их не пошлёт. Пустой текст окно мастера показывает как «не загружено».
                 if (b.Parts.Where(r => r.Part != p).Sum(r => r.FailedRows.Count) >= MaxFailedRowsPerBatch)
-                    now.FailedRows.Clear();
+                    foreach (var f in now.FailedRows)
+                    {
+                        f.Name = "";
+                        f.Error = "";
+                    }
                 if (res is null || !SameResult(res, now))
                 {
                     if (res is not null)
@@ -783,9 +791,7 @@ public sealed class BulkReceivingFeeder
                 TryDelete(LinesPath(old.Id));
             }
             Directory.CreateDirectory(DataDir);
-            var tmp = IndexPath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(_batches, Json));
-            MoveWithRetry(tmp, IndexPath);
+            AtomicFile.WriteAllTextWithRetry(IndexPath, JsonSerializer.Serialize(_batches, Json)); // 2026-11-01 (Н2-01)
             return true;
         }
         catch (Exception ex)
@@ -801,9 +807,7 @@ public sealed class BulkReceivingFeeder
         {
             Directory.CreateDirectory(DataDir);
             var path = LinesPath(b.Id);
-            var tmp = path + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(b.Lines, Json));
-            MoveWithRetry(tmp, path);
+            AtomicFile.WriteAllTextWithRetry(path, JsonSerializer.Serialize(b.Lines, Json)); // 2026-11-01 (Н2-01)
             return true;
         }
         catch (Exception ex)

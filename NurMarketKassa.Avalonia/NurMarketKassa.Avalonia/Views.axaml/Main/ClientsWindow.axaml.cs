@@ -21,7 +21,7 @@ using NurMarketKassa.ViewModels;
 namespace NurMarketKassa.AvaloniaHost.Views;
 
 /// <summary>Клиентская база: просмотр, поиск и добавление клиентов (/api/main/clients/).</summary>
-public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSection
+public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSection, IOwnerSectionExcel
 {
     private readonly IClientsApiService _clientsApi;
     private readonly List<ClientRow> _allClients = new();
@@ -507,6 +507,26 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         }
     }
 
+    /// <summary>2026-11-02 (аудит №2, В-07): список клиентов для Excel (вся загруженная база, без фильтра поиска).</summary>
+    public SectionTable? BuildExportTable()
+    {
+        if (_allClients.Count == 0)
+            return null;
+        var rows = _allClients.OrderBy(c => c.FullName, StringComparer.CurrentCultureIgnoreCase)
+            .Select(c => new object?[] { c.FullName, c.Phone, c.Email, c.Address, c.DebtUnknown ? null : c.Debt, c.LoyaltyBalance,
+                c.CreatedAt == default ? null : c.CreatedAt.LocalDateTime.Date }).ToList();
+        return new SectionTable(Tr.T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar"), DateTime.Today.ToString("dd.MM.yyyy"),
+        [
+            new XlColumn(Tr.T("Клиент", "Кардар", "Customer", "Müşteri", "Mijoz")),
+            new XlColumn(Tr.T("Телефон", "Телефон", "Phone", "Telefon", "Telefon"), XlKind.Code),
+            new XlColumn("Email"),
+            new XlColumn(Tr.T("Адрес", "Дарек", "Address", "Adres", "Manzil")),
+            new XlColumn(Tr.T("Долг, сом", "Карыз, сом", "Debt, som", "Borç, som", "Qarz, so'm"), XlKind.Money, XlTotal.Sum),
+            new XlColumn(Tr.T("Бонусы, сом", "Бонус, сом", "Bonuses, som", "Bonus, som", "Bonus, so'm"), XlKind.Money, XlTotal.Sum),
+            new XlColumn(Tr.T("Создан", "Түзүлгөн", "Created", "Oluşturuldu", "Yaratilgan"), XlKind.Date),
+        ], rows);
+    }
+
     private bool CanSaveClient() =>
         !_isCardBusy
         && _selectedClient != null
@@ -549,8 +569,12 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         CardErrorMessage = "";
         try
         {
-            var updated = await _clientsApi
-                .UpdateClientAsync(client.Id, _editName, _editPhone, _editEmail, _editAddress)
+            // 2026-11-03 (С-06, В-17, аудит «зависание при медленном сервере»): не дольше 8 с (раньше до 55 с, карточка заперта). Правка клиента повторяема (PUT), поэтому
+            // по сроку запрос можно отпустить: кассир увидит «сервер отвечает медленно» и проверит карточку. Создание клиента не отпускаем — повтор мог бы завести дубль.
+            var clientId = client.Id;
+            var (editName, editPhone, editEmail, editAddress) = (_editName, _editPhone, _editEmail, _editAddress);
+            var updated = await ServerAnswerWait.ForegroundAsync("clients/update", t => _clientsApi
+                .UpdateClientAsync(clientId, editName, editPhone, editEmail, editAddress, t))
                 .ConfigureAwait(true);
 
             var row = ToClientRow(updated);
@@ -599,7 +623,9 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         CardErrorMessage = "";
         try
         {
-            await _clientsApi.DeleteClientAsync(client.Id).ConfigureAwait(true);
+            // 2026-11-03 (С-06, В-17): не дольше 8 с; удаление повторяемо.
+            var deleteId = client.Id;
+            await ServerAnswerWait.ForegroundAsync("clients/delete", t => _clientsApi.DeleteClientAsync(deleteId, t)).ConfigureAwait(true);
             _allClients.RemoveAll(c => c.Id == client.Id);
             ApplyFilter();
             SelectedClient = null;

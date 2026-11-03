@@ -261,12 +261,19 @@ public static partial class PriceTagService
     {
         if (BarcodeLabelService.IsRawDevicePath(request.PrinterName))
         {
+            BarcodeLabelService.ClearPartial(request.PrinterName);
             try
             {
                 using var tag = GenerateBitmap(request.Kind, request.Data, request.WidthMm, request.HeightMm);
                 // 2026-10-01: язык принтера, зазор и сдвиг — из калибровки этикеток (BarcodeLabelService).
                 BarcodeLabelService.SendRawLabel(request.PrinterName, tag, request.WidthMm, request.HeightMm, request.Copies);
                 return LabelPrintResult.Success;
+            }
+            catch (LabelSendException ex)
+            {
+                BarcodeLabelService.ReportPartial(request.PrinterName, ex.Sent, ex.Total);
+                PosLogger.Log($"Price tag raw device print interrupted: sent {ex.Sent} of {ex.Total}; no automatic retry.", "ERROR");
+                return LabelPrintResult.PartiallySent;
             }
             catch (Exception ex)
             {

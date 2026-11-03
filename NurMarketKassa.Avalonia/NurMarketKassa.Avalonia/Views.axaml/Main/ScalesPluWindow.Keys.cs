@@ -230,8 +230,8 @@ public partial class ScalesPluWindow
                 };
                 // 2026-10-22 (модалки, пакет 3): фон плитки — привязкой к теме (BrushSurfaceSubtle в теме нет — в тёмной теме
                 // пустые кнопки были светлыми WhiteSmoke).
-                tile.Bind(Button.BackgroundProperty, this.GetResourceObservable(row is null ? "BrushPanelSoft" : "BrushAccentSoft"));
-                tile.Bind(Button.ForegroundProperty, this.GetResourceObservable("BrushText"));
+                tile.Bind(Button.BackgroundProperty, tile.GetResourceObservable(row is null ? "BrushPanelSoft" : "BrushAccentSoft"));
+                tile.Bind(Button.ForegroundProperty, tile.GetResourceObservable("BrushText"));
                 tile.Click += async (_, _) =>
                 {
                     var picked = await PickProductAsync(window, k, row).ConfigureAwait(true);
@@ -257,8 +257,8 @@ public partial class ScalesPluWindow
         close.IsCancel = true;
         close.Click += (_, _) => window.Close();
 
-        hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
-        status.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
+        status.Bind(TextBlock.ForegroundProperty, status.GetResourceObservable("BrushText"));
         var top = new StackPanel { Spacing = 8 };
         top.Children.Add(hint);
         top.Children.Add(ScaleUi.Row(Tr.T("Кнопок на весах", "Таразадагы баскычтар", "Keys on the scale", "Tartıdaki tuşlar", "Tarozidagi tugmalar"), countBox, 200));

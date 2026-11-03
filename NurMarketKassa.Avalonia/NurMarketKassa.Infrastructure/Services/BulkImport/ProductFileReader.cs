@@ -224,7 +224,7 @@ public static class ProductFileReader
             var part = (WorksheetPart)book.GetPartById(chosen.Id!.Value!);
 
             var warnings = new List<string>();
-            var rows = ReadSheet(part, sst, warnings, out var columns);
+            var rows = ReadSheet(part, sst, ReadStyles(book), warnings, out var columns);
             if (rows is null)
                 return TooManyRows();
 
@@ -291,7 +291,47 @@ public static class ProductFileReader
     }
 
     /// <summary>null — строк больше предела.</summary>
-    private static List<ProductFileRow>? ReadSheet(WorksheetPart part, List<string> sst, List<string> warnings, out int columns)
+    /// <summary>2026-11-02 (аудит №2, С2-19 / С2-30): форматы ячеек .xlsx. Число с форматом «00000000» (ведущие нули) читается с нулями — штрихкод EAN-8 «01234567» не теряет ноль;
+    /// число с форматом «%» хранится долей (0,25) — читается как 25.</summary>
+    private sealed record CellStyles(Dictionary<uint, int> ZeroPad, HashSet<uint> Percent)
+    {
+        public static readonly CellStyles None = new(new Dictionary<uint, int>(), new HashSet<uint>());
+    }
+
+    private static CellStyles ReadStyles(WorkbookPart book)
+    {
+        try
+        {
+            if (book.WorkbookStylesPart?.Stylesheet is not { } sheet || sheet.CellFormats is null)
+                return CellStyles.None;
+            var codes = new Dictionary<uint, string>();
+            if (sheet.NumberingFormats is not null)
+                foreach (var nf in sheet.NumberingFormats.Elements<NumberingFormat>())
+                    if (nf.NumberFormatId?.Value is { } id)
+                        codes[id] = nf.FormatCode?.Value ?? "";
+            var pad = new Dictionary<uint, int>();
+            var percent = new HashSet<uint>();
+            uint index = 0;
+            foreach (var xf in sheet.CellFormats.Elements<CellFormat>())
+            {
+                var id = xf.NumberFormatId?.Value ?? 0;
+                var code = codes.TryGetValue(id, out var c) ? c : "";
+                if (id is 9 or 10 || code.Contains('%'))
+                    percent.Add(index);
+                else if (code.Length >= 4 && code.All(ch => ch == '0'))
+                    pad[index] = code.Length;
+                index++;
+            }
+            return new CellStyles(pad, percent);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Файл товаров: форматы ячеек не прочитаны ({ex.Message}).", "WARNING");
+            return CellStyles.None;
+        }
+    }
+
+    private static List<ProductFileRow>? ReadSheet(WorksheetPart part, List<string> sst, CellStyles styles, List<string> warnings, out int columns)
     {
         var rows = new List<ProductFileRow>();
         columns = 0;
@@ -331,7 +371,7 @@ public static class ProductFileReader
                         nextCol = col + 1;
                         if (++cellsSeen > MaxCells)
                             throw new ReadLimitException("cells");
-                        var text = CellText(cell, sst, out var numeric, ref formulaNoValue, ref errorCells);
+                        var text = CellText(cell, sst, styles, out var numeric, ref formulaNoValue, ref errorCells);
                         if (text.Length == 0)
                             continue;
                         any = true;
@@ -375,7 +415,7 @@ public static class ProductFileReader
         return rows;
     }
 
-    private static string CellText(Cell cell, List<string> sst, out bool numeric, ref int formulaNoValue, ref int errorCells)
+    private static string CellText(Cell cell, List<string> sst, CellStyles styles, out bool numeric, ref int formulaNoValue, ref int errorCells)
     {
         numeric = false;
         var type = cell.DataType?.Value;
@@ -403,7 +443,13 @@ public static class ProductFileReader
         }
 
         numeric = true;
-        return FormatNumber(raw);
+        var style = cell.StyleIndex?.Value;
+        if (style is { } si && styles.Percent.Contains(si) && double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var fraction))
+            return FormatNumber((fraction * 100).ToString("R", CultureInfo.InvariantCulture)); // 0,25 с форматом «%» → «25»
+        var text = FormatNumber(raw);
+        if (style is { } zi && styles.ZeroPad.TryGetValue(zi, out var width) && text.Length > 0 && text.Length < width && text.All(char.IsAsciiDigit))
+            text = text.PadLeft(width, '0'); // формат «00000000»: ведущие нули штрихкода на месте
+        return text;
     }
 
     /// <summary>Число из .xlsx без экспоненты: 4600000000001 остаётся «4600000000001» (не «4,6E+12»), а 0,30000000000000004 → «0.3».</summary>

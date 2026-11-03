@@ -93,6 +93,7 @@ public sealed partial class InvoiceDocumentWindow
         {
             r.SetQtySilently(r.OrigQty);
             r.ResetPrice();
+            r.ResetPurchase(); // цена закупки, наценка, итог и подсветка возвращаются к исходным
             r.ErrorText = null;
             r.Min = null;
         }
@@ -131,7 +132,7 @@ public sealed partial class InvoiceDocumentWindow
     private List<AddedItem> AddedItems() =>
         _rows.Where(r => r.IsPendingAdd && r.Qty > 0.0005 && r.ProductId.Length > 0).Select(r => new AddedItem(r.ProductId, r.Name, r.Unit, r.Qty, r.Purchase)).ToList();
 
-    private static string N3(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+    private static string N3(double v) => v.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture); // 2026-11-01: закупка — до 4 знаков
 
     /// <summary>2026-11-01: что отправить серверным PATCH — изменённые строки (количество / закупка / цена продажи / добавить / удалить) и реквизиты накладной + «было → стало» по каждому полю для журнала.</summary>
     private PatchPlan BuildPatchPlan()
@@ -181,7 +182,9 @@ public sealed partial class InvoiceDocumentWindow
         PatchHeader? header = null;
         if (_header is { } h)
         {
-            header = new PatchHeader(h.SupplierId, h.DocNumber, h.DocDate, h.Comment, h.PayType, h.Paid, h.Discount, h.DiscountPercent);
+            // 2026-11-02 (С2-23): способ оплаты, совпадающий с текущим (кроме смены суммы «Частично»), не отправляем — повторное «В долг» не создаст второй долг
+            var payType = h.PayType is { Length: > 0 } pt && pt == (_r.PaymentType ?? "").Trim().ToLowerInvariant() && !(pt == "partial" && h.Paid is { } pd0 && Math.Abs(pd0 - _r.PaidAmount) > 0.005) ? null : h.PayType;
+            header = new PatchHeader(h.SupplierId, h.DocNumber, h.DocDate, h.Comment, payType, payType is null ? null : h.Paid, h.Discount, h.DiscountPercent);
             ReceiptEditAuditField H(string field, string was, string now) => new() { Field = field, Subject = T("Накладная", "Накладной", "Invoice", "Fatura", "Yuk xati"), Before = was, After = now };
             if (h.SupplierId is not null)
                 diffs.Add(H("supplier", _r.SupplierName, h.SupplierName ?? h.SupplierId));
@@ -191,14 +194,22 @@ public sealed partial class InvoiceDocumentWindow
                 diffs.Add(H("document_date", _r.SupplierDocDate?.ToString("dd.MM.yyyy") ?? "—", dd.ToString("dd.MM.yyyy")));
             if (h.Comment is not null)
                 diffs.Add(H("comment", _r.Comment, h.Comment));
-            if (h.PayType is not null)
-                diffs.Add(H("payment", PayText(), h.PayType + (h.Paid is { } pd ? $" ({N3(pd)})" : "")));
+            if (payType is not null)
+                diffs.Add(H("payment", PayText(), payType + (h.Paid is { } pd ? $" ({N3(pd)})" : "")));
             if (h.Discount is { } dsc)
                 diffs.Add(H("discount", N3(_r.Discount), N3(dsc)));
             if (h.DiscountPercent is { } dsp)
                 diffs.Add(H("discount", N3(_r.DiscountPercent) + " %", N3(dsp) + " %"));
         }
-        return new PatchPlan(header, lines, diffs, _r.Total, Math.Round(_r.Total + after - before, 2), _r.Version, _caps.SalePrice);
+        // 2026-11-02 (живая проверка круга 3): итог учитывает скидку накладной (сумма discount или процент discount_percent). Разница «было → станет» считается по суммам
+        // за вычетом скидки: прежняя скидка — от суммы строк при открытии, новая — из «Реквизитов» (сумма или процент), а если её не меняли — та же (процент пересчитывается от новой суммы).
+        double DiscountOf(double subtotal, double amount, double percent) => Math.Min(Math.Max(0, subtotal), amount > 0 ? amount : subtotal * Math.Clamp(percent, 0, 100) / 100);
+        var discountBefore = DiscountOf(before, _r.Discount, _r.DiscountPercent);
+        var discountAfter = _header?.Discount is { } newAmount ? DiscountOf(after, newAmount, 0)
+            : _header?.DiscountPercent is { } newPercent ? DiscountOf(after, 0, newPercent)
+            : DiscountOf(after, _r.Discount, _r.DiscountPercent);
+        var totalAfter = Math.Round(_r.Total + (after - discountAfter) - (before - discountBefore), 2);
+        return new PatchPlan(header, lines, diffs, _r.Total, totalAfter, _r.Version, _caps.SalePrice);
     }
 
     /// <summary>«Реквизиты…»: поставщик, номер и дата накладной поставщика, комментарий, оплата, скидка — уйдут вместе с остальной правкой одним PATCH.</summary>
@@ -381,7 +392,8 @@ public sealed partial class InvoiceDocumentWindow
 
             var dialog = new InvoiceEditPreviewDialog(plan, PayForEdit, _docNumber, _r, _supplier?.Name ?? _r.SupplierName, _baseVersion, _revertOf > 0, VerifyOwnerPasswordAsync,
                 priced.Select(p => ReceiptEditAuditLog.FieldText(new ReceiptEditAuditField { Field = "sale_price", Subject = p.Name, Before = p.SaleBefore?.ToString("0.##") ?? "?", After = p.SaleAfter.ToString("0.##") })
-                    + (p.MarkupAfter is { } mk ? $" ({T("наценка", "үстөк", "markup", "kâr", "ustama")} {p.MarkupBefore?.ToString("0.#") ?? "?"} → {mk:0.#} %)" : "")).Concat(patch is null ? Array.Empty<string>() : patch.Diffs.Where(d => d.Field is not ("quantity" or "removed" or "added_item")).Select(ReceiptEditAuditLog.FieldText)).ToList(), addedRows, patch);
+                    + (p.MarkupAfter is { } mk ? $" ({T("наценка", "үстөк", "markup", "kâr", "ustama")} {p.MarkupBefore?.ToString("0.#") ?? "?"} → {mk:0.#} %)" : "")).Concat(patch is null ? Array.Empty<string>() : patch.Diffs.Where(d => d.Field is not ("quantity" or "removed" or "added_item")).Select(ReceiptEditAuditLog.FieldText)).ToList(), addedRows, patch, patch is null ? null : _rows.Where(r => !r.ReadOnlyRow && !r.IsPendingAdd && r.Input is not null && (r.Changed || r.PurchaseChanged || r.SaleChanged))
+                    .Select(r => new PreviewRow(r.Name, r.OrigQty, r.Qty - r.OrigQty, r.Qty, r.Stock, ReceivingPricing.LineTotal(r.Qty, r.Purchase) - ReceivingPricing.LineTotal(r.OrigQty, r.OrigPurchase))).ToList());
             await PosDialogHost.ShowAsync(dialog, this).ConfigureAwait(true);
             if (dialog.Result is not { } result)
                 return;
@@ -515,8 +527,8 @@ public sealed partial class InvoiceDocumentWindow
             T("Отказаться от правки", "Оңдоодон баш тартуу", "Abandon the edit", "Düzenlemeden vazgeç", "Tahrirdan voz kechish"), T("Оставить", "Калтыруу", "Keep it", "Kalsın", "Qoldirish"), PosConfirmAccent.Danger).ConfigureAwait(true);
         if (!go)
             return;
-        var pwd = new OwnerPasswordDialog(T("Подтверждение владельца", "Ээсинин ырастоосу", "Owner confirmation", "Sahip onayı", "Egasi tasdig'i"),
-            T("Введите пароль владельца NurCRM.", "NurCRM ээсинин сырсөзүн киргизиңиз.", "Enter the NurCRM owner's password.", "NurCRM sahibinin parolasını girin.", "NurCRM egasi parolini kiriting."), VerifyOwnerPasswordAsync);
+        var pwd = new OwnerPasswordDialog(T("Подтверждение паролем", "Сырсөз менен ырастоо", "Password confirmation", "Parolayla onay", "Parol bilan tasdiqlash"),
+            T("Введите пароль своей учётной записи NurCRM.", "Өз NurCRM эсебиңиздин сырсөзүн киргизиңиз.", "Enter the password of your NurCRM account.", "NurCRM hesabınızın parolasını girin.", "NurCRM hisobingiz parolini kiriting."), VerifyOwnerPasswordAsync);
         await PosDialogHost.ShowAsync(pwd, this).ConfigureAwait(true);
         if (!pwd.Confirmed)
             return;
@@ -559,8 +571,8 @@ public sealed partial class InvoiceDocumentWindow
             return;
         }
         // 2026-10-30 (приёмка 1.17.66, 3ж): проверка пароля — асинхронно, с таймаутом 8 с и индикатором (раньше .GetResult() замораживал окно до 55 с и писал «пароль неверный»).
-        var pwd = new OwnerPasswordDialog(T("Подтверждение владельца", "Ээсинин ырастоосу", "Owner confirmation", "Sahip onayı", "Egasi tasdig'i"),
-            T("Введите пароль владельца NurCRM.", "NurCRM ээсинин сырсөзүн киргизиңиз.", "Enter the NurCRM owner's password.", "NurCRM sahibinin parolasını girin.", "NurCRM egasi parolini kiriting."), VerifyOwnerPasswordAsync);
+        var pwd = new OwnerPasswordDialog(T("Подтверждение паролем", "Сырсөз менен ырастоо", "Password confirmation", "Parolayla onay", "Parol bilan tasdiqlash"),
+            T("Введите пароль своей учётной записи NurCRM.", "Өз NurCRM эсебиңиздин сырсөзүн киргизиңиз.", "Enter the password of your NurCRM account.", "NurCRM hesabınızın parolasını girin.", "NurCRM hisobingiz parolini kiriting."), VerifyOwnerPasswordAsync);
         await PosDialogHost.ShowAsync(pwd, this).ConfigureAwait(true);
         if (!pwd.Confirmed)
             return;

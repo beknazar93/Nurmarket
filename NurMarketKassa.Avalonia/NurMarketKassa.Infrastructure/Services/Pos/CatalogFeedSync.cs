@@ -234,7 +234,7 @@ public sealed class CatalogFeedSync
         catch (ApiException ex) when (ex.StatusCode == 429)
         {
             var wait = ApiThrottle.RemainingBlock > ThrottlePause ? ApiThrottle.RemainingBlock : ThrottlePause;
-            Pause(wait, $"сервер ответил 429 — пауза {wait.TotalSeconds:0} с");
+            Pause(wait, $"сервер ответил 429 — пауза {wait.TotalSeconds:0} с", failure: false);
         }
         catch (ApiException ex) when (ex.StatusCode == 410)
         {
@@ -283,9 +283,17 @@ public sealed class CatalogFeedSync
             PosLogger.Log($"CATALOG_FEED: за 5 минут опросов без изменений: 304 — {n304}, пустых 200 — {empty}; запросов к серверу — {requests} (≈{requests / 5.0:0.#} в минуту).", "CATALOG_FEED");
     }
 
-    private void Pause(TimeSpan span, string why)
+    /// <summary>2026-11-02 (Н3-01): когда лента в последний раз сорвалась по-настоящему (ошибка, 410, отказ, «не поддерживается»), — 429 («сервер занят») не в счёт.
+    /// Страховочная полная загрузка каталога (AvaloniaCatalogCacheService.FullReloadInterval) делается редко, только пока лента давно без ошибок.</summary>
+    public DateTime LastFailureUtc => _lastFailureUtc;
+
+    private DateTime _lastFailureUtc = DateTime.MinValue;
+
+    private void Pause(TimeSpan span, string why, bool failure = true)
     {
         _pausedUntilUtc = DateTime.UtcNow + span;
+        if (failure)
+            _lastFailureUtc = DateTime.UtcNow;
         // В журнал — только когда причина новая: опрос идёт каждые 8 секунд, одинаковые строки не нужны.
         if (!string.Equals(_lastLoggedProblem, why, StringComparison.Ordinal))
         {
@@ -348,9 +356,7 @@ public sealed class CatalogFeedSync
                 ETagCursor = _etagCursor,
                 SavedUtc = DateTime.UtcNow,
             });
-            var tmp = StorePath + ".tmp";
-            File.WriteAllText(tmp, json);
-            File.Move(tmp, StorePath, overwrite: true);
+            AtomicFile.WriteAllText(StorePath, json); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -388,11 +394,18 @@ public sealed class CatalogFeedSync
         var repo = LocalProductRepository.Instance;
         var tiles = new List<CatalogProductTileVm>();
         var patches = new List<LocalProductRepository.FeedFieldPatch>();
+        List<string>? archivedIds = null;
         foreach (var item in page.Items)
         {
             var id = ProductCatalogMapper.TryId(item);
             if (string.IsNullOrEmpty(id))
                 continue;
+            // 2026-11-01 (контрольный аудит, С2-11): товар отправлен в архив на сервере — убираем его из каталога кассы (не показываем и не продаём).
+            if (ProductCatalogMapper.IsArchived(item))
+            {
+                (archivedIds ??= new List<string>()).Add(id);
+                continue;
+            }
             var stockOk = allowStock && (allowStockFor?.Invoke(id) ?? true);
             if (!stockOk)
                 NoteStockSkipped(id); // 2026-11-01 (расследование «остаток не меняется», п. 6): диагностика
@@ -423,7 +436,7 @@ public sealed class CatalogFeedSync
         }
 
         PromotionRules.SaveIfDirty();
-        var result = repo.ApplyFeedChanges(tiles, patches, page.DeletedIds);
+        var result = repo.ApplyFeedChanges(tiles, patches, archivedIds is null ? page.DeletedIds : page.DeletedIds.Concat(archivedIds).ToList());
         return new ApplyOutcome(result.Added, result.Changed, result.Deleted, result.MissingIds.Count > 0);
     }
 
@@ -431,6 +444,17 @@ public sealed class CatalogFeedSync
     /// Ключ есть и пуст (сервер сознательно очистил) — применяется как пришло.</summary>
     internal static void KeepLocalForAbsentFields(JsonElement item, CatalogProductTileVm tile, CatalogProductTileVm local)
     {
+        // 2026-11-01 (живая проверка 1.17.72, Б-2): сокращённая карточка ленты после продажи без единицы и признака «весовой» превращала весовой товар
+        // в штучный («шт.», пропадало окно взвешивания). Нет НИ ОДНОГО ключа единицы/веса — берём единицу и признак из локальной записи
+        // (ключ пришёл — применяется как пришло, сервер мог сознательно сменить единицу).
+        // 2026-11-01 (приёмка Ф-4): ключи type/product_type/sale_kind в список не входят — они бывают в сокращённой карточке и без единицы; учитываем их, только если значение говорит о весе.
+        if (!HasAnyKey(item, UnitAndWeightKeys) && !CartDisplayHelper.ProductMustWeigh(item))
+        {
+            tile.MustWeigh = local.MustWeigh;
+            tile.Unit = local.Unit;
+            StockSyncService.ApplyQuantityToTile(tile, tile.Quantity, tile.MustWeigh); // подпись остатка («кг»/«шт.») по восстановленному признаку
+        }
+
         if (!item.TryGetProperty("kind", out _))
         {
             tile.Kind = local.Kind;
@@ -468,6 +492,8 @@ public sealed class CatalogFeedSync
             tile.MarkupPercent = local.MarkupPercent;
         if (!item.TryGetProperty("description", out _))
             tile.Description = local.Description;
+        if (!item.TryGetProperty("is_weight", out _))
+            tile.ServerIsWeight = local.ServerIsWeight; // 2026-11-01 (is_weight): сокращённая карточка признак не затирает
         if (!item.TryGetProperty("wholesale_price", out _))
             tile.WholesalePrice = local.WholesalePrice;
         if (!item.TryGetProperty("discount_percent", out _))
@@ -480,6 +506,22 @@ public sealed class CatalogFeedSync
             tile.Category = local.Category;
         if (!item.TryGetProperty("brand", out _))
             tile.Brand = local.Brand;
+    }
+
+    /// <summary>2026-11-01 (Б-2): ключи, по которым карточка определяет единицу и «весовой» (см. CartDisplayHelper.ProductMustWeigh / ProductCatalogMapper).</summary>
+    private static readonly string[] UnitAndWeightKeys =
+    [
+        "is_wait", "is_weigh", "is_weight", "is_weight_product", "sale_as_weight", "sells_by_weight",
+        "unit", "unit_display", "measure_unit", "sale_unit", "uom", "unit_code", "uom_code", "sale_unit_code",
+        "measurement_unit", "primary_unit", "default_unit", "base_unit", "pricing_unit", "stock_unit", "weight_unit",
+    ];
+
+    private static bool HasAnyKey(JsonElement item, string[] keys)
+    {
+        foreach (var key in keys)
+            if (item.TryGetProperty(key, out _))
+                return true;
+        return false;
     }
 
     private static bool HasName(JsonElement item)

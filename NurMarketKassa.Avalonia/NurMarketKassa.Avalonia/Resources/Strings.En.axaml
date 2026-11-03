@@ -1513,4 +1513,11 @@
   <x:String x:Key="warehouse.refresh">Refresh</x:String>
   <x:String x:Key="warehouse.refreshTooltip">Reload products and stock from the server</x:String>
   <x:String x:Key="product.globalScanHint">Scan the product barcode: if it is in the NurCRM base, the name, category and brand fill in by themselves — just enter the prices and quantity. Not in the base — fill it in manually.</x:String>
+  <!-- 2026-11-02 (аудит №2, Д2-05): подписи весов и подсказка окна входа — в словарях (раньше по-русски в XAML). -->
+  <x:String x:Key="scaleSetup.extraScalesTitle">Additional scales</x:String>
+  <x:String x:Key="scaleSetup.scale2">Scale 2</x:String>
+  <x:String x:Key="scaleSetup.scale3">Scale 3</x:String>
+  <x:String x:Key="scaleSetup.poleDisplayType">Display type</x:String>
+  <x:String x:Key="scaleSetup.findPoleDisplay">Find display</x:String>
+  <x:String x:Key="csh.login.supportTooltip">Open the support window</x:String>
 </ResourceDictionary>

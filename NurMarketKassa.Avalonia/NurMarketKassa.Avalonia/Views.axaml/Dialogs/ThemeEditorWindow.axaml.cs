@@ -172,10 +172,10 @@ public partial class ThemeEditorWindow : Window
                 Width = 28, Height = 28, CornerRadius = new CornerRadius(6), BorderThickness = new Thickness(1),
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            swatch.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushBorderStrong"));
+            swatch.Bind(Border.BorderBrushProperty, swatch.GetResourceObservable("BrushBorderStrong"));
             var label = new TextBlock { Text = KeyLabel(key), FontSize = 13, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(10, 0, 8, 0) };
             ToolTip.SetTip(label, KeyLabel(key));
-            label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushText"));
             var hex = new TextBox { Tag = key };
             hex.Classes.Add("te-hex");
             hex.TextChanged += Hex_TextChanged;
@@ -236,7 +236,7 @@ public partial class ThemeEditorWindow : Window
                     FontSize = 13, FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis,
                     Margin = new Thickness(10, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
                 };
-                name.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+                name.Bind(TextBlock.ForegroundProperty, name.GetResourceObservable("BrushText"));
                 var content = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
                 content.Children.Add(swatches);
                 Grid.SetColumn(name, 1);

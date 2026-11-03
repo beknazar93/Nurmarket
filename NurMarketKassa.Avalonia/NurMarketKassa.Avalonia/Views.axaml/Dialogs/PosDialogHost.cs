@@ -133,12 +133,24 @@ public static class PosDialogHost
     /// <summary>2026-10-04, Android-касса: модальный диалог из async-кода. В Windows — тот же
     /// синхронный <see cref="Show"/> (вложенный цикл, результат готов сразу, поведение прежнее);
     /// на Android — честное ожидание без вложенного цикла (<see cref="ShowAsync"/>).</summary>
-    public static Task<bool?> ShowModalAsync(Window dialog, Window? owner)
+    public static
+#if NURANDROID
+        Task<bool?>
+#else
+        async Task<bool?>
+#endif
+        ShowModalAsync(Window dialog, Window? owner)
     {
 #if NURANDROID
         return ShowAsync(dialog, owner);
 #else
-        return Task.FromResult(Show(dialog, owner));
+        // 2026-11-02 (аудит №2, Д3-01): раньше здесь сразу запускался вложенный цикл (Show) — внутри обработчика Click. Нажатие через UIA
+        // (экранный диктор, касание) — IInvokeProvider.Invoke, он ждёт возврата обработчика, а тот не возвращался, пока окно открыто:
+        // диктор «замолкал», дерево окна было недоступно. Теперь вызывающий (его await) возвращает управление сразу, а окно открывается
+        // следующим проходом цикла диспетчера (Task.Yield). Само окно и результат — прежние (тот же Show), порядок действий после
+        // закрытия не менялся.
+        await Task.Yield();
+        return Show(dialog, owner);
 #endif
     }
 

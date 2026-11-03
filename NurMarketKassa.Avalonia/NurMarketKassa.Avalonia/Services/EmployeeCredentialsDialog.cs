@@ -47,7 +47,7 @@ public sealed class EmployeeCredentialsDialog : Window
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto") };
 
         var caption = new TextBlock { Text = label, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 8) };
-        caption.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        caption.Bind(TextBlock.ForegroundProperty, caption.GetResourceObservable("BrushTextSoft"));
         Grid.SetColumnSpan(caption, 2);
         var valueBox = SectionCards.Field(new TextBox { Text = value, IsReadOnly = true });
         Avalonia.Automation.AutomationProperties.SetName(valueBox, label);

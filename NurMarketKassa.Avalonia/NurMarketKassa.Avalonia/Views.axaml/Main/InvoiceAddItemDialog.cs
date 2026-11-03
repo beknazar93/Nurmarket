@@ -44,7 +44,7 @@ internal sealed class InvoiceAddItemDialog : Window
         TextBlock Line(string text, string brush = "BrushText", double size = 13, FontWeight? w = null)
         {
             var t = new TextBlock { Text = text, FontSize = size, TextWrapping = TextWrapping.Wrap, FontWeight = w ?? FontWeight.Normal };
-            t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
+            t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable(brush));
             return t;
         }
         // Простыми словами: что произойдёт.
@@ -67,14 +67,14 @@ internal sealed class InvoiceAddItemDialog : Window
             var sp = new StackPanel { Margin = new Thickness(6, 4) };
             sp.Children.Add(new TextBlock { Text = p?.Title ?? "", FontSize = 13.5, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
             var sub = new TextBlock { Text = string.Join(" · ", new[] { p?.Barcode, p?.ProductCode ?? p?.Article }.Where(s => !string.IsNullOrWhiteSpace(s))), FontSize = 12 };
-            sub.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            sub.Bind(TextBlock.ForegroundProperty, sub.GetResourceObservable("BrushTextSoft"));
             sp.Children.Add(sub);
             return sp;
         }, true);
         _list.SelectionChanged += (_, _) =>
         {
             if (_list.SelectedItem is CatalogProductTileVm p && p.PurchasePrice > 0 && string.IsNullOrWhiteSpace(_price.Text))
-                _price.Text = p.PurchasePrice.ToString("0.##");
+                _price.Text = p.PurchasePrice.ToString("0.####"); // 2026-11-02 (С3-07): закупка до 4 знаков
             Check();
         };
         panel.Children.Add(_list);

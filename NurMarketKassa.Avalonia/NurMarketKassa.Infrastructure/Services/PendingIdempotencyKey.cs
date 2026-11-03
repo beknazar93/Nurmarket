@@ -18,6 +18,9 @@ public sealed class PendingIdempotencyKey
     /// ключом — повтор. Отказ 409 «больше положенного» на таком повторе может значить «первый запрос на самом деле прошёл».</summary>
     public bool HasUnansweredAttempt => _key != null && _unanswered;
 
+    /// <summary>2026-11-02 (аудит №2, К2-09): текущий ключ (без создания нового) — чтобы спросить сервер, прошла ли операция с этим ключом (GET idempotency/{key}/).</summary>
+    public string? PeekKey => _key;
+
     public PendingIdempotencyKey(TimeSpan? lifetime = null) => _lifetime = lifetime;
 
     private bool IsAlive => _key != null && (_lifetime is not { } life || DateTime.UtcNow - _createdUtc <= life);

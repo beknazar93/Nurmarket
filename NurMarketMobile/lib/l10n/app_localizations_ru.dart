@@ -2167,6 +2167,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get kindSale => 'Продажа';
 
   @override
+  String get payInProgressScan =>
+      'Идёт оплата — дождитесь ответа, потом отсканируйте товар';
+
+  @override
+  String updMobileWarn(String mb) {
+    return 'Файл около $mb МБ, вы не в Wi‑Fi — скачать?';
+  }
+
+  @override
+  String get returnedPartly => 'Возвращён частично';
+
+  @override
   String returnNetTotal(String sum) {
     return 'Итог чека после возвратов: $sum сом';
   }

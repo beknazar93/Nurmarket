@@ -359,7 +359,7 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
         double.TryParse(Str(e, name), NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0;
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }
 
 /// <summary>«Новый возврат поставщику»: поставщик → приход или склад → количество по строкам → причина, деньги, комментарий.
@@ -743,7 +743,7 @@ public sealed class SupplierReturnDialog : Window
             {
                 ["product_id"] = r.ProductId,
                 ["qty"] = qty.ToString("0.###", CultureInfo.InvariantCulture),
-                ["purchase_price"] = r.Price.ToString("0.###", CultureInfo.InvariantCulture),
+                ["purchase_price"] = r.Price.ToString("0.####", CultureInfo.InvariantCulture),
             };
             if (r.ReceiptItemId is { Length: > 0 } rid)
                 item["receipt_item_id"] = rid;
@@ -807,5 +807,5 @@ public sealed class SupplierReturnDialog : Window
     private void HideError() => _error.IsVisible = false;
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

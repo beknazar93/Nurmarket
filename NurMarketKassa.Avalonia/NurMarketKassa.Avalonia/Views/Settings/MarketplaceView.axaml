@@ -10,19 +10,11 @@
   <UserControl.Styles>
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
 
+    <!-- 2026-11-01 (контрольный аудит, Д-04): цвет, рамка, радиус, курсор и наведение «главной» — из общего Button.btn-primary (PosDialogStyles); здесь только размеры страницы. -->
     <Style Selector="Button.btn-primary">
-      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
     </Style>
 
     <!-- 2026-10-19, этап О7: второстепенные — обводкой цветом текста (были серые с бледным текстом). -->
@@ -103,7 +95,7 @@
       <Setter Property="RenderTransform" Value="translate(0px, 1px)"/>
     </Style>
     <Style Selector="Button.mp-tile:focus-visible Border.mp-tile-card">
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushFocus}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
       <Setter Property="BorderThickness" Value="2"/>
       <Setter Property="Padding" Value="11"/>
     </Style>

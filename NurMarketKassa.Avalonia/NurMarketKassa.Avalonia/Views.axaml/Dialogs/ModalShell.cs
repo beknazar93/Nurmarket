@@ -99,6 +99,129 @@ public class ModalShell : ContentControl
         }
     }
 
+    // ── 2026-11-03 (С-01, аудит «зависание при медленном сервере»): ожидание сервера в окне — со сроком, надписью и «Отменить ожидание» ──────────────────────────────────
+    private Border? _serverWaitBar;
+    private TextBlock? _serverWaitText;
+    private Button? _serverWaitCancel;
+    private CancellationTokenSource? _serverCts;
+    private DispatcherTimer? _serverTimer;
+    private DateTime _serverWaitStartedUtc;
+    private bool _serverWaitShown;
+
+    /// <summary>Идёт ожидание ответа сервера, начатое <see cref="RunServerAsync"/> (токен окна жив).</summary>
+    public bool IsServerWaiting => _serverCts is { IsCancellationRequested: false };
+
+    /// <summary>2026-11-03 (С-01): как <see cref="RunBusyAsync"/>, но с токеном окна: окно занято, через 3 с без ответа сервера в подвале появляется «Ждём ответ сервера NurCRM… N с»
+    /// и «Отменить ожидание» (✕ и Esc делают то же); закрытие окна тоже отменяет токен. <paramref name="action"/> получает токен и обычно вызывает
+    /// <see cref="NurMarketKassa.Services.ServerAnswerWait.ForegroundAsync{T}"/> с <paramref name="onSlow"/> = <see cref="ServerSlowChanged"/>. Отмена пользователем — тихий выход (true).
+    /// false — окно уже занято.</summary>
+    public async Task<bool> RunServerAsync(Func<CancellationToken, Task> action)
+    {
+        if (!TryBeginBusy())
+            return false;
+        using var cts = new CancellationTokenSource();
+        _serverCts = cts;
+        try
+        {
+            await action(cts.Token).ConfigureAwait(true);
+            return true;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            return true; // «Отменить ожидание» / закрытие окна — не ошибка
+        }
+        finally
+        {
+            HideServerWait();
+            _serverCts = null;
+            EndBusy();
+        }
+    }
+
+    /// <summary>2026-11-03 (С-01): обработчик для <c>onSlow</c> у <c>ServerAnswerWait.ForegroundAsync</c> — можно вызывать из любого потока.</summary>
+    public void ServerSlowChanged(bool slow)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            ApplyServerSlow(slow);
+        else
+            Dispatcher.UIThread.Post(() => ApplyServerSlow(slow));
+    }
+
+    private void ApplyServerSlow(bool slow)
+    {
+        if (_serverCts is null)
+            return; // окно уже не ждёт сервер
+        if (!slow)
+        {
+            HideServerWait();
+            return;
+        }
+
+        if (_serverWaitBar is null || _serverWaitText is null)
+            return;
+        _serverWaitStartedUtc = DateTime.UtcNow - NurMarketKassa.Services.ServerAnswerWait.SlowNoticeAfter;
+        _serverWaitShown = true;
+        if (_serverWaitCancel is not null)
+            _serverWaitCancel.Content = ServerWaitCancelText;
+        UpdateServerWaitText();
+        _serverWaitBar.IsVisible = true;
+        // ✕ снова доступен: во время ожидания он = «Отменить ожидание».
+        if (_closeButton is not null)
+            _closeButton.IsEnabled = true;
+        _serverTimer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _serverTimer.Tick -= ServerTimer_Tick;
+        _serverTimer.Tick += ServerTimer_Tick;
+        _serverTimer.Start();
+    }
+
+    private void ServerTimer_Tick(object? sender, EventArgs e) => UpdateServerWaitText();
+
+    private void UpdateServerWaitText()
+    {
+        if (_serverWaitText is null)
+            return;
+        var seconds = Math.Max(1, (int)(DateTime.UtcNow - _serverWaitStartedUtc).TotalSeconds);
+        _serverWaitText.Text = ServerWaitText(seconds);
+    }
+
+    private void HideServerWait()
+    {
+        if (_serverTimer is not null)
+        {
+            _serverTimer.Stop();
+            _serverTimer.Tick -= ServerTimer_Tick;
+        }
+
+        if (_serverWaitBar is not null)
+            _serverWaitBar.IsVisible = false;
+        if (_serverWaitShown && _closeButton is not null)
+            _closeButton.IsEnabled = false; // окно снова занято (IsBusy) до конца операции
+        _serverWaitShown = false;
+    }
+
+    private void CancelServerWait()
+    {
+        try
+        {
+            _serverCts?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    /// <summary>«Ждём ответ сервера NurCRM… N с» — общая надпись для окон и главной панели.</summary>
+    public static string ServerWaitText(int seconds) => NurMarketKassa.Services.Tr.T(
+        $"Ждём ответ сервера NurCRM… {seconds} с",
+        $"NurCRM серверинин жообу күтүлүүдө… {seconds} с",
+        $"Waiting for the NurCRM server… {seconds} s",
+        $"NurCRM sunucusunun yanıtı bekleniyor… {seconds} sn",
+        $"NurCRM server javobi kutilmoqda… {seconds} s");
+
+    /// <summary>«Отменить ожидание».</summary>
+    public static string ServerWaitCancelText => NurMarketKassa.Services.Tr.T(
+        "Отменить ожидание", "Күтүүнү токтотуу", "Stop waiting", "Beklemeyi bırak", "Kutishni to'xtatish");
+
     public ScrollBarVisibility ContentScroll
     {
         get => GetValue(ContentScrollProperty);
@@ -171,6 +294,14 @@ public class ModalShell : ContentControl
             if (IsBusy)
                 _closeButton.IsEnabled = false;
         }
+
+        if (_serverWaitCancel is not null)
+            _serverWaitCancel.Click -= ServerWaitCancel_Click;
+        _serverWaitBar = e.NameScope.Find<Border>("PART_ServerWait");
+        _serverWaitText = e.NameScope.Find<TextBlock>("PART_ServerWaitText");
+        _serverWaitCancel = e.NameScope.Find<Button>("PART_ServerWaitCancel");
+        if (_serverWaitCancel is not null)
+            _serverWaitCancel.Click += ServerWaitCancel_Click;
 
         if (_footerGrid is not null)
             _footerGrid.SizeChanged -= Footer_SizeChanged;
@@ -379,7 +510,11 @@ public class ModalShell : ContentControl
         if (!IsBusy || e.Handled)
             return;
         if (e.Key == Key.Escape)
+        {
+            if (IsServerWaiting && _serverWaitShown)
+                CancelServerWait(); // 2026-11-03 (С-01): Esc во время «Ждём сервер…» = «Отменить ожидание»
             e.Handled = true;
+        }
         else if (e.Key == Key.Enter
                  && !(TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox { AcceptsReturn: true }))
             e.Handled = true;
@@ -390,7 +525,18 @@ public class ModalShell : ContentControl
     private void Window_Closing(object? sender, WindowClosingEventArgs e)
     {
         if (IsBusy && !e.IsProgrammatic && e.CloseReason == WindowCloseReason.WindowClosing)
+        {
             e.Cancel = true;
+            CancelServerWait(); // 2026-11-03 (С-01): закрытие окна отменяет ожидание сервера — окно освободится, второе закрытие сработает
+        }
+        else
+            CancelServerWait();
+    }
+
+    private void ServerWaitCancel_Click(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        CancelServerWait();
     }
 
     /// <summary>Ограничивает высоту карточки долей рабочей области экрана кассы. На Android размер
@@ -437,6 +583,11 @@ public class ModalShell : ContentControl
     private void CloseButton_Click(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
+        if (IsServerWaiting && _serverWaitShown)
+        {
+            CancelServerWait(); // 2026-11-03 (С-01): ✕ во время «Ждём сервер…» = «Отменить ожидание»
+            return;
+        }
         if (IsBusy)
             return; // 2026-10-22 (модалки, пакет 0): во время операции ✕ ничего не делает
         if (FindCancelButton() is { } cancel)

@@ -2087,6 +2087,18 @@ class AppLocalizationsKy extends AppLocalizations {
   String get kindSale => 'Сатуу';
 
   @override
+  String get payInProgressScan =>
+      'Төлөм жүрүп жатат — жоопту күтүп, андан кийин товарды сканерлеңиз';
+
+  @override
+  String updMobileWarn(String mb) {
+    return 'Файл болжол менен $mb МБ, сиз Wi‑Fi\'да эмессиз — жүктөйбүзбү?';
+  }
+
+  @override
+  String get returnedPartly => 'Жарым-жартылай кайтарылды';
+
+  @override
   String returnNetTotal(String sum) {
     return 'Кайтаруулардан кийинки чектин жыйынтыгы: $sum сом';
   }

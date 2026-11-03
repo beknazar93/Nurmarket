@@ -45,7 +45,7 @@ public sealed class DialogDragHelper : AvaloniaObject
     {
         "CustomerDisplayEditorWindow", "ThemeEditorWindow", "ShiftsHistoryWindow", "PayDebtDialog", "ProductEditDialog",
         "ClientsWindow", "WarehouseWindow", "CalculatorWindow", "OwnerShellWindow",
-        "CustomerDisplayWindow", "SplashWindow", "FrmKeyboard", "MainWindow",
+        "CustomerDisplayWindow", "SplashWindow", "MainWindow",
     };
 
     /// <summary>Сколько раз начато перетаскивание (для стенда проверки).</summary>

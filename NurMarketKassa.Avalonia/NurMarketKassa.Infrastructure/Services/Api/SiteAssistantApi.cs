@@ -25,6 +25,7 @@ public sealed class SiteAssistantApi
 {
     private const string Root = "api/main/inbox/assistant/";
     private readonly NurMarketApiClient _api;
+    private static bool _patchUnsupported;
 
     public SiteAssistantApi(NurMarketApiClient api) => _api = api;
 
@@ -70,7 +71,22 @@ public sealed class SiteAssistantApi
         JsonElement data;
         try
         {
-            data = await _api.RequestAsync(HttpMethod.Put, Root + "settings/", changes, null, ct, TimeSpan.FromSeconds(25)).ConfigureAwait(false);
+            // 2026-11-01 (контрольный аудит В2-09): сначала PATCH — он точно не заменяет документ целиком (PUT без поля ключа мог бы стереть
+            // сохранённый ключ Gemini); сервер без PATCH (405) — PUT только с изменёнными полями, дальше как раньше.
+            if (_patchUnsupported)
+                data = await _api.RequestAsync(HttpMethod.Put, Root + "settings/", changes, null, ct, TimeSpan.FromSeconds(25)).ConfigureAwait(false);
+            else
+            {
+                try
+                {
+                    data = await _api.RequestAsync(HttpMethod.Patch, Root + "settings/", changes, null, ct, TimeSpan.FromSeconds(25)).ConfigureAwait(false);
+                }
+                catch (ApiException ex) when (ex.StatusCode == 405)
+                {
+                    _patchUnsupported = true;
+                    data = await _api.RequestAsync(HttpMethod.Put, Root + "settings/", changes, null, ct, TimeSpan.FromSeconds(25)).ConfigureAwait(false);
+                }
+            }
         }
         catch (ApiException ex) when (ex.StatusCode == 400 && LooksLikeMissingFields(ex))
         {

@@ -121,6 +121,38 @@ public partial class OwnerShellWindow
                 sub, Tr.T("Долги", "Карыздар", "Debts", "Borçlar", "Qarzlar"), "debts"));
         }
 
+        // 2026-11-02 (аудит №2, В-16): ещё два пункта из уже существующих хранилищ этого компьютера — продажи, не ушедшие на сервер, и открытые
+        // «некорректные чеки». Без перехода: оба разбираются в кассе (Меню → «Некорректные чеки», очередь отправки).
+        try
+        {
+            var unsent = OfflinePendingSalesStore.PendingCount;
+            if (unsent > 0)
+                urgent.Add(AttentionRow(false,
+                    Tr.T($"Не отправлено на сервер: {unsent}", $"Серверге жөнөтүлгөн жок: {unsent}", $"Not sent to the server: {unsent}",
+                        $"Sunucuya gönderilmedi: {unsent}", $"Serverga yuborilmadi: {unsent}"),
+                    Tr.T("Продажи и операции, сделанные без связи, ждут отправки в кассе этого компьютера.",
+                        "Байланышсыз жасалган сатуулар жана операциялар ушул компьютердин кассасында жөнөтүлүүнү күтүп жатат.",
+                        "Sales and operations made offline are waiting to be sent in this computer's till.",
+                        "Bağlantısız yapılan satışlar ve işlemler bu bilgisayardaki kasada gönderilmeyi bekliyor.",
+                        "Aloqasiz qilingan sotuvlar va amallar shu kompyuterdagi kassada yuborilishini kutmoqda."),
+                    "", "offlinequeue"));
+            var irregular = IrregularReceiptsStore.LoadAll().Count(e => e.ClosedAt is null);
+            if (irregular > 0)
+                waiting.Add(AttentionRow(false,
+                    Tr.T($"Некорректные чеки: {irregular}", $"Туура эмес чектер: {irregular}", $"Irregular receipts: {irregular}",
+                        $"Hatalı fişler: {irregular}", $"Noto'g'ri cheklar: {irregular}"),
+                    Tr.T("Чеки, которые касса не смогла провести как обычно, — разберите в кассе.",
+                        "Касса адаттагыдай өткөрө албаган чектер — кассада карап чыгыңыз.",
+                        "Receipts the till could not process as usual — review them in the till.",
+                        "Kasanın her zamanki gibi işleyemediği fişler — kasada inceleyin.",
+                        "Kassa odatdagidek o'tkaza olmagan cheklar — kassada ko'rib chiqing."),
+                    "", "irregular"));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сводка: «Требует внимания» — очередь/некорректные чеки не прочитаны ({ex.Message}).", "WARNING");
+        }
+
         var restock = Tr.T("Пополнение", "Толуктоо", "Restock", "Stok yenileme", "To'ldirish");
         foreach (var p in _attnStock)
         {

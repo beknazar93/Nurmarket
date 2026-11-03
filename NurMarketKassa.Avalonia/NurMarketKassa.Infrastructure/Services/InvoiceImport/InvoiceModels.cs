@@ -164,9 +164,10 @@ public static class InvoiceText
 
     public static double? ParseNumberOrNull(string? text) => TryParseNumber(text, out var v) ? v : null;
 
-    /// <summary>Штрихкод из ячейки: убирает пробелы, кавычки, «="…"» Excel, хвост «.0», служебные символы. Возвращает только
-    /// цифровой код длиной 8, 12, 13 или 14 (EAN-8, UPC-A, EAN-13, GTIN-14); GTIN-14 с нулём впереди приводится к EAN-13.
-    /// Всё остальное — пустая строка (это артикул или мусор, не штрихкод).</summary>
+    /// <summary>2026-11-01 (контрольный аудит, С2-09): штрихкод хранится КАК СТРОКА, как пришёл из накладной (после trim): убираем только служебное — пробелы по краям,
+    /// кавычки, «="…"» Excel, хвост «.0» у числа из ячейки и пробелы внутри цифрового кода. НЕ приводим к числу/EAN, НЕ дописываем нули и контрольную цифру, НЕ выбрасываем
+    /// буквы и коды нестандартной длины (внутренние 5–7 и 9–11 цифр, «A-1023», «KZ123»). Научную запись Excel («4,6E+12») не раскрываем: хвост уже потерян, угадывать нельзя —
+    /// <see cref="IsMangledBarcode"/> помечает такой код, парсеры его не используют и пишут замечание. Параметр <paramref name="restoreLeadingZero"/> оставлен для совместимости и ничего не делает.</summary>
     public static string CleanBarcode(string? raw, bool restoreLeadingZero = false)
     {
         if (string.IsNullOrWhiteSpace(raw))
@@ -174,34 +175,46 @@ public static class InvoiceText
         var s = raw.Trim();
         if (s.StartsWith("=\"", StringComparison.Ordinal) && s.EndsWith('"'))
             s = s[2..^1];
-        s = s.Trim('\'', '"', '`', '*');
-        // Научная запись из ячейки Excel («4,870200221261E+12», «4.87020022127E+12») — как в мобилке: раскрываем в цифры (хвост мог быть обрезан Excel).
-        if (System.Text.RegularExpressions.Regex.IsMatch(s, @"^\d+([.,]\d+)?[eE]\+?\d{1,2}$")
-            && decimal.TryParse(s.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var expanded) && expanded is > 0 and < 1e15m)
-            s = decimal.Truncate(expanded).ToString(CultureInfo.InvariantCulture);
-        if (s.EndsWith(".0", StringComparison.Ordinal) || s.EndsWith(",0", StringComparison.Ordinal))
-            s = s[..^2];
-        var sb = new System.Text.StringBuilder(s.Length);
-        foreach (var c in s)
-        {
-            if (char.IsDigit(c))
-                sb.Append(c);
-            else if (char.IsWhiteSpace(c) || c is '-' or ' ' or ' ' or '.')
-                continue;
-            else
-                return "";
-        }
-
-        var digits = sb.ToString();
-        // 4.6E+12 → цифр мало и точка выше убрана: «46E+12» содержит букву и уже отброшено; сюда доходят только цифры.
-        if (digits.Length == 14 && digits[0] == '0')
-            digits = digits[1..];
-        // 2026-10-27 (ревью Ск-16): Excel срезал ведущий ноль у числа (11 цифр вместо UPC-A, 7 вместо EAN-8) — возвращаем, если с нулём контрольная цифра верна
-        // (только для столбца «Штрихкод»; для артикула такая догадка слишком смелая). Раньше такой код отбрасывался и товар заводился дублем.
-        if (restoreLeadingZero && digits.Length is 11 or 7 && HasValidCheckDigit("0" + digits))
-            digits = "0" + digits;
-        return digits.Length is 8 or 12 or 13 or 14 ? digits : "";
+        s = s.Trim('\'', '"', '`', '*', ' ');
+        if (IsMangledBarcode(s) || IsPlaceholderBarcode(s))
+            return "";
+        // хвост «.0», «.00», «,00» у числа из ячейки Excel (4870200221261.00) — не часть кода
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"^(\d{4,})[.,]0+$", "$1");
+        // пробелы и дефисы внутри цифрового кода («4870 2002 21261», «4870-2002-21261») — группы цифр, склеиваем; код с буквами оставляем как есть
+        var compact = new string(s.Where(c => !char.IsWhiteSpace(c) && c != ' ' && c != ' ' && c != '-' && c != '–').ToArray());
+        return compact.Length > 0 && compact.All(char.IsAsciiDigit) ? compact : s;
     }
+
+    private static readonly HashSet<string> PlaceholderWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "нет", "нету", "н/д", "нд", "б/ш", "б\\ш", "бш", "без ш/к", "без штрихкода", "без штрих-кода", "без кода", "отсутствует", "n/a", "na", "no", "none", "null", "nan", "nil", "empty", "-",
+        "жок", "yok", "yo'q", "yoq",
+    };
+
+    /// <summary>2026-11-01 (финальная приёмка, Н-3): «заглушка» вместо кода — «-», «—», «0», «000», «нет», «n/a», «б/ш», строка без букв и цифр. Это НЕ штрихкод: строка считается без штрихкода
+    /// и не склеивается с другими строками по ключу «bc:-»; товар не заводится с кодом «-».</summary>
+    public static bool IsPlaceholderBarcode(string? raw)
+    {
+        var s = (raw ?? "").Trim().Trim('\'', '"', '`', '*', ' ');
+        if (s.Length == 0)
+            return true;
+        if (PlaceholderWords.Contains(s))
+            return true;
+        if (!s.Any(char.IsLetterOrDigit))
+            return true; // только знаки: «-», «—», «.», «/», «???»
+        return s.All(c => c == '0' || char.IsWhiteSpace(c) || c is '-' or '.' or ','); // «0», «00000000», «0.0»
+    }
+
+    /// <summary>Научная запись из Excel («4,87020022126E+12», «4.6E12»): настоящий код потерян. Такой «штрихкод» нельзя ни раскрывать, ни сравнивать — только просить исправить файл.</summary>
+    public static bool IsMangledBarcode(string? raw) =>
+        !string.IsNullOrWhiteSpace(raw) && System.Text.RegularExpressions.Regex.IsMatch(raw.Trim().Trim('\'', '"', '`', '*'), @"^\d+([.,]\d+)?[eE][+-]?\d{1,2}$");
+
+    /// <summary>Замечание для строки с испорченным кодом (научная запись) — на 5 языках.</summary>
+    public static string MangledBarcodeWarning(string raw) => Tr.T($"штрихкод «{raw}» испорчен Excel (научная запись) — не используется; исправьте столбец в файле (формат «Текст») и загрузите заново, либо проверьте код вручную",
+        $"штрих-код «{raw}» Excel тарабынан бузулган (илимий жазуу) — колдонулбайт; мамычаны файлда оңдоңуз («Текст» форматы) жана кайра жүктөңүз же кодду кол менен текшериңиз",
+        $"barcode “{raw}” was mangled by Excel (scientific notation) — not used; fix the column in the file (“Text” format) and load again, or check the code by hand",
+        $"barkod «{raw}» Excel tarafından bozulmuş (bilimsel gösterim) — kullanılmadı; sütunu dosyada düzeltin («Metin» biçimi) ve yeniden yükleyin veya kodu elle kontrol edin",
+        $"shtrix-kod «{raw}» Excel tomonidan buzilgan (ilmiy yozuv) — ishlatilmaydi; ustunni faylda tuzating («Matn» formati) va qayta yuklang yoki kodni qo'lda tekshiring");
 
     /// <summary>Контрольная цифра штрихкода (EAN-8/12/13/14) верна.</summary>
     public static bool HasValidCheckDigit(string code)
@@ -219,7 +232,8 @@ public static class InvoiceText
     }
 
     /// <summary>Похоже ли значение на штрихкод (цифры нужной длины с верной контрольной цифрой) — чтобы отличить код-штрихкод от артикула.</summary>
-    public static bool LooksLikeBarcode(string? raw) => CleanBarcode(raw) is { Length: > 0 } c && HasValidCheckDigit(c);
+    /// <summary>Похоже на штрихкод: только цифры стандартной длины с верной контрольной цифрой (для «артикула», который на самом деле код).
+    public static bool LooksLikeBarcode(string? raw) => CleanBarcode(raw) is { Length: > 0 } c && c.All(char.IsAsciiDigit) && HasValidCheckDigit(c);
 
     /// <summary>ИНН/ПИН: только цифры, 9–14 штук (РФ — 10/12, КР — 14, KZ — 12, UZ — 9). Иначе пусто.</summary>
     public static string CleanInn(string? raw)

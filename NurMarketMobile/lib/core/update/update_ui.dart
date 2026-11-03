@@ -133,6 +133,23 @@ class _UpdateDialog extends ConsumerWidget {
     final ctl = ref.read(appUpdateProvider.notifier);
     final nav = Navigator.of(context);
     final host = nav.context;
+    // 2026-11-01 (М2-08): ~117 МБ по мобильной сети — спросить
+    final rel = ref.read(appUpdateProvider).available;
+    if (await ctl.onMobileData()) {
+      if (!context.mounted) return;
+      final mb = rel != null && rel.size > 0 ? (rel.size / 1048576).round().toString() : '117';
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          content: Text(context.l.updMobileWarn(mb)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.l.updCancel)),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(context.l.updUpdate)),
+          ],
+        ),
+      );
+      if (go != true || !context.mounted) return;
+    }
     final res = await ctl.start();
     if (!context.mounted) return;
     switch (res) {

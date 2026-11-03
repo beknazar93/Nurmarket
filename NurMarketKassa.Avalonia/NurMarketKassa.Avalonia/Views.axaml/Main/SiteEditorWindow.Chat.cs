@@ -51,12 +51,17 @@ public sealed partial class SiteEditorWindow
         Use(block, TextBlock.ForegroundProperty, brush);
     }
 
-    private async Task FillChatAsync(StackPanel box)
+    private async Task FillChatAsync(StackPanel box, bool force = false)
     {
         try
         {
-            var caps = await ShowcaseCapabilities.LoadAsync(_api).ConfigureAwait(true);
+            var (caps, capError) = await ShowcaseCapabilities.TryLoadAsync(_api, force: force).ConfigureAwait(true);
             box.Children.Clear();
+            if (capError != null) // 2026-11-01 (контрольный аудит): сбой запроса — не «Скоро»
+            {
+                ShowSiteUnavailable(box, capError, () => FillChatAsync(box, force: true));
+                return;
+            }
             var soon = Hint(T("Скоро: ждём сервер NurCRM. ИИ-помощник на сайте (подбор размера, наличие, доставка, «Позвать продавца») включится, когда сервер откроет его для вашего магазина.",
                 "Жакында: NurCRM серверин күтөбүз. Сайттагы ЖИ-жардамчы (өлчөм тандоо, бар-жогу, жеткирүү, «Сатуучуну чакыруу») сервер дүкөнүңүз үчүн ачканда иштейт.",
                 "Coming soon: waiting for the NurCRM server. The AI assistant on the website (size advice, availability, delivery, “Call the seller”) will start once the server opens it for your shop.",
@@ -88,7 +93,7 @@ public sealed partial class SiteEditorWindow
                     {
                         box.Children.Clear();
                         box.Children.Add(Hint(T("Загружаю…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…")));
-                        await FillChatAsync(box).ConfigureAwait(true);
+                        await FillChatAsync(box, force: true).ConfigureAwait(true);
                     };
                     box.Children.Add(again);
                     return;

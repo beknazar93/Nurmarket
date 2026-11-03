@@ -32,7 +32,8 @@ public partial class WriteOffDialog : Window
 
     public WriteOffDialog() : this(Array.Empty<CatalogProductTileVm>()) { }
 
-    public WriteOffDialog(IReadOnlyList<CatalogProductTileVm> cartProducts)
+    /// <param name="presetQty">2026-11-03: удаление товара «как в 1С» — окно открывается с уже подставленным остатком и причиной «Другое».</param>
+    public WriteOffDialog(IReadOnlyList<CatalogProductTileVm> cartProducts, double? presetQty = null)
     {
         InitializeComponent();
         _vm = new WarehouseViewModel(App.GetRequiredService<IInventoryApiService>(), new DialogPrompts(this));
@@ -78,6 +79,12 @@ public partial class WriteOffDialog : Window
             Select(cartProducts.First(p => !string.IsNullOrEmpty(p.Id)));
         else
             ShowSelection();
+
+        if (presetQty is > 0 && _selected != null)
+        {
+            SetQty(presetQty.Value);
+            _reasonButtons[^1].IsChecked = true; // «Другое»
+        }
 
         Opened += (_, _) => SearchBox.Focus();
     }
@@ -175,8 +182,9 @@ public partial class WriteOffDialog : Window
         return double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var qty) ? qty : 0;
     }
 
+    // 2026-11-03 (ревью С-5): дробный остаток не на весах (метры, литры: 2,4) больше не округляется до целого — иначе списывалось 2 и оставалось 0,4.
     private void SetQty(double qty) =>
-        QtyBox.Text = qty.ToString(_selected?.MustWeigh == true ? "0.###" : "0", CultureInfo.InvariantCulture);
+        QtyBox.Text = qty.ToString(_selected?.MustWeigh == true || Math.Abs(qty - Math.Round(qty)) > 0.0005 ? "0.###" : "0", CultureInfo.InvariantCulture);
 
     private void Minus_Click(object? sender, RoutedEventArgs e) => SetQty(Math.Max(1, ReadQty() - 1));
 

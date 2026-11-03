@@ -15,30 +15,14 @@
         Background="{DynamicResource DialogWindowBackground}">
 
   <Window.Styles>
-    <!-- Главные кнопки действий (Жёлтый акцент) -->
     <!-- 2026-10-23 (аудит): выбранная строка списка чеков — мягкий фон темы вместо бирюзовой подсветки Fluent. -->
     <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
       <Setter Property="Fill" Value="{DynamicResource BrushSurfaceSubtle}"/>
       <Setter Property="Opacity" Value="1"/>
     </Style>
-    <Style Selector="Button.btn-primary">
-      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="FontSize" Value="14"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-    </Style>
 
     <!-- 2026-11-01 (аудит Д-04): основные кнопки окна («Вернуть выбранные», «Весь чек», «Обмен», «Закрыть») — общие классы nur-primary /
-         nur-secondary (PosDialogStyles); локальные btn-primary / btn-secondary остаются у мелких кнопок (−/+, «Все», «Обновить»). -->
+         nur-secondary (PosDialogStyles); локальный btn-secondary остаётся у мелких кнопок (−/+, «Все», «Обновить»). -->
     <!-- Вторичные кнопки (Светлый контур) -->
     <Style Selector="Button.btn-secondary">
       <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
@@ -79,10 +63,6 @@
       <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
     </Style>
     <!-- 2026-10-19, К1: выключенная главная («Вернуть выбранные», пока ничего не отмечено) — бледная, не жёлтая. -->
-    <Style Selector="Button.btn-primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
-    </Style>
     <!-- 2026-10-27: прозрачность выключенной 0.5 → 0,7: в тёмной теме надпись выключенной кнопки была 1,5–2,5:1 (нужно ≥3:1). -->
     <Style Selector="Button.btn-secondary:disabled">
       <Setter Property="Opacity" Value="0.7"/>
@@ -97,7 +77,7 @@
       <Setter Property="Height" Value="44"/>
       <Setter Property="Padding" Value="10,6"/>
       <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="8"/>
       <Setter Property="FontSize" Value="13"/>

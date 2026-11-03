@@ -1117,7 +1117,34 @@ public sealed class UserPreferences
             // 2026-11-01 (аудит 10 из 10, Н-05): битый user-settings.json читаем через AtomicFile — он сам берёт целую копию .bak
             // (пишется при каждом сохранении), восстанавливает рабочий файл и пишет WARNING. Раньше касса стартовала с настройками
             // по умолчанию, а ближайшее сохранение затирало файл. Нет ни файла, ни целой копии — null → значения по умолчанию.
-            var json = AtomicFile.ReadAllText(settingsPath);
+            // 2026-11-01 (контрольный аудит, Н2-02): файл занят (антивирус, программа владельца) — 3 попытки с паузой 200 мс. Не вышло — настройки по умолчанию
+            // ТОЛЬКО в памяти: сохранение отключено (иначе ближайшее сохранение затёрло бы рабочий файл), в журнал и тостом — предупреждение.
+            string? json = null;
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    json = AtomicFile.ReadAllText(settingsPath);
+                    break;
+                }
+                catch (Exception readEx) when (readEx is IOException or UnauthorizedAccessException)
+                {
+                    if (attempt < 3)
+                    {
+                        Thread.Sleep(200);
+                        continue;
+                    }
+                    _readBlockedPersistence = true;
+                    PosLogger.Log($"User preferences: файл настроек занят и не прочитан за 3 попытки ({readEx.Message}) — работаем с настройками по умолчанию, запись настроек отключена до перезапуска.", "ERROR");
+                    CatalogCacheService.RaiseToast(Tr.T(
+                        "Файл настроек занят другой программой — настройки не загружены и не сохраняются. Закройте её и перезапустите кассу.",
+                        "Жөндөөлөр файлы башка программа тарабынан ээленген — жөндөөлөр жүктөлгөн жок жана сакталбайт. Аны жаап, кассаны кайра иштетиңиз.",
+                        "The settings file is locked by another program — settings are not loaded and will not be saved. Close it and restart the till.",
+                        "Ayar dosyası başka bir program tarafından kullanılıyor — ayarlar yüklenmedi ve kaydedilmeyecek. Onu kapatıp kasayı yeniden başlatın.",
+                        "Sozlamalar fayli boshqa dastur tomonidan band — sozlamalar yuklanmadi va saqlanmaydi. Uni yopib, kassani qayta ishga tushiring."), true);
+                    return;
+                }
+            }
             if (json == null)
                 return;
             var fromFile = JsonSerializer.Deserialize<UserPreferencesDto>(json, JsonOpt);
@@ -1659,9 +1686,15 @@ public sealed class UserPreferences
     private static bool _persistenceDisabled;
 #pragma warning restore CS0649
 
+    /// <summary>2026-11-01 (Н2-02): true — при старте файл настроек не прочитан (занят другой программой после трёх попыток): сохранение отключено, чтобы настройки по умолчанию не затёрли рабочий файл.</summary>
+    private static bool _readBlockedPersistence;
+
     public void SaveToDisk()
     {
         if (_persistenceDisabled)
+            return;
+        // 2026-11-01 (контрольный аудит, Н2-02): файл настроек не удалось прочитать при старте (занят/нет доступа) — работаем с настройками в памяти и НЕ пишем их поверх файла.
+        if (_readBlockedPersistence)
             return;
         // 2026-10-31: в файл — только ключи активации, без функций, включённых сервером (см. IsKeyUnlocked).
         using var rawView = ServerAddons.RawView();

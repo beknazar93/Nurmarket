@@ -340,7 +340,7 @@ public sealed class NewRentalWindow : Window
         }
         catch (Exception ex)
         {
-            _clientResults.Children.Add(PaddedSmall(T("Поиск клиентов не удался: ", "Кардарларды издөө болбой калды: ", "Client search failed: ", "Müşteri araması başarısız: ", "Mijozlarni qidirib bo'lmadi: ") + ex.Message));
+            _clientResults.Children.Add(PaddedSmall(T("Поиск клиентов не удался: ", "Кардарларды издөө болбой калды: ", "Client search failed: ", "Müşteri araması başarısız: ", "Mijozlarni qidirib bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex)));
         }
     }
 
@@ -581,7 +581,7 @@ public sealed class NewRentalWindow : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }
 
 /// <summary>Приём возврата: состояние вещи и штраф (удерживается из залога сервером).</summary>
@@ -781,5 +781,5 @@ public sealed class ReturnRentalWindow : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

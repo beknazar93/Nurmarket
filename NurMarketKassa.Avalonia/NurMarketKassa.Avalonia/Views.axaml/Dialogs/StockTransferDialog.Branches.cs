@@ -236,8 +236,18 @@ public partial class StockTransferDialog
             // 2026-11-01 (аудит 10 из 10, С-05): ключ повтора — из документа, маршрута и состава (тот же при повторе «Отправить» после обрыва) уходит
             // заголовком Idempotency-Key, а его метка « [8 символов]» — в конец комментария. Исход неизвестен (таймаут, обрыв) — сначала ищем СВОЁ
             // перемещение на сервере (метка + склады + состав; номер документа у каждой кассы свой, по нему не ищем) и второй раз не шлём.
-            var transferDate = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-            var transferKey = MakeTransferKey(_transferId, route.FromId, route.ToId, transferDate, lines.Select(l => (l.ProductId, l.Quantity)));
+            var transferLines = lines.Select(l => (l.ProductId, l.Quantity)).ToList();
+            // 2026-11-01 (контрольный аудит, С2-07): если прошлая отправка этого документа осталась с неизвестным исходом — сначала ищем её на сервере, ключ и дата не меняются
+            var (alreadyPosted, blocked, transferKey, transferDate, canForce) = await ResolveAsync(api, _transferId, route.FromId, route.ToId,
+                (date, _) => MakeTransferKey(_transferId, route.FromId, route.ToId, date, transferLines), transferLines).ConfigureAwait(true);
+            if (blocked is not null)
+            {
+                if (canForce && await OfferForceResendAsync(this, blocked, _transferId).ConfigureAwait(true))
+                    PosDialogs.Warning(this, Tr.T("Запись о прошлой отправке снята. Нажмите «Отправить» ещё раз.", "Мурунку жөнөтүү жөнүндөгү жазуу алынды. «Жөнөтүү» баскычын дагы бир жолу басыңыз.", "The record of the previous send was removed. Press “Send” again.", "Önceki gönderim kaydı kaldırıldı. «Gönder»e yeniden basın.", "Oldingi yuborish yozuvi olib tashlandi. «Yuborish»ni yana bosing."));
+                else
+                    PosDialogs.Warning(this, blocked);
+                return;
+            }
             if (comment.Length > 480)
                 comment = comment[..480];
             comment += KeyTag(transferKey);
@@ -251,27 +261,34 @@ public partial class StockTransferDialog
                 ["items"] = lines.Select(l => new Dictionary<string, object?> { ["product"] = l.ProductId, ["quantity"] = l.Quantity }).ToList(),
             };
             JsonElement data;
-            try
-            {
-                data = await api.PostWithIdempotencyKeyAsync("api/main/branch-transfers/", body, transferKey, CancellationToken.None, TimeSpan.FromSeconds(45)).ConfigureAwait(true);
-            }
-            catch (Exception postEx) when (PendingIdempotencyKey.IsOutcomeUnknown(postEx))
-            {
-                PosLogger.Log($"Перемещение {_transfer.Number}: ответа нет ({postEx.GetType().Name}) — проверяем, прошло ли оно на сервере.", "WARNING");
-                ShowWarning(T("Связь прервалась — проверяем, прошло ли перемещение…", "Байланыш үзүлдү — жылдыруу өттүбү, текшерип жатабыз…", "Connection lost — checking whether the transfer went through…",
-                    "Bağlantı koptu — transferin yapılıp yapılmadığı kontrol ediliyor…", "Aloqa uzildi — ko'chirish o'tdimi, tekshirilmoqda…"));
-                var posted = await FindPostedTransferAsync(api, transferKey, route.FromId, route.ToId, lines).ConfigureAwait(true);
-                if (posted is null)
+            if (alreadyPosted is { } already)
+                data = already; // прошлая отправка нашлась на сервере — второй раз не шлём
+            else
+                try
                 {
+                    data = await api.PostWithIdempotencyKeyAsync("api/main/branch-transfers/", body, transferKey, CancellationToken.None, TimeSpan.FromSeconds(45)).ConfigureAwait(true);
+                    PendingTransferKeys.Clear(_transferId);
+                }
+                catch (Exception postEx) when (PendingIdempotencyKey.IsOutcomeUnknown(postEx))
+                {
+                    PosLogger.Log($"Перемещение {_transfer.Number}: ответа нет ({postEx.GetType().Name}) — проверяем, прошло ли оно на сервере.", "WARNING");
+                    ShowWarning(T("Связь прервалась — проверяем, прошло ли перемещение…", "Байланыш үзүлдү — жылдыруу өттүбү, текшерип жатабыз…", "Connection lost — checking whether the transfer went through…",
+                        "Bağlantı koptu — transferin yapılıp yapılmadığı kontrol ediliyor…", "Aloqa uzildi — ko'chirish o'tdimi, tekshirilmoqda…"));
+                    var posted = await RememberUnknownAsync(api, _transferId, transferKey, transferDate, route.FromId, route.ToId, transferLines, ShowWarning).ConfigureAwait(true);
                     ShowWarning(null);
+                    if (posted is null)
+                        throw;
+                    data = posted.Value;
+                    PosLogger.Log($"Перемещение {_transfer.Number}: найдено на сервере — второй раз не отправляем.", "INFO");
+                }
+                catch (Exception postEx) when (postEx is ApiException { StatusCode: >= 400 and < 500 })
+                {
+                    PendingTransferKeys.Clear(_transferId); // явный отказ сервера — ключ забываем, новая отправка пойдёт с новым
                     throw;
                 }
-                data = posted.Value;
-                ShowWarning(null);
-                PosLogger.Log($"Перемещение {_transfer.Number}: найдено на сервере — второй раз не отправляем.", "INFO");
-            }
             var number = BranchesWindow.Str(data, "number");
             var id = BranchesWindow.Str(data, "id");
+            PendingTransferKeys.Clear(_transferId);
             StockTransferService.Instance.SetNote(_transferId, $"NurCRM №{number} [{id}]");
             PosLogger.Log($"Перемещение {_transfer.Number} проведено на сервере: №{number}, {route.FromName} → {route.ToName}, {lines.Count} поз., {qtyTotal:0.###} ед.", "INFO");
             ChangeStatus(StockTransferService.StatusInTransit, T($"Проведено на сервере: накладная №{number}, остатки перемещены.", $"Серверде өткөрүлдү: накладная №{number}, калдыктар жылдырылды.",
@@ -307,31 +324,51 @@ public partial class StockTransferDialog
             seed + "|" + fromId + ">" + toId + "|" + date + "|"
             + string.Join(";", lines.Select(l => l.ProductId + ":" + l.Quantity.ToString("0.###", CultureInfo.InvariantCulture)).OrderBy(x => x, StringComparer.Ordinal)))))[..32].ToLowerInvariant();
 
-    /// <summary>2026-11-01 (аудит 10 из 10, С-05, приёмка): после обрыва ищем СВОЁ перемещение за вчера–сегодня: метка ключа в комментарии, не отменено,
-    /// тот же склад-источник и получатель и тот же состав (товар:количество). Номер документа у каждой кассы свой, поэтому по нему не ищем.
-    /// Совпало ровно одно — его строка; нет совпадений, больше одного, состав не удалось прочитать — null (не считаем своим; вызывающий просит проверить вручную).</summary>
+    /// <summary>2026-11-01 (аудит 10 из 10, С-05, приёмка): после обрыва ищем СВОЁ перемещение за вчера–сегодня (см. <see cref="SearchPostedTransferAsync"/>).
+    /// Совпало ровно одно — его строка; иначе null.</summary>
     internal static async Task<JsonElement?> FindPostedTransferAsync(NurMarketApiClient api, string transferKey, string? fromId, string? toId,
-        IReadOnlyCollection<(string ProductId, double Quantity)> lines)
+        IReadOnlyCollection<(string ProductId, double Quantity)> lines) =>
+        (await SearchPostedTransferAsync(api, transferKey, fromId, toId, lines, DateTime.Today.AddDays(-1)).ConfigureAwait(true)).Row;
+
+    /// <summary>2026-11-01 (контрольный аудит, С2-07): поиск СВОЕГО перемещения по метке ключа в комментарии за период ОТ <paramref name="since"/> (дата документа, а не «вчера»), не отменено,
+    /// те же склады и состав. Reliable = false — проверить не удалось (ошибка сети, больше одного документа с меткой, метка есть, а склады/состав другие, список длиннее страницы): повторно слать нельзя.
+    /// Reliable = true и Row = null — поиск удался, такого перемещения на сервере нет.</summary>
+    internal static async Task<(JsonElement? Row, bool Reliable)> SearchPostedTransferAsync(NurMarketApiClient api, string transferKey, string? fromId, string? toId,
+        IReadOnlyCollection<(string ProductId, double Quantity)> lines, DateTime since)
     {
         try
         {
             var tag = KeyTag(transferKey).Trim();
             var query = new Dictionary<string, string>
             {
-                ["date_from"] = DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                ["date_to"] = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                ["date_from"] = since.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                ["date_to"] = DateTime.Today.AddDays(1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 ["page_size"] = "100",
             };
-            var data = await api.RequestAsync(HttpMethod.Get, "api/main/branch-transfers/", null, query, CancellationToken.None, TimeSpan.FromSeconds(20)).ConfigureAwait(true);
-            var candidates = BranchesWindow.Rows(data)
-                .Where(r => BranchesWindow.Str(r, "comment").Contains(tag, StringComparison.Ordinal)
-                            && !BranchesWindow.Str(r, "status").Contains("cancel", StringComparison.OrdinalIgnoreCase))
-                .Select(r => r.Clone()).ToList();
+            // 2026-11-02 (аудит №2, С3-08): листаем страницы (до 10 по 100), а не только первую — иначе при длинном списке поиск вечно «ненадёжен»
+            var candidates = new List<JsonElement>();
+            var more = false;
+            for (var page = 1; page <= 10; page++)
+            {
+                query["page"] = page.ToString(CultureInfo.InvariantCulture);
+                var data = await api.RequestAsync(HttpMethod.Get, "api/main/branch-transfers/", null, query, CancellationToken.None, TimeSpan.FromSeconds(20)).ConfigureAwait(true);
+                candidates.AddRange(BranchesWindow.Rows(data)
+                    .Where(r => BranchesWindow.Str(r, "comment").Contains(tag, StringComparison.Ordinal)
+                                && !BranchesWindow.Str(r, "status").Contains("cancel", StringComparison.OrdinalIgnoreCase))
+                    .Select(r => r.Clone()));
+                more = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String;
+                if (candidates.Count > 0 || !more)
+                    break;
+            }
             if (candidates.Count != 1)
             {
                 if (candidates.Count > 1)
+                {
                     PosLogger.Log($"Перемещение: по метке {tag} найдено {candidates.Count} документов — неоднозначно, своим не считаем.", "WARNING");
-                return null;
+                    return (null, false);
+                }
+                // нет совпадений: надёжно только если просмотрен весь список за период
+                return (null, !more);
             }
             var row = candidates[0];
             string BranchId(string field) => row.ValueKind == JsonValueKind.Object && row.TryGetProperty(field, out var b)
@@ -339,7 +376,7 @@ public partial class StockTransferDialog
                 : "";
             if (!string.Equals(BranchId("from_branch"), fromId ?? "", StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(BranchId("to_branch"), toId ?? "", StringComparison.OrdinalIgnoreCase))
-                return null;
+                return (null, false);
             // Состав: из строки списка, а если его там нет — из карточки перемещения.
             var items = row.TryGetProperty("items", out var rowItems) && rowItems.ValueKind == JsonValueKind.Array ? rowItems : default;
             if (items.ValueKind != JsonValueKind.Array && BranchesWindow.Str(row, "id") is { Length: > 0 } rowId)
@@ -349,7 +386,7 @@ public partial class StockTransferDialog
                     items = detailItems.Clone();
             }
             if (items.ValueKind != JsonValueKind.Array)
-                return null; // состав не прочитали — не угадываем
+                return (null, false); // состав не прочитали — не угадываем
             static string Sig(string product, double qty) => product.Trim() + ":" + Math.Round(qty, 3).ToString("0.###", CultureInfo.InvariantCulture);
             var serverSig = items.EnumerateArray()
                 .Select(it => Sig(it.TryGetProperty("product", out var p) && p.ValueKind == JsonValueKind.Object ? BranchesWindow.Str(p, "id") : BranchesWindow.Str(it, "product"),
@@ -357,13 +394,101 @@ public partial class StockTransferDialog
                 .OrderBy(x => x, StringComparer.Ordinal).ToList();
             var ownSig = lines.GroupBy(l => l.ProductId.Trim()).Select(g => Sig(g.Key, g.Sum(x => x.Quantity)))
                 .OrderBy(x => x, StringComparer.Ordinal).ToList();
-            return serverSig.SequenceEqual(ownSig, StringComparer.Ordinal) ? row : null;
+            return serverSig.SequenceEqual(ownSig, StringComparer.Ordinal) ? (row, true) : (null, false);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Перемещение: проверка на сервере не удалась ({ex.GetType().Name}).", "WARNING");
         }
-        return null;
+        return (null, false);
+    }
+
+    /// <summary>2026-11-01 (контрольный аудит, С2-07): единый путь для окна склада и раздела «Филиалы». Ключ и дата перемещения с неизвестным исходом лежат НА ДИСКЕ
+    /// (<see cref="PendingTransferKeys"/>) и не меняются, пока нет успеха или явного отказа сервера; перед ЛЮБОЙ повторной отправкой сначала ищем по метке (период — от даты ключа);
+    /// после обрыва ищем сразу, а если не нашли — ещё раз через 25 с (сервер мог ещё проводить). Возвращает (найденное перемещение, текст «пока не отправляем», ключ, дата).</summary>
+    internal static async Task<(JsonElement? Posted, string? Block, string Key, string Date, bool CanForce)> ResolveAsync(NurMarketApiClient api, string scope, string? fromId, string? toId,
+        Func<string, string, string> makeKey, IReadOnlyCollection<(string ProductId, double Quantity)> lines, string? chosenDate = null)
+    {
+        // 2026-11-01 (финальная приёмка, В-1): новая отправка идёт с ВЫБРАННОЙ датой (поле даты перемещения), а не с сегодняшней; дата отложенной записи — только у найденной записи
+        var today = chosenDate is { Length: > 0 } ? chosenDate : DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        if (PendingTransferKeys.Get(scope) is not { } pending)
+            return (null, null, makeKey(today, ""), today, false);
+        // 2026-11-01 (В-2): состав записи сравниваем с текущим — запись относится к другому составу, значит это другое перемещение
+        static string Sig(IEnumerable<(string ProductId, double Quantity)> items) =>
+            string.Join(";", items.GroupBy(i => i.ProductId.Trim()).Select(g => g.Key + ":" + Math.Round(g.Sum(x => x.Quantity), 3).ToString("0.###", CultureInfo.InvariantCulture)).OrderBy(x => x, StringComparer.Ordinal));
+        var sameComposition = Sig(pending.Lines.Select(l => (l.ProductId, l.Quantity))) == Sig(lines);
+        var since = DateTime.TryParse(pending.Date, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d.AddDays(-1) : DateTime.Today.AddDays(-7);
+        var (row, reliable) = await SearchPostedTransferAsync(api, pending.Key, pending.FromId, pending.ToId, pending.Lines.Select(l => (l.ProductId, l.Quantity)).ToList(), since).ConfigureAwait(true);
+        if (row is not null)
+        {
+            PendingTransferKeys.Clear(scope);
+            PosLogger.Log("Перемещение: прошлая отправка найдена на сервере — второй раз не отправляем.", "INFO");
+            if (!sameComposition)
+                return (null, T("Прежняя версия этого перемещения уже проведена на сервере (с другим составом). Изменённый документ как новое перемещение не отправляем: проверьте «Филиалы» → «Перемещения» и создайте новое перемещение, если оно нужно.",
+                    "Бул жылдыруунун мурунку версиясы серверде башка курам менен өткөрүлүп калган. Өзгөртүлгөн документ жаңы жылдыруу катары жөнөтүлбөйт: «Филиалдар» → «Жылдыруулар» бөлүмүн текшерип, керек болсо жаңы жылдыруу түзүңүз.",
+                    "The previous version of this transfer is already posted on the server (with a different list). The changed document is not sent as a new transfer: check “Branches” → “Transfers” and create a new transfer if you need one.",
+                    "Bu transferin önceki sürümü sunucuda (farklı içerikle) zaten yapıldı. Değiştirilen belge yeni transfer olarak gönderilmez: «Şubeler» → «Transferler» bölümünü kontrol edin, gerekirse yeni transfer oluşturun.",
+                    "Bu ko'chirishning oldingi versiyasi serverda (boshqa tarkib bilan) allaqachon o'tkazilgan. O'zgartirilgan hujjat yangi ko'chirish sifatida yuborilmaydi: «Filiallar» → «Ko'chirishlar» bo'limini tekshiring va kerak bo'lsa yangi ko'chirish yarating."), pending.Key, pending.Date, false);
+            return (row, null, pending.Key, pending.Date, false);
+        }
+        if (!reliable)
+            return (null, T("Прошлая отправка этого перемещения не подтверждена, а проверить сервер не удалось. Откройте «Филиалы» → «Перемещения», убедитесь, что такого перемещения нет, и повторите позже — касса не отправит его второй раз, пока не проверит.",
+                "Мурунку жөнөтүү ырасталган жок, серверди текшерүү да мүмкүн болгон жок. «Филиалдар» → «Жылдыруулар» бөлүмүн ачып, мындай жылдыруу жок экенин текшериңиз да, кийинчерээк кайталаңыз — текшермейинче касса экинчи жолу жибербейт.",
+                "The previous send of this transfer is not confirmed and the server could not be checked. Open “Branches” → “Transfers”, make sure it is not there, and retry later — the till will not send it again until it has checked.",
+                "Bu transferin önceki gönderimi doğrulanmadı ve sunucu kontrol edilemedi. «Şubeler» → «Transferler» bölümünde olmadığından emin olun ve daha sonra tekrar deneyin — kasa kontrol etmeden ikinci kez göndermez.",
+                "Bu ko'chirishning oldingi yuborilishi tasdiqlanmagan va serverni tekshirib bo'lmadi. «Filiallar» → «Ko'chirishlar» bo'limida yo'qligiga ishonch hosil qiling va keyinroq qayta urining — tekshirmaguncha kassa uni ikkinchi marta yubormaydi."), pending.Key, pending.Date, true);
+        if (DateTime.UtcNow - pending.AtUtc < TimeSpan.FromSeconds(90))
+            return (null, T("Прошлая отправка была меньше полутора минут назад — сервер мог ещё проводить перемещение. Подождите минуту и нажмите ещё раз: касса сначала проверит.",
+                "Мурунку жөнөтүү бир жарым мүнөттөн аз мурун болгон — сервер жылдырууну дагы өткөрүп жаткан болушу мүмкүн. Бир мүнөт күтүп, дагы басыңыз: касса адегенде текшерет.",
+                "The previous send was less than a minute and a half ago — the server may still be processing the transfer. Wait a minute and press again: the till will check first.",
+                "Önceki gönderim bir buçuk dakikadan kısa süre önceydi — sunucu transferi hâlâ işliyor olabilir. Bir dakika bekleyip tekrar basın: kasa önce kontrol eder.",
+                "Oldingi yuborilish bir yarim daqiqadan kam oldin bo'lgan — server ko'chirishni hali o'tkazayotgan bo'lishi mumkin. Bir daqiqa kutib, yana bosing: kassa avval tekshiradi."), pending.Key, pending.Date, false);
+        if (!sameComposition)
+        {
+            PendingTransferKeys.Clear(scope); // прежняя версия на сервере не найдена и давно — это новое перемещение с новым ключом и выбранной датой
+            return (null, null, makeKey(today, ""), today, false);
+        }
+        return (null, null, pending.Key, pending.Date, false); // поиск удался, перемещения нет, прошло достаточно времени — повтор с ТЕМ ЖЕ ключом
+    }
+
+    /// <summary>2026-11-02 (аудит №2, С3-08): владелец или администратор, проверивший список перемещений вручную, может снять запись о неподтверждённой отправке и отправить заново
+    /// (иначе при недоступном поиске документ был бы заблокирован навсегда). Остальным — только объяснение. true — запись снята.</summary>
+    internal static async Task<bool> OfferForceResendAsync(Window owner, string blocked, string scope)
+    {
+        if (App.AuthApi is not { } auth || !PermissionService.CanEditPurchaseDocuments(auth.UserPayload))
+            return false;
+        var ok = await PosConfirmDialog.ShowModalAsync(owner,
+            T("Отправить перемещение заново?", "Жылдырууну кайра жөнөтөбүзбү?", "Send the transfer again?", "Transfer yeniden gönderilsin mi?", "Ko'chirish qayta yuborilsinmi?"),
+            blocked + "\n\n" + T("Если вы проверили «Филиалы» → «Перемещения» и такого перемещения там НЕТ, можно снять запись и отправить заново. Если оно там есть — не отправляйте: будет дубль.",
+                "Эгер «Филиалдар» → «Жылдыруулар» бөлүмүн текшерип, мындай жылдыруу ЖОК экенин көрсөңүз, жазууну алып, кайра жөнөтсө болот. Эгер ал бар болсо — жөнөтпөңүз: кайталанат.",
+                "If you checked “Branches” → “Transfers” and the transfer is NOT there, you can remove the record and send again. If it is there — do not send: it would be a duplicate.",
+                "«Şubeler» → «Transferler» bölümünü kontrol ettiyseniz ve transfer ORADA YOKSA, kaydı kaldırıp yeniden gönderebilirsiniz. Varsa göndermeyin: çift olur.",
+                "«Filiallar» → «Ko'chirishlar» ni tekshirgan bo'lsangiz va ko'chirish u yerda YO'Q bo'lsa, yozuvni olib tashlab qayta yuborishingiz mumkin. Agar bor bo'lsa — yubormang: takror bo'ladi."),
+            T("Я проверил — отправить заново", "Текшердим — кайра жөнөтүү", "I checked — send again", "Kontrol ettim — yeniden gönder", "Tekshirdim — qayta yuborish"), T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"),
+            PosConfirmAccent.Danger).ConfigureAwait(true);
+        if (ok)
+            PendingTransferKeys.Clear(scope);
+        return ok;
+    }
+
+    /// <summary>После таймаута/обрыва: ищем сразу и ещё раз через 25 с; не нашли — запоминаем ключ на диске (повтор только через <see cref="ResolveAsync"/>).</summary>
+    internal static async Task<JsonElement?> RememberUnknownAsync(NurMarketApiClient api, string scope, string key, string date, string? fromId, string? toId,
+        IReadOnlyCollection<(string ProductId, double Quantity)> lines, Action<string?>? progress = null)
+    {
+        var since = DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d.AddDays(-1) : DateTime.Today.AddDays(-1);
+        var (row, _) = await SearchPostedTransferAsync(api, key, fromId, toId, lines, since).ConfigureAwait(true);
+        if (row is null)
+        {
+            progress?.Invoke(T("Ответа нет — ждём 25 секунд и проверяем ещё раз…", "Жооп жок — 25 секунд күтүп, дагы текшеребиз…", "No answer — waiting 25 seconds and checking again…", "Yanıt yok — 25 saniye bekleyip tekrar kontrol ediyoruz…", "Javob yo'q — 25 soniya kutib, yana tekshiramiz…"));
+            await Task.Delay(TimeSpan.FromSeconds(25)).ConfigureAwait(true);
+            (row, _) = await SearchPostedTransferAsync(api, key, fromId, toId, lines, since).ConfigureAwait(true);
+            progress?.Invoke(null);
+        }
+        if (row is null)
+            PendingTransferKeys.Set(scope, new PendingTransfer(key, date, fromId, toId, lines.Select(l => new PendingTransferLine(l.ProductId, l.Quantity)).ToList(), DateTime.UtcNow));
+        else
+            PendingTransferKeys.Clear(scope);
+        return row;
     }
 
     // 2026-10-22 (модалки, пакет 3): идёт запрос к серверу (отправка или отмена) — окно не закрывается (StockTransferDialog: Closing).

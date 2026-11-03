@@ -73,10 +73,12 @@ public sealed class PurchasesSupplierPicker : Grid
             Height = 42, Padding = new Thickness(12, 0), CornerRadius = new CornerRadius(10), VerticalContentAlignment = VerticalAlignment.Center, FontSize = 14.5,
         };
         Avalonia.Automation.AutomationProperties.SetName(_search, _search.Watermark);
-        _search.TextChanged += (_, _) => RenderList();
+        UiKit.OnTypedDebounced(_search, RenderList); // 2026-11-01: пауза 250 мс (список поставщиков)
         _search.KeyDown += (_, e) =>
         {
             // Enter — первый найденный.
+            if (e.Key == Key.Enter)
+                RenderList(); // 2026-11-01: поиск с паузой — до Enter список мог не успеть обновиться
             if (e.Key == Key.Enter && _list.Children.OfType<Button>().FirstOrDefault() is { } first)
             {
                 e.Handled = true;
@@ -241,5 +243,5 @@ public sealed class PurchasesSupplierPicker : Grid
         Select(created);
     }
 
-    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, this.GetResourceObservable(key));
+    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

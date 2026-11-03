@@ -31,7 +31,7 @@ public partial class OperationsSettingsView
 
         var daysRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         var daysLabel = new TextBlock { Text = Tr.T("Срок, дней:", "Мөөнөт, күн:", "Period, days:", "Süre, gün:", "Muddat, kun:"), FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
-        daysLabel.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        daysLabel.Bind(TextBlock.ForegroundProperty, daysLabel.GetResourceObservable("BrushText"));
         var daysBox = new TextBox { Width = 90, Text = UserPreferences.Instance.ExchangeDaysLimit.ToString(CultureInfo.InvariantCulture), MaxLength = 3 };
         daysBox.TextChanged += (_, _) =>
         {
@@ -51,7 +51,7 @@ public partial class OperationsSettingsView
             Text = Tr.T("Категории, которые без брака не обменивают и не возвращают", "Бузук болбосо алмаштырылбаган жана кайтарылбаган категориялар",
                 "Categories not exchanged or returned unless defective", "Kusurlu değilse değiştirilmeyen ve iade edilmeyen kategoriler",
                 "Nuqsonsiz bo'lsa almashtirilmaydigan va qaytarilmaydigan toifalar") };
-        catTitle.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        catTitle.Bind(TextBlock.ForegroundProperty, catTitle.GetResourceObservable("BrushText"));
         ExchangeRulesPanel.Children.Add(catTitle);
         ExchangeRulesPanel.Children.Add(Soft(Tr.T(
             "Перечень по закону: нижнее бельё, чулки и носки, парфюмерия и косметика, ювелирные изделия, лекарства, книги. Пока вы не меняли список, касса отмечает такие категории сама — поправьте под свой магазин.",
@@ -74,7 +74,7 @@ public partial class OperationsSettingsView
         foreach (var category in categories)
         {
             var box = new CheckBox { Content = category, IsChecked = selected.Contains(category), Margin = new Thickness(0, 0, 14, 4), FontSize = 13 };
-            box.Bind(CheckBox.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            box.Bind(CheckBox.ForegroundProperty, box.GetResourceObservable("BrushText"));
             box.IsCheckedChanged += (_, _) =>
             {
                 NonExchangeableRules.SaveSelected(boxes.Where(b => b.IsChecked == true).Select(b => b.Content?.ToString() ?? ""));
@@ -89,7 +89,7 @@ public partial class OperationsSettingsView
     private TextBlock Soft(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 12, TextWrapping = TextWrapping.Wrap };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
         return t;
     }
 }

@@ -276,8 +276,6 @@ public static class RentalDueNotifier
     private static void WriteSent(Dictionary<string, string> sent)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(SentFile)!);
-        var tmp = SentFile + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(sent));
-        File.Move(tmp, SentFile, true);
+        AtomicFile.WriteAllText(SentFile, JsonSerializer.Serialize(sent)); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
     }
 }

@@ -126,7 +126,7 @@ public partial class AccountView : UserControl
         catch (Exception ex)
         {
             LoadingOrErrorText.IsVisible = true;
-            LoadingOrErrorText.Text = Tr.T("Ошибка: ", "Ката: ", "Error: ", "Hata: ", "Xato: ") + ex.Message;
+            LoadingOrErrorText.Text = Tr.T("Ошибка: ", "Ката: ", "Error: ", "Hata: ", "Xato: ") + ServerOutageMonitor.FriendlyError(ex);
             PosLogger.Log($"AccountView load failed: {ex}", "WARNING");
         }
         finally

@@ -229,7 +229,8 @@ public sealed class ServerTelegramBotApi
     {
         if (ex is ApiException { Payload: { ValueKind: JsonValueKind.Object } payload })
         {
-            foreach (var p in payload.EnumerateObject())
+            // 2026-11-02 (аудит №2): сначала понятный detail; служебные code / data («code: negative_stock») на экран не выводим
+            foreach (var p in payload.EnumerateObject().OrderBy(x => x.Name == "detail" ? 0 : 1).Where(x => x.Name is not ("code" or "data")))
             {
                 var msg = p.Value.ValueKind switch
                 {
@@ -241,7 +242,7 @@ public sealed class ServerTelegramBotApi
                     return p.Name is "detail" or "non_field_errors" ? msg! : $"{p.Name}: {msg}";
             }
         }
-        return Describe(ex);
+        return ex is ApiException ? Describe(ex) : ServerOutageMonitor.FriendlyError(ex); // не ApiException (сеть, таймаут) — общая фраза вместо сырого текста .NET
     }
 
     /// <summary>Текст ошибки сервера из ApiException (поле token / detail), без токенов.</summary>

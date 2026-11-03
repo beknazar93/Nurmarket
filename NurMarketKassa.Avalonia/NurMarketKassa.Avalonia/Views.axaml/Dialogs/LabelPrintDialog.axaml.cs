@@ -192,6 +192,7 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
             StatusMessage = result switch
             {
                 LabelPrintResult.Success => LabelPrinterSelector.SentText(printerUsed.Label),
+                LabelPrintResult.PartiallySent => LabelPrinterSelector.PartialText(printerUsed.DevicePath),
                 LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден — обновите список.", "Принтер табылган жок — тизмени жаңыртыңыз.", "Printer not found — refresh the list.", "Yazıcı bulunamadı — listeyi yenileyin.", "Printer topilmadi — ro'yxatni yangilang."),
                 _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Чоо-жайы колдонмонун журналында.", "Print error. See the application log for details.", "Yazdırma hatası. Ayrıntılar uygulama günlüğünde.", "Chop etish xatosi. Tafsilotlar dastur jurnalida."),
             };

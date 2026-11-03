@@ -75,11 +75,54 @@ public sealed class PrinterKeepAliveService
 
             // Только если порт свободен: keep-alive не должен ни ждать чек, ни задерживать его
             // (2026-09-26 — раньше при зависшем принтере тики копились в очереди к порту).
-            PrinterPortService.TrySendKeepAlive(port, NoOpPayload);
+            if (PrinterPortService.TrySendKeepAlive(port, NoOpPayload))
+                NoteRecovered();
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Printer keep-alive skipped: {ex.Message}", "PRINTER");
+            NoteFailure(ex.Message);
         }
+    }
+
+    // 2026-11-02 (аудит №2, Н3-02): «Printer keep-alive skipped: Порт LPT1 не найден…» писалось каждые 90 с (2 165 строк = 15 % журнала за 2,6 суток, когда принтер
+    // в настройках — несуществующий LPT1). Теперь: сразу при новой причине, потом раз в 30 минут с числом пропущенных повторов, и одна строка при восстановлении.
+    // Тики не накладываются (_busy), поэтому состояние без блокировок.
+    private static readonly TimeSpan RepeatLogEvery = TimeSpan.FromMinutes(30);
+    private static string? _lastFailure;
+    private static DateTime _lastFailureLoggedUtc = DateTime.MinValue;
+    private static DateTime _failingSinceUtc = DateTime.MinValue;
+    private static int _suppressed;
+
+    private static void NoteFailure(string message)
+    {
+        var now = DateTime.UtcNow;
+        if (!string.Equals(_lastFailure, message, StringComparison.Ordinal))
+        {
+            if (_lastFailure is null)
+                _failingSinceUtc = now;
+            _lastFailure = message;
+            _lastFailureLoggedUtc = now;
+            _suppressed = 0;
+            PosLogger.Log($"Printer keep-alive skipped: {message}", "PRINTER");
+        }
+        else if (now - _lastFailureLoggedUtc >= RepeatLogEvery)
+        {
+            PosLogger.Log($"Printer keep-alive skipped: {message} (то же ещё {_suppressed} раз за {(now - _lastFailureLoggedUtc).TotalMinutes:0} мин, принтер недоступен с {_failingSinceUtc.ToLocalTime():HH:mm})", "PRINTER");
+            _lastFailureLoggedUtc = now;
+            _suppressed = 0;
+        }
+        else
+        {
+            _suppressed++;
+        }
+    }
+
+    private static void NoteRecovered()
+    {
+        if (_lastFailure is null)
+            return;
+        PosLogger.Log($"Printer keep-alive: принтер снова отвечает (был недоступен с {_failingSinceUtc.ToLocalTime():HH:mm}, пропущено проверок: {_suppressed}).", "PRINTER");
+        _lastFailure = null;
+        _suppressed = 0;
     }
 }

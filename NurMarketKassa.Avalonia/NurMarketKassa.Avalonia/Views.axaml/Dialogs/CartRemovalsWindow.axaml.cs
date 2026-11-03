@@ -218,7 +218,7 @@ public partial class CartRemovalsWindow : Window
     /// <summary>Кисть темы — привязкой к ресурсу (смена темы при открытом окне перекрашивает строки).</summary>
     private T Themed<T>(T control, AvaloniaProperty property, string key) where T : Control
     {
-        control.Bind(property, this.GetResourceObservable(key));
+        control.Bind(property, control.GetResourceObservable(key));
         return control;
     }
 

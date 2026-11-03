@@ -20,7 +20,6 @@ public static class BackgroundReceiptsHost
     private static bool _started;
     private static bool _exitConfirmed;
     private static bool _exitAsking;
-    private static Window? _toast;
 
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
 
@@ -118,99 +117,17 @@ public static class BackgroundReceiptsHost
     }
 
     /// <summary>Лёгкая всплывающая плашка в правом нижнем углу рабочей области (не модальное окно, фокус не забирает).
-    /// Исчезает сама через несколько секунд; нажатие открывает окно «Приходы в фоне». Одновременно одна: новая заменяет старую.</summary>
+    /// Исчезает сама через несколько секунд; нажатие открывает окно «Приходы в фоне».
+    /// 2026-11-01 (Д-10): рисует общая плашка программы <see cref="SuccessToast"/> (раньше здесь была своя копия окна плашки).</summary>
     internal static void ShowToast(string text, bool error)
     {
-        if (!Dispatcher.UIThread.CheckAccess())
+        // 2026-11-02 (приёмка 1.17.73, п. 1): ошибка или частичный приход — плашка «залипающая» (не гаснет, пока не нажмут; нажатие открывает
+        // «Приходы в фоне» — там подробности); успех гаснет через 7 с.
+        SuccessToast.Show(text, error ? ToastKind.Error : ToastKind.Success, TimeSpan.FromSeconds(7), () =>
         {
-            Dispatcher.UIThread.Post(() => ShowToast(text, error));
-            return;
-        }
-
-        try
-        {
-            _toast?.Close();
-        }
-        catch
-        {
-            // окно уже закрыто
-        }
-
-        try
-        {
-            var message = new TextBlock { Text = text, FontSize = 14, TextWrapping = TextWrapping.Wrap, MaxWidth = 360, VerticalAlignment = VerticalAlignment.Center };
-            var accent = new Border { Width = 4, CornerRadius = new CornerRadius(2), Margin = new Thickness(0, 0, 12, 0) };
-            var card = new Border
-            {
-                CornerRadius = new CornerRadius(12), Padding = new Thickness(14, 12), BorderThickness = new Thickness(1), Margin = new Thickness(8),
-                Cursor = new Cursor(StandardCursorType.Hand),
-                Child = new StackPanel { Orientation = Orientation.Horizontal, Children = { accent, message } },
-            };
-            var window = new Window
-            {
-                SystemDecorations = SystemDecorations.None,
-                ShowInTaskbar = false,
-                ShowActivated = false,
-                Topmost = true,
-                CanResize = false,
-                SizeToContent = SizeToContent.WidthAndHeight,
-                WindowStartupLocation = WindowStartupLocation.Manual,
-                Focusable = false,
-                Content = card,
-            };
-            window.Bind(Window.BackgroundProperty, window.GetResourceObservable("DialogWindowBackground"));
-            window.Bind(Window.TransparencyLevelHintProperty, window.GetResourceObservable("DialogTransparencyHint"));
-            message.Bind(TextBlock.ForegroundProperty, window.GetResourceObservable("BrushText"));
-            card.Bind(Border.BackgroundProperty, window.GetResourceObservable(error ? "BrushToastWarnBg" : "BrushToastNeutralBg"));
-            card.Bind(Border.BorderBrushProperty, window.GetResourceObservable("BrushBorder"));
-            accent.Bind(Border.BackgroundProperty, window.GetResourceObservable(error ? "BrushDanger" : "BrushSuccess"));
-
-            void Place()
-            {
-                try
-                {
-                    var screen = window.Screens.ScreenFromWindow(window) ?? window.Screens.Primary;
-                    if (screen is null)
-                        return;
-                    var scale = screen.Scaling > 0 ? screen.Scaling : 1.0;
-                    var area = screen.WorkingArea;
-                    var width = (int)Math.Ceiling((window.Bounds.Width > 0 ? window.Bounds.Width : 400) * scale);
-                    var height = (int)Math.Ceiling((window.Bounds.Height > 0 ? window.Bounds.Height : 90) * scale);
-                    window.Position = new PixelPoint(area.Right - width - (int)(12 * scale), area.Bottom - height - (int)(12 * scale));
-                }
-                catch (Exception ex)
-                {
-                    PosLogger.Log($"Приходы в фоне: плашка не поставлена в угол: {ex.Message}", "DEBUG");
-                }
-            }
-
-            card.PointerReleased += (_, e) =>
-            {
-                if (e.InitialPressMouseButton != MouseButton.Left)
-                    return;
-                var owner = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-                BackgroundReceiptsWindow.ShowOrActivate(owner is { IsVisible: true } ? owner : null);
-                window.Close();
-            };
-            window.Opened += (_, _) => Place();
-            window.Closed += (_, _) =>
-            {
-                if (ReferenceEquals(_toast, window))
-                    _toast = null;
-            };
-            _toast = window;
-            window.Show();
-            Place();
-            DispatcherTimer.RunOnce(() =>
-            {
-                if (ReferenceEquals(_toast, window))
-                    window.Close();
-            }, TimeSpan.FromSeconds(error ? 12 : 7));
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Приходы в фоне: плашка не показана: {ex.Message}", "WARNING");
-        }
+            var owner = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+            BackgroundReceiptsWindow.ShowOrActivate(owner is { IsVisible: true } ? owner : null);
+        }, sticky: error);
     }
 
     // ------------------------------------------------------------------ выход из программы
@@ -225,8 +142,24 @@ public static class BackgroundReceiptsHost
         {
             var queue = BackgroundReceivingQueue.Instance;
             var left = queue.ActiveCountAll;
-            var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
-            if (left <= 0 || _exitConfirmed || _exitAsking || prompts is null)
+            if (left <= 0 || _exitConfirmed || _exitAsking)
+            {
+                queue.Shutdown();
+                return;
+            }
+            // 2026-11-02 (живая проверка круга 3): при выходе владельца контейнер служб уже мог быть освобождён — GetService бросал
+            // «Cannot access a disposed object» (WARNING в журнале). Берём службу только когда нужен вопрос, и освобождённый контейнер
+            // — не ошибка: выходим, приходы на диске догрузятся при следующем запуске.
+            IUserPrompts? prompts;
+            try
+            {
+                prompts = App.AppHost?.Services.GetService<IUserPrompts>();
+            }
+            catch (ObjectDisposedException)
+            {
+                prompts = null;
+            }
+            if (prompts is null)
             {
                 queue.Shutdown();
                 return;
@@ -235,6 +168,10 @@ public static class BackgroundReceiptsHost
             e.Cancel = true;
             _exitAsking = true;
             _ = AskExitAsync(desktop, prompts, left);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Очередь/контейнер уже освобождены — программа и так выходит; это не ошибка.
         }
         catch (Exception ex)
         {

@@ -86,7 +86,7 @@ public static class ReceiptSnapshotCartEditor
         }
         else
         {
-            var line = BuildLine(productId, title, product.Barcode, unitPrice, qty, product.MustWeigh, salePackageId);
+            var line = BuildLine(productId, title, product.Barcode, unitPrice, qty, product.MustWeigh, salePackageId, product.ServerIsWeight);
             QuantityRules.StampLine(line, product, salePackageId); // 2026-10-26 (ХМ2): метка дробной строки (только «Хозтовары»)
             // 2026-10-27 (ревью денег, К-5): строка с явной ценой (поштучно из пачки) помечается ВСЕГДА, а не только по id упаковки: id бывает пустым
             // (пачка из офлайн-карточки, id не строкой), и тогда сверка цен подставила бы цене штуки цену целой пачки.
@@ -503,7 +503,8 @@ public static class ReceiptSnapshotCartEditor
         double unitPrice,
         double qty,
         bool mustWeigh,
-        string? salePackageId = null)
+        string? salePackageId = null,
+        bool? serverIsWeight = null)
     {
         var line = new JsonObject
         {
@@ -522,6 +523,8 @@ public static class ReceiptSnapshotCartEditor
                 ["must_weigh"] = mustWeigh,
             },
         };
+        if (serverIsWeight is { } serverFlag)
+            line["server_is_weight"] = serverFlag; // 2026-11-01 (is_weight): признак товара с сервера
         if (!string.IsNullOrWhiteSpace(salePackageId))
             line["sale_package_id"] = salePackageId;
         // 2026-09-28, продажа №1136: акции товара NurCRM едут в строке чека — сервер применит

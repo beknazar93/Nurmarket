@@ -16,7 +16,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// Возвращены», «Новый прокат» и «Принять возврат». Документ проката, склад и залог ведёт сервер NurCRM
 /// (<see cref="RentalsApi"/>), стоимость проката касса добавляет в чек строкой и берёт обычной оплатой.
 /// </summary>
-public sealed class RentalsWindow : Window
+public sealed class RentalsWindow : Window, IOwnerSectionRefresh, IOwnerSectionExcel
 {
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private readonly Func<Task<bool>>? _ensureShift;
@@ -196,8 +196,21 @@ public sealed class RentalsWindow : Window
 
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
 
+    /// <summary>2026-11-01 (В2-03): когда раздел последний раз начинал загрузку — для RefreshOnShow.</summary>
+    private DateTime _loadedUtc = DateTime.UtcNow;
+
+    public DateTime? RefreshOnShow()
+    {
+        if (DateTime.UtcNow - _loadedUtc <= TimeSpan.FromSeconds(60))
+            return null;
+        var dataAt = _loadedUtc.ToLocalTime();
+        _ = LoadAsync();
+        return dataAt;
+    }
+
     private async Task LoadAsync()
     {
+        _loadedUtc = DateTime.UtcNow;
         _status.Text = T("Загружаю прокат с сервера NurCRM…", "Прокатты NurCRM серверинен жүктөп жатам…", "Loading rentals from the NurCRM server…",
             "Kiralamalar NurCRM sunucusundan yükleniyor…", "Prokat NurCRM serveridan yuklanmoqda…");
         try
@@ -304,6 +317,27 @@ public sealed class RentalsWindow : Window
         }
         foreach (var r in rows)
             _list.Children.Add(Card(r));
+    }
+
+    /// <summary>2026-11-02 (аудит №2, В-07): все загруженные прокаты (на руках, просроченные, возвращённые) для Excel.</summary>
+    public SectionTable? BuildExportTable()
+    {
+        if (_loadFailed || _active.Count + _returned.Count == 0)
+            return null;
+        string State(RentalDto r) => r.ReturnedAt is not null ? T("возвращён", "кайтарылды", "returned", "iade edildi", "qaytarilgan")
+            : r.IsOverdue ? T("просрочен", "мөөнөтү өттү", "overdue", "gecikmiş", "muddati o'tgan") : T("на руках", "колдо", "out", "dışarıda", "qo'lda");
+        var rows = _active.Concat(_returned).GroupBy(r => r.Id).Select(g => g.First()).OrderBy(r => r.Number)
+            .Select(r => new object?[] { r.Number, r.ClientName, string.Join(", ", r.Items.Select(i => i.Label)), r.DateFrom, r.DateTo, r.DepositAmount, State(r) }).ToList();
+        return new SectionTable(T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat"), DateTime.Today.ToString("dd.MM.yyyy"),
+        [
+            new XlColumn("№", XlKind.Integer),
+            new XlColumn(T("Клиент", "Кардар", "Customer", "Müşteri", "Mijoz")),
+            new XlColumn(T("Вещи", "Буюмдар", "Items", "Ürünler", "Buyumlar")),
+            new XlColumn(T("С", "Баштап", "From", "Başlangıç", "Dan"), XlKind.Date),
+            new XlColumn(T("До", "Чейин", "Until", "Bitiş", "Gacha"), XlKind.Date),
+            new XlColumn(T("Залог, сом", "Күрөө, сом", "Deposit, som", "Depozito, som", "Garov, so'm"), XlKind.Money, XlTotal.Sum),
+            new XlColumn(T("Состояние", "Абалы", "Status", "Durum", "Holati")),
+        ], rows);
     }
 
     private void AddTab(string key, string text, int count)
@@ -557,7 +591,7 @@ public sealed class RentalsWindow : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }
 
 /// <summary>Общие кнопки окон проката — в цветах темы, как в окне выбора размера.</summary>
@@ -744,6 +778,24 @@ internal static class UiKit
 
     /// <summary>2026-10-29 (аудит поисков): поле поиска — обычное поле + крестик очистки (класс clearButton Fluent); Esc очищает текст
     /// (SearchBoxEscape; пустое поле Esc не трогает — закрывает окно как раньше). Все поиски, собранные в коде, берут это поле.</summary>
+    /// <summary>2026-11-01 (контрольный аудит, дебаунс): действие после паузы в наборе (по умолчанию 250 мс), а не на каждую букву —
+    /// длинные списки (поставщики, клиенты, товары поставщика) иначе пересобирались на каждое нажатие.</summary>
+    public static void OnTypedDebounced(TextBox box, Action action, int milliseconds = 250)
+    {
+        var timer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(milliseconds) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            action();
+        };
+        box.TextChanged += (_, _) =>
+        {
+            timer.Stop();
+            timer.Start();
+        };
+        box.DetachedFromVisualTree += (_, _) => timer.Stop();
+    }
+
     public static TextBox Search(Control host, string watermark, double height = 44)
     {
         var t = Input(host, watermark, height);
@@ -761,7 +813,7 @@ internal static class UiKit
     public static TextBlock Label(Control host, string text)
     {
         var t = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 4, 0, 0) };
-        t.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable("BrushTextSoft"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
         return t;
     }
 }

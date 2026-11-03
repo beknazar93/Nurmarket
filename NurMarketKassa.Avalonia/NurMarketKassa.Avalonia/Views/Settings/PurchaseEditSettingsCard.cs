@@ -42,7 +42,7 @@ public sealed class PurchaseEditSettingsCard : Border
     private TextBlock Hint(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 12, TextWrapping = TextWrapping.Wrap };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
         return t;
     }
 }

@@ -67,8 +67,8 @@ internal sealed class OfflineOperationsWindow : Window
         Bind(BackgroundProperty, this.GetResourceObservable("DialogWindowBackground"));
         Bind(TransparencyLevelHintProperty, this.GetResourceObservable("DialogTransparencyHint"));
 
-        _error.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
-        _summary.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        _error.Bind(TextBlock.ForegroundProperty, _error.GetResourceObservable("BrushDanger"));
+        _summary.Bind(TextBlock.ForegroundProperty, _summary.GetResourceObservable("BrushText"));
 
         var cancel = new Button { Content = T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"), IsCancel = true };
         cancel.Classes.Add("modal-cancel");
@@ -112,14 +112,14 @@ internal sealed class OfflineOperationsWindow : Window
     private TextBlock Soft(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
         return t;
     }
 
     private TextBlock Sub(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 13.5, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushText"));
         return t;
     }
 
@@ -341,7 +341,7 @@ internal sealed class OfflineOperationsWindow : Window
     {
         body.Children.Add(Sub(T("Клиент (из памяти кассы)", "Кардар (кассанын эсинен)", "Client (from the till's memory)", "Müşteri (kasanın hafızasından)", "Mijoz (kassa xotirasidan)")));
         _search.Watermark = T("Имя или телефон", "Аты же телефону", "Name or phone", "Ad veya telefon", "Ism yoki telefon");
-        _search.TextChanged += (_, _) => FillClients();
+        UiKit.OnTypedDebounced(_search, FillClients); // 2026-11-01: пауза 250 мс (все клиенты кассы)
         body.Children.Add(_search);
         _clientsList.SelectionChanged += (_, _) => OnClientSelected();
         body.Children.Add(_clientsList);
@@ -537,7 +537,7 @@ internal sealed class OfflineOperationsWindow : Window
         if (OfflineOperationsStore.IsCorrupt)
         {
             var warn = new TextBlock { Text = OfflineOperationsStore.CorruptText, FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
-            warn.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
+            warn.Bind(TextBlock.ForegroundProperty, warn.GetResourceObservable("BrushDanger"));
             var accept = new Button { Content = T("Я проверил операции, продолжить работу", "Операцияларды текшердим, улантуу", "I checked the operations, continue", "İşlemleri kontrol ettim, devam et", "Operatsiyalarni tekshirdim, davom etish"), HorizontalAlignment = HorizontalAlignment.Left };
             accept.Click += (_, _) =>
             {
@@ -578,7 +578,7 @@ internal sealed class OfflineOperationsWindow : Window
                 FontSize = 12.5,
                 TextWrapping = TextWrapping.Wrap,
             };
-            line.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(failed ? "BrushDanger" : "BrushText"));
+            line.Bind(TextBlock.ForegroundProperty, line.GetResourceObservable(failed ? "BrushDanger" : "BrushText"));
             var row = new StackPanel { Spacing = 4 };
             row.Children.Add(line);
             if (failed)

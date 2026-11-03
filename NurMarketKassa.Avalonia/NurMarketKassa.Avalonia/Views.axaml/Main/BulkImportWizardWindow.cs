@@ -371,13 +371,23 @@ public sealed class BulkImportWizardWindow : Window
         RefreshTexts();
     }
 
+    // 2026-11-01 (контрольный аудит, С2-16): мастер один на программу — двойной клик по кнопке не открывает второе окно с тем же файлом (двойной приход).
+    private static BulkImportWizardWindow? _openWizard;
+
     public static void Open(Window? owner)
     {
         // 2026-10-29: Android — ошибка при создании/показе окна уходила в общий диалог «Произошла ошибка в программе» без причины.
         // Теперь причина (с вложенным исключением) пишется в журнал, а кассир видит понятный текст.
         try
         {
+            if (_openWizard is { IsVisible: true } already)
+            {
+                already.Activate();
+                return;
+            }
             var window = new BulkImportWizardWindow();
+            _openWizard = window;
+            window.Closed += (_, _) => { if (ReferenceEquals(_openWizard, window)) _openWizard = null; };
             if (owner != null)
                 window.Show(owner);
             else
@@ -1436,7 +1446,7 @@ public sealed class BulkImportWizardWindow : Window
                 journal.ReceiptOrder = [];
                 journal.Save();
             }
-            _status.Text = ex.Message;
+            _status.Text = ServerOutageMonitor.FriendlyError(ex);
             return;
         }
 
@@ -1595,7 +1605,7 @@ public sealed class BulkImportWizardWindow : Window
                 foreach (var failed in info.FailedRows)
                 {
                     if (failed.FileRow is { } fr && byRow.TryGetValue(fr, out var planRow))
-                        planRow.SetLoadError(failed.Error);
+                        planRow.SetLoadError(failed.Error, failed.NeedsCheck);
                 }
                 _plan.Recompute();
                 foreach (var row in _rows)

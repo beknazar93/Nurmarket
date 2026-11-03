@@ -649,9 +649,7 @@ public static class ClientDocsStore
                 Company = CompanyKey, Server = server, Pending = Pending.Values.ToList(), Tombs = Tombs.Values.ToList(),
                 Profile = _profile, ProfileDirtyFields = ProfileDirty.ToList(), CountersDirty = _countersDirty,
             };
-            var tmp = path + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(file, Json));
-            File.Move(tmp, path, overwrite: true);
+            AtomicFile.WriteAllText(path, JsonSerializer.Serialize(file, Json)); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
         }
         catch (Exception ex)
         {

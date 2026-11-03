@@ -106,8 +106,12 @@ public static class SaleReceiptTextBuilder
         // Позиции. Сумму строки берём ту же, что показывает список: пересчёт qty × price заново
         // разошёлся бы со строкой при скидке на позицию или при пакетной продаже.
         decimal linesTotal = 0;
+        var lineCount = 0; // 2026-11-02 (К3-07)
+        var anyWeighed = false;
         foreach (var line in CartDisplayHelper.EnumerateSaleLineItems(sale))
         {
+            lineCount++;
+            anyWeighed |= CartDisplayHelper.LineMustWeigh(line);
             var name = CartDisplayHelper.ItemName(line);
             var qty = CartDisplayHelper.LineQuantity(line);
             var price = (decimal)CartDisplayHelper.UnitPrice(line);
@@ -146,13 +150,22 @@ public static class SaleReceiptTextBuilder
         // Во втором случае показывать «Сумма = сумма строк» нельзя: получался чек, где
         // «Сумма 6 114,70 / Скидка −15,00 / ИТОГО 6 114,70» — скидка есть, а итог от неё не
         // изменился. Правильная «Сумма» там — итог ПЛЮС скидка, то есть цена до скидки.
+        // 2026-11-02 (К3-07): разность «итог − (сумма строк − скидка)» на копейки — округление весовых (сервер округляет их сумму вниз, а строки
+        // показывает половиной вверх). Печатаем отдельной строкой, чтобы сумма строк + округление − скидка = итог.
+        var rounding = CartTotalsCalculator.SaleRoundingAdjustment(linesTotal, discount, due, lineCount);
+        var roundingLabel = anyWeighed ? "Округление весовых" : "Округление";
+        void RoundingLine() =>
+            Line(ReceiptLineLayout.FormatLabelAmount(
+                roundingLabel, (rounding < 0 ? "-" : "+") + Math.Abs(rounding).ToString("N2", CultureInfo.CurrentCulture), w));
+
         if (discount > 0.005m)
         {
             decimal? subtotal = null;
-            if (Math.Abs(linesTotal - discount - due) < 0.01m)
-                subtotal = linesTotal;                 // путь 1
-            else if (Math.Abs(linesTotal - due) < 0.01m)
+            // 2026-11-02: сначала «цены строк уже со скидкой» (путь 2): иначе допуск на округление принял бы за путь 1 чек со скидкой в копейку.
+            if (Math.Abs(linesTotal - due) < 0.01m)
                 subtotal = due + discount;             // путь 2
+            else if (Math.Abs(linesTotal - discount - due) <= 0.01m * Math.Max(1, lineCount) + 0.001m)
+                subtotal = linesTotal;                 // путь 1 (с допуском на округление весовых — копейка на строку)
 
             // Если не сходится ни так, ни так — печатаем только итог. Три числа, которые
             // противоречат друг другу, хуже одного честного.
@@ -162,8 +175,12 @@ public static class SaleReceiptTextBuilder
                     "Сумма", sum.ToString("N2", CultureInfo.CurrentCulture), w));
                 Line(ReceiptLineLayout.FormatLabelAmount(
                     "Скидка", "-" + discount.ToString("N2", CultureInfo.CurrentCulture), w));
+                if (rounding != 0m && subtotal == linesTotal)
+                    RoundingLine();
             }
         }
+        else if (rounding != 0m)
+            RoundingLine();
 
         var method = (Str(sale, "payment_method") ?? "").ToLowerInvariant();
         if (CartReceiptTextBuilder.FormatPaymentMethodLine(method) is { } methodLine)

@@ -173,6 +173,8 @@ public partial class WarehouseWindow
     {
         if (!BarcodePrintAccess.IsAllowed()) // 2026-11-01 (П-10): без права «Печать штрих-кодов» предложение напечатать этикетки не показываем
             return;
+        if (!LabelPrinterSelector.PrintingSupported) // 2026-11-02 (П-3): печать этикеток работает только в Windows — предлагать нечего
+            return;
         var items = new List<(string Title, string Barcode, string VariantText, double Price, int Copies)>();
         var missing = 0;
         foreach (var line in lines.Where(l => l.VariantQuantities is { Count: > 0 } && !string.IsNullOrWhiteSpace(l.ProductId)))
@@ -225,30 +227,62 @@ public partial class WarehouseWindow
             return;
         }
         var template = LabelTemplateStore.Load();
-        int printed = 0, failed = 0;
-        foreach (var item in items)
+        // 2026-11-02 (С3-06): на первом сбое печать останавливается (раньше шла дальше, а повтор печатал всё заново); счёт «напечатано N из M»,
+        // «Допечатать остальные» печатает только то, что ещё не напечатано.
+        var left = items.Select(i => i.Copies).ToArray();
+        var printedAll = 0;
+        while (true)
         {
-            var left = item.Copies;
-            while (left > 0)
+            var last = LabelPrintResult.Success;
+            for (var i = 0; i < items.Count && last == LabelPrintResult.Success; i++)
             {
-                var batch = Math.Min(left, 99);
-                var request = new LabelPrintRequest(item.Title, item.Barcode, item.Price.ToString("0.00", CultureInfo.InvariantCulture) + " сом", batch, printer, template,
-                    StoreName: UserPreferences.Instance.StoreName, VariantText: item.VariantText);
-                var result = await Task.Run(() => BarcodeLabelService.Print(request)).ConfigureAwait(true);
-                if (result == LabelPrintResult.Success)
-                    printed += batch;
-                else
-                    failed++;
-                left -= batch;
+                var item = items[i];
+                while (left[i] > 0)
+                {
+                    var batch = Math.Min(left[i], 99);
+                    var request = new LabelPrintRequest(item.Title, item.Barcode, item.Price.ToString("0.00", CultureInfo.InvariantCulture) + " сом", batch, printer, template,
+                        StoreName: UserPreferences.Instance.StoreName, VariantText: item.VariantText);
+                    BarcodeLabelService.ClearPartial(printer); // 2026-11-02 (С3-16): «N из M» хранится по принтеру
+                    var result = await Task.Run(() => BarcodeLabelService.Print(request)).ConfigureAwait(true);
+                    if (result == LabelPrintResult.Success)
+                    {
+                        printedAll += batch;
+                        left[i] -= batch;
+                        continue;
+                    }
+                    last = result;
+                    if (result == LabelPrintResult.PartiallySent)
+                    {
+                        var sent = Math.Clamp(BarcodeLabelService.PartialFor(printer)?.Sent ?? 0, 0, batch);
+                        printedAll += sent;
+                        left[i] -= sent;
+                    }
+                    break;
+                }
             }
+            if (last == LabelPrintResult.Success)
+            {
+                BarcodeLabelService.ClearPartial(printer); // допечатано — прежний «N из M» больше не нужен
+                break;
+            }
+            var rest = left.Sum();
+            PosLogger.Log($"Приёмка: этикетки размеров — напечатано {printedAll} из {total}, остановка ({last}), осталось {rest}.", "CATALOG");
+            var reason = last == LabelPrintResult.PartiallySent ? LabelPrinterSelector.PartialText(printer)
+                : last == LabelPrintResult.PrinterNotFound ? LabelPrinterSelector.HintText(LabelPrinterState.NotFound)
+                : Tr.T("Проверьте принтер этикеток.", "Этикетка принтерин текшериңиз.", "Check the label printer.", "Etiket yazıcısını kontrol edin.", "Yorliq printerini tekshiring.");
+            var again = await PosDialogs.ConfirmYesNoModalAsync(this,
+                Tr.T($"Напечатано {printedAll} из {total}. ", $"{printedAll}/{total} басылды. ", $"Printed {printedAll} of {total}. ", $"{printedAll}/{total} basıldı. ", $"{printedAll}/{total} chop etildi. ")
+                + reason + "\n\n"
+                + Tr.T($"Допечатать только остальные — {rest} шт.? Напечатанные повторно не печатаются.", $"Калганын гана басабызбы — {rest} даана? Басылгандар кайра басылбайт.",
+                    $"Print only the rest — {rest} pcs? Printed labels are not printed again.", $"Yalnızca kalanı yazdıralım mı — {rest} adet? Basılanlar tekrar basılmaz.", $"Faqat qolganini chop etamizmi — {rest} dona? Chop etilganlar qayta chop etilmaydi."),
+                Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar"),
+                Tr.T($"Допечатать остальные: {rest} шт.", $"Калганын басуу: {rest} даана", $"Print the rest: {rest}", $"Kalanı yazdır: {rest}", $"Qolganini chop etish: {rest} dona"),
+                Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish")).ConfigureAwait(true);
+            if (!again)
+                break;
         }
-        PosLogger.Log($"Приёмка: этикетки размеров напечатаны {printed} шт., сбоев {failed}.", "CATALOG");
-        if (printed > 0)
-            LabelPrinterSelector.LogSent(null, printer, printed);
-        if (failed > 0)
-            PosMessageBox.Show(this, Tr.T($"Напечатано {printed} шт., сбоев печати: {failed} — проверьте принтер этикеток.", $"{printed} даана басылды, басуу каталары: {failed} — этикетка принтерин текшериңиз.",
-                    $"Printed {printed}, print failures: {failed} — check the label printer.", $"{printed} adet yazdırıldı, hata: {failed} — etiket yazıcısını kontrol edin.",
-                    $"{printed} dona chop etildi, xatolar: {failed} — yorliq printerini tekshiring."),
-                Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        PosLogger.Log($"Приёмка: этикетки размеров напечатаны {printedAll} шт. из {total}.", "CATALOG");
+        if (printedAll > 0)
+            LabelPrinterSelector.LogSent(null, printer, printedAll);
     }
 }

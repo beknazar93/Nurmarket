@@ -781,6 +781,32 @@ public static class CartDisplayHelper
         return PromotionRules.LineDiscount(it, LineQuantity(it), UnitPrice(it)) ?? ManualLineDiscount(it);
     }
 
+    /// <summary>2026-11-01 (опыты на сервере NBS): «весовая» для ПОДЫТОГА чека — только товар с признаком <c>is_weight</c> (так считает сервер:
+    /// сумму таких строк он округляет вниз). НЕ по единице «кг», НЕ по названию и НЕ по дробному количеству — «Доп. услуга» без товара
+    /// и «Алма» в кг с <c>is_weight: false</c> весовыми не считаются. Признак строка получает при добавлении (LocalCartService.BuildLine → is_weight).</summary>
+    public static bool LineIsWeightProduct(JsonElement it)
+    {
+        if (it.ValueKind != JsonValueKind.Object || string.IsNullOrEmpty(TryProductId(it)))
+            return false;
+
+        // 2026-11-01 (владелец «10 из 10», is_weight): признак товара с сервера, записанный в строку при добавлении (tile.ServerIsWeight), — главный:
+        // «Алма» в кг с is_weight=false весовой не считается. Нет признака (старая запись базы, строка с сервера) — прежняя эвристика ниже.
+        if (it.TryGetProperty("server_is_weight", out var serverFlag) && serverFlag.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            return serverFlag.ValueKind == JsonValueKind.True;
+
+        if (TruthyBool(it, "is_weight") || TruthyBool(it, "is_weigh") || TruthyBool(it, "is_wait") || TruthyBool(it, "is_weight_product"))
+            return true;
+
+        foreach (var key in new[] { "product", "product_snapshot" })
+        {
+            if (it.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.Object
+                && (TruthyBool(p, "is_weight") || TruthyBool(p, "is_weight_product") || TruthyBool(p, "must_weigh")))
+                return true;
+        }
+
+        return false;
+    }
+
     /// <summary>Шаг 0.05 (кг) или 1 (шт).</summary>
     public static bool LineMustWeigh(JsonElement it)
     {

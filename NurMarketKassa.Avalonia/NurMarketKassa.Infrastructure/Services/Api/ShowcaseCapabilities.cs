@@ -23,5 +23,7 @@ public static class ShowcaseCapabilities
 
     public static Task<bool> HasAsync(NurMarketApiClient api, string name, CancellationToken ct = default) => ServerCapabilities.HasAsync(api, name, ct);
 
+    public static Task<(IReadOnlySet<string> Features, Exception? Error)> TryLoadAsync(NurMarketApiClient api, CancellationToken ct = default, bool force = false) => ServerCapabilities.TryLoadAsync(api, ct, force);
+
     public static Task<IReadOnlySet<string>> LoadAsync(NurMarketApiClient api, CancellationToken ct = default, bool force = false) => ServerCapabilities.LoadAsync(api, ct, force);
 }

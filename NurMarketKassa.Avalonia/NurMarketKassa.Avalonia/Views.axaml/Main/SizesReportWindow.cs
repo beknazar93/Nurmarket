@@ -134,7 +134,7 @@ public sealed class SizesReportWindow : Window
         }
         catch (Exception ex)
         {
-            _status.Text = Tr.T("Отчёт не построен: ", "Отчёт түзүлгөн жок: ", "The report was not built: ", "Rapor oluşturulamadı: ", "Hisobot tuzilmadi: ") + ex.Message;
+            _status.Text = Tr.T("Отчёт не построен: ", "Отчёт түзүлгөн жок: ", "The report was not built: ", "Rapor oluşturulamadı: ", "Hisobot tuzilmadi: ") + ServerOutageMonitor.FriendlyError(ex);
             PosLogger.Log($"Размеры и цвета: отчёт не построен ({ex.Message}).", "WARNING");
         }
     }
@@ -253,5 +253,5 @@ public sealed class SizesReportWindow : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

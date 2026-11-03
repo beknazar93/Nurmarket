@@ -335,6 +335,7 @@ class HeldCart {
           'pr': l.price,
           'q': l.qty,
           'w': l.isWeight,
+          if (l.weightFlag != null) 'wf': l.weightFlag, // 2026-11-01
           'u': l.unit,
           'c': l.custom,
           'd': l.discount,
@@ -369,6 +370,7 @@ class HeldCart {
             price: (l['pr'] as num).toDouble(),
             qty: (l['q'] as num).toDouble(),
             isWeight: l['w'] as bool? ?? false,
+            weightFlag: l['wf'] as bool?,
             unit: l['u'] as String? ?? 'шт',
             custom: l['c'] as bool? ?? false,
             discount: (l['d'] as num?)?.toDouble() ?? 0,

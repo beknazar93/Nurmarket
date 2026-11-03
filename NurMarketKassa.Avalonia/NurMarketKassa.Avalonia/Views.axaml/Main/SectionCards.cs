@@ -81,7 +81,7 @@ internal static class SectionCards
     public static TextBlock ErrorText(Control host)
     {
         var t = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0), IsVisible = false };
-        t.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable("BrushDangerOnSoft"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushDangerOnSoft"));
         return t;
     }
 
@@ -117,9 +117,9 @@ internal static class SectionCards
     /// <summary>Ошибка в мягкой красной плашке; видна, когда видим сам текст (окна по-прежнему переключают его IsVisible).</summary>
     public static Border ErrorBox(Control host, TextBlock error)
     {
-        error.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable("BrushDangerOnSoft"));
+        error.Bind(TextBlock.ForegroundProperty, error.GetResourceObservable("BrushDangerOnSoft"));
         var box = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 10), Child = error };
-        box.Bind(Border.BackgroundProperty, host.GetResourceObservable("BrushDangerSoft"));
+        box.Bind(Border.BackgroundProperty, box.GetResourceObservable("BrushDangerSoft"));
         box.Bind(Visual.IsVisibleProperty, error.GetObservable(Visual.IsVisibleProperty));
         return box;
     }
@@ -132,7 +132,7 @@ internal static class SectionCards
             Text = text, FontSize = 14, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, MaxWidth = 540,
             HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(24, 48, 24, 0),
         };
-        t.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable("BrushTextSoft"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
         return t;
     }
 
@@ -140,7 +140,7 @@ internal static class SectionCards
     public static TextBlock Toggle(Control host, string text)
     {
         var t = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 2, 0, 0) };
-        t.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable("BrushText"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushText"));
         return t;
     }
 
@@ -148,9 +148,9 @@ internal static class SectionCards
     public static Border Pill(Control host, string text, string background = "BrushPanelSoft", string foreground = "BrushTextSoft")
     {
         var label = new TextBlock { Text = text, FontSize = 12, FontWeight = FontWeight.SemiBold };
-        label.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable(foreground));
+        label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable(foreground));
         var pill = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(10, 3), Child = label, VerticalAlignment = VerticalAlignment.Center };
-        pill.Bind(Border.BackgroundProperty, host.GetResourceObservable(background));
+        pill.Bind(Border.BackgroundProperty, pill.GetResourceObservable(background));
         return pill;
     }
 
@@ -171,7 +171,7 @@ internal static class SectionCards
             };
             if (!header && col > 0)
                 t.Classes.Add("num");
-            t.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable(header ? "BrushTextSoft" : "BrushText"));
+            t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable(header ? "BrushTextSoft" : "BrushText"));
             Grid.SetRow(t, r);
             Grid.SetColumn(t, col);
             grid.Children.Add(t);
@@ -192,7 +192,7 @@ internal static class SectionCards
             if (mark)
             {
                 var back = new Border { CornerRadius = new CornerRadius(6), Margin = new Thickness(-6, 0) };
-                back.Bind(Border.BackgroundProperty, host.GetResourceObservable("BrushAccentSoft"));
+                back.Bind(Border.BackgroundProperty, back.GetResourceObservable("BrushAccentSoft"));
                 Grid.SetRow(back, r);
                 Grid.SetColumnSpan(back, 4);
                 grid.Children.Add(back);
@@ -204,7 +204,7 @@ internal static class SectionCards
             index++;
         }
         var box = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Margin = new Thickness(0, 4, 0, 0), Child = grid };
-        box.Bind(Border.BackgroundProperty, host.GetResourceObservable("BrushPanelSoft"));
+        box.Bind(Border.BackgroundProperty, box.GetResourceObservable("BrushPanelSoft"));
         return box;
     }
 
@@ -212,8 +212,8 @@ internal static class SectionCards
     public static Border Group(Control host, Control child)
     {
         var box = new Border { CornerRadius = new CornerRadius(10), BorderThickness = new Thickness(1), Padding = new Thickness(12, 10), Child = child };
-        box.Bind(Border.BorderBrushProperty, host.GetResourceObservable("BrushBorder"));
-        box.Bind(Border.BackgroundProperty, host.GetResourceObservable("BrushPanel"));
+        box.Bind(Border.BorderBrushProperty, box.GetResourceObservable("BrushBorder"));
+        box.Bind(Border.BackgroundProperty, box.GetResourceObservable("BrushPanel"));
         return box;
     }
 }

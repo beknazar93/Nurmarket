@@ -146,6 +146,7 @@ public partial class MainWindow : Window
         ApplyMarketSphereToCatalog(fromSettings: false);
         MarketSpheres.Changed += OnMarketSphereChanged;
         Tr.LanguageChanged += OnLanguageChangedShiftBalance; // 2026-11-01 (Д-4): «Касса: X сом» пересчитывается при смене языка
+        PosDataEvents.SalesChanged += OnPosDataChangedShiftBalance; // 2026-11-01 (живая проверка 1.17.72): поправка ящика после возврата долгового чека → шапка сразу, без F5
         _viewModel.Catalog.StateChanged += OnViewModelStateChanged;
         _viewModel.Basket.StateChanged += OnViewModelStateChanged;
         // 2026-10-04: оплата проведена — состояние на диск сразу, без задержки 0,4 с (иначе после сбоя сразу
@@ -169,6 +170,10 @@ public partial class MainWindow : Window
         // 2026-11-01 (К-02, code-review): офлайн-смена передана серверу автоматически — кассир видит плашку, а не молчаливый фон.
         ShiftStateService.OfflineShiftHandedToServer -= OnOfflineShiftHandedToServer;
         ShiftStateService.OfflineShiftHandedToServer += OnOfflineShiftHandedToServer;
+        // 2026-11-02 (К3-06, К2-15): сообщения сверки смены (вчерашняя смена закрыта в фоне; касса переключена на смену с другой кассы).
+        _shiftNoticeTarget = this;
+        ShiftStateService.ShiftNotice -= OnShiftNotice;
+        ShiftStateService.ShiftNotice += OnShiftNotice;
         // 2026-10-29 (скорость синхронизации): режим окна и «есть товары в чеке» — для адаптивного опроса ленты (3 с / 8 с / 30–60 с).
         NurMarketKassa.AvaloniaHost.Services.SyncActivityWatcher.Attach(this, _viewModel.Basket, () => _viewModel.Basket.HasItems);
         // 2026-10-20 (живой аудит кассы, К1–К3, К6): как заплатили — для суммы возврата и «Истории чеков» после возврата.
@@ -288,7 +293,8 @@ public partial class MainWindow : Window
         {
             try
             {
-                var subscription = await CompanyInfoService.RefreshAsync(App.AuthApi, cancellationToken).ConfigureAwait(true);
+                // 2026-11-03 (С-03): startup — свежую компанию окна входа не грузим второй раз, а при медленном сервере (8 с) открываемся с кэшем подписки.
+                var subscription = await CompanyInfoService.RefreshAsync(App.AuthApi, cancellationToken, startup: true).ConfigureAwait(true);
                 // Единственное место на пути автовхода, где компания уже известна: до сюда
                 // касса ещё ничего не продала, поэтому разделить данные аккаунтов можно здесь.
                 AccountDataIsolation.SwitchTo(CompanyInfoService.LastCompany?.Id);
@@ -1791,6 +1797,18 @@ public partial class MainWindow : Window
     }
 
     /// <summary>2026-11-01 (К-02, code-review): плашка «смена, открытая без связи, передана серверу» (событие ShiftStateService приходит с потока пула).</summary>
+    private static MainWindow? _shiftNoticeTarget;
+
+    /// <summary>2026-11-02: сообщение сверки смены кассиру — предупреждение окном, обычное — тостом (событие приходит с потока пула).</summary>
+    private static void OnShiftNotice(string text, bool warning) =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (warning && _shiftNoticeTarget is { } w)
+                w._prompts.ShowWarning(text);
+            else
+                MainStatusViewModel.TryShowInfoToast(text);
+        });
+
     private static void OnOfflineShiftHandedToServer(string text) =>
         Dispatcher.UIThread.Post(() => MainStatusViewModel.TryShowInfoToast(text));
 
@@ -1960,7 +1978,7 @@ public partial class MainWindow : Window
             "Бул бөлүм «NurCRM Ээси» программасында.",
             "This section is in the “NurCRM Owner” program.",
             "Bu bölüm «NurCRM İşletme Sahibi» programında yer alır.",
-            "Bu bo'lim «NurCRM Egasi» dasturida."), isWarning: true);
+            "Bu bo'lim «NurCRM Egasi» dasturida."));
         return false;
     }
 
@@ -2003,6 +2021,12 @@ public partial class MainWindow : Window
         if (_session.IsShiftOpen && !shiftChecked)
         {
             _ = ReturnAfterShiftCheckAsync();
+            return;
+        }
+        // 2026-11-01 (М-1, контрольный аудит): онлайн-возврат без открытой смены писался с shift_id = null и не попадал ни в один Z — как при возврате без связи, сначала «откройте смену».
+        if (!_session.IsShiftOpen && !OfflineModeHelper.SellLocally)
+        {
+            _viewModel.Basket.CartMessage = Tr.T("Откройте смену, чтобы оформить возврат.", "Кайтарууну жасоо үчүн сменаны ачыңыз.", "Open a shift to make a return.", "İade yapmak için vardiya açın.", "Qaytarishni rasmiylashtirish uchun smenani oching.");
             return;
         }
         // 2026-10-29: нет связи (авария сервера или вход без интернета) — возврат без связи по чекам, которые касса помнит (владелец разрешил).
@@ -2237,6 +2261,9 @@ public partial class MainWindow : Window
                             return;
 
                         await CloseShiftAsync(confirmUnfinishedReceipt: false).ConfigureAwait(true);
+                        // 2026-11-01 (К-13, контрольный аудит): «Отмена» в окне закрытия смены или отказ закрытия — смена осталась открытой, выход не продолжаем.
+                        if (_session.IsShiftOpen)
+                            return;
                     }
                 }
                 // LogoutOnly: смена намеренно остаётся открытой — например, кассир передаёт
@@ -2627,6 +2654,9 @@ public partial class MainWindow : Window
                             return;
 
                         await CloseShiftAsync(confirmUnfinishedReceipt: false).ConfigureAwait(true);
+                        // 2026-11-01 (К-13, контрольный аудит): «Отмена» в окне закрытия смены или отказ закрытия — смена осталась открытой, выход не продолжаем.
+                        if (_session.IsShiftOpen)
+                            return;
                     }
                 }
             }
@@ -2709,6 +2739,7 @@ public partial class MainWindow : Window
         ServerOutageMonitor.QueueFlushed -= OnQueueFlushed;
         MarketSpheres.Changed -= OnMarketSphereChanged;
         Tr.LanguageChanged -= OnLanguageChangedShiftBalance;
+        PosDataEvents.SalesChanged -= OnPosDataChangedShiftBalance;
         Screens.Changed -= OnCashierScreensChanged;
         _barcodeInputService.BarcodeScanned -= OnBarcodeScanned;
         PosDataEvents.ClientDebtChanged -= OnClientDebtChangedRefreshBalance;
@@ -3529,7 +3560,8 @@ public partial class MainWindow : Window
         if (!string.IsNullOrWhiteSpace(result.InfoMessage) && !result.Resumed)
         {
             // 2026-10-27 (ревью, См-2): предупреждение о потерянном пересчёте ящика прошлой смены — окном, а не тостом, который пропустят.
-            if (result.InfoIsWarning)
+            // 2026-11-02 (приёмка 1.17.73, п. 1): «Смена открыта без связи (причина)…» — тоже окном: причина и дальнейшие шаги не должны гаснуть.
+            if (result.InfoIsWarning || result.IsOffline)
                 _prompts.ShowWarning(result.InfoMessage);
             else
                 _prompts.ShowToast(result.InfoMessage);
@@ -3577,7 +3609,17 @@ public partial class MainWindow : Window
 
         // 2026-11-01 (жалоба клиента «при открытии сумма не меняется»): сервер вернул УЖЕ открытую смену — введённая сумма не применена. Раньше — только тост, который пропускали.
         // Теперь вопрос: «Продолжить смену» (по умолчанию, Esc) или «Закрыть и открыть заново» (закрытие — по обычным правилам: пересчёт, досылка хвостов, с пометкой при необходимости).
-        if (result.Resumed)
+        if (result.Resumed && result.ServerRefusedPreviousClose)
+        {
+            // 2026-11-01 (К2-22, контрольный аудит): сервер только что не закрыл прошлую смену — «Закрыть и открыть заново» привело бы по кругу к тому же. Объясняем и продолжаем.
+            PosLogger.Log("Открытие смены: сервер не принял закрытие прошлой смены — кассир уведомлён, смена продолжена (без вопроса «закрыть и открыть заново»).", "SHIFT");
+            _prompts.ShowWarning(Tr.T("Сервер не закрыл прошлую смену, поэтому касса продолжает её. Закрыть и открыть заново сейчас не получится — попробуйте позже, когда сервер примет закрытие.\n\n" + result.InfoMessage,
+                "Сервер мурунку сменаны жапкан жок, ошондуктан касса аны улантат. Азыр жаап, кайра ачуу мүмкүн эмес — сервер жабууну кабыл алганда кайра аракет кылыңыз.\n\n" + result.InfoMessage,
+                "The server did not close the previous shift, so the till continues it. Closing and reopening is not possible right now — try later, when the server accepts the closing.\n\n" + result.InfoMessage,
+                "Sunucu önceki vardiyayı kapatmadı, bu yüzden kasa ona devam ediyor. Şu an kapatıp yeniden açmak mümkün değil — sunucu kapanışı kabul edince tekrar deneyin.\n\n" + result.InfoMessage,
+                "Server oldingi smenani yopmadi, shuning uchun kassa uni davom ettiradi. Hozir yopib qayta ochib bo'lmaydi — server yopishni qabul qilganda qayta urinib ko'ring.\n\n" + result.InfoMessage));
+        }
+        else if (result.Resumed)
         {
             var serverOpening = result.Balance ?? openingCash;
             var by = string.IsNullOrWhiteSpace(result.ResumedBy) ? "" : Tr.T($" Открыл: {result.ResumedBy}.", $" Ачкан: {result.ResumedBy}.", $" Opened by: {result.ResumedBy}.", $" Açan: {result.ResumedBy}.", $" Ochgan: {result.ResumedBy}.");
@@ -3639,7 +3681,18 @@ public partial class MainWindow : Window
             || ServerOutageMonitor.IsOutage || App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous)
             return true; // нет сервера / офлайн-смена: хвосты и очередь уйдут сами, закрытие встанет в очередь за ними
 
-        await ShiftCashFlowSync.PushPendingAsync(shiftId).ConfigureAwait(true);
+        // 2026-11-03 (С-10, аудит «зависание при медленном сервере»; ревью С-3): на досылку внесений и очереди чеков — 8 с С ПОСЛЕДНЕГО ОТВЕТА сервера (каждый ответ сдвигает срок),
+        // общий потолок 30 с. Было: 8 с на всё сразу — на медленном, но живом сервере (3–4 с на запрос) уходили 1–2 операции и вопрос «Закрыть всё равно?» появлялся зря.
+        // Не успели — закрытие «с пометкой» (вопрос ниже), досылка продолжится фоном по существующей очереди.
+        using var flushCap = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var flushWait = CancellationTokenSource.CreateLinkedTokenSource(_windowCts.Token, flushCap.Token);
+        flushWait.CancelAfter(ServerAnswerWait.ForegroundBudget);
+        var flushWatch = ServerOutageMonitor.BeginResponseWatch(
+            () => { try { flushWait.CancelAfter(ServerAnswerWait.ForegroundBudget); } catch (ObjectDisposedException) { } },
+            wait => { try { flushWait.CancelAfter(ServerAnswerWait.ForegroundBudget + wait); } catch (ObjectDisposedException) { } });
+        try
+        {
+        await ShiftCashFlowSync.PushPendingAsync(shiftId, null, flushWait.Token).ConfigureAwait(true);
         var tailOps = ShiftCashOperationsStore.PendingForShift(shiftId);
 
         var queued = QueuedSalesOfShift(shiftId);
@@ -3649,8 +3702,7 @@ public partial class MainWindow : Window
             try
             {
                 var sync = App.GetRequiredService<SyncService>();
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(_windowCts.Token);
-                cts.CancelAfter(TimeSpan.FromSeconds(20));
+                var cts = flushWait;
                 for (var attempt = 0; attempt < 5 && QueuedSalesOfShift(shiftId) > 0 && !cts.IsCancellationRequested; attempt++)
                 {
                     await sync.ProbeNowAsync(cts.Token).ConfigureAwait(true);
@@ -3691,6 +3743,11 @@ public partial class MainWindow : Window
             Tr.T("Закрыть смену", "Сменаны жабуу", "Close shift", "Vardiyayı kapat", "Smenani yopish"),
             Tr.T("Подождать", "Күтүү", "Wait", "Bekle", "Kutish"),
             danger: true).ConfigureAwait(true);
+        }
+        finally
+        {
+            flushWatch.Stop();
+        }
     }
 
     private static int QueuedSalesOfShift(string shiftId) =>
@@ -3745,14 +3802,21 @@ public partial class MainWindow : Window
             return;
         }
 
+        // 2026-11-02 (приёмка 1.17.73, п. 1): «Смена закрыта офлайн… не отправлено N» и любые предупреждения при закрытии — окном (плашка
+        // гасла через несколько секунд, а там числа и что делать дальше); обычное «смена закрыта» — плашка.
         if (!string.IsNullOrWhiteSpace(result.InfoMessage))
-            _prompts.ShowToast(result.InfoMessage);
+        {
+            if (result.IsOffline || result.InfoIsWarning)
+                _prompts.ShowWarning(result.InfoMessage);
+            else
+                _prompts.ShowToast(result.InfoMessage);
+        }
         // 2026-11-01 (жалоба клиента): суммы закрытия — в журнал (ожидалось в ящике по системе, пересчитано кассиром, разница), без персональных данных.
         PosLogger.Log($"Закрытие смены (окно кассы): смена {shiftIdBeforeClose}, ожидалось в ящике {(expectedBeforeClose is { } exp ? exp.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "—")}, " +
                       $"пересчитано {(closingCash is { } counted ? counted.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "—")}, " +
                       $"разница {(expectedBeforeClose is { } e2 && closingCash is { } c2 ? (c2 - e2).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "—")}, {(result.IsOffline ? "без связи" : "связь есть")}.", "SHIFT");
         if (closedWithNote)
-            _prompts.ShowToast(Tr.T("Смена закрыта с пометкой: неотправленные внесения/изъятия записаны в журнал, владельцу сообщено.",
+            _prompts.ShowWarning(Tr.T("Смена закрыта с пометкой: неотправленные внесения/изъятия записаны в журнал, владельцу сообщено.",
                 "Смена белги менен жабылды: жөнөтүлбөгөн киргизүүлөр/алуулар журналга жазылды, ээсине билдирилди.",
                 "Shift closed with a note: unsent deposits/withdrawals are logged, the owner is notified.",
                 "Vardiya notla kapatıldı: gönderilmeyen para giriş/çıkışları günlüğe yazıldı, sahibine bildirildi.",
@@ -3869,7 +3933,7 @@ public partial class MainWindow : Window
         if (!_session.IsShiftOpen || string.IsNullOrWhiteSpace(shiftId))
         {
             _prompts.ShowToast(Tr.T("Смена не открыта — X-отчёта нет.", "Смена ачылган эмес — X-отчёт жок.", "The shift is not open — no X-report.",
-                "Vardiya açık değil — X raporu yok.", "Smena ochilmagan — X-hisobot yo'q."), isWarning: true);
+                "Vardiya açık değil — X raporu yok.", "Smena ochilmagan — X-hisobot yo'q."));
             return;
         }
 
@@ -4092,6 +4156,24 @@ public partial class MainWindow : Window
         return _session.IsShiftOpen;
     }
 
+    /// <summary>2026-11-01 (живая проверка 1.17.72): после возврата долгового чека «Касса:» держала 983 до F5. Поправка ящика (ExchangeCashCorrections) записывается в фоне,
+    /// когда сверка с сервером уже закончена — позже обычного обновления шапки после возврата — и поднимает только PosDataEvents.SalesChanged, на который шапка не подписывалась.
+    /// Теперь любое такое оповещение пересчитывает шапку локально (без запроса к серверу: остаток сервера из кэша + поправки + внесения/изъятия); подряд идущие оповещения
+    /// склеиваются в один пересчёт. Событие приходит и из фоновых потоков — пересчёт в потоке интерфейса.</summary>
+    private int _balanceUiRecalcQueued;
+
+    private void OnPosDataChangedShiftBalance()
+    {
+        if (Interlocked.Exchange(ref _balanceUiRecalcQueued, 1) == 1)
+            return;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            Volatile.Write(ref _balanceUiRecalcQueued, 0);
+            if (_session.IsShiftOpen)
+                UpdateShiftBalanceUi();
+        }, Avalonia.Threading.DispatcherPriority.Background);
+    }
+
     /// <summary>2026-11-01 (Д-4, живая проверка NBS): шапка «Касса: X сом» оставалась на языке прошлого шага до следующего обновления остатка.
     /// Пересчёт — после смены словаря (Post), чтобы Tr.T уже видел новый язык.</summary>
     private void OnLanguageChangedShiftBalance() =>
@@ -4143,8 +4225,6 @@ public partial class MainWindow : Window
     /// сохранённый вход (auth.dat) НЕ стирается, чтобы после включения доступа на сайте войти снова (и без связи).</param>
     private async Task NavigateToLoginAsync(bool keepSavedLogin = false)
     {
-        FrmKeyboard.KillKeyboard();
-
         try
         {
             if (!_windowCts.IsCancellationRequested)

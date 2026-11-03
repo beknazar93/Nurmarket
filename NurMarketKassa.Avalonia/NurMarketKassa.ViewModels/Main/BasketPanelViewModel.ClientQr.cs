@@ -150,7 +150,23 @@ public sealed partial class BasketPanelViewModel
         }
 
         var loyaltyOn = UserPreferences.Instance.LoyaltyEnabled;
-        var balance = loyaltyOn ? (await ServerLoyalty.GetBalanceAsync(client.Id).ConfigureAwait(false) ?? ClientLoyaltyStore.GetBalance(client.Id)) : 0;
+        // 2026-11-03 (С-16, аудит «зависание при медленном сервере»): баланс бонусов с сервера — не дольше 3 с (раньше до 10 с, следующие сканы вставали в очередь);
+        // не пришёл — показан местный баланс, клиент всё равно выбран сразу.
+        double? serverBalance = null;
+        if (loyaltyOn)
+        {
+            try
+            {
+                using var balanceCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                serverBalance = await ServerLoyalty.GetBalanceAsync(client.Id, balanceCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                PosLogger.Log($"QR клиента {masked}: баланс бонусов не пришёл за 3 с — показан местный.", "CART");
+            }
+        }
+
+        var balance = loyaltyOn ? (serverBalance ?? ClientLoyaltyStore.GetBalance(client.Id)) : 0;
         var message = BuildClientQrMessage(client, phone, created, fromMemory, loyaltyOn, balance);
         PosLogger.Log($"QR клиента {masked}: клиент выбран в чеке (новый={created}, из памяти без связи={fromMemory}).", "CART");
 

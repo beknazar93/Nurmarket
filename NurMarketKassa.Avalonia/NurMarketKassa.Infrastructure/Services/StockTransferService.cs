@@ -200,7 +200,8 @@ public sealed class StockTransferService
         DatabaseService.Instance.WithConnection(connection =>
         {
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT COUNT(*) FROM StockTransfers WHERE number LIKE $prefix;";
+            // 2026-11-02 (аудит №2, С2-17): MAX + 1, а не COUNT + 1 — после удаления черновика номер не повторяется
+            command.CommandText = "SELECT COALESCE(MAX(CAST(SUBSTR(number, 6) AS INTEGER)), 0) FROM StockTransfers WHERE number LIKE $prefix;";
             command.Parameters.AddWithValue("$prefix", year + "-%");
             count = Convert.ToInt32(command.ExecuteScalar() ?? 0);
         });
@@ -264,8 +265,10 @@ public sealed class StockTransferService
         DatabaseService.Instance.WithConnection(connection =>
         {
             using var command = connection.CreateCommand();
-            command.CommandText = "DELETE FROM StockTransferItems WHERE id = $id;";
+            // 2026-11-02 (С2-17): только строка ЭТОГО перемещения (transferId раньше в запросе не участвовал)
+            command.CommandText = "DELETE FROM StockTransferItems WHERE id = $id AND transfer_id = $tid;";
             command.Parameters.AddWithValue("$id", itemId);
+            command.Parameters.AddWithValue("$tid", transferId);
             command.ExecuteNonQuery();
         });
     }

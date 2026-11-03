@@ -41,7 +41,7 @@ public static class ExchangeCashCorrections
         if (string.IsNullOrWhiteSpace(shiftId))
             return 0m;
         lock (FileLock)
-            return Load().Where(e => string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase)).Sum(e => e.Amount);
+            return Load(forWrite: false).Where(e => string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase)).Sum(e => e.Amount);
     }
 
     /// <summary>expected_cash смены с сервера; null — не удалось узнать (тогда поправку не считаем).</summary>
@@ -54,8 +54,9 @@ public static class ExchangeCashCorrections
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(6));
             var row = await api.RequestAsync(HttpMethod.Get, $"api/construction/shifts/{Uri.EscapeDataString(shiftId)}/", null, null, cts.Token, TimeSpan.FromSeconds(6))
                 .ConfigureAwait(false);
+            // 2026-11-01 (контрольный аудит, К2-05): число разбираем общим культурно-независимым разбором — «985,00» не станет 98500.
             if (row.ValueKind == JsonValueKind.Object && row.TryGetProperty("expected_cash", out var v)
-                && decimal.TryParse(v.ValueKind == JsonValueKind.String ? v.GetString() : v.GetRawText(), NumberStyles.Number, CultureInfo.InvariantCulture, out var d))
+                && ServerRefundFigures.ParseMoney(v.ValueKind == JsonValueKind.String ? v.GetString() : v.GetRawText()) is { } d)
                 return d;
         }
         catch (Exception ex)
@@ -96,6 +97,25 @@ public static class ExchangeCashCorrections
             Save(list);
         }
         PosLogger.Log($"Обмен {exchangeId}: сервер завысил остаток смены на {overstated:0.00} (ошибка сервера с возвращённым товаром) — касса учитывает поправку.", "WARNING");
+        PosDataEvents.RaiseSalesChanged();
+    }
+
+    /// <summary>2026-11-01 (контрольный аудит, К2-03): поправка «по факту» — касса выдала/приняла наличных иначе, чем записал сервер (обмен по чеку со скидкой на весь чек: сервер
+    /// засчитал возвращённое по полной цене). <paramref name="amount"/> = реально прошедшие наличные − записанные сервером (плюс — серверный остаток занижен). Один раз на ключ.</summary>
+    public static void RecordAdjustment(string? shiftId, string key, decimal amount, string what)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId) || string.IsNullOrWhiteSpace(key) || Math.Abs(amount) < 0.005m)
+            return;
+        lock (FileLock)
+        {
+            var list = Load();
+            if (list.Any(e => string.Equals(e.ExchangeId, key, StringComparison.OrdinalIgnoreCase)))
+                return;
+            list.Add(new Entry { ShiftId = shiftId, ExchangeId = key, Amount = amount, CreatedAt = DateTime.Now });
+            list.RemoveAll(e => e.CreatedAt < DateTime.Now.AddDays(-60));
+            Save(list);
+        }
+        PosLogger.Log($"{what}: наличные в ящике разошлись с записью сервера на {amount:0.00} — касса учитывает поправку.", "WARNING");
         PosDataEvents.RaiseSalesChanged();
     }
 
@@ -153,27 +173,64 @@ public static class ExchangeCashCorrections
         return removed;
     }
 
-    private static List<Entry> Load()
+    // 2026-11-02 (аудит №2 кассы, К3-01; приёмка круга 3): «файл занят» (антивирус, индексатор) — это НЕ «пусто». Файл не прочитан или записать не вышло — запись откладывается
+    // (AtomicFile.DeferWrite): самое свежее состояние лежит в памяти и читается ПЕРВЫМ, таймер дописывает его в файл (с объединением), при закрытии — запасной файл *.pending.
+    private static bool _blocked;
+
+    private static List<Entry>? Parse(string? text)
     {
+        if (text is null)
+            return null;
         try
         {
-            // 2026-11-01 (аудит 10 из 10, Н-07): чтение через AtomicFile — битый файл берётся из .bak, а не молча «пусто».
-            return AtomicFile.ReadAllText(FilePath) is { } text
-                ? JsonSerializer.Deserialize<List<Entry>>(text, JsonOpts) ?? new List<Entry>()
-                : new List<Entry>();
+            return JsonSerializer.Deserialize<List<Entry>>(text, JsonOpts);
         }
-        catch
+        catch (JsonException)
         {
-            return new List<Entry>();
+            return null;
         }
+    }
+
+    /// <summary>Объединение при отложенной записи: поправки из памяти + те, что есть только в файле (по ключу обмена).</summary>
+    private static string MergeEntries(string? fileText, string memoryText)
+    {
+        var memory = Parse(memoryText) ?? new List<Entry>();
+        foreach (var e in Parse(fileText) ?? new List<Entry>())
+            if (!memory.Any(x => string.Equals(x.ExchangeId, e.ExchangeId, StringComparison.OrdinalIgnoreCase)))
+                memory.Add(e);
+        return JsonSerializer.Serialize(memory, JsonOpts);
+    }
+
+    private static List<Entry> Load(bool forWrite = true)
+    {
+        // Для показа (шапка «Касса», X-отчёт) — короткие повторы, чтобы не подвешивать окно; для записи — полные.
+        var read = forWrite ? AtomicFile.TryRead(FilePath) : AtomicFile.TryRead(FilePath, attempts: 2, pauseMs: 60);
+        var list = Parse(read.Text) ?? new List<Entry>();
+        // Данные из памяти или из копии .bak (файл не прочитан) — писать их поверх файла нельзя, только через отложенную запись с объединением.
+        var stale = read.Status == AtomicFile.ReadStatus.Unreadable || read.FromMemory;
+        if (stale)
+            _blocked = true;
+        else if (forWrite)
+            _blocked = false;
+        return list;
     }
 
     private static void Save(List<Entry> list)
     {
+        var text = JsonSerializer.Serialize(list, JsonOpts);
+        if (_blocked)
+        {
+            AtomicFile.DeferWrite(FilePath, "exchange_cash_fix.json", text, MergeEntries);
+            return;
+        }
         try
         {
             // 2026-11-01 (Н-07): запись через временный файл + замену — переживает обрыв питания (раньше полфайла и потеря поправок смены).
-            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(list, JsonOpts));
+            AtomicFile.WriteAllText(FilePath, text);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AtomicFile.DeferWrite(FilePath, "exchange_cash_fix.json", text, MergeEntries);
         }
         catch (Exception ex)
         {

@@ -678,9 +678,12 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
 
     private void ApplyServerBusy()
     {
-        var busy = NurMarketKassa.Services.Api.ApiThrottle.IsBusy && !ServerOutageMonitor.IsOutage && !_autonomous.IsCurrentSessionAutonomous;
-        ServerBusyText = busy ? NurMarketKassa.Services.Api.ApiThrottle.BusyHeaderText() : "";
-        HasServerBusy = busy;
+        var notOffline = !ServerOutageMonitor.IsOutage && !_autonomous.IsCurrentSessionAutonomous;
+        var busy = NurMarketKassa.Services.Api.ApiThrottle.IsBusy && notOffline;
+        // 2026-11-03 (С-02, аудит «зависание при медленном сервере»): сервер отвечает, но медленно — тот же нейтральный значок, что у «Сервер занят» (429), надпись «Сервер медлит».
+        var slow = !busy && notOffline && ServerOutageMonitor.IsSlow;
+        ServerBusyText = busy ? NurMarketKassa.Services.Api.ApiThrottle.BusyHeaderText() : slow ? ServerOutageMonitor.SlowHeaderText : "";
+        HasServerBusy = busy || slow;
     }
 
     private async Task MonitorSubscriptionCountdownAsync(CancellationToken ct)

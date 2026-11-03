@@ -341,7 +341,7 @@ public static class BulkCardsLoader
         var fields = new Dictionary<string, object?>();
         var inv = CultureInfo.InvariantCulture;
         if (cardsOnly && row.ChPurchase)
-            fields["purchase_price"] = line.PurchasePrice.ToString("0.##", inv);
+            fields["purchase_price"] = line.PurchasePrice.ToString("0.####", inv); // 2026-11-01: 4 знака
         if (cardsOnly && row.ChSale)
             fields["price"] = line.SalePrice.ToString("0.##", inv);
         if (cardsOnly && (row.ChPurchase || row.ChSale) && ReceivingPricing.MarkupPercent(line.PurchasePrice, line.SalePrice) is { } markup)

@@ -462,7 +462,7 @@
                                 Classes="LoginLink"
                                 FontSize="13"
                                 VerticalAlignment="Center"
-                                ToolTip.Tip="Открыть окно поддержки"
+                                ToolTip.Tip="{DynamicResource csh.login.supportTooltip}"
                                 Click="AdminSupport_Click" />
                     </StackPanel>
 

@@ -1365,7 +1365,7 @@ public sealed class ClientDocEditorWindow : Window
                     }
                     catch (Exception ex)
                     {
-                        ShowMessage(T("Чек не загрузился: ", "Чек жүктөлгөн жок: ", "The receipt did not load: ", "Fiş yüklenemedi: ", "Chek yuklanmadi: ") + ex.Message);
+                        ShowMessage(T("Чек не загрузился: ", "Чек жүктөлгөн жок: ", "The receipt did not load: ", "Fiş yüklenemedi: ", "Chek yuklanmadi: ") + ServerOutageMonitor.FriendlyError(ex));
                     }
                 };
                 list.Children.Add(b);
@@ -1374,7 +1374,7 @@ public sealed class ClientDocEditorWindow : Window
         catch (Exception ex)
         {
             list.Children.Clear();
-            list.Children.Add(new TextBlock { Text = T("Чеки не загрузились: ", "Чектер жүктөлгөн жок: ", "Receipts did not load: ", "Fişler yüklenemedi: ", "Cheklar yuklanmadi: ") + ex.Message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(6) });
+            list.Children.Add(new TextBlock { Text = T("Чеки не загрузились: ", "Чектер жүктөлгөн жок: ", "Receipts did not load: ", "Fişler yüklenemedi: ", "Cheklar yuklanmadi: ") + ServerOutageMonitor.FriendlyError(ex), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(6) });
         }
     }
 

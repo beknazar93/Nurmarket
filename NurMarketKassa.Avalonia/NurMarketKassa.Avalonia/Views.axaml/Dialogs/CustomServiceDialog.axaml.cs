@@ -61,7 +61,7 @@ public partial class CustomServiceDialog : Window
         if (expense && _cartIsEmpty)
             AddButton.Content = Tr.T("Изъять из кассы", "Кассадан алуу", "Withdraw from till", "Kasadan çek", "Kassadan olish");
         else
-            AddButton.Bind(ContentControl.ContentProperty, this.GetResourceObservable("customService.addButton"));
+            AddButton.Bind(ContentControl.ContentProperty, AddButton.GetResourceObservable("customService.addButton"));
     }
 
     /// <summary>2026-10-03, проверка у клиента: из 142 строк продаж 2 были «Доп. услугой» «конфет», хотя конфеты
@@ -105,7 +105,7 @@ public partial class CustomServiceDialog : Window
                 "Katalogda bor — mahsulot sifatida sotgan ma'qul (qoldiqdan ayiriladi):"),
             FontSize = 12, TextWrapping = TextWrapping.Wrap,
         };
-        hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
         SuggestPanel.Children.Add(hint);
         foreach (var product in found)
         {
@@ -118,9 +118,9 @@ public partial class CustomServiceDialog : Window
                 MinHeight = 44, VerticalContentAlignment = VerticalAlignment.Center,
             };
             Avalonia.Automation.AutomationProperties.SetName(b, product.Title);
-            b.Bind(Button.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
-            b.Bind(Button.BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
-            b.Bind(Button.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            b.Bind(Button.BackgroundProperty, b.GetResourceObservable("BrushPanelSoft"));
+            b.Bind(Button.BorderBrushProperty, b.GetResourceObservable("BrushBorder"));
+            b.Bind(Button.ForegroundProperty, b.GetResourceObservable("BrushText"));
             b.Click += (_, _) =>
             {
                 SelectedProduct = product;

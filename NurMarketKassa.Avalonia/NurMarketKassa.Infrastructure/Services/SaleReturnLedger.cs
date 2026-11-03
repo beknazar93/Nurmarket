@@ -392,23 +392,7 @@ public static class SaleReturnLedger
             }
 
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(all.Values.ToList()));
-            // 2026-10-21 (ревью денег, п. 3): атомарная замена с копией прошлой версии в .bak (её читает Load при сбое).
-            if (File.Exists(FilePath))
-            {
-                try
-                {
-                    File.Replace(tmp, FilePath, BackupPath, ignoreMetadataErrors: true);
-                    return;
-                }
-                catch (PlatformNotSupportedException)
-                {
-                    File.Copy(FilePath, BackupPath, true);
-                }
-            }
-
-            File.Move(tmp, FilePath, true);
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(all.Values.ToList())); // 2026-11-01 (Н2-01): сброс на диск + .bak (его читает Load при сбое)
         }
         catch (Exception ex)
         {

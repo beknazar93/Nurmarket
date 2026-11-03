@@ -293,7 +293,7 @@ public sealed class PurchasePaymentDialog : Window
         Close();
     }
 
-    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, this.GetResourceObservable(key));
+    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }
 
 /// <summary>«Оприходование завершено» сайта: что принято, как оплачено (долг/касса), предупреждения; «Скачать накладную» (PDF, жёлтая),
@@ -380,7 +380,7 @@ public sealed class PurchaseDoneDialog : Window
         Content = SectionCards.Shell(Title, null, panel, SectionCards.Buttons(close, print, pdf));
     }
 
-    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, this.GetResourceObservable(key));
+    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }
 
 /// <summary>2026-10-30: «Позиции прихода» открыты из карточки товара («Поступления»): выделить строку товара, показать «Открыть файл» накладной (или честно —
@@ -559,7 +559,7 @@ public sealed class PurchaseReceiptDialog : Window
         Content = SectionCards.Shell(Title, $"{r.SupplierName} · {MoneyText.Som(r.Total)}", panel, buttons);
     }
 
-    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, this.GetResourceObservable(key));
+    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }
 
 /// <summary>Заказ поставщику: строки (заказано / принято / осталось), «Принять товар», «WhatsApp», «PDF», «Изменить», «Отменить»/«Удалить».</summary>
@@ -670,5 +670,5 @@ public sealed class PurchaseOrderDialog : Window
         Content = SectionCards.Shell(Title, $"{o.SupplierName} · {MoneyText.Som(o.Total)}", panel, buttons);
     }
 
-    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, this.GetResourceObservable(key));
+    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

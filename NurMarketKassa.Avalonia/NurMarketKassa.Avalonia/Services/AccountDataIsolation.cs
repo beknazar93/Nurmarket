@@ -419,9 +419,7 @@ public static class AccountDataIsolation
             }
             payload["files"] = files;
 
-            var tmp = path + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
-            File.Move(tmp, path, overwrite: true);
+            AtomicFile.WriteAllText(path, JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true })); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
             PosLogger.Log($"Смена аккаунта: неотправленное записано в файл {path}.", "AUTH");
             return path;
         }

@@ -89,16 +89,17 @@
                              FontWeight="Bold"
                              VerticalContentAlignment="Center"
                              CornerRadius="10"
-                             BorderBrush="{DynamicResource BrushBorder}"
+                             BorderBrush="{DynamicResource BrushInputBorder}"
                              BorderThickness="1.5"
                              Background="{DynamicResource BrushInput}"/>
                     <!-- 2026-10-21 (пакет 6, п. 18): поле было серым (BrushPanelSoft), как неактивное, — теперь цвет обычного поля ввода. -->
+                    <!-- 2026-11-02 (аудит №2, Д3-04): «%» / «сом» достаются клавиатурой (Tab, ←/→, Пробел) — раньше Focusable=False. -->
                     <RadioButton x:Name="PercentSegment" Grid.Column="2" Classes="modal-seg"
-                                 GroupName="DiscountMode" MinWidth="64" MinHeight="46" Focusable="False"
+                                 GroupName="DiscountMode" MinWidth="64" MinHeight="46" Focusable="True" IsTabStop="True"
                                  Content="%"
                                  IsCheckedChanged="ModeSegment_Changed"/>
                     <RadioButton x:Name="SumSegment" Grid.Column="4" Classes="modal-seg"
-                                 GroupName="DiscountMode" MinWidth="64" MinHeight="46" Focusable="False"
+                                 GroupName="DiscountMode" MinWidth="64" MinHeight="46" Focusable="True" IsTabStop="True"
                                  Content="{DynamicResource csh.catalog.currency}"
                                  IsCheckedChanged="ModeSegment_Changed"/>
                 </Grid>

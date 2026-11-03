@@ -534,6 +534,9 @@ public static class DocumentNumbering
 
     public static string ReceiptText(string? id) => Store.Text(DocSeries.Receipt, id, ShortCode(id));
 
+    /// <summary>2026-11-01: номер прихода для показа — серверный <c>number_display</c> («ПР-2026-000073»), если сервер его отдал; иначе прежний (индекс номеров / короткий код).</summary>
+    public static string ReceiptText(NurMarketKassa.Services.Api.SupplierReceipt r) => r.NumberDisplay.Length > 0 ? r.NumberDisplay : ReceiptText(r.Id);
+
     /// <summary>Прежний короткий код прихода (первые 8 знаков id) — пока постоянный номер неизвестен.</summary>
     public static string ShortCode(string? id) => string.IsNullOrEmpty(id) ? "" : (id.Length >= 8 ? id[..8] : id).ToUpperInvariant();
 

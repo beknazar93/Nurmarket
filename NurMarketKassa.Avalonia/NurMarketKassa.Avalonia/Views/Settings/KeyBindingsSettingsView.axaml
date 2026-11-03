@@ -15,7 +15,7 @@
       <Setter Property="FontWeight" Value="Bold"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
       <Setter Property="BorderThickness" Value="1.5"/>
       <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
     </Style>

@@ -14,13 +14,17 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 public sealed class ReceiptViewDialog : Window
 {
     private readonly ReceiptActionBar _bar = new();
+    private readonly Border _paper; // 2026-11-03 (Д-2): бумагу можно заменить, когда пришёл чек сервера
+    private readonly ModalShell _shell;
+    private SaleReceiptCardData _data;
 
     internal ReceiptViewDialog(SaleReceiptCardData data, Func<Task<(bool Ok, string Message)>>? print, string? phone = null)
     {
         SectionCards.AsModal(this, 512);
+        _data = data;
         Title = Tr.T("Чек", "Чек", "Receipt", "Fiş", "Chek") + " " + data.NumberText;
 
-        _bar.GetData = () => data;
+        _bar.GetData = () => _data;
         if (print != null)
             _bar.Print = async () =>
             {
@@ -32,9 +36,10 @@ public sealed class ReceiptViewDialog : Window
         _bar.IsReady = true;
 
         // Бумага прокручивается сама (длинный чек в 100+ строк), панель действий закреплена под ней и всегда видна.
+        _paper = new Border { Padding = new Thickness(0, 4, 0, 14), Child = SaleReceiptCardView.Build(data) };
         var scroll = new ScrollViewer
         {
-            Content = new Border { Padding = new Thickness(0, 4, 0, 14), Child = SaleReceiptCardView.Build(data) },
+            Content = _paper,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
@@ -44,8 +49,19 @@ public sealed class ReceiptViewDialog : Window
         layout.Children.Add(_bar);
         var close = SectionCards.Cancel(Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
         close.Click += (_, _) => Close();
-        var shell = SectionCards.Shell(Title, data.DateTimeText.Length > 0 ? data.DateTimeText : null, layout, SectionCards.Buttons(close));
-        shell.ContentScroll = ScrollBarVisibility.Disabled;
-        Content = shell;
+        _shell = SectionCards.Shell(Title, data.DateTimeText.Length > 0 ? data.DateTimeText : null, layout, SectionCards.Buttons(close));
+        _shell.ContentScroll = ScrollBarVisibility.Disabled;
+        Content = _shell;
+    }
+
+    /// <summary>2026-11-03 (Д-2): окно открыто с чеком кассы, пока сервер медлил; пришёл чек сервера (или стало ясно, что не придёт) —
+    /// бумага и номер в заголовке заменяются на месте, без второго окна. Вызывать с потока интерфейса.</summary>
+    internal void ReplaceCard(SaleReceiptCardData data)
+    {
+        _data = data;
+        Title = Tr.T("Чек", "Чек", "Receipt", "Fiş", "Chek") + " " + data.NumberText;
+        _shell.Title = Title;
+        _shell.Subtitle = data.DateTimeText.Length > 0 ? data.DateTimeText : null;
+        _paper.Child = SaleReceiptCardView.Build(data);
     }
 }

@@ -52,16 +52,16 @@ public sealed class PhoneLinkSettingsView : Border
         var label = T("Принимать сканы с телефонов", "Телефондордон сканерлөөнү кабыл алуу", "Accept scans from phones", "Telefonlardan taramaları kabul et", "Telefonlardan skanerlashni qabul qilish");
         var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         var text = new TextBlock { Text = label, FontSize = 13, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
-        text.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        text.Bind(TextBlock.ForegroundProperty, text.GetResourceObservable("BrushText"));
         Avalonia.Automation.AutomationProperties.SetName(_toggle, label);
         Grid.SetColumn(_toggle, 1);
         row.Children.Add(text);
         row.Children.Add(_toggle);
         stack.Children.Add(row);
 
-        _state.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
-        _phones.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
-        _note.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        _state.Bind(TextBlock.ForegroundProperty, _state.GetResourceObservable("BrushTextSoft"));
+        _phones.Bind(TextBlock.ForegroundProperty, _phones.GetResourceObservable("BrushTextSoft"));
+        _note.Bind(TextBlock.ForegroundProperty, _note.GetResourceObservable("BrushTextSoft"));
         stack.Children.Add(_state);
         stack.Children.Add(_phones);
         stack.Children.Add(_phoneRows);
@@ -100,7 +100,7 @@ public sealed class PhoneLinkSettingsView : Border
     private TextBlock Hint(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 12, TextWrapping = TextWrapping.Wrap };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
         return t;
     }
 
@@ -131,7 +131,7 @@ public sealed class PhoneLinkSettingsView : Border
     }
 
     private void Tint(TextBlock block, string brush) =>
-        block.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
+        block.Bind(TextBlock.ForegroundProperty, block.GetResourceObservable(brush));
 
     /// <summary>Привести вид к текущему состоянию кассы (включено ли, открыт ли порт, сколько телефонов, есть ли право).</summary>
     private void Refresh()
@@ -188,7 +188,7 @@ public sealed class PhoneLinkSettingsView : Border
         foreach (var phone in phones)
         {
             var label = new TextBlock { Text = phone.Name, FontSize = 13, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
-            label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushText"));
             var disconnect = new Button
             {
                 Content = T("Отключить", "Ажыратуу", "Disconnect", "Bağlantıyı kes", "Uzish"),

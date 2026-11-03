@@ -114,22 +114,8 @@ public sealed partial class BackgroundReceivingQueue
             foreach (var old in done.Where(j => (now - (j.FinishedAt ?? j.CreatedAt)).TotalDays > KeepDays).Concat(done.Skip(KeepDone)).ToList())
                 _jobs.Remove(old);
             Directory.CreateDirectory(DataDir);
-            var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(_jobs, Json));
-            // 2026-10-26 (М1): пачка из сотен частей переписывает файл десятки тысяч раз — замену иногда на миг блокирует антивирус/индексатор
-            // («Access denied»). Несколько коротких повторов вместо потерянной записи (под замком не дольше ~80 мс).
-            for (var attempt = 0; ; attempt++)
-            {
-                try
-                {
-                    File.Move(tmp, FilePath, overwrite: true);
-                    break;
-                }
-                catch (Exception moveEx) when (attempt < 4 && moveEx is IOException or UnauthorizedAccessException)
-                {
-                    Thread.Sleep(20);
-                }
-            }
+            // 2026-11-01 (Н2-01): запись через AtomicFile (сброс на диск + .bak) с короткими повторами, если файл на миг занят антивирусом/индексатором (М1, 2026-10-26).
+            AtomicFile.WriteAllTextWithRetry(FilePath, JsonSerializer.Serialize(_jobs, Json));
             return true;
         }
         catch (Exception ex)

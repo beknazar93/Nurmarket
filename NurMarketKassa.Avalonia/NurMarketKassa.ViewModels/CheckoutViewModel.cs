@@ -115,6 +115,8 @@ namespace NurMarketKassa.ViewModels
         private decimal _subtotalExact;
         private decimal _lineDiscountsExact;
         private decimal _orderDiscountExact;
+        private decimal _roundingAdjustment; // 2026-11-02 (К3-07): только для показа строки «Округление весовых»
+        private bool _roundingWeighed;
         private double _effectiveTotalDue;
         private double _changeAmount;
         private bool _isInsufficientCash;
@@ -155,6 +157,8 @@ namespace NurMarketKassa.ViewModels
             // Если «точных» сумм нет (CartTotals собран вручную) — берём округлённые.
             _subtotalExact = totals.SubtotalExact != 0m ? totals.SubtotalExact : (decimal)totals.Subtotal;
             _lineDiscountsExact = totals.LineDiscountsExact != 0m ? totals.LineDiscountsExact : (decimal)totals.LineDiscounts;
+            _roundingAdjustment = totals.RoundingAdjustment;
+            _roundingWeighed = totals.HasWeighedLines;
             _effectiveTotalDue = totals.TotalDue;
             _initialPercent = initialPercent ?? "";
             _initialSum = initialSum ?? "";
@@ -303,8 +307,13 @@ namespace NurMarketKassa.ViewModels
         public string BigTotalDisplay =>
             MoneyText.Amount(EffectivePayableNow);
 
+        // 2026-11-02 (К3-07): «Сумма позиций» — сумма строк, как они показаны в чеке; строка «Округление весовых» ниже сводит её с подытогом сервера.
         public string SubtotalDisplay =>
-            MoneyText.Som(_subtotal);
+            MoneyText.Som(_subtotal - (double)_roundingAdjustment);
+
+        public bool HasRoundingAdjustment => _roundingAdjustment != 0m;
+        public string RoundingLabel => CartTotalsCalculator.RoundingLabel(_roundingWeighed);
+        public string RoundingDisplay => (_roundingAdjustment < 0 ? "−" : "+") + MoneyText.Som(Math.Abs(_roundingAdjustment));
 
         public string DiscountSummaryDisplay =>
             MoneyText.Som(_orderDiscountAmount);
@@ -1366,6 +1375,8 @@ namespace NurMarketKassa.ViewModels
         public bool MixedPartsPositive =>
             ParseNonNegative(_mixedCashAmount) is > 0.004 && ParseNonNegative(_mixedNonCashAmount) is > 0.004;
 
+        private string? _confirmedLargeCash; // 2026-11-01 (К2-16): сумма «Получено», по которой уже спросили подтверждение
+
         private void ExecutePay()
         {
             var discountError = ValidateDiscount();
@@ -1395,6 +1406,22 @@ namespace NurMarketKassa.ViewModels
                 if (error != null)
                 {
                     ErrorMessage = error;
+                    return;
+                }
+
+                // 2026-11-01 (контрольный аудит, К2-16): «Получено» больше 10× итога и больше 5 000 (EAN-8, внутренний код, лишний ноль) — сначала
+                // просим проверить; повторное «Оплатить» с тем же числом принимается.
+                if (CheckoutValidation.TryParseAmount(CashReceived, out var cashValue) == CheckoutValidation.AmountParse.Ok
+                    && _effectiveTotalDue > 0 && cashValue > 5000 && cashValue > _effectiveTotalDue * 10
+                    && !string.Equals(_confirmedLargeCash, CashReceived?.Trim(), StringComparison.Ordinal))
+                {
+                    _confirmedLargeCash = CashReceived?.Trim();
+                    ErrorMessage = Tr.T(
+                        $"Получено {cashValue:0.##} — больше итога ({_effectiveTotalDue:0.##}) более чем в 10 раз. Проверьте сумму; если верно, нажмите «Оплатить» ещё раз.",
+                        $"Алынды {cashValue:0.##} — жыйынтыктан ({_effectiveTotalDue:0.##}) 10 эседен ашык көп. Сумманы текшериңиз; туура болсо, «Төлөө» баскычын дагы бир жолу басыңыз.",
+                        $"Received {cashValue:0.##} is more than 10 times the total ({_effectiveTotalDue:0.##}). Check the amount; if it is correct, press Pay again.",
+                        $"Alınan {cashValue:0.##}, toplamın ({_effectiveTotalDue:0.##}) 10 katından fazla. Tutarı kontrol edin; doğruysa «Öde»ye tekrar basın.",
+                        $"Olingan {cashValue:0.##} jami summadan ({_effectiveTotalDue:0.##}) 10 baravardan ko'p. Summani tekshiring; to'g'ri bo'lsa, «To'lash»ni yana bir marta bosing.");
                     return;
                 }
             }

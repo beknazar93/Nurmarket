@@ -1513,4 +1513,11 @@
   <x:String x:Key="warehouse.refresh">Yenile</x:String>
   <x:String x:Key="warehouse.refreshTooltip">Ürünleri ve stokları sunucudan yeniden yükle</x:String>
   <x:String x:Key="product.globalScanHint">Ürün barkodunu okutun: NurCRM tabanında varsa ad, kategori ve marka kendiliğinden dolar — yalnızca fiyatları ve miktarı girin. Tabanda yoksa elle doldurun.</x:String>
+  <!-- 2026-11-02 (аудит №2, Д2-05): подписи весов и подсказка окна входа — в словарях (раньше по-русски в XAML). -->
+  <x:String x:Key="scaleSetup.extraScalesTitle">Ek tartılar</x:String>
+  <x:String x:Key="scaleSetup.scale2">Tartı 2</x:String>
+  <x:String x:Key="scaleSetup.scale3">Tartı 3</x:String>
+  <x:String x:Key="scaleSetup.poleDisplayType">Ekran türü</x:String>
+  <x:String x:Key="scaleSetup.findPoleDisplay">Ekranı bul</x:String>
+  <x:String x:Key="csh.login.supportTooltip">Destek penceresini aç</x:String>
 </ResourceDictionary>

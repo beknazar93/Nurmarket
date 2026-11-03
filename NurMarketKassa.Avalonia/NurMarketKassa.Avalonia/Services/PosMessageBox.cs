@@ -141,7 +141,8 @@ public static class PosMessageBox
         await PosAlertDialog.ShowAsync(owner, caption, messageBoxText, MapAlertKind(icon), buttonText).ConfigureAwait(true);
         return MessageBoxResult.OK;
 #else
-        await Task.CompletedTask.ConfigureAwait(true);
+        // 2026-11-02 (аудит №2, Д3-01): уступить цикл до вложенного окна — см. PosDialogHost.ShowModalAsync (UIA Invoke не должен висеть).
+        await Task.Yield();
         return Show(owner, messageBoxText, caption, button, icon, MessageBoxResult.OK, confirmText, cancelText, danger);
 #endif
     }

@@ -92,6 +92,26 @@ public partial class WarehouseWindow
             _stockFilterButtons[key] = radio;
             StockFilterPanel.Children.Add(radio);
         }
+        // 2026-11-02 (аудит №2, С3-12): «Архив» — окно архивных товаров с возвратом из архива (POST unarchive). Не фильтр наличия, а отдельное окно.
+        var archiveButton = SectionCards.Secondary(T("Архив", "Архив", "Archive", "Arşiv", "Arxiv"));
+        archiveButton.Margin = new Thickness(0, 0, 0, 6);
+        archiveButton.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+        archiveButton.MinHeight = 0;
+        ToolTip.SetTip(archiveButton, T("Товары, отправленные в архив: посмотреть и вернуть", "Архивге жөнөтүлгөн товарлар: карап чыгуу жана кайтаруу", "Products sent to the archive: view and restore", "Arşive gönderilen ürünler: görüntüle ve geri al", "Arxivga yuborilgan mahsulotlar: ko'rish va qaytarish"));
+        archiveButton.Click += async (_, _) =>
+        {
+            var archiveApi = App.AppHost?.Services.GetService(typeof(NurMarketKassa.Services.Api.ICatalogApiService)) as NurMarketKassa.Services.Api.ICatalogApiService;
+            if (archiveApi is null)
+                return;
+            var dialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ArchivedProductsDialog(archiveApi);
+            if (await dialog.ShowDialog<bool>(this).ConfigureAwait(true))
+            {
+                await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
+                await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
+            }
+        };
+        // 2026-11-02 (живая проверка круга 3, Р3-1): кнопка лежит рядом с группами фильтров, а не внутри группы «Наличие» (её скрывает обычный режим окна) — видна всегда.
+        WarehouseFiltersRow.Children.Add(archiveButton);
         _ = RefreshExpiryAsync(force: false);
         // 2026-10-22 (аудит 1.17.59, П-И, Б10): на низком окне (1366×768) вкладка «Товары» показывала 3,5 строки — плитки,
         // поиск и два ряда фильтров занимали ~60 % высоты.
@@ -221,7 +241,7 @@ public partial class WarehouseWindow
         if (_changedBanner is null)
         {
             _changedBanner = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 6), Margin = new Thickness(0, 0, 12, 4), Cursor = new Cursor(StandardCursorType.Hand) };
-            _changedBanner.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushAccent"));
+            _changedBanner.Bind(Border.BackgroundProperty, _changedBanner.GetResourceObservable("BrushAccent"));
             _changedBanner.PointerPressed += (_, _) => HideChanged();
             WarehouseFiltersRow.Children.Insert(0, _changedBanner);
         }
@@ -388,15 +408,15 @@ public partial class WarehouseWindow
             if (active)
             {
                 border.BorderThickness = new Thickness(2);
-                border.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushText"));
+                border.Bind(Border.BorderBrushProperty, border.GetResourceObservable("BrushText"));
             }
             var stack = new StackPanel { Spacing = 3 };
             var l = new TextBlock { Text = label, Classes = { "sec-kpi-label" } };
             var v = new TextBlock { Text = value, Classes = { "sec-kpi-value" }, FontSize = 20 };
             if (accent != null)
-                v.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(accent));
+                v.Bind(TextBlock.ForegroundProperty, v.GetResourceObservable(accent));
             var s = new TextBlock { Text = sub, FontSize = 12, TextWrapping = TextWrapping.Wrap, Classes = { "kpi-sub" } };
-            s.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            s.Bind(TextBlock.ForegroundProperty, s.GetResourceObservable("BrushTextSoft"));
             stack.Children.Add(l);
             stack.Children.Add(new Viewbox { Classes = { "sec-kpi-fit" }, Child = v });
             stack.Children.Add(s);

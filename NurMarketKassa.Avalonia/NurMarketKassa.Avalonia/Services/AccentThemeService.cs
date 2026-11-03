@@ -67,7 +67,7 @@ public static class AccentThemeService
         double TileWidth = 190, double TileHeight = 204, double TilePhotoHeight = 64,
         double TileNameSize = 14, double TilePriceSize = 24, double TileStockSize = 13,
         double ControlHeight = 36, double BorderThickness = 1,
-        string? Ornament = null, bool AccentPrimaryAction = false);
+        string? Ornament = null);
 
     /// <summary>Шрифт с кириллицей и кыргызскими буквами (ң, ө, ү): системный Segoe UI рисует
     /// их не во всех начертаниях, поэтому первым в списке идёт вшитый Noto Sans.</summary>
@@ -139,7 +139,7 @@ public static class AccentThemeService
                 TabBg = "#2A2A2A", TabBgHover = "#333333", TabBgSelected = "#FFB208", TabBorderSelected = "#FFC84D",
                 Focus = "#FFB208", Money = "#F5F5F5", SurfaceSubtle = "#222222",
             },
-            ButtonRadius: 12, CardRadius: 18, FontSize: 14, ControlHeight: 40, AccentPrimaryAction: true),
+            ButtonRadius: 12, CardRadius: 18, FontSize: 14, ControlHeight: 40),
 
         // Строгий монохром: ни одного цветного пятна, кроме самой кнопки действия. Поверхности
         // холодно-серые, цена чёрная, углы заметно скруглены — вид делового приложения.
@@ -252,7 +252,7 @@ public static class AccentThemeService
             TileNameSize: 15, TilePriceSize: 26, TileStockSize: 14,
             // 2026-10-22 (аудит новой сборки, П3): «Сохранить» и др. главные кнопки в «Контрастной» были синими (вне темы
             // «чёрное, белое, жёлтое») — теперь акцент темы, жёлтый с чёрным текстом.
-            ControlHeight: 42, BorderThickness: 2, AccentPrimaryAction: true),
+            ControlHeight: 42, BorderThickness: 2),
 
         // Моноширинный «ламповый» вид старых касс: текст ровной сеткой, зелёный по тёмному.
         // Светлый вариант — та же сетка на бумаге.
@@ -714,6 +714,9 @@ public static class AccentThemeService
         // 2026-10-16, редизайн: рамка поля в фокусе у модалок (ModalShell). У «Классической» фокус
         // жёлтый — по белому полю 1,4:1, рамки не видно; тогда берём цвет текста (контраст ≥ 3:1).
         app.Resources["BrushFocusRing"] = Brush(Contrast(p.Focus, p.Input) >= 3.0 ? p.Focus : p.Text);
+        // 2026-11-01 (контрольный аудит, Д2-01): рамка поля ввода ≥ 3:1 к фону поля (WCAG 1.4.11): сильная рамка темы, приближенная к цвету
+        // текста ровно настолько, насколько нужно. Данные темы (Border/BorderStrong) не меняются — декоративные границы карточек прежние.
+        app.Resources["BrushInputBorder"] = Brush(Readable(p.BorderStrong, p.Input, p.Text, 3.0));
         app.Resources["BrushMoney"] = Brush(p.Money);
         app.Resources["BrushSurfaceSubtle"] = Brush(p.SurfaceSubtle);
         // 2026-10-18: отклик кнопок на нажатие (PosDialogStyles.axaml): нажатая главная — на шаг дальше
@@ -828,16 +831,14 @@ public static class AccentThemeService
             }
         }
 
-        // Основная кнопка диалогов (btn-primary): у тем без орнамента — прежний синий.
-        // 2026-10-16: у «NurMarket» (AccentPrimaryAction) — акцент темы, жёлтый с тёмно-синим текстом.
+        // Основная кнопка диалогов (btn-primary) — акцент темы у ВСЕХ тем.
         // 2026-10-23 (аудит Б-9): главная кнопка настроек — акцент темы у ВСЕХ тем (было синее #2563EB у тем без орнамента).
-        var ornament = true;
-        app.Resources["BrushPrimaryAction"] = ornament
-            ? (app.Resources.TryGetValue("BrushAccent", out var accent) && accent is IBrush a ? a : Brush(p.Accent))
-            : Brush("#2563EB");
-        app.Resources["BrushPrimaryActionHover"] = Brush(ornament ? p.AccentStrong : "#3B82F6");
-        app.Resources["BrushPrimaryActionPressed"] = Brush(ornament ? PressedAccent(p) : "#1D4ED8"); // 2026-10-18: нажатая темнее наведения
-        app.Resources["BrushPrimaryActionForeground"] = Brush(ornament ? p.AccentForeground : "#FFFFFF");
+        // 2026-11-01 (контрольный аудит, Д-16): убраны мёртвая переменная ornament (всегда true) и ветки «синей» главной.
+        app.Resources["BrushPrimaryAction"] =
+            app.Resources.TryGetValue("BrushAccent", out var accent) && accent is IBrush a ? a : Brush(p.Accent);
+        app.Resources["BrushPrimaryActionHover"] = Brush(p.AccentStrong);
+        app.Resources["BrushPrimaryActionPressed"] = Brush(PressedAccent(p)); // 2026-10-18: нажатая темнее наведения
+        app.Resources["BrushPrimaryActionForeground"] = Brush(p.AccentForeground);
 
         // 2026-10-22, брендбук: у брендовой темы галочка CheckBox — Golden Light с галочкой Deep Night (контраст 9,7:1), а не синяя.
         // 2026-10-22 (аудит новой сборки, П3): то же для ВСЕХ тем и для радиокнопок/переключателей — раньше в «Контрастной»,

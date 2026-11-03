@@ -132,7 +132,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         _filterSupplier.Changed += async _ => await ReloadAsync().ConfigureAwait(true);
         _search = UiKit.Search(this, T("Поиск: поставщик или товар", "Издөө: жеткирүүчү же товар", "Search: supplier or product", "Ara: tedarikçi veya ürün", "Qidirish: yetkazib beruvchi yoki mahsulot"), 44);
         Avalonia.Automation.AutomationProperties.SetName(_search, _search.Watermark);
-        _search.TextChanged += (_, _) => Render();
+        UiKit.OnTypedDebounced(_search, Render); // 2026-11-01: пауза 250 мс вместо пересборки списка на каждую букву
         var refresh = UiKit.Ghost(this, T("Обновить", "Жаңыртуу", "Refresh", "Yenile", "Yangilash"));
         refresh.Height = 44;
         Avalonia.Automation.AutomationProperties.SetName(refresh, refresh.Content as string);
@@ -459,7 +459,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         ApplyRegistryMode();
         // 2026-10-31: «Удалить» приход — владельцу и сотруднику с правом can_unpost_documents; только если сервер умеет (receipt_delete, ТЗ п. 30).
         _canDelete = App.AuthApi is { } delAuth && PermissionService.CanDeletePurchaseDocuments(delAuth.UserPayload)
-                     && await _svc.CanDeleteReceiptsAsync().ConfigureAwait(true);
+                     && await CanDeleteWithinBudgetAsync().ConfigureAwait(true);
         _rows.Children.Clear();
         _more.IsVisible = false;
         ApplyHead();
@@ -1109,19 +1109,43 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
 
     // ------------------------------------------------------------------ подробности, возврат
 
+    /// <summary>2026-11-03 (С-06, В-18): может ли сервер удалять приходы — не дольше 8 с (раньше без срока ДО показа списка: пустой экран до 55 с). Не ответил — кнопки «Удалить» нет.</summary>
+    private async Task<bool> CanDeleteWithinBudgetAsync()
+    {
+        try
+        {
+            return await ServerAnswerWait.ForegroundAsync("receipt_delete", t => _svc.CanDeleteReceiptsAsync(t)).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Закупки: возможность удаления приходов не проверена ({ServerOutageMonitor.Describe(ex)}) — кнопка «Удалить» скрыта.", "WARNING");
+            return false;
+        }
+    }
+
+    private bool _openingReceipt;
+
     private async Task ShowReceiptAsync(SupplierReceipt r, string? highlightProductId = null)
     {
+        // 2026-11-03 (С-06, В-18): повторный клик, пока накладная грузится, не открывает второе окно.
+        if (_openingReceipt)
+            return;
         var detail = r;
         if (r.Lines.Count == 0)
         {
+            _openingReceipt = true;
             try
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                detail = await _svc.GetReceiptAsync(r.Id, cts.Token).ConfigureAwait(true);
+                // 2026-11-03: не дольше 8 с (было 30 с до показа окна).
+                detail = await ServerAnswerWait.ForegroundAsync("receipt/get", t => _svc.GetReceiptAsync(r.Id, t)).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
                 PosLogger.Log($"Закупки: приход {r.Id} не загружен ({ex.Message}).", "WARNING");
+            }
+            finally
+            {
+                _openingReceipt = false;
             }
         }
         // 2026-10-30: из реестра «Покупки» (двойной щелчок по позиции) — строка товара подсвечена.
@@ -1324,5 +1348,5 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
     }
 
     internal void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

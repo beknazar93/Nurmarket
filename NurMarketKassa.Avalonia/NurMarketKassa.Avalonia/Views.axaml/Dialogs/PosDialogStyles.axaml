@@ -9,21 +9,6 @@
            Радиусы без привязки к теме — токены: NurRadiusControl (кнопки/поля/значки) и NurRadiusCard (карточки, «таблетки»). -->
       <CornerRadius x:Key="NurRadiusControl">8</CornerRadius>
       <CornerRadius x:Key="NurRadiusCard">12</CornerRadius>
-      <ResourceDictionary.ThemeDictionaries>
-        <!-- Light theme: amber warning action. -->
-        <ResourceDictionary x:Key="Light">
-          <SolidColorBrush x:Key="WarningButtonBackground" Color="#E6A100" />
-          <SolidColorBrush x:Key="WarningButtonHover" Color="#FFB703" />
-          <SolidColorBrush x:Key="WarningButtonPressed" Color="#C98C00" />
-        </ResourceDictionary>
-
-        <!-- Dark theme: blue action with better contrast on dark surfaces. -->
-        <ResourceDictionary x:Key="Dark">
-          <SolidColorBrush x:Key="WarningButtonBackground" Color="#2563EB" />
-          <SolidColorBrush x:Key="WarningButtonHover" Color="#3B82F6" />
-          <SolidColorBrush x:Key="WarningButtonPressed" Color="#1D4ED8" />
-        </ResourceDictionary>
-      </ResourceDictionary.ThemeDictionaries>
     </ResourceDictionary>
   </Styles.Resources>
 
@@ -90,26 +75,7 @@
     <Setter Property="Foreground" Value="{DynamicResource BrushPrimaryActionForeground}" />
   </Style>
 
-  <!-- Close shift: palette is selected by the active Avalonia theme. -->
-  <Style Selector="Button.btn-warning">
-    <Setter Property="Background" Value="{DynamicResource WarningButtonBackground}" />
-    <Setter Property="Foreground" Value="#FFFFFF" />
-    <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}" />
-    <Setter Property="FontWeight" Value="Bold" />
-    <Setter Property="Padding" Value="16,10" />
-    <Setter Property="Cursor" Value="Hand" />
-    <Setter Property="HorizontalContentAlignment" Value="Center" />
-    <Setter Property="VerticalContentAlignment" Value="Center" />
-  </Style>
-  <Style Selector="Button.btn-warning:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource WarningButtonHover}" />
-    <Setter Property="Foreground" Value="#FFFFFF" />
-  </Style>
-  <Style Selector="Button.btn-warning:pressed /template/ ContentPresenter#PART_ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource WarningButtonPressed}" />
-    <Setter Property="Foreground" Value="#FFFFFF" />
-  </Style>
+  <!-- 2026-11-01 (контрольный аудит, Д-16): удалён неиспользуемый стиль Button.btn-warning (и кисти WarningButton*) — нигде не применялся. -->
 
   <!-- ===================================================================================
        2026-10-16, редизайн (этап 1): оболочка модалки по правилам макетов (ModalShell.cs).
@@ -158,6 +124,15 @@
                                     Foreground="{DynamicResource BrushTextSoft}" />
                   <ContentPresenter Name="PART_Footer" Grid.Column="1" Content="{TemplateBinding Footer}"
                                     VerticalAlignment="Center" HorizontalAlignment="Right" />
+                </Grid>
+              </Border>
+              <!-- 2026-11-03 (С-01, аудит «зависание при медленном сервере»): строка «Ждём ответ сервера NurCRM… N с» и «Отменить ожидание»; скрыта, пока сервер отвечает вовремя (ModalShell.RunServerAsync). -->
+              <Border Name="PART_ServerWait" DockPanel.Dock="Bottom" Padding="24,8" IsVisible="False"
+                      BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Name="PART_ServerWaitText" VerticalAlignment="Center" FontSize="12.5" TextWrapping="Wrap"
+                             Foreground="{DynamicResource BrushTextSoft}" />
+                  <Button Name="PART_ServerWaitCancel" Grid.Column="1" Classes="modal-cancel" Margin="12,0,0,0" />
                 </Grid>
               </Border>
               <!-- 2026-10-17, этап 3: окна со своим списком на всю высоту (выбор клиента, отложенные чеки)
@@ -685,7 +660,8 @@
        Сенсор: Avalonia снимает «наведение» при отпускании пальца, а главный отклик — нажатие (темнее + вдавливание),
        поэтому подсветка наведения нарочно слабая — даже если на каком-то экране она задержится, это едва заметно.
        =================================================================================== -->
-  <Style Selector="Button.modal-primary, Button.nur-primary, Button.modal-cancel, Button.modal-secondary, Button.nur-secondary, Button.modal-close, Button.modal-chip, Button.sec-primary, Button.sec-outline, Button.sec-seg, Button.sec-chip, Button.btn-primary, Button.main-primary, Button.main-secondary, Button.main-outline, Button.cart-action, Button.cart-accent">
+  <!-- 2026-11-01 (контрольный аудит, Д-04): PrimaryButton / PrimaryActionButton / login-primary получили общую рамку фокуса клавиатуры (BrushFocusRing), курсор и отклик на нажатие — как у остальных «главных»; их размеры и цвета не менялись. -->
+  <Style Selector="Button.modal-primary, Button.nur-primary, Button.modal-cancel, Button.modal-secondary, Button.nur-secondary, Button.modal-close, Button.modal-chip, Button.sec-primary, Button.sec-outline, Button.sec-seg, Button.sec-chip, Button.btn-primary, Button.main-primary, Button.main-secondary, Button.main-outline, Button.cart-action, Button.cart-accent, Button.PrimaryButton, Button.PrimaryActionButton, Button.login-primary">
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
     <Setter Property="Transitions">

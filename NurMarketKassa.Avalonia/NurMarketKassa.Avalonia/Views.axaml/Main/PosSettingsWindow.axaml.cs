@@ -2036,8 +2036,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
             else if (cashboxChanged)
             {
+                // 2026-11-02 (приёмка 1.17.73, п. 1): нужно перезапустить смену/кассу — окном, не гаснущей плашкой.
                 App.GetRequiredService<IUserPrompts>()
-                    .ShowToast(Tr.T(
+                    .ShowWarning(Tr.T(
                         "Касса изменена. Применится после перезапуска смены/кассы.",
                         "Касса өзгөртүлдү. Смена же касса кайра ачылгандан кийин күчүнө кирет.",
                         "Till changed. It takes effect after the shift or the till is restarted.",

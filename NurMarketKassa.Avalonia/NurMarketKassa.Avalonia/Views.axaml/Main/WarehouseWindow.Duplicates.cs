@@ -49,7 +49,7 @@ public partial class WarehouseWindow
             if (_duplicatesButton == null)
             {
                 _duplicatesButton = new Button { Classes = { "SecondaryButton" }, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6) };
-                _duplicatesButton.Bind(Button.ForegroundProperty, this.GetResourceObservable("BrushWarning"));
+                _duplicatesButton.Bind(Button.ForegroundProperty, _duplicatesButton.GetResourceObservable("BrushWarning"));
                 header.Children.Insert(header.Children.IndexOf(RefreshWarehouseButton), _duplicatesButton);
             }
             _duplicatesButton.Content = Tr.T($"⚠ Дубли штрихкодов: {groups.Count}", $"⚠ Кайталанган штрихкоддор: {groups.Count}", $"⚠ Duplicate barcodes: {groups.Count}",
@@ -106,17 +106,17 @@ public partial class WarehouseWindow
                 "Bu shtrix-kodlar bir nechta mahsulotda — server taqiqlagunga qadar shunday bo'lgan. Kassa skanerlaganda boshqa mahsulotni olishi mumkin. Shtrix-kodda bitta mahsulot qoldiring: ortiqchasini o'chiring yoki shtrix-kodini almashtiring."),
             FontSize = 13, TextWrapping = TextWrapping.Wrap,
         };
-        hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
         panel.Children.Add(hint);
 
         foreach (var group in groups)
         {
             var card = new Border { CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), Padding = new Thickness(14, 10) };
-            card.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanel"));
-            card.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
+            card.Bind(Border.BackgroundProperty, card.GetResourceObservable("BrushPanel"));
+            card.Bind(Border.BorderBrushProperty, card.GetResourceObservable("BrushBorder"));
             var body = new StackPanel { Spacing = 4 };
             var code = new TextBlock { Text = group.Barcode, FontSize = 15, FontWeight = FontWeight.SemiBold };
-            code.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            code.Bind(TextBlock.ForegroundProperty, code.GetResourceObservable("BrushText"));
             body.Children.Add(code);
             foreach (var p in group.Products)
             {
@@ -131,7 +131,7 @@ public partial class WarehouseWindow
                            + (alt ? Tr.T(" (доп. штрихкод)", " (кошумча штрихкод)", " (extra barcode)", " (ek barkod)", " (qo'shimcha shtrix-kod)") : ""),
                     FontSize = 13, TextWrapping = TextWrapping.Wrap,
                 };
-                line.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+                line.Bind(TextBlock.ForegroundProperty, line.GetResourceObservable("BrushText"));
                 body.Children.Add(line);
             }
             card.Child = body;

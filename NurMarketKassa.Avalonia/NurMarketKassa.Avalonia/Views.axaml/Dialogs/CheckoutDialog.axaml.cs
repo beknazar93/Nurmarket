@@ -282,7 +282,8 @@ public partial class CheckoutDialog : Window
 
             // 2026-10-30 (редизайн): плитки теперь в один ряд, поэтому ↑/↓ листают способы так же, как ←/→ (раньше шли по строкам сетки 2×2).
             // В самом списке банков Вверх/Вниз листают банки — это делает ComboBox, туда не вмешиваемся.
-            case Key.Up or Key.Down when onOption || nothingFocused || ReferenceEquals(focused, CashReceivedBox):
+            // 2026-11-01 (контрольный аудит, К-18): в поле «Получено» стрелки не листают способы (при выключенном NumLock стрелки вместо цифр меняли способ оплаты).
+            case Key.Up or Key.Down when onOption || nothingFocused:
                 e.Handled = MovePaymentMethod(e.Key == Key.Down ? 1 : -1);
                 break;
 
@@ -521,7 +522,35 @@ public partial class CheckoutDialog : Window
         }
     }
 
-    private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);
+    // 2026-11-01 (контрольный аудит, К-17): Esc/«Отмена» с выбранным клиентом, «в долг» или смешанной оплатой сбрасывал всё без вопроса — теперь спрашиваем.
+    private bool _cancelAsking;
+
+    private async void Cancel_Click(object? sender, RoutedEventArgs e)
+    {
+        if (!(_viewModel.HasSelectedClient || _viewModel.IsDebtMode || _viewModel.IsMixedMode))
+        {
+            Close(false);
+            return;
+        }
+        if (_cancelAsking)
+            return;
+        _cancelAsking = true;
+        try
+        {
+            var close = await PosConfirmDialog.ShowModalAsync(this,
+                Tr.T("Закрыть оплату?", "Төлөмдү жабабызбы?", "Close the payment?", "Ödeme kapatılsın mı?", "To'lov yopilsinmi?"),
+                Tr.T("Выбранный клиент, «в долг» и смешанная оплата будут сброшены.", "Тандалган кардар, «карызга» жана аралаш төлөм алынып салынат.",
+                    "The selected customer, “on credit” and mixed payment will be reset.", "Seçilen müşteri, «veresiye» ve karma ödeme sıfırlanacak.",
+                    "Tanlangan mijoz, «qarzga» va aralash to'lov bekor qilinadi."),
+                Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"), Tr.T("Остаться", "Калуу", "Stay", "Kal", "Qolish")).ConfigureAwait(true);
+            if (close)
+                Close(false);
+        }
+        finally
+        {
+            _cancelAsking = false;
+        }
+    }
 
     /// <summary>2026-10-30: «Списать N F6» — списать столько бонусов, сколько можно (или снять списание); то же, что ввести число в поле бонусов.</summary>
     private void RedeemPoints_Click(object? sender, RoutedEventArgs e) => _viewModel.ToggleRedeemAllPoints();

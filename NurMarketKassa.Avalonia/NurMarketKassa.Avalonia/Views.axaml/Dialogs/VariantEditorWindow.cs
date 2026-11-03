@@ -59,6 +59,9 @@ public sealed class VariantEditorWindow : Window
         public TextBox Barcode = new() { Width = 170, Classes = { "modal-field" } };
         public CheckBox Active = new() { IsChecked = true, VerticalAlignment = VerticalAlignment.Center, MinHeight = 44 };
         public Control? View;
+        /// <summary>2026-11-01 (С2-04/С2-05): остаток размера, который знает окно: сервер при открытии или после последнего
+        /// успешного сохранения/перечитывания. Остаток шлём, только если число в поле отличается от него.</summary>
+        public double BaseQty;
     }
 
     public VariantEditorWindow(ICatalogApiService api, string productId, string productTitle, double basePrice)
@@ -148,7 +151,7 @@ public sealed class VariantEditorWindow : Window
         tools.Children.Add(labels);
         var close = SectionCards.Cancel(Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
         close.Click += (_, _) => Close();
-        _save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
+        _save.Click += async (_, _) => _ = await SaveAsync().ConfigureAwait(true);
 
         var body = new StackPanel { Spacing = 6 };
         body.Children.Add(top);
@@ -159,6 +162,51 @@ public sealed class VariantEditorWindow : Window
         Content = _shell;
 
         Opened += async (_, _) => await LoadAsync().ConfigureAwait(true);
+        // 2026-11-02 (С3-13): «Закрыть», ✕ и Esc с несохранёнными правками спрашивают, а не теряют их молча.
+        Closing += (_, e) =>
+        {
+            if (_closeConfirmed || _saving || _printing || e.CloseReason != WindowCloseReason.WindowClosing || !HasUnsavedChanges())
+                return;
+            e.Cancel = true;
+            _ = ConfirmCloseAsync();
+        };
+    }
+
+    private bool _closeConfirmed;
+
+    private bool _closeAsking;
+
+    private async Task ConfirmCloseAsync()
+    {
+        if (_closeAsking)
+            return;
+        _closeAsking = true;
+        bool discard;
+        try
+        {
+            discard = await ConfirmDiscardAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            _closeAsking = false;
+        }
+        if (!discard)
+            return;
+        _closeConfirmed = true;
+        Close();
+    }
+
+    private async Task<bool> ConfirmDiscardAsync()
+    {
+        return await PosDialogs.ConfirmYesNoModalAsync(this,
+            Tr.T("В окне есть несохранённые изменения (размеры, цены, остатки, штрихкоды). Закрыть без сохранения? Они пропадут.",
+                "Терезеде сакталбаган өзгөрүүлөр бар (өлчөмдөр, баалар, калдыктар, штрихкоддор). Сактабай жабасызбы? Алар жок болот.",
+                "There are unsaved changes (sizes, prices, stock, barcodes). Close without saving? They will be lost.",
+                "Kaydedilmemiş değişiklikler var (beden, fiyat, stok, barkod). Kaydetmeden kapatılsın mı? Kaybolurlar.",
+                "Saqlanmagan o'zgarishlar bor (o'lcham, narx, qoldiq, shtrix-kod). Saqlamasdan yopilsinmi? Ular yo'qoladi."),
+            Tr.T("Закрыть без сохранения?", "Сактабай жабасызбы?", "Close without saving?", "Kaydetmeden kapat?", "Saqlamasdan yopilsinmi?"),
+            Tr.T("Закрыть без сохранения", "Сактабай жабуу", "Close without saving", "Kaydetmeden kapat", "Saqlamasdan yopish"),
+            Tr.T("Вернуться", "Кайтуу", "Go back", "Geri dön", "Qaytish"), danger: true).ConfigureAwait(true);
     }
 
     private async Task LoadAsync()
@@ -233,8 +281,15 @@ public sealed class VariantEditorWindow : Window
         row.Price.Text = v.Price is { } p ? p.ToString("0.##", Inv) : "";
         row.Price.Watermark = _basePrice.ToString("0.##", Inv);
         row.Qty.Text = v.Quantity.ToString("0.###", Inv);
+        row.BaseQty = v.Quantity;
         row.Barcode.Text = v.Barcode ?? "";
         row.Active.IsChecked = v.IsActive;
+        // 2026-11-01 (С2-04): красная рамка «неверное значение» снимается, как только поле правят.
+        foreach (var box in new[] { row.Size, row.Color, row.Price, row.Qty, row.Barcode })
+        {
+            var b = box;
+            b.TextChanged += (_, _) => b.ClearValue(TextBox.BorderBrushProperty);
+        }
 
         var grid = RowGrid();
         AddCell(grid, row.Size, 0);
@@ -246,8 +301,25 @@ public sealed class VariantEditorWindow : Window
         // 2026-10-22 (модалки, пакет 3): ✕ строки 44×44 (было 36×32), обводкой, как modal-close.
         var del = new Button { Content = "✕", Width = 44, Height = 44, Padding = new Thickness(0), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Classes = { "modal-close" } };
         ToolTip.SetTip(del, Tr.T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"));
-        del.Click += (_, _) =>
+        del.Click += async (_, _) =>
         {
+            // 2026-11-02 (С3-04): размер с остатком или штрихкодом удаляем только после подтверждения (остаток, история и этикетки пропадут).
+            if (!string.IsNullOrWhiteSpace(row.Source.Id) && (row.Source.Quantity > 0 || !string.IsNullOrWhiteSpace(row.Source.Barcode)))
+            {
+                var label = VariantLabel(row);
+                var qty = row.Source.Quantity.ToString("0.###", Inv);
+                var sure = await PosDialogs.ConfirmYesNoModalAsync(this,
+                    Tr.T($"Удалить размер «{label}»? Его остаток ({qty} шт.) и история пропадут с сервера, напечатанные этикетки с его штрихкодом на кассе перестанут находиться. Удаление произойдёт при нажатии «Сохранить»; вернуть размер потом будет нельзя.",
+                        $"«{label}» өлчөмү өчүрүлсүнбү? Анын калдыгы ({qty} даана) жана тарыхы сервердеги жок болот, штрихкоду менен басылган этикеткалар кассада табылбай калат. Өчүрүү «Сактоо» басылганда болот; кийин кайтарууга болбойт.",
+                        $"Delete the size “{label}”? Its stock ({qty} pcs) and history will disappear from the server, and printed labels with its barcode will no longer be found at the till. The deletion happens when you press Save; it cannot be undone.",
+                        $"«{label}» bedeni silinsin mi? Stoku ({qty} adet) ve geçmişi sunucudan silinir, barkodlu basılı etiketler kasada bulunamaz. Silme «Kaydet»e basınca yapılır; geri alınamaz.",
+                        $"«{label}» o'lchami o'chirilsinmi? Uning qoldig'i ({qty} dona) va tarixi serverdan yo'qoladi, shtrix-kodi bilan chop etilgan yorliqlar kassada topilmaydi. O'chirish «Saqlash» bosilganda amalga oshadi; qaytarib bo'lmaydi."),
+                    Tr.T("Удалить размер", "Өлчөмдү өчүрүү", "Delete size", "Bedeni sil", "O'lchamni o'chirish"),
+                    Tr.T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"),
+                    Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), danger: true).ConfigureAwait(true);
+                if (!sure || !_items.Contains(row))
+                    return;
+            }
             if (!string.IsNullOrWhiteSpace(row.Source.Id))
                 _deletedIds.Add(row.Source.Id!);
             _items.Remove(row);
@@ -283,18 +355,268 @@ public sealed class VariantEditorWindow : Window
         _status.Text = Tr.T($"Добавлено строк: {added}. Впишите остатки и нажмите «Сохранить».", $"Сап кошулду: {added}. Калдыктарды жазып, «Сактоо» басыңыз.", $"Rows added: {added}. Enter stock and press Save.", $"Eklenen satır: {added}. Stokları girip Kaydet'e basın.", $"Qo'shilgan qatorlar: {added}. Qoldiqlarni kiriting va «Saqlash»ni bosing.");
     }
 
-    private async Task SaveAsync()
+    private static string VariantLabel(Row row)
+    {
+        var s = string.Join(", ", new[] { row.Size.Text?.Trim(), row.Color.Text?.Trim() }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        return s.Length == 0 ? "?" : s;
+    }
+
+    /// <summary>2026-11-01 (С2-04): красная рамка поля, где значение неверное.</summary>
+    private void MarkBad(TextBox box) =>
+        box.BorderBrush = this.TryFindResource("BrushDanger", ActualThemeVariant, out var b) && b is IBrush br ? br : Brushes.IndianRed;
+
+    /// <summary>2026-11-01 (С2-04): остаток размера — число 0 или больше. Пусто, «abc», «−5», «1.000» — ошибка (раньше уходили на
+    /// сервер нулём). «1 000» и «12,5» разбираются теми же правилами, что суммы в окне оплаты.</summary>
+    private static bool TryReadQty(Row row, out double qty) =>
+        CheckoutValidation.TryParseAmount(row.Qty.Text, out qty, 3) == CheckoutValidation.AmountParse.Ok && qty >= 0;
+
+    /// <summary>2026-11-01 (С2-04): цена размера: пусто или 0 = цена товара (null); «abc» — ошибка (раньше молча становилась ценой товара).</summary>
+    private static CheckoutValidation.AmountParse TryReadPrice(Row row, out double? price)
+    {
+        price = null;
+        var parse = CheckoutValidation.TryParseAmount(row.Price.Text, out var p);
+        if (parse == CheckoutValidation.AmountParse.Ok && p > 0)
+            price = p;
+        return parse == CheckoutValidation.AmountParse.Empty ? CheckoutValidation.AmountParse.Ok : parse;
+    }
+
+    /// <summary>2026-11-01 (С2-06): в строке есть то, чего ещё нет на сервере (новая строка, правка поля, удалённая строка).</summary>
+    private bool HasUnsavedChanges()
+    {
+        if (_deletedIds.Count > 0)
+            return true;
+        foreach (var row in _items)
+        {
+            var size = row.Size.Text?.Trim() ?? "";
+            var color = row.Color.Text?.Trim() ?? "";
+            if (size.Length == 0 && color.Length == 0)
+                continue;
+            if (row.Source.Id == null || row.Source.Size != size || row.Source.Color != color
+                || (row.Source.Barcode ?? "") != (row.Barcode.Text?.Trim() ?? "") || row.Source.IsActive != (row.Active.IsChecked == true))
+                return true;
+            if (TryReadPrice(row, out var price) != CheckoutValidation.AmountParse.Ok || !Nullable.Equals(row.Source.Price, price))
+                return true;
+            if (!TryReadQty(row, out var qty) || Math.Abs(qty - row.BaseQty) >= 0.0005)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>2026-11-01 (С4/дубли штрихкодов): штрихкоды, которые правили в этом окне и которые уже есть у другой строки окна,
+    /// у другого товара (основной или дополнительный) или у размера другого товара. Строки без правки штрихкода не проверяются.</summary>
+    private List<(Row Row, string Text)> FindBarcodeDuplicates()
+    {
+        var result = new List<(Row, string)>();
+        var others = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var p in CatalogCacheService.Products.ToList())
+            {
+                if (string.Equals(p.Id, _productId, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (!string.IsNullOrWhiteSpace(p.Barcode))
+                    others.TryAdd(p.Barcode.Trim(), p.Title);
+                foreach (var a in p.AlternateBarcodeVariants ?? new List<NurMarketKassa.Models.Pos.AlternateBarcodeVariant>())
+                    if (!string.IsNullOrWhiteSpace(a.Barcode))
+                        others.TryAdd(a.Barcode.Trim(), p.Title);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // каталог обновлялся в этот момент — проверим по тому, что успели собрать
+        }
+        foreach (var row in _items)
+        {
+            var code = row.Barcode.Text?.Trim() ?? "";
+            if (code.Length == 0 || (row.Size.Text?.Trim() ?? "").Length + (row.Color.Text?.Trim() ?? "").Length == 0)
+                continue;
+            if (row.Source.Id != null && string.Equals(row.Source.Barcode?.Trim() ?? "", code, StringComparison.OrdinalIgnoreCase))
+                continue; // штрихкод не менялся
+            var label = VariantLabel(row);
+            var twin = _items.FirstOrDefault(o => o != row && string.Equals(o.Barcode.Text?.Trim(), code, StringComparison.OrdinalIgnoreCase));
+            if (twin != null)
+                result.Add((row, $"{code}: {label} / {VariantLabel(twin)}"));
+            else if (others.TryGetValue(code, out var title))
+                result.Add((row, $"{code}: {label} / {title}"));
+            else if (VariantBarcodeIndex.Find(code) is { } hit && !string.Equals(hit.ProductId, _productId, StringComparison.OrdinalIgnoreCase))
+                result.Add((row, $"{code}: {label} / {Tr.T("размер другого товара", "башка товардын өлчөмү", "size of another product", "başka ürünün bedeni", "boshqa mahsulot o'lchami")}"));
+        }
+        return result;
+    }
+
+    /// <summary>true — всё сохранено без ошибок (2026-11-01, С2-06: печать этикеток идёт только после true).</summary>
+    private async Task<bool> SaveAsync()
     {
         // 2026-10-22 (модалки, пакет 3): второй клик/вызов во время сохранения ничего не делает; окно занято (IsBusy).
         if (_saving)
-            return;
+            return false;
         _saving = true;
         var ownBusy = _shell.TryBeginBusy();
         _save.IsEnabled = false;
         var saved = 0;
         var errors = new List<string>();
+        var failedRows = new HashSet<Row>(); // строки с неверным значением или отказом сервера — их поля не затираем перечитыванием
         try
         {
+            // 2026-11-01 (С2-04): сначала проверка всех строк — число в остатке и цене, ничего не уходит на сервер вслепую.
+            var work = new List<(Row Row, string Size, string Color, double? Price, double Qty)>();
+            foreach (var row in _items)
+            {
+                var size = row.Size.Text?.Trim() ?? "";
+                var color = row.Color.Text?.Trim() ?? "";
+                if (size.Length == 0 && color.Length == 0)
+                    continue;
+                var label = VariantLabel(row);
+                var bad = false;
+                var priceParse = TryReadPrice(row, out var price);
+                if (priceParse != CheckoutValidation.AmountParse.Ok)
+                {
+                    MarkBad(row.Price);
+                    errors.Add($"{label}: {CheckoutValidation.AmountProblemText(priceParse)}");
+                    bad = true;
+                }
+                if (!TryReadQty(row, out var qty))
+                {
+                    MarkBad(row.Qty);
+                    errors.Add(Tr.T($"{label}: остаток — число 0 или больше (например 12); строка не сохранена.", $"{label}: калдык — 0 же андан чоң сан (мисалы 12); сап сакталган жок.",
+                        $"{label}: stock must be a number 0 or more (e.g. 12); row not saved.", $"{label}: stok 0 veya daha büyük bir sayı olmalı (örn. 12); satır kaydedilmedi.",
+                        $"{label}: qoldiq 0 yoki undan katta son bo'lishi kerak (masalan 12); qator saqlanmadi."));
+                    bad = true;
+                }
+                if (bad)
+                {
+                    failedRows.Add(row);
+                    continue;
+                }
+                work.Add((row, size, color, price, qty));
+            }
+
+            // 2026-11-02 (С3-05): пара «размер + цвет» в товаре одна (без учёта регистра). Строку, которая уже сохранена и не менялась,
+            // не трогаем; новые и изменённые дубли подсвечиваются красным и не сохраняются.
+            var pairBlocked = new HashSet<Row>();
+            foreach (var g in _items.Where(r => (r.Size.Text?.Trim() ?? "").Length + (r.Color.Text?.Trim() ?? "").Length > 0)
+                         .GroupBy(r => ((r.Size.Text?.Trim() ?? "").ToUpperInvariant(), (r.Color.Text?.Trim() ?? "").ToUpperInvariant())).Where(g => g.Count() > 1))
+            {
+                foreach (var r in g)
+                {
+                    var rs = r.Size.Text?.Trim() ?? "";
+                    var rc = r.Color.Text?.Trim() ?? "";
+                    if (r.Source.Id != null && r.Source.Size == rs && r.Source.Color == rc)
+                        continue;
+                    MarkBad(r.Size);
+                    MarkBad(r.Color);
+                    pairBlocked.Add(r);
+                    failedRows.Add(r);
+                    errors.Add(Tr.T($"{VariantLabel(r)}: такой размер с таким цветом уже есть в товаре; строка не сохранена.", $"{VariantLabel(r)}: мындай өлчөм ушул түс менен товарда мурунтан бар; сап сакталган жок.",
+                        $"{VariantLabel(r)}: this size and color already exist for the product; row not saved.", $"{VariantLabel(r)}: bu beden ve renk ürüne zaten eklenmiş; satır kaydedilmedi.",
+                        $"{VariantLabel(r)}: bunday o'lcham va rang mahsulotda allaqachon bor; qator saqlanmadi."));
+                }
+            }
+            if (pairBlocked.Count > 0)
+                work.RemoveAll(w => pairBlocked.Contains(w.Row));
+
+            // 2026-11-01: дубли штрихкодов — предупреждение до записи.
+            var dups = FindBarcodeDuplicates().Where(d => work.Any(w => w.Row == d.Row)).ToList();
+            if (dups.Count > 0)
+            {
+                foreach (var d in dups)
+                    MarkBad(d.Row.Barcode);
+                var list = string.Join("\n", dups.Select(d => d.Text).Take(8));
+                var go = await PosDialogs.ConfirmYesNoModalAsync(this,
+                    Tr.T($"Такой штрихкод уже есть (штрихкод: размер / где совпало):\n{list}\n\nПри скане этикетка может открыть не тот товар или размер. Сохранить всё равно?",
+                        $"Мындай штрихкод мурунтан бар (штрихкод: өлчөм / кайда дал келди):\n{list}\n\nСкандаганда этикетка башка товарды же өлчөмдү ачып коюшу мүмкүн. Баары бир сактайбызбы?",
+                        $"This barcode already exists (barcode: size / where it matches):\n{list}\n\nA scan may open the wrong product or size. Save anyway?",
+                        $"Bu barkod zaten var (barkod: beden / eşleştiği yer):\n{list}\n\nTarama yanlış ürünü ya da bedeni açabilir. Yine de kaydedilsin mi?",
+                        $"Bunday shtrix-kod allaqachon bor (shtrix-kod: o'lcham / qayerda mos keldi):\n{list}\n\nSkanerlashda yorliq boshqa mahsulot yoki o'lchamni ochishi mumkin. Baribir saqlansinmi?"),
+                    Tr.T("Штрихкод повторяется", "Штрихкод кайталанат", "Duplicate barcode", "Barkod tekrarı", "Shtrix-kod takrorlanadi"),
+                    Tr.T("Сохранить всё равно", "Баары бир сактоо", "Save anyway", "Yine de kaydet", "Baribir saqlash"),
+                    Tr.T("Исправить", "Оңдоо", "Fix it", "Düzelt", "Tuzatish")).ConfigureAwait(true);
+                if (!go)
+                {
+                    _status.Text = Tr.T("Не сохранено: поправьте повторяющиеся штрихкоды (красные поля).", "Сакталган жок: кайталанган штрихкоддорду оңдоңуз (кызыл талаалар).",
+                        "Not saved: fix the duplicate barcodes (red fields).", "Kaydedilmedi: tekrarlanan barkodları düzeltin (kırmızı alanlar).", "Saqlanmadi: takrorlangan shtrix-kodlarni tuzating (qizil maydonlar).");
+                    return false;
+                }
+            }
+
+            // 2026-11-01 (С2-05): остаток шлём, только если его меняли. Перед этим сверяем с сервером: если с момента открытия
+            // (или прошлого сохранения) остаток изменился — продажа или приход, — не перезаписываем, а спрашиваем и применяем разницу.
+            var qtyChanged = new HashSet<Row>();
+            Dictionary<string, ProductVariantDto>? serverNow = null;
+            var needServer = work.Any(w => w.Row.Source.Id != null && Math.Abs(w.Qty - w.Row.BaseQty) >= 0.0005);
+            if (needServer)
+            {
+                try
+                {
+                    serverNow = (await _api.GetProductVariantsAsync(_productId).ConfigureAwait(true))
+                        .Where(v => !string.IsNullOrWhiteSpace(v.Id)).GroupBy(v => v.Id!).ToDictionary(g => g.Key, g => g.First());
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Размеры товара {_productId}: остатки для сверки не получены ({ex.Message}).", "CATALOG");
+                }
+            }
+            var finalQty = new Dictionary<Row, double>();
+            var skipRows = new HashSet<Row>();
+            foreach (var w in work)
+            {
+                var row = w.Row;
+                if (row.Source.Id == null)
+                {
+                    qtyChanged.Add(row); // новый размер: остаток уходит вместе с созданием
+                    finalQty[row] = w.Qty;
+                    continue;
+                }
+                if (Math.Abs(w.Qty - row.BaseQty) < 0.0005)
+                    continue;
+                var label = VariantLabel(row);
+                if (serverNow == null)
+                {
+                    // сервер не ответил — остаток вслепую не пишем; остальные поля строки сохраняются, число в поле остаётся
+                    errors.Add(Tr.T($"{label}: остаток не проверен (сервер не ответил) и не изменён.", $"{label}: калдык текшерилген жок (сервер жооп берген жок), өзгөргөн жок.",
+                        $"{label}: stock not checked (server did not answer) and not changed.", $"{label}: stok kontrol edilemedi (sunucu yanıt vermedi), değiştirilmedi.",
+                        $"{label}: qoldiq tekshirilmadi (server javob bermadi) va o'zgartirilmadi."));
+                    failedRows.Add(row);
+                    continue;
+                }
+                if (!serverNow.TryGetValue(row.Source.Id, out var srv))
+                {
+                    errors.Add(Tr.T($"{label}: такого размера уже нет на сервере — закройте и откройте окно заново.", $"{label}: мындай өлчөм серверде жок — терезени жаап кайра ачыңыз.",
+                        $"{label}: this size no longer exists on the server — close and reopen the window.", $"{label}: bu beden sunucuda yok — pencereyi kapatıp yeniden açın.",
+                        $"{label}: bunday o'lcham serverda yo'q — oynani yopib qayta oching."));
+                    failedRows.Add(row);
+                    skipRows.Add(row);
+                    continue;
+                }
+                var target = w.Qty;
+                if (Math.Abs(srv.Quantity - row.BaseQty) >= 0.0005)
+                {
+                    var delta = w.Qty - row.BaseQty;
+                    var result = srv.Quantity + delta;
+                    string F(double x) => x.ToString("0.###", Inv);
+                    var apply = result >= 0 && await PosDialogs.ConfirmYesNoModalAsync(this,
+                        Tr.T($"Остаток размера «{label}» изменился на сервере: было {F(row.BaseQty)}, стало {F(srv.Quantity)} (вероятно, продажа или приход). Вы ввели {F(w.Qty)} (изменение {delta.ToString("+0.###;-0.###", Inv)}).\n\nПрименить ваше изменение к текущему остатку? Получится {F(result)}.\n«Оставить как на сервере» — остаток будет {F(srv.Quantity)}.",
+                            $"«{label}» өлчөмүнүн калдыгы серверде өзгөргөн: болчу {F(row.BaseQty)}, болду {F(srv.Quantity)} (сатуу же кирүү болгон окшойт). Сиз {F(w.Qty)} киргиздиңиз (өзгөрүү {delta.ToString("+0.###;-0.###", Inv)}).\n\nӨзгөрүүңүздү азыркы калдыкка колдонобузбу? Болот {F(result)}.\n«Сервердегидей калтыруу» — калдык {F(srv.Quantity)} болот.",
+                            $"The stock of “{label}” changed on the server: was {F(row.BaseQty)}, now {F(srv.Quantity)} (probably a sale or receipt). You entered {F(w.Qty)} (change {delta.ToString("+0.###;-0.###", Inv)}).\n\nApply your change to the current stock? The result will be {F(result)}.\n“Keep server value” — stock stays {F(srv.Quantity)}.",
+                            $"«{label}» bedeninin stoku sunucuda değişti: önce {F(row.BaseQty)}, şimdi {F(srv.Quantity)} (muhtemelen satış veya giriş). Siz {F(w.Qty)} girdiniz (değişiklik {delta.ToString("+0.###;-0.###", Inv)}).\n\nDeğişikliğiniz mevcut stoğa uygulansın mı? Sonuç {F(result)} olur.\n«Sunucudaki kalsın» — stok {F(srv.Quantity)} kalır.",
+                            $"«{label}» o'lchami qoldig'i serverda o'zgargan: avval {F(row.BaseQty)}, hozir {F(srv.Quantity)} (ehtimol sotuv yoki kirim). Siz {F(w.Qty)} kiritdingiz (o'zgarish {delta.ToString("+0.###;-0.###", Inv)}).\n\nO'zgarishingiz joriy qoldiqqa qo'llansinmi? Natija {F(result)} bo'ladi.\n«Serverdagidek qoldirish» — qoldiq {F(srv.Quantity)} bo'ladi."),
+                        Tr.T("Остаток изменился", "Калдык өзгөргөн", "Stock changed", "Stok değişti", "Qoldiq o'zgargan"),
+                        Tr.T("Применить изменение", "Өзгөрүүнү колдонуу", "Apply my change", "Değişikliği uygula", "O'zgarishni qo'llash"),
+                        Tr.T("Оставить как на сервере", "Сервердегидей калтыруу", "Keep server value", "Sunucudaki kalsın", "Serverdagidek qoldirish")).ConfigureAwait(true);
+                    if (!apply)
+                    {
+                        // ваше число не применяем: поле показывает остаток сервера
+                        row.Qty.Text = F(srv.Quantity);
+                        row.BaseQty = srv.Quantity;
+                        row.Source.Quantity = srv.Quantity;
+                        continue;
+                    }
+                    target = result;
+                }
+                qtyChanged.Add(row);
+                finalQty[row] = target;
+            }
+
             foreach (var id in _deletedIds.ToList())
             {
                 try
@@ -309,58 +631,76 @@ public sealed class VariantEditorWindow : Window
                 }
             }
 
-            foreach (var row in _items)
+            foreach (var w in work)
             {
-                var size = row.Size.Text?.Trim() ?? "";
-                var color = row.Color.Text?.Trim() ?? "";
-                if (size.Length == 0 && color.Length == 0)
+                var row = w.Row;
+                if (skipRows.Contains(row))
                     continue;
-                double? price = double.TryParse(row.Price.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var p) && p > 0 ? p : null;
-                double qty = double.TryParse(row.Qty.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var q) ? q : 0;
+                var send = qtyChanged.Contains(row);
                 var dto = new ProductVariantDto
                 {
                     Id = row.Source.Id,
-                    Size = size,
-                    Color = color,
-                    Price = price,
-                    Quantity = qty,
-                    SendQuantity = row.Source.Id == null || Math.Abs(row.Source.Quantity - qty) >= 0.0005, // 2026-11-01: остаток шлём, только если его меняли
+                    Size = w.Size,
+                    Color = w.Color,
+                    Price = w.Price,
+                    Quantity = send ? finalQty[row] : row.BaseQty,
+                    SendQuantity = send, // 2026-11-01: остаток шлём, только если его меняли (сравнение с BaseQty, а не с Source)
                     Barcode = string.IsNullOrWhiteSpace(row.Barcode.Text) ? null : row.Barcode.Text.Trim(),
                     IsActive = row.Active.IsChecked == true,
                 };
                 var unchanged = row.Source.Id != null && row.Source.Size == dto.Size && row.Source.Color == dto.Color
-                                && Nullable.Equals(row.Source.Price, dto.Price) && Math.Abs(row.Source.Quantity - dto.Quantity) < 0.0005
+                                && Nullable.Equals(row.Source.Price, dto.Price) && !send
                                 && (row.Source.Barcode ?? "") == (dto.Barcode ?? "") && row.Source.IsActive == dto.IsActive;
                 if (unchanged)
                     continue;
                 try
                 {
                     row.Source = await _api.SaveProductVariantAsync(_productId, dto).ConfigureAwait(true);
+                    // 2026-11-01 (С2-05): поле и «исходный» остаток — по ответу сервера, чтобы второе сохранение не слало устаревшее число.
+                    row.Qty.Text = row.Source.Quantity.ToString("0.###", Inv);
+                    row.BaseQty = row.Source.Quantity;
                     saved++;
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"{size} {color}: {ex.Message}");
+                    errors.Add($"{w.Size} {w.Color}: {ex.Message}");
+                    failedRows.Add(row);
                 }
             }
 
             PosLogger.Log($"Размеры/цвета товара {_productId}: сохранено {saved}, ошибок {errors.Count}.", "CATALOG");
-            UpdateStockNote();
             // 2026-10-06 (О-01): свежие размеры — в кеш кассы и справочник штрихкодов (скан этикетки размера).
             if (saved > 0)
             {
                 try
                 {
-                    ProductVariantCache.Put(_productId, await _api.GetProductVariantsAsync(_productId).ConfigureAwait(true));
+                    var fresh = await _api.GetProductVariantsAsync(_productId).ConfigureAwait(true);
+                    ProductVariantCache.Put(_productId, fresh);
+                    // 2026-11-01 (С2-05): остатки строк — по серверу (продажа между сохранениями не теряется при следующей записи).
+                    foreach (var row in _items)
+                    {
+                        if (row.Source.Id == null || failedRows.Contains(row))
+                            continue;
+                        var f = fresh.FirstOrDefault(v => string.Equals(v.Id, row.Source.Id, StringComparison.OrdinalIgnoreCase));
+                        if (f == null || (TryReadQty(row, out var cur) && Math.Abs(cur - row.BaseQty) >= 0.0005))
+                            continue; // нет на сервере или кассир уже правит остаток
+                        row.Source.Quantity = f.Quantity;
+                        row.BaseQty = f.Quantity;
+                        row.Qty.Text = f.Quantity.ToString("0.###", Inv);
+                    }
                 }
                 catch (Exception ex)
                 {
                     PosLogger.Log($"Размеры товара {_productId} после сохранения не перечитаны: {ex.Message}", "CATALOG");
                 }
+                // 2026-11-02 (С3-13): сервер держит остаток товара равным сумме по размерам — после записи перечитываем и его, иначе подсказка вверху врёт.
+                await LoadProductStockAsync().ConfigureAwait(true);
             }
+            UpdateStockNote();
             _status.Text = errors.Count == 0
                 ? Tr.T($"Сохранено изменений: {saved}.", $"Сакталды: {saved}.", $"Saved changes: {saved}.", $"Kaydedilen değişiklik: {saved}.", $"Saqlangan o'zgarishlar: {saved}.")
                 : Tr.T("Не всё сохранилось: ", "Баары сакталган жок: ", "Not everything was saved: ", "Hepsi kaydedilmedi: ", "Hammasi saqlanmadi: ") + string.Join("; ", errors);
+            return errors.Count == 0;
         }
         finally
         {
@@ -450,8 +790,32 @@ public sealed class VariantEditorWindow : Window
             _status.Text = BarcodePrintAccess.DeniedText;
             return;
         }
-        await SaveAsync().ConfigureAwait(true);
-        var rows = _items.Where(r => !string.IsNullOrWhiteSpace(r.Barcode.Text)).ToList();
+        if (!LabelPrinterSelector.PrintingSupported) // 2026-11-02 (П-3): печать этикеток работает только в Windows
+        {
+            _status.Text = LabelPrinterSelector.UnsupportedText;
+            return;
+        }
+        // 2026-11-01 (С2-06): этикетки печатаем только с СОХРАНЁННЫХ кодов. Есть несохранённое — предупреждаем и сохраняем по согласию;
+        // не всё сохранилось — не печатаем (код, которого нет на сервере и в кеше кассы, на кассе даст «не найден»).
+        if (HasUnsavedChanges())
+        {
+            var saveFirst = await PosDialogs.ConfirmYesNoModalAsync(this,
+                Tr.T("В окне есть несохранённые изменения (размеры, штрихкоды, остатки). Этикетки печатаются только с сохранённых штрихкодов — сначала сохраните.",
+                    "Терезеде сакталбаган өзгөрүүлөр бар (өлчөмдөр, штрихкоддор, калдыктар). Этикеткалар сакталган штрихкоддор менен гана басылат — алгач сактаңыз.",
+                    "There are unsaved changes (sizes, barcodes, stock). Labels are printed only with saved barcodes — save first.",
+                    "Kaydedilmemiş değişiklikler var (beden, barkod, stok). Etiketler yalnızca kaydedilmiş barkodlarla yazdırılır — önce kaydedin.",
+                    "Saqlanmagan o'zgarishlar bor (o'lcham, shtrix-kod, qoldiq). Yorliqlar faqat saqlangan shtrix-kodlar bilan chop etiladi — avval saqlang."),
+                Tr.T("Сначала сохраните", "Алгач сактаңыз", "Save first", "Önce kaydedin", "Avval saqlang"),
+                Tr.T("Сохранить и печатать", "Сактап басуу", "Save and print", "Kaydet ve yazdır", "Saqlab chop etish"),
+                Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true);
+            if (!saveFirst)
+                return;
+            if (!await SaveAsync().ConfigureAwait(true))
+                return; // причина уже в строке состояния
+        }
+        // Печатаем строки, чей код совпадает с сохранённым на сервере.
+        var rows = _items.Where(r => !string.IsNullOrWhiteSpace(r.Barcode.Text) && r.Source.Id != null
+            && string.Equals(r.Source.Barcode?.Trim() ?? "", r.Barcode.Text!.Trim(), StringComparison.Ordinal)).ToList();
         if (rows.Count == 0)
         {
             _status.Text = Tr.T("Нет штрихкодов — нажмите «Создать штрихкоды» и «Сохранить».", "Штрихкоддор жок — «Штрихкоддорду түзүү» жана «Сактоо» басыңыз.",
@@ -466,46 +830,126 @@ public sealed class VariantEditorWindow : Window
             return;
         }
 
-        static double Qty(Row r) => double.TryParse(r.Qty.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var q) && q > 0 ? Math.Ceiling(q) : 0;
-        var byStock = (int)rows.Sum(Qty);
-        var choice = await AskLabelCountAsync(byStock, rows.Count).ConfigureAwait(true);
-        if (choice is null)
-            return;
-
         var template = LabelTemplateStore.Load();
-        var printed = 0;
-        var failed = 0;
-        foreach (var row in rows)
+        // 2026-11-02 (С3-06): после сбоя печати остаток задания помнится; следующее «Этикетки» предлагает допечатать только его,
+        // а не всё заново (иначе уже напечатанные этикетки дублируются).
+        var savedCodes = rows.Select(r => r.Barcode.Text!.Trim()).ToHashSet(StringComparer.Ordinal);
+        var rest = _labelRest?.Where(j => j.Remaining > 0 && savedCodes.Contains(j.Barcode)).ToList();
+        var resume = false;
+        if (rest is { Count: > 0 })
         {
-            var copies = choice == true ? (int)Qty(row) : 1;
-            if (copies <= 0)
-                continue;
-            double price = double.TryParse(row.Price.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var p) && p > 0 ? p : _basePrice;
-            var variantText = string.Join(", ", new[] { row.Size.Text?.Trim(), row.Color.Text?.Trim() }.Where(x => !string.IsNullOrWhiteSpace(x)));
-            while (copies > 0)
+            var left = rest.Sum(j => j.Remaining);
+            resume = await PosDialogs.ConfirmYesNoModalAsync(this,
+                Tr.T($"Прошлая печать остановилась: напечатано {_labelPlanPrinted} из {_labelPlanTotal}. Допечатать только остальные — {left} шт.? Уже напечатанные повторно не печатаются.\n«Заново» — выбрать количество с начала (будут дубли уже напечатанных).",
+                    $"Мурунку басуу токтоп калды: {_labelPlanPrinted}/{_labelPlanTotal} басылды. Калганын гана басабызбы — {left} даана? Басылгандар кайра басылбайт.\n«Кайрадан» — санын башынан тандоо (басылгандар кайталанат).",
+                    $"The last print stopped: {_labelPlanPrinted} of {_labelPlanTotal} printed. Print only the rest — {left} pcs? Already printed labels are not printed again.\n“From scratch” — choose the count again (already printed labels will be duplicated).",
+                    $"Önceki yazdırma durdu: {_labelPlanPrinted}/{_labelPlanTotal} basıldı. Yalnızca kalanı yazdıralım mı — {left} adet? Basılanlar tekrar basılmaz.\n«Baştan» — adedi yeniden seçin (basılanlar tekrarlanır).",
+                    $"Oldingi chop etish to'xtadi: {_labelPlanPrinted}/{_labelPlanTotal} chop etildi. Faqat qolganini chop etamizmi — {left} dona? Chop etilganlar qayta chop etilmaydi.\n«Boshidan» — sonni qayta tanlang (chop etilganlar takrorlanadi)."),
+                Tr.T("Допечатать остальные", "Калганын басуу", "Print the rest", "Kalanı yazdır", "Qolganini chop etish"),
+                Tr.T($"Допечатать остальные: {left} шт.", $"Калганын басуу: {left} даана", $"Print the rest: {left}", $"Kalanı yazdır: {left}", $"Qolganini chop etish: {left} dona"),
+                Tr.T("Заново", "Кайрадан", "From scratch", "Baştan", "Boshidan")).ConfigureAwait(true);
+        }
+        List<LabelJob> jobs;
+        if (resume)
+        {
+            jobs = rest!;
+        }
+        else
+        {
+            _labelRest = null;
+            static double Qty(Row r) => double.TryParse(r.Qty.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var q) && q > 0 ? Math.Ceiling(q) : 0;
+            var byStock = (int)rows.Sum(Qty);
+            var choice = await AskLabelCountAsync(byStock, rows.Count).ConfigureAwait(true);
+            if (choice is null)
+                return;
+            jobs = new List<LabelJob>();
+            foreach (var row in rows)
             {
-                var batch = Math.Min(copies, 99);
-                var request = new LabelPrintRequest(_productTitle, row.Barcode.Text!.Trim(), price.ToString("0.00", Inv) + " сом", batch, printer, template,
-                    StoreName: UserPreferences.Instance.StoreName, VariantText: variantText);
+                var copies = choice == true ? (int)Qty(row) : 1;
+                if (copies <= 0)
+                    continue;
+                double price = double.TryParse(row.Price.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, Inv, out var p) && p > 0 ? p : _basePrice;
+                jobs.Add(new LabelJob
+                {
+                    Barcode = row.Barcode.Text!.Trim(),
+                    Variant = string.Join(", ", new[] { row.Size.Text?.Trim(), row.Color.Text?.Trim() }.Where(x => !string.IsNullOrWhiteSpace(x))),
+                    PriceText = price.ToString("0.00", Inv) + " сом",
+                    Remaining = copies,
+                });
+            }
+            _labelPlanTotal = jobs.Sum(j => j.Remaining);
+            _labelPlanPrinted = 0;
+            if (_labelPlanTotal == 0)
+                return;
+        }
+
+        // Печать идёт до первого сбоя; на сбое останавливаемся (раньше цикл шёл дальше, и повтор печатал всё заново).
+        var printedNow = 0;
+        var last = LabelPrintResult.Success;
+        foreach (var job in jobs)
+        {
+            while (job.Remaining > 0)
+            {
+                var batch = Math.Min(job.Remaining, 99);
+                var request = new LabelPrintRequest(_productTitle, job.Barcode, job.PriceText, batch, printer, template,
+                    StoreName: UserPreferences.Instance.StoreName, VariantText: job.Variant);
+                BarcodeLabelService.ClearPartial(printer); // 2026-11-02 (С3-16): «N из M» хранится по принтеру
                 var result = await Task.Run(() => BarcodeLabelService.Print(request)).ConfigureAwait(true);
                 if (result == LabelPrintResult.Success)
-                    printed += batch;
-                else
-                    failed++;
-                copies -= batch;
+                {
+                    printedNow += batch;
+                    job.Remaining -= batch;
+                    continue;
+                }
+                last = result;
+                if (result == LabelPrintResult.PartiallySent)
+                {
+                    // часть этикеток задания ушла (счёт частями по 50) — её вычитаем, остальное допечатается отдельно
+                    var sent = Math.Clamp(BarcodeLabelService.PartialFor(printer)?.Sent ?? 0, 0, batch);
+                    printedNow += sent;
+                    job.Remaining -= sent;
+                }
+                break;
             }
+            if (last != LabelPrintResult.Success)
+                break;
         }
-        PosLogger.Log($"Размеры товара {_productId}: напечатано этикеток {printed}, сбоев {failed}.", "CATALOG");
-        if (printed > 0)
-            LabelPrinterSelector.LogSent(null, printer, printed);
-        _status.Text = failed == 0
-            ? Tr.T($"Этикетки отправлены на печать: {printed} шт.", $"Этикеткалар басууга жөнөтүлдү: {printed} даана.", $"Labels sent to the printer: {printed}.",
-                $"Etiketler yazdırmaya gönderildi: {printed}.", $"Yorliqlar chop etishga yuborildi: {printed} dona.")
-              + " " + LabelPrinterSelector.SentText(LabelPrinterSelector.DisplayName(printer)) + "."
-            : Tr.T($"Напечатано {printed} шт., не напечаталось строк: {failed} — проверьте принтер этикеток.", $"{printed} даана басылды, басылбаган саптар: {failed} — этикетка принтерин текшериңиз.",
-                $"Printed {printed}, failed rows: {failed} — check the label printer.", $"{printed} yazdırıldı, yazdırılamayan satır: {failed} — etiket yazıcısını kontrol edin.",
-                $"{printed} dona chop etildi, chop etilmagan qatorlar: {failed} — yorliq printerini tekshiring.");
+        _labelPlanPrinted += printedNow;
+        var restJobs = jobs.Where(j => j.Remaining > 0).ToList();
+        _labelRest = restJobs.Count > 0 ? restJobs : null;
+        var restCount = restJobs.Sum(j => j.Remaining);
+        PosLogger.Log($"Размеры товара {_productId}: напечатано этикеток {printedNow} (всего {_labelPlanPrinted} из {_labelPlanTotal}), итог {last}.", "CATALOG");
+        if (printedNow > 0)
+            LabelPrinterSelector.LogSent(null, printer, printedNow);
+        if (last == LabelPrintResult.Success)
+        {
+            BarcodeLabelService.ClearPartial(printer); // допечатано — прежний «N из M» больше не нужен
+            _status.Text = Tr.T($"Этикетки отправлены на печать: {_labelPlanPrinted} шт.", $"Этикеткалар басууга жөнөтүлдү: {_labelPlanPrinted} даана.", $"Labels sent to the printer: {_labelPlanPrinted}.",
+                    $"Etiketler yazdırmaya gönderildi: {_labelPlanPrinted}.", $"Yorliqlar chop etishga yuborildi: {_labelPlanPrinted} dona.")
+                + " " + LabelPrinterSelector.SentText(LabelPrinterSelector.DisplayName(printer)) + ".";
+            return;
+        }
+        var reason = last == LabelPrintResult.PartiallySent ? LabelPrinterSelector.PartialText(printer)
+            : last == LabelPrintResult.PrinterNotFound ? LabelPrinterSelector.HintText(LabelPrinterState.NotFound)
+            : Tr.T("Проверьте принтер этикеток.", "Этикетка принтерин текшериңиз.", "Check the label printer.", "Etiket yazıcısını kontrol edin.", "Yorliq printerini tekshiring.");
+        _status.Text = Tr.T($"Напечатано {_labelPlanPrinted} из {_labelPlanTotal}. ", $"{_labelPlanPrinted}/{_labelPlanTotal} басылды. ", $"Printed {_labelPlanPrinted} of {_labelPlanTotal}. ", $"{_labelPlanPrinted}/{_labelPlanTotal} basıldı. ", $"{_labelPlanPrinted}/{_labelPlanTotal} chop etildi. ")
+            + reason + " "
+            + Tr.T($"Нажмите «Этикетки» — предложим допечатать только остальные ({restCount} шт.).", $"«Этикеткалар» басыңыз — калганын гана басууну сунуштайбыз ({restCount} даана).",
+                $"Press “Labels” — we will offer to print only the rest ({restCount}).", $"«Etiketler»e basın — yalnızca kalanı yazdırmayı önereceğiz ({restCount} adet).", $"«Yorliqlar»ni bosing — faqat qolganini chop etishni taklif qilamiz ({restCount} dona).");
     }
+
+    // 2026-11-02 (С3-06): остаток задания печати этикеток после сбоя (копии, ещё не напечатанные).
+    private sealed class LabelJob
+    {
+        public string Barcode = "";
+        public string Variant = "";
+        public string PriceText = "";
+        public int Remaining;
+    }
+
+    private List<LabelJob>? _labelRest;
+    private int _labelPlanTotal;
+    private int _labelPlanPrinted;
 
     /// <summary>true — по остатку каждого размера, false — по одной на размер, null — отмена.</summary>
     private async Task<bool?> AskLabelCountAsync(int byStock, int perSize)
@@ -552,5 +996,5 @@ public sealed class VariantEditorWindow : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

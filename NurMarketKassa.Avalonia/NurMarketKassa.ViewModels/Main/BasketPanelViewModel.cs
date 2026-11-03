@@ -169,7 +169,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         LineDiscountCommand = new AsyncRelayCommand<CartLineItemVm>(ApplyLineDiscountAsync, line =>
             line != null && HasItems && !IsBusy && _applyLineDiscount != null);
         // 2026-10-03, клиент: «опт не только на весь чек, но и на сам товар — переключатель».
-        WholesaleLineCommand = new RelayCommand<CartLineItemVm>(line => ToggleWholesale(line), line => line is { CanWholesale: true } && !IsBusy);
+        WholesaleLineCommand = new RelayCommand<CartLineItemVm>(line => { if (DemandPriceRight()) ToggleWholesale(line); }, line => line is { CanWholesale: true } && !IsBusy); // 2026-11-01 (К2-06): оптовая цена — только с правом «Изменение цены»
         WholesaleAllCommand = new RelayCommand(ToggleWholesaleAll, () => HasItems && !IsBusy);
         IncreaseManualQuantityCommand = new RelayCommand(IncreaseManualQuantity);
         DecreaseManualQuantityCommand = new RelayCommand(DecreaseManualQuantity);
@@ -388,7 +388,29 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     }
 
     // 2026-10-19, К1: суммы на экране — одним видом «1 234,50» (MoneyText), как у владельца; только показ.
-    public string SubtotalDisplay => MoneyText.Som(Subtotal);
+    // 2026-11-02 (К3-07): «Сумма» = сумма показанных строк (подытог по правилу сервера минус округление) — строка «Округление» ниже сводит её с подытогом.
+    public string SubtotalDisplay => MoneyText.Som(Subtotal - (double)_roundingAdjustment);
+
+    /// <summary>2026-11-02 (К3-07 аудита №2): строка «Округление весовых −0,01» над «Итого» — сумма строк на экране + округление = подытог сервера
+    /// (сервер округляет сумму весовых вниз, а показывает строки половиной вверх). Только показ, итог не меняется; нет разности — строки нет.</summary>
+    public bool HasRoundingAdjustment => _roundingAdjustment != 0m;
+    public string RoundingAdjustmentText => CartTotalsCalculator.RoundingLabel(_roundingWeighed);
+    public string RoundingAdjustmentValue => (_roundingAdjustment < 0 ? "−" : "+") + MoneyText.Som(Math.Abs(_roundingAdjustment));
+
+    private decimal _roundingAdjustment;
+    private bool _roundingWeighed;
+
+    private void SetRounding(decimal adjustment, bool weighed)
+    {
+        if (_roundingAdjustment == adjustment && _roundingWeighed == weighed)
+            return;
+        _roundingAdjustment = adjustment;
+        _roundingWeighed = weighed;
+        OnPropertyChanged(nameof(HasRoundingAdjustment));
+        OnPropertyChanged(nameof(RoundingAdjustmentText));
+        OnPropertyChanged(nameof(RoundingAdjustmentValue));
+        OnPropertyChanged(nameof(SubtotalDisplay));
+    }
     public string DiscountDisplay => MoneyText.Som(Discount);
     public string TotalDisplay => MoneyText.Som(Total);
     public string TotalAmount => MoneyText.Amount(Total);
@@ -807,6 +829,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     /// иначе все обратно в розницу.</summary>
     private void ToggleWholesaleAll()
     {
+        if (!DemandPriceRight())
+            return;
         var candidates = Lines.Where(l => l.CanWholesale).ToList();
         if (candidates.Count == 0)
         {
@@ -843,6 +867,12 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         {
             if (_isWholesaleMode == value)
                 return;
+            // 2026-11-01 (К2-06): включить «Оптовый» может только сотрудник с правом «Изменение цены в кассе»; без права тумблер возвращается.
+            if (value && !_applyingWholesaleMode && !DemandPriceRight())
+            {
+                OnPropertyChanged();
+                return;
+            }
             _isWholesaleMode = value;
             OnPropertyChanged();
             if (_applyingWholesaleMode)
@@ -2240,7 +2270,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                     result.CartJsonSnapshot,
                     DateTime.Now,
                     // 2026-10-21 (ревью денег, п. 1): безналичная часть — для журнала возвратов.
-                    checkoutVm.NonCashReceivedForApi);
+                    checkoutVm.NonCashReceivedForApi,
+                    TryReadSaleNumber(result));
                 CheckoutSucceeded?.Invoke(this, EventArgs.Empty);
                 CartMessage = result.SavedOffline
                     ? result.InfoMessage ?? Tr.T("Оплата сохранена локально.", "Төлөм локалдык түрдө сакталды.", "Payment saved locally.", "Ödeme yerel olarak kaydedildi.", "To'lov shu kompyuterda saqlandi.")
@@ -2369,9 +2400,15 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
     /// наличных, сбой сети и т.п.) по тексту ответа — отдельного кода ошибки сервер не отдаёт.</summary>
     private static bool LooksLikeShiftNotOpenError(string? error) =>
         !string.IsNullOrWhiteSpace(error) &&
-        error.Contains("смен", StringComparison.OrdinalIgnoreCase) &&
-        (error.Contains("не открыт", StringComparison.OrdinalIgnoreCase)
-         || error.Contains("откройте смену", StringComparison.OrdinalIgnoreCase));
+        // 2026-11-01 (К-14, контрольный аудит): отказы «смена закрыта» / shift_closed / shift_not_owned / shift_required тоже запускают сверку смены с сервером.
+        (error.Contains("shift_closed", StringComparison.OrdinalIgnoreCase)
+         || error.Contains("shift_not_owned", StringComparison.OrdinalIgnoreCase)
+         || error.Contains("shift_required", StringComparison.OrdinalIgnoreCase)
+         || (error.Contains("смен", StringComparison.OrdinalIgnoreCase) &&
+             (error.Contains("не открыт", StringComparison.OrdinalIgnoreCase)
+              || error.Contains("откройте смену", StringComparison.OrdinalIgnoreCase)
+              || error.Contains("закрыта", StringComparison.OrdinalIgnoreCase)
+              || error.Contains("принадлежит другому", StringComparison.OrdinalIgnoreCase))));
 
     /// <summary>
     /// Вызывается из MainWindow.Dialogs.cs (TryReplenishStockForOverrideAsync) после того, как
@@ -2441,6 +2478,17 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         }
 
         return null;
+    }
+
+    /// <summary>2026-11-03 (Д-2): номер чека (number) из ответа оплаты; нет поля (офлайн) — null.</summary>
+    private static string? TryReadSaleNumber(PosCheckoutResult result)
+    {
+        if (result.SavedOffline || result.CheckoutResponse is not { } response || response.ValueKind != System.Text.Json.JsonValueKind.Object)
+            return null;
+        if (!response.TryGetProperty("number", out var value))
+            return null;
+        var text = value.ValueKind == System.Text.Json.JsonValueKind.String ? value.GetString() : value.ToString();
+        return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
     }
 
     private void RecordSoldLineItemsForHistory(string? saleId)
@@ -3339,6 +3387,21 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         _ = _applyLineDiscount(line);
     }
 
+    /// <summary>2026-11-01 (контрольный аудит, К2-06): оптовая цена строки/чека меняет цену продажи — нужно право «Изменение цены в кассе» (PosPermissions.EditPrice).
+    /// Владелец/админ — всегда; если сервер не прислал поле — не блокируем (см. PermissionService.IsPriceEditAllowed). Отказ — понятное сообщение на 5 языках.</summary>
+    private bool DemandPriceRight()
+    {
+        if (_permissions is null || _permissions.HasPermission(PosPermissions.EditPrice))
+            return true;
+        PosLogger.Log($"Permission denied: {PosPermissions.EditPrice} (оптовая цена)", "WARNING");
+        _prompts.ShowWarning(Tr.T("Оптовая цена доступна сотруднику с правом «Изменение цены в кассе». Попросите владельца включить его в Настройки → Сотрудники.",
+            "Дүң баа «Кассада баасын өзгөртүү» укугу бар кызматкерге жеткиликтүү. Ээсинен аны Жөндөөлөр → Кызматкерлер бөлүмүндө күйгүзүүнү сураңыз.",
+            "The wholesale price is available to staff with the “Price change at checkout” permission. Ask the owner to enable it in Settings → Employees.",
+            "Toptan fiyat «Kasada fiyat değiştirme» yetkisi olan çalışanlara açıktır. Sahibinden Ayarlar → Çalışanlar bölümünde açmasını isteyin.",
+            "Ulgurji narx «Kassada narxni o'zgartirish» huquqiga ega xodimga ochiq. Egasidan Sozlamalar → Xodimlar bo'limida yoqishni so'rang."));
+        return false;
+    }
+
     private bool DemandPermission(string permission)
     {
         if (_permissions is null || _permissions.HasPermission(permission))
@@ -3800,6 +3863,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             Subtotal = 0;
             Discount = 0;
             OrderDiscountAmount = 0;
+            SetRounding(0m, false);
             Total = 0;
             LineCount = 0;
             TotalQuantity = 0;
@@ -3815,6 +3879,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         Subtotal = totals.Subtotal;
         Discount = totals.LineDiscounts + totals.OrderDiscount;
         OrderDiscountAmount = totals.OrderDiscount;
+        SetRounding(totals.RoundingAdjustment, totals.HasWeighedLines);
         Total = totals.TotalDue;
         LineCount = totals.LineCount;
         TotalQuantity = _cart.TotalQuantity;

@@ -35,6 +35,17 @@ public static class MoneyText
     public static string Som(double value) =>
         double.IsNaN(value) || double.IsInfinity(value) ? NotANumber : Amount(value) + " " + Currency;
 
+    /// <summary>2026-11-01 (закупка до 4 знаков): ЦЕНА единицы для показа — минимум 2 знака, больше только если они есть («0,0412», «12,50», «1 000,00»). Итоги и суммы по-прежнему <see cref="Som(double)"/>.</summary>
+    public static string PriceSom(double value) => double.IsNaN(value) || double.IsInfinity(value) ? NotANumber : Price(value) + " " + Currency;
+
+    /// <summary>То же без валюты: «0,0412», «12,50».</summary>
+    public static string Price(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+            return NotANumber;
+        return NoNegativeZero(Math.Abs(value) < 1e12 ? ((decimal)value).ToString("#,0.00##", Format) : value.ToString("#,0.00", Format));
+    }
+
     /// <summary>«1 234,50 сом» — с валютой на языке интерфейса.</summary>
     public static string Som(decimal value) => Amount(value) + " " + Currency;
 

@@ -7,7 +7,8 @@ namespace NurMarketKassa.Services;
 /// Выдача наличных — <c>refund.cash</c> (НЕ <c>debt_adjustment.reduced_by</c> — это на сколько уменьшился ДОЛГ); безналичная и «на баланс» части —
 /// <c>refund.noncash</c> / <c>refund.balance</c>, если сервер их отдаёт; долг клиента — <c>debt_adjustment.reduced_by</c> и <c>remaining_debt</c>.
 /// Есть <c>refund.cash</c> — касса доверяет серверу; нет (старый сервер / ответ без поля) — прежний расчёт кассы. Чистая разборка JSON без сети.</summary>
-public sealed record ServerRefundFigures(decimal? Cash, decimal? NonCash, decimal? Balance, decimal? DebtReducedBy, decimal? RemainingDebt, string? ReturnStatus = null)
+public sealed record ServerRefundFigures(decimal? Cash, decimal? NonCash, decimal? Balance, decimal? DebtReducedBy, decimal? RemainingDebt, string? ReturnStatus = null,
+    string? RefundId = null, decimal? RefundAmount = null)
 {
     /// <summary>Сервер назвал выдачу наличными — это источник суммы к выдаче.</summary>
     public bool HasCash => Cash is not null;
@@ -25,7 +26,8 @@ public sealed record ServerRefundFigures(decimal? Cash, decimal? NonCash, decima
             if (root.ValueKind != JsonValueKind.Object)
                 return null;
 
-            decimal? cash = null, nonCash = null, balance = null, reducedBy = null, remaining = null;
+            decimal? cash = null, nonCash = null, balance = null, reducedBy = null, remaining = null, refundAmount = null;
+            string? refundId = null;
             var any = false;
             if (root.TryGetProperty("refund", out var refund) && refund.ValueKind == JsonValueKind.Object)
             {
@@ -33,6 +35,9 @@ public sealed record ServerRefundFigures(decimal? Cash, decimal? NonCash, decima
                 cash = Num(refund, "cash");
                 nonCash = Num(refund, "noncash") ?? Num(refund, "non_cash");
                 balance = Num(refund, "balance");
+                // 2026-11-02 (аудит №2, К3-03): id и сумма документа возврата — прямо из ответа на возврат (документ из списка возвратов нужен только старому серверу).
+                refundAmount = Num(refund, "amount");
+                refundId = refund.TryGetProperty("id", out var rid) && rid.ValueKind is JsonValueKind.String or JsonValueKind.Number ? rid.ToString() : null;
             }
             if (root.TryGetProperty("debt_adjustment", out var debt) && debt.ValueKind == JsonValueKind.Object)
             {
@@ -42,7 +47,7 @@ public sealed record ServerRefundFigures(decimal? Cash, decimal? NonCash, decima
             }
             // return_status чека в ответе (none / partial / full): у полностью возвращённого долгового чека сервер оставляет старый остаток долга — окно возврата его не показывает.
             var status = root.TryGetProperty("return_status", out var rs) && rs.ValueKind == JsonValueKind.String ? rs.GetString() : null;
-            return any ? new ServerRefundFigures(cash, nonCash, balance, reducedBy, remaining, status) : null;
+            return any ? new ServerRefundFigures(cash, nonCash, balance, reducedBy, remaining, status, refundId, refundAmount) : null;
         }
         catch
         {

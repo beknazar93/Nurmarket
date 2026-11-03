@@ -108,6 +108,17 @@
         <!-- 2026-10-22 (аудит новой сборки): подпись «Управление» ломалась «Управлени/е» (кегль 10,5 и MaxWidth 66 уже слова в
              Montserrat) — кнопка 72, подпись до 72 при кегле 10; слово теперь целиком. -->
         <!-- 2026-11-01 (ThinkPad): колонка 76 → 84, кнопка 72 → 80: «Управление» при кегле 12 не помещалась в 72 и ломалась «Управлени/е». -->
+        <!-- 2026-11-02 (аудит №2, Д2-08): у кнопок меню владельца не было своей рамки фокуса — по Tab/стрелкам на тёмной колонке и в верхних вкладках
+             не было видно, где курсор (рамка Fluent сливалась). Тёмная колонка — светлая рамка цвета OwnerRailHoverFg (контраст к колонке считает
+             ApplyRailBrushes), остальные кнопки — BrushFocusRing (≥ 3:1). Только состояние :focus-visible (с клавиатуры), мышь рамку не показывает. -->
+        <Style Selector="Button.railGroup:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.railMini:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource OwnerRailHoverFg}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
+        <Style Selector="Button.nav:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.navOld:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.ownerTab:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.seg:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.link:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.navCollapse:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+        </Style>
         <Style Selector="Button.railGroup">
             <Setter Property="Width" Value="80"/>
             <Setter Property="Padding" Value="0,7,0,6"/>

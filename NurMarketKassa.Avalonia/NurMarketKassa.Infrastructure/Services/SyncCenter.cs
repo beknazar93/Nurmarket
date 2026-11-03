@@ -151,6 +151,11 @@ public static class SyncCenter
             return FeedDeepIdleInterval; // 2026-10-30 (Б1): Android в фоне — 60 с вместо 8 (подсказка соседа FeedKick будит сразу)
         if (WindowMinimized)
             return FeedIdleInterval;
+        // 2026-11-02 (живая проверка круга 3): программа владельца в простое делала ~19 запросов в минуту (касса ~5,6). Окно владельца не в фокусе
+        // (он работает в кассе или другой программе) — лента каталога раз в 30 с, а не каждые 8: данные ему нужны, когда он смотрит в окно, а
+        // подсказка соседа (FeedKick) и возврат в окно будят ленту сразу.
+        if (AppMode.IsOwner && !WindowActive)
+            return FeedIdleInterval;
         var idle = InputIdle();
         if (idle >= DeepIdleAfter)
             return FeedDeepIdleInterval;

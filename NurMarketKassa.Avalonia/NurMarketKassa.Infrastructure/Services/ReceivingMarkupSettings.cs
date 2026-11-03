@@ -165,9 +165,7 @@ public static class ReceivingMarkupSettingsStore
                 var dir = Path.GetDirectoryName(FilePath);
                 if (!string.IsNullOrEmpty(dir))
                     Directory.CreateDirectory(dir);
-                var tmp = FilePath + ".tmp";
-                File.WriteAllText(tmp, JsonSerializer.Serialize(settings, JsonOptions));
-                File.Move(tmp, FilePath, true);
+                AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(settings, JsonOptions)); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
             }
             catch (Exception ex)
             {

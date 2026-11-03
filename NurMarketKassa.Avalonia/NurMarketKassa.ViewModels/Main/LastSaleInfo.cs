@@ -14,6 +14,7 @@ namespace NurMarketKassa.ViewModels.Main;
 /// <param name="SoldAt">Время продажи (местное).</param>
 /// <param name="NonCashReceivedText">2026-10-21 (ревью денег, п. 1): non_cash_received, ушедший в оплату (безнал смешанной
 /// оплаты или безналичная предоплата долга), — журнал возвратов не велит выдавать его наличными.</param>
+/// <param name="SaleNumber">2026-11-03 (Д-2): номер чека (number) из ответа оплаты — окно «Чек» показывает его, пока сервер не отдал саму продажу.</param>
 public sealed record LastSaleInfo(
     double Total,
     string PaymentMethod,
@@ -24,4 +25,5 @@ public sealed record LastSaleInfo(
     string? SaleId,
     string? CartJson,
     DateTime SoldAt,
-    string? NonCashReceivedText = null);
+    string? NonCashReceivedText = null,
+    string? SaleNumber = null);

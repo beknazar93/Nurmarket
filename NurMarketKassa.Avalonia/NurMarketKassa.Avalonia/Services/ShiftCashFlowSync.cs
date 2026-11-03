@@ -98,7 +98,8 @@ public static class ShiftCashFlowSync
         return new UnsentCashOps(left.Count, left.Sum(x => x.Amount), string.Join("\n", lines));
     }
 
-    public static async Task PushPendingAsync(string? shiftId)
+    /// <param name="external">2026-11-03 (ревью С-3): внешний токен с «скользящим» сроком (закрытие смены: 8 с с последнего ответа сервера) — тогда общий срок budget не ставится.</param>
+    public static async Task PushPendingAsync(string? shiftId, TimeSpan? budget = null, CancellationToken external = default)
     {
         if (string.IsNullOrWhiteSpace(shiftId) || !Guid.TryParse(shiftId, out _))
             return;
@@ -113,14 +114,24 @@ public static class ShiftCashFlowSync
         if (string.IsNullOrWhiteSpace(cashboxId) || ShiftCashOperationsStore.PendingForShift(shiftId).Count == 0)
             return;
 
-        await Gate.WaitAsync().ConfigureAwait(false);
+        // 2026-11-03 (С-10, аудит «зависание при медленном сервере»): замок ждём не дольше 3 с — раньше бессрочно, и «Закрыть смену» стояла за чужой медленной досылкой
+        // до ~50 с. Не дождались: досылка уже идёт в другом потоке, закрытие продолжится «с пометкой» (хвосты уйдут сами).
+        if (!await Gate.WaitAsync(TimeSpan.FromSeconds(3)).ConfigureAwait(false))
+        {
+            PosLogger.Log("Досылка внесений/изъятий: замок занят другой досылкой дольше 3 с — не ждём.", "SHIFT");
+            return;
+        }
+
         try
         {
             var pending = ShiftCashOperationsStore.PendingForShift(shiftId);
             if (pending.Count == 0)
                 return;
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            // 2026-11-03 (С-10): при закрытии смены общий срок — 8 с (budget), в остальных случаях прежние 15 с.
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(external);
+            if (!external.CanBeCanceled)
+                cts.CancelAfter(budget ?? TimeSpan.FromSeconds(15));
 
             // Ответ на прошлую попытку мог потеряться уже после записи на сервере — сверяемся с
             // движениями по source_id (= ID операции на кассе), чтобы не записать дважды.

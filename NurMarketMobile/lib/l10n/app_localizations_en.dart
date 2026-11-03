@@ -2151,6 +2151,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get kindSale => 'Sale';
 
   @override
+  String get payInProgressScan =>
+      'Payment in progress — wait for the answer, then scan the item';
+
+  @override
+  String updMobileWarn(String mb) {
+    return 'The file is about $mb MB and you are not on Wi‑Fi — download?';
+  }
+
+  @override
+  String get returnedPartly => 'Partly returned';
+
+  @override
   String returnNetTotal(String sum) {
     return 'Receipt total after returns: $sum som';
   }

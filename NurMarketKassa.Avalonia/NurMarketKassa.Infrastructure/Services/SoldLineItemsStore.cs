@@ -37,6 +37,10 @@ public static class SoldLineItemsStore
     public static HashSet<string> KnownSaleIdsBetween(DateTime sinceUtc, DateTime untilUtc) =>
         Db.LoadKnownSaleIdsBetween(sinceUtc, untilUtc);
 
+    /// <summary>2026-11-03 (Д-3): строки продаж этой кассы за промежуток — для «Истории чеков», пока сервер не ответил.</summary>
+    public static List<(string SaleId, DateTime SoldAtUtc, string ProductName, double Quantity, double UnitPrice)> LocalLinesBetween(DateTime sinceUtc, DateTime untilUtc) =>
+        Db.LoadLocalSoldLinesBetween(sinceUtc, untilUtc);
+
     /// <summary>Убрать продажи, которых на сервере больше нет (удалены или отменены).</summary>
     public static int RemoveSales(IReadOnlyCollection<string> saleIds)
     {

@@ -2080,6 +2080,18 @@ class AppLocalizationsTr extends AppLocalizations {
   String get kindSale => 'Satış';
 
   @override
+  String get payInProgressScan =>
+      'Ödeme sürüyor — yanıtı bekleyin, sonra ürünü tarayın';
+
+  @override
+  String updMobileWarn(String mb) {
+    return 'Dosya yaklaşık $mb MB, Wi‑Fi\'de değilsiniz — indirilsin mi?';
+  }
+
+  @override
+  String get returnedPartly => 'Kısmen iade edildi';
+
+  @override
   String returnNetTotal(String sum) {
     return 'İadelerden sonra fiş toplamı: $sum som';
   }

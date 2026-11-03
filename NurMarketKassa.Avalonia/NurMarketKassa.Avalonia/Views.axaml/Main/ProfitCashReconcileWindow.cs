@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.VisualTree;
 using Avalonia.Layout;
 using Avalonia.Media;
 using NurMarketKassa.AvaloniaHost.Services;
@@ -23,7 +24,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// полосе программы владельца), период — сегменты справа (UiKit.Seg), строки отчёта — линиями без заливки, итог «Операционная
 /// прибыль» / «Чистое движение денег» — плашкой, красной только при минусе (убыток). Расчёты и запросы — прежние.
 /// </summary>
-public sealed class ProfitCashReconcileWindow : Window
+public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IOwnerSectionExcel
 {
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private readonly StackPanel _periods = new() { Orientation = Orientation.Horizontal, Spacing = 2 };
@@ -123,8 +124,58 @@ public sealed class ProfitCashReconcileWindow : Window
 
     private bool _loadedOnce;
 
+    /// <summary>2026-11-02 (аудит №2, В-07): то, что показано на экране (прибыль, деньги, сверка), построчно — «раздел / показатель / значение».</summary>
+    public SectionTable? BuildExportTable()
+    {
+        var rows = new List<object?[]>();
+        void Harvest(string section, StackPanel panel)
+        {
+            foreach (var child in panel.Children)
+            {
+                if (child is TextBlock head && !string.IsNullOrWhiteSpace(head.Text))
+                {
+                    rows.Add([section, head.Text.Trim(), ""]);
+                    continue;
+                }
+                if (child is Border { Child: { } content })
+                {
+                    var texts = content.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text?.Trim() ?? "").Where(t => t.Length > 0).ToList();
+                    if (texts.Count >= 2)
+                        rows.Add([section, texts[0], texts[1]]);
+                    else if (texts.Count == 1)
+                        rows.Add([section, texts[0], ""]);
+                }
+            }
+        }
+        Harvest(Tr.T("Прибыль и расходы", "Пайда жана чыгымдар", "Profit and expenses", "Kâr ve giderler", "Foyda va xarajatlar"), _pnl);
+        Harvest(Tr.T("Деньги", "Акча", "Money", "Para", "Pul"), _cash);
+        Harvest(Tr.T("Сверка", "Салыштыруу", "Reconciliation", "Mutabakat", "Solishtirish"), _checks);
+        if (rows.Count == 0)
+            return null;
+        var (from, to) = Range();
+        return new SectionTable(Tr.T("Прибыль и деньги", "Пайда жана акча", "Profit and cash", "Kâr ve nakit", "Foyda va pul"), $"{from:dd.MM.yyyy} — {to:dd.MM.yyyy}",
+        [
+            new XlColumn(Tr.T("Раздел", "Бөлүм", "Section", "Bölüm", "Bo'lim")),
+            new XlColumn(Tr.T("Показатель", "Көрсөткүч", "Indicator", "Gösterge", "Ko'rsatkich")),
+            new XlColumn(Tr.T("Значение", "Мааниси", "Value", "Değer", "Qiymat")),
+        ], rows);
+    }
+
+    /// <summary>2026-11-01 (В2-03): когда раздел последний раз начинал загрузку — для RefreshOnShow.</summary>
+    private DateTime _loadedUtc = DateTime.UtcNow;
+
+    public DateTime? RefreshOnShow()
+    {
+        if (DateTime.UtcNow - _loadedUtc <= TimeSpan.FromSeconds(60))
+            return null;
+        var dataAt = _loadedUtc.ToLocalTime();
+        _ = LoadAsync();
+        return dataAt;
+    }
+
     private async Task LoadAsync()
     {
+        _loadedUtc = DateTime.UtcNow;
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
@@ -611,5 +662,5 @@ public sealed class ProfitCashReconcileWindow : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

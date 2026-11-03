@@ -39,7 +39,7 @@ public sealed class UnsentDataDialog : Window
         KeyDown += (_, e) => { if (e.Key == Key.Escape && !e.Handled) { e.Handled = true; Finish(UnsentDecision.Cancel); } };
 
         var info = new TextBlock { Text = Describe(summary), TextWrapping = TextWrapping.Wrap, FontSize = 14, Margin = new Thickness(0, 0, 14, 0) };
-        info.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        info.Bind(TextBlock.ForegroundProperty, info.GetResourceObservable("BrushText"));
         var hint = new TextBlock
         {
             Text = T("Вы вошли в другую компанию, и данные прежней будут стёрты с этого компьютера. Отправить их с этого входа нельзя — они ушли бы не в ту компанию. Выберите, что сделать:",
@@ -49,7 +49,7 @@ public sealed class UnsentDataDialog : Window
                 "Siz boshqa kompaniyaga kirdingiz, avvalgisining ma'lumotlari bu kompyuterdan o'chiriladi. Bu kirish orqali yuborib bo'lmaydi — noto'g'ri kompaniyaga ketadi. Tanlang:"),
             TextWrapping = TextWrapping.Wrap, FontSize = 13, Margin = new Thickness(0, 0, 14, 0),
         };
-        hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
 
         var back = UiKit.Primary(this, T("Вернуться в прежний аккаунт (программа закроется)", "Мурунку аккаунтка кайтуу (программа жабылат)",
             "Go back to the previous account (the program will close)", "Önceki hesaba dön (program kapanır)", "Avvalgi akkauntga qaytish (dastur yopiladi)"), isDefault: true, isCancel: true);
@@ -77,7 +77,7 @@ public sealed class UnsentDataDialog : Window
                 "Yuborilmagan ma'lumotlar butunlay yo'qoladi. Agar bu sotuvlar bo'lsa — ularning puli hisobga kirmaydi. Tasdiqlash uchun O'CHIRISH so'zini yozing."),
             TextWrapping = TextWrapping.Wrap, FontSize = 14, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 14, 0),
         };
-        warn.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
+        warn.Bind(TextBlock.ForegroundProperty, warn.GetResourceObservable("BrushDanger"));
         var input = new TextBox { Watermark = ConfirmWords[1], FontSize = 16, Height = 46 };
         var sure = UiKit.Danger(this, T("Стереть и сменить аккаунт", "Өчүрүп, аккаунтту алмаштыруу", "Erase and switch account", "Sil ve hesabı değiştir", "O'chirib, akkauntni almashtirish"));
         sure.IsEnabled = false;

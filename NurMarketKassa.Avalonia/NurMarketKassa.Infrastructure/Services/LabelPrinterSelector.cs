@@ -296,6 +296,20 @@ public static class LabelPrinterSelector
     public static string SentText(string printerLabel) =>
         Tr.T($"Отправлено на {printerLabel}", $"{printerLabel} принтерине жөнөтүлдү", $"Sent to {printerLabel}", $"{printerLabel} yazıcısına gönderildi", $"{printerLabel} printeriga yuborildi");
 
+    /// <summary>2026-11-02: часть этикеток ушла, исход остального неизвестен — повтор автоматически не делается.</summary>
+    public static string PartialText(string? printerDevicePath = null)
+    {
+        // 2026-11-02 (С3-16): «N из M» именно этого принтера (при нескольких одновременных печатях общее поле показывало чужое)
+        var p = printerDevicePath is { Length: > 0 } ? BarcodeLabelService.PartialFor(printerDevicePath) : BarcodeLabelService.LastPartial;
+        var sent = p?.Sent ?? 0;
+        var total = p?.Total ?? 0;
+        return total > 0
+            ? Tr.T($"Напечатано {sent} из {total}, проверьте ленту. Остальное автоматически не повторялось, чтобы не напечатать дубли.", $"{sent}/{total} басылды, лентаны текшериңиз. Калганы кайталанган жок — кайталанма болбошу үчүн.",
+                $"Printed {sent} of {total}, check the tape. The rest was not retried automatically, to avoid duplicates.", $"{sent}/{total} basıldı, bandı kontrol edin. Kalanı kopya olmaması için otomatik tekrarlanmadı.", $"{sent}/{total} chop etildi, lentani tekshiring. Qolgani dublikat bo'lmasligi uchun avtomatik takrorlanmadi.")
+            : Tr.T("Печать прервалась, часть этикеток могла напечататься — проверьте ленту. Автоповтора не было.", "Басуу үзгүлтүккө учурады, этикеткалардын бир бөлүгү басылышы мүмкүн — лентаны текшериңиз. Автоматтык кайталоо болгон жок.",
+                "Printing was interrupted; some labels may have been printed — check the tape. No automatic retry was made.", "Yazdırma kesildi, bazı etiketler basılmış olabilir — bandı kontrol edin. Otomatik yeniden deneme yapılmadı.", "Chop etish uzildi, ba'zi yorliqlar chop etilgan bo'lishi mumkin — lentani tekshiring. Avtomatik takrorlash bo'lmadi.");
+    }
+
     /// <summary>Подсказка, если принтер этикеток не выбран или не найден.</summary>
     public static string HintText(LabelPrinterState state) => state == LabelPrinterState.NotFound
         ? Tr.T("Выбранный принтер этикеток не найден — проверьте питание и кабель или выберите другой в Настройки → Печать.",

@@ -50,6 +50,11 @@ class Products extends Table {
   /// 2026-10-31 (режим «Продукты»): срок годности товара (expiration_date сервера), «ГГГГ-ММ-ДД». null — не указан.
   TextColumn get expiresOn => text().nullable()();
 
+  /// 2026-11-01 (живая сверка NBS, правило округления весовых): чистый признак `is_weight` товара с сервера, БЕЗ учёта единицы кг/г
+  /// (в [isWeight] он смешан с единицей). null — сервер признак не прислал (старые строки до ближайшей загрузки каталога): тогда весовым
+  /// считается по [isWeight]. Нужен только для округления подытога чека (cart.dart); продажа по весу по-прежнему идёт по [isWeight].
+  BoolColumn get isWeightFlag => boolean().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -130,7 +135,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'nurmarket'));
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -196,6 +201,19 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(products, products.expiresOn);
         await m.createTable(productVariants);
         await m.createTable(variantChecks);
+      }
+      // 2026-11-01 (округление весовых): чистый признак is_weight товара; у старых товаров null, каталог заполнит при ближайшей загрузке.
+      // Идемпотентно: колонка уже есть (повторный запуск миграции, ручная правка) — не добавляем второй раз; данные не трогаются.
+      if (from < 9) {
+        final cols = await customSelect('PRAGMA table_info(products)').get();
+        if (!cols.any((r) => r.read<String>('name') == 'is_weight_flag')) await m.addColumn(products, products.isWeightFlag);
+        // 2026-11-02 (аудит №2, М3-05): чистый is_weight есть только в полной загрузке каталога. Сбрасываем время последней полной загрузки,
+        // чтобы она прошла при первом же обновлении после этого обновления приложения, а не через недели (ключ catalog.fullAt).
+        try {
+          await customStatement("DELETE FROM settings WHERE key = 'catalog.fullAt'");
+        } catch (_) {
+          // настроек ещё нет (очень старая база) — полная загрузка и так будет первой
+        }
       }
     },
   );
@@ -642,6 +660,13 @@ class AppDatabase extends _$AppDatabase {
     );
     return await getSetting(queueLockKey) == mine;
   }
+
+  /// 2026-11-02 (аудит №2, М2-07): замок продлевается после каждой записи очереди — большая очередь идёт дольше 3 минут, и без продления
+  /// фоновая задача и приложение начинали бы отправлять одновременно. Продлевается только свой замок.
+  Future<void> renewQueueLock(String owner, {Duration ttl = const Duration(minutes: 3)}) => customStatement(
+    "UPDATE settings SET value = ? WHERE key = '$queueLockKey' AND value LIKE ?",
+    ['$owner|${DateTime.now().millisecondsSinceEpoch + ttl.inMilliseconds}', '$owner|%'],
+  );
 
   Future<void> releaseQueueLock(String owner) =>
       customStatement("UPDATE settings SET value = '' WHERE key = '$queueLockKey' AND value LIKE ?", ['$owner|%']);

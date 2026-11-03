@@ -1005,7 +1005,7 @@ internal sealed class PurchasesRegistryView : UserControl
     /// <summary>Закупка: число и значок «↑», если выше прошлой закупки этого товара (в подсказке — прошлая цена и рост в %).</summary>
     private Control PurchaseCell(RegistryLine l)
     {
-        var text = Txt(Money(l.Purchase), "BrushText", 13, right: true);
+        var text = Txt(MoneyText.Price(l.Purchase), "BrushText", 13, right: true); // 2026-11-01: закупка — 2–4 знака
         if (!l.Raised)
             return text;
         var badge = new Border { CornerRadius = new CornerRadius(8), Padding = new Thickness(5, 0), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0), Child = new TextBlock { Text = "↑", FontSize = 12, FontWeight = FontWeight.Bold } };

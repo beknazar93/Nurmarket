@@ -112,7 +112,7 @@ public sealed class InventoryApiService : IInventoryApiService
                     if (!string.IsNullOrWhiteSpace(e.Id))
                         names[e.Id!] = !string.IsNullOrWhiteSpace(e.FullName) ? e.FullName! : e.Email ?? "";
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested) // 2026-11-03 (С-15): таймаут сервера (TaskCanceledException) — не отмена пользователем
             {
                 PosLogger.Log($"Акты склада: имена сотрудников не получены ({ex.Message}).", "WARNING");
             }
@@ -126,7 +126,7 @@ public sealed class InventoryApiService : IInventoryApiService
                 {
                     data = await _client.RequestAsync(HttpMethod.Get, path, null, null, ct).ConfigureAwait(false);
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested) // 2026-11-03 (С-15): таймаут сервера — не отмена пользователем
                 {
                     PosLogger.Log($"Акты склада: список не получен ({ex.Message}).", "WARNING");
                     return acts.Count > 0 ? acts : null;

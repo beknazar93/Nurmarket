@@ -1329,9 +1329,7 @@ public static class BulkScanDraftStore
                     }).ToList(),
                 };
                 Directory.CreateDirectory(DataDir);
-                var tmp = FilePath + ".tmp";
-                File.WriteAllText(tmp, JsonSerializer.Serialize(draft));
-                File.Move(tmp, FilePath, overwrite: true);
+                AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(draft)); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
             }
             catch (Exception ex)
             {

@@ -86,6 +86,8 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
 
   bool _onKey(KeyEvent e) {
     if (e is! KeyDownEvent) return false;
+    // 2026-11-02 (аудит №2, М3-01): экран оплаты (или другое окно) поверх продажи — сканер в чек не пишет
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return false;
     final focused = FocusManager.instance.primaryFocus?.context?.widget;
     if (focused is EditableText) return false; // печатает человек или сканер в поле — там свой Enter
     final now = DateTime.now();
@@ -112,6 +114,11 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
   Future<void> _submitScan(String raw) async {
     final q = raw.trim();
     if (q.isEmpty || _scanBusy) return;
+    // 2026-11-02 (аудит №2, М3-01): идёт оплата — чек заморожен, код не принимаем
+    if (ref.read(cartProvider.notifier).frozen) {
+      if (mounted) toast(context, context.l.payInProgressScan, error: true);
+      return;
+    }
     _scanBusy = true;
     _hideNotice();
     // 2026-10-26 (живой аудит, П3, В-2): после «не найден» код оставался в поле и следующий скан дописывался к нему —

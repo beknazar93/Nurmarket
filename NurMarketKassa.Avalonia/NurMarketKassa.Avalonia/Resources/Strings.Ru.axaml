@@ -1513,4 +1513,11 @@
   <x:String x:Key="warehouse.refresh">Обновить</x:String>
   <x:String x:Key="warehouse.refreshTooltip">Загрузить товары и остатки заново с сервера</x:String>
   <x:String x:Key="product.globalScanHint">Отсканируйте штрихкод товара: если он есть в базе NurCRM, название, категория и бренд заполнятся сами — останется указать цены и количество. Нет в базе — заполните вручную.</x:String>
+  <!-- 2026-11-02 (аудит №2, Д2-05): подписи весов и подсказка окна входа — в словарях (раньше по-русски в XAML). -->
+  <x:String x:Key="scaleSetup.extraScalesTitle">Дополнительные весы</x:String>
+  <x:String x:Key="scaleSetup.scale2">Весы 2</x:String>
+  <x:String x:Key="scaleSetup.scale3">Весы 3</x:String>
+  <x:String x:Key="scaleSetup.poleDisplayType">Тип табло</x:String>
+  <x:String x:Key="scaleSetup.findPoleDisplay">Найти табло</x:String>
+  <x:String x:Key="csh.login.supportTooltip">Открыть окно поддержки</x:String>
 </ResourceDictionary>

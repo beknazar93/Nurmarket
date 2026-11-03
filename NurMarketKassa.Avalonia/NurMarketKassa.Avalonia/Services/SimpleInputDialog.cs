@@ -22,7 +22,7 @@ public class SimpleInputDialog : Window
         SectionCards.AsModal(this, 512);
 
         var label = new TextBlock { Text = message, FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
-        label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushTextSoft"));
         _textBox = SectionCards.Field(new TextBox());
         Avalonia.Automation.AutomationProperties.SetName(_textBox, message);
         var error = SectionCards.ErrorText(this);

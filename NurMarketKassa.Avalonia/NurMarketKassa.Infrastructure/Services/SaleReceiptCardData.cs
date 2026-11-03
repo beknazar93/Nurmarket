@@ -141,8 +141,12 @@ public sealed class SaleReceiptCardData
                 "Chek aloqasiz saqlandi — serverga avtomatik yuboriladi");
 
         decimal linesTotal = 0;
+        var lineCount = 0; // 2026-11-02 (К3-07)
+        var anyWeighed = false;
         foreach (var line in CartDisplayHelper.EnumerateSaleLineItems(sale))
         {
+            lineCount++;
+            anyWeighed |= CartDisplayHelper.LineMustWeigh(line);
             var qty = CartDisplayHelper.LineQuantity(line);
             var price = (decimal)CartDisplayHelper.UnitPrice(line);
             if (!decimal.TryParse(CartDisplayHelper.LineTotal(line), NumberStyles.Any, CultureInfo.InvariantCulture, out var sum))
@@ -158,17 +162,26 @@ public sealed class SaleReceiptCardData
         }
 
         var due = total ?? linesTotal - discount;
+        // 2026-11-02 (К3-07): «Округление весовых ±0,01» — сумма строк − скидка + округление = итог (сервер округляет сумму весовых вниз,
+        // а строки показывает половиной вверх). Нет разности — строки нет.
+        var rounding = CartTotalsCalculator.SaleRoundingAdjustment(linesTotal, discount, due, lineCount);
+        Row RoundingRow() => new(CartTotalsCalculator.RoundingLabel(anyWeighed), (rounding < 0 ? "−" : "+") + Fmt(Math.Abs(rounding)));
         if (discount > 0.005m)
         {
             decimal? subtotal = null;
-            if (Math.Abs(linesTotal - discount - due) < 0.01m) subtotal = linesTotal;
-            else if (Math.Abs(linesTotal - due) < 0.01m) subtotal = due + discount;
+            // 2026-11-02: «цены строк уже со скидкой» проверяется первым — допуск на округление не должен принять его за обычный путь.
+            if (Math.Abs(linesTotal - due) < 0.01m) subtotal = due + discount;
+            else if (Math.Abs(linesTotal - discount - due) <= 0.01m * Math.Max(1, lineCount) + 0.001m) subtotal = linesTotal;
             if (subtotal is { } sub)
             {
                 d.BeforeTotal.Add(new Row(Tr.T("Сумма без скидки", "Арзандатуусуз сумма", "Subtotal", "İndirimsiz tutar", "Chegirmasiz summa"), Fmt(sub)));
                 d.BeforeTotal.Add(new Row(Tr.T("Скидка", "Арзандатуу", "Discount", "İndirim", "Chegirma"), "−" + Fmt(discount), 2));
+                if (rounding != 0m && sub == linesTotal)
+                    d.BeforeTotal.Add(RoundingRow());
             }
         }
+        else if (rounding != 0m)
+            d.BeforeTotal.Add(RoundingRow());
         d.TotalLabel = Tr.T("ИТОГО", "ЖАЛПЫ", "TOTAL", "TOPLAM", "JAMI");
         d.TotalText = Som(due);
 

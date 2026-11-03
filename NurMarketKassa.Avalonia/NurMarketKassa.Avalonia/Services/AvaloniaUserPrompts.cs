@@ -1,4 +1,5 @@
 using Avalonia.Threading;
+using NurMarketKassa.AvaloniaHost.Views;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Core.Contracts;
 
@@ -63,16 +64,27 @@ public sealed class AvaloniaUserPrompts : IUserPrompts
     // по-прежнему открывает окно оплаты).
     public async Task<bool> ConfirmAsync(string message, string? confirmText, string? cancelText = null, bool danger = false)
     {
+        // 2026-11-02 (аудит №2, Д3-01): окно подтверждения открывается следующим проходом цикла — не внутри обработчика нажатия (UIA Invoke).
+        if (Dispatcher.UIThread.CheckAccess())
+            await Task.Yield();
         return await RunOnUiAsync(() =>
             PosMessageBox.Show(null, message, Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"), MessageBoxButton.YesNo, MessageBoxImage.Question,
                 MessageBoxResult.OK, confirmText, cancelText, danger)
             == MessageBoxResult.Yes).ConfigureAwait(true);
     }
 
-    public void ShowToast(string message, bool isWarning = false) =>
-        RunOnUi(() =>
-            PosMessageBox.Show(message, isWarning ? Tr.T("Внимание", "Көңүл буруңуз", "Warning", "Uyarı", "Diqqat") : Tr.T("Сообщение", "Билдирүү", "Message", "Mesaj", "Xabar"),
-                MessageBoxButton.OK, isWarning ? MessageBoxImage.Warning : MessageBoxImage.Information));
+    // 2026-11-01 (контрольный аудит, Д-10): ShowToast открывал модальное окно с кнопкой «ОК» (41 вызов — лишний клик на каждое сообщение).
+    // 2026-11-02 (приёмка 1.17.73, п. 1): плашка гасла через 3–14 с, а среди сообщений — ошибки Склада, «Смена закрыта офлайн… не отправлено N»,
+    // отказы сервера: важное для кассира не должно исчезать. Правило: isWarning = false (успех/сообщение: «Товар добавлен», «Сохранено»,
+    // «Чек напечатан») — плашка в углу (SuccessToast); isWarning = true (ошибка, предупреждение, причина, числа, что делать дальше) — окно
+    // «Внимание», как до Д-10. Короткие «недоступно в этом режиме» вызываются без isWarning (плашка). На Android — прежний диалог (ветка выше).
+    public void ShowToast(string message, bool isWarning = false)
+    {
+        if (isWarning)
+            ShowWarning(message);
+        else
+            SuccessToast.Show(message, ToastKind.Info);
+    }
 
     public void ShowWarning(string message) =>
         RunOnUi(() =>

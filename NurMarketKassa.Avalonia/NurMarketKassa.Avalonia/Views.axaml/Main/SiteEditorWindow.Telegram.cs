@@ -38,7 +38,6 @@ public sealed partial class SiteEditorWindow
     {
         "ky" => "Telegram аркылуу заказ берүү",
         "en" => "Order in Telegram",
-        "tr" => "Telegram'dan sipariş ver",
         "uz" => "Telegram orqali buyurtma berish",
         _ => "Заказать в Telegram",
     };
@@ -47,17 +46,38 @@ public sealed partial class SiteEditorWindow
     {
         "ky" => "Кыргызча",
         "en" => "English",
-        "tr" => "Türkçe",
         "uz" => "Oʻzbekcha",
         _ => "Русский",
     };
+
+    /// <summary>«Сервер NurCRM недоступен» + «Повторить» вместо «Скоро»: сбой запроса не значит, что функции нет.</summary>
+    private void ShowSiteUnavailable(StackPanel box, Exception error, Func<Task> retry)
+    {
+        box.Children.Add(Hint(ServerOutageMonitor.FriendlyError(error)));
+        var again = UiKit.Ghost(this, T("Повторить", "Кайталоо", "Retry", "Tekrar dene", "Qayta urinish"));
+        again.HorizontalAlignment = HorizontalAlignment.Left;
+        again.Click += async (_, _) =>
+        {
+            box.Children.Clear();
+            box.Children.Add(Hint(T("Загружаю…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…")));
+            await retry().ConfigureAwait(true);
+        };
+        box.Children.Add(again);
+    }
 
     private async Task FillTelegramAsync(StackPanel box, bool force)
     {
         try
         {
-            var supported = await ShowcaseCapabilities.HasAsync(_api, ShowcaseCapabilities.Telegram).ConfigureAwait(true);
+            // 2026-11-01 (контрольный аудит): «функции ещё нет» (ответ получен, признака нет) и «сервер недоступен» (сбой запроса) — разные сообщения.
+            var (features, capError) = await ShowcaseCapabilities.TryLoadAsync(_api, force: force).ConfigureAwait(true);
             box.Children.Clear();
+            if (capError != null)
+            {
+                ShowSiteUnavailable(box, capError, () => FillTelegramAsync(box, force: true));
+                return;
+            }
+            var supported = features.Contains(ShowcaseCapabilities.Telegram);
             if (!supported)
             {
                 box.Children.Add(Hint(T("Скоро: ждём сервер NurCRM. Кнопки «Заказать в Telegram» на сайте появятся, когда сервер включит их для вашего магазина.",
@@ -188,7 +208,7 @@ public sealed partial class SiteEditorWindow
                 }
             };
 
-            // Надпись на кнопке — на 5 языках; пусто — сервер возьмёт «Заказать в Telegram».
+            // Надпись на кнопке — ru, ky, en, uz (языки витрины); пусто — сервер возьмёт «Заказать в Telegram».
             var textField = Field(box, T("Надпись на кнопке (пусто — «Заказать в Telegram»)", "Баскычтагы жазуу (бош — «Telegram аркылуу заказ берүү»)",
                 "Button text (empty — “Order in Telegram”)", "Düğme metni (boş — «Telegram'dan sipariş ver»)", "Tugma yozuvi (bo'sh — «Telegram orqali buyurtma berish»)"));
             foreach (var code in TgLangCodes)
@@ -198,7 +218,8 @@ public sealed partial class SiteEditorWindow
                 var row = new StackPanel { Spacing = 2 };
                 row.Children.Add(Hint(SiteLangName(code)));
                 row.Children.Add(tb);
-                tb.TextChanged += (_, _) => Set($"{TgTextPath}.{code}", JsonValue.Create((tb.Text ?? "").Trim()));
+                // 2026-11-01 (контрольный аудит В2-10): очищенное поле — удаляем ключ языка (null), а не шлём "" — сервер подставит «по умолчанию».
+                tb.TextChanged += (_, _) => Set($"{TgTextPath}.{code}", (tb.Text ?? "").Trim() is { Length: > 0 } txt ? JsonValue.Create(txt) : null);
                 textField.Children.Add(row);
             }
 

@@ -34,7 +34,7 @@ internal sealed class DebtAppliedAmountDialog : Window
         Bind(TransparencyLevelHintProperty, this.GetResourceObservable("DialogTransparencyHint"));
 
         var message = new TextBlock { Text = DebtPaymentRunner.PaidOnSiteMessage(p), FontSize = 13.5, TextWrapping = TextWrapping.Wrap };
-        message.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        message.Bind(TextBlock.ForegroundProperty, message.GetResourceObservable("BrushText"));
         var label = new TextBlock
         {
             Text = T("Сумма, которую сервер провёл (по сайту NurCRM), сом:", "Сервер өткөргөн сумма (NurCRM сайты боюнча), сом:",
@@ -42,10 +42,10 @@ internal sealed class DebtAppliedAmountDialog : Window
                 "Server o'tkazgan summa (NurCRM sayti bo'yicha), so'm:"),
             FontSize = 13.5, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 0),
         };
-        label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushText"));
         _amount = new TextBox { Text = p.Amount.ToString("0.##", CultureInfo.InvariantCulture), FontSize = 20, FontWeight = FontWeight.Bold, Height = 48, MaxLength = 14 };
         _amount.TextChanged += (_, _) => Validate();
-        _error.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
+        _error.Bind(TextBlock.ForegroundProperty, _error.GetResourceObservable("BrushDanger"));
 
         var cancel = new Button { Content = T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), IsCancel = true };
         cancel.Classes.Add("modal-cancel");

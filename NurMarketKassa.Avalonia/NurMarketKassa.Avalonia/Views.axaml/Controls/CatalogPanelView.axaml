@@ -127,8 +127,9 @@
              (SelectedProduct), и следующая стрелка возвращает его туда же. Товар под рамкой
              добавляет Num + (действие «Добавить товар в чек» в Настройки → Клавиши), Enter всегда
              оплачивает (CatalogPanelView.HasKeyboardCursor, MainWindow.OnPlainHotkeyTunnel). -->
+        <!-- 2026-11-01 (контрольный аудит, Д2-01): рамка фокуса — BrushFocusRing (≥ 3:1), а не BrushAccentStrong (2,3:1). -->
         <Style Selector="ListBox.catalog-nav ListBoxItem:focus-visible">
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
             <Setter Property="BorderThickness" Value="2"/>
         </Style>
 

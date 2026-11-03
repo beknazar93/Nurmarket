@@ -77,8 +77,10 @@ void main() {
     final rnd = Random(1810);
     var bad = 0;
     for (var i = 0; i < 10000; i++) {
-      final price = (rnd.nextInt(100000) + 1) / 100;
-      final qty = rnd.nextBool() ? (rnd.nextInt(20) + 1).toDouble() : (rnd.nextInt(5000) + 1) / 1000;
+      final priceCents = rnd.nextInt(100000) + 1;
+      final price = priceCents / 100;
+      final qtyMilli = rnd.nextBool() ? (rnd.nextInt(20) + 1) * 1000 : rnd.nextInt(5000) + 1;
+      final qty = qtyMilli / 1000;
       final rules = [
         for (var k = 0; k < rnd.nextInt(3) + 1; k++)
           PromoRule(
@@ -89,18 +91,22 @@ void main() {
           ),
       ];
       final line = CartLine(productId: 'p', name: 'p', price: price, qty: qty, promo: rules);
-      final gross = roundMoney(qty * price);
-      // независимый расчёт
+      // 2026-11-01 (М2-09): независимый расчёт по новой модели — в целых числах, без округления строки и скидки по пути.
+      // Единицы: количество в тысячных × цена в копейках = 1e-5 сома; процент считается от неокруглённой суммы, HALF_UP один раз до копейки.
+      final grossU = qtyMilli * priceCents; // 1e-5 сома
+      final grossCents = (grossU + 500) ~/ 1000;
       PromoRule? best;
       for (final r in rules) {
-        if (gross >= r.minAmount - 1e-9 && (best == null || r.minAmount > best.minAmount)) best = r;
+        if (grossU >= r.minAmount * 100000 && (best == null || r.minAmount > best.minAmount)) best = r;
       }
-      double expected = 0;
+      var expectedCents = 0;
       if (best != null) {
-        final dq = best.quantity != null ? min(qty, best.quantity!) : qty;
-        expected = min(gross, roundMoney(roundMoney(dq * price) * best.percent / 100));
+        final dqMilli = best.quantity != null ? min(qtyMilli, (best.quantity! * 1000).round()) : qtyMilli;
+        final disc7 = dqMilli * priceCents * best.percent.round(); // 1e-7 сома
+        final gross7 = grossU * 100;
+        expectedCents = (min(gross7, disc7) + 50000) ~/ 100000;
       }
-      if ((line.discount - expected).abs() > 0.001 || line.total < 0 || line.discount > gross + 1e-9) bad++;
+      if (((line.discount * 100).round() - expectedCents).abs() > 0 || line.total < 0 || (line.discount * 100).round() > grossCents) bad++;
     }
     expect(bad, 0);
   });

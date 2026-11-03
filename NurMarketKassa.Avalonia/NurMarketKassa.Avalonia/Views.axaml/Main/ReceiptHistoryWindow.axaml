@@ -55,7 +55,7 @@
       <Setter Property="Height" Value="42"/>
       <Setter Property="Padding" Value="12,6"/>
       <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="8"/>
       <Setter Property="FontSize" Value="14"/>

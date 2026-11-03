@@ -193,7 +193,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
     if (!mounted || _client?.id != c.id) return;
     setState(() {
-      _bonusEnabled = enabled && balance != null;
+      _bonusEnabled = enabled; // 2026-11-02 (М2-06): начисление работает и без связи (баланс нужен только для списания)
       _bonusPercent = percent;
       _bonusBalance = balance;
     });
@@ -495,9 +495,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     // второе нажатие раньше успевало начать вторую оплату.
     if (_busy) return;
     setState(() => _busy = true);
+    // 2026-11-02 (аудит №2, М3-01): пока идёт оплата, состав чека заморожен (сканер и команды ИИ ничего не добавят в оплачиваемый чек)
+    final cartNotifier = ref.read(cartProvider.notifier);
+    cartNotifier.frozen = true;
     try {
       await _payCore();
     } finally {
+      cartNotifier.frozen = false;
       if (mounted) setState(() => _busy = false);
     }
   }
@@ -527,6 +531,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final baseCart = ref.read(cartProvider);
     final cartNotifier = ref.read(cartProvider.notifier); // 2026-11-01 (приёмка, Н-1/Н-4): до первого await — после закрытия экрана ref недоступен
+    // 2026-11-02 (аудит №2, М3-06): остальное, что нужно после оплаты, тоже берём до первого await — после закрытия экрана ref недоступен
+    final db = ref.read(databaseProvider);
+    final debtAccess = ref.read(debtAccessRepoProvider);
+    final shiftNotifier = ref.read(shiftProvider.notifier);
+    final session = ref.read(sessionProvider);
     final redeem = _redeemSum(baseCart);
     final cart = _payCart(baseCart);
     final shift = ref.read(shiftProvider).shift;
@@ -624,26 +633,37 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     // дальше не оставит выданную скидку без списания бонусов. Отправка — ниже, после «Оплачено»-подготовки.
     final bonusKeys = <String>[];
     final earnedBonus = client != null && _bonusEnabled && _bonusPercent > 0 ? (cart.total * _bonusPercent / 100 * 100).roundToDouble() / 100 : 0.0;
-    if (client != null && _bonusEnabled && !result.queued) {
+    if (client != null && _bonusEnabled) {
       for (final (delta, reason) in [(-redeem, 'redeem'), (earnedBonus, 'earn')]) {
         if (delta == 0) continue;
+        // 2026-11-02 (М2-06): офлайн-продажа (чек в очереди) — начисление встаёт в очередь и уйдёт ПОСЛЕ чека, с id продажи; списание без связи
+        // невозможно (продажа с бонусами только онлайн)
+        if (result.queued && reason == 'redeem') continue;
         try {
-          bonusKeys.add(await sales.queueBonus(clientId: client.id, delta: delta, reason: reason, saleId: saleId, keyRef: saleId ?? result.key));
+          bonusKeys.add(
+            await sales.queueBonus(clientId: client.id, delta: delta, reason: reason, saleId: saleId, keyRef: saleId ?? result.key, afterSale: result.queued ? result.key : null),
+          );
         } catch (e) {
           // бонус не записался в очередь (ошибка базы) — след в журнале действий
           unawaited(Audit.log('error', 'Бонус ${delta.toStringAsFixed(2)} ($reason) не записан в очередь: $e'));
         }
       }
     }
+    // 2026-11-01 (М2-05): если очистить чек не удалось (экран закрыт, ошибка), ключ НЕ стираем — иначе оплаченный чек остался бы без ключа
+    // и следующая оплата дала бы вторую продажу; ключ уже помечен «проведено» (done) и достанется только тому же чеку после сбоя.
+    var cleared = true;
     try {
       if (identical(ref.read(cartProvider), baseCart)) {
         cartNotifier.clear();
         await cartNotifier.flush();
+      } else {
+        cleared = false; // 2026-11-02 (М3-01): чек изменился во время оплаты — ключ НЕ стираем (иначе оплата того же состава пройдёт второй раз)
       }
     } catch (_) {
-      // экран закрыт или черновик не записался — ключ всё равно стираем ниже
-    } finally {
-      // 2026-11-01 (Н-1): стирание ключа — в finally и без ref; а если и оно не выполнится, ключ помечен «проведено» и пустой черновик его отпустит
+      cleared = false;
+    }
+    if (cleared) {
+      // 2026-11-01 (Н-1): стирание ключа — без ref; если не выполнится, ключ помечен done и после очистки чека считается «зомби» (М2-04)
       try {
         await sales.forgetPendingKey();
       } catch (_) {
@@ -662,7 +682,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // 2026-10-22 (мобилка, деньги, К-3): как заплатили — для расчёта будущего возврата (доля скидки на чек, долг).
       if (saleId != null) {
         final prepaid = method == PayMethod.debt ? (received ?? 0) : cart.total;
-        await ReturnLedger(ref.read(databaseProvider)).rememberPayment(
+        await ReturnLedger(db).rememberPayment(
           saleId: saleId,
           total: result.total,
           method: method.api,
@@ -673,7 +693,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }
       // 13.10: бонусы клиента на сервере — сначала списание, потом начисление, с id продажи (как у кассы).
       // 2026-10-22: только у проведённой продажи (в очереди нет id продажи — начисление не к чему привязать).
-      if (bonusKeys.isNotEmpty) {
+      if (bonusKeys.isNotEmpty && !result.queued) {
         // 2026-11-01 (М-05): с ключом идемпотентности; записи уже в очереди (см. выше) — сбой связи оставляет их там, уйдут сами.
         // Начисление не зависит от списания: ошибка первого не отменяет второе.
         var queuedLeft = false;
@@ -687,7 +707,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         if (queuedLeft && mounted) toast(context, l.bonusQueued);
       }
       if (method == PayMethod.debt) {
-        await ref.read(debtAccessRepoProvider).recordSale(ref.read(sessionProvider)?.userId ?? '', debtAmount);
+        await debtAccess.recordSale(session?.userId ?? '', debtAmount);
         // 2026-10-22 (мобилка, деньги): срок «Вернуть до» — в сделку долга (фоном, оплату не держит).
         if (client != null && saleId != null && debtDue != null && debtAmount > 0) {
           final sales = ref.read(salesRepoProvider);
@@ -702,7 +722,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     } catch (_) {
       // продажа проведена — второстепенное не мешает показать «Оплачено»
     }
-    ref.read(shiftProvider.notifier).refresh();
+    shiftNotifier.refresh();
     // 2026-10-26 (голос-управление, В3б): чек проведён (или в очереди) — докладываем итог ручке ДО перехода на «Оплачено»
     _aiSink.report(
       HandleOutcome.ok({
@@ -715,7 +735,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     );
     if (!mounted) return;
     final receipt = Receipt.fromCart(
-      session: ref.read(sessionProvider),
+      session: session,
       cart: cart,
       number: result.number,
       payment: method.api,

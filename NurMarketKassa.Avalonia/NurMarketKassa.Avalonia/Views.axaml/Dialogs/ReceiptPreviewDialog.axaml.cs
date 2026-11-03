@@ -14,6 +14,7 @@ public partial class ReceiptPreviewDialog : Window
     public ReceiptPreviewDialog(string content)
     {
         InitializeComponent();
+        ScannerEnterGuard.Attach(this); // 2026-11-01 (К-10): Enter сканера не закрывает/не печатает предпросмотр чека
         ReceiptText.Text = string.IsNullOrWhiteSpace(content)
             ? Tr.T("Данные чека недоступны.", "Чектин маалыматтары жеткиликсиз.", "Receipt data is unavailable.", "Fiş verileri kullanılamıyor.", "Chek ma'lumotlari mavjud emas.")
             : content;

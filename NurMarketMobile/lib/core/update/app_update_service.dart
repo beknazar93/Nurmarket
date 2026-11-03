@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
@@ -8,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../providers.dart';
-import '../tester/tester_mode.dart' show AppBuild;
+import '../tester/tester_mode.dart' show AppBuild, TesterGate;
 
 /// 2026-11-01, владелец: «добавь в мобилку обновление через GitHub». Выпуски мобилки лежат в публичном репозитории
 /// beknazar93/Nurmarket-Mobile (тег `mobile-X.Y.Z`, один универсальный APK). Приложение раз в сутки смотрит, нет ли версии
@@ -21,15 +22,18 @@ class AppRelease {
   final int size; // байт, 0 — GitHub не сообщил
   final String notes;
   final bool prerelease;
-  const AppRelease({required this.version, required this.apkUrl, required this.apkName, this.size = 0, this.notes = '', this.prerelease = false});
 
-  Map<String, dynamic> toJson() => {'v': version, 'u': apkUrl, 'n': apkName, 's': size, 'b': notes, 'p': prerelease};
+  /// 2026-11-01 (контрольный аудит, М2-08): `digest` ассета GitHub, вид `sha256:<hex>`; пусто — GitHub не прислал (проверяется только размер).
+  final String digest;
+  const AppRelease({required this.version, required this.apkUrl, required this.apkName, this.size = 0, this.notes = '', this.prerelease = false, this.digest = ''});
+
+  Map<String, dynamic> toJson() => {'v': version, 'u': apkUrl, 'n': apkName, 's': size, 'b': notes, 'p': prerelease, 'd': digest};
 
   static AppRelease? fromJson(Object? m) {
     if (m is! Map) return null;
     final v = '${m['v'] ?? ''}', u = '${m['u'] ?? ''}';
     if (UpdateRules.parseVersion(v) == null || !UpdateRules.trustedApkUrl(u)) return null;
-    return AppRelease(version: v, apkUrl: u, apkName: '${m['n'] ?? 'update.apk'}', size: (m['s'] as num?)?.toInt() ?? 0, notes: '${m['b'] ?? ''}', prerelease: m['p'] == true);
+    return AppRelease(version: v, apkUrl: u, apkName: '${m['n'] ?? 'update.apk'}', size: (m['s'] as num?)?.toInt() ?? 0, notes: '${m['b'] ?? ''}', prerelease: m['p'] == true, digest: '${m['d'] ?? ''}');
   }
 }
 
@@ -72,10 +76,68 @@ class UpdateRules {
   }
 
   /// APK берём только из нашего репозитория на GitHub по https.
-  static bool trustedApkUrl(String url) => url.startsWith('https://github.com/$repo/') && url.toLowerCase().endsWith('.apk');
+  /// 2026-11-02 (аудит №2, М3-07): ссылка разбирается как Uri (схема, хост, первые сегменты пути), а не сверяется префиксом строки;
+  /// сегменты `..` и пустые отсекаются.
+  static bool trustedApkUrl(String url) => _trustedAsset(url, '.apk');
 
-  /// Самый новый выпуск (включая prerelease — сейчас все выпуски тестовые) по версии из тега, у которого есть APK.
-  static AppRelease? pickLatest(Object? json) {
+  /// Файл-«стоп» с отозванными версиями в репозитории выпусков (в ассетах любого выпуска): `{"blocked": ["1.18.15", …]}` или список строк.
+  static const blockedAssetName = 'blocked-versions.json';
+
+  static bool _trustedAsset(String url, String ext) {
+    final u = Uri.tryParse(url);
+    if (u == null || u.scheme != 'https' || u.host != 'github.com' || !u.path.toLowerCase().endsWith(ext)) return false;
+    final parts = repo.split('/');
+    final s = u.pathSegments;
+    if (s.length < 5 || s[0] != parts[0] || s[1] != parts[1] || s[2] != 'releases') return false;
+    return !s.any((x) => x.isEmpty || x == '.' || x == '..');
+  }
+
+  /// Адрес файла `blocked-versions.json` из списка выпусков (первый найденный, свежие выпуски идут первыми); null — файла нет.
+  static String? blockedAssetUrl(Object? json) {
+    if (json is! List) return null;
+    for (final r in json) {
+      final assets = r is Map ? r['assets'] : null;
+      if (assets is! List) continue;
+      for (final a in assets) {
+        if (a is Map && '${a['name'] ?? ''}'.toLowerCase() == blockedAssetName && _trustedAsset('${a['browser_download_url'] ?? ''}', '.json')) {
+          return '${a['browser_download_url']}';
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Содержимое `blocked-versions.json` → множество версий вида `1.18.15` (теги `mobile-1.18.15` приводятся к версии); мусор → пусто.
+  static Set<String> parseBlocked(String? text) {
+    try {
+      final data = jsonDecode(text ?? '');
+      final list = data is Map ? data['blocked'] : data;
+      if (list is! List) return {};
+      return {
+        for (final x in list)
+          if (parseVersion('$x') != null) parseVersion('$x')!.join('.'),
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Выпуск помечен отозванным в описании: `[blocked]`, `[revoked]` или `[отозван]` (без учёта регистра).
+  static bool revokedInNotes(String body) {
+    final t = body.toLowerCase();
+    return t.contains('[blocked]') || t.contains('[revoked]') || t.contains('[отозван]');
+  }
+
+  /// `sha256:ABCD…` → строчный hex из 64 знаков; другое (пусто, иной алгоритм, мусор) → null.
+  static String? digestHex(String digest) {
+    final m = RegExp(r'^sha256:([0-9a-fA-F]{64})$').firstMatch(digest.trim());
+    return m?.group(1)?.toLowerCase();
+  }
+
+  /// Самый новый выпуск по версии из тега, у которого есть APK.
+  /// 2026-11-02 (аудит №2, М3-07): обычным пользователям — ТОЛЬКО стабильные выпуски ([allowPrerelease] = false); тестовые (prerelease) —
+  /// в режиме тестировщика. Отозванные версии ([blocked] или пометка в описании) не предлагаются: берётся следующий разрешённый выпуск.
+  static AppRelease? pickLatest(Object? json, {bool allowPrerelease = false, Set<String> blocked = const {}}) {
     if (json is! List) return null;
     AppRelease? best;
     List<int>? bestV;
@@ -83,6 +145,8 @@ class UpdateRules {
       if (r is! Map || r['draft'] == true) continue;
       final v = parseVersion('${r['tag_name'] ?? ''}');
       if (v == null) continue;
+      if (r['prerelease'] == true && !allowPrerelease) continue;
+      if (blocked.contains(v.join('.')) || revokedInNotes('${r['body'] ?? ''}')) continue;
       Map? apk;
       final assets = r['assets'];
       if (assets is List) {
@@ -105,6 +169,7 @@ class UpdateRules {
         size: (apk['size'] as num?)?.toInt() ?? 0,
         notes: notes,
         prerelease: r['prerelease'] == true,
+        digest: '${apk['digest'] ?? ''}',
       );
     }
     return best;
@@ -192,7 +257,9 @@ class AppUpdateController extends Notifier<UpdateState> {
       final latest = AppRelease.fromJson(_decode(await db.getSetting(_kLatest)));
       final snooze = (await db.getSetting(_kSnooze) ?? '').split('|');
       var next = state;
-      if (latest != null && UpdateRules.isNewer(latest.version, currentVersion)) next = next.copyWith(available: latest);
+      // 2026-11-02 (М3-07): сохранённый тестовый выпуск обычному пользователю не показываем
+      final okForMe = latest != null && (!latest.prerelease || await _testerMode());
+      if (latest != null && okForMe && UpdateRules.isNewer(latest.version, currentVersion)) next = next.copyWith(available: latest);
       if (snooze.length == 2) next = next.copyWith(snoozeVersion: snooze[0], snoozeUntil: DateTime.tryParse(snooze[1]));
       state = next;
       final at = DateTime.tryParse(await db.getSetting(_kChecked) ?? '');
@@ -229,9 +296,10 @@ class AppUpdateController extends Notifier<UpdateState> {
     state = state.copyWith(checking: true);
     try {
       final resp = await _dio().get<String>(UpdateRules.releasesUrl, options: Options(responseType: ResponseType.plain)).timeout(const Duration(seconds: 30));
-      final latest = UpdateRules.pickLatest(jsonDecode(resp.data ?? '[]'));
-      final newer = latest != null && UpdateRules.isNewer(latest.version, currentVersion);
       final db = ref.read(databaseProvider);
+      final releases = jsonDecode(resp.data ?? '[]');
+      final latest = UpdateRules.pickLatest(releases, allowPrerelease: await _testerMode(), blocked: await _blockedFrom(releases));
+      final newer = latest != null && UpdateRules.isNewer(latest.version, currentVersion);
       await db.setSetting(_kChecked, DateTime.now().toIso8601String());
       await db.setSetting(_kLatest, newer ? jsonEncode(latest.toJson()) : '');
       if (manual) await db.setSetting(_kSnooze, '');
@@ -240,6 +308,27 @@ class AppUpdateController extends Notifier<UpdateState> {
     } catch (_) {
       state = state.copyWith(checking: false);
       return UpdateCheck.failed;
+    }
+  }
+
+  /// 2026-11-02 (М3-07): режим тестировщика (тестовая сборка или верный код) — только ему предлагаются тестовые (prerelease) выпуски.
+  Future<bool> _testerMode() async {
+    try {
+      return await TesterGate.isAllowed(ref.read(databaseProvider));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Отозванные версии из `blocked-versions.json` (ассет любого выпуска); нет файла или сбой сети — пусто (стоп-кран не мешает обновлению).
+  Future<Set<String>> _blockedFrom(Object? releases) async {
+    final url = UpdateRules.blockedAssetUrl(releases);
+    if (url == null) return {};
+    try {
+      final r = await _dio().get<String>(url, options: Options(responseType: ResponseType.plain)).timeout(const Duration(seconds: 20));
+      return UpdateRules.parseBlocked(r.data);
+    } catch (_) {
+      return {};
     }
   }
 
@@ -270,11 +359,40 @@ class AppUpdateController extends Notifier<UpdateState> {
 
   void cancelDownload() => _cancel?.cancel();
 
+  /// 2026-11-01 (М2-08): похоже, что телефон не в Wi‑Fi (мобильная сеть) — перед скачиванием ~117 МБ спросить. Без новых пакетов: по сетевым
+  /// интерфейсам (`wlan*`/`eth*` с рабочим адресом = Wi‑Fi или кабель); не удалось определить — считаем, что Wi‑Fi (не мешаем).
+  Future<bool> onMobileData() async {
+    try {
+      final ifs = await NetworkInterface.list(includeLoopback: false, includeLinkLocal: false);
+      if (ifs.isEmpty) return false;
+      final wifi = ifs.any((i) => (i.name.startsWith('wlan') || i.name.startsWith('eth') || i.name.startsWith('en')) && i.addresses.isNotEmpty);
+      final mobile = ifs.any((i) => i.name.startsWith('rmnet') || i.name.startsWith('ccmni') || i.name.startsWith('pdp') || i.name.startsWith('v4-rmnet'));
+      return !wifi && mobile;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// «Обновить»: разрешение на установку → скачивание с ходом → системная установка. Установку подтверждает сам Android.
   Future<UpdateStart> start() async {
     final rel = state.available;
     if (!supported || rel == null || state.progress != null) return UpdateStart.failed;
     if (!await canInstall()) return UpdateStart.needPermission;
+    // 2026-11-02 (М3-07): стоп-кран ещё раз прямо перед скачиванием — выпуск могли отозвать после проверки. Нет связи с GitHub — идём дальше.
+    try {
+      final resp = await _dio().get<String>(UpdateRules.releasesUrl, options: Options(responseType: ResponseType.plain)).timeout(const Duration(seconds: 20));
+      final releases = jsonDecode(resp.data ?? '[]');
+      final fresh = UpdateRules.pickLatest(releases, allowPrerelease: await _testerMode(), blocked: await _blockedFrom(releases));
+      if (fresh == null || UpdateRules.isNewer(rel.version, fresh.version)) {
+        state = state.copyWith(clearAvailable: true);
+        try {
+          await ref.read(databaseProvider).setSetting(_kLatest, '');
+        } catch (_) {}
+        return UpdateStart.failed;
+      }
+    } catch (_) {
+      // проверка стоп-крана не удалась — решает само скачивание
+    }
     state = state.copyWith(progress: 0);
     final cancel = _cancel = CancelToken();
     try {
@@ -284,7 +402,8 @@ class AppUpdateController extends Notifier<UpdateState> {
           f.deleteSync();
         } catch (_) {}
       }
-      final target = File('${dir.path}${Platform.pathSeparator}${rel.apkName}');
+      // 2026-11-02 (М3-07): имя файла своё, из версии, а не из ассета
+      final target = File('${dir.path}${Platform.pathSeparator}update-${rel.version}.apk');
       final part = '${target.path}.part';
       var shown = -1;
       await _dio(download: true).download(
@@ -302,9 +421,18 @@ class AppUpdateController extends Notifier<UpdateState> {
         },
       );
       final len = File(part).lengthSync();
-      if (len < UpdateRules.minApkBytes || (rel.size > 0 && len != rel.size) || !target.path.toLowerCase().endsWith('.apk')) {
+      // 2026-11-01 (М2-08): размер сверяется ОБЯЗАТЕЛЬНО (GitHub его присылает); нет размера в ответе — файл не ставим
+      if (len < UpdateRules.minApkBytes || rel.size <= 0 || len != rel.size || !target.path.toLowerCase().endsWith('.apk')) {
         File(part).deleteSync();
         throw StateError('bad apk size $len');
+      }
+      // и SHA-256, если GitHub прислал `digest` (sha256:<hex>)
+      if (UpdateRules.digestHex(rel.digest) != null) {
+        final got = (await sha256.bind(File(part).openRead()).first).toString();
+        if (got != UpdateRules.digestHex(rel.digest)) {
+          File(part).deleteSync();
+          throw StateError('bad apk sha256');
+        }
       }
       File(part).renameSync(target.path);
       state = state.copyWith(progress: 1);

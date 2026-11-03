@@ -24,6 +24,15 @@ public interface ICatalogApiService
     /// <summary>Полный каталог с пагинацией (все SKU, до limit).</summary>
     Task<List<JsonElement>> ProductsCatalogAsync(int limit, int maxPages, CancellationToken ct = default);
 
+    /// <summary>2026-11-02 (Н3-01, память): тот же полный каталог, но страницами — каждая отдаётся в <paramref name="onPage"/> и тут же забывается, весь
+    /// список JsonElement не копится. Реализация по умолчанию (стенды, чужие реализации) — старая загрузка целиком и одна «страница». Возвращает число товаров.</summary>
+    async Task<int> ProductsCatalogStreamAsync(int limit, int maxPages, Action<List<JsonElement>> onPage, CancellationToken ct = default)
+    {
+        var all = await ProductsCatalogAsync(limit, maxPages, ct).ConfigureAwait(false);
+        onPage(all);
+        return all.Count;
+    }
+
     /// <summary>Карточка товара с картинками (как products_detail).</summary>
     Task<JsonElement?> ProductsDetailAsync(string productId, CancellationToken ct = default);
 
@@ -43,6 +52,16 @@ public interface ICatalogApiService
     /// Складе). true — удалён; false — ни один из известных путей не принял DELETE (404/405).
     /// Остальные ошибки API пробрасываются как ApiException.</summary>
     Task<bool> DeleteProductAsync(string productId, CancellationToken ct = default);
+
+    /// <summary>2026-11-01 (проверка бэкенда): архив товара — вместо удаления, когда сервер отвечает 409 product_has_history. POST products/{id}/archive/ (признак product_archive);
+    /// архивный товар не попадает в обычные списки и в продажи (виден только с ?include_archived=1, которого касса не шлёт), GET products/{id}/ по нему даёт 404.</summary>
+    Task ArchiveProductAsync(string productId, CancellationToken ct = default);
+
+    /// <summary>Вернуть товар из архива: POST products/{id}/unarchive/.</summary>
+    Task UnarchiveProductAsync(string productId, CancellationToken ct = default);
+
+    /// <summary>2026-11-02 (аудит №2, С3-12): архивные товары компании (GET products/list/?include_archived=1, оставляем только помеченные is_archived). Пустой список — архива нет или сервер не отдаёт.</summary>
+    Task<List<JsonElement>> ListArchivedProductsAsync(IProgress<(int Loaded, int? Total)>? progress = null, CancellationToken ct = default) => Task.FromResult(new List<JsonElement>());
 
     /// <summary>Приёмка, 2026-09-24 — те же запросы, что шлёт «Массовое сканирование» сайта
     /// (подсмотрены в его сетевых запросах).
@@ -176,6 +195,14 @@ public sealed class ProductEditRequest
     public bool SendQuantity { get; set; } = true;
     /// <summary>2026-11-01 (аудит 10 из 10, С-01, приёмка): false — поле alternate_barcodes (с названиями и количествами, прочитанными при открытии) не шлём: список не менялся.</summary>
     public bool SendAlternateBarcodes { get; set; } = true;
+    /// <summary>2026-11-01 (контрольный аудит, С2-03): false — скидку, опт, описание, страну и характеристики (вес/габариты) не шлём: кассир их не менял (карточка могла открыться из кэша без этих полей).</summary>
+    public bool SendDiscountPercent { get; set; } = true;
+    public bool SendWholesalePrice { get; set; } = true;
+    public bool SendDescription { get; set; } = true;
+    public bool SendCountry { get; set; } = true;
+    public bool SendCharacteristics { get; set; } = true;
+    /// <summary>2026-11-01 (контрольный аудит, С2-33): у существующего товара поштучная продажа была и кассир её выключил — шлём пустой packages_input (раньше выключить было нельзя).</summary>
+    public bool DisablePieceSale { get; set; }
     /// <summary>2026-11-01 (аудит 10 из 10, С-03): ключ повтора создания товара — уходит заголовком Idempotency-Key (не в тело). Тот же
     /// ключ при повторной попытке (фоновое создание после таймаута), чтобы сервер, поддерживающий заголовок, не завёл второй товар.</summary>
     public string? IdempotencyKey { get; set; }

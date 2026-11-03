@@ -63,7 +63,7 @@ public partial class DeferredCartsDialog : Window
         CartListBox.IsVisible = items.Count > 0;
         SummaryText.FontWeight = items.Count == 0 ? Avalonia.Media.FontWeight.Normal : Avalonia.Media.FontWeight.SemiBold;
         SummaryText.Foreground = null;
-        SummaryText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(items.Count == 0 ? "BrushTextSoft" : "BrushText"));
+        SummaryText.Bind(TextBlock.ForegroundProperty, SummaryText.GetResourceObservable(items.Count == 0 ? "BrushTextSoft" : "BrushText"));
 
         UpdateButtonsState();
     }

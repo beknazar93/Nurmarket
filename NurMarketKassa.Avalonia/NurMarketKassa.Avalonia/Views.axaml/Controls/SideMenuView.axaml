@@ -319,7 +319,7 @@
             <Setter Property="CornerRadius" Value="14"/>
             <Setter Property="FontSize" Value="15"/>
             <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 

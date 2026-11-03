@@ -674,6 +674,10 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
 
   Future<void> _submitCore({required bool whole, bool ask = true}) async {
     final l = context.l;
+    // 2026-11-02 (аудит №2, М3-06): то, что нужно после ответа сервера, берём до первого await — после закрытия экрана ref недоступен
+    final ops = ref.read(opsRepoProvider);
+    final shiftNotifier = ref.read(shiftProvider.notifier);
+    final session = ref.read(sessionProvider);
     final picks = _picked(whole: whole);
     if (picks.isEmpty) {
       if (whole) toast(context, l.returnNothingLeft, error: true);
@@ -708,8 +712,9 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
     // Весь чек без прошлых возвратов — как раньше одним запросом; иначе строками (остатки строк).
     final untouched = _lines.every((x) => x.refundable >= x.qty - 1e-6);
     final send = whole && untouched ? const <(String, double)>[] : [for (final (i, q) in picks) (_lines[i].id, q)];
+    final Map<String, dynamic> resp;
     try {
-      await ref.read(opsRepoProvider).returnSale(widget.saleId, send);
+      resp = await ops.returnSale(widget.saleId, send);
       _aiPosted = amount;
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
@@ -719,7 +724,16 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
     }
     // Что записал сервер: меньше расчёта — берём его (денег ушло меньше); выдано по движениям денег — его цифра.
     final seen = {for (final r in led?.refunds ?? const <LedgerRefund>[]) ?r.serverDocId};
-    final figures = await ref.read(opsRepoProvider).serverReturnFigures(widget.saleId, seen);
+    // 2026-11-02 (аудит №2, М2-11; ответ Умара): выдачу наличных и сумму документа берём из ответа возврата (`refund.cash`, не
+    // `debt_adjustment.reduced_by`); поиск по движениям денег в окне ±15 с — только если ответ их не дал.
+    final rf = resp['refund'] is Map ? (resp['refund'] as Map).cast<String, dynamic>() : null;
+    final respCash = rf != null && rf['cash'] != null ? num0(rf, 'cash') : null;
+    final respDoc = rf == null ? null : (rf['amount'] != null ? num0(rf, 'amount') : (rf['total'] != null ? num0(rf, 'total') : null));
+    var figures = (doc: respDoc, docId: rf == null ? null : str(rf, 'id'), cashOut: respCash);
+    if (respCash == null) {
+      final f = await ops.serverReturnFigures(widget.saleId, seen);
+      figures = (doc: respDoc ?? f.doc, docId: figures.docId ?? f.docId, cashOut: f.cashOut);
+    }
     var finalAmount = amount;
     if (figures.doc != null && figures.doc! < amount - 0.009) finalAmount = roundMoney(figures.doc!);
     final split = computeRefundSplit(led, _method, finalAmount, cashOut: figures.cashOut, serverDebtLeft: debtLeft);
@@ -743,13 +757,13 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
       '${l.auditReturn} №${widget.number} · ${whole ? l.returnAll : l.returnSelected}${reason.isEmpty ? '' : ' · $reason'}',
       amount: -split.money,
     );
-    ref.read(shiftProvider.notifier).refresh();
+    shiftNotifier.refresh();
     _aiSink.report(HandleOutcome.ok({'amount': finalAmount}));
     if (!mounted) return;
     // 2026-10-26 (живой аудит, П5): каждый денежный шаг оставляет документ — документ возврата с печатью, PDF и отправкой.
     final doc = returnDoc(
       l,
-      ref.read(sessionProvider),
+      session,
       number: widget.number,
       items: [for (final (i, q) in picks) (_lines[i].name, q)],
       splitLines: _splitText(context, finalAmount, split).split('\n'),

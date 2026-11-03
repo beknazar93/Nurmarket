@@ -3597,11 +3597,11 @@
         "tr": "Fiş toplamı sunucudaki gibi hesaplanır"
       },
       "changed": {
-        "ru": "Строки чека не округляются, итог округляется один раз до 0,01 по правилу сервера (половина — вверх); сумма на экране, в чеке и в оплате совпадает с серверной.",
-        "ky": "Чектин саптары тегизделбейт, жыйынтык бир жолу 0,01ге сервердин эрежеси боюнча тегизделет (жарымы — жогору); экрандагы, чектеги жана төлөмдөгү сумма сервердикине дал келет.",
-        "uz": "Chek qatorlari yaxlitlanmaydi, jami bir marta 0,01 gacha server qoidasi bo'yicha yaxlitlanadi (yarmi — yuqoriga); ekrandagi, chekdagi va to'lovdagi summa serverniki bilan mos keladi.",
-        "en": "Receipt lines are not rounded, the total is rounded once to 0.01 by the server's rule (half rounds up); the amount on the screen, in the receipt and in payment matches the server's.",
-        "tr": "Fiş satırları yuvarlanmaz, toplam sunucunun kuralına göre (yarım — yukarı) bir kez 0,01'e yuvarlanır; ekrandaki, fişteki ve ödemedeki tutar sunucununkiyle aynıdır."
+        "ru": "Строки чека не округляются, итог считается по правилу сервера (весовые — вниз, остальные — вверх до 0,01; точные примеры — в пунктах 1.18.16); сумма на экране, в чеке и в оплате совпадает с серверной.",
+        "ky": "Чектин саптары тегизделбейт, жыйынтык сервердин эрежеси боюнча эсептелет (салмактуулар — төмөн, калгандары — жогору 0,01ге чейин; так мисалдар — 1.18.16 пункттарында); экрандагы, чектеги жана төлөмдөгү сумма сервердикине дал келет.",
+        "uz": "Chek qatorlari yaxlitlanmaydi, jami server qoidasi bo'yicha hisoblanadi (vaznlilar — pastga, qolganlari — yuqoriga 0,01 gacha; aniq misollar — 1.18.16 bandlarida); ekrandagi, chekdagi va to'lovdagi summa serverniki bilan mos keladi.",
+        "en": "Receipt lines are not rounded, the total is calculated by the server's rule (weighed goods round down, the rest round up to 0.01; exact examples are in the 1.18.16 items); the amount on the screen, in the receipt and in payment matches the server's.",
+        "tr": "Fiş satırları yuvarlanmaz, toplam sunucunun kuralına göre hesaplanır (tartılılar aşağı, diğerleri 0,01'e yukarı; kesin örnekler 1.18.16 maddelerinde); ekrandaki, fişteki ve ödemedeki tutar sunucununkiyle aynıdır."
       },
       "steps": {
         "ru": [
@@ -3752,6 +3752,234 @@
           "%100 indirim yazın: satır 0,00 olur, ödeme mağazanın kurallarına göre mümkündür; %100'den fazlası kabul edilmez.",
           "30 som indirim: satır toplamı 70,00, fiş toplamı yeniden hesaplandı. Miktarı 2 yapın: indirim kalır ama yeni satır tutarını aşmaz.",
           "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: ipuçları kesilmez."
+        ]
+      }
+    },
+    {
+      "id": "1.18.16/weighed-discount-rounding",
+      "version": "1.18.16",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Итог чека по правилу сервера: весовые округляются вниз",
+        "ky": "Чектин жыйынтыгы сервердин эрежеси боюнча: салмактуулар төмөн тегизделет",
+        "uz": "Chek jami server qoidasi bo'yicha: vaznlilar pastga yaxlitlanadi",
+        "en": "Receipt total by the server's rule: weighed goods round down",
+        "tr": "Fiş toplamı sunucunun kuralına göre: tartılılar aşağı yuvarlanır"
+      },
+      "changed": {
+        "ru": "Подытог = ВНИЗ(сумма весовых товаров до копейки) + ВВЕРХ(сумма остальных); скидка чека в процентах считается от округлённого подытога; на чеке видно «Сумма без скидки − Скидка = ИТОГО».",
+        "ky": "Жыйынтык алды = ТӨМӨН(салмактуу товарлардын суммасы тыйынга чейин) + ЖОГОРУ(калгандарынын суммасы); чектин пайыздык арзандатуусу тегизделген жыйынтык алдыдан эсептелет; чекте «Арзандатуусуз сумма − Арзандатуу = ЖЫЙЫНТЫК» көрүнөт.",
+        "uz": "Oraliq jami = PASTGA(vaznli mahsulotlar summasi tiyingacha) + YUQORIGA(qolganlari summasi); chekning foizli chegirmasi yaxlitlangan oraliq jamidan hisoblanadi; chekda «Chegirmasiz summa − Chegirma = JAMI» ko'rinadi.",
+        "en": "Subtotal = ROUND DOWN(sum of weighed goods to the cent) + ROUND UP(sum of the rest); a percent receipt discount is taken from the rounded subtotal; the receipt shows “Amount without discount − Discount = TOTAL”.",
+        "tr": "Ara toplam = AŞAĞI(tartılı ürünlerin toplamı kuruşa kadar) + YUKARI(diğerlerinin toplamı); yüzdelik fiş indirimi yuvarlanmış ara toplamdan hesaplanır; fişte «İndirimsiz tutar − İndirim = TOPLAM» görünür."
+      },
+      "steps": {
+        "ru": [
+          "Зайдите кассиром. Добавьте весовой товар 0,375 кг по 13 сом и ещё один весовой 0,343 кг по 66 сом. Суммы строк 4,875 и 22,638, сумма весовых 27,513 — итог чека 27,51 (вниз), а не 27,52.",
+          "Очистите чек и добавьте только 0,343 кг по 66 сом: 22,638 → 22,63 (вниз), а не 22,64.",
+          "Очистите чек, добавьте обычный товар на 17,00 сом и поставьте скидку чека 2,5 %: скидка 0,43 (0,425 округлена), итог 16,57.",
+          "Посмотрите чек перед оплатой и в «Чеках»: три строки «Сумма без скидки» 17,00 − «Скидка» 0,43 = «ИТОГО» 16,57.",
+          "Проведите продажу: сумма в окне оплаты, в чеке и на сайте совпадает до копейки.",
+          "Проверьте на кыргызском и узбекском, в тёмной теме и при крупном шрифте (360 dp): суммы и подписи не обрезаны."
+        ],
+        "ky": [
+          "Кассир менен кириңиз. 13 сомдон 0,375 кг салмактуу товар жана 66 сомдон 0,343 кг дагы бир салмактуу товар кошуңуз. Саптардын суммалары 4,875 жана 22,638, салмактуулардын суммасы 27,513 — чектин жыйынтыгы 27,51 (төмөн), 27,52 эмес.",
+          "Чекти тазалап, 66 сомдон 0,343 кг гана кошуңуз: 22,638 → 22,63 (төмөн), 22,64 эмес.",
+          "Чекти тазалап, 17,00 сомдук кадимки товар кошуңуз жана чекке 2,5 % арзандатуу коюңуз: арзандатуу 0,43 (0,425 тегизделди), жыйынтык 16,57.",
+          "Төлөөдөн мурун жана «Чектерде» чекти караңыз: үч сап «Арзандатуусуз сумма» 17,00 − «Арзандатуу» 0,43 = «ЖЫЙЫНТЫК» 16,57.",
+          "Сатууну өткөрүңүз: төлөм терезесиндеги, чектеги жана сайттагы сумма тыйынга чейин дал келет.",
+          "Кыргызча жана өзбекче, кара темада жана чоң арипте (360 dp) текшериңиз: суммалар жана жазуулар кесилбейт."
+        ],
+        "uz": [
+          "Kassir bilan kiring. 13 so'mdan 0,375 kg vaznli mahsulot va 66 so'mdan 0,343 kg yana bir vaznli mahsulot qo'shing. Qator summalari 4,875 va 22,638, vaznlilar summasi 27,513 — chek jami 27,51 (pastga), 27,52 emas.",
+          "Chekni tozalab, faqat 66 so'mdan 0,343 kg qo'shing: 22,638 → 22,63 (pastga), 22,64 emas.",
+          "Chekni tozalab, 17,00 so'mlik oddiy mahsulot qo'shing va chekka 2,5 % chegirma qo'ying: chegirma 0,43 (0,425 yaxlitlandi), jami 16,57.",
+          "To'lovdan oldin va «Cheklar»da chekni ko'ring: uch qator «Chegirmasiz summa» 17,00 − «Chegirma» 0,43 = «JAMI» 16,57.",
+          "Sotuvni o'tkazing: to'lov oynasidagi, chekdagi va saytdagi summa tiyingacha mos keladi.",
+          "Qirg'izcha va o'zbekchada, qora mavzuda va yirik shriftda (360 dp) tekshiring: summalar va yozuvlar kesilmaydi."
+        ],
+        "en": [
+          "Sign in as a cashier. Add a weighed product 0.375 kg at 13 som and another weighed one 0.343 kg at 66 som. The line amounts are 4.875 and 22.638, the weighed sum is 27.513 — the receipt total is 27.51 (rounded down), not 27.52.",
+          "Clear the receipt and add only 0.343 kg at 66 som: 22.638 → 22.63 (down), not 22.64.",
+          "Clear the receipt, add a regular product for 17.00 som and set a 2.5 % receipt discount: the discount is 0.43 (0.425 rounded), the total is 16.57.",
+          "Look at the receipt before payment and in “Receipts”: three lines “Amount without discount” 17.00 − “Discount” 0.43 = “TOTAL” 16.57.",
+          "Complete the sale: the amount in the payment window, in the receipt and on the website matches to the cent.",
+          "Check in Kyrgyz and Uzbek, in the dark theme and at a large font (360 dp): amounts and labels are not cut off."
+        ],
+        "tr": [
+          "Kasiyer olarak girin. 13 somdan 0,375 kg tartılı ürün ve 66 somdan 0,343 kg bir tartılı ürün daha ekleyin. Satır tutarları 4,875 ve 22,638, tartılıların toplamı 27,513 — fiş toplamı 27,51 (aşağı), 27,52 değil.",
+          "Fişi temizleyip yalnızca 66 somdan 0,343 kg ekleyin: 22,638 → 22,63 (aşağı), 22,64 değil.",
+          "Fişi temizleyin, 17,00 somluk sıradan bir ürün ekleyin ve fişe %2,5 indirim koyun: indirim 0,43 (0,425 yuvarlandı), toplam 16,57.",
+          "Ödemeden önce ve «Fişler»de fişe bakın: üç satır «İndirimsiz tutar» 17,00 − «İndirim» 0,43 = «TOPLAM» 16,57.",
+          "Satışı tamamlayın: ödeme penceresindeki, fişteki ve sitedeki tutar kuruşuna kadar aynıdır.",
+          "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: tutarlar ve yazılar kesilmez."
+        ]
+      }
+    },
+    {
+      "id": "1.18.16/payment-frozen",
+      "version": "1.18.16",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Во время оплаты чек заморожен: скан не добавляет товар",
+        "ky": "Төлөм учурунда чек тоңдурулган: сканерлөө товар кошпойт",
+        "uz": "To'lov paytida chek muzlatilgan: skanerlash mahsulot qo'shmaydi",
+        "en": "During payment the receipt is frozen: a scan does not add a product",
+        "tr": "Ödeme sırasında fiş dondurulur: tarama ürün eklemez"
+      },
+      "changed": {
+        "ru": "Пока идёт оплата, состав чека не меняется: сканер и поиск не добавляют товар, количество, скидки и удаление строк недоступны; после оплаты открывается пустой чек, и скан снова работает.",
+        "ky": "Төлөм жүрүп жатканда чектин курамы өзгөрбөйт: сканер жана издөө товар кошпойт, сан, арзандатуулар жана саптарды өчүрүү жеткиликсиз; төлөмдөн кийин бош чек ачылат, сканерлөө кайра иштейт.",
+        "uz": "To'lov ketayotganda chek tarkibi o'zgarmaydi: skaner va qidiruv mahsulot qo'shmaydi, miqdor, chegirmalar va qatorlarni o'chirish mavjud emas; to'lovdan so'ng bo'sh chek ochiladi, skanerlash yana ishlaydi.",
+        "en": "While a payment is in progress the receipt contents do not change: the scanner and search do not add a product, and quantity, discounts and deleting lines are unavailable; after payment an empty receipt opens and scanning works again.",
+        "tr": "Ödeme sürerken fişin içeriği değişmez: tarayıcı ve arama ürün eklemez, miktar, indirimler ve satır silme kullanılamaz; ödemeden sonra boş bir fiş açılır ve tarama yeniden çalışır."
+      },
+      "steps": {
+        "ru": [
+          "Зайдите кассиром. Добавьте товар, откройте оплату и нажмите «Оплатить». Пока идёт оплата (лучше при медленной связи или в авиарежиме), отсканируйте другой штрихкод и введите другой товар в поиск: новый товар в чек не попадает.",
+          "Пока идёт оплата, попробуйте изменить количество, поставить скидку или удалить строку: чек не меняется.",
+          "Дождитесь результата (проведено или «в очереди»): открывается пустой новый чек, скан снова добавляет товар.",
+          "Проверьте на кыргызском и узбекском, в тёмной теме и при крупном шрифте (360 dp): суммы и подписи не обрезаны."
+        ],
+        "ky": [
+          "Кассир менен кириңиз. Товар кошуп, төлөмдү ачыңыз да «Төлөө» басыңыз. Төлөм жүрүп жатканда (жай байланышта же учак режиминде жакшыраак) башка штрих-кодду сканерлеңиз жана издөөгө башка товарды киргизиңиз: жаңы товар чекке түшпөйт.",
+          "Төлөм жүрүп жатканда санды өзгөртүп, арзандатуу коюп же сапты өчүрүп көрүңүз: чек өзгөрбөйт.",
+          "Натыйжаны күтүңүз (өттү же «кезекте»): бош жаңы чек ачылат, сканерлөө товарды кайра кошот.",
+          "Кыргызча жана өзбекче, кара темада жана чоң арипте (360 dp) текшериңиз: суммалар жана жазуулар кесилбейт."
+        ],
+        "uz": [
+          "Kassir bilan kiring. Mahsulot qo'shib, to'lovni oching va «To'lash»ni bosing. To'lov ketayotganda (sekin aloqada yoki parvoz rejimida yaxshiroq) boshqa shtrix-kodni skanerlang va qidiruvga boshqa mahsulotni kiriting: yangi mahsulot chekka tushmaydi.",
+          "To'lov ketayotganda miqdorni o'zgartirib, chegirma qo'yib yoki qatorni o'chirib ko'ring: chek o'zgarmaydi.",
+          "Natijani kuting (o'tdi yoki «navbatda»): bo'sh yangi chek ochiladi, skanerlash mahsulotni yana qo'shadi.",
+          "Qirg'izcha va o'zbekchada, qora mavzuda va yirik shriftda (360 dp) tekshiring: summalar va yozuvlar kesilmaydi."
+        ],
+        "en": [
+          "Sign in as a cashier. Add a product, open payment and tap “Pay”. While the payment is in progress (best on a slow connection or in airplane mode), scan another barcode and type another product into the search: the new product does not get into the receipt.",
+          "While the payment is in progress, try to change the quantity, set a discount or delete a line: the receipt does not change.",
+          "Wait for the result (posted or “in the queue”): an empty new receipt opens and a scan adds a product again.",
+          "Check in Kyrgyz and Uzbek, in the dark theme and at a large font (360 dp): amounts and labels are not cut off."
+        ],
+        "tr": [
+          "Kasiyer olarak girin. Ürün ekleyin, ödemeyi açıp «Öde»ye dokunun. Ödeme sürerken (yavaş bağlantıda veya uçak modunda daha iyi) başka bir barkod okutun ve aramaya başka bir ürün yazın: yeni ürün fişe girmez.",
+          "Ödeme sürerken miktarı değiştirmeyi, indirim koymayı veya satırı silmeyi deneyin: fiş değişmez.",
+          "Sonucu bekleyin (işlendi veya «sırada»): boş yeni bir fiş açılır, tarama yeniden ürün ekler.",
+          "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: tutarlar ve yazılar kesilmez."
+        ]
+      }
+    },
+    {
+      "id": "1.18.16/crash-no-double-sale",
+      "version": "1.18.16",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "После падения приложения повторная оплата не создаёт вторую продажу",
+        "ky": "Тиркеме кулагандан кийин кайра төлөө экинчи сатууну түзбөйт",
+        "uz": "Ilova qulagandan keyin qayta to'lash ikkinchi sotuvni yaratmaydi",
+        "en": "After an app crash, paying again does not create a second sale",
+        "tr": "Uygulama çöktükten sonra tekrar ödeme ikinci bir satış oluşturmaz"
+      },
+      "changed": {
+        "ru": "Если приложение закрылось или упало во время оплаты, повторная оплата того же чека не создаёт вторую продажу: по ключу оплаты приложение возвращает прежнюю продажу.",
+        "ky": "Төлөм учурунда тиркеме жабылса же кулап калса, ошол эле чекти кайра төлөө экинчи сатууну түзбөйт: тиркеме төлөм ачкычы боюнча мурунку сатууну кайтарат.",
+        "uz": "To'lov paytida ilova yopilsa yoki qulab tushsa, xuddi shu chekni qayta to'lash ikkinchi sotuvni yaratmaydi: ilova to'lov kaliti bo'yicha avvalgi sotuvni qaytaradi.",
+        "en": "If the app closes or crashes during payment, paying the same receipt again does not create a second sale: by the payment key the app returns the earlier sale.",
+        "tr": "Ödeme sırasında uygulama kapanır veya çökerse, aynı fişi tekrar ödemek ikinci bir satış oluşturmaz: uygulama ödeme anahtarıyla önceki satışı döndürür."
+      },
+      "steps": {
+        "ru": [
+          "Зайдите кассиром. Добавьте товар, откройте оплату и нажмите «Оплатить». Сразу после нажатия закройте приложение из списка недавних (смахните его).",
+          "Откройте приложение снова и дождитесь загрузки. Если чек остался в корзине, оплатите его ещё раз: вторая продажа не создаётся, приложение возвращает прежнюю.",
+          "Откройте «Чеки» и сайт NurCRM: продажа создана один раз (или не создана совсем), но не дважды.",
+          "Повторите с отключённой связью: чек встаёт в очередь, после перезапуска и возвращения связи уходит один раз.",
+          "Проверьте на кыргызском и узбекском, в тёмной теме и при крупном шрифте (360 dp): суммы и подписи не обрезаны."
+        ],
+        "ky": [
+          "Кассир менен кириңиз. Товар кошуп, төлөмдү ачыңыз да «Төлөө» басыңыз. Басканыңыздан кийин дароо тиркемени акыркылар тизмесинен жабыңыз.",
+          "Тиркемени кайра ачып, жүктөлгөнүн күтүңүз. Чек корзинада калса, аны дагы бир жолу төлөңүз: экинчи сатуу түзүлбөйт, тиркеме мурункусун кайтарат.",
+          "«Чектерди» жана NurCRM сайтын ачыңыз: сатуу бир жолу түзүлгөн (же такыр түзүлгөн эмес), бирок эки жолу эмес.",
+          "Байланышсыз кайталаңыз: чек кезекке турат, кайра иштеткенден жана байланыш кайтканда кийин бир жолу гана кетет.",
+          "Кыргызча жана өзбекче, кара темада жана чоң арипте (360 dp) текшериңиз: суммалар жана жазуулар кесилбейт."
+        ],
+        "uz": [
+          "Kassir bilan kiring. Mahsulot qo'shib, to'lovni oching va «To'lash»ni bosing. Bosgandan so'ng darhol ilovani so'nggilar ro'yxatidan yoping.",
+          "Ilovani qayta oching va yuklanishini kuting. Chek savatda qolgan bo'lsa, uni yana to'lang: ikkinchi sotuv yaratilmaydi, ilova avvalgisini qaytaradi.",
+          "«Cheklar»ni va NurCRM saytini oching: sotuv bir marta yaratilgan (yoki umuman yaratilmagan), lekin ikki marta emas.",
+          "Aloqasiz takrorlang: chek navbatga turadi, qayta ishga tushirgandan va aloqa qaytgandan keyin bir marta ketadi.",
+          "Qirg'izcha va o'zbekchada, qora mavzuda va yirik shriftda (360 dp) tekshiring: summalar va yozuvlar kesilmaydi."
+        ],
+        "en": [
+          "Sign in as a cashier. Add a product, open payment and tap “Pay”. Right after tapping, close the app from the recent apps list (swipe it away).",
+          "Open the app again and wait for it to load. If the receipt stayed in the cart, pay it once more: a second sale is not created, the app returns the earlier one.",
+          "Open “Receipts” and the NurCRM website: the sale was created once (or not at all), but not twice.",
+          "Repeat with the connection off: the receipt waits in the queue and after a restart and the connection returning it goes out once.",
+          "Check in Kyrgyz and Uzbek, in the dark theme and at a large font (360 dp): amounts and labels are not cut off."
+        ],
+        "tr": [
+          "Kasiyer olarak girin. Ürün ekleyin, ödemeyi açıp «Öde»ye dokunun. Dokunur dokunmaz uygulamayı son uygulamalar listesinden kapatın (kaydırın).",
+          "Uygulamayı yeniden açın ve yüklenmesini bekleyin. Fiş sepette kaldıysa tekrar ödeyin: ikinci bir satış oluşmaz, uygulama öncekini döndürür.",
+          "«Fişler»i ve NurCRM sitesini açın: satış bir kez oluşturulmuş (veya hiç oluşturulmamış), ama iki kez değil.",
+          "Bağlantı kapalıyken tekrarlayın: fiş sıraya girer, yeniden başlatma ve bağlantının dönmesinden sonra bir kez gider.",
+          "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: tutarlar ve yazılar kesilmez."
+        ]
+      }
+    },
+    {
+      "id": "1.18.16/update-checksum",
+      "version": "1.18.16",
+      "area": "profile",
+      "severity": "important",
+      "title": {
+        "ru": "Обновление: только стабильные выпуски, проверка размера и SHA-256",
+        "ky": "Жаңыртуу: туруктуу чыгарылыштар гана, өлчөмдү жана SHA-256 текшерүү",
+        "uz": "Yangilash: faqat barqaror versiyalar, hajm va SHA-256 tekshiruvi",
+        "en": "Update: stable releases only, size and SHA-256 check",
+        "tr": "Güncelleme: yalnızca kararlı sürümler, boyut ve SHA-256 denetimi"
+      },
+      "changed": {
+        "ru": "В обычном режиме предлагаются только стабильные выпуски; тестовые (prerelease) видны в режиме тестировщика. Скачанный файл сверяется по размеру и, если GitHub прислал контрольную сумму, по SHA-256; при несовпадении он удаляется и установка не открывается.",
+        "ky": "Кадимки режимде туруктуу чыгарылыштар гана сунушталат; сынак (prerelease) чыгарылыштар тестирөөчү режиминде көрүнөт. Жүктөлгөн файл өлчөмү боюнча, ал эми GitHub текшерүү суммасын жөнөтсө, SHA-256 боюнча салыштырылат; дал келбесе файл өчүрүлөт жана орнотуу ачылбайт.",
+        "uz": "Oddiy rejimda faqat barqaror versiyalar taklif qilinadi; sinov (prerelease) versiyalari sinovchi rejimida ko'rinadi. Yuklangan fayl hajmi bo'yicha, GitHub nazorat summasini yuborgan bo'lsa, SHA-256 bo'yicha solishtiriladi; mos kelmasa fayl o'chiriladi va o'rnatish ochilmaydi.",
+        "en": "In the normal mode only stable releases are offered; test (prerelease) ones are visible in tester mode. The downloaded file is checked by size and, if GitHub sent a checksum, by SHA-256; on a mismatch it is deleted and the installer does not open.",
+        "tr": "Normal modda yalnızca kararlı sürümler önerilir; test (prerelease) sürümleri test uzmanı modunda görünür. İndirilen dosya boyutuna göre ve GitHub bir sağlama toplamı gönderdiyse SHA-256'ya göre denetlenir; uyuşmazlıkta silinir ve kurulum açılmaz."
+      },
+      "steps": {
+        "ru": [
+          "Обычный режим (без режима тестировщика): Профиль → «Проверить обновления». Если на GitHub новее только тестовый выпуск, баннер «Доступна версия» не появляется.",
+          "Включите режим тестировщика и снова нажмите «Проверить обновления»: тестовый выпуск предлагается.",
+          "Нажмите «Обновить»: идёт скачивание с процентами; затем файл проверяется и открывается системная установка. Подтвердите: версия обновилась, вход и очередь на месте.",
+          "Прервите скачивание (авиарежим посреди загрузки): понятное сообщение, недокачанный файл удалён, приложение живо; повторное «Обновить» качает заново.",
+          "Проверьте на кыргызском и узбекском, в тёмной теме и при крупном шрифте (360 dp): суммы и подписи не обрезаны."
+        ],
+        "ky": [
+          "Кадимки режим (тестирөөчү режимисиз): Профиль → «Жаңыртууларды текшерүү». GitHub'та сынак чыгарылыш гана жаңы болсо, «Версия жеткиликтүү» баннери чыкпайт.",
+          "Тестирөөчү режимин күйгүзүп, кайра «Жаңыртууларды текшерүү» басыңыз: сынак чыгарылыш сунушталат.",
+          "«Жаңыртуу» басыңыз: пайыз менен жүктөө жүрөт; андан кийин файл текшерилип, системалык орнотуу ачылат. Ырастаңыз: версия жаңырды, кирүү жана кезек сакталды.",
+          "Жүктөөнү үзүңүз (жүктөө ортосунда учак режими): түшүнүктүү билдирүү, жарым-жартылай файл өчүрүлдү, тиркеме иштейт; кайра «Жаңыртуу» кайрадан жүктөйт.",
+          "Кыргызча жана өзбекче, кара темада жана чоң арипте (360 dp) текшериңиз: суммалар жана жазуулар кесилбейт."
+        ],
+        "uz": [
+          "Oddiy rejim (sinovchi rejimisiz): Profil → «Yangilanishlarni tekshirish». GitHub'da faqat sinov versiyasi yangiroq bo'lsa, «Versiya mavjud» banneri chiqmaydi.",
+          "Sinovchi rejimini yoqib, yana «Yangilanishlarni tekshirish»ni bosing: sinov versiyasi taklif qilinadi.",
+          "«Yangilash»ni bosing: foiz bilan yuklash ketadi; undan keyin fayl tekshiriladi va tizim o'rnatishi ochiladi. Tasdiqlang: versiya yangilandi, kirish va navbat joyida.",
+          "Yuklashni uzing (yuklash o'rtasida parvoz rejimi): tushunarli xabar, chala fayl o'chirildi, ilova ishlaydi; yana «Yangilash» qaytadan yuklaydi.",
+          "Qirg'izcha va o'zbekchada, qora mavzuda va yirik shriftda (360 dp) tekshiring: summalar va yozuvlar kesilmaydi."
+        ],
+        "en": [
+          "Normal mode (without tester mode): Profile → “Check for updates”. If only a test release is newer on GitHub, the “Version available” banner does not appear.",
+          "Turn on tester mode and tap “Check for updates” again: the test release is offered.",
+          "Tap “Update”: the download runs with percent; afterwards the file is checked and the system installer opens. Confirm: the version is updated, sign-in and queue are intact.",
+          "Interrupt the download (airplane mode mid-download): a clear message, the partial file is deleted, the app stays alive; tapping “Update” again downloads anew.",
+          "Check in Kyrgyz and Uzbek, in the dark theme and at a large font (360 dp): amounts and labels are not cut off."
+        ],
+        "tr": [
+          "Normal mod (test uzmanı modu olmadan): Profil → «Güncellemeleri denetle». GitHub'da yalnızca test sürümü daha yeniyse «Sürüm mevcut» başlığı çıkmaz.",
+          "Test uzmanı modunu açıp «Güncellemeleri denetle»ye yeniden dokunun: test sürümü önerilir.",
+          "«Güncelle»ye dokunun: indirme yüzdeyle sürer; ardından dosya denetlenir ve sistem kurulumu açılır. Onaylayın: sürüm güncellendi, giriş ve sıra yerinde.",
+          "İndirmeyi kesin (indirme ortasında uçak modu): anlaşılır mesaj, yarım dosya silinir, uygulama ayakta kalır; «Güncelle»ye yeniden dokunmak baştan indirir.",
+          "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: tutarlar ve yazılar kesilmez."
         ]
       }
     }

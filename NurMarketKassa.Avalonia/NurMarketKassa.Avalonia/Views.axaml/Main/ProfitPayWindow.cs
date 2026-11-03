@@ -115,7 +115,7 @@ public sealed class ProfitPayWindow : Window
         return b;
     }
 
-    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, this.GetResourceObservable(key));
+    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 
     private void ShowError(string? text)
     {

@@ -616,9 +616,16 @@ public sealed partial class InvestmentsWindow
             {
                 var g = groups[i];
                 var ended = g.Stage >= terms.Stages.Count;
-                var cell = new Border { Background = ended ? Brush.Parse("#D9DBD5") : Brush.Parse(ChartPalette.ColorFor("stage:" + g.Stage)), BorderThickness = new Thickness(0, 0, 2, 0), BorderBrush = Brushes.Transparent };
+                var cell = new Border { Background = ended ? null : Brush.Parse(ChartPalette.ColorFor("stage:" + g.Stage)), BorderThickness = new Thickness(0, 0, 2, 0), BorderBrush = Brushes.Transparent };
+                if (ended)
+                    cell.Bind(Border.BackgroundProperty, cell.GetResourceObservable("BrushInputAlt")); // 2026-11-02 (В-22): цвет «этап закончился» — из темы, не зашитый #D9DBD5
                 if ((Math.Min(g.To, 47) - g.From + 1) > 4)
-                    cell.Child = new TextBlock { Text = ended ? T("стоп", "токтоо", "stop", "dur", "stop") : (T("Э", "Э", "S", "A", "B") + (g.Stage + 1)), FontSize = 12, FontWeight = FontWeight.Bold, Foreground = ended ? Brushes.Black : Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                {
+                    var stageText = new TextBlock { Text = ended ? T("стоп", "токтоо", "stop", "dur", "stop") : (T("Э", "Э", "S", "A", "B") + (g.Stage + 1)), FontSize = 12, FontWeight = FontWeight.Bold, Foreground = Brushes.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                    if (ended)
+                        stageText.Bind(TextBlock.ForegroundProperty, stageText.GetResourceObservable("BrushText"));
+                    cell.Child = stageText;
+                }
                 Grid.SetColumn(cell, i);
                 line.Children.Add(cell);
             }

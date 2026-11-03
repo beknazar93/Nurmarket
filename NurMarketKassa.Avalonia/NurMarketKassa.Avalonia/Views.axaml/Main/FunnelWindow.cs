@@ -759,7 +759,7 @@ public sealed class FunnelWindow : Window, IOwnerSection
         catch (Exception ex)
         {
             _status.Text = T("Не удалось получить покупателей бота: ", "Боттун кардарлары алынган жок: ", "Could not get bot customers: ",
-                "Bot müşterileri alınamadı: ", "Bot mijozlari olinmadi: ") + ex.Message;
+                "Bot müşterileri alınamadı: ", "Bot mijozlari olinmadi: ") + ServerOutageMonitor.FriendlyError(ex);
         }
     }
 
@@ -868,9 +868,7 @@ public sealed class FunnelWindow : Window, IOwnerSection
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(StorePath)!);
-            var tmp = StorePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(_cards, new JsonSerializerOptions { WriteIndented = true }));
-            File.Move(tmp, StorePath, overwrite: true);
+            AtomicFile.WriteAllText(StorePath, JsonSerializer.Serialize(_cards, new JsonSerializerOptions { WriteIndented = true })); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
         }
         catch (Exception ex)
         {
@@ -881,5 +879,5 @@ public sealed class FunnelWindow : Window, IOwnerSection
     private static string Money(double v) => v.ToString("N0", Ru) + " " + T("сом", "сом", "som", "som", "so'm");
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

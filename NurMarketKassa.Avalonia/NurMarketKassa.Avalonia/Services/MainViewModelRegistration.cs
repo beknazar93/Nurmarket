@@ -19,6 +19,22 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 /// </summary>
 internal static class MainViewModelRegistration
 {
+    /// <summary>2026-11-02 (аудит №2, Д3-01): действие меню откладывается на следующий проход цикла диспетчера. Нажатие через UIA
+    /// (экранный диктор, касание, автоматизация) — IInvokeProvider.Invoke: он ждёт возврата обработчика, а окно «Возврат», «Скидка»,
+    /// «Касса»… открывается вложенным циклом и не возвращает управление, пока открыто — диктор «замолкал». Через Post обработчик
+    /// возвращается сразу. Ошибка в действии — в журнал, как и раньше она не должна ронять программу.</summary>
+    private static Action Defer(Action action) => () => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Пункт меню: действие не выполнено: {ex}", "ERROR");
+        }
+    });
+
     public static void AddMainWindowViewModels(IServiceCollection services)
     {
         services.AddSingleton<MainWindowHostBridge>();
@@ -91,31 +107,31 @@ internal static class MainViewModelRegistration
             var sideMenu = new SideMenuViewModel(
                 session,
                 closeMenu: () => main?.CloseSideMenu(),
-                navigateWarehouse: () => bridge.Window?.NavigateWarehouse(),
-                navigateStaffTimesheet: () => bridge.Window?.NavigateStaffTimesheet(),
-                navigateReturn: () => bridge.Window?.NavigateReturn(),
-                navigateDeferredReceipts: () => bridge.Window?.NavigateDeferredReceipts(),
-                navigateFinance: () => bridge.Window?.NavigateFinance(),
-                navigateSales: () => bridge.Window?.NavigateSales(),
-                navigateClients: () => bridge.Window?.NavigateClients(),
-                navigateAbc: () => bridge.Window?.NavigateAbc(),
-                navigatePayDebt: () => bridge.Window?.NavigatePayDebt(),
-                navigateSettings: () => bridge.Window?.NavigateSettings(),
-                navigateMarketplace: () => bridge.Window?.NavigateMarketplace(),
-                navigateCrm: () => bridge.Window?.NavigateCrm(),
-                navigateErrorLogs: () => bridge.Window?.NavigateErrorLogs(),
-                navigateRemoteSupport: () => bridge.Window?.NavigateRemoteSupport(),
-                navigateKnowledgeBase: () => bridge.Window?.NavigateKnowledgeBase(),
-                navigateRestock: () => bridge.Window?.NavigateRestock(),
+                navigateWarehouse: Defer(() => bridge.Window?.NavigateWarehouse()),
+                navigateStaffTimesheet: Defer(() => bridge.Window?.NavigateStaffTimesheet()),
+                navigateReturn: Defer(() => bridge.Window?.NavigateReturn()),
+                navigateDeferredReceipts: Defer(() => bridge.Window?.NavigateDeferredReceipts()),
+                navigateFinance: Defer(() => bridge.Window?.NavigateFinance()),
+                navigateSales: Defer(() => bridge.Window?.NavigateSales()),
+                navigateClients: Defer(() => bridge.Window?.NavigateClients()),
+                navigateAbc: Defer(() => bridge.Window?.NavigateAbc()),
+                navigatePayDebt: Defer(() => bridge.Window?.NavigatePayDebt()),
+                navigateSettings: Defer(() => bridge.Window?.NavigateSettings()),
+                navigateMarketplace: Defer(() => bridge.Window?.NavigateMarketplace()),
+                navigateCrm: Defer(() => bridge.Window?.NavigateCrm()),
+                navigateErrorLogs: Defer(() => bridge.Window?.NavigateErrorLogs()),
+                navigateRemoteSupport: Defer(() => bridge.Window?.NavigateRemoteSupport()),
+                navigateKnowledgeBase: Defer(() => bridge.Window?.NavigateKnowledgeBase()),
+                navigateRestock: Defer(() => bridge.Window?.NavigateRestock()),
                 switchCashier: () => bridge.Window?.SwitchCashierAsync() ?? Task.CompletedTask,
                 logout: () => bridge.Window?.LogoutAsync() ?? Task.CompletedTask,
                 exitApplication: () => bridge.Window?.ExitApplication(),
                 permissions: sp.GetService<IPermissionService>(),
-                navigateSalary: () => bridge.Window?.NavigateSalary(),
+                navigateSalary: Defer(() => bridge.Window?.NavigateSalary()),
                 openCashOperation: () => bridge.Window?.OpenCashOperationDialogAsync() ?? Task.CompletedTask,
-                navigateReceiptHistory: () => bridge.Window?.NavigateReceiptHistory(),
+                navigateReceiptHistory: Defer(() => bridge.Window?.NavigateReceiptHistory()),
                 // 2026-10-22 (закупки как в вебе): пункт «Закупки» меню ☰ (MainWindow.Purchases.cs).
-                navigatePurchases: () => bridge.Window?.NavigatePurchases());
+                navigatePurchases: Defer(() => bridge.Window?.NavigatePurchases()));
 
             main = new MainWindowViewModel(
                 toolbar, catalog, basket, sideMenu, session,

@@ -87,7 +87,7 @@ public static class PendingDebtPrepaymentStore
         {
             if (!File.Exists(FilePath))
                 return new List<Entry>();
-            return JsonSerializer.Deserialize<List<Entry>>(AtomicFile.ReadWithRetry(FilePath), Json) ?? new List<Entry>();
+            return AtomicFile.ReadAllText(FilePath) is { } text ? JsonSerializer.Deserialize<List<Entry>>(text, Json) ?? new List<Entry>() : new List<Entry>(); // 2026-11-01 (Н2-01): битый файл — из .bak
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -111,9 +111,7 @@ public static class PendingDebtPrepaymentStore
             var dir = Path.GetDirectoryName(FilePath);
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
-            var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(all, Json));
-            File.Move(tmp, FilePath, overwrite: true);
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(all, Json)); // 2026-11-01 (Н2-01): сброс на диск + .bak
         }
         catch (Exception ex)
         {

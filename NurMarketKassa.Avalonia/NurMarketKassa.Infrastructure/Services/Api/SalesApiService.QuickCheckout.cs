@@ -41,6 +41,22 @@ public interface IPosQuickCheckoutApi
     /// Реализация по умолчанию (заглушки) — Unknown.</summary>
     Task<IdempotencyOutcome> PosIdempotencyLookupAsync(string idempotencyKey, CancellationToken ct = default) =>
         Task.FromResult(IdempotencyOutcome.Unknown);
+
+    /// <summary>2026-11-02 (приёмка круга 3, К2-09): то же, но с содержимым записи сервера — состояние и код сохранённого ответа. «Найден» ещё не значит «проведён»: сервер хранит и отказы.
+    /// null — ответа по существу нет (старый сервер, обрыв, непонятный формат). Реализация по умолчанию (заглушки) — null.</summary>
+    Task<IdempotencyRecord?> PosIdempotencyRecordAsync(string idempotencyKey, CancellationToken ct = default) =>
+        Task.FromResult<IdempotencyRecord?>(null);
+}
+
+/// <summary>2026-11-02 (К2-09): ответ <c>GET api/main/idempotency/{key}/</c> на стенде NBS: <c>{found: true, state: "done", endpoint: "POST /main/pos/sales/{id}/return/", status_code: 200, code: null}</c>;
+/// неизвестный ключ — 404 <c>{found: false, code: "idempotency_key_not_found"}</c>. Другие значения <c>state</c> (операция ещё идёт) и коды ошибок на стенде не воспроизводились.</summary>
+public sealed record IdempotencyRecord(bool Found, string? State, int? StatusCode, string? Code, string? Endpoint)
+{
+    /// <summary>Операция завершена и сохранённый ответ — успех (2xx). Только при этом возврат считается проведённым.</summary>
+    public bool IsSuccess => Found && string.Equals(State, "done", StringComparison.OrdinalIgnoreCase) && StatusCode is >= 200 and < 300;
+
+    /// <summary>Операция завершена, и сохранённый ответ — отказ (код 4xx/5xx): возврат НЕ проведён.</summary>
+    public bool IsFailure => Found && string.Equals(State, "done", StringComparison.OrdinalIgnoreCase) && StatusCode is >= 400;
 }
 
 public sealed partial class SalesApiService : IPosQuickCheckoutApi
@@ -79,6 +95,41 @@ public sealed partial class SalesApiService : IPosQuickCheckoutApi
 
     public Task<JsonElement> PosCheckoutBatchAsync(JsonObject body, TimeSpan timeout, CancellationToken ct = default) =>
         _client.RequestAsync(HttpMethod.Post, "api/main/pos/checkout/batch/", body, null, ct, timeout);
+
+    public async Task<IdempotencyRecord?> PosIdempotencyRecordAsync(string idempotencyKey, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+            return null;
+        try
+        {
+            var response = await _client.RequestAsync(HttpMethod.Get, "api/main/idempotency/" + Uri.EscapeDataString(idempotencyKey.Trim()) + "/",
+                null, null, ct, TimeSpan.FromSeconds(8)).ConfigureAwait(false);
+            return ReadIdempotencyRecord(response);
+        }
+        catch (ApiException ex) when (ex.StatusCode == 404 && ex.Payload is { ValueKind: JsonValueKind.Object } payload
+                                      && payload.TryGetProperty("found", out var f) && f.ValueKind == JsonValueKind.False)
+        {
+            return new IdempotencyRecord(false, null, null, "idempotency_key_not_found", null);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static IdempotencyRecord? ReadIdempotencyRecord(JsonElement response)
+    {
+        if (response.ValueKind != JsonValueKind.Object || !response.TryGetProperty("found", out var found)
+            || found.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            return null;
+        string? Str(string name) => response.TryGetProperty(name, out var v) && v.ValueKind is JsonValueKind.String or JsonValueKind.Number ? v.ToString() : null;
+        int? status = int.TryParse(Str("status_code") ?? Str("response_status"), out var code) ? code : null;
+        return new IdempotencyRecord(found.ValueKind == JsonValueKind.True, Str("state"), status, Str("code"), Str("endpoint"));
+    }
 
     public async Task<IdempotencyOutcome> PosIdempotencyLookupAsync(string idempotencyKey, CancellationToken ct = default)
     {

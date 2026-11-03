@@ -43,6 +43,9 @@ public sealed record CashShiftOperationResult(
 
     public string? ResumedHint { get; init; }
 
+    /// <summary>2026-11-01 (К2-22): смена продолжена, потому что сервер не принял закрытие прошлой смены из очереди — «Закрыть и открыть заново» бесполезно (круг).</summary>
+    public bool ServerRefusedPreviousClose { get; init; }
+
     /// <summary>2026-10-27 (ревью, См-2): InfoMessage — не просто «сообщение», а предупреждение (например, о потерянном пересчёте ящика
     /// прошлой смены): его надо показать так, чтобы кассир не пропустил, а не тостом.</summary>
     public bool InfoIsWarning { get; init; }

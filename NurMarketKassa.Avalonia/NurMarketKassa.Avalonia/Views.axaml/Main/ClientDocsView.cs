@@ -97,8 +97,8 @@ public static class ClientDocsUi
             "danger" => ("BrushDangerSoft", "BrushDangerOnSoft"),
             _ => ("BrushPanelSoft", "BrushTextSoft"),
         };
-        pill.Bind(Border.BackgroundProperty, host.GetResourceObservable(bg));
-        label.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable(fg));
+        pill.Bind(Border.BackgroundProperty, pill.GetResourceObservable(bg));
+        label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable(fg));
         return pill;
     }
 
@@ -187,11 +187,11 @@ public static class ClientDocsUi
             }
             catch (ApiException ex)
             {
-                return ex.Message;
+                return ServerOutageMonitor.FriendlyError(ex);
             }
             catch (Exception ex)
             {
-                return T("Не удалось добавить клиента: ", "Кардарды кошуу мүмкүн болгон жок: ", "Could not add the client: ", "Müşteri eklenemedi: ", "Mijozni qo'shib bo'lmadi: ") + ex.Message;
+                return T("Не удалось добавить клиента: ", "Кардарды кошуу мүмкүн болгон жок: ", "Could not add the client: ", "Müşteri eklenemedi: ", "Mijozni qo'shib bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
             }
         }, existing, supplier: false, companyFields: true);
         await dialog.ShowDialog(owner).ConfigureAwait(true);
@@ -369,7 +369,7 @@ public sealed class ClientDocsView : UserControl
                 "Mijozlar uchun TT, to'lov hisoblari va yuk xatlari. Hujjatni bosing — A4 varaq ko'rinishi bilan muharrir ochiladi."),
             FontSize = 12.5, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 16, 0),
         };
-        hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
         top.Children.Add(hint);
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, Children = { _addQuote, _addInvoice, _addWaybill } };
         Grid.SetColumn(actions, 1);
@@ -384,8 +384,8 @@ public sealed class ClientDocsView : UserControl
 
         // Шапка списка и строки — одни колонки.
         var head = new Border { Padding = new Thickness(16, 10, 16, 10), BorderThickness = new Thickness(0, 0, 0, 1) };
-        head.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
-        head.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
+        head.Bind(Border.BackgroundProperty, head.GetResourceObservable("BrushPanelSoft"));
+        head.Bind(Border.BorderBrushProperty, head.GetResourceObservable("BrushBorder"));
         head.Child = RowGrid(
             Th(T("Документ", "Документ", "Document", "Belge", "Hujjat")),
             Th(T("Клиент", "Кардар", "Client", "Müşteri", "Mijoz")),
@@ -395,8 +395,8 @@ public sealed class ClientDocsView : UserControl
             Th(T("Статус", "Статус", "Status", "Durum", "Holat")));
 
         _scroll = new ScrollViewer { HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, Content = _rows };
-        _emptyTitle.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
-        _emptyText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        _emptyTitle.Bind(TextBlock.ForegroundProperty, _emptyTitle.GetResourceObservable("BrushText"));
+        _emptyText.Bind(TextBlock.ForegroundProperty, _emptyText.GetResourceObservable("BrushTextSoft"));
         _empty.Children.Add(_emptyTitle);
         _empty.Children.Add(_emptyText);
         var listGrid = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
@@ -406,11 +406,11 @@ public sealed class ClientDocsView : UserControl
         Grid.SetRow(_empty, 1);
         listGrid.Children.Add(_empty);
         var card = new Border { BorderThickness = new Thickness(1), ClipToBounds = true, Child = listGrid };
-        card.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanel"));
-        card.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
-        card.Bind(Border.CornerRadiusProperty, this.GetResourceObservable("SettingsCardRadius"));
+        card.Bind(Border.BackgroundProperty, card.GetResourceObservable("BrushPanel"));
+        card.Bind(Border.BorderBrushProperty, card.GetResourceObservable("BrushBorder"));
+        card.Bind(Border.CornerRadiusProperty, card.GetResourceObservable("SettingsCardRadius"));
 
-        _sync.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        _sync.Bind(TextBlock.ForegroundProperty, _sync.GetResourceObservable("BrushTextSoft"));
         _sync.Margin = new Thickness(2, 8, 0, 0);
 
         var root = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto") };

@@ -69,7 +69,7 @@ public static class ReceiptEditMatcher
     public static PostedLookup Classify(IEnumerable<PostedCandidate> candidates, StepMatch match, bool isReturn, string docNumber)
     {
         var wantedParts = match.Items
-            .Select(i => Part(i.ProductId, Math.Round(i.Qty, 3, MidpointRounding.AwayFromZero), Math.Round(i.Price, 3, MidpointRounding.AwayFromZero)))
+            .Select(i => Part(i.ProductId, Math.Round(i.Qty, 3, MidpointRounding.AwayFromZero), Math.Round(i.Price, 4, MidpointRounding.AwayFromZero)))
             .OrderBy(x => x, StringComparer.Ordinal).ToList();
         var wantedQty = Math.Round(match.Items.Sum(i => i.Qty), 3);
         PostedLookup ambiguous = PostedLookup.NotFound;
@@ -102,5 +102,5 @@ public static class ReceiptEditMatcher
     }
 
     public static string Part(string? product, double qty, double price) =>
-        product + ":" + qty.ToString("0.###", CultureInfo.InvariantCulture) + ":" + price.ToString("0.##", CultureInfo.InvariantCulture);
+        product + ":" + qty.ToString("0.###", CultureInfo.InvariantCulture) + ":" + price.ToString("0.####", CultureInfo.InvariantCulture);
 }

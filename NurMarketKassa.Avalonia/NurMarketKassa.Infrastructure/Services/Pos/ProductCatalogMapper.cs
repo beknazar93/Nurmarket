@@ -8,8 +8,15 @@ namespace NurMarketKassa.Services
 {
     public static class ProductCatalogMapper
     {
+        /// <summary>2026-11-01 (контрольный аудит, С2-11): товар в архиве на сервере (признак product_archive включён) — is_archived / archived = true. Такие товары в кассе не показываем и не продаём.</summary>
+        public static bool IsArchived(JsonElement p) =>
+            p.ValueKind == JsonValueKind.Object
+            && ((p.TryGetProperty("is_archived", out var a1) && a1.ValueKind == JsonValueKind.True) || (p.TryGetProperty("archived", out var a2) && a2.ValueKind == JsonValueKind.True));
+
         public static CatalogProductTileVm? TryTile(JsonElement p, string apiBaseUrl)
         {
+            if (IsArchived(p))
+                return null; // 2026-11-01 (С2-11)
             string? id = TryId(p);
             if (string.IsNullOrEmpty(id))
                 return null;
@@ -98,6 +105,16 @@ namespace NurMarketKassa.Services
                 vm.Description = descEl.GetString();
             if (JsonProps.TryGet(p, props, "wholesale_price", out var wpEl) && TryGetDouble(wpEl, out double wpVal))
                 vm.WholesalePrice = wpVal;
+            // 2026-11-01 (владелец «10 из 10», is_weight): признак товара is_weight с сервера (его нет в сокращённой карточке — тогда null = неизвестно).
+            if (JsonProps.TryGet(p, props, "is_weight", out var iwEl))
+                vm.ServerIsWeight = iwEl.ValueKind switch
+                {
+                    JsonValueKind.True => (bool?)true,
+                    JsonValueKind.False => false,
+                    JsonValueKind.Number => iwEl.TryGetInt32(out var iwNum) ? iwNum != 0 : (bool?)null,
+                    JsonValueKind.String => iwEl.GetString()?.Trim().ToLowerInvariant() switch { "true" or "1" => true, "false" or "0" => false, _ => (bool?)null },
+                    _ => null,
+                };
             if (JsonProps.TryGet(p, props, "discount_percent", out var dpEl) && TryGetDouble(dpEl, out double dpVal))
                 vm.DiscountPercent = dpVal;
             if (JsonProps.TryGet(p, props, "country", out var countryEl) && countryEl.ValueKind == JsonValueKind.String)

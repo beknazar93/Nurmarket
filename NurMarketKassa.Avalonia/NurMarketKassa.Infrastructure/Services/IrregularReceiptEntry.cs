@@ -12,6 +12,10 @@ public sealed class IrregularReceiptEntry
     /// кассиру показана сумма кассы, расхождение — сюда, чтобы владелец видел.</summary>
     public const string ReturnOverpaid = "return_overpaid";
 
+    /// <summary>2026-11-02 (аудит №2, К3-10): сервер окончательно не принял начисление/списание баллов (например, «Недостаточно бонусов» — баллы потратили на другой кассе) или
+    /// очередь бонусов исчерпала попытки: скидка бонусами выдана, а баллы на сервере не списаны — владелец должен увидеть.</summary>
+    public const string BonusRejected = "bonus_rejected";
+
     /// <summary>2026-11-01: смена закрыта «с пометкой» — внесения/изъятия не успели уйти на сервер (CashShiftService). Строка для владельца: что и на какую сумму.</summary>
     public const string ShiftClosedUnsentCash = "shift_closed_unsent_cash";
 

@@ -1415,7 +1415,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 _currentReceiptNumber = receiptNumber;
                 ReceiptDetailsPopup.IsOpen = true;
             }
-            catch (Exception ex) { ErrorMessage = Tr.T("Не удалось загрузить детали чека: ", "Чектин чоо-жайын жүктөө мүмкүн болгон жок: ", "Could not load the receipt details: ", "Fiş ayrıntıları yüklenemedi: ", "Chek tafsilotlarini yuklab bo'lmadi: ") + ex.Message; }
+            catch (Exception ex) { ErrorMessage = Tr.T("Не удалось загрузить детали чека: ", "Чектин чоо-жайын жүктөө мүмкүн болгон жок: ", "Could not load the receipt details: ", "Fiş ayrıntıları yüklenemedi: ", "Chek tafsilotlarini yuklab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex); }
         }
 
         /// <summary>Скидка чека, как её записал сервер. Обычная скидка и списанные бонусы
@@ -1508,7 +1508,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
             catch (Exception ex)
             {
-                ErrorMessage = Tr.T("Не удалось напечатать чек: ", "Чекти басып чыгаруу мүмкүн болгон жок: ", "Could not print the receipt: ", "Fiş yazdırılamadı: ", "Chekni chop etib bo'lmadi: ") + ex.Message;
+                ErrorMessage = Tr.T("Не удалось напечатать чек: ", "Чекти басып чыгаруу мүмкүн болгон жок: ", "Could not print the receipt: ", "Fiş yazdırılamadı: ", "Chekni chop etib bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
             }
         }
 
@@ -1526,7 +1526,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
             catch (Exception ex)
             {
-                ErrorMessage = Tr.T("Документ не открылся: ", "Документ ачылган жок: ", "The document did not open: ", "Belge açılmadı: ", "Hujjat ochilmadi: ") + ex.Message;
+                ErrorMessage = Tr.T("Документ не открылся: ", "Документ ачылган жок: ", "The document did not open: ", "Belge açılmadı: ", "Hujjat ochilmadi: ") + ServerOutageMonitor.FriendlyError(ex);
             }
         }
 

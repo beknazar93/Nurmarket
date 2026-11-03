@@ -198,7 +198,7 @@ public sealed class SuppliersWindow : Window, IOwnerSection
     /// <summary>Содержимое плашки очереди (список и карточка поставщика): текст, «Записать долг» (владелец/админ) или подсказка. null — нечего показать.</summary>
     internal static Control? SupplierDebtQueueBox(Control host, SupplierDebtQueue queue, string? supplierName, Func<Task> record)
     {
-        void Bind(AvaloniaObject t, AvaloniaProperty p, string key) => t.Bind(p, host.GetResourceObservable(key));
+        void Bind(AvaloniaObject t, AvaloniaProperty p, string key) => t.Bind(p, (t is Control own ? own : host).GetResourceObservable(key));
         if (queue.Closed)
         {
             var broken = new TextBlock
@@ -677,5 +677,5 @@ public sealed class SuppliersWindow : Window, IOwnerSection
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

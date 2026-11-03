@@ -318,9 +318,7 @@ internal static class DebtPaymentRunner
             migrated.UnionWith(newKeys);
             try
             {
-                var tmp = MigratedKeysPath + ".tmp";
-                File.WriteAllText(tmp, string.Join("\n", migrated.OrderBy(k => k, StringComparer.Ordinal)) + "\n");
-                File.Move(tmp, MigratedKeysPath, overwrite: true);
+                AtomicFile.WriteAllText(MigratedKeysPath, string.Join("\n", migrated.OrderBy(k => k, StringComparer.Ordinal)) + "\n"); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
                 PosLogger.Log($"Оплата долга: записи старых журналов ({newKeys.Count}) перенесены в общий ({FilePath}).", "PAYMENT");
             }
             catch (Exception ex)
@@ -475,9 +473,7 @@ internal static class DebtPaymentRunner
         try
         {
             Directory.CreateDirectory(DataDir);
-            var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(_store.Values.ToList()));
-            File.Move(tmp, FilePath, overwrite: true);
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(_store.Values.ToList())); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
             // Записи «точно не проведена», которых в записанном журнале уже нет, — сняты окончательно.
             _settledKeys.RemoveWhere(k => !_store.Values.Any(r => r.Key == k));
             return true;

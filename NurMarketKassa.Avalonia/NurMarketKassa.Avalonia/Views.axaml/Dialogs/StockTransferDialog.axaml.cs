@@ -259,8 +259,15 @@ public partial class StockTransferDialog : Window
 
     private void Suggestion_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: NurMarketKassa.Models.Pos.CatalogProductTileVm product })
-            AddProductToTransfer(product, ReadQuantity());
+        if (sender is Button { Tag: NurMarketKassa.Models.Pos.CatalogProductTileVm product } && ReadQuantity() is { } quantity)
+        {
+            if (FractionProblem(product, quantity) is { } fraction)
+            {
+                ShowWarning(product.Title + ": " + fraction);
+                return;
+            }
+            AddProductToTransfer(product, quantity);
+        }
     }
 
     /// <summary>Выбор из всего каталога списком — тем же окном, что собирает комплекты. Нужен,
@@ -273,20 +280,40 @@ public partial class StockTransferDialog : Window
         if (confirmed != true || dialog.Result.Count == 0)
             return;
 
-        var quantity = ReadQuantity();
+        if (ReadQuantity() is not { } quantity)
+            return;
         foreach (var product in dialog.Result)
+        {
+            if (FractionProblem(product, quantity) is { } fraction)
+            {
+                ShowWarning(product.Title + ": " + fraction);
+                continue;
+            }
             AddProductToTransfer(product, quantity, reloadAfter: false);
+        }
 
         Reload();
     }
 
-    private double ReadQuantity()
+    /// <summary>2026-11-02 (аудит №2, С2-18): пустое поле — 1; «−5», «абв», 0 — не молча 1, а понятное сообщение (null — нельзя добавлять).</summary>
+    private double? ReadQuantity()
     {
-        if (!double.TryParse(ItemQuantityBox.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite,
-                CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
-            quantity = 1;
+        var text = ItemQuantityBox.Text?.Trim() ?? "";
+        if (text.Length == 0)
+            return 1;
+        if (!double.TryParse(text.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite,
+                CultureInfo.InvariantCulture, out var quantity) || quantity <= 0 || double.IsInfinity(quantity))
+        {
+            ShowWarning(Tr.T($"Количество «{text}» не подходит: впишите число больше нуля.", $"«{text}» саны туура келбейт: нөлдөн чоң сан жазыңыз.", $"The quantity “{text}” is not valid: enter a number above zero.",
+                $"«{text}» miktarı geçersiz: sıfırdan büyük bir sayı yazın.", $"«{text}» miqdori yaroqsiz: noldan katta son yozing."));
+            return null;
+        }
         return quantity;
     }
+
+    /// <summary>Дробное количество у штучного товара — сообщение вместо молчаливого принятия; null — всё в порядке.</summary>
+    private static string? FractionProblem(NurMarketKassa.Models.Pos.CatalogProductTileVm product, double quantity) =>
+        UnitCatalog.QuantityProblem(quantity, product.Unit, product.ServerIsWeight == true);
 
     private void AddProductToTransfer(NurMarketKassa.Models.Pos.CatalogProductTileVm product, double quantity, bool reloadAfter = true)
     {
@@ -315,16 +342,27 @@ public partial class StockTransferDialog : Window
             return;
         ShowWarning(null);
 
-        if (!double.TryParse(ItemQuantityBox.Text?.Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite,
-                CultureInfo.InvariantCulture, out var quantity) || quantity <= 0)
-            quantity = 1;
+        if (ReadQuantity() is not { } quantity)
+            return;
 
         // Ищем сначала по штрихкоду — кладовщик чаще сканирует, чем печатает название.
         // 2026-10-21: тем же поиском, что касса (ProductCodeLookup: доп. штрихкод, 12 ↔ 13 цифр, размер, весовая
         // этикетка, артикул), а код, которого нет на этом компьютере, — ещё и на сервере (склад не находит товар по скану).
-        var product = ProductCodeLookup.FindLocal(query)?.Product
-                      ?? CatalogCacheService.Products.FirstOrDefault(p =>
-                          SearchMatch.Matches(query, p.Title));
+        var product = ProductCodeLookup.FindLocal(query)?.Product;
+        if (product is null)
+        {
+            // 2026-11-02 (аудит №2, С2-18): по названию нашлось несколько товаров — не берём первый попавшийся: точное совпадение названия, иначе просим выбрать из списка подсказок
+            var byTitle = SearchMatch.Products(CatalogCacheService.Products, query).ToList();
+            product = byTitle.Count == 1 ? byTitle[0]
+                : byTitle.FirstOrDefault(p => string.Equals(p.Title?.Trim(), query, System.StringComparison.CurrentCultureIgnoreCase));
+            if (product is null && byTitle.Count > 1)
+            {
+                ItemSearch_TextChanged(ItemSearchBox, null!);
+                ShowWarning(Tr.T($"Найдено товаров: {byTitle.Count}. Выберите нужный из списка под полем поиска.", $"Табылган товарлар: {byTitle.Count}. Издөө талаасынын астындагы тизмеден тандаңыз.",
+                    $"Products found: {byTitle.Count}. Pick the right one from the list under the search box.", $"Bulunan ürün: {byTitle.Count}. Arama kutusunun altındaki listeden seçin.", $"Topilgan mahsulotlar: {byTitle.Count}. Qidiruv maydoni ostidagi ro'yxatdan tanlang."));
+                return;
+            }
+        }
         if (product is null && NurMarketKassa.AvaloniaHost.ViewModels.WarehouseViewModel.LooksLikeCode(query))
         {
             ItemSearchBox.Text = "";
@@ -334,6 +372,11 @@ public partial class StockTransferDialog : Window
         if (product is null)
         {
             StockTransferService.Instance.AddItem(_transferId, null, query, null, null, quantity, null, 0);
+        }
+        else if (FractionProblem(product, quantity) is { } fractionProblem)
+        {
+            ShowWarning(product.Title + ": " + fractionProblem);
+            return;
         }
         else
         {

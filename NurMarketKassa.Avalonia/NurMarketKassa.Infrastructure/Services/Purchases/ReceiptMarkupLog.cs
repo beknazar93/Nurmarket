@@ -151,13 +151,19 @@ public static class ReceiptMarkupLog
         return Totals(doc.Lines.Select(l => (l.Qty, l.Purchase, View(l.Purchase, l, null)))).AvgPercent;
     }
 
+    // 2026-11-02 (аудит №2 кассы, К3-01; приёмка круга 3): файл журнала занят — не «пусто»: запись откладывается (AtomicFile.DeferWrite), свежее состояние читается из памяти первым,
+    // таймер дописывает его в файл (с объединением по ключу документа), при закрытии — запасной файл *.pending.
+    private static bool _readBlocked;
+
     private static Dictionary<string, ReceiptMarkupDoc> Read()
     {
         if (PurchasesStore.ReadOnly)
             return _cache ??= new Dictionary<string, ReceiptMarkupDoc>(StringComparer.OrdinalIgnoreCase);
+        var read = AtomicFile.TryRead(FilePath, attempts: 3, pauseMs: 100);
+        _readBlocked = read.Status == AtomicFile.ReadStatus.Unreadable || read.FromMemory;
         try
         {
-            if (AtomicFile.ReadAllText(FilePath) is { } text)
+            if (read.Text is { } text)
                 return new Dictionary<string, ReceiptMarkupDoc>(JsonSerializer.Deserialize<Dictionary<string, ReceiptMarkupDoc>>(text) ?? new(), StringComparer.OrdinalIgnoreCase);
         }
         catch (Exception ex)
@@ -167,6 +173,25 @@ public static class ReceiptMarkupLog
         return new Dictionary<string, ReceiptMarkupDoc>(StringComparer.OrdinalIgnoreCase);
     }
 
+    private static string MergeDocs(string? fileText, string memoryText)
+    {
+        Dictionary<string, ReceiptMarkupDoc> Parse(string? text)
+        {
+            try
+            {
+                return text is null ? new(StringComparer.OrdinalIgnoreCase) : new(JsonSerializer.Deserialize<Dictionary<string, ReceiptMarkupDoc>>(text) ?? new(), StringComparer.OrdinalIgnoreCase);
+            }
+            catch (JsonException)
+            {
+                return new(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+        var memory = Parse(memoryText);
+        foreach (var (key, doc) in Parse(fileText))
+            memory.TryAdd(key, doc);
+        return JsonSerializer.Serialize(memory);
+    }
+
     private static void Write(Dictionary<string, ReceiptMarkupDoc> all)
     {
         if (PurchasesStore.ReadOnly)
@@ -174,6 +199,20 @@ public static class ReceiptMarkupLog
             _cache = all;
             return;
         }
-        AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(all));
+        var json = JsonSerializer.Serialize(all);
+        if (_readBlocked)
+        {
+            AtomicFile.DeferWrite(FilePath, "receipt-markups.json", json, MergeDocs);
+            return;
+        }
+        try
+        {
+            AtomicFile.WriteAllText(FilePath, json);
+            _cache = null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AtomicFile.DeferWrite(FilePath, "receipt-markups.json", json, MergeDocs);
+        }
     }
 }

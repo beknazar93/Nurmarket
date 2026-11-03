@@ -22,6 +22,9 @@ public sealed class StaffTimesheetRow
     public DateTime? FirstShift { get; init; }
     public DateTime? LastShift { get; init; }
 
+    /// <summary>2026-11-02 (В-13): закрытых смен длиннее 16 ч — вероятно, забыли закрыть; часы по ним недостоверны, табель помечает «проверьте».</summary>
+    public int LongShiftCount { get; init; }
+
     public TimeSpan AverageShift => ShiftCount > 0
         ? TimeSpan.FromTicks(TotalWorked.Ticks / ShiftCount)
         : TimeSpan.Zero;
@@ -46,14 +49,16 @@ public static class StaffTimesheetService
             (from is null || opened.Date >= from.Value.Date) &&
             (to is null || opened.Date <= to.Value.Date));
 
+        // 2026-11-02 (аудит №2, В-13): группировка по id кассира (если сервер его дал), иначе по имени.
         return filtered
-            .GroupBy(s => string.IsNullOrWhiteSpace(s.Cashier) ? "—" : s.Cashier, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(s => !string.IsNullOrWhiteSpace(s.CashierId) ? "id:" + s.CashierId : "n:" + (string.IsNullOrWhiteSpace(s.Cashier) ? "—" : s.Cashier), StringComparer.OrdinalIgnoreCase)
             .Select(g =>
             {
                 var list = g.ToList();
                 return new StaffTimesheetRow
                 {
-                    Cashier = g.Key,
+                    Cashier = list.Select(s => s.Cashier).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n) && n != "—") ?? "—",
+                    LongShiftCount = list.Count(s => s.ClosedAt!.Value - s.OpenedAt!.Value > TimeSpan.FromHours(16)),
                     ShiftCount = list.Count,
                     DaysWorked = list.Select(s => s.OpenedAt!.Value.Date).Distinct().Count(),
                     TotalWorked = list.Aggregate(TimeSpan.Zero, (sum, s) => sum + (s.ClosedAt!.Value - s.OpenedAt!.Value)),

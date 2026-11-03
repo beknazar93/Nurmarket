@@ -237,6 +237,20 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _isWeightFlagMeta = const VerificationMeta(
+    'isWeightFlag',
+  );
+  @override
+  late final GeneratedColumn<bool> isWeightFlag = GeneratedColumn<bool>(
+    'is_weight_flag',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_weight_flag" IN (0, 1))',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -259,6 +273,7 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
     minQuantity,
     purchasePrice,
     expiresOn,
+    isWeightFlag,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -405,6 +420,15 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         expiresOn.isAcceptableOrUnknown(data['expires_on']!, _expiresOnMeta),
       );
     }
+    if (data.containsKey('is_weight_flag')) {
+      context.handle(
+        _isWeightFlagMeta,
+        isWeightFlag.isAcceptableOrUnknown(
+          data['is_weight_flag']!,
+          _isWeightFlagMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -494,6 +518,10 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         DriftSqlType.string,
         data['${effectivePrefix}expires_on'],
       ),
+      isWeightFlag: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_weight_flag'],
+      ),
     );
   }
 
@@ -545,6 +573,11 @@ class Product extends DataClass implements Insertable<Product> {
 
   /// 2026-10-31 (режим «Продукты»): срок годности товара (expiration_date сервера), «ГГГГ-ММ-ДД». null — не указан.
   final String? expiresOn;
+
+  /// 2026-11-01 (живая сверка NBS, правило округления весовых): чистый признак `is_weight` товара с сервера, БЕЗ учёта единицы кг/г
+  /// (в [isWeight] он смешан с единицей). null — сервер признак не прислал (старые строки до ближайшей загрузки каталога): тогда весовым
+  /// считается по [isWeight]. Нужен только для округления подытога чека (cart.dart); продажа по весу по-прежнему идёт по [isWeight].
+  final bool? isWeightFlag;
   const Product({
     required this.id,
     required this.name,
@@ -566,6 +599,7 @@ class Product extends DataClass implements Insertable<Product> {
     required this.minQuantity,
     this.purchasePrice,
     this.expiresOn,
+    this.isWeightFlag,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -602,6 +636,9 @@ class Product extends DataClass implements Insertable<Product> {
     if (!nullToAbsent || expiresOn != null) {
       map['expires_on'] = Variable<String>(expiresOn);
     }
+    if (!nullToAbsent || isWeightFlag != null) {
+      map['is_weight_flag'] = Variable<bool>(isWeightFlag);
+    }
     return map;
   }
 
@@ -635,6 +672,9 @@ class Product extends DataClass implements Insertable<Product> {
       expiresOn: expiresOn == null && nullToAbsent
           ? const Value.absent()
           : Value(expiresOn),
+      isWeightFlag: isWeightFlag == null && nullToAbsent
+          ? const Value.absent()
+          : Value(isWeightFlag),
     );
   }
 
@@ -664,6 +704,7 @@ class Product extends DataClass implements Insertable<Product> {
       minQuantity: serializer.fromJson<double>(json['minQuantity']),
       purchasePrice: serializer.fromJson<double?>(json['purchasePrice']),
       expiresOn: serializer.fromJson<String?>(json['expiresOn']),
+      isWeightFlag: serializer.fromJson<bool?>(json['isWeightFlag']),
     );
   }
   @override
@@ -690,6 +731,7 @@ class Product extends DataClass implements Insertable<Product> {
       'minQuantity': serializer.toJson<double>(minQuantity),
       'purchasePrice': serializer.toJson<double?>(purchasePrice),
       'expiresOn': serializer.toJson<String?>(expiresOn),
+      'isWeightFlag': serializer.toJson<bool?>(isWeightFlag),
     };
   }
 
@@ -714,6 +756,7 @@ class Product extends DataClass implements Insertable<Product> {
     double? minQuantity,
     Value<double?> purchasePrice = const Value.absent(),
     Value<String?> expiresOn = const Value.absent(),
+    Value<bool?> isWeightFlag = const Value.absent(),
   }) => Product(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -737,6 +780,7 @@ class Product extends DataClass implements Insertable<Product> {
         ? purchasePrice.value
         : this.purchasePrice,
     expiresOn: expiresOn.present ? expiresOn.value : this.expiresOn,
+    isWeightFlag: isWeightFlag.present ? isWeightFlag.value : this.isWeightFlag,
   );
   Product copyWithCompanion(ProductsCompanion data) {
     return Product(
@@ -772,6 +816,9 @@ class Product extends DataClass implements Insertable<Product> {
           ? data.purchasePrice.value
           : this.purchasePrice,
       expiresOn: data.expiresOn.present ? data.expiresOn.value : this.expiresOn,
+      isWeightFlag: data.isWeightFlag.present
+          ? data.isWeightFlag.value
+          : this.isWeightFlag,
     );
   }
 
@@ -797,13 +844,14 @@ class Product extends DataClass implements Insertable<Product> {
           ..write('promoRules: $promoRules, ')
           ..write('minQuantity: $minQuantity, ')
           ..write('purchasePrice: $purchasePrice, ')
-          ..write('expiresOn: $expiresOn')
+          ..write('expiresOn: $expiresOn, ')
+          ..write('isWeightFlag: $isWeightFlag')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     name,
     price,
@@ -824,7 +872,8 @@ class Product extends DataClass implements Insertable<Product> {
     minQuantity,
     purchasePrice,
     expiresOn,
-  );
+    isWeightFlag,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -848,7 +897,8 @@ class Product extends DataClass implements Insertable<Product> {
           other.promoRules == this.promoRules &&
           other.minQuantity == this.minQuantity &&
           other.purchasePrice == this.purchasePrice &&
-          other.expiresOn == this.expiresOn);
+          other.expiresOn == this.expiresOn &&
+          other.isWeightFlag == this.isWeightFlag);
 }
 
 class ProductsCompanion extends UpdateCompanion<Product> {
@@ -872,6 +922,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
   final Value<double> minQuantity;
   final Value<double?> purchasePrice;
   final Value<String?> expiresOn;
+  final Value<bool?> isWeightFlag;
   final Value<int> rowid;
   const ProductsCompanion({
     this.id = const Value.absent(),
@@ -894,6 +945,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.minQuantity = const Value.absent(),
     this.purchasePrice = const Value.absent(),
     this.expiresOn = const Value.absent(),
+    this.isWeightFlag = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ProductsCompanion.insert({
@@ -917,6 +969,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.minQuantity = const Value.absent(),
     this.purchasePrice = const Value.absent(),
     this.expiresOn = const Value.absent(),
+    this.isWeightFlag = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name);
@@ -941,6 +994,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Expression<double>? minQuantity,
     Expression<double>? purchasePrice,
     Expression<String>? expiresOn,
+    Expression<bool>? isWeightFlag,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -964,6 +1018,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       if (minQuantity != null) 'min_quantity': minQuantity,
       if (purchasePrice != null) 'purchase_price': purchasePrice,
       if (expiresOn != null) 'expires_on': expiresOn,
+      if (isWeightFlag != null) 'is_weight_flag': isWeightFlag,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -989,6 +1044,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Value<double>? minQuantity,
     Value<double?>? purchasePrice,
     Value<String?>? expiresOn,
+    Value<bool?>? isWeightFlag,
     Value<int>? rowid,
   }) {
     return ProductsCompanion(
@@ -1012,6 +1068,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       minQuantity: minQuantity ?? this.minQuantity,
       purchasePrice: purchasePrice ?? this.purchasePrice,
       expiresOn: expiresOn ?? this.expiresOn,
+      isWeightFlag: isWeightFlag ?? this.isWeightFlag,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1079,6 +1136,9 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     if (expiresOn.present) {
       map['expires_on'] = Variable<String>(expiresOn.value);
     }
+    if (isWeightFlag.present) {
+      map['is_weight_flag'] = Variable<bool>(isWeightFlag.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1108,6 +1168,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
           ..write('minQuantity: $minQuantity, ')
           ..write('purchasePrice: $purchasePrice, ')
           ..write('expiresOn: $expiresOn, ')
+          ..write('isWeightFlag: $isWeightFlag, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2931,6 +2992,7 @@ typedef $$ProductsTableCreateCompanionBuilder = ProductsCompanion Function({
   Value<double> minQuantity,
   Value<double?> purchasePrice,
   Value<String?> expiresOn,
+  Value<bool?> isWeightFlag,
   Value<int> rowid,
 });
 typedef $$ProductsTableUpdateCompanionBuilder = ProductsCompanion Function({
@@ -2954,6 +3016,7 @@ typedef $$ProductsTableUpdateCompanionBuilder = ProductsCompanion Function({
   Value<double> minQuantity,
   Value<double?> purchasePrice,
   Value<String?> expiresOn,
+  Value<bool?> isWeightFlag,
   Value<int> rowid,
 });
 
@@ -3063,6 +3126,11 @@ class $$ProductsTableFilterComposer
 
   ColumnFilters<String> get expiresOn => $composableBuilder(
     column: $table.expiresOn,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isWeightFlag => $composableBuilder(
+    column: $table.isWeightFlag,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3175,6 +3243,11 @@ class $$ProductsTableOrderingComposer
     column: $table.expiresOn,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isWeightFlag => $composableBuilder(
+    column: $table.isWeightFlag,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ProductsTableAnnotationComposer
@@ -3257,6 +3330,11 @@ class $$ProductsTableAnnotationComposer
 
   GeneratedColumn<String> get expiresOn =>
       $composableBuilder(column: $table.expiresOn, builder: (column) => column);
+
+  GeneratedColumn<bool> get isWeightFlag => $composableBuilder(
+    column: $table.isWeightFlag,
+    builder: (column) => column,
+  );
 }
 
 class $$ProductsTableTableManager
@@ -3307,6 +3385,7 @@ class $$ProductsTableTableManager
                 Value<double> minQuantity = const Value.absent(),
                 Value<double?> purchasePrice = const Value.absent(),
                 Value<String?> expiresOn = const Value.absent(),
+                Value<bool?> isWeightFlag = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProductsCompanion(
                 id: id,
@@ -3329,6 +3408,7 @@ class $$ProductsTableTableManager
                 minQuantity: minQuantity,
                 purchasePrice: purchasePrice,
                 expiresOn: expiresOn,
+                isWeightFlag: isWeightFlag,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3353,6 +3433,7 @@ class $$ProductsTableTableManager
                 Value<double> minQuantity = const Value.absent(),
                 Value<double?> purchasePrice = const Value.absent(),
                 Value<String?> expiresOn = const Value.absent(),
+                Value<bool?> isWeightFlag = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProductsCompanion.insert(
                 id: id,
@@ -3375,6 +3456,7 @@ class $$ProductsTableTableManager
                 minQuantity: minQuantity,
                 purchasePrice: purchasePrice,
                 expiresOn: expiresOn,
+                isWeightFlag: isWeightFlag,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

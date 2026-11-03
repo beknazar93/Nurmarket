@@ -684,7 +684,7 @@ public sealed class SalaryPayoutDialog : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }
 
 /// <summary>2026-10-19, главная сессия: подтверждение каждой выплаты зарплаты — «Выплатить N сом — ФИО из кассы «…»?», сумма
@@ -712,7 +712,7 @@ internal sealed class SalaryPayoutConfirmDialog : Window
         var money = SalaryWindow.Money(amount);
         var som = T("сом", "сом", "som", "som", "so'm");
         var big = new TextBlock { Text = $"{money} {som}", FontSize = 30, FontWeight = FontWeight.Bold, TextWrapping = TextWrapping.Wrap };
-        big.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        big.Bind(TextBlock.ForegroundProperty, big.GetResourceObservable("BrushText"));
         var question = new TextBlock
         {
             Text = T($"Выплатить {money} сом — {employee} из «{from}»?", $"{money} сом төлөнсүнбү — {employee}, «{from}» булагынан?",
@@ -720,7 +720,7 @@ internal sealed class SalaryPayoutConfirmDialog : Window
                 $"{employee}ga «{from}» manbasidan {money} so'm to'lansinmi?"),
             FontSize = 15, TextWrapping = TextWrapping.Wrap,
         };
-        question.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        question.Bind(TextBlock.ForegroundProperty, question.GetResourceObservable("BrushText"));
         var content = new StackPanel { Spacing = 10, Children = { big, question } };
         if (source?.Kind == SalaryPayoutService.PayoutSourceKind.OwnerPocket)
         {
@@ -731,7 +731,7 @@ internal sealed class SalaryPayoutConfirmDialog : Window
                     "Egasining puli: kassa kamaymaydi, ish haqi xarajatlarga kiradi."),
                 FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap,
             };
-            own.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            own.Bind(TextBlock.ForegroundProperty, own.GetResourceObservable("BrushText"));
             content.Children.Add(own);
         }
         if (source is null or { Kind: SalaryPayoutService.PayoutSourceKind.Cashbox } && SalaryPayoutService.IsSalesCashbox(cashbox))
@@ -741,7 +741,7 @@ internal sealed class SalaryPayoutConfirmDialog : Window
                 Text = SalaryPayoutService.SalesCashboxWarning,
                 FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap,
             };
-            warn.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
+            warn.Bind(TextBlock.ForegroundProperty, warn.GetResourceObservable("BrushDanger"));
             content.Children.Add(warn);
         }
 

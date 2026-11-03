@@ -110,9 +110,7 @@ public static class InvoiceImportRegistry
                 store.Invoices = kept;
             }
             Directory.CreateDirectory(DataDir);
-            var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(store));
-            File.Move(tmp, FilePath, overwrite: true);
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(store)); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
         }
         catch (Exception ex)
         {

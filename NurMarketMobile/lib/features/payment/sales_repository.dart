@@ -133,7 +133,7 @@ class SalesRepository {
         continue;
       }
       // 2026-10-27 (М4): штука из упаковки — отдельная позиция (своя упаковка), как PushGroupKey кассы
-      final key = '${l.productId}|${l.price.toStringAsFixed(2)}|${l.variantId ?? ''}${l.salePackageId == null ? '' : '|${l.salePackageId}'}';
+      final key = l.mergeKey!; // не null: custom обработан выше
       final existing = merged[key];
       if (existing != null) {
         existing['qty'] = (double.parse(existing['qty'] as String) + l.qty).toStringAsFixed(l.isWeight ? 3 : 0);
@@ -226,14 +226,25 @@ class SalesRepository {
 
   Future<void> _writeShelved(List<Map<String, dynamic>> list) => db.setSetting(shelvedKeysSetting, list.isEmpty ? '' : jsonEncode(list.take(_shelvedMax).toList()));
 
-  /// 2026-11-01 (приёмка, Н-1): «зомби-ключ» — продажа проведена (done), а черновик чека уже пуст: ключ остался из-за сбоя между очисткой
-  /// чека и его стиранием. Такой ключ нельзя отдавать следующему чеку того же состава (сервер вернул бы прежнюю продажу, новая не записалась бы).
-  /// Пока черновик не пуст (падение до очистки), ключ нужен: повтор оплаты вернёт прежнюю продажу.
-  static const _draftSetting = 'cart.draft'; // CartController.draftKey
+  /// 2026-11-01 (приёмка Н-1, контрольный аудит М2-04): «зомби-ключ» — продажа проведена (done), чек после этого очищен, а ключ остался
+  /// (сбой между очисткой и стиранием). Такой ключ нельзя отдавать следующему чеку того же состава (сервер вернул бы прежнюю продажу,
+  /// новая не записалась бы). Признак — время последней очистки чека (`cart.clearedAt`, его пишет CartController при пустом черновике)
+  /// позже времени отметки done. Если чек не очищали (падение до очистки), ключ нужен: повтор оплаты вернёт прежнюю продажу.
+  static const clearedAtSetting = 'cart.clearedAt';
+
+  /// 2026-11-02 (аудит №2, М3-04): счётчик очисток чека (+1 при каждой очистке, пишется вместе с пустым черновиком одной транзакцией).
+  static const clearedSeqSetting = 'cart.clearedSeq';
+  Future<int> _clearedSeq() async => int.tryParse(await db.getSetting(clearedSeqSetting) ?? '') ?? 0;
+
   Future<bool> _isZombie(Map<String, dynamic> m) async {
     if (m['done'] != true) return false;
-    final d = await db.getSetting(_draftSetting);
-    return d == null || d.isEmpty;
+    // новая запись несёт `doneSeq` — значение счётчика очисток на момент оплаты: очистка после неё = ключ закрыт (часы телефона не нужны)
+    final doneSeq = m['doneSeq'];
+    if (doneSeq is int) return await _clearedSeq() > doneSeq;
+    final doneAt = DateTime.tryParse('${m['doneAt'] ?? ''}');
+    final clearedAt = DateTime.tryParse(await db.getSetting(clearedAtSetting) ?? '');
+    if (doneAt == null) return true; // отметка без времени (старая запись) — безопаснее считать закрытой
+    return clearedAt != null && !clearedAt.isBefore(doneAt);
   }
 
   /// Подписи живых попыток, исход которых мог быть «проведено» (отправлялись): для плашки «Прошлый чек мог пройти».
@@ -307,7 +318,7 @@ class SalesRepository {
   Future<void> _markDone(String key) async {
     try {
       final cur = await _readCurrent();
-      if (cur != null && cur['key'] == key) await db.setSetting(pendingKeySetting, jsonEncode({...cur, 'done': true}));
+      if (cur != null && cur['key'] == key) await db.setSetting(pendingKeySetting, jsonEncode({...cur, 'done': true, 'doneAt': DateTime.now().toIso8601String(), 'doneSeq': await _clearedSeq()}));
     } catch (_) {
       // отметка — страховка
     }
@@ -667,9 +678,16 @@ class SalesRepository {
   /// Поддерживает ли сервер Idempotency-Key на clients/{id}/bonus/ — вопрос Умару; без этого повтор после обрыва ответа может задвоиться.
   /// 2026-11-01 (приёмка, Н-6): запись в очередь — ДО отправки ([queueBonus]) и до стирания ключа продажи, чтобы падение приложения
   /// не оставило скидку выданной, а баланс клиента нетронутым. Отправка — [sendQueuedBonus].
-  Future<String> queueBonus({required String clientId, required double delta, required String reason, String? saleId, required String keyRef}) async {
+  Future<String> queueBonus({required String clientId, required double delta, required String reason, String? saleId, required String keyRef, String? afterSale}) async {
     final key = 'bonus-$keyRef-$reason';
-    final body = <String, dynamic>{'client': clientId, 'delta': double.parse(delta.toStringAsFixed(2)), 'reason': reason, if (saleId != null && saleId.isNotEmpty) 'sale': saleId};
+    final body = <String, dynamic>{
+      'client': clientId,
+      'delta': double.parse(delta.toStringAsFixed(2)),
+      'reason': reason,
+      if (saleId != null && saleId.isNotEmpty) 'sale': saleId,
+      // 2026-11-02 (М2-06): бонус офлайн-продажи уходит только после неё (id записи очереди с чеком), с id продажи с сервера
+      'after': ?afterSale,
+    };
     await db.enqueue(
       OutboxCompanion.insert(
         id: key,
@@ -708,6 +726,17 @@ class SalesRepository {
   /// Досылка бонусов из очереди (SyncService) тем же ключом.
   Future<void> replayBonus(OutboxData row) async {
     final body = OutboxMeta.strip((jsonDecode(row.body) as Map).cast<String, dynamic>());
+    final after = body['after'];
+    if (after is String && after.isNotEmpty) {
+      final sale = await (db.select(db.outbox)..where((o) => o.id.equals(after))).getSingleOrNull();
+      if (sale == null || sale.status == OutboxMeta.dropped) {
+        // чек снят — бонус по нему не начисляется
+        await (db.update(db.outbox)..where((o) => o.id.equals(row.id))).write(const OutboxCompanion(status: Value(OutboxMeta.dropped)));
+        return;
+      }
+      if (sale.status != 'sent') return; // чек ещё не принят сервером — бонус ждёт (запись остаётся в очереди)
+      if (sale.serverId != null && sale.serverId!.isNotEmpty) body['sale'] = sale.serverId;
+    }
     await _sendBonus(body, row.id, timeout: const Duration(seconds: 30));
     await db.markSent(row.id);
   }

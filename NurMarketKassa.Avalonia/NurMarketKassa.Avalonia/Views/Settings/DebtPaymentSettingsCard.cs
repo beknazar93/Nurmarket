@@ -103,14 +103,14 @@ public sealed class DebtPaymentSettingsCard : Border
     private TextBlock Hint(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 12, TextWrapping = TextWrapping.Wrap };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
         return t;
     }
 
     private TextBlock Sub(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 6, 0, 0) };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushText"));
         return t;
     }
 
@@ -118,7 +118,7 @@ public sealed class DebtPaymentSettingsCard : Border
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         var label = new TextBlock { Text = text, FontSize = 13, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
-        label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushText"));
         var check = new CheckBox { Classes = { "ToggleSwitch" }, VerticalAlignment = VerticalAlignment.Center };
         Avalonia.Automation.AutomationProperties.SetName(check, text);
         check.IsCheckedChanged += async (_, _) => await OnToggleAsync(check).ConfigureAwait(true);
@@ -155,7 +155,7 @@ public sealed class DebtPaymentSettingsCard : Border
     private void Status(string text, string brush)
     {
         _status.Text = text;
-        _status.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
+        _status.Bind(TextBlock.ForegroundProperty, _status.GetResourceObservable(brush));
         _status.IsVisible = text.Length > 0;
     }
 

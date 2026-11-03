@@ -29,10 +29,44 @@ void main() {
       _rel('mobile-1.18.15', draft: true, apk: 'nurmarket-mobile-1.18.15.apk'),
       _rel('mobile-1.18.14', apk: 'nurmarket-mobile-1.18.14.apk', body: 'x' * 3000),
       _rel('mobile-1.18.16'), // без APK
-    ]);
+    ], allowPrerelease: true);
     expect(r?.version, '1.18.14');
     expect(r?.notes.length, lessThanOrEqualTo(UpdateRules.maxNotes + 1));
     expect(UpdateRules.pickLatest('мусор'), isNull);
+  });
+
+  test('М3-07: обычному пользователю — только стабильные выпуски; тестовые (prerelease) — режиму тестировщика', () {
+    final list = [
+      _rel('mobile-1.18.16', apk: 'a.apk'), // prerelease
+      _rel('mobile-1.18.15', pre: false, apk: 'b.apk'),
+    ];
+    expect(UpdateRules.pickLatest(list)?.version, '1.18.15');
+    expect(UpdateRules.pickLatest(list, allowPrerelease: true)?.version, '1.18.16');
+    // стабильных выпусков нет — обычному пользователю обновлений нет
+    expect(UpdateRules.pickLatest([_rel('mobile-1.18.16', apk: 'a.apk')]), isNull);
+  });
+
+  test('М3-07: «стоп-кран» — отозванная версия не предлагается (файл blocked-versions.json или пометка в описании)', () {
+    final list = [
+      _rel('mobile-1.18.17', pre: false, apk: 'c.apk'),
+      _rel('mobile-1.18.16', pre: false, apk: 'b.apk'),
+      _rel('mobile-1.18.15', pre: false, apk: 'a.apk', body: 'Старый выпуск'),
+    ];
+    expect(UpdateRules.pickLatest(list, blocked: {'1.18.17'})?.version, '1.18.16');
+    expect(UpdateRules.pickLatest(list, blocked: {'1.18.17', '1.18.16'})?.version, '1.18.15');
+    final withNote = [_rel('mobile-1.18.17', pre: false, apk: 'c.apk', body: 'Ошибка в оплате [ОТОЗВАН]'), _rel('mobile-1.18.16', pre: false, apk: 'b.apk')];
+    expect(UpdateRules.pickLatest(withNote)?.version, '1.18.16');
+    expect(UpdateRules.parseBlocked('{"blocked": ["mobile-1.18.17", "1.18.16", "мусор"]}'), {'1.18.17', '1.18.16'});
+    expect(UpdateRules.parseBlocked('["1.18.15"]'), {'1.18.15'});
+    expect(UpdateRules.parseBlocked('не json'), isEmpty);
+  });
+
+  test('М3-07: ссылка разбирается как Uri — чужой хост, .. в пути и http не проходят', () {
+    final base = 'https://github.com/${UpdateRules.repo}/releases/download/mobile-1.0.0';
+    expect(UpdateRules.trustedApkUrl('$base/a.apk'), isTrue);
+    expect(UpdateRules.trustedApkUrl('https://github.com.evil.example/${UpdateRules.repo}/releases/download/t/a.apk'), isFalse);
+    expect(UpdateRules.trustedApkUrl('https://github.com/${UpdateRules.repo}/releases/download/../../../evil/a.apk'), isFalse);
+    expect(UpdateRules.trustedApkUrl('https://github.com/other/repo/releases/download/t/a.apk'), isFalse);
   });
 
   test('APK только из нашего репозитория', () {

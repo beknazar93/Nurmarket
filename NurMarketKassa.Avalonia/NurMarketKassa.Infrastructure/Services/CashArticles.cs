@@ -546,9 +546,7 @@ public static class CashArticles
     {
         var path = CacheFilePath;
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var tmp = path + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(file, JsonOpts));
-        if (File.Exists(path)) File.Replace(tmp, path, null); else File.Move(tmp, path);
+        AtomicFile.WriteAllText(path, JsonSerializer.Serialize(file, JsonOpts)); // 2026-11-01 (Н2-01)
     }
 
     private static string? Str(JsonElement e, string name) =>

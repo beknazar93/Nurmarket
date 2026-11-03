@@ -21,8 +21,8 @@ public static class DrawerBreakdownBuilder
             var g = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
             var l = new TextBlock { Text = label, FontSize = 12, TextWrapping = TextWrapping.Wrap, FontWeight = bold ? FontWeight.Bold : FontWeight.Normal };
             var r = new TextBlock { Text = $"{sign}{value:N2} {Som}", FontSize = 12, TextAlignment = TextAlignment.Right, FontWeight = bold ? FontWeight.Bold : FontWeight.Normal };
-            l.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable(bold ? "BrushText" : "BrushTextSoft"));
-            r.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable("BrushText"));
+            l.Bind(TextBlock.ForegroundProperty, l.GetResourceObservable(bold ? "BrushText" : "BrushTextSoft"));
+            r.Bind(TextBlock.ForegroundProperty, r.GetResourceObservable("BrushText"));
             Grid.SetColumn(r, 1);
             g.Children.Add(l);
             g.Children.Add(r);

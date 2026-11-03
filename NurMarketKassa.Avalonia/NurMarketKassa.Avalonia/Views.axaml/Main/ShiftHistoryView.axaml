@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:models="using:NurMarketKassa.Models"
+             xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
              xmlns:vm="using:NurMarketKassa.AvaloniaHost.ViewModels"
              x:Class="NurMarketKassa.AvaloniaHost.Views.ShiftHistoryView"
              x:DataType="vm:ShiftHistoryViewModel"
@@ -114,7 +115,7 @@
                               AutoGenerateColumns="False"
                               IsReadOnly="True"
                               GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="#F1F5F9"
+                              HorizontalGridLinesBrush="{DynamicResource BrushBorder}"
                               RowHeight="40">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="{DynamicResource shiftHistoryView.colShiftNumber}" Binding="{ReflectionBinding ShiftNumber}" Width="115"/> <!-- 2026-10-31: «№ Смены» и даты «31.10.2026 08:00» обрезались (стресс-тест 1.17.68) -->
@@ -122,7 +123,7 @@
                             <DataGridTextColumn Header="{DynamicResource shiftDetails.closedLabel}" Binding="{ReflectionBinding ClosedAt, StringFormat=dd.MM.yyyy HH:mm}" Width="150"/>
                             <DataGridTextColumn Header="{DynamicResource common.cashier}" Binding="{ReflectionBinding Cashier}" Width="*"/>
                             <DataGridTextColumn Header="{DynamicResource common.status}" Binding="{ReflectionBinding Status}" Width="110"/>
-                            <DataGridTextColumn Header="{DynamicResource common.revenue}" Binding="{ReflectionBinding Revenue, StringFormat=\{0:N2\} сом}" Width="120"/>
+                            <DataGridTextColumn Header="{DynamicResource common.revenue}" Binding="{ReflectionBinding Revenue, Converter={x:Static conv:CurrencyAmountConverter.Instance}}" Width="120"/>
 
                             <!-- Колонка действий -->
                             <DataGridTemplateColumn Header="" Width="50">

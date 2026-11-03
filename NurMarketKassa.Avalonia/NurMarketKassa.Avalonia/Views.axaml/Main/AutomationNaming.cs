@@ -26,6 +26,37 @@ public static class AutomationNaming
         Control.LoadedEvent.AddClassHandler<Button>((control, _) => Fill(control));
         Control.LoadedEvent.AddClassHandler<TextBox>((control, _) => FillField(control));
         Control.LoadedEvent.AddClassHandler<DataGridCell>((control, _) => FillCell(control));
+        // 2026-11-02 (аудит №2, Д3-02): ни у одной из ~140 таблиц и списков не было имени — диктор читал просто «таблица».
+        Control.LoadedEvent.AddClassHandler<DataGrid>((control, _) => FillTable(control));
+        Control.LoadedEvent.AddClassHandler<ListBox>((control, _) => FillTable(control));
+    }
+
+    /// <summary>2026-11-02 (аудит №2, Д3-02): имя таблицы/списка для диктора, если не задано вручную: ближайшая надпись перед ней (заголовок
+    /// блока), иначе заголовки её первых столбцов («Таблица: Дата, Сумма, Кассир»), иначе название окна. Имя считается один раз при загрузке;
+    /// явное <c>AutomationProperties.Name</c> в XAML главнее.</summary>
+    private static void FillTable(Control table)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(AutomationProperties.GetName(table)) || AutomationProperties.GetAccessibilityView(table) == AccessibilityView.Raw)
+                return;
+            var title = LabelBefore(table);
+            if (string.IsNullOrWhiteSpace(title) && table is DataGrid grid)
+            {
+                var headers = grid.Columns.Select(col => col.Header as string).Where(h => !string.IsNullOrWhiteSpace(h)).Take(3).ToList();
+                if (headers.Count > 0)
+                    title = Tr.T("Таблица", "Таблица", "Table", "Tablo", "Jadval") + ": " + string.Join(", ", headers);
+            }
+
+            if (string.IsNullOrWhiteSpace(title) && TopLevel.GetTopLevel(table) is Window { Title: { Length: > 0 } windowTitle })
+                title = windowTitle;
+            if (!string.IsNullOrWhiteSpace(title))
+                AutomationProperties.SetName(table, title.Length > 120 ? title[..120] : title);
+        }
+        catch
+        {
+            // имя для диктора — необязательная мелочь
+        }
     }
 
     /// <summary>2026-10-27 (Д-10): поле ввода без имени (цена в карточке товара и др.) — подсказка в поле, иначе надпись над ним/слева.</summary>
@@ -35,9 +66,27 @@ public static class AutomationNaming
         {
             if (!string.IsNullOrWhiteSpace(AutomationProperties.GetName(box)) || AutomationProperties.GetAccessibilityView(box) == AccessibilityView.Raw)
                 return;
-            var name = !string.IsNullOrWhiteSpace(box.Watermark) ? box.Watermark
-                : ToolTip.GetTip(box) as string is { Length: > 0 } tip ? tip
-                : LabelBefore(box);
+            // 2026-11-02 (аудит №2, Д3-03): имя поля следует за его подсказкой-водяным знаком или надписью над ним (раньше ставилось один раз:
+            // в окне скидки в режиме «%» поле называлось «Введите сумму скидки», после смены языка — по-старому).
+            if (!string.IsNullOrWhiteSpace(box.Watermark))
+            {
+                box.Bind(AutomationProperties.NameProperty, box.GetObservable(TextBox.WatermarkProperty));
+                return;
+            }
+
+            if (ToolTip.GetTip(box) as string is { Length: > 0 } tip)
+            {
+                AutomationProperties.SetName(box, tip);
+                return;
+            }
+
+            if (LiveLabelBefore(box) is { } live)
+            {
+                box.Bind(AutomationProperties.NameProperty, live.GetObservable(TextBlock.TextProperty));
+                return;
+            }
+
+            var name = LabelBefore(box);
             if (!string.IsNullOrWhiteSpace(name))
                 AutomationProperties.SetName(box, name);
         }
@@ -140,6 +189,37 @@ public static class AutomationNaming
         foreach (var d in control.GetVisualDescendants())
             if (d is TextBlock { Text: { } t } && !string.IsNullOrWhiteSpace(t))
                 return t.Trim();
+        return null;
+    }
+
+    /// <summary>2026-11-02 (Д3-03): та же надпись «перед полем», что и <see cref="LabelBefore"/>, но сам <see cref="TextBlock"/> (не копия текста) —
+    /// чтобы имя поля следовало за ней при смене режима/языка. null — перед полем нет настоящей надписи (только составная).</summary>
+    private static TextBlock? LiveLabelBefore(Control control)
+    {
+        Visual? node = control;
+        for (var hops = 0; hops < 3 && node?.GetVisualParent() is { } parent; hops++)
+        {
+            var before = true;
+            TextBlock? last = null;
+            foreach (var sibling in parent.GetVisualChildren())
+            {
+                if (ReferenceEquals(sibling, node))
+                {
+                    before = false;
+                    break;
+                }
+
+                if (sibling is TextBlock { IsVisible: true } tb && !string.IsNullOrWhiteSpace(tb.Text))
+                    last = tb;
+                else if (sibling is Control)
+                    last = null; // между подписью и полем стоит другой элемент — подпись не его
+            }
+
+            if (!before && last is not null)
+                return last;
+            node = parent;
+        }
+
         return null;
     }
 

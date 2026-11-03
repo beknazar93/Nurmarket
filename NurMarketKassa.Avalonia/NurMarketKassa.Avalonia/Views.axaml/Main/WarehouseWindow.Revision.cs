@@ -1507,7 +1507,17 @@ public partial class WarehouseWindow
             if (AppMode.IsOwner && App.AppHost?.Services.GetService<IInventoryApiService>() is { } invApi)
             {
                 var known = new HashSet<string>(acts.SelectMany(a => a.SessionIds ?? Array.Empty<string>()), StringComparer.OrdinalIgnoreCase);
-                var all = await invApi.ListActsAsync(CancellationToken.None).ConfigureAwait(true);
+                // 2026-11-03 (С-06/С-15, аудит «зависание при медленном сервере»): не дольше 8 с, а таймаут/сбой сервера — не «Произошла ошибка»: показываем местные ревизии.
+                IReadOnlyList<InventoryAct>? all = null;
+                try
+                {
+                    all = await ServerAnswerWait.ForegroundAsync("inventory/acts", t => invApi.ListActsAsync(t)).ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Прошлые ревизии: акты сервера не получены ({ServerOutageMonitor.Describe(ex)}) — только местные.", "WARNING");
+                }
+
                 // Части одной ревизии («… (1/3)», «… (2/3)») — один пункт списка.
                 foreach (var g in (all ?? Array.Empty<InventoryAct>())
                              .Where(a => a.IsApplied && a.Note.TrimStart().StartsWith("Ревизия", StringComparison.OrdinalIgnoreCase) && !known.Contains(a.Id))

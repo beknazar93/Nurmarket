@@ -61,7 +61,7 @@ internal sealed class ProfitPayRuleEditor
     private static TextBlock L(Control host, string text)
     {
         var t = new TextBlock { Text = text, FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0) };
-        t.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable("BrushTextSoft"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
         return t;
     }
 
@@ -160,7 +160,7 @@ public sealed class ProfitPaySchemeDialog : Window
                 "Ustama server xodim sxemasi bo'yicha hisoblaganiga qo'shiladi (maosh, sotuvdan foiz, mahsulot uchun) — shunda «maosh + marja %» va «maosh + sof foyda %» chiqadi."),
             FontSize = 12.5, TextWrapping = TextWrapping.Wrap,
         });
-        ((TextBlock)panel.Children[0]).Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        ((TextBlock)panel.Children[0]).Bind(TextBlock.ForegroundProperty, ((TextBlock)panel.Children[0]).GetResourceObservable("BrushTextSoft"));
         panel.Children.Add(Lbl(Tr.T("По чьим цифрам", "Кимдин сандары боюнча", "Whose figures", "Kimin rakamlarına göre", "Kimning raqamlari bo'yicha")));
         _scope.Items.Add(new ComboBoxItem { Content = Tr.T("По своим продажам (доля сотрудника в продажах)", "Өз сатуулары боюнча (кызматкердин сатуудагы үлүшү)", "By own sales (the employee's share of sales)", "Kendi satışlarına göre (çalışanın satış payı)", "O'z sotuvlari bo'yicha (xodimning sotuvdagi ulushi)"), Tag = ProfitPayScope.Own });
         _scope.Items.Add(new ComboBoxItem { Content = Tr.T("По общему результату магазина (процент от всей прибыли)", "Дүкөндүн жалпы жыйынтыгы боюнча (бүт пайдадан %)", "By the shop's overall result (percentage of all profit)", "Mağazanın genel sonucuna göre (tüm kârdan yüzde)", "Do'konning umumiy natijasi bo'yicha (butun foydadan foiz)"), Tag = ProfitPayScope.Shop });
@@ -168,7 +168,7 @@ public sealed class ProfitPaySchemeDialog : Window
         _scope.SelectionChanged += (_, _) => UpdateScope();
         panel.Children.Add(_scope);
         _poolHint = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false, Text = Tr.T("Правило пула и способ деления (по продажам, по часам, поровну) — в «Настройки магазина» окна «Зарплата от прибыли».", "Пулдун эрежеси жана бөлүү жолу (сатуу, саат, теңдей) — «Зарплата от прибыли» терезесинин «Дүкөн жөндөөлөрүндө».", "The pool rule and how it is split (by sales, hours, equally) are in “Shop settings” of the “Profit-based pay” window.", "Havuz kuralı ve bölüşüm (satış, saat, eşit) «Kârdan maaş» penceresinin «Mağaza ayarları»nda.", "Pul qoidasi va bo'lish usuli (sotuv, soat, teng) — «Foydadan ish haqi» oynasining «Do'kon sozlamalari»da.") };
-        _poolHint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        _poolHint.Bind(TextBlock.ForegroundProperty, _poolHint.GetResourceObservable("BrushTextSoft"));
         panel.Children.Add(_poolHint);
         _ruleHost.Children.Add(_rule.Panel);
         panel.Children.Add(_ruleHost);
@@ -193,7 +193,7 @@ public sealed class ProfitPaySchemeDialog : Window
     private TextBlock Lbl(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 13, Margin = new Thickness(0, 4, 0, 0) };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
         return t;
     }
 
@@ -286,7 +286,7 @@ public sealed class ProfitPayShopDialog : Window
     private TextBlock Head(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 13.5, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 10, 0, 2) };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushText"));
         return t;
     }
 

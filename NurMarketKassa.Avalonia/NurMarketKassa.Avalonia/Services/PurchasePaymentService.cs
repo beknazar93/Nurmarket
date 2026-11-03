@@ -488,9 +488,7 @@ internal static class PurchaseFinishMarks
                     all[jobId] = e = new Entry { At = DateTime.Now };
                 e.Steps[step] = mark;
                 Directory.CreateDirectory(Dir);
-                var tmp = FilePath + ".tmp";
-                File.WriteAllText(tmp, JsonSerializer.Serialize(all));
-                File.Move(tmp, FilePath, overwrite: true);
+                AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(all)); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
             }
             catch (Exception ex)
             {

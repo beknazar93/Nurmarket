@@ -23,21 +23,47 @@ public static class DeferredCartsStore
             NurMarketKassa.Services.AppMode.DataFolderName,
             "deferred_carts.json");
 
+    // 2026-11-02 (аудит №2 кассы, К3-01; приёмка круга 3): «файл занят» ≠ «нет отложенных чеков». Файл не прочитан или записать не вышло — запись откладывается
+    // (AtomicFile.DeferWrite): свежее состояние читается из памяти первым, таймер дописывает его в файл (с объединением по Id), при закрытии — запасной файл *.pending.
+    private static bool _blocked;
+
+    private static string MergeEntries(string? fileText, string memoryText)
+    {
+        List<DeferredCartEntry> Parse(string? text)
+        {
+            try
+            {
+                return text is null ? new() : JsonSerializer.Deserialize<List<DeferredCartEntry>>(text, JsonOpts) ?? new();
+            }
+            catch (JsonException)
+            {
+                return new();
+            }
+        }
+        var memory = Parse(memoryText);
+        foreach (var e in Parse(fileText))
+            if (!memory.Any(x => string.Equals(x.Id, e.Id, StringComparison.Ordinal)))
+                memory.Add(e);
+        return JsonSerializer.Serialize(memory, JsonOpts);
+    }
+
     public static List<DeferredCartEntry> LoadAll()
     {
         FileLock.EnterReadLock();
         try
         {
-            var path = FilePath;
-            if (!File.Exists(path))
-                return new List<DeferredCartEntry>();
-
-            return JsonSerializer.Deserialize<List<DeferredCartEntry>>(File.ReadAllText(path), JsonOpts)
-                   ?? new List<DeferredCartEntry>();
-        }
-        catch
-        {
-            return new List<DeferredCartEntry>();
+            var read = AtomicFile.TryRead(FilePath, attempts: 3, pauseMs: 100);
+            List<DeferredCartEntry> list;
+            try
+            {
+                list = (read.Text is { } text ? JsonSerializer.Deserialize<List<DeferredCartEntry>>(text, JsonOpts) : null) ?? new List<DeferredCartEntry>();
+            }
+            catch (JsonException)
+            {
+                list = new List<DeferredCartEntry>();
+            }
+            _blocked = read.Status == AtomicFile.ReadStatus.Unreadable || read.FromMemory;
+            return list;
         }
         finally
         {
@@ -47,22 +73,28 @@ public static class DeferredCartsStore
 
     public static void SaveAll(List<DeferredCartEntry> items)
     {
+        var json = JsonSerializer.Serialize(items, JsonOpts);
+        if (_blocked)
+        {
+            AtomicFile.DeferWrite(FilePath, "deferred_carts.json", json, MergeEntries);
+            return;
+        }
         var path = FilePath;
         var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
 
-        var json = JsonSerializer.Serialize(items, JsonOpts);
-        var tempPath = path + ".tmp";
-
         FileLock.EnterWriteLock();
         try
         {
-            File.WriteAllText(tempPath, json);
-            if (File.Exists(path))
-                File.Replace(tempPath, path, null);
-            else
-                File.Move(tempPath, path);
+            try
+            {
+                AtomicFile.WriteAllTextWithRetry(path, json); // 2026-11-01 (Н2-01): сброс на диск + .bak
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                AtomicFile.DeferWrite(path, "deferred_carts.json", json, MergeEntries); // 2026-11-02 (К3-01): файл занят при записи — не теряем
+            }
         }
         finally
         {

@@ -28,16 +28,12 @@
       <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
+    <!-- 2026-11-01 (контрольный аудит, Д-04): цвет, рамка, радиус и курсор «главной» — из общего Button.btn-primary (PosDialogStyles); здесь только размеры окна. -->
     <Style Selector="Button.btn-primary">
-      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
-      <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Padding" Value="14,7"/>
       <Setter Property="MinHeight" Value="44"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
-      <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="Border.card">
       <Setter Property="Background" Value="{DynamicResource BrushDialogPanel}"/>
@@ -65,7 +61,7 @@
     <Style Selector="TextBox">
       <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
       <Setter Property="CornerRadius" Value="{DynamicResource SettingsButtonRadius}"/>
       <Setter Property="MinHeight" Value="44"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>

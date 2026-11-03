@@ -83,8 +83,8 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
                 }
                 else
                 {
-                    PrevPageButton.Bind(ContentControl.ContentProperty, this.GetResourceObservable("csh.catalog.prevPage"));
-                    NextPageButton.Bind(ContentControl.ContentProperty, this.GetResourceObservable("csh.catalog.nextPage"));
+                    PrevPageButton.Bind(ContentControl.ContentProperty, PrevPageButton.GetResourceObservable("csh.catalog.prevPage"));
+                    NextPageButton.Bind(ContentControl.ContentProperty, NextPageButton.GetResourceObservable("csh.catalog.nextPage"));
                 }
             };
             // 2026-10-05, «при смене страницы каталога жёстко тормозит»: время показа страницы — в журнал.

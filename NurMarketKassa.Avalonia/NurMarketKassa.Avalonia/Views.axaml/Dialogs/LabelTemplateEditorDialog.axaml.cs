@@ -580,7 +580,7 @@ public partial class LabelTemplateEditorDialog : Window
     {
         // 2026-10-20, этап О9б: подписи панели свойств — цветами темы (чёрный «Шрифт» пропадал в тёмной теме).
         var fontHeader = new TextBlock { Text = Tr.T("Шрифт", "Шрифт", "Font", "Yazı tipi", "Shrift"), FontWeight = FontWeight.SemiBold };
-        fontHeader.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        fontHeader.Bind(TextBlock.ForegroundProperty, fontHeader.GetResourceObservable("BrushText"));
         PropertiesPanel.Children.Add(fontHeader);
 
         var fontCombo = new ComboBox { ItemsSource = AvailableFontFamilies, HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -598,7 +598,7 @@ public partial class LabelTemplateEditorDialog : Window
         PropertiesPanel.Children.Add(fontCombo);
 
         var sizeLabel = new TextBlock { Text = Tr.T("Размер шрифта, px (0 — автоматически)", "Шрифттин өлчөмү, px (0 — автоматтык түрдө)", "Font size, px (0 = automatic)", "Yazı boyutu, px (0 — otomatik)", "Shrift o'lchami, px (0 — avtomatik)"), FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
-        sizeLabel.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        sizeLabel.Bind(TextBlock.ForegroundProperty, sizeLabel.GetResourceObservable("BrushTextSoft"));
         PropertiesPanel.Children.Add(sizeLabel);
 
         var sizeBox = new NumericUpDown

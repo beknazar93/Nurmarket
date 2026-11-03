@@ -466,8 +466,8 @@ public partial class RestockSuggestionsWindow : Window, IOwnerSection
         catch (Exception ex)
         {
             PosLogger.Log($"Restock backfill failed: {ex}", "WARNING");
-            PosDialogs.Error(this, Tr.T($"Не удалось подтянуть историю: {ex.Message}", $"Тарыхты тартуу мүмкүн болгон жок: {ex.Message}",
-                $"Could not load the history: {ex.Message}", $"Geçmiş yüklenemedi: {ex.Message}", $"Tarixni yuklab bo'lmadi: {ex.Message}"),
+            PosDialogs.Error(this, Tr.T($"Не удалось подтянуть историю: {ServerOutageMonitor.FriendlyError(ex)}", $"Тарыхты тартуу мүмкүн болгон жок: {ServerOutageMonitor.FriendlyError(ex)}",
+                $"Could not load the history: {ServerOutageMonitor.FriendlyError(ex)}", $"Geçmiş yüklenemedi: {ServerOutageMonitor.FriendlyError(ex)}", $"Tarixni yuklab bo'lmadi: {ServerOutageMonitor.FriendlyError(ex)}"),
                 Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"));
         }
         finally

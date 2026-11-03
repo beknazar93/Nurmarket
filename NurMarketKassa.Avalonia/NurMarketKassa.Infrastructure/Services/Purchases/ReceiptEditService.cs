@@ -402,7 +402,7 @@ public sealed class ReceiptEditService
                 if (l.Qty is { } q)
                     d["qty"] = F3(q);
                 if (l.PurchasePrice is { } p)
-                    d["purchase_price"] = F3(p);
+                    d["purchase_price"] = p.ToString("0.####", CultureInfo.InvariantCulture); // 2026-11-01: закупка — 4 знака
                 if (l.SalePrice is { } s && patch.SalePriceInLines)
                     d["sale_price"] = F3(s);
             }
@@ -483,7 +483,7 @@ public sealed class ReceiptEditService
         "permission_denied" => Tr.T("У вас нет права править накладные закупок (его выдаёт владелец или администратор). ", "Сизде сатып алуу накладнойлорун оңдоо укугу жок (аны ээси же администратор берет). ", "You have no right to edit purchase invoices (the owner or an administrator grants it). ", "Alım faturalarını düzenleme yetkiniz yok (sahip veya yönetici verir). ", "Xarid yuk xatlarini tahrirlash huquqingiz yo'q (uni egasi yoki administrator beradi). ") + ex.Message,
         "debt_already_paid" => Tr.T("Долг по этому приходу уже оплачен: новая сумма меньше оплаченного. ", "Бул кирүү боюнча карыз төлөнүп калган: жаңы сумма төлөнгөндөн аз. ",
             "The debt for this receipt is already paid: the new total is below the paid amount. ", "Bu girişin borcu zaten ödendi: yeni tutar ödenenin altında. ", "Shu kirim bo'yicha qarz allaqachon to'langan: yangi summa to'langandan kam. ") + ex.Message,
-        _ => Tr.T("Сервер отказал: ", "Сервер баш тартты: ", "The server refused: ", "Sunucu reddetti: ", "Server rad etdi: ") + (ReceivingServerMessages.Humanize(ex.Message) ?? ex.Message),
+        _ => Tr.T("Сервер отказал: ", "Сервер баш тартты: ", "The server refused: ", "Sunucu reddetti: ", "Server rad etdi: ") + (ReceivingServerMessages.Describe(ex)),
     };
 
     /// <summary>2026-10-31 (приёмка 1.17.68, «Важно» 4а): версия «своя» только если попытка не отклонена целиком: done/partial/abandoned (есть проведённый шаг)
@@ -714,7 +714,7 @@ public sealed class ReceiptEditService
                 step.Error = ex.Message;
                 stopError = Tr.T("Не удалось проверить, проведён ли шаг на сервере — повторно не отправляем, чтобы не задвоить. Проверьте связь и нажмите «Довести» ещё раз: ", "Кадам серверде өткөрүлгөнүн текшерүү мүмкүн болгон жок — эки эсе болбош үчүн кайра жөнөтпөйбүз. Байланышты текшерип, «Аягына чыгаруу» басыңыз: ",
                     "Could not check whether the step was already posted — not resending, to avoid a double. Check the connection and press “Finish” again: ", "Adımın sunucuda işlenip işlenmediği kontrol edilemedi — ikilememek için tekrar gönderilmiyor. Bağlantıyı kontrol edip «Tamamla»ya yeniden basın: ",
-                    "Qadam serverda o'tkazilganini tekshirib bo'lmadi — ikkilanmasligi uchun qayta yuborilmaydi. Aloqani tekshirib, «Tugatish»ni yana bosing: ") + (ReceivingServerMessages.Humanize(ex.Message) ?? ex.Message);
+                    "Qadam serverda o'tkazilganini tekshirib bo'lmadi — ikkilanmasligi uchun qayta yuborilmaydi. Aloqani tekshirib, «Tugatish»ni yana bosing: ") + (ReceivingServerMessages.Describe(ex));
             }
             catch (OperationCanceledException)
             {
@@ -736,7 +736,7 @@ public sealed class ReceiptEditService
                 step.Status = PendingIdempotencyKey.IsOutcomeUnknown(ex) ? "unknown" : "failed";
                 stopError = (step.Status == "unknown"
                     ? Tr.T("Ответ сервера не дошёл: ", "Сервердин жообу жеткен жок: ", "No answer arrived: ", "Yanıt gelmedi: ", "Javob kelmadi: ")
-                    : Tr.T("Сервер отказал: ", "Сервер баш тартты: ", "The server refused: ", "Sunucu reddetti: ", "Server rad etdi: ")) + (ReceivingServerMessages.Humanize(ex.Message) ?? ex.Message);
+                    : Tr.T("Сервер отказал: ", "Сервер баш тартты: ", "The server refused: ", "Sunucu reddetti: ", "Server rad etdi: ")) + (ReceivingServerMessages.Describe(ex));
             }
             _store.Mutate(receipt.Id, _ => { });
             if (stopError is not null)
@@ -808,7 +808,7 @@ public sealed class ReceiptEditService
             {
                 ["product_id"] = it.ProductId,
                 ["qty"] = it.Qty.ToString("0.###", CultureInfo.InvariantCulture),
-                ["purchase_price"] = it.Price.ToString("0.###", CultureInfo.InvariantCulture),
+                ["purchase_price"] = it.Price.ToString("0.####", CultureInfo.InvariantCulture),
             };
             if (lineId.Length > 0)
                 item["receipt_item_id"] = lineId;
@@ -909,7 +909,7 @@ public sealed class ReceiptEditService
             {
                 ["product"] = i.ProductId,
                 ["qty"] = Math.Round(i.Qty, 3, MidpointRounding.AwayFromZero),
-                ["purchase_price"] = Math.Round(i.Price, 3, MidpointRounding.AwayFromZero),
+                ["purchase_price"] = Math.Round(i.Price, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero),
             }).ToList(),
             ["payment_type"] = pay == ReceiptPayKind.Cash ? "cash" : "debt",
             // 2026-10-30: пометка «дополнение к ПР-…» в комментарии прихода (сервер поле хранит — см. нумерацию документов закупок).

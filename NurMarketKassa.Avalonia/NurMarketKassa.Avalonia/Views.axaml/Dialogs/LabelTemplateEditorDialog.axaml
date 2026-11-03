@@ -73,21 +73,21 @@
         <Style Selector="NumericUpDown">
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="MinHeight" Value="36"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
         </Style>
         <Style Selector="ComboBox">
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="MinHeight" Value="36"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
         </Style>
         <Style Selector="TextBox">
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="MinHeight" Value="36"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
             <Setter Property="BorderThickness" Value="1.5"/>
             <Setter Property="Background" Value="{DynamicResource BrushInput}"/>
         </Style>

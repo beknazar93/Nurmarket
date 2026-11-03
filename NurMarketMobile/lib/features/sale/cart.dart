@@ -10,12 +10,17 @@ import 'dart:convert';
 double roundMoney(double v) => v.isFinite ? (v * 100 + (v >= 0 ? 1e-7 : -1e-7)).roundToDouble() / 100 : 0;
 
 // 2026-11-01 (М-01, ответ Умара 01.11): сервер складывает строки БЕЗ округления и округляет только итог (ROUND_HALF_UP до 0,01).
-// Расчёт идёт в целых единицах (BigInt — без переполнения): количество ×10^6, цена ×10^8 → сумма строки в 10^-14 сома (1 копейка = 10^12).
-// Входная точность сохраняется (цена упаковки 100/3 = 33,33333333, вес с 6 знаками). Накопления double нет; один раз HALF_UP при показе
-// и отправке. Касса считает так же (делается параллельно).
-const int _qDigits = 6;
-const int _pDigits = 8;
-final BigInt _unitsPerCent = BigInt.from(10).pow(_qDigits + _pDigits - 2); // 10^12
+// Расчёт идёт в целых единицах (BigInt — без переполнения). Точность ровно такая, с какой строки уходят на сервер (SalesRepository.buildBody:
+// количество — `toStringAsFixed(3)`, цена — `toStringAsFixed(2)`): сервер умножает ТО, что получил (контрольный аудит, М2-02). Накопления
+// double нет; один раз HALF_UP при показе и отправке. Касса считает так же (делается параллельно).
+const int _qDigits = 3;
+const int _pDigits = 2;
+
+/// 2026-11-02 (аудит №2, М3-03): запас 10^4 в единицах — процент (две цифры после запятой) делится на 10 000 БЕЗ остатка, поэтому скидка по
+/// акции считается точно и округляется до копейки один раз (раньше округлялась до единицы, потом ещё раз до копейки).
+const int _exactDigits = 4;
+final BigInt _exactFactor = BigInt.from(10).pow(_exactDigits);
+final BigInt _unitsPerCent = BigInt.from(10).pow(_qDigits + _pDigits - 2 + _exactDigits); // 10^7
 
 /// double → целое с [digits] знаками после запятой (через десятичную запись, без ошибки умножения double).
 BigInt _scaled(double v, int digits) {
@@ -25,14 +30,7 @@ BigInt _scaled(double v, int digits) {
 }
 
 /// Сумма строки (количество × цена) в единицах, без округления.
-BigInt lineUnits(double qty, double price) => _scaled(qty, _qDigits) * _scaled(price, _pDigits);
-
-/// 2026-11-01 (живая сверка NBS, чеки 1979/1980): весовая строка округляется ВНИЗ до 0,01 (0,343 кг × 66 = 22,638 → 22,63),
-/// обычная — не округляется. [weight] — строка весового товара (единица кг/г/л/м или флаг товара).
-BigInt lineUnitsFor(double qty, double price, {bool weight = false}) {
-  final u = lineUnits(qty, price);
-  return weight ? (u ~/ _unitsPerCent) * _unitsPerCent : u;
-}
+BigInt lineUnits(double qty, double price) => _scaled(qty, _qDigits) * _scaled(price, _pDigits) * _exactFactor;
 
 /// Деньги (double с копейками) → единицы.
 BigInt moneyUnits(double m) => _scaled(m, 2) * _unitsPerCent;
@@ -45,8 +43,8 @@ double unitsToMoney(BigInt u) {
   return (neg ? -cents : cents) / 100;
 }
 
-/// Доля процента от единиц, HALF_UP до единицы.
-BigInt _percentOf(BigInt units, double percent) => (units * _scaled(percent, 2) + BigInt.from(5000)) ~/ BigInt.from(10000);
+/// Доля процента от единиц — точно (единицы кратны 10^4, см. _exactDigits).
+BigInt _percentOf(BigInt units, double percent) => (units * _scaled(percent, 2)) ~/ BigInt.from(10000); // units кратны 10^4 — деление точное
 
 /// 18.10, денежный баг телефона: «Акции» товара NurCRM (promotion_rules) сервер применяет к строке САМ, а телефон о них не
 /// знал — показывал покупателю, считал сдачу и печатал чек на сумму без скидки. Правила — как у кассы (PromotionRules.LineDiscount,
@@ -99,8 +97,8 @@ class PromoRule {
 }
 
 /// Скидка строки по акции так, как её посчитает сервер (в единицах, без округления строки — М-01).
-BigInt promoDiscountUnits(List<PromoRule> rules, double qty, double price, {bool weight = false}) {
-  final gross = lineUnitsFor(qty, price, weight: weight);
+BigInt promoDiscountUnits(List<PromoRule> rules, double qty, double price) {
+  final gross = lineUnits(qty, price);
   if (gross <= BigInt.zero) return BigInt.zero;
   PromoRule? best;
   for (final r in rules) {
@@ -111,12 +109,12 @@ BigInt promoDiscountUnits(List<PromoRule> rules, double qty, double price, {bool
   final pct = best.percent > 100 ? 100.0 : best.percent;
   final q = best.quantity;
   final discountedQty = q != null && q > 0 && q < qty ? q : qty;
-  final d = _percentOf(lineUnitsFor(discountedQty, price, weight: weight), pct);
+  final d = _percentOf(lineUnits(discountedQty, price), pct);
   return d.isNegative ? BigInt.zero : (d > gross ? gross : d);
 }
 
 /// Порог «от суммы» акции в единицах (без округления до копеек).
-BigInt moneyUnitsExact(double m) => _scaled(m, _qDigits + _pDigits);
+BigInt moneyUnitsExact(double m) => _scaled(m, _qDigits + _pDigits) * _exactFactor;
 
 /// Скидка строки по акции, сомы (HALF_UP до 0,01 — для показа).
 double promoDiscount(List<PromoRule> rules, double qty, double price) => unitsToMoney(promoDiscountUnits(rules, qty, price));
@@ -128,6 +126,12 @@ class CartLine {
   /// Цена строки сейчас: розничная или оптовая (13.10, «Розница / Опт»).
   double price;
   final bool isWeight;
+
+  /// 2026-11-01 (округление весовых): чистый признак `is_weight` товара с сервера (без единицы кг/г); null — неизвестен, тогда как [isWeight].
+  final bool? weightFlag;
+
+  /// Весовая ли строка для ПОДЫТОГА чека (вниз до 0,01 суммой всех весовых строк): по признаку сервера, иначе по [isWeight].
+  bool get weighedForRounding => weightFlag ?? isWeight;
   final String unit;
   final bool custom;
   double qty;
@@ -163,6 +167,7 @@ class CartLine {
     required this.price,
     this.qty = 1,
     this.isWeight = false,
+    this.weightFlag,
     this.unit = 'шт',
     this.custom = false,
     double discount = 0,
@@ -179,6 +184,10 @@ class CartLine {
 
   bool get hasPromo => promo.isNotEmpty;
 
+  /// Ключ слияния строк в одну позицию чека — тот же, что в SalesRepository.buildBody; null — строка не сливается («Доп. услуга»).
+  String? get mergeKey =>
+      custom ? null : '$productId|${price.toStringAsFixed(2)}|${variantId ?? ''}${salePackageId == null ? '' : '|$salePackageId'}';
+
   bool get isPiece => salePackageId != null;
 
   /// Сколько списать с остатка товара (в его единицах): для штуки из упаковки — доля упаковки, для остальных — qty.
@@ -186,12 +195,12 @@ class CartLine {
 
   /// Действующая скидка строки: по акции (как посчитает сервер) или ручная скидка кассира.
   /// 2026-11-01 (контрольное ревью): ручная скидка ограничена суммой строки везде — строка не уходит в минус и не уменьшает другие.
-  double get discount => hasPromo ? unitsToMoney(promoDiscountUnits(promo, qty, price, weight: isWeight)) : (_manualDiscount <= 0 ? 0 : (_manualDiscount > gross ? gross : _manualDiscount));
+  double get discount => hasPromo ? unitsToMoney(promoDiscountUnits(promo, qty, price)) : (_manualDiscount <= 0 ? 0 : (_manualDiscount > gross ? gross : _manualDiscount));
 
   /// 2026-11-01 (М-01): сумма и скидка строки в единицах — для точного итога чека без округления строк.
-  BigInt get grossUnits => lineUnitsFor(qty, price, weight: isWeight);
+  BigInt get grossUnits => lineUnits(qty, price);
   BigInt get discountUnits {
-    if (hasPromo) return promoDiscountUnits(promo, qty, price, weight: isWeight);
+    if (hasPromo) return promoDiscountUnits(promo, qty, price);
     final d = moneyUnits(_manualDiscount < 0 ? 0 : _manualDiscount);
     final g = grossUnits;
     return d > g ? g : d;
@@ -235,18 +244,57 @@ class Cart {
   double get quantity => lines.fold(0, (s, l) => s + (l.isWeight ? 1 : l.qty));
 
   // 2026-11-01 (М-01): суммы — в целых единицах без накопления double и без округления строк; округление HALF_UP — один раз на показ.
-  BigInt get _subtotalUnits => lines.fold(BigInt.zero, (s, l) => s + l.grossUnits);
-  BigInt get _lineDiscountUnits => lines.fold(BigInt.zero, (s, l) => s + l.discountUnits);
+  /// 2026-11-01 (опыты на сервере, чеки 1971–1988): подытог = FLOOR(Σ весовых строк, 0,01) + HALF_UP(Σ остальных строк, 0,01).
+  /// Вниз округляется СУММА весовых строк, а не каждая (4,875 + 22,638 = 27,513 → 27,51). Строки считаются точно, без округления.
+  /// Весовая — `CartLine.weighedForRounding` (чистый is_weight сервера, иначе isWeight). Результат — в единицах, кратных копейке.
+  BigInt get _subtotalUnits {
+    var weighed = BigInt.zero, other = BigInt.zero;
+    for (final l in lines) {
+      if (l.weighedForRounding) {
+        weighed += l.grossUnits;
+      } else {
+        other += l.grossUnits;
+      }
+    }
+    final w = (weighed ~/ _unitsPerCent) * _unitsPerCent;
+    final o = ((other + _unitsPerCent ~/ BigInt.two) ~/ _unitsPerCent) * _unitsPerCent;
+    return w + o;
+  }
+
+  /// 2026-11-01 (контрольный аудит, М2-01): скидки строк считаются по тем же позициям, что уходят на сервер: строки одного товара по одной цене
+  /// (ключ [CartLine.mergeKey]) сервер сливает в одну позицию, поэтому порог и лимит акции берутся от СУММЫ количеств группы.
+  BigInt get _lineDiscountUnits {
+    final groups = <String, List<CartLine>>{};
+    var total = BigInt.zero;
+    for (final l in lines) {
+      final k = l.mergeKey;
+      if (k == null) {
+        total += l.discountUnits; // «Доп. услуга» всегда отдельная позиция
+      } else {
+        (groups[k] ??= []).add(l);
+      }
+    }
+    for (final g in groups.values) {
+      final first = g.first;
+      if (first.hasPromo) {
+        total += promoDiscountUnits(first.promo, g.fold(0.0, (s, l) => s + l.qty), first.price);
+      } else {
+        for (final l in g) {
+          total += l.discountUnits;
+        }
+      }
+    }
+    return total;
+  }
+
+  /// База скидки чека: округлённый подытог минус скидки строк (в копейках) — от неё процент скидки (чек 1986: (22,63 − 0,07) × 15 % = 3,38).
   BigInt get _baseUnits {
-    final b = _subtotalUnits - _lineDiscountUnits;
+    final b = _subtotalUnits - moneyUnits(lineDiscounts);
     return b.isNegative ? BigInt.zero : b;
   }
 
-  /// Подытог, округлённый один раз HALF_UP до 0,01 (в единицах): от него считается процент скидки чека (живая сверка NBS, чек 1977).
-  BigInt get _baseRoundedUnits => moneyUnits(unitsToMoney(_baseUnits));
-
   BigInt get _orderDiscountUnits {
-    final base = _baseRoundedUnits;
+    final base = _baseUnits;
     if (orderDiscountPercent > 0) return _percentOf(base, orderDiscountPercent.clamp(0, 100).toDouble());
     if (orderDiscountSum > 0) {
       final s = moneyUnits(orderDiscountSum);

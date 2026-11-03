@@ -124,7 +124,7 @@ public static class PurchasesRegistry
     public static void Fill(RegistryDoc d, SupplierReceipt r, RegistryContext ctx)
     {
         d.Receipt = r;
-        d.Number = DocumentNumbering.ReceiptText(r.Id);
+        d.Number = DocumentNumbering.ReceiptText(r); // 2026-11-01: number_display сервера, если есть
         d.Warehouse = WarehouseHook?.Invoke(r) ?? "";
         d.Version = VersionHook?.Invoke(r) ?? 0;
         (d.Pay, d.PayKind) = ctx.Pay?.Invoke(r) ?? ("", "");
@@ -163,7 +163,7 @@ public static class PurchasesRegistry
     {
         foreach (var d in docs)
         {
-            d.Number = DocumentNumbering.ReceiptText(d.Id);
+            d.Number = d.Receipt is { } rc ? DocumentNumbering.ReceiptText(rc) : DocumentNumbering.ReceiptText(d.Id);
             d.Key = null;
             foreach (var l in d.Lines)
                 l.Key = null;

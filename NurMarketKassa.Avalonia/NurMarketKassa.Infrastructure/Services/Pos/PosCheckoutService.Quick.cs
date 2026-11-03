@@ -263,7 +263,9 @@ public sealed partial class PosCheckoutService
             {
                 // Нет сети — повтор сейчас не поможет, очередь дошлёт тем же ключом.
                 transient = ex;
-                maybeProcessed = true;
+                // 2026-11-02 (К2-14, аудит №2): отказ соединения ДО отправки (DNS, отказ, сеть/узел недоступны) — запрос на сервер точно не уходил; «оплата могла пройти» тут неправда.
+                if (!DefinitelyNotSent(ex))
+                    maybeProcessed = true;
                 break;
             }
             catch (OperationCanceledException ex)
@@ -344,8 +346,10 @@ public sealed partial class PosCheckoutService
             // 2026-10-29 (аварийный аудит, п. 2): «в долг» и смешанную очередь не принимает, а продажа с этим ключом МОГЛА пройти. Раньше кассира
             // отправляли «взять наличные» (вторая продажа + ложный долг), а ключ жил только в памяти. Теперь ключ и тело — на диск, оплата
             // повторяется только тем же составом и тем же ключом (сервер вернёт прежнюю продажу).
-            if (!IsQueueablePayment(request.PaymentMethod))
+            if (!IsQueueablePayment(request.PaymentMethod) && maybeProcessed)
                 return SaveUnknownQuickCheckout(request, key, fingerprint);
+            // 2026-11-02 (К2-14): «в долг» при отказе соединения (запрос точно не уходил) — сразу офлайн-долг по кэшу клиентов; «смешанная» получит своё понятное «недоступна без связи».
+            var notSentDebt = !IsQueueablePayment(request.PaymentMethod) && !maybeProcessed;
             var reason = throttledOnly
                 ? Tr.T("Сервер был занят (429) — чек отложен в очередь по выбору кассира.", "Сервер бош эмес болчу (429) — чек кассирдин тандоосу боюнча кезекке коюлду.",
                     "The server was busy (429) — the receipt was deferred to the queue at the cashier's choice.", "Sunucu meşguldü (429) — fiş kasiyerin tercihiyle kuyruğa alındı.",
@@ -357,10 +361,10 @@ public sealed partial class PosCheckoutService
                 .ConfigureAwait(false);
             // Долг и смешанную очередь не принимает — ключ остаётся за чеком: повтор оплаты тем же
             // составом вернёт уже проведённую продажу, а не создаст вторую.
-            if (offline.SavedOffline)
+            if (offline.SavedOffline || notSentDebt)
             {
                 ForgetQuickKey();
-                ClearInFlight(key); // 2026-10-29 (В-1): чек в очереди с этим же ключом — очередь сверит исход сама
+                ClearInFlight(key); // 2026-10-29 (В-1): чек в очереди с этим же ключом — очередь сверит исход сама (2026-11-02: или запрос не уходил — сверять нечего)
             }
 
             return offline;
@@ -571,6 +575,18 @@ public sealed partial class PosCheckoutService
         "The payment may have gone through — check “Receipt history”: the till was closed or the payment interrupted while it was being sent. If there is no sale, click “Pay” again with the same details: the till will send it with the same key and will not create a second sale.",
         "Ödeme gerçekleşmiş olabilir — «Fiş geçmişi»ni kontrol edin: gönderim sırasında kasa kapandı veya ödeme kesildi. Satış yoksa «Öde»ye aynı bilgilerle tekrar tıklayın: kasa aynı anahtarla gönderir, ikinci satış oluşturmaz.",
         "To'lov o'tib ketgan bo'lishi mumkin — «Cheklar tarixi»ni tekshiring: yuborish paytida kassa yopildi yoki to'lov to'xtatildi. Sotuv bo'lmasa, «To'lash»ni xuddi shu ma'lumotlar bilan yana bosing: kassa uni oldingi kalit bilan yuboradi, ikkinchi sotuv yaratilmaydi.");
+
+    /// <summary>2026-11-02 (К2-14): запрос ТОЧНО не ушёл — ошибка соединения до отправки (DNS, отказ, сеть/узел недоступны). Сомнение — «исход неизвестен».</summary>
+    private static bool DefinitelyNotSent(Exception ex)
+    {
+        if (ex is not HttpRequestException)
+            return false;
+        for (var e = ex.InnerException; e is not null; e = e.InnerException)
+            if (e is System.Net.Sockets.SocketException { SocketErrorCode: System.Net.Sockets.SocketError.HostNotFound or System.Net.Sockets.SocketError.ConnectionRefused
+                    or System.Net.Sockets.SocketError.NetworkUnreachable or System.Net.Sockets.SocketError.HostUnreachable or System.Net.Sockets.SocketError.TryAgain })
+                return true;
+        return false;
+    }
 
     private PosCheckoutResult SaveUnknownQuickCheckout(PosCheckoutRequest request, string key, string fingerprint)
     {

@@ -225,7 +225,8 @@ class _CheckTile extends StatelessWidget {
     final l = context.l;
     final pal = context.pal;
     final time = r.at == null ? '' : TimeOfDay.fromDateTime(r.at!).format(context);
-    final returned = r.status.contains('return') || r.status == 'canceled';
+    final returned = checkFullyReturned(r.status);
+    final partly = checkPartlyReturned(r.status);
     return Panel(
       onTap: () => context.push('/checks/detail', extra: r),
       child: Row(
@@ -253,6 +254,11 @@ class _CheckTile extends StatelessWidget {
                 Text(
                   l.returned,
                   style: const TextStyle(fontSize: 11.5, color: T.danger, fontWeight: FontWeight.w700),
+                )
+              else if (partly)
+                Text(
+                  l.returnedPartly,
+                  style: const TextStyle(fontSize: 11.5, color: T.warn, fontWeight: FontWeight.w700),
                 ),
             ],
           ),
@@ -260,6 +266,21 @@ class _CheckTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 2026-11-01 (контрольный аудит, М2-03): чек возвращён ЦЕЛИКОМ или отменён. Статус `partially_returned` (частичный возврат) сюда не входит:
+/// остаток вернуть можно — экран возврата сам считает, сколько осталось по каждой строке (`returnable_qty`).
+bool checkFullyReturned(String status, [Map<String, dynamic>? sale]) {
+  final s = status.toLowerCase();
+  if (s == 'canceled' || s == 'cancelled') return true;
+  if (sale != null && '${sale['return_status'] ?? ''}'.toLowerCase() == 'full') return true;
+  return s.contains('return') && !s.contains('partial');
+}
+
+/// Чек возвращён частично (статус `partially_returned` / `partial`).
+bool checkPartlyReturned(String status) {
+  final s = status.toLowerCase();
+  return s.contains('partial');
 }
 
 /// Карточка чека (Т6): состав, итог, отправить покупателю; возврат — с разрешения администратора.
@@ -436,7 +457,7 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
             ],
           ),
           // 13.10: возврат по чеку прямо с телефона (как в кассе): весь чек или выбранные строки.
-          if (!r.pending && _sale != null && !(r.status.contains('return') || r.status == 'canceled')) ...[
+          if (!r.pending && _sale != null && !checkFullyReturned(r.status, _sale)) ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), foregroundColor: T.danger),

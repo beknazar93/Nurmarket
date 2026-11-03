@@ -84,6 +84,7 @@ public static class ShiftHistoryService
                 // GUID) — воспроизведено пользователем в StaffTimesheetWindow (2026-09-05), но
                 // тот же баг был и в уже существующем окне "История смен" (тот же Parse).
                 Cashier = TryString(row, "cashier_display", "cashier", "cashier_name", "user_name", "user_id") ?? "—",
+                CashierId = TryString(row, "cashier", "cashier_id", "user_id") ?? "",
                 Status = isOpen ? "Активна" : "Закрыта",
                 // "sales_total" — та же история, что и с cashier_display: реальное поле выручки
                 // в ответе сервера, подтверждено FinanceWindow.ParseShiftRow (2026-09-05,

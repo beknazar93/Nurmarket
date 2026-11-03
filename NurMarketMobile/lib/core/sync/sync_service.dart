@@ -189,6 +189,12 @@ class SyncService {
     for (final row in await db.pending()) {
       // К-6: чек другого аккаунта (вход сменили) — не отправляем под этим токеном, ждёт входа своим логином.
       if (!OutboxMeta.belongsTo(row, me, legacyOwner: legacy)) continue;
+      // 2026-11-02 (М2-07): замок очереди живёт 3 минуты — продлеваем перед каждой записью
+      try {
+        await db.renewQueueLock(lockOwner);
+      } catch (_) {
+        // продление — страховка
+      }
       try {
         switch (row.kind) {
           case 'sale':

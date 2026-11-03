@@ -32,7 +32,7 @@ internal sealed class ReceiptEditJournalDialog : Window
         _user.ItemsSource = users;
         _user.SelectedIndex = 0;
         _user.SelectionChanged += (_, _) => Render();
-        _count.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        _count.Bind(TextBlock.ForegroundProperty, _count.GetResourceObservable("BrushTextSoft"));
         BuildPeriods();
 
         var periodBox = UiKit.Segment(_periodSeg);
@@ -74,7 +74,7 @@ internal sealed class ReceiptEditJournalDialog : Window
     private TextBlock Line(string text, string brush = "BrushText", double size = 13, FontWeight? w = null)
     {
         var t = new TextBlock { Text = text, FontSize = size, TextWrapping = TextWrapping.Wrap, FontWeight = w ?? FontWeight.Normal };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable(brush));
         return t;
     }
 
@@ -121,7 +121,7 @@ internal sealed class ReceiptEditJournalDialog : Window
                 card.Children.Add(more);
             }
             var box = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Child = card };
-            box.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
+            box.Bind(Border.BackgroundProperty, box.GetResourceObservable("BrushPanelSoft"));
             _list.Children.Add(box);
         }
         if (shown.Count > 300)

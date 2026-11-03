@@ -49,7 +49,7 @@
                      VerticalContentAlignment="Center"
                      Background="{DynamicResource BrushInput}"
                      Foreground="{DynamicResource BrushText}"
-                     BorderBrush="{DynamicResource BrushBorderStrong}"/>
+                     BorderBrush="{DynamicResource BrushInputBorder}"/>
 
             <TextBlock x:Name="ErrorText"
                        Foreground="{DynamicResource BrushDanger}"

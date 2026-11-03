@@ -248,7 +248,7 @@
             <Setter Property="FontSize" Value="12"/>
         </Style>
         <Style Selector="Border.ShiftStatusBadge.Open TextBlock">
-            <Setter Property="Foreground" Value="#8A6D00"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/> <!-- 2026-11-02 (В-22): был зашитый #8A6D00 -->
         </Style>
     </Window.Styles>
 
@@ -488,7 +488,7 @@
                                             <DataGridTextColumn Header="{DynamicResource common.time}" MinWidth="84" Binding="{ReflectionBinding TimeText}" />
                                             <DataGridTextColumn Header="{DynamicResource sales.colReceipt}" Width="*" Binding="{ReflectionBinding ReceiptNumber}">
                                             </DataGridTextColumn>
-                                            <DataGridTextColumn Header="{DynamicResource common.amount}" Width="130" Binding="{ReflectionBinding TotalAmount, StringFormat='{}{0:N2} сом'}">
+                                            <DataGridTextColumn Header="{DynamicResource common.amount}" Width="130" Binding="{ReflectionBinding TotalAmount, Converter={x:Static conv:CurrencyAmountConverter.Instance}}">
                                             </DataGridTextColumn>
                                             <!-- 2026-10-06: 100 → 130 — «Смешанный» обрезался до «Смешанны». -->
                                             <DataGridTextColumn Header="{DynamicResource common.payment}" Width="130" Binding="{ReflectionBinding PaymentMethodDisplay}" />
@@ -628,7 +628,7 @@
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="{DynamicResource common.product}" Width="*" Binding="{ReflectionBinding ProductName}" />
                                                 <!-- 2026-10-19, этап О10: 120 → 160 — «98 000,00 сом» обрезалось. -->
-                                                <DataGridTextColumn Header="{DynamicResource common.revenue}" Width="160" Binding="{ReflectionBinding Revenue, StringFormat='{}{0:N2} сом'}" />
+                                                <DataGridTextColumn Header="{DynamicResource common.revenue}" Width="160" Binding="{ReflectionBinding Revenue, Converter={x:Static conv:CurrencyAmountConverter.Instance}}" />
                                                 <DataGridTextColumn Header="{DynamicResource sales.colQty}" Width="80" Binding="{ReflectionBinding Quantity}" />
                                             </DataGrid.Columns>
                                         </DataGrid>
@@ -689,7 +689,7 @@
                                             <DataGridTextColumn Header="{DynamicResource common.time}" MinWidth="84" Binding="{ReflectionBinding TimeText}" />
                                             <DataGridTextColumn Header="{DynamicResource common.type}" Width="1*" Binding="{ReflectionBinding Type}" />
                                             <DataGridTextColumn Header="{DynamicResource sales.colReceipt}" Width="3*" Binding="{ReflectionBinding ReceiptNumber}" />
-                                            <DataGridTextColumn Header="{DynamicResource common.amount}" MinWidth="110" Binding="{ReflectionBinding TotalAmount, StringFormat='{}{0:N2} сом'}" />
+                                            <DataGridTextColumn Header="{DynamicResource common.amount}" MinWidth="110" Binding="{ReflectionBinding TotalAmount, Converter={x:Static conv:CurrencyAmountConverter.Instance}}" />
                                             <DataGridTextColumn Header="{DynamicResource common.payment}" MinWidth="90" Binding="{ReflectionBinding PaymentMethodDisplay}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
@@ -856,7 +856,7 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="{DynamicResource common.product}" Width="3*" Binding="{ReflectionBinding ProductName}"/>
                                     <DataGridTextColumn Header="{DynamicResource sales.colQty}" Width="1*" Binding="{ReflectionBinding Quantity}"/>
-                                    <DataGridTextColumn Header="{DynamicResource common.revenue}" Width="1*" Binding="{ReflectionBinding Revenue, StringFormat='{}{0:N2} сом'}"/>
+                                    <DataGridTextColumn Header="{DynamicResource common.revenue}" Width="1*" Binding="{ReflectionBinding Revenue, Converter={x:Static conv:CurrencyAmountConverter.Instance}}"/>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </StackPanel>

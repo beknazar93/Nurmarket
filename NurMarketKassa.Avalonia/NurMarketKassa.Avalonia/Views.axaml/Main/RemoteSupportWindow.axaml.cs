@@ -75,7 +75,7 @@ public partial class RemoteSupportWindow : Window, IOwnerSection
             ContentScroll = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
             Content = RootGrid,
         };
-        _shell.Bind(Dialogs.ModalShell.TitleProperty, this.GetResourceObservable("csh.menu.remoteSupport"));
+        _shell.Bind(Dialogs.ModalShell.TitleProperty, _shell.GetResourceObservable("csh.menu.remoteSupport"));
         if (primaryCopy)
             _shell.Footer = SectionCards.Buttons(CloseButton, CopyDeviceInfoButton);
         else

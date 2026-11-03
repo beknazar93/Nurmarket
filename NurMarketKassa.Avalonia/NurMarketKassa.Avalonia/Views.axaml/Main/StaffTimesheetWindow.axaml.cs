@@ -14,7 +14,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// правил начисления, которых пока никто не задавал). Чистый отчёт поверх уже существующих
 /// данных о сменах (ShiftHistoryService — тот же источник, что и "История смен") — ничего
 /// нового не хранится.</summary>
-public partial class StaffTimesheetWindow : Window
+public partial class StaffTimesheetWindow : Window, IOwnerSectionExcel
 {
     private ObservableCollection<TimesheetRowVm> _rows = new();
 
@@ -75,6 +75,14 @@ public partial class StaffTimesheetWindow : Window
                     "Tanlangan davr uchun yopilgan smenalar yo'q.")
                 : Tr.T($"Кассиров: {rows.Count}.", $"Кассирлер: {rows.Count}.", $"Cashiers: {rows.Count}.",
                     $"Kasiyer sayısı: {rows.Count}.", $"Kassirlar: {rows.Count}.");
+            // 2026-11-02 (аудит №2, В-13): смены длиннее 16 ч — вероятно, забыли закрыть; часы по ним недостоверны.
+            var longShifts = rows.Sum(r => r.LongShiftCount);
+            if (longShifts > 0)
+                StatusText.Text += " " + Tr.T($"Проверьте: смен длиннее 16 ч — {longShifts} (возможно, смену забыли закрыть, часы завышены).",
+                    $"Текшериңиз: 16 сааттан узун смена — {longShifts} (смена жабылбай калган болушу мүмкүн, саат көбөйтүлгөн).",
+                    $"Check: shifts longer than 16 h — {longShifts} (a shift may have been left open, hours are overstated).",
+                    $"Kontrol edin: 16 saatten uzun vardiya — {longShifts} (vardiya açık unutulmuş olabilir, saatler fazla).",
+                    $"Tekshiring: 16 soatdan uzun smena — {longShifts} (smena yopilmay qolgan bo'lishi mumkin, soatlar oshirilgan).");
         }
         catch (Exception ex)
         {
@@ -82,6 +90,24 @@ public partial class StaffTimesheetWindow : Window
             StatusText.Text = Tr.T("Не удалось загрузить данные.", "Маалыматтарды жүктөө мүмкүн болгон жок.",
                 "Could not load the data.", "Veriler yüklenemedi.", "Ma'lumotlarni yuklab bo'lmadi.");
         }
+    }
+
+    /// <summary>2026-11-02 (аудит №2, В-07): табель для Excel — строки таблицы на экране.</summary>
+    public SectionTable? BuildExportTable()
+    {
+        if (_rows.Count == 0)
+            return null;
+        var rows = _rows.Select(r => new object?[] { r.Cashier, r.ShiftCountText, r.DaysWorkedText, r.TotalWorkedText, r.AverageShiftText, r.TotalRevenueText, r.PeriodText }).ToList();
+        return new SectionTable(Tr.T("Табель", "Табель", "Timesheet", "Çizelge", "Tabel"), DateTime.Today.ToString("dd.MM.yyyy"),
+        [
+            new XlColumn(Tr.T("Кассир", "Кассир", "Cashier", "Kasiyer", "Kassir")),
+            new XlColumn(Tr.T("Смен", "Смена", "Shifts", "Vardiya", "Smena")),
+            new XlColumn(Tr.T("Дней", "Күн", "Days", "Gün", "Kun")),
+            new XlColumn(Tr.T("Отработано", "Иштеген", "Worked", "Çalışılan", "Ishlagan")),
+            new XlColumn(Tr.T("Средняя смена", "Орточо смена", "Average shift", "Ortalama vardiya", "O'rtacha smena")),
+            new XlColumn(Tr.T("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum")),
+            new XlColumn(Tr.T("Период", "Мезгил", "Period", "Dönem", "Davr")),
+        ], rows);
     }
 
     private void Close_Click(object? sender, RoutedEventArgs e) => Close();

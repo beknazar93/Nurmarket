@@ -366,6 +366,23 @@ public sealed class LocalProductRepository
             // Колонка уже существует.
         }
 
+        try
+        {
+            // 2026-11-01 (владелец «10 из 10», is_weight): признак товара is_weight с сервера — сервер округляет сумму ТАКИХ строк вниз, а единица «кг» (must_weigh)
+            // этого не определяет. Только добавление колонки (NULL = неизвестно → прежняя эвристика); идемпотентно. Версия каталога сбрасывается, чтобы ближайшая
+            // (полная) синхронизация записала признак.
+            using var alterIsWeight = connection.CreateCommand();
+            alterIsWeight.CommandText = "ALTER TABLE Products ADD COLUMN IsWeight INTEGER NULL;";
+            alterIsWeight.ExecuteNonQuery();
+            using var resetVersionIsWeight = connection.CreateCommand();
+            resetVersionIsWeight.CommandText = "DELETE FROM catalog_meta WHERE key = 'catalog_version';";
+            resetVersionIsWeight.ExecuteNonQuery();
+        }
+        catch (SqliteException)
+        {
+            // Колонка уже существует.
+        }
+
         MigrateLegacyDataIfNeeded(connection);
     }
 
@@ -478,7 +495,7 @@ public sealed class LocalProductRepository
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
                    is_bundle, article, bundle_items_json, alternate_barcodes,
-                   alternate_barcode_variants, product_code, kind, description, wholesale_price
+                   alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight
             FROM Products WHERE {column} = $value{(ignoreCase ? " COLLATE NOCASE" : "")} LIMIT 1;
             """;
         var parameter = command.CreateParameter();
@@ -534,7 +551,7 @@ public sealed class LocalProductRepository
                 SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                        image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
                        is_bundle, article, bundle_items_json, alternate_barcodes,
-                       alternate_barcode_variants, product_code, kind, description, wholesale_price
+                       alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight
                 FROM Products WHERE is_favorite = 1 ORDER BY name COLLATE NOCASE LIMIT $limit;
                 """;
             var parameter = command.CreateParameter();
@@ -799,7 +816,7 @@ public sealed class LocalProductRepository
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
                    is_bundle, article, bundle_items_json, alternate_barcodes,
-                   alternate_barcode_variants, product_code, kind, description, wholesale_price
+                   alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight
             FROM Products WHERE id = $value LIMIT 1;
             """;
         var parameter = command.CreateParameter();
@@ -963,7 +980,7 @@ public sealed class LocalProductRepository
             if (!_skuCache.TryGetValue(id, out var tile))
                 return;
 
-            StockSyncService.ApplyQuantityToTile(tile, stock, mustWeigh);
+            StockSyncService.ApplyQuantityToTile(tile, stock, mustWeigh || tile.MustWeigh); // 2026-11-01 (Б-2)
             var index = _searchRows.FindIndex(r => string.Equals(r.Tile.Id, id, StringComparison.OrdinalIgnoreCase));
             if (index >= 0)
                 _searchRows[index] = CachedProductRow.From(tile);
@@ -1153,10 +1170,11 @@ public sealed class LocalProductRepository
                 -- ProductUnitNormalizer.StorageUnit).
                 unit = CASE
                     WHEN @must_weigh = 1 THEN @unit
+                    WHEN must_weigh = 1 THEN unit -- 2026-11-01 (Б-2): весовой товар не превращаем в штучный правкой остатка
                     WHEN unit IS NULL OR TRIM(unit) = '' OR LOWER(TRIM(unit)) IN ('кг', 'kg') THEN @unit
                     ELSE unit
                 END,
-                must_weigh = @must_weigh,
+                must_weigh = CASE WHEN @must_weigh = 1 THEN 1 ELSE must_weigh END, -- 2026-11-01 (Б-2): остаток не снимает признак «весовой» (его меняют только лента с полной карточкой и полная загрузка)
                 intake_date = CASE WHEN intake_date IS NULL AND @stock > 0 THEN @today ELSE intake_date END
             WHERE id = @id;
             """;
@@ -1460,7 +1478,8 @@ public sealed class LocalProductRepository
             r.ProductCode ?? "",
             r.Kind ?? "",
             r.Description ?? "",
-            r.WholesalePrice.ToString("0.####", CultureInfo.InvariantCulture));
+            r.WholesalePrice.ToString("0.####", CultureInfo.InvariantCulture),
+            r.ServerIsWeight is { } w ? (w ? "1" : "0") : "");
 
     public int CountProducts()
     {
@@ -1758,7 +1777,7 @@ public sealed class LocalProductRepository
         command.CommandText = """
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group, is_bundle, article,
-                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code, kind, description, wholesale_price
+                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight
             FROM Products
             ORDER BY name COLLATE NOCASE;
             """;
@@ -1790,7 +1809,8 @@ public sealed class LocalProductRepository
                 ProductCode = reader.IsDBNull(20) ? null : reader.GetString(20),
                 Kind = reader.IsDBNull(21) ? null : reader.GetString(21),
                 Description = reader.IsDBNull(22) ? null : reader.GetString(22),
-                WholesalePrice = reader.IsDBNull(23) ? 0 : reader.GetDouble(23)
+                WholesalePrice = reader.IsDBNull(23) ? 0 : reader.GetDouble(23),
+                ServerIsWeight = reader.FieldCount > 24 && !reader.IsDBNull(24) ? reader.GetInt64(24) == 1 : null
             });
         }
 
@@ -1812,12 +1832,12 @@ public sealed class LocalProductRepository
                 id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                 image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group, is_bundle, article,
                 bundle_items_json, alternate_barcodes, alternate_barcode_variants,
-                intake_date, product_code, kind, description, wholesale_price
+                intake_date, product_code, kind, description, wholesale_price, IsWeight
             ) VALUES (
                 @id, @name, @price, @barcode, @stock, @unit, @is_favorite, @must_weigh,
                 @image_url, @category, @brand, @purchase_price, @piece_option_json, @plu, @hotkey_group, @is_bundle, @article,
                 @bundle_items_json, @alternate_barcodes, @alternate_barcode_variants,
-                @intake_date, @product_code, @kind, @description, @wholesale_price
+                @intake_date, @product_code, @kind, @description, @wholesale_price, @IsWeight
             )
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
@@ -1843,6 +1863,8 @@ public sealed class LocalProductRepository
                 kind = excluded.kind,
                 description = excluded.description,
                 wholesale_price = excluded.wholesale_price,
+                -- 2026-11-01 (is_weight): запись без признака (лента/остаток) прежнее значение не затирает
+                IsWeight = COALESCE(excluded.IsWeight, Products.IsWeight),
                 intake_date = CASE
                     WHEN Products.intake_date IS NULL AND excluded.stock > 0 THEN @today
                     ELSE Products.intake_date
@@ -1872,6 +1894,7 @@ public sealed class LocalProductRepository
         command.Parameters.AddWithValue("@kind", DBNull.Value);
         command.Parameters.AddWithValue("@description", DBNull.Value);
         command.Parameters.AddWithValue("@wholesale_price", 0d);
+        command.Parameters.AddWithValue("@IsWeight", DBNull.Value);
         command.Parameters.AddWithValue("@intake_date", DBNull.Value);
         command.Parameters.AddWithValue("@today", DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         return command;
@@ -1903,6 +1926,7 @@ public sealed class LocalProductRepository
         command.Parameters["@kind"].Value = (object?)record.Kind ?? DBNull.Value;
         command.Parameters["@description"].Value = string.IsNullOrWhiteSpace(record.Description) ? DBNull.Value : record.Description;
         command.Parameters["@wholesale_price"].Value = record.WholesalePrice;
+        command.Parameters["@IsWeight"].Value = record.ServerIsWeight is { } serverWeight ? (serverWeight ? 1 : 0) : DBNull.Value;
         // Только для ветки INSERT (совсем новый товар) — для уже существующих строк
         // реальное решение принимает CASE в ON CONFLICT DO UPDATE (см. CreateUpsertCommand).
         command.Parameters["@intake_date"].Value = record.Stock > 0
@@ -1941,6 +1965,7 @@ public sealed class LocalProductRepository
             Kind = reader.FieldCount > 21 && !reader.IsDBNull(21) ? reader.GetString(21) : null,
             Description = reader.FieldCount > 22 && !reader.IsDBNull(22) ? reader.GetString(22) : null,
             WholesalePrice = reader.FieldCount > 23 && !reader.IsDBNull(23) ? reader.GetDouble(23) : 0,
+            ServerIsWeight = reader.FieldCount > 24 && !reader.IsDBNull(24) ? reader.GetInt64(24) == 1 : null,
         };
 
     private static Product ToProduct(LocalProductRecord record) =>
@@ -1973,6 +1998,7 @@ public sealed class LocalProductRepository
             IsFavorite = record.IsFavorite,
             PurchasePrice = record.PurchasePrice,
             WholesalePrice = record.WholesalePrice,
+            ServerIsWeight = record.ServerIsWeight,
             PieceOption = DeserializePieceOption(record.PieceOptionJson),
             Plu = record.Plu,
             HotkeyGroup = record.HotkeyGroup,
@@ -2049,6 +2075,7 @@ public sealed class LocalProductRepository
             Brand = vm.Brand,
             PurchasePrice = vm.PurchasePrice,
             WholesalePrice = vm.WholesalePrice,
+            ServerIsWeight = vm.ServerIsWeight,
             PieceOptionJson = vm.PieceOption is null ? null : JsonSerializer.Serialize(vm.PieceOption),
             Plu = vm.Plu,
             HotkeyGroup = vm.HotkeyGroup,

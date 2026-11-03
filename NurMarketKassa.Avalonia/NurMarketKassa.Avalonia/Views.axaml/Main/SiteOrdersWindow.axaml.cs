@@ -31,7 +31,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// хранит сервер NurCRM (api/main/orders, на сайте — «Закупки»): фильтр по статусу, карточка с
 /// товарами и смена статуса «Новый → В процессе → Завершён». Список обновляется сам каждые 30 с,
 /// пока окно на экране, и не спрашивает сервер, пока тот просит паузу (429, <see cref="ApiThrottle"/>).</summary>
-public partial class SiteOrdersWindow : Window, IOwnerSection
+public partial class SiteOrdersWindow : Window, IOwnerSection, IOwnerSectionExcel
 {
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan SettingsInterval = TimeSpan.FromMinutes(5);
@@ -75,7 +75,8 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         _timer.Tick += async (_, _) =>
         {
             // Спрятанный раздел программы владельца не опрашивает сервер — обновится при показе.
-            if (IsVisible)
+            // 2026-11-01 (Н2-03): и свёрнутое окно не опрашивает сервер и не перерисовывает список.
+            if (IsVisible && WindowState != WindowState.Minimized)
                 await ReloadAsync(manual: false).ConfigureAwait(true);
         };
         PropertyChanged += (_, e) =>
@@ -503,14 +504,27 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         var other => other,
     };
 
+    /// <summary>2026-11-01 (Н2-03): отпечаток нарисованного списка заказов (см. RenderList).</summary>
+    private string? _listSig;
+
     private void RenderList()
     {
         // 2026-10-20: выбор с клавиатуры — после перестройки списка фокус остаётся на выбранной строке.
         var hadFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is Visual focused && OrdersList.IsVisualAncestorOf(focused);
-        OrdersList.Children.Clear();
         var shown = Filtered().ToList();
-        foreach (var order in shown)
-            OrdersList.Children.Add(BuildRow(order));
+        // 2026-11-01 (Н2-03): список пересобирается, только если изменилось то, что на нём нарисовано (заказ, статус, сумма, чип «Откуда»,
+        // «Только что», выбор, язык, день) — раньше каждые 30 с заново, даже при тех же данных.
+        var sig = string.Join("|", shown.Select(o => $"{o.Id}/{o.Status}/{o.IsNew}/{o.Total}/{o.Items.Count}/{o.CustomerName}/{o.Phone}/{NumberText(o)}/{OriginChipText(o)}/{_arrivedIds.Contains(o.Id)}"))
+            + $"#{_selectedId}#{OriginPanel.IsVisible}#{DateTime.Today.DayOfYear}#{Tr.T("r", "k", "e", "t", "u")}";
+        if (sig != _listSig || OrdersList.Children.Count != shown.Count)
+        {
+            _listSig = sig;
+            OrdersList.Children.Clear();
+            foreach (var order in shown)
+                OrdersList.Children.Add(BuildRow(order));
+        }
+        else
+            hadFocus = false;
         if (hadFocus && OrdersList.Children.OfType<Button>().FirstOrDefault(b => b.Tag is string id && string.Equals(id, _selectedId, StringComparison.OrdinalIgnoreCase)) is { } again)
             Dispatcher.UIThread.Post(() => again.Focus(NavigationMethod.Tab), DispatcherPriority.Background);
 
@@ -603,6 +617,28 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         Avalonia.Automation.AutomationProperties.SetName(rowButton, string.Join(", ", new[] { NumberText(order), StatusLabel(order.Status), who, meta }.Where(s => !string.IsNullOrWhiteSpace(s))));
         rowButton.Click += (_, _) => Select(order.Id);
         return rowButton;
+    }
+
+    /// <summary>2026-11-02 (аудит №2, В-07): заказы с сайта для Excel (все загруженные, без фильтра статуса).</summary>
+    public SectionTable? BuildExportTable()
+    {
+        if (_orders.Count == 0)
+            return null;
+        var rows = _orders.OrderByDescending(o => o.CreatedAt).Select(o => new object?[]
+        {
+            NumberText(o), o.CreatedAt?.LocalDateTime, o.CustomerName, o.Phone, StatusLabel(o.Status), OriginChipText(o), o.Items.Count, o.Total,
+        }).ToList();
+        return new SectionTable(Tr.T("Заказы с сайта", "Сайттан заказдар", "Website orders", "Web sitesi siparişleri", "Saytdan buyurtmalar"), DateTime.Today.ToString("dd.MM.yyyy"),
+        [
+            new XlColumn("№"),
+            new XlColumn(Tr.T("Дата", "Күнү", "Date", "Tarih", "Sana"), XlKind.DateTime),
+            new XlColumn(Tr.T("Клиент", "Кардар", "Customer", "Müşteri", "Mijoz")),
+            new XlColumn(Tr.T("Телефон", "Телефон", "Phone", "Telefon", "Telefon"), XlKind.Code),
+            new XlColumn(Tr.T("Статус", "Статусу", "Status", "Durum", "Holati")),
+            new XlColumn(Tr.T("Откуда", "Кайдан", "Source", "Kaynak", "Qayerdan")),
+            new XlColumn(Tr.T("Позиций", "Позиция", "Items", "Kalem", "Pozitsiya"), XlKind.Integer),
+            new XlColumn(Tr.T("Сумма, сом", "Сумма, сом", "Total, som", "Toplam, som", "Summa, so'm"), XlKind.Money, XlTotal.Sum),
+        ], rows);
     }
 
     private void Select(string id)
@@ -1258,6 +1294,11 @@ public partial class SiteOrdersWindow : Window, IOwnerSection
         Math.Abs(value - Math.Round(value)) < 0.0005 ? value.ToString("N0", Ru) : value.ToString("0.###", Ru);
 
     /// <summary>Цвет из темы с подпиской — перекрашивается при смене светлой/тёмной темы.</summary>
-    private void UseBrush(AvaloniaObject target, AvaloniaProperty property, string resourceKey) =>
-        target.Bind(property, this.GetResourceObservable(resourceKey));
+    /// <remarks>2026-11-01 (Н2-03, как Н-01 в «Сводке»): подписка — от самого элемента, а не от долгоживущего окна. Раньше окно держало
+    /// ссылку на каждую строку списка, пересобираемого каждые 30 с, и пересобранные элементы не освобождались до закрытия окна.</remarks>
+    private void UseBrush(AvaloniaObject target, AvaloniaProperty property, string resourceKey)
+    {
+        StyledElement host = target is Control own ? own : this;
+        target.Bind(property, host.GetResourceObservable(resourceKey));
+    }
 }

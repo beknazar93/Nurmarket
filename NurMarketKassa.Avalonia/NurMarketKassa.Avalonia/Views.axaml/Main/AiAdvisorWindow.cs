@@ -1826,7 +1826,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     {
         if (WhatsAppDigits(d.Phone) is not { } digits)
             return;
-        var money = d.Amount.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) + " сом";
+        var money = d.Amount.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) + " " + NurMarketKassa.Services.MoneyText.Currency; // 2026-11-01 (Д2-04): валюта на языке интерфейса, не зашитое «сом»
         var text = T($"Здравствуйте, {d.Name}! Напоминаем о долге в нашем магазине: {money}. Пожалуйста, верните долг. Спасибо!",
             $"Саламатсызбы, {d.Name}! Дүкөнүбүздөгү карызыңызды эскертебиз: {money}. Карызды кайтарып бериңиз. Рахмат!",
             $"Hello, {d.Name}! A reminder about your debt at our shop: {money}. Please pay it back. Thank you!",
@@ -1887,7 +1887,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
             var name = new TextBlock { Text = d.Name + (d.Phone is { Length: > 0 } p ? $" · {p}" : ""), FontSize = 13.5, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
             Use(name, TextBlock.ForegroundProperty, "BrushText");
-            var sum = new TextBlock { Text = d.Amount.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) + " сом", FontSize = 13.5, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
+            var sum = new TextBlock { Text = d.Amount.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) + " " + NurMarketKassa.Services.MoneyText.Currency, FontSize = 13.5, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
             Use(sum, TextBlock.ForegroundProperty, "BrushDanger");
             sum.Margin = new Thickness(10, 0, 10, 0);
             Grid.SetColumn(sum, 1);
@@ -5231,7 +5231,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         Dispatcher.UIThread.Post(() => _scroll.ScrollToEnd(), DispatcherPriority.Background);
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 
     /// <summary>2026-10-21: пункт меню ⚙, который экранный диктор и UIA-автоматизация могут «нажать» (Invoke) — у MenuItem в
     /// Avalonia 11.2 этого нет (пакет 7, хвост Советника). Вид — обычного MenuItem.</summary>

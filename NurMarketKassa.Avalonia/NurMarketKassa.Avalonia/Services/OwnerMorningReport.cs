@@ -1003,9 +1003,7 @@ public static class OwnerMorningReport
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(StatePath)!);
-            var tmp = StatePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(State, new JsonSerializerOptions { WriteIndented = true }));
-            File.Move(tmp, StatePath, overwrite: true);
+            AtomicFile.WriteAllText(StatePath, JsonSerializer.Serialize(State, new JsonSerializerOptions { WriteIndented = true })); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
         }
         catch (Exception ex)
         {

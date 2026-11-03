@@ -297,6 +297,83 @@ public static class ServerOutageMonitor
             SafeInvoke(() => Recovered?.Invoke(), "Recovered");
     }
 
+    // ── 2026-11-03 (С-02, аудит «зависание при медленном сервере»): «Сервер медлит» — НЕ новое состояние связи ──────────────────────────────────
+    // Сервер отвечает, но долго (5–55 с): аварию не объявляем (иначе оплаты уйдут в очередь при живом сервере), только журнал и значок в шапке.
+    private static bool _slow;
+    private static int _fastAnswers;
+    private static DateTime _lastSlowLogUtc;
+    private static DateTime _slowSinceUtc;
+
+    /// <summary>Сервер сейчас «медлит» (ответ дольше срока переднего плана). Снимается после <see cref="FastAnswersToClearSlow"/> быстрых ответов подряд.</summary>
+    public static bool IsSlow
+    {
+        get { lock (Sync) return _slow; }
+    }
+
+    /// <summary>Сколько быстрых (&lt; 2 с) ответов подряд снимают «Сервер медлит».</summary>
+    public const int FastAnswersToClearSlow = 3;
+
+    /// <summary>Сервер медлит — значок шапки меняется ("Сервер медлит"), событие <see cref="SlowChanged"/>.</summary>
+    public static event Action<bool>? SlowChanged;
+
+    /// <summary>Передний план не дождался ответа за срок <see cref="ServerAnswerWait.ForegroundBudget"/> (или ответ пришёл дольше 5 с).
+    /// Журнал «OUTAGE SLOW» — не чаще раза в 30 с. Аварию НЕ объявляет.</summary>
+    public static void ReportSlow(string context)
+    {
+        bool raise;
+        bool log;
+        lock (Sync)
+        {
+            _fastAnswers = 0;
+            raise = !_slow;
+            if (raise)
+            {
+                _slow = true;
+                _slowSinceUtc = DateTime.UtcNow;
+            }
+
+            log = DateTime.UtcNow - _lastSlowLogUtc >= TimeSpan.FromSeconds(30);
+            if (log)
+                _lastSlowLogUtc = DateTime.UtcNow;
+        }
+
+        if (log)
+            PosLogger.Log($"Сервер NurCRM медлит ({context}): ответа нет дольше {ServerAnswerWait.ForegroundBudget.TotalSeconds:0} с — аварии нет, касса ждёт.", "OUTAGE SLOW");
+        if (raise)
+            SafeInvoke(() => SlowChanged?.Invoke(true), "SlowChanged");
+    }
+
+    /// <summary>Время, за которое пришёл ответ на запрос (вызывает общий обработчик запросов): быстрые ответы подряд снимают «медлит».</summary>
+    internal static void NoteResponseTime(TimeSpan elapsed)
+    {
+        bool clear = false;
+        lock (Sync)
+        {
+            if (!_slow)
+                return;
+            if (elapsed < TimeSpan.FromSeconds(2))
+            {
+                if (++_fastAnswers >= FastAnswersToClearSlow)
+                {
+                    _slow = false;
+                    _fastAnswers = 0;
+                    clear = true;
+                }
+            }
+            else
+                _fastAnswers = 0;
+        }
+
+        if (clear)
+        {
+            PosLogger.Log("Сервер NurCRM снова отвечает быстро.", "OUTAGE SLOW");
+            SafeInvoke(() => SlowChanged?.Invoke(false), "SlowChanged");
+        }
+    }
+
+    /// <summary>Нейтральная надпись для шапки: «Сервер медлит».</summary>
+    public static string SlowHeaderText => Tr.T("Сервер медлит", "Сервер жай иштеп жатат", "Server is slow", "Sunucu yavaş", "Server sekin");
+
     /// <summary>Итог проверки связи (опрос шапки, SyncService): false — считается сбоем.
     /// Успех этой проверки успехом НЕ считается: она смотрит корень сайта, а его веб-сервер отдаёт
     /// и тогда, когда сам API лежит (бэк упал, страница сайта жива). «Сервер отвечает» — только
@@ -341,10 +418,23 @@ public static class ServerOutageMonitor
     /// отказ сервера 4xx — его текст (он по-русски и по делу); прочее — общая фраза (подробности остаются в журнале).</summary>
     public static string FriendlyError(Exception? ex, bool showServerText = false)
     {
-        if (ex is null || IsServerFailure(ex) || ex is HttpRequestException || ex is TimeoutException || ex is System.Net.Sockets.SocketException
-            || (ex is ApiException { StatusCode: null }))
+        // 2026-11-03 (С-01/С-15): сервер не ответил за срок переднего плана — «отвечает медленно» (а не «недоступен»), совет — повторить позже.
+        if (ex is ServerNotAnsweringException { Throttled: false })
+            return ServerAnswerWait.SlowMessage;
+        if (ex is ServerNotAnsweringException)
+            return ServerAnswerWait.ThrottledMessage;
+        if (ex is null || IsNetworkOrServer(ex))
             return UnavailableText + ". " + Tr.T("Проверьте интернет и нажмите «Обновить».", "Интернетти текшериңиз да «Жаңыртуу» басыңыз.",
                 "Check the internet and press “Refresh”.", "İnterneti kontrol edip «Yenile»ye basın.", "Internetni tekshirib, «Yangilash»ni bosing.");
+        // 2026-11-02 (аудит №2, В3-03): застрявший принтер, диск и отмена операции — не «сервер недоступен».
+        if (ex is OperationCanceledException)
+            return Tr.T("Операция прервана.", "Операция токтотулду.", "The operation was interrupted.", "İşlem kesildi.", "Amal to'xtatildi.");
+        if (ex is System.IO.IOException or UnauthorizedAccessException)
+            return Tr.T("Не удалось выполнить операцию с устройством или файлом. Проверьте принтер, соединение с ним и свободное место на диске.",
+                "Түзмөк же файл менен иштөө мүмкүн болгон жок. Принтерди, анын байланышын жана дисктеги бош ордун текшериңиз.",
+                "The operation with the device or file failed. Check the printer, its connection and the free disk space.",
+                "Cihaz veya dosya işlemi başarısız oldu. Yazıcıyı, bağlantısını ve boş disk alanını kontrol edin.",
+                "Qurilma yoki fayl bilan amal bajarilmadi. Printerni, ulanishni va diskdagi bo'sh joyni tekshiring.");
         if (ex is ApiException { StatusCode: 401 })
             return Tr.T("Сессия истекла — войдите заново.", "Сессия бүттү — кайра кириңиз.", "The session expired — sign in again.",
                 "Oturum süresi doldu — yeniden giriş yapın.", "Sessiya tugadi — qayta kiring.");
@@ -356,6 +446,15 @@ public static class ServerOutageMonitor
         return Tr.T("Не удалось выполнить запрос. Повторите позже.", "Суроону аткаруу мүмкүн болгон жок. Кийинчерээк кайталаңыз.",
             "The request failed. Try again later.", "İstek gerçekleştirilemedi. Daha sonra tekrar deneyin.", "So'rovni bajarib bo'lmadi. Keyinroq qayta urinib ko'ring.");
     }
+
+    /// <summary>2026-11-02 (В3-03): сбой именно сети/сервера (а не принтера, диска или отмены пользователем). IOException считается сетевым только внутри HttpRequestException.</summary>
+    private static bool IsNetworkOrServer(Exception ex) => ex switch
+    {
+        ApiException api => api.StatusCode is null || IsServerFailureStatus(api.StatusCode),
+        HttpRequestException or TimeoutException or System.Net.Sockets.SocketException or JsonException => true,
+        OperationCanceledException oce => oce is TaskCanceledException || oce.InnerException is TimeoutException,
+        _ => ex.InnerException is not null && IsNetworkOrServer(ex.InnerException),
+    };
 
     /// <summary>Сырой технический текст (английский .NET, имена исключений, «mock 500») на экран не выводим.</summary>
     private static bool LooksTechnical(string message) =>
@@ -386,6 +485,8 @@ public static class ServerOutageMonitor
             _lastErrorAt = null;
             _lastRecoveredAt = null;
             _probeAttempt = 0;
+            _slow = false;
+            _fastAnswers = 0;
         }
     }
 

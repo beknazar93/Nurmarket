@@ -109,7 +109,8 @@ public sealed class BulkImportJournal
                         continue;
                     // 2026-11-01 (приёмка С-06): пачка этого журнала ещё идёт в очереди (или окно закрыли во время загрузки) — её строки «возможно уже оприходованы».
                     var overlap = j.Done.Concat(j.ReceiptBatchId is null ? [] : j.ReceiptOrder).Select(Key).Where(wanted.Contains).Distinct(StringComparer.Ordinal).ToList();
-                    if (overlap.Count * 2 > wanted.Count && (best is null || overlap.Count > best.Value.Overlap.Count))
+                    // 2026-11-01 (контрольный аудит, С2-08): вопрос при ЛЮБОМ пересечении со свежим журналом, а не только при совпадении больше половины — иначе файл ошибок или дописанный файл удваивает приход
+                    if (overlap.Count > 0 && (best is null || overlap.Count > best.Value.Overlap.Count))
                         best = (j, overlap);
                 }
                 catch (Exception ex)
@@ -217,5 +218,6 @@ public sealed class BulkImportJournal
 
     private HashSet<string> Set() => _set ??= new HashSet<string>(Done.Select(Key), StringComparer.Ordinal);
 
-    private static string Key(string barcode) => (barcode ?? "").Trim();
+    // 2026-11-01 (С2-08): сравнение по единому виду кода (UPC-A 12 = EAN-13 с нулём, GTIN-14), как в плане загрузки, а не просто после Trim
+    private static string Key(string barcode) => BulkImportPlan.Canon((barcode ?? "").Trim());
 }

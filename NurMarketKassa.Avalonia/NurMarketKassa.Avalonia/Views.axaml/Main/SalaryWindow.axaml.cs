@@ -19,7 +19,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// (api/main/analytics/market/?tab=salary): оклад пропорционально дням периода, процент с
 /// оплаченных чеков, где сотрудник пробил оплату, и комиссия консультанта с чеков, где он указан
 /// в окне оплаты. Касса только показывает его и даёт поменять схему начисления сотрудника.</summary>
-public partial class SalaryWindow : Window, IOwnerSection
+public partial class SalaryWindow : Window, IOwnerSection, IOwnerSectionRefresh, IOwnerSectionExcel
 {
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private DateTime _from;
@@ -225,8 +225,44 @@ public partial class SalaryWindow : Window, IOwnerSection
             button.Classes.Remove("active");
     }
 
+    /// <summary>2026-11-02 (аудит №2, В-07): ведомость зарплаты для Excel — строки таблицы на экране.</summary>
+    public SectionTable? BuildExportTable()
+    {
+        if (RowsList.ItemsSource is not List<SalaryRow> list || list.Count == 0)
+            return null;
+        var rows = list.Select(r => new object?[] { r.Name, r.SchemeLine, r.BaseText, r.DaysText, r.CashierSalesText, r.CashierCountText,
+            r.ConsultantSalesText, r.ConsultantCountText, r.CommissionText, r.BonusText, r.Total }).ToList();
+        return new SectionTable(Tr.T("Зарплата", "Эмгек акы", "Salaries", "Maaşlar", "Ish haqi"), PeriodText.Text,
+        [
+            new XlColumn(Tr.T("Сотрудник", "Кызматкер", "Employee", "Personel", "Xodim")),
+            new XlColumn(Tr.T("Схема", "Схема", "Scheme", "Şema", "Sxema")),
+            new XlColumn(Tr.T("База", "Негиз", "Base", "Baz", "Baza")),
+            new XlColumn(Tr.T("Дней", "Күн", "Days", "Gün", "Kun")),
+            new XlColumn(Tr.T("Кассир: продажи", "Кассир: сатуу", "Cashier: sales", "Kasiyer: satış", "Kassir: sotuv")),
+            new XlColumn(Tr.T("Кассир: чеков", "Кассир: чектер", "Cashier: receipts", "Kasiyer: fiş", "Kassir: cheklar")),
+            new XlColumn(Tr.T("Консультант: продажи", "Консультант: сатуу", "Consultant: sales", "Danışman: satış", "Maslahatchi: sotuv")),
+            new XlColumn(Tr.T("Консультант: чеков", "Консультант: чектер", "Consultant: receipts", "Danışman: fiş", "Maslahatchi: cheklar")),
+            new XlColumn(Tr.T("Комиссия", "Комиссия", "Commission", "Komisyon", "Komissiya")),
+            new XlColumn(Tr.T("Бонус", "Бонус", "Bonus", "Bonus", "Bonus")),
+            new XlColumn(Tr.T("Итого, сом", "Жыйынтыгы, сом", "Total, som", "Toplam, som", "Jami, so'm"), XlKind.Money, XlTotal.Sum),
+        ], rows);
+    }
+
+    /// <summary>2026-11-01 (В2-03): когда раздел последний раз начинал загрузку — для RefreshOnShow.</summary>
+    private DateTime _loadedUtc = DateTime.UtcNow;
+
+    public DateTime? RefreshOnShow()
+    {
+        if (DateTime.UtcNow - _loadedUtc <= TimeSpan.FromSeconds(60))
+            return null;
+        var dataAt = _loadedUtc.ToLocalTime();
+        _ = ReloadAsync();
+        return dataAt;
+    }
+
     private async Task ReloadAsync()
     {
+        _loadedUtc = DateTime.UtcNow;
         _cts?.Cancel();
         var cts = new CancellationTokenSource();
         _cts = cts;

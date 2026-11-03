@@ -72,7 +72,9 @@ public sealed record SupplierReceipt(
     // номер и дата накладной поставщика (document_number / document_date). Сервер этих полей пока не отдаёт — тогда пусто.
     string Comment = "", string ServerNumber = "", string SupplierDocNumber = "", DateTime? SupplierDocDate = null,
     // 2026-11-01 (ответ Умара: PATCH прихода): версия документа (для If-Match / version), оплата и скидка накладной, если сервер их отдаёт.
-    int Version = 0, string PaymentType = "", double PaidAmount = 0, double Discount = 0, double DiscountPercent = 0);
+    int Version = 0, string PaymentType = "", double PaidAmount = 0, double Discount = 0, double DiscountPercent = 0,
+    // 2026-11-01 (проверка бэкенда): готовый номер документа от сервера («ПР-2026-000073») — для показа, если поле пришло.
+    string NumberDisplay = "");
 
 /// <summary>2026-11-01: версия прихода из серверной истории (GET suppliers/receipts/{id}/history/ — то же, что versions/).</summary>
 public sealed record ServerEditVersion(int Version, DateTime? At, string User, string Device, string Reason, double Total, string Summary);
@@ -764,7 +766,7 @@ public sealed class SupplierApiService
             comment, Str(x, "number"),
             Str(x, "supplier_document_number") is { Length: > 0 } sdn ? sdn : Str(x, "document_number") is { Length: > 0 } dn ? dn : DocumentNumberingCore.SupplierDocFromText(comment).Number,
             Date(Str(x, "supplier_document_date")) ?? Date(Str(x, "document_date")) ?? DocumentNumberingCore.SupplierDocFromText(comment).Date,
-            (int)Num(x, "version"), Str(x, "payment_type"), Num(x, "paid_amount"), Num(x, "discount"), Num(x, "discount_percent"));
+            (int)Num(x, "version"), Str(x, "payment_type"), Num(x, "paid_amount"), Num(x, "discount"), Num(x, "discount_percent"), Str(x, "number_display"));
     }
 
     private static SupplierReturnInfo ParseReturn(JsonElement x)

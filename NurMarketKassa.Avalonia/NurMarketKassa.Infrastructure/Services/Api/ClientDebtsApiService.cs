@@ -312,6 +312,9 @@ public sealed class ClientDebtsApiService : IDisposable
 
         if (requests is not null)
             requests.Value++;
+        // 2026-11-03 (С-02, Сис-5): + отмена при объявлении аварии, как у RequestAsync — раньше запись долга висела до 55 с при уже объявленной аварии.
+        using var outageLinked = CancellationTokenSource.CreateLinkedTokenSource(ct, _api.OutageCancelToken);
+        ct = outageLinked.Token;
         using var resp = await Http.SendAsync(req, ct).ConfigureAwait(false);
         var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 

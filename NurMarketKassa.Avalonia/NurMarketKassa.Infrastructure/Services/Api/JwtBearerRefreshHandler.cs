@@ -12,6 +12,7 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
 {
     private readonly NurMarketApiClient _api;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private long _refreshSlowUntilTicks;
 
     public JwtBearerRefreshHandler(NurMarketApiClient api) => _api = api;
 
@@ -36,6 +37,18 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
         {
             var response = await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
             var status = (int)response.StatusCode;
+            // 2026-11-03 (С-18, аудит «зависание при медленном сервере»): долгий ответ — строка в журнал (метод, путь, секунды; без токенов и тел),
+            // чтобы владелец и мы видели «сервер медлил». Быстрые ответы подряд снимают значок «Сервер медлит».
+            var elapsed = DateTime.UtcNow - started;
+            if (elapsed >= SlowResponse)
+            {
+                PosLogger.Log($"SLOW {request.Method} {request.RequestUri?.AbsolutePath} {elapsed.TotalSeconds:0.0} с", "API SLOW");
+                // 2026-11-03 (ревью Н-6): загрузка файла (фото товара) честно долгая — значок «Сервер медлит» от неё не ставим.
+                if (request.Content is not MultipartContent)
+                    ServerOutageMonitor.ReportSlow(DescribeRequest(request));
+            }
+            else
+                ServerOutageMonitor.NoteResponseTime(elapsed);
             // Пауза, о которой просит сервер (Retry-After), — её соблюдают массовые загрузки и
             // проверка связи ServerOutageMonitor (раньше запоминалась только в неиспользуемом пути).
             // 429 — сервер жив и просит паузу: это не авария. Иначе поток 429 при загрузке
@@ -67,6 +80,9 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
     /// <summary>Запрос, отменённый после такого ожидания, считается таймаутом сервера.</summary>
     private static readonly TimeSpan LongRequest = TimeSpan.FromSeconds(10);
 
+    /// <summary>2026-11-03 (С-18): ответ дольше этого срока пишется в журнал строкой SLOW.</summary>
+    private static readonly TimeSpan SlowResponse = TimeSpan.FromSeconds(5);
+
     private static string DescribeRequest(HttpRequestMessage request) =>
         $"{request.Method} {request.RequestUri?.AbsolutePath}";
 
@@ -93,7 +109,21 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
 
         // Параллельные запросы (до HttpSlots штук) ДОЖИДАЮТСЯ идущего обновления,
         // а не получают мгновенный синтетический 401.
-        await _refreshGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        // 2026-11-03 (С-04, Сис-4): у ворот обновления токена ждём не дольше RefreshBudget (10 с) — раньше до 55 с, пока медлит сервер. Не дождались —
+        // ApiException 408 «отвечает медленно»; сессию не сбрасываем (ExpireSession не зовём).
+        using (var gateBudget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+        {
+            gateBudget.CancelAfter(NurMarketApiClient.RefreshBudget);
+            try
+            {
+                await _refreshGate.WaitAsync(gateBudget.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw NurMarketApiClient.RefreshSlowException();
+            }
+        }
+
         bool refreshed;
         try
         {
@@ -110,7 +140,20 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
             }
             else
             {
-                refreshed = await _api.RefreshAccessAndPersistAsync(cancellationToken).ConfigureAwait(false);
+                // 2026-11-03 (С-04): обновление токена только что не уложилось в срок — ждавшие у ворот запросы не начинают своё обновление (иначе 10 с × число очередников),
+                // а сразу получают тот же ответ «сервер медленно». Через 10 с пробуем снова.
+                if (DateTime.UtcNow.Ticks < Interlocked.Read(ref _refreshSlowUntilTicks))
+                    throw NurMarketApiClient.RefreshSlowException();
+                try
+                {
+                    refreshed = await _api.RefreshAccessAndPersistAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (ApiException ex) when (ex.StatusCode == 408)
+                {
+                    Interlocked.Exchange(ref _refreshSlowUntilTicks, DateTime.UtcNow.AddSeconds(10).Ticks);
+                    throw;
+                }
+
                 if (!refreshed)
                     _api.ExpireSession(request.RequestUri?.AbsolutePath ?? "refresh"); // 2026-10-30: не стираем профиль/права, сообщаем один раз
             }

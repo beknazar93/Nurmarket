@@ -745,9 +745,7 @@ public static class StartupCostsStore
             var path = FilePath;
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             var root = new JsonObject { ["company"] = CompanyKey, ["savedAt"] = Iso(DateTime.UtcNow), ["doc"] = ToJson(_doc) };
-            var tmp = path + ".tmp";
-            File.WriteAllText(tmp, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
-            File.Move(tmp, path, true);
+            AtomicFile.WriteAllText(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping })); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

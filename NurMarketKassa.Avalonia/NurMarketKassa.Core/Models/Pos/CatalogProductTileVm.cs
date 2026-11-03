@@ -307,6 +307,9 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     public double MarkupPercent { get; set; }
     public string? Description { get; set; }
     public double WholesalePrice { get; set; }
+    /// <summary>2026-11-01 (владелец «10 из 10», is_weight): признак товара is_weight с сервера. Он, а не единица «кг» (MustWeigh), определяет, что сервер округляет сумму строки вниз.
+    /// null — неизвестно (старая запись базы), тогда прежняя эвристика (см. CartDisplayHelper.LineIsWeightProduct).</summary>
+    public bool? ServerIsWeight { get; set; }
     public double DiscountPercent { get; set; }
     /// <summary>Есть ли скидка на товар — для колонки "Скидка" в Складе: плашка "-N%" вместо "0%".</summary>
     public bool HasDiscount => DiscountPercent > 0.0001;

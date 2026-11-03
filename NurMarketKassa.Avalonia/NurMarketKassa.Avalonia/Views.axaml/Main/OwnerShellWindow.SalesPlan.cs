@@ -40,9 +40,9 @@ public partial class OwnerShellWindow
         {
             var api = App.GetRequiredService<NurMarketApiClient>();
             var data = await api.RequestAsync(HttpMethod.Get, SalesTargetsPath, null,
-                new Dictionary<string, string> { ["month"] = month }, CancellationToken.None, TimeSpan.FromSeconds(15)).ConfigureAwait(true);
+                new Dictionary<string, string> { ["month"] = month }, _cts.Token, TimeSpan.FromSeconds(15)).ConfigureAwait(true); // 2026-11-03 (С-22): токен окна вместо CancellationToken.None — закрытие окна отменяет запрос
             var target = ReadTarget(data);
-            var report = await App.SalesApi.MarketSalesReportAsync(monthStart, DateTime.Today, CancellationToken.None).ConfigureAwait(true);
+            var report = await App.SalesApi.MarketSalesReportAsync(monthStart, DateTime.Today, _cts.Token).ConfigureAwait(true);
             var sold = report.ValueKind == JsonValueKind.Object && report.TryGetProperty("cards", out var cards) ? Num(cards, "revenue") : 0;
             double? upsell = null;
             if (App.AppHost?.Services.GetService(typeof(RecommendationsApi)) is RecommendationsApi rec)

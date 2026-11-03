@@ -973,8 +973,16 @@ namespace NurMarketKassa.AvaloniaHost.Views
             catch (Exception ex)
             {
                 PosLogger.Log($"Close shift for other cashbox failed: {ex}", "SHIFT");
-                PosMessageBox.Show(this, Tr.T("Не удалось закрыть смену: ", "Сменаны жабуу мүмкүн болгон жок: ", "Could not close the shift: ", "Vardiya kapatılamadı: ", "Smenani yopib bo'lmadi: ") + ex.Message, Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
+                // 2026-11-01 (В2-05, контрольный аудит): при сбое сервера исход неизвестен (смена могла закрыться) — говорим об этом и перечитываем список.
+                var unknown = ServerOutageMonitor.IsServerFailure(ex);
+                PosMessageBox.Show(this, unknown
+                    ? Tr.T("Не удалось подтвердить закрытие смены. ", "Сменанын жабылганы тастыкталган жок. ", "Could not confirm the shift was closed. ", "Vardiyanın kapandığı doğrulanamadı. ", "Smena yopilgani tasdiqlanmadi. ")
+                      + ServerOutageMonitor.FriendlyError(ex) + " "
+                      + Tr.T("Проверьте список смен — смена могла закрыться.", "Сменалардын тизмесин текшериңиз — смена жабылып калышы мүмкүн.", "Check the shift list — the shift may have been closed.", "Vardiya listesini kontrol edin — vardiya kapanmış olabilir.", "Smenalar ro'yxatini tekshiring — smena yopilgan bo'lishi mumkin.")
+                    : Tr.T("Не удалось закрыть смену: ", "Сменаны жабуу мүмкүн болгон жок: ", "Could not close the shift: ", "Vardiya kapatılamadı: ", "Smenani yopib bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex), Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
+                if (unknown)
+                    await LoadShiftsAsync().ConfigureAwait(true);
             }
         }
 
@@ -3095,7 +3103,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
             catch (Exception ex)
             {
-                ErrorMessage = Tr.T("Не удалось загрузить детали чека: ", "Чектин чоо-жайын жүктөө мүмкүн болгон жок: ", "Could not load the receipt details: ", "Fiş ayrıntıları yüklenemedi: ", "Chek tafsilotlarini yuklab bo'lmadi: ") + ex.Message;
+                ErrorMessage = Tr.T("Не удалось загрузить детали чека: ", "Чектин чоо-жайын жүктөө мүмкүн болгон жок: ", "Could not load the receipt details: ", "Fiş ayrıntıları yüklenemedi: ", "Chek tafsilotlarini yuklab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
             }
         }
 
@@ -3386,7 +3394,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             public bool IsExact { get; set; }
             public string SaleId { get; set; } = "";
             public string Kind { get; set; } = "";
-            public string AmountDisplay => (IsExact ? "" : "≈") + TotalAmount.ToString("N2", CultureInfo.CurrentCulture) + " сом";
+            public string AmountDisplay => (IsExact ? "" : "≈") + TotalAmount.ToString("N2", CultureInfo.CurrentCulture) + " " + NurMarketKassa.Services.MoneyText.Currency; // 2026-11-01 (Д2-04): валюта на языке интерфейса
             public string Reason { get; set; } = "";
             public string ProductName { get; set; } = "";
             public string QuantityDisplay { get; set; } = "";

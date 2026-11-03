@@ -19,8 +19,13 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// по каждому клиенту — сумма, с какого числа, телефон и напоминание в WhatsApp; по нажатию — все его чеки в долг (дата,
 /// номер, товар, сумма чека, внесено, остаток, кассир). Данные — продажи со статусом debt с сервера NurCRM
 /// (ISalesApiService.PosDebtSalesAsync), телефоны — из списка клиентов. Окно собрано в коде, как «Продажи в убыток».</summary>
-public sealed class DebtsWindow : Window
+public sealed class DebtsWindow : Window, IOwnerSectionExcel
 {
+    private DebtsView? _view;
+
+    /// <summary>2026-11-02 (В-07): Excel раздела «Долги клиентов».</summary>
+    public SectionTable? BuildExportTable() => _view?.BuildExportTable();
+
     public DebtsWindow()
     {
         Title = DebtsView.TitleText;
@@ -31,6 +36,7 @@ public sealed class DebtsWindow : Window
         // над разделом, второго крупного заголовка нет; поля — как у остальных разделов.
         var view = new DebtsView(showTitle: false, OwnerSectionLayout.Margin);
         Content = view;
+        _view = view;
         Closed += (_, _) => view.StopLoading(); // 2026-10-31: окно закрыто — загрузка и уточнение сумм прекращаются
     }
 }
@@ -81,12 +87,14 @@ public sealed class DebtsView : UserControl
     private int _loadGen;
     private bool _loadStarted;
     private readonly CancellationTokenSource _life = new();
+    private Avalonia.Threading.DispatcherTimer _searchDebounce = null!;
 
     /// <summary>2026-10-31 (стресс-тест 1.17.68, В-4): окно закрыто — текущая загрузка и постепенное уточнение сумм останавливаются
     /// (раньше они шли до конца по закрытому окну: сотни запросов впустую).</summary>
     internal void StopLoading()
     {
         _loadGen++;
+        _searchDebounce?.Stop();
         try
         {
             _life.Cancel();
@@ -127,7 +135,18 @@ public sealed class DebtsView : UserControl
 
         var tools = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"), Margin = new Thickness(0, 0, 0, 12) };
         _search = UiKit.Search(this, T("Поиск по имени или телефону…", "Аты же телефону боюнча издөө…", "Search by name or phone…", "Ad veya telefona göre ara…", "Ism yoki telefon bo'yicha qidirish…"), 44); // 2026-10-27, аудит владельца С-5: было 40 (цель нажатия)
-        _search.TextChanged += (_, _) => Render();
+        // 2026-11-01 (В2-04, контрольный аудит): пауза 250 мс — каждая буква поиска пересобирала до 300 карточек на UI-потоке.
+        _searchDebounce = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _searchDebounce.Tick += (_, _) =>
+        {
+            _searchDebounce.Stop();
+            Render();
+        };
+        _search.TextChanged += (_, _) =>
+        {
+            _searchDebounce.Stop();
+            _searchDebounce.Start();
+        };
         tools.Children.Add(_search);
         var byAmount = UiKit.Chip(this, T("По сумме", "Сумма боюнча", "By amount", "Tutara göre", "Summa bo'yicha"), true);
         var byAge = UiKit.Chip(this, T("По давности", "Эскилиги боюнча", "By age", "Süreye göre", "Muddati bo'yicha"), false);
@@ -596,6 +615,23 @@ public sealed class DebtsView : UserControl
 
     private long _lastRefineRender;
 
+    /// <summary>2026-11-02 (аудит №2, В-07): таблица должников для Excel — клиент, телефон, чеков в долг, самый старый, остаток долга.</summary>
+    internal SectionTable? BuildExportTable()
+    {
+        var rows = _debtors.Where(d => d.Sales.Count > 0).OrderByDescending(d => d.Total)
+            .Select(d => new object?[] { d.Name, d.Phone, d.Sales.Count, d.Oldest, d.Total,
+                d.Checking ? T("≈ уточняется", "≈ такталууда", "≈ checking", "≈ kontrol ediliyor", "≈ aniqlanmoqda") : "" }).ToList();
+        return new SectionTable(TitleText, DateTime.Today.ToString("dd.MM.yyyy"),
+        [
+            new XlColumn(T("Клиент", "Кардар", "Customer", "Müşteri", "Mijoz")),
+            new XlColumn(T("Телефон", "Телефон", "Phone", "Telefon", "Telefon"), XlKind.Code),
+            new XlColumn(T("Чеков в долг", "Карыз чектер", "Receipts on credit", "Veresiye fiş", "Qarzga cheklar"), XlKind.Integer),
+            new XlColumn(T("Самый старый", "Эң эски", "Oldest", "En eski", "Eng eski"), XlKind.Date),
+            new XlColumn(T("Долг, сом", "Карыз, сом", "Debt, som", "Borç, som", "Qarz, so'm"), XlKind.Money, XlTotal.Sum),
+            new XlColumn(T("Примечание", "Эскертүү", "Note", "Not", "Izoh")),
+        ], rows);
+    }
+
     /// <summary>2026-11-01 (В-29, аудит «10 из 10»): «наблюдать» сбой фоновой задачи, которую не ждём (или ждём позже): при 500 и обрыве связи
     /// такие задачи заканчивались ошибкой без читателя, и .NET писал в журнал ERROR «Unobserved task exception (AggregateException)» —
     /// владелец видел красную ошибку в «Логах». Сам сбой по-прежнему бросается тому, кто делает await, и пишется его catch'ем.</summary>
@@ -937,7 +973,7 @@ public sealed class DebtsView : UserControl
         text.Inlines!.Add(new Avalonia.Controls.Documents.Run(label + ": "));
         var sum = new Avalonia.Controls.Documents.Run(Money(amount));
         if (overdue && amount > 0.005)
-            sum.Bind(Avalonia.Controls.Documents.TextElement.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
+            sum.Bind(Avalonia.Controls.Documents.TextElement.ForegroundProperty, sum.GetResourceObservable("BrushDanger"));
         text.Inlines.Add(sum);
         row.Children.Add(text);
         pill.Child = row;
@@ -955,7 +991,7 @@ public sealed class DebtsView : UserControl
         if (debt is null)
             return;
         var sum = new Avalonia.Controls.Documents.Run(debt) { FontWeight = FontWeight.Bold };
-        sum.Bind(Avalonia.Controls.Documents.TextElement.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
+        sum.Bind(Avalonia.Controls.Documents.TextElement.ForegroundProperty, sum.GetResourceObservable("BrushDanger"));
         inlines.Add(sum);
         if (tail is not null)
             inlines.Add(new Avalonia.Controls.Documents.Run(tail));
@@ -1204,5 +1240,5 @@ public sealed class DebtsView : UserControl
         double.TryParse(Str(e, name), NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : null;
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

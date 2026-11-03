@@ -36,14 +36,14 @@ public sealed class EmployeeDetailDialog : Window
         TextBlock Label(string text)
         {
             var label = new TextBlock { Text = text, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
-            label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushTextSoft"));
             return label;
         }
 
         TextBlock Note()
         {
             var note = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap };
-            note.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            note.Bind(TextBlock.ForegroundProperty, note.GetResourceObservable("BrushTextSoft"));
             return note;
         }
 
@@ -226,7 +226,7 @@ public sealed class EmployeeDetailDialog : Window
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto") };
 
         var caption = new TextBlock { Text = label, FontSize = 13, FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 8, 0, 8) };
-        caption.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        caption.Bind(TextBlock.ForegroundProperty, caption.GetResourceObservable("BrushTextSoft"));
         Grid.SetColumnSpan(caption, 2);
         var box = SectionCards.Field(new TextBox { Text = value, IsReadOnly = true });
         Grid.SetRow(box, 1);

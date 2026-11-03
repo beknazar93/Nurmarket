@@ -16,6 +16,7 @@ public static class ServerCapabilities
     private static readonly SemaphoreSlim Gate = new(1, 1);
     private static (DateTime At, string Account, HashSet<string> Features, bool Ok)? _cache;
     private static bool _shapeWarned;
+    private static Exception? _lastError;
 
     private static string AccountKey() => (UserPreferences.Instance.LastDataAccountKey ?? "") + "|" + (CompanyInfoService.LastCompany?.Id ?? "");
 
@@ -40,6 +41,15 @@ public static class ServerCapabilities
     public static async Task<bool> HasAsync(NurMarketApiClient api, string name, CancellationToken ct = default) =>
         (await LoadAsync(api, ct).ConfigureAwait(false)).Contains(name);
 
+    /// <summary>2026-11-01 (контрольный аудит, редактор сайта): как <see cref="LoadAsync"/>, но сбой запроса (таймаут, 5xx, нет сети) возвращается ошибкой,
+    /// а не пустым набором: «признака нет» (ответ получен) и «сервер недоступен» экран показывает по-разному. Сбой не выдаётся за «нет возможности»:
+    /// при <paramref name="force"/> («Повторить») запрос уходит заново.</summary>
+    public static async Task<(IReadOnlySet<string> Features, Exception? Error)> TryLoadAsync(NurMarketApiClient api, CancellationToken ct = default, bool force = false)
+    {
+        var set = await LoadAsync(api, ct, force).ConfigureAwait(false);
+        return (set, _cache is { Ok: false } ? _lastError : null);
+    }
+
     public static async Task<IReadOnlySet<string>> LoadAsync(NurMarketApiClient api, CancellationToken ct = default, bool force = false)
     {
         if (!force && Fresh(out var fresh))
@@ -55,6 +65,7 @@ public static class ServerCapabilities
                 var d = await api.RequestAsync(HttpMethod.Get, "api/main/capabilities/", null, null, ct).ConfigureAwait(false);
                 var set = Parse(d);
                 _cache = (DateTime.UtcNow, account, set, true);
+                _lastError = null;
                 return set;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -62,6 +73,7 @@ public static class ServerCapabilities
                 PosLogger.Log($"Признаки сервера (capabilities) не получены: {ex.Message}", "WARNING");
                 var empty = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 _cache = (DateTime.UtcNow, account, empty, false);
+                _lastError = ex;
                 return empty;
             }
         }

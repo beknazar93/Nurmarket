@@ -849,7 +849,7 @@ public partial class CalculatorWindow : Window, IOwnerSection
             FactBar.ColumnDefinitions.Add(new ColumnDefinition(Math.Max(share, 0.001), GridUnitType.Star));
             FactBar.ColumnDefinitions.Add(new ColumnDefinition(Math.Max(1 - share, 0.001), GridUnitType.Star));
             var fill = new Border { CornerRadius = new CornerRadius(5) };
-            fill.Bind(Border.BackgroundProperty, this.GetResourceObservable(revenue >= breakEven ? "BrushSuccess" : "BrushAccent"));
+            fill.Bind(Border.BackgroundProperty, fill.GetResourceObservable(revenue >= breakEven ? "BrushSuccess" : "BrushAccent"));
             FactBar.Children.Add(fill);
             FactText.Text = Tr.T(
                 $"{Percent(breakEven > 0 ? revenue / breakEven * 100 : 100)} от безубыточности. Прогноз на месяц: {Money(forecast)}, чистая прибыль ≈ {Money(forecastProfit)}",

@@ -53,14 +53,14 @@ public sealed partial class InvoiceDocumentWindow
         _headRow = new Grid { ColumnDefinitions = new ColumnDefinitions(GridDefs()), Margin = new Thickness(0, 0, 14, 0), MinHeight = 34 };
         FillHeader();
         var headBox = new Border { Child = _headRow, Padding = new Thickness(4, 4), CornerRadius = new CornerRadius(8, 8, 0, 0) };
-        headBox.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
+        headBox.Bind(Border.BackgroundProperty, headBox.GetResourceObservable("BrushPanelSoft"));
         box.Children.Add(headBox);
 
         _list.ItemTemplate = new FuncDataTemplate<InvoiceRow>((row, _) => row is null ? new Border() : BuildRow(row), true);
         _list.ItemsSource = _shown;
         _list.Padding = new Thickness(0);
         _list.BorderThickness = new Thickness(1);
-        _list.Bind(BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
+        _list.Bind(BorderBrushProperty, _list.GetResourceObservable("BrushBorder"));
         ScrollViewer.SetHorizontalScrollBarVisibility(_list, Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
         _list.ItemContainerTheme = null;
         _list.Styles.Add(new Style(x => x.OfType<ListBoxItem>()) { Setters = { new Setter(PaddingProperty, new Thickness(0)), new Setter(MinHeightProperty, 0.0) } });
@@ -81,7 +81,7 @@ public sealed partial class InvoiceDocumentWindow
                 Text = c.Title, FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap,
                 HorizontalAlignment = c.Right ? HorizontalAlignment.Right : HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0),
             };
-            t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
             Grid.SetColumn(t, i++);
             _headRow.Children.Add(t);
         }
@@ -98,7 +98,7 @@ public sealed partial class InvoiceDocumentWindow
         if (right)
             t.Classes.Add("num");
         t.Bind(TextBlock.TextProperty, new Binding(bindPath));
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable(brush));
         return t;
     }
 
@@ -150,7 +150,7 @@ public sealed partial class InvoiceDocumentWindow
         // 2026-11-01: изменённая в этой правке строка подсвечена (было → стало видно в «было …» под количеством)
         g.Bind(Panel.BackgroundProperty, new Binding(nameof(InvoiceRow.RowChanged)) { Converter = ChangedBackground.Instance, ConverterParameter = this });
         var line = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Bottom };
-        line.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushBorder"));
+        line.Bind(Border.BackgroundProperty, line.GetResourceObservable("BrushBorder"));
         Grid.SetColumnSpan(line, 40);
         g.Children.Add(line);
         return g;
@@ -222,7 +222,7 @@ public sealed partial class InvoiceDocumentWindow
         var mark = new TextBlock { FontSize = 12, Margin = new Thickness(6, 0), TextWrapping = TextWrapping.Wrap, Cursor = new Cursor(StandardCursorType.Hand) };
         mark.Bind(TextBlock.TextProperty, new Binding(nameof(InvoiceRow.MarkText)));
         mark.Bind(Visual.IsVisibleProperty, new Binding(nameof(InvoiceRow.HasMark)));
-        mark.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        mark.Bind(TextBlock.ForegroundProperty, mark.GetResourceObservable("BrushTextSoft"));
         ToolTip.SetTip(mark, row.MarkTip);
         mark.PointerPressed += (_, _) => _ = ShowLineHistoryAsync(row);
         sp.Children.Add(mark);
@@ -261,7 +261,7 @@ public sealed partial class InvoiceDocumentWindow
         stack.Children.Add(buttons);
         var was = new TextBlock { FontSize = 12, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 8, 0) };
         was.Bind(TextBlock.TextProperty, new Binding(nameof(InvoiceRow.WasText)));
-        was.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        was.Bind(TextBlock.ForegroundProperty, was.GetResourceObservable("BrushTextSoft"));
         stack.Children.Add(was);
         return stack;
     }
@@ -275,7 +275,7 @@ public sealed partial class InvoiceDocumentWindow
         var val = new TextBlock { FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
         val.Classes.Add("num");
         val.Bind(TextBlock.TextProperty, new Binding(nameof(InvoiceRow.PurchaseText)));
-        val.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        val.Bind(TextBlock.ForegroundProperty, val.GetResourceObservable("BrushText"));
         sp.Children.Add(mark);
         sp.Children.Add(val);
         return sp;

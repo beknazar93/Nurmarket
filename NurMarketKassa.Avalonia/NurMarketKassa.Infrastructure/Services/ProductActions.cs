@@ -48,6 +48,19 @@ public static class ProductActions
                ?? (all.Where(p => p.Title.Contains(q, StringComparison.CurrentCultureIgnoreCase)).Take(2).ToList() is { Count: 1 } one ? one[0] : null);
     }
 
+    /// <summary>2026-11-01 (приёмка Ф-3): акт ревизии, оборвавшийся на «провести»: остаток на момент создания, что вводил кассир, подтверждённый новый остаток.</summary>
+    private sealed class PendingChange(string sessionId, long tick, double baseStock, double? delta, double? setTo)
+    {
+        public string SessionId { get; } = sessionId;
+        public long Tick { get; } = tick;
+        public double BaseStock { get; } = baseStock;
+        public double? Delta { get; } = delta;
+        public double? SetTo { get; } = setTo;
+        public double? AckedCurrent { get; set; }
+    }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, PendingChange> PendingChanges = new(StringComparer.OrdinalIgnoreCase);
+
     public static string Qty(double v) => v.ToString("0.###", Ru);
 
     /// <summary>Изменить остаток: <paramref name="delta"/> (+ приход, − списание) или <paramref name="setTo"/> (точное количество).</summary>
@@ -81,6 +94,82 @@ public static class ProductActions
                 $"«{product.Title}»: işlem hazırlandıktan sonra stok değişti ({Qty(expected)} → {Qty(current)}). Değişiklik yapılmadı — yenileyip tekrar onaylayın.",
                 $"«{product.Title}»: amal tayyorlangandan keyin qoldiq o'zgardi ({Qty(expected)} → {Qty(current)}). O'zgarish qilinmadi — yangilab, qayta tasdiqlang."));
 
+        // 2026-11-01 (контрольный аудит, С2-15; приёмка Ф-3): прошлое изменение этого товара оборвалось на «провести» (тайм-аут) — акт создан, исход неизвестен.
+        // Акт ревизии задаёт АБСОЛЮТНЫЙ итог, поэтому старый акт проводим, только если остаток с тех пор не менялся и кассир вводит то же самое. Остаток изменился
+        // (например, продали 2 шт) — старый итог устарел: просим подтвердить пересчёт от текущего остатка и создаём новый акт. Другое число — новое действие.
+        if (PendingChanges.TryGetValue(product.Id, out var pending))
+        {
+            if (Environment.TickCount64 - pending.Tick is < 0 or >= 600_000)
+                PendingChanges.TryRemove(product.Id, out _);
+            else
+            {
+                var sameInput = Nullable.Equals(pending.Delta, delta) && Nullable.Equals(pending.SetTo, setTo);
+                InventorySessionInfo? info = null;
+                try
+                {
+                    info = await api.GetSessionAsync(pending.SessionId, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    PosLogger.Log($"Действие с товаром: состояние прошлого акта {pending.SessionId} не получено ({ex.Message}) — действие не повторяем, проверьте остаток.", "WARNING");
+                    return new Result(false, T($"«{product.Title}»: прошлое изменение остатка осталось без ответа сервера, и проверить его сейчас не удалось. Проверьте остаток и повторите позже — чтобы не прибавить дважды.",
+                        $"«{product.Title}»: мурунку калдык өзгөртүүгө сервер жооп берген жок, азыр текшерүү мүмкүн болгон жок. Эки жолу кошпоо үчүн калдыкты текшерип, кийинчерээк кайталаңыз.",
+                        $"“{product.Title}”: the previous stock change got no answer from the server and could not be checked now. Check the stock and retry later — to avoid adding twice.",
+                        $"«{product.Title}»: önceki stok değişikliği sunucudan yanıt almadı ve şu an kontrol edilemedi. İki kez eklememek için stoğu kontrol edip daha sonra tekrar deneyin.",
+                        $"«{product.Title}»: oldingi qoldiq o'zgarishiga server javob bermadi va hozir tekshirib bo'lmadi. Ikki marta qo'shmaslik uchun qoldiqni tekshirib, keyinroq qaytaring."));
+                }
+
+                if (info is { IsApplied: true })
+                {
+                    // Прошлый акт проведён; остаток current уже его включает.
+                    PendingChanges.TryRemove(product.Id, out _);
+                    if (sameInput)
+                    {
+                        PosLogger.Log($"Действие с товаром: прошлый акт {pending.SessionId} по «{product.Title}» уже проведён — повтор не нужен.", "STOCK");
+                        StockSyncService.ScheduleStockReread(product.Id, TimeSpan.Zero);
+                        return new Result(true, T($"«{product.Title}»: прошлое изменение остатка уже проведено на сервере (остаток {Qty(current)}) — второй раз не добавляем.",
+                            $"«{product.Title}»: мурунку калдык өзгөртүү серверде өткөрүлгөн (калдык {Qty(current)}) — экинчи жолу кошпойбуз.",
+                            $"“{product.Title}”: the previous stock change is already posted on the server (stock {Qty(current)}) — not applying it again.",
+                            $"«{product.Title}»: önceki stok değişikliği sunucuda zaten işlendi (stok {Qty(current)}) — tekrar uygulanmıyor.",
+                            $"«{product.Title}»: oldingi qoldiq o'zgarishi serverda allaqachon o'tkazilgan (qoldiq {Qty(current)}) — qayta qo'llanmaydi."));
+                    }
+                }
+                else if (info is not null)
+                {
+                    if (sameInput && Math.Abs(current - pending.BaseStock) < 0.0005)
+                    {
+                        // Остаток не менялся с создания акта и ввод тот же — доводим тот же акт (итог актуален).
+                        await api.ApplySessionAsync(pending.SessionId, allowNegative: false, CancellationToken.None).ConfigureAwait(false);
+                        PendingChanges.TryRemove(product.Id, out _);
+                        StockSyncService.ScheduleStockReread(product.Id, TimeSpan.Zero);
+                        return new Result(true, T($"«{product.Title}»: прошлый акт изменения остатка доведён до конца. Остаток обновится.",
+                            $"«{product.Title}»: мурунку калдык өзгөртүү актысы аякталды. Калдык жаңыланат.",
+                            $"“{product.Title}”: the previous stock change document is now completed. The stock will refresh.",
+                            $"«{product.Title}»: önceki stok değişikliği belgesi tamamlandı. Stok yenilenecek.",
+                            $"«{product.Title}»: oldingi qoldiq o'zgarishi hujjati yakunlandi. Qoldiq yangilanadi."));
+                    }
+                    if (sameInput && (pending.AckedCurrent is not { } acked || Math.Abs(acked - current) >= 0.0005))
+                    {
+                        // Остаток изменился (продажа, приход на другой кассе): старый итог неверен. Показываем новый итог и просим подтвердить.
+                        pending.AckedCurrent = current;
+                        var newTarget = Math.Round(setTo ?? current + (delta ?? 0), 3);
+                        return new Result(false, T($"«{product.Title}»: остаток изменился (было {Qty(pending.BaseStock)}, стало {Qty(current)}). Применить ваше изменение к текущему остатку — итог будет {Qty(newTarget)}? Нажмите ещё раз, чтобы подтвердить.",
+                            $"«{product.Title}»: калдык өзгөрдү (болчу {Qty(pending.BaseStock)}, болду {Qty(current)}). Өзгөртүүнү азыркы калдыкка колдонобузбу — жыйынтык {Qty(newTarget)} болот? Ырастоо үчүн дагы бир жолу басыңыз.",
+                            $"“{product.Title}”: the stock changed (was {Qty(pending.BaseStock)}, now {Qty(current)}). Apply your change to the current stock — the result will be {Qty(newTarget)}? Press again to confirm.",
+                            $"«{product.Title}»: stok değişti (önceden {Qty(pending.BaseStock)}, şimdi {Qty(current)}). Değişikliğiniz mevcut stoğa uygulansın mı — sonuç {Qty(newTarget)} olacak? Onaylamak için tekrar basın.",
+                            $"«{product.Title}»: qoldiq o'zgardi (avval {Qty(pending.BaseStock)}, hozir {Qty(current)}). O'zgarishingiz joriy qoldiqqa qo'llansinmi — natija {Qty(newTarget)} bo'ladi? Tasdiqlash uchun yana bosing."));
+                    }
+                    // Подтверждено или другой ввод: старый непроведённый акт брошен (его итог устарел) — номер в журнал, дальше новый акт от текущего остатка.
+                    PosLogger.Log($"Действие с товаром: прошлый акт {pending.SessionId} по «{product.Title}» не проведён и устарел (остаток {Qty(pending.BaseStock)} → {Qty(current)}) — создаём новый от текущего остатка; старый черновик можно удалить на NurCRM.", "WARNING");
+                    PendingChanges.TryRemove(product.Id, out _);
+                }
+                else
+                {
+                    PendingChanges.TryRemove(product.Id, out _);
+                }
+            }
+        }
+
         var target = Math.Round(setTo ?? current + (delta ?? 0), 3);
         // 2026-10-31: сервер принимает остаток с 2 знаками (quantity_fact "0.##") — округляем явно, пояснение добавим к ответу; операцию не блокируем.
         string? roundNote = null;
@@ -108,11 +197,14 @@ public static class ProductActions
             // остатка и «провести» (два запроса) будет перетёрта итогом документа; закрыть его можно только серверным
             // приходом/списанием «на разницу».
             sessionId = await api.CreateSessionAsync(note, new[] { new InventorySessionItem(product.Id, target) }, ct).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(sessionId))
+                PendingChanges[product.Id] = new PendingChange(sessionId, Environment.TickCount64, current, delta, setTo); // 2026-11-01 (С2-15): снимается после успешного «провести»
             if (string.IsNullOrWhiteSpace(sessionId))
                 return new Result(false, T("Сервер не создал документ — ничего не изменено.", "Сервер документ түзгөн жок — эч нерсе өзгөргөн жок.", "The server didn't create the document — nothing changed.", "Sunucu belgeyi oluşturmadı — hiçbir şey değişmedi.", "Server hujjat yaratmadi — hech narsa o'zgarmadi."));
             // 2026-10-16: черновик уже на сервере — проводим без отмены (CancellationToken.None): отмена между «создать» и «провести»
             // оставила бы на NurCRM непроведённую ревизию со старым итогом.
             await api.ApplySessionAsync(sessionId, allowNegative: false, CancellationToken.None).ConfigureAwait(false);
+            PendingChanges.TryRemove(product.Id, out _);
         }
         catch (OperationCanceledException) when (!string.IsNullOrWhiteSpace(sessionId))
         {
@@ -123,8 +215,19 @@ public static class ProductActions
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // 2026-10-16: не провёлся созданный черновик — его номер в журнал: удалить его можно только на NurCRM (API удаления нет).
+            // 2026-11-02 (аудит №2, С3-03): исход неизвестен (обрыв сети, 502/503/504, сброс соединения) — акт мог пройти на сервере: запись НЕ снимаем, как при тайм-ауте,
+            // повтор сначала проверит прошлый акт. Запись снимается только при определённом отказе сервера (4xx по существу).
+            var outcomeUnknown = !string.IsNullOrWhiteSpace(sessionId) && PendingIdempotencyKey.IsOutcomeUnknown(ex);
+            if (!outcomeUnknown)
+                PendingChanges.TryRemove(product.Id, out _); // определённый отказ — повтор создаст новый акт
             PosLogger.Log($"Действие с товаром: остаток «{product.Title}» не изменён ({ex.Message})"
                           + (string.IsNullOrWhiteSpace(sessionId) ? "." : $"; черновик ревизии {sessionId} мог остаться непроведённым — проверьте его на NurCRM."), "WARNING");
+            if (outcomeUnknown)
+                return new Result(false, T($"«{product.Title}»: связь с сервером прервалась — неизвестно, прошло ли изменение остатка. Нажмите ещё раз: касса сначала проверит прошлое изменение и не добавит остаток дважды.",
+                    $"«{product.Title}»: сервер менен байланыш үзүлдү — калдык өзгөртүү өттүбү, белгисиз. Дагы бир жолу басыңыз: касса адегенде мурунку өзгөртүүнү текшерет жана калдыкты эки жолу кошпойт.",
+                    $"“{product.Title}”: the connection to the server was lost — it is unknown whether the stock change went through. Press again: the till will first check the previous change and will not add the stock twice.",
+                    $"«{product.Title}»: sunucu bağlantısı koptu — stok değişikliğinin yapılıp yapılmadığı bilinmiyor. Tekrar basın: kasa önce önceki değişikliği kontrol eder ve stoğu iki kez eklemez.",
+                    $"«{product.Title}»: server bilan aloqa uzildi — qoldiq o'zgarishi o'tgani noma'lum. Yana bosing: kassa avval oldingi o'zgarishni tekshiradi va qoldiqni ikki marta qo'shmaydi."));
             return new Result(false, T("Не удалось изменить остаток: ", "Калдыкты өзгөртүү мүмкүн болгон жок: ", "Couldn't change the stock: ", "Stok değiştirilemedi: ", "Qoldiqni o'zgartirib bo'lmadi: ") + ex.Message);
         }
 
@@ -187,7 +290,7 @@ public static class ProductActions
     /// <summary>Карточка товара для ИИ: всё, что известно (id нужен ИИ, чтобы точно указать товар в действии).</summary>
     public static async Task<string> DescribeForAiAsync(CatalogProductTileVm p, CancellationToken ct = default)
     {
-        var line = $"• id={p.Id} | {p.Title} | цена {p.PriceLine} | {(AdvisorCapabilities.HidePurchase ? "" : $"закупка {p.PurchasePrice:0.##} | ")}остаток {Qty(p.Quantity)} {(p.MustWeigh ? "кг" : "шт")}"
+        var line = $"• id={p.Id} | {p.Title} | цена {p.PriceLine} | {(AdvisorCapabilities.HidePurchase ? "" : $"закупка {p.PurchasePrice:0.####} | ")}остаток {Qty(p.Quantity)} {(p.MustWeigh ? "кг" : "шт")}"
                    + (string.IsNullOrWhiteSpace(p.Barcode) ? "" : $" | штрихкод {p.Barcode}")
                    + (string.IsNullOrWhiteSpace(p.Category) ? "" : $" | категория {p.Category}")
                    + (string.IsNullOrWhiteSpace(p.Brand) ? "" : $" | бренд {p.Brand}");

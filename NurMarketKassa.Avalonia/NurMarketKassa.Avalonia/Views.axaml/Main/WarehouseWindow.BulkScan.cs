@@ -623,7 +623,8 @@ public partial class WarehouseWindow
         minus.Width = 44;
         minus.Click += (_, _) =>
         {
-            row.Line.Quantity = Math.Max(1, Math.Round(row.Line.Quantity - 1, 3));
+            // 2026-11-01 (контрольный аудит, С2-36): у весовой строки меньше 1 кг «−» не увеличивает количество до 1
+            row.Line.Quantity = Math.Max(Math.Min(1, row.Line.Quantity), Math.Round(row.Line.Quantity - 1, 3));
             RefreshBulkLastScan(row);
         };
         var qty = new TextBox { MinHeight = 44, Width = 68, TextAlignment = TextAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, Tag = "qty" };

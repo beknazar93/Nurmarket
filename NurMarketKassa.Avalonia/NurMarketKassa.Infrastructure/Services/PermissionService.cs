@@ -43,6 +43,11 @@ public sealed class PermissionService : IPermissionService
         if (permission == PosPermissions.ViewLabels)
             return IsLabelPrintAllowed(_authApi.UserPayload);
 
+        // 2026-11-01 (контрольный аудит, К2-06): «Изменение цены в кассе» (оптовая цена строки и чека) — как ярлыки: владелец/админ всегда, закрыто только когда сервер
+        // явно прислал false; поля нет (старый ответ сервера) — не блокируем.
+        if (permission == PosPermissions.EditPrice)
+            return IsPriceEditAllowed(_authApi.UserPayload);
+
         // 2026-10-18: «Интерфейс кассира», «Продажа», «Смены» — со своими правилами (не запирать
         // владельца/админа и компании, где доступы сотрудникам не выставлены).
         if (PosPermissions.CashierWork.Contains(permission, StringComparer.OrdinalIgnoreCase))
@@ -123,6 +128,14 @@ public sealed class PermissionService : IPermissionService
         if (HasOwnerOrAdminRole(payload))
             return true;
         return ReadExplicitFlag(payload, PosPermissions.ViewLabels, 0) != false;
+    }
+
+    /// <summary>2026-11-01 (К2-06): право «Изменение цены в кассе» (can_view_market_edit_price): роль owner/admin — всегда; иначе нельзя только при явном false.</summary>
+    public static bool IsPriceEditAllowed(JsonElement payload)
+    {
+        if (HasOwnerOrAdminRole(payload))
+            return true;
+        return ReadExplicitFlag(payload, PosPermissions.EditPrice, 0) != false;
     }
 
     private static bool? ReadExplicitFlag(JsonElement element, string name, int depth)

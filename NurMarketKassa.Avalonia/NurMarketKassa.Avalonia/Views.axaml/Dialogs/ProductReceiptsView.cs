@@ -511,11 +511,11 @@ internal sealed class ProductReceiptsView : UserControl
         g.Children.Add(pill);
 
         var box = new Border { Padding = new Thickness(10, 8, 14, 8), BorderThickness = new Thickness(0, 0, 0, 1), Child = g };
-        box.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushBorder"));
+        box.Bind(Border.BorderBrushProperty, box.GetResourceObservable("BrushBorder"));
         return box;
     }
 
-    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, this.GetResourceObservable(key));
+    private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 
     // ------------------------------------------------------------------ строка списка
 

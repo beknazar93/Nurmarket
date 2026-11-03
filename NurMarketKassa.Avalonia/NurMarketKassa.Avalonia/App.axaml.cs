@@ -802,7 +802,6 @@ public partial class App : Application
         services.AddTransient<DeferredCartsDialog>();
         services.AddTransient<ReceiptPreviewDialog>();
         services.AddTransient<FinanceDateRangeDialog>();
-        services.AddTransient<FrmKeyboard>();
         services.AddTransient<NoStockDialog>();
         services.AddTransient<NewOperationDialog>();
         services.AddTransient<ShiftDetailsDialog>();

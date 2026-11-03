@@ -68,7 +68,7 @@ internal static class PurchaseMarkupTable
             };
             if (!header && col > 0)
                 t.Classes.Add("num");
-            t.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable(brush ?? (header ? "BrushTextSoft" : "BrushText")));
+            t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable(brush ?? (header ? "BrushTextSoft" : "BrushText")));
             if (tip is not null)
                 ToolTip.SetTip(t, tip);
             Grid.SetRow(t, r);
@@ -93,7 +93,7 @@ internal static class PurchaseMarkupTable
             if (mark)
             {
                 var back = new Border { CornerRadius = new CornerRadius(6), Margin = new Thickness(-6, 0) };
-                back.Bind(Border.BackgroundProperty, host.GetResourceObservable("BrushAccentSoft"));
+                back.Bind(Border.BackgroundProperty, back.GetResourceObservable("BrushAccentSoft"));
                 Grid.SetRow(back, r);
                 Grid.SetColumnSpan(back, 6);
                 grid.Children.Add(back);
@@ -129,7 +129,7 @@ internal static class PurchaseMarkupTable
                     $"O'rtacha ustama: {approx}{avg.ToString("0.##", Ru)} % · Kutilgan tushum: {approx}{MoneyText.Som(totals.Revenue)} · Kutilgan foyda: {approx}{MoneyText.Som(totals.Profit)}"),
             };
             sum.Margin = new Thickness(0, 6, 0, 0);
-            sum.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable("BrushText"));
+            sum.Bind(TextBlock.ForegroundProperty, sum.GetResourceObservable("BrushText"));
             stack.Children.Add(sum);
             if (totals.BelowCount + totals.LowCount > 0)
             {
@@ -140,18 +140,18 @@ internal static class PurchaseMarkupTable
                         $"Below purchase: {totals.BelowCount} · margin under 10 %: {totals.LowCount}", $"Alışın altında: {totals.BelowCount} · marj %10'un altı: {totals.LowCount}",
                         $"Xariddan past: {totals.BelowCount} · marja 10 % dan kam: {totals.LowCount}"),
                 };
-                warn.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable(totals.BelowCount > 0 ? "BrushDanger" : "BrushWarning"));
+                warn.Bind(TextBlock.ForegroundProperty, warn.GetResourceObservable(totals.BelowCount > 0 ? "BrushDanger" : "BrushWarning"));
                 stack.Children.Add(warn);
             }
             if (totals.AnyEstimated)
             {
                 var hint = new TextBlock { Text = EstimateHint, FontSize = 12, TextWrapping = TextWrapping.Wrap };
-                hint.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable("BrushTextSoft"));
+                hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
                 stack.Children.Add(hint);
             }
         }
         var box = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Margin = new Thickness(0, 4, 0, 0), Child = stack };
-        box.Bind(Border.BackgroundProperty, host.GetResourceObservable("BrushPanelSoft"));
+        box.Bind(Border.BackgroundProperty, box.GetResourceObservable("BrushPanelSoft"));
         return box;
     }
 }

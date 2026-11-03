@@ -1513,4 +1513,11 @@
   <x:String x:Key="warehouse.refresh">Yangilash</x:String>
   <x:String x:Key="warehouse.refreshTooltip">Mahsulotlar va qoldiqlarni serverdan qayta yuklash</x:String>
   <x:String x:Key="product.globalScanHint">Mahsulot shtrix-kodini skanerlang: NurCRM bazasida bo'lsa, nomi, kategoriyasi va brendi o'zi to'ladi — faqat narx va miqdorni kiriting. Bazada bo'lmasa — qo'lda to'ldiring.</x:String>
+  <!-- 2026-11-02 (аудит №2, Д2-05): подписи весов и подсказка окна входа — в словарях (раньше по-русски в XAML). -->
+  <x:String x:Key="scaleSetup.extraScalesTitle">Qo'shimcha tarozilar</x:String>
+  <x:String x:Key="scaleSetup.scale2">Tarozi 2</x:String>
+  <x:String x:Key="scaleSetup.scale3">Tarozi 3</x:String>
+  <x:String x:Key="scaleSetup.poleDisplayType">Tablo turi</x:String>
+  <x:String x:Key="scaleSetup.findPoleDisplay">Tabloni topish</x:String>
+  <x:String x:Key="csh.login.supportTooltip">Qo'llab-quvvatlash oynasini ochish</x:String>
 </ResourceDictionary>

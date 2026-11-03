@@ -20,7 +20,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// 2026-10-18, редизайн владельца (этап О3, макет LossSales.dc.html): без своего крупного заголовка (он повторял название
 /// раздела), пояснение слева и период сегментами справа, итог — плитками «Чеков в убыток» / «Убыток всего» (убыток — красным).
 /// Данные и расчёт — прежние.</summary>
-public sealed class LossSalesWindow : Window
+public sealed class LossSalesWindow : Window, IOwnerSectionRefresh, IOwnerSectionExcel
 {
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private readonly StackPanel _periods = new() { Orientation = Orientation.Horizontal, Spacing = 2 };
@@ -113,8 +113,21 @@ public sealed class LossSalesWindow : Window
         _periodLabel.Text = PeriodRange.Label(From().Date, DateTime.Today);
     }
 
+    /// <summary>2026-11-01 (В2-03): когда раздел последний раз начинал загрузку — для RefreshOnShow.</summary>
+    private DateTime _loadedUtc = DateTime.UtcNow;
+
+    public DateTime? RefreshOnShow()
+    {
+        if (DateTime.UtcNow - _loadedUtc <= TimeSpan.FromSeconds(60))
+            return null;
+        var dataAt = _loadedUtc.ToLocalTime();
+        Render();
+        return dataAt;
+    }
+
     private async void Render()
     {
+        _loadedUtc = DateTime.UtcNow;
         var gen = ++_renderGen;
         var from = From();
         List<ServerLossSale>? server = null;
@@ -182,8 +195,28 @@ public sealed class LossSalesWindow : Window
         return result.OrderByDescending(r => r.At).ToList();
     }
 
+    /// <summary>2026-11-02 (аудит №2, В-07): строки показанного списка — для Excel (одна строка = одна позиция чека в убыток).</summary>
+    private List<object?[]> _exportRows = new();
+
+    public SectionTable? BuildExportTable() => _exportRows.Count == 0 ? null : new SectionTable(
+        Tr.T("Продажи в убыток", "Зыян менен сатуулар", "Sales at a loss", "Zararına satışlar", "Zarariga sotuvlar"), _periodLabel.Text,
+        [
+            new XlColumn(Tr.T("Дата", "Күнү", "Date", "Tarih", "Sana"), XlKind.DateTime),
+            new XlColumn(Tr.T("Чек / кассир", "Чек / кассир", "Receipt / cashier", "Fiş / kasiyer", "Chek / kassir")),
+            new XlColumn(Tr.T("Товар", "Товар", "Product", "Ürün", "Mahsulot")),
+            new XlColumn(Tr.T("Количество", "Саны", "Quantity", "Miktar", "Miqdor"), XlKind.Quantity),
+            new XlColumn(Tr.T("Закупка, сом", "Сатып алуу, сом", "Cost, som", "Maliyet, som", "Xarid, so'm"), XlKind.Money),
+            new XlColumn(Tr.T("Продано за, сом", "Сатылган баа, сом", "Sold for, som", "Satış, som", "Sotilgan, so'm"), XlKind.Money),
+            new XlColumn(Tr.T("Убыток, сом", "Зыян, сом", "Loss, som", "Zarar, som", "Zarar, so'm"), XlKind.Money, XlTotal.Sum),
+        ], _exportRows);
+
     private void RenderServer(List<ServerLossSale> records)
     {
+        _exportRows = records.SelectMany(r => r.Lines.Select(l => new object?[]
+        {
+            r.At.LocalDateTime, string.Join(" · ", new[] { r.Number.Length > 0 ? "№" + r.Number : "", r.Cashier, r.Branch }.Where(x => !string.IsNullOrWhiteSpace(x))),
+            l.Title, l.Quantity, l.Cost, l.Net, l.Loss,
+        })).ToList();
         _hint.Text = Tr.T("Чеки, где из-за скидки товар продан дешевле закупочной цены, — по всем кассам компании (считает сервер NurCRM).",
             "Арзандатуудан улам товар сатып алуу баасынан арзан сатылган чектер — компаниянын бардык кассалары боюнча (NurCRM сервери эсептейт).",
             "Receipts where a discount sold an item below its purchase price — across all company tills (calculated by the NurCRM server).",
@@ -210,6 +243,7 @@ public sealed class LossSalesWindow : Window
             "Chegirma tufayli mahsulot xarid narxidan arzon sotilgan cheklar. Bu kompyuterdagi kassa to'lovda yozadi.");
         _list.Children.Clear();
         var records = LossSalesStore.ReadAll().Where(r => r.At >= from).ToList();
+        _exportRows = records.SelectMany(r => r.Lines.Select(l => new object?[] { r.At.LocalDateTime, r.Cashier, l.Title, l.Quantity, l.UnitCost * l.Quantity, l.Net, l.Loss })).ToList();
         var total = records.Sum(r => r.Loss);
         ShowTotals(records.Count, total);
         if (serverFailed)
@@ -341,5 +375,5 @@ public sealed class LossSalesWindow : Window
     private static string Money(double v) => v.ToString("N2", Ru) + " " + Tr.T("сом", "сом", "som", "som", "so'm");
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

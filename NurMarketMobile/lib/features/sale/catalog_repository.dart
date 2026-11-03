@@ -386,6 +386,9 @@ class CatalogRepository {
 
   static bool _hasAny(Map<String, dynamic> m, List<String> keys) => keys.any(m.containsKey);
 
+  /// Поля ответа каталога с признаком «весовой товар» (is_weight и его прежние названия).
+  static const _weightFlagKeys = ['is_weight', 'is_wait', 'is_weigh', 'is_weight_product', 'sale_as_weight', 'sells_by_weight'];
+
   /// 2026-10-30 (ревизия в деньгах): закупка пришла числом. Нет поля или null (кассиру сервер её не отдаёт) — прежнее значение не трогаем.
   static bool _hasCost(Map<String, dynamic> m) => m['purchase_price'] != null && m['purchase_price'] != '';
 
@@ -409,6 +412,8 @@ class CatalogRepository {
       isWeight: has(const ['unit', 'unit_display', 'is_weight', 'is_wait', 'is_weigh', 'is_weight_product', 'sale_as_weight', 'sells_by_weight'])
           ? row.isWeight
           : const Value.absent(),
+      // 2026-11-01: чистый признак is_weight (без единицы кг/г) — для округления весовых в подытоге чека
+      isWeightFlag: has(_weightFlagKeys) ? row.isWeightFlag : const Value.absent(),
       isService: has(const ['is_service', 'kind']) ? row.isService : const Value.absent(),
       isFavorite: has(const ['is_favorite']) ? row.isFavorite : const Value.absent(),
       quantity: has(const ['quantity']) ? row.quantity : const Value.absent(),
@@ -765,6 +770,8 @@ class CatalogRepository {
       plu: Value(str(p, 'plu')),
       unit: Value(unit.isEmpty ? 'шт' : unit),
       isWeight: Value(isWeight),
+      // 2026-11-01: чистый is_weight сервера отдельно от единицы кг/г; поля в ответе нет — null (весовой по isWeight, как раньше)
+      isWeightFlag: _hasAny(p, _weightFlagKeys) ? Value(_truthy(p, _weightFlagKeys)) : const Value.absent(),
       isService: Value(_truthy(p, ['is_service']) || str(p, 'kind') == 'service'),
       isFavorite: Value(_truthy(p, ['is_favorite'])),
       quantity: Value(num0(p, 'quantity')),

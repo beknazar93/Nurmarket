@@ -309,7 +309,7 @@ public sealed class CashShiftService : ICashShiftService
                         $"Vardiya {since} itibarıyla devam ediyor: zaten açıktı, başlangıç tutarı {sum}. Girdiğiniz tutar uygulanmadı.",
                         $"Smena {since} dan davom etdi: u allaqachon ochiq edi, boshlang'ich summa {sum}. Kiritilgan summa qo'llanmadi.")
                         + (carryOverHint is null ? "" : "\n\n" + carryOverHint))
-                    with { Resumed = true, ResumedOpenedAt = serverOpenedAt, InfoIsWarning = carryOverHint is not null, ResumedBy = ReadOpenedBy(response), ResumedHint = carryOverHint };
+                    with { Resumed = true, ResumedOpenedAt = serverOpenedAt, InfoIsWarning = carryOverHint is not null, ResumedBy = ReadOpenedBy(response), ResumedHint = carryOverHint, ServerRefusedPreviousClose = queuedRevival };
             }
 
             _offlinePosStateStore.SaveFromApp(openingCash);

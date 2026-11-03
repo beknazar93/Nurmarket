@@ -70,8 +70,21 @@ public sealed class TelegramBotAnalyticsWindow : Window
             _timer.Start();
         };
         Closed += (_, _) => _timer.Stop();
-        _timer.Tick += (_, _) => _ = RenderAsync();
+        // 2026-11-01 (В2-02, контрольный аудит): спрятанный раздел (владелец ушёл в другой) и свёрнутое окно сервер не опрашивают —
+        // раньше ~240 запросов в час впустую; при возврате данные старше 60 с обновляются сами.
+        _timer.Tick += (_, _) =>
+        {
+            if (IsVisible && WindowState != WindowState.Minimized)
+                _ = RenderAsync();
+        };
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == IsVisibleProperty && IsVisible && DateTime.UtcNow - _lastRenderUtc > TimeSpan.FromSeconds(60))
+                _ = RenderAsync();
+        };
     }
+
+    private DateTime _lastRenderUtc = DateTime.MinValue;
 
     /// <summary>2026-10-01, ТЗ часть 5: бот на сервере NurCRM — обращения пишет сервер
     /// (GET /api/main/telegram-bot/inquiries/), а журнал этого компьютера больше не пополняется.
@@ -87,6 +100,7 @@ public sealed class TelegramBotAnalyticsWindow : Window
         if (_loading)
             return;
         _loading = true;
+        _lastRenderUtc = DateTime.UtcNow;
         try
         {
             var api = App.AppHost?.Services.GetService(typeof(NurMarketKassa.Services.Api.ServerTelegramBotApi)) as NurMarketKassa.Services.Api.ServerTelegramBotApi;
@@ -291,5 +305,5 @@ public sealed class TelegramBotAnalyticsWindow : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

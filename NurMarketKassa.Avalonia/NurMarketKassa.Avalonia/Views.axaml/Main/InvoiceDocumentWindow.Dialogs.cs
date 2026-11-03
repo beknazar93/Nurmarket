@@ -11,6 +11,9 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// <summary>Итог окна «Проверьте правку»: причина, чем компенсировать возврат, и «в очередь» (нет связи — пароль не проверить, правка ставится в очередь).</summary>
 internal sealed record PreviewResult(string Reason, string Compensation, bool Queue);
 
+/// <summary>Строка таблицы «Проверьте правку»: в накладной сейчас → станет, изменение суммы строки (с учётом новой цены закупки), остаток склада (null — не читали).</summary>
+internal sealed record PreviewRow(string Name, double Now, double Delta, double New, double? Stock, double Sum);
+
 /// <summary>2026-10-30 (ТЗ 2.4): «Проверьте правку» — до → после: сумма прихода, деньги/долг, остатки по товарам, чем компенсируется возврат, причина (обязательна) и пароль владельца.
 /// «Сохранить правку» доступна только с причиной (не короче 5 знаков) и введённым паролем; пароль сверяется с NurCRM, текущий вход не меняется.</summary>
 internal sealed class InvoiceEditPreviewDialog : Window
@@ -42,7 +45,7 @@ internal sealed class InvoiceEditPreviewDialog : Window
         T("Другое", "Башка", "Other", "Diğer", "Boshqa"),
     };
 
-    public InvoiceEditPreviewDialog(ReceiptEditPlan plan, ReceiptPayKind pay, string docNumber, SupplierReceipt r, string supplier, int version, bool revert, Func<string, Task<bool?>> verify, IReadOnlyList<string>? priceLines = null, IReadOnlyList<AddedItem>? added = null, PatchPlan? patch = null)
+    public InvoiceEditPreviewDialog(ReceiptEditPlan plan, ReceiptPayKind pay, string docNumber, SupplierReceipt r, string supplier, int version, bool revert, Func<string, Task<bool?>> verify, IReadOnlyList<string>? priceLines = null, IReadOnlyList<AddedItem>? added = null, PatchPlan? patch = null, IReadOnlyList<PreviewRow>? rows = null)
     {
         _patch = patch is not null;
         _plan = plan;
@@ -53,7 +56,7 @@ internal sealed class InvoiceEditPreviewDialog : Window
         TextBlock Line(string text, string brush = "BrushText", double size = 13.5, FontWeight? w = null)
         {
             var t = new TextBlock { Text = text, FontSize = size, TextWrapping = TextWrapping.Wrap, FontWeight = w ?? FontWeight.Normal };
-            t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
+            t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable(brush));
             return t;
         }
         var addedSum = added?.Sum(a => ReceivingPricing.LineTotal(a.Qty, a.Price)) ?? 0; // 2026-11-01: новые товары (дополнительный приход) входят в итог
@@ -79,7 +82,9 @@ internal sealed class InvoiceEditPreviewDialog : Window
                 $"{docNumber} yuk xatiga qo'shimcha kirim yaratiladi: {added.Count} ta yangi mahsulot, summa {MoneyText.Som(addedSum)}. Yuk xatida ular «qo'shimcha kirimdan» qatorlari bo'lib chiqadi, «kim va qachon qo'shdi» belgisi mahsulot yonida."), "BrushText", 13, FontWeight.SemiBold));
         if (priceLines is { Count: > 0 })
         {
-            panel.Children.Add(Line(T("Будет изменена цена продажи товара в каталоге (в документе прихода цен продажи нет):", "Каталогдогу товардын сатуу баасы өзгөрөт (кирүү документинде сатуу баасы жок):",
+            panel.Children.Add(Line(patch is not null
+                ? T("Другие изменения накладной (цены, реквизиты):", "Накладнойдун башка өзгөрүүлөрү (баалар, реквизиттер):", "Other changes to the invoice (prices, details):", "Faturadaki diğer değişiklikler (fiyatlar, bilgiler):", "Yuk xatidagi boshqa o'zgarishlar (narxlar, rekvizitlar):")
+                : T("Будет изменена цена продажи товара в каталоге (в документе прихода цен продажи нет):", "Каталогдогу товардын сатуу баасы өзгөрөт (кирүү документинде сатуу баасы жок):",
                 "The product's sale price in the catalog will change (the receipt document has no sale prices):", "Katalogdaki ürünün satış fiyatı değişecek (giriş belgesinde satış fiyatı yok):", "Katalogdagi mahsulotning sotuv narxi o'zgaradi (kirim hujjatida sotuv narxi yo'q):"), "BrushText", 13, FontWeight.SemiBold));
             foreach (var pl in priceLines)
                 panel.Children.Add(Line(pl, "BrushTextSoft", 12.5));
@@ -94,29 +99,33 @@ internal sealed class InvoiceEditPreviewDialog : Window
                 HorizontalAlignment = col == 0 ? HorizontalAlignment.Left : HorizontalAlignment.Right };
             if (col > 0 && !head)
                 t.Classes.Add("num");
-            t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(head ? "BrushTextSoft" : brush));
+            t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable(head ? "BrushTextSoft" : brush));
             Grid.SetRow(t, row);
             Grid.SetColumn(t, col);
             grid.Children.Add(t);
         }
         grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
         Cell(T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), 0, true);
-        Cell(T("Сейчас", "Азыр", "Now", "Şimdi", "Hozir"), 1, true);
+        Cell(T("В накладной", "Накладнойдо", "In the invoice", "Faturada", "Yuk xatida"), 1, true);
         Cell(T("Изменение", "Өзгөрүү", "Change", "Değişim", "O'zgarish"), 2, true);
         Cell(T("Станет", "Болот", "Will be", "Olacak", "Bo'ladi"), 3, true);
-        Cell(T("Остаток склада", "Кампа калдыгы", "Stock", "Stok", "Ombor qoldig'i"), 4, true);
-        Cell(T("Сумма", "Сумма", "Amount", "Tutar", "Summa"), 5, true);
-        foreach (var l in plan.Lines.Where(l => l.Action != EditAction.None))
+        Cell(T("Остаток на складе", "Кампадагы калдык", "Stock in the warehouse", "Depodaki stok", "Ombordagi qoldiq"), 4, true);
+        Cell(T("Изменение суммы", "Сумманын өзгөрүшү", "Amount change", "Tutar değişimi", "Summa o'zgarishi"), 5, true);
+        // 2026-11-01 (живая проверка 1.17.72, Н-2): «В накладной» — количество в документе, не на складе; остаток склада — только там, где количество меняется и остаток известен;
+        // сумма строки считается по НОВОЙ цене закупки (раньше брала старую и расходилась с итогом).
+        var tableRows = rows ?? plan.Lines.Where(l => l.Action != EditAction.None)
+            .Select(l => new PreviewRow(l.Input.Name, l.Effective, l.Delta, l.NewQty, l.Input.Stock, Math.Sign(l.Delta) * ReceivingPricing.LineTotal(Math.Abs(l.Delta), l.Input.Purchase))).ToList();
+        foreach (var l in tableRows)
         {
             row++;
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            var stockBefore = l.Input.Stock;
-            Cell(l.Input.Name, 0, bold: true);
-            Cell(ReceiptEditPlanner.Fmt(l.Effective), 1);
-            Cell((l.Delta > 0 ? "+" : "") + ReceiptEditPlanner.Fmt(l.Delta), 2, brush: l.Delta < 0 ? "BrushDanger" : "BrushSuccess", bold: true);
-            Cell(ReceiptEditPlanner.Fmt(l.NewQty), 3);
-            Cell(stockBefore is { } sb ? $"{ReceiptEditPlanner.Fmt(sb)} → {ReceiptEditPlanner.Fmt(sb + l.Delta)}" : "—", 4);
-            Cell((l.Delta > 0 ? "+" : "−") + MoneyText.Som(ReceivingPricing.LineTotal(Math.Abs(l.Delta), l.Input.Purchase)), 5);
+            var same = Math.Abs(l.Delta) < 0.0005;
+            Cell(l.Name, 0, bold: true);
+            Cell(ReceiptEditPlanner.Fmt(l.Now), 1);
+            Cell(same ? "—" : (l.Delta > 0 ? "+" : "") + ReceiptEditPlanner.Fmt(l.Delta), 2, brush: l.Delta < 0 ? "BrushDanger" : "BrushSuccess", bold: !same);
+            Cell(ReceiptEditPlanner.Fmt(l.New), 3);
+            Cell(same ? T("не меняется", "өзгөрбөйт", "unchanged", "değişmez", "o'zgarmaydi") : l.Stock is { } sb ? $"{ReceiptEditPlanner.Fmt(sb)} → {ReceiptEditPlanner.Fmt(sb + l.Delta)}" : "—", 4);
+            Cell(Math.Abs(l.Sum) < 0.005 ? "—" : (l.Sum > 0 ? "+" : "−") + MoneyText.Som(Math.Abs(l.Sum)), 5);
         }
         // 2026-11-01: товары, которых нет в накладной, — строки дополнительного прихода (было 0)
         foreach (var a in added ?? Array.Empty<AddedItem>())
@@ -131,7 +140,7 @@ internal sealed class InvoiceEditPreviewDialog : Window
             Cell("+" + MoneyText.Som(ReceivingPricing.LineTotal(a.Qty, a.Price)), 5);
         }
         var box = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Child = grid };
-        box.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
+        box.Bind(Border.BackgroundProperty, box.GetResourceObservable("BrushPanelSoft"));
         panel.Children.Add(box);
         if (patch is null)
             panel.Children.Add(Line(T("Закупка в карточке товара не меняется (цена продажи — только если указана выше). Количество уменьшается возвратом поставщику по этому приходу, увеличивается дополнительным приходом «дополнение к ", "Товардын карточкасындагы сатып алуу баасы өзгөрбөйт (сатуу баасы — жогоруда көрсөтүлсө гана). Саны азайса — ушул кирүү боюнча жеткирүүчүгө кайтаруу, көбөйсө — кошумча кирүү «",
@@ -159,10 +168,10 @@ internal sealed class InvoiceEditPreviewDialog : Window
         panel.Children.Add(_reasonKind);
         _reasonText.Watermark = T("Подробнее (не короче 5 знаков)", "Кеңири (5 белгиден кем эмес)", "Details (at least 5 characters)", "Ayrıntı (en az 5 karakter)", "Batafsil (kamida 5 belgi)");
         panel.Children.Add(_reasonText);
-        panel.Children.Add(Line(T("Подтвердите своим паролем (владелец или администратор)", "Өз сырсөзүңүз менен ырастаңыз (ээси же администратор)", "Confirm with your own password (owner or administrator)", "Kendi parolanızla onaylayın (sahip veya yönetici)", "O'z parolingiz bilan tasdiqlang (egasi yoki administrator)"), "BrushTextSoft", 12.5, FontWeight.SemiBold));
+        panel.Children.Add(Line(T("Подтвердите паролем своей учётной записи NurCRM (под которой вы вошли)", "Кирген NurCRM эсебиңиздин сырсөзү менен ырастаңыз", "Confirm with the password of the NurCRM account you are signed in with", "Giriş yaptığınız NurCRM hesabının parolasıyla onaylayın", "Kirgan NurCRM hisobingiz paroli bilan tasdiqlang"), "BrushTextSoft", 12.5, FontWeight.SemiBold));
         _password.Watermark = T("Пароль NurCRM", "NurCRM сырсөзү", "NurCRM password", "NurCRM parolası", "NurCRM paroli");
         panel.Children.Add(_password);
-        _note.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        _note.Bind(TextBlock.ForegroundProperty, _note.GetResourceObservable("BrushTextSoft"));
         panel.Children.Add(_note);
         panel.Children.Add(SectionCards.ErrorBox(this, _error));
 
@@ -252,7 +261,11 @@ internal sealed class InvoiceEditPreviewDialog : Window
         _save.IsEnabled = true;
         if (ok == false)
         {
-            _error.Text = T("Пароль неверный.", "Сырсөз туура эмес.", "Wrong password.", "Parola yanlış.", "Parol noto'g'ri.");
+            _error.Text = T("Пароль неверный. Нужен пароль той учётной записи NurCRM, под которой вы вошли (владелец или администратор). Причина и остальные поля сохранены — введите пароль ещё раз.",
+                "Сырсөз туура эмес. Сиз кирген NurCRM эсебинин сырсөзү керек (ээси же администратор). Себеби жана калган талаалар сакталды — сырсөздү дагы бир жолу киргизиңиз.",
+                "Wrong password. Enter the password of the NurCRM account you are signed in with (owner or administrator). The reason and the other fields are kept — enter the password again.",
+                "Parola yanlış. Giriş yaptığınız NurCRM hesabının parolası gerekir (sahip veya yönetici). Neden ve diğer alanlar korundu — parolayı tekrar girin.",
+                "Parol noto'g'ri. Kirgan NurCRM hisobingiz paroli kerak (egasi yoki administrator). Sabab va boshqa maydonlar saqlangan — parolni qayta kiriting.");
             _error.IsVisible = true;
             _password.Focus();
             _password.SelectAll();
@@ -296,12 +309,12 @@ internal sealed class OwnerPasswordDialog : Window
         SectionCards.AsModal(this, 520);
         var panel = new StackPanel { Spacing = 8 };
         var msg = new TextBlock { Text = message, FontSize = 13.5, TextWrapping = TextWrapping.Wrap };
-        msg.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        msg.Bind(TextBlock.ForegroundProperty, msg.GetResourceObservable("BrushText"));
         panel.Children.Add(msg);
         _password.Watermark = T("Пароль NurCRM", "NurCRM сырсөзү", "NurCRM password", "NurCRM parolası", "NurCRM paroli");
         panel.Children.Add(_password);
         _progressText.Text = T("Проверяю пароль…", "Сырсөз текшерилүүдө…", "Checking the password…", "Parola kontrol ediliyor…", "Parol tekshirilmoqda…");
-        _progressText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        _progressText.Bind(TextBlock.ForegroundProperty, _progressText.GetResourceObservable("BrushTextSoft"));
         panel.Children.Add(_progressText);
         panel.Children.Add(_progress);
         panel.Children.Add(SectionCards.ErrorBox(this, _error));
@@ -378,7 +391,7 @@ internal sealed class InvoiceHistoryDialog : Window
         TextBlock Line(string text, string brush = "BrushText", double size = 13, FontWeight? w = null)
         {
             var t = new TextBlock { Text = text, FontSize = size, TextWrapping = TextWrapping.Wrap, FontWeight = w ?? FontWeight.Normal };
-            t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
+            t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable(brush));
             return t;
         }
         var edits = history.Edits.Where(e => e.Status is "done" or "partial" or "abandoned").OrderByDescending(e => e.Version).ToList();
@@ -389,7 +402,7 @@ internal sealed class InvoiceHistoryDialog : Window
             var card = new StackPanel { Spacing = 2 };
             var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
             head.Children.Add(Line($"v{e.Version}", size: 15, w: FontWeight.Bold));
-            head.Children.Add(Line(e.Kind == "revert" ? T($"откат версии {e.RevertedVersion}", $"{e.RevertedVersion}-версияны кайтаруу", $"rollback of v{e.RevertedVersion}", $"v{e.RevertedVersion} geri alma", $"v{e.RevertedVersion} qaytarish") : T("правка количества", "санды оңдоо", "quantity edit", "miktar düzenleme", "miqdor tahriri"), "BrushTextSoft"));
+            head.Children.Add(Line(e.Kind == "revert" ? T($"откат версии {e.RevertedVersion}", $"{e.RevertedVersion}-версияны кайтаруу", $"rollback of v{e.RevertedVersion}", $"v{e.RevertedVersion} geri alma", $"v{e.RevertedVersion} qaytarish") : e.Lines.Count == 0 && e.Diffs.Count > 0 ? T("правка накладной", "накладнойду оңдоо", "invoice edit", "fatura düzenleme", "yuk xatini tahrirlash") : T("правка количества", "санды оңдоо", "quantity edit", "miktar düzenleme", "miqdor tahriri"), "BrushTextSoft")); // 2026-11-01 (С2-24): серверная правка без строк количества — не «правка количества"
             if (e.Status == "partial")
                 head.Children.Add(SectionCards.Pill(this, T("не до конца", "аягына чыккан жок", "incomplete", "tamamlanmadı", "tugallanmagan"), "BrushWarningSoft", "BrushText"));
             else if (e.Status == "abandoned") // 2026-10-30 (приёмка 1.17.67): владелец отказался от недоведённой правки
@@ -407,9 +420,9 @@ internal sealed class InvoiceHistoryDialog : Window
                     : T($" (проведено не полностью, по плану {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (толук өткөрүлгөн жок, планда {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (not fully posted, planned {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (tam işlenmedi, planlanan {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (to'liq o'tkazilmadi, rejada {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})")) : "")))
                 + (e.Lines.Count > 8 ? "…" : ""), "BrushTextSoft", 12.5));
             // 2026-11-01: цена продажи / наценка товара, изменённые из накладной, — «было → стало» по каждому полю
-            if (ReceiptEditAuditLog.FieldChanges(e).Where(f => f.Field is "sale_price" or "markup_percent").ToList() is { Count: > 0 } priceFields)
+            if (ReceiptEditAuditLog.FieldChanges(e).Where(f => f.Field is not ("quantity" or "removed" or "added_item") && (showMoney || f.Field is not ("purchase_price" or "discount" or "payment"))).ToList() is { Count: > 0 } priceFields) // 2026-11-01 (С2-24): все поля серверной правки; закупка, скидка и оплата — только с правом на деньги
                 card.Children.Add(Line(string.Join("; ", priceFields.Select(ReceiptEditAuditLog.FieldText)), "BrushTextSoft", 12.5));
-            if (canRevert && e == edits[0] && e.Status == "done")
+            if (canRevert && e == edits[0] && e.Status == "done" && e.Lines.Count > 0) // 2026-11-01 (С2-24): у серверной правки (PATCH) строк нет — откат из них собрать нельзя
             {
                 var revert = SectionCards.Secondary(T("Вернуть эту версию", "Бул версияны кайтаруу", "Roll back this version", "Bu sürümü geri al", "Bu versiyani qaytarish"));
                 revert.HorizontalAlignment = HorizontalAlignment.Left;
@@ -423,7 +436,7 @@ internal sealed class InvoiceHistoryDialog : Window
                 card.Children.Add(revert);
             }
             var box = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Child = card };
-            box.Bind(Border.BackgroundProperty, this.GetResourceObservable(e == edits[0] ? "BrushAccentSoft" : "BrushPanelSoft"));
+            box.Bind(Border.BackgroundProperty, box.GetResourceObservable(e == edits[0] ? "BrushAccentSoft" : "BrushPanelSoft"));
             panel.Children.Add(box);
         }
         // 2026-11-01: история с сервера (то, что правили на сайте, с телефона и с других касс) — рядом с локальным журналом этой кассы
@@ -438,10 +451,10 @@ internal sealed class InvoiceHistoryDialog : Window
                     sp.Children.Add(Line(T("Причина: ", "Себеби: ", "Reason: ", "Neden: ", "Sabab: ") + sv.Reason, "BrushTextSoft", 12.5));
                 if (showMoney && sv.Total > 0)
                     sp.Children.Add(Line(MoneyText.Som(sv.Total), "BrushTextSoft", 12.5));
-                if (sv.Summary.Length > 0)
+                if (sv.Summary.Length > 0 && showMoney) // 2026-11-01 (С2-24): в сводке сервера бывают закупочные цены — только с правом на деньги
                     sp.Children.Add(Line(sv.Summary.Length > 400 ? sv.Summary[..400] + "…" : sv.Summary, "BrushTextSoft", 12));
                 var sbox = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Child = sp };
-                sbox.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
+                sbox.Bind(Border.BackgroundProperty, sbox.GetResourceObservable("BrushPanelSoft"));
                 panel.Children.Add(sbox);
             }
         }
@@ -450,7 +463,7 @@ internal sealed class InvoiceHistoryDialog : Window
         first.Children.Add(Line("v1 · " + T("исходный документ", "баштапкы документ", "original document", "orijinal belge", "asl hujjat"), w: FontWeight.Bold, size: 14));
         first.Children.Add(Line($"{r.CreatedAt:dd.MM.yyyy HH:mm} · {r.CreatedBy}", "BrushTextSoft", 12.5));
         var origin = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Child = first };
-        origin.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
+        origin.Bind(Border.BackgroundProperty, origin.GetResourceObservable("BrushPanelSoft"));
         panel.Children.Add(origin);
         panel.Children.Add(Line(T("Историю не стираем: откат — это новая версия.", "Тарых өчүрүлбөйт: кайтаруу — жаңы версия.", "The history is never erased: a rollback is a new version.", "Geçmiş silinmez: geri alma yeni bir sürümdür.", "Tarix o'chirilmaydi: qaytarish — yangi versiya."), "BrushTextSoft", 12));
         var close = SectionCards.Cancel(T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
@@ -473,13 +486,13 @@ internal sealed class LineHistoryDialog : Window
         {
             var card = new StackPanel { Spacing = 2 };
             var head = new TextBlock { Text = ReceiptEditLineHistory.Mark(e), FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
-            head.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            head.Bind(TextBlock.ForegroundProperty, head.GetResourceObservable("BrushText"));
             var why = new TextBlock { Text = T("Причина: ", "Себеби: ", "Reason: ", "Neden: ", "Sabab: ") + e.Reason + $"  ·  v{e.Version}", FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
-            why.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            why.Bind(TextBlock.ForegroundProperty, why.GetResourceObservable("BrushTextSoft"));
             card.Children.Add(head);
             card.Children.Add(why);
             var box = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 8), Child = card };
-            box.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
+            box.Bind(Border.BackgroundProperty, box.GetResourceObservable("BrushPanelSoft"));
             panel.Children.Add(box);
         }
         var close = SectionCards.Cancel(T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));

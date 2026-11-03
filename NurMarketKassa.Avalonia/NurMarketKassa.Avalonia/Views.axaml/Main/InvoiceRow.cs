@@ -35,7 +35,7 @@ internal sealed class InvoiceRow : INotifyPropertyChanged
                 _purchaseSet = true;
                 OrigPurchase = value;
             }
-            _purchase = Math.Round(Math.Max(0, value), 3);
+            _purchase = Math.Round(Math.Max(0, value), ReceivingPricing.PurchaseDecimals);
             RaiseAll(nameof(Purchase), nameof(PurchaseText), nameof(PurchaseEditText), nameof(SumText), nameof(MarkupText), nameof(ProfitText), nameof(StripeKey), nameof(NoteText),
                 nameof(FlagKey), nameof(PurchaseMark), nameof(MarkKey), nameof(RowChanged));
         }
@@ -43,11 +43,18 @@ internal sealed class InvoiceRow : INotifyPropertyChanged
 
     public double OrigPurchase { get; private set; }
 
-    public bool PurchaseChanged => _purchaseSet && Math.Abs(_purchase - OrigPurchase) > 0.0005;
+    /// <summary>2026-11-01 (живая проверка 1.17.72, Н-1): «Отменить правки» возвращает закупку к значению из последнего чтения.</summary>
+    public void ResetPurchase()
+    {
+        if (_purchaseSet)
+            Purchase = OrigPurchase;
+    }
+
+    public bool PurchaseChanged => _purchaseSet && Math.Abs(_purchase - OrigPurchase) > 0.00005; // 2026-11-02 (аудит №2, С3-01): закупка до 4 знаков — порог половина последнего знака
 
     public string PurchaseEditText
     {
-        get => _purchase > 0 ? Num(_purchase) : "";
+        get => _purchase > 0 ? _purchase.ToString("0.####", Ru) : "";
         set
         {
             if (TryParse(value, out var v) && v > 0)
@@ -218,7 +225,7 @@ internal sealed class InvoiceRow : INotifyPropertyChanged
         }
     }
 
-    public string PurchaseText => Purchase > 0 ? MoneyText.Som(Purchase) : "—";
+    public string PurchaseText => Purchase > 0 ? MoneyText.PriceSom(Purchase) : "—"; // 2026-11-01: цена закупки — 2–4 знака
     public string SumText => MoneyText.Som(ReceivingPricing.LineTotal(_qty, Purchase));
 
     public string MarkupText

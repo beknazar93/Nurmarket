@@ -600,8 +600,14 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         }
     }
 
+    private long _lastCreateTransferTick = -10_000;
+
     private void CreateTransfer_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-11-01 (контрольный аудит, С2-16): двойной клик не заводит два документа перемещения подряд.
+        if (Environment.TickCount64 - _lastCreateTransferTick is >= 0 and < 1500)
+            return;
+        _lastCreateTransferTick = Environment.TickCount64;
         var id = StockTransferService.Instance.CreateTransfer(
             fromPlaceId: null, toPlaceId: null,
             responsible: App.GetRequiredService<NurMarketKassa.Ui.Shared.IAppSession>().CurrentUserDisplayName,
@@ -897,8 +903,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             // 2026-10-20, этап П3: «В долг» — срок оплаты поставщику (WarehouseWindow.SupplierDebt.cs).
             InitSupplierDebtTerm();
             RefreshReceivingSummary();
-            ReceivingPaidRadio.IsChecked = true;
-            _viewModel.ReceivingPaidNow = true;
+            // 2026-11-01 (контрольный аудит, С2-32): по умолчанию «В долг» (было «Оплачено сразу» — деньги по ошибке уходили из кассы расходов); «Оплачено сразу» кассир выбирает явно, как в «Закупках».
+            ReceivingDebtRadio.IsChecked = true;
+            _viewModel.ReceivingPaidNow = false;
             _ = _viewModel.LoadReceivingSuppliersAsync();
             // 2026-10-24, пакет Р2: код извне идёт в открытую ревизию (строку-дубль в старой таблице больше не создаём).
             if (!string.IsNullOrWhiteSpace(InitialBarcode))
@@ -1332,19 +1339,38 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         return ok;
     }
 
+    // 2026-11-02 (аудит №2, С2-16): двойной клик по «Добавить товар» не открывает два окна карточки.
+    private bool _addProductOpen;
+
     private async void AddProduct_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_addProductOpen)
+            return;
+        _addProductOpen = true;
+        try
+        {
+            await AddProductCoreAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            _addProductOpen = false;
+        }
+    }
+
+    private async Task AddProductCoreAsync()
     {
         var catalogApi = App.AppHost?.Services.GetService<ICatalogApiService>();
         var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
         if (catalogApi is null)
         {
-            prompts?.ShowToast(Tr.T("Добавление товара недоступно в этом режиме.", "Бул режимде товар кошууга болбойт.", "Adding products isn't available in this mode.", "Bu modda ürün eklenemez.", "Bu rejimda mahsulot qo'shib bo'lmaydi."), isWarning: true);
+            prompts?.ShowToast(Tr.T("Добавление товара недоступно в этом режиме.", "Бул режимде товар кошууга болбойт.", "Adding products isn't available in this mode.", "Bu modda ürün eklenemez.", "Bu rejimda mahsulot qo'shib bo'lmaydi."));
             return;
         }
 
         var dialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ProductEditDialog(catalogApi, null);
         var saved = await dialog.ShowDialog<bool>(this).ConfigureAwait(true);
-        if (saved)
+        // 2026-11-03 (ревью Н-2): запись ещё идёт (SavePending) — «Товар сохранён» не пишем и каталог не перечитываем: итог придёт плашкой из диалога.
+        if (saved && !dialog.SavePending)
         {
             SuccessToast.Show(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
             await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
@@ -1395,7 +1421,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
         if (catalogApi is null)
         {
-            prompts?.ShowToast(Tr.T("Редактирование товара недоступно в этом режиме.", "Бул режимде товарды түзөтүүгө болбойт.", "Editing products isn't available in this mode.", "Bu modda ürün düzenlenemez.", "Bu rejimda mahsulotni tahrirlab bo'lmaydi."), isWarning: true);
+            prompts?.ShowToast(Tr.T("Редактирование товара недоступно в этом режиме.", "Бул режимде товарды түзөтүүгө болбойт.", "Editing products isn't available in this mode.", "Bu modda ürün düzenlenemez.", "Bu rejimda mahsulotni tahrirlab bo'lmaydi."));
             return;
         }
 
@@ -1406,13 +1432,22 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         var toEdit = product;
         try
         {
-            var detail = await catalogApi.ProductsDetailAsync(product.Id).ConfigureAwait(true);
+            // 2026-11-03 (С-06, аудит «зависание при медленном сервере»): свежая карточка — не дольше 8 с (раньше до 55 с, клики терялись); через 3 с — «Ждём ответ сервера…».
+            var productId = product.Id;
+            var detail = await ServerAnswerWait.ForegroundAsync("products/detail", t => catalogApi.ProductsDetailAsync(productId, t),
+                default, slow => { if (slow) Dispatcher.UIThread.Post(() => prompts?.ShowToast(ModalShell.ServerWaitText(3))); }).ConfigureAwait(true);
             var apiBaseUrl = App.AppHost?.Services.GetService<AppSettings>()?.ApiBaseUrl ?? "";
             if (detail is { } json && ProductCatalogMapper.TryTile(json, apiBaseUrl) is { } fresh)
             {
                 fresh.ProductImagePath = product.ProductImagePath;
                 toEdit = fresh;
             }
+        }
+        catch (ServerNotAnsweringException)
+        {
+            // Карточка из кэша не хранит часть полей, и «Сохранить» стёр бы их на сервере — при медленном сервере не открываем, а просим повторить.
+            prompts?.ShowToast(ServerAnswerWait.SlowMessage, isWarning: true);
+            return;
         }
         catch (Exception ex)
         {
@@ -1421,7 +1456,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
 
         var dialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ProductEditDialog(catalogApi, toEdit) { StartOnReceiptsTab = onReceipts };
         var saved = await dialog.ShowDialog<bool>(this).ConfigureAwait(true);
-        if (saved)
+        // 2026-11-03 (ревью Н-2): запись ещё идёт (SavePending) — «Товар сохранён» не пишем и каталог не перечитываем: итог придёт плашкой из диалога.
+        if (saved && !dialog.SavePending)
         {
             SuccessToast.Show(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
             await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
@@ -1443,7 +1479,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         var permissions = App.AppHost?.Services.GetService<IPermissionService>();
         if (catalogApi is null)
         {
-            prompts?.ShowToast(Tr.T("Удаление товара недоступно в этом режиме.", "Бул режимде товарды өчүрүүгө болбойт.", "Deleting products isn't available in this mode.", "Bu modda ürün silinemez.", "Bu rejimda mahsulotni o'chirib bo'lmaydi."), isWarning: true);
+            prompts?.ShowToast(Tr.T("Удаление товара недоступно в этом режиме.", "Бул режимде товарды өчүрүүгө болбойт.", "Deleting products isn't available in this mode.", "Bu modda ürün silinemez.", "Bu rejimda mahsulotni o'chirib bo'lmaydi."));
             return;
         }
 
@@ -1473,6 +1509,84 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
                 entered => EmployeeAccessGate.TryValidate(EmployeeAccessGate.WarehouseDelete, entered)).ConfigureAwait(true))
             return;
 
+        // 2026-11-03, «как в 1С»: товар с остатком не удаляется — сначала остаток списывается актом «Списание» (N → 0),
+        // потом товар убирается (с историей — в архив, это «пометка на удаление»; без истории — удаляется).
+        var stockCleared = false;
+        double? remainingStock = null; // 2026-11-03 (ревью С-5): остаток, оставшийся после неполного списания — для предупреждения в окне архива
+        if (!OfflineModeHelper.UseLocalOperations)
+        {
+            var stock = product.Quantity;
+            try
+            {
+                // 2026-11-03 (ревью Н-3): остаток читаем со сроком 8 с (раньше без срока, до 55 с); не успели — удаление не продолжаем.
+                var deleteId = product.Id;
+                if (await ServerAnswerWait.ForegroundAsync("products/detail", t => catalogApi.ProductsDetailAsync(deleteId, t),
+                        default, slow => { if (slow) Dispatcher.UIThread.Post(() => prompts?.ShowToast(ModalShell.ServerWaitText(3))); }).ConfigureAwait(true) is { } detail)
+                    stock = StockSyncService.ResolveStockQuantity(detail, product.MustWeigh);
+            }
+            catch (ServerNotAnsweringException)
+            {
+                prompts?.ShowToast(ServerAnswerWait.SlowMessage, isWarning: true);
+                return;
+            }
+            catch (Exception sex) when (sex is not OutOfMemoryException)
+            {
+                PosLogger.Log($"Склад: остаток «{product.Title}» перед удалением не получен, берём из кэша ({sex.Message}).", "WARNING");
+            }
+            if (stock > 0.0005)
+            {
+              // 2026-11-03 (ревью Н-3): весь блок списания в try — это async void, исключение не должно уйти в необработанные.
+              try
+              {
+                var stockText = stock.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                var writeOff = PosConfirmDialog.Show(this,
+                    Tr.T("Сначала спишите остаток", "Адегенде калдыкты эсептен чыгарыңыз", "Write off the stock first", "Önce stoku düşün", "Avval qoldiqni hisobdan chiqaring"),
+                    Tr.T($"На складе «{product.Title}» числится {stockText}. Как в 1С, товар с остатком не удаляют: сначала оформите акт «Списание» (остаток станет 0), потом товар можно убрать. Списать остаток сейчас?",
+                         $"Кампада «{product.Title}» боюнча {stockText} бар. 1С сыяктуу, калдыгы бар товарды өчүрүшпөйт: адегенде «Эсептен чыгаруу» актысын түзүңүз (калдык 0 болот), андан соң товарды алып салса болот. Калдыкты азыр эсептен чыгарабызбы?",
+                         $"“{product.Title}” has {stockText} in stock. As in 1C, a product with stock is not deleted: first post a “Write-off” document (stock becomes 0), then the product can be removed. Write off the stock now?",
+                         $"«{product.Title}» için stokta {stockText} var. 1C'deki gibi stoklu ürün silinmez: önce «Düşüm» belgesi yapın (stok 0 olur), sonra ürün kaldırılabilir. Stok şimdi düşülsün mü?",
+                         $"«{product.Title}» omborda {stockText} bor. 1C'dagidek, qoldig'i bor mahsulot o'chirilmaydi: avval «Hisobdan chiqarish» aktini rasmiylashtiring (qoldiq 0 bo'ladi), keyin mahsulotni olib tashlash mumkin. Qoldiq hozir hisobdan chiqarilsinmi?"),
+                    Tr.T("Списать остаток", "Калдыкты эсептен чыгаруу", "Write off stock", "Stoku düş", "Qoldiqni hisobdan chiqarish"),
+                    Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+                    PosConfirmAccent.Primary);
+                if (!writeOff)
+                    return;
+                var woDialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.WriteOffDialog(new[] { product }, stock);
+                if (!await woDialog.ShowDialog<bool>(this).ConfigureAwait(true))
+                    return;
+                PosLogger.Log($"AUDIT: перед удалением списан остаток «{product.Title}» ({product.Id}) × {stockText}.", "INFO");
+                // 2026-11-03 (ревью С-5): «остаток обнулён» ставим только если сервер подтвердил ≤ 0 (кассир мог уменьшить количество в окне списания).
+                try
+                {
+                    var checkId = product.Id;
+                    if (await ServerAnswerWait.ForegroundAsync("products/detail", t => catalogApi.ProductsDetailAsync(checkId, t)).ConfigureAwait(true) is { } afterDetail)
+                    {
+                        var left = StockSyncService.ResolveStockQuantity(afterDetail, product.MustWeigh);
+                        if (left <= 0.0005)
+                            stockCleared = true;
+                        else
+                        {
+                            remainingStock = left;
+                            prompts?.ShowToast(Tr.T($"Остаток списан не полностью: осталось {left:0.###}.", $"Калдык толугу менен эсептен чыгарылган жок: {left:0.###} калды.", $"Stock was not fully written off: {left:0.###} left.", $"Stok tamamen düşülmedi: {left:0.###} kaldı.", $"Qoldiq to'liq hisobdan chiqarilmadi: {left:0.###} qoldi."), isWarning: true);
+                        }
+                    }
+                }
+                catch (Exception cex) when (cex is not OutOfMemoryException)
+                {
+                    PosLogger.Log($"Склад: остаток «{product.Title}» после списания не перечитан ({cex.Message}) — признак «обнулён» не ставим.", "WARNING");
+                }
+                await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
+                await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
+              }
+              catch (Exception wex) when (wex is not OutOfMemoryException)
+              {
+                  PosLogger.Log($"Склад: списание остатка «{product.Title}» перед удалением: {wex.GetType().Name}: {wex.Message}", "WARNING");
+                  prompts?.ShowToast(ServerOutageMonitor.FriendlyError(wex), isWarning: true);
+                  return;
+              }
+            }
+        }
+
         try
         {
             // 2026-09-09: офлайн (обычный или автономный режим) — удаляем прямо из локальной
@@ -1498,6 +1612,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         }
         catch (ApiException ex) when (IsProductInUseError(ex))
         {
+            // 2026-11-01: 409 product_has_history — сначала предлагаем «Отправить в архив»; обработано (в архиве или владелец отказался) — другое сообщение не показываем
+            if (SupplierApiService.ErrorCode(ex) == "product_has_history" && await OfferArchiveAsync(product, ex, catalogApi, prompts, stockCleared, remainingStock).ConfigureAwait(true))
+                return;
             // 2026-10-30: сервер (Django ProtectedError) не удаляет товар с историей — это правило, не сбой.
             // Раньше сырой текст шёл как «ошибка» с кнопкой «Отложить ошибку» и записью ERROR в журнал; теперь —
             // понятное окно-подсказка (info: без «Отложить ошибку») и запись INFO. «Скрыть» у товара в API нет —
@@ -1516,6 +1633,68 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         {
             prompts?.ShowToast(Tr.T($"Не удалось удалить товар: {ex.Message}", $"Товарды өчүрүү мүмкүн болгон жок: {ex.Message}", $"Could not delete the product: {ex.Message}", $"Ürün silinemedi: {ex.Message}", $"Mahsulotni o'chirib bo'lmadi: {ex.Message}"), isWarning: true);
         }
+    }
+
+    /// <summary>2026-11-01 (проверка бэкенда, 409 product_has_history): по товару есть документы — вместо удаления предлагаем «Отправить в архив» (POST products/{id}/archive/,
+    /// признак product_archive). Архивный товар исчезает из каталога, продаж и поиска (касса не шлёт ?include_archived), история сохраняется. true — вопрос обработан;
+    /// false — архив недоступен (сервер без признака) и вызывающий показывает прежнее объяснение.</summary>
+    private async Task<bool> OfferArchiveAsync(CatalogProductTileVm product, ApiException ex, ICatalogApiService catalogApi, IUserPrompts? prompts, bool stockCleared = false, double? remainingStock = null)
+    {
+        bool supported;
+        try
+        {
+            supported = await ServerCapabilities.HasAsync(App.GetRequiredService<NurMarketApiClient>(), "product_archive").ConfigureAwait(true);
+        }
+        catch (Exception cex) when (cex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Склад: признак product_archive не получен ({cex.Message}).", "WARNING");
+            supported = false;
+        }
+        if (!supported)
+            return false;
+        string Count(string key) => ex.Payload is { ValueKind: System.Text.Json.JsonValueKind.Object } p && p.TryGetProperty("data", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.Object
+            && d.TryGetProperty(key, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.Number && v.GetInt32() > 0 ? v.GetInt32().ToString() : "";
+        var parts = new List<string>();
+        if (Count("receipts") is { Length: > 0 } rc) parts.Add(Tr.T($"приходов: {rc}", $"кирешелер: {rc}", $"receipts: {rc}", $"girişler: {rc}", $"kirimlar: {rc}"));
+        if (Count("sales") is { Length: > 0 } sc) parts.Add(Tr.T($"продаж: {sc}", $"сатуулар: {sc}", $"sales: {sc}", $"satışlar: {sc}", $"sotuvlar: {sc}"));
+        if (Count("transfers") is { Length: > 0 } tc) parts.Add(Tr.T($"перемещений: {tc}", $"жылдыруулар: {tc}", $"transfers: {tc}", $"transferler: {tc}", $"ko'chirishlar: {tc}"));
+        if (Count("supplier_returns") is { Length: > 0 } rr) parts.Add(Tr.T($"возвратов поставщику: {rr}", $"жеткирүүчүгө кайтаруулар: {rr}", $"supplier returns: {rr}", $"tedarikçi iadeleri: {rr}", $"yetkazib beruvchiga qaytarishlar: {rr}"));
+        if (Count("purchase_orders") is { Length: > 0 } po) parts.Add(Tr.T($"заказов поставщику: {po}", $"жеткирүүчүгө буйрутмалар: {po}", $"purchase orders: {po}", $"tedarikçi siparişleri: {po}", $"yetkazib beruvchiga buyurtmalar: {po}"));
+        var list = parts.Count > 0 ? " (" + string.Join(", ", parts) + ")" : "";
+        // 2026-11-02 (аудит №2, С3-12): остаток в архиве исчезает из кассы — предупреждаем заранее
+        var noteQty = remainingStock ?? product.Quantity; // 2026-11-03 (ревью С-5): после неполного списания — реальный остаток, а не кэш
+        var stockNote = !stockCleared && noteQty > 0.0005
+            ? " " + Tr.T($"Внимание: на складе числится {noteQty:0.###} — этот остаток исчезнет из кассы.", $"Көңүл буруңуз: кампада {noteQty:0.###} бар — бул калдык кассадан жоголот.",
+                $"Note: {noteQty:0.###} is in stock — it will disappear from the till.", $"Dikkat: stokta {noteQty:0.###} var — bu stok kasadan kaybolur.", $"Diqqat: omborda {noteQty:0.###} bor — bu qoldiq kassadan yo'qoladi.")
+            : "";
+        var ok = PosConfirmDialog.Show(this,
+            Tr.T("Товар нельзя удалить", "Товарды өчүрүүгө болбойт", "The product can't be deleted", "Ürün silinemez", "Mahsulotni o'chirib bo'lmaydi"),
+            Tr.T($"По «{product.Title}» есть документы{list}, поэтому сервер его не удаляет. Отправить товар в архив? Он пропадёт из каталога, продаж и поиска, а история приходов и продаж останется.",
+                $"«{product.Title}» боюнча документтер бар{list}, ошондуктан сервер аны өчүрбөйт. Товарды архивге жиберүүбү? Ал каталогдон, сатуудан жана издөөдөн жоголот, ал эми кирешелер менен сатуулардын тарыхы калат.",
+                $"“{product.Title}” has documents{list}, so the server does not delete it. Send the product to the archive? It disappears from the catalog, sales and search, while the receipt and sales history stays.",
+                $"«{product.Title}» için belgeler var{list}, bu yüzden sunucu silmez. Ürün arşive gönderilsin mi? Katalogdan, satışlardan ve aramadan kaybolur, giriş ve satış geçmişi kalır.",
+                $"«{product.Title}» bo'yicha hujjatlar bor{list}, shuning uchun server uni o'chirmaydi. Mahsulot arxivga yuborilsinmi? U katalog, sotuv va qidiruvdan yo'qoladi, kirim va sotuvlar tarixi qoladi.") + stockNote,
+            Tr.T("Отправить в архив", "Архивге жиберүү", "Send to archive", "Arşive gönder", "Arxivga yuborish"),
+            Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+            PosConfirmAccent.Primary);
+        if (!ok)
+            return true;
+        try
+        {
+            await catalogApi.ArchiveProductAsync(product.Id).ConfigureAwait(true);
+            PosLogger.Log($"AUDIT: товар «{product.Title}» ({product.Id}) отправлен в архив (на сервере есть история).", "INFO");
+            LocalProductEditor.DeleteLocally(product.Id); // сразу убираем из каталога кассы; сервер и так не отдаёт архивные товары в списках
+            SuccessToast.Show(Tr.T("Товар отправлен в архив.", "Товар архивге жөнөтүлдү.", "The product was sent to the archive.", "Ürün arşive gönderildi.", "Mahsulot arxivga yuborildi."));
+            await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
+            await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
+        }
+        catch (Exception aex) when (aex is not OutOfMemoryException)
+        {
+            var why = ServerOutageMonitor.FriendlyError(aex, showServerText: true);
+            PosLogger.Log($"Склад: «{product.Title}» не отправлен в архив ({aex.Message}).", "WARNING");
+            PosAlertDialog.Show(this, Tr.T("Не удалось отправить в архив", "Архивге жөнөтүү мүмкүн болгон жок", "Could not send to the archive", "Arşive gönderilemedi", "Arxivga yuborib bo'lmadi"), why, PosAlertKind.Warning, null, info: true); // окном, а не исчезающей плашкой
+        }
+        return true;
     }
 
     /// <summary>2026-10-30: ответ сервера «нельзя удалить — на объект ссылаются другие записи» (ProtectedError):
@@ -1542,7 +1721,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
         if (catalogApi is null || photoPicker is null)
         {
-            prompts?.ShowToast(Tr.T("Загрузка фото недоступна в этом режиме.", "Бул режимде сүрөт жүктөөгө болбойт.", "Photo upload isn't available in this mode.", "Bu modda fotoğraf yüklenemez.", "Bu rejimda rasm yuklab bo'lmaydi."), isWarning: true);
+            prompts?.ShowToast(Tr.T("Загрузка фото недоступна в этом режиме.", "Бул режимде сүрөт жүктөөгө болбойт.", "Photo upload isn't available in this mode.", "Bu modda fotoğraf yüklenemez.", "Bu rejimda rasm yuklab bo'lmaydi."));
             return;
         }
 

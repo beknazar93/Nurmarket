@@ -50,9 +50,7 @@ public static class LossSalesStore
             var cutoff = DateTimeOffset.Now.AddDays(-180);
             all.RemoveAll(r => r.At < cutoff);
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(all));
-            File.Move(tmp, FilePath, true);
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(all)); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
         }
         PosLogger.Log($"Продажа в убыток записана: {record.Loss:0.00} сом, позиций {record.Lines.Count}.", "CART");
         try { Changed?.Invoke(); } catch { /* журнал — не повод ломать оплату */ }

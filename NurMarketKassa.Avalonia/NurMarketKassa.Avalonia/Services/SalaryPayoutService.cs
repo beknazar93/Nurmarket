@@ -1378,9 +1378,7 @@ internal static class SalaryPayoutService
                     return false;
                 change(list);
                 Directory.CreateDirectory(Path.GetDirectoryName(JournalPath)!);
-                var tmp = JournalPath + ".tmp";
-                File.WriteAllText(tmp, JsonSerializer.Serialize(list.Take(2000).ToList(), JsonOpts));
-                File.Move(tmp, JournalPath, overwrite: true);
+                AtomicFile.WriteAllText(JournalPath, JsonSerializer.Serialize(list.Take(2000).ToList(), JsonOpts)); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
                 return true;
             }
             catch (Exception ex)

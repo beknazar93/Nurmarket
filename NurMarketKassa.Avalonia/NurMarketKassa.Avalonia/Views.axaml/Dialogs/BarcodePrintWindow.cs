@@ -584,7 +584,7 @@ public sealed class BarcodePrintWindow : Window
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 
     private PathIcon Icon(string key, double size, double l = 0, double t = 0, double r = 0, double b = 0)
     {
@@ -889,8 +889,9 @@ public sealed class BarcodePrintWindow : Window
 
     // ---- П-2: замечания по штрихкоду до печати ----
 
+    // 2026-11-01 (контрольный аудит, С2-22): в ключ кэша замечаний добавлен «штрихкод включён/выключен» — иначе после включения блока старые «замечаний нет» молчали.
     private static string TemplateSig(LabelTemplate t) =>
-        $"{t.BarcodeFormat}|{t.WidthMm:0.##}x{t.HeightMm:0.##}|{t.Barcode.XMm:0.##},{t.Barcode.WidthMm:0.##}x{t.Barcode.HeightMm:0.##}|{t.BarcodeMargin}|{t.BarcodeModuleDots}|{t.BarcodeShowDigits}";
+        $"{t.Barcode.Enabled}|{t.BarcodeFormat}|{t.WidthMm:0.##}x{t.HeightMm:0.##}|{t.Barcode.XMm:0.##},{t.Barcode.WidthMm:0.##}x{t.Barcode.HeightMm:0.##}|{t.BarcodeMargin}|{t.BarcodeModuleDots}|{t.BarcodeShowDigits}";
 
     /// <summary>Замечание по штрихкоду для шаблона (кэш по «код + размеры блока + формат»); null — замечаний нет.</summary>
     private string? ProblemOf(string? code, LabelTemplate template)
@@ -1694,6 +1695,9 @@ public sealed class BarcodePrintWindow : Window
         // 2026-11-01 (В-3): какие товары напечатаны целиком и на каком остановились — выбор с напечатанных снимается после сбоя/отмены.
         var doneIds = new List<string>();
         string? stoppedAt = null;
+        string? partialId = null; // товар, у которого часть этикеток ушла (PartiallySent) — выбор и «копии = осталось» сохраняются
+        var partialRemaining = 0;
+        var partialSent = 0;
         try
         {
             await Task.Run(() =>
@@ -1707,8 +1711,14 @@ public sealed class BarcodePrintWindow : Window
                         break;
                     }
                     var request = new LabelPrintRequest(it.Product.Title, it.Barcode ?? "", BarcodePrintCatalog.LabelPrice(it), it.Copies, printer.DevicePath,
-                        template, it.Product.Article, it.Product.Unit, store, it.VariantText);
+                        template, it.Product.Article, it.Product.Unit, store, it.VariantText, Guid.NewGuid().ToString("N"));
                     last = print(request);
+                    if (last == LabelPrintResult.PartiallySent && BarcodeLabelService.PartialOfJob(request.JobId) is { } part)
+                    {
+                        partialId = it.Product.Id;
+                        partialSent = Math.Clamp(part.Sent, 0, it.Copies);
+                        partialRemaining = Math.Clamp(it.Copies - partialSent, 1, 99);
+                    }
                     if (last != LabelPrintResult.Success)
                     {
                         stoppedAt = it.Product.Title;
@@ -1742,6 +1752,16 @@ public sealed class BarcodePrintWindow : Window
             LabelPrinterSelector.LogSent(printer, printer.DevicePath, labels);
         // 2026-11-01 (В-3): после сбоя или отмены посреди пачки с напечатанных товаров выбор снимается — повторное «Печать» не печатает их заново.
         var partialNote = "";
+        if (!test && partialId is not null)
+        {
+            // 2026-11-02 (аудит №2, С3-09): у недопечатанного товара остаются выбор и число копий «осталось» — повторное «Печать» не печатает уже ушедшие
+            GetSel(partialId).Copies = partialRemaining;
+            SetSelected(GetSel(partialId), true);
+            foreach (var s in _copiesSync)
+                s();
+            partialNote += " " + T($"«{stoppedAt}»: ушло {partialSent}, осталось допечатать {partialRemaining} — выбор и копии сохранены.", $"«{stoppedAt}»: {partialSent} кетти, {partialRemaining} басыш керек — тандоо жана көчүрмөлөр сакталды.",
+                $"“{stoppedAt}”: {partialSent} sent, {partialRemaining} left to print — the selection and copies are kept.", $"«{stoppedAt}»: {partialSent} gitti, {partialRemaining} basılacak — seçim ve kopyalar korundu.", $"«{stoppedAt}»: {partialSent} ketdi, {partialRemaining} chop etish kerak — tanlov va nusxalar saqlandi.");
+        }
         if (!test && (last != LabelPrintResult.Success || cancelled) && doneIds.Count > 0)
         {
             foreach (var id in doneIds)
@@ -1764,6 +1784,7 @@ public sealed class BarcodePrintWindow : Window
         {
             LabelPrintResult.Success when cancelled => T($"Печать остановлена: отправлено {labels} этикеток ({done} из {items.Count} товаров).", $"Басуу токтотулду: {labels} этикетка жөнөтүлдү ({done}/{items.Count} товар).", $"Printing stopped: {labels} labels sent ({done} of {items.Count} products).", $"Yazdırma durduruldu: {labels} etiket gönderildi ({done}/{items.Count} ürün).", $"Chop etish to'xtatildi: {labels} ta yorliq yuborildi ({done}/{items.Count} mahsulot).") + partialNote,
             LabelPrintResult.Success => T($"Готово — отправлено на печать {labels} этикеток.", $"Даяр — {labels} этикетка басууга жөнөтүлдү.", $"Done — {labels} labels sent to the printer.", $"Tamamlandı — {labels} etiket yazdırmaya gönderildi.", $"Tayyor — {labels} ta yorliq chop etishga yuborildi.") + " " + LabelPrinterSelector.SentText(printer.Label) + "." + problemNote,
+            LabelPrintResult.PartiallySent => T($"Напечатано {done} из {items.Count} товаров ({labels} этикеток); на «{stoppedAt}» — не всё. ", $"{done}/{items.Count} товар басылды ({labels} этикетка); «{stoppedAt}» боюнча баары эмес. ", $"Printed {done} of {items.Count} products ({labels} labels); not everything for “{stoppedAt}”. ", $"{done}/{items.Count} ürün basıldı ({labels} etiket); «{stoppedAt}» için hepsi değil. ", $"{done}/{items.Count} mahsulot chop etildi ({labels} ta yorliq); «{stoppedAt}» bo'yicha hammasi emas. ") + LabelPrinterSelector.PartialText() + partialNote,
             LabelPrintResult.PrinterNotFound => T("Принтер не найден — обновите список принтеров.", "Принтер табылган жок — принтерлердин тизмесин жаңыртыңыз.", "Printer not found — refresh the printer list.", "Yazıcı bulunamadı — yazıcı listesini yenileyin.", "Printer topilmadi — printerlar ro'yxatini yangilang."),
             _ => T($"Ошибка печати: напечатано {done} из {items.Count} товаров ({labels} этикеток), остановились на «{stoppedAt}». Подробности в журнале приложения.", $"Басуу катасы: {done}/{items.Count} товар басылды ({labels} этикетка), «{stoppedAt}» боюнча токтоду. Толук маалымат колдонмонун журналында.", $"Printing error: {done} of {items.Count} products printed ({labels} labels), stopped at “{stoppedAt}”. See the app log.", $"Yazdırma hatası: {done}/{items.Count} ürün basıldı ({labels} etiket), «{stoppedAt}» üründe durdu. Ayrıntılar uygulama günlüğünde.", $"Chop etishda xato: {done}/{items.Count} mahsulot chop etildi ({labels} ta yorliq), «{stoppedAt}» da to'xtadi. Batafsil ma'lumot ilova jurnalida.") + partialNote,
         });

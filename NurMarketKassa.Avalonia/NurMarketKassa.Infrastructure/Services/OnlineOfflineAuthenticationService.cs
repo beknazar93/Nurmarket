@@ -291,7 +291,8 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             }
             catch (Exception refreshError) when (IsNetworkFailure(refreshError, cancellationToken)
                                                  || refreshError is ApiException { StatusCode: var code }
-                                                 && ServerOutageMonitor.IsServerFailureStatus(code))
+                                                 && ServerOutageMonitor.IsServerFailureStatus(code)
+                                                 || refreshError is ApiException foreign403 && NurMarketApiClient.IsForeignForbidden(foreign403)) // 2026-11-03 (Д-1)
             {
                 // 2026-10-04: и при 5xx/429 на обновлении токена — сервер не ответил по существу, это не
                 // «сессия отозвана» (раньше 5xx здесь стирал сохранённую сессию).
@@ -305,8 +306,10 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
                         cancellationToken).ConfigureAwait(false);
             }
         }
-        catch (ApiException ex) when (ex.StatusCode == 403)
+        catch (ApiException ex) when (NurMarketApiClient.IsGenuineAccessDenied(ex))
         {
+            // 2026-11-03 (Д-1, живая проверка 1.17.73): сессию стираем только при настоящем отказе NurCRM (403 с JSON-телом).
+            // 403 от прокси/CDN/WAF (страница HTML, пустое тело) — ниже, как сбой сервера: вход по сохранённой сессии.
             return await RejectSavedSessionAsync(Tr.T("Доступ к учётной записи отозван. Войдите снова.",
                 "Эсептик жазууга кирүү укугу жокко чыгарылды. Кайра кириңиз.",
                 "Access to the account was revoked. Please sign in again.",
@@ -323,7 +326,8 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             // которые разрешил владелец, на деле были 15 минутами).
             return await ContinueOfflineAfterServerFailureAsync(saved, ex, cancellationToken).ConfigureAwait(false);
         }
-        catch (ApiException ex) when (ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode))
+        catch (ApiException ex) when (ServerOutageMonitor.IsServerFailureStatus(ex.StatusCode)
+                                      || NurMarketApiClient.IsForeignForbidden(ex)) // 2026-11-03 (Д-1): 403 чужого узла — тоже «сервер не ответил по существу»
         {
             // 2026-09-29, требование владельца «при сбое бэка не выводи ошибку — работай автономно
             // до исправления бэка»: касса, перезапущенная во время аварии сервера (5xx, 408, 429,

@@ -593,7 +593,16 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         }
     }
 
-    private void ApplyProductFilter()
+    /// <summary>2026-11-02 (аудит №2, поиск Склада, скорость на 15 000 товаров): всё, что нужно фильтру, собирается на потоке окна (запрос, точный код, снимок каталога);
+    /// сам перебор и сортировка (RunProductFilter) идут в фоне по снимку, а в интерфейс уходит готовый список. Раньше перебор каталога шёл на потоке окна на каждый запрос.</summary>
+    private sealed record ProductFilterContext(
+        string Query, bool ExtraSearch, string? VariantProductId, CatalogProductTileVm? ExactHit, CatalogProductTileVm[] Products,
+        string SaleUnitFilter, HashSet<string>? Changed, string StockFilter, IReadOnlyDictionary<string, ProductExpiryIndex.Mark> Expiry,
+        bool HasSort, string SortKey, bool SortDescending);
+
+    private int _filterVersion;
+
+    private ProductFilterContext PrepareProductFilter()
     {
         var query = _productSearchText.Trim();
         // 2026-10-06, владелец: «касса не видит товары на складе — при сканере, даже если товар есть на складе, говорит нет».
@@ -601,29 +610,40 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         // список. Теперь — и штрихкод размера (VariantBarcodeIndex), и доп. штрихкоды.
         // В «Продуктах» склад ищет как раньше (владелец: «главное не трогай продуктовый»).
         var extraSearch = MarketSpheres.IsClothing || MarketSpheres.IsServices;
-        var variantProductId = query.Length >= 4 && MarketSpheres.IsClothing ? VariantBarcodeIndex.ProductIdFor(query) : null;
+        // 2026-11-01 (контрольный аудит, С2-25): точный поиск по коду (FindLocal разбирает базу и доп. штрихкоды всего каталога) — только для запроса, похожего на код
+        // (без пробелов и с цифрой); «молоко» и «сок яблочный» ищутся обычным SearchMatch, без тяжёлого прохода на каждое нажатие.
+        var codeLike = query.Length >= 4 && !query.Any(char.IsWhiteSpace) && query.Any(char.IsDigit);
+        var variantProductId = codeLike && MarketSpheres.IsClothing ? VariantBarcodeIndex.ProductIdFor(query) : null;
         // 2026-10-21: точный код — тем же поиском, что касса (ProductCodeLookup): доп. штрихкод, 12 ↔ 13 цифр, весовая
         // этикетка, артикул (склад не находит товар по скану). Найденный товар — первой строкой и мимо фильтров
         // наличия/единицы: скан — прямой запрос этого товара. Остальной поиск «Продуктов» — как был.
-        var exactHit = query.Length >= 4 ? InCatalog(ProductCodeLookup.FindLocal(query)?.Product) : null;
+        var exactHit = codeLike ? InCatalog(ProductCodeLookup.FindLocal(query)?.Product) : null;
+        return new ProductFilterContext(query, extraSearch, variantProductId, exactHit, CatalogCacheService.Products.ToArray(),
+            _saleUnitFilter, _changedKeys, _stockFilter, ProductExpiryIndex.Marks, ProductSortKey.Length > 0, _sortKey, _sortDescending);
+    }
+
+    private static List<CatalogProductTileVm> RunProductFilter(ProductFilterContext c)
+    {
+        var query = c.Query;
+        var variantProductId = c.VariantProductId;
         IEnumerable<CatalogProductTileVm> source = string.IsNullOrEmpty(query)
-            ? CatalogCacheService.Products
+            ? c.Products
             // 2026-10-29: единый поиск SearchMatch — слова в любом порядке, ё=е, код/артикул/бренд, раскладка и транслит («Asu» → «Асу»).
-            : NurMarketKassa.Core.Application.SearchMatch.Products(CatalogCacheService.Products, query, p =>
-                (extraSearch && query.Length >= 4 && (p.AlternateBarcodesRaw?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)) ||
+            : NurMarketKassa.Core.Application.SearchMatch.Products(c.Products, query, p =>
+                (c.ExtraSearch && query.Length >= 4 && (p.AlternateBarcodesRaw?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)) ||
                 (variantProductId != null && string.Equals(p.Id, variantProductId, StringComparison.OrdinalIgnoreCase)));
-        source = _saleUnitFilter switch
+        source = c.SaleUnitFilter switch
         {
             "weight" => source.Where(p => p.IsWeighted),
             "piece" => source.Where(p => !p.IsWeighted && !p.HasPieceOption),
             "piecepackage" => source.Where(p => !p.IsWeighted && p.HasPieceOption),
             _ => source,
         };
-        if (_changedKeys is { } changed)
+        if (c.Changed is { } changed)
             source = source.Where(p => changed.Contains(p.Id) || changed.Contains("name:" + p.Title));
         // 2026-10-06, редизайн склада: фильтр наличия; «Срок годности» — сначала просроченные, потом ближайшие.
-        var expiry = ProductExpiryIndex.Marks;
-        source = _stockFilter switch
+        var expiry = c.Expiry;
+        source = c.StockFilter switch
         {
             "low" => source.Where(p => p.IsLowStock && p.Quantity > 0),
             "out" => source.Where(p => p.Quantity <= 0),
@@ -632,15 +652,19 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         };
         // 2026-10-30, владелец: сортировка по столбцу — по ВСЕМУ отфильтрованному списку (встроенная сортировка таблицы упорядочивала
         // только видимую страницу из 50 строк). Ключи считаются один раз на строку (15 000 — десятки мс).
-        if (ProductSortKey.Length > 0)
-            source = SortProducts(source as List<CatalogProductTileVm> ?? source.ToList(), _sortKey, _sortDescending);
-        if (exactHit is not null)
+        if (c.HasSort)
+            source = SortProducts(source as List<CatalogProductTileVm> ?? source.ToList(), c.SortKey, c.SortDescending);
+        if (c.ExactHit is { } exactHit)
             source = new[] { exactHit }.Concat(source.Where(p => !string.Equals(p.Id, exactHit.Id, StringComparison.OrdinalIgnoreCase)));
+        return source.ToList();
+    }
 
+    private void ApplyFilteredProducts(List<CatalogProductTileVm> list)
+    {
         // Одна замена коллекции вместо Clear()+Add() по одному (2026-09-07, оптимизация для
         // слабых ПК): каждый Add — событие CollectionChanged и перерасчёт DataGrid, на каталоге
         // в несколько тысяч товаров это заметно подвешивало окно на каждый символ поиска.
-        FilteredProducts = new ObservableCollection<CatalogProductTileVm>(source);
+        FilteredProducts = new ObservableCollection<CatalogProductTileVm>(list);
         OnPropertyChanged(nameof(FilteredProducts));
         OnPropertyChanged(nameof(ProductCountText));
 
@@ -650,9 +674,16 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         RebuildPagedProducts();
     }
 
+    private void ApplyProductFilter()
+    {
+        Interlocked.Increment(ref _filterVersion); // отменяет фоновый расчёт, запущенный раньше
+        ApplyFilteredProducts(RunProductFilter(PrepareProductFilter()));
+    }
+
     /// <summary>Поиск применяется через 180 мс после последнего нажатия (debounce), а не на каждый
     /// символ — иначе быстрый набор запроса на большом каталоге фильтрует список 5–10 раз подряд.
-    /// Escape/сброс и фильтр «Единица продажи» по-прежнему применяются сразу.</summary>
+    /// Escape/сброс и фильтр «Единица продажи» по-прежнему применяются сразу.
+    /// 2026-11-02 (аудит №2): сам перебор каталога — в фоне, окно в это время не замирает.</summary>
     private CancellationTokenSource? _searchDebounce;
 
     private void ScheduleProductFilter()
@@ -661,11 +692,33 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         var cts = new CancellationTokenSource();
         _searchDebounce = cts;
         var token = cts.Token;
+        var version = Interlocked.Increment(ref _filterVersion);
         _ = Task.Delay(180, token).ContinueWith(
             _ => Dispatcher.UIThread.Post(() =>
             {
-                if (!token.IsCancellationRequested)
-                    ApplyProductFilter();
+                if (token.IsCancellationRequested || version != Volatile.Read(ref _filterVersion))
+                    return;
+                var context = PrepareProductFilter();
+                _ = Task.Run(() => RunProductFilter(context)).ContinueWith(done =>
+                {
+                    if (done.IsFaulted)
+                    {
+                        PosLogger.Log($"Склад: фильтр товаров в фоне не выполнен ({done.Exception?.GetBaseException().Message}) — считаем на потоке окна.", "WARNING");
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            if (version == Volatile.Read(ref _filterVersion))
+                                ApplyProductFilter();
+                        });
+                        return;
+                    }
+                    if (!done.IsCompletedSuccessfully)
+                        return;
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (version == Volatile.Read(ref _filterVersion) && !token.IsCancellationRequested)
+                            ApplyFilteredProducts(done.Result);
+                    });
+                }, TaskScheduler.Default);
             }),
             CancellationToken.None,
             TaskContinuationOptions.OnlyOnRanToCompletion,
@@ -695,7 +748,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
     public bool HasReceivingSupplier => _receivingSupplier is not null && !string.IsNullOrEmpty(_receivingSupplier.Id);
 
-    private bool _receivingPaidNow = true;
+    private bool _receivingPaidNow; // 2026-11-01 (С2-32): по умолчанию «В долг»
     /// <summary>С поставщиком: true — оплачено сразу, false — в долг поставщику.</summary>
     public bool ReceivingPaidNow
     {
@@ -1359,13 +1412,15 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
             RevisionLines.Clear();
             FocusedRevisionLine = null;
-            _prompts?.ShowToast(skipped > 0
-                ? Tr.T($"Ревизия проведена. Пропущено позиций без привязки к товару: {skipped}.",
+            // 2026-11-02 (приёмка 1.17.73, п. 1): есть пропущенные позиции (число) — окном; без пропусков — обычная плашка «проведена».
+            if (skipped > 0)
+                _prompts?.ShowWarning(Tr.T($"Ревизия проведена. Пропущено позиций без привязки к товару: {skipped}.",
                     $"Ревизия өткөрүлдү. Товарга байланбаган позициялар өткөрүлүп жиберилди: {skipped}.",
                     $"Stocktake posted. Lines skipped (not linked to a product): {skipped}.",
                     $"Sayım tamamlandı. Ürüne bağlı olmadığı için atlanan kalem: {skipped}.",
-                    $"Inventarizatsiya o'tkazildi. Mahsulotga bog'lanmagan, o'tkazib yuborilgan pozitsiyalar: {skipped}.")
-                : Tr.T("Ревизия проведена.", "Ревизия өткөрүлдү.", "Stocktake posted.", "Sayım tamamlandı.", "Inventarizatsiya o'tkazildi."));
+                    $"Inventarizatsiya o'tkazildi. Mahsulotga bog'lanmagan, o'tkazib yuborilgan pozitsiyalar: {skipped}."));
+            else
+                _prompts?.ShowToast(Tr.T("Ревизия проведена.", "Ревизия өткөрүлдү.", "Stocktake posted.", "Sayım tamamlandı.", "Inventarizatsiya o'tkazildi."));
         }
         catch (ApiException ex)
         {

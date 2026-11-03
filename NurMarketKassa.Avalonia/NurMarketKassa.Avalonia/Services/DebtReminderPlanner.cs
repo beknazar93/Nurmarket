@@ -681,9 +681,7 @@ public static class DebtReminderPlanner
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
             // Сначала во временный файл — оборванная запись не испортит журнал.
-            var tmp = FilePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(store, JsonOptions));
-            File.Move(tmp, FilePath, overwrite: true);
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(store, JsonOptions)); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
         }
         catch (Exception ex)
         {

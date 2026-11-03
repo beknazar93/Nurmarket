@@ -85,6 +85,9 @@ public sealed class ReceiptHistoryResult
     /// <summary>2026-10-27 (аудит кассы, С-13): сервер отдал все 25 страниц подряд и это не конец списка — чеки старше обрезаны.
     /// Раньше список молча обрывался, кассир не знал, что видит не всё.</summary>
     public bool Truncated { get; set; }
+
+    /// <summary>2026-11-03 (ревью Н-1): список оборван не по числу страниц, а потому что сервер медлит (страница шла дольше 3 с и общее время вышло за 8 с, либо страница не ответила за 8 с).</summary>
+    public bool TruncatedSlow { get; set; }
 }
 
 /// <summary>«История чеков» и повторная печать для кассира (2026-09-27, просьба владельца:
@@ -115,38 +118,7 @@ public static class ReceiptHistoryService
     public static async Task<ReceiptHistoryResult> LoadAsync(ReceiptHistoryPeriod period, CancellationToken ct = default)
     {
         var result = new ReceiptHistoryResult();
-        var today = DateTime.Today;
-        var shiftId = CurrentShiftId();
-
-        if (period == ReceiptHistoryPeriod.CurrentShift && string.IsNullOrWhiteSpace(shiftId))
-        {
-            // Смены нет — «эта смена» пуста по определению. Показываем чеки кассы за сегодня,
-            // а не пустой экран: кассир чаще всего ищет чек, пробитый только что.
-            result.NoOpenShift = true;
-            period = ReceiptHistoryPeriod.Today;
-        }
-
-        // Смена может начаться вчера (сервер закрывает смены сам только в 01:00), поэтому для
-        // «этой смены» берём два дня и отбираем по номеру смены.
-        // 2026-10-27 (аудит кассы, С-13): время открытия смены касса уже знает (ShiftAgeWarning) — тогда берём только дни смены, а не
-        // всегда два: сервер отдаёт продажи ВСЕЙ компании, и два дня магазина — десятки страниц, лишнее обрезалось молча.
-        var shiftFrom = today.AddDays(-1);
-        if (period == ReceiptHistoryPeriod.CurrentShift && ShiftAgeWarning.Get(shiftId) is { } shiftOpened
-            && shiftOpened.Date >= today.AddDays(-1) && shiftOpened.Date <= today)
-            shiftFrom = shiftOpened.Date;
-        var (from, toExclusive) = period switch
-        {
-            ReceiptHistoryPeriod.Yesterday => (today.AddDays(-1), today),
-            ReceiptHistoryPeriod.Today => (today, today.AddDays(1)),
-            _ => (shiftFrom, today.AddDays(1)),
-        };
-
-        bool InPeriod(DateTime at) => period switch
-        {
-            ReceiptHistoryPeriod.Yesterday => at.Date == today.AddDays(-1),
-            ReceiptHistoryPeriod.Today => at.Date == today,
-            _ => at >= from && at < toExclusive,
-        };
+        var (shiftId, from, toExclusive, InPeriod) = ResolvePeriod(ref period, result);
 
         var autonomous = IsAutonomousSession();
         var serverEntries = new List<ReceiptHistoryEntry>();
@@ -178,9 +150,48 @@ public static class ReceiptHistoryService
             .Where(e => string.IsNullOrWhiteSpace(e.Local!.SyncedSaleId) || !syncedIds.Contains(e.Local.SyncedSaleId!))
             .ToList();
 
+        // 2026-11-03 (Д-3, живая проверка 1.17.73): сервер не ответил — кроме очереди показываем проведённые на этой кассе продажи из базы кассы
+        // (раньше при медленном сервере список был пуст и писал «чеков нет», хотя минуту назад были продажи).
+        if (result.ServerUnavailable && !autonomous)
+        {
+            var known = new HashSet<string>(syncedIds, StringComparer.OrdinalIgnoreCase);
+            foreach (var queued in localEntries)
+                if (!string.IsNullOrWhiteSpace(queued.Local!.SyncedSaleId))
+                    known.Add(queued.Local.SyncedSaleId!);
+            localEntries.AddRange(LoadCashSoldSales(from, toExclusive, InPeriod, known));
+        }
+
         result.Entries.AddRange(serverEntries);
         result.Entries.AddRange(localEntries);
+        NumberAndSort(result, serverEntries.Count);
+        return result;
+    }
 
+    /// <summary>2026-11-03 (Д-3): мгновенный список для окна «История чеков» — только то, что касса знает сама (очередь отправки и свои
+    /// продажи из базы), без сервера. Окно показывает его сразу и заменяет ответом сервера, когда он придёт. Быстрый: чтение базы.</summary>
+    public static ReceiptHistoryResult LoadLocalQuick(ReceiptHistoryPeriod period)
+    {
+        var result = new ReceiptHistoryResult();
+        var (shiftId, from, toExclusive, inPeriod) = ResolvePeriod(ref period, result);
+        var autonomous = IsAutonomousSession();
+        var entries = LoadLocal(period, shiftId, autonomous, inPeriod);
+        if (!autonomous)
+        {
+            var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var queued in entries)
+                if (!string.IsNullOrWhiteSpace(queued.Local!.SyncedSaleId))
+                    known.Add(queued.Local.SyncedSaleId!);
+            entries.AddRange(LoadCashSoldSales(from, toExclusive, inPeriod, known));
+        }
+
+        result.Entries.AddRange(entries);
+        NumberAndSort(result, 0);
+        return result;
+    }
+
+    /// <summary>Номера чеков без сервера (порядковые) и сортировка: новые первыми.</summary>
+    private static void NumberAndSort(ReceiptHistoryResult result, int serverCount)
+    {
         // 2026-09-28: чеки с сервера уже с номером, как на сайте (см. LoadServerAsync). У чека из
         // офлайн-очереди, которого сервер ещё не видел, номера на сайте нет — «—». Без сервера
         // (нет связи, автономный режим) — как раньше: порядковые за период, по времени.
@@ -189,14 +200,99 @@ public static class ReceiptHistoryService
         {
             position++;
             if (string.IsNullOrWhiteSpace(entry.ReceiptNumber))
-                entry.ReceiptNumber = serverEntries.Count > 0
+                entry.ReceiptNumber = serverCount > 0
                     ? "—"
                     : "№" + position.ToString(CultureInfo.InvariantCulture);
             entry.SearchText = entry.ReceiptNumber + " " + entry.SearchText;
         }
 
         result.Entries.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
+    }
+
+    /// <summary>2026-11-03 (Д-3): продажи, проведённые на этой кассе (база кассы, SoldLineItems), которых нет в списке сервера и в очереди.
+    /// Сумма — по строкам (скидка на весь чек не учтена), способ оплаты и статус неизвестны: это запас, пока сервер не ответил.</summary>
+    private static List<ReceiptHistoryEntry> LoadCashSoldSales(DateTime from, DateTime toExclusive, Func<DateTime, bool> inPeriod, HashSet<string> known)
+    {
+        var result = new List<ReceiptHistoryEntry>();
+        try
+        {
+            var bySale = new Dictionary<string, (DateTime At, decimal Total, List<string> Names)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var line in SoldLineItemsStore.LocalLinesBetween(from.ToUniversalTime(), toExclusive.ToUniversalTime()))
+            {
+                if (known.Contains(line.SaleId))
+                    continue;
+                var sum = (decimal)(line.Quantity * line.UnitPrice);
+                if (bySale.TryGetValue(line.SaleId, out var acc))
+                {
+                    acc.Total += sum;
+                    acc.Names.Add(line.ProductName);
+                    bySale[line.SaleId] = acc;
+                }
+                else
+                    bySale[line.SaleId] = (line.SoldAtUtc.ToLocalTime(), sum, new List<string> { line.ProductName });
+            }
+
+            foreach (var (saleId, sale) in bySale)
+            {
+                if (!inPeriod(sale.At))
+                    continue;
+                result.Add(new ReceiptHistoryEntry
+                {
+                    Id = saleId,
+                    CreatedAt = sale.At,
+                    Total = Math.Round(sale.Total, 2),
+                    Cashier = PosApp.CurrentUserDisplayName,
+                    FirstItemName = sale.Names.FirstOrDefault() ?? "",
+                    SearchText = string.Join(" ", sale.Names),
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"История чеков: свои продажи из базы кассы не прочитаны: {ex.Message}", "WARNING");
+        }
+
         return result;
+    }
+
+    private static (string? ShiftId, DateTime From, DateTime ToExclusive, Func<DateTime, bool> InPeriod) ResolvePeriod(
+        ref ReceiptHistoryPeriod period, ReceiptHistoryResult result)
+    {
+        var today = DateTime.Today;
+        var shiftId = CurrentShiftId();
+
+        if (period == ReceiptHistoryPeriod.CurrentShift && string.IsNullOrWhiteSpace(shiftId))
+        {
+            // Смены нет — «эта смена» пуста по определению. Показываем чеки кассы за сегодня,
+            // а не пустой экран: кассир чаще всего ищет чек, пробитый только что.
+            result.NoOpenShift = true;
+            period = ReceiptHistoryPeriod.Today;
+        }
+
+        // Смена может начаться вчера (сервер закрывает смены сам только в 01:00), поэтому для
+        // «этой смены» берём два дня и отбираем по номеру смены.
+        // 2026-10-27 (аудит кассы, С-13): время открытия смены касса уже знает (ShiftAgeWarning) — тогда берём только дни смены, а не
+        // всегда два: сервер отдаёт продажи ВСЕЙ компании, и два дня магазина — десятки страниц, лишнее обрезалось молча.
+        var shiftFrom = today.AddDays(-1);
+        if (period == ReceiptHistoryPeriod.CurrentShift && ShiftAgeWarning.Get(shiftId) is { } shiftOpened
+            && shiftOpened.Date >= today.AddDays(-1) && shiftOpened.Date <= today)
+            shiftFrom = shiftOpened.Date;
+        var (from, toExclusive) = period switch
+        {
+            ReceiptHistoryPeriod.Yesterday => (today.AddDays(-1), today),
+            ReceiptHistoryPeriod.Today => (today, today.AddDays(1)),
+            _ => (shiftFrom, today.AddDays(1)),
+        };
+
+        var effective = period; // ref-параметр нельзя использовать в локальной функции
+        bool InPeriod(DateTime at) => effective switch
+        {
+            ReceiptHistoryPeriod.Yesterday => at.Date == today.AddDays(-1),
+            ReceiptHistoryPeriod.Today => at.Date == today,
+            _ => at >= from && at < toExclusive,
+        };
+
+        return (shiftId, from, toExclusive, InPeriod);
     }
 
     private static async Task<List<ReceiptHistoryEntry>> LoadServerAsync(
@@ -210,12 +306,38 @@ public static class ReceiptHistoryService
     {
         var rows = new List<JsonElement>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var startedUtc = DateTime.UtcNow;
+        var lastPageTook = TimeSpan.Zero;
         for (var page = 1; page <= MaxPages; page++)
         {
             ct.ThrowIfCancellationRequested();
-            var items = await App.SalesApi
-                .PosSalesListAsync(page, PageSize, null, ct, dateFrom: from, dateToExclusive: toExclusive)
-                .ConfigureAwait(false);
+            // 2026-11-03 (С-05, аудит «зависание при медленном сервере»): каждая страница — не дольше 8 с с последнего ответа (раньше до 55 с × 25 страниц), а при
+            // медленном сервере дальше первых страниц не листаем: список помечается «показаны не все» (Truncated), остальное — после «Обновить».
+            // 2026-11-03 (ревью Н-1): обрезаем по ОБЩЕМУ времени только если и последняя страница шла медленно (> 3 с) — на быстром сервере страница по 0,5–1 с, и большой период не должен обрываться на 10-й странице.
+            if (page > 1 && DateTime.UtcNow - startedUtc > ServerAnswerWait.ForegroundBudget && lastPageTook > ServerAnswerWait.SlowNoticeAfter)
+            {
+                sink.Truncated = true;
+                sink.TruncatedSlow = true;
+                break;
+            }
+
+            var pageNo = page;
+            var pageStartedUtc = DateTime.UtcNow;
+            List<JsonElement> items;
+            try
+            {
+                items = await ServerAnswerWait.ForegroundAsync("pos/sales/list", t => App.SalesApi
+                    .PosSalesListAsync(pageNo, PageSize, null, t, dateFrom: from, dateToExclusive: toExclusive), ct)
+                    .ConfigureAwait(false);
+            }
+            catch (ServerNotAnsweringException) when (page > 1)
+            {
+                // 2026-11-03 (ревью Н-1): страница после первой не ответила за 8 с — показываем уже загруженное с пометкой, а не «сервер недоступен».
+                sink.Truncated = true;
+                sink.TruncatedSlow = true;
+                break;
+            }
+            lastPageTook = DateTime.UtcNow - pageStartedUtc;
             if (items.Count == 0)
                 break;
 
@@ -500,7 +622,8 @@ public static class ReceiptHistoryService
             return doc.RootElement.Clone();
         }
 
-        return await App.SalesApi.PosSaleGetAsync(entry.Id, ct).ConfigureAwait(false);
+        // 2026-11-03 (С-05): не дольше 8 с (раньше до 55 с без «Отмены»).
+        return await ServerAnswerWait.ForegroundAsync("pos/sales/get", t => App.SalesApi.PosSaleGetAsync(entry.Id, t), ct).ConfigureAwait(false);
     }
 
     /// <summary>Текст копии чека с отметкой «(повторная печать)».</summary>
@@ -631,7 +754,7 @@ public static class ReceiptHistoryService
         catch (Exception ex)
         {
             PosLogger.Log($"Печать последнего чека не удалась: {ex}", "PRINTER");
-            return (false, Tr.T("Не удалось напечатать последний чек: ", "Акыркы чекти басып чыгаруу мүмкүн болгон жок: ", "Could not print the last receipt: ", "Son fiş yazdırılamadı: ", "Oxirgi chekni chop etib bo'lmadi: ") + ex.Message);
+            return (false, Tr.T("Не удалось напечатать последний чек: ", "Акыркы чекти басып чыгаруу мүмкүн болгон жок: ", "Could not print the last receipt: ", "Son fiş yazdırılamadı: ", "Oxirgi chekni chop etib bo'lmadi: ") + (ex is ServerNotAnsweringException ? ServerOutageMonitor.FriendlyError(ex) : ex.Message)); // 2026-11-03 (ревью Н-4): текст «сервер не ответил» — на языке интерфейса
         }
         finally
         {
@@ -659,7 +782,9 @@ public static class ReceiptHistoryService
             {
                 try
                 {
-                    var detail = await App.SalesApi.PosSaleGetAsync(sale.SaleId, ct).ConfigureAwait(false);
+                    // 2026-11-03 (С-05): не дольше 8 с; не успели — копия из корзины этой продажи (ветка catch ниже).
+                    var saleId = sale.SaleId;
+                    var detail = await ServerAnswerWait.ForegroundAsync("pos/sales/get", t => App.SalesApi.PosSaleGetAsync(saleId, t), ct).ConfigureAwait(false);
                     number = SalesWindow.TryReceiptNumber(detail);
                     text = SaleReceiptTextBuilder.Build(
                         detail,

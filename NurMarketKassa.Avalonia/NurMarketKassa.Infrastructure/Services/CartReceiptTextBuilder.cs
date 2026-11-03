@@ -160,6 +160,11 @@ public static class CartReceiptTextBuilder
 
             // ─── Итоги и оплата (внизу чека, перед «Спасибо») ─────────
             var totals = CartTotalsCalculator.Calculate(root);
+            // 2026-11-02 (К3-07): сумма строк на чеке + округление = подытог (сервер округляет сумму весовых вниз, строки показывает половиной вверх).
+            // Печать чека на русском (как весь остальной текст этого построителя); на экране подпись — на 5 языках.
+            if (prefs.ShowItems && totals.RoundingAdjustment != 0m)
+                AppendStackedAmountLine(sb, (totals.HasWeighedLines ? "ОКРУГЛЕНИЕ ВЕСОВЫХ:" : "ОКРУГЛЕНИЕ:"),
+                    (totals.RoundingAdjustment < 0 ? "-" : "+") + FormatMoney((double)Math.Abs(totals.RoundingAdjustment)));
             if (totals.LineDiscounts > 1e-6)
                 AppendStackedAmountLine(sb, "СКИДКА ПОЗИЦИЙ:", "-" + FormatMoney(totals.LineDiscounts));
             if (totals.OrderDiscount > 1e-6)

@@ -15,6 +15,9 @@ public static class CompanyInfoService
     /// на сервер каждый раз, когда кассир открывает этот экран.</summary>
     public static CompanyDto? LastCompany { get; private set; }
 
+    /// <summary>2026-11-03 (С-03): когда <see cref="LastCompany"/> получена с сервера (UTC). Свежую (&lt; 60 с) вторую загрузку на запуске не повторяем.</summary>
+    public static DateTime LastLoadedAtUtc { get; private set; }
+
     /// <summary>Сработало, когда загруженная компания отличается от прошлой. На это
     /// подписано разделение локальных данных (AccountDataIsolation): раньше оно вызывалось
     /// из трёх мест входа, и на пути смены кассира срабатывало не всегда — компания успевала
@@ -28,7 +31,11 @@ public static class CompanyInfoService
     /// офлайн-режим, поле не пришло от API) — в этом случае вызывающий код НЕ должен
     /// блокировать работу кассы: недоступность проверки не равна неоплате.
     /// </summary>
-    public static async Task<SubscriptionStatus?> RefreshAsync(IAuthApiService authApi, CancellationToken ct = default)
+    /// <param name="startup">2026-11-03 (С-03, аудит «зависание при медленном сервере»): вызов с запуска кассы/программы владельца (MainWindow, OwnerShell). Тогда
+    /// (1) компания, загруженная окном входа меньше минуты назад, повторно не грузится (раньше 2×55 с); (2) если в этом ПК уже есть данные известной компании
+    /// (LastDataAccountKey) и сервер не ответил за 8 с — открываемся с кэшем подписки, а компания дозагружается фоном (при другой компании сработает CompanyChanged →
+    /// AccountDataIsolation, как всегда). Без известной компании (первый вход на ПК) ждём сервер как раньше, до 55 с: открывать кассу с данными чужого аккаунта нельзя.</param>
+    public static async Task<SubscriptionStatus?> RefreshAsync(IAuthApiService authApi, CancellationToken ct = default, bool startup = false)
     {
         // Сеет парсер весовых штрих-кодов последними сохранёнными (или дефолтными) настройками
         // сразу, даже до сетевого запроса — офлайн-старт не должен оставлять парсер незаданным.
@@ -43,9 +50,70 @@ public static class CompanyInfoService
         if (ServerOutageMonitor.IsOutage)
             return GetCachedSubscriptionStatus();
 
+        if (startup && LastCompany is not null && DateTime.UtcNow - LastLoadedAtUtc < TimeSpan.FromSeconds(60))
+        {
+            PosLogger.Log("Компания загружена меньше минуты назад (окно входа) — повторно с сервера не берём.", "API");
+            return ComputeSubscriptionStatus(LastCompany);
+        }
+
         try
         {
-            var company = await authApi.GetCompanyAsync(ct).ConfigureAwait(false);
+            CompanyDto? company;
+            if (startup && !string.IsNullOrEmpty(UserPreferences.Instance.LastDataAccountKey))
+            {
+                try
+                {
+                    company = await ServerAnswerWait.ForegroundAsync("company", t => authApi.GetCompanyAsync(t), ct).ConfigureAwait(false);
+                }
+                catch (ServerNotAnsweringException)
+                {
+                    PosLogger.Log("Сервер не отдал данные компании за 8 с — открываемся с сохранённой подпиской, компания дозагрузится фоном.", "API");
+                    _ = RefreshInBackgroundAsync(authApi);
+                    return GetCachedSubscriptionStatus();
+                }
+            }
+            else
+                company = await authApi.GetCompanyAsync(ct).ConfigureAwait(false);
+
+            return ApplyLoadedCompany(company, authApi);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Не удалось загрузить данные компании: {ex.Message}", "API");
+            // Нет связи с сервером — считаем срок подписки от последней сохранённой даты
+            // окончания (UserPreferences.SubscriptionEndDateRaw) и системных часов, а не
+            // молча пропускаем проверку: касса должна доотсчитать дни до истечения и офлайн.
+            return GetCachedSubscriptionStatus();
+        }
+    }
+
+    /// <summary>2026-11-03 (С-03): компания не пришла за срок запуска — догружаем фоном (обычный срок HttpClient) и применяем так же, как при обычной загрузке.</summary>
+    private static async Task RefreshInBackgroundAsync(IAuthApiService authApi)
+    {
+        try
+        {
+            var company = await authApi.GetCompanyAsync(CancellationToken.None).ConfigureAwait(false);
+            // 2026-11-03 (ревью Н-5): фоновая догрузка пришла минуту спустя; если компания сервера не та, чьи данные лежат на ПК (LastDataAccountKey), применение вызвало бы
+            // AccountDataIsolation.SwitchTo из потока пула посреди работы кассира (стирание файлов и переоткрытие базы). Данные на ходу не меняем — смена случится при следующем запуске/входе.
+            var knownKey = UserPreferences.Instance.LastDataAccountKey ?? "";
+            if (company is not null && knownKey.Length > 0 && !string.Equals(knownKey, "c:" + company.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                PosLogger.Log($"Компания с сервера ({company.Id}) отличается от данных на этом ПК ({knownKey}) — фоновая догрузка не применена, чтобы не менять данные посреди работы. Перезапустите кассу.", "WARNING");
+                return;
+            }
+            ApplyLoadedCompany(company, authApi);
+            PosLogger.Log("Компания дозагружена фоном после медленного ответа сервера.", "API");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Компания не дозагружена фоном: {ex.Message}", "API");
+        }
+    }
+
+    private static SubscriptionStatus? ApplyLoadedCompany(CompanyDto? company, IAuthApiService authApi)
+    {
+        {
+            LastLoadedAtUtc = DateTime.UtcNow;
             var previousId = LastCompany?.Id;
             var previousFeatures = string.Join(",", LastCompany?.Features ?? new List<string>());
             LastCompany = company;
@@ -78,16 +146,9 @@ public static class CompanyInfoService
             {
                 PosLogger.Log($"Вид магазина с сервера не применён: {sphereEx.Message}", "WARNING");
             }
-            await RefreshScaleSettingsAsync(authApi, ct).ConfigureAwait(false);
+            // 2026-11-03 (С-03): настройки весов — фоном, вход их не ждёт (раньше второй запрос до 55 с держал заставку).
+            _ = RefreshScaleSettingsAsync(authApi, CancellationToken.None);
             return ComputeSubscriptionStatus(company);
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Не удалось загрузить данные компании: {ex.Message}", "API");
-            // Нет связи с сервером — считаем срок подписки от последней сохранённой даты
-            // окончания (UserPreferences.SubscriptionEndDateRaw) и системных часов, а не
-            // молча пропускаем проверку: касса должна доотсчитать дни до истечения и офлайн.
-            return GetCachedSubscriptionStatus();
         }
     }
 

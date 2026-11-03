@@ -16,7 +16,7 @@
     <Style Selector="TextBox.ModernTextArea">
       <Setter Property="Padding" Value="12,10"/>
       <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
-      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushInputBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="10"/>
       <Setter Property="FontSize" Value="14"/>

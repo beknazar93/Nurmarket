@@ -1087,9 +1087,11 @@ public static class BarChartRenderer
     public static void RenderAbcLegend(
         StackPanel container,
         IReadOnlyList<(string Group, int Count, double Sum, double Share)> summary,
-        string unit = "сом",
+        string? unit = null,
         string? itemsWord = null)
     {
+        // 2026-11-01 (Д2-04): единица по умолчанию — валюта на языке интерфейса (раньше зашитое «сом»).
+        unit ??= NurMarketKassa.Services.MoneyText.Currency;
         container.Children.Clear();
         if (summary.Count == 0)
             return;

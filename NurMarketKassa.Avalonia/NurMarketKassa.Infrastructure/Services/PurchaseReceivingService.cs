@@ -275,7 +275,7 @@ public sealed class PurchaseReceivingService
     private static bool IsQueueRetryable(Exception ex) => PendingIdempotencyKey.IsOutcomeUnknown(ex) || ex is ApiException { StatusCode: 401 };
 
     // 2026-10-29: типичные отказы сервера (например «не более 3 цифры после запятой») — понятным текстом (ReceivingServerMessages).
-    private static string Msg2(Exception ex) => IsNoAnswer(ex) ? NoAnswerText : ReceivingServerMessages.Humanize(ex.Message) ?? ex.Message;
+    private static string Msg2(Exception ex) => IsNoAnswer(ex) ? NoAnswerText : ReceivingServerMessages.Describe(ex);
 
     /// <summary>Таймаут, обрыв, нет связи — один понятный текст вместо английского «The request was canceled due to the configured HttpClient.Timeout…».</summary>
     private static bool IsNoAnswer(Exception ex) => ex is OperationCanceledException or System.Net.Http.HttpRequestException or IOException or TimeoutException;
@@ -284,7 +284,7 @@ public sealed class PurchaseReceivingService
         List<ReceivingLineVm> ready, CancellationToken ct)
     {
         string Sig(string? product, double qty, double price) =>
-            product + ":" + qty.ToString("0.###", CultureInfo.InvariantCulture) + ":" + price.ToString("0.##", CultureInfo.InvariantCulture);
+            product + ":" + qty.ToString("0.###", CultureInfo.InvariantCulture) + ":" + price.ToString("0.####", CultureInfo.InvariantCulture); // 2026-11-02: закупка до 4 знаков
         var wanted = ready.Select(l => Sig(l.ProductId, l.Quantity, l.PurchasePrice)).OrderBy(x => x, StringComparer.Ordinal).ToList();
         var since = (st.ReceiptFirstSentUtc ?? DateTime.UtcNow).ToLocalTime().AddMinutes(-2);
         for (var page = 1; page <= 3; page++)
@@ -549,11 +549,11 @@ public sealed class PurchaseReceivingService
             // 2026-10-31 («Не округляй»): сервер хранит цену закупки товара с 2 знаками (PATCH с большим числом отклоняет, проверено на NBS 29.10) —
             // 12,345 из файла/накладной молча в 12,35 не превращаем: строка не проводится, пока цену не поправят явно.
             if (line.PurchasePrice > 0 && line.PurchasePrice < 1e9 && Math.Round((decimal)line.PurchasePrice, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero) != (decimal)line.PurchasePrice)
-                problems.Add(Tr.T($"{name}: цена закупки {line.PurchasePrice:0.####} — не больше 2 знаков после запятой (сервер хранит 2)",
-                    $"{name}: сатып алуу баасы {line.PurchasePrice:0.####} — үтүрдөн кийин 2 цифрадан ашык эмес (сервер 2 сактайт)",
-                    $"{name}: purchase price {line.PurchasePrice:0.####} — at most 2 decimal places (the server stores 2)",
-                    $"{name}: alış fiyatı {line.PurchasePrice:0.####} — virgülden sonra en fazla 2 basamak (sunucu 2 saklar)",
-                    $"{name}: xarid narxi {line.PurchasePrice:0.####} — verguldan keyin ko'pi bilan 2 raqam (server 2 saqlaydi)"));
+                problems.Add(Tr.T($"{name}: цена закупки {line.PurchasePrice:0.#########} — не больше {ReceivingPricing.PurchaseDecimals} знаков после запятой (сервер хранит {ReceivingPricing.PurchaseDecimals})",
+                    $"{name}: сатып алуу баасы {line.PurchasePrice:0.#########} — үтүрдөн кийин {ReceivingPricing.PurchaseDecimals} цифрадан ашык эмес (сервер {ReceivingPricing.PurchaseDecimals} сактайт)",
+                    $"{name}: purchase price {line.PurchasePrice:0.#########} — at most {ReceivingPricing.PurchaseDecimals} decimal places (the server stores {ReceivingPricing.PurchaseDecimals})",
+                    $"{name}: alış fiyatı {line.PurchasePrice:0.#########} — virgülden sonra en fazla {ReceivingPricing.PurchaseDecimals} basamak (sunucu {ReceivingPricing.PurchaseDecimals} saklar)",
+                    $"{name}: xarid narxi {line.PurchasePrice:0.#########} — verguldan keyin ko'pi bilan {ReceivingPricing.PurchaseDecimals} raqam (server {ReceivingPricing.PurchaseDecimals} saqlaydi)"));
             if (line.PurchasePrice <= 0)
                 problems.Add(Tr.T($"{name}: не указана цена закупки", $"{name}: сатып алуу баасы көрсөтүлгөн эмес",
                     $"{name}: purchase price missing", $"{name}: alış fiyatı belirtilmedi", $"{name}: xarid narxi ko'rsatilmagan"));
@@ -603,7 +603,7 @@ public sealed class PurchaseReceivingService
         // «исход неизвестен». state == null — всё как раньше.
         var st = state;
         bool Soft(Exception ex) => ex is not OperationCanceledException || (st is not null && !st.IsStopping(ct));
-        string Msg(Exception ex) => st is not null && IsNoAnswer(ex) ? NoAnswerText : ReceivingServerMessages.Humanize(ex.Message) ?? ex.Message;
+        string Msg(Exception ex) => st is not null && IsNoAnswer(ex) ? NoAnswerText : ReceivingServerMessages.Describe(ex);
 
         // 1. Новые товары заводим на складе. Товар из общей базы — тем же запросом, что сайт
         //    (создаётся по его шаблону), неизвестный — обычной карточкой.
@@ -701,6 +701,19 @@ public sealed class PurchaseReceivingService
         });
 
         var ready = lines.Where(l => !string.IsNullOrWhiteSpace(l.ProductId)).ToList();
+        // 2026-11-01 (контрольный аудит, С2-10): с поставщиком дробное количество принимается только у весовых и мерных товаров (ответ Умара; PATCH прихода отвечал
+        // 422 fractional_not_allowed) — иначе сервер отвергнет ВЕСЬ приход. Штучные строки с дробью не отправляем, показываем по строкам, корректные идут как обычно.
+        if (supplier is not null)
+            foreach (var bad in ready.Where(l => l.Quantity > 0 && UnitCatalog.QuantityProblem(l.Quantity, l.Unit, l.IsWeight) is not null).ToList())
+            {
+                ready.Remove(bad);
+                var shown = UnitCatalog.Display(bad.Unit);
+                AddErr(Tr.T($"{bad.ProductName}: количество {bad.Quantity:0.###} дробное, а единица «{shown}» штучная — в приход от поставщика не отправлено (сервер принимает дробное только у весовых и мерных: кг, л, м). Сделайте количество целым, выберите весовую единицу или примите без поставщика.",
+                    $"{bad.ProductName}: {bad.Quantity:0.###} саны бөлчөк, ал эми «{shown}» бирдиги данабай — жеткирүүчүнүн кирүүсүнө жөнөтүлгөн жок (сервер бөлчөктү салмактуу жана өлчөмдүү товарларга гана кабыл алат: кг, л, м). Санды бүтүн кылыңыз, салмактуу бирдикти тандаңыз же жеткирүүчүсүз кабыл алыңыз.",
+                    $"{bad.ProductName}: the quantity {bad.Quantity:0.###} is fractional but the unit “{shown}” is a piece unit — not sent in the supplier receipt (the server accepts fractions only for weighed and measured goods: kg, l, m). Make it a whole number, choose a weight unit or receive without a supplier.",
+                    $"{bad.ProductName}: miktar {bad.Quantity:0.###} ondalık ama «{shown}» birimi adetli — tedarikçi girişine gönderilmedi (sunucu ondalığı yalnızca tartılı ve ölçülü ürünlerde kabul eder: kg, l, m). Tam sayı yapın, ağırlık birimi seçin veya tedarikçisiz kabul edin.",
+                    $"{bad.ProductName}: miqdor {bad.Quantity:0.###} kasr, «{shown}» birligi esa donali — yetkazib beruvchi kirimiga yuborilmadi (server kasrni faqat vaznli va o'lchovli mahsulotlarda qabul qiladi: kg, l, m). Butun qiling, vazn birligini tanlang yoki yetkazib beruvchisiz qabul qiling."));
+            }
         if (ready.Count == 0)
             return new PostResult(Array.Empty<ReceivingLineVm>(), 0, created, errors);
 
@@ -729,7 +742,7 @@ public sealed class PurchaseReceivingService
                     // 2026-10-29: сервер принимает не больше 3 знаков после запятой. 2026-10-31 («Не округляй»): ввод с лишними знаками не проводится
                     // (Validate), поэтому здесь убираем только шум double (0,1+0,2 = 0,30000000000000004), а не округляем введённое количество.
                     ["qty"] = Math.Round(l.Quantity, 6, MidpointRounding.AwayFromZero),
-                    ["purchase_price"] = Math.Round(l.PurchasePrice, 3, MidpointRounding.AwayFromZero),
+                    ["purchase_price"] = Math.Round(l.PurchasePrice, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero), // 2026-11-01: сервер хранит 4 знака
                 }).ToList(),
                 ["payment_type"] = paidNow ? "cash" : "debt",
             };
@@ -747,7 +760,7 @@ public sealed class PurchaseReceivingService
                 + (paidNow && paymentFields is { Count: > 0 } ? string.Join(",", paymentFields.OrderBy(x => x.Key, StringComparer.Ordinal).Select(x => x.Key + "=" + x.Value)) + "|" : "")
                 + string.Join(";", ready
                 .Select(l => l.ProductId + ":" + l.Quantity.ToString("0.###", CultureInfo.InvariantCulture)
-                             + ":" + l.PurchasePrice.ToString("0.##", CultureInfo.InvariantCulture))
+                             + ":" + l.PurchasePrice.ToString("0.####", CultureInfo.InvariantCulture))
                 .OrderBy(x => x, StringComparer.Ordinal));
             // 2026-10-25: с состоянием задачи ключ свой у каждого прихода и создаётся перед самой отправкой (BeginSend), а не один на приложение.
             if (st is null)
@@ -768,7 +781,7 @@ public sealed class PurchaseReceivingService
                 // (MarkupPercent у них всегда 0) — сервер, пересчитавший цену от новой закупки (205 вместо 195), оставался без возврата.
                 // Поэтому цену «до прихода» читаем ещё и у товара, у которого в этой приёмке реально изменилась закупка (сервер пересчитывает
                 // цену только от закупки); без смены закупки лишних запросов на большой накладной нет.
-                if (Math.Abs(l.PurchasePrice - l.OriginalPurchasePrice) > 0.004)
+                if (Math.Abs(l.PurchasePrice - l.OriginalPurchasePrice) > 0.00005)
                     return true;
                 try
                 {
@@ -819,7 +832,7 @@ public sealed class PurchaseReceivingService
                         DocumentNumbering.Store.Release(DocSeries.Receipt, rejectedKey); // 2026-10-30: отказ сервера — номер не использован
                     errors.Add(Tr.T("Приход от поставщика не проведён: ", "Жеткирүүчүдөн келген товар кабыл алынган жок: ",
                         "The supplier delivery was not posted: ", "Tedarikçiden mal kabulü yapılamadı: ",
-                        "Yetkazib beruvchidan kirim o'tkazilmadi: ") + (ReceivingServerMessages.Humanize(ex.Message) ?? ex.Message));
+                        "Yetkazib beruvchidan kirim o'tkazilmadi: ") + (ReceivingServerMessages.Describe(ex)));
                     return new PostResult(Array.Empty<ReceivingLineVm>(), 0, created, errors);
                 }
             }
@@ -875,7 +888,7 @@ public sealed class PurchaseReceivingService
             // продажа и наценка на сервере были согласованы. Строка попадает сюда, если цену продажи поправили, закупка изменилась (цена
             // продажи остаётся прежней, наценка пересчитывается под новую закупку) или это товар из общей базы CRM (его закупка пришла только
             // документом прихода, наценки на сервере нет). Новый товар «своей» карточкой наценку получил при создании.
-            bool PurchaseChanged(ReceivingLineVm l) => !l.IsNew && Math.Abs(l.PurchasePrice - l.OriginalPurchasePrice) > 0.004;
+            bool PurchaseChanged(ReceivingLineVm l) => !l.IsNew && Math.Abs(l.PurchasePrice - l.OriginalPurchasePrice) > 0.00005;
             bool NeedsPricePatch(ReceivingLineVm l) => PriceChanged(l) || PurchaseChanged(l) || l.Source == ReceivingSource.GlobalBase;
             double SaleToWrite(ReceivingLineVm l) =>
                 priceTargets.FirstOrDefault(t => ReferenceEquals(t.Line, l)) is { Line: not null, Target: > 0 } t ? t.Target : l.SalePrice;
@@ -998,7 +1011,7 @@ public sealed class PurchaseReceivingService
 
                     var fields = new Dictionary<string, object?>
                     {
-                        ["purchase_price"] = Math.Round(line.PurchasePrice, 2, MidpointRounding.AwayFromZero), // 2026-10-29: PATCH товара — не больше 2 знаков
+                        ["purchase_price"] = Math.Round(line.PurchasePrice, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero), // 2026-11-01: PATCH товара принимает 4 знака (проверка бэкенда)
                         ["price"] = line.SalePrice,
                     };
                     // 2026-10-24 (Б0, ТЗ «Склад» 4.2): наценка вместе с закупкой и продажей, как карточка товара.

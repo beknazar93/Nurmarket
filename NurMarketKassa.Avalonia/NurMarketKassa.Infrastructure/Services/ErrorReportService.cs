@@ -249,9 +249,7 @@ public static class ErrorReportService
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(QueuePath)!);
-            var tmp = QueuePath + ".tmp";
-            File.WriteAllText(tmp, JsonSerializer.Serialize(queue));
-            File.Move(tmp, QueuePath, overwrite: true);
+            AtomicFile.WriteAllText(QueuePath, JsonSerializer.Serialize(queue)); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
         }
         catch
         {

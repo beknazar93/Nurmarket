@@ -31,7 +31,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// 2026-10-05, владелец: «создай несколько тем готовых для сайта как темы и редактор оставь» — сверху галерея «Темы сайта»
 /// (Assets/SiteThemes: набор настроек, обложка главного блока, заглушка товара без фото, превью). Тема меняет весь вид, но не
 /// тексты, телефон и товары магазина; после неё всё можно подправить ниже и опубликовать.</summary>
-public sealed partial class SiteEditorWindow : Window, IOwnerSection
+public sealed partial class SiteEditorWindow : Window, IOwnerSection, IOwnerSectionExit
 {
     private const string DesignPath = "api/main/showcase/design/";
 
@@ -69,6 +69,17 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
     /// очередь после ошибки), раздел не закрывается ради памяти. Сохранённый черновик не теряется и при закрытии.</summary>
     public bool? HasUnsavedChanges => _saving || _saveTimer.IsEnabled || _patch.Count > 0 || _isoPatches.Values.Any(p => p.Count > 0);
     private bool _hasUnpublished;
+
+    // 2026-11-02 (аудит №2, В3-01): выход из программы владельца с несохранёнными правками сайта — оболочка спрашивает сама (IOwnerSectionExit).
+    public async Task<bool> SaveForExitAsync()
+    {
+        _saveTimer.Stop();
+        _isoFailed.Clear();
+        await SaveDraftAsync().ConfigureAwait(true);
+        return _patch.Count == 0 && !_isoPatches.Values.Any(p => p.Count > 0);
+    }
+
+    public void ConfirmExit() => _closeConfirmed = true;
     private int _version;
     private string _publishedAt = "";
     private JsonElement _options;
@@ -389,7 +400,7 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
         }
         catch (Exception ex)
         {
-            _status.Text = T("Не удалось загрузить: ", "Жүктөө мүмкүн болгон жок: ", "Couldn't load: ", "Yüklenemedi: ", "Yuklab bo'lmadi: ") + ex.Message;
+            _status.Text = T("Не удалось загрузить: ", "Жүктөө мүмкүн болгон жок: ", "Couldn't load: ", "Yüklenemedi: ", "Yuklab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
             PosLogger.Log($"Редактор сайта: вид не загружен ({ex.Message}).", "WARNING");
             return;
         }
@@ -717,14 +728,15 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
     // 2026-10-27 (Н-4): код темы не для сферы, на предупреждение о которой владелец уже ответил в этом сеансе (публикация не переспрашивает).
     private string? _misfitAnswered;
 
-    private async Task PublishAsync(bool askMisfit = true)
+    /// <summary>2026-11-01 (контрольный аудит В2-07): итог — 0 опубликовано, 1 владелец отказался / нечего публиковать, 2 ошибка (сообщение в баннере).</summary>
+    private async Task<int> PublishAsync(bool askMisfit = true)
     {
         if (_locked)
-            return;
+            return 1;
         _saveTimer.Stop();
         await SaveDraftAsync().ConfigureAwait(true);
         if (_patch.Count > 0 || _isoPatches.Any(p => p.Value.Count > 0 && !_isoFailed.Contains(p.Key)))
-            return;
+            return 2; // правки не ушли в черновик — баннер с причиной уже показан
         // 2026-11-01 (В-1): часть правок (Telegram / знания помощника) сервер не принял — в публикацию они не попадут; спрашиваем.
         if (_isoFailed.Count > 0)
         {
@@ -735,14 +747,15 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
                     "Sunucu bazı düzenlemeleri (" + names + ") kabul etmedi, siteye gitmeyecek. Gerisi yayınlansın mı?",
                     "Server ba'zi tuzatishlarni (" + names + ") qabul qilmadi, ular saytga chiqmaydi. Qolganini e'lon qilasizmi?"),
                     T("Опубликовать", "Жарыялоо", "Publish", "Yayınla", "E'lon qilish"), T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true))
-                return;
+                return 1;
         }
         // Публикацию не блокируем — только предупреждаем; «Отмена» оставляет черновик как есть.
         if (askMisfit && MisfitPublishNote() is { Length: > 0 } misfitNote
             && !await ConfirmAsync(misfitNote + " " + T("Опубликовать всё равно?", "Баары бир жарыялайсызбы?", "Publish anyway?", "Yine de yayınlansın mı?", "Baribir e'lon qilinsinmi?"),
                 T("Опубликовать", "Жарыялоо", "Publish", "Yayınla", "E'lon qilish"), T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true))
-            return;
+            return 1;
         _publish!.IsEnabled = false;
+        var outcome = 2;
         try
         {
             var data = await _api.RequestAsync(HttpMethod.Post, DesignPath + "publish/", new Dictionary<string, object?>(), null, CancellationToken.None, TimeSpan.FromSeconds(30)).ConfigureAwait(true);
@@ -760,6 +773,7 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
                 $"Yayınlandı (sürüm {_version}) — yeni görünüm {site} adresinde («Siteyi gör»).",
                 $"E'lon qilindi (versiya {_version}) — yangi ko'rinish {site} manzilida («Saytni ko'rish»)."), warning: false);
             PosLogger.Log($"Редактор сайта: опубликована версия {_version}.", "INFO");
+            outcome = 0;
         }
         catch (Exception ex)
         {
@@ -767,6 +781,7 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
             PosLogger.Log($"Редактор сайта: публикация не прошла ({ex.Message}).", "WARNING");
         }
         RefreshState();
+        return outcome;
     }
 
     private async Task DiscardAsync()
@@ -900,7 +915,7 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
         catch (Exception ex)
         {
             host.Children.Clear();
-            host.Children.Add(Hint(T("Не загрузилось: ", "Жүктөлгөн жок: ", "Didn't load: ", "Yüklenmedi: ", "Yuklanmadi: ") + ex.Message));
+            host.Children.Add(Hint(T("Не загрузилось: ", "Жүктөлгөн жок: ", "Didn't load: ", "Yüklenmedi: ", "Yuklanmadi: ") + ServerOutageMonitor.FriendlyError(ex)));
         }
     }
 
@@ -1243,7 +1258,7 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
         else if (new[] { "опублик", "жарыяла", "publish", "yayınla", "e'lon" }.Any(t.Contains))
         {
             // 2026-10-27 (В-1): публикация видна покупателям сразу — перед ней всегда окно подтверждения.
-            if (!_hasUnpublished && _patch.Count == 0 && done.Count == 0)
+            if (!_hasUnpublished && HasUnsavedChanges != true && done.Count == 0) // 2026-11-01 (В2-07): учитываем и отдельные очереди (Telegram, знания)
             {
                 done.Add(T("Нечего публиковать — на сайте уже всё опубликовано.", "Жарыялоого эч нерсе жок — сайтта баары жарыяланган.", "Nothing to publish — everything is already live.",
                     "Yayınlanacak bir şey yok — her şey zaten yayında.", "E'lon qiladigan narsa yo'q — hammasi allaqachon e'lon qilingan."));
@@ -1260,8 +1275,14 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
                     "Yayın iptal edildi — site değişmedi.", "E'lon qilish bekor qilindi — sayt o'zgarmadi."));
                 return string.Join(" ", done);
             }
-            await PublishAsync(askMisfit: false).ConfigureAwait(true); // предупреждение о теме не той сферы — уже в тексте подтверждения выше
-            done.Add(_hasUnpublished
+            var outcome = await PublishAsync(askMisfit: false).ConfigureAwait(true); // предупреждение о теме не той сферы — уже в тексте подтверждения выше
+            if (outcome == 1) // 2026-11-01 (В2-07): отказ на вопросе про непринятые правки — не «ошибка»
+            {
+                done.Add(T("Публикация отменена — сайт не менялся.", "Жарыялоо жокко чыгарылды — сайт өзгөргөн жок.", "Publishing cancelled — the website is unchanged.",
+                    "Yayın iptal edildi — site değişmedi.", "E'lon qilish bekor qilindi — sayt o'zgarmadi."));
+                return string.Join(" ", done);
+            }
+            done.Add(outcome != 0
                 ? T("Опубликовать не получилось — сообщение в редакторе.", "Жарыялоо болбой калды — билдирүү редактордо.", "Publishing failed — see the editor message.",
                     "Yayınlanamadı — düzenleyicideki mesaja bakın.", "E'lon qilib bo'lmadi — muharrirdagi xabarga qarang.")
                 : T($"Опубликовано (версия {_version}); новый вид — на market.nurcrm.kg.", $"Жарыяланды (версия {_version}); жаңы көрүнүш — market.nurcrm.kg дарегинде.",
@@ -1687,5 +1708,5 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }

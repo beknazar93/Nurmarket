@@ -561,7 +561,7 @@ public partial class SideMenuView : UserControl
         var bgKey = dark ? "BrushPanelSoft" : "BrushText";
         var fgKey = dark ? "BrushText" : "BrushPanel";
         void Bind(AvaloniaObject target, AvaloniaProperty property, string key) =>
-            _heroBindings.Add(target.Bind(property, this.GetResourceObservable(key)));
+            _heroBindings.Add(target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key)));
 
         Bind(NewHero, Border.BackgroundProperty, bgKey);
         foreach (var tb in NewHero.GetLogicalDescendants().OfType<TextBlock>())

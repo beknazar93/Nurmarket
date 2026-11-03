@@ -68,12 +68,12 @@ internal sealed class PhoneLinkPairWindow : Window
                 "The phone must be on the same Wi-Fi network as the till.", "Telefon kasayla aynı Wi-Fi ağında olmalı.", "Telefon kassa bilan bir xil Wi-Fi tarmog'ida bo'lishi kerak."),
             FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap,
         };
-        wifi.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        wifi.Bind(TextBlock.ForegroundProperty, wifi.GetResourceObservable("BrushText"));
         steps.Children.Add(wifi);
 
-        _status.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
-        _timer.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
-        _address.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        _status.Bind(TextBlock.ForegroundProperty, _status.GetResourceObservable("BrushText"));
+        _timer.Bind(TextBlock.ForegroundProperty, _timer.GetResourceObservable("BrushTextSoft"));
+        _address.Bind(TextBlock.ForegroundProperty, _address.GetResourceObservable("BrushTextSoft"));
         steps.Children.Add(_status);
         steps.Children.Add(_timer);
 
@@ -96,7 +96,7 @@ internal sealed class PhoneLinkPairWindow : Window
         top.Children.Add(steps);
 
         var listTitle = new TextBlock { Text = T("Подключённые телефоны", "Туташтырылган телефондор", "Connected phones", "Bağlı telefonlar", "Ulangan telefonlar"), FontSize = 14, FontWeight = FontWeight.SemiBold };
-        listTitle.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        listTitle.Bind(TextBlock.ForegroundProperty, listTitle.GetResourceObservable("BrushText"));
 
         var firewall = new TextBlock
         {
@@ -107,7 +107,7 @@ internal sealed class PhoneLinkPairWindow : Window
                 "Windows brandmauer haqida so'rasa («Ruxsat berish»), xususiy tarmoq uchun «Ruxsat berish» tugmasini bosing. Aks holda telefon kassaga yeta olmaydi. Kassa brandmauer qoidalarini o'zi yaratmaydi."),
             FontSize = 12, TextWrapping = TextWrapping.Wrap, IsVisible = OperatingSystem.IsWindows(),
         };
-        firewall.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        firewall.Bind(TextBlock.ForegroundProperty, firewall.GetResourceObservable("BrushTextSoft"));
 
         var content = new StackPanel { Spacing = 14 };
         content.Children.Add(top);
@@ -149,10 +149,10 @@ internal sealed class PhoneLinkPairWindow : Window
             Width = 28, Height = 28, CornerRadius = new CornerRadius(14), VerticalAlignment = VerticalAlignment.Top,
             Child = new TextBlock { Text = number, FontWeight = FontWeight.Bold, FontSize = 14, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
         };
-        badge.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
-        ((TextBlock)badge.Child!).Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        badge.Bind(Border.BackgroundProperty, badge.GetResourceObservable("BrushPanelSoft"));
+        ((TextBlock)badge.Child!).Bind(TextBlock.ForegroundProperty, ((TextBlock)badge.Child!).GetResourceObservable("BrushText"));
         var label = new TextBlock { Text = text, FontSize = 14, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
-        label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushText"));
         var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,10,*") };
         Grid.SetColumn(label, 2);
         row.Children.Add(badge);
@@ -219,7 +219,7 @@ internal sealed class PhoneLinkPairWindow : Window
     private void SetStatus(string text, string brush)
     {
         _status.Text = text;
-        _status.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
+        _status.Bind(TextBlock.ForegroundProperty, _status.GetResourceObservable(brush));
     }
 
     private void UpdateTimer()
@@ -270,7 +270,7 @@ internal sealed class PhoneLinkPairWindow : Window
                 Text = T("Пока нет подключённых телефонов.", "Азырынча туташтырылган телефон жок.", "No phones connected yet.", "Henüz bağlı telefon yok.", "Hozircha ulangan telefon yo'q."),
                 FontSize = 13,
             };
-            empty.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            empty.Bind(TextBlock.ForegroundProperty, empty.GetResourceObservable("BrushTextSoft"));
             _phones.Children.Add(empty);
             return;
         }
@@ -278,13 +278,13 @@ internal sealed class PhoneLinkPairWindow : Window
         {
             var seen = phone.LastSeenUtc ?? phone.PairedUtc;
             var name = new TextBlock { Text = phone.Name, FontSize = 14, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center };
-            name.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            name.Bind(TextBlock.ForegroundProperty, name.GetResourceObservable("BrushText"));
             var when = new TextBlock
             {
                 Text = T("на связи: ", "байланышта: ", "last seen: ", "son görülme: ", "aloqada: ") + seen.ToLocalTime().ToString("dd.MM HH:mm", CultureInfo.InvariantCulture),
                 FontSize = 12, VerticalAlignment = VerticalAlignment.Center,
             };
-            when.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            when.Bind(TextBlock.ForegroundProperty, when.GetResourceObservable("BrushTextSoft"));
             var disconnect = SectionCards.Secondary(T("Отключить", "Ажыратуу", "Disconnect", "Bağlantıyı kes", "Uzish"));
             disconnect.MinHeight = 44;
             Avalonia.Automation.AutomationProperties.SetName(disconnect, T("Отключить телефон ", "Телефонду ажыратуу ", "Disconnect phone ", "Telefonun bağlantısını kes ", "Telefonni uzish ") + phone.Name);
@@ -297,7 +297,7 @@ internal sealed class PhoneLinkPairWindow : Window
             row.Children.Add(info);
             row.Children.Add(disconnect);
             var card = new Border { Padding = new Thickness(12, 6), CornerRadius = new CornerRadius(10), Child = row };
-            card.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
+            card.Bind(Border.BackgroundProperty, card.GetResourceObservable("BrushPanelSoft"));
             _phones.Children.Add(card);
         }
     }

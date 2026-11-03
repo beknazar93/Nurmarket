@@ -2092,6 +2092,18 @@ class AppLocalizationsUz extends AppLocalizations {
   String get kindSale => 'Sotuv';
 
   @override
+  String get payInProgressScan =>
+      'To\'lov ketmoqda — javobni kuting, keyin tovarni skanerlang';
+
+  @override
+  String updMobileWarn(String mb) {
+    return 'Fayl taxminan $mb MB, siz Wi‑Fi\'da emassiz — yuklab olinsinmi?';
+  }
+
+  @override
+  String get returnedPartly => 'Qisman qaytarildi';
+
+  @override
   String returnNetTotal(String sum) {
     return 'Qaytarishlardan keyingi chek jami: $sum so\'m';
   }

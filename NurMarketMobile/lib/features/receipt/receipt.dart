@@ -82,6 +82,10 @@ class Receipt {
   /// 2026-10-22 (мобилка, деньги): продажа в долг — срок «Вернуть до» (как в чеке кассы; у сервера в продаже его нет).
   final DateTime? debtDue;
 
+  /// 2026-11-02 (аудит №2, М3-02): подытог корзины (FLOOR весовых + HALF_UP остальных) — чтобы «Сумма без скидки − Скидка = ИТОГО» сходилось
+  /// до копейки; null — по строкам чека.
+  final double? subtotalOverride;
+
   const Receipt({
     required this.shop,
     this.inn = '',
@@ -103,6 +107,7 @@ class Receipt {
     this.eReceiptUrl,
     this.offline = false,
     this.debtDue,
+    this.subtotalOverride,
   });
 
   /// 2026-10-22 (мобилка, деньги): строки оплаты для экрана, PDF, текста и печати. В долг — «Внесено / Долг / Вернуть до»
@@ -122,7 +127,7 @@ class Receipt {
     return [(paymentText, money(received ?? total))];
   }
 
-  double get subtotal => roundMoney(lines.fold(0.0, (s, l) => s + l.qty * l.price));
+  double get subtotal => subtotalOverride ?? roundMoney(lines.fold(0.0, (s, l) => s + l.qty * l.price));
   int get itemCount => lines.length;
 
   String get title {
@@ -178,6 +183,7 @@ class Receipt {
       eReceiptUrl: qr.eReceiptUrl(response),
       offline: offline,
       debtDue: debtDue,
+      subtotalOverride: cart.subtotal,
     );
   }
 

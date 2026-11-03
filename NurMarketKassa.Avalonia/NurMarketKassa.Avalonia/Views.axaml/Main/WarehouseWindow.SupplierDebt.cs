@@ -26,7 +26,7 @@ public partial class WarehouseWindow
             Text = Tr.T("Срок оплаты, дней", "Төлөө мөөнөтү, күн", "Pay within, days", "Ödeme vadesi, gün", "To'lov muddati, kun"),
             VerticalAlignment = VerticalAlignment.Center, FontSize = 13,
         };
-        label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushText"));
         _receivingDebtDays = new TextBox
         {
             Text = _viewModel.ReceivingDebtDays.ToString(CultureInfo.InvariantCulture), Width = 72, MaxLength = 4,
@@ -34,7 +34,7 @@ public partial class WarehouseWindow
         };
         Avalonia.Automation.AutomationProperties.SetName(_receivingDebtDays, label.Text);
         var due = new TextBlock { VerticalAlignment = VerticalAlignment.Center, FontSize = 13 };
-        due.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        due.Bind(TextBlock.ForegroundProperty, due.GetResourceObservable("BrushTextSoft"));
         void ShowDue()
         {
             var ok = int.TryParse((_receivingDebtDays.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var days) && days is >= 1 and <= 3650;

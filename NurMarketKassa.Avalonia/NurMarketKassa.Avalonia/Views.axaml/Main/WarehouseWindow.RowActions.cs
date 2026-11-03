@@ -101,9 +101,9 @@ public partial class WarehouseWindow
         // Красный, читаемый и на мягком красном фоне наведения (BrushDangerOnSoft, AccentThemeService).
         var brush = danger ? "BrushDangerOnSoft" : "BrushText";
         var header = new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center };
-        header.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
+        header.Bind(TextBlock.ForegroundProperty, header.GetResourceObservable(brush));
         var pathIcon = new PathIcon { Data = Geometry.Parse(icon), Width = 16, Height = 16 };
-        pathIcon.Bind(PathIcon.ForegroundProperty, this.GetResourceObservable(brush));
+        pathIcon.Bind(PathIcon.ForegroundProperty, pathIcon.GetResourceObservable(brush));
         var item = new MenuItem { Header = header, Icon = pathIcon };
         if (danger)
             item.Classes.Add("danger");

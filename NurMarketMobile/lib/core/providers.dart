@@ -455,7 +455,13 @@ class CartController extends Notifier<Cart> {
   Cart build() {
     // 2026-10-26 (живой аудит, П3, В-1): чек пишется в настройки телефона при каждом изменении — переживает перезапуск
     // приложения (Android выгружает его в фоне). Схема базы не меняется: обычная запись `cart.draft`.
-    listenSelf((_, next) => _persist(next));
+    // 2026-11-02 (финальная приёмка, В-3): Riverpod вызывает listenSelf и при ПЕРВОМ построении (previous == null) — это не изменение чека.
+    // Без пропуска запуск приложения писал пустой черновик и метку `cart.clearedAt`, и после падения между оплатой и очисткой ключ
+    // проведённой продажи считался «зомби»: повторная оплата шла с новым ключом → вторая продажа. Метка ставится только при реальной очистке.
+    listenSelf((prev, next) {
+      if (prev == null) return;
+      _persist(next);
+    });
     ref.onDispose(() => _debounce?.cancel());
     return const Cart();
   }
@@ -497,8 +503,24 @@ class CartController extends Notifier<Cart> {
           ? ''
           : jsonEncode({'owner': owner, 'ws': wholesaleMode, 'cart': HeldCart(id: 'draft', at: DateTime.now(), note: '', cart: cart).toJson()});
       final db = ref.read(databaseProvider);
+      // 2026-11-01 (М2-04): метка очистки чека — по ней отличают «зомби-ключ» проведённой продажи (SalesRepository._isZombie).
+      // 2026-11-02 (аудит №2, М3-04): пустой черновик и метка пишутся ОДНОЙ транзакцией (падение между ними не оставляет пустой черновик без
+      // метки), а метка — счётчик `cart.clearedSeq` (+1 при каждой очистке), а не время: перевод часов телефона на неё не влияет.
+      // `cart.clearedAt` (время) остаётся для журнала.
+      final clearedAt = cart.isEmpty ? DateTime.now().toIso8601String() : null;
       // записи идут по очереди, чтобы старое состояние не затёрло новое
-      _writing = _writing.then((_) => db.setSetting(draftKey, value)).catchError((_) {});
+      _writing = _writing.then((_) async {
+        if (clearedAt == null) {
+          await db.setSetting(draftKey, value);
+          return;
+        }
+        await db.transaction(() async {
+          await db.setSetting(draftKey, value);
+          final seq = int.tryParse(await db.getSetting('cart.clearedSeq') ?? '') ?? 0;
+          await db.setSetting('cart.clearedSeq', '${seq + 1}');
+          await db.setSetting('cart.clearedAt', clearedAt);
+        });
+      }).catchError((_) {});
     } catch (_) {
       // базы нет (например, в тесте без неё) — чек просто остаётся в памяти
     }
@@ -524,9 +546,15 @@ class CartController extends Notifier<Cart> {
   /// 13.10, «продажа оптом и в розницу»: в режиме «Опт» товар с оптовой ценой сразу идёт по опту.
   bool wholesaleMode = false;
 
+  /// 2026-11-02 (аудит №2, М3-01): пока идёт оплата, состав чека заморожен — сканер или чужая команда не добавят товар в оплачиваемый чек
+  /// (иначе итог, сдача, бонусы и журнал возвратов считались бы по изменённым строкам). Ставит экран оплаты; очистка после оплаты и
+  /// обновление цен по ответу сервера работают всегда.
+  bool frozen = false;
+
   /// [piece] — штука из упаковки (2026-10-27, М4): цена строки — цена штуки, в чек уходит sale_package_id; опт у штуки не действует.
   /// [packName] — название упаковки товара с поштучной опцией (подпись строки).
   void add(Product p, {double qty = 1, String? variantId, String? variantLabel, double? variantPrice, PiecePack? piece, String? packName}) {
+    if (frozen) return;
     final line = CartLine(
       productId: p.id,
       // 2026-10-31 (одежда): «Футболка · M · Красный» — размер и цвет в названии строки (чек, очередь, история)
@@ -534,6 +562,7 @@ class CartController extends Notifier<Cart> {
       price: piece?.piecePrice ?? variantPrice ?? p.price,
       qty: qty,
       isWeight: p.isWeight,
+      weightFlag: p.isWeightFlag,
       unit: piece == null ? p.unit : 'шт',
       wholesalePrice: variantId == null && piece == null ? p.wholesalePrice : 0,
       variantId: variantId,
@@ -549,6 +578,7 @@ class CartController extends Notifier<Cart> {
 
   /// Строка ↔ опт.
   void toggleWholesale(int i) {
+    if (frozen) return;
     final lines = [...state.lines];
     lines[i].setWholesale(!lines[i].wholesale);
     state = state.copyWith(lines: lines);
@@ -556,6 +586,7 @@ class CartController extends Notifier<Cart> {
 
   /// «Опт на весь чек» / «Розница»: все строки с оптовой ценой — по опту или обратно; новые строки — так же.
   void setWholesaleMode(bool on) {
+    if (frozen) return;
     wholesaleMode = on;
     final lines = [...state.lines];
     for (final l in lines) {
@@ -599,19 +630,32 @@ class CartController extends Notifier<Cart> {
     state = state.copyWith(lines: lines);
   }
 
-  void addCustom(String name, double price, double qty) =>
-      state = state.add(CartLine(productId: 'custom-${DateTime.now().microsecondsSinceEpoch}', name: name, price: price, qty: qty, custom: true));
+  void addCustom(String name, double price, double qty) {
+    if (frozen) return;
+    state = state.add(CartLine(productId: 'custom-${DateTime.now().microsecondsSinceEpoch}', name: name, price: price, qty: qty, custom: true));
+  }
 
-  void setQty(int i, double q) => state = state.setQty(i, q);
-  void remove(int i) => state = state.remove(i);
+  void setQty(int i, double q) {
+    if (frozen) return;
+    state = state.setQty(i, q);
+  }
+
+  void remove(int i) {
+    if (frozen) return;
+    state = state.remove(i);
+  }
+
   void setLineDiscount(int i, double sum) {
+    if (frozen) return;
     final lines = [...state.lines];
     lines[i].discount = sum.clamp(0, lines[i].gross).toDouble();
     state = state.copyWith(lines: lines);
   }
 
-  void setOrderDiscount({double percent = 0, double sum = 0}) =>
-      state = Cart(lines: state.lines, orderDiscountPercent: percent, orderDiscountSum: percent > 0 ? 0 : sum);
+  void setOrderDiscount({double percent = 0, double sum = 0}) {
+    if (frozen) return;
+    state = Cart(lines: state.lines, orderDiscountPercent: percent, orderDiscountSum: percent > 0 ? 0 : sum);
+  }
 
   void clear() {
     if (state.lines.isNotEmpty) Audit.log('cart', 'Чек очищен (${state.lines.length})');

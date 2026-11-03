@@ -31,7 +31,37 @@ public sealed partial class NurMarketApiClient : IDisposable
     /// <summary>Исключает гонки при входе и ручном refresh.</summary>
     private readonly SemaphoreSlim _loginMutex = new(1, 1);
     /// <summary>Параллельные GET/POST к API (раньше один глобальный замок сильно замедлял каталог).</summary>
-    private readonly SemaphoreSlim _httpSlots = new(Math.Min(12, Math.Max(4, Environment.ProcessorCount * 2)), Math.Min(12, Math.Max(4, Environment.ProcessorCount * 2)));
+    /// <summary>2026-11-03 (С-02, аудит «зависание при медленном сервере»): фоновая полоса — 8 мест (было 12 на всех); действия кассира идут в своей «быстрой полосе»
+    /// <see cref="_fgSlots"/> (4 места), поэтому зависший фон (каталог, сводка владельца) больше не держит клик кассира в очереди. Всего мест по-прежнему 12.</summary>
+    private readonly SemaphoreSlim _httpSlots = new(Math.Min(8, Math.Max(4, Environment.ProcessorCount * 2)), Math.Min(8, Math.Max(4, Environment.ProcessorCount * 2)));
+    /// <summary>2026-11-03 (С-02): быстрая полоса переднего плана и критичных операций (оплата, смена): 4 места.</summary>
+    private readonly SemaphoreSlim _fgSlots = new(4, 4);
+
+    private static readonly AsyncLocal<bool> ForegroundFlag = new();
+
+    /// <summary>2026-11-03 (С-02): запросы внутри этого блока (и их вложенные await) идут в быструю полосу очереди. Открывают <c>ServerAnswerWait.ForegroundAsync</c>/<c>ForegroundWriteAsync</c>.</summary>
+    public static IDisposable Foreground()
+    {
+        var previous = ForegroundFlag.Value;
+        ForegroundFlag.Value = true;
+        return new ForegroundScope(previous);
+    }
+
+    /// <summary>Запрос сейчас идёт от действия кассира (передний план) или критичной операции.</summary>
+    public static bool IsForeground => ForegroundFlag.Value || Api.ApiThrottle.IsCritical;
+
+    private sealed class ForegroundScope(bool previous) : IDisposable
+    {
+        public void Dispose() => ForegroundFlag.Value = previous;
+    }
+
+    /// <summary>2026-11-03 (С-02): ждёт место в нужной полосе очереди и возвращает семафор, который надо освободить в finally.</summary>
+    private async Task<SemaphoreSlim> AcquireSlotAsync(CancellationToken ct)
+    {
+        var slots = IsForeground ? _fgSlots : _httpSlots;
+        await slots.WaitAsync(ct).ConfigureAwait(false);
+        return slots;
+    }
     /// <summary>Серийный refresh токена при 401 из параллельных запросов.</summary>
     private readonly SemaphoreSlim _refreshSync = new(1, 1);
 
@@ -86,7 +116,8 @@ public sealed partial class NurMarketApiClient : IDisposable
     /// оплата и досылка уже работают с ключом идемпотентности / сверкой корзины.</summary>
     private CancellationTokenSource _outageCancel = new();
 
-    private CancellationToken OutageCancelToken => Volatile.Read(ref _outageCancel).Token;
+    // 2026-11-03 (С-02): internal — ClientDebtsApiService (свой HttpClient с Idempotency-Key) тоже отменяется при объявлении аварии.
+    internal CancellationToken OutageCancelToken => Volatile.Read(ref _outageCancel).Token;
 
     private void OnServerLinkStateChanged(ServerLinkState from, ServerLinkState to)
     {
@@ -115,6 +146,83 @@ public sealed partial class NurMarketApiClient : IDisposable
             return;
 
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", AccessToken);
+        MaybeRefreshAhead();
+    }
+
+    /// <summary>2026-11-03 (С-04, аудит «зависание при медленном сервере»): срок на обновление токена — и на замок, и на сам запрос. Дольше сервер не ждём:
+    /// запрос получает ApiException 408 «отвечает медленно», сессия НЕ сбрасывается.</summary>
+    internal static readonly TimeSpan RefreshBudget = TimeSpan.FromSeconds(10);
+
+    private string? _expParsedToken;
+    private DateTimeOffset _expParsedAt;
+    private int _aheadRefreshRunning;
+    private long _aheadNextTryTicks;
+
+    /// <summary>2026-11-03 (С-04): за 60 с до конца access-токена (поле exp в JWT) обновляем его заранее фоновой задачей, чтобы передний план почти не встречал 401
+    /// и не стоял у ворот обновления при медленном сервере. Не чаще раза в 30 с, никогда не сбрасывает сессию.</summary>
+    private void MaybeRefreshAhead()
+    {
+        try
+        {
+            var token = AccessToken;
+            if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(RefreshToken))
+                return;
+            if (!string.Equals(token, _expParsedToken, StringComparison.Ordinal))
+            {
+                _expParsedAt = TryReadJwtExpiry(token);
+                _expParsedToken = token;
+            }
+
+            if (_expParsedAt == default || _expParsedAt - DateTimeOffset.UtcNow > TimeSpan.FromSeconds(60))
+                return;
+            if (DateTime.UtcNow.Ticks < Interlocked.Read(ref _aheadNextTryTicks))
+                return;
+            if (Interlocked.CompareExchange(ref _aheadRefreshRunning, 1, 0) != 0)
+                return;
+            Interlocked.Exchange(ref _aheadNextTryTicks, DateTime.UtcNow.AddSeconds(30).Ticks);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var cts = new CancellationTokenSource(RefreshBudget);
+                    if (await RefreshAccessAndPersistAsync(cts.Token).ConfigureAwait(false))
+                        PosLogger.Log("Токен доступа обновлён заранее (до истечения).", "AUTH");
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Заблаговременное обновление токена не удалось ({ex.GetType().Name}) — обновим по требованию.", "AUTH");
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _aheadRefreshRunning, 0);
+                }
+            });
+        }
+        catch
+        {
+            // Заблаговременное обновление — удобство, не обязанность: любой сбой молча уступает обычному пути (401 → refresh).
+        }
+    }
+
+    /// <summary>Время окончания access-токена из поля exp JWT; default — не разобрали.</summary>
+    private static DateTimeOffset TryReadJwtExpiry(string jwt)
+    {
+        try
+        {
+            var parts = jwt.Split('.');
+            if (parts.Length < 2)
+                return default;
+            var payload = parts[1].Replace('-', '+').Replace('_', '/');
+            payload = payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4, '=');
+            using var doc = JsonDocument.Parse(Convert.FromBase64String(payload));
+            return doc.RootElement.TryGetProperty("exp", out var exp) && exp.TryGetInt64(out var seconds)
+                ? DateTimeOffset.FromUnixTimeSeconds(seconds)
+                : default;
+        }
+        catch
+        {
+            return default;
+        }
     }
 
     internal async Task<bool> RefreshAccessAndPersistAsync(CancellationToken ct = default)
@@ -258,14 +366,36 @@ public sealed partial class NurMarketApiClient : IDisposable
 
     public async Task<bool> RefreshAccessAsync(CancellationToken ct = default)
     {
-        await _loginMutex.WaitAsync(ct).ConfigureAwait(false);
+        // 2026-11-03 (С-04): замок входа и сам запрос — не дольше RefreshBudget (10 с); не успели — ApiException 408, сессия не сбрасывается.
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budget.CancelAfter(RefreshBudget);
+        try
+        {
+            await _loginMutex.WaitAsync(budget.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw RefreshSlowException();
+        }
+
         try
         {
             if (string.IsNullOrEmpty(RefreshToken))
                 return false;
             var body = new RefreshRequest { Refresh = RefreshToken };
             using var content = new StringContent(JsonSerializer.Serialize(body, _jsonWrite), Encoding.UTF8, "application/json");
-            using var resp = await _http.PostAsync("api/users/auth/refresh/", content, ct).ConfigureAwait(false);
+            HttpResponseMessage resp;
+            try
+            {
+                resp = await _http.PostAsync("api/users/auth/refresh/", content, budget.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                throw RefreshSlowException();
+            }
+
+            using var respGuard = resp;
+            ct = budget.Token;
             if (!resp.IsSuccessStatusCode)
             {
                 // 2026-09-29: сбой сервера (5xx, 408, 429) — это не «сессия истекла». Раньше здесь
@@ -274,6 +404,7 @@ public sealed partial class NurMarketApiClient : IDisposable
                 // (400/401/403 — refresh-токен отозван) по-прежнему false.
                 if (ServerOutageMonitor.IsServerFailureStatus((int)resp.StatusCode))
                     throw new ApiException($"HTTP {(int)resp.StatusCode}", (int)resp.StatusCode);
+                await ThrowIfForeignForbiddenAsync(resp, ct).ConfigureAwait(false); // 2026-11-03 (Д-1)
                 return false;
             }
             var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -388,7 +519,10 @@ public sealed partial class NurMarketApiClient : IDisposable
         if (string.IsNullOrEmpty(AccessToken))
             throw new ApiException(AuthInvalidHintRu, 401);
 
-        await _httpSlots.WaitAsync(ct).ConfigureAwait(false);
+        // 2026-11-03 (С-02, Сис-5): + отмена при объявлении аварии, как в RequestAsync — раньше запрос компании висел до 55 с при уже объявленной аварии.
+        using var linkedCompany = CancellationTokenSource.CreateLinkedTokenSource(ct, OutageCancelToken);
+        ct = linkedCompany.Token;
+        var slot = await AcquireSlotAsync(ct).ConfigureAwait(false);
         try
         {
             var uri = BuildUri("api/users/company/", null);
@@ -416,7 +550,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         }
         finally
         {
-            _httpSlots.Release();
+            slot.Release();
         }
     }
 
@@ -1196,7 +1330,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         if (requestTimeout.HasValue)
             linked.CancelAfter(requestTimeout.Value);
 
-        await _httpSlots.WaitAsync(linked.Token).ConfigureAwait(false);
+        var slot = await AcquireSlotAsync(linked.Token).ConfigureAwait(false);
         try
         {
             relativePath = ApiPathNormalizer.EnsureTrailingSlash(relativePath, method);
@@ -1226,7 +1360,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         }
         finally
         {
-            _httpSlots.Release();
+            slot.Release();
         }
     }
 
@@ -1241,7 +1375,10 @@ public sealed partial class NurMarketApiClient : IDisposable
         if (string.IsNullOrEmpty(AccessToken))
             throw new ApiException(AuthInvalidHintRu, 401);
 
-        await _httpSlots.WaitAsync(ct).ConfigureAwait(false);
+        // 2026-11-03 (С-02, Сис-5): + отмена при объявлении аварии — только пока ждём место в очереди.
+        // 2026-11-03 (ревью Н-6): уже отправленную загрузку (запись без ключа повтора) аварией не отменяем: сервер мог файл сохранить, а повтор добавил бы дубль в галерею.
+        using var linkedUpload = CancellationTokenSource.CreateLinkedTokenSource(ct, OutageCancelToken);
+        var slot = await AcquireSlotAsync(linkedUpload.Token).ConfigureAwait(false);
         try
         {
             relativePath = ApiPathNormalizer.EnsureTrailingSlash(relativePath, HttpMethod.Post);
@@ -1284,7 +1421,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         }
         finally
         {
-            _httpSlots.Release();
+            slot.Release();
         }
     }
 
@@ -1313,7 +1450,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         if (requestTimeout.HasValue)
             linked.CancelAfter(requestTimeout.Value);
 
-        await _httpSlots.WaitAsync(linked.Token).ConfigureAwait(false);
+        var slot = await AcquireSlotAsync(linked.Token).ConfigureAwait(false);
         try
         {
             return await SendOnceAsync(method, relativePath, jsonBody, query, linked.Token)
@@ -1321,7 +1458,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         }
         finally
         {
-            _httpSlots.Release();
+            slot.Release();
         }
     }
 
@@ -1433,14 +1570,36 @@ public sealed partial class NurMarketApiClient : IDisposable
 
     private async Task<bool> RefreshAccessUnlockedAsync(CancellationToken ct)
     {
-        await _refreshSync.WaitAsync(ct).ConfigureAwait(false);
+        // 2026-11-03 (С-04, Сис-4): замок и запрос обновления токена — не дольше RefreshBudget (10 с), раньше висели до 55 с и держали места очереди.
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budget.CancelAfter(RefreshBudget);
+        try
+        {
+            await _refreshSync.WaitAsync(budget.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw RefreshSlowException();
+        }
+
         try
         {
             if (string.IsNullOrEmpty(RefreshToken))
                 return false;
             var body = new RefreshRequest { Refresh = RefreshToken };
             using var content = new StringContent(JsonSerializer.Serialize(body, _jsonWrite), Encoding.UTF8, "application/json");
-            using var resp = await _http.PostAsync("api/users/auth/refresh/", content, ct).ConfigureAwait(false);
+            HttpResponseMessage resp;
+            try
+            {
+                resp = await _http.PostAsync("api/users/auth/refresh/", content, budget.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                throw RefreshSlowException();
+            }
+
+            using var respGuard = resp;
+            ct = budget.Token;
             if (!resp.IsSuccessStatusCode)
             {
                 // 2026-10-04, клиент: «если сервер временно не отвечает — выкидывает из аккаунта». Обновление
@@ -1449,6 +1608,7 @@ public sealed partial class NurMarketApiClient : IDisposable
                 // в RefreshAccessAsync (исправлено 2026-09-29 только там); false — только отказ по существу.
                 if (ServerOutageMonitor.IsServerFailureStatus((int)resp.StatusCode))
                     throw new ApiException($"HTTP {(int)resp.StatusCode}", (int)resp.StatusCode);
+                await ThrowIfForeignForbiddenAsync(resp, ct).ConfigureAwait(false); // 2026-11-03 (Д-1)
                 return false;
             }
             var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -1481,6 +1641,41 @@ public sealed partial class NurMarketApiClient : IDisposable
         {
             _refreshSync.Release();
         }
+    }
+
+    /// <summary>2026-11-03 (Д-1, живая проверка 1.17.73): 403 без JSON-объекта в теле — не ответ NurCRM (Django отдаёт {"detail": …}),
+    /// а страница прокси/CDN/WAF/провайдера. Такой ответ не «доступ отозван»: сессию стирать нельзя.</summary>
+    internal static bool IsForeignForbidden(ApiException ex) =>
+        ex.StatusCode == 403 && ex.Payload is not { ValueKind: JsonValueKind.Object };
+
+    /// <summary>2026-11-03 (Д-1): отказ 403 от самого NurCRM (в теле JSON-объект) — настоящий отзыв доступа.</summary>
+    internal static bool IsGenuineAccessDenied(ApiException ex) =>
+        ex.StatusCode == 403 && ex.Payload is { ValueKind: JsonValueKind.Object };
+
+    /// <summary>2026-11-03 (Д-1): отказ на обновлении токена с кодом 403 и чужим телом (не JSON-объект) — сбой посредника (502), а не «refresh отозван»:
+    /// иначе автовход и JwtBearerRefreshHandler стирали сохранённый вход.</summary>
+    private static async Task ThrowIfForeignForbiddenAsync(HttpResponseMessage resp, CancellationToken ct)
+    {
+        if ((int)resp.StatusCode != 403)
+            return;
+        string text;
+        try { text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false); }
+        catch (Exception ex) when (ex is HttpRequestException or IOException) { text = ""; }
+        if (TryParse(text) is { ValueKind: JsonValueKind.Object })
+            return;
+        PosLogger.Log("Обновление токена: ответ 403 не от NurCRM (нет JSON) — вход не стираем, считаем сбоем сервера.", "AUTH");
+        throw new ApiException("HTTP 403 (ответ промежуточного узла, не NurCRM)", 502);
+    }
+
+    /// <summary>2026-11-03 (С-04): обновление токена не уложилось в срок — «сервер медленно», НЕ «сессия истекла» (сессию не стираем).</summary>
+    internal static ApiException RefreshSlowException()
+    {
+        ServerOutageMonitor.ReportSlow("auth/refresh");
+        return new ApiException(Tr.T("Сервер NurCRM отвечает медленно. Попробуйте ещё раз чуть позже.",
+            "NurCRM сервери жай жооп берип жатат. Бир аздан кийин кайра аракет кылыңыз.",
+            "The NurCRM server is responding slowly. Please try again shortly.",
+            "NurCRM sunucusu yavaş yanıt veriyor. Biraz sonra tekrar deneyin.",
+            "NurCRM serveri sekin javob bermoqda. Birozdan keyin qayta urinib ko'ring."), 408);
     }
 
     private Uri BuildUri(string relativePath, IReadOnlyDictionary<string, string>? query)
@@ -1819,7 +2014,7 @@ public sealed partial class NurMarketApiClient : IDisposable
             return null;
 
         var uri = BuildUri(relativePath, query);
-        await _httpSlots.WaitAsync(ct).ConfigureAwait(false);
+        var slot = await AcquireSlotAsync(ct).ConfigureAwait(false);
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, uri);
@@ -1831,7 +2026,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         }
         finally
         {
-            _httpSlots.Release();
+            slot.Release();
         }
     }
 
@@ -1843,7 +2038,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         if (string.IsNullOrEmpty(AccessToken))
             return null;
 
-        await _httpSlots.WaitAsync(ct).ConfigureAwait(false);
+        var slot = await AcquireSlotAsync(ct).ConfigureAwait(false);
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, absoluteUrl);
@@ -1855,7 +2050,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         }
         finally
         {
-            _httpSlots.Release();
+            slot.Release();
         }
     }
 
@@ -1891,6 +2086,7 @@ public sealed partial class NurMarketApiClient : IDisposable
         _http.Dispose();
         _loginMutex.Dispose();
         _httpSlots.Dispose();
+        _fgSlots.Dispose();
         _refreshSync.Dispose();
     }
 }

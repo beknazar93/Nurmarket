@@ -272,7 +272,7 @@ public partial class ClientsWindow
         if (client.DebtUnknown)
         {
             CardDebtValue.Text = _debtsFailed ? "—" : "…";
-            CardDebtValue.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            CardDebtValue.Bind(TextBlock.ForegroundProperty, CardDebtValue.GetResourceObservable("BrushTextSoft"));
             CardDebtDetail.Text = _debtsFailed
                 ? T("Долги не загрузились — нажмите «Обновить» в списке.", "Карыздар жүктөлгөн жок — тизмеде «Жаңыртуу» басыңыз.", "Debts didn't load — press “Refresh” in the list.",
                     "Borçlar yüklenemedi — listede «Yenile»ye basın.", "Qarzlar yuklanmadi — ro'yxatda «Yangilash»ni bosing.")
@@ -282,12 +282,12 @@ public partial class ClientsWindow
         if (!client.HasDebt)
         {
             CardDebtValue.Text = T("нет", "жок", "none", "yok", "yo'q");
-            CardDebtValue.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            CardDebtValue.Bind(TextBlock.ForegroundProperty, CardDebtValue.GetResourceObservable("BrushTextSoft"));
             CardDebtDetail.Text = T("Клиент ничего не должен.", "Клиенттин карызы жок.", "The client owes nothing.", "Müşterinin borcu yok.", "Mijozning qarzi yo'q.");
             return;
         }
         CardDebtValue.Text = client.Debt.ToString("N2", ru) + " " + Som;
-        CardDebtValue.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
+        CardDebtValue.Bind(TextBlock.ForegroundProperty, CardDebtValue.GetResourceObservable("BrushDanger"));
         var n = client.DebtSalesCount;
         CardDebtDetail.Text = client.DebtSince is { } since
             ? T($"чеков в долг: {n} · с {since:dd.MM.yyyy} ({DebtsView.Days(since)})", $"карыз чектер: {n} · {since:dd.MM.yyyy} баштап ({DebtsView.Days(since)})",
@@ -399,7 +399,7 @@ public partial class ClientsWindow
                 "Kassagacha bo'lgan qarz uchun (daftar, boshqa dastur). Sotuv yaratilmaydi, ombordan chiqarilmaydi. Oddiy qarz kabi to'lanadi."),
             FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6),
         };
-        hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
         panel.Children.Add(hint);
 
         TextBox Field(string label, string watermark, string value)
@@ -501,7 +501,7 @@ public partial class ClientsWindow
         var dialog = new Window { Title = Title };
         SectionCards.AsModal(dialog, 512);
         var label = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, FontSize = 14 };
-        label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushText"));
         var ok = SectionCards.Cancel(T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli"));
         ok.IsDefault = true;
         ok.Click += (_, _) => dialog.Close();

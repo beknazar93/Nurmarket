@@ -166,7 +166,7 @@ public static class InvoiceMath
         sb.Append(r.Id).Append('|').Append(r.Total.ToString("0.###", CultureInfo.InvariantCulture)).Append('|').Append(r.ReturnedAmount.ToString("0.###", CultureInfo.InvariantCulture));
         foreach (var l in r.Lines.OrderBy(x => x.Id, StringComparer.Ordinal))
             sb.Append(';').Append(l.Id).Append(':').Append(l.Qty.ToString("0.###", CultureInfo.InvariantCulture)).Append(':').Append(l.ReturnedQty.ToString("0.###", CultureInfo.InvariantCulture))
-                .Append(':').Append(l.PurchasePrice.ToString("0.###", CultureInfo.InvariantCulture));
+                .Append(':').Append(l.PurchasePrice.ToString("0.####", CultureInfo.InvariantCulture)); // 2026-11-01: 4 знака закупки (для ≤3 знаков строка та же)
         return Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(sb.ToString())))[..16];
     }
 }

@@ -548,16 +548,20 @@ public sealed partial class MarketplaceStoreView
         var grid = new Grid { Children = { stack } };
         if (item.IsComingSoon)
         {
-            grid.Children.Add(new Border
+            // 2026-11-02 (аудит №2, Д2-07): вторая жёлтая #F9D919 в карточке Маркетплейса → цвет акцента темы и его текст.
+            var soon = new TextBlock { Text = Tr.T("Скоро", "Жакында", "Coming soon", "Yakında", "Tez orada"), FontSize = 12, FontWeight = FontWeight.Bold };
+            var soonBadge = new Border
             {
-                Background = new SolidColorBrush(Color.Parse("#F9D919")),
                 CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(8, 3),
                 HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Top,
                 Margin = new Thickness(16),
-                Child = new TextBlock { Text = Tr.T("Скоро", "Жакында", "Coming soon", "Yakında", "Tez orada"), FontSize = 12, FontWeight = FontWeight.Bold, Foreground = new SolidColorBrush(Color.Parse("#191919")) },
-            });
+                Child = soon,
+            };
+            soonBadge.Bind(Border.BackgroundProperty, soonBadge.GetResourceObservable("BrushAccent"));
+            soon.Bind(TextBlock.ForegroundProperty, soon.GetResourceObservable("BrushAccentForeground"));
+            grid.Children.Add(soonBadge);
         }
         return new Border { Height = height, CornerRadius = new CornerRadius(20), ClipToBounds = true, Background = gradient, Child = grid };
     }

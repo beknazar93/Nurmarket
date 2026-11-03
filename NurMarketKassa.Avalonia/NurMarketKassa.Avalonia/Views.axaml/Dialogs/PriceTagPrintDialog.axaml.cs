@@ -292,6 +292,7 @@ public partial class PriceTagPrintDialog : Window
             StatusText.Text = result switch
             {
                 LabelPrintResult.Success => LabelPrinterSelector.SentText(printer.Label),
+                LabelPrintResult.PartiallySent => LabelPrinterSelector.PartialText(printer.DevicePath),
                 LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден — обновите список.", "Принтер табылган жок — тизмени жаңыртыңыз.", "Printer not found — refresh the list.", "Yazıcı bulunamadı — listeyi yenileyin.", "Printer topilmadi — ro'yxatni yangilang."),
                 _ => Tr.T("Ошибка печати. Подробности в журнале приложения.", "Басып чыгаруу катасы. Толук маалымат колдонмонун журналында.", "Printing error. See the app log for details.", "Yazdırma hatası. Ayrıntılar için uygulama günlüğüne bakın.", "Chop etishda xato. Batafsil ma'lumot ilova jurnalida."),
             };

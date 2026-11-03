@@ -73,7 +73,7 @@ public sealed partial class InvoiceDocumentWindow : Window
         _debtRecorded = debtRecorded;
         _supplier = supplier;
         _context = context;
-        _docNumber = DocumentNumbering.ReceiptText(r.Id);
+        _docNumber = DocumentNumbering.ReceiptText(r); // 2026-11-01: number_display сервера, если есть
         _pay = ReceiptEditPlanner.ParsePayKind(note?.PayKind) is var pk && pk != ReceiptPayKind.Unknown ? pk : debtRecorded ? ReceiptPayKind.Debt : ReceiptPayKind.Unknown;
         _showMoney = WarehouseWindow.RevisionShowPurchase;
         _baseFingerprint = InvoiceMath.Fingerprint(r);
@@ -218,11 +218,11 @@ public sealed partial class InvoiceDocumentWindow : Window
         Avalonia.Automation.AutomationProperties.SetName(_search, _search.Watermark);
         Avalonia.Automation.AutomationProperties.SetName(_barcode, _barcode.Watermark);
         _banner.Child = _bannerText;
-        _banner.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushWarningSoft"));
-        _bannerText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
-        _message.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
-        _counter.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
-        _titleText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        _banner.Bind(Border.BackgroundProperty, _banner.GetResourceObservable("BrushWarningSoft"));
+        _bannerText.Bind(TextBlock.ForegroundProperty, _bannerText.GetResourceObservable("BrushText"));
+        _message.Bind(TextBlock.ForegroundProperty, _message.GetResourceObservable("BrushTextSoft"));
+        _counter.Bind(TextBlock.ForegroundProperty, _counter.GetResourceObservable("BrushTextSoft"));
+        _titleText.Bind(TextBlock.ForegroundProperty, _titleText.GetResourceObservable("BrushText"));
 
         var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(0, 0, 0, 6) };
         _titleText.VerticalAlignment = VerticalAlignment.Center;
@@ -252,7 +252,7 @@ public sealed partial class InvoiceDocumentWindow : Window
         _tiles.MinTileWidth = 150;
         _tiles.Margin = new Thickness(0, 8, 0, 0);
         _tileLine.Margin = new Thickness(0, 6, 0, 0);
-        _tileLine.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        _tileLine.Bind(TextBlock.ForegroundProperty, _tileLine.GetResourceObservable("BrushText"));
         var totalsHost = new Panel();
         totalsHost.Children.Add(_compact ? _tileLine : _tiles);
         Grid.SetRow(totalsHost, 5);
@@ -295,12 +295,12 @@ public sealed partial class InvoiceDocumentWindow : Window
         void Item(string label, string value, string? tip = null, bool grey = false)
         {
             var box = new Border { CornerRadius = new CornerRadius(8), Padding = new Thickness(_compact ? 8 : 10, _compact ? 2 : 5), Margin = new Thickness(0, 0, 6, _compact ? 3 : 6), Opacity = grey ? 0.6 : 1 };
-            box.Bind(Border.BackgroundProperty, this.GetResourceObservable("BrushPanelSoft"));
+            box.Bind(Border.BackgroundProperty, box.GetResourceObservable("BrushPanelSoft"));
             var sp = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             var a = new TextBlock { Text = label, FontSize = 12.5 };
-            a.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+            a.Bind(TextBlock.ForegroundProperty, a.GetResourceObservable("BrushTextSoft"));
             var b = new TextBlock { Text = value, FontSize = 13.5, FontWeight = FontWeight.SemiBold };
-            b.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            b.Bind(TextBlock.ForegroundProperty, b.GetResourceObservable("BrushText"));
             sp.Children.Add(a);
             sp.Children.Add(b);
             box.Child = sp;
@@ -476,7 +476,7 @@ public sealed partial class InvoiceDocumentWindow : Window
         else
             text = ReceiptEditPolicy.DeniedText(_access);
         _windowLabel.Text = text;
-        _windowLabel.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brush));
+        _windowLabel.Bind(TextBlock.ForegroundProperty, _windowLabel.GetResourceObservable(brush));
     }
 
     /// <summary>2026-10-30 (приёмка 1.17.66): предупреждение вверху окна — правка с другого ПК, номер выдан повторно (две кассы взяли один).</summary>
@@ -704,7 +704,7 @@ public sealed partial class InvoiceDocumentWindow : Window
         {
             var cells = new List<string> { x.No.ToString(Ru), Q(x.Code), Q(x.Barcode), Q(x.Name), Q(x.Unit), x.Qty.ToString("0.###", Ru) };
             if (_showMoney)
-                cells.AddRange(new[] { x.Purchase.ToString("0.##", Ru), ReceivingPricing.LineTotal(x.Qty, x.Purchase).ToString("0.00", Ru), InvoiceMath.MarkupFromSale(x.Purchase, x.Sale)?.ToString("0.##", Ru) ?? "",
+                cells.AddRange(new[] { x.Purchase.ToString("0.####", Ru), ReceivingPricing.LineTotal(x.Qty, x.Purchase).ToString("0.00", Ru), InvoiceMath.MarkupFromSale(x.Purchase, x.Sale)?.ToString("0.##", Ru) ?? "",
                     x.Sale > 0 ? x.Sale.ToString("0.##", Ru) : "", x.Sale > 0 ? InvoiceMath.ProfitPerUnit(x.Purchase, x.Sale).ToString("0.##", Ru) : "" });
             sb.AppendLine(string.Join(";", cells));
         }

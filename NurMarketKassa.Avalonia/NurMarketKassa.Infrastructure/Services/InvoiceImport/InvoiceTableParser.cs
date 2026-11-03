@@ -216,15 +216,15 @@ public static class InvoiceTableParser
 
             // Штрихкод: колонка штрихкода; иначе «артикул/код», если он на самом деле штрихкод (цифры + верная контрольная цифра).
             var barcode = InvoiceText.CleanBarcode(barcodeRaw, restoreLeadingZero: true);
-            if (barcode.Length == 0 && barcodeRaw.Length > 0)
-            {
-                item.Warnings.Add(Tr.T($"«{barcodeRaw}» не похоже на штрихкод — не используется", $"«{barcodeRaw}» штрих-кодго окшобойт — колдонулбайт",
-                    $"“{barcodeRaw}” does not look like a barcode — ignored", $"«{barcodeRaw}» barkoda benzemiyor — kullanılmadı", $"«{barcodeRaw}» shtrix-kodga o'xshamaydi — ishlatilmaydi"));
-            }
+            // 2026-11-01 (С2-09): научную запись Excel не раскрываем и не угадываем — строка помечается, код не используется; прочие коды (буквы, 5–7 и 9–11 цифр) остаются как есть
+            if (barcode.Length == 0 && barcodeRaw.Length > 0 && !InvoiceText.IsPlaceholderBarcode(barcodeRaw)) // заглушки «-», «0», «нет» — просто пустой штрихкод, без замечания
+                item.Warnings.Add(InvoiceText.IsMangledBarcode(barcodeRaw) ? InvoiceText.MangledBarcodeWarning(barcodeRaw)
+                    : Tr.T($"«{barcodeRaw}» не похоже на штрихкод — не используется", $"«{barcodeRaw}» штрих-кодго окшобойт — колдонулбайт",
+                        $"“{barcodeRaw}” does not look like a barcode — ignored", $"«{barcodeRaw}» barkoda benzemiyor — kullanılmadı", $"«{barcodeRaw}» shtrix-kodga o'xshamaydi — ishlatilmaydi"));
             var article = Clean(Cell(row, cArticle));
             if (barcode.Length == 0 && InvoiceText.LooksLikeBarcode(article))
                 barcode = InvoiceText.CleanBarcode(article);
-            else if (barcode.Length > 0 && !InvoiceText.HasValidCheckDigit(barcode))
+            else if (barcode.Length > 0 && barcode.All(char.IsAsciiDigit) && barcode.Length is 8 or 12 or 13 or 14 && !InvoiceText.HasValidCheckDigit(barcode))
                 item.Warnings.Add(Tr.T($"у штрихкода {barcode} не сходится контрольная цифра", $"{barcode} штрих-кодунун контролдук цифрасы дал келбейт",
                     $"barcode {barcode} has a wrong check digit", $"{barcode} barkodunun kontrol hanesi uyuşmuyor", $"{barcode} shtrix-kodining nazorat raqami mos kelmaydi"));
             item.Barcode = barcode;

@@ -39,10 +39,21 @@ public static class RentalReceiptInfoStore
             if (all.Count > Keep)
                 foreach (var old in all.Keys.OrderBy(k => k).Take(all.Count - Keep).ToList())
                     all.Remove(old);
+            var json = JsonSerializer.Serialize(all.Values.ToList());
+            if (_partial)
+            {
+                AtomicFile.DeferWrite(FilePath, "rental-receipts.json", json, MergeInfos); // 2026-11-02 (К3-01): файл не прочитан/был занят — отложенная запись
+                return;
+            }
             try
             {
                 // 2026-11-01 (аудит 10 из 10, Н-07): запись через AtomicFile — обрыв питания не оставляет полфайла.
-                AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(all.Values.ToList()));
+                AtomicFile.WriteAllText(FilePath, json);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _partial = true;
+                AtomicFile.DeferWrite(FilePath, "rental-receipts.json", json, MergeInfos);
             }
             catch (Exception ex)
             {
@@ -51,27 +62,55 @@ public static class RentalReceiptInfoStore
         }
     }
 
+    /// <summary>Объединение при отложенной записи: условия из памяти + те, что есть только в файле (по номеру проката).</summary>
+    private static string MergeInfos(string? fileText, string memoryText)
+    {
+        List<RentalReceiptInfo> Parse(string? text)
+        {
+            try
+            {
+                return text is null ? new() : JsonSerializer.Deserialize<List<RentalReceiptInfo>>(text) ?? new();
+            }
+            catch (JsonException)
+            {
+                return new();
+            }
+        }
+        var memory = Parse(memoryText);
+        foreach (var e in Parse(fileText))
+            if (!memory.Any(x => x.Number == e.Number))
+                memory.Add(e);
+        return JsonSerializer.Serialize(memory);
+    }
+
     public static RentalReceiptInfo? TryGet(int number)
     {
         lock (Sync)
             return LoadUnsafe().TryGetValue(number, out var info) ? info : null;
     }
 
+    // 2026-11-02 (аудит №2 кассы, К3-01): файл занят — не «условий нет»: кэш помечается неполным, запись в файл откладывается (иначе перезаписали бы файл одной новой записью).
+    private static bool _partial;
+
     private static Dictionary<int, RentalReceiptInfo> LoadUnsafe()
     {
-        if (_cache != null)
+        if (_cache != null && !_partial)
             return _cache;
-        _cache = new Dictionary<int, RentalReceiptInfo>();
+        var dict = new Dictionary<int, RentalReceiptInfo>();
+        var read = AtomicFile.TryRead(FilePath, attempts: 3, pauseMs: 100); // 2026-11-01 (Н-07): битый файл — из копии .bak
         try
         {
-            if (AtomicFile.ReadAllText(FilePath) is { } text) // 2026-11-01 (Н-07): битый файл — из копии .bak
+            if (read.Text is { } text)
                 foreach (var info in JsonSerializer.Deserialize<List<RentalReceiptInfo>>(text) ?? new())
-                    _cache[info.Number] = info;
+                    dict[info.Number] = info;
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Условия прокатов для чека не прочитаны ({ex.Message}).", "WARNING");
         }
+        // 2026-11-02 (приёмка круга 3): данные из памяти (отложенная запись) или из копии .bak — писать поверх файла нельзя, только через отложенную запись с объединением.
+        _partial = read.Status == AtomicFile.ReadStatus.Unreadable || read.FromMemory;
+        _cache = dict;
         return _cache;
     }
 

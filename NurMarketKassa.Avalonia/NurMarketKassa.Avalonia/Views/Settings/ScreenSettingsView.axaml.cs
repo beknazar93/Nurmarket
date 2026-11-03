@@ -49,7 +49,7 @@ public partial class ScreenSettingsView : UserControl
                 "Foydalanmaydigan bo'limlarni o'chiring — ular menyudan yo'qoladi. Shu yerdan qayta yoqish mumkin. Tarif va xodimlar huquqlari bo'yicha kirish o'zgarmaydi."),
             FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         };
-        hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
         stack.Children.Add(hint);
         var wrap = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal };
         foreach (var (key, title) in SectionVisibility.Catalog)
@@ -67,7 +67,7 @@ public partial class ScreenSettingsView : UserControl
             };
             Grid.SetColumn(label, 1);
             Avalonia.Automation.AutomationProperties.SetName(check, title);
-            label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushText"));
             row.Children.Add(label);
             wrap.Children.Add(row);
         }
@@ -104,7 +104,7 @@ public partial class ScreenSettingsView : UserControl
                 "Bo'limlarni chapda qanday ko'rsatish. Darhol o'zgaradi, ochiq bo'lim qoladi."),
             FontSize = 12, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         };
-        hint.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        hint.Bind(TextBlock.ForegroundProperty, hint.GetResourceObservable("BrushTextSoft"));
         stack.Children.Add(hint);
         stack.Children.Add(new OwnerMenuStylePicker { Margin = new Avalonia.Thickness(0, 8, 0, 0), Catalog = catalog ?? OwnerMenuStyles.Catalog });
         card.Child = stack;

@@ -119,6 +119,7 @@ public static class ApiThrottle
     public static IDisposable BeginCritical()
     {
         CriticalDepth.Value++;
+        Interlocked.Increment(ref _criticalInFlight);
         return new CriticalScope();
     }
 
@@ -128,10 +129,20 @@ public static class ApiThrottle
 
         public void Dispose()
         {
-            if (Interlocked.Exchange(ref _done, 1) == 0 && CriticalDepth.Value > 0)
-                CriticalDepth.Value--;
+            if (Interlocked.Exchange(ref _done, 1) == 0)
+            {
+                Interlocked.Decrement(ref _criticalInFlight);
+                if (CriticalDepth.Value > 0)
+                    CriticalDepth.Value--;
+            }
         }
     }
+
+    private static int _criticalInFlight;
+
+    /// <summary>2026-11-02 (Н3-01): прямо сейчас где-то в программе идёт критичная операция (оплата, открытие/закрытие смены) — счётчик на весь процесс
+    /// (<see cref="IsCritical"/> виден только внутри самой операции). Фоновая полная загрузка каталога между страницами ждёт её конца.</summary>
+    public static bool CriticalInFlight => Volatile.Read(ref _criticalInFlight) > 0;
 
     public static bool IsCritical => CriticalDepth.Value > 0;
 

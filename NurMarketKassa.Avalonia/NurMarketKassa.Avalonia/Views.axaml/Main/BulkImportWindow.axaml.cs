@@ -65,8 +65,8 @@ public partial class BulkImportWindow : Window
         PosLogger.Log($"Массовая загрузка: {where}: {ex}", "WAREHOUSE");
         try
         {
-            SummaryText.Text = Tr.T($"Не удалось выполнить действие: {ex.Message}", $"Аракетти аткаруу мүмкүн болгон жок: {ex.Message}",
-                $"Could not complete the action: {ex.Message}", $"İşlem tamamlanamadı: {ex.Message}", $"Amalni bajarib bo'lmadi: {ex.Message}");
+            SummaryText.Text = Tr.T($"Не удалось выполнить действие: {ServerOutageMonitor.FriendlyError(ex)}", $"Аракетти аткаруу мүмкүн болгон жок: {ServerOutageMonitor.FriendlyError(ex)}",
+                $"Could not complete the action: {ServerOutageMonitor.FriendlyError(ex)}", $"İşlem tamamlanamadı: {ServerOutageMonitor.FriendlyError(ex)}", $"Amalni bajarib bo'lmadi: {ServerOutageMonitor.FriendlyError(ex)}");
         }
         catch
         {
@@ -345,6 +345,9 @@ public partial class BulkImportWindow : Window
                 Quantity = row.Source.Quantity ?? 0,
                 SendQuantity = row.Source.Quantity.HasValue,
                 SendAlternateBarcodes = row.ExistingProductId is null, // 2026-11-01: у существующего товара доп. штрихкоды (с остатками) не перезаписываем
+                // 2026-11-01 (С2-03): у существующего товара скидку, опт, описание, страну и характеристики файл импорта не знает — не затираем.
+                SendDiscountPercent = row.ExistingProductId is null, SendWholesalePrice = row.ExistingProductId is null, SendDescription = row.ExistingProductId is null,
+                SendCountry = row.ExistingProductId is null, SendCharacteristics = row.ExistingProductId is null,
                 PurchasePrice = row.Source.PurchasePrice,
                 SendPurchasePrice = row.Source.PurchasePrice.HasValue,
                 MarkupPercent = row.Source.MarkupPercent,
@@ -372,8 +375,8 @@ public partial class BulkImportWindow : Window
             }
             catch (Exception ex)
             {
-                row.StatusText = "❌ " + Tr.T($"Ошибка: {ex.Message}", $"Ката: {ex.Message}",
-                    $"Error: {ex.Message}", $"Hata: {ex.Message}", $"Xato: {ex.Message}");
+                row.StatusText = "❌ " + Tr.T($"Ошибка: {ServerOutageMonitor.FriendlyError(ex)}", $"Ката: {ServerOutageMonitor.FriendlyError(ex)}",
+                    $"Error: {ServerOutageMonitor.FriendlyError(ex)}", $"Hata: {ServerOutageMonitor.FriendlyError(ex)}", $"Xato: {ServerOutageMonitor.FriendlyError(ex)}");
                 PosLogger.Log($"Массовая загрузка: строка {row.RowNumber} не сохранена: {ex}", "WAREHOUSE");
                 failed++;
             }

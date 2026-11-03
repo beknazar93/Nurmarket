@@ -50,7 +50,7 @@ public sealed class PurchaseNumberingSettingsCard : Border
             "Markup in the internal invoice copy (PDF “Download”)", "Faturanın iç kopyasında kâr (PDF «İndir»)", "Yuk xatining ichki nusxasida ustama (PDF «Yuklab olish»)"));
         stack.Children.Add(Hint(T("Наценку в накладных видят только роли с правом на закупочные цены.", "Накладнойлордогу кошумчаны сатып алуу баасына укугу бар ролдор гана көрөт.",
             "Only roles allowed to see purchase prices can see markup on invoices.", "Faturalardaki kârı yalnızca alış fiyatlarını görme yetkisi olan roller görür.", "Yuk xatlaridagi ustamani faqat xarid narxlarini ko'rish huquqi bor rollar ko'radi.")));
-        _sample.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        _sample.Bind(TextBlock.ForegroundProperty, _sample.GetResourceObservable("BrushTextSoft"));
         stack.Children.Add(_sample);
         Child = stack;
 
@@ -71,7 +71,7 @@ public sealed class PurchaseNumberingSettingsCard : Border
     private TextBlock Hint(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 12, TextWrapping = TextWrapping.Wrap };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
         return t;
     }
 
@@ -79,7 +79,7 @@ public sealed class PurchaseNumberingSettingsCard : Border
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         var text = new TextBlock { Text = label, FontSize = 13, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
-        text.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        text.Bind(TextBlock.ForegroundProperty, text.GetResourceObservable("BrushText"));
         Avalonia.Automation.AutomationProperties.SetName(box, label);
         Grid.SetColumn(box, 1);
         grid.Children.Add(text);
@@ -91,7 +91,7 @@ public sealed class PurchaseNumberingSettingsCard : Border
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         var label = new TextBlock { Text = text, FontSize = 13, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 12, 0) };
-        label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+        label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushText"));
         var check = new CheckBox { Classes = { "ToggleSwitch" }, VerticalAlignment = VerticalAlignment.Center };
         Avalonia.Automation.AutomationProperties.SetName(check, text);
         Grid.SetColumn(check, 1);

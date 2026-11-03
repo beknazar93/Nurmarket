@@ -132,10 +132,12 @@ public static class ReceiptEditAuditLog
         var label = FieldLabel(f.Field);
         var pending = f.Status is "failed" or "unknown" or "pending" or "applying" or "abandoned" or "not_posted" or "partial"
             ? Tr.T(" (не применено)", " (колдонулган жок)", " (not applied)", " (uygulanmadı)", " (qo'llanmadi)") : "";
-        return $"{f.Subject}: {label} {f.Before} → {f.After}{pending}";
+        static string Disp(string v) => double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d)
+            ? d.ToString("0.####", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) : v; // 2026-11-01: на экране «1 → 1,01», в журнале (jsonl) — исходные значения
+        return $"{f.Subject}: {label} {Disp(f.Before)} → {Disp(f.After)}{pending}";
     }
 
-    private static string N(double? v) => v is { } x ? x.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) : "?";
+    private static string N(double? v) => v is { } x ? x.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) : "?";
 
     /// <summary>2026-11-01: «поле: было → стало» по правке — количество каждой строки и цена продажи / наценка товара (шаги price). Для журнала, ленты и окон истории.</summary>
     public static List<ReceiptEditAuditField> FieldChanges(ReceiptEditRecord r)

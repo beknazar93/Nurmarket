@@ -119,7 +119,8 @@ public partial class ShiftDetailsDialog : Window
             return null;
         try
         {
-            var all = await loader(null, _cts.Token).ConfigureAwait(true);
+            // 2026-11-03 (С-11, аудит «зависание при медленном сервере»): прокат с сервера — не дольше 8 с; не успели — отчёт без проката (данные кассы).
+            var all = await ServerAnswerWait.ForegroundAsync("rentals", t => loader(null, t), _cts.Token).ConfigureAwait(true);
             var summary = RentalShiftSummary.Compute(all, shift.OpenedAt, shift.ClosedAt);
             if (_cts.IsCancellationRequested || summary.IsEmpty)
                 return null;
@@ -143,7 +144,8 @@ public partial class ShiftDetailsDialog : Window
     {
         try
         {
-            var report = await NurCrmReportsApi.GetShiftReportAsync(shiftId, _cts.Token).ConfigureAwait(true);
+            // 2026-11-03 (С-11): отчёт сервера и возвраты — не дольше 8 с каждый (раньше до 55 + 55 с и «Печать» ждала их); не успели — данные кассы, сервер не ответил.
+            var report = await ServerAnswerWait.ForegroundAsync("reports/shift", t => NurCrmReportsApi.GetShiftReportAsync(shiftId, t), _cts.Token).ConfigureAwait(true);
             if (report is null || _cts.IsCancellationRequested || _shift is null)
                 return report;
 
@@ -154,7 +156,7 @@ public partial class ShiftDetailsDialog : Window
             // досчитываем по списку возвратов сервера (кассир смены, время смены).
             if (report.ReturnsTotal <= 0m)
             {
-                _serverShiftReturns = await NurCrmReportsApi.ReturnsForShiftAsync(report, _cts.Token).ConfigureAwait(true);
+                _serverShiftReturns = await ServerAnswerWait.ForegroundAsync("reports/returns", t => NurCrmReportsApi.ReturnsForShiftAsync(report, t), _cts.Token).ConfigureAwait(true);
                 if (!_cts.IsCancellationRequested && _shift is { } shown)
                     BindExtraTotals(shown.Id, shown.ExpenseTotal);
             }
@@ -514,7 +516,7 @@ public partial class ShiftDetailsDialog : Window
                 $"Henüz sunucuda değil: {sign}{Math.Abs(notOnServer):N2} {Som} (bağlantısız para giriş/çıkışları, kuyruktaki fişler). Bunlarla çekmecede {expected + notOnServer:N2} {Som} olmalı — üstteki «Kasa» bunu gösterir.",
                 $"Hali serverda yo'q: {sign}{Math.Abs(notOnServer):N2} {Som} (aloqasiz kiritish/olishlar, navbatdagi cheklar). Ular bilan qutida {expected + notOnServer:N2} {Som} bo'lishi kerak — tepadagi «Kassa» shuni ko'rsatadi.")
         };
-        note.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        note.Bind(TextBlock.ForegroundProperty, note.GetResourceObservable("BrushTextSoft"));
         DrawerBreakdown.Children.Add(note);
     }
 
@@ -636,10 +638,10 @@ public partial class ShiftDetailsDialog : Window
             "Müşterilerin vardiyadaki veresiye fişlerinde hâlâ borçlu olduğu tutar. “Veresiye satışlar” vardiyada borca verilen tutardır; bir kısmı ödenmiş olabilir.",
             "Mijozlar smenadagi qarz cheklari bo'yicha hali qancha qarzdor. «Qarzga sotuvlar» — smenada qarzga berilgani; bir qismi to'langan bo'lishi mumkin."));
         var has = debt is > 0.005m;
-        DebtTile.Bind(Border.BackgroundProperty, this.GetResourceObservable(has ? "BrushDangerSoft" : "BrushSurfaceSubtle"));
-        DebtTile.Bind(Border.BorderBrushProperty, this.GetResourceObservable(has ? "BrushDanger" : "BrushBorder"));
-        DebtLabelText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(has ? "BrushDanger" : "BrushTextSoft"));
-        DebtText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(has ? "BrushDanger" : "BrushText"));
+        DebtTile.Bind(Border.BackgroundProperty, DebtTile.GetResourceObservable(has ? "BrushDangerSoft" : "BrushSurfaceSubtle"));
+        DebtTile.Bind(Border.BorderBrushProperty, DebtTile.GetResourceObservable(has ? "BrushDanger" : "BrushBorder"));
+        DebtLabelText.Bind(TextBlock.ForegroundProperty, DebtLabelText.GetResourceObservable(has ? "BrushDanger" : "BrushTextSoft"));
+        DebtText.Bind(TextBlock.ForegroundProperty, DebtText.GetResourceObservable(has ? "BrushDanger" : "BrushText"));
     }
 
     /// <summary>Подпись под плиткой «Наличные»/«Безналичные»: сколько из суммы — смешанной оплатой.</summary>
@@ -818,17 +820,34 @@ public partial class ShiftDetailsDialog : Window
         try
         {
             // Долг закрытой смены ещё считается — печатаем, когда он придёт (см. ApplyDebtWhenResolvedAsync).
+            // 2026-11-03 (С-11): «Печать» ждёт загрузки не дольше 3 с и печатает то, что на экране (раньше без срока — кнопка серая до ~110 с).
             if (_pendingDebt is { IsCompleted: false } pendingDebt)
-                await pendingDebt.ConfigureAwait(true);
+                await Task.WhenAny(pendingDebt, Task.Delay(TimeSpan.FromSeconds(3))).ConfigureAwait(true);
             // Отчёт смены сервера ещё грузится — печатаем с его цифрами, как на экране (2026-09-28).
             if (_reportTask is { IsCompleted: false } pendingReport)
-                await pendingReport.ConfigureAwait(true);
+                await Task.WhenAny(pendingReport, Task.Delay(TimeSpan.FromSeconds(3))).ConfigureAwait(true);
 
             var returns = _report is { ReturnsTotal: > 0m } r
                 ? (r.ReturnsCount, r.ReturnsTotal)
                 : _serverShiftReturns;
-            var rentals = _rentalsTask is { } rentalsTask ? await rentalsTask.ConfigureAwait(true) : null;
+            var rentals = _rentalsTask is { IsCompleted: true } rentalsTask ? await rentalsTask.ConfigureAwait(true) : null; // 2026-11-03 (С-11): незагруженный прокат не ждём
             var report = BuildPrintableReport(_shift, _report, returns, rentals);
+            // 2026-11-03 (ревью С-4): что-то из данных сервера не успело загрузиться за 3 с — печатаем по данным кассы и ЧЕСТНО пишем об этом на бумаге
+            // (иначе отчёт без долгов смены/проката/ожидаемой суммы сервера уйдёт в кассовую папку как полный).
+            var missing = new List<string>();
+            if (_reportTask is { } rt0 && (!rt0.IsCompleted || _report is null))
+                missing.Add(Tr.T("отчёт и ожидаемая сумма сервера", "сервердин отчёту жана күтүлгөн сумма", "server report and expected amount", "sunucu raporu ve beklenen tutar", "server hisoboti va kutilgan summa"));
+            if (_pendingDebt is { IsCompleted: false })
+                missing.Add(Tr.T("долги смены", "сменанын карыздары", "shift debts", "vardiya borçları", "smena qarzlari"));
+            if (_rentalsTask is { IsCompleted: false })
+                missing.Add(Tr.T("прокат", "ижара", "rental", "kiralama", "ijara"));
+            if (missing.Count > 0)
+            {
+                report += Environment.NewLine + "------------------------------" + Environment.NewLine
+                    + Tr.T("! Данные кассы: сервер не ответил, без: ", "! Касса маалыматтары: сервер жооп берген жок, жок: ", "! Till data only: server did not answer, missing: ", "! Yalnızca kasa verisi: sunucu yanıt vermedi, eksik: ", "! Faqat kassa ma'lumoti: server javob bermadi, yo'q: ")
+                    + string.Join(", ", missing) + Environment.NewLine;
+                PosLogger.Log($"Печать X/Z: сервер не успел ответить за 3 с — на бумаге пометка «без: {string.Join(", ", missing)}».", "SHIFT");
+            }
             var ok = await App.GetRequiredService<ICashShiftService>().PrintReportAsync(report).ConfigureAwait(true);
             if (!ok)
                 PosMessageBox.Show(this,

@@ -2345,6 +2345,41 @@ public sealed class DatabaseService
         return result;
     }
 
+    /// <summary>2026-11-03 (Д-3, живая проверка 1.17.73): строки продаж, записанные ЭТОЙ кассой (source = local) с номером продажи, за промежуток —
+    /// чтобы «История чеков» показала свежие чеки сразу, не дожидаясь сервера. Старые первыми не гарантированы; порядок строк — как записаны.</summary>
+    public List<(string SaleId, DateTime SoldAtUtc, string ProductName, double Quantity, double UnitPrice)> LoadLocalSoldLinesBetween(DateTime sinceUtc, DateTime untilUtc)
+    {
+        var result = new List<(string, DateTime, string, double, double)>();
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT sale_id, sold_at, product_name, quantity, unit_price FROM SoldLineItems WHERE source = 'local' "
+                + "AND sale_id IS NOT NULL AND sale_id <> '' AND sold_at >= $since AND sold_at < $until" + OwnRowsClause() + " ORDER BY rowid;";
+            command.Parameters.AddWithValue("$since", sinceUtc.ToString("O"));
+            command.Parameters.AddWithValue("$until", untilUtc.ToString("O"));
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var soldAt = DateTime.TryParse(reader.GetString(1), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
+                    ? parsed
+                    : DateTime.MinValue;
+                result.Add((reader.GetString(0), soldAt, reader.GetString(2), reader.GetDouble(3), reader.GetDouble(4)));
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Свои продажи кассы за период не прочитаны: {ex.Message}", "WARNING");
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+
+        return result;
+    }
+
     /// <summary>Убрать из истории строки перечисленных продаж. Возвращает число удалённых строк.</summary>
     public int DeleteSoldLineItemsBySaleIds(IReadOnlyCollection<string> saleIds)
     {

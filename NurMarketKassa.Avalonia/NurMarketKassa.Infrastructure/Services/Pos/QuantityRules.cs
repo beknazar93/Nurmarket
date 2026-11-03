@@ -72,10 +72,17 @@ public static class QuantityRules
 
     /// <summary>Текст количества НЕвесовой строки для тела запроса на сервер. Без дробной строки — ровно прежнее
     /// <c>Math.Round(qty, 0)</c>. Дробная — до 3 знаков без хвостовых нулей («2.5»; у целого числа точки нет).</summary>
-    public static string PieceText(JsonElement it, double qty) =>
-        IsFractionalLine(it)
-            ? qty.ToString("0.###", CultureInfo.InvariantCulture)
-            : Math.Round(qty, 0).ToString(CultureInfo.InvariantCulture);
+    public static string PieceText(JsonElement it, double qty)
+    {
+        if (IsFractionalLine(it))
+            return qty.ToString("0.###", CultureInfo.InvariantCulture);
+        var rounded = Math.Round(qty, 0);
+        // 2026-11-01 (живая проверка 1.17.72, О-3): положительное количество не должно уйти на сервер как «0» (0,375 кг у строки, потерявшей признак
+        // «весовая»): шлём настоящее значение — итог совпадёт с кассой, а сервер или проверка итога скажут своё слово, а не продадут «ноль».
+        if (rounded == 0 && qty > 0)
+            return qty.ToString("0.###", CultureInfo.InvariantCulture);
+        return rounded.ToString(CultureInfo.InvariantCulture);
+    }
 
     /// <summary>Привести количество к шагу и минимуму единицы: к ближайшему кратному шагу (половина вверх), до 3 знаков
     /// (как вес), не меньше минимума. Нечисло и ≤ 0 возвращает как есть — проверяет вызывающий. Считает в decimal,
@@ -129,17 +136,11 @@ public static class QuantityRules
             ? (decimal)qty * (decimal)price
             : 0m;
 
-    /// <summary>2026-11-01 (живая сверка с сервером NBS): сумма строки для ПОДЫТОГА. Обычная строка — без округления (<see cref="GrossExact"/>);
-    /// ВЕСОВАЯ строка (товар, не «Доп. услуга») — вниз до 0,01 (0,343 кг × 66 = 22,638 → 22,63, чек 1979). Вниз имеет смысл, только если
-    /// у суммы есть доли копейки — поэтому признак «весовая» (он считается по нескольким полям) проверяется лишь тогда.</summary>
-    public static decimal LineAmount(JsonElement it, double qty, double price)
-    {
-        var exact = GrossExact(qty, price);
-        var floored = Math.Floor(exact * 100m) / 100m;
-        if (floored == exact || exact < 0)
-            return exact;
-        return !string.IsNullOrEmpty(CartDisplayHelper.TryProductId(it)) && CartDisplayHelper.LineMustWeigh(it) ? floored : exact;
-    }
+    /// <summary>2026-11-01 (опыты на сервере NBS, чеки 1971–1988): подытог = ВНИЗ до 0,01 от СУММЫ всех весовых строк (товары с
+    /// <c>is_weight</c>) + половина вверх до 0,01 от суммы остальных строк (штучные, «Доп. услуга» — даже с дробным количеством).
+    /// 4,875 + 22,638 = 27,513 → 27,51 (а не 27,50: вниз округляется сумма, а не каждая строка); 22,638 + 4,472 («Доп. услуга») → 22,63 + 4,47 = 27,10.</summary>
+    public static decimal Subtotal(decimal weighedSum, decimal otherSum) =>
+        (weighedSum > 0 ? Math.Floor(weighedSum * 100m) / 100m : RoundMoney(weighedSum)) + RoundMoney(otherSum);
 
     /// <summary>2026-11-01: единственная точка округления денег чека — до 0,01, половина вверх (ROUND_HALF_UP сервера).</summary>
     public static decimal RoundMoney(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);

@@ -58,6 +58,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     private string _origPurchasePrice = "";
     private string _origMarkupPercent = "";
     private string _origPrice = "";
+    // 2026-11-01 (контрольный аудит, С2-03): исходные скидка, опт, описание, страна и вес/габариты — на сервер уходят только изменённые.
+    private string _origDiscount = "", _origWholesale = "", _origDescription = "", _origCountry = "", _origDimensions = "";
     private string _hotkeyGroup = "Без горячей клавиши";
     private string _description = "";
     private string _plu = "";
@@ -116,6 +118,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     }
 
     public bool Saved { get; private set; }
+    /// <summary>2026-11-03 (ревью Н-2): запись карточки ещё идёт на сервере (ждали дольше 8 с) — итог придёт плашкой.</summary>
+    public bool SavePending { get; private set; }
 
     /// <summary>2026-09-07, по просьбе пользователя: при добавлении товара по неизвестному
     /// штрихкоду со сканера форма показывает только название/штрихкод/остаток/цены — остальное
@@ -148,7 +152,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             _isWeight = existing.MustWeigh;
             _quantity = existing.Quantity.ToString("0.###", CultureInfo.InvariantCulture);
             _purchasePrice = existing.PurchasePrice > 0
-                ? existing.PurchasePrice.ToString("0.##", CultureInfo.InvariantCulture) : "";
+                ? existing.PurchasePrice.ToString("0.####", CultureInfo.InvariantCulture) : ""; // 2026-11-02 (аудит №2, С3-07): сервер хранит закупку с 4 знаками
             _price = ExtractPrice(existing.PriceLine);
             _hotkeyGroup = string.IsNullOrWhiteSpace(existing.HotkeyGroup) ? "Без горячей клавиши" : existing.HotkeyGroup!;
             _plu = existing.Plu?.ToString(CultureInfo.InvariantCulture) ?? "";
@@ -217,6 +221,17 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                     foreach (var component in existing.BundleItems)
                         _bundleItems.Add(component);
             }
+            // 2026-11-01 (контрольный аудит, С2-02): услуга остаётся услугой — раньше правка цены уходила с kind=product, и услуга начинала списываться со склада.
+            else if (existing.IsService)
+                _kind = "service";
+        }
+        if (existing != null)
+        {
+            _origDiscount = _discountPercent;
+            _origWholesale = _wholesalePrice;
+            _origDescription = _description;
+            _origCountry = _country;
+            _origDimensions = DimensionsSignature();
         }
 
         GenerateBarcodeCommand = new RelayCommand(GenerateBarcode);
@@ -476,12 +491,27 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
 
     private void OnBarcodeScanned(string barcode)
     {
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
         {
             // 2026-10-29: в поле «Штрихкод» — только цифры. Скан не из цифр (чужая раскладка, «реакр») не принимается; пробелы и дефисы убираются.
             var clean = (barcode ?? "").Replace(" ", "").Replace("-", "");
             if (clean.Length == 0 || !clean.All(char.IsAsciiDigit))
                 return;
+            // 2026-11-01 (контрольный аудит, С2-12): у СУЩЕСТВУЮЩЕГО товара скан (например, «посмотреть» другой товар) не должен молча подменять его собственный
+            // штрихкод — спрашиваем. Скан, который совпадает с текущим кодом, и скан в пустое поле принимаются сразу.
+            if (_existing is not null && !string.IsNullOrWhiteSpace(Barcode) && !string.Equals(Barcode.Trim(), clean, StringComparison.Ordinal))
+            {
+                var replace = await PosConfirmDialog.ShowModalAsync(this,
+                    Tr.T("Заменить штрихкод?", "Штрихкодду алмаштырабызбы?", "Replace the barcode?", "Barkod değiştirilsin mi?", "Shtrix-kod almashtirilsinmi?"),
+                    Tr.T($"У товара «{ProductName}» штрихкод {Barcode.Trim()}. Отсканирован {clean}. Заменить? После «Сохранить» старый код перестанет находить этот товар.",
+                        $"«{ProductName}» товарынын штрихкоду {Barcode.Trim()}. Сканерленди: {clean}. Алмаштырабызбы? «Сактоодон» кийин эски код бул товарды таппай калат.",
+                        $"The product “{ProductName}” has barcode {Barcode.Trim()}. Scanned: {clean}. Replace it? After Save the old code will no longer find this product.",
+                        $"«{ProductName}» ürününün barkodu {Barcode.Trim()}. Okutulan: {clean}. Değiştirilsin mi? Kaydettikten sonra eski kod bu ürünü bulamaz.",
+                        $"«{ProductName}» mahsulotining shtrix-kodi {Barcode.Trim()}. Skanerlandi: {clean}. Almashtirilsinmi? «Saqlash»dan keyin eski kod bu mahsulotni topa olmaydi."),
+                    Tr.T("Заменить", "Алмаштыруу", "Replace", "Değiştir", "Almashtirish"), Tr.T("Оставить", "Калтыруу", "Keep", "Koru", "Qoldirish")).ConfigureAwait(true);
+                if (!replace)
+                    return;
+            }
             barcode = clean;
             Barcode = barcode;
             BarcodeBox.Focus();
@@ -1450,9 +1480,9 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             var sale = TryParseNumber(_price);
             if (!ShowPurchase || purchase is not > 0 || sale is not > 0 || purchase.Value <= sale.Value) // 2026-10-30: предупреждение называет закупку — только по праву
                 return "";
-            var p = purchase.Value.ToString("0.##", CultureInfo.InvariantCulture);
+            var p = purchase.Value.ToString("0.####", CultureInfo.InvariantCulture);
             var s = sale.Value.ToString("0.##", CultureInfo.InvariantCulture);
-            var loss = (purchase.Value - sale.Value).ToString("0.##", CultureInfo.InvariantCulture);
+            var loss = (purchase.Value - sale.Value).ToString("0.####", CultureInfo.InvariantCulture);
             return Tr.T($"⚠ Закупочная цена ({p} сом) больше цены продажи ({s} сом) — каждая продажа в убыток {loss} сом.",
                 $"⚠ Сатып алуу баасы ({p} сом) сатуу баасынан ({s} сом) жогору — ар бир сатуу {loss} сом зыян.",
                 $"⚠ The purchase price ({p} som) is higher than the sale price ({s} som) — each sale loses {loss} som.",
@@ -1789,6 +1819,23 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 _minimumQuantityKnown = true;
                 OnPropertyChanged(nameof(MinimumQuantity));
             }
+            // 2026-11-02 (аудит №2, С3-10): высота, ширина, глубина и вес читаем из characteristics той же карточки: раньше при открытии грузился только вес, и ввод одной высоты
+            // отправлял characteristics с width_cm/depth_cm = null. Поля, которые кассир уже успел изменить, не трогаем; сравнение «менялось ли» обновляем.
+            if (el.TryGetProperty("characteristics", out var chars) && chars.ValueKind == System.Text.Json.JsonValueKind.Object
+                && string.Equals(DimensionsSignature(), _origDimensions, StringComparison.Ordinal))
+            {
+                static string Dim(System.Text.Json.JsonElement c, string name) =>
+                    c.TryGetProperty(name, out var d) && d.ValueKind is System.Text.Json.JsonValueKind.String or System.Text.Json.JsonValueKind.Number
+                    && double.TryParse(d.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var number) && number > 0
+                        ? number.ToString("0.###", CultureInfo.InvariantCulture)
+                        : "";
+                HeightCm = Dim(chars, "height_cm");
+                WidthCm = Dim(chars, "width_cm");
+                DepthCm = Dim(chars, "depth_cm");
+                if (string.IsNullOrWhiteSpace(_weightKg) && Dim(chars, "factual_weight_kg") is { Length: > 0 } serverWeight)
+                    WeightKg = serverWeight;
+                _origDimensions = DimensionsSignature();
+            }
         }
         catch (Exception ex)
         {
@@ -1991,12 +2038,18 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         if (quantityUntouched)
             quantityValue = _existing!.Quantity;
         if ((!quantityUntouched && !CheckAmount(_quantity, ("Количество", "Саны", "Quantity", "Miktar", "Miqdor"), 3, out quantityValue))
-            || !CheckAmount(_purchasePrice, ("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), 2, out var purchaseValue)
+            || !CheckAmount(_purchasePrice, ("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), 4, out var purchaseValue)
             || !CheckAmount(_price, ("Цена продажи", "Сатуу баасы", "Sale price", "Satış fiyatı", "Sotuv narxi"), 2, out var saleValue)
-            || !CheckAmount(_wholesalePrice, ("Оптовая цена", "Оптом баасы", "Wholesale price", "Toptan fiyat", "Ulgurji narx"), 2, out _)
-            || !CheckAmount(_minimumQuantity, ("Минимальный остаток", "Минималдуу калдык", "Minimum stock", "Asgari stok", "Minimal qoldiq"), 3, out _)
+            || !CheckAmount(_wholesalePrice, ("Оптовая цена", "Оптом баасы", "Wholesale price", "Toptan fiyat", "Ulgurji narx"), 2, out var wholesaleValue)
+            || !CheckAmount(_minimumQuantity, ("Минимальный остаток", "Минималдуу калдык", "Minimum stock", "Asgari stok", "Minimal qoldiq"), 3, out var minimumValue)
+            || !CheckAmount(_discountPercent, ("Скидка, %", "Арзандатуу, %", "Discount, %", "İndirim, %", "Chegirma, %"), 2, out var discountValue)
             || !CheckMarkup(_markupPercent))
             return;
+        if (discountValue is > 100)
+        {
+            ErrorMessage = Tr.T("Скидка: не больше 100 %.", "Арзандатуу: 100 %дан ашпайт.", "Discount: no more than 100%.", "İndirim: en fazla %100.", "Chegirma: 100 % dan oshmasligi kerak.");
+            return;
+        }
         var quantityChanged = _existing is null || Math.Abs((quantityValue ?? 0) - _existing.Quantity) > 0.0005;
         if (_kind == "product" && quantityChanged && UnitCatalog.QuantityProblem(quantityValue ?? 0, _unit, _isWeight) is { } fractionalProblem)
         {
@@ -2120,6 +2173,12 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                     .Where(s => !s.StartsWith('|')).OrderBy(s => s, StringComparer.Ordinal)
                     .SequenceEqual((_existing.AlternateBarcodeVariants ?? new()).Select(v => $"{(v.Barcode ?? "").Trim().ToLowerInvariant()}|{(v.Name ?? "").Trim()}|{Math.Round(v.Quantity, 3).ToString("0.###", CultureInfo.InvariantCulture)}")
                         .Where(s => !s.StartsWith('|')).OrderBy(s => s, StringComparer.Ordinal), StringComparer.Ordinal),
+                SendDiscountPercent = _existing is null || !string.Equals(_discountPercent.Trim(), _origDiscount, StringComparison.Ordinal),
+                SendWholesalePrice = _existing is null || !string.Equals(_wholesalePrice.Trim(), _origWholesale, StringComparison.Ordinal),
+                SendDescription = _existing is null || !string.Equals(_description.Trim(), _origDescription.Trim(), StringComparison.Ordinal),
+                SendCountry = _existing is null || !string.Equals(_country.Trim(), _origCountry.Trim(), StringComparison.Ordinal),
+                DisablePieceSale = _existing?.PieceOption is not null && !_enablePieceSale,
+                SendCharacteristics = _existing is null || !string.Equals(DimensionsSignature(), _origDimensions, StringComparison.Ordinal),
                 SendPurchasePrice = _existing is null || !string.Equals(_purchasePrice.Trim(), _origPurchasePrice, StringComparison.Ordinal),
                 SendMarkupPercent = _existing is null || !string.Equals(_markupPercent.Trim(), _origMarkupPercent, StringComparison.Ordinal),
                 SendPrice = _existing is null || !string.Equals(_price.Trim(), _origPrice, StringComparison.Ordinal),
@@ -2129,11 +2188,11 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 Description = _description,
                 HotkeyGroup = _hotkeyGroup == "Без горячей клавиши" ? null : _hotkeyGroup,
                 Plu = pluValue,
-                WholesalePrice = TryParseNumber(_wholesalePrice),
-                MinimumQuantity = _minimumQuantityKnown ? TryParseNumber(_minimumQuantity) ?? 0 : null,
+                WholesalePrice = wholesaleValue, // 2026-11-01 (С2-13): значение из проверки («1 500» — 1500, а не 0)
+                MinimumQuantity = _minimumQuantityKnown ? minimumValue ?? 0 : null,
                 // 2026-10-20: поставщик — только если кассир его выбрал/сменил в этом окне (иначе «client» на сервере не трогаем).
                 SupplierId = _supplierChanged ? _supplierId : null,
-                DiscountPercent = TryParseNumber(_discountPercent),
+                DiscountPercent = discountValue,
                 HeightCm = TryParseNumber(_heightCm),
                 WidthCm = TryParseNumber(_widthCm),
                 DepthCm = TryParseNumber(_depthCm),
@@ -2163,8 +2222,76 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             else
             {
                 // 2026-11-01 (расследование «остаток не меняется», п. 6): в журнале видно, что именно ушло на сервер.
+                // 2026-11-02 (аудит №2, С3-02): остаток уходит «как введён» — а пока окно было открыто, другая касса могла продать. Перед записью читаем остаток с сервера;
+                // он отличается от того, что было при открытии, — спрашиваем: применить вашу разницу к текущему остатку или оставить серверный.
+                if (request.SendQuantity && _existing.Id is { Length: > 0 })
+                {
+                    double? serverNow = null;
+                    try
+                    {
+                        // 2026-11-03 (С-06, аудит «зависание при медленном сервере»): сверка остатка перед записью — не дольше 8 с (раньше до 55 с); не успели — пишем введённое (ветка catch).
+                        var existingId = _existing.Id;
+                        if (await ServerAnswerWait.ForegroundAsync("products/detail", t => PosApp.CatalogApi.ProductsDetailAsync(existingId, t)).ConfigureAwait(true) is { ValueKind: System.Text.Json.JsonValueKind.Object } freshCard)
+                            serverNow = StockSyncService.ResolveStockQuantity(freshCard, _isWeight);
+                    }
+                    catch (Exception readEx) when (readEx is not OperationCanceledException)
+                    {
+                        // 2026-11-03 (ревью С-1): сверить остаток не удалось (сервер медлит/ошибка) — остаток НЕ шлём: устаревшее абсолютное значение затёрло бы продажи других касс. Остальные поля сохраняются.
+                        request.SendQuantity = false;
+                        App.AppHost?.Services.GetService<IUserPrompts>()?.ShowToast(
+                            Tr.T("Остаток не сверен с сервером и не записан — остальные поля сохраняются. Измените остаток позже.",
+                                "Калдык сервер менен салыштырылган жок жана жазылган жок — калган талаалар сакталат. Калдыкты кийинчерээк өзгөртүңүз.",
+                                "Stock could not be checked against the server and was not saved — other fields are saved. Change the stock later.",
+                                "Stok sunucuyla doğrulanamadı ve kaydedilmedi — diğer alanlar kaydedilir. Stoğu daha sonra değiştirin.",
+                                "Qoldiq server bilan solishtirilmadi va yozilmadi — qolgan maydonlar saqlanadi. Qoldiqni keyinroq o'zgartiring."), isWarning: true);
+                        PosLogger.Log($"PRODUCT save: остаток на сервере не прочитан перед записью ({readEx.Message}) — остаток не отправляем.", "WAREHOUSE");
+                    }
+                    if (serverNow is { } y && Math.Abs(y - _existing.Quantity) > 0.0005)
+                    {
+                        var typed = request.Quantity;
+                        var shift = typed - _existing.Quantity;
+                        var applied = Math.Round(Math.Max(0, y + shift), 3);
+                        var applyDelta = await PosConfirmDialog.ShowModalAsync(this,
+                            Tr.T("Остаток изменился", "Калдык өзгөрдү", "The stock has changed", "Stok değişti", "Qoldiq o'zgardi"),
+                            Tr.T($"Пока карточка была открыта, остаток на сервере изменился: было {_existing.Quantity:0.###}, стало {y:0.###}. Вы ввели {typed:0.###}. Применить вашу разницу ({shift:+0.###;-0.###}) к текущему остатку — получится {applied:0.###}? Если оставить как на сервере, остаток не изменится.",
+                                $"Карточка ачык турганда сервердеги калдык өзгөрдү: болчу {_existing.Quantity:0.###}, болду {y:0.###}. Сиз {typed:0.###} киргиздиңиз. Айырманы ({shift:+0.###;-0.###}) азыркы калдыкка колдонобузбу — {applied:0.###} болот? Сервердегидей калтырсаңыз, калдык өзгөрбөйт.",
+                                $"While the card was open the stock on the server changed: was {_existing.Quantity:0.###}, now {y:0.###}. You entered {typed:0.###}. Apply your difference ({shift:+0.###;-0.###}) to the current stock — it will become {applied:0.###}? If you keep the server value, the stock will not change.",
+                                $"Kart açıkken sunucudaki stok değişti: önceden {_existing.Quantity:0.###}, şimdi {y:0.###}. Siz {typed:0.###} girdiniz. Farkınız ({shift:+0.###;-0.###}) mevcut stoğa uygulansın mı — {applied:0.###} olacak? Sunucudaki değeri korursanız stok değişmez.",
+                                $"Karta ochiq turganda serverdagi qoldiq o'zgardi: avval {_existing.Quantity:0.###}, hozir {y:0.###}. Siz {typed:0.###} kiritdingiz. Farqingiz ({shift:+0.###;-0.###}) joriy qoldiqqa qo'llansinmi — {applied:0.###} bo'ladi? Serverdagi qiymat qolsa, qoldiq o'zgarmaydi."),
+                            Tr.T("Применить разницу", "Айырманы колдонуу", "Apply difference", "Farkı uygula", "Farqni qo'llash"),
+                            Tr.T("Оставить как на сервере", "Сервердегидей калтыруу", "Keep server value", "Sunucudakini koru", "Serverdagicha qoldirish")).ConfigureAwait(true);
+                        if (applyDelta)
+                            request.Quantity = applied;
+                        else
+                            request.SendQuantity = false;
+                        PosLogger.Log($"PRODUCT save: остаток на сервере изменился ({_existing.Quantity:0.###} → {y:0.###}), введено {typed:0.###}, выбрано: {(applyDelta ? "применить разницу → " + applied.ToString("0.###") : "оставить серверный")}.", "WAREHOUSE");
+                    }
+                }
                 PosLogger.Log($"PRODUCT save: id={_existing.Id}, остаток отправлен: {(request.SendQuantity ? "да" : "нет")}, цены: {(request.SendPrice ? "да" : "нет")}, закупка: {(request.SendPurchasePrice ? "да" : "нет")}.", "WAREHOUSE");
-                await _catalogApi.UpdateProductAsync(_existing.Id, request).ConfigureAwait(true);
+                // 2026-11-03 (С-06, В-13): запись карточки — ForegroundWriteAsync: запрос НЕ отменяется. Ответа нет 8 с — окно закрывается («Сохранение продолжается»),
+                // итог придёт плашкой, каталог обновится сам по окончании. Раньше «Сохранить» была серой до ~110 с.
+                var updateId = _existing.Id;
+                var write = await ServerAnswerWait.ForegroundWriteAsync("products/update", t => _catalogApi.UpdateProductAsync(updateId, request, t)).ConfigureAwait(true);
+                if (write.Pending)
+                {
+                    var pendingName = request.Name;
+                    _ = write.Completion.ContinueWith(done => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
+                        if (done.IsCompletedSuccessfully)
+                        {
+                            prompts?.ShowToast(Tr.T($"Товар «{pendingName}» сохранён.", $"«{pendingName}» товары сакталды.", $"Product “{pendingName}” saved.", $"«{pendingName}» ürünü kaydedildi.", $"«{pendingName}» mahsuloti saqlandi."));
+                            _ = CatalogCacheService.RefreshFromApiAsync();
+                        }
+                        else
+                        {
+                            var why = done.Exception?.GetBaseException() is { } be ? ServerOutageMonitor.FriendlyError(be) : ServerOutageMonitor.FriendlyError(new OperationCanceledException()); // 2026-11-03 (ревью Н-2): отменённая задача — не пустая причина
+                            prompts?.ShowToast(Tr.T($"Товар «{pendingName}» не сохранён: {why}", $"«{pendingName}» товары сакталган жок: {why}", $"Product “{pendingName}” was not saved: {why}", $"«{pendingName}» ürünü kaydedilemedi: {why}", $"«{pendingName}» mahsuloti saqlanmadi: {why}"), isWarning: true);
+                        }
+                    }), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+                    App.AppHost?.Services.GetService<IUserPrompts>()?.ShowToast(NurMarketKassa.AvaloniaHost.Services.ServerWaitIndicator.WritePendingText, isWarning: true);
+                    SavePending = true; // 2026-11-03 (ревью Н-2): склад не пишет «Товар сохранён» и не перечитывает каталог — это сделает плашка по итогу записи.
+                }
             }
 
             Saved = true;
@@ -2286,7 +2413,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         try
         {
             if (waitFirst)
-                await Task.Delay(TimeSpan.FromSeconds(25)).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromSeconds(60)).ConfigureAwait(false); // 2026-11-01 (контрольный аудит, С-03): сервер отвечает и по 40–60 с — ждём дольше, прежде чем создавать второй раз
             var found = await _catalogApi.FindWarehouseProductByBarcodeAsync(barcode).ConfigureAwait(false);
             if (found is not { ValueKind: System.Text.Json.JsonValueKind.Object } product)
                 return null;
@@ -2334,6 +2461,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             trimmed = trimmed[1..];
         return CheckAmount(trimmed, ("Наценка", "Үстөк", "Markup", "Kâr oranı", "Ustama"), 2, out _);
     }
+
+    private string DimensionsSignature() => string.Join("|", _heightCm.Trim(), _widthCm.Trim(), _depthCm.Trim(), _weightKg.Trim());
 
     private static double ParseNumber(string? s) =>
         double.TryParse((s ?? "").Trim().Replace(',', '.'), NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite, CultureInfo.InvariantCulture, out var v) ? v : 0;

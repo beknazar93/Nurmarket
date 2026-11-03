@@ -76,7 +76,7 @@ public sealed class SalarySchemeDialog : Window
             Text = Tr.T("Загрузка…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…"),
             FontSize = 12,
         };
-        _statusText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        _statusText.Bind(TextBlock.ForegroundProperty, _statusText.GetResourceObservable("BrushTextSoft"));
         panel.Children.Add(_statusText);
 
         panel.Children.Add(Label(Tr.T("Схема начисления", "Эсептөө схемасы", "Pay scheme", "Hesaplama şeması", "Hisoblash sxemasi")));
@@ -136,7 +136,7 @@ public sealed class SalarySchemeDialog : Window
         panel.Children.Add(_perItemPanel);
 
         _errorText = new TextBlock { TextWrapping = TextWrapping.Wrap, IsVisible = false };
-        _errorText.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
+        _errorText.Bind(TextBlock.ForegroundProperty, _errorText.GetResourceObservable("BrushDanger"));
         panel.Children.Add(_errorText);
 
         _saveButton = new Button

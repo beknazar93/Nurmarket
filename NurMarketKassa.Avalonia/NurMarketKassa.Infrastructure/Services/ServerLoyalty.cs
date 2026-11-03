@@ -59,6 +59,7 @@ public static class ServerLoyalty
             if (UserPreferences.Instance.LoyaltyEnabled && !string.IsNullOrWhiteSpace(companyId))
                 await ImportLocalBalancesOnceAsync(companyId).ConfigureAwait(false);
             await FlushQueueAsync().ConfigureAwait(false);
+            EnsureFlushTimer();
         }
         catch (Exception ex)
         {
@@ -110,54 +111,169 @@ public static class ServerLoyalty
             var balance = Num(data, "bonus_balance");
             return double.IsNaN(balance) ? null : balance;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested) // 2026-11-03 (С-15): таймаут запроса — не отмена вызывающего
         {
             PosLogger.Log($"Бонусы: баланс клиента не получен с сервера ({ex.Message}) — показан локальный.", "WARNING");
             return null;
         }
     }
 
-    private sealed record QueuedOp(string ClientId, double Delta, string Reason, string? SaleId, string? Note, DateTime AtUtc);
+    /// <param name="Key">2026-11-01 (проверка бэкенда): ключ повтора (Idempotency-Key) этой операции — стабильный, сохраняется в очереди на диске ДО отправки. Сервер на повтор с тем же ключом отвечает
+    /// прежним результатом, баланс не удваивается. Нет ключа (записи старой очереди) — вычисляется из полей операции (<see cref="KeyOf"/>), тоже стабильно.</param>
+    /// <param name="Attempts">2026-11-02 (аудит №2, К3-10): сколько раз сервер ОТВЕТИЛ на эту операцию ошибкой, не окончательной (5xx и т. п.) — по <see cref="MaxServerAttempts"/> она
+    /// считается не принятой и уходит в «Некорректные чеки». Обрыв связи не считается: без связи операция ждёт сколько нужно.</param>
+    private sealed record QueuedOp(string ClientId, double Delta, string Reason, string? SaleId, string? Note, DateTime AtUtc, string? Key = null, int Attempts = 0);
+
+    private const int MaxServerAttempts = 20;
+
+    private enum SendResult { Done, Rejected, ServerError, NoConnection }
+
+    /// <summary>Ключ повтора операции с бонусами. Есть чек: id чека + тип (earn / redeem / manual) + клиент + сумма — одна и та же операция по чеку всегда даёт один ключ
+    /// (начисление после продажи, списание на оплату, снятие при возврате/обмене — <see cref="ClientLoyaltyStore.ReverseRemainingForSale"/> — идут этим же путём).
+    /// Чека нет (ручная корректировка) — случайный ключ, который живёт в записи очереди до определённого исхода. Хэш — чтобы ключ был короткий и без служебных символов.</summary>
+    /// <summary>Ключ операции: записанный в очереди, а у записей старой очереди — стабильный из полей операции.</summary>
+    private static string OpKey(QueuedOp op) =>
+        op.Key ?? KeyOf(op.ClientId, op.Delta, op.Reason, op.SaleId, op.AtUtc.ToString("O", CultureInfo.InvariantCulture));
+
+    private static string KeyOf(string clientId, double delta, string reason, string? saleId, string? legacyStamp = null)
+    {
+        var material = !string.IsNullOrWhiteSpace(saleId)
+            ? $"{reason}|{saleId.Trim()}|{clientId.Trim()}|{Inv(delta)}"
+            : legacyStamp is not null
+                ? $"{reason}|{clientId.Trim()}|{Inv(delta)}|{legacyStamp}"
+                : Guid.NewGuid().ToString("N");
+        var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(material));
+        return "nurcrm-bonus-" + Convert.ToHexString(hash)[..32].ToLowerInvariant();
+    }
 
     /// <summary>Начислить (delta &gt; 0) или списать (delta &lt; 0) баллы на сервере. Без связи — в очередь.</summary>
     public static async Task PostAsync(string clientId, double delta, string reason, string? saleId, string? note)
     {
         if (string.IsNullOrWhiteSpace(clientId) || Math.Abs(delta) < 0.005)
             return;
-        var op = new QueuedOp(clientId, Math.Round(delta, 2), reason, saleId, note, DateTime.UtcNow);
-        if (!await TrySendAsync(op).ConfigureAwait(false))
-            Enqueue(op);
-        else
-            await FlushQueueAsync().ConfigureAwait(false);
+        var rounded = Math.Round(delta, 2);
+        var op = new QueuedOp(clientId, rounded, reason, saleId, note, DateTime.UtcNow, KeyOf(clientId, rounded, reason, saleId));
+        // 2026-11-01 (проверка бэкенда): сначала операция с ключом — на диск (очередь), потом отправка. Оборвалась связь или закрыли программу посреди отправки — при следующем сбросе очереди
+        // операция уйдёт ТЕМ ЖЕ ключом, и сервер вернёт прежний результат вместо второго начисления/списания. Определённый исход (принято / окончательный отказ) снимает запись.
+        Enqueue(op);
+        await FlushQueueAsync(waitForLock: true).ConfigureAwait(false);
     }
 
     /// <summary>true — сервер принял или окончательно отказал (повтор не поможет); false — нет связи, повторить позже.</summary>
-    private static async Task<bool> TrySendAsync(QueuedOp op)
+    private static async Task<SendResult> TrySendAsync(QueuedOp op)
     {
         if (Api is not { } api)
-            return false;
-        var body = new Dictionary<string, object?> { ["delta"] = Inv(op.Delta), ["reason"] = op.Reason };
+            return SendResult.NoConnection;
+        var key = OpKey(op);
+        var body = new Dictionary<string, object?> { ["delta"] = Inv(op.Delta), ["reason"] = op.Reason, ["idempotency_key"] = key };
         if (!string.IsNullOrWhiteSpace(op.SaleId))
             body["sale"] = op.SaleId;
         if (!string.IsNullOrWhiteSpace(op.Note))
             body["note"] = op.Note;
         try
         {
-            var data = await api.RequestAsync(HttpMethod.Post, $"api/main/clients/{Uri.EscapeDataString(op.ClientId)}/bonus/", body, null, CancellationToken.None, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+            var data = await api.PostWithIdempotencyKeyAsync($"api/main/clients/{Uri.EscapeDataString(op.ClientId)}/bonus/", body, key, CancellationToken.None, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
             var balance = Num(data, "bonus_balance");
             PosLogger.Log($"Бонусы на сервере: {op.Reason} {op.Delta:+0.##;-0.##}, баланс клиента {(double.IsNaN(balance) ? "?" : balance.ToString("0.##", CultureInfo.InvariantCulture))}.", "INFO");
-            return true;
+            return SendResult.Done;
         }
         catch (ApiException ex) when (ex.StatusCode is >= 400 and < 500 && ex.StatusCode != 401 && ex.StatusCode != 408 && ex.StatusCode != 429)
         {
             // «Недостаточно бонусов» (списали на другой кассе) и т. п. — повтор не поможет.
             PosLogger.Log($"Бонусы: сервер не принял {op.Reason} {op.Delta:+0.##;-0.##} ({ex.StatusCode}: {ex.Message}).", "WARNING");
-            return true;
+            NotifyRejected(op, ex.Message);
+            return SendResult.Rejected;
+        }
+        catch (ApiException ex)
+        {
+            // Сервер ответил, но не по существу (5xx, 401, 408, 429) — повторим, но не бесконечно (MaxServerAttempts).
+            PosLogger.Log($"Бонусы: сервер ответил ошибкой ({ex.StatusCode}: {ex.Message}) — операция {op.Reason} {op.Delta:+0.##;-0.##} в очереди.", "WARNING");
+            return SendResult.ServerError;
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Бонусы: нет связи с сервером ({ex.Message}) — операция {op.Reason} {op.Delta:+0.##;-0.##} в очереди.", "WARNING");
-            return false;
+            return SendResult.NoConnection;
+        }
+    }
+
+    /// <summary>2026-11-02 (аудит №2, К3-10): окончательный отказ сервера по баллам не должен проходить молча — скидка бонусами уже выдана покупателю, а баллы на сервере не списаны (или
+    /// начисление потеряно). Запись в «Некорректные чеки» (владелец видит), WARNING в журнале.</summary>
+    private static void NotifyRejected(QueuedOp op, string? serverText)
+    {
+        try
+        {
+            var what = op.Delta < 0
+                ? Tr.T("списание", "алуу", "redemption", "harcama", "yechish")
+                : Tr.T("начисление", "эсептөө", "accrual", "kazanım", "hisoblash");
+            var amount = Math.Abs(op.Delta).ToString("0.##", CultureInfo.InvariantCulture);
+            var sale = string.IsNullOrWhiteSpace(op.SaleId) ? "" : Tr.T($", чек {op.SaleId}", $", чек {op.SaleId}", $", receipt {op.SaleId}", $", fiş {op.SaleId}", $", chek {op.SaleId}");
+            IrregularReceiptsStore.Append(new IrregularReceiptEntry
+            {
+                Tag = IrregularReceiptEntry.BonusRejected,
+                CashierName = PosApp.CurrentUserDisplayName,
+                Note = Tr.T(
+                    $"Сервер не принял баллы: {what} {amount}{sale}. Причина: {serverText}. Скидка бонусами выдана, баллы не списаны/не начислены — проверьте баланс клиента.",
+                    $"Сервер баллдарды кабыл алган жок: {what} {amount}{sale}. Себеби: {serverText}. Бонус менен арзандатуу берилди, баллдар алынган/эсептелген жок — кардардын балансын текшериңиз.",
+                    $"The server did not accept the points: {what} {amount}{sale}. Reason: {serverText}. The bonus discount was given, but the points were not deducted/added — check the client's balance.",
+                    $"Sunucu puanları kabul etmedi: {what} {amount}{sale}. Neden: {serverText}. Bonus indirimi verildi, puanlar düşülmedi/eklenmedi — müşterinin bakiyesini kontrol edin.",
+                    $"Server ballarni qabul qilmadi: {what} {amount}{sale}. Sabab: {serverText}. Bonus chegirmasi berildi, ballar yechilmadi/hisoblanmadi — mijoz balansini tekshiring."),
+                Total = Math.Abs(op.Delta),
+                CartJson = "{}",
+            });
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Бонусы: отказ сервера не записан в «Некорректные чеки»: {ex.Message}", "WARNING");
+        }
+    }
+
+    /// <summary>2026-11-02 (К3-10): учесть ответ сервера ошибкой — счётчик попыток операции в очереди +1 (под замком файла, по ключу). true — предел исчерпан, операция снята.</summary>
+    private static bool CountServerAttempt(QueuedOp op)
+    {
+        try
+        {
+            lock (FileLock)
+            {
+                var queue = ReadQueue();
+                var key = OpKey(op);
+                var index = queue.FindIndex(x => OpKey(x) == key);
+                if (index < 0)
+                    return false;
+                var updated = queue[index] with { Key = OpKey(queue[index]), Attempts = queue[index].Attempts + 1 };
+                if (updated.Attempts >= MaxServerAttempts)
+                {
+                    queue.RemoveAt(index);
+                    WriteQueue(queue);
+                    PosLogger.Log($"Бонусы: сервер {MaxServerAttempts} раз ответил ошибкой — операция {op.Reason} {op.Delta:+0.##;-0.##} снята с очереди как не принятая.", "WARNING");
+                    NotifyRejected(op, Tr.T("сервер не отвечает по существу", "сервер маңызы боюнча жооп бербейт", "the server keeps failing", "sunucu sürekli hata veriyor", "server doimiy xato qaytaryapti"));
+                    return true;
+                }
+                queue[index] = updated;
+                WriteQueue(queue);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            PosLogger.Log($"Бонусы: счётчик попыток не обновлён (файл занят: {ex.Message}).", "WARNING");
+        }
+        return false;
+    }
+
+    // 2026-11-02 (К3-10): раньше очередь досылалась только при следующей операции с баллами или при входе — таймера не было. Теперь раз в 90 секунд (пока есть вход).
+    private static Timer? _flushTimer;
+
+    private static void EnsureFlushTimer()
+    {
+        if (_flushTimer is not null)
+            return;
+        lock (FileLock)
+        {
+            _flushTimer ??= new Timer(_ =>
+            {
+                try { _ = FlushQueueAsync(); }
+                catch (Exception ex) { PosLogger.Log($"Бонусы: таймер очереди: {ex.Message}", "WARNING"); }
+            }, null, TimeSpan.FromSeconds(90), TimeSpan.FromSeconds(90));
         }
     }
 
@@ -219,9 +335,14 @@ public static class ServerLoyalty
     {
         try
         {
-            var queue = ReadQueue();
-            queue.Add(op);
-            WriteQueue(queue);
+            // 2026-11-01 (финальная приёмка 1.17.73, Ф-1): прочитать актуальный файл → добавить → записать — одним куском под замком файла (раньше чтение и запись были двумя
+            // отдельными захватами, и параллельная запись другой операции терялась).
+            lock (FileLock)
+            {
+                var queue = ReadQueue();
+                queue.Add(op);
+                WriteQueue(queue);
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -232,33 +353,69 @@ public static class ServerLoyalty
         }
     }
 
-    /// <summary>Отправить операции, ждавшие связи (по порядку; первая неудача — остальные ждут дальше).</summary>
-    public static async Task FlushQueueAsync()
+    /// <summary>2026-11-01 (Ф-1): убирает из очереди ровно отправленную операцию (по ключу): читает АКТУАЛЬНЫЙ файл под замком файла, удаляет её, записывает. Не удалось (файл занят) —
+    /// запись остаётся и уйдёт ещё раз тем же ключом: сервер ответит прежним результатом, баланс не удвоится.</summary>
+    private static void RemoveSent(QueuedOp op)
     {
-        if (!await QueueLock.WaitAsync(0).ConfigureAwait(false))
+        try
+        {
+            lock (FileLock)
+            {
+                var queue = ReadQueue();
+                var key = OpKey(op);
+                queue.RemoveAll(x => OpKey(x) == key);
+                WriteQueue(queue);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            PosLogger.Log($"Бонусы: отправленная операция {op.Reason} {op.Delta:+0.##;-0.##} не снята с очереди (файл занят: {ex.Message}) — уйдёт ещё раз тем же ключом.", "WARNING");
+        }
+    }
+
+    /// <summary>Отправить операции, ждавшие связи (по порядку; первая неудача — остальные ждут дальше).</summary>
+    /// <param name="waitForLock">2026-11-01: true — ждать, пока другая отправка очереди закончится (до 8 с): операция уже записана на диск, а не потерялась бы при занятом замке.</param>
+    public static async Task FlushQueueAsync(bool waitForLock = false)
+    {
+        if (!await QueueLock.WaitAsync(waitForLock ? TimeSpan.FromSeconds(8) : TimeSpan.Zero).ConfigureAwait(false))
             return;
         try
         {
-            List<QueuedOp> queue;
-            try { queue = ReadQueue(); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                PosLogger.Log($"Бонусы: файл очереди занят ({ex.Message}) — отправка отложена, файл не затираем.", "WARNING"); // 2026-10-30
-                return;
-            }
-            if (queue.Count == 0)
-                return;
+            // 2026-11-01 (финальная приёмка 1.17.73, Ф-1, БЛОКЕР): раньше очередь читалась один раз в начале, пока шла отправка (до 20 с на операцию) в неё дописывали операции
+            // других продаж, а в конце на диск писался СТАРЫЙ снимок — чужая операция (списание баллов!) стиралась. Теперь: отправка идёт БЕЗ замка файла, после каждой принятой операции под
+            // замком файла читается актуальный файл, убирается ровно эта операция (по ключу) и файл записывается — добавленное за это время не затрагивается. Операции, дописанные во время
+            // сброса, этот же сброс подхватывает следующим кругом.
+            var attempted = new HashSet<string>(StringComparer.Ordinal);
             var sent = 0;
-            foreach (var op in queue.ToList())
+            while (true)
             {
-                if (!await TrySendAsync(op).ConfigureAwait(false))
+                QueuedOp? next;
+                try { next = ReadQueue().FirstOrDefault(x => !attempted.Contains(OpKey(x))); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    PosLogger.Log($"Бонусы: файл очереди занят ({ex.Message}) — отправка отложена, файл не затираем.", "WARNING"); // 2026-10-30
                     break;
-                queue.Remove(op);
+                }
+                if (next is null)
+                    break;
+                attempted.Add(OpKey(next));
+                var result = await TrySendAsync(next).ConfigureAwait(false);
+                if (result == SendResult.ServerError)
+                {
+                    CountServerAttempt(next);
+                    break;
+                }
+                if (result == SendResult.NoConnection)
+                    break; // первая неудача — остальные ждут дальше
+                RemoveSent(next); // принято или окончательный отказ (уведомление уже записано)
                 sent++;
             }
-            WriteQueue(queue);
             if (sent > 0)
-                PosLogger.Log($"Бонусы: из очереди отправлено {sent}, осталось {queue.Count}.", "INFO");
+            {
+                int left;
+                try { left = ReadQueue().Count; } catch { left = -1; }
+                PosLogger.Log($"Бонусы: из очереди отправлено {sent}, осталось {left}.", "INFO");
+            }
         }
         finally
         {

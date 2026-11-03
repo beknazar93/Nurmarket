@@ -14,6 +14,8 @@
   <SolidColorBrush x:Key="BrushInputAlt" Color="#F1F5F9" />
   <SolidColorBrush x:Key="BrushBorder" Color="#CBD5E1" />
   <SolidColorBrush x:Key="BrushBorderStrong" Color="#94A3B8" />
+  <!-- 2026-11-01 (Д2-01): рамка поля ввода — 3,5:1 к белому полю (BrushBorder 1,4:1, BrushBorderStrong 2,6:1). -->
+  <SolidColorBrush x:Key="BrushInputBorder" Color="#7C8BA1" />
   <SolidColorBrush x:Key="BrushText" Color="#0F172A" />
   <SolidColorBrush x:Key="BrushTextMuted" Color="#334155" />
   <SolidColorBrush x:Key="BrushTextSoft" Color="#64748B" />

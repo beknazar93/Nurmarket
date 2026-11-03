@@ -19,7 +19,7 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 /// что в «Прибыли и деньгах»); вложения и условия — общий документ компании (<see cref="StartupCostsStore"/>). Расчёты — InvestmentAnalysis.
 /// Окно собрано в коде, как «Прибыль и деньги»; цвета — из темы, диаграммы — ChartPalette. Файлы окна: этот (оболочка, загрузка, общие
 /// части), .Dashboard, .Costs, .Terms, .Payouts.</summary>
-public sealed partial class InvestmentsWindow : Window
+public sealed partial class InvestmentsWindow : Window, IOwnerSectionRefresh
 {
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
@@ -146,8 +146,21 @@ public sealed partial class InvestmentsWindow : Window
             RenderTab();
     }
 
+    /// <summary>2026-11-01 (В2-03): когда раздел последний раз начинал загрузку — для RefreshOnShow.</summary>
+    private DateTime _loadedUtc = DateTime.UtcNow;
+
+    public DateTime? RefreshOnShow()
+    {
+        if (DateTime.UtcNow - _loadedUtc <= TimeSpan.FromSeconds(60))
+            return null;
+        var dataAt = _loadedUtc.ToLocalTime();
+        _ = ReloadAsync();
+        return dataAt;
+    }
+
     private async Task ReloadAsync()
     {
+        _loadedUtc = DateTime.UtcNow;
         var gen = ++_loadGen;
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
@@ -235,7 +248,7 @@ public sealed partial class InvestmentsWindow : Window
         catch (Exception ex)
         {
             PosLogger.Log($"Инвестиции: расчёт не удался: {ex}", "WARNING");
-            _loadError = T("Не удалось посчитать окупаемость: ", "Кайтарымды эсептөө мүмкүн болгон жок: ", "Could not calculate payback: ", "Geri dönüş hesaplanamadı: ", "O'zini oqlashni hisoblab bo'lmadi: ") + ex.Message;
+            _loadError = T("Не удалось посчитать окупаемость: ", "Кайтарымды эсептөө мүмкүн болгон жок: ", "Could not calculate payback: ", "Geri dönüş hesaplanamadı: ", "O'zini oqlashni hisoblab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex);
         }
     }
 
@@ -333,7 +346,7 @@ public sealed partial class InvestmentsWindow : Window
     // ───────────────────────────── общие части оформления ─────────────────────────────
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) =>
-        target.Bind(property, this.GetResourceObservable(key));
+        target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 
     private Border Card(Control child, double padding = 18)
     {
@@ -394,7 +407,7 @@ public sealed partial class InvestmentsWindow : Window
     private static StackPanel Labeled(Control host, string label, Control input, double width = double.NaN)
     {
         var caption = new TextBlock { Text = label, FontSize = 13, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
-        caption.Bind(TextBlock.ForegroundProperty, host.GetResourceObservable("BrushTextSoft"));
+        caption.Bind(TextBlock.ForegroundProperty, caption.GetResourceObservable("BrushTextSoft"));
         var p = new StackPanel { Spacing = 4 };
         if (!double.IsNaN(width))
             p.Width = width;

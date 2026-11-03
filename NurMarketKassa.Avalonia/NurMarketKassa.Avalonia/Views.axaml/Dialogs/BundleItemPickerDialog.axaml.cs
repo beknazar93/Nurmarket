@@ -132,7 +132,7 @@ public partial class BundleItemPickerDialog : Window
     private TextBlock SoftText(string text)
     {
         var t = new TextBlock { Text = text, FontSize = 12, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
-        t.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushTextSoft"));
+        t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable("BrushTextSoft"));
         return t;
     }
 

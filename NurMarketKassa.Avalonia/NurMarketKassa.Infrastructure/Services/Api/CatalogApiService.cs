@@ -27,8 +27,23 @@ public sealed partial class CatalogApiService : ICatalogApiService
     /// products/barcode-duplicates/ с полем branch), — только у пользователя основного склада и не в сфере «Продукты».</summary>
     private async Task<List<JsonElement>> ExcludeBranchCopiesAsync(List<JsonElement> products, CancellationToken ct)
     {
-        if ((!MarketSpheres.IsClothing && !MarketSpheres.IsServices) || !string.IsNullOrEmpty(_client.ActiveBranchId) || products.Count == 0)
+        if (products.Count == 0)
             return products;
+        var copies = await LoadBranchCopyIdsAsync(ct).ConfigureAwait(false);
+        if (copies is null || copies.Count == 0)
+            return products;
+        var kept = products.Where(p => !copies.Contains(TryProductIdString(p) ?? "")).ToList();
+        if (kept.Count != products.Count)
+            PosLogger.Log($"CATALOG: копий товаров филиалов убрано из каталога основного склада: {products.Count - kept.Count}.", "CATALOG");
+        return kept;
+    }
+
+    /// <summary>2026-11-02 (Н3-01): id копий филиалов (barcode-duplicates) вынесены отдельно — потоковая загрузка каталога спрашивает их ДО страниц и
+    /// отбрасывает копии на лету, не собирая весь список. null — исключать нечего (не та сфера/филиал) или список не получен.</summary>
+    private async Task<HashSet<string>?> LoadBranchCopyIdsAsync(CancellationToken ct)
+    {
+        if ((!MarketSpheres.IsClothing && !MarketSpheres.IsServices) || !string.IsNullOrEmpty(_client.ActiveBranchId))
+            return null;
         try
         {
             var data = await _client.RequestAsync(HttpMethod.Get, "api/main/products/barcode-duplicates/", null, null, ct, TimeSpan.FromSeconds(20))
@@ -47,17 +62,12 @@ public sealed partial class CatalogApiService : ICatalogApiService
                     foreach (var i in items.Where(i => i.Branch.Length > 0 && i.Id.Length > 0))
                         copies.Add(i.Id);
                 }
-            if (copies.Count == 0)
-                return products;
-            var kept = products.Where(p => !copies.Contains(TryProductIdString(p) ?? "")).ToList();
-            if (kept.Count != products.Count)
-                PosLogger.Log($"CATALOG: копий товаров филиалов убрано из каталога основного склада: {products.Count - kept.Count}.", "CATALOG");
-            return kept;
+            return copies;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             PosLogger.Log($"CATALOG: список копий филиалов не получен ({ex.Message}) — каталог как есть.", "CATALOG");
-            return products;
+            return null;
         }
     }
 
@@ -257,55 +267,166 @@ public sealed partial class CatalogApiService : ICatalogApiService
     public async Task<List<JsonElement>> ProductsCatalogAsync(int limit, int maxPages, CancellationToken ct = default)
     {
         var outList = new List<JsonElement>();
+        var (_, limitHit, _) = await FetchCatalogPagesAsync(limit, maxPages, batch => outList.AddRange(batch), () => outList.Clear(), null, ct).ConfigureAwait(false);
+        // Достигнут лимит — список отдавался сразу, без исключения копий филиалов (как было до 2026-11-02).
+        return limitHit ? outList : await ExcludeBranchCopiesAsync(outList, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>2026-11-02 (Н3-01, память): то же, что <see cref="ProductsCatalogAsync"/>, но страницы отдаются в <paramref name="onPage"/> по одной и тут же
+    /// забываются — весь каталог (15 тыс. JsonElement = десятки МБ документов в куче больших объектов) больше не копится в списке до конца загрузки.
+    /// Копии филиалов отбрасываются на лету (их id спрашиваются до первой страницы). Возвращает число переданных товаров.</summary>
+    public async Task<int> ProductsCatalogStreamAsync(int limit, int maxPages, Action<List<JsonElement>> onPage, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(onPage);
+        var skip = await LoadBranchCopyIdsAsync(ct).ConfigureAwait(false);
+        var (delivered, _, skipped) = await FetchCatalogPagesAsync(limit, maxPages, onPage, null, skip, ct).ConfigureAwait(false);
+        if (skipped > 0)
+            PosLogger.Log($"CATALOG: копий товаров филиалов убрано из каталога основного склада: {skipped}.", "CATALOG");
+        return delivered;
+    }
+
+    /// <summary>2026-11-02 (Н3-01): размер страницы каталога. Просим 300, сервер NurCRM отдаёт по 100 (журнал 02.11: 155 страниц на 15 461 товар); раньше
+    /// это терялось: «есть ли следующая страница» без ссылки next считалось по 300. Теперь по первой странице запоминаем, сколько сервер реально отдал, и
+    /// дальше просим именно столько (сутки; потом снова пробуем 300 — вдруг сервер разрешил больше).</summary>
+    private const int DefaultCatalogPageSize = 300;
+    private static readonly TimeSpan PageCapMemory = TimeSpan.FromHours(24);
+    private static int _serverPageCap;
+    private static DateTime _serverPageCapUtc = DateTime.MinValue;
+
+    private static int CurrentCatalogPageSize() =>
+        Volatile.Read(ref _serverPageCap) is var cap && cap > 0 && DateTime.UtcNow - _serverPageCapUtc < PageCapMemory ? cap : DefaultCatalogPageSize;
+
+    private static bool HasNextLink(JsonElement data) =>
+        data.ValueKind == JsonValueKind.Object && data.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String
+        && !string.IsNullOrWhiteSpace(next.GetString());
+
+    /// <summary>2026-11-02: пауза между страницами полной загрузки. Идёт оплата или смена — ждём её конца (до 20 с); кассир работает (открытый чек) —
+    /// 500 мс между страницами, просто ввод в последние 10 минут — 200 мс; простой — без пауз. Полная загрузка не должна мешать оплате.</summary>
+    private static async Task PaceBetweenPagesAsync(CancellationToken ct)
+    {
+        for (var i = 0; i < 80 && ApiThrottle.CriticalInFlight; i++)
+            await Task.Delay(250, ct).ConfigureAwait(false);
+        var gapMs = SyncCenter.OpenCheck ? 500 : SyncCenter.IsQuiet() ? 0 : 200;
+        if (gapMs > 0)
+            await Task.Delay(gapMs, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Исключение, прервавшее загрузку страниц, — одна строка в журнал (вместо строки на каждую страницу): на какой странице и сколько успели.
+    /// Всегда false: используется как фильтр catch, само исключение идёт дальше без изменений.</summary>
+    private static bool LogFullLoadAbort(Exception ex, int page, int pagesRead, int delivered, System.Diagnostics.Stopwatch watch, CancellationToken ct)
+    {
+        if (ct.IsCancellationRequested || (ex is OperationCanceledException && ex is not TaskCanceledException))
+            return false; // отмена по просьбе — не обрыв
+        if (pagesRead == 0 && ex is ApiException { StatusCode: 404 })
+            return false; // нет такого адреса — следующий путь, не обрыв
+        PosLogger.Log($"CATALOG full: прервана на странице {page} (загружено {delivered} товаров за {watch.Elapsed.TotalSeconds:0} с): {ex.GetType().Name}: {ex.Message}", "CATALOG");
+        return false;
+    }
+
+    /// <summary>Ядро загрузки страниц каталога. <paramref name="sink"/> получает новые (без повторов) товары каждой страницы; <paramref name="restart"/> —
+    /// сброс накопленного при переходе на запасной адрес (null — потоковый режим: после первой переданной страницы запасной адрес не пробуем).
+    /// Возвращает (передано, достигнут лимит, отброшено по <paramref name="skipIds"/>).</summary>
+    private async Task<(int Delivered, bool LimitHit, int Skipped)> FetchCatalogPagesAsync(
+        int limit, int maxPages, Action<List<JsonElement>> sink, Action? restart, HashSet<string>? skipIds, CancellationToken ct)
+    {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var paths = new[] { "api/main/products/list/", "api/main/products/" };
         ApiException? last404 = null;
         limit = Math.Max(1, limit);
         maxPages = maxPages <= 0 ? 100 : Math.Max(1, maxPages);
-        const int pageSize = 300;
+        var delivered = 0;
+        var skipped = 0;
 
         foreach (var path in paths)
         {
-            outList.Clear();
+            restart?.Invoke();
             seen.Clear();
+            delivered = 0;
+            skipped = 0;
+            var page = 1;
+            var pagesRead = 0;
+            var pageSize = CurrentCatalogPageSize();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var lastProgress = TimeSpan.Zero;
 
             try
             {
-                var page = 1;
                 var hasNext = true;
 
-                while (hasNext && outList.Count < limit && page <= maxPages)
+                while (hasNext && delivered < limit && page <= maxPages)
                 {
                     ct.ThrowIfCancellationRequested();
+                    if (page > 1)
+                        await PaceBetweenPagesAsync(ct).ConfigureAwait(false);
+                    var requestedSize = pageSize;
                     var qs = new Dictionary<string, string>
                     {
                         ["page"] = page.ToString(CultureInfo.InvariantCulture),
-                        ["page_size"] = pageSize.ToString(CultureInfo.InvariantCulture),
+                        ["page_size"] = requestedSize.ToString(CultureInfo.InvariantCulture),
                     };
 
                     var data = await RequestPageResumingAsync(path, qs, page, ct).ConfigureAwait(false);
                     var batch = NurMarketApiClient.UnwrapList(data);
                     if (batch.Count == 0)
                         break;
+                    pagesRead++;
 
-                    // На большом каталоге (10-20 тыс. товаров) это десятки последовательных
-                    // запросов — без лога прогресса синхронизация, которая просто идёт медленно,
-                    // в логах выглядит неотличимо от зависшей.
-                    PosLogger.Log($"CATALOG fetch: page {page}, +{batch.Count} (всего {outList.Count})", "CATALOG");
+                    // 2026-11-02 (Н3-01): сервер отдал меньше, чем просили, а следующая страница есть, — это его потолок на страницу. Запоминаем и дальше
+                    // просим ровно столько (номера страниц те же: сервер и так считает по своему размеру).
+                    if (page == 1 && batch.Count < requestedSize && HasNextLink(data))
+                    {
+                        pageSize = batch.Count;
+                        if (Volatile.Read(ref _serverPageCap) != pageSize)
+                            PosLogger.Log($"CATALOG: сервер отдаёт страницу каталога по {pageSize} товаров (просили {requestedSize}) — дальше просим {pageSize}.", "CATALOG");
+                        Volatile.Write(ref _serverPageCap, pageSize);
+                        _serverPageCapUtc = DateTime.UtcNow;
+                    }
+
                     // 2026-10-30 (15 тыс. товаров): «Загружено N из M» для Склада — M из поля count ответа сервера (DRF).
                     var expected = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("count", out var cnt) && cnt.ValueKind == JsonValueKind.Number
                         && cnt.TryGetInt32(out var c) ? c : (int?)null;
-                    FullLoadProgress?.Invoke(outList.Count + batch.Count, expected);
+                    FullLoadProgress?.Invoke(delivered + batch.Count, expected);
                     FullLoadPage?.Invoke(batch);
 
+                    var fresh = new List<JsonElement>(batch.Count);
+                    var limitHit = false;
                     foreach (var p in batch)
                     {
                         var pid = TryProductIdString(p);
                         if (string.IsNullOrEmpty(pid) || !seen.Add(pid))
                             continue;
-                        outList.Add(p);
-                        if (outList.Count >= limit)
-                            return outList;
+                        if (skipIds is not null && skipIds.Contains(pid))
+                        {
+                            skipped++;
+                            continue;
+                        }
+
+                        fresh.Add(p);
+                        if (delivered + fresh.Count >= limit)
+                        {
+                            limitHit = true;
+                            break;
+                        }
+                    }
+
+                    if (fresh.Count > 0)
+                    {
+                        sink(fresh);
+                        delivered += fresh.Count;
+                    }
+
+                    // 2026-11-02 (Н3-02): строка на каждую страницу (155 на загрузку, 58 % журнала) заменена одним итогом ниже; для долгих загрузок —
+                    // «идёт» раз в минуту, чтобы медленная синхронизация не выглядела в журнале зависшей.
+                    if (watch.Elapsed - lastProgress >= TimeSpan.FromSeconds(60))
+                    {
+                        lastProgress = watch.Elapsed;
+                        PosLogger.Log($"CATALOG full: идёт — страница {page}, загружено {delivered}{(expected is { } all ? $" из {all}" : "")} товаров за {watch.Elapsed.TotalSeconds:0} с.", "CATALOG");
+                    }
+
+                    if (limitHit)
+                    {
+                        PosLogger.Log($"CATALOG full: {delivered} товаров (достигнут предел) за {watch.Elapsed.TotalSeconds:0} с, страниц {pagesRead}.", "CATALOG");
+                        return (delivered, true, skipped);
                     }
 
                     hasNext = HasNextPage(data, batch.Count, pageSize);
@@ -318,19 +439,25 @@ public sealed partial class CatalogApiService : ICatalogApiService
                 // результат ошибочно считался поводом пробовать запасной путь — а тот у
                 // части аккаунтов не существует (404), и этот чужой 404 в итоге выдавался
                 // наружу как "не удалось загрузить каталог" вместо честного "каталог пуст".
-                return await ExcludeBranchCopiesAsync(outList, ct).ConfigureAwait(false);
+                PosLogger.Log($"CATALOG full: {delivered} товаров за {watch.Elapsed.TotalSeconds:0} с, страниц {pagesRead} (по {pageSize}).", "CATALOG");
+                return (delivered, false, skipped);
+            }
+            catch (Exception ex) when (LogFullLoadAbort(ex, page, pagesRead, delivered, watch, ct))
+            {
+                throw; // недостижимо: фильтр всегда false, исключение идёт к следующему catch
             }
             catch (ApiException e)
             {
                 last404 = e;
-                if (e.StatusCode != 404)
+                // Потоковый режим: часть страниц уже передана — запасной адрес дал бы повторы, отдаём ошибку.
+                if (e.StatusCode != 404 || (restart is null && delivered > 0))
                     throw;
             }
         }
 
-        if (last404 != null && outList.Count == 0)
+        if (last404 != null && delivered == 0)
             throw last404;
-        return outList;
+        return (delivered, false, skipped);
     }
 
     /// <summary>2026-10-30 (15 тыс. товаров): ход полной загрузки каталога — (загружено, всего по ответу сервера или null). Для надписи
@@ -531,6 +658,60 @@ public sealed partial class CatalogApiService : ICatalogApiService
         }
 
         return false;
+    }
+
+    public Task ArchiveProductAsync(string productId, CancellationToken ct = default) => PostArchiveAsync(productId, "archive", ct);
+
+    public Task UnarchiveProductAsync(string productId, CancellationToken ct = default) => PostArchiveAsync(productId, "unarchive", ct);
+
+    public async Task<List<JsonElement>> ListArchivedProductsAsync(IProgress<(int Loaded, int? Total)>? progress = null, CancellationToken ct = default)
+    {
+        // 2026-11-02 (аудит №2, С3-12; приёмка круга 3): архив читается постранично ДО КОНЦА (раньше — 10 страниц, и из 15 461 товара видна была часть, а окно писало «архив пуст»).
+        // Запрос: include_archived=1 и фильтр is_archived=true (если сервер его знает, придут только архивные; не знает — придут все, и отбираем помеченные is_archived/archived сами).
+        // Неожиданный ответ (не список и не объект с results) — исключение, окно скажет «Не удалось загрузить архив», а не «пусто».
+        var result = new List<JsonElement>();
+        const int pageSize = 300;
+        const int maxPages = 400; // до 120 000 товаров — страховка от бесконечного цикла
+        int? total = null;
+        var scanned = 0;
+        for (var page = 1; page <= maxPages; page++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var qs = new Dictionary<string, string>
+            {
+                ["include_archived"] = "1",
+                ["is_archived"] = "true",
+                ["page"] = page.ToString(CultureInfo.InvariantCulture),
+                ["page_size"] = pageSize.ToString(CultureInfo.InvariantCulture),
+            };
+            var data = await _client.RequestAsync(HttpMethod.Get, "api/main/products/list/", null, qs, ct).ConfigureAwait(false);
+            var isList = data.ValueKind == JsonValueKind.Array
+                         || (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("results", out var rs) && rs.ValueKind == JsonValueKind.Array);
+            if (!isList)
+                throw new InvalidOperationException("Неожиданный ответ сервера при загрузке архива товаров.");
+            if (data.ValueKind == JsonValueKind.Object && data.TryGetProperty("count", out var countEl) && countEl.TryGetInt32(out var count))
+                total = count;
+            var batch = NurMarketApiClient.UnwrapList(data);
+            scanned += batch.Count;
+            foreach (var item in batch)
+                if (ProductCatalogMapper.IsArchived(item))
+                    result.Add(item.Clone());
+            progress?.Report((scanned, total));
+            var hasNext = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String
+                          && !string.IsNullOrWhiteSpace(next.GetString());
+            if (!hasNext && (data.ValueKind != JsonValueKind.Array ? true : batch.Count < pageSize))
+                break;
+            if (batch.Count == 0)
+                break;
+        }
+        return result;
+    }
+
+    private async Task PostArchiveAsync(string productId, string action, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+            throw new ArgumentException("Не указан товар.", nameof(productId));
+        await _client.RequestAsync(HttpMethod.Post, $"api/main/products/{Uri.EscapeDataString(productId.Trim())}/{action}/", new Dictionary<string, object?>(), null, ct).ConfigureAwait(false);
     }
 
     public Task<List<string>> GetCategoryNamesAsync(CancellationToken ct = default) =>
@@ -873,7 +1054,7 @@ public sealed partial class CatalogApiService : ICatalogApiService
             ["category_name"] = r.CategoryName?.Trim() ?? "",
             ["brand_name"] = r.BrandName?.Trim() ?? "",
             ["description"] = r.Description?.Trim() ?? "",
-            ["purchase_price"] = (r.PurchasePrice ?? 0).ToString("0.##", CultureInfo.InvariantCulture),
+            ["purchase_price"] = (r.PurchasePrice ?? 0).ToString("0.####", CultureInfo.InvariantCulture), // 2026-11-01: сервер хранит закупку с 4 знаками
             ["markup_percent"] = (r.MarkupPercent ?? 0).ToString("0.##", CultureInfo.InvariantCulture),
             ["price"] = (r.Price ?? 0).ToString("0.##", CultureInfo.InvariantCulture),
             ["wholesale_price"] = (r.WholesalePrice ?? 0).ToString("0.##", CultureInfo.InvariantCulture),
@@ -922,6 +1103,10 @@ public sealed partial class CatalogApiService : ICatalogApiService
             // Новый товар без поштучной продажи — пустой массив, как шлёт веб-форма.
             body["packages_input"] = Array.Empty<object>();
         }
+        else if (r.DisablePieceSale && !string.Equals(r.Kind, "bundle", StringComparison.OrdinalIgnoreCase))
+        {
+            body["packages_input"] = Array.Empty<object>(); // 2026-11-01 (С2-33): кассир выключил существующую поштучную продажу
+        }
         // При редактировании без включённой галочки packages_input не шлём вовсе — чтобы не
         // затереть уже настроенную на сайте поштучную продажу, для которой в этой форме нет
         // поля предзаполнения (сам чекбокс всегда стартует выключенным).
@@ -951,6 +1136,11 @@ public sealed partial class CatalogApiService : ICatalogApiService
         // формы редактирования все признаки true, и тело остаётся прежним.
         if (!r.SendQuantity) body.Remove("quantity");
         if (!r.SendAlternateBarcodes) body.Remove("alternate_barcodes"); // 2026-11-01 (С-01, приёмка)
+        if (!r.SendDiscountPercent) body.Remove("discount_percent"); // 2026-11-01 (С2-03)
+        if (!r.SendWholesalePrice) body.Remove("wholesale_price");
+        if (!r.SendDescription) body.Remove("description");
+        if (!r.SendCountry) body.Remove("country");
+        if (!r.SendCharacteristics) body.Remove("characteristics");
         if (!r.SendPrice) body.Remove("price");
         if (!r.SendPurchasePrice) body.Remove("purchase_price");
         if (!r.SendMarkupPercent) body.Remove("markup_percent");

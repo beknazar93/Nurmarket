@@ -3830,6 +3830,24 @@ abstract class AppLocalizations {
   /// **'Продажа'**
   String get kindSale;
 
+  /// No description provided for @payInProgressScan.
+  ///
+  /// In ru, this message translates to:
+  /// **'Идёт оплата — дождитесь ответа, потом отсканируйте товар'**
+  String get payInProgressScan;
+
+  /// No description provided for @updMobileWarn.
+  ///
+  /// In ru, this message translates to:
+  /// **'Файл около {mb} МБ, вы не в Wi‑Fi — скачать?'**
+  String updMobileWarn(String mb);
+
+  /// No description provided for @returnedPartly.
+  ///
+  /// In ru, this message translates to:
+  /// **'Возвращён частично'**
+  String get returnedPartly;
+
   /// No description provided for @returnNetTotal.
   ///
   /// In ru, this message translates to:

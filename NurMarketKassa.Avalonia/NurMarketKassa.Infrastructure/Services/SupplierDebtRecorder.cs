@@ -670,9 +670,7 @@ public static class SupplierDebtRecorder
                     .Concat(list.Where(e => e.Status == "done").OrderByDescending(e => e.UpdatedAt).Take(KeepDone))
                     .OrderBy(e => e.CreatedAt).ToList();
                 Directory.CreateDirectory(DataDir);
-                var tmp = FilePath + ".tmp";
-                File.WriteAllText(tmp, JsonSerializer.Serialize(keep));
-                File.Move(tmp, FilePath, overwrite: true);
+                AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(keep)); // 2026-11-01 (Н2-01): сброс на диск + .bak
                 return true;
             }
             catch (Exception ex)

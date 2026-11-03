@@ -38,7 +38,8 @@
                     <StackPanel>
                         <TextBlock x:Name="ChangeLabel" FontSize="12" Foreground="#C9D6DF"
                                    HorizontalAlignment="Right"/>
-                        <TextBlock x:Name="ChangeText" FontSize="24" FontWeight="Bold" Foreground="#FFD600"
+                        <!-- 2026-11-02 (аудит №2, Д2-07): сумма сдачи была второй жёлтой на экране продажи (#FFD600) — теперь белая на тёмной плашке (14:1); жёлтая остаётся только «Оплатить». -->
+                        <TextBlock x:Name="ChangeText" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF"
                                    TextWrapping="NoWrap" HorizontalAlignment="Right"/>
                     </StackPanel>
                 </Border>

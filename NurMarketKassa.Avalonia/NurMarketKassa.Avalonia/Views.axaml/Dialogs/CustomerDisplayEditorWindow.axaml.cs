@@ -159,9 +159,9 @@ public partial class CustomerDisplayEditorWindow : Window
                 Width = 26, Height = 26, CornerRadius = new CornerRadius(6), BorderThickness = new Thickness(1),
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            swatch.Bind(Border.BorderBrushProperty, this.GetResourceObservable("BrushBorderStrong"));
+            swatch.Bind(Border.BorderBrushProperty, swatch.GetResourceObservable("BrushBorderStrong"));
             var label = new TextBlock { Text = ColorLabel(key), FontSize = 13, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(10, 0, 8, 0) };
-            label.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable("BrushText"));
+            label.Bind(TextBlock.ForegroundProperty, label.GetResourceObservable("BrushText"));
             var hex = new TextBox { Tag = key, Width = 92, Height = 32, MinHeight = 32, Padding = new Thickness(8, 0), FontSize = 13, VerticalContentAlignment = VerticalAlignment.Center };
             hex.Classes.Add("ce-input");
             hex.TextChanged += Hex_TextChanged;

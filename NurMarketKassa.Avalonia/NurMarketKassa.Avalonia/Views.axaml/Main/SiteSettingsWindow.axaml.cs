@@ -423,10 +423,10 @@ public partial class SiteSettingsWindow : Window, IOwnerSection
     {
         target.IsVisible = true;
         target.Text = text;
-        target.Bind(TextBlock.ForegroundProperty, this.GetResourceObservable(brushKey));
+        target.Bind(TextBlock.ForegroundProperty, target.GetResourceObservable(brushKey));
     }
 
-    private void SetDot(string brushKey) => StateDot.Bind(Border.BackgroundProperty, this.GetResourceObservable(brushKey));
+    private void SetDot(string brushKey) => StateDot.Bind(Border.BackgroundProperty, StateDot.GetResourceObservable(brushKey));
 
     private async Task CheckSlugAsync()
     {

@@ -30,6 +30,18 @@ public static class CartTotalsCalculator
         public decimal SubtotalExact { get; init; }
         public decimal LineDiscountsExact { get; init; }
 
+        /// <summary>2026-11-02 (К3-07 аудита №2): разность «подытог по правилу сервера − сумма показанных строк» (каждая строка на экране и на
+        /// чеке округлена половиной вверх, а подытог — по правилу сервера: сумма весовых вниз). Нужна только для ПОКАЗА строки
+        /// «Округление весовых» (сумма строк + округление = подытог), итог она не меняет. 0 — строки не нужно.</summary>
+        public decimal RoundingAdjustment { get; init; }
+
+        /// <summary>В чеке есть весовая строка (товар с is_weight) — для подписи «Округление весовых», иначе «Округление».</summary>
+        public bool HasWeighedLines { get; init; }
+
+        public string RoundingLabel => CartTotalsCalculator.RoundingLabel(HasWeighedLines);
+        public bool HasRoundingAdjustment => RoundingAdjustment != 0m;
+        public string RoundingFormatted => CartTotalsCalculator.FormatSignedAmount(RoundingAdjustment);
+
         public string SubtotalFormatted => FormatMoney(Subtotal);
         public string LineDiscountsFormatted => FormatMoney(LineDiscounts);
         public string OrderDiscountFormatted => FormatMoney(OrderDiscount);
@@ -45,8 +57,11 @@ public static class CartTotalsCalculator
         // скидка чека процентом считается от неокруглённой суммы, и округляется ОДИН раз — итог чека (до 0,01, половина вверх).
         // Раньше каждая строка и каждая промежуточная сумма округлялись отдельно — у весовых чеков копейки расходились с сервером.
         // Скидки строк — уже суммы (до копейки, их кассир ввёл или они ушли на сервер так же), в decimal не округляются повторно.
-        decimal subtotalExact = 0;
+        decimal weighedSum = 0;
+        decimal otherSum = 0;
         decimal lineDiscountsExact = 0;
+        decimal shownLinesSum = 0; // 2026-11-02 (К3-07): сумма строк, как они показаны (каждая — половиной вверх, за вычетом скидки строки)
+        var hasWeighed = false;
         var lineCount = 0;
 
         foreach (var it in CartDisplayHelper.EnumerateItems(cart))
@@ -54,16 +69,30 @@ public static class CartTotalsCalculator
             lineCount++;
             var qty = CartDisplayHelper.LineQuantity(it);
             var unitPrice = CartDisplayHelper.UnitPrice(it);
-            subtotalExact += QuantityRules.LineAmount(it, qty, unitPrice); // 2026-11-01: весовая — вниз до 0,01, обычная — без округления
+            // 2026-11-01 (опыты на сервере NBS): весовые строки (is_weight товара) и остальные суммируются раздельно, без округления строк.
+            var exact = QuantityRules.GrossExact(qty, unitPrice);
+            if (CartDisplayHelper.LineIsWeightProduct(it))
+            {
+                weighedSum += exact;
+                hasWeighed = true;
+            }
+            else
+                otherSum += exact;
 
             var disc = ReadDiscount(it);
             if (disc > 0)
                 lineDiscountsExact += QuantityRules.ToMoneyDecimal(disc);
+
+            // Как строка показана (CartService.ProjectItem / LocalCartService.RecalcLine): половина вверх, скидка строки вычтена.
+            shownLinesSum += exact < 0
+                ? QuantityRules.RoundMoney(exact)
+                : Math.Max(0m, QuantityRules.RoundMoney(exact - QuantityRules.ToMoneyDecimal(disc)));
         }
 
-        // 2026-11-01 (живая сверка с сервером NBS, чеки 1974–1980): подытог (сумма строк минус скидки строк) округляется ОДИН раз;
-        // процент скидки чека берётся от ОКРУГЛЁННОГО подытога, сумма скидки округляется отдельно (половина вверх); итог = подытог − скидка.
-        // Чек 1977: 1,425 → подытог 1,43, 50 % = 0,715 → 0,72, итог 0,71; 17,00 × 2,5 % → 0,43 → 16,57; 5,00 × 2,5 % → 0,13 → 4,87.
+        // 2026-11-01 (опыты на сервере NBS, чеки 1971–1988): подытог = ВНИЗ до 0,01 (сумма весовых) + ВВЕРХ до 0,01 (сумма остальных);
+        // процент скидки чека — от (подытог − скидки строк), сумма скидки округляется отдельно (половина вверх); итог = подытог − скидки.
+        // 4,875 + 22,638 → 27,51; 22,638 → 22,63; чек 1977: 1,425 → 1,43, 50 % = 0,715 → 0,72, итог 0,71; 17,00 × 2,5 % → 0,43 → 16,57.
+        var subtotalExact = QuantityRules.Subtotal(weighedSum, otherSum);
         var orderDiscountBase = Math.Max(0m, QuantityRules.RoundMoney(subtotalExact - lineDiscountsExact));
         var orderDiscountExact = QuantityRules.RoundMoney(ReadOrderDiscount(cart, orderDiscountBase, lineDiscountsExact));
         var rawTotal = QuantityRules.RoundMoney(subtotalExact - lineDiscountsExact) - orderDiscountExact;
@@ -80,8 +109,38 @@ public static class CartTotalsCalculator
             LineCount = lineCount,
             SubtotalExact = subtotalExact,
             LineDiscountsExact = lineDiscountsExact,
+            RoundingAdjustment = lineCount == 0 ? 0m : ShownRounding(subtotalExact - lineDiscountsExact - shownLinesSum, lineCount),
+            HasWeighedLines = hasWeighed,
         };
     }
+
+    /// <summary>2026-11-02 (К3-07): разность округляется до копейки; больше «по копейке на строку» быть не может (это уже не округление, а скидка
+    /// больше суммы строки и т.п.) — тогда строку не показываем. Меньше копейки — тоже 0.</summary>
+    private static decimal ShownRounding(decimal difference, int lineCount)
+    {
+        var adj = QuantityRules.RoundMoney(difference);
+        return Math.Abs(adj) >= 0.005m && Math.Abs(adj) <= 0.01m * lineCount + 0.001m ? adj : 0m;
+    }
+
+    /// <summary>2026-11-02 (К3-07): то же для чека с сервера (история, повторная печать): строки — как показал сервер (line_total, половина вверх),
+    /// скидка и итог — тоже его. Сумма строк − скидка + округление = итог. 0 — разности нет или она не похожа на округление.</summary>
+    public static decimal SaleRoundingAdjustment(decimal linesTotal, decimal discount, decimal due, int lineCount)
+    {
+        if (lineCount <= 0)
+            return 0m;
+        // Скидка может быть уже внутри цен строк (тогда сумма строк = итог) — тогда вычитать её не нужно.
+        var viaDiscount = discount > 0.005m && Math.Abs(linesTotal - discount - due) <= Math.Abs(linesTotal - due);
+        return ShownRounding(due - (viaDiscount ? linesTotal - discount : linesTotal), lineCount);
+    }
+
+    /// <summary>2026-11-02 (К3-07): подпись строки-выравнивания, 5 языков.</summary>
+    public static string RoundingLabel(bool weighed) => weighed
+        ? Tr.T("Округление весовых", "Салмактуу товарлардын тегизделиши", "Weighed items rounding", "Tartılı ürün yuvarlaması", "Tortiladigan tovarlar yaxlitlanishi")
+        : Tr.T("Округление", "Тегиздөө", "Rounding", "Yuvarlama", "Yaxlitlash");
+
+    /// <summary>«−0,02» / «+0,01» — со знаком, как число на экране (1 234,50).</summary>
+    public static string FormatSignedAmount(decimal value) =>
+        (value < 0 ? "−" : "+") + MoneyText.Amount(Math.Abs(value));
 
     public static double CalculateChange(double cashReceived, double totalDue) =>
         cashReceived > totalDue + 1e-9 ? RoundMoney(cashReceived - totalDue) : 0;

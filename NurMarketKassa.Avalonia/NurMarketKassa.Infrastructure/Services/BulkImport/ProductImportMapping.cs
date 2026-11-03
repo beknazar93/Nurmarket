@@ -465,9 +465,7 @@ public static class ProductImportMappingStore
 
                 Directory.CreateDirectory(DataDir);
                 // Атомарно: сначала во временный файл, потом подмена (как у черновика).
-                var tmp = FilePath + ".tmp";
-                File.WriteAllText(tmp, JsonSerializer.Serialize(all));
-                File.Move(tmp, FilePath, overwrite: true);
+                AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(all)); // 2026-11-01 (Н2-01/Н-07): сброс на диск + копия .bak
             }
             catch (Exception ex)
             {

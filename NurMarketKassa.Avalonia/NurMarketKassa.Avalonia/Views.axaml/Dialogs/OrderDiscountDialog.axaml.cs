@@ -1,6 +1,9 @@
 using System.Globalization;
+using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
@@ -22,6 +25,7 @@ public partial class OrderDiscountDialog : Window
     public OrderDiscountDialog(string currentPercent, string currentSum)
     {
         InitializeComponent();
+        ScannerEnterGuard.Attach(this); // 2026-11-01 (К-10): Enter сканера (PLU в поле «сом») не становится скидкой
 
         var pct = (currentPercent ?? "").Trim();
         var sum = (currentSum ?? "").Trim();
@@ -49,6 +53,62 @@ public partial class OrderDiscountDialog : Window
         _initializing = false;
         ValueBox.TextChanged += (_, _) => UpdatePreview();
         ScopeCheckBox.IsCheckedChanged += (_, _) => UpdatePreview();
+        // 2026-11-02 (приёмка круга 3, п. 5): после Д3-04 «%» / «сом» стали фокусируемыми — нажатие мышью/пальцем уводило фокус на переключатель:
+        // цифры не шли в поле, а Enter «нажимал» сам переключатель, а не «Применить». Теперь (Tunnel — раньше собственной обработки кнопки):
+        // Enter на переключателе всегда применяет скидку; после выбора режима (мышь, касание, Пробел) фокус возвращается в поле суммы;
+        // набранные на переключателе цифры уходят в поле; ←/→ переключают режим и оставляют фокус на переключателе.
+        foreach (var segment in new[] { PercentSegment, SumSegment })
+        {
+            segment.AddHandler(KeyDownEvent, ModeSegment_KeyDown, RoutingStrategies.Tunnel);
+            segment.AddHandler(TextInputEvent, ModeSegment_TextInput, RoutingStrategies.Tunnel);
+            segment.Click += (_, _) => FocusValueBox();
+        }
+    }
+
+    private void FocusValueBox() =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            ValueBox.Focus();
+            ValueBox.CaretIndex = ValueBox.Text?.Length ?? 0;
+        });
+
+    /// <summary>Цифры/знаки, набранные при фокусе на «%» / «сом», вставляются в поле суммы (фокус — в поле).</summary>
+    private void ModeSegment_TextInput(object? sender, TextInputEventArgs e)
+    {
+        if (string.IsNullOrEmpty(e.Text))
+            return;
+        e.Handled = true;
+        ValueBox.Focus();
+        var text = ValueBox.Text ?? "";
+        var caret = Math.Clamp(ValueBox.CaretIndex, 0, text.Length);
+        ValueBox.Text = text.Insert(caret, e.Text);
+        ValueBox.CaretIndex = caret + e.Text.Length;
+    }
+
+    /// <summary>2026-11-02 (аудит №2, Д3-04): ←/→ на «%» / «сом» переключают режим (как у сегментов), Пробел — штатно; Enter — «Применить» (при пустом поле — выбор режима).</summary>
+    private void ModeSegment_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None)
+        {
+            e.Handled = true;
+            // 2026-11-02 (живая проверка круга 3): поле суммы заполнено — Enter применяет скидку; пусто — Enter на переключателе выбирает
+            // режим (как Пробел) и оставляет окно открытым, фокус — в поле суммы.
+            if (string.IsNullOrWhiteSpace(ValueBox.Text) && sender is RadioButton segment)
+            {
+                segment.IsChecked = true;
+                FocusValueBox();
+            }
+            else
+                Apply_Click(sender, e);
+            return;
+        }
+
+        if (e.Key is not (Key.Left or Key.Right))
+            return;
+        var target = ReferenceEquals(sender, PercentSegment) ? SumSegment : PercentSegment;
+        target.IsChecked = true;
+        target.Focus();
+        e.Handled = true;
     }
 
     /// <summary>2026-10-21 (пакет 6, п. 18): сумма, от которой считается скидка (весь чек после скидок на строки или
@@ -163,7 +223,11 @@ public partial class OrderDiscountDialog : Window
         // 2026-10-17, этап 3: сегменты «%» / «сом» показывают режим тумблера (он скрыт, состояние — в нём).
         PercentSegment.IsChecked = isPercent;
         SumSegment.IsChecked = !isPercent;
+        // 2026-11-02 (аудит №2, Д3-03): имя поля и переключателей для диктора следует за режимом (раньше в режиме «%» поле называлось «сумма»).
+        AutomationProperties.SetName(PercentSegment, Tr.T("Скидка в процентах", "Арзандатуу пайыз менен", "Discount in percent", "Yüzde olarak indirim", "Foizda chegirma"));
+        AutomationProperties.SetName(SumSegment, Tr.T("Скидка в сомах", "Арзандатуу сом менен", "Discount in som", "Som olarak indirim", "So'mda chegirma"));
         ValueLabel.Text = isPercent ? Tr.T("Введите процент скидки", "Арзандатуу пайызын киргизиңиз", "Enter discount percentage", "İndirim yüzdesini girin", "Chegirma foizini kiriting") : Tr.T("Введите сумму скидки", "Арзандатуу суммасын киргизиңиз", "Enter discount amount", "İndirim tutarını girin", "Chegirma summasini kiriting");
+        AutomationProperties.SetName(ValueBox, ValueLabel.Text);
         DiscountTypeLabel.Text = isPercent ? Tr.T("Режим скидки: Процент (%)", "Арзандатуу режими: Пайыз (%)", "Discount mode: percent (%)", "İndirim modu: Yüzde (%)", "Chegirma rejimi: Foiz (%)") : Tr.T("Режим скидки: Сумма (сом)", "Арзандатуу режими: Сумма (сом)", "Discount mode: amount (som)", "İndirim modu: Tutar (som)", "Chegirma rejimi: Summa (so'm)");
 
         if (ScopePanel.IsVisible)

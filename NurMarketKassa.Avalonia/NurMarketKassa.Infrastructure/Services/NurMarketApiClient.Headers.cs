@@ -40,7 +40,8 @@ public sealed partial class NurMarketApiClient
         if (requestTimeout.HasValue)
             linked.CancelAfter(requestTimeout.Value);
 
-        await _httpSlots.WaitAsync(linked.Token).ConfigureAwait(false);
+        // 2026-11-03 (ревью В-1): место берём через AcquireSlotAsync — оплата (pos/checkout), проведение старых чеков, перемещения идут в быструю полосу (IsCritical/Foreground), а не в фоновую.
+        var slot = await AcquireSlotAsync(linked.Token).ConfigureAwait(false);
         try
         {
             relativePath = ApiPathNormalizer.EnsureTrailingSlash(relativePath, method);
@@ -76,7 +77,7 @@ public sealed partial class NurMarketApiClient
         }
         finally
         {
-            _httpSlots.Release();
+            slot.Release();
         }
     }
 }
