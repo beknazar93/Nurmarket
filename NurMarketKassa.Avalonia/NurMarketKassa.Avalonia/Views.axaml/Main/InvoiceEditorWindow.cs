@@ -13,6 +13,7 @@ using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Models;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
+using NurMarketKassa.Services.InvoiceImport;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
 
@@ -63,6 +64,23 @@ public sealed class InvoiceEditorWindow : Window
         public Func<bool, Task>? OnSettled { get; set; }
         public bool Completed => (PostedSummaries.Count > 0 || BackgroundQueued) && Rows.Count == 0;
 
+        /// <summary>2026-11-03: чем строка, прочитанная по фото, вызывает сомнение: нечётко (ИИ не уверен) и/или сумма строки в документе не равна количество × цена. Пусто — всё ясно.</summary>
+        private static string UnclearNoteOf(ProductActionPlan.Step step, double qty)
+        {
+            var parts = new List<string>();
+            if (step.Unclear)
+                parts.Add(T("нечётко прочитано по фото — проверьте название, количество и цену по фото", "сүрөттөн так окулган жок — аталышын, санын жана баасын сүрөт боюнча текшериңиз",
+                    "read unclearly from the photo — check the name, quantity and price against the photo", "fotoğraftan net okunamadı — ad, miktar ve fiyatı fotoğrafa göre kontrol edin",
+                    "rasmdan aniq o'qilmadi — nomi, miqdori va narxini rasm bo'yicha tekshiring"));
+            if (step.LineTotal is { } lt && step.Purchase is { } p && InvoiceReadingAid.LineTotalMismatch(qty, p, lt))
+                parts.Add(T($"сумма строки в документе {lt:0.##}, а количество × цена = {qty * p:0.##} — одно из чисел прочитано неверно, проверьте по фото",
+                    $"документтеги сап суммасы {lt:0.##}, ал саны × баасы = {qty * p:0.##} — сандардын бири туура эмес окулган, сүрөт боюнча текшериңиз",
+                    $"the line total in the document is {lt:0.##}, but quantity × price = {qty * p:0.##} — one of the numbers was misread, check the photo",
+                    $"belgedeki satır tutarı {lt:0.##}, miktar × fiyat = {qty * p:0.##} — sayılardan biri yanlış okundu, fotoğrafa bakın",
+                    $"hujjatdagi qator summasi {lt:0.##}, miqdor × narx = {qty * p:0.##} — raqamlardan biri noto'g'ri o'qilgan, rasmga qarang"));
+            return string.Join("; ", parts);
+        }
+
         public static PurchaseDraft FromSteps(IEnumerable<ProductActionPlan.Step> steps, string? supplierName, string? supplierInn, InvoiceReference? reference = null)
         {
             var draft = new PurchaseDraft
@@ -81,6 +99,11 @@ public sealed class InvoiceEditorWindow : Window
                     // Повтор того же товара в накладной — одна строка (количество складывается, цена продажи — по первой).
                     if (draft.Rows.FirstOrDefault(r => r.Existing is { } e && string.Equals(e.Id, tile.Id, StringComparison.OrdinalIgnoreCase)) is { } same)
                     {
+                        if (step.Unclear || UnclearNoteOf(step, qty).Length > 0)
+                        {
+                            same.Unclear = true;
+                            same.UnclearNote = UnclearNoteOf(step, qty);
+                        }
                         // 2026-10-31: закупка — средневзвешенная (раньше брали цену первой строки, и сумма расходилась с бумагой, если цены в строках разные).
                         same.Purchase = Num(InvoiceReconcile.MergePurchase(ParseOr(same.Qty), ParseOr(same.Purchase), qty, step.Purchase ?? 0), "0.####");
                         same.Qty = Num(ParseOr(same.Qty) + qty, "0.#########");
@@ -104,6 +127,8 @@ public sealed class InvoiceEditorWindow : Window
                         Qty = Num(qty, "0.#########"),
                         Purchase = Num(step.Purchase, "0.####"),
                         Price = Num(price, "0.##"),
+                        Unclear = step.Unclear || UnclearNoteOf(step, qty).Length > 0,
+                        UnclearNote = UnclearNoteOf(step, qty),
                     });
                     continue;
                 }
@@ -119,6 +144,11 @@ public sealed class InvoiceEditorWindow : Window
                     dup.Qty = Num(ParseOr(dup.Qty) + qty, "0.#########");
                     if (dup.Barcode.Length == 0 && !string.IsNullOrWhiteSpace(step.Barcode))
                         dup.Barcode = step.Barcode.Trim();
+                    if (step.Unclear || UnclearNoteOf(step, qty).Length > 0)
+                    {
+                        dup.Unclear = true;
+                        dup.UnclearNote = UnclearNoteOf(step, qty);
+                    }
                     draft.MergeNotes.Add($"«{step.Product.Title}» → {dup.Qty}" + (step.Purchase is > 0 ? $" × {Num(ParseOr(dup.Purchase), "0.####")}" : ""));
                     continue;
                 }
@@ -132,6 +162,8 @@ public sealed class InvoiceEditorWindow : Window
                     Qty = Num(qty, "0.#########"),
                     Purchase = Num(step.Purchase, "0.####"),
                     Price = Num(step.Price, "0.##"),
+                    Unclear = step.Unclear || UnclearNoteOf(step, qty).Length > 0,
+                    UnclearNote = UnclearNoteOf(step, qty),
                 });
             }
             // 2026-10-19, ревью: та же накладная уже частично (или целиком) проведена — такие строки помечаются «уже проведено»
@@ -310,6 +342,12 @@ public sealed class InvoiceEditorWindow : Window
         public bool CreatedEarlier => Existing is null && !string.IsNullOrWhiteSpace(Line.ProductId);
         /// <summary>2026-10-19, ревью: такая же строка (товар, количество, цена) недавно проведена закупкой — показать «уже проведено».</summary>
         public PostedLines.Entry? PostedBefore { get; set; }
+        /// <summary>2026-11-03: строка прочитана по фото нечётко (низкая уверенность ИИ / «unclear» / сумма строки не сходится) — подсвечивается «проверьте по фото».</summary>
+        public bool Unclear { get; set; }
+        public string UnclearNote { get; set; } = "";
+        /// <summary>2026-11-03: похожие товары склада для НОВОГО товара (до 5): «новый или тот же — увеличить остаток?» Ищутся после открытия окна (SimilarSearched).</summary>
+        public IReadOnlyList<InvoiceCandidate> Similar { get; set; } = [];
+        public bool SimilarSearched { get; set; }
     }
 
     private readonly PurchaseDraft _draft;
@@ -619,6 +657,7 @@ public sealed class InvoiceEditorWindow : Window
         Opened += async (_, _) =>
         {
             this.FitToScreen();
+            _ = FindSimilarAsync(); // 2026-11-03: «новый или тот же?» — поиск похожих товаров склада в фоне
             await LoadSuppliersAsync(force: false).ConfigureAwait(true);
         };
     }
@@ -999,12 +1038,24 @@ public sealed class InvoiceEditorWindow : Window
             if (RowFlagOf(row) is var flag && flag != InvoiceRowFlag.None)
             {
                 action.Text = "⚠ " + action.Text;
-                Res(action, TextBlock.ForegroundProperty, "BrushDanger");
-                ToolTip.SetTip(action, FlagText(flag));
+                Res(action, TextBlock.ForegroundProperty, flag == InvoiceRowFlag.LowConfidence ? "BrushWarning" : "BrushDanger");
+                ToolTip.SetTip(action, flag == InvoiceRowFlag.LowConfidence && row.UnclearNote.Length > 0 ? row.UnclearNote : FlagText(flag));
             }
             var no = new TextBlock { Text = number.ToString(CultureInfo.InvariantCulture), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0) };
             Res(no, TextBlock.ForegroundProperty, "BrushTextSoft");
-            var cells = new Control[] { no, action, invoiceName, receiptName, barcode, qty, purchase, price, sum, remove };
+            // 2026-11-03: «Новый товар», но на складе есть похожие — «новый или тот же (увеличить остаток)?»: кнопка со списком до 5 товаров.
+            Control actionCell = action;
+            if (row.Existing is null && !row.CreatedEarlier && row.Similar.Count > 0)
+            {
+                var similar = UiKit.Ghost(this, T($"≈ Есть похожие ({row.Similar.Count}) ▾", $"≈ Окшоштору бар ({row.Similar.Count}) ▾", $"≈ Similar items ({row.Similar.Count}) ▾", $"≈ Benzer ürünler ({row.Similar.Count}) ▾", $"≈ O'xshashlari bor ({row.Similar.Count}) ▾"));
+                similar.MinHeight = 36;
+                similar.HorizontalAlignment = HorizontalAlignment.Left;
+                ToolTip.SetTip(similar, T("На складе есть похожий товар. Выберите тот же товар — остаток увеличится у него, новая карточка не создастся.", "Кампада окшош товар бар. Ошол эле товарды тандаңыз — калдык ошонун үстүнө кошулат, жаңы карточка түзүлбөйт.",
+                    "A similar item exists in stock. Pick the same item — its stock increases and no new card is created.", "Depoda benzer bir ürün var. Aynı ürünü seçin — stoğu artar, yeni kart oluşturulmaz.", "Omborda o'xshash mahsulot bor. Aynan shuni tanlang — uning qoldig'i oshadi, yangi karta yaratilmaydi."));
+                similar.Click += (_, _) => ShowSimilarMenu(row, similar);
+                actionCell = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center, Children = { action, similar } };
+            }
+            var cells = new Control[] { no, actionCell, invoiceName, receiptName, barcode, qty, purchase, price, sum, remove };
             for (var c = 0; c < cells.Length; c++)
             {
                 Grid.SetRow(cells[c], r);
@@ -1053,6 +1104,107 @@ public sealed class InvoiceEditorWindow : Window
             next.Focus();
             next.SelectAll();
             next.BringIntoView();
+        }
+    }
+
+    // ------------------------------------------------------------------ 2026-11-03: «новый или тот же?» для новых товаров накладной по фото
+
+    private void ShowSimilarMenu(DraftRow row, Control anchor)
+    {
+        if (_draft.Posting)
+            return;
+        var flyout = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedLeft };
+        foreach (var c in row.Similar)
+        {
+            var cand = c;
+            var item = new MenuItem
+            {
+                MinHeight = 44,
+                Header = T($"Тот же: {cand.Tile.Title} · {cand.Score * 100:0} % · остаток {cand.Tile.Quantity:0.###}", $"Ошол эле: {cand.Tile.Title} · {cand.Score * 100:0} % · калдык {cand.Tile.Quantity:0.###}",
+                    $"Same item: {cand.Tile.Title} · {cand.Score * 100:0}% · stock {cand.Tile.Quantity:0.###}", $"Aynı ürün: {cand.Tile.Title} · {cand.Score * 100:0} % · stok {cand.Tile.Quantity:0.###}",
+                    $"Aynan shu: {cand.Tile.Title} · {cand.Score * 100:0} % · qoldiq {cand.Tile.Quantity:0.###}"),
+            };
+            item.Click += (_, _) => UseExisting(row, cand.Tile);
+            flyout.Items.Add(item);
+        }
+        var keep = new MenuItem { MinHeight = 44, Header = T("Оставить новым товаром", "Жаңы товар бойдон калтыруу", "Keep as a new item", "Yeni ürün olarak bırak", "Yangi mahsulot sifatida qoldirish") };
+        keep.Click += (_, _) =>
+        {
+            row.Similar = [];
+            RebuildRows();
+        };
+        flyout.Items.Add(new Separator());
+        flyout.Items.Add(keep);
+        flyout.ShowAt(anchor);
+    }
+
+    /// <summary>Строка «Новый товар» → приход к выбранному товару склада (как строка «Приход» из шагов советника).</summary>
+    private void UseExisting(DraftRow row, CatalogProductTileVm tile)
+    {
+        if (_draft.Posting || row.CreatedEarlier || row.Existing is not null)
+            return;
+        var qty = ParseOr(row.Qty);
+        row.Existing = tile;
+        row.Line = PurchaseReceivingService.FromTile(tile, qty);
+        row.Barcode = tile.Barcode ?? "";
+        row.BarcodeFromCard = false;
+        row.Unit = string.IsNullOrWhiteSpace(tile.Unit) ? "шт" : tile.Unit!;
+        row.InvoiceName = tile.Title;
+        row.ReceiptName = "";
+        row.Similar = [];
+        // Цена продажи ниже текущей приходом не снижается (правило 15.10, KeepCurrentPriceIfLower).
+        if (!TryNum(row.Price, out var typed) || typed <= 0 || (tile.PriceValue > 0 && typed < tile.PriceValue - 0.001))
+            row.Price = tile.PriceValue > 0 ? Num(tile.PriceValue, "0.##") : row.Price;
+        row.PostedBefore = PostedLines.Find(null, tile.Id, new[] { tile.Title }, qty, ParseOr(row.Purchase));
+        // Тот же товар уже есть в закупке — одна строка (количество складывается, закупка средневзвешенная).
+        if (_draft.Rows.FirstOrDefault(r => !ReferenceEquals(r, row) && r.Existing is { } e && string.Equals(e.Id, tile.Id, StringComparison.OrdinalIgnoreCase)) is { } same)
+        {
+            same.Purchase = Num(InvoiceReconcile.MergePurchase(ParseOr(same.Qty), ParseOr(same.Purchase), qty, ParseOr(row.Purchase)), "0.####");
+            same.Qty = Num(ParseOr(same.Qty) + qty, "0.#########");
+            same.Unclear |= row.Unclear;
+            _draft.MergeNotes.Add($"«{tile.Title}» → {same.Qty}");
+            _draft.Rows.Remove(row);
+        }
+        _repeatConfirmedFor = null;
+        PosLogger.Log("Закупка по накладной: новая строка заменена приходом к похожему товару склада (выбор владельца).", "STOCK");
+        RebuildRows();
+        UpdateTotal();
+    }
+
+    /// <summary>Ищет похожие товары склада для новых строк (в фоне, один раз на строку) и перерисовывает таблицу, если нашлись.</summary>
+    private async Task FindSimilarAsync()
+    {
+        var rows = _draft.Rows.Where(r => r.Existing is null && !r.CreatedEarlier && !r.SimilarSearched && r.InvoiceName.Trim().Length >= 2).ToList();
+        if (rows.Count == 0)
+            return;
+        foreach (var r in rows)
+            r.SimilarSearched = true;
+        var names = rows.Select(r => r.InvoiceName).ToList();
+        try
+        {
+            var found = await Task.Run(() =>
+            {
+                var index = new InvoiceCatalogIndex(InvoicePlan.SnapshotCatalog());
+                return names.Select(n => index.Suggest(n)).ToList();
+            }).ConfigureAwait(true);
+            var any = false;
+            for (var i = 0; i < rows.Count; i++)
+            {
+                if (found[i].Count > 0 && rows[i].Existing is null && _draft.Rows.Contains(rows[i]))
+                {
+                    rows[i].Similar = found[i];
+                    any = true;
+                }
+            }
+            if (any && !_draft.Posting)
+            {
+                RebuildRows();
+                UpdateTotal();
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Закупка по накладной: поиск похожих товаров не удался: {ex.GetType().Name}.", "WARNING");
         }
     }
 
@@ -1120,7 +1272,17 @@ public sealed class InvoiceEditorWindow : Window
                 $"Yuk xatida {dp} pozitsiya, xaridda {count} — tushib qolgan yoki ortiqcha qatorlar yo'qligini tekshiring."));
         }
         // Строки без числа и строки, похожие на итог: показать номера.
-        var flagged = _draft.Rows.Select((r, i) => (n: i + 1, flag: RowFlagOf(r))).Where(x => x.flag != InvoiceRowFlag.None).ToList();
+        var flagged = _draft.Rows.Select((r, i) => (n: i + 1, flag: RowFlagOf(r))).Where(x => x.flag is not (InvoiceRowFlag.None or InvoiceRowFlag.LowConfidence)).ToList();
+        var unclearNums = _draft.Rows.Select((r, i) => (n: i + 1, flag: RowFlagOf(r))).Where(x => x.flag == InvoiceRowFlag.LowConfidence).Select(x => x.n).ToList();
+        if (unclearNums.Count > 0)
+        {
+            if (brush == "BrushTextSoft")
+                brush = "BrushWarning";
+            var unums = string.Join(", ", unclearNums.Take(12)) + (unclearNums.Count > 12 ? ", …" : "");
+            lines.Add(T($"Нечётко прочитано по фото: строки {unums} — проверьте их по фото, подсвечены ⚠.", $"Сүрөттөн так окулган жок: {unums}-саптар — сүрөт боюнча текшериңиз, ⚠ менен белгиленген.",
+                $"Read unclearly from the photo: lines {unums} — check them against the photo, marked ⚠.", $"Fotoğraftan net okunamadı: {unums}. satırlar — fotoğrafa göre kontrol edin, ⚠ ile işaretli.",
+                $"Rasmdan aniq o'qilmagan: {unums}-qatorlar — rasm bo'yicha tekshiring, ⚠ bilan belgilangan."));
+        }
         if (flagged.Count > 0)
         {
             if (brush == "BrushTextSoft")
@@ -1138,14 +1300,21 @@ public sealed class InvoiceEditorWindow : Window
         _reconcileBrush = _reconcile.Bind(TextBlock.ForegroundProperty, _reconcile.GetResourceObservable(brush));
     }
 
-    private InvoiceRowFlag RowFlagOf(DraftRow row) => InvoiceReconcile.RowFlag(row.InvoiceName, TryNum(row.Qty, out var q) ? q : null,
-        TryNum(row.Purchase, out var p) ? p : null, _draft.Reference?.Total, _draft.Rows.Count);
+    private InvoiceRowFlag RowFlagOf(DraftRow row)
+    {
+        var flag = InvoiceReconcile.RowFlag(row.InvoiceName, TryNum(row.Qty, out var q) ? q : null,
+            TryNum(row.Purchase, out var p) ? p : null, _draft.Reference?.Total, _draft.Rows.Count);
+        // 2026-11-03: прочитано по фото нечётко — мягкая подсветка (в итог строка входит, провести можно).
+        return flag == InvoiceRowFlag.None && row.Unclear ? InvoiceRowFlag.LowConfidence : flag;
+    }
 
     private static string FlagText(InvoiceRowFlag flag) => flag switch
     {
         InvoiceRowFlag.LooksLikeTotal => T("Похоже на итоговую строку накладной, а не на товар — проверьте и удалите (✕).", "Накладнойдун жыйынтык сабына окшош, товар эмес — текшерип өчүрүңүз (✕).",
             "Looks like a totals line of the invoice, not a product — check and remove (✕).", "Faturanın toplam satırına benziyor, ürün değil — kontrol edip silin (✕).", "Yuk xatining jami qatoriga o'xshaydi, mahsulot emas — tekshirib o'chiring (✕)."),
         InvoiceRowFlag.NoQty => T("Нет количества — в итог не входит.", "Саны жок — жыйынтыкка кирбейт.", "No quantity — not in the total.", "Miktar yok — toplama girmez.", "Miqdor yo'q — jamiga kirmaydi."),
+        InvoiceRowFlag.LowConfidence => T("Нечётко прочитано по фото — проверьте строку по фото.", "Сүрөттөн так окулган жок — сапты сүрөт боюнча текшериңиз.", "Read unclearly from the photo — check the line against the photo.",
+            "Fotoğraftan net okunamadı — satırı fotoğrafa göre kontrol edin.", "Rasmdan aniq o'qilmadi — qatorni rasm bo'yicha tekshiring."),
         InvoiceRowFlag.NoPurchase => T("Нет цены закупки — в итог не входит.", "Сатып алуу баасы жок — жыйынтыкка кирбейт.", "No purchase price — not in the total.", "Alış fiyatı yok — toplama girmez.", "Xarid narxi yo'q — jamiga kirmaydi."),
         _ => "",
     };

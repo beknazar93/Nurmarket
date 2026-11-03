@@ -1,4 +1,4 @@
-﻿using System.IO;
+﻿﻿using System.IO;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -16,9 +16,133 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 /// (ICatalogApiService.UploadProductImageAsync, как «Загрузить фото» на складе).</summary>
 public static class ProductPhotoFinder
 {
-    public sealed record Candidate(CatalogProductTileVm Product, string ImageUrl, string Source);
+    /// <summary>2026-11-03: Caption — подпись найденной картинки/страницы (по ней сверяется название); Doubtful — уверенности мало («проверьте», в
+    /// «Поставить все» не входит); Description/DescriptionSource — краткое описание товара из интернета (ставится вместе с фото, если на сервере пусто).</summary>
+    public sealed record Candidate(CatalogProductTileVm Product, string ImageUrl, string Source, string? Caption = null, bool Doubtful = false,
+        string? Description = null, string? DescriptionSource = null);
 
     private static readonly HttpClient Http = CreateHttp();
+
+    // 2026-11-03: единый лимит запросов в минуту (бережно к открытым базам, Яндексу и ключу Gemini; без «шторма» при пачке из 50 товаров).
+    private static readonly RequestPacer OffPacer = new(60, TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(300));
+    private static readonly RequestPacer YandexPacer = new(30, TimeSpan.FromMinutes(1), TimeSpan.FromMilliseconds(1500));
+    private static readonly RequestPacer WebPacer = new(10, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(6));
+
+    /// <summary>2026-11-03, владелец (снимок: для «моюн эти» подобрался кадр из YouTube): видео и соцсети дают кадры и аватарки, а не фото товара —
+    /// такие адреса (страница или сама картинка) не принимаются. Список — только здесь.</summary>
+    private static readonly string[] BlockedHosts =
+    {
+        "youtube.com", "youtu.be", "ytimg.com", "yt3.ggpht.com", "googlevideo.com", "tiktok.com", "instagram.com", "cdninstagram.com",
+        "facebook.com", "fb.com", "fbcdn.net", "vk.com", "vk.ru", "userapi.com", "ok.ru", "mycdn.me", "twitter.com", "x.com", "twimg.com",
+        "t.me", "rutube.ru", "dzen.ru", "vimeo.com", "dailymotion.com", "likee.video",
+    };
+
+    public static bool IsBlockedSource(string? url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var u))
+            return false;
+        var host = u.Host.ToLowerInvariant();
+        return BlockedHosts.Any(d => host == d || host.EndsWith("." + d, StringComparison.Ordinal));
+    }
+
+    private static readonly HashSet<string> NameStopWords = new(StringComparer.OrdinalIgnoreCase) { "для", "это", "эти", "этот", "товар", "шт", "the", "and" };
+
+    /// <summary>Значимые слова названия (основа — первые 5 букв; объём вроде «450гр» — число): по ним сверяется подпись найденной картинки.</summary>
+    private static List<string> SignificantWords(string title) =>
+        Regex.Split((title ?? "").ToLowerInvariant(), @"[^\p{L}\p{N}]+")
+            .Select(w => Regex.Match(w, @"^(\d+)([.,]\d+)?(г|гр|кг|мл|л|шт|g|kg|ml|l)$") is { Success: true } m ? m.Groups[1].Value : w)
+            .Where(w => (w.Length >= 3 || (w.Length == 2 && w.All(char.IsDigit))) && !NameStopWords.Contains(w))
+            .Select(w => w.Length > 5 ? w[..5] : w).Distinct().ToList();
+
+    /// <summary>Какая доля значимых слов названия есть в подписи (0..1). Нет слов или нет подписи — 0.</summary>
+    public static double NameMatch(string title, string? caption)
+    {
+        var words = SignificantWords(title);
+        if (words.Count == 0 || string.IsNullOrWhiteSpace(caption))
+            return 0;
+        var low = caption.ToLowerInvariant();
+        return words.Count(low.Contains) / (double)words.Count;
+    }
+
+    /// <summary>Фото похоже на другой товар (или подписи нет) — не включается в «Поставить все».</summary>
+    private static bool IsDoubtfulMatch(string title, string? caption) => NameMatch(title, caption) < 0.5;
+
+    private enum PhotoQuality { Bad, Doubtful, Good }
+
+    /// <summary>Размер картинки по заголовку файла (PNG, JPEG, GIF, WebP) без декодирования; null — формат не распознан.</summary>
+    internal static (int Width, int Height)? ReadImageSize(byte[] b)
+    {
+        try
+        {
+            if (b.Length > 24 && b[0] == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G')
+                return ((b[16] << 24) | (b[17] << 16) | (b[18] << 8) | b[19], (b[20] << 24) | (b[21] << 16) | (b[22] << 8) | b[23]);
+            if (b.Length > 10 && b[0] == 'G' && b[1] == 'I' && b[2] == 'F')
+                return (b[6] | (b[7] << 8), b[8] | (b[9] << 8));
+            if (b.Length > 4 && b[0] == 0xFF && b[1] == 0xD8)
+            {
+                var i = 2;
+                while (i + 9 < b.Length)
+                {
+                    if (b[i] != 0xFF)
+                    {
+                        i++;
+                        continue;
+                    }
+                    var marker = b[i + 1];
+                    if (marker == 0xFF)
+                    {
+                        i++;
+                        continue;
+                    }
+                    if (marker is >= 0xC0 and <= 0xCF and not 0xC4 and not 0xC8 and not 0xCC)
+                        return ((b[i + 7] << 8) | b[i + 8], (b[i + 5] << 8) | b[i + 6]);
+                    if (marker is 0xD8 or 0x01 or (>= 0xD0 and <= 0xD7))
+                    {
+                        i += 2;
+                        continue;
+                    }
+                    i += 2 + ((b[i + 2] << 8) | b[i + 3]);
+                }
+                return null;
+            }
+            if (b.Length > 30 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F' && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P')
+            {
+                if (b[12] == 'V' && b[13] == 'P' && b[14] == '8' && b[15] == 'X')
+                    return (1 + (b[24] | (b[25] << 8) | (b[26] << 16)), 1 + (b[27] | (b[28] << 8) | (b[29] << 16)));
+                if (b[12] == 'V' && b[13] == 'P' && b[14] == '8' && b[15] == ' ')
+                    return ((b[26] | (b[27] << 8)) & 0x3FFF, (b[28] | (b[29] << 8)) & 0x3FFF);
+                if (b[12] == 'V' && b[13] == 'P' && b[14] == '8' && b[15] == 'L')
+                {
+                    var bits = b[21] | (b[22] << 8) | (b[23] << 16) | ((long)b[24] << 24);
+                    return ((int)(bits & 0x3FFF) + 1, (int)((bits >> 14) & 0x3FFF) + 1);
+                }
+            }
+        }
+        catch (IndexOutOfRangeException)
+        {
+        }
+        return null;
+    }
+
+    /// <summary>2026-11-03: картинка пригодна? Не с видео/соцсети, настоящая (скачалась, 3 КБ–8 МБ), не мельче 150 пикселей; мельче 300 или с
+    /// вытянутыми сторонами (баннер, листовка) — «сомнительная».</summary>
+    private static async Task<PhotoQuality> CheckImageAsync(string url, CancellationToken ct)
+    {
+        if (IsBlockedSource(url))
+            return PhotoQuality.Bad;
+        var bytes = await DownloadAsync(url, ct).ConfigureAwait(false);
+        if (bytes is not { Length: > 3000 and < 8_000_000 })
+            return PhotoQuality.Bad;
+        if (ReadImageSize(bytes) is { } size && size.Width > 0 && size.Height > 0)
+        {
+            if (Math.Min(size.Width, size.Height) < 150)
+                return PhotoQuality.Bad;
+            var ratio = (double)size.Width / size.Height;
+            if (Math.Min(size.Width, size.Height) < 300 || ratio < 0.6 || ratio > 1.7)
+                return PhotoQuality.Doubtful;
+        }
+        return PhotoQuality.Good;
+    }
 
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> RecentImages = new();
 
@@ -49,7 +173,9 @@ public static class ProductPhotoFinder
         return tiles.Where(t => !t.IsService
                                 && string.IsNullOrWhiteSpace(t.ImageUrl)
                                 && string.IsNullOrWhiteSpace(t.ProductImagePath))
-            .OrderBy(t => t.Title)
+            // 2026-11-03: сначала товары с остатком (по убыванию), потом по названию — самое нужное получает фото первым.
+            .OrderByDescending(t => t.Quantity)
+            .ThenBy(t => t.Title)
             .ToList();
     }
 
@@ -108,35 +234,8 @@ public static class ProductPhotoFinder
             try
             {
                 ct.ThrowIfCancellationRequested();
-                var code = SearchableBarcode(product);
-                if (code is not null)
-                {
-                    foreach (var (name, host) in Sources)
-                    {
-                        var url = await TryFindAsync(host, code, ct).ConfigureAwait(false);
-                        if (url is not null)
-                        {
-                            hits[index] = new Candidate(product, url, name);
-                            break;
-                        }
-                    }
-                    await Task.Delay(150, ct).ConfigureAwait(false);
-                }
-                // 2026-10-05, владелец: «найти фото по названию или штрихкоду в интернете, если в базе нет».
-                hits[index] ??= await TryFindByNameAsync(product, ct).ConfigureAwait(false);
-                // 2026-10-06: первое скачиваемое фото из Яндекс.Картинок (магазины — первыми), с паузой — бережно к Яндексу.
-                if (hits[index] is null && product.Title.Trim().Length >= 3)
-                {
-                    foreach (var y in (await YandexImagesAsync(product.Title, ct).ConfigureAwait(false)).Take(4))
-                        if (await IsRealImageAsync(y.ImageUrl, ct).ConfigureAwait(false))
-                        {
-                            hits[index] = new Candidate(product, y.ImageUrl, "интернет: " + y.Host);
-                            break;
-                        }
-                    await Task.Delay(400, ct).ConfigureAwait(false);
-                }
-                if (hits[index] is null && Interlocked.Decrement(ref webLeft) >= 0)
-                    hits[index] = await TryFindOnWebAsync(product, ct).ConfigureAwait(false);
+                // 2026-11-03: тело поиска одного товара вынесено в SearchOneAsync (его же ищут пачками); интернет-поиск — для первых webLimit.
+                hits[index] = await SearchOneAsync(product, () => Interlocked.Decrement(ref webLeft) >= 0, withDescription: false, ct).ConfigureAwait(false);
             }
             finally
             {
@@ -149,6 +248,133 @@ public static class ProductPhotoFinder
         var notFound = products.Where((_, i) => hits[i] is null).ToList();
         PosLogger.Log($"Фото товаров: найдено {found.Count} из {products.Count} (нет в базах — {notFound.Count}).", "CATALOG");
         return (found, notFound);
+    }
+
+    /// <summary>2026-11-03, владелец: «ищет фото только для 10 товаров из 15 тысяч» — поиск одного товара для пачек (<see cref="PhotoBatchRunner{T,TResult}"/>):
+    /// открытые базы по штрихкоду → по названию → Яндекс.Картинки → (если allowWeb) поиск Google через Gemini; каждый шаг — не чаще лимита в минуту
+    /// (<see cref="RequestPacer"/>). Найденное фото с видео/соцсети не принимается, неточное по названию или мелкое/вытянутое помечается
+    /// <see cref="Candidate.Doubtful"/>. Если найдено фото и в карточке нет описания — ещё и краткое описание из интернета. Кончился лимит ключа
+    /// Gemini — <see cref="PhotoQuotaException"/> (с уже найденным фото внутри).</summary>
+    public static async Task<Candidate?> SearchOneAsync(CatalogProductTileVm product, Func<bool> allowWeb, bool withDescription, CancellationToken ct)
+    {
+        Candidate? hit = null;
+        var code = SearchableBarcode(product);
+        if (code is not null)
+        {
+            foreach (var (name, host) in Sources)
+            {
+                await OffPacer.WaitAsync(ct).ConfigureAwait(false);
+                var url = await TryFindAsync(host, code, ct).ConfigureAwait(false);
+                if (url is null)
+                    continue;
+                var quality = await CheckImageAsync(url, ct).ConfigureAwait(false);
+                if (quality == PhotoQuality.Bad)
+                    continue;
+                // По штрихкоду это точно тот товар; сомнительным фото делают только размер и форма.
+                hit = new Candidate(product, url, name, null, quality == PhotoQuality.Doubtful);
+                break;
+            }
+        }
+        // 2026-10-05, владелец: «найти фото по названию или штрихкоду в интернете, если в базе нет».
+        if (hit is null)
+        {
+            await OffPacer.WaitAsync(ct).ConfigureAwait(false);
+            hit = await TryFindByNameAsync(product, ct).ConfigureAwait(false);
+        }
+        // 2026-10-06: первое скачиваемое фото из Яндекс.Картинок (магазины — первыми). 2026-11-03: первое «уверенное»; если таких нет — первое сомнительное.
+        if (hit is null && product.Title.Trim().Length >= 3)
+        {
+            await YandexPacer.WaitAsync(ct).ConfigureAwait(false);
+            Candidate? weak = null;
+            foreach (var y in (await YandexImagesAsync(product.Title, ct).ConfigureAwait(false)).Take(4))
+            {
+                var quality = await CheckImageAsync(y.ImageUrl, ct).ConfigureAwait(false);
+                if (quality == PhotoQuality.Bad)
+                    continue;
+                var doubtful = quality == PhotoQuality.Doubtful || IsDoubtfulMatch(product.Title, y.Caption);
+                var candidate = new Candidate(product, y.ImageUrl, "интернет: " + y.Host, y.Caption, doubtful);
+                if (!doubtful)
+                {
+                    hit = candidate;
+                    break;
+                }
+                weak ??= candidate;
+            }
+            hit ??= weak;
+        }
+        if (hit is null && allowWeb())
+        {
+            await WebPacer.WaitAsync(ct).ConfigureAwait(false);
+            hit = await TryFindOnWebCoreAsync(product, ct, throwOnQuota: true).ConfigureAwait(false);
+        }
+        if (hit is not null && withDescription && string.IsNullOrWhiteSpace(product.Description) && DescriptionSearchAvailable)
+        {
+            try
+            {
+                await WebPacer.WaitAsync(ct).ConfigureAwait(false);
+                var (text, source) = await FindDescriptionAsync(product, ct, throwOnQuota: true).ConfigureAwait(false);
+                if (text is not null)
+                    hit = hit with { Description = text, DescriptionSource = source };
+            }
+            catch (PhotoQuotaException q)
+            {
+                throw new PhotoQuotaException(q.Message, hit);
+            }
+        }
+        return hit;
+    }
+
+    /// <summary>Можно ли искать описание: ключ ИИ есть, поиск Google сейчас не заблокирован, владелец не выключил отправку названий в интернет (bc.web).</summary>
+    public static bool DescriptionSearchAvailable =>
+        TelegramAiChat.IsConfigured && !TelegramAiChat.WebSearchUnavailable && AdvisorCapabilities.IsOn("bc.web");
+
+    private static bool IsQuotaError(string? error) =>
+        error is not null && (error.Contains("лимит", StringComparison.OrdinalIgnoreCase) || error.Contains("недоступен для этого ключа", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>2026-11-03, владелец: «найди для них фото в интернете и описание… и дополни эти товары». Краткое описание (1–3 предложения, без рекламы)
+    /// по фактам со страниц; источник — первый сайт из поиска. Нет уверенных сведений — (null, null).</summary>
+    public static async Task<(string? Text, string? Source)> FindDescriptionAsync(CatalogProductTileVm product, CancellationToken ct, bool throwOnQuota = false)
+    {
+        var code = SearchableBarcode(product);
+        var question = $"Найди в интернете сведения о товаре «{product.Title}»" + (code is null ? "" : $" (штрихкод {code})")
+                       + ". Напиши одно краткое описание для карточки магазина: 1–3 предложения по-русски — что это за товар, из чего или для чего, объём или вес, если они известны. "
+                       + "Без рекламных слов (лучший, уникальный, выгодно), без цены, без ссылок, без названия магазина. "
+                       + "Если уверенных сведений именно об этом товаре нет — ответь одним словом: Не нашлось.";
+        try
+        {
+            var (answer, sources, error) = await NurMarketKassa.Services.TelegramAiChat.AskWebAsync(
+                "Ты помощник магазина: пишешь краткие описания товаров только по фактам со страниц интернета. Не выдумывай.", question, ct).ConfigureAwait(false);
+            if (answer is null)
+            {
+                PosLogger.Log($"Описание товара «{product.Title}»: не получено ({error}).", "CATALOG");
+                if (throwOnQuota && IsQuotaError(error))
+                    throw new PhotoQuotaException(error!);
+                return (null, null);
+            }
+            var text = CleanDescription(answer);
+            return text is null ? (null, null) : (text, sources.Count > 0 && sources[0].Title.Trim().Length > 0 ? sources[0].Title.Trim() : "интернет");
+        }
+        catch (Exception ex) when (ex is not PhotoQuotaException && (ex is not OperationCanceledException || !ct.IsCancellationRequested))
+        {
+            PosLogger.Log($"Описание товара «{product.Title}»: поиск прерван ({ex.Message}).", "CATALOG");
+            return (null, null);
+        }
+    }
+
+    private static string? CleanDescription(string answer)
+    {
+        var t = Regex.Replace(answer, @"https?://\S+", "");
+        t = Regex.Replace(t, @"\[\d+(?:\s*,\s*\d+)*\]", "");
+        t = Regex.Replace(t, @"[*_#`>]+", "");
+        t = Regex.Replace(t, @"\s+", " ").Trim();
+        if (t.Length < 20 || (t.Contains("не нашлось", StringComparison.OrdinalIgnoreCase) && t.Length < 80))
+            return null;
+        if (t.Length > 400)
+        {
+            var cut = t.LastIndexOfAny(new[] { '.', '!', '?' }, 399);
+            t = cut > 120 ? t[..(cut + 1)] : t[..400].TrimEnd() + "…";
+        }
+        return t;
     }
 
     private static async Task<string?> TryFindAsync(string host, string code, CancellationToken ct)
@@ -197,7 +423,7 @@ public static class ProductPhotoFinder
                 var name = p.TryGetProperty("product_name", out var n) ? (n.GetString() ?? "").ToLowerInvariant() : "";
                 if (p.TryGetProperty("image_front_url", out var img) && img.GetString() is { Length: > 10 } image
                     && image.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && words.Any(name.Contains))
-                    return new Candidate(product, image, "Open Food Facts (по названию)");
+                    return new Candidate(product, image, "Open Food Facts (по названию)", name, IsDoubtfulMatch(title, name)); // 2026-11-03: совпало мало слов — «проверьте»
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
@@ -209,7 +435,10 @@ public static class ProductPhotoFinder
 
     /// <summary>Интернет: поиск Google через Gemini находит страницы товара, на странице берём его фото (og:image) или
     /// прямую ссылку на картинку; картинка проверяется скачиванием (это действительно изображение, не меньше 3 КБ).</summary>
-    public static async Task<Candidate?> TryFindOnWebAsync(CatalogProductTileVm product, CancellationToken ct)
+    public static Task<Candidate?> TryFindOnWebAsync(CatalogProductTileVm product, CancellationToken ct) => TryFindOnWebCoreAsync(product, ct, throwOnQuota: false);
+
+    /// <summary>2026-11-03: throwOnQuota — лимит ключа Gemini поднимает <see cref="PhotoQuotaException"/> (пачки останавливаются), а не «не найдено».</summary>
+    private static async Task<Candidate?> TryFindOnWebCoreAsync(CatalogProductTileVm product, CancellationToken ct, bool throwOnQuota)
     {
         var code = SearchableBarcode(product);
         var question = $"Найди в интернете фотографию товара «{product.Title}»" + (code is null ? "" : $" (штрихкод {code})")
@@ -222,22 +451,34 @@ public static class ProductPhotoFinder
             if (answer is null && sources.Count == 0)
             {
                 PosLogger.Log($"Фото товара «{product.Title}»: поиск в интернете не удался ({error}).", "CATALOG");
+                if (throwOnQuota && IsQuotaError(error))
+                    throw new PhotoQuotaException(error!);
                 return null;
             }
             var urls = Regex.Matches(answer ?? "", @"https?://[^\s<>()""'\]]+").Select(m => m.Value.TrimEnd('.', ',', ';'))
                 .Concat(sources.Select(x => x.Uri)).Distinct().Take(8).ToList();
+            // 2026-11-03: первая «уверенная» картинка (подпись страницы совпадает с названием); нет такой — первая сомнительная.
+            Candidate? weak = null;
             foreach (var url in urls)
             {
                 ct.ThrowIfCancellationRequested();
                 var image = await ResolveImageAsync(url, ct).ConfigureAwait(false);
-                if (image is not null)
-                {
-                    var host = Uri.TryCreate(image.Value.PageUrl, UriKind.Absolute, out var u) ? u.Host.Replace("www.", "") : "интернет";
-                    return new Candidate(product, image.Value.ImageUrl, "интернет: " + host);
-                }
+                if (image is null)
+                    continue;
+                var quality = await CheckImageAsync(image.Value.ImageUrl, ct).ConfigureAwait(false);
+                if (quality == PhotoQuality.Bad)
+                    continue;
+                var host = Uri.TryCreate(image.Value.PageUrl, UriKind.Absolute, out var u) ? u.Host.Replace("www.", "") : "интернет";
+                var caption = image.Value.Title + " " + Uri.UnescapeDataString(image.Value.ImageUrl);
+                var doubtful = quality == PhotoQuality.Doubtful || IsDoubtfulMatch(product.Title, caption);
+                var candidate = new Candidate(product, image.Value.ImageUrl, "интернет: " + host, caption, doubtful);
+                if (!doubtful)
+                    return candidate;
+                weak ??= candidate;
             }
+            return weak;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        catch (Exception ex) when (ex is not PhotoQuotaException && (ex is not OperationCanceledException || !ct.IsCancellationRequested))
         {
             PosLogger.Log($"Фото товара «{product.Title}»: поиск в интернете прерван ({ex.Message}).", "CATALOG");
         }
@@ -304,9 +545,9 @@ public static class ProductPhotoFinder
 
     /// <summary>2026-10-06: Яндекс.Картинки — прямые ссылки на фото (origUrl) и сайт, где фото нашлось. Фото из отзывов
     /// (otzovik, irecommend — снято в руке, с фоном) — в конец списка, магазины — первыми. Капча или ошибка — пусто.</summary>
-    private static async Task<List<(string ImageUrl, string Host)>> YandexImagesAsync(string query, CancellationToken ct)
+    private static async Task<List<(string ImageUrl, string Host, string Caption)>> YandexImagesAsync(string query, CancellationToken ct)
     {
-        var result = new List<(string ImageUrl, string Host)>();
+        var result = new List<(string ImageUrl, string Host, string Caption)>();
         var scores = new Dictionary<string, int>();
         // 2026-10-07, владелец: «неточность в поиске в интернете — не находит или неправильно показывает фото». Слова названия
         // (без веса и объёма вроде «50г», «450гр»); фото, у которого в подписи и адресе страницы нет ни одного из них, — отбрасываем,
@@ -339,9 +580,12 @@ public static class ProductPhotoFinder
                 var head = html.Substring(Math.Max(0, m.Index - 700), Math.Min(700, m.Index));
                 var alt = Regex.Matches(head, @"""alt"":""([^""]*)""").Select(x => x.Groups[1].Value).LastOrDefault() ?? "";
                 var about = (title + " " + alt + " " + Uri.UnescapeDataString(hostUrl) + " " + image).ToLowerInvariant();
+                // 2026-11-03: видео и соцсети (кадры, аватарки) — не фото товара.
+                if (IsBlockedSource(image) || IsBlockedSource(hostUrl))
+                    continue;
                 if (result.All(r => r.ImageUrl != image))
                 {
-                    result.Add((image, host));
+                    result.Add((image, host, about));
                     // Магазин («купить», Ozon, Маркет) — выше; фотобанк (рисунки, силуэты, «работ на тему») — ниже.
                     var shop = new[] { "купить", "магазин", "ozon", "market", "wildberries", "lavka", "korzinka", "globus", "цена" }.Any(about.Contains) ? 1 : 0;
                     var stock = new[] { "freepik", "shutterstock", "depositphotos", "istock", "vecteezy", "pngtree", "dreamstime", "работ на тему", "вектор", "силуэт", "clipart" }.Any(about.Contains) ? 2 : 0;
@@ -364,17 +608,21 @@ public static class ProductPhotoFinder
     }
 
     /// <summary>Ссылка → картинка: если это изображение — оно; если страница — её og:image / twitter:image.</summary>
-    private static async Task<(string ImageUrl, string PageUrl)?> ResolveImageAsync(string url, CancellationToken ct)
+    private static async Task<(string ImageUrl, string PageUrl, string Title)?> ResolveImageAsync(string url, CancellationToken ct)
     {
+        if (IsBlockedSource(url))
+            return null;
         try
         {
             using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 return null;
             var finalUrl = response.RequestMessage?.RequestUri?.ToString() ?? url;
+            if (IsBlockedSource(finalUrl)) // 2026-11-03: ссылка поиска могла привести на YouTube/соцсеть
+                return null;
             var type = response.Content.Headers.ContentType?.MediaType ?? "";
             if (type.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-                return await IsRealImageAsync(finalUrl, ct).ConfigureAwait(false) ? (finalUrl, finalUrl) : null;
+                return await IsRealImageAsync(finalUrl, ct).ConfigureAwait(false) ? (finalUrl, finalUrl, "") : null;
             if (!type.Contains("html", StringComparison.OrdinalIgnoreCase))
                 return null;
             await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
@@ -382,6 +630,11 @@ public static class ProductPhotoFinder
             using var reader = new StreamReader(stream);
             var read = await reader.ReadBlockAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
             var html = new string(buffer, 0, read);
+            // 2026-11-03: подпись страницы (og:title или <title>) — по ней сверяется название товара.
+            var pageTitle = System.Net.WebUtility.HtmlDecode(
+                Regex.Match(html, @"<meta[^>]+property=[""']og:title[""'][^>]+content=[""']([^""']+)", RegexOptions.IgnoreCase).Groups[1].Value is { Length: > 0 } og
+                    ? og
+                    : Regex.Match(html, @"<title[^>]*>(.*?)</title>", RegexOptions.IgnoreCase | RegexOptions.Singleline).Groups[1].Value).Trim();
             foreach (var pattern in new[]
                      {
                          @"<meta[^>]+property=[""']og:image(?::secure_url)?[""'][^>]+content=[""']([^""']+)",
@@ -396,7 +649,7 @@ public static class ProductPhotoFinder
                 if (!Uri.TryCreate(new Uri(finalUrl), raw, out var abs) || abs.Scheme != Uri.UriSchemeHttps)
                     continue;
                 if (await IsRealImageAsync(abs.ToString(), ct).ConfigureAwait(false))
-                    return (abs.ToString(), finalUrl);
+                    return (abs.ToString(), finalUrl, pageTitle);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
@@ -406,11 +659,8 @@ public static class ProductPhotoFinder
         return null;
     }
 
-    private static async Task<bool> IsRealImageAsync(string url, CancellationToken ct)
-    {
-        var bytes = await DownloadAsync(url, ct).ConfigureAwait(false);
-        return bytes is { Length: > 3000 and < 8_000_000 };
-    }
+    private static async Task<bool> IsRealImageAsync(string url, CancellationToken ct) =>
+        await CheckImageAsync(url, ct).ConfigureAwait(false) != PhotoQuality.Bad; // 2026-11-03: + не с видео/соцсети, не мельче 150 px
 
     /// <summary>Скачать картинку для предпросмотра (байты).</summary>
     public static async Task<byte[]?> DownloadAsync(string url, CancellationToken ct)
@@ -478,6 +728,27 @@ public static class ProductPhotoFinder
             return false;
         await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => product.ProductImagePath = file);
         PosLogger.Log($"Фото товара «{product.Title}» загружено ({how}).", "CATALOG");
+        // 2026-11-03: поставленное запоминается — поиск пачками такой товар больше не берёт (до обновления каталога у плитки ещё нет ImageUrl).
+        PhotoSearchMemory.Instance.Mark(product.Id, PhotoSearchMemory.Set);
+        PhotoSearchMemory.Instance.Save();
+        return true;
+    }
+
+    /// <summary>2026-11-03: поставить найденное описание — только если на сервере у товара описание пустое (существующее НЕ затираем; не смогли
+    /// прочитать карточку — не пишем). false — описания нет, оно уже было или сервер не принял.</summary>
+    public static async Task<bool> ApplyDescriptionAsync(Candidate candidate, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(candidate.Description) || string.IsNullOrEmpty(candidate.Product.Id))
+            return false;
+        var api = App.GetRequiredService<ICatalogApiService>();
+        var detail = await api.ProductsDetailAsync(candidate.Product.Id, ct).ConfigureAwait(false);
+        if (detail is not { ValueKind: JsonValueKind.Object } card)
+            return false;
+        if (card.TryGetProperty("description", out var current) && current.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(current.GetString()))
+            return false;
+        await api.PatchProductFieldsAsync(candidate.Product.Id, new Dictionary<string, object?> { ["description"] = candidate.Description!.Trim() }, ct).ConfigureAwait(false);
+        candidate.Product.Description = candidate.Description!.Trim();
+        PosLogger.Log($"Описание товара «{candidate.Product.Title}» поставлено (источник: {candidate.DescriptionSource}).", "CATALOG");
         return true;
     }
 }

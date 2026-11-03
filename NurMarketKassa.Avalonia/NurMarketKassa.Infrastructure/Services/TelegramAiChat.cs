@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using NurMarketKassa.Services.InvoiceImport;
 
 namespace NurMarketKassa.Services;
 
@@ -171,6 +172,26 @@ public static class TelegramAiChat
                         "Not enough data for an exact answer — open the relevant section of the program or ask a narrower question.",
                         "Kesin yanıt için veri yetmedi — programın ilgili bölümünü açın veya soruyu daraltın.",
                         "Aniq javob uchun ma'lumot yetmadi — dasturning kerakli bo'limini oching yoki savolni aniqroq bering.");
+            }
+
+            // 2026-11-03: чтение накладной по фото — второй проход для строк, где количество × цена ≠ сумма строки в документе (один дополнительный запрос).
+            if (answer is not null && QuestionImage.Value is not null && AiKey is { Length: > 0 } passKey)
+            {
+                try
+                {
+                    using var pass = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    pass.CancelAfter(TimeSpan.FromSeconds(50));
+                    var second = System.Diagnostics.Stopwatch.StartNew();
+                    var (corrected, passRows, passApplied) = await InvoiceReadingAid.SecondPassAsync(answer, null,
+                        async (sys, q, c) => (await GenerateAsync(passKey, sys, new List<(string, string)>(), q, c).ConfigureAwait(false)).Answer, pass.Token).ConfigureAwait(false);
+                    if (passRows > 0)
+                        timings.Append($"второй проход по накладной ({passRows} строк{(passApplied ? ", исправлено" : "")}) {second.ElapsedMilliseconds} мс; ");
+                    answer = corrected;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+                {
+                    PosLogger.Log($"ИИ: второй проход по накладной не удался: {ex.GetType().Name}.", "WARNING");
+                }
             }
 
             // 2026-10-05: у бесплатного ключа Gemini поиска Google нет — тогда ищет Groq (в Groq уходит только запрос, без сводки).
@@ -344,7 +365,8 @@ public static class TelegramAiChat
         if (access.Clients && AdvisorCapabilities.IsOn("rem.debtors") && NeedsRemindRules(question ?? ""))
             rules.Append(' ').Append(RemindRules);
         if (image && access.Products && AdvisorCapabilities.IsOn("inv.read"))
-            rules.Append("\n").Append(ProductActionPlan.PhotoPromptText).Append(' ').Append(InvoiceException);
+            // 2026-11-03: словарь товаров склада и память поставщиков — подсказка для неразборчивого (рукописного) почерка.
+            rules.Append("\n").Append(ProductActionPlan.PhotoPromptText).Append(InvoiceReadingAid.DictionaryHint()).Append(' ').Append(InvoiceException);
         if (groqSearch)
             rules.Append('\n').Append(GroqSearchHint);
         // 2026-10-27, жалоба владельца («ИИ открывает не те разделы и врёт „открыла“»): переходы выполняет программа сама и сообщает результат;

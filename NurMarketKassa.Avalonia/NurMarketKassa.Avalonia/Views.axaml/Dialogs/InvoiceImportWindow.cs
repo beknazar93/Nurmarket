@@ -83,6 +83,10 @@ public sealed class InvoiceImportWindow : Window
     private readonly TextBlock _summary = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap };
     private readonly Button _add;
     private readonly Button _columns = new() { MinHeight = 44 };
+    // 2026-11-03: «Подобрать ИИ» — для строк «Новый» ИИ предлагает похожий товар склада (с подтверждением кассира).
+    private readonly Button _aiPick = new() { MinHeight = 44 };
+    private readonly TextBlock _aiNote = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+    private CancellationTokenSource? _aiCts;
     private InvoiceImportEntry? _duplicate;
     private DataGridColumn? _colName, _colBarcode, _colUnit;
     private bool _barcodeEditing;
@@ -122,6 +126,7 @@ public sealed class InvoiceImportWindow : Window
         Add(_numberBox, 10);
         Add(_dateBox, 14);
         Add(_columns, 10);
+        Add(_aiPick, 10);
         Add(_optionsToggle, 0);
 
         _supplierPanel.Bind(Border.BackgroundProperty, _supplierPanel.GetResourceObservable("BrushPanelSoft"));
@@ -159,7 +164,8 @@ public sealed class InvoiceImportWindow : Window
         _duplicateText.Bind(TextBlock.ForegroundProperty, _duplicateText.GetResourceObservable("BrushDangerOnSoft"));
         _duplicateBox.Child = new StackPanel { Children = { _duplicateText, _duplicateOverride } };
 
-        var top = new StackPanel { Spacing = 2, Children = { header, _supplierPanel, _supplierNote, _optionsRow, _duplicateBox, _warningsBox } };
+        _aiNote.Bind(TextBlock.ForegroundProperty, _aiNote.GetResourceObservable("BrushTextSoft"));
+        var top = new StackPanel { Spacing = 2, Children = { header, _supplierPanel, _supplierNote, _aiNote, _optionsRow, _duplicateBox, _warningsBox } };
         _top = top;
         _grid.Margin = new Thickness(0, 6, 0, 0);
         _grid.MinHeight = 170;
@@ -236,6 +242,8 @@ public sealed class InvoiceImportWindow : Window
         _optionsToggle.Classes.Add("modal-ghost");
         _columns.Content = T("Столбцы…", "Мамычалар…", "Columns…", "Sütunlar…", "Ustunlar…");
         _columns.IsVisible = _req.RemapColumns is not null;
+        _aiPick.Classes.Add("modal-secondary");
+        UpdateAiButton();
         _numberBox.Text = _plan.Document.Header.Number;
         _dateBox.Text = _plan.Document.Header.Date?.ToString("dd.MM.yyyy", Ru) ?? "";
         _numberBox.Watermark = T("номер накладной", "накладной номери", "invoice number", "fatura numarası", "yuk xati raqami");
@@ -303,16 +311,16 @@ public sealed class InvoiceImportWindow : Window
 
         _grid.Columns.Add(new DataGridTemplateColumn
         {
-            Header = H(T("Статус", "Статус", "Status", "Durum", "Holat")), Width = new DataGridLength(184), IsReadOnly = true,
+            Header = H(T("Статус", "Статус", "Status", "Durum", "Holat")), Width = new DataGridLength(236), IsReadOnly = true,
             CellTemplate = new FuncDataTemplate<InvoicePlanRow>((_, _) => new StatusCell(r =>
             {
-                r.Confirm();
+                _plan.Confirm(r); // 2026-11-03: через план — запоминает соответствие и склеивает с такой же строкой того же товара
                 RefreshSummary();
             }, r =>
             {
-                r.MakeNew(_plan.BuildNewLine);
+                _plan.MakeNew(r);
                 RefreshSummary();
-            }), supportsRecycling: false),
+            }, ShowPickMenu), supportsRecycling: false),
         });
         _colName = new DataGridTemplateColumn
         {
@@ -366,20 +374,27 @@ public sealed class InvoiceImportWindow : Window
         private readonly TextBlock _text = new() { FontSize = 12.5, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 4, 0) };
         private readonly Button _confirm;
         private readonly Button _other;
+        private readonly Button _pick;
 
-        public StatusCell(Action<InvoicePlanRow> onConfirm, Action<InvoicePlanRow> onOther)
+        public StatusCell(Action<InvoicePlanRow> onConfirm, Action<InvoicePlanRow> onOther, Action<InvoicePlanRow, Control> onPick)
         {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto");
+            ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto");
             _confirm = Small("✓", T("Это он — подтвердить", "Ушул эле — ырастоо", "That's it — confirm", "Bu o — onayla", "Aynan shu — tasdiqlash"));
             _other = Small("≠", T("Это другой товар — создать новым", "Бул башка товар — жаңы кылып түзүү", "A different product — create as new", "Başka bir ürün — yeni olarak oluştur", "Boshqa mahsulot — yangi qilib yaratish"));
+            // 2026-11-03: «▾» — другие похожие товары (до 5), «Новый товар», «Забыть соответствие», «Пропустить».
+            _pick = Small("▾", T("Выбрать другой товар из похожих, новый товар или пропустить", "Окшоштордон башка товар тандоо, жаңы товар же өткөрүп жиберүү", "Pick another similar item, a new item, or skip",
+                "Benzerlerden başka ürün seç, yeni ürün veya atla", "O'xshashlardan boshqa mahsulot tanlash, yangi mahsulot yoki o'tkazib yuborish"));
             _confirm.Click += (_, _) => { if (_row is not null) onConfirm(_row); };
             _other.Click += (_, _) => { if (_row is not null) onOther(_row); };
+            _pick.Click += (_, _) => { if (_row is not null) onPick(_row, _pick); };
             SetColumn(_text, 0);
             SetColumn(_confirm, 1);
             SetColumn(_other, 2);
+            SetColumn(_pick, 3);
             Children.Add(_text);
             Children.Add(_confirm);
             Children.Add(_other);
+            Children.Add(_pick);
         }
 
         private static Button Small(string text, string tip)
@@ -425,6 +440,7 @@ public sealed class InvoiceImportWindow : Window
             _text.Text = _row.StatusText;
             _confirm.IsVisible = _row.NeedsConfirm;
             _other.IsVisible = _row.CanDecide;
+            _pick.IsVisible = _row.CanPick;
             if (this.TryFindResource(_row.StatusBrushKey, ActualThemeVariant, out var brush) && brush is IBrush b)
                 _text.Foreground = b;
         }
@@ -463,6 +479,129 @@ public sealed class InvoiceImportWindow : Window
             }
         };
         return remove;
+    }
+
+    // ------------------------------------------------------------------ выбор другого товара и «Подобрать ИИ» (2026-11-03)
+
+    private void ShowPickMenu(InvoicePlanRow row, Control anchor)
+    {
+        _grid.CommitEdit();
+        var flyout = new MenuFlyout { Placement = Avalonia.Controls.PlacementMode.BottomEdgeAlignedLeft };
+        void AddItem(string header, Action act)
+        {
+            var item = new MenuItem { Header = header, MinHeight = 44 };
+            item.Click += (_, _) => act();
+            flyout.Items.Add(item);
+        }
+        var current = row.IsFound ? row.Match.Tile : null;
+        foreach (var c in row.Alternatives.Where(c => !ReferenceEquals(c.Tile, current)))
+        {
+            var candidate = c;
+            AddItem("≈ " + row.CandidateText(candidate), () =>
+            {
+                _plan.ChooseCandidate(row, candidate);
+                RefreshSummary();
+            });
+        }
+        if (row.IsFound && row.CanDecide)
+            AddItem(T("Новый товар — это не он", "Жаңы товар — бул ал эмес", "New item — this is not it", "Yeni ürün — bu o değil", "Yangi mahsulot — bu u emas"), () =>
+            {
+                _plan.MakeNew(row);
+                RefreshSummary();
+            });
+        if (row.Match.Kind == InvoiceMatchKind.Memory)
+            AddItem(T("Забыть соответствие (поставщик)", "Дал келүүнү унутуу (жеткирүүчү)", "Forget this match (supplier)", "Eşleşmeyi unut (tedarikçi)", "Moslikni unutish (yetkazib beruvchi)"), () =>
+            {
+                _plan.ForgetMemory(row);
+                RefreshSummary();
+            });
+        flyout.Items.Add(new Separator());
+        AddItem(T("Пропустить строку (убрать)", "Сапты өткөрүп жиберүү (алып салуу)", "Skip the line (remove)", "Satırı atla (kaldır)", "Qatorni o'tkazib yuborish (olib tashlash)"), () =>
+        {
+            _plan.Rows.Remove(row);
+            RefreshSummary();
+            Dispatcher.UIThread.Post(Refit, DispatcherPriority.Background);
+        });
+        flyout.ShowAt(anchor);
+    }
+
+    private void UpdateAiButton()
+    {
+        var running = _aiCts is not null;
+        var available = InvoiceAiPicker.IsAvailable(out var hint);
+        _aiPick.Content = running ? T("Остановить ИИ", "ЖИни токтотуу", "Stop AI", "YZ'yi durdur", "SI ni to'xtatish") : T("Подобрать ИИ", "ЖИ менен тандоо", "Match with AI", "YZ ile eşleştir", "SI bilan tanlash");
+        _aiPick.IsEnabled = available || running;
+        ToolTip.SetTip(_aiPick, available
+            ? T("ИИ предложит похожий товар склада для строк «Новый». Ничего не записывается без вашего подтверждения.", "ЖИ «Жаңы» саптар үчүн кампадан окшош товарды сунуштайт. Сиздин ырастооңузсуз эч нерсе жазылбайт.",
+                "The AI suggests a similar stock item for “New” lines. Nothing is applied without your confirmation.", "YZ «Yeni» satırlar için benzer depo ürününü önerir. Onayınız olmadan hiçbir şey yazılmaz.",
+                "SI «Yangi» qatorlar uchun omborda o'xshash mahsulotni taklif qiladi. Tasdiqlashingizsiz hech narsa yozilmaydi.")
+            : hint);
+        Avalonia.Automation.AutomationProperties.SetName(_aiPick, _aiPick.Content?.ToString());
+    }
+
+    private async Task RunAiPickAsync()
+    {
+        if (_aiCts is not null)
+        {
+            _aiCts.Cancel();
+            return;
+        }
+        _grid.CommitEdit();
+        var rows = InvoiceAiPicker.Eligible(_plan);
+        if (rows.Count == 0)
+        {
+            _aiNote.Text = T("Нет строк «Новый», которые нужно подбирать.", "Подбирать керек «Жаңы» саптар жок.", "No “New” lines to match.", "Eşleştirilecek «Yeni» satır yok.", "Tanlash kerak bo'lgan «Yangi» qatorlar yo'q.");
+            _aiNote.IsVisible = true;
+            return;
+        }
+        var cts = _aiCts = new CancellationTokenSource();
+        UpdateAiButton();
+        _aiNote.IsVisible = true;
+        _aiNote.Text = T($"ИИ подбирает: 0 из {rows.Count}…", $"ЖИ тандап жатат: 0 / {rows.Count}…", $"AI is matching: 0 of {rows.Count}…", $"YZ eşleştiriyor: 0 / {rows.Count}…", $"SI tanlayapti: 0 / {rows.Count}…");
+        var plan = _plan;
+        try
+        {
+            var result = await Task.Run(() => InvoiceAiPicker.RunAsync(plan, rows, (row, pick) => Dispatcher.UIThread.Post(() =>
+            {
+                // План мог смениться (сопоставление столбцов) или строку убрали — тогда ответ ИИ не применяем.
+                if (!ReferenceEquals(plan, _plan) || pick is null || !plan.Rows.Contains(row) || !row.IsNew)
+                    return;
+                plan.ChooseCandidate(row, new InvoiceCandidate(pick.Tile, 0.7), InvoiceMatchKind.Ai, pick.Reason);
+                RefreshSummary();
+            }), (done, total) => Dispatcher.UIThread.Post(() =>
+            {
+                if (!cts.IsCancellationRequested)
+                    _aiNote.Text = T($"ИИ подбирает: {done} из {total}…", $"ЖИ тандап жатат: {done} / {total}…", $"AI is matching: {done} of {total}…", $"YZ eşleştiriyor: {done} / {total}…", $"SI tanlayapti: {done} / {total}…");
+            }), cts.Token)).ConfigureAwait(true);
+            _aiNote.Text = cts.IsCancellationRequested
+                ? T("Подбор ИИ остановлен.", "ЖИ тандоо токтотулду.", "AI matching stopped.", "YZ eşleştirmesi durduruldu.", "SI tanlashi to'xtatildi.")
+                : result.Picked > 0
+                    ? T($"ИИ предложил товар для {result.Picked} строк — проверьте и нажмите «✓» у каждой.", $"ЖИ {result.Picked} сап үчүн товар сунуштады — текшерип, ар биринде «✓» басыңыз.",
+                        $"The AI suggested items for {result.Picked} lines — check each and press “✓”.", $"YZ {result.Picked} satır için ürün önerdi — her birini kontrol edip «✓» basın.", $"SI {result.Picked} qator uchun mahsulot taklif qildi — har birini tekshirib «✓» bosing.")
+                    : result.NoAnswer > 0 && result.NoAnswer >= rows.Count
+                        ? T("ИИ не ответил (нет связи или лимит) — повторите позже.", "ЖИ жооп берген жок (байланыш жок же лимит) — кийинчерээк кайталаңыз.", "The AI did not answer (no connection or limit) — try again later.",
+                            "YZ yanıt vermedi (bağlantı yok veya limit) — daha sonra tekrar deneyin.", "SI javob bermadi (aloqa yo'q yoki limit) — keyinroq urinib ko'ring.")
+                        : T("ИИ не нашёл подходящих товаров — строки остаются новыми.", "ЖИ ылайыктуу товар тапкан жок — саптар жаңы бойдон калат.", "The AI found no matching items — the lines stay new.",
+                            "YZ uygun ürün bulamadı — satırlar yeni kalıyor.", "SI mos mahsulot topmadi — qatorlar yangi bo'lib qoladi.");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"INVOICE_IMPORT: ИИ-подбор прерван: {ex.GetType().Name}.", "WARNING");
+            _aiNote.Text = T("ИИ-подбор не удался — повторите позже.", "ЖИ тандоо ишке ашкан жок — кийинчерээк кайталаңыз.", "AI matching failed — try again later.", "YZ eşleştirmesi başarısız — daha sonra deneyin.", "SI tanlashi muvaffaqiyatsiz — keyinroq urinib ko'ring.");
+        }
+        finally
+        {
+            _aiCts = null;
+            cts.Dispose();
+            UpdateAiButton();
+            RefreshSummary();
+        }
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _aiCts?.Cancel();
+        base.OnClosed(e);
     }
 
     // ------------------------------------------------------------------ события
@@ -538,6 +677,7 @@ public sealed class InvoiceImportWindow : Window
             UpdateOptionsToggle();
             Dispatcher.UIThread.Post(Refit, DispatcherPriority.Loaded);
         };
+        _aiPick.Click += async (_, _) => await RunAiPickAsync().ConfigureAwait(true);
         _columns.Click += async (_, _) =>
         {
             if (_req.RemapColumns is null)
@@ -739,6 +879,7 @@ public sealed class InvoiceImportWindow : Window
         var lines = _plan.ToReceivingLines(_req.TakenCodes());
         if (lines.Count == 0)
             return;
+        _plan.CommitMemory(); // 2026-11-03: подтверждённые «похожие» запоминаются для этого поставщика
         var totals = _plan.Totals();
         var h = _plan.Document.Header;
         Chosen = new Result(lines, _supplier, (_numberBox.Text ?? "").Trim(), ParsedDate, totals.LinesTotal, _plan.UnrecognizedCount,

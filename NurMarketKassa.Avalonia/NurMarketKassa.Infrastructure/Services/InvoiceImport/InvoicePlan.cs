@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using NurMarketKassa.Models;
 using NurMarketKassa.Models.Pos;
@@ -18,6 +19,9 @@ public enum InvoiceRowStatus
     FoundArticle,
     FoundName,
     FoundFuzzy,
+
+    /// <summary>2026-11-03: найден по памяти поставщика (InvoiceMatchMemory) — подтверждение не нужно.</summary>
+    FoundMemory,
     NewFromDirectory,
     NewManual,
     Unrecognized,
@@ -36,17 +40,28 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
         _status = status;
         Directory = directory;
         UnitWarning = !string.IsNullOrWhiteSpace(line.ProductId) && InvoiceUnits.Differ(item.Unit, line.OriginalUnit);
-        line.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(ReceivingLineVm.Quantity) or nameof(ReceivingLineVm.ProductName) or nameof(ReceivingLineVm.PurchasePrice))
-                Reevaluate();
-        };
+        line.PropertyChanged += OnLineChanged;
+    }
+
+    private void OnLineChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ReceivingLineVm.Quantity) or nameof(ReceivingLineVm.ProductName) or nameof(ReceivingLineVm.PurchasePrice))
+            Reevaluate();
     }
 
     public InvoiceItem Item { get; }
     public InvoiceMatch Match { get; private set; }
     public ReceivingLineVm Line { get; private set; }
-    public GlobalProductInfo? Directory { get; }
+    public GlobalProductInfo? Directory { get; private set; }
+
+    /// <summary>2026-11-03: строку убрали слиянием с другой (тот же товар и цена) — её соответствие названию всё равно запоминается.</summary>
+    public bool MergedAway { get; internal set; }
+
+    /// <summary>2026-11-03: до 5 похожих товаров склада (первый — текущий, если строка «Найден»).</summary>
+    public IReadOnlyList<InvoiceCandidate> Alternatives => Match.Alternatives;
+
+    /// <summary>2026-11-03: у строки можно выбрать другой товар из списка / «Новый товар» / «Забыть соответствие» (кнопка «▾» в ячейке статуса).</summary>
+    public bool CanPick => (IsFound && CanDecide) || (IsNew && Match.Alternatives.Count > 0);
 
     /// <summary>Номера строк файла, склеенные в эту строку (повтор того же товара).</summary>
     public List<int> MergedFrom { get; } = [];
@@ -75,7 +90,7 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
         }
     }
 
-    public bool IsFound => Status is InvoiceRowStatus.FoundBarcode or InvoiceRowStatus.FoundArticle or InvoiceRowStatus.FoundName or InvoiceRowStatus.FoundFuzzy;
+    public bool IsFound => Status is InvoiceRowStatus.FoundBarcode or InvoiceRowStatus.FoundArticle or InvoiceRowStatus.FoundName or InvoiceRowStatus.FoundFuzzy or InvoiceRowStatus.FoundMemory;
     public bool IsNew => Status is InvoiceRowStatus.NewFromDirectory or InvoiceRowStatus.NewManual;
     public bool Included => Status != InvoiceRowStatus.Unrecognized;
 
@@ -87,7 +102,8 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
     public bool NeedsConfirm => IsFound && (Match.NeedsConfirm || UnitWarning) && !Confirmed;
 
     /// <summary>Можно нажать «Это не тот товар» / «Это он» (найден неточно).</summary>
-    public bool CanDecide => IsFound && (Match.NeedsConfirm || UnitWarning);
+    // 2026-11-03: найденное по памяти поставщика тоже можно изменить («≠», «▾»), хотя подтверждения оно не требует.
+    public bool CanDecide => IsFound && (Match.NeedsConfirm || UnitWarning || Match.Kind == InvoiceMatchKind.Memory);
 
     /// <summary>Название строки в накладной (нет его в файле — из справочника NurCRM).</summary>
     public string InvoiceName => string.IsNullOrWhiteSpace(Item.Name) ? (Directory?.Name ?? "") : Item.Name;
@@ -100,6 +116,13 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
             var parts = new List<string>();
             if (IsFound && Match.Tile is { } t && !string.Equals(t.Title, Item.Name, StringComparison.OrdinalIgnoreCase) && Item.Name.Length > 0)
                 parts.Add(Tr.T("в накладной: ", "накладнойдо: ", "on the invoice: ", "faturada: ", "yuk xatida: ") + Item.Name);
+            // 2026-11-03: чем найденный товар отличается от строки накладной (остаток, закупка в карточке), память поставщика и пояснение ИИ.
+            if (IsFound && Match.Kind == InvoiceMatchKind.Memory)
+                parts.Add(Tr.T("по памяти поставщика (можно изменить)", "жеткирүүчүнүн эстутуму боюнча (өзгөртсө болот)", "from the supplier memory (you can change it)", "tedarikçi hafızasından (değiştirilebilir)", "yetkazib beruvchi xotirasidan (o'zgartirish mumkin)"));
+            if (IsFound && Match.Kind == InvoiceMatchKind.Ai && Match.Reason.Length > 0)
+                parts.Add(Tr.T("ИИ: ", "ЖИ: ", "AI: ", "YZ: ", "SI: ") + Match.Reason);
+            if (IsFound && Match.Tile is { } found && Match.Kind is InvoiceMatchKind.Fuzzy or InvoiceMatchKind.Ai && !Confirmed)
+                parts.Add(DifferenceNote(found));
             if (UnitWarning && IsFound)
                 parts.Add(Tr.T($"⚠ единица в накладной «{Item.Unit}», в карточке «{Line.OriginalUnit}» — проверьте количество и цену (не цена ли это упаковки)",
                     $"⚠ накладнойдо бирдик «{Item.Unit}», карточкада «{Line.OriginalUnit}» — санын жана баасын текшериңиз (таңгактын баасы эмеспи)",
@@ -115,6 +138,35 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
                     $"birleşen satırlar {string.Join(", ", MergedFrom)}", $"qo'shilgan qatorlar {string.Join(", ", MergedFrom)}"));
             return string.Join(" · ", parts);
         }
+    }
+
+    /// <summary>Остаток и закупка найденного товара против строки накладной — чтобы кассир видел разницу, а не только процент.</summary>
+    public string DifferenceNote(CatalogProductTileVm tile)
+    {
+        var invoicePrice = Line.PurchasePrice;
+        var stock = tile.Quantity.ToString("0.###", CultureInfo.CurrentCulture);
+        var text = tile.PurchasePrice > 0
+            ? Tr.T($"в карточке: остаток {stock}, закупка {tile.PurchasePrice:0.##}", $"карточкада: калдык {stock}, сатып алуу {tile.PurchasePrice:0.##}", $"on the card: stock {stock}, purchase {tile.PurchasePrice:0.##}",
+                $"kartta: stok {stock}, alış {tile.PurchasePrice:0.##}", $"kartada: qoldiq {stock}, xarid {tile.PurchasePrice:0.##}")
+            : Tr.T($"в карточке: остаток {stock}", $"карточкада: калдык {stock}", $"on the card: stock {stock}", $"kartta: stok {stock}", $"kartada: qoldiq {stock}");
+        if (tile.PurchasePrice > 0 && invoicePrice > 0 && Math.Abs(invoicePrice - tile.PurchasePrice) / tile.PurchasePrice > 0.15)
+            text += Tr.T($" · ⚠ закупка в накладной {invoicePrice:0.##} (отличается)", $" · ⚠ накладнойдо сатып алуу {invoicePrice:0.##} (айырмалуу)", $" · ⚠ invoice purchase {invoicePrice:0.##} (differs)",
+                $" · ⚠ faturada alış {invoicePrice:0.##} (farklı)", $" · ⚠ yuk xatida xarid {invoicePrice:0.##} (farq qiladi)");
+        return text;
+    }
+
+    /// <summary>Строка списка «выбрать другой товар»: название, похожесть, остаток, закупка (и пометка, если закупка в накладной заметно другая).</summary>
+    public string CandidateText(InvoiceCandidate c)
+    {
+        var stock = c.Tile.Quantity.ToString("0.###", CultureInfo.CurrentCulture);
+        var text = $"{c.Tile.Title} · {c.Score * 100:0} % · " + Tr.T($"остаток {stock}", $"калдык {stock}", $"stock {stock}", $"stok {stock}", $"qoldiq {stock}");
+        if (c.Tile.PurchasePrice > 0)
+        {
+            text += Tr.T($" · закупка {c.Tile.PurchasePrice:0.##}", $" · сатып алуу {c.Tile.PurchasePrice:0.##}", $" · purchase {c.Tile.PurchasePrice:0.##}", $" · alış {c.Tile.PurchasePrice:0.##}", $" · xarid {c.Tile.PurchasePrice:0.##}");
+            if (Line.PurchasePrice > 0 && Math.Abs(Line.PurchasePrice - c.Tile.PurchasePrice) / c.Tile.PurchasePrice > 0.15)
+                text += Tr.T($" (в накладной {Line.PurchasePrice:0.##})", $" (накладнойдо {Line.PurchasePrice:0.##})", $" (invoice {Line.PurchasePrice:0.##})", $" (faturada {Line.PurchasePrice:0.##})", $" (yuk xatida {Line.PurchasePrice:0.##})");
+        }
+        return text;
     }
 
     public bool HasSubText => SubText.Length > 0;
@@ -156,6 +208,10 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
             ? Tr.T("Проверьте · артикул", "Текшериңиз · артикул", "Check · article", "Kontrol edin · ürün kodu", "Tekshiring · artikul")
             : Tr.T("Найден · артикул", "Табылды · артикул", "Found · article", "Bulundu · ürün kodu", "Topildi · artikul"),
         InvoiceRowStatus.FoundName => Tr.T("Найден · название", "Табылды · аталышы", "Found · name", "Bulundu · ad", "Topildi · nomi"),
+        InvoiceRowStatus.FoundMemory => Tr.T("Найден · память поставщика", "Табылды · жеткирүүчүнүн эстутуму", "Found · supplier memory", "Bulundu · tedarikçi hafızası", "Topildi · yetkazib beruvchi xotirasi"),
+        InvoiceRowStatus.FoundFuzzy when Match.Kind == InvoiceMatchKind.Ai => Confirmed
+            ? Tr.T("Подтверждён · ИИ", "Ырасталды · ЖИ", "Confirmed · AI", "Onaylandı · YZ", "Tasdiqlandi · SI")
+            : Tr.T("ИИ предлагает — подтвердите", "ЖИ сунуштайт — ырастаңыз", "AI suggests — confirm", "YZ öneriyor — onaylayın", "SI taklif qiladi — tasdiqlang"),
         InvoiceRowStatus.FoundFuzzy => Confirmed
             ? Tr.T("Подтверждён · похожий", "Ырасталды · окшош", "Confirmed · similar", "Onaylandı · benzer", "Tasdiqlandi · o'xshash")
             : Tr.T($"Похожий ≈{Match.Score * 100:0} %", $"Окшош ≈{Match.Score * 100:0} %", $"Similar ≈{Match.Score * 100:0}%",
@@ -168,7 +224,7 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
     /// <summary>Ключ цвета статуса в теме (BrushSuccess / BrushWarning / BrushDanger / BrushAccent / BrushTextSoft).</summary>
     public string StatusBrushKey => NeedsConfirm ? "BrushWarning" : Status switch
     {
-        InvoiceRowStatus.FoundBarcode or InvoiceRowStatus.FoundName => "BrushSuccess",
+        InvoiceRowStatus.FoundBarcode or InvoiceRowStatus.FoundName or InvoiceRowStatus.FoundMemory => "BrushSuccess",
         InvoiceRowStatus.FoundArticle => NeedsConfirm ? "BrushWarning" : "BrushSuccess",
         InvoiceRowStatus.FoundFuzzy => Confirmed ? "BrushSuccess" : "BrushWarning",
         InvoiceRowStatus.NewFromDirectory => "BrushText",
@@ -187,8 +243,10 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
         var fresh = buildNewLine(Item);
         fresh.Quantity = qty;
         fresh.PurchasePrice = purchase;
+        Line.PropertyChanged -= OnLineChanged;
+        fresh.PropertyChanged += OnLineChanged;
         Line = fresh;
-        Match = InvoiceMatch.Nothing;
+        Match = new InvoiceMatch { Alternatives = Match.Alternatives }; // список похожих остаётся — кнопка «▾» позволяет передумать
         UnitWarning = false;
         _confirmed = false;
         _status = InvoiceRowStatus.NewManual;
@@ -200,9 +258,27 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
     {
         InvoiceMatchKind.Barcode => InvoiceRowStatus.FoundBarcode,
         InvoiceMatchKind.Article => InvoiceRowStatus.FoundArticle,
-        InvoiceMatchKind.Fuzzy => InvoiceRowStatus.FoundFuzzy,
+        InvoiceMatchKind.Fuzzy or InvoiceMatchKind.Ai => InvoiceRowStatus.FoundFuzzy,
+        InvoiceMatchKind.Memory => InvoiceRowStatus.FoundMemory,
         _ => InvoiceRowStatus.FoundName,
     };
+
+    /// <summary>2026-11-03: строка переключена на другой товар склада (выбор из списка, ИИ, «забыть соответствие»): состояние берётся у свежесобранной строки
+    /// <paramref name="fresh"/>; кассир не должен терять правки количества и закупки — их переносит вызывающий.</summary>
+    internal void Rebind(InvoicePlanRow fresh, bool confirmed)
+    {
+        Line.PropertyChanged -= OnLineChanged;
+        Match = fresh.Match;
+        Line = fresh.Line;
+        Line.PropertyChanged += OnLineChanged;
+        Directory = fresh.Directory;
+        UnitWarning = fresh.UnitWarning;
+        _origPrice = fresh._origPrice;
+        _roundedPrice = fresh._roundedPrice;
+        _status = fresh._status;
+        _confirmed = confirmed;
+        RaiseAll();
+    }
 
     /// <summary>Кассир поправил количество или название: нераспознанная строка становится годной.</summary>
     public void Reevaluate()
@@ -222,7 +298,7 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
     private void RaiseAll()
     {
         foreach (var name in new[] { nameof(Status), nameof(Confirmed), nameof(IsFound), nameof(IsNew), nameof(Included), nameof(NeedsConfirm), nameof(CanDecide), nameof(StatusText),
-                     nameof(StatusBrushKey), nameof(SubText), nameof(HasSubText), nameof(Line), nameof(InvoiceName) })
+                     nameof(StatusBrushKey), nameof(SubText), nameof(HasSubText), nameof(Line), nameof(InvoiceName), nameof(CanPick), nameof(Alternatives) })
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
@@ -348,12 +424,23 @@ public sealed class InvoicePlan
         }
     }
 
-    public InvoicePlan(InvoiceDocument document, InvoiceCatalogIndex index, Func<string, GlobalProductInfo?>? directoryLookup = null)
+    public InvoicePlan(InvoiceDocument document, InvoiceCatalogIndex index, Func<string, GlobalProductInfo?>? directoryLookup = null, InvoiceMatchMemory.Snapshot? memory = null)
     {
         Document = document;
         _index = index;
         _directory = directoryLookup ?? DefaultDirectory;
+        _memory = memory;
+        SupplierKey = memory?.SupplierKey ?? MemoryKeyOf(document);
     }
+
+    private readonly InvoiceMatchMemory.Snapshot? _memory;
+
+    /// <summary>2026-11-03: ключ поставщика для памяти соответствий — id/ИНН/название из шапки накладной (как InvoiceImportRegistry.SupplierKey), нет шапки — "" («общий»).</summary>
+    public string SupplierKey { get; }
+
+    public InvoiceCatalogIndex Index => _index;
+
+    private static string MemoryKeyOf(InvoiceDocument doc) => InvoiceImportRegistry.SupplierKey(doc.Header.SupplierInn, doc.Header.SupplierName);
 
     private static GlobalProductInfo? DefaultDirectory(string barcode)
     {
@@ -382,9 +469,11 @@ public sealed class InvoicePlan
 
     // ------------------------------------------------------------------ построение
 
-    public static InvoicePlan Build(InvoiceDocument doc, IReadOnlyList<CatalogProductTileVm>? catalog = null, Func<string, GlobalProductInfo?>? directoryLookup = null)
+    public static InvoicePlan Build(InvoiceDocument doc, IReadOnlyList<CatalogProductTileVm>? catalog = null, Func<string, GlobalProductInfo?>? directoryLookup = null,
+        InvoiceMatchMemory.Snapshot? memory = null)
     {
-        var plan = new InvoicePlan(doc, new InvoiceCatalogIndex(catalog ?? SnapshotCatalog()), directoryLookup);
+        // 2026-11-03: память поставщика читается один раз на план (файл не трогается при каждой строке).
+        var plan = new InvoicePlan(doc, new InvoiceCatalogIndex(catalog ?? SnapshotCatalog()), directoryLookup, memory ?? InvoiceMatchMemory.Load(MemoryKeyOf(doc)));
         plan.BuildRows();
         return plan;
     }
@@ -395,7 +484,7 @@ public sealed class InvoicePlan
         var merged = new Dictionary<string, InvoicePlanRow>(StringComparer.Ordinal);
         foreach (var item in Document.Items)
         {
-            var match = _index.Match(item);
+            var match = _index.Match(item, _memory);
             var row = CreateRow(item, match);
 
             // Повтор того же товара в накладной — одна строка (количество складывается).
@@ -496,6 +585,107 @@ public sealed class InvoicePlan
     {
         if (line.SalePrice <= 0 && line.PurchasePrice > 0 && DefaultMarkup is { } m)
             line.SalePrice = ReceivingPricing.SaleFromMarkup(line.PurchasePrice, m);
+    }
+
+    // ------------------------------------------------------------------ решения кассира по строке (2026-11-03)
+
+    // Соответствия «название у поставщика → товар», которые кассир подтвердил или выбрал: пишутся в память один раз, когда накладную переносят в приёмку.
+    private readonly List<(InvoicePlanRow Row, string Name, string ProductId)> _pendingMemory = [];
+    private readonly List<string> _pendingForget = [];
+
+    /// <summary>«Это он»: подтвердить найденное неточно; запоминает соответствие (при «похожем» и «ИИ») и склеивает с такой же строкой того же товара.</summary>
+    public void Confirm(InvoicePlanRow row)
+    {
+        row.Confirm();
+        NoteMapping(row);
+        MergeSame(row);
+    }
+
+    /// <summary>«Это не тот товар»: строка становится новым товаром. Если соответствие было из памяти — оно заодно забывается (кассир его опроверг).</summary>
+    public void MakeNew(InvoicePlanRow row)
+    {
+        if (row.Match.Kind == InvoiceMatchKind.Memory && row.InvoiceName.Length > 0)
+            _pendingForget.Add(row.InvoiceName);
+        row.MakeNew(BuildNewLine);
+    }
+
+    /// <summary>Выбор другого товара из списка похожих: явный выбор = подтверждение (единица измерения всё равно спросит «Это он»).</summary>
+    public void ChooseCandidate(InvoicePlanRow row, InvoiceCandidate candidate, InvoiceMatchKind kind = InvoiceMatchKind.Fuzzy, string reason = "")
+    {
+        var match = new InvoiceMatch { Kind = kind, Tile = candidate.Tile, Score = candidate.Score, NeedsConfirm = true, Alternatives = row.Match.Alternatives, Reason = reason };
+        var fresh = CreateRow(row.Item, match);
+        fresh.Line.Quantity = row.Line.Quantity;
+        fresh.Line.PurchasePrice = row.Line.PurchasePrice;
+        // ИИ только предлагает — строка остаётся «ждёт подтверждения»; выбор из списка кассиром — уже подтверждён.
+        row.Rebind(fresh, confirmed: kind != InvoiceMatchKind.Ai);
+        row.Reevaluate();
+        if (kind != InvoiceMatchKind.Ai)
+        {
+            NoteMapping(row);
+            MergeSame(row);
+        }
+    }
+
+    /// <summary>«Забыть соответствие»: запись памяти убирается сразу, строка подбирается заново (без памяти).</summary>
+    public void ForgetMemory(InvoicePlanRow row)
+    {
+        InvoiceMatchMemory.Forget(SupplierKey, row.InvoiceName);
+        _memory?.Remove(row.InvoiceName);
+        var fresh = CreateRow(row.Item, _index.Match(row.Item, null));
+        fresh.Line.Quantity = row.Line.Quantity;
+        fresh.Line.PurchasePrice = row.Line.PurchasePrice;
+        row.Rebind(fresh, confirmed: false);
+        row.Reevaluate();
+    }
+
+    private void NoteMapping(InvoicePlanRow row)
+    {
+        if (row.Match.Kind is not (InvoiceMatchKind.Fuzzy or InvoiceMatchKind.Ai) || row.Line.ProductId is not { Length: > 0 } id || row.InvoiceName.Length == 0)
+            return;
+        _pendingMemory.RemoveAll(p => ReferenceEquals(p.Row, row));
+        _pendingMemory.Add((row, row.InvoiceName, id));
+    }
+
+    /// <summary>Записать в память поставщика подтверждённые соответствия (вызывает окно при «Добавить в приёмку»). Строки, убранные кассиром, не запоминаются.</summary>
+    public void CommitMemory()
+    {
+        try
+        {
+            foreach (var name in _pendingForget)
+                InvoiceMatchMemory.Forget(SupplierKey, name);
+            _pendingForget.Clear();
+            var pairs = _pendingMemory.Where(p => p.Row.MergedAway || (Rows.Contains(p.Row) && p.Row.Included && p.Row.IsFound))
+                .Select(p => (p.Name, p.ProductId)).ToList();
+            _pendingMemory.Clear();
+            if (pairs.Count > 0)
+                InvoiceMatchMemory.Remember(SupplierKey, pairs);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"INVOICE_IMPORT: память соответствий не обновлена: {ex.Message}", "WARNING");
+        }
+    }
+
+    /// <summary>После решения кассира: такая же подтверждённая строка того же товара с той же закупкой — одна строка (как при построении плана).</summary>
+    private void MergeSame(InvoicePlanRow row)
+    {
+        if (!row.Included || row.NeedsConfirm || row.UnitWarning || row.Item.Quantity <= 0)
+            return;
+        var key = MergeKey(row);
+        if (key.Length == 0)
+            return;
+        var other = Rows.FirstOrDefault(r => !ReferenceEquals(r, row) && r.Included && !r.NeedsConfirm && !r.UnitWarning && MergeKey(r) == key
+            && Math.Abs(r.Line.PurchasePrice - row.Line.PurchasePrice) < 0.0001);
+        if (other is null)
+            return;
+        var keep = Rows.IndexOf(other) < Rows.IndexOf(row) ? other : row;
+        var drop = ReferenceEquals(keep, row) ? other : row;
+        keep.Line.Quantity += drop.Line.Quantity;
+        keep.MergedFrom.Add(drop.Item.SourceRow);
+        keep.Item.Warnings.Add(Tr.T($"сложено со строкой {drop.Item.SourceRow}", $"{drop.Item.SourceRow}-сап менен кошулду", $"merged with row {drop.Item.SourceRow}",
+            $"{drop.Item.SourceRow}. satırla birleştirildi", $"{drop.Item.SourceRow}-qator bilan qo'shildi"));
+        drop.MergedAway = true;
+        Rows.Remove(drop);
     }
 
     // ------------------------------------------------------------------ настройки плана

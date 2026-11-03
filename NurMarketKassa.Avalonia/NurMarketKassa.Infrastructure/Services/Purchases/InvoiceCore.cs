@@ -189,7 +189,7 @@ public sealed record InvoiceReconcileResult(ReconcileState State, bool FromDocum
     bool VatKnown, bool DiscountKnown, bool PositionsDiffer, int? DocumentPositions);
 
 /// <summary>Причина подозрения на строку: итоговая строка, принятая за товар; нет количества; нет цены закупки.</summary>
-public enum InvoiceRowFlag { None, LooksLikeTotal, NoQty, NoPurchase }
+public enum InvoiceRowFlag { None, LooksLikeTotal, NoQty, NoPurchase, LowConfidence } // 2026-11-03: LowConfidence — прочитано по фото нечётко
 
 public static class InvoiceReconcile
 {

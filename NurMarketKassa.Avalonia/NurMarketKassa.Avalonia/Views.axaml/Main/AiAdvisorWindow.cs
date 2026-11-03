@@ -4888,110 +4888,10 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
                 "Depodaki tüm ürünlerin fotoğrafı var.", "Ombordagi barcha mahsulotlarning rasmi bor."), fromOwner: false);
             return;
         }
-        // Штрихкод и название — для всех (до 80); в интернете (поиск Google, по 5–10 с на товар, лимит ключа) — для
-        // названных товаров или первых 10 без фото.
-        var searchable = withoutPhoto.Take(named.Count > 0 ? 10 : 80).ToList();
-        var webLimit = TelegramAiChat.IsConfigured ? (named.Count > 0 ? searchable.Count : 10) : 0;
-        var status = AddBubble(named.Count > 0
-            ? T($"Ищу фото: {string.Join(", ", named.Take(5).Select(p => p.Title))} — по штрихкоду, названию и в интернете…",
-                $"Сүрөт издеп жатам: {string.Join(", ", named.Take(5).Select(p => p.Title))} — штрихкод, аталыш жана интернет боюнча…",
-                $"Searching photos: {string.Join(", ", named.Take(5).Select(p => p.Title))} — by barcode, name and on the web…",
-                $"Fotoğraf arıyorum: {string.Join(", ", named.Take(5).Select(p => p.Title))} — barkod, ad ve internette…",
-                $"Rasm qidiryapman: {string.Join(", ", named.Take(5).Select(p => p.Title))} — shtrix-kod, nom va internet bo'yicha…")
-            : T($"Без фото: {withoutPhoto.Count} товаров. Ищу по штрихкоду и названию в открытых базах, в интернете — для первых {webLimit}…",
-                $"Сүрөтсүз: {withoutPhoto.Count} товар. Ачык базалардан штрихкод жана аталыш боюнча, интернеттен — алгачкы {webLimit} үчүн издеп жатам…",
-                $"Without a photo: {withoutPhoto.Count} products. Searching open databases by barcode and name, the web for the first {webLimit}…",
-                $"Fotoğrafsız: {withoutPhoto.Count} ürün. Açık veritabanlarında barkod ve adla, internette ilk {webLimit} için arıyorum…",
-                $"Rasmsiz: {withoutPhoto.Count} ta mahsulot. Ochiq bazalardan shtrix-kod va nom bo'yicha, internetdan — birinchi {webLimit} tasi uchun qidiryapman…"), fromOwner: false);
-        _cts?.Cancel();
-        _cts = new CancellationTokenSource();
-        var ct = _cts.Token;
-        List<ProductPhotoFinder.Candidate> found;
-        List<NurMarketKassa.Models.Pos.CatalogProductTileVm> notFound;
-        try
-        {
-            (found, notFound) = await Task.Run(() => ProductPhotoFinder.SearchAsync(searchable,
-                (done, total) => Dispatcher.UIThread.Post(() => status.Text = T($"Ищу фото… {done} из {total}", $"Сүрөт издеп жатам… {done} / {total}",
-                    $"Searching… {done} of {total}", $"Aranıyor… {done} / {total}", $"Qidiryapman… {done} / {total}")), ct, webLimit), ct).ConfigureAwait(true);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            return;
-        }
-        catch (Exception ex)
-        {
-            // 2026-10-05, проверка: поиск молча обрывался — теперь причина видна владельцу и в журнале.
-            PosLogger.Log($"ИИ-советник: поиск фото прерван ({ex.GetType().Name}: {ex.Message}).", "WARNING");
-            status.Text = T("Не получилось искать фото: ", "Сүрөт издөө болбой калды: ", "Photo search failed: ", "Fotoğraf aranamadı: ", "Rasm qidirib bo'lmadi: ") + ex.Message;
-            return;
-        }
-        notFound.AddRange(withoutPhoto.Where(p => !searchable.Contains(p)));
-        status.Text = T($"Нашёл фото для {found.Count} товаров. Проверьте и нажмите «Поставить» — фото уйдёт в карточку товара на сервере.",
-            $"{found.Count} товардын сүрөтү табылды. Текшерип, «Коюу» басыңыз — сүрөт сервердеги товар карточкасына кетет.",
-            $"Found photos for {found.Count} products. Check them and press “Set” — the photo goes to the product card on the server.",
-            $"{found.Count} ürün için fotoğraf bulundu. Kontrol edip «Ayarla»ya basın — fotoğraf sunucudaki ürün kartına gider.",
-            $"{found.Count} ta mahsulot uchun rasm topildi. Tekshirib «O'rnatish»ni bosing — rasm serverdagi mahsulot kartasiga ketadi.");
-
-        if (found.Count > 0)
-        {
-            var strip = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(4, 0, 0, 0) };
-            var all = UiKit.Primary(this, T($"Поставить все ({found.Count})", $"Баарын коюу ({found.Count})", $"Set all ({found.Count})", $"Tümünü ayarla ({found.Count})", $"Hammasini o'rnatish ({found.Count})"));
-            all.Margin = new Thickness(4, 0, 0, 8);
-            var setButtons = new List<(Button Button, ProductPhotoFinder.Candidate Candidate)>();
-            foreach (var candidate in found)
-            {
-                var image = new Image { Width = 112, Height = 112, Stretch = Stretch.UniformToFill };
-                _ = LoadPreviewAsync(image, candidate.ImageUrl);
-                var caption = new TextBlock { Text = candidate.Product.Title, FontSize = 12, TextWrapping = TextWrapping.Wrap, MaxWidth = 112, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis };
-                Use(caption, TextBlock.ForegroundProperty, "BrushText");
-                var source = new TextBlock { Text = candidate.Source, FontSize = 12, MaxWidth = 112 };
-                Use(source, TextBlock.ForegroundProperty, "BrushTextSoft");
-                var set = UiKit.Ghost(this, T("Поставить", "Коюу", "Set", "Ayarla", "O'rnatish"));
-                set.Height = 32;
-                set.FontSize = 12.5;
-                set.Padding = new Thickness(8, 0);
-                set.Click += async (_, _) => await ApplyPhotoAsync(set, candidate).ConfigureAwait(true);
-                setButtons.Add((set, candidate));
-                var card = new Border
-                {
-                    CornerRadius = new CornerRadius(10), Padding = new Thickness(6), BorderThickness = new Thickness(1), Margin = new Thickness(0, 0, 8, 8),
-                    Child = new StackPanel { Spacing = 4, Children = { new Border { CornerRadius = new CornerRadius(8), ClipToBounds = true, Child = image }, caption, source, set } },
-                };
-                Use(card, Border.BackgroundProperty, "BrushPanel");
-                Use(card, Border.BorderBrushProperty, "BrushBorder");
-                strip.Children.Add(card);
-            }
-            all.Click += async (_, _) =>
-            {
-                all.IsEnabled = false;
-                foreach (var (button, candidate) in setButtons.Where(b => b.Button.IsEnabled).ToList())
-                    await ApplyPhotoAsync(button, candidate).ConfigureAwait(true);
-            };
-            _messages.Children.Add(all);
-            _messages.Children.Add(strip);
-        }
-
-        if (notFound.Count > 0)
-        {
-            AddBubble(T($"Для {notFound.Count} товаров фото в базах нет (или нет штрихкода). Сфотографируйте их — нажмите на товар ниже и выберите снимок:",
-                $"{notFound.Count} товардын сүрөтү базаларда жок (же штрихкод жок). Аларды сүрөткө тартыңыз — төмөндөгү товарды басып, сүрөттү тандаңыз:",
-                $"No photo in the databases for {notFound.Count} products (or no barcode). Take photos — tap a product below and pick the picture:",
-                $"{notFound.Count} ürün için veritabanlarında fotoğraf yok (veya barkod yok). Fotoğraflarını çekin — aşağıdaki ürüne dokunup resmi seçin:",
-                $"{notFound.Count} ta mahsulot uchun bazalarda rasm yo'q (yoki shtrix-kod yo'q). Ularni suratga oling — pastdagi mahsulotni bosing va rasmni tanlang:"), fromOwner: false);
-            var list = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(4, 0, 0, 0) };
-            foreach (var product in notFound.Take(40))
-            {
-                var b = UiKit.Ghost(this, "📷 " + product.Title);
-                b.Height = 34;
-                b.FontSize = 12.5;
-                b.Padding = new Thickness(10, 0);
-                b.Margin = new Thickness(0, 0, 6, 6);
-                b.Click += async (_, _) => await PickAndUploadAsync(b, product).ConfigureAwait(true);
-                list.Children.Add(b);
-            }
-            _messages.Children.Add(list);
-        }
-        ScrollToEnd();
+        // 2026-11-03, владелец: «найдено фото только для 10 товаров из 15 тысяч — по этапам добавляй по 20 или по 50 по очереди». Поиск идёт пачками
+        // (AiAdvisorWindow.PhotoBatch.cs): интернет — для всех товаров пачки, лимит запросов в минуту, память «что уже проверено», «Поставить все» — только
+        // для уверенных совпадений; фото уходит на сервер по-прежнему только по нажатию владельца.
+        await StartPhotoBatchesAsync(named, withoutPhoto).ConfigureAwait(true);
     }
 
     /// <summary>Варианты фото товаров (до 8 на товар) — плиткой в чате, «Поставить это фото» под каждым.</summary>
@@ -5150,8 +5050,23 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             PosLogger.Log($"ИИ-советник: фото «{candidate.Product.Title}» не загружено ({ex.Message}).", "WARNING");
             ok = false;
         }
+        // 2026-11-03: описание из интернета ставится вместе с фото, только если на сервере оно пустое (существующее не затираем).
+        var descriptionSet = false;
+        if (ok && !string.IsNullOrWhiteSpace(candidate.Description))
+        {
+            try
+            {
+                descriptionSet = await ProductPhotoFinder.ApplyDescriptionAsync(candidate, CancellationToken.None).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"ИИ-советник: описание «{candidate.Product.Title}» не записано ({ex.Message}).", "WARNING");
+            }
+        }
         button.Content = ok
-            ? T("✓ Поставлено", "✓ Коюлду", "✓ Set", "✓ Ayarlandı", "✓ O'rnatildi")
+            ? descriptionSet
+                ? T("✓ Фото и описание", "✓ Сүрөт жана сүрөттөмө", "✓ Photo and description", "✓ Fotoğraf ve açıklama", "✓ Rasm va tavsif")
+                : T("✓ Поставлено", "✓ Коюлду", "✓ Set", "✓ Ayarlandı", "✓ O'rnatildi")
             : T("Не получилось", "Болбой калды", "Failed", "Olmadı", "Bo'lmadi");
         button.IsEnabled = !ok;
     }

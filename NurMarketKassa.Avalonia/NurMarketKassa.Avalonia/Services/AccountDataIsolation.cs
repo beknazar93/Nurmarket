@@ -99,6 +99,8 @@ public static class AccountDataIsolation
         "offline_operations.json", "offline_clients.json",
         // 2026-10-31: кэш платных функций, включённых компании на сервере (ServerAddons), — принадлежит компании.
         "server-addons.json", "server-addons.json.bak",
+        // 2026-11-03: память поиска фото пачками (какие товары компании уже проверены) — принадлежит компании.
+        "photo-search-progress.json", "photo-search-progress.json.bak",
     ];
 
     /// <summary>Шаблоны имён в папке данных (флаги «бонусы импортированы» по компаниям, резервные копии настроек с ключами).</summary>
@@ -193,6 +195,7 @@ public static class AccountDataIsolation
             WipeCompanyFiles();
             OfflineClientCache.ResetMemory(); // 2026-10-29: кэш клиентов прежней компании не должен остаться в памяти
             NurMarketKassa.Services.Api.ServerCapabilities.Reset(); // 2026-11-01: признаки сервера прежнего аккаунта (receipt_edit и др.) не должны жить в новом
+            NurMarketKassa.AvaloniaHost.Services.PhotoSearchMemory.ResetMemory(); // 2026-11-03: память поиска фото прежней компании (файл уже стёрт)
             ServerAddons.ResetMemory(); // 2026-10-31: функции, включённые сервером прежней компании, не должны открывать функции новой
             SettingsCloudSync.RunAccountReset(() =>
             {

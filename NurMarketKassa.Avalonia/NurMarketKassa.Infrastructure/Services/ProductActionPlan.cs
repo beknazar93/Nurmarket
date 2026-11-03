@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using NurMarketKassa.Models.Pos;
+using NurMarketKassa.Services.InvoiceImport;
 
 namespace NurMarketKassa.Services;
 
@@ -19,7 +20,9 @@ public static class ProductActionPlan
     /// <param name="Price">Цена продажи (с наценкой).</param>
     public sealed record Step(string Op, CatalogProductTileVm Product, double? Qty, string? Text, string? Reason,
         double? Purchase = null, double? Price = null, string? Barcode = null, string? Unit = null, string? Category = null,
-        bool RaisedToMin = false, double? ExpectedStock = null, double? PriceNotLowered = null);
+        bool RaisedToMin = false, double? ExpectedStock = null, double? PriceNotLowered = null,
+        // 2026-11-03: чтение накладной по фото — № строки, сумма строки как в документе, уверенность 0..1 и «нечётко прочитано» (строка подсвечивается в окне закупки).
+        double? Confidence = null, bool Unclear = false, double? LineTotal = null, int? Number = null);
 
     /// <summary>2026-10-06, владелец: «при загрузке товаров и создании товаров из накладной надо сразу ставить маржу минимум 20%».
     /// Минимальная наценка прихода и нового товара по накладной (UserPreferences.AiMinMarkupPercent, по умолчанию 20).</summary>
@@ -102,8 +105,12 @@ public static class ProductActionPlan
         + "X — сумма столбца «Сумма (закуп)». Если итог не удаётся вычислить — поставь -. "
         + "Не добавляй до таблицы, между таблицей и итогами или после итогов пояснения, советы, вопросы и иной видимый текст. "
         + "Для программы после итогов добавь по одной служебной строке ТОВАР на каждую строку, у которой читаются название, количество и закупочная цена: "
-        + "для точного совпадения с товаром каталога — {\"op\": \"receive\", \"product\": \"точное название из каталога\", \"qty\": N, \"purchase\": закупка, \"price\": розничная цена}; "
-        + "для нового товара — {\"op\": \"create\", \"name\": \"название с накладной\", \"qty\": N, \"purchase\": закупка, \"price\": розничная цена, \"barcode\": \"если виден\", \"unit\": \"если видна\"}. "
+        + "для точного совпадения с товаром каталога — {\"op\": \"receive\", \"n\": № строки, \"product\": \"точное название из каталога\", \"qty\": N, \"purchase\": закупка, \"line_total\": сумма строки как в документе, \"price\": розничная цена, \"confidence\": 0..1, \"unclear\": false}; "
+        + "для нового товара — {\"op\": \"create\", \"n\": № строки, \"name\": \"название с накладной\", \"qty\": N, \"purchase\": закупка, \"line_total\": сумма строки как в документе, \"price\": розничная цена, \"barcode\": \"если виден\", \"unit\": \"если видна\", \"confidence\": 0..1, \"unclear\": false}. "
+        // 2026-11-03: рукописные накладные — служебные поля чтения и честность при неразборчивом почерке (см. InvoiceReadingAid).
+        + "Поля чтения: n — номер строки в твоей таблице; line_total — сумма строки, КАК НАПЕЧАТАНА ИЛИ НАПИСАНА в документе (если видна; не вычисляй её сам); confidence — твоя уверенность 0..1 в названии, количестве и цене; "
+        + "unclear: true, если хоть что-то из них не удалось прочитать уверенно (неразборчивый почерк, нечёткое фото) — такие строки программа подсветит «проверьте по фото». Неразборчивое не выдумывай: пиши, что видишь, и ставь unclear. "
+        + "Без служебных полей n и line_total тоже можно, если их нет в документе. "
         // 2026-10-19: накладная проводится закупкой у поставщика — программа предложит владельцу поставщика из списка NurCRM.
         + "Если в накладной виден поставщик (продавец, грузоотправитель), добавь ещё одну служебную строку ровно так: "
         + "ПОСТАВЩИК: {\"name\": \"название поставщика как в накладной\", \"inn\": \"ИНН, если виден\", \"phone\": \"телефон, если виден\", \"address\": \"адрес, если виден\"}. Не угадывай поставщика. "
@@ -430,6 +437,12 @@ public static class ProductActionPlan
                     return null;
                 }
                 var op = (S("op") ?? "").ToLowerInvariant();
+                // 2026-11-03: поля чтения накладной по фото. «unclear» приходит булевым true (S() такое не читает).
+                var confidence = N("confidence");
+                var unclear = (root.TryGetProperty("unclear", out var uc) && (uc.ValueKind == JsonValueKind.True || (uc.ValueKind == JsonValueKind.String && uc.GetString()?.Trim().ToLowerInvariant() is "true" or "1" or "да")))
+                              || (confidence is { } cf && cf < InvoiceReadingAid.LowConfidence);
+                var lineTotal = N("line_total", "sum") is > 0 and { } lt ? lt : (double?)null;
+                var rowNo = N("n") is > 0 and { } rn ? (int?)Math.Round(rn) : null;
                 if (op == "open_section")
                 {
                     if (S("section") is { Length: > 0 } section)
@@ -451,7 +464,8 @@ public static class ProductActionPlan
                     {
                         var (newPrice, raised) = EnsureMinMarkup(np, price, 0);
                         steps.Add(new Step("create", new CatalogProductTileVm("", newName, $"{newPrice ?? 0:0.00}", false), nq, null, null, np, newPrice,
-                            S("barcode") is { Length: >= 4 } bc && bc.All(char.IsDigit) ? bc : null, S("unit"), S("category"), raised));
+                            S("barcode") is { Length: >= 4 } bc && bc.All(char.IsDigit) ? bc : null, S("unit"), S("category"), raised,
+                            Confidence: confidence, Unclear: unclear, LineTotal: lineTotal, Number: rowNo));
                         continue;
                     }
                     else
@@ -468,7 +482,8 @@ public static class ProductActionPlan
                     {
                         var (newPrice, raised) = EnsureMinMarkup(up, price, 0);
                         steps.Add(new Step("create", new CatalogProductTileVm("", unknownName, $"{newPrice ?? 0:0.00}", false), uq, null, null, up, newPrice,
-                            S("barcode") is { Length: >= 4 } ubc && ubc.All(char.IsDigit) ? ubc : null, S("unit"), S("category"), raised));
+                            S("barcode") is { Length: >= 4 } ubc && ubc.All(char.IsDigit) ? ubc : null, S("unit"), S("category"), raised,
+                            Confidence: confidence, Unclear: unclear, LineTotal: lineTotal, Number: rowNo));
                         continue;
                     }
                     if (op is not "photo" and not "open" && !string.IsNullOrWhiteSpace(rawProductName))
@@ -495,7 +510,7 @@ public static class ProductActionPlan
                     "receive" when N("qty", "quantity") is { } rq && rq > 0 => EnsureMinMarkup(purchase, price, product.PriceValue) is var (rp, rr)
                         && KeepCurrentPriceIfLower(rp, product.PriceValue) is var (kp, low)
                         ? new Step(op, product, rq, null, null, purchase, kp, S("barcode") ?? S("article") ?? S("sku"), S("unit"), RaisedToMin: rr && kp is not null,
-                            PriceNotLowered: low)
+                            PriceNotLowered: low, Confidence: confidence, Unclear: unclear, LineTotal: lineTotal, Number: rowNo)
                         : null,
                     _ => null,
                 };

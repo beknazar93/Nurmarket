@@ -13,6 +13,10 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Нур Советник ищет фото товаров пачками: «найди фото для товаров без фото» берёт по 20 (или 50) товаров по очереди, ищет в интернете для каждого и помнит, что уже проверено, — следующий раз продолжает с того места; кнопки «Искать дальше», «Остановить», «Искать автоматически по очереди». Видео и соцсети (YouTube, VK и т. п.) не принимаются, неуверенные совпадения — отдельно с пометкой «проверьте» и не входят в «Поставить все»; вместе с фото ставится описание из интернета (если в карточке его не было)",
+        "Накладная: названия сверяются с товарами склада умнее — понимаются сокращения («Мол.»), «1л» = «1 литр» = «1000 мл», латиница и кириллица («Coca-Cola» = «Кока-кола»); похожий товар предлагается списком до 5, и вы решаете: тот же (остаток увеличится) или новый",
+        "Касса запоминает ваш выбор у поставщика: в следующей накладной тот же товар находится сам (кнопка «Забыть соответствие»); кнопка «Подобрать ИИ» предлагает товар склада для новых строк (нужен ключ Gemini, всегда с вашим подтверждением)",
+        "Накладная по фото и рукописная: ИИ опирается на названия вашего склада, неуверенные строки подсвечиваются «проверьте по фото», строки, где сумма не сходится, перечитываются ещё раз; в закупке по фото у нового товара есть кнопка «Есть похожие»",
         "Касса не теряет сохранённый вход, если прокси или защита сайта ответили странно: на окно входа выбрасывает только настоящий отказ NurCRM",
         "Чек с плашки «Продажа прошла» и «История чеков» показываются сразу: при медленном сервере — чек и чеки этой кассы, а данные сервера подгружаются, когда он ответит",
         "Медленный сервер больше не «вешает» кассу: окно ждёт ответ NurCRM не дольше 8 секунд и пишет «Сервер отвечает медленно» вместо долгого ожидания",
@@ -136,6 +140,10 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Нур Кеңешчи товарлардын сүрөтүн пачкалап издейт: «сүрөтсүз товарларга сүрөт тап» 20 (же 50) товардан кезеги менен алат, ар бирин интернеттен издейт жана эмнени текшергенин эстеп калат — кийинки жолу ошол жерден улантат; «Андан ары издөө», «Токтотуу», «Автоматтык түрдө кезеги менен издөө» баскычтары. Видео жана соц тармактар (YouTube, VK ж. б.) кабыл алынбайт, ишенимсиз дал келүүлөр өзүнчө «текшериңиз» белгиси менен чыгат жана «Баарын коюу» ичине кирбейт; сүрөт менен бирге интернеттен сүрөттөмө да коюлат (карточкада болбосо)",
+        "Накладной: аталыштар кампадагы товарлар менен акылдуураак салыштырылат — кыскартуулар («Мол.»), «1л» = «1 литр» = «1000 мл», латын жана кирилл («Coca-Cola» = «Кока-кола») түшүнүлөт; окшош товар 5ке чейин тизме менен сунушталат, сиз чечесиз: ошол эле (калдык көбөйөт) же жаңы",
+        "Касса жеткирүүчү боюнча тандооңузду эстейт: кийинки накладнойдо ошол эле товар өзү табылат («Дал келүүнү унутуу» баскычы); «ЖИ менен тандоо» баскычы жаңы саптар үчүн кампадан товар сунуштайт (Gemini ачкычы керек, ар дайым сиздин ырастооңуз менен)",
+        "Сүрөт жана кол менен жазылган накладной: ЖИ сиздин кампанын аталыштарына таянат, ишенимсиз саптар «сүрөт боюнча текшериңиз» деп белгиленет, суммасы дал келбеген саптар кайра окулат; сүрөт боюнча сатып алууда жаңы товарда «Окшоштору бар» баскычы бар",
         "Жай сервер кассаны «илип» албайт: терезе NurCRM жообун 8 секунддан ашык күтпөйт жана узак күтүүнүн ордуна «Сервер жай жооп берип жатат» деп жазат",
         "Кассирдин иш-аракеттери өзүнчө тез сурамдар тилкесинде жүрөт — фондогу жүктөөлөр (каталог, ээсинин жыйынтыгы) аларды кармабайт; башкы жагында «Сервер жай иштеп жатат» белгиси",
         "Баштоо жана кирүү: сервер компаниянын маалыматын жай берсе, касса сакталган маалымат менен ачылат, компания өзү толукталат; кирүүнү жаңыртуу — 10 секунддан ашык эмес",
@@ -257,6 +265,10 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Nur Advisor now searches for product photos in batches: “find photos for products without a photo” takes 20 (or 50) products at a time, searches the web for each one and remembers what was already checked, so the next request continues where it stopped; buttons “Search more”, “Stop” and “Search automatically, batch after batch”. Video sites and social networks (YouTube, VK and so on) are rejected, uncertain matches are shown separately with a “check” mark and are not part of “Set all”; a description from the web is set together with the photo (if the card had none)",
+        "Invoice: names are matched to stock items more cleverly — abbreviations (“Mol.”), “1l” = “1 litre” = “1000 ml”, Latin and Cyrillic (“Coca-Cola” = “Кока-кола”) are understood; a similar item is offered as a list of up to 5 and you decide: the same item (stock increases) or a new one",
+        "The till remembers your choice per supplier: next time the same item is found by itself (“Forget the match” button); the “Match with AI” button suggests a stock item for new lines (needs a Gemini key, always with your confirmation)",
+        "Photo and handwritten invoices: the AI leans on your stock names, uncertain lines are marked “check against the photo”, lines whose total does not add up are re-read once more; in a photo purchase a new item has a “Similar items” button",
         "A slow server no longer freezes the till: a window waits for NurCRM no longer than 8 seconds and then says “The server is responding slowly” instead of waiting for a long time",
         "The cashier's actions use a separate fast lane of requests — background loads (catalog, owner summary) no longer hold them up; the header shows a “Server is slow” icon",
         "Start-up and sign-in: if the server is slow with the company data, the till opens with the saved data and the company loads itself later; the sign-in refresh takes no more than 10 seconds",
@@ -378,6 +390,10 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Nur Danışman ürün fotoğraflarını gruplar halinde arıyor: «fotoğrafsız ürünlere fotoğraf bul» her seferinde 20 (veya 50) ürünü alır, her biri için internette arar ve nelerin kontrol edildiğini hatırlar — sonraki sefer kaldığı yerden devam eder; «Aramaya devam», «Durdur», «Otomatik olarak sırayla ara» düğmeleri. Video ve sosyal ağlar (YouTube, VK vb.) kabul edilmez, emin olunmayan eşleşmeler ayrı ve «kontrol edin» işaretiyle gösterilir, «Tümünü ayarla»ya girmez; kartta açıklama yoksa fotoğrafla birlikte internetten açıklama da eklenir",
+        "Fatura: adlar depodaki ürünlerle daha akıllı eşleştirilir — kısaltmalar («Mol.»), «1l» = «1 litre» = «1000 ml», Latin ve Kiril («Coca-Cola» = «Кока-кола») anlaşılır; benzer ürün 5'e kadar liste olarak önerilir, siz karar verirsiniz: aynı ürün (stok artar) veya yeni",
+        "Kasa tedarikçi başına seçiminizi hatırlar: sonraki faturada aynı ürün kendiliğinden bulunur («Eşleşmeyi unut» düğmesi); «YZ ile eşleştir» düğmesi yeni satırlar için depodan ürün önerir (Gemini anahtarı gerekir, her zaman onayınızla)",
+        "Fotoğraflı ve el yazısı fatura: YZ deponuzdaki adlara dayanır, emin olunmayan satırlar «fotoğrafa göre kontrol edin» diye işaretlenir, tutarı tutmayan satırlar bir kez daha okunur; fotoğraflı alımda yeni üründe «Benzerleri var» düğmesi bulunur",
         "Yavaş sunucu artık kasayı kilitlemiyor: pencere NurCRM'yi en fazla 8 saniye bekliyor ve uzun beklemek yerine «Sunucu yavaş yanıt veriyor» yazıyor",
         "Kasiyerin işlemleri ayrı bir hızlı istek şeridinden geçiyor — arka plan yüklemeleri (katalog, sahip özeti) onları geciktirmiyor; üst çubukta «Sunucu yavaş» simgesi var",
         "Açılış ve giriş: sunucu şirket verisiyle yavaşsa kasa kayıtlı verilerle açılıyor, şirket kendiliğinden sonradan yükleniyor; giriş yenilemesi en fazla 10 saniye sürüyor",
@@ -499,6 +515,10 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Nur Maslahatchi mahsulot rasmlarini guruhlab qidiradi: «rasmsiz mahsulotlarga rasm top» har safar 20 (yoki 50) ta mahsulotni oladi, har birini internetdan qidiradi va nimalar tekshirilganini eslab qoladi — keyingi safar qolgan joyidan davom etadi; «Davom ettirish», «To'xtatish», «Avtomatik ravishda navbat bilan qidirish» tugmalari. Video va ijtimoiy tarmoqlar (YouTube, VK va boshqalar) qabul qilinmaydi, ishonchsiz mos kelishlar alohida «tekshiring» belgisi bilan chiqadi va «Hammasini o'rnatish»ga kirmaydi; kartada tavsif bo'lmasa, rasm bilan birga internetdan tavsif ham o'rnatiladi",
+        "Yuk xati: nomlar ombordagi mahsulotlar bilan aqlliroq solishtiriladi — qisqartmalar («Mol.»), «1l» = «1 litr» = «1000 ml», lotin va kirill («Coca-Cola» = «Кока-кола») tushuniladi; o'xshash mahsulot 5 tagacha ro'yxat bilan taklif qilinadi, siz hal qilasiz: aynan o'sha (qoldiq oshadi) yoki yangi",
+        "Kassa yetkazib beruvchi bo'yicha tanlovingizni eslab qoladi: keyingi yuk xatida o'sha mahsulot o'zi topiladi («Moslikni unutish» tugmasi); «SI bilan tanlash» tugmasi yangi qatorlar uchun ombordan mahsulot taklif qiladi (Gemini kaliti kerak, doim sizning tasdig'ingiz bilan)",
+        "Rasm va qo'lda yozilgan yuk xati: SI omboringizdagi nomlarga tayanadi, ishonchsiz qatorlar «rasm bo'yicha tekshiring» deb belgilanadi, summasi to'g'ri kelmagan qatorlar yana bir bor o'qiladi; rasm bo'yicha xaridda yangi mahsulotda «O'xshashlari bor» tugmasi bor",
         "Sekin server endi kassani qotirmaydi: oyna NurCRM javobini 8 soniyadan ortiq kutmaydi va uzoq kutish o'rniga «Server sekin javob bermoqda» deb yozadi",
         "Kassirning amallari alohida tezkor so'rovlar yo'lagidan o'tadi — fon yuklashlari (katalog, egasining xulosasi) ularni ushlab turmaydi; tepada «Server sekin» belgisi bor",
         "Ishga tushirish va kirish: server kompaniya ma'lumotida sekin bo'lsa, kassa saqlangan ma'lumot bilan ochiladi, kompaniya o'zi keyin yuklanadi; kirishni yangilash — 10 soniyadan ortiq emas",
@@ -621,6 +641,7 @@ public static class AppChangelog
     // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно
     // «Касса обновлена» показывало пункты десктопа («на вашем компьютере», «сведения о компьютере») —
     // у Android свой список, тот же, что в выпуске Nurmarket-Android.
+    // 2026-11-03: 1.17.74 — сверху всех Latest* добавлен пункт «Нур Советник ищет фото пачками» (память прогресса, лимит запросов, качество, описание); добавлен и в AndroidLatest* (Нур Советник есть в программе владельца на Android).
     // 2026-10-31: 1.17.70 — Latest*: сверху «Не округляем», весовые в приёмке, сверка итога накладной ИИ, документы перемещения («Создать документ»); в AndroidLatest* те же пункты (документы без печати/Word/Excel). «Воронка» только в Latest*.
     // 2026-10-31: 1.17.69 (+ «Воронка» только в Latest*, функция ПК) — сверху всех Latest*/AndroidLatest* добавлен короткий пункт про серийные ключи платных функций (перевыпуск ключей).
     // 2026-10-31: 1.17.68 приёмка — сверху Latest* добавлены «Правка накладной и Тех поддержка» и «Надёжность денег и данных»; в AndroidLatest* — их общая часть (без окна Тех поддержки и настроек владельца).
@@ -656,6 +677,10 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Нур Советник ищет фото товаров пачками: «найди фото для товаров без фото» берёт по 20 (или 50) товаров по очереди, ищет в интернете для каждого и помнит, что уже проверено, — следующий раз продолжает с того места; кнопки «Искать дальше», «Остановить», «Искать автоматически по очереди». Видео и соцсети (YouTube, VK и т. п.) не принимаются, неуверенные совпадения — отдельно с пометкой «проверьте» и не входят в «Поставить все»; вместе с фото ставится описание из интернета (если в карточке его не было)",
+        "Накладная: названия сверяются с товарами склада умнее — понимаются сокращения («Мол.»), «1л» = «1 литр» = «1000 мл», латиница и кириллица («Coca-Cola» = «Кока-кола»); похожий товар предлагается списком до 5, и вы решаете: тот же (остаток увеличится) или новый",
+        "Касса запоминает ваш выбор у поставщика: в следующей накладной тот же товар находится сам (кнопка «Забыть соответствие»); кнопка «Подобрать ИИ» предлагает товар склада для новых строк (нужен ключ Gemini, всегда с вашим подтверждением)",
+        "Накладная по фото и рукописная: ИИ опирается на названия вашего склада, неуверенные строки подсвечиваются «проверьте по фото», строки, где сумма не сходится, перечитываются ещё раз; в закупке по фото у нового товара есть кнопка «Есть похожие»",
         "Касса не теряет сохранённый вход, если прокси или защита сайта ответили странно: на окно входа выбрасывает только настоящий отказ NurCRM",
         "Чек с плашки «Продажа прошла» и «История чеков» показываются сразу: при медленном сервере — чек и чеки этой кассы, а данные сервера подгружаются, когда он ответит",
         "Медленный сервер больше не «вешает» кассу: окно ждёт ответ NurCRM не дольше 8 секунд и пишет «Сервер отвечает медленно» вместо долгого ожидания",
@@ -748,6 +773,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Нур Кеңешчи товарлардын сүрөтүн пачкалап издейт: «сүрөтсүз товарларга сүрөт тап» 20 (же 50) товардан кезеги менен алат, ар бирин интернеттен издейт жана эмнени текшергенин эстеп калат — кийинки жолу ошол жерден улантат; «Андан ары издөө», «Токтотуу», «Автоматтык түрдө кезеги менен издөө» баскычтары. Видео жана соц тармактар (YouTube, VK ж. б.) кабыл алынбайт, ишенимсиз дал келүүлөр өзүнчө «текшериңиз» белгиси менен чыгат жана «Баарын коюу» ичине кирбейт; сүрөт менен бирге интернеттен сүрөттөмө да коюлат (карточкада болбосо)",
+        "Накладной: аталыштар кампадагы товарлар менен акылдуураак салыштырылат — кыскартуулар («Мол.»), «1л» = «1 литр» = «1000 мл», латын жана кирилл («Coca-Cola» = «Кока-кола») түшүнүлөт; окшош товар 5ке чейин тизме менен сунушталат, сиз чечесиз: ошол эле (калдык көбөйөт) же жаңы",
+        "Касса жеткирүүчү боюнча тандооңузду эстейт: кийинки накладнойдо ошол эле товар өзү табылат («Дал келүүнү унутуу» баскычы); «ЖИ менен тандоо» баскычы жаңы саптар үчүн кампадан товар сунуштайт (Gemini ачкычы керек, ар дайым сиздин ырастооңуз менен)",
+        "Сүрөт жана кол менен жазылган накладной: ЖИ сиздин кампанын аталыштарына таянат, ишенимсиз саптар «сүрөт боюнча текшериңиз» деп белгиленет, суммасы дал келбеген саптар кайра окулат; сүрөт боюнча сатып алууда жаңы товарда «Окшоштору бар» баскычы бар",
         "Жай сервер кассаны «илип» албайт: терезе NurCRM жообун 8 секунддан ашык күтпөйт жана узак күтүүнүн ордуна «Сервер жай жооп берип жатат» деп жазат",
         "Кассирдин иш-аракеттери өзүнчө тез сурамдар тилкесинде жүрөт — фондогу жүктөөлөр (каталог, ээсинин жыйынтыгы) аларды кармабайт; башкы жагында «Сервер жай иштеп жатат» белгиси",
         "Баштоо жана кирүү: сервер компаниянын маалыматын жай берсе, касса сакталган маалымат менен ачылат, компания өзү толукталат; кирүүнү жаңыртуу — 10 секунддан ашык эмес",
@@ -838,6 +867,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Nur Advisor now searches for product photos in batches: “find photos for products without a photo” takes 20 (or 50) products at a time, searches the web for each one and remembers what was already checked, so the next request continues where it stopped; buttons “Search more”, “Stop” and “Search automatically, batch after batch”. Video sites and social networks (YouTube, VK and so on) are rejected, uncertain matches are shown separately with a “check” mark and are not part of “Set all”; a description from the web is set together with the photo (if the card had none)",
+        "Invoice: names are matched to stock items more cleverly — abbreviations (“Mol.”), “1l” = “1 litre” = “1000 ml”, Latin and Cyrillic (“Coca-Cola” = “Кока-кола”) are understood; a similar item is offered as a list of up to 5 and you decide: the same item (stock increases) or a new one",
+        "The till remembers your choice per supplier: next time the same item is found by itself (“Forget the match” button); the “Match with AI” button suggests a stock item for new lines (needs a Gemini key, always with your confirmation)",
+        "Photo and handwritten invoices: the AI leans on your stock names, uncertain lines are marked “check against the photo”, lines whose total does not add up are re-read once more; in a photo purchase a new item has a “Similar items” button",
         "A slow server no longer freezes the till: a window waits for NurCRM no longer than 8 seconds and then says “The server is responding slowly” instead of waiting for a long time",
         "The cashier's actions use a separate fast lane of requests — background loads (catalog, owner summary) no longer hold them up; the header shows a “Server is slow” icon",
         "Start-up and sign-in: if the server is slow with the company data, the till opens with the saved data and the company loads itself later; the sign-in refresh takes no more than 10 seconds",
@@ -928,6 +961,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Nur Danışman ürün fotoğraflarını gruplar halinde arıyor: «fotoğrafsız ürünlere fotoğraf bul» her seferinde 20 (veya 50) ürünü alır, her biri için internette arar ve nelerin kontrol edildiğini hatırlar — sonraki sefer kaldığı yerden devam eder; «Aramaya devam», «Durdur», «Otomatik olarak sırayla ara» düğmeleri. Video ve sosyal ağlar (YouTube, VK vb.) kabul edilmez, emin olunmayan eşleşmeler ayrı ve «kontrol edin» işaretiyle gösterilir, «Tümünü ayarla»ya girmez; kartta açıklama yoksa fotoğrafla birlikte internetten açıklama da eklenir",
+        "Fatura: adlar depodaki ürünlerle daha akıllı eşleştirilir — kısaltmalar («Mol.»), «1l» = «1 litre» = «1000 ml», Latin ve Kiril («Coca-Cola» = «Кока-кола») anlaşılır; benzer ürün 5'e kadar liste olarak önerilir, siz karar verirsiniz: aynı ürün (stok artar) veya yeni",
+        "Kasa tedarikçi başına seçiminizi hatırlar: sonraki faturada aynı ürün kendiliğinden bulunur («Eşleşmeyi unut» düğmesi); «YZ ile eşleştir» düğmesi yeni satırlar için depodan ürün önerir (Gemini anahtarı gerekir, her zaman onayınızla)",
+        "Fotoğraflı ve el yazısı fatura: YZ deponuzdaki adlara dayanır, emin olunmayan satırlar «fotoğrafa göre kontrol edin» diye işaretlenir, tutarı tutmayan satırlar bir kez daha okunur; fotoğraflı alımda yeni üründe «Benzerleri var» düğmesi bulunur",
         "Yavaş sunucu artık kasayı kilitlemiyor: pencere NurCRM'yi en fazla 8 saniye bekliyor ve uzun beklemek yerine «Sunucu yavaş yanıt veriyor» yazıyor",
         "Kasiyerin işlemleri ayrı bir hızlı istek şeridinden geçiyor — arka plan yüklemeleri (katalog, sahip özeti) onları geciktirmiyor; üst çubukta «Sunucu yavaş» simgesi var",
         "Açılış ve giriş: sunucu şirket verisiyle yavaşsa kasa kayıtlı verilerle açılıyor, şirket kendiliğinden sonradan yükleniyor; giriş yenilemesi en fazla 10 saniye sürüyor",
@@ -1018,6 +1055,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Nur Maslahatchi mahsulot rasmlarini guruhlab qidiradi: «rasmsiz mahsulotlarga rasm top» har safar 20 (yoki 50) ta mahsulotni oladi, har birini internetdan qidiradi va nimalar tekshirilganini eslab qoladi — keyingi safar qolgan joyidan davom etadi; «Davom ettirish», «To'xtatish», «Avtomatik ravishda navbat bilan qidirish» tugmalari. Video va ijtimoiy tarmoqlar (YouTube, VK va boshqalar) qabul qilinmaydi, ishonchsiz mos kelishlar alohida «tekshiring» belgisi bilan chiqadi va «Hammasini o'rnatish»ga kirmaydi; kartada tavsif bo'lmasa, rasm bilan birga internetdan tavsif ham o'rnatiladi",
+        "Yuk xati: nomlar ombordagi mahsulotlar bilan aqlliroq solishtiriladi — qisqartmalar («Mol.»), «1l» = «1 litr» = «1000 ml», lotin va kirill («Coca-Cola» = «Кока-кола») tushuniladi; o'xshash mahsulot 5 tagacha ro'yxat bilan taklif qilinadi, siz hal qilasiz: aynan o'sha (qoldiq oshadi) yoki yangi",
+        "Kassa yetkazib beruvchi bo'yicha tanlovingizni eslab qoladi: keyingi yuk xatida o'sha mahsulot o'zi topiladi («Moslikni unutish» tugmasi); «SI bilan tanlash» tugmasi yangi qatorlar uchun ombordan mahsulot taklif qiladi (Gemini kaliti kerak, doim sizning tasdig'ingiz bilan)",
+        "Rasm va qo'lda yozilgan yuk xati: SI omboringizdagi nomlarga tayanadi, ishonchsiz qatorlar «rasm bo'yicha tekshiring» deb belgilanadi, summasi to'g'ri kelmagan qatorlar yana bir bor o'qiladi; rasm bo'yicha xaridda yangi mahsulotda «O'xshashlari bor» tugmasi bor",
         "Sekin server endi kassani qotirmaydi: oyna NurCRM javobini 8 soniyadan ortiq kutmaydi va uzoq kutish o'rniga «Server sekin javob bermoqda» deb yozadi",
         "Kassirning amallari alohida tezkor so'rovlar yo'lagidan o'tadi — fon yuklashlari (katalog, egasining xulosasi) ularni ushlab turmaydi; tepada «Server sekin» belgisi bor",
         "Ishga tushirish va kirish: server kompaniya ma'lumotida sekin bo'lsa, kassa saqlangan ma'lumot bilan ochiladi, kompaniya o'zi keyin yuklanadi; kirishni yangilash — 10 soniyadan ortiq emas",
