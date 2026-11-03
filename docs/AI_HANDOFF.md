@@ -320,6 +320,12 @@ dotnet publish NurMarketKassa.Avalonia/NurMarketKassa.Avalonia.csproj -c Release
 - **Два .NET SDK** (с 06.10.2026 в `%LOCALAPPDATA%\Microsoft\dotnet` есть SDK 10.0.401, он стал основным): Android-нагрузка для net8.0-android стоит только у SDK 8.0.422 (21.10.2026: SDK 8.0.424 с ПК пропал, нагрузка android 34.0.154 поставлена `dotnet workload install android` для 8.0.422). APK собирать из папки с `global.json` `{"sdk":{"version":"8.0.422","rollForward":"disable"}}` (вне репозитория) и полным путём к csproj, иначе `NETSDK1147 … android wasm-tools-net8`.
 - **Маркетплейс и баннер обновления**: когда показан баннер обновления, кнопки ниже сдвигаются — снимайте окно перед щелчком.
 
+**UI-правила (02.11.2026, аудиты «10 из 10»): новые экраны — только по ним.**
+- Кнопки: главная — `nur-primary`, вторичная — `nur-secondary`, верхняя панель/стрелки — `top-tool` (все в `Views.axaml/Dialogs/PosDialogStyles.axaml`; новый класс «главной» не заводить, одна жёлтая на экран). Радиусы — `NurRadiusControl` (8) / `NurRadiusCard` (12); кисти только темы (`BrushInputBorder` — рамка поля ≥ 3:1, `BrushFocusRing` — фокус).
+- Значки — только `PathIcon` из `Themes/AppIcons.axaml` (не Segoe MDL2 и не эмодзи: на Linux/Android квадраты или цветные).
+- Сообщения: `IUserPrompts.ShowToast(текст)` — успех/справка (плашка `SuccessToast`); `ShowToast(текст, isWarning: true)`, `ShowWarning`, `ShowError` — окно (ошибки, причины, числа, «что делать»); важная ошибка без окна — `SuccessToast.Show(…, sticky: true)`.
+- Диктор (UIA): окна открывать через `await PosDialogHost.ShowModalAsync` (он уступает цикл до открытия) или откладывать `Dispatcher.UIThread.Post` — нажатие через UIA (`Invoke`) не должно висеть в обработчике до закрытия окна. Имена таблиц/полей ставит `Views.axaml/Main/AutomationNaming.cs` (поле следует за подписью, таблица — за заголовком).
+
 ## 11. Как продолжить
 
 1. Прочитать этот файл и `git log --oneline | head -20`.
