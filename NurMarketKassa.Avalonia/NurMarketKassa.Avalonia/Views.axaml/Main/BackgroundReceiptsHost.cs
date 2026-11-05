@@ -142,6 +142,12 @@ public static class BackgroundReceiptsHost
         {
             var queue = BackgroundReceivingQueue.Instance;
             var left = queue.ActiveCountAll;
+            // 2026-11-05 (аудит №3, Р3-02): выключение Windows / установщик — вопрос «Выйти / Подождать» не задаём (очередь и так на диске).
+            if (left > 0 && (NurMarketKassa.AvaloniaHost.Services.QuietShutdown.Requested || NurMarketKassa.AvaloniaHost.Services.QuietShutdown.IsWindowsShuttingDown()))
+            {
+                queue.Shutdown();
+                return;
+            }
             if (left <= 0 || _exitConfirmed || _exitAsking)
             {
                 queue.Shutdown();

@@ -32,7 +32,8 @@ public sealed class PayoutEngine
     /// <summary>Номер текущего этапа (0…); равен числу этапов — выплаты завершены.</summary>
     public int Stage => _si;
 
-    public readonly record struct Step(decimal Base, decimal Pay, int StageBefore, decimal Carried, decimal CutByCap);
+    /// <summary>2026-11-05 (И-15): StageAfter - этап после распределения месяца (до закрытия этапа «N месяцев»): по нему видно «Этап 1 → 2» внутри месяца.</summary>
+    public readonly record struct Step(decimal Base, decimal Pay, int StageBefore, decimal Carried, decimal CutByCap, int StageAfter);
 
     /// <summary>Один месяц: <paramref name="rawBase"/> — база месяца (может быть отрицательной), <paramref name="cap"/> — сколько всего можно выплатить за месяц.</summary>
     public Step Next(decimal rawBase, decimal cap)
@@ -133,6 +134,7 @@ public sealed class PayoutEngine
             pay = floored;
         }
 
+        var stageAfter = _si;
         if (_si < _stages.Count && _stages[_si].Cond == "months")
         {
             _stageMonths++;
@@ -142,13 +144,13 @@ public sealed class PayoutEngine
                 _stageMonths = 0;
             }
         }
-        return new Step(b, pay, startSi, Carried, Math.Max(0m, wanted - Math.Max(pay, 0m)));
+        return new Step(b, pay, startSi, Carried, Math.Max(0m, wanted - Math.Max(pay, 0m)), stageAfter);
     }
 }
 
 /// <summary>Строка ведомости: месяц инвестора.</summary>
 public sealed record MonthPayout(DateTime From, DateTime To, string MonthKey, decimal Net, decimal Base, decimal Carried, int StageBefore,
-    decimal Pay, decimal Tax, decimal Cum, decimal CutByCap)
+    decimal Pay, decimal Tax, decimal Cum, decimal CutByCap, int StageAfter = -1, DateTime? ShareFrom = null)
 {
     /// <summary>К выплате на руки: начислено минус налог.</summary>
     public decimal ToHand => Pay - Tax;
@@ -163,7 +165,9 @@ public sealed class InvestorResult
     /// <summary>Накоплено выплат (до налога).</summary>
     public decimal Got => Rows.Count > 0 ? Rows[^1].Cum : 0m;
     public decimal GotToHand => Rows.Sum(r => r.ToHand);
-    public decimal LastPay => Rows.Count > 0 ? Rows[^1].Pay : 0m;
+    /// <summary>2026-11-05 (И-06): индекс «последнего месяца» для карточек (последний полный); -1 — последний в списке.</summary>
+    public int LastIndex { get; set; } = -1;
+    public decimal LastPay => Rows.Count == 0 ? 0m : LastIndex >= 0 && LastIndex < Rows.Count ? Rows[LastIndex].Pay : Rows[^1].Pay;
     public decimal Percent => Invested > 0m ? Math.Clamp(Got / Invested * 100m, 0m, 100m) : 0m;
     /// <summary>Через сколько месяцев от даты вложения инвестор вернёт вложения (по прогнозу); null — не вернёт.</summary>
     public int? PaybackMonths { get; set; }
@@ -193,7 +197,7 @@ public sealed class InvestmentResult
     /// <summary>Засчитанный товарный остаток (по закупке × ликвидность); 0 — не засчитывается.</summary>
     public decimal StockCredit { get; init; }
     public IReadOnlyList<PaybackMonth> Months { get; init; } = Array.Empty<PaybackMonth>();
-    /// <summary>Чистая прибыль месяца за последний полный месяц (для показателей «за месяц»).</summary>
+    /// <summary>Чистая прибыль месяца за последний ПОЛНЫЙ месяц (если полных нет — за последний, какой есть; тогда <c>IsFull</c> ложно) для показателей «за месяц».</summary>
     public PaybackMonth? LastMonth { get; init; }
     /// <summary>Среднемесячная чистая прибыль, по которой строятся прогнозы.</summary>
     public decimal? AvgNet { get; init; }
@@ -237,17 +241,6 @@ public static class InvestmentAnalysis
         return months.Count;
     }
 
-    private static decimal AvgTail(IReadOnlyList<decimal> values, IReadOnlyList<PaybackMonth> months, DateTime today, int fc)
-    {
-        var idx = Enumerable.Range(0, months.Count).Where(i => months[i].IsFull && months[i].To.Date < today.Date).ToList();
-        if (idx.Count == 0)
-            idx = Enumerable.Range(0, months.Count).ToList();
-        if (idx.Count == 0)
-            return 0m;
-        var take = idx.TakeLast(Math.Max(1, fc)).ToList();
-        return take.Average(i => values[i]);
-    }
-
     private static int? FirstReach(IReadOnlyList<decimal> cumulative, decimal target)
     {
         if (target <= 0m)
@@ -259,15 +252,19 @@ public static class InvestmentAnalysis
     }
 
     /// <summary>Полный расчёт: окупаемость бизнеса, ведомости и окупаемость инвесторов, часть владельца. <paramref name="stockCost"/> — товарный
-    /// остаток по закупочной цене (null — не известен). Месяцы — как их вернул <see cref="StartupPaybackLoader"/> (у каждого есть Pnl).</summary>
+    /// остаток по закупочной цене (null — не известен). Месяцы — как их вернул <see cref="StartupPaybackLoader"/> (у каждого есть Pnl).
+    /// 2026-11-05: (И-01) вложения по датам, прибыль идёт в «Вернулось» с первого вложения; (И-02) ОДНА средняя (<see cref="PaybackResult.AvgMonthlyNet"/>)
+    /// на бизнес, владельца, инвесторов и план — нет средней, нет и прогноза; (И-03) «Товар» во «Вложено» не входит; (И-06) «последний месяц» — последний
+    /// ПОЛНЫЙ; (И-07) первый месяц инвестора — по дням с даты вложения.</summary>
     public static InvestmentResult Build(IReadOnlyList<StartupCostItem> costs, StartupCostsMeta meta, IReadOnlyList<InvestorItem> investors,
         IReadOnlyList<PaybackMonth> monthsIn, decimal? stockCost, DateTime today, int forecastMonths = StartupPayback.ForecastMonths)
     {
         var months = monthsIn.OrderBy(m => m.From).ToList();
-        var costTotal = StartupCostsStore.Sum(costs);
+        var costTotal = StartupCostsStore.InvestedSum(costs);
         var invSum = investors.Sum(i => i.Amount);
         var total = Math.Max(costTotal, invSum);
         var ownInvested = Math.Max(0m, total - invSum);
+        var steps = StartupPayback.InvestedSteps(costs, investors);
 
         var credit = 0m;
         if (stockCost is > 0m && investors.FirstOrDefault(i => i.Terms.StockCredit) is { } sc)
@@ -275,12 +272,23 @@ public static class InvestmentAnalysis
 
         var effMeta = meta.Clone();
         effMeta.OpenedOn ??= AnalysisStart(costs, meta, investors);
-        var business = StartupPayback.Compute(costs, effMeta, months, today, total > 0m ? total : null, forecastMonths, credit);
+        var business = StartupPayback.Compute(costs, effMeta, months, today, total > 0m ? total : null, forecastMonths, credit, steps);
+        var opened = (effMeta.OpenedOn ?? today).Date;
+        var avgNet = business.AvgMonthlyNet; // единая средняя; null — «мало данных для прогноза» везде
+        var firstInv = business.FirstInvestmentDate;
 
         var nets = months.Select(m => m.Net).ToList();
         var ordered = investors.OrderBy(i => i.Date).ThenBy(i => i.Id, StringComparer.Ordinal).ToList();
-        var bases = ordered.Select(inv => months.Select(m => m.Detail is { } p ? BaseOf(p, inv.Terms) : m.Net).ToList()).ToList();
+        var rawBases = ordered.Select(inv => months.Select(m => m.Detail is { } p ? BaseOf(p, inv.Terms) : m.Net).ToList()).ToList();
         var starts = ordered.Select(inv => StartIndex(months, inv.Date)).ToList();
+        // 2026-11-05 (И-07): первый месяц инвестора — только дни с даты вложения (база × дни / дней в периоде).
+        var bases = rawBases.Select((b, k) =>
+        {
+            var c = b.ToList();
+            if (starts[k] < months.Count && ordered[k].Date.Date > months[starts[k]].From.Date)
+                c[starts[k]] *= StartupPayback.CountedFraction(months[starts[k]].From, months[starts[k]].To, ordered[k].Date);
+            return c;
+        }).ToList();
 
         // История.
         var rowsBy = RunAll(ordered, bases, starts, nets, months, out var engines);
@@ -288,58 +296,95 @@ public static class InvestmentAnalysis
         for (var k = 0; k < ordered.Count; k++)
             results.Add(new InvestorResult { Investor = ordered[k], Rows = rowsBy[k], StageNow = engines[k].Stage });
 
-        // Прогноз по средней за forecastMonths полных месяцев.
-        var futureNet = AvgTail(nets, months, today, forecastMonths);
-        var extNets = nets.Concat(Enumerable.Repeat(futureNet, FutureMonths)).ToList();
-        var extBases = bases.Select((b, k) => b.Concat(Enumerable.Repeat(AvgTail(b, months, today, forecastMonths), FutureMonths)).ToList()).ToList();
-        var extMonths = months.Concat(Enumerable.Range(0, FutureMonths).Select(i =>
-        {
-            var from = (months.Count > 0 ? new DateTime(months[^1].From.Year, months[^1].From.Month, 1) : new DateTime(today.Year, today.Month, 1)).AddMonths(i + 1);
-            return new PaybackMonth(from, from.AddMonths(1).AddDays(-1), futureNet);
-        })).ToList();
-        var extRows = RunAll(ordered, extBases, starts, extNets, extMonths, out _);
+        // «Последний месяц» для карточек — последний ПОЛНЫЙ (нет полных — последний, какой есть).
+        var lastIdx = months.FindLastIndex(m => m.IsFull && m.To.Date < today.Date);
+        if (lastIdx < 0)
+            lastIdx = months.Count - 1;
+        foreach (var r in results)
+            r.LastIndex = lastIdx;
+
+        var fracs = months.Select(m => StartupPayback.CountedFraction(m.From, m.To, firstInv)).ToList();
+        var histPaid = months.Select((_, i) => results.Sum(r => i < r.Rows.Count ? r.Rows[i].Pay : 0m)).ToList();
+        var ownGot = months.Select((m, i) => m.Net * fracs[i] - histPaid[i]).Sum();
+
+        // Прогноз по ЕДИНОЙ средней: с остатка текущего месяца, дальше — целые месяцы по средней.
         var first = months.Count > 0 ? new DateTime(months[0].From.Year, months[0].From.Month, 1) : new DateTime(today.Year, today.Month, 1);
-        for (var k = 0; k < ordered.Count; k++)
+        var ownCum = new List<decimal>();
+        if (avgNet is { } futureNet)
         {
-            var idx = FirstReach(extRows[k].Select(r => r.Cum).ToList(), ordered[k].Amount);
-            if (idx is { } i)
+            decimal remFrac = 0m;
+            if (months.Count > 0)
             {
-                // Месяцев от вложения: индекс окупаемости минус индекс старта плюс 1.
-                results[k].PaybackMonths = Math.Max(1, i - Math.Min(starts[k], i) + 1);
-                results[k].PaybackDate = first.AddMonths(i);
+                var lastM = months[^1];
+                var dim = DateTime.DaysInMonth(lastM.To.Year, lastM.To.Month);
+                var left = dim - lastM.To.Day;
+                if (lastM.To.Date >= today.Date && left > 0)
+                    remFrac = left / (decimal)dim;
+            }
+            List<decimal> Extend(IReadOnlyList<decimal> hist, decimal avg)
+            {
+                var l = hist.ToList();
+                if (l.Count > 0)
+                    l[^1] += avg * remFrac;
+                l.AddRange(Enumerable.Repeat(avg, FutureMonths));
+                return l;
+            }
+            var extNets = Extend(nets, futureNet);
+            var extBases = bases.Select((b, k) =>
+            {
+                var avgB = StartupPayback.AverageMonthly(months, i => rawBases[k][i], opened, today, forecastMonths, out _) ?? 0m;
+                return Extend(b, avgB);
+            }).ToList();
+            var extMonths = months.Concat(Enumerable.Range(0, FutureMonths).Select(i =>
+            {
+                var from = (months.Count > 0 ? new DateTime(months[^1].From.Year, months[^1].From.Month, 1) : new DateTime(today.Year, today.Month, 1)).AddMonths(i + 1);
+                return new PaybackMonth(from, from.AddMonths(1).AddDays(-1), futureNet);
+            })).ToList();
+            var extRows = RunAll(ordered, extBases, starts, extNets, extMonths, out _);
+            for (var k = 0; k < ordered.Count; k++)
+            {
+                var idx = FirstReach(extRows[k].Select(r => r.Cum).ToList(), ordered[k].Amount);
+                if (idx is { } i)
+                {
+                    // Месяцев от вложения: индекс окупаемости минус индекс старта плюс 1.
+                    results[k].PaybackMonths = Math.Max(1, i - Math.Min(starts[k], i) + 1);
+                    results[k].PaybackDate = first.AddMonths(i);
+                }
+            }
+            decimal c = 0m;
+            for (var i = 0; i < extNets.Count; i++)
+            {
+                var paid = extRows.Sum(r => r[i].Pay);
+                c += extNets[i] * (i < fracs.Count ? fracs[i] : 1m) - paid;
+                ownCum.Add(c);
             }
         }
 
         // Владелец.
-        decimal c = 0m;
-        var ownCum = new List<decimal>();
-        for (var i = 0; i < extNets.Count; i++)
-        {
-            var paid = extRows.Sum(r => r[i].Pay);
-            c += extNets[i] - paid;
-            ownCum.Add(c);
-        }
-        var histPaid = months.Select((_, i) => results.Sum(r => i < r.Rows.Count ? r.Rows[i].Pay : 0m)).ToList();
-        var ownGot = months.Select((m, i) => m.Net - histPaid[i]).Sum();
         var owner = new OwnerResult
         {
             Invested = ownInvested,
             Got = ownGot,
-            LastMonthly = months.Count > 0 ? months[^1].Net - histPaid[^1] : 0m,
+            LastMonthly = lastIdx >= 0 ? months[lastIdx].Net - histPaid[lastIdx] : 0m,
         };
-        if (FirstReach(ownCum, ownInvested) is { } oi)
+        if (ownCum.Count > 0 && FirstReach(ownCum, ownInvested) is { } oi)
         {
             owner.PaybackMonths = oi + 1;
             owner.PaybackDate = first.AddMonths(oi);
         }
 
-        // Бизнес целиком: накопленная прибыль + засчитанный остаток против total.
-        decimal bc = credit;
-        var bizCum = extNets.Select(n => bc += n).ToList();
-        var bizIdx = FirstReach(bizCum, total);
+        // Бизнес целиком: срок и месяц — из того же прогноза, что плитка (Compute); «раньше/позже плана» — от даты прогноза по дням с открытия.
         int? ahead = null;
-        if (meta.PlanMonths > 0 && bizIdx is { } bi)
-            ahead = meta.PlanMonths - (bi + 1);
+        if (meta.PlanMonths > 0)
+        {
+            int? fromOpen = null;
+            if (business.Status == PaybackStatus.PaidBack && business.PaidBackMonth is { } pbm)
+                fromOpen = (pbm.Year - opened.Year) * 12 + pbm.Month - opened.Month + 1;
+            else if (business.ForecastDate is { } fd)
+                fromOpen = (int)Math.Ceiling((fd.Date - opened).TotalDays / 30.4375);
+            if (fromOpen is { } f)
+                ahead = meta.PlanMonths - f;
+        }
 
         return new InvestmentResult
         {
@@ -349,13 +394,34 @@ public static class InvestmentAnalysis
             TotalInvested = total,
             StockCredit = credit,
             Months = months,
-            LastMonth = months.LastOrDefault(),
-            AvgNet = business.AvgMonthlyNet ?? (months.Count > 0 ? futureNet : null),
+            LastMonth = lastIdx >= 0 ? months[lastIdx] : null,
+            AvgNet = avgNet,
             ForecastMonths = forecastMonths,
             AheadOfPlan = ahead,
-            BusinessPaybackMonth = bizIdx is { } bj ? first.AddMonths(bj) : null,
+            BusinessPaybackMonth = business.ForecastDate is { } bf ? new DateTime(bf.Year, bf.Month, 1) : null,
         };
     }
+
+    /// <summary>2026-11-05 (И-08): сумма долей инвесторов на текущих этапах (по одной базе) больше 100 % — часть выплат будет урезана, владельцу не останется ничего.
+    /// Возвращает текст предупреждения или null.</summary>
+    public static string? ShareWarning(IEnumerable<(string Base, decimal Pct)> stagesNow)
+    {
+        foreach (var g in stagesNow.GroupBy(x => x.Base))
+        {
+            var sum = g.Sum(x => x.Pct);
+            if (g.Count() > 1 && sum > 100m)
+                return Tr.T($"Доли инвесторов на этапе сейчас: {sum:0.##} % > 100 % — часть выплат будет урезана, владельцу не останется ничего.",
+                    $"Инвесторлордун азыркы этаптагы үлүштөрү: {sum:0.##} % > 100 % — төлөмдөрдүн бир бөлүгү кыскартылат, ээсине эч нерсе калбайт.",
+                    $"Investors' shares at the current stage: {sum:0.##} % > 100 % — part of the payouts will be cut and nothing will be left for the owner.",
+                    $"Yatırımcıların şu anki aşamadaki payları: %{sum:0.##} > %100 — ödemelerin bir kısmı kısılır, sahibe hiçbir şey kalmaz.",
+                    $"Investorlarning hozirgi bosqichdagi ulushlari: {sum:0.##} % > 100 % — to'lovlarning bir qismi qisqartiriladi, egasiga hech narsa qolmaydi.");
+        }
+        return null;
+    }
+
+    /// <summary>Доли на текущих этапах по результату расчёта (для ShareWarning).</summary>
+    public static string? ShareWarning(InvestmentResult r) =>
+        ShareWarning(r.Investors.Where(i => i.StageNow < i.Investor.Terms.Stages.Count).Select(i => (i.Investor.Terms.Base, i.Investor.Terms.Stages[i.StageNow].Pct)));
 
     /// <summary>Прогон всех инвесторов по месяцам. За месяц все вместе не получают больше чистой прибыли месяца: инвесторы идут по дате вложения.</summary>
     private static List<List<MonthPayout>> RunAll(List<InvestorItem> investors, List<List<decimal>> bases, List<int> starts, IReadOnlyList<decimal> nets,
@@ -375,10 +441,11 @@ public static class InvestmentAnalysis
                     continue;
                 }
                 var step = eng.Next(bases[k][m], remaining);
+                DateTime? shareFrom = m == starts[k] && investors[k].Date.Date > months[m].From.Date && investors[k].Date.Date <= months[m].To.Date ? investors[k].Date.Date : null;
                 if (step.Pay > 0m)
                     remaining -= step.Pay;
                 var tax = step.Pay > 0m ? Math.Round(step.Pay * investors[k].Terms.TaxPct / 100m, 2, MidpointRounding.AwayFromZero) : 0m;
-                rows[k].Add(new MonthPayout(months[m].From, months[m].To, MonthKey(months[m].From), nets[m], step.Base, step.Carried, step.StageBefore, step.Pay, tax, eng.Cum, step.CutByCap));
+                rows[k].Add(new MonthPayout(months[m].From, months[m].To, MonthKey(months[m].From), nets[m], step.Base, step.Carried, step.StageBefore, step.Pay, tax, eng.Cum, step.CutByCap, step.StageAfter, shareFrom));
             }
         }
         return rows;

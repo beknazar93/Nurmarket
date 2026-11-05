@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
@@ -37,7 +38,7 @@ public partial class StockTransferDialog : Window
         // 2026-10-22 (модалки, пакет 3): во время запроса к серверу окно не закрывается (StockTransferDialog.Branches: _serverBusy).
         Closing += (_, e) =>
         {
-            if (_serverBusy)
+            if (_serverBusy && !_slowReleased)
                 e.Cancel = true;
         };
     }
@@ -474,8 +475,9 @@ public partial class StockTransferDialog : Window
             FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
         });
 
-        var path = file?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(path))
+        // 2026-11-05 (А3-05): Android — без локального пути: временный файл + копия через OpenWriteAsync
+        var path = file is null ? null : ExportFileBridge.PathFor(file);
+        if (file is null || string.IsNullOrWhiteSpace(path))
             return;
 
         try
@@ -492,6 +494,7 @@ public partial class StockTransferDialog : Window
                 else
                     StockTransferExportService.ExportTransferToExcel(path!, _transfer, items, log, status, DescribeStatus, shop);
             }).ConfigureAwait(true);
+            await ExportFileBridge.CompleteAsync(file, path!).ConfigureAwait(true);
         }
         catch (System.Exception ex)
         {
@@ -515,8 +518,8 @@ public partial class StockTransferDialog : Window
             SuggestedFileName = StockTransferExportService.SuggestTransferFileName(_transfer, UserPreferences.Instance.StoreName, format),
         });
 
-        var path = file?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(path))
+        var path = file is null ? null : ExportFileBridge.PathFor(file); // 2026-11-05 (А3-05)
+        if (file is null || string.IsNullOrWhiteSpace(path))
             return;
 
         var separator = format == "csv" ? ";" : "\t";
@@ -546,6 +549,7 @@ public partial class StockTransferDialog : Window
 
         // UTF-8 с меткой порядка байтов: без неё Excel открывает кириллицу знаками вопроса.
         File.WriteAllText(path, text.ToString(), new UTF8Encoding(true));
+        await ExportFileBridge.CompleteAsync(file, path).ConfigureAwait(true);
     }
 
     /// <summary>Экранирование ячейки CSV: разделитель, кавычки или перенос строки в названии товара

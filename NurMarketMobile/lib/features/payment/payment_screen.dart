@@ -654,7 +654,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     var cleared = true;
     try {
       if (identical(ref.read(cartProvider), baseCart)) {
-        cartNotifier.clear();
+        cartNotifier.clear(force: true); // 2026-11-05 (М4-01): сама оплата чистит чек, пока он заморожен
         await cartNotifier.flush();
       } else {
         cleared = false; // 2026-11-02 (М3-01): чек изменился во время оплаты — ключ НЕ стираем (иначе оплата того же состава пройдёт второй раз)
@@ -723,11 +723,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // продажа проведена — второстепенное не мешает показать «Оплачено»
     }
     shiftNotifier.refresh();
+    // 2026-11-05 (М4-14): итог чека и сдача — из ответа сервера (result.total), а не из корзины: если правила сервера разошлись с
+    // телефоном, покупатель получает сдачу с той суммы, что записал сервер. В очереди/«проведено, сверьте» суммы сервера нет — корзина.
+    final paidTotal = result.queued || result.reconcile || result.total <= 0 ? cart.total : result.total;
+    if ((paidTotal - cart.total).abs() > 0.009) {
+      Audit.log('sale', 'Итог сервера ${money(paidTotal)} не совпал с корзиной телефона ${money(cart.total)} — чек и сдача по серверу');
+    }
     // 2026-10-26 (голос-управление, В3б): чек проведён (или в очереди) — докладываем итог ручке ДО перехода на «Оплачено»
     _aiSink.report(
       HandleOutcome.ok({
         'total': result.total,
-        'change': method == PayMethod.cash ? change(received ?? cart.total, cart.total) : 0.0,
+        'change': method == PayMethod.cash ? change(received ?? paidTotal, paidTotal) : 0.0,
         'number': result.number ?? '',
         'sale_id': saleId ?? '',
         'queued': result.queued,
@@ -739,17 +745,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       cart: cart,
       number: result.number,
       payment: method.api,
-      received: method == PayMethod.card ? null : (method == PayMethod.cash ? (received ?? cart.total) : (received ?? 0)),
+      received: method == PayMethod.card ? null : (method == PayMethod.cash ? (received ?? paidTotal) : (received ?? 0)),
       client: client?.display ?? '',
       response: result.response,
       offline: result.queued,
       debtDue: debtDue,
+      serverTotal: result.queued || result.reconcile ? null : paidTotal,
     );
     final sharePdf = _receipt == ReceiptTo.whatsapp;
     // 2026-10-22: сначала «Оплачено», потом PDF — ошибка отправки PDF больше не прячет сдачу.
     context.pushReplacement(
       '/paid',
-      extra: PaidInfo(result, method == PayMethod.cash ? change(received ?? cart.total, cart.total) : 0, receipt, showQr: _receipt == ReceiptTo.qr),
+      extra: PaidInfo(result, method == PayMethod.cash ? change(received ?? paidTotal, paidTotal) : 0, receipt, showQr: _receipt == ReceiptTo.qr),
     );
     // 13.10, владелец: чек клиенту — PDF-файлом (WhatsApp, Telegram…), а не текстом.
     if (sharePdf) unawaited(shareReceiptPdf(receipt).catchError((_) {}));
@@ -791,7 +798,7 @@ class _PaidScreenState extends State<PaidScreen> {
     if (!c.ready || !mounted) return;
     // 2026-10-22 (мобилка, админ): П6 — после продажи за наличные ящик открывается (с чеком или без автопечати).
     if (c.autoPrint) {
-      await printReceiptUi(context, info.receipt, afterSale: true);
+      await _print(service, c);
     } else {
       try {
         await service.drawerAfterSale(info.receipt, c);
@@ -799,6 +806,37 @@ class _PaidScreenState extends State<PaidScreen> {
         // ящик не открылся — продажа уже проведена
       }
     }
+  }
+
+  /// 2026-11-05 (М5-07): неудачная автопечать не пропадает вместе со всплывающим сообщением — на экране «Оплачено» остаётся красная
+  /// плашка «Чек не напечатан» с причиной и кнопкой «Повторить печать», пока кассир не закроет экран.
+  String? _printError;
+  bool _printing = false;
+
+  Future<void> _print(PrinterService service, PrinterConfig c) async {
+    if (_printing) return;
+    _printing = true;
+    try {
+      await service.printReceipt(info.receipt, config: c, afterSale: true);
+      if (!mounted) return;
+      if (_printError != null) setState(() => _printError = null);
+      toast(context, context.l.prnSent);
+    } on PrinterException catch (e) {
+      if (mounted) setState(() => _printError = printerProblemText(context.l, e));
+    } finally {
+      _printing = false;
+    }
+  }
+
+  Future<void> _printAgain() async {
+    final service = ProviderScope.containerOf(context, listen: false).read(printerProvider);
+    final c = await service.load();
+    if (!mounted) return;
+    if (!c.ready) {
+      toast(context, context.l.prnErrNotConfigured, error: true);
+      return;
+    }
+    await _print(service, c);
   }
 
   // 2026-10-26 (живой аудит, П4, Н-3): номер чека везде как на кассе — с нулями («№001601»), а не «№1601» в одном месте
@@ -875,6 +913,32 @@ class _PaidScreenState extends State<PaidScreen> {
                               child: Text(
                                 l.pieceStockMismatch(info.result.stockWarnings.map((w) => '${w.name} (${qtyText(w.expected)} → ${qtyText(w.actual)})').join('; ')),
                                 style: TextStyle(color: pal.warn, fontWeight: FontWeight.w700, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (_printError != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        key: const Key('receiptNotPrinted'),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: pal.dangerSoft, borderRadius: BorderRadius.circular(12)),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.print_disabled_outlined, color: pal.danger),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(l.prnNotPrinted, style: TextStyle(color: pal.danger, fontWeight: FontWeight.w800)),
+                                  Text(_printError!, style: TextStyle(color: pal.danger, fontSize: 12.5)),
+                                  const SizedBox(height: 6),
+                                  OutlinedButton(onPressed: _printAgain, child: Text(l.prnPrintAgain)),
+                                ],
                               ),
                             ),
                           ],

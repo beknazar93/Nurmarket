@@ -883,6 +883,10 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         }
 
         _barcodeInputService.BarcodeScanned += OnBarcodeScanned;
+        // 2026-11-05 (аудит №3, Д-6): акт списания, оформленный из другого окна (удаление товара, «± Остаток»), сразу виден на вкладке «Списание».
+        Action onWriteOffAppended = () => Dispatcher.UIThread.Post(() => _viewModel.ReloadWriteOffHistory());
+        WriteOffHistoryStore.Appended += onWriteOffAppended;
+        Closed += (_, _) => WriteOffHistoryStore.Appended -= onWriteOffAppended;
         try
         {
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
@@ -913,7 +917,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         }
         catch (Exception ex)
         {
-            PosMessageBox.Show(this, Tr.T($"Не удалось загрузить каталог: {ex.Message}", $"Каталогду жүктөө мүмкүн болгон жок: {ex.Message}", $"Could not load the catalog: {ex.Message}", $"Katalog yüklenemedi: {ex.Message}", $"Katalogni yuklab bo'lmadi: {ex.Message}"), Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor"),
+            var loadFail = ServerOutageMonitor.FriendlyError(ex); // 2026-11-05 (С2-38): человеческий текст вместо сырого ex.Message
+            PosMessageBox.Show(this, Tr.T($"Не удалось загрузить каталог: {loadFail}", $"Каталогду жүктөө мүмкүн болгон жок: {loadFail}", $"Could not load the catalog: {loadFail}", $"Katalog yüklenemedi: {loadFail}", $"Katalogni yuklab bo'lmadi: {loadFail}"), Tr.T("Склад", "Кампа", "Warehouse", "Depo", "Ombor"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
@@ -1263,7 +1268,13 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         await dialog.ShowDialog(this).ConfigureAwait(true);
     }
 
-    private void BulkImport_Click(object? sender, RoutedEventArgs e) => BulkImportWizardWindow.Open(this);
+    private void BulkImport_Click(object? sender, RoutedEventArgs e)
+    {
+        // 2026-11-05 (аудит №3, С2-28): мастер загрузки создаёт и правит сотни товаров — по праву «Склад: редактирование», как остальные правки склада.
+        if (!EnsureCanEditProducts())
+            return;
+        BulkImportWizardWindow.Open(this);
+    }
 
     private async void BulkPriceTag_Click(object? sender, RoutedEventArgs e)
     {
@@ -1359,6 +1370,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
 
     private async Task AddProductCoreAsync()
     {
+        if (!EnsureCanEditProducts()) // 2026-11-05 (аудит №3, С2-28): добавление товара — тоже по праву «Склад: редактирование»
+            return;
         var catalogApi = App.AppHost?.Services.GetService<ICatalogApiService>();
         var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
         if (catalogApi is null)
@@ -1416,6 +1429,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             return;
         var onReceipts = _openCardOnReceipts;
         _openCardOnReceipts = false;
+        if (!onReceipts && !EnsureCanEditProducts()) // 2026-11-03 (аудит №3, Т3-03): вкладка «Поступления» — просмотр, правка карточки и цен — по праву «Склад: редактирование»
+            return;
 
         var catalogApi = App.AppHost?.Services.GetService<ICatalogApiService>();
         var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
@@ -1473,6 +1488,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     {
         if (sender is not Button { Tag: CatalogProductTileVm product })
             return;
+        if (!EnsureCanEditProducts()) // 2026-11-03 (аудит №3, Т3-03)
+            return;
 
         var catalogApi = App.AppHost?.Services.GetService<ICatalogApiService>();
         var prompts = App.AppHost?.Services.GetService<IUserPrompts>();
@@ -1526,7 +1543,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             }
             catch (ServerNotAnsweringException)
             {
-                prompts?.ShowToast(ServerAnswerWait.SlowMessage, isWarning: true);
+                ShowDeleteNotice(ServerAnswerWait.SlowMessage); // 2026-11-03 (Т3-07): info-окно без «Отложить ошибку»
                 return;
             }
             catch (Exception sex) when (sex is not OutOfMemoryException)
@@ -1538,7 +1555,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
               // 2026-11-03 (ревью Н-3): весь блок списания в try — это async void, исключение не должно уйти в необработанные.
               try
               {
-                var stockText = stock.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                var stockText = ProductActions.QtyWithUnit(stock, product.Unit, product.MustWeigh); // 2026-11-05 (Т3-10): с запятой и единицей, не «2.5»
                 var writeOff = PosConfirmDialog.Show(this,
                     Tr.T("Сначала спишите остаток", "Адегенде калдыкты эсептен чыгарыңыз", "Write off the stock first", "Önce stoku düşün", "Avval qoldiqni hisobdan chiqaring"),
                     Tr.T($"На складе «{product.Title}» числится {stockText}. Как в 1С, товар с остатком не удаляют: сначала оформите акт «Списание» (остаток станет 0), потом товар можно убрать. Списать остаток сейчас?",
@@ -1554,34 +1571,52 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
                 var woDialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.WriteOffDialog(new[] { product }, stock);
                 if (!await woDialog.ShowDialog<bool>(this).ConfigureAwait(true))
                     return;
-                PosLogger.Log($"AUDIT: перед удалением списан остаток «{product.Title}» ({product.Id}) × {stockText}.", "INFO");
-                // 2026-11-03 (ревью С-5): «остаток обнулён» ставим только если сервер подтвердил ≤ 0 (кассир мог уменьшить количество в окне списания).
+                // 2026-11-03 (аудит №3, Т3-02): сервер за 8 с не ответил на акт списания — итог придёт фоном; товар не удаляем, пока остаток не станет 0.
+                if (woDialog.Pending)
+                {
+                    ShowDeleteNotice(Tr.T("Акт списания отправлен, но сервер ещё не ответил — товар не удалён. Проверьте остаток чуть позже и повторите удаление.", "Эсептен чыгаруу актысы жөнөтүлдү, бирок сервер али жооп берген жок — товар өчүрүлгөн жок. Бир аздан кийин калдыкты текшерип, өчүрүүнү кайталаңыз.", "The write-off document was sent but the server has not answered yet — the product was not deleted. Check the stock a little later and delete again.", "Düşüm belgesi gönderildi ancak sunucu henüz yanıt vermedi — ürün silinmedi. Biraz sonra stoğu kontrol edip silmeyi tekrarlayın.", "Hisobdan chiqarish hujjati yuborildi, lekin server hali javob bermadi — mahsulot o'chirilmadi. Birozdan keyin qoldiqni tekshirib, o'chirishni takrorlang."));
+                    return;
+                }
+                // 2026-11-05 (Н-4): раньше писали «списан × остаток до акта» даже при списании части; фактически списанное — после перечитывания остатка ниже.
+                PosLogger.Log($"AUDIT: перед удалением оформлен акт списания «{product.Title}» ({product.Id}); остаток до акта {stockText}.", "INFO");
+                // 2026-11-03 (аудит №3, Т3-01): остаток перечитываем с сервера (срок 8 с) и удаляем товар ТОЛЬКО при нуле. Раньше при «осталось N» показывали
+                // предупреждение и всё равно удаляли — оставшиеся штуки пропадали без акта. Не прочитали остаток — тоже не удаляем.
+                double left;
                 try
                 {
                     var checkId = product.Id;
-                    if (await ServerAnswerWait.ForegroundAsync("products/detail", t => catalogApi.ProductsDetailAsync(checkId, t)).ConfigureAwait(true) is { } afterDetail)
+                    var afterDetail = await ServerAnswerWait.ForegroundAsync("products/detail", t => catalogApi.ProductsDetailAsync(checkId, t)).ConfigureAwait(true);
+                    if (afterDetail is null)
                     {
-                        var left = StockSyncService.ResolveStockQuantity(afterDetail, product.MustWeigh);
-                        if (left <= 0.0005)
-                            stockCleared = true;
-                        else
-                        {
-                            remainingStock = left;
-                            prompts?.ShowToast(Tr.T($"Остаток списан не полностью: осталось {left:0.###}.", $"Калдык толугу менен эсептен чыгарылган жок: {left:0.###} калды.", $"Stock was not fully written off: {left:0.###} left.", $"Stok tamamen düşülmedi: {left:0.###} kaldı.", $"Qoldiq to'liq hisobdan chiqarilmadi: {left:0.###} qoldi."), isWarning: true);
-                        }
+                        PosLogger.Log($"Склад: остаток «{product.Title}» после списания не получен (пустой ответ) — товар не удалён.", "WARNING");
+                        ShowDeleteNotice(Tr.T("Не удалось проверить остаток после списания — товар не удалён. Проверьте связь и повторите.", "Эсептен чыгаргандан кийин калдыкты текшерүү мүмкүн болгон жок — товар өчүрүлгөн жок. Байланышты текшерип, кайра аракет кылыңыз.", "Could not check the stock after the write-off — the product was not deleted. Check the connection and try again.", "Düşümden sonra stok doğrulanamadı — ürün silinmedi. Bağlantıyı kontrol edip tekrar deneyin.", "Hisobdan chiqargandan keyin qoldiqni tekshirib bo'lmadi — mahsulot o'chirilmadi. Ulanishni tekshirib qayta urinib ko'ring."));
+                        return;
                     }
+                    left = StockSyncService.ResolveStockQuantity(afterDetail.Value, product.MustWeigh);
                 }
                 catch (Exception cex) when (cex is not OutOfMemoryException)
                 {
-                    PosLogger.Log($"Склад: остаток «{product.Title}» после списания не перечитан ({cex.Message}) — признак «обнулён» не ставим.", "WARNING");
+                    PosLogger.Log($"Склад: остаток «{product.Title}» после списания не перечитан ({cex.Message}) — товар не удалён.", "WARNING");
+                    ShowDeleteNotice(cex is ServerNotAnsweringException
+                        ? ServerAnswerWait.SlowMessage
+                        : Tr.T("Не удалось проверить остаток после списания — товар не удалён. Проверьте связь и повторите.", "Эсептен чыгаргандан кийин калдыкты текшерүү мүмкүн болгон жок — товар өчүрүлгөн жок. Байланышты текшерип, кайра аракет кылыңыз.", "Could not check the stock after the write-off — the product was not deleted. Check the connection and try again.", "Düşümden sonra stok doğrulanamadı — ürün silinmedi. Bağlantıyı kontrol edip tekrar deneyin.", "Hisobdan chiqargandan keyin qoldiqni tekshirib bo'lmadi — mahsulot o'chirilmadi. Ulanishni tekshirib qayta urinib ko'ring."));
+                    return;
                 }
-                await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
-                await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
+                if (left > 0.0005)
+                {
+                    PosLogger.Log($"AUDIT: удаление «{product.Title}» ({product.Id}) прервано — после списания осталось {left:0.###}.", "WARNING");
+                    var leftText = ProductActions.QtyWithUnit(left, product.Unit, product.MustWeigh); // 2026-11-05 (Т3-10)
+                    ShowDeleteNotice(Tr.T($"Остаток списан не полностью (осталось {leftText}) — товар не удалён. Спишите остаток полностью и повторите удаление.", $"Калдык толугу менен эсептен чыгарылган жок ({leftText} калды) — товар өчүрүлгөн жок. Калдыкты толук эсептен чыгарып, өчүрүүнү кайталаңыз.", $"The stock was not written off completely ({leftText} left) — the product was not deleted. Write off all of it and delete again.", $"Stok tamamen düşülmedi ({leftText} kaldı) — ürün silinmedi. Tüm stoku düşüp silmeyi tekrarlayın.", $"Qoldiq to'liq hisobdan chiqarilmadi ({leftText} qoldi) — mahsulot o'chirilmadi. Qoldiqni to'liq hisobdan chiqarib, o'chirishni takrorlang."));
+                    await RefreshCatalogQuietlyAsync().ConfigureAwait(true); // остаток на экране — как на сервере
+                    return;
+                }
+                PosLogger.Log($"AUDIT: перед удалением списан остаток «{product.Title}» ({product.Id}) × {ProductActions.QtyWithUnit(Math.Max(0.0, stock - left), product.Unit, product.MustWeigh)}.", "INFO");
+                stockCleared = true;
               }
               catch (Exception wex) when (wex is not OutOfMemoryException)
               {
                   PosLogger.Log($"Склад: списание остатка «{product.Title}» перед удалением: {wex.GetType().Name}: {wex.Message}", "WARNING");
-                  prompts?.ShowToast(ServerOutageMonitor.FriendlyError(wex), isWarning: true);
+                  ShowDeleteNotice(ServerOutageMonitor.FriendlyError(wex)); // 2026-11-03 (Т3-07): info-окно без «Отложить ошибку»
                   return;
               }
             }
@@ -1593,8 +1628,20 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             // SQLite, минуя ICatalogApiService.DeleteProductAsync (реальный HTTP к NurCRM).
             if (OfflineModeHelper.UseLocalOperations)
             {
+                // 2026-11-05 (аудит №3, Т3-12): без связи товар с остатком не удаляем (списать остаток актом нельзя), а удаление без остатка честно называем «только на этой кассе»:
+                // на сервер оно не уходит, и товар вернётся при синхронизации — его нужно будет удалить ещё раз при связи.
+                if (product.Quantity > 0.0005)
+                {
+                    ShowDeleteNotice(Tr.T($"Нет связи с сервером: у «{product.Title}» остаток {ProductActions.QtyWithUnit(product.Quantity, product.Unit, product.MustWeigh)}, а списать его актом без связи нельзя. Удалите товар, когда связь появится.",
+                        $"Сервер менен байланыш жок: «{product.Title}» калдыгы {ProductActions.QtyWithUnit(product.Quantity, product.Unit, product.MustWeigh)}, ал эми байланышсыз акт менен эсептен чыгарылбайт. Байланыш пайда болгондо товарды өчүрүңүз.",
+                        $"No connection to the server: “{product.Title}” has {ProductActions.QtyWithUnit(product.Quantity, product.Unit, product.MustWeigh)} in stock and it cannot be written off by a document offline. Delete the product when the connection is back.",
+                        $"Sunucu bağlantısı yok: «{product.Title}» için stok {ProductActions.QtyWithUnit(product.Quantity, product.Unit, product.MustWeigh)} ve bağlantısız belgeyle düşülemez. Bağlantı gelince ürünü silin.",
+                        $"Server bilan aloqa yo'q: «{product.Title}» qoldig'i {ProductActions.QtyWithUnit(product.Quantity, product.Unit, product.MustWeigh)}, uni aloqasiz akt bilan hisobdan chiqarib bo'lmaydi. Aloqa paydo bo'lganda mahsulotni o'chiring."));
+                    return;
+                }
                 LocalProductEditor.DeleteLocally(product.Id);
-                SuccessToast.Show(Tr.T("Товар удалён.", "Товар өчүрүлдү.", "Product deleted.", "Ürün silindi.", "Mahsulot o'chirildi."));
+                PosLogger.Log($"AUDIT: товар «{product.Title}» ({product.Id}) удалён только на этой кассе (нет связи с сервером).", "INFO"); // 2026-11-05 (Д-9)
+                SuccessToast.Show(Tr.T("Товар удалён только на этой кассе. На сервере он остаётся — при связи удалите его ещё раз.", "Товар ушул кассадан гана өчүрүлдү. Серверде калат — байланыш болгондо дагы бир жолу өчүрүңүз.", "Product deleted on this till only. It stays on the server — delete it again when online.", "Ürün yalnızca bu kasadan silindi. Sunucuda kalır — bağlantı gelince tekrar silin.", "Mahsulot faqat shu kassadan o'chirildi. Serverda qoladi — aloqa paydo bo'lganda yana o'chiring."));
                 await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
                 return;
             }
@@ -1602,10 +1649,11 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             var deleted = await catalogApi.DeleteProductAsync(product.Id).ConfigureAwait(true);
             if (!deleted)
             {
-                prompts?.ShowToast(Tr.T("Не удалось удалить товар: сервер не принял запрос на удаление.", "Товарды өчүрүү мүмкүн болгон жок: сервер өчүрүү сурамын кабыл алган жок.", "Could not delete the product: the server rejected the delete request.", "Ürün silinemedi: sunucu silme isteğini kabul etmedi.", "Mahsulotni o'chirib bo'lmadi: server o'chirish so'rovini qabul qilmadi."), isWarning: true);
+                ShowDeleteNotice(Tr.T("Не удалось удалить товар: сервер не принял запрос на удаление.", "Товарды өчүрүү мүмкүн болгон жок: сервер өчүрүү сурамын кабыл алган жок.", "Could not delete the product: the server rejected the delete request.", "Ürün silinemedi: sunucu silme isteğini kabul etmedi.", "Mahsulotni o'chirib bo'lmadi: server o'chirish so'rovini qabul qilmadi."));
                 return;
             }
 
+            PosLogger.Log($"AUDIT: товар «{product.Title}» ({product.Id}) удалён на сервере{(stockCleared ? " (остаток предварительно списан)" : "")}.", "INFO"); // 2026-11-05 (Д-9): удаление без истории остаётся в журнале
             SuccessToast.Show(Tr.T("Товар удалён.", "Товар өчүрүлдү.", "Product deleted.", "Ürün silindi.", "Mahsulot o'chirildi."));
             await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
@@ -1631,7 +1679,48 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         }
         catch (Exception ex)
         {
-            prompts?.ShowToast(Tr.T($"Не удалось удалить товар: {ex.Message}", $"Товарды өчүрүү мүмкүн болгон жок: {ex.Message}", $"Could not delete the product: {ex.Message}", $"Ürün silinemedi: {ex.Message}", $"Mahsulotni o'chirib bo'lmadi: {ex.Message}"), isWarning: true);
+            var delFail = ServerOutageMonitor.FriendlyError(ex); // 2026-11-05 (С2-38): без сырого ex.Message
+            PosLogger.Log($"Склад: удаление «{product.Title}» не удалось: {ex.GetType().Name}: {ex.Message}", "WARNING");
+            ShowDeleteNotice(Tr.T($"Не удалось удалить товар: {delFail}", $"Товарды өчүрүү мүмкүн болгон жок: {delFail}", $"Could not delete the product: {delFail}", $"Ürün silinemedi: {delFail}", $"Mahsulotni o'chirib bo'lmadi: {delFail}"));
+        }
+    }
+
+    /// <summary>2026-11-03 (аудит №3, Т3-03): право «Склад: редактирование» (can_edit_products). Владелец и администратор — всегда; сотрудник — пока сервер явно не запретил.
+    /// Нет права — понятное окно (без «Отложить ошибку»), действие не выполняется. Окончательную проверку всё равно делает сервер.</summary>
+    internal bool EnsureCanEditProducts()
+    {
+        var permissions = App.AppHost?.Services.GetService<IPermissionService>();
+        if (permissions is null || permissions.HasPermission(PosPermissions.EditProducts))
+            return true;
+        PosLogger.Log("Склад: действие отклонено — у сотрудника нет права «Склад: редактирование» (can_edit_products).", "INFO");
+        ShowDeleteNotice(NoEditRightText);
+        return false;
+    }
+
+    /// <summary>Текст отказа без права «Склад: редактирование» (5 языков).</summary>
+    internal static string NoEditRightText => Tr.T(
+        "У вас нет права «Склад: редактирование». Удалять, списывать, менять цены, остаток и карточку товара может владелец, администратор или сотрудник с этим правом. Попросите владельца выдать право в «Сотрудники».",
+        "Сизде «Склад: түзөтүү» укугу жок. Товарды өчүрүү, эсептен чыгаруу, баасын, калдыгын жана карточкасын өзгөртүүнү ээси, администратор же ушул укугу бар кызматкер жасай алат. Ээсинен «Кызматкерлер» бөлүмүндө укук берүүнү сураныңыз.",
+        "You do not have the “Warehouse: edit” permission. The owner, an administrator or an employee with this permission can delete, write off and change prices, stock and the product card. Ask the owner to grant it in “Employees”.",
+        "«Depo: düzenleme» yetkiniz yok. Ürünü silmek, düşmek, fiyat, stok ve kartı değiştirmek için sahip, yönetici veya bu yetkisi olan çalışan gerekir. Sahipten «Personel» bölümünde yetki vermesini isteyin.",
+        "Sizda «Ombor: tahrirlash» huquqi yo'q. Mahsulotni o'chirish, hisobdan chiqarish, narx, qoldiq va kartani o'zgartirishni egasi, administrator yoki shu huquqli xodim bajara oladi. Egasidan «Xodimlar» bo'limida huquq berishni so'rang.");
+
+    /// <summary>2026-11-03 (аудит №3, Т3-07): предупреждение при удалении товара — info-окно «Внимание» без «Отложить ошибку» и без ожидания закрытия
+    /// (раньше — модальное «Внимание» через ShowToast(isWarning), удаление стояло, пока его закроют).</summary>
+    private void ShowDeleteNotice(string message) =>
+        _ = PosAlertDialog.ShowAsync(this, Tr.T("Внимание", "Көңүл буруңуз", "Warning", "Uyarı", "Diqqat"), message, PosAlertKind.Warning, null, info: true);
+
+    /// <summary>2026-11-03 (аудит №3, Т3-01): после списания перед удалением каталог перечитываем в любом исходе — остаток на экране должен совпасть с сервером.</summary>
+    private async Task RefreshCatalogQuietlyAsync()
+    {
+        try
+        {
+            await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
+            await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
+        }
+        catch (Exception rex) when (rex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Склад: каталог после списания перед удалением не обновлён ({rex.Message}).", "WARNING");
         }
     }
 
@@ -1715,6 +1804,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     {
         if (sender is not Button { Tag: CatalogProductTileVm product })
             return;
+        if (!EnsureCanEditProducts()) // 2026-11-03 (аудит №3, Т3-03)
+            return;
 
         var catalogApi = App.AppHost?.Services.GetService<ICatalogApiService>();
         var photoPicker = App.AppHost?.Services.GetService<ISettingsImagePicker>();
@@ -1760,7 +1851,8 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         }
         catch (ApiException ex)
         {
-            prompts?.ShowToast(Tr.T($"Загрузка фото: {ex.Message}", $"Сүрөт жүктөө: {ex.Message}", $"Photo upload: {ex.Message}", $"Fotoğraf yükleme: {ex.Message}", $"Rasm yuklash: {ex.Message}"), isWarning: true);
+            var photoFail = ServerOutageMonitor.FriendlyError(ex); // 2026-11-05 (С2-38): без сырого ex.Message
+            prompts?.ShowToast(Tr.T($"Загрузка фото: {photoFail}", $"Сүрөт жүктөө: {photoFail}", $"Photo upload: {photoFail}", $"Fotoğraf yükleme: {photoFail}", $"Rasm yuklash: {photoFail}"), isWarning: true);
         }
         catch (HttpRequestException)
         {

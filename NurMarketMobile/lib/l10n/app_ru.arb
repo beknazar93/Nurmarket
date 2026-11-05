@@ -5072,5 +5072,60 @@
   "updCancel": "Отмена",
   "updPermTitle": "Разрешите установку",
   "updPermBody": "Чтобы обновить NurCRM, разрешите приложению устанавливать обновления: включите переключатель на открывшемся экране, вернитесь сюда и нажмите «Обновить» ещё раз.",
-  "updOpenSettings": "Открыть настройки"
+  "updOpenSettings": "Открыть настройки",
+  "prnStalled": "Связь с принтером оборвалась. Проверьте, напечатался ли чек, и только потом печатайте заново.",
+  "scaleNoPlu": "Весовая этикетка: товар с PLU {plu} не найден",
+  "@scaleNoPlu": {
+    "placeholders": {
+      "plu": {
+        "type": "String"
+      }
+    }
+  },
+  "scaleBindPlu": "Выбрать товар и записать ему PLU",
+  "scaleBindAsk": "Записать PLU {plu} товару «{name}»?",
+  "@scaleBindAsk": {
+    "placeholders": {
+      "plu": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "scaleLabelAgain": "Эта этикетка уже в чеке. Добавить ещё раз?",
+  "scaleNotWeighed": "Это весовая этикетка, а «{name}» — штучный товар. Добавить?",
+  "@scaleNotWeighed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "scaleLayoutPick": "Этикетку можно прочитать двумя способами — выберите товар",
+  "aiSlow": "ИИ думает дольше обычного…",
+  "aiElapsed": "Прошло {s} с",
+  "@aiElapsed": {
+    "placeholders": {
+      "s": {
+        "type": "int"
+      }
+    }
+  },
+  "aiAskOwner": "ИИ не настроен — попросите владельца",
+  "prnNotPrinted": "Чек не напечатан",
+  "prnPrintAgain": "Повторить печать",
+  "prnChecked": "Проверено {n} из {total}",
+  "@prnChecked": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "prnLocationOff": "Чтобы найти Bluetooth-принтер на этом Android, включите «Местоположение»."
 }

@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nurmarket/core/api/api_client.dart';
 import 'package:nurmarket/core/api/session_store.dart';
 import 'package:nurmarket/core/db/database.dart';
+import 'package:nurmarket/core/language_pack.dart';
 import 'package:nurmarket/core/providers.dart';
 import 'package:nurmarket/core/theme/theme.dart';
 import 'package:nurmarket/features/auth/login_screen.dart';
@@ -186,6 +187,9 @@ void main() {
 
     testWidgets('выбор языка переключает язык приложения', (t) async {
       _phone(t);
+      // 2026-11-05: English — платный язык (пакет «Язык»); в тесте пакет включён, потом выключаем обратно.
+      LanguagePackGate.debugSet(true);
+      addTearDown(() => LanguagePackGate.debugSet(false));
       late WidgetRef r;
       await t.pumpWidget(_app(Consumer(builder: (c, ref, _) {
         r = ref;

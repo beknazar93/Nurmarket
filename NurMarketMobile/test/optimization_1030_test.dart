@@ -323,7 +323,8 @@ void main() {
       );
       await t.pumpAndSettle();
       // ListView.separated: детей = 2 × строк − 1
-      final list = find.byWidgetPredicate((w) => w is ListView && w.childrenDelegate is SliverChildBuilderDelegate);
+      // 2026-11-05: только список экрана «Склад» — окно «Заканчивается» (М5-33) теперь тоже ListView.builder и открывается, когда тянут за конец списка
+      final list = find.descendant(of: find.byType(StockScreen), matching: find.byWidgetPredicate((w) => w is ListView && w.childrenDelegate is SliverChildBuilderDelegate));
       int items() => (((t.widget(list.last) as ListView).childrenDelegate as SliverChildBuilderDelegate).estimatedChildCount! + 1) ~/ 2;
       // 2026-10-31: + строка «Показано N из M / Обновить каталог» сверху списка
       expect(items(), 402, reason: '400 товаров окна + строка счётчика + строка подсказки; раньше читались все 1000 сразу');

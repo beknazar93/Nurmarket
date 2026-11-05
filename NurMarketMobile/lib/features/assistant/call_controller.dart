@@ -23,7 +23,8 @@ import '../../core/ai/assistant/ai_journal.dart';
 import '../../core/ai/assistant/call_focus.dart';
 import '../../core/ai/assistant/call_product_search.dart' show searchForCall;
 import '../../core/ai/assistant/call_table.dart';
-import '../../core/ai/assistant/lang.dart' show detectLang;
+import '../../core/ai/ai_language.dart';
+import '../../core/language_pack.dart';
 import '../../core/ai/assistant/ai_perf.dart';
 import '../../core/ai/assistant/nav_router.dart';
 import '../../core/ai/assistant/nav_tools.dart';
@@ -400,8 +401,59 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
     }
   }
 
-  /// Язык ответа программы: по последней реплике пользователя, иначе язык интерфейса.
-  String _langNow() => detectLang(call?.speech.last?.text ?? '', fallback: _uiLang);
+  /// 2026-11-05 (язык ИИ не угадывается по звуку): язык ИИ звонка — сохранённый (`ai.lang`) или язык интерфейса; платный без пакета «Язык» → русский.
+  /// Меняется только настройкой приложения или явной командой пользователя ([_onLanguageCommand]).
+  String get aiLang => AiLanguage.of(_uiLang);
+
+  /// Язык ответа программы (инструменты, «[Программа]») — язык ИИ, а не язык последней реплики.
+  String _langNow() => aiLang;
+
+  bool _languageFixSent = false;
+  String? _lastLangCmdKey;
+
+  /// Явная команда смены языка в речи/тексте («кыргызча жооп бер», «переведи на кыргызский»): узнаёт программа, не модель.
+  /// Платный язык без пакета — честный ответ «Языковой пакет не подключён», язык не меняется.
+  Future<void> _onLanguageCommand(LangCommand cmd) async {
+    final c = call;
+    final db = _db;
+    if (c == null) return;
+    if (!LanguagePackGate.isAvailable(cmd.code)) {
+      final key = 'deny:${cmd.code}';
+      if (_lastLangCmdKey == key) return;
+      _lastLangCmdKey = key;
+      _notices.add(AiLanguage.notConnectedText(aiLang));
+      c.sendText('[Программа] ${AiLanguage.notConnectedText(aiLang)} Скажи пользователю это одной фразой на текущем языке (${AiLanguage.name(aiLang)}) и не меняй язык.', respond: true);
+      notifyListeners();
+      return;
+    }
+    final needAi = cmd.code != aiLang;
+    final needUi = cmd.interfaceToo && cmd.code != _uiLang;
+    if (!needAi && !needUi) return;
+    _lastLangCmdKey = null;
+    if (needAi && db != null) await AiLanguage.save(db, cmd.code);
+    if (needUi) {
+      try {
+        await _read(prefsProvider.notifier).setLocale(cmd.code);
+      } catch (_) {
+        // интерфейс не переключился — язык ИИ уже сменён
+      }
+    }
+    _languageFixSent = false;
+    if (needAi) {
+      // Новая инструкция — и в переподключение (resume), и сообщением в идущий сеанс: звонок не обрывается.
+      c.instruction = '${AiLanguage.rule(cmd.code)}\n\n${_stripRule(c.instruction)}';
+      c.sendText(AiLanguage.switchMessage(cmd.code), respond: true);
+    }
+    notifyListeners();
+  }
+
+  static String _stripRule(String instruction) {
+    final i = instruction.indexOf('\n\n');
+    return i > 0 && (instruction.startsWith('ЖЁСТКОЕ ПРАВИЛО ЯЗЫКА') || instruction.startsWith('ТИЛ ЭРЕЖЕСИ') || instruction.startsWith('LANGUAGE') ||
+            instruction.startsWith('DİL KURALI') || instruction.startsWith('TIL QOIDASI'))
+        ? instruction.substring(i + 2)
+        : instruction;
+  }
 
   /// Имена вместо кодов [Д1] для экрана: сперва то, что дал экран-инициатор, потом имена из таблиц.
   String reveal(String text) => tables.reveal(_req?.reveal(text) ?? text);
@@ -458,7 +510,9 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
       final db = _db;
       mode = db == null ? AssistantMode.defaultMode : await AssistantModePrefs.load(db, session.userId);
       hasCamera = android || deps.hasCamera != null ? await (deps.hasCamera ?? _defaultHasCamera)() : false;
-      final instruction = await req.prepare(CallPrep(mode: mode, video: hasCamera));
+      if (db != null) await AiLanguage.load(db);
+      // 2026-11-05: жёсткое правило языка — первой строкой инструкции (язык ИИ задан программой, не угадывается по звуку)
+      final instruction = '${AiLanguage.rule(aiLang)}\n\n${await req.prepare(CallPrep(mode: mode, video: hasCamera))}';
       if (phase != CallPhase.preparing) return; // отменили, пока готовили данные
 
       final built = _buildTools(session);
@@ -501,6 +555,11 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
       };
       c.onAiText = (t) {
         _ai.write(t);
+        // 2026-11-05: ИИ ушёл на чужой язык (узбекские/турецкие буквы и слова) — один раз напоминаем язык ИИ, без ответа вслух
+        if (!_languageFixSent && AiLanguage.looksForeign(t, aiLang)) {
+          _languageFixSent = true;
+          c.sendText(AiLanguage.correction(aiLang), respond: false);
+        }
         notifyListeners();
       };
       c.onTurnDone = _turnDone;
@@ -555,6 +614,8 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
   }
 
   void _resetForCall() {
+    _languageFixSent = false;
+    _lastLangCmdKey = null;
     turns.clear();
     _user.clear();
     _ai.clear();
@@ -965,6 +1026,9 @@ class AssistantCallController extends ChangeNotifier with WidgetsBindingObserver
 
   void _onUserSpeech(String text, bool echoSuspect) {
     if (echoSuspect) return;
+    // 2026-11-05: команда смены языка по накопленной фразе (расшифровка приходит кусками)
+    final cmd = AiLanguage.parse(call?.speech.last?.text ?? text);
+    if (cmd != null) unawaited(_onLanguageCommand(cmd));
     _scheduleLocalNav();
     final p = moneyPrompt;
     if (p != null && p.isOpen) {

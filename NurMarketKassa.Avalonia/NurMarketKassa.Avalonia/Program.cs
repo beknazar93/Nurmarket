@@ -42,6 +42,16 @@ internal static class Program
         // У программы владельца своё имя: на одном компьютере с кассой они не должны мешать друг другу.
         _singleInstanceMutex = new Mutex(initiallyOwned: true,
             @"Global\NurMarketKassa-SingleInstance" + NurMarketKassa.Services.AppMode.InstanceSuffix, out var createdNew);
+        // 2026-11-05 (аудит №3, Р3-02): «--close-quiet» — просьба к работающей программе закрыться БЕЗ вопросов («Смена не закрыта»,
+        // «Сохранить и выйти?»); смена остаётся открытой. Для установщика/скрипта обновления вместо CloseMainWindow. Если никто не работает — просто выходим.
+        var closeQuiet = Array.Exists(args, a => string.Equals(a, "--close-quiet", StringComparison.OrdinalIgnoreCase));
+        if (closeQuiet)
+        {
+            if (!createdNew)
+                TrySignalEvent(QuietCloseEventName);
+            return;
+        }
+
         if (!createdNew)
         {
             // Касса уже работает. Раньше здесь показывалось «Касса уже запущена, проверьте
@@ -103,11 +113,16 @@ internal static class Program
     /// <summary>Просит уже работающую кассу показать окно. false — сигнал передать не удалось
     /// (старая версия без слушателя, либо запрет на именованные объекты), тогда вызывающий
     /// показывает прежнее сообщение.</summary>
-    private static bool TrySignalExistingInstance()
+    private static bool TrySignalExistingInstance() => TrySignalEvent(ShowRequestEventName);
+
+    /// <summary>2026-11-05 (Р3-02): имя сигнала «закройся тихо» (см. --close-quiet).</summary>
+    private static string QuietCloseEventName => @"Global\NurMarketKassa-QuietClose" + NurMarketKassa.Services.AppMode.InstanceSuffix;
+
+    private static bool TrySignalEvent(string name)
     {
         try
         {
-            using var signal = EventWaitHandle.OpenExisting(ShowRequestEventName);
+            using var signal = EventWaitHandle.OpenExisting(name);
             signal.Set();
             return true;
         }
@@ -121,6 +136,7 @@ internal static class Program
     /// поднимает окно. Поток фоновый — он не помешает процессу завершиться.</summary>
     private static void StartShowRequestListener()
     {
+        StartQuietCloseListener();
         EventWaitHandle signal;
         try
         {
@@ -149,6 +165,50 @@ internal static class Program
         {
             IsBackground = true,
             Name = "NurMarketKassa-ShowRequest",
+        };
+        thread.Start();
+    }
+
+    /// <summary>2026-11-05 (Р3-02): слушатель «--close-quiet». Ставит признак тихого закрытия и просит программу завершиться штатно
+    /// (TryShutdown закрывает окна с причиной ApplicationShutdown — вопросы про смену/несохранённое пропускаются, смена остаётся открытой).</summary>
+    private static void StartQuietCloseListener()
+    {
+        EventWaitHandle signal;
+        try
+        {
+            signal = new EventWaitHandle(false, EventResetMode.AutoReset, QuietCloseEventName);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        var thread = new Thread(() =>
+        {
+            while (true)
+            {
+                try
+                {
+                    signal.WaitOne();
+                    NurMarketKassa.AvaloniaHost.Services.QuietShutdown.Requested = true;
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        if (Avalonia.Application.Current?.ApplicationLifetime
+                            is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                        {
+                            desktop.TryShutdown();
+                        }
+                    });
+                }
+                catch (Exception)
+                {
+                    return;
+                }
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "NurMarketKassa-QuietClose",
         };
         thread.Start();
     }

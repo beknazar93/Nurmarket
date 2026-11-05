@@ -126,6 +126,14 @@ public static class SuccessToast
                 _ => "BrushSuccess",
             }));
             Avalonia.Automation.AutomationProperties.SetName(window, text);
+            // 2026-11-05 (аудит №3, Д4-02): плашку читает экранный диктор без фокуса (живая область): ошибки и предупреждения — сразу, остальное — вежливо.
+            var liveSetting = kind is ToastKind.Error or ToastKind.Warning
+                ? Avalonia.Automation.AutomationLiveSetting.Assertive
+                : Avalonia.Automation.AutomationLiveSetting.Polite;
+            Avalonia.Automation.AutomationProperties.SetLiveSetting(window, liveSetting);
+            Avalonia.Automation.AutomationProperties.SetLiveSetting(card, liveSetting);
+            Avalonia.Automation.AutomationProperties.SetName(message, text);
+            Avalonia.Automation.AutomationProperties.SetLiveSetting(message, liveSetting);
 
             card.PointerReleased += (_, e) =>
             {

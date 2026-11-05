@@ -1,3 +1,7 @@
+import 'dart:isolate';
+
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../ai/cam_aliases.dart';
 import '../db/database.dart';
 import 'product_matcher.dart';
@@ -28,23 +32,36 @@ class ProductHit {
 
 class _Entry {
   final ProductMatcher matcher;
-  final Map<String, Product> byId;
   final String stamp;
-  _Entry(this.matcher, this.byId, this.stamp);
+  _Entry(this.matcher, this.stamp);
 }
 
-/// Матчер по каталогу телефона. Индекс строится один раз и сам перестраивается, когда каталог обновился
-/// (`catalog.syncedAt`), изменилось число товаров или алиасы ([CamAliases.version]). Весь каталог — в памяти (~30 000
-/// товаров × несколько слов — десятки миллисекунд), без `LIKE` и лимита по алфавиту.
+/// Матчер по каталогу телефона. Индекс строится один раз и сам перестраивается, когда изменились названия/штрихкоды/артикулы
+/// товаров (`catalog.namesAt`), число товаров или алиасы ([CamAliases.version]). Весь каталог — в памяти (~30 000
+/// товаров × несколько слов), без `LIKE` и лимита по алфавиту.
+/// 2026-11-05 (М5-25): индекс строится В ОТДЕЛЬНОМ ИЗОЛЯТЕ из лёгких записей (раньше — на главном потоке из полных карточек, и после
+/// каждой продажи/ленты, менявшей остатки, первый снимок замораживал экран на 0,3–1,5 с). Остатки и цены в индекс не входят,
+/// поэтому продажа его больше не сбрасывает.
 class CatalogMatcher {
+  /// Растёт при смене аккаунта: индекс прошлого магазина не должен пережить вход в другой (вместе с AccountReset).
+  static int _epoch = 0;
+
+  static void forgetAccount() => _epoch++;
+
+  /// Для проверок: строить индекс в том же потоке (в тестах с поддельным временем изолят не нужен).
+  @visibleForTesting
+  static bool buildInline = false;
+
   static final _cache = Expando<_Entry>('catalogMatcher');
   static final _building = Expando<Future<_Entry>>('catalogMatcherBuilding');
 
   static Future<_Entry> _entry(AppDatabase db) async {
     await CamAliases.ensureLocal(db);
-    final synced = (await db.getSetting('catalog.syncedAt')) ?? '';
+    // 2026-11-05 (М5-25): раньше — `catalog.syncedAt`, он менялся от любой ленты (остатки после каждой продажи); теперь — `catalog.namesAt`,
+    // его ставит загрузка каталога, только когда изменились названия, штрихкоды, артикулы, категории или состав товаров
+    final names = (await db.getSetting('catalog.namesAt')) ?? '';
     final count = await db.productCount();
-    final stamp = '$synced|$count|${CamAliases.version}';
+    final stamp = '$_epoch|$names|$count|${CamAliases.version}';
     final cached = _cache[db];
     if (cached != null && cached.stamp == stamp) return cached;
     final pending = _building[db];
@@ -62,15 +79,45 @@ class CatalogMatcher {
   }
 
   static Future<_Entry> _build(AppDatabase db, String stamp) async {
-    final all = await db.select(db.products).get();
+    // только поля, нужные индексу (без фото, цен, остатков, акций …) — лёгкие записи
+    final rows = await db.customSelect('SELECT id, name, barcode, alt_barcodes, sku, category FROM products', readsFrom: {db.products}).get();
     final aliases = CamAliases.current;
-    final e = _Entry(
-      ProductMatcher([for (final p in all) matchProductOf(p, aliases: aliases[p.id] ?? const [])]),
-      {for (final p in all) p.id: p},
-      stamp,
-    );
+    final list = [
+      for (final r in rows)
+        MatchProduct(
+          id: r.read<String>('id'),
+          name: r.read<String>('name'),
+          barcode: r.read<String?>('barcode') ?? '',
+          altBarcodes: [
+            for (final b in (r.read<String?>('alt_barcodes') ?? '').split('\n'))
+              if (b.trim().isNotEmpty) b.trim(),
+          ],
+          sku: r.read<String?>('sku') ?? '',
+          category: r.read<String?>('category') ?? '',
+          aliases: aliases[r.read<String>('id')] ?? const [],
+        ),
+    ];
+    ProductMatcher matcher;
+    if (buildInline || list.length < 400) {
+      matcher = ProductMatcher(list); // маленький каталог — изолят дороже самого построения
+    } else {
+      try {
+        matcher = await Isolate.run(() => ProductMatcher(list));
+      } catch (_) {
+        matcher = ProductMatcher(list); // изолят не запустился — по-старому, в этом потоке
+      }
+    }
+    final e = _Entry(matcher, stamp);
     _cache[db] = e;
     return e;
+  }
+
+  /// Карточки найденных товаров по id (одним запросом); индекс карточек целиком не держит.
+  static Future<Map<String, Product>> _byIds(AppDatabase db, Iterable<String> ids) async {
+    final list = ids.toSet().toList();
+    if (list.isEmpty) return const {};
+    final rows = await (db.select(db.products)..where((p) => p.id.isIn(list))).get();
+    return {for (final p in rows) p.id: p};
   }
 
   /// Построить индекс заранее (экран открыт, кассир наводит камеру): ошибки не важны.
@@ -96,9 +143,11 @@ class CatalogMatcher {
     bool requireVolume = false,
   }) async {
     final e = await _entry(db);
+    final found = e.matcher.match(query, brand: brand, volume: volume, barcode: barcode, top: top, minScore: minScore, strict: strict, requireVolume: requireVolume);
+    final byId = await _byIds(db, [for (final c in found) c.product.id]);
     return [
-      for (final c in e.matcher.match(query, brand: brand, volume: volume, barcode: barcode, top: top, minScore: minScore, strict: strict, requireVolume: requireVolume))
-        if (e.byId[c.product.id] case final p?) ProductHit(p, c.score, c.reasons),
+      for (final c in found)
+        if (byId[c.product.id] case final p?) ProductHit(p, c.score, c.reasons),
     ];
   }
 

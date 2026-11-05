@@ -55,6 +55,9 @@ public static class TelegramVoice
                 ["parts"] = new JsonArray(
                     new JsonObject { ["inline_data"] = new JsonObject { ["mime_type"] = mimeType, ["data"] = Convert.ToBase64String(audio) } },
                     new JsonObject { ["text"] = "Запиши дословно, что сказано в этом аудио (обычно по-русски или по-кыргызски). "
+                                                // 2026-11-05 (жалоба «ИИ уходит на узбекский/турецкий»): запись с микрофона владельца (не голосовое из бота) — речь русская или кыргызская,
+                                                // записывай кириллицей и не принимай её за узбекскую или турецкую.
+                                                + (mimeType.Contains("ogg", StringComparison.OrdinalIgnoreCase) ? "" : "Речь русская или кыргызская, не узбекская и не турецкая: пиши кириллицей. ")
                                                 + "Ответь только текстом речи, без пояснений и кавычек. Если речи нет — ответь пустой строкой." }),
             }),
             ["generationConfig"] = new JsonObject { ["temperature"] = 0, ["maxOutputTokens"] = 400 },

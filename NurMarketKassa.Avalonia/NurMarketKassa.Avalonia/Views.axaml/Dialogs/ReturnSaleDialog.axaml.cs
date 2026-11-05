@@ -71,6 +71,26 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// уже прошёл, забывает ключ (см. ReportReturnIfAppliedAsync).</summary>
     private static readonly PendingIdempotencyKey PendingReturn = new(TimeSpan.FromMinutes(10));
 
+    /// <summary>2026-11-03 (аудит №3, Д3-05): возврат по этому чеку остался без ответа, а сервер по ключу его «не нашёл» даже после повторных проверок — исход неясен.
+    /// Пока ключ жив (до 10 минут или до выяснения), другой возврат по этому чеку (иное количество = иной ключ) не отправляем: сервер мог провести оба.</summary>
+    private static (string SaleId, string Key)? _unresolvedReturn;
+
+    /// <summary>true — по чеку есть неясный возврат, а этот (подпись <paramref name="signature"/>) — не его повтор; кассиру показан текст.</summary>
+    private bool BlockedByUnresolvedReturn(string saleId, string signature)
+    {
+        if (_unresolvedReturn is not { } u || !string.Equals(u.SaleId, saleId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(PendingReturn.PeekKey, u.Key, StringComparison.Ordinal) || PendingReturn.Matches(signature))
+            return false;
+        PosMessageBox.Show(this, Tr.T(
+                "Прошлый возврат по этому чеку не подтверждён сервером: неясно, прошёл он или нет. Не оформляйте другой возврат — проверьте на сайте NurCRM («Возвраты» этого чека), затем повторите тот же возврат или подождите 10 минут.",
+                "Бул чек боюнча мурунку кайтарууну сервер ырастаган жок: өткөнү же жокпу — белгисиз. Башка кайтарууну тариздебеңиз — NurCRM сайтынан («Кайтаруулар») текшерип, ошол эле кайтарууну кайталаңыз же 10 мүнөт күтүңүз.",
+                "The previous return for this receipt was not confirmed by the server: it is unclear whether it went through. Do not process a different return — check on the NurCRM website (the receipt's returns), then repeat the same return or wait 10 minutes.",
+                "Bu fişteki önceki iade sunucu tarafından doğrulanmadı: geçip geçmediği belirsiz. Başka bir iade yapmayın — NurCRM sitesinde (fişin iadeleri) kontrol edin, sonra aynı iadeyi tekrarlayın veya 10 dakika bekleyin.",
+                "Bu chek bo'yicha oldingi qaytarishni server tasdiqlamadi: o'tgan-o'tmagani noaniq. Boshqa qaytarishni rasmiylashtirmang — NurCRM saytida (chekning qaytarishlari) tekshiring, so'ng o'sha qaytarishni takrorlang yoki 10 daqiqa kuting."),
+            Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        return true;
+    }
+
     public ObservableCollection<ReturnSaleListItemVm> Sales { get; } = new();
     public ObservableCollection<ReturnSaleGridRow> FilteredSales { get; } = new();
     public ObservableCollection<ReturnSaleLineVm> Lines { get; } = new();
@@ -1023,6 +1043,15 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 }
             }
 
+            // 2026-11-05 (аудит №3, Д3-09): после частичного возврата в строке видно, сколько уже вернули («возвращено 1 из 2»).
+            if (canReturn && qty > 0 && originalQty - qty > 1e-6)
+            {
+                var doneText = (originalQty - qty).ToString("0.###", CultureInfo.CurrentCulture);
+                var ofText = originalQty.ToString("0.###", CultureInfo.CurrentCulture);
+                subLine += " · " + Tr.T($"возвращено {doneText} из {ofText}", $"кайтарылды {doneText} / {ofText}", $"returned {doneText} of {ofText}",
+                    $"iade edilen {doneText} / {ofText}", $"qaytarildi {doneText} / {ofText}");
+            }
+
             string? refundReason = null;
             if (lineItem.TryGetProperty("refund_reason", out var rr) && rr.ValueKind == JsonValueKind.String)
                 refundReason = rr.GetString();
@@ -1092,9 +1121,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         CommitReturnQuantity(sender);
     }
 
-    private void ReturnQtyBox_LostFocus(object? sender, RoutedEventArgs e) => CommitReturnQuantity(sender);
+    // 2026-11-05 (аудит №3, Д3-10): потеря фокуса из-за щелчка по галочке строки раньше сама отмечала строку, а щелчок тут же снимал отметку («первая отметка сбрасывается») — теперь при потере фокуса только принимаем количество.
+    private void ReturnQtyBox_LostFocus(object? sender, RoutedEventArgs e) => CommitReturnQuantity(sender, selectRow: false);
 
-    private void CommitReturnQuantity(object? sender)
+    private void CommitReturnQuantity(object? sender, bool selectRow = true)
     {
         if (sender is not TextBox { DataContext: ReturnSaleLineVm line } box || IsBusy || _operationInProgress)
             return;
@@ -1104,7 +1134,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             return;
         if (line.TrySetReturnQuantity(typed))
         {
-            line.IsSelected = true;
+            if (selectRow)
+                line.IsSelected = true;
             HideQtyError();
         }
         else
@@ -1219,6 +1250,12 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
     private async Task ReturnSelectedCoreAsync(string saleId)
     {
+        // 2026-11-03 (аудит №3, Д3-01/Д3-05): возврат по этому чеку уже отправлен и ждёт медленный сервер — второй (с другим количеством) не отправляем.
+        if (SlowMoneyCall.IsActive("return|" + saleId))
+        {
+            ShowInputErr(SlowMoneyCall.StillRunningText);
+            return;
+        }
         // 2026-10-27 (приёмка 1.17.63, Д-5): дальше везде — строки с тем количеством, которое кассир выбрал (по умолчанию всё).
         var selected = EffectiveReturnLines(Lines.Where(x => x.CanReturn && x.IsSelected));
         if (selected.Count == 0 && Lines.Count > 0 && !Lines.Any(x => x.CanReturn))
@@ -1292,21 +1329,26 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             }).ToList();
 
             // 2026-10-15, ревью: тот же чек и те же строки/количества — тот же ключ (см. PendingReturn).
-            var returnKey = PendingReturn.Get("lines|" + (isDefect ? "defect|" : "") + saleId + "|" + string.Join(";", requests
+            var returnSignature = "lines|" + (isDefect ? "defect|" : "") + saleId + "|" + string.Join(";", requests
                 .OrderBy(r => r.LineId, StringComparer.Ordinal)
-                .Select(r => r.LineId + ":" + r.Quantity.ToString("0.###", CultureInfo.InvariantCulture))));
+                .Select(r => r.LineId + ":" + r.Quantity.ToString("0.###", CultureInfo.InvariantCulture)));
+            if (BlockedByUnresolvedReturn(saleId, returnSignature)) // 2026-11-03 (Д3-05)
+                return;
+            var returnKey = PendingReturn.Get(returnSignature);
 
             var debtSaleForDrawer = IsDebtSaleForDrawer(saleId);
             var cashBefore = await ReadDrawerBeforeRefundAsync(debtSaleForDrawer).ConfigureAwait(true);
             _refundSentAt = DateTimeOffset.Now; // 2026-11-02 (К3-03): документ возврата старше этого момента — не наш
-            var refundResponse = await PosRefundService.RefundLinesAsync(
+            // 2026-11-03 (аудит №3, Д3-01/С-08): окно ждёт сервер не дольше 8 с; запрос НЕ отменяется и не задваивается (тот же ключ), ответ дожидается и обрабатывается ниже тем же кодом.
+            var refundResponse = await SlowMoneyCall.RunAsync("pos/return", "return|" + saleId, t => PosRefundService.RefundLinesAsync(
                 App.SalesApi,
                 saleId,
                 requests,
                 reason,
                 App.PosCashboxId,
                 isDefect,
-                idempotencyKey: returnKey).ConfigureAwait(true);
+                t,
+                idempotencyKey: returnKey), () => IsBusy = false).ConfigureAwait(true);
             PendingReturn.OnSuccess();
 
             SaleDetailCache.Forget(saleId);
@@ -1324,6 +1366,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 ServerRefundFigures.TryRead(refundResponse)) // 2026-11-01 (ответ Умара): выдача — из refund.cash
                 .ConfigureAwait(true);
             total = outcome.Amount;
+            if (!debtSaleForDrawer) // 2026-11-05 (Р3-06 / Д3-11): шапка «Касса:» уменьшается сразу, не ждёт ответа сервера об остатке
+                ExchangeCashCorrections.NotePendingServerCash(PosApp.ActiveShiftId, Math.Min(outcome.Cash, outcome.ServerCashOut ?? outcome.Cash));
             CheckDrawerAfterRefund(cashBefore, outcome.Cash, "lines|" + returnKey, saleId, outcome.NonCash, outcome.ServerCashOut);
 
             // В итогах смены на сервере возвратов нет вовсе — записываем сами, иначе кассир
@@ -2202,9 +2246,39 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 try { record = await lookupApi.PosIdempotencyRecordAsync(pendingKey, cts.Token).ConfigureAwait(true); }
                 catch (Exception ex) when (ex is not OperationCanceledException) { record = null; }
             }
+            // 2026-11-03 (аудит №3, Д3-05): «ключ не найден» сразу не принимаем — на медленном сервере запрос мог ещё не дойти до записи ключа. Выдержка: до трёх повторных проверок
+            // с паузой 5 с (как у оплаты, InFlightReconcile). Всё ещё не найден — исход «неясен»: другой возврат по чеку не даём (_unresolvedReturn), кассиру — «уточните на сайте».
+            if (record is { Found: false } && PendingReturn.PeekKey is { Length: > 0 } recheckKey && App.SalesApi is IPosQuickCheckoutApi recheckApi)
+            {
+                IsBusy = true;
+                try
+                {
+                    for (var pass = 1; pass <= 3 && record is { Found: false }; pass++)
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(true);
+                        using var recheckCts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(10));
+                        try { record = await recheckApi.PosIdempotencyRecordAsync(recheckKey, recheckCts.Token).ConfigureAwait(true); }
+                        catch (Exception ex) when (ex is not OperationCanceledException) { record = null; }
+                        PosLogger.Log($"Возврат по продаже {saleId}: повторная проверка ключа {pass}/3 — {(record is null ? "сервер не ответил" : record.Found ? "найден" : "не найден")}.", "WARNING");
+                    }
+                }
+                finally
+                {
+                    IsBusy = false;
+                }
+            }
             if (record is { Found: false })
             {
-                PosLogger.Log($"Возврат по продаже {saleId}: сервер не знает ключ возврата — наш возврат не прошёл, ключ оставлен для повтора.", "WARNING");
+                PosLogger.Log($"Возврат по продаже {saleId}: сервер не знает ключ возврата и после повторных проверок — исход неясен, ключ оставлен для повтора, другой возврат по чеку заблокирован.", "WARNING");
+                if (PendingReturn.PeekKey is { Length: > 0 } unresolvedKey)
+                    _unresolvedReturn = (saleId, unresolvedKey);
+                PosMessageBox.Show(this, Tr.T(
+                        "Сервер пока не подтвердил этот возврат: неясно, прошёл он или нет. Деньги не выдавайте, пока не проверите на сайте NurCRM («Возвраты» этого чека). Другой возврат по этому чеку сейчас не оформляется; повторить можно только тот же самый.",
+                        "Сервер бул кайтарууну азырынча ырастаган жок: өткөнү же жокпу — белгисиз. NurCRM сайтынан («Кайтаруулар») текшергенге чейин акча бербеңиз. Бул чек боюнча башка кайтаруу азыр тариздетилбейт; ошол эле кайтарууну гана кайталоого болот.",
+                        "The server has not confirmed this return yet: it is unclear whether it went through. Do not pay out until you check on the NurCRM website (the receipt's returns). A different return for this receipt cannot be processed now; only the same one can be repeated.",
+                        "Sunucu bu iadeyi henüz doğrulamadı: geçip geçmediği belirsiz. NurCRM sitesinde (fişin iadeleri) kontrol edene kadar ödeme yapmayın. Bu fiş için şimdi başka bir iade yapılamaz; yalnızca aynısı tekrarlanabilir.",
+                        "Server bu qaytarishni hali tasdiqlamadi: o'tgan-o'tmagani noaniq. NurCRM saytida (chekning qaytarishlari) tekshirmaguncha pul bermang. Bu chek bo'yicha hozir boshqa qaytarish rasmiylashtirilmaydi; faqat o'shaning o'zini takrorlash mumkin."),
+                    Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             if (record is { IsFailure: true } failed)
@@ -2598,6 +2672,12 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
     private async Task ReturnWholeReceiptCoreAsync(string saleId)
     {
+        // 2026-11-03 (аудит №3, Д3-01/Д3-05): возврат по этому чеку уже отправлен и ждёт медленный сервер — второй не отправляем.
+        if (SlowMoneyCall.IsActive("return|" + saleId))
+        {
+            ShowInputErr(SlowMoneyCall.StillRunningText);
+            return;
+        }
         // 2026-11-01 (аудит «10 из 10», Ж-05): всё уже возвращено — останавливаем сразу, до подтверждения «0,00 сом» и ввода причины.
         if (Lines.Count > 0 && !Lines.Any(l => l.CanReturn))
         {
@@ -2649,35 +2729,44 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         try
         {
             // 2026-10-15, ревью: повтор полного возврата того же чека — тот же ключ (см. PendingReturn).
-            var returnKey = PendingReturn.Get("whole|" + (reasonDialog.IsDefect ? "defect|" : "") + saleId); // 2026-11-02 (К2-24): «брак» — другая операция, другой ключ
+            var wholeSignature = "whole|" + (reasonDialog.IsDefect ? "defect|" : "") + saleId;
+            if (BlockedByUnresolvedReturn(saleId, wholeSignature)) // 2026-11-03 (Д3-05)
+                return;
+            var returnKey = PendingReturn.Get(wholeSignature); // 2026-11-02 (К2-24): «брак» — другая операция, другой ключ
             var debtSaleForDrawer = IsDebtSaleForDrawer(saleId);
             var cashBeforeWhole = await ReadDrawerBeforeRefundAsync(debtSaleForDrawer).ConfigureAwait(true);
             _refundSentAt = DateTimeOffset.Now;
             // 2026-11-02 (К2-19): по чеку есть неотправленный возврат без связи — «весь чек» без строк вернул бы и его (сервер вернёт всё, что осталось); шлём построчно остаток, который кассе известен.
             var wholeHasUnsent = Lines.Any(l => l.CanReturn && NurMarketKassa.Services.OfflineOperationsStore.UnsentRefundQuantity(saleId, l.ProductId, l.Title) > 0);
-            var wholeResponse = wholeHasUnsent
-                ? await PosRefundService.RefundLinesAsync(
+            // 2026-11-03 (аудит №3, Д3-01/С-08): окно ждёт сервер не дольше 8 с; запрос НЕ отменяется и не задваивается (тот же ключ), ответ дожидается и обрабатывается ниже тем же кодом.
+            var wholeLinesToSend = wholeHasUnsent
+                ? Lines.Where(l => l.CanReturn).Select(l => new PosRefundLineRequest
+                {
+                    LineId = l.LineId,
+                    ProductId = l.ProductId,
+                    Title = l.Title,
+                    Quantity = l.Quantity > 0 ? l.Quantity : 1,
+                    OriginalQuantity = l.OriginalQuantity > 0 ? l.OriginalQuantity : l.Quantity,
+                }).ToList()
+                : null;
+            var wholeResponse = await SlowMoneyCall.RunAsync("pos/return-whole", "return|" + saleId, t => wholeLinesToSend is not null
+                ? PosRefundService.RefundLinesAsync(
                     App.SalesApi,
                     saleId,
-                    Lines.Where(l => l.CanReturn).Select(l => new PosRefundLineRequest
-                    {
-                        LineId = l.LineId,
-                        ProductId = l.ProductId,
-                        Title = l.Title,
-                        Quantity = l.Quantity > 0 ? l.Quantity : 1,
-                        OriginalQuantity = l.OriginalQuantity > 0 ? l.OriginalQuantity : l.Quantity,
-                    }).ToList(),
+                    wholeLinesToSend,
                     reasonDialog.ReasonText,
                     App.PosCashboxId,
                     reasonDialog.IsDefect,
-                    idempotencyKey: returnKey).ConfigureAwait(true)
-                : await PosRefundService.RefundWholeSaleAsync(
-                App.SalesApi,
-                saleId,
-                reasonDialog.ReasonText,
-                App.PosCashboxId,
-                reasonDialog.IsDefect,
-                idempotencyKey: returnKey).ConfigureAwait(true);
+                    t,
+                    idempotencyKey: returnKey)
+                : PosRefundService.RefundWholeSaleAsync(
+                    App.SalesApi,
+                    saleId,
+                    reasonDialog.ReasonText,
+                    App.PosCashboxId,
+                    reasonDialog.IsDefect,
+                    t,
+                    idempotencyKey: returnKey), () => IsBusy = false).ConfigureAwait(true);
             PendingReturn.OnSuccess();
 
             // 2026-09-23, живой баг: полный возврат чека не писал событие смены вообще — запись
@@ -2695,6 +2784,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 ServerRefundFigures.TryRead(wholeResponse)) // 2026-11-01 (ответ Умара): выдача — из refund.cash
                 .ConfigureAwait(true);
             var wholeTotal = wholeOutcome.Amount;
+            if (!debtSaleForDrawer) // 2026-11-05 (Р3-06 / Д3-11): шапка «Касса:» уменьшается сразу
+                ExchangeCashCorrections.NotePendingServerCash(PosApp.ActiveShiftId, Math.Min(wholeOutcome.Cash, wholeOutcome.ServerCashOut ?? wholeOutcome.Cash));
             CheckDrawerAfterRefund(cashBeforeWhole, wholeOutcome.Cash, "whole|" + returnKey, saleId, wholeOutcome.NonCash, wholeOutcome.ServerCashOut);
             ShiftEventsStore.Record(
                 ShiftEventsStore.KindReturn,

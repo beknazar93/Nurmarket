@@ -16,11 +16,13 @@ import '../util/ui.dart';
 /// tester_mode_test.dart), а [isTestBuild] при обычном (не тестовом) выпуске ставится в false — тогда режим открывается
 /// только по коду тестировщика (долгое нажатие на логотип).
 class AppBuild {
-  static const version = '1.18.16';
-  static const build = 17;
+  // 2026-11-05: версия выпуска 1.18.17+18 (должна совпадать с pubspec.yaml)
+  static const version = '1.18.17';
+  static const build = 18;
 
   /// Тестовая сборка (prerelease на GitHub): режим тестировщика доступен всем, у кого она стоит.
-  static const isTestBuild = true;
+  // 2026-11-05: стабильный выпуск 1.18.17 для клиентов — режим тестировщика только по коду.
+  static const isTestBuild = false;
 }
 
 /// Кому открыт режим тестировщика: тестовая сборка, ИЛИ верный код тестировщика, ИЛИ отладочная сборка (flutter run).

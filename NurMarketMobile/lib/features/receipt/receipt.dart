@@ -86,6 +86,9 @@ class Receipt {
   /// до копейки; null — по строкам чека.
   final double? subtotalOverride;
 
+  /// 2026-11-05 (М4-14): «Округление весовых» — сколько отброшено при округлении суммы весовых строк вниз; 0 — строки не показываем.
+  final double weightRounding;
+
   const Receipt({
     required this.shop,
     this.inn = '',
@@ -108,6 +111,7 @@ class Receipt {
     this.offline = false,
     this.debtDue,
     this.subtotalOverride,
+    this.weightRounding = 0,
   });
 
   /// 2026-10-22 (мобилка, деньги): строки оплаты для экрана, PDF, текста и печати. В долг — «Внесено / Долг / Вернуть до»
@@ -160,9 +164,11 @@ class Receipt {
     Map<String, dynamic>? response,
     bool offline = false,
     DateTime? debtDue,
+    double? serverTotal,
   }) {
     final lines = [for (final l in cart.lines) ReceiptLine(name: l.name, qty: l.qty, unit: l.unit, price: l.price, discount: l.discount, total: l.total)];
-    final total = cart.total;
+    // 2026-11-05 (М4-14): итог чека — из ответа сервера (его и записал сервер), корзина — запасной путь (чек в очереди, ответ без суммы)
+    final total = serverTotal != null && serverTotal > 0 ? serverTotal : cart.total;
     return Receipt(
       shop: _shop(session),
       inn: session?.companyInn ?? '',
@@ -184,6 +190,7 @@ class Receipt {
       offline: offline,
       debtDue: debtDue,
       subtotalOverride: cart.subtotal,
+      weightRounding: cart.weightRounding,
     );
   }
 
@@ -279,6 +286,7 @@ class Receipt {
     }
     b.writeln(dash);
     if (discount > 0) b.writeln('Скидка: −${money(discount)}');
+    if (weightRounding >= 0.005) b.writeln('Округление весовых: −${money(weightRounding)}'); // 2026-11-05 (М4-14)
     b.writeln('ИТОГО: ${money(total)} сом');
     for (final (k, v) in paymentLines) {
       b.writeln('$k: $v');

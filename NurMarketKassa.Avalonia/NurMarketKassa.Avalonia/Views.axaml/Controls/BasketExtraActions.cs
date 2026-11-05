@@ -74,7 +74,7 @@ public static class BasketExtraActions
             if (basket != null)
                 basket.CartMessage = Tr.T("Печатаю копию последнего чека…", "Акыркы чектин көчүрмөсү басылып жатат…", "Printing a copy of the last receipt…", "Son fişin kopyası yazdırılıyor…", "Oxirgi chek nusxasi chop etilmoqda…");
 
-            var (ok, message) = await ReceiptHistoryService.PrintLastReceiptAsync().ConfigureAwait(true);
+            var (ok, message) = await ReceiptHistoryService.PrintLastReceiptAsync(localLast: basket?.LastSale).ConfigureAwait(true);
             if (basket != null)
             {
                 basket.CartMessage = ok ? message : "";

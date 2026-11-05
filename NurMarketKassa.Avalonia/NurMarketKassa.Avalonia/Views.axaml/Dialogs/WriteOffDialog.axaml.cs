@@ -26,9 +26,13 @@ public partial class WriteOffDialog : Window
     private readonly List<RadioButton> _reasonButtons = new();
     private CatalogProductTileVm? _selected;
     private bool _busy;
+    private bool _productLocked; // 2026-11-03 (аудит №3, Т3-01): удаление «как в 1С» — товар жёстко привязан, сменить его в окне нельзя
 
     /// <summary>Что списали — для строки под корзиной после закрытия.</summary>
     public string? ResultMessage { get; private set; }
+
+    /// <summary>2026-11-03 (аудит №3, Т3-02): акт списания отправлен, но сервер за 8 с не ответил — итог придёт фоном. Удаление товара в этом случае не продолжается.</summary>
+    public bool Pending { get; private set; }
 
     public WriteOffDialog() : this(Array.Empty<CatalogProductTileVm>()) { }
 
@@ -84,13 +88,27 @@ public partial class WriteOffDialog : Window
         {
             SetQty(presetQty.Value);
             _reasonButtons[^1].IsChecked = true; // «Другое»
+            // 2026-11-03 (аудит №3, Т3-01, Т3-09): при удалении товара поиск, чипы чека и подсказки скрыты — списать можно только удаляемый товар
+            // (раньше кассир мог выбрать другой товар, списать его, а удаляемый уходил вместе с остатком). Количество менять можно: тогда удаление прервётся.
+            _productLocked = true;
+            CartPanel.IsVisible = false;
+            SearchBox.IsVisible = false;
+            ResultsList.IsVisible = false;
+            Shell.Subtitle = Tr.T(
+                "Остаток списывается перед удалением товара. Чтобы товар удалился, спишите весь остаток.",
+                "Калдык товарды өчүрүүдөн мурун эсептен чыгарылат. Товар өчүрүлүшү үчүн бүт калдыкты эсептен чыгарыңыз.",
+                "The stock is written off before the product is deleted. Write off all of it to delete the product.",
+                "Stok, ürün silinmeden önce düşülür. Ürünün silinmesi için tüm stoku düşün.",
+                "Qoldiq mahsulot o'chirilishidan oldin hisobdan chiqariladi. Mahsulot o'chirilishi uchun butun qoldiqni hisobdan chiqaring.");
         }
 
-        Opened += (_, _) => SearchBox.Focus();
+        Opened += (_, _) => { if (_productLocked) QtyBox.Focus(); else SearchBox.Focus(); };
     }
 
     private void Select(CatalogProductTileVm product)
     {
+        if (_productLocked && _selected != null && !ReferenceEquals(_selected, product) && _selected.Id != product.Id)
+            return; // 2026-11-03 (аудит №3, Т3-01): в режиме удаления другой товар выбрать нельзя
         _selected = product;
         _vm.WriteOffPickCommand.Execute(product);
         ShowError(null);
@@ -227,7 +245,8 @@ public partial class WriteOffDialog : Window
             if (!ok)
                 return;
 
-            PosLogger.Log($"Списание из кассы: {name} × {qty:0.###} ({reason})", "WRITEOFF");
+            Pending = _vm.WriteOffPending;
+            PosLogger.Log($"Списание из кассы: {name} × {qty:0.###} ({reason}){(Pending ? " — ответ сервера ещё не получен" : "")}", "WRITEOFF");
             var qtyText = qty.ToString("0.###", CultureInfo.InvariantCulture);
             ResultMessage = Tr.T($"Списано: {name} — {qtyText} ({reason}).", $"Эсептен чыгарылды: {name} — {qtyText} ({reason}).",
                 $"Written off: {name} — {qtyText} ({reason}).", $"Düşüldü: {name} — {qtyText} ({reason}).",

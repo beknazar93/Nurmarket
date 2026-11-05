@@ -19,6 +19,9 @@ public partial class PayDebtDialog
     private string _method = DebtPaymentSettings.MethodCash;
     /// <summary>Идёт оплата — оповещение «долг изменился» список не перезагружает (оплата перезагрузит сама).</summary>
     private bool _paying;
+
+    /// <summary>2026-11-03 (аудит №3, Д3-01/С-08): сервер молчит 8 с, оплата отправлена и ждёт ответа в фоне — окно можно закрыть (деньги ведёт DebtPaymentRunner, он доведёт запись сам).</summary>
+    private bool _slowReleased;
     /// <summary>2026-10-18, шестой круг ревью: «свежий список» — по версии. Восьмой круг (п.9): версия общая —
     /// PosDataEvents.DebtVersionOf(клиент) (растёт при каждом оповещении о его долге); загрузка запоминает её на момент НАЧАЛА
     /// (_loadedSeq — у последней успешной). После оплаты список перечитывается, если загруженный начат до последнего оповещения.</summary>
@@ -144,7 +147,7 @@ public partial class PayDebtDialog
         // 2026-10-18, пятый круг (п.5): пока идёт операция, окно не закрывается — иначе кассир не увидит её исход.
         Closing += (_, e) =>
         {
-            if (!_paying)
+            if (!_paying || _slowReleased)
                 return;
             e.Cancel = true;
             ErrorMessage = Tr.T("Дождитесь ответа сервера — идёт оплата.", "Сервердин жообун күтүңүз — төлөм жүрүп жатат.",
@@ -228,6 +231,8 @@ public partial class PayDebtDialog
         _paying = paying;
         _payingTimer?.Stop();
         _payingTimer = null;
+        if (!paying)
+            _slowReleased = false;
         if (paying)
         {
             _payingWatch.Restart();
@@ -351,21 +356,39 @@ public partial class PayDebtDialog
         var api = App.AppHost?.Services.GetService<ClientDebtsApiService>();
         if (api == null || _selectedClient is not { } client)
             return false;
+        // 2026-11-03 (аудит №3, Д3-01/С-08): оплата того же клиента уже ждёт медленный сервер — вторую не отправляем.
+        if (SlowMoneyCall.IsActive("debt|" + client.Id))
+        {
+            ErrorMessage = SlowMoneyCall.StillRunningText;
+            return true;
+        }
         var key = Guid.NewGuid().ToString();
         RememberOwnKey(key);
         _activeNewKey = key;
         DebtPayAttempt attempt;
         try
         {
-            attempt = await DebtPaymentRunner.PayNewAsync(api, key, client.Id, client.DisplayName, row?.Id,
-                row?.Number is { Length: > 0 } number ? "№" + number : null, amount, method, PosApp.ActiveShiftId).ConfigureAwait(true);
+            // 2026-11-03 (Д3-01/С-08): ждём сервер не дольше 8 с; запрос НЕ отменяется (ключ тот же, запись заранее на диске), ответ дожидается; через 8 с окно можно закрыть.
+            attempt = await SlowMoneyCall.RunAsync("debt/pay", "debt|" + client.Id, _ => DebtPaymentRunner.PayNewAsync(api, key, client.Id, client.DisplayName, row?.Id,
+                row?.Number is { Length: > 0 } number ? "№" + number : null, amount, method, PosApp.ActiveShiftId), () => _slowReleased = true).ConfigureAwait(true);
         }
         finally
         {
             _activeNewKey = null;
             OnUnknownChanged();
         }
+        AnnounceLateDebtResult(attempt, row is not null);
         return await ApplyAttemptAsync(client, attempt, bySale: row is not null).ConfigureAwait(true);
+    }
+
+    /// <summary>2026-11-03 (Д3-01): ответ пришёл, когда окно уже закрыли (кассир не стал ждать медленный сервер) — итог показываем плашкой.</summary>
+    private void AnnounceLateDebtResult(DebtPayAttempt attempt, bool bySale)
+    {
+        if (!_slowReleased || !_closedCts.IsCancellationRequested || attempt.Outcome == DebtPayOutcome.EndpointMissing)
+            return;
+        var text = DebtPaymentRunner.OutcomeText(attempt, bySale, owner: false);
+        if (!string.IsNullOrWhiteSpace(text))
+            SuccessToast.Show(text, attempt.Outcome == DebtPayOutcome.Success ? ToastKind.Success : ToastKind.Error, null, null, sticky: attempt.Outcome != DebtPayOutcome.Success);
     }
 
     /// <summary>Итог операции Runner в окне: сервер не знает адреса — false (старый путь); остальное — текст общим
@@ -458,7 +481,9 @@ public partial class PayDebtDialog
             if (api is null)
                 return;
             RememberOwnKey(p.Key);
-            var attempt = await DebtPaymentRunner.RetryAsync(api, p.Key).ConfigureAwait(true);
+            // 2026-11-03 (Д3-01/С-08): повтор по тому же ключу — ждём не дольше 8 с, запрос не отменяется.
+            var attempt = await SlowMoneyCall.RunAsync("debt/retry", "debt|" + client.Id, _ => DebtPaymentRunner.RetryAsync(api, p.Key), () => _slowReleased = true).ConfigureAwait(true);
+            AnnounceLateDebtResult(attempt, p.SaleId is not null);
             // Тексты (повтор не отправлен, закрытая смена, «повтор не удался — блокировка остаётся») — OutcomeText.
             await ApplyAttemptAsync(client, attempt, bySale: p.SaleId is not null).ConfigureAwait(true);
         }

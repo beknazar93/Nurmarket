@@ -9,6 +9,22 @@ import 'photo_cache.dart';
 extension L10nX on BuildContext {
   AppLocalizations get l => AppLocalizations.of(this)!;
   Palette get pal => Palette.of(this);
+
+  /// 2026-11-05: короткая надпись на 5 языках без правки сгенерированных файлов l10n (порядок как в [tr5]: ru, ky, uz, en, tr).
+  String t5(String ru, String ky, String uz, String en, String tr) {
+    switch (Localizations.localeOf(this).languageCode) {
+      case 'ky':
+        return ky;
+      case 'uz':
+        return uz;
+      case 'en':
+        return en;
+      case 'tr':
+        return tr;
+      default:
+        return ru;
+    }
+  }
 }
 
 final _money = NumberFormat('#,##0.##', 'ru');

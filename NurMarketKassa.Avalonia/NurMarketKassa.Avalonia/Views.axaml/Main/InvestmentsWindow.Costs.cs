@@ -29,8 +29,8 @@ public sealed partial class InvestmentsWindow
         msg.IsVisible = false;
         var openedBox = DateBox(opened, d => opened = d, 160);
         var monthsBox = NumBox(months, v => months = v, "36", 100);
-        var amortCheck = new CheckBox { Content = T("Списывать стартовые расходы равномерно (амортизация) — показывать «чистая прибыль с учётом амортизации»", "Баштапкы чыгымдарды бирдей эсептен чыгаруу (амортизация) — «амортизацияны эске алган таза пайда» көрсөтүлсүн",
-            "Write startup costs off evenly (amortization) — show “net profit after amortization”", "Başlangıç giderlerini eşit yaz (amortisman) — «amortisman sonrası net kâr» göster", "Boshlang'ich xarajatlarni teng hisobdan chiqarish (amortizatsiya) — «amortizatsiyadan keyingi sof foyda» ko'rsatilsin"), IsChecked = amortize, MinHeight = 44 };
+        var amortCheck = new CheckBox { Content = T("Списывать стартовые расходы равномерно (амортизация) — в разделе «Инвестиции» показывать «чистая прибыль с учётом амортизации»", "Баштапкы чыгымдарды бирдей эсептен чыгаруу (амортизация) — «Инвестициялар» бөлүмүндө «амортизацияны эске алган таза пайда» көрсөтүлсүн",
+            "Write startup costs off evenly (amortization) — show “net profit after amortization” in the “Investments” section", "Başlangıç giderlerini eşit yaz (amortisman) — «Yatırımlar» bölümünde «amortisman sonrası net kâr» göster", "Boshlang'ich xarajatlarni teng hisobdan chiqarish (amortizatsiya) — «Sarmoyalar» bo'limida «amortizatsiyadan keyingi sof foyda» ko'rsatilsin"), IsChecked = amortize, MinHeight = 44 };
         amortCheck.IsCheckedChanged += (_, _) => amortize = amortCheck.IsChecked == true;
         var saveMeta = UiKit.Primary(this, T("Сохранить", "Сактоо", "Save", "Kaydet", "Saqlash"));
         saveMeta.HorizontalAlignment = HorizontalAlignment.Left;
@@ -69,7 +69,11 @@ public sealed partial class InvestmentsWindow
         var head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 8) };
         var titleStack = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
         titleStack.Children.Add(Heading(T("Стартовые расходы", "Баштапкы чыгымдар", "Startup costs", "Başlangıç giderleri", "Boshlang'ich xarajatlar")));
-        titleStack.Children.Add(Soft(T("Вложено на открытие: ", "Ачылышка салынды: ", "Invested at opening: ", "Açılışta yatırılan: ", "Ochilishda kiritilgan: ") + Money(StartupCostsStore.Sum(costs)) + (costs.Count > 0 ? $" · {costs.Count}" : ""), 13));
+        titleStack.Children.Add(Soft(T("Вложено на открытие: ", "Ачылышка салынды: ", "Invested at opening: ", "Açılışta yatırılan: ", "Ochilishda kiritilgan: ") + Money(StartupCostsStore.InvestedSum(costs)) + (costs.Count > 0 ? $" · {costs.Count}" : ""), 13));
+        // 2026-11-05 (И-03): «Товар» во «Вложено» не входит - говорим об этом рядом с итогом.
+        if (StartupCostsStore.StockSum(costs) > 0m)
+            titleStack.Children.Add(Soft(T("Деньги в товаре: ", "Товардагы акча: ", "Money in stock: ", "Maldaki para: ", "Tovardagi pul: ") + Money(StartupCostsStore.StockSum(costs))
+                + T(" — не входят во «Вложено» (товар окупается продажами).", " — «Салынды» ичине кирбейт (товар сатуу менен кайтат).", " — not part of “Invested” (stock pays back through sales).", " — «Yatırılan»a dahil değil (mal satışla geri döner).", " — «Kiritilgan»ga kirmaydi (tovar sotuv bilan qaytadi)."), 12));
         var add = UiKit.Primary(this, T("＋ Добавить статью", "＋ Берене кошуу", "＋ Add an item", "＋ Kalem ekle", "＋ Modda qo'shish"));
         add.Click += async (_, _) =>
         {
@@ -93,7 +97,7 @@ public sealed partial class InvestmentsWindow
         var ptitle = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
         ptitle.Children.Add(Heading(T("Участники и инвесторы", "Катышуучулар жана инвесторлор", "Participants and investors", "Katılımcılar ve yatırımcılar", "Ishtirokchilar va investorlar")));
         var invSum = investors.Sum(i => i.Amount);
-        var costSum = StartupCostsStore.Sum(costs);
+        var costSum = StartupCostsStore.InvestedSum(costs);
         ptitle.Children.Add(Soft(T("Инвестиции: ", "Инвестициялар: ", "Investments: ", "Yatırımlar: ", "Investitsiyalar: ") + Money(invSum)
             + (costSum > 0m ? " · " + T("свои средства владельца: ", "ээсинин жеке каражаты: ", "owner's own funds: ", "sahibin öz kaynağı: ", "egasining o'z mablag'i: ") + Money(Math.Max(0m, costSum - invSum)) : ""), 13));
         var addInv = UiKit.Primary(this, T("＋ Инвестор", "＋ Инвестор", "＋ Investor", "＋ Yatırımcı", "＋ Investor"));
@@ -132,6 +136,9 @@ public sealed partial class InvestmentsWindow
         var names = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 6, 12, 6) };
         names.Children.Add(Plain(c.Title, 14, true));
         var sub = $"{c.Date:dd.MM.yyyy} · {StartupCostsStore.CategoryTitle(c.Category)}" + (string.IsNullOrWhiteSpace(c.Comment) ? "" : " · " + c.Comment);
+        // 2026-11-05 (И-01): вложение позже даты открытия окупается только прибылью с его даты.
+        if (!StartupCostsStore.IsStock(c) && StartupCostsStore.Meta.OpenedOn is { } openedOn && c.Date.Date > openedOn.Date)
+            sub += " · " + T("вложено после открытия — окупается прибылью с этой даты", "ачылгандан кийин салынды — ушул күндөн тартып пайда менен кайтат", "invested after opening — pays back from this date's profit", "açılıştan sonra yatırıldı — bu tarihten itibaren kârla geri döner", "ochilgandan keyin kiritilgan — shu sanadan boshlab foyda bilan qaytadi");
         names.Children.Add(Soft(sub, 12));
         var amount = Plain(Money(c.Amount), 14.5, true);
         amount.VerticalAlignment = VerticalAlignment.Center;

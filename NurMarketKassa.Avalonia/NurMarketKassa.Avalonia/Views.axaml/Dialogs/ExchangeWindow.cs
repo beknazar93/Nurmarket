@@ -78,6 +78,9 @@ public sealed class ExchangeWindow : Window
     private ModalShell? _shell;
     private bool _closingWithResult;
 
+    /// <summary>2026-11-03 (аудит №3, Д3-01): окно закрыто (кассир закрыл его, не дождавшись медленного сервера) — итог обмена показываем отдельным сообщением.</summary>
+    private bool _windowClosed;
+
     /// <summary>2026-10-15, ревью: ключ идемпотентности обмена живёт до ответа сервера (как в PayDebtDialog): после таймаута
     /// повтор ТОГО ЖЕ обмена (тот же чек, те же строки, товары и способ оплаты) уходит с тем же ключом, а не новым на каждый
     /// клик. Новый — после успеха, отказа по существу (4xx) или если состав обмена изменился. Static — переживает и
@@ -128,6 +131,7 @@ public sealed class ExchangeWindow : Window
             if (_running && !_closingWithResult && e.CloseReason == WindowCloseReason.WindowClosing)
                 e.Cancel = true;
         };
+        Closed += (_, _) => _windowClosed = true;
 
         _search = UiKit.Input(this, T("Название или штрихкод (можно сканером)", "Аталышы же штрихкоду (сканер менен болот)", "Name or barcode (scanner works too)",
             "Ad veya barkod (tarayıcı da olur)", "Nomi yoki shtrix-kodi (skaner bilan ham bo'ladi)"));
@@ -406,6 +410,12 @@ public sealed class ExchangeWindow : Window
     {
         if (_running || _appliedWithoutAnswer)
             return;
+        // 2026-11-03 (аудит №3, Д3-01): обмен/возврат по этому чеку уже отправлен и ждёт медленный сервер — второй не отправляем.
+        if (SlowMoneyCall.IsActive("exchange|" + _saleId) || SlowMoneyCall.IsActive("return|" + _saleId))
+        {
+            _error.Text = SlowMoneyCall.StillRunningText;
+            return;
+        }
         _error.Text = "";
         var returns = _returnRows.Where(r => r.Qty > 0).ToList();
         if (returns.Count == 0 || _newRows.Count == 0)
@@ -458,11 +468,21 @@ public sealed class ExchangeWindow : Window
         {
             // Остаток смены до обмена — чтобы поймать известную ошибку сервера (см. ExchangeCashCorrections).
             var before = await ExchangeCashCorrections.ReadExpectedCashAsync(client, shiftId).ConfigureAwait(true);
-            var res = await api.PosExchangeAsync(_saleId,
+            // 2026-11-03 (аудит №3, Д3-01/С-08): окно ждёт сервер не дольше 8 с; запрос НЕ отменяется и не задваивается (тот же ключ), ответ дожидается и обрабатывается ниже.
+            // Через 8 с окно можно закрыть («обмен отправлен»); итог тогда покажет отдельное сообщение, а окно возврата перечитает чек.
+            var res = await SlowMoneyCall.RunAsync("pos/exchange", "exchange|" + _saleId, t => api.PosExchangeAsync(_saleId,
                 returns.Select(r => (r.Line.LineId, r.Qty)).ToList(),
                 _newRows.Select(n => (n.ProductId, n.VariantId, n.Qty)).ToList(),
                 method,
-                idempotencyKey: exchangeKey).ConfigureAwait(true);
+                t,
+                exchangeKey), () =>
+                {
+                    SaleMayHaveChanged = true;
+                    _error.Text = SlowMoneyCall.PendingText;
+                    _running = false;
+                    if (_shell != null)
+                        _shell.IsBusy = false;
+                }).ConfigureAwait(true);
             PendingExchange.OnSuccess();
 
             string? Str(string name) => res.ValueKind == JsonValueKind.Object && res.TryGetProperty(name, out var v) && v.ValueKind is JsonValueKind.String or JsonValueKind.Number ? v.ToString() : null;
@@ -535,7 +555,24 @@ public sealed class ExchangeWindow : Window
             if (printError is not null)
                 PosMessageBox.Show(this, printError, Title ?? "", MessageBoxButton.OK, MessageBoxImage.Warning);
             _closingWithResult = true;
-            Close(true);
+            if (!_windowClosed)
+                Close(true);
+            else
+            {
+                // 2026-11-03 (Д3-01): ответ пришёл после того, как окно закрыли — окно возврата уже не ждёт итог, говорим кассиру сами.
+                PosMessageBox.Show(null, T("Обмен оформлен (сервер ответил позже).", "Алмаштыруу таризделди (сервер кийинчерээк жооп берди).", "Exchange completed (the server answered later).",
+                        "Değişim tamamlandı (sunucu daha geç yanıt verdi).", "Almashtirish rasmiylashtirildi (server keyinroq javob berdi).")
+                    + (string.IsNullOrWhiteSpace(Outcome.NewSaleNumber) ? "" : T($"\nНовый чек №{Outcome.NewSaleNumber}.", $"\nЖаңы чек №{Outcome.NewSaleNumber}.", $"\nNew receipt No. {Outcome.NewSaleNumber}.",
+                        $"\nYeni fiş No. {Outcome.NewSaleNumber}.", $"\nYangi chek №{Outcome.NewSaleNumber}."))
+                    + "\n" + (payDifference > 0.004m
+                        ? T($"Получить с покупателя: {Money(payDifference)}.", $"Сатып алуучудан алуу: {Money(payDifference)}.", $"Take from the customer: {Money(payDifference)}.",
+                            $"Müşteriden alınacak: {Money(payDifference)}.", $"Xaridordan olish: {Money(payDifference)}.")
+                        : payDifference < -0.004m
+                            ? T($"Выдать покупателю: {Money(-payDifference)} наличными.", $"Сатып алуучуга берүү: {Money(-payDifference)} накталай.", $"Give the customer: {Money(-payDifference)} in cash.",
+                                $"Müşteriye verilecek: {Money(-payDifference)} nakit.", $"Xaridorga berish: {Money(-payDifference)} naqd.")
+                            : T("Без доплаты.", "Кошумча төлөмсүз.", "No difference to pay.", "Fark yok.", "Qo'shimcha to'lovsiz.")),
+                    Title ?? "", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
         catch (ApiException ex)
         {
@@ -543,6 +580,8 @@ public sealed class ExchangeWindow : Window
             _error.Text = T("Обмен не проведён: ", "Алмаштыруу жүргүзүлгөн жок: ", "Exchange failed: ", "Değişim yapılamadı: ", "Almashtirish o'tkazilmadi: ") + (ReturnSaleDialog.RefundExceedsText(ex) ?? ex.Message);
             if (RefundAmountMath.TryParseExceeds(ex, out _))
                 SaleMayHaveChanged = true;
+            if (_windowClosed) // 2026-11-03 (Д3-01): окно уже закрыли, пока сервер медлил — отказ показываем сообщением
+                PosMessageBox.Show(null, _error.Text ?? "", Title ?? "", MessageBoxButton.OK, MessageBoxImage.Error);
             PosLogger.Log($"Обмен по продаже {_saleId} не проведён: {ex.StatusCode} {ex.Message}", "WARNING");
             // 2026-10-16, ревью: 4xx (кроме 408/429) — ключ забыт; иначе исход неизвестен — сразу сверяем по чеку.
             if (PendingExchange.OnError(ex))
@@ -554,6 +593,8 @@ public sealed class ExchangeWindow : Window
             _error.Text = T("Обмен не проведён (нет связи с сервером?): ", "Алмаштыруу жүргүзүлгөн жок (сервер менен байланыш жокпу?): ", "Exchange failed (no connection?): ",
                 "Değişim yapılamadı (bağlantı yok mu?): ", "Almashtirish o'tkazilmadi (server bilan aloqa yo'qmi?): ")
                 + T("подробности в журнале кассы.", "чоо-жайы касса журналында.", "details are in the till log.", "ayrıntılar kasa günlüğünde.", "tafsilotlar kassa jurnalida."); // 2026-11-02 (К2-24): без сырого ex.Message
+            if (_windowClosed) // 2026-11-03 (Д3-01): окно уже закрыли, пока сервер медлил — ошибку показываем сообщением
+                PosMessageBox.Show(null, _error.Text ?? "", Title ?? "", MessageBoxButton.OK, MessageBoxImage.Warning);
             PosLogger.Log($"Обмен по продаже {_saleId} не проведён: {ex}", "WARNING");
             // 2026-10-16, ревью: таймаут/обрыв — исход неизвестен, сразу сверяем по чеку.
             if (PendingExchange.OnError(ex))

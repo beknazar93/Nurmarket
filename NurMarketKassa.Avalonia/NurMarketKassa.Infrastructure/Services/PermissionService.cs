@@ -48,6 +48,10 @@ public sealed class PermissionService : IPermissionService
         if (permission == PosPermissions.EditPrice)
             return IsPriceEditAllowed(_authApi.UserPayload);
 
+        // 2026-11-03 (аудит №3, Т3-03): «Склад: редактирование» — как ярлыки и цена: владелец/админ всегда, закрыто только при явном false; поля нет — не блокируем.
+        if (permission == PosPermissions.EditProducts)
+            return IsProductEditAllowed(_authApi.UserPayload);
+
         // 2026-10-18: «Интерфейс кассира», «Продажа», «Смены» — со своими правилами (не запирать
         // владельца/админа и компании, где доступы сотрудникам не выставлены).
         if (PosPermissions.CashierWork.Contains(permission, StringComparer.OrdinalIgnoreCase))
@@ -136,6 +140,14 @@ public sealed class PermissionService : IPermissionService
         if (HasOwnerOrAdminRole(payload))
             return true;
         return ReadExplicitFlag(payload, PosPermissions.EditPrice, 0) != false;
+    }
+
+    /// <summary>2026-11-03 (аудит №3, Т3-03): право «Склад: редактирование» (can_edit_products): роль owner/admin — всегда; иначе нельзя только при явном false.</summary>
+    public static bool IsProductEditAllowed(JsonElement payload)
+    {
+        if (HasOwnerOrAdminRole(payload))
+            return true;
+        return ReadExplicitFlag(payload, PosPermissions.EditProducts, 0) != false;
     }
 
     private static bool? ReadExplicitFlag(JsonElement element, string name, int depth)

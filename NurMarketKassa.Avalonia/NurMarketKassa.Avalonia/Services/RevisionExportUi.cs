@@ -50,16 +50,12 @@ internal static class RevisionExportUi
             if (file is null)
                 return;
 
-            var path = file.TryGetLocalPath();
-            if (string.IsNullOrEmpty(path))
-            {
-                setMessage(Tr.T("Не удалось определить путь файла — выберите папку на этом компьютере.", "Файлдын жолун аныктоо мүмкүн болгон жок — ушул компьютердеги папканы тандаңыз.", "Could not determine the file path — choose a folder on this computer.", "Dosya yolu belirlenemedi — bu bilgisayarda bir klasör seçin.", "Fayl yo'lini aniqlab bo'lmadi — shu kompyuterdagi papkani tanlang."));
-                return;
-            }
+            var path = ExportFileBridge.PathFor(file); // 2026-11-05 (А3-05): на Android без локального пути — через временный файл
 
             // Progress создан на потоке окна — сообщения приходят туда же.
             var progress = new Progress<string>(text => setMessage(text));
             await RevisionExportService.ExportAsync(path!, format, rows, meta, options, progress, cts.Token).ConfigureAwait(true);
+            path = await ExportFileBridge.CompleteAsync(file, path); // 2026-11-05 (А3-05)
 
             setMessage(Tr.T($"Ревизия сохранена: {path}", $"Ревизия сакталды: {path}", $"Stocktake saved: {path}", $"Sayım kaydedildi: {path}", $"Reviziya saqlandi: {path}"));
             markSuccess();

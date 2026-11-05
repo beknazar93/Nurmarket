@@ -664,7 +664,7 @@ public sealed partial class CatalogApiService : ICatalogApiService
 
     public Task UnarchiveProductAsync(string productId, CancellationToken ct = default) => PostArchiveAsync(productId, "unarchive", ct);
 
-    public async Task<List<JsonElement>> ListArchivedProductsAsync(IProgress<(int Loaded, int? Total)>? progress = null, CancellationToken ct = default)
+    public async Task<List<JsonElement>> ListArchivedProductsAsync(IProgress<(int Loaded, int? Total)>? progress = null, CancellationToken ct = default, Action<JsonElement>? onFound = null)
     {
         // 2026-11-02 (аудит №2, С3-12; приёмка круга 3): архив читается постранично ДО КОНЦА (раньше — 10 страниц, и из 15 461 товара видна была часть, а окно писало «архив пуст»).
         // Запрос: include_archived=1 и фильтр is_archived=true (если сервер его знает, придут только архивные; не знает — придут все, и отбираем помеченные is_archived/archived сами).
@@ -695,7 +695,11 @@ public sealed partial class CatalogApiService : ICatalogApiService
             scanned += batch.Count;
             foreach (var item in batch)
                 if (ProductCatalogMapper.IsArchived(item))
-                    result.Add(item.Clone());
+                {
+                    var copy = item.Clone();
+                    result.Add(copy);
+                    onFound?.Invoke(copy); // 2026-11-03 (аудит №3, Т3-04): найденное показывается сразу, не после чтения всех страниц
+                }
             progress?.Report((scanned, total));
             var hasNext = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("next", out var next) && next.ValueKind == JsonValueKind.String
                           && !string.IsNullOrWhiteSpace(next.GetString());

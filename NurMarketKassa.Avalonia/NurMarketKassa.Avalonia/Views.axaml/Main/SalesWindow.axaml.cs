@@ -1021,12 +1021,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (file is null)
                 return;
 
-            var path = file.TryGetLocalPath();
-            if (string.IsNullOrEmpty(path))
-            {
-                ErrorMessage = Tr.T("Не удалось определить путь файла — выберите папку на этом компьютере.", "Файлдын жолун аныктоо мүмкүн болгон жок — ушул компьютердеги папканы тандаңыз.", "Could not determine the file path — choose a folder on this computer.", "Dosya yolu belirlenemedi — bu bilgisayarda bir klasör seçin.", "Fayl yo'lini aniqlab bo'lmadi — shu kompyuterdagi papkani tanlang.");
-                return;
-            }
+            var path = ExportFileBridge.PathFor(file); // 2026-11-05 (А3-05): на Android без локального пути — через временный файл
 
             try
             {
@@ -1042,6 +1037,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     else
                         AnalyticsExportService.ExportToExcel(path!, data, shop);
                 }).ConfigureAwait(true);
+                path = await ExportFileBridge.CompleteAsync(file, path); // 2026-11-05 (А3-05)
 
                 ErrorMessage = Tr.T($"Отчёт сохранён: {path}", $"Отчёт сакталды: {path}", $"Report saved: {path}", $"Rapor kaydedildi: {path}", $"Hisobot saqlandi: {path}");
                 AvaloniaHost.Services.NoticeBanner.Apply(NoticeBox, NoticeText, success: true);

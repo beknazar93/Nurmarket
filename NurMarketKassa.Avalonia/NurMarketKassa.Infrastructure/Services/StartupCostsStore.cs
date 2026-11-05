@@ -90,7 +90,8 @@ public static class StartupCostsStore
         ("repair", Tr.T("Ремонт и отделка", "Оңдоо жана жасалгалоо", "Repairs and finishing", "Tadilat ve dekorasyon", "Ta'mirlash va pardozlash")),
         ("equipment", Tr.T("Оборудование", "Жабдуулар", "Equipment", "Ekipman", "Uskunalar")),
         ("furniture", Tr.T("Мебель и стеллажи", "Эмерек жана текчелер", "Furniture and shelving", "Mobilya ve raflar", "Mebel va javonlar")),
-        ("stock", Tr.T("Первоначальная закупка товара", "Товарды баштапкы сатып алуу", "Initial stock purchase", "İlk mal alımı", "Dastlabki tovar xaridi")),
+        // 2026-11-05 (И-03, решение владельца «а»): товар на старт НЕ входит во «Вложено» — окупается продажами через себестоимость; на экране это сказано в названии категории.
+        ("stock", Tr.T("Товар — не учитывается в окупаемости", "Товар — кайтарымга эсептелбейт", "Stock — not counted in payback", "Mal — geri dönüşe sayılmaz", "Tovar — oqlanishga hisoblanmaydi")),
         ("license", Tr.T("Лицензии и документы", "Лицензиялар жана документтер", "Licences and paperwork", "Lisanslar ve belgeler", "Litsenziyalar va hujjatlar")),
         ("ads", Tr.T("Реклама и вывеска", "Жарнама жана көрнөк", "Advertising and signage", "Reklam ve tabela", "Reklama va peshtaxta")),
         ("rent", Tr.T("Залог и аренда при открытии", "Ачылышындагы күрөө жана ижара", "Deposit and opening rent", "Depozito ve açılış kirası", "Garov va ochilishdagi ijara")),
@@ -156,10 +157,21 @@ public static class StartupCostsStore
         }
     }
 
-    /// <summary>Сумма стартовых расходов.</summary>
-    public static decimal Total => Sum(Items);
+    /// <summary>Сумма стартовых расходов, которые считаются вложениями в окупаемость (без статьи «Товар», см. <see cref="IsStock"/>).</summary>
+    public static decimal Total => InvestedSum(Items);
 
+    /// <summary>Сумма всех статей, включая «Товар».</summary>
     public static decimal Sum(IEnumerable<StartupCostItem> items) => items.Where(i => !i.Deleted).Sum(i => i.Amount);
+
+    /// <summary>2026-11-05 (И-03, решение владельца «а»): категория «Товар» не входит во «Вложено» — товар окупается продажами через себестоимость,
+    /// иначе он считался бы дважды (вычтен из чистой прибыли и ещё раз «окупался» из неё). Старые статьи остаются в документе.</summary>
+    public static bool IsStock(StartupCostItem item) => string.Equals(item.Category, "stock", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Вложено для окупаемости: все статьи, кроме «Товара».</summary>
+    public static decimal InvestedSum(IEnumerable<StartupCostItem> items) => items.Where(i => !i.Deleted && !IsStock(i)).Sum(i => i.Amount);
+
+    /// <summary>Деньги в товаре на старт (не входят во «Вложено»).</summary>
+    public static decimal StockSum(IEnumerable<StartupCostItem> items) => items.Where(i => !i.Deleted && IsStock(i)).Sum(i => i.Amount);
 
     /// <summary>Менять данные можно: у кассира сервер ответил 403 — тогда только просмотр.</summary>
     public static bool CanEdit => State != SyncState.Forbidden;
@@ -172,8 +184,8 @@ public static class StartupCostsStore
         var problem = Validate(item);
         if (problem != null)
             return problem;
-        if (!CanEdit)
-            return NoRightsText;
+        if (EditBlocker() is { } blocked)
+            return blocked;
         lock (Sync)
         {
             EnsureLocal();
@@ -201,8 +213,8 @@ public static class StartupCostsStore
 
     public static string? Delete(string id)
     {
-        if (!CanEdit)
-            return NoRightsText;
+        if (EditBlocker() is { } blocked)
+            return blocked;
         lock (Sync)
         {
             EnsureLocal();
@@ -222,19 +234,23 @@ public static class StartupCostsStore
     /// <summary>Дата открытия бизнеса, амортизация. openedOn = null — убрать дату.</summary>
     public static string? SetMeta(DateTime? openedOn, bool amortize, int amortMonths, int planMonths = 0)
     {
-        if (amortMonths is < MinAmortMonths or > MaxAmortMonths)
+        // 2026-11-05 (И-12): срок списания проверяем только при включённой амортизации; при выключенной сохраняется прежний срок.
+        var keepOldMonths = !amortize && amortMonths is < MinAmortMonths or > MaxAmortMonths;
+        if (amortize && amortMonths is < MinAmortMonths or > MaxAmortMonths)
             return Tr.T($"Срок списания — от {MinAmortMonths} до {MaxAmortMonths} месяцев.", $"Эсептен чыгаруу мөөнөтү — {MinAmortMonths}-{MaxAmortMonths} ай.",
                 $"The write-off period is {MinAmortMonths} to {MaxAmortMonths} months.", $"Gider yazma süresi {MinAmortMonths}-{MaxAmortMonths} ay.",
                 $"Hisobdan chiqarish muddati — {MinAmortMonths}-{MaxAmortMonths} oy.");
         if (openedOn is { } d && (d.Year < 2000 || d.Date > DateTime.Today.AddDays(1)))
             return Tr.T("Дата открытия не может быть в будущем.", "Ачылган күн келечекте болбойт.", "The opening date cannot be in the future.",
                 "Açılış tarihi gelecekte olamaz.", "Ochilgan sana kelajakda bo'lishi mumkin emas.");
-        if (!CanEdit)
-            return NoRightsText;
+        if (EditBlocker() is { } blocked)
+            return blocked;
         lock (Sync)
         {
             EnsureLocal();
             var meta = _doc.Meta;
+            if (keepOldMonths)
+                amortMonths = meta.AmortMonths;
             if (meta.OpenedOn?.Date == openedOn?.Date && meta.Amortize == amortize && meta.AmortMonths == amortMonths && meta.PlanMonths == planMonths)
                 return null;
             meta.OpenedOn = openedOn?.Date;
@@ -301,8 +317,8 @@ public static class StartupCostsStore
         var problem = ValidateInvestor(item);
         if (problem != null)
             return problem;
-        if (!CanEdit)
-            return NoRightsText;
+        if (EditBlocker() is { } blocked)
+            return blocked;
         lock (Sync)
         {
             EnsureLocal();
@@ -340,8 +356,8 @@ public static class StartupCostsStore
     /// <summary>Удалить инвестора вместе с его отметками выплат (остаются «надгробиями» на 90 дней).</summary>
     public static string? DeleteInvestor(string id)
     {
-        if (!CanEdit)
-            return NoRightsText;
+        if (EditBlocker() is { } blocked)
+            return blocked;
         lock (Sync)
         {
             EnsureLocal();
@@ -369,8 +385,8 @@ public static class StartupCostsStore
     /// <summary>Отметить месяц выплаченным (с суммой на момент отметки) или снять отметку.</summary>
     public static string? SetPaid(string investorId, string month, decimal amount, bool paid)
     {
-        if (!CanEdit)
-            return NoRightsText;
+        if (EditBlocker() is { } blocked)
+            return blocked;
         lock (Sync)
         {
             EnsureLocal();
@@ -394,6 +410,15 @@ public static class StartupCostsStore
         AfterEdit();
         return null;
     }
+
+    /// <summary>2026-11-05 (И-20): пока компания не определена, документ писался бы под ключом «default» и потом не синхронизировался — правки не принимаем.</summary>
+    private static bool CompanyKnown => DataDirOverride != null || CompanyInfoService.LastCompany?.Id is { Length: > 0 };
+
+    private static string? EditBlocker() => !CanEdit ? NoRightsText : !CompanyKnown ? NoCompanyText : null;
+
+    private static string NoCompanyText => Tr.T("Компания ещё не определена — подождите несколько секунд (или обновите раздел) и повторите.", "Компания дагы аныктала элек — бир нече секунд күтүп (же бөлүмдү жаңыртып) кайра аракет кылыңыз.",
+        "The company is not known yet — wait a few seconds (or refresh the section) and try again.", "Şirket henüz belirlenmedi — birkaç saniye bekleyin (veya bölümü yenileyin) ve tekrar deneyin.",
+        "Kompaniya hali aniqlanmadi — bir necha soniya kuting (yoki bo'limni yangilang) va qayta urinib ko'ring.");
 
     private static string NoRightsText => Tr.T("Стартовые расходы меняют только владелец и администратор.", "Баштапкы чыгымдарды ээси жана администратор гана өзгөртөт.",
         "Only the owner and administrators can change startup costs.", "Başlangıç giderlerini yalnızca sahip ve yönetici değiştirebilir.",

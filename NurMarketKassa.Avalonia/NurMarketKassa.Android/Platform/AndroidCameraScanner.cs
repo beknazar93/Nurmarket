@@ -223,7 +223,19 @@ public class ScannerActivity : Activity, ISurfaceHolderCallback, Camera.IPreview
             _camera.SetParameters(p);
             _camera.SetDisplayOrientation(DisplayOrientation(_cameraId));
             _camera.SetPreviewDisplay(holder);
-            _camera.SetPreviewCallback(this);
+            // 2026-11-05 (аудит №3, А3-06): кадры — в двух заранее выделенных буферах (SetPreviewCallbackWithBuffer), а не новый массив ~1,4 МБ
+            // на каждый кадр (~30/с) — на терминалах с 1–2 ГБ это давало частые паузы сборки мусора.
+            try
+            {
+                var bufferSize = size.Width * size.Height * Android.Graphics.ImageFormat.GetBitsPerPixel(p.PreviewFormat) / 8;
+                _camera.SetPreviewCallbackWithBuffer(this);
+                _camera.AddCallbackBuffer(new byte[bufferSize]);
+                _camera.AddCallbackBuffer(new byte[bufferSize]);
+            }
+            catch
+            {
+                _camera.SetPreviewCallback(this); // старый путь, если буферы не удалось завести
+            }
             _camera.StartPreview();
             if (!continuous && modes.Contains(Camera.Parameters.FocusModeAuto))
                 StartAutoFocusLoop();
@@ -286,8 +298,13 @@ public class ScannerActivity : Activity, ISurfaceHolderCallback, Camera.IPreview
 
     public void OnPreviewFrame(byte[]? data, Camera? camera)
     {
-        if (data is null || _busy || _delivered)
+        if (data is null)
             return;
+        if (_busy || _delivered)
+        {
+            ReturnBuffer(camera, data); // кадр пропускаем — буфер сразу обратно камере
+            return;
+        }
         _busy = true;
         var width = _previewWidth;
         var height = _previewHeight;
@@ -309,8 +326,19 @@ public class ScannerActivity : Activity, ISurfaceHolderCallback, Camera.IPreview
             finally
             {
                 _busy = false;
+                ReturnBuffer(camera, data);
             }
         });
+    }
+
+    /// <summary>2026-11-05 (А3-06): вернуть буфер кадра камере; камера могла уже закрыться — тогда буфер просто отпускается.</summary>
+    private void ReturnBuffer(Camera? camera, byte[] data) // camera оставлен для читаемости вызова
+    {
+        try
+        {
+            _camera?.AddCallbackBuffer(data);
+        }
+        catch { /* камера остановлена */ }
     }
 
     // 2026-10-04, владелец: «баг видел в мобилке касса и ещё в админке тоже». Один и тот же товар камера

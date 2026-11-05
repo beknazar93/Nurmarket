@@ -236,14 +236,22 @@ public static class ReceiptHistoryService
             {
                 if (!inPeriod(sale.At))
                     continue;
+                // 2026-11-03 (аудит №3, Д3-04, П-2): номер чека, итог со всеми скидками и способ оплаты — из журнала возвратов кассы (запись при оплате: ответ сервера),
+                // а не «№1…» и сумма строк без скидки на чек. Записи нет (старая продажа) — как раньше.
+                var ledger = SaleReturnLedger.Get(saleId);
+                var number = ledger?.Number is { Length: > 0 } n ? n.Trim() : "";
                 result.Add(new ReceiptHistoryEntry
                 {
                     Id = saleId,
                     CreatedAt = sale.At,
-                    Total = Math.Round(sale.Total, 2),
+                    Total = ledger is { Total: > 0m } ? Math.Round(ledger.Total, 2) : Math.Round(sale.Total, 2),
+                    PaymentMethod = ledger?.Method ?? "",
+                    // 2026-11-05 (Н-3, приёмка 1.17.75): возвращённые чеки при медленном сервере показывались «Оплачен» — статус берём из журнала возвратов кассы.
+                    Status = ledger is { Refunds.Count: > 0 } ? (ledger.Remaining <= 0.005m || ledger.Refunds.Any(r => r.Whole) ? "canceled" : "partially_returned") : "",
+                    ReceiptNumber = number,
                     Cashier = PosApp.CurrentUserDisplayName,
                     FirstItemName = sale.Names.FirstOrDefault() ?? "",
-                    SearchText = string.Join(" ", sale.Names),
+                    SearchText = (number.Length > 0 ? number + " " : "") + string.Join(" ", sale.Names),
                 });
             }
         }
@@ -708,8 +716,14 @@ public static class ReceiptHistoryService
     /// <summary>«Печать последнего чека» из меню «Ещё» корзины: последний чек этой смены (или,
     /// если смена не открыта, этой кассы за сегодня) — с сервера или из офлайн-очереди.</summary>
     /// <returns>Ok и сообщение для кассира.</returns>
-    public static async Task<(bool Ok, string Message)> PrintLastReceiptAsync(CancellationToken ct = default)
+    public static async Task<(bool Ok, string Message)> PrintLastReceiptAsync(CancellationToken ct = default, NurMarketKassa.ViewModels.Main.LastSaleInfo? localLast = null)
     {
+        // 2026-11-05 (аудит «зависание при медленном сервере», С-05): последняя продажа этой кассы в этой смене известна кассе сразу — печатаем её копию, не листая историю сервера
+        // (при медленном сервере это до 8 с на список и ещё 8 с на чек). Продажа должна быть из текущей смены (время открытия смены известно) — иначе обычный путь.
+        if (localLast is not null && CurrentShiftId() is { Length: > 0 } openShiftId
+            && ShiftAgeWarning.Get(openShiftId) is { } shiftOpenedAt && localLast.SoldAt >= shiftOpenedAt)
+            return await PrintSaleCopyAsync(localLast, ct).ConfigureAwait(false);
+
         // Двойное нажатие не печатает две копии.
         if (Interlocked.Exchange(ref _printingLast, 1) == 1)
             return (false, Tr.T("Последний чек уже печатается.", "Акыркы чек басылып жатат.", "The last receipt is already being printed.", "Son fiş zaten yazdırılıyor.", "Oxirgi chek allaqachon chop etilmoqda."));

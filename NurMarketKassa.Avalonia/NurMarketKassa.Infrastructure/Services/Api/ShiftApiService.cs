@@ -431,11 +431,12 @@ public sealed class ShiftApiService : IShiftApiService
         throw new ApiException("Не удалось закрыть смену", 404);
     }
 
-    public Task<JsonElement> ConstructionCashFlowCreateAsync(IReadOnlyDictionary<string, string> body, CancellationToken ct = default)
+    public async Task<JsonElement> ConstructionCashFlowCreateAsync(IReadOnlyDictionary<string, string> body, CancellationToken ct = default)
     {
         // 2026-10-04, п. 8: внесение/изъятие меняет остаток смены — запомненный список открытых смен устарел.
         ForgetOpenShiftsList();
-        return _client.RequestAsync(HttpMethod.Post, "api/construction/cashflows/", body, null, ct);
+        using var critical = ApiThrottle.BeginCritical(); // 2026-11-03 (Д3-02): внесение/изъятие — деньги, быстрая полоса очереди
+        return await _client.RequestAsync(HttpMethod.Post, "api/construction/cashflows/", body, null, ct).ConfigureAwait(false);
     }
 
     public Task<JsonElement> ConstructionCashFlowsForShiftAsync(string shiftId, int page = 1, CancellationToken ct = default) =>

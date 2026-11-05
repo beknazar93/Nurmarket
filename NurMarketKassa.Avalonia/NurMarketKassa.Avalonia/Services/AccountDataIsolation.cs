@@ -101,6 +101,8 @@ public static class AccountDataIsolation
         "server-addons.json", "server-addons.json.bak",
         // 2026-11-03: память поиска фото пачками (какие товары компании уже проверены) — принадлежит компании.
         "photo-search-progress.json", "photo-search-progress.json.bak",
+        // 2026-11-03 (аудит №3, Т3-04): кэш списка архивных товаров (10 минут) — принадлежит компании.
+        "archive-products-cache.json",
     ];
 
     /// <summary>Шаблоны имён в папке данных (флаги «бонусы импортированы» по компаниям, резервные копии настроек с ключами).</summary>

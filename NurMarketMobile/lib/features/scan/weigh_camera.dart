@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:drift/drift.dart' show BooleanExpressionOperators;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -90,7 +91,11 @@ class _WeighCameraPageState extends ConsumerState<WeighCameraPage> with WidgetsB
   /// 2026-10-22 (аудит У-11): весовые товары магазина — один раз за открытие (раньше до 3000 товаров при каждом нажатии).
   late final Future<List<String>> _names = () async {
     try {
-      return [for (final p in await ref.read(databaseProvider).searchProducts('', limit: 3000)) if (p.isWeight) p.name];
+      // 2026-11-05 (М5-21): отбор весовых — в запросе к базе, а не после чтения первых 3000 товаров по алфавиту (в каталоге на 15 тысяч
+      // «Яблоки» и «Хурма» в подсказку ИИ не попадали); предел 3000 — только на весовые
+      final db = ref.read(databaseProvider);
+      final rows = await db.searchProducts('', limit: 3000, extra: (p) => p.isWeight.equals(true) | p.isWeightFlag.equals(true));
+      return [for (final p in rows) if (AppDatabase.isWeighed(p)) p.name];
     } catch (_) {
       return const <String>[];
     }

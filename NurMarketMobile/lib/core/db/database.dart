@@ -55,6 +55,12 @@ class Products extends Table {
   /// считается по [isWeight]. Нужен только для округления подытога чека (cart.dart); продажа по весу по-прежнему идёт по [isWeight].
   BoolColumn get isWeightFlag => boolean().nullable()();
 
+  /// 2026-11-05 (М5-16, решение владельца: колонка разрешена): «Код товара» сервера (`code`) отдельно от артикула. Раньше код склеивался
+  /// с артикулом (`sku = sku ?? article ?? code`) и терялся, когда заполнен артикул — весы, запрограммированные «кодом товара»,
+  /// не находили товар (на кассе исправлено 21.09). null — нет кода или каталог ещё не перезагружен после обновления.
+  /// Откат: убрать колонку из кода — SQLite колонку не мешает (см. миграцию схемы 9→10).
+  TextColumn get productCode => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -135,7 +141,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'nurmarket'));
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -155,6 +161,10 @@ class AppDatabase extends _$AppDatabase {
       await customStatement('CREATE INDEX IF NOT EXISTS ix_products_sku ON products(sku)');
       await customStatement('CREATE INDEX IF NOT EXISTS ix_products_plu_int ON products(CAST(plu AS INTEGER))');
       await customStatement('CREATE INDEX IF NOT EXISTS ix_products_sku_int ON products(CAST(sku AS INTEGER))');
+      // 2026-11-05 (М5-16): поиск весовой этикетки по «коду товара»; колонки нет в урезанной базе теста — без индекса только медленнее
+      try {
+        await customStatement('CREATE INDEX IF NOT EXISTS ix_products_pcode_int ON products(CAST(product_code AS INTEGER))');
+      } catch (_) {}
       // 2026-10-30 (оптимизация, п. 1–3): счётчик ждущих, список очереди и чистка выбирают по статусу — без индекса это полный перебор очереди
       try {
         await customStatement('CREATE INDEX IF NOT EXISTS ix_outbox_status ON outbox(status, created_at)');
@@ -213,6 +223,17 @@ class AppDatabase extends _$AppDatabase {
           await customStatement("DELETE FROM settings WHERE key = 'catalog.fullAt'");
         } catch (_) {
           // настроек ещё нет (очень старая база) — полная загрузка и так будет первой
+        }
+      }
+      // 2026-11-05 (М5-16): «Код товара» отдельной колонкой. Автозаполнение — из каталога: время полной загрузки сбрасываем, чтобы она
+      // прошла при первом же обновлении (тогда код придёт у всех товаров). Идемпотентно: колонка уже есть — второй раз не добавляем.
+      if (from < 10) {
+        final cols = await customSelect('PRAGMA table_info(products)').get();
+        if (!cols.any((r) => r.read<String>('name') == 'product_code')) await m.addColumn(products, products.productCode);
+        try {
+          await customStatement("DELETE FROM settings WHERE key = 'catalog.fullAt'");
+        } catch (_) {
+          // настроек ещё нет — полная загрузка и так будет первой
         }
       }
     },
@@ -360,23 +381,52 @@ class AppDatabase extends _$AppDatabase {
       if (p != null) return (product: p, qty: null);
     }
     if (!allowWeightLabel || variants.isEmpty) return null;
-    final label = parseWeightLabel(variants.first, clothing: (await getSetting('shop.clothing')) == '1');
-    if (label == null) return null;
+    // 2026-11-05 (М5-11): только среди ВЕСОВЫХ товаров, как MustWeigh кассы (раньше PLU «12» находил штучную «Жвачку» с артикулом 12)
+    final hits = await weightLabelHits(variants.first);
+    final h = hits.where((x) => x.weighed).firstOrNull;
+    return h == null ? null : (product: h.product, qty: h.qty);
+  }
+
+  /// 2026-11-05 (М5-11): весовой ли товар — как MustWeigh кассы. [Product.isWeight] уже включает единицу кг/г, [Product.isWeightFlag] —
+  /// чистый признак сервера (null — не пришёл).
+  static bool isWeighed(Product p) => p.isWeight || p.isWeightFlag == true;
+
+  /// Весовая этикетка → товары, которые она может означать, в порядке приоритета (как LocalCartService.FindByEmbeddedCode кассы).
+  /// Поля поиска: раскладка «plu» (код 5 цифр) — PLU, потом артикул, потом «код товара»; раскладка «code» (6 цифр, Rongta) — наоборот,
+  /// артикул/код, потом PLU. Весовые товары идут первыми; штучный с тем же кодом попадает в список только при [includePiece] и с
+  /// признаком weighed = false (сканер тогда спрашивает «это весовая этикетка, а товар штучный — добавить?»). Раскладка не задана:
+  /// проверяются оба прочтения этикетки — если они нашли РАЗНЫЕ товары, в списке их два (сканер даёт выбрать, а не гадает).
+  /// qty: вес в кг; на этикетке «по сумме» — сумма ÷ цена; цена 0 — null (вес впишут руками, как на кассе).
+  Future<List<({Product product, double? qty, bool weighed})>> weightLabelHits(String code, {bool includePiece = false}) async {
+    final label = parseWeightLabel(code, clothing: (await getSetting('shop.clothing')) == '1');
+    if (label == null) return const [];
+    final out = <({Product product, double? qty, bool weighed})>[];
     for (final c in label.candidates) {
       final n = int.tryParse(c.code) ?? 0;
       if (n <= 0) continue;
       final rows = await customSelect(
-        'SELECT * FROM products WHERE (plu IS NOT NULL AND CAST(plu AS INTEGER) = ?1) OR (sku IS NOT NULL AND CAST(sku AS INTEGER) = ?1) LIMIT 20',
+        'SELECT * FROM products WHERE (plu IS NOT NULL AND CAST(plu AS INTEGER) = ?1) OR (sku IS NOT NULL AND CAST(sku AS INTEGER) = ?1) '
+        'OR (product_code IS NOT NULL AND CAST(product_code AS INTEGER) = ?1) LIMIT 40',
         variables: [Variable.withInt(n)],
         readsFrom: {products},
       ).map((r) => products.map(r.data)).get();
-      final p = rows.where((r) => sameShortCode(r.plu, c.code)).firstOrNull ?? rows.where((r) => sameShortCode(r.sku, c.code)).firstOrNull;
-      if (p == null) continue;
-      final qty = label.isAmount ? (p.price > 0 ? c.value / p.price : null) : c.value;
-      if (qty == null) continue;
-      return (product: p, qty: double.parse(qty.toStringAsFixed(3)));
+      // 6 цифр — «код» Rongta (артикул / код товара важнее PLU); 5 цифр — PLU
+      final byCode = c.code.length == 6;
+      bool match(Product p, int field) => sameShortCode(switch (field) { 0 => p.plu, 1 => p.sku, _ => p.productCode }, c.code);
+      Product? pick(bool weighed) {
+        for (final field in byCode ? const [1, 2, 0] : const [0, 1, 2]) {
+          final p = rows.where((r) => isWeighed(r) == weighed && match(r, field)).firstOrNull;
+          if (p != null) return p;
+        }
+        return null;
+      }
+
+      final p = pick(true) ?? (includePiece ? pick(false) : null);
+      if (p == null || out.any((h) => h.product.id == p.id)) continue;
+      final qty = label.isAmount ? (p.price > 0 ? double.parse((c.value / p.price).toStringAsFixed(3)) : null) : double.parse(c.value.toStringAsFixed(3));
+      out.add((product: p, qty: qty, weighed: isWeighed(p)));
     }
-    return null;
+    return out;
   }
 
   /// 2026-10-22 (скорость скана): товары по нескольким написаниям кода. Первое написание (то, что прочла камера) почти
@@ -433,6 +483,9 @@ class AppDatabase extends _$AppDatabase {
 
   /// 2026-10-22 (аудит С-4): товар, найденный на сервере по штрихкоду, — в базу телефона сразу (не ждать каталога).
   Future<void> upsertProduct(ProductsCompanion row) => into(products).insertOnConflictUpdate(row);
+
+  /// 2026-11-05 (М5-12): PLU, записанный товару со сканера (на сервере уже сохранён) — на телефоне сразу, без ожидания ленты каталога.
+  Future<void> setProductPlu(String id, String plu) => (update(products)..where((p) => p.id.equals(id))).write(ProductsCompanion(plu: Value(plu)));
 
   /// 13.10: штрихкод упаковки (доп. штрихкод с количеством) — сколько штук добавить; null — обычный штрихкод.
   static double? packQuantity(Product p, String code) {

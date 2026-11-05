@@ -289,7 +289,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             last = _lastSuccessfulSyncUtc;
         }
 
-        if (DateTime.UtcNow - last < TimeSpan.FromMinutes(10))
+        if (AgeOf(last) < TimeSpan.FromMinutes(10))
             return null;
         return StartFullSync(CancellationToken.None, knownVersion: null);
     }
@@ -310,7 +310,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             return;
         }
 
-        if (DateTime.UtcNow - _lastSuccessfulSyncUtc < SyncCenter.StockReloadMinSpacing)
+        if (AgeOf(_lastSuccessfulSyncUtc) < SyncCenter.StockReloadMinSpacing)
             return;
         PosLogger.Log("SYNC: чужая продажа/возврат — перечитываю остатки каталога.", "SYNC");
         _ = StartFullSync(CancellationToken.None, knownVersion: null);
@@ -412,7 +412,15 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
     /// 2026-10-30 (15 тыс. товаров): 90 с → 5 мин. Под потоком 429 (массовая загрузка) лента стоит на паузе 30 с и ждёт щит — 90 с не хватало,
     /// лента считалась «мёртвой», и смена версии (её меняет каждая записанная карточка) запускала полную загрузку 155 страниц (журнал 15:57, 16:03).
     /// 429 — не поломка ленты: изменения, пропущенные за паузу, отдаст следующий такт по тому же курсору.</summary>
-    private bool FeedHealthy => Interlocked.Read(ref _lastFeedOkTicks) is var t && t != 0 && DateTime.UtcNow.Ticks - t < TimeSpan.FromMinutes(5).Ticks;
+    /// <summary>2026-11-05 (аудит №3, Н-06): сколько прошло с момента <paramref name="utc"/>. Часы переведены назад — метка «в будущем» (больше 5 с) считается ДАВНЕЙ, а не отрицательной:
+    /// иначе «только что синхронизировались» держалось бы часами, а лента считалась живой, пока часы не догонят метку. DateTime.MinValue/default тоже «давно».</summary>
+    private static TimeSpan AgeOf(DateTime utc)
+    {
+        var age = DateTime.UtcNow - utc;
+        return age < TimeSpan.FromSeconds(-5) ? TimeSpan.MaxValue : age;
+    }
+
+    private bool FeedHealthy =>Interlocked.Read(ref _lastFeedOkTicks) is var t && t != 0 && AgeOf(new DateTime(t, DateTimeKind.Utc)) < TimeSpan.FromMinutes(5);
 
     private void EnsureFeedLoop()
     {
@@ -460,7 +468,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
 
                 // 2026-10-30 (15 тыс. товаров): во время массовой загрузки карточек полной загрузки нет — неизвестный товар принесёт лента
                 // (карточка с названием добавляется в базу сразу), а полная сверка — после окончания загрузки.
-                if (result.NeedFullSync && !BulkLoadActive && DateTime.UtcNow.Ticks - Interlocked.Read(ref _lastFeedFullSyncTicks) > TimeSpan.FromMinutes(1).Ticks)
+                if (result.NeedFullSync && !BulkLoadActive && AgeOf(new DateTime(Interlocked.Read(ref _lastFeedFullSyncTicks), DateTimeKind.Utc)) > TimeSpan.FromMinutes(1))
                 {
                     Interlocked.Exchange(ref _lastFeedFullSyncTicks, DateTime.UtcNow.Ticks);
                     PosLogger.Log("CATALOG_FEED: лента принесла товар, которого нет в базе кассы, — полная загрузка.", "CATALOG_FEED");
@@ -487,7 +495,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             if (_inFlightSync is { IsCompleted: false } running)
                 return running;
 
-            if (!ignoreFresh && _lastSuccessfulResult is { } fresh && DateTime.UtcNow - _lastSuccessfulSyncUtc < FreshSyncWindow)
+            if (!ignoreFresh && _lastSuccessfulResult is { } fresh && AgeOf(_lastSuccessfulSyncUtc) < FreshSyncWindow)
             {
                 PosLogger.Log("CATALOG sync skipped: previous successful sync is fresh (<15s)", "CATALOG");
                 return Task.FromResult(fresh);
@@ -634,7 +642,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
     /// (429 «занят» не в счёт) за последние 30 минут.</summary>
     private bool FeedStableForSafetyReload =>
         Volatile.Read(ref _feedOkStreak) >= FeedOkStreakForSafetyReload
-        && _feed is { } f && DateTime.UtcNow - f.LastFailureUtc >= FeedQuietForSafetyReload;
+        && _feed is { } f && AgeOf(f.LastFailureUtc) >= FeedQuietForSafetyReload;
 
     /// <summary>2026-10-04, п. 5: фоновая синхронизация (SyncService, раз в 2 мин). Раньше каждый раз
     /// качался весь каталог: 145 товаров — 2 страницы и 8 служебных запросов, 15 000 товаров — 150
@@ -663,7 +671,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         // 2026-10-30 (15 тыс. товаров): каталог в базе есть, а массовая загрузка карточек идёт или прошлая полная загрузка сорвалась
         // меньше 10 минут назад — по таймеру весь каталог не качаем (изменения приносит лента). Раньше сорванная загрузка повторялась
         // каждые 2 минуты и снова со страницы 1 (журнал кассы 15:47–16:37: 10 попыток, дошли до страниц 1–21 из 155).
-        if (HasLocalCatalog && (BulkLoadActive || DateTime.UtcNow - _lastFullFailedUtc < FailedFullRetry))
+        if (HasLocalCatalog && (BulkLoadActive || AgeOf(_lastFullFailedUtc) < FailedFullRetry))
             return CatalogSyncResult.Ok(0, 0, 0);
 
         // 2026-11-02 (Н3-01): идёт оплата или открытие/закрытие смены — полную загрузку по таймеру не начинаем (следующая проверка через 2 мин).
@@ -671,7 +679,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             return CatalogSyncResult.Ok(0, 0, 0);
 
         // Полной загрузки в этом запуске ещё не было (старт, смена аккаунта) или она была давно — всё.
-        if (DateTime.UtcNow - lastFull >= FullReloadInterval)
+        if (AgeOf(lastFull) >= FullReloadInterval)
             return await StartFullSync(cancellationToken, knownVersion: null).ConfigureAwait(false);
 
         // 2026-10-29: лента изменений отвечает — изменения товаров уже в базе; запрос «версии» (раз в 2 мин) и полная загрузка по смене версии
@@ -703,7 +711,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             && string.Equals(remote.Token, local, StringComparison.Ordinal))
         {
             // 2026-11-02 (Н3-02): без ленты эта проверка идёт каждые 2 мин (в журнале 30.10 — 2 617 одинаковых строк) — пишем раз в 30 минут.
-            if (DateTime.UtcNow - _lastVersionSkipLoggedUtc >= TimeSpan.FromMinutes(30))
+            if (AgeOf(_lastVersionSkipLoggedUtc) >= TimeSpan.FromMinutes(30))
             {
                 _lastVersionSkipLoggedUtc = DateTime.UtcNow;
                 PosLogger.Log(

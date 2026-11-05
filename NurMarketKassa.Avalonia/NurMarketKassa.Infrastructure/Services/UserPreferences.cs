@@ -743,6 +743,9 @@ public sealed class UserPreferences
     public bool ShowCatalogPhotos { get; set; } = true;
     /// <summary>Язык интерфейса (пока только экран кассира).</summary>
     public AppLanguage Language { get; set; } = AppLanguage.Russian;
+    /// <summary>2026-11-05 (жалоба «ИИ сам уходит на узбекский/турецкий»; просьба владельца «кыргызча жооп бер»): язык, на котором говорит и пишет ИИ-советник.
+    /// null — как язык интерфейса. Меняется ТОЛЬКО явной командой пользователя («отвечай по-кыргызски», «русча жооп бер»); не путать с <see cref="Language"/>.</summary>
+    public AppLanguage? AiLanguageOverride { get; set; }
     /// <summary>Касса, выбранная вручную в настройках — перекрывает автовыбор первой
     /// активной кассы, если автовыбор берёт не ту (напр. с другого филиала).</summary>
     public string? PreferredCashboxId { get; set; }
@@ -1385,6 +1388,7 @@ public sealed class UserPreferences
                 p.ShowCatalogPhotos = fromFile.ShowCatalogPhotos.Value;
             if (fromFile.Language is not null)
                 p.Language = fromFile.Language.Value;
+            p.AiLanguageOverride = fromFile.AiLanguageOverride; // 2026-11-05
             if (!string.IsNullOrWhiteSpace(fromFile.PreferredCashboxId))
                 p.PreferredCashboxId = fromFile.PreferredCashboxId;
             if (!string.IsNullOrWhiteSpace(fromFile.PreferredCashboxName))
@@ -1797,6 +1801,7 @@ public sealed class UserPreferences
                 CatalogViewMode = CatalogViewMode,
                 ShowCatalogPhotos = ShowCatalogPhotos,
                 Language = Language,
+                AiLanguageOverride = AiLanguageOverride, // 2026-11-05
                 PreferredCashboxId = PreferredCashboxId,
                 PreferredCashboxName = PreferredCashboxName,
                 SingleClickToCart = SingleClickToCart,
@@ -2142,6 +2147,7 @@ public sealed class UserPreferences
         public CatalogViewMode? CatalogViewMode { get; set; }
         public bool? ShowCatalogPhotos { get; set; }
         public AppLanguage? Language { get; set; }
+        public AppLanguage? AiLanguageOverride { get; set; } // 2026-11-05: язык ИИ по команде пользователя (null — как интерфейс)
         public string? PreferredCashboxId { get; set; }
         public string? PreferredCashboxName { get; set; }
         public bool? SingleClickToCart { get; set; }

@@ -866,6 +866,7 @@ public sealed partial class SalesApiService : ISalesApiService
                 .ToList();
         }
 
+        using var critical = ApiThrottle.BeginCritical(); // 2026-11-03 (Д3-02): возврат — деньги, быстрая полоса очереди
         return await _client.RequestDataAsync<JsonElement>(
                 HttpMethod.Post,
                 $"api/main/pos/sales/{Uri.EscapeDataString(id)}/return/",
@@ -894,6 +895,7 @@ public sealed partial class SalesApiService : ISalesApiService
             ["idempotency_key"] = string.IsNullOrWhiteSpace(idempotencyKey) ? Guid.NewGuid().ToString() : idempotencyKey,
             ["cashbox_role"] = "pos_main",
         };
+        using var critical = ApiThrottle.BeginCritical(); // 2026-11-03 (Д3-02): возврат — деньги, быстрая полоса очереди
         return await _client.RequestAsync(
                 HttpMethod.Post, $"api/main/pos/sales/{Uri.EscapeDataString(id)}/return/", body, null, ct)
             .ConfigureAwait(false);

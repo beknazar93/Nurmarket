@@ -16,6 +16,8 @@ import '../features/stock/stock_repository.dart';
 import 'api/api_client.dart';
 import 'api/session_store.dart';
 import 'db/database.dart';
+import 'ai/ai_language.dart';
+import 'language_pack.dart';
 import 'shop_mode.dart';
 import 'ai/ai_access.dart';
 import 'ai/vision.dart';
@@ -115,7 +117,17 @@ class SessionController extends Notifier<Session?> {
     if (s.companyInn.isEmpty && s.companyAddress.isEmpty) unawaited(_refreshCompany());
     // 13.10: доступы сотрудника — при каждом запуске (владелец мог их поменять на сайте), вход не ждёт.
     unawaited(refreshProfile());
+    unawaited(refreshLanguagePack()); // 2026-11-05: пакет «Язык» — обновить с сервера; потеряли пакет — платный язык сбросится на русский
     return true;
+  }
+
+  /// 2026-11-05 (языковой пакет): спросить сервер о пакете «Язык»; изменился — пересчитать язык (потеря пакета → русский).
+  Future<void> refreshLanguagePack() async {
+    final s = state;
+    if (s == null) return;
+    final before = LanguagePackGate.granted;
+    final now = await LanguagePackGate.refresh(_api, ref.read(databaseProvider), OutboxMeta.ownerOf(s));
+    if (now != null && now != before) await ref.read(prefsProvider.notifier).load();
   }
 
   /// 2026-10-28 (сотрудники): «Имя Фамилия» из профиля; пусто — null (прежнее имя остаётся).
@@ -199,7 +211,7 @@ class SessionController extends Notifier<Session?> {
       );
       _profileLoaded = true;
       final lang = (str(u, 'language') ?? str(u, 'lang') ?? '').trim().toLowerCase();
-      if (const {'ru', 'ky', 'en', 'tr', 'uz'}.contains(lang)) serverLang = lang;
+      if (const {'ru', 'ky', 'en', 'tr', 'uz'}.contains(lang)) serverLang = lang; // 2026-11-05: платный язык без пакета отсеивается ниже
     } on ApiException {
       // Профиль не загрузился — входим с логином вместо имени.
     }
@@ -225,11 +237,19 @@ class SessionController extends Notifier<Session?> {
       wiped = true;
       resetAccountProviders(ref);
     }
+    // 2026-11-05 (языковой пакет): состояние пакета «Язык» этого аккаунта — до выбора языка. Нет пакета — только ru и ky.
+    await LanguagePackGate.loadCached(db, owner);
+    await LanguagePackGate.refresh(_api, db, owner);
     // язык интерфейса нового аккаунта — с сервера (если прислал и пользователь сам не выбирал на экране входа)
-    if (serverLang != null && (await db.getSetting('ui.lang') ?? '').isEmpty) await db.setSetting('ui.lang', serverLang);
-    if (wiped || serverLang != null) await ref.read(prefsProvider.notifier).load();
+    // 2026-11-05: платный язык из профиля сервера без пакета не включаем
+    if (serverLang != null && LanguagePackGate.isAvailable(serverLang) && (await db.getSetting('ui.lang') ?? '').isEmpty) {
+      await db.setSetting('ui.lang', serverLang);
+    }
+    if (wiped || serverLang != null || !LanguagePackGate.isAvailable(ref.read(prefsProvider).locale.languageCode)) {
+      await ref.read(prefsProvider.notifier).load();
+    }
     if (last != null && last.isNotEmpty && last != owner) {
-      ref.read(cartProvider.notifier).clear();
+      ref.read(cartProvider.notifier).clear(force: true); // 2026-11-05 (М4-01): смена аккаунта чистит чек всегда
       ref.read(shiftProvider.notifier).reset();
     }
     await db.setSetting(_lastOwnerKey, owner);
@@ -323,8 +343,9 @@ class SessionController extends Notifier<Session?> {
     ref.read(syncProvider).stop();
     await _store.clear();
     _api.attach(null);
-    ref.read(cartProvider.notifier).clear();
+    ref.read(cartProvider.notifier).clear(force: true); // 2026-11-05 (М4-01): выход чистит чек всегда
     await ref.read(cartProvider.notifier).flush();
+    await LanguagePackGate.reset(ref.read(databaseProvider)); // 2026-11-05: пакет «Язык» прошлого аккаунта не действует
     ref.read(shiftProvider.notifier).reset();
     ref.read(accountLoadProvider.notifier).set(const AccountLoadState());
     state = null;
@@ -657,14 +678,22 @@ class CartController extends Notifier<Cart> {
     state = Cart(lines: state.lines, orderDiscountPercent: percent, orderDiscountSum: percent > 0 ? 0 : sum);
   }
 
-  void clear() {
+  /// 2026-11-05 (аудит №3, М4-01): во время оплаты чек очистить нельзя (команда ИИ «очисти/отложи» иначе уносила оплачиваемые строки,
+  /// а проданный чек потом возвращали из «Отложенных» и платили второй раз). Очистка самой оплатой, выход и смена аккаунта — [force].
+  void clear({bool force = false}) {
+    if (frozen && !force) return;
     if (state.lines.isNotEmpty) Audit.log('cart', 'Чек очищен (${state.lines.length})');
     wholesaleMode = false;
     state = const Cart();
   }
 
   /// Вернуть отложенный чек (13.10).
-  void restore(Cart cart) => state = cart;
+  /// 2026-11-05 (М4-01): во время оплаты подмена чека запрещена — false, чек не тронут (отложенный чек остаётся в «Отложенных»).
+  bool restore(Cart cart) {
+    if (frozen) return false;
+    state = cart;
+    return true;
+  }
 }
 
 final cartProvider = NotifierProvider<CartController, Cart>(CartController.new);
@@ -757,8 +786,17 @@ class PrefsController extends Notifier<Prefs> {
     final db = ref.read(databaseProvider);
     final dark = await db.getSetting('ui.dark');
     final shop = await ShopModeSync.read(db);
+    // 2026-11-05 (языковой пакет, как EnforceOnStartup кассы): сохранённый en/tr/uz без пакета «Язык» сбрасывается на русский.
+    await LanguagePackGate.loadCached(db, null);
+    await AiLanguage.load(db); // 2026-11-05: сохранённый язык ИИ (если пользователь командой выбрал другой, чем интерфейс)
+    var lang = await db.getSetting('ui.lang') ?? 'ru';
+    final allowed = LanguagePackGate.effective(lang);
+    if (allowed != lang) {
+      lang = allowed;
+      await db.setSetting('ui.lang', lang);
+    }
     state = Prefs(
-      locale: Locale(await db.getSetting('ui.lang') ?? 'ru'),
+      locale: Locale(lang),
       dark: dark == '1',
       system: dark == 'system',
       auto: dark == 'auto',
@@ -771,6 +809,8 @@ class PrefsController extends Notifier<Prefs> {
   }
 
   Future<void> setLocale(String code) async {
+    // 2026-11-05: платный язык без пакета «Язык» не включается ни из экрана, ни голосом ИИ, ни из профиля сервера
+    if (!LanguagePackGate.isAvailable(code)) return;
     await ref.read(databaseProvider).setSetting('ui.lang', code);
     state = state.copyWith(locale: Locale(code));
   }

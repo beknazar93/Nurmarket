@@ -59,20 +59,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _openShift() async {
     final l = context.l;
+    // 2026-11-05 (аудит №3, М4-12): «Остаток по системе» из последней закрытой смены — как в кассе 1.17.73 (жалоба клиента: смену открывали
+    // с нулём при деньгах в ящике). Не узнали за 5 с — открываем как раньше, но ноль нужно подтвердить.
+    final box = ref.read(sessionProvider)?.cashboxId;
+    final system = await ref.read(shiftRepoProvider).lastClosedCash(box).timeout(const Duration(seconds: 5), onTimeout: () => null);
+    if (!mounted) return;
+    final known = system?.cash ?? 0;
     // 2026-10-26 (живой аудит, П2, Н-10): у поля суммы теперь есть подпись «Сумма в кассе на начало смены» и «сом».
     final cash = await askNumber(
       context,
       title: l.openShift,
-      hint: l.openingCashHint,
+      hint: system == null
+          ? l.openingCashHint
+          : '${context.t5('Остаток по системе', 'Системадагы калдык', 'Tizim qoldig\'i', 'System balance', 'Sistem bakiyesi')}: ${money(known)} ${l.som}'
+              '${system.estimated ? ' (${context.t5('расчётный', 'эсептелген', 'hisoblangan', 'estimated', 'hesaplanan')})' : ''}',
       label: l.openingCashField,
       suffix: l.som,
-      initial: 0,
+      initial: known,
       ok: l.openShift,
     );
     if (cash == null || !mounted) return;
+    // Ноль при остатке по системе — спросить; остаток не узнали — тоже подтвердить ноль (молча открывать с нулём нельзя).
+    if (cash == 0 && (system == null || known > 0.005)) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          content: Text(system == null
+              ? c.t5('Остаток по системе не загрузился. Открыть смену с нулевой суммой? Проверьте деньги в ящике.',
+                  'Системадагы калдык жүктөлгөн жок. Сменаны нөлдүк сумма менен ачабызбы? Акчаны текшериңиз.',
+                  'Tizim qoldig\'i yuklanmadi. Smenani nol summa bilan ochamizmi? Qutidagi pulni tekshiring.',
+                  'The system balance did not load. Open the shift with zero? Check the cash in the drawer.',
+                  'Sistem bakiyesi yüklenmedi. Vardiya sıfırla açılsın mı? Çekmecedeki parayı kontrol edin.')
+              : known > 0.005
+                  ? c.t5('Остаток по системе ${money(known)}, а вы вводите 0. Открыть смену с нулём?',
+                      'Системадагы калдык ${money(known)}, ал эми сиз 0 киргизип жатасыз. Сменаны нөл менен ачабызбы?',
+                      'Tizim qoldig\'i ${money(known)}, siz esa 0 kiritayapsiz. Smenani nol bilan ochamizmi?',
+                      'The system balance is ${money(known)}, but you enter 0. Open the shift with zero?',
+                      'Sistem bakiyesi ${money(known)}, siz ise 0 giriyorsunuz. Vardiya sıfırla açılsın mı?')
+                  : ''),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(c.t5('Открыть с нулём', 'Нөл менен ачуу', 'Nol bilan ochish', 'Open with zero', 'Sıfırla aç'))),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
     try {
       await ref.read(shiftProvider.notifier).open(cash);
     } on ApiException catch (e) {
+      // 2026-11-05 (М4-12): после тайм-аута повтор даёт 400 «уже открыта» — обновляем главную, смена появится
+      if (e.status == 400) await ref.read(shiftProvider.notifier).refresh();
       if (mounted) toast(context, e.message, error: true);
     }
   }

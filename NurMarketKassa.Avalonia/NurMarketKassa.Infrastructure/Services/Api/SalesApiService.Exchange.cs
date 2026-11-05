@@ -39,7 +39,7 @@ public interface IPosExchangeApi
 
 public sealed partial class SalesApiService : IPosExchangeApi
 {
-    public Task<JsonElement> PosExchangeAsync(
+    public async Task<JsonElement> PosExchangeAsync(
         string saleId,
         IReadOnlyList<(string LineId, double Quantity)> returnItems,
         IReadOnlyList<(string ProductId, string? VariantId, double Quantity)> newItems,
@@ -72,16 +72,17 @@ public sealed partial class SalesApiService : IPosExchangeApi
             ["idempotency_key"] = key,
         };
 
-        return _client.RequestAsync(
+        using var critical = ApiThrottle.BeginCritical(); // 2026-11-03 (Д3-02): обмен — деньги, идёт в быструю полосу очереди (как оплата), а не за каталогом
+        return await _client.RequestAsync(
             HttpMethod.Post,
             $"api/main/pos/sales/{Uri.EscapeDataString(id)}/exchange/",
             body,
             null,
             ct,
-            TimeSpan.FromSeconds(30));
+            TimeSpan.FromSeconds(30)).ConfigureAwait(false);
     }
 
-    public Task<JsonElement> PosReturnWithDetailsAsync(
+    public async Task<JsonElement> PosReturnWithDetailsAsync(
         string saleId,
         IReadOnlyList<PosRefundLineRequest>? lines,
         string? reason,
@@ -114,11 +115,12 @@ public sealed partial class SalesApiService : IPosExchangeApi
                 .ToList();
         }
 
-        return _client.RequestAsync(
+        using var critical = ApiThrottle.BeginCritical(); // 2026-11-03 (Д3-02): возврат — деньги, быстрая полоса очереди
+        return await _client.RequestAsync(
             HttpMethod.Post,
             $"api/main/pos/sales/{Uri.EscapeDataString(id)}/return/",
             body,
             null,
-            ct);
+            ct).ConfigureAwait(false);
     }
 }

@@ -159,9 +159,9 @@ public static class AutomationNaming
 
     private static string? NameFor(Control control)
     {
-        // Кнопка с обычной строкой — имя возьмёт сама Avalonia.
-        if (control is ContentControl { Content: string })
-            return null;
+        // Кнопка с обычной строкой — имя возьмёт сама Avalonia. 2026-11-05 (Д4-01): кроме строки-значка («↻», «E72C»): имя — из подсказки.
+        if (control is ContentControl { Content: string plain })
+            return plain.Any(char.IsLetterOrDigit) ? null : ToolTip.GetTip(control) as string;
         // 1. Подсказка кнопки-значка (ToolTip.Tip) — для кнопок вида «рисунок без текста».
         var tip = ToolTip.GetTip(control) as string;
         // 2. Первая надпись внутри кнопки / переключателя.
@@ -176,10 +176,25 @@ public static class AutomationNaming
         return null;
     }
 
+    /// <summary>2026-11-05 (аудит №3, Д4-01): значок — не надпись. Надпись из одних символов (Segoe MDL2 «&#xE72C;», эмодзи, «↻», «☰», стрелки «▸») или со шрифтом
+    /// значков диктор читал как имя кнопки («Обновить» Склада = «E72C», группы настроек = «E72C»). Такие TextBlock пропускаем: имя берётся из настоящей
+    /// надписи, иначе из подсказки (ToolTip.Tip) — как в окне кассы (MainWindow, свой обработчик).</summary>
+    private static bool IsIconText(TextBlock tb)
+    {
+        var text = tb.Text;
+        if (string.IsNullOrWhiteSpace(text))
+            return true;
+        if (!text.Any(char.IsLetterOrDigit))
+            return true;
+        var family = tb.FontFamily?.Name ?? "";
+        return family.Contains("MDL2", StringComparison.OrdinalIgnoreCase) || family.Contains("Icon", StringComparison.OrdinalIgnoreCase)
+               || family.Contains("Symbol", StringComparison.OrdinalIgnoreCase) || family.Contains("Fluent", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static TextBlock? FirstTextBlock(Control control)
     {
         foreach (var d in control.GetVisualDescendants())
-            if (d is TextBlock { Text: { } t } tb && !string.IsNullOrWhiteSpace(t))
+            if (d is TextBlock { Text: { } t } tb && !string.IsNullOrWhiteSpace(t) && !IsIconText(tb))
                 return tb;
         return null;
     }
@@ -187,7 +202,7 @@ public static class AutomationNaming
     private static string? FirstText(Control control)
     {
         foreach (var d in control.GetVisualDescendants())
-            if (d is TextBlock { Text: { } t } && !string.IsNullOrWhiteSpace(t))
+            if (d is TextBlock { Text: { } t } tb && !string.IsNullOrWhiteSpace(t) && !IsIconText(tb))
                 return t.Trim();
         return null;
     }

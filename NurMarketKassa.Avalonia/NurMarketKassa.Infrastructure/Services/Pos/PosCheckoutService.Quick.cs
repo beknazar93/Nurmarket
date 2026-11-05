@@ -579,11 +579,14 @@ public sealed partial class PosCheckoutService
     /// <summary>2026-11-02 (К2-14): запрос ТОЧНО не ушёл — ошибка соединения до отправки (DNS, отказ, сеть/узел недоступны). Сомнение — «исход неизвестен».</summary>
     private static bool DefinitelyNotSent(Exception ex)
     {
-        if (ex is not HttpRequestException)
+        if (ex is not HttpRequestException http)
             return false;
+        // 2026-11-05 (аудит №3, Д3-07): NetworkUnreachable/HostUnreachable/TryAgain бывают и на уже открытом соединении — после отправки тела (запрос мог дойти). Точно «не ушло» —
+        // только ошибки установки соединения: .NET сам отмечает их HttpRequestError (имя не найдено, соединение не установлено) и отказ/«хост не найден» сокета при подключении.
+        if (http.HttpRequestError is HttpRequestError.NameResolutionError or HttpRequestError.ConnectionError)
+            return true;
         for (var e = ex.InnerException; e is not null; e = e.InnerException)
-            if (e is System.Net.Sockets.SocketException { SocketErrorCode: System.Net.Sockets.SocketError.HostNotFound or System.Net.Sockets.SocketError.ConnectionRefused
-                    or System.Net.Sockets.SocketError.NetworkUnreachable or System.Net.Sockets.SocketError.HostUnreachable or System.Net.Sockets.SocketError.TryAgain })
+            if (e is System.Net.Sockets.SocketException { SocketErrorCode: System.Net.Sockets.SocketError.HostNotFound or System.Net.Sockets.SocketError.ConnectionRefused })
                 return true;
         return false;
     }

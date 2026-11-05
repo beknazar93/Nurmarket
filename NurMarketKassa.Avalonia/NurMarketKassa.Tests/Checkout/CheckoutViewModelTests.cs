@@ -10,13 +10,14 @@ public sealed class CheckoutViewModelTests
     public void SwitchingTransferThenCash_RestoresCashAndEnablesPayment()
     {
         var viewModel = CreateViewModel(1870.09);
-        viewModel.CashReceived = "2000.00";
+        viewModel.CashReceived = "2000.00"; // ввод с точкой тоже разбирается
 
         viewModel.IsTransfer = true;
         viewModel.IsCash = true;
 
         viewModel.PaymentMethod.Should().Be("cash");
-        viewModel.CashReceived.Should().Be("2000.00");
+        // 2026-11-05: с 22.10.2026 (аудит 1.17.59) поле показывает запятую — «2000,00»; на сервер и в расчёт уходит точка.
+        viewModel.CashReceived.Should().Be("2000,00");
         viewModel.CanPay.Should().BeTrue();
     }
 
@@ -29,7 +30,8 @@ public sealed class CheckoutViewModelTests
         viewModel.IsTransfer = true;
         viewModel.IsCash = true;
 
-        viewModel.CashReceived.Should().Be("1870.09");
+        // 2026-11-05: запятая в поле ввода (см. выше), расчёт и API — через точку.
+        viewModel.CashReceived.Should().Be("1870,09");
         viewModel.CanPay.Should().BeTrue();
     }
 

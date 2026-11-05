@@ -189,6 +189,13 @@ public sealed class StockAdjustDialog : Window
             "out" => T("Списание", "Эсептен чыгаруу", "Write-off", "Düşüm", "Hisobdan chiqarish") + ": " + _reason + (note.Length > 0 ? " — " + note : ""),
             _ => T("Ревизия", "Ревизия", "Stock count", "Sayım", "Reviziya") + (note.Length > 0 ? ": " + note : ""),
         };
+        // 2026-11-05 (аудит №3, Т3-08): в примечание акта на сервере — по-русски (ключ), на экране и в местном журнале — на языке интерфейса.
+        var serverReason = _mode switch
+        {
+            "in" => "Приход" + (note.Length > 0 ? ": " + note : ""),
+            "out" => "Списание: " + WarehouseViewModel.WriteOffReasonForServer(_reason) + (note.Length > 0 ? " — " + note : ""),
+            _ => "Ревизия" + (note.Length > 0 ? ": " + note : ""),
+        };
         if (!_shell.TryBeginBusy())
             return;
         _apply.IsEnabled = false;
@@ -197,7 +204,7 @@ public sealed class StockAdjustDialog : Window
             var result = await ProductActions.ChangeStockAsync(_product.Id,
                 _mode == "in" ? q : _mode == "out" ? -q : null,
                 _mode == "set" ? q : null,
-                reason, NurMarketKassa.PosApp.CurrentUserDisplayName).ConfigureAwait(true);
+                serverReason, NurMarketKassa.PosApp.CurrentUserDisplayName, historyReason: reason).ConfigureAwait(true);
             if (!result.Ok)
             {
                 _error.Text = result.Message;

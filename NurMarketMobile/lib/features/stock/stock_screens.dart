@@ -126,40 +126,54 @@ class _StockScreenState extends ConsumerState<StockScreen> {
         expand: false,
         initialChildSize: .6,
         maxChildSize: .92,
-        builder: (c, scroll) => ListView(
-          controller: scroll,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-          children: [
-            Text(l.lowStockTitle(all.length), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            if (all.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(l.lowStockEmpty, textAlign: TextAlign.center),
-              ),
-            for (final p in all)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: ProductThumb(name: p.name, url: p.imageUrl, size: 40),
-                title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-                trailing: Text(
-                  '${qtyText(p.quantity)} ${p.unit}',
-                  style: TextStyle(fontWeight: FontWeight.w800, color: p.quantity <= 0 ? T.danger : T.warn),
+        // 2026-11-05 (М5-33): список строится лениво (раньше ListView(children: [for …]) собирал все строки с фото сразу — на складе
+        // в тысячи товаров окно открывалось секундами). Первый элемент — заголовок, дальше товары (или «пусто»), в конце — заказ поставщику.
+        builder: (c, scroll) {
+          final showOrder = all.isNotEmpty && s != null && s.canRoute('/admin/purchase');
+          final body = all.isEmpty ? 1 : all.length;
+          return ListView.builder(
+            controller: scroll,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            itemCount: 1 + body + (showOrder ? 1 : 0),
+            itemBuilder: (c2, i) {
+              if (i == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(l.lowStockTitle(all.length), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                );
+              }
+              if (i <= body) {
+                if (all.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(l.lowStockEmpty, textAlign: TextAlign.center),
+                  );
+                }
+                final p = all[i - 1];
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: ProductThumb(name: p.name, url: p.imageUrl, size: 40),
+                  title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  trailing: Text(
+                    '${qtyText(p.quantity)} ${p.unit}',
+                    style: TextStyle(fontWeight: FontWeight.w800, color: p.quantity <= 0 ? T.danger : T.warn),
+                  ),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(c);
+                    context.push('/admin/purchase');
+                  },
+                  icon: const Icon(Icons.local_shipping_outlined),
+                  label: Text(l.supplierOrder),
                 ),
-              ),
-            if (all.isNotEmpty && s != null && s.canRoute('/admin/purchase')) ...[
-              const SizedBox(height: 8),
-              FilledButton.icon(
-                onPressed: () {
-                  Navigator.pop(c);
-                  context.push('/admin/purchase');
-                },
-                icon: const Icon(Icons.local_shipping_outlined),
-                label: Text(l.supplierOrder),
-              ),
-            ],
-          ],
-        ),
+              );
+            },
+          );
+        },
       ),
     );
     _lowOpen = false;

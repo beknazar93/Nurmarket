@@ -80,18 +80,23 @@ public sealed class AndroidDesktopLifetime : IClassicDesktopStyleApplicationLife
     public event EventHandler<ShutdownRequestedEventArgs>? ShutdownRequested;
 
     /// <summary>Android закрывает программу сам и без предупреждения (нехватка памяти, смахнули из
-    /// списка). Поэтому при уходе программы в фон делаем то же, что Windows-касса делает при
-    /// выключении компьютера: просим подписчиков сохраниться (WAL-чекпоинт базы).</summary>
+    /// списка). Поэтому при уходе программы в фон сохраняем данные: дописываем журнал «Удалено из чека»
+    /// и сливаем WAL базы. 2026-11-05 (аудит №3, А3-01): раньше здесь вызывался ShutdownRequested — а на него
+    /// подписан вопрос «Есть приходы в фоне — Выйти/Подождать» (кнопка «Выйти» закрывала кассу после каждого
+    /// скана камерой) и остановка очереди приходов. Уход в фон — не выход: сценарий выхода не запускаем,
+    /// работа идёт в фоновом потоке, чтобы не держать UI до 2 с.</summary>
     internal void OnEnteredBackground()
     {
-        try
+        _ = System.Threading.Tasks.Task.Run(() =>
         {
-            ShutdownRequested?.Invoke(this, new ShutdownRequestedEventArgs());
-        }
-        catch (Exception ex)
-        {
-            NurMarketKassa.Services.PosLogger.Log($"Android: сохранение при уходе в фон — {ex.Message}", "WARNING");
-        }
+            try { NurMarketKassa.Services.CartRemovalLogStore.FlushAsync().Wait(TimeSpan.FromSeconds(2)); }
+            catch { /* журнал удалений не должен мешать */ }
+            try { NurMarketKassa.Services.DatabaseService.CheckpointWal(); }
+            catch (Exception ex)
+            {
+                NurMarketKassa.Services.PosLogger.Log($"Android: сохранение при уходе в фон — {ex.Message}", "WARNING");
+            }
+        });
     }
 
     public bool TryShutdown(int exitCode = 0)

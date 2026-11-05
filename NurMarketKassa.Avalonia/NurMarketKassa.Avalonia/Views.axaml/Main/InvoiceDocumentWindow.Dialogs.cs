@@ -261,11 +261,12 @@ internal sealed class InvoiceEditPreviewDialog : Window
         _save.IsEnabled = true;
         if (ok == false)
         {
-            _error.Text = T("Пароль неверный. Нужен пароль той учётной записи NurCRM, под которой вы вошли (владелец или администратор). Причина и остальные поля сохранены — введите пароль ещё раз.",
-                "Сырсөз туура эмес. Сиз кирген NurCRM эсебинин сырсөзү керек (ээси же администратор). Себеби жана калган талаалар сакталды — сырсөздү дагы бир жолу киргизиңиз.",
-                "Wrong password. Enter the password of the NurCRM account you are signed in with (owner or administrator). The reason and the other fields are kept — enter the password again.",
-                "Parola yanlış. Giriş yaptığınız NurCRM hesabının parolası gerekir (sahip veya yönetici). Neden ve diğer alanlar korundu — parolayı tekrar girin.",
-                "Parol noto'g'ri. Kirgan NurCRM hisobingiz paroli kerak (egasi yoki administrator). Sabab va boshqa maydonlar saqlangan — parolni qayta kiriting.");
+            // 2026-11-05 (аудит №3, С3-15): без «(владелец или администратор)» — правку подтверждает и сотрудник с правом на накладные своим паролем.
+            _error.Text = T("Пароль неверный. Нужен пароль той учётной записи NurCRM, под которой вы вошли. Причина и остальные поля сохранены — введите пароль ещё раз.",
+                "Сырсөз туура эмес. Сиз кирген NurCRM эсебинин сырсөзү керек. Себеби жана калган талаалар сакталды — сырсөздү дагы бир жолу киргизиңиз.",
+                "Wrong password. Enter the password of the NurCRM account you are signed in with. The reason and the other fields are kept — enter the password again.",
+                "Parola yanlış. Giriş yaptığınız NurCRM hesabının parolası gerekir. Neden ve diğer alanlar korundu — parolayı tekrar girin.",
+                "Parol noto'g'ri. Kirgan NurCRM hisobingiz paroli kerak. Sabab va boshqa maydonlar saqlangan — parolni qayta kiriting.");
             _error.IsVisible = true;
             _password.Focus();
             _password.SelectAll();
@@ -420,7 +421,7 @@ internal sealed class InvoiceHistoryDialog : Window
                     : T($" (проведено не полностью, по плану {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (толук өткөрүлгөн жок, планда {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (not fully posted, planned {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (tam işlenmedi, planlanan {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})", $" (to'liq o'tkazilmadi, rejada {ReceiptEditPlanner.Fmt(l.PlannedQtyAfter ?? l.QtyAfter)})")) : "")))
                 + (e.Lines.Count > 8 ? "…" : ""), "BrushTextSoft", 12.5));
             // 2026-11-01: цена продажи / наценка товара, изменённые из накладной, — «было → стало» по каждому полю
-            if (ReceiptEditAuditLog.FieldChanges(e).Where(f => f.Field is not ("quantity" or "removed" or "added_item") && (showMoney || f.Field is not ("purchase_price" or "discount" or "payment"))).ToList() is { Count: > 0 } priceFields) // 2026-11-01 (С2-24): все поля серверной правки; закупка, скидка и оплата — только с правом на деньги
+            if (ReceiptEditAuditLog.FieldChanges(e).Where(f => f.Field is not ("quantity" or "removed" or "added_item") && (showMoney || f.Field is not ("purchase_price" or "discount" or "payment" or "markup_percent"))).ToList() is { Count: > 0 } priceFields) // 2026-11-01 (С2-24): все поля серверной правки; закупка, скидка и оплата — только с правом на деньги; 2026-11-05 (Н-8): и наценка % (по ней с ценой продажи считается закупка)
                 card.Children.Add(Line(string.Join("; ", priceFields.Select(ReceiptEditAuditLog.FieldText)), "BrushTextSoft", 12.5));
             if (canRevert && e == edits[0] && e.Status == "done" && e.Lines.Count > 0) // 2026-11-01 (С2-24): у серверной правки (PATCH) строк нет — откат из них собрать нельзя
             {

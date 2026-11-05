@@ -441,6 +441,17 @@ public partial class MainWindow
     internal async Task OfferAddUnknownProductAsync(string barcode)
     {
         var code = (barcode ?? "").Trim();
+        // 2026-11-05 (аудит №3, Д3-12): набрано слово, а не штрих-код (пробел или русские буквы) — Enter не предлагает «создать товар», а оставляет текст в поиске по названию.
+        if (code.Any(ch => char.IsWhiteSpace(ch) || ch is >= 'Ѐ' and <= 'ӿ'))
+        {
+            _viewModel.Catalog.SearchText = code;
+            _viewModel.Basket.CartMessage = Tr.T($"«{code}» — это не штрих-код, ищем по названию. Если товара нет в списке, проверьте написание.",
+                $"«{code}» — штрих-код эмес, аталышы боюнча издеп жатабыз. Тизмеде жок болсо, жазылышын текшериңиз.",
+                $"“{code}” is not a barcode, searching by name. If the product is not in the list, check the spelling.",
+                $"“{code}” bir barkod değil, ada göre arıyoruz. Ürün listede yoksa yazımı kontrol edin.",
+                $"«{code}» shtrix-kod emas, nomi bo'yicha qidiramiz. Ro'yxatda bo'lmasa, yozilishini tekshiring.");
+            return;
+        }
         var notFound = new PosConfirmDialog(
             Tr.T("Товар не найден", "Товар табылган жок", "Product not found", "Ürün bulunamadı", "Mahsulot topilmadi"),
             Tr.T($"Штрих-код {code} не найден в каталоге. Добавить новый товар на склад?",
@@ -1134,95 +1145,46 @@ public partial class MainWindow
         if (addQty is not > 0)
             return false;
 
-        var inventoryApi = App.GetRequiredService<IInventoryApiService>();
-
-        // Остаток перечитываем С СЕРВЕРА, а не берём из локального кэша: кэш обновляется раз
-        // в ~2 минуты, а акт пополнения отправляется АБСОЛЮТНЫМ остатком (quantity_fact).
-        // С устаревшим кэшем это возвращало чужие продажи: касса Б продала 8 (на сервере
-        // стало 2), касса А из кэша «10» пополняла на 5 и отправляла 15 — сервер ВЫСТАВЛЯЛ 15
-        // вместо правильных 7, и 8 проданных единиц появлялись из воздуха.
-        // Тот же приём уже применён в списании со склада (WarehouseViewModel.WriteOffAsync).
-        double currentQty;
-        try
+        // 2026-11-05 (аудит №3, Т3-06): пополнение идёт через ProductActions.ChangeStockAsync — тем же путём, что «± Остаток» и списание: свежий остаток с сервера (не из кэша),
+        // один акт на действие и запись «акт в пути» (PendingChanges). После обрыва связи/502/504 на «провести» повтор сначала спросит сервер о прошлом акте и НЕ прибавит второй раз
+        // (раньше повтор перечитывал уже проведённый остаток и прибавлял addQty ещё раз). Пока прошлое пополнение этого товара в пути — повторное «Пополнить» не запускаем.
+        // Срок 8 с — ForegroundWriteAsync: запись не отменяется, итог придёт плашкой. Текст ошибки — человеческий, без сырого ex.Message.
+        if (!ReplenishInFlight.TryAdd(vm.Id, 0))
         {
-            // 2026-11-03 (С-07): не дольше 8 с (раньше до 55 с без индикатора). Ничего не записано — безопасно отменять.
-            var detail = await ServerAnswerWait.ForegroundAsync("products/detail", t => PosApp.CatalogApi.ProductsDetailAsync(vm.Id, t))
-                .ConfigureAwait(true);
-            if (detail is not { } el)
-            {
-                _prompts.ShowError(Tr.T(
-                    "Сервер не вернул остаток товара. Пополнение отменено.",
-                    "Сервер товардын калдыгын берген жок. Толуктоо жокко чыгарылды.",
-                    "The server did not return the product's stock. Restocking canceled.",
-                    "Sunucu ürünün stok miktarını döndürmedi. Stok ekleme iptal edildi.",
-                    "Server mahsulot qoldig'ini qaytarmadi. To'ldirish bekor qilindi."));
-                return false;
-            }
-
-            currentQty = StockSyncService.ResolveStockQuantity(el, vm.MustWeigh);
-        }
-        catch (Exception ex)
-        {
-            // Без достоверного остатка отправлять абсолютное значение нельзя — отменяем.
-            PosLogger.Log($"Пополнение при продаже: не удалось перечитать остаток: {ex.Message}", "WARNING");
-            if (ex is ServerNotAnsweringException)
-            {
-                _prompts.ShowError(ServerAnswerWait.SlowMessage + " " + Tr.T("Пополнение склада отменено.", "Кампаны толуктоо жокко чыгарылды.",
-                    "Restocking canceled.", "Stok ekleme iptal edildi.", "Omborni to'ldirish bekor qilindi."));
-                return false;
-            }
-
-            _prompts.ShowError(Tr.T(
-                "Нет связи с сервером — пополнение склада отменено.",
-                "Сервер менен байланыш жок — кампаны толуктоо жокко чыгарылды.",
-                "No connection to the server — restocking canceled.",
-                "Sunucuyla bağlantı yok — stok ekleme iptal edildi.",
-                "Server bilan aloqa yo'q — omborni to'ldirish bekor qilindi."));
+            _prompts.ShowError(Tr.T("Пополнение этого товара ещё идёт на сервере — подождите ответа и не нажимайте «Пополнить» ещё раз.",
+                "Бул товардын толуктоосу серверде дагы уланууда — жоопту күтүңүз, «Толуктоо» баскычын кайра баспаңыз.",
+                "The restock of this product is still in progress on the server — wait for the answer and do not press “Restock” again.",
+                "Bu ürünün stok eklemesi sunucuda sürüyor — yanıtı bekleyin, «Stok ekle»'ye tekrar basmayın.",
+                "Bu mahsulotni to'ldirish serverda davom etmoqda — javobni kuting, «To'ldirish»ni qayta bosmang."));
             return false;
         }
 
-        var newQty = currentQty + addQty.Value;
-        // 2026-10-31: сервер принимает остаток с 2 знаками (quantity_fact "0.##") — округляем явно и говорим об этом, не блокируя пополнение.
-        if (NurMarketKassa.Services.Api.InventoryApiService.RoundingNote(newQty) is { } roundNote)
-        {
-            newQty = NurMarketKassa.Services.Api.InventoryApiService.RoundForServer(newQty);
-            _prompts.ShowToast(roundNote, true);
-        }
-
+        var released = false;
         try
         {
-            // 2026-11-03 (ревью С-2): акт создаётся и проводится через ForegroundWriteAsync — запрос по сроку 8 с НЕ отменяется (раньше отмена + повтор перечитывал уже проведённый остаток
-            // и прибавлял addQty второй раз = приход удваивался; между CreateSession и Apply мог остаться непроведённый черновик акта). Ответа нет 8 с — в чек не добавляем, итог придёт плашкой.
-            var write = await ServerAnswerWait.ForegroundWriteAsync<string?>("inventory/replenish", async t =>
-            {
-                var createdId = await inventoryApi
-                    .CreateSessionAsync(
-                        "Пополнение при продаже (нехватка остатка)",
-                        new[] { new InventorySessionItem(vm.Id, newQty) },
-                        t)
-                    .ConfigureAwait(false);
-                if (!string.IsNullOrWhiteSpace(createdId))
-                    await inventoryApi.ApplySessionAsync(createdId, allowNegative: false, t).ConfigureAwait(false);
-                return createdId;
-            }).ConfigureAwait(true);
+            var productTitle = vm.Title;
+            var write = await ServerAnswerWait.ForegroundWriteAsync("inventory/replenish",
+                t => ProductActions.ChangeStockAsync(vm.Id, addQty.Value, null, "Пополнение при продаже (нехватка остатка)", null, t)).ConfigureAwait(true);
 
             if (write.Pending)
             {
-                var pendingTitle = vm.Title;
+                released = true; // освободится по окончании фонового ответа
                 _ = write.Completion.ContinueWith(done => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
-                    if (done.IsCompletedSuccessfully)
+                    ReplenishInFlight.TryRemove(vm.Id, out _);
+                    if (done.IsCompletedSuccessfully && done.Result.Ok)
                     {
-                        _prompts.ShowToast(Tr.T($"Пополнение «{pendingTitle}» проведено на сервере — проверьте остаток и добавьте товар в чек.",
-                            $"«{pendingTitle}» толуктоосу серверде өткөрүлдү — калдыкты текшерип, товарды чекке кошуңуз.",
-                            $"Restock of “{pendingTitle}” was posted on the server — check the stock and add the product to the receipt.",
-                            $"«{pendingTitle}» stok eklemesi sunucuda işlendi — stoğu kontrol edip ürünü fişe ekleyin.",
-                            $"«{pendingTitle}» to'ldirishi serverda o'tkazildi — qoldiqni tekshirib, mahsulotni chekka qo'shing."));
+                        _prompts.ShowToast(Tr.T($"Пополнение «{productTitle}» проведено на сервере — проверьте остаток и добавьте товар в чек.",
+                            $"«{productTitle}» толуктоосу серверде өткөрүлдү — калдыкты текшерип, товарды чекке кошуңуз.",
+                            $"Restock of “{productTitle}” was posted on the server — check the stock and add the product to the receipt.",
+                            $"«{productTitle}» stok eklemesi sunucuda işlendi — stoğu kontrol edip ürünü fişe ekleyin.",
+                            $"«{productTitle}» to'ldirishi serverda o'tkazildi — qoldiqni tekshirib, mahsulotni chekka qo'shing."));
                         _viewModel.Catalog.RefreshCatalogCommand.Execute(null);
                     }
                     else
-                        _prompts.ShowToast(Tr.T($"Пополнение «{pendingTitle}» не выполнено на сервере.", $"«{pendingTitle}» толуктоосу серверде аткарылган жок.",
-                            $"Restock of “{pendingTitle}” failed on the server.", $"«{pendingTitle}» stok eklemesi sunucuda başarısız oldu.", $"«{pendingTitle}» to'ldirishi serverda bajarilmadi."), true);
+                        _prompts.ShowToast(done.IsCompletedSuccessfully ? done.Result.Message
+                            : Tr.T($"Пополнение «{productTitle}» не выполнено на сервере.", $"«{productTitle}» толуктоосу серверде аткарылган жок.",
+                                $"Restock of “{productTitle}” failed on the server.", $"«{productTitle}» stok eklemesi sunucuda başarısız oldu.", $"«{productTitle}» to'ldirishi serverda bajarilmadi."), true);
                 }), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
                 _prompts.ShowError(ServerAnswerWait.SlowMessage + " " + Tr.T("Пополнение склада продолжается на сервере — в чек товар не добавлен, проверьте остаток и повторите чуть позже (не нажимайте «Пополнить» ещё раз сразу).",
                     "Кампаны толуктоо серверде уланууда — товар чекке кошулган жок, калдыкты текшерип, бир аздан кийин кайра аракет кылыңыз («Толуктоо» баскычын дароо кайра баспаңыз).",
@@ -1232,61 +1194,41 @@ public partial class MainWindow
                 return false;
             }
 
-            var sessionId = write.Value;
-
-            if (string.IsNullOrWhiteSpace(sessionId))
+            var result = write.Value!;
+            if (!result.Ok)
             {
-                _prompts.ShowError(Tr.T(
-                    "Не удалось создать акт пополнения склада на сервере.",
-                    "Кампаны толуктоо актысын серверде түзүү мүмкүн болгон жок.", "Could not create the restock document on the server.", "Sunucuda stok giriş belgesi oluşturulamadı.", "Serverda omborni to'ldirish dalolatnomasini yaratib bo'lmadi."));
+                _prompts.ShowError(result.Message);
                 return false;
             }
 
-            // Мгновенное оптимистичное обновление плитки (до сетевого ответа полной синхронизации) —
-            // тот же VM-экземпляр, что показан в каталоге (StockAvailabilityService/CatalogPanelViewModel
-            // читают его же из CatalogCacheService.Products), поэтому PropertyChanged обновит UI сразу же.
-            var tile = CatalogCacheService.Products.FirstOrDefault(p =>
-                string.Equals(p.Id, vm.Id, StringComparison.OrdinalIgnoreCase));
-            if (tile != null)
-            {
-                StockSyncService.ApplyQuantityToTileOnUi(tile, newQty, mustWeigh);
-                CatalogCacheService.PersistProductStock(vm.Id, newQty, mustWeigh);
-            }
-
-            // Плюс настоящая синхронизация каталога с сервером (как по кнопке "Обновить"),
-            // запущенная в фоне сразу же — подтягивает авторитетный остаток и любые другие
-            // серверные изменения, а не только эту одну позицию.
+            // Плитка и сохранённый остаток уже обновлены внутри ChangeStockAsync; плюс настоящая синхронизация каталога в фоне — подтягивает авторитетный остаток.
             _viewModel.Catalog.RefreshCatalogCommand.Execute(null);
-
             _viewModel.Basket.RecordInsufficientStockOverride(
                 vm.Title, suggestedQty, addQty.Value, mustWeigh ? "кг" : "шт.");
             return true;
         }
-        catch (ApiException ex)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            _prompts.ShowError(Tr.T(
-                $"Не удалось пополнить склад: {ex.Message}",
-                $"Кампаны толуктоо мүмкүн болгон жок: {ex.Message}", $"Could not restock: {ex.Message}", $"Stok eklenemedi: {ex.Message}", $"Omborni to'ldirib bo'lmadi: {ex.Message}"));
+            PosLogger.Log($"Пополнение при продаже: сбой {ex.GetType().Name}: {ex.Message}", "WARNING");
+            // Запись «акт в пути» осталась в ProductActions — повтор сначала проверит прошлый акт.
+            _prompts.ShowError(ex is OperationCanceledException or ServerNotAnsweringException
+                ? ServerAnswerWait.SlowMessage + " " + Tr.T("Пополнение склада не подтверждено — проверьте остаток и повторите: касса сначала проверит прошлый акт и не прибавит остаток дважды.",
+                    "Кампаны толуктоо ырасталган жок — калдыкты текшерип, кайра аракет кылыңыз: касса адегенде мурунку актыны текшерет жана калдыкты эки жолу кошпойт.",
+                    "The restock was not confirmed — check the stock and try again: the till will first check the previous document and will not add the stock twice.",
+                    "Stok ekleme doğrulanmadı — stoğu kontrol edip tekrar deneyin: kasa önce önceki belgeyi kontrol eder ve stoğu iki kez eklemez.",
+                    "Omborni to'ldirish tasdiqlanmadi — qoldiqni tekshirib, qayta urinib ko'ring: kassa avval oldingi hujjatni tekshiradi va qoldiqni ikki marta qo'shmaydi.")
+                : ServerOutageMonitor.FriendlyError(ex));
             return false;
         }
-        catch (ServerNotAnsweringException)
+        finally
         {
-            // 2026-11-03 (С-07): сервер не подтвердил пополнение — в чек не добавляем. (Ревью С-2: запись теперь через ForegroundWriteAsync и срок не отменяет, ветка — на случай исключения изнутри.)
-            _prompts.ShowError(ServerAnswerWait.SlowMessage + " " + Tr.T("Пополнение склада не подтверждено — проверьте остаток и повторите.",
-                "Кампаны толуктоо ырасталган жок — калдыкты текшерип, кайра аракет кылыңыз.",
-                "The restock was not confirmed — check the stock and try again.",
-                "Stok ekleme doğrulanmadı — stoğu kontrol edip tekrar deneyin.",
-                "Omborni to'ldirish tasdiqlanmadi — qoldiqni tekshirib, qayta urinib ko'ring."));
-            return false;
-        }
-        catch (HttpRequestException)
-        {
-            _prompts.ShowError(Tr.T(
-                "Не удалось пополнить склад — нет сети.",
-                "Кампаны толуктоо мүмкүн болгон жок — тармак жок.", "Could not restock — no network connection.", "Stok eklenemedi — ağ bağlantısı yok.", "Omborni to'ldirib bo'lmadi — tarmoq yo'q."));
-            return false;
+            if (!released)
+                ReplenishInFlight.TryRemove(vm.Id, out _);
         }
     }
+
+    /// <summary>2026-11-05 (аудит №3, Т3-06): товары, по которым пополнение при продаже ещё идёт на сервере (повторное «Пополнить» блокируется).</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> ReplenishInFlight = new(StringComparer.OrdinalIgnoreCase);
 
     private ICartService ResolveCartService() =>
         _cartService ??= App.GetRequiredService<ICartService>();

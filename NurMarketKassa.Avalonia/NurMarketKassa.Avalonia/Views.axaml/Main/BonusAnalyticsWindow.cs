@@ -576,12 +576,7 @@ public sealed class BonusAnalyticsWindow : Window, IOwnerSectionRefresh
         });
         if (file is null)
             return;
-        var path = file.TryGetLocalPath();
-        if (string.IsNullOrEmpty(path))
-        {
-            _status.Text = Tr.T("Не удалось определить путь файла — выберите папку на этом компьютере.", "Файлдын жолун аныктоо мүмкүн болгон жок — ушул компьютердеги папканы тандаңыз.", "Could not determine the file path — choose a folder on this computer.", "Dosya yolu belirlenemedi — bu bilgisayarda bir klasör seçin.", "Fayl yo'lini aniqlab bo'lmadi — shu kompyuterdagi papkani tanlang.");
-            return;
-        }
+        var path = ExportFileBridge.PathFor(file); // 2026-11-05 (А3-05): на Android без локального пути — через временный файл
 
         try
         {
@@ -596,6 +591,7 @@ public sealed class BonusAnalyticsWindow : Window, IOwnerSectionRefresh
                 else
                     BonusAnalyticsExport.ExportToCsv(path, data);
             }).ConfigureAwait(true);
+            path = await ExportFileBridge.CompleteAsync(file, path); // 2026-11-05 (А3-05)
             _status.Text = Tr.T($"Отчёт сохранён: {path}", $"Отчёт сакталды: {path}", $"Report saved: {path}", $"Rapor kaydedildi: {path}", $"Hisobot saqlandi: {path}");
         }
         catch (Exception ex)

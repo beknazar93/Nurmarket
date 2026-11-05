@@ -197,6 +197,7 @@ public partial class BulkPriceTagPrintDialog : Window
         if (_listGuard || !_printersLoaded || TargetA4Radio.IsChecked == true)
             return;
         if (PrinterCombo.SelectedItem is DiscoveredPrinter p && !p.IsVirtual
+            && !LabelPrinterSelector.IsSameAsReceiptPrinter(p.DevicePath) // 2026-11-05 (аудит №3, С2-29): принтер чеков не запоминаем как принтер этикеток (после этого «одна кнопка» слала бы этикетки на чековый); в этом окне печать на нём остаётся доступной.
             && !LabelPrinterSelector.SamePrinter(p.DevicePath, UserPreferences.Instance.LabelPrinterDevicePath))
         {
             UserPreferences.Instance.LabelPrinterDevicePath = p.DevicePath;

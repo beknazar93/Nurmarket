@@ -199,7 +199,8 @@ void main() {
   });
 
   test('С-3: «ключа нет» помнится — второй вызов не ждёт облако', () async {
-    final v = _CloudVision(apiFor('cashier'), db, null);
+    // 2026-11-05: null = «нет связи» (М-09, не запоминается); облако ответило без ключей — пустая карта.
+    final v = _CloudVision(apiFor('cashier'), db, <String, dynamic>{});
     expect(await v.key(), isNull);
     expect(await v.key(), isNull);
     expect(v.calls, 1);

@@ -2008,5 +2008,19 @@
   "updCancel": "Bekor qilish",
   "updPermTitle": "O'rnatishga ruxsat bering",
   "updPermBody": "NurCRM'ni yangilash uchun ilovaga yangilanishlarni o'rnatishga ruxsat bering: ochilgan ekrandagi tugmani yoqing, bu yerga qaytib, «Yangilash»ni yana bosing.",
-  "updOpenSettings": "Sozlamalarni ochish"
+  "updOpenSettings": "Sozlamalarni ochish",
+  "prnStalled": "Printer bilan aloqa uzildi. Chek chop etilganini tekshiring, keyin qayta chop eting.",
+  "scaleNoPlu": "Tarozi yorlig'i: PLU {plu} bo'lgan tovar topilmadi",
+  "scaleBindPlu": "Tovarni tanlab, unga PLU yozish",
+  "scaleBindAsk": "«{name}» tovariga PLU {plu} yozilsinmi?",
+  "scaleLabelAgain": "Bu yorliq chekda bor. Yana qo'shilsinmi?",
+  "scaleNotWeighed": "Bu tarozi yorlig'i, lekin «{name}» donali tovar. Qo'shilsinmi?",
+  "scaleLayoutPick": "Yorliqni ikki xil o'qish mumkin — tovarni tanlang",
+  "aiSlow": "Sun'iy intellekt odatdagidan uzoqroq o'ylayapti…",
+  "aiElapsed": "{s} s o'tdi",
+  "aiAskOwner": "Sun'iy intellekt sozlanmagan — egasidan so'rang",
+  "prnNotPrinted": "Chek chop etilmadi",
+  "prnPrintAgain": "Qayta chop etish",
+  "prnChecked": "{total} tadan {n} tasi tekshirildi",
+  "prnLocationOff": "Bu Android'da Bluetooth-printerni topish uchun «Joylashuv»ni yoqing."
 }

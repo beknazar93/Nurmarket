@@ -20,8 +20,22 @@ public static partial class SensitiveDataRedactor
         result = EmailAddress().Replace(result, match => MaskEmail(match.Value));
         result = ConnectionStringSecret().Replace(result, match =>
             $"{match.Groups["key"].Value}={Mask}");
+        // 2026-11-05 (аудит №3, Н-08): телефоны клиентов без подписи «phone=» (в тексте ошибок, названиях действий) — оставляем только последние 2 цифры.
+        result = PhoneNumber().Replace(result, match => MaskPhone(match.Value));
         return result;
     }
+
+    private static string MaskPhone(string phone)
+    {
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        return digits.Length >= 2 ? $"{Mask}{digits[^2..]}" : Mask;
+    }
+
+    /// <summary>Номер КР/РФ: +996 555 123 456, 996555123456, 0555 12 34 56, +7 900 123-45-67. Не трогает суммы, даты, UUID и длинные номера чеков.</summary>
+    [GeneratedRegex(
+        "(?<![\\w.,+\\-])(?:(?:\\+\\s?996|996)(?:[\\s\\-()]*\\d){9}|\\+\\s?7(?:[\\s\\-()]*\\d){10}|0(?:[\\s\\-()]*\\d){9})(?![\\w\\-])",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex PhoneNumber();
 
     private static string MaskEmail(string email)
     {

@@ -307,6 +307,44 @@ public partial class OwnerShellWindow : Window, IMainShell
                 CloseAllSections();
                 return;
             }
+            // 2026-11-05 (аудит №3, Р3-02): выключение Windows / установщик («--close-quiet») — вопрос «Сохранить и выйти?» без срока держал выход,
+            // через 15 с процесс убивали. Разделы, что умеют сохраняться сами (редактор сайта), сохраняем быстро (до 3 с), остальное — уходит, как было бы
+            // без ответа; вопрос не показываем. Обычное закрытие кнопкой — как раньше.
+            if (QuietShutdown.ShouldSkipPrompts(e))
+            {
+                var quietSave = DirtySections().Where(s => s.Window is IOwnerSectionExit).ToList();
+                if (quietSave.Count == 0)
+                {
+                    CloseAllSections();
+                    return;
+                }
+                e.Cancel = true;
+                if (_exitAsking)
+                    return;
+                _exitAsking = true;
+                try
+                {
+                    foreach (var section in quietSave)
+                    {
+                        try
+                        {
+                            var save = ((IOwnerSectionExit)section.Window).SaveForExitAsync();
+                            await Task.WhenAny(save, Task.Delay(3000)).ConfigureAwait(true);
+                        }
+                        catch (Exception ex)
+                        {
+                            PosLogger.Log($"Owner app: тихое сохранение раздела «{TitleFor(section)}» не удалось ({ex.Message}).", "WARNING");
+                        }
+                    }
+                }
+                finally
+                {
+                    _exitAsking = false;
+                }
+                _exitConfirmed = true;
+                Close();
+                return;
+            }
             e.Cancel = true;
             if (_exitAsking)
                 return;
@@ -429,6 +467,10 @@ public partial class OwnerShellWindow : Window, IMainShell
         RebuildSectionsForLanguage();
         _compareKey = null;
         _ = RefreshAsync();
+        // 2026-11-05 (аудит №3, В4-10): карточки, собранные кодом и обновляемые раз в 5 минут, после смены языка оставались на прежнем (турецкая Сводка с «План продаж на ноябрь»).
+        _salesPlanEditing = false;
+        _ = RefreshSalesPlanAsync(force: true);
+        _ = RefreshDebtsCardAsync(force: true);
         // Заголовки срезов и колонки ABC собраны кодом на прежнем языке — собираем заново.
         DropAbcView();
         _ = RefreshAbcAsync();
@@ -910,6 +952,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         window.Closed += (_, _) => OnSectionClosed(section);
         _sections.Add(section);
         PosLogger.Log($"Owner app: раздел «{TitleFor(section)}» открыт.", "UI");
+        MemoryDiagnostics.LogAround($"раздел {TitleFor(section)} открыт"); // 2026-11-05 (Р3-01): память до/после открытия раздела — в журнал
         ShowSection(section);
         // 2026-10-20: раздел закрывали ради памяти — возвращаем вкладку и период, как было бы у спрятанного окна.
         if (_sectionStates.Remove(SectionStateKey(section), out var state))
@@ -1169,6 +1212,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             if (CaptureSectionState(section.Window) is { } state)
                 _sectionStates[SectionStateKey(section)] = state;
             PosLogger.Log($"Owner app: спрятанный раздел «{TitleFor(section)}» закрыт ({why}) — освобождаем память.", "UI");
+            MemoryDiagnostics.LogAround($"раздел {TitleFor(section)} закрыт ({why})"); // 2026-11-05 (Р3-01)
             // Из списка его убирает Closed → OnSectionClosed (раздел не открыт — к сводке не возвращает).
             section.Window.Close();
         }
@@ -1275,10 +1319,11 @@ public partial class OwnerShellWindow : Window, IMainShell
                 Margin = new Thickness(0, 0, 8, 0),
                 IsVisible = false,
             };
-            Avalonia.Automation.AutomationProperties.SetName(_sectionExcelButton, Tr.T("Выгрузить в Excel", "Excel'ге чыгаруу", "Export to Excel", "Excel'e aktar", "Excel'ga chiqarish"));
             _sectionExcelButton.Click += async (_, _) => await ExportSectionExcelAsync().ConfigureAwait(true);
             CaptionButtons.Children.Insert(0, _sectionExcelButton);
         }
+        // 2026-11-05 (Н-10, приёмка 1.17.75): имя для диктора/UIA ставим при каждом обновлении — раньше фиксировалось на языке момента создания кнопки (при ky оставалось русским).
+        Avalonia.Automation.AutomationProperties.SetName(_sectionExcelButton, Tr.T("Выгрузить в Excel", "Excel'ге чыгаруу", "Export to Excel", "Excel'e aktar", "Excel'ga chiqarish"));
         _sectionExcelButton.IsVisible = section?.Window is IOwnerSectionExcel;
     }
 
@@ -1595,6 +1640,48 @@ public partial class OwnerShellWindow : Window, IMainShell
         return RefreshInterval;
     }
 
+    // 2026-11-05 (аудит №3, В4-01): строка ожидания сервера в шапке «Сводки» + «Отменить ожидание» (отменяет идущую загрузку, прежние цифры остаются).
+    private ServerWaitIndicator? _refreshWait;
+    private Button? _refreshWaitCancel;
+    private string? _refreshWaitSaved;
+    private string? _refreshWaitShown;
+
+    private ServerWaitIndicator EnsureRefreshWait()
+    {
+        if (_refreshWait is not null)
+            return _refreshWait;
+        _refreshWaitCancel = new Button
+        {
+            Content = ServerWaitIndicator.CancelText, FontSize = 12, Padding = new Thickness(8, 2), MinHeight = 0, IsVisible = false, VerticalAlignment = VerticalAlignment.Center,
+        };
+        _refreshWaitCancel.Click += (_, _) =>
+        {
+            try { _refreshCts?.Cancel(); } catch (ObjectDisposedException) { }
+        };
+        if (UpdatedText.Parent is Panel panel)
+            panel.Children.Add(_refreshWaitCancel);
+        _refreshWait = new ServerWaitIndicator(
+            text =>
+            {
+                if (text is not null)
+                {
+                    if (_refreshWaitShown is null)
+                        _refreshWaitSaved = UpdatedText.Text;
+                    _refreshWaitShown = text;
+                    UpdatedText.Text = text;
+                }
+                else if (_refreshWaitShown is not null)
+                {
+                    if (UpdatedText.Text == _refreshWaitShown)
+                        UpdatedText.Text = _refreshWaitSaved;
+                    _refreshWaitShown = null;
+                }
+            },
+            visible => _refreshWaitCancel.IsVisible = visible);
+        Avalonia.Automation.AutomationProperties.SetLiveSetting(UpdatedText, Avalonia.Automation.AutomationLiveSetting.Polite);
+        return _refreshWait;
+    }
+
     private async Task RefreshAsync(bool forceChart = false, bool supersede = false)
     {
         if (_loggingOut || _cts.IsCancellationRequested)
@@ -1625,6 +1712,12 @@ public partial class OwnerShellWindow : Window, IMainShell
         string? startedKey = null;
         var refreshCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
         _refreshCts = refreshCts;
+        // 2026-11-05 (аудит №3, В4-01): сервер медлит (>3 с) — в шапке «Ждём ответ сервера NurCRM… N с» и «Отменить ожидание» (ServerWaitIndicator).
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (_refreshing && ReferenceEquals(_refreshCts, refreshCts))
+                EnsureRefreshWait().OnSlow(true);
+        }, NurMarketKassa.Services.ServerAnswerWait.SlowNoticeAfter);
         try
         {
             var (from, to) = CurrentRange();
@@ -1724,6 +1817,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         finally
         {
             _refreshing = false;
+            _refreshWait?.OnSlow(false); // 2026-11-05 (В4-01): убрать «Ждём ответ сервера…» и «Отменить ожидание»
             if (ReferenceEquals(_refreshCts, refreshCts))
                 _refreshCts = null;
             refreshCts.Dispose();

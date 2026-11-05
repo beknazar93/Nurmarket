@@ -14,6 +14,19 @@ val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) keystorePropertiesFile.inputStream().use { load(it) }
 }
 
+// 2026-11-05 (аудит №3, М4-08): сборка выпуска (assemble/bundle … Release) без key.properties раньше молча подписывалась отладочным ключом —
+// такой APK выкладывали, и Android отказывал в установке поверх выпускного. Теперь сборка останавливается с понятным сообщением.
+// Отладочные сборки (debug, flutter run) не затрагиваются. Сами ключи и пароли здесь не читаются и не печатаются.
+gradle.taskGraph.whenReady {
+    val releaseBuild = allTasks.any { it.name.matches(Regex("^(assemble|bundle|package)\\w*Release$")) }
+    if (releaseBuild && !keystorePropertiesFile.exists()) {
+        throw GradleException(
+            "Нет android/key.properties — выпускную сборку нельзя подписать ключом выпуска (отладочным ключом не подписываем). " +
+                "Положите key.properties (ключ nurmarket-mobile.keystore, файл у владельца) и повторите.",
+        )
+    }
+}
+
 android {
     namespace = "kg.nurcrm.nurmarket"
     compileSdk = flutter.compileSdkVersion

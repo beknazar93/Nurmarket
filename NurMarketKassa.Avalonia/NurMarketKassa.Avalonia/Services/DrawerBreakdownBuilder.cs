@@ -30,9 +30,19 @@ public static class DrawerBreakdownBuilder
                 ToolTip.SetTip(g, tip);
             panel.Children.Add(g);
         }
+        // 2026-11-03 (аудит №3, Д3-03): сервер убирает полностью возвращённые продажи из «продаж» и «ожидаемой суммы», а наличные возвраты по ним касса вычитает ещё раз —
+        // раньше разницу показывала «Корректировка» (продажи 0, возвраты −7,60, «+7,60 корректировка») при самом обычном дне с возвратами. Теперь та часть разницы, которую
+        // объясняют наличные возвраты, возвращается в строку «Наличные продажи» (валовые, с вернувшимися чеками); итог не меняется. Остаток — по-прежнему «Корректировка».
+        var sumBefore = opening + cashSales + debtPaidCash + deposits - withdrawals - returns;
+        var gap = expected - sumBefore;
+        var returnedSalesCash = gap >= 0.01m && returns > 0m ? Math.Min(gap, returns) : 0m;
+        cashSales += returnedSalesCash;
         Row(Tr.T("Начальная сумма", "Баштапкы сумма", "Opening amount", "Başlangıç tutarı", "Boshlang'ich summa"), opening, "");
-        Row(Tr.T("Наличные продажи (с предоплатой по долгам)", "Накталай сатуулар (карыздын алдынкы төлөмү менен)", "Cash sales (incl. debt prepayments)",
-            "Nakit satışlar (borç ön ödemeleri dahil)", "Naqd sotuvlar (qarz oldindan to'lovlari bilan)"), cashSales, "+");
+        Row(returnedSalesCash > 0m
+                ? Tr.T("Наличные продажи (с предоплатой по долгам, с вернувшимися чеками)", "Накталай сатуулар (карыздын алдынкы төлөмү жана кайтарылган чектер менен)", "Cash sales (incl. debt prepayments and later-returned receipts)",
+                    "Nakit satışlar (borç ön ödemeleri ve sonradan iade edilen fişler dahil)", "Naqd sotuvlar (qarz oldindan to'lovlari va keyin qaytarilgan cheklar bilan)")
+                : Tr.T("Наличные продажи (с предоплатой по долгам)", "Накталай сатуулар (карыздын алдынкы төлөмү менен)", "Cash sales (incl. debt prepayments)",
+                    "Nakit satışlar (borç ön ödemeleri dahil)", "Naqd sotuvlar (qarz oldindan to'lovlari bilan)"), cashSales, "+");
         if (debtPaidCash > 0m)
             Row(Tr.T("Оплата долгов наличными", "Карызды накталай төлөө", "Debt payments in cash", "Borç ödemeleri (nakit)", "Qarz to'lovlari (naqd)"), debtPaidCash, "+");
         if (deposits > 0m)

@@ -78,6 +78,7 @@ class ReceiptView extends StatelessWidget {
                     for (var i = 0; i < r.lines.length; i++) _line(p, i + 1, r.lines[i]),
                     const _Dashed(),
                     if (r.discount > 0) ...[_pair(p, 'Сумма без скидки', money(r.subtotal)), _pair(p, 'Скидка', '−${money(r.discount)}', color: red)],
+                    if (r.weightRounding >= 0.005) _pair(p, 'Округление весовых', '−${money(r.weightRounding)}'), // 2026-11-05 (М4-14)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Row(

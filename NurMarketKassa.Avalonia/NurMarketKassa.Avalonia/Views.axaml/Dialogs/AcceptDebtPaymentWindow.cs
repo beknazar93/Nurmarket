@@ -39,6 +39,10 @@ public sealed class AcceptDebtPaymentWindow : Window
     private bool _loadStarted;
     private bool _loaded;
     private bool _running;
+
+    /// <summary>2026-11-03 (аудит №3, Д3-01/С-08): сервер молчит 8 с, оплата отправлена и ждёт ответа в фоне — окно можно закрыть (деньги ведёт DebtPaymentRunner); окно уже закрыто — итог плашкой.</summary>
+    private bool _slowReleased;
+    private bool _windowClosed;
     private bool _done;
     /// <summary>Ответ сервера не дошёл: поля закрыты, «Повторить» шлёт ту же оплату с тем же ключом.</summary>
     private bool _unknownOutcome;
@@ -115,9 +119,10 @@ public sealed class AcceptDebtPaymentWindow : Window
         // Пока оплата отправляется, окно не закрывается (Esc, «Отмена», ✕): иначе владелец не увидит, прошла ли она.
         Closing += (_, e) =>
         {
-            if (_running)
+            if (_running && !_slowReleased)
                 e.Cancel = true;
         };
+        Closed += (_, _) => _windowClosed = true;
 
         var root = new StackPanel { Spacing = 12 };
 
@@ -261,7 +266,7 @@ public sealed class AcceptDebtPaymentWindow : Window
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Right };
         _cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         _cancel.IsCancel = true;
-        _cancel.Click += (_, _) => { if (!_running) Close(); };
+        _cancel.Click += (_, _) => { if (!_running || _slowReleased) Close(); };
         _go = UiKit.Primary(this, T("Принять", "Кабыл алуу", "Accept", "Al", "Qabul qilish"));
         _go.MinWidth = 240;
         _go.Click += async (_, _) => await SafelyAsync(GoAsync, "приём оплаты").ConfigureAwait(true);
@@ -1029,6 +1034,12 @@ public sealed class AcceptDebtPaymentWindow : Window
         if (unknownRecord is null && _bySale && row is null)
             return;
         var method = unknownRecord?.Method ?? _method;
+        // 2026-11-03 (аудит №3, Д3-01/С-08): оплата этого клиента уже ждёт медленный сервер — вторую не отправляем.
+        if (SlowMoneyCall.IsActive("debt|" + _clientId))
+        {
+            ShowMessage(SlowMoneyCall.StillRunningText);
+            return;
+        }
         // Занято — ДО вопроса о коде и обновления настроек: второе нажатие не начнёт вторую оплату.
         _running = true;
         UpdateState();
@@ -1112,7 +1123,9 @@ public sealed class AcceptDebtPaymentWindow : Window
                 // 2026-10-18, пятый круг: «Повторить» — только повтор записи по её ключу, никогда не новая оплата.
                 RememberOwnKey(unknownRecord.Key);
                 _unknownDetail = null; // «Повторяем…» вместо прошлой причины
-                attempt = await DebtPaymentRunner.RetryAsync(api, unknownRecord.Key).ConfigureAwait(true);
+                var retryKey = unknownRecord.Key;
+                // 2026-11-03 (Д3-01/С-08): ждём сервер не дольше 8 с; повтор по тому же ключу не отменяется.
+                attempt = await SlowMoneyCall.RunAsync("debt/retry", "debt|" + _clientId, _ => DebtPaymentRunner.RetryAsync(api, retryKey), () => _slowReleased = true).ConfigureAwait(true);
             }
             else
             {
@@ -1120,8 +1133,9 @@ public sealed class AcceptDebtPaymentWindow : Window
                 RememberOwnKey(key);
                 _activeNewKey = key;
                 // Без смены: shiftId = null — поле shift не отправляется (решение владельца 18.10).
-                attempt = await DebtPaymentRunner.PayNewAsync(api, key, _clientId, _clientName, row?.Id,
-                    row?.Number is { Length: > 0 } number ? "№" + number : null, amount, method, null).ConfigureAwait(true);
+                // 2026-11-03 (Д3-01/С-08): ждём сервер не дольше 8 с; запрос НЕ отменяется (ключ тот же, запись заранее на диске), ответ дожидается.
+                attempt = await SlowMoneyCall.RunAsync("debt/pay", "debt|" + _clientId, _ => DebtPaymentRunner.PayNewAsync(api, key, _clientId, _clientName, row?.Id,
+                    row?.Number is { Length: > 0 } number ? "№" + number : null, amount, method, null), () => _slowReleased = true).ConfigureAwait(true);
             }
         }
         finally
@@ -1134,6 +1148,10 @@ public sealed class AcceptDebtPaymentWindow : Window
         // 2026-10-18, седьмой круг (п.10): исход — DebtPayOutcome, текст — общий DebtPaymentRunner.OutcomeText (как в кассе).
         var bySale = unknownRecord is not null ? unknownRecord.SaleId is not null : row is not null;
         var text = DebtPaymentRunner.OutcomeText(attempt, bySale, owner: true);
+        // 2026-11-03 (Д3-01): ответ пришёл, когда окно уже закрыли (не стали ждать медленный сервер) — итог плашкой.
+        if (_slowReleased && _windowClosed && !string.IsNullOrWhiteSpace(text))
+            SuccessToast.Show(text, attempt.Outcome == DebtPayOutcome.Success ? ToastKind.Success : ToastKind.Error, null, null, sticky: attempt.Outcome != DebtPayOutcome.Success);
+        _slowReleased = false;
         if (attempt.Outcome != DebtPayOutcome.Success)
         {
             // Оплату завершили в другом окне / долга уже нет — список с сервера. 2026-10-18, девятый круг (п.1, деньги): пока

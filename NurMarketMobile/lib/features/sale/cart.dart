@@ -304,6 +304,18 @@ class Cart {
   }
 
   double get subtotal => unitsToMoney(_subtotalUnits);
+
+  /// 2026-11-05 (М4-14, как строка «Округление весовых» кассы 1.17.73): сколько округление вниз суммы весовых строк «съело» у покупателя
+  /// (4,875 + 22,638 = 27,513 → 27,51: 0,003). 0 — весовых строк нет или они сошлись до копейки.
+  double get weightRounding {
+    var weighed = BigInt.zero;
+    for (final l in lines) {
+      if (l.weighedForRounding) weighed += l.grossUnits;
+    }
+    final floored = (weighed ~/ _unitsPerCent) * _unitsPerCent;
+    // 2026-11-05: точная доля копейки (0,003), а не округлённая до копейки — иначе всегда 0; на экране и в печати порог ≥ 0,005 прежний.
+    return (weighed - floored).toDouble() / (_unitsPerCent.toDouble() * 100);
+  }
   double get lineDiscounts => unitsToMoney(_lineDiscountUnits);
   double get orderDiscount => unitsToMoney(_orderDiscountUnits);
 

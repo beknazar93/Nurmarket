@@ -338,7 +338,8 @@ public static class ServerOutageMonitor
         }
 
         if (log)
-            PosLogger.Log($"Сервер NurCRM медлит ({context}): ответа нет дольше {ServerAnswerWait.ForegroundBudget.TotalSeconds:0} с — аварии нет, касса ждёт.", "OUTAGE SLOW");
+            // 2026-11-03 (аудит №3, Д3-08): раньше строка писала «ответа нет дольше 8 с» и при ответе за 5–7 с — вводило в заблуждение при разборе жалоб.
+            PosLogger.Log($"Сервер NurCRM медлит ({context}): ответ медленный (больше 5 с; окна ждут до {ServerAnswerWait.ForegroundBudget.TotalSeconds:0} с) — аварии нет, касса ждёт.", "OUTAGE SLOW");
         if (raise)
             SafeInvoke(() => SlowChanged?.Invoke(true), "SlowChanged");
     }

@@ -174,6 +174,12 @@ public partial class StockTransferDialog
     {
         if (_transfer is null || _serverBusy)
             return;
+        // 2026-11-03 (аудит №3, Д3-01/С-12): это перемещение уже отправлено и ждёт медленный сервер — второй раз не шлём.
+        if (SlowMoneyCall.IsActive("transfer|" + _transferId))
+        {
+            ShowWarning(SlowMoneyCall.StillRunningText);
+            return;
+        }
         SaveHeader();
         ShowWarning(null);
         var items = StockTransferService.Instance.LoadItems(_transferId);
@@ -266,8 +272,12 @@ public partial class StockTransferDialog
             else
                 try
                 {
-                    data = await api.PostWithIdempotencyKeyAsync("api/main/branch-transfers/", body, transferKey, CancellationToken.None, TimeSpan.FromSeconds(45)).ConfigureAwait(true);
+                    // 2026-11-03 (Д3-01/С-12): ждём сервер не дольше 8 с; запрос НЕ отменяется и не задваивается (тот же ключ), ответ дожидается; через 8 с окно можно закрыть.
+                    data = await SlowMoneyCall.RunAsync("branch-transfer", "transfer|" + _transferId,
+                        t => api.PostWithIdempotencyKeyAsync("api/main/branch-transfers/", body, transferKey, t, TimeSpan.FromSeconds(45)), () => _slowReleased = true).ConfigureAwait(true);
                     PendingTransferKeys.Clear(_transferId);
+                    if (_slowReleased && !IsVisible)
+                        SuccessToast.Show(T("Перемещение проведено на сервере.", "Жылдыруу серверде өткөрүлдү.", "The transfer was posted on the server.", "Transfer sunucuda yapıldı.", "Ko'chirish serverda o'tkazildi."), ToastKind.Success);
                 }
                 catch (Exception postEx) when (PendingIdempotencyKey.IsOutcomeUnknown(postEx))
                 {
@@ -311,6 +321,7 @@ public partial class StockTransferDialog
         finally
         {
             _serverBusy = false;
+            _slowReleased = false;
             Reload();
         }
     }
@@ -493,6 +504,9 @@ public partial class StockTransferDialog
 
     // 2026-10-22 (модалки, пакет 3): идёт запрос к серверу (отправка или отмена) — окно не закрывается (StockTransferDialog: Closing).
     private bool _serverBusy;
+
+    /// <summary>2026-11-03 (аудит №3, Д3-01/С-12): сервер молчит 8 с, перемещение отправлено и ждёт ответа в фоне — окно можно закрыть (ключ повтора и проверка «прошло ли» остаются).</summary>
+    private bool _slowReleased;
 
     /// <summary>2026-10-22 (модалки, пакет 3): предупреждение текстом в окне над кнопками (null — спрятать).</summary>
     private void ShowWarning(string? text)

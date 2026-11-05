@@ -440,6 +440,15 @@ public partial class WeighedProductDialog : Window
             return;
         }
 
+        // 2026-11-05 (аудит №3, С2-31): вес меньше 1 г (0,001 кг) после округления до 3 знаков = 0 — окно закрывалось с нулевым весом. Не закрываем, просим ввести больше.
+        if (Math.Round(kg, 3, MidpointRounding.AwayFromZero) <= 0m)
+        {
+            ShowWeightError(_isAmountMode
+                ? Tr.T("Сумма слишком маленькая — вес выходит меньше 1 грамма. Введите сумму побольше.", "Сумма өтө кичине — салмак 1 граммдан аз чыгат. Чоңураак сумма киргизиңиз.", "The amount is too small — the weight would be under 1 gram. Enter a larger amount.", "Tutar çok küçük — ağırlık 1 gramdan az çıkar. Daha büyük bir tutar girin.", "Summa juda kichik — og'irlik 1 grammdan kam chiqadi. Kattaroq summa kiriting.")
+                : Tr.T("Вес слишком маленький — меньше 1 грамма. Введите вес побольше.", "Салмак өтө кичине — 1 граммдан аз. Чоңураак салмак киргизиңиз.", "The weight is too small — under 1 gram. Enter a larger weight.", "Ağırlık çok küçük — 1 gramdan az. Daha büyük bir ağırlık girin.", "Og'irlik juda kichik — 1 grammdan kam. Kattaroq og'irlik kiriting."));
+            return;
+        }
+
         QuantityNormalized = JsonNumericReader.FormatWeightForApi((double)kg) ?? "0";
         Close(true);
     }

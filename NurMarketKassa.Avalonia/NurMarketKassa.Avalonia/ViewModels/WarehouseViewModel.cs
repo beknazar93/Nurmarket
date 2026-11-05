@@ -34,6 +34,16 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         Tr.T("Другое", "Башка", "Other", "Diğer", "Boshqa"),
     };
 
+    /// <summary>2026-11-05 (аудит №3, Т3-08): причина списания для примечания акта НА СЕРВЕРЕ — всегда по-русски (ключ), а не слово языка интерфейса:
+    /// раньше в отчётах и на сайте была смесь «Другое», «Other», «Башка». Порядок — как в <see cref="WriteOffReasons"/>.</summary>
+    private static readonly string[] WriteOffReasonsRu = { "Брак", "Просрочка", "Порча упаковки", "Списание для себя", "Другое" };
+
+    public static string WriteOffReasonForServer(string? localized)
+    {
+        var idx = Array.IndexOf(WriteOffReasons, localized);
+        return idx >= 0 ? WriteOffReasonsRu[idx] : (localized ?? "");
+    }
+
     private readonly IInventoryApiService? _inventoryApi;
     private readonly IUserPrompts? _prompts;
 
@@ -143,6 +153,9 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     /// <summary>Журнал списаний этой кассы (AI-фичи 2026-09-04) — см. WriteOffHistoryStore,
     /// локальный, т.к. IInventoryApiService не даёт прочитать историю актов обратно с сервера.</summary>
     public ObservableCollection<WriteOffHistoryRowVm> WriteOffHistory { get; } = new();
+
+    /// <summary>2026-11-05 (Д-6): перечитать журнал списаний на вкладке «Списание» (окно подписывается на <see cref="WriteOffHistoryStore.Appended"/>).</summary>
+    public void ReloadWriteOffHistory() => LoadWriteOffHistory();
 
     private void LoadWriteOffHistory()
     {
@@ -598,7 +611,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     private sealed record ProductFilterContext(
         string Query, bool ExtraSearch, string? VariantProductId, CatalogProductTileVm? ExactHit, CatalogProductTileVm[] Products,
         string SaleUnitFilter, HashSet<string>? Changed, string StockFilter, IReadOnlyDictionary<string, ProductExpiryIndex.Mark> Expiry,
-        bool HasSort, string SortKey, bool SortDescending);
+        bool HasSort, string SortKey, bool SortDescending, string? CodeQuery = null);
 
     private int _filterVersion;
 
@@ -617,14 +630,18 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         // 2026-10-21: точный код — тем же поиском, что касса (ProductCodeLookup): доп. штрихкод, 12 ↔ 13 цифр, весовая
         // этикетка, артикул (склад не находит товар по скану). Найденный товар — первой строкой и мимо фильтров
         // наличия/единицы: скан — прямой запрос этого товара. Остальной поиск «Продуктов» — как был.
-        var exactHit = codeLike ? InCatalog(ProductCodeLookup.FindLocal(query)?.Product) : null;
-        return new ProductFilterContext(query, extraSearch, variantProductId, exactHit, CatalogCacheService.Products.ToArray(),
-            _saleUnitFilter, _changedKeys, _stockFilter, ProductExpiryIndex.Marks, ProductSortKey.Length > 0, _sortKey, _sortDescending);
+        // 2026-11-05 (аудит №3, Т3-15): сам FindLocal (читает базу кассы и разбирает весь каталог) уходит в фон — в RunProductFilter; на потоке окна остаётся только снимок.
+        return new ProductFilterContext(query, extraSearch, variantProductId, null, CatalogCacheService.Products.ToArray(),
+            _saleUnitFilter, _changedKeys, _stockFilter, ProductExpiryIndex.Marks, ProductSortKey.Length > 0, _sortKey, _sortDescending, codeLike ? query : null);
     }
 
     private static List<CatalogProductTileVm> RunProductFilter(ProductFilterContext c)
     {
         var query = c.Query;
+        // 2026-11-05 (Т3-15): точный товар по коду — здесь (в фоне), тот же объект из снимка каталога, что и раньше давал InCatalog.
+        var exactFound = c.ExactHit;
+        if (exactFound is null && c.CodeQuery is { Length: > 0 } codeQuery && ProductCodeLookup.FindLocal(codeQuery)?.Product is { } foundByCode)
+            exactFound = c.Products.FirstOrDefault(p => string.Equals(p.Id, foundByCode.Id, StringComparison.OrdinalIgnoreCase)) ?? foundByCode;
         var variantProductId = c.VariantProductId;
         IEnumerable<CatalogProductTileVm> source = string.IsNullOrEmpty(query)
             ? c.Products
@@ -654,17 +671,18 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         // только видимую страницу из 50 строк). Ключи считаются один раз на строку (15 000 — десятки мс).
         if (c.HasSort)
             source = SortProducts(source as List<CatalogProductTileVm> ?? source.ToList(), c.SortKey, c.SortDescending);
-        if (c.ExactHit is { } exactHit)
+        if (exactFound is { } exactHit)
             source = new[] { exactHit }.Concat(source.Where(p => !string.Equals(p.Id, exactHit.Id, StringComparison.OrdinalIgnoreCase)));
         return source.ToList();
     }
 
-    private void ApplyFilteredProducts(List<CatalogProductTileVm> list)
+    private void ApplyFilteredProducts(List<CatalogProductTileVm> list, ObservableCollection<CatalogProductTileVm>? prebuilt = null)
     {
         // Одна замена коллекции вместо Clear()+Add() по одному (2026-09-07, оптимизация для
         // слабых ПК): каждый Add — событие CollectionChanged и перерасчёт DataGrid, на каталоге
         // в несколько тысяч товаров это заметно подвешивало окно на каждый символ поиска.
-        FilteredProducts = new ObservableCollection<CatalogProductTileVm>(list);
+        // 2026-11-05 (аудит №3, Т3-15): коллекция на 15 тысяч строк собирается в фоне (prebuilt), на потоке окна — только подмена.
+        FilteredProducts = prebuilt ?? new ObservableCollection<CatalogProductTileVm>(list);
         OnPropertyChanged(nameof(FilteredProducts));
         OnPropertyChanged(nameof(ProductCountText));
 
@@ -699,7 +717,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
                 if (token.IsCancellationRequested || version != Volatile.Read(ref _filterVersion))
                     return;
                 var context = PrepareProductFilter();
-                _ = Task.Run(() => RunProductFilter(context)).ContinueWith(done =>
+                _ = Task.Run(() => { var found = RunProductFilter(context); return (List: found, Collection: new ObservableCollection<CatalogProductTileVm>(found)); }).ContinueWith(done =>
                 {
                     if (done.IsFaulted)
                     {
@@ -716,7 +734,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
                     Dispatcher.UIThread.Post(() =>
                     {
                         if (version == Volatile.Read(ref _filterVersion) && !token.IsCancellationRequested)
-                            ApplyFilteredProducts(done.Result);
+                            ApplyFilteredProducts(done.Result.List, done.Result.Collection);
                     });
                 }, TaskScheduler.Default);
             }),
@@ -951,6 +969,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     // уже эта накладная, нет ли её в списке дважды), после постановки прихода в очередь — помечают проведёнными. Опустел список — забываем.
     private readonly List<NurMarketKassa.Services.InvoiceImport.InvoiceImportEntry> _invoicesInReceiving = new();
     private bool _invoiceWatchHooked;
+    private bool _invoicesPosting; // 2026-11-05: идёт проведение приёмки — опустевший список не значит «очищен»
 
     /// <summary>Накладная перенесена в приёмку (см. InvoiceImportFlow).</summary>
     public void NoteInvoiceInReceiving(NurMarketKassa.Services.InvoiceImport.InvoiceImportEntry entry)
@@ -962,7 +981,12 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         ReceivingLines.CollectionChanged += (_, _) =>
         {
             if (ReceivingLines.Count == 0)
+            {
+                // 2026-11-05 (Н-7): список очищен без проведения — накладные не «лежат в приёмке», ложного предупреждения о дубле быть не должно.
+                if (!_invoicesPosting)
+                    NurMarketKassa.Services.InvoiceImport.InvoiceImportRegistry.ForgetUnposted(_invoicesInReceiving.Select(e => e.Id).ToList());
                 _invoicesInReceiving.Clear();
+            }
         };
     }
 
@@ -1277,8 +1301,16 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             _myReceivingJobs.Add(jobId);
         // 2026-10-27 (ревью Ск-2): накладные этой приёмки считаются проведёнными (повторная загрузка того же файла предупредит). Ids берём до опустошения списка.
         var postedInvoiceIds = _invoicesInReceiving.Select(e => e.Id).ToList();
-        foreach (var line in lines)
-            ReceivingLines.Remove(line);
+        _invoicesPosting = true;
+        try
+        {
+            foreach (var line in lines)
+                ReceivingLines.Remove(line);
+        }
+        finally
+        {
+            _invoicesPosting = false;
+        }
         NurMarketKassa.Services.InvoiceImport.InvoiceImportRegistry.MarkPosted(postedInvoiceIds);
         _invoicesInReceiving.Clear();
         if (duplicate)
@@ -1424,7 +1456,8 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         }
         catch (ApiException ex)
         {
-            _prompts?.ShowError(Tr.T($"Не удалось провести ревизию: {ex.Message}", $"Ревизияны өткөрүү мүмкүн болгон жок: {ex.Message}", $"Could not post the stocktake: {ex.Message}", $"Sayım yapılamadı: {ex.Message}", $"Inventarizatsiyani o'tkazib bo'lmadi: {ex.Message}"));
+            var revFail = ServerOutageMonitor.FriendlyError(ex); // 2026-11-05 (С2-38): без сырого ex.Message
+            _prompts?.ShowError(Tr.T($"Не удалось провести ревизию: {revFail}", $"Ревизияны өткөрүү мүмкүн болгон жок: {revFail}", $"Could not post the stocktake: {revFail}", $"Sayım yapılamadı: {revFail}", $"Inventarizatsiyani o'tkazib bo'lmadi: {revFail}"));
         }
         catch (HttpRequestException)
         {
@@ -1449,6 +1482,13 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             return false;
         }
 
+        // 2026-11-03 (аудит №3, Т3-03): списание — по праву «Склад: редактирование» (владелец и администратор — всегда; сотрудник — пока сервер явно не запретил).
+        if (App.AppHost?.Services.GetService(typeof(IPermissionService)) is IPermissionService perm && !perm.HasPermission(PosPermissions.EditProducts))
+        {
+            _prompts?.ShowError(NurMarketKassa.AvaloniaHost.Views.WarehouseWindow.NoEditRightText);
+            return false;
+        }
+
         if (string.IsNullOrWhiteSpace(_writeOffProductId))
         {
             _prompts?.ShowWarning(Tr.T("Выберите товар для списания.", "Эсептен чыгаруу үчүн товар тандаңыз.", "Select a product to write off.", "Düşülecek ürünü seçin.", "Hisobdan chiqarish uchun mahsulotni tanlang."));
@@ -1469,127 +1509,66 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             return false;
         }
 
-        // Остаток перечитываем с сервера прямо сейчас, а не берём из локального кэша: кэш
-        // обновляется раз в ~2 минуты, а списание отправляется АБСОЛЮТНЫМ остатком
-        // (quantity_fact). С устаревшим кэшем это откатывало чужие продажи: касса Б продала 30
-        // (на сервере стало 70), касса А списывала 5 испорченных из кэша «100» и отправляла 95 —
-        // сервер ВЫСТАВЛЯЛ 95, возвращая 30 уже проданных единиц обратно в остаток.
-        double currentQuantity;
-        try
-        {
-            var detail = await PosApp.CatalogApi
-                .ProductsDetailAsync(_writeOffProductId, CancellationToken.None)
-                .ConfigureAwait(true);
-            if (detail is not { } el)
-            {
-                _prompts?.ShowError(Tr.T("Сервер не вернул остаток товара. Списание отменено.", "Сервер товардын калдыгын кайтарган жок. Эсептен чыгаруу жокко чыгарылды.", "The server didn't return the product's stock. Write-off canceled.", "Sunucu ürünün stok miktarını döndürmedi. Düşüm iptal edildi.", "Server mahsulot qoldig'ini qaytarmadi. Hisobdan chiqarish bekor qilindi."));
-                return false;
-            }
-
-            currentQuantity = StockSyncService.ResolveStockQuantity(el, product.MustWeigh);
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Списание: не удалось получить актуальный остаток: {ex}", "WARNING");
-            // Списание всё равно требует сервера (создание и проведение акта), поэтому без
-            // достоверного остатка безопаснее отменить операцию, чем отправить абсолютное
-            // значение, посчитанное из устаревших данных.
-            _prompts?.ShowError(Tr.T("Сервер NurCRM недоступен — актуальный остаток не получен. Списание отменено.", "NurCRM сервери жеткиликсиз — учурдагы калдык алынган жок. Эсептен чыгаруу жокко чыгарылды.", "The NurCRM server is unavailable — couldn't get the current stock. Write-off canceled.", "NurCRM sunucusu kullanılamıyor — güncel stok alınamadı. Düşüm iptal edildi.", "NurCRM serveri mavjud emas — joriy qoldiq olinmadi. Hisobdan chiqarish bekor qilindi.")); // 2026-11-01 (В-08): единая фраза о сбое сервера
-            return false;
-        }
-
-        if (WriteOffQuantity > currentQuantity)
-        {
-            _prompts?.ShowWarning(
-                Tr.T($"Списываемое количество ({WriteOffQuantity:0.###}) больше остатка ({currentQuantity:0.###}).",
-                    $"Эсептен чыгарылуучу сан ({WriteOffQuantity:0.###}) калдыктан ({currentQuantity:0.###}) көп.",
-                    $"The write-off quantity ({WriteOffQuantity:0.###}) is greater than the stock ({currentQuantity:0.###}).",
-                    $"Düşülecek miktar ({WriteOffQuantity:0.###}) stoktan ({currentQuantity:0.###}) fazla.",
-                    $"Hisobdan chiqariladigan miqdor ({WriteOffQuantity:0.###}) qoldiqdan ({currentQuantity:0.###}) ko'p."));
-            return false;
-        }
-
-        var newQuantity = Math.Max(0, currentQuantity - WriteOffQuantity);
-        // 2026-10-31: сервер принимает остаток с 2 знаками (quantity_fact "0.##") — округляем явно и говорим об этом, не блокируя списание.
-        var roundedQuantity = InventoryApiService.RoundForServer(newQuantity);
-        if (InventoryApiService.RoundingNote(newQuantity) is { } roundNote)
-        {
-            newQuantity = roundedQuantity;
-            _prompts?.ShowToast(roundNote, true);
-        }
-
+        // 2026-11-03 (аудит №3, Т3-02): списание идёт через ProductActions.ChangeStockAsync — тем же путём, что кнопка «± Остаток»: свежий остаток с сервера (не из кэша —
+        // иначе откатились бы чужие продажи), один акт на действие и запись «акт в пути» (PendingChanges): после обрыва связи на «провести» повтор сначала спросит
+        // сервер о прошлом акте и не спишет второй раз. Передний план — не дольше 8 с (ForegroundWriteAsync): запись не отменяется, окно освобождается,
+        // итог придёт фоном. Раньше: три запроса без срока (кнопки серые до 55 с), при обрыве повтор списывал дважды.
+        var productId = _writeOffProductId;
+        var productName = WriteOffProductName;
+        var qty = WriteOffQuantity;
+        var reasonText = WriteOffReason;
+        WriteOffPending = false;
         IsBusy = true;
         (WriteOffCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         try
         {
-            var items = new[] { new InventorySessionItem(_writeOffProductId, newQuantity) };
-            var note = $"Списание: {WriteOffReason} ({WriteOffQuantity:0.###})";
+            var note = $"Списание: {WriteOffReasonForServer(reasonText)} ({qty:0.###})"; // 2026-11-05 (Т3-08): ключ по-русски, не слово языка
+            var fg = await ServerAnswerWait.ForegroundWriteAsync("stock/write-off",
+                ct => ProductActions.ChangeStockAsync(productId, -qty, null, note, null, ct, historyReason: reasonText)).ConfigureAwait(true);
 
-            var sessionId = await _inventoryApi
-                .CreateSessionAsync(note, items, CancellationToken.None)
-                .ConfigureAwait(true);
-
-            if (string.IsNullOrWhiteSpace(sessionId))
+            if (fg.Pending)
             {
-                _prompts?.ShowError(Tr.T("Не удалось создать акт списания на сервере.", "Серверде эсептен чыгаруу актысын түзүү мүмкүн болгон жок.", "Could not create the write-off document on the server.", "Sunucuda düşüm tutanağı oluşturulamadı.", "Serverda hisobdan chiqarish aktini yaratib bo'lmadi."));
+                WriteOffPending = true;
+                _ = fg.Completion.ContinueWith(t => Dispatcher.UIThread.Post(() => FinishBackgroundWriteOff(t, productName)), TaskScheduler.Default);
+                ResetWriteOffForm();
+                var pendingText = Tr.T($"Акт списания «{productName}» отправлен, но сервер ещё не ответил. Не нажимайте «Списать» ещё раз: проверьте журнал списаний чуть позже — итог появится сам.",
+                    $"«{productName}» эсептен чыгаруу актысы жөнөтүлдү, бирок сервер али жооп берген жок. «Эсептен чыгаруу» баскычын кайра баспаңыз: бир аздан кийин эсептен чыгаруулар журналын текшериңиз — жыйынтык өзү чыгат.",
+                    $"The write-off document for “{productName}” was sent, but the server has not answered yet. Do not press “Write off” again: check the write-off log a little later — the result will appear on its own.",
+                    $"«{productName}» düşüm belgesi gönderildi ancak sunucu henüz yanıt vermedi. «Düş»e tekrar basmayın: biraz sonra düşüm günlüğünü kontrol edin — sonuç kendiliğinden görünür.",
+                    $"«{productName}» hisobdan chiqarish hujjati yuborildi, lekin server hali javob bermadi. «Hisobdan chiqarish»ni qayta bosmang: birozdan keyin hisobdan chiqarishlar jurnalini tekshiring — natija o'zi paydo bo'ladi.");
+                Dispatcher.UIThread.Post(() => _ = NurMarketKassa.AvaloniaHost.Views.Dialogs.PosAlertDialog.ShowAsync(null,
+                    Tr.T("Списание отправлено", "Эсептен чыгаруу жөнөтүлдү", "Write-off sent", "Düşüm gönderildi", "Hisobdan chiqarish yuborildi"), pendingText,
+                    NurMarketKassa.AvaloniaHost.Views.Dialogs.PosAlertKind.Info), DispatcherPriority.Background);
+                return true;
+            }
+
+            var result = fg.Value!;
+            if (!result.Ok)
+            {
+                _prompts?.ShowError(result.Message);
                 return false;
             }
 
-            await _inventoryApi.ApplySessionAsync(sessionId, allowNegative: false, CancellationToken.None)
-                .ConfigureAwait(true);
-
-            ApplyCountedStock(_writeOffProductId, newQuantity);
-
-            try
-            {
-                // 2026-09-23. Строка «Списания» в Z-отчёте, Telegram-сводке и выгрузке всегда
-                // показывала ноль: ShiftEventsStore.KindWriteOff читался в четырёх местах и не
-                // писался нигде. Сумму берём из каталога — по ЗАКУПОЧНОЙ цене: списание это
-                // потеря того, что товар стоил магазину, а не недополученная выручка.
-                var card = CatalogCacheService.Products
-                    .FirstOrDefault(x => string.Equals(x.Id, _writeOffProductId, StringComparison.OrdinalIgnoreCase));
-                var unitCost = card is { PurchasePrice: > 0 }
-                    ? card.PurchasePrice
-                    : LocalCartService.ParsePrice(card?.PriceLine ?? "");
-
-                // 2026-09-24: та же себестоимость пишется и в журнал — на момент списания, потому
-                // что закупочная цена потом может поменяться, а отчёт «на сколько списали» должен
-                // считаться по той, что была.
-                WriteOffHistoryStore.Append(_writeOffProductId, WriteOffProductName, WriteOffQuantity, WriteOffReason,
-                    PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId, unitCost > 0 ? unitCost : null);
-                InventoryApiService.InvalidateActsCache(); // 2026-10-27, В-2: свой акт сразу виден в списке сервера
-                LoadWriteOffHistory();
-
-                if (unitCost > 0)
-                {
-                    ShiftEventsStore.Record(
-                        ShiftEventsStore.KindWriteOff,
-                        PosApp.ActiveShiftId,
-                        ShiftEventsStore.OperationKey(_writeOffProductId),
-                        WriteOffQuantity * unitCost,
-                        WriteOffProductName);
-                }
-            }
-            catch (Exception ex)
-            {
-                PosLogger.Log($"Write-off history write failed: {ex.Message}", "WARNING");
-            }
-
-            _writeOffProductId = "";
-            WriteOffBarcode = "";
-            WriteOffProductName = "";
-            WriteOffQuantity = 1;
+            InventoryApiService.InvalidateActsCache(); // 2026-10-27, В-2: свой акт сразу виден в списке сервера
+            LoadWriteOffHistory();
+            ResetWriteOffForm();
             // 2026-10-27, аудит владельца С-11: успех — плашкой, без окна с кнопкой «Понятно».
             NurMarketKassa.AvaloniaHost.Views.SuccessToast.Show(Tr.T("Списание проведено.", "Эсептен чыгаруу аткарылды.", "Write-off posted.", "Düşüm tamamlandı.", "Hisobdan chiqarish o'tkazildi."));
             return true;
         }
-        catch (ApiException ex)
+        catch (OperationCanceledException)
         {
-            _prompts?.ShowError(Tr.T($"Не удалось провести списание: {ex.Message}", $"Эсептен чыгаруу мүмкүн болгон жок: {ex.Message}", $"Could not post the write-off: {ex.Message}", $"Düşüm yapılamadı: {ex.Message}", $"Hisobdan chiqarishni o'tkazib bo'lmadi: {ex.Message}"));
+            // Тайм-аут «провести» — акт мог пройти. Запись «акт в пути» осталась в ProductActions: повтор сначала проверит прошлый акт.
+            _prompts?.ShowError(Tr.T("Сервер не ответил вовремя — неизвестно, прошло ли списание. Нажмите «Списать» ещё раз: касса сначала проверит прошлый акт и не спишет остаток дважды.",
+                "Сервер өз убагында жооп берген жок — эсептен чыгаруу өттүбү, белгисиз. «Эсептен чыгаруу» баскычын дагы бир жолу басыңыз: касса адегенде мурунку актыны текшерет жана калдыкты эки жолу чыгарбайт.",
+                "The server did not answer in time — it is unknown whether the write-off went through. Press “Write off” again: the till will first check the previous document and will not write the stock off twice.",
+                "Sunucu zamanında yanıt vermedi — düşümün yapılıp yapılmadığı bilinmiyor. «Düş»e tekrar basın: kasa önce önceki belgeyi kontrol eder ve stoğu iki kez düşmez.",
+                "Server o'z vaqtida javob bermadi — hisobdan chiqarish o'tgani noma'lum. «Hisobdan chiqarish»ni yana bosing: kassa avval oldingi hujjatni tekshiradi va qoldiqni ikki marta chiqarmaydi."));
         }
-        catch (HttpRequestException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            _prompts?.ShowError(Tr.T("Не удалось провести списание — нет сети.", "Эсептен чыгаруу мүмкүн болгон жок — тармак жок.", "Could not post the write-off — no network.", "Düşüm yapılamadı — ağ bağlantısı yok.", "Hisobdan chiqarishni o'tkazib bo'lmadi — tarmoq yo'q."));
+            PosLogger.Log($"Списание: сбой {ex.GetType().Name}: {ex.Message}", "WARNING");
+            _prompts?.ShowError(ServerOutageMonitor.FriendlyError(ex));
         }
         finally
         {
@@ -1598,6 +1577,42 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         }
 
         return false;
+    }
+
+    /// <summary>2026-11-03 (аудит №3, Т3-02): true — последний вызов <see cref="RunWriteOffAsync"/> вернул управление, не дождавшись ответа сервера (акт отправлен, итог придёт фоном).</summary>
+    public bool WriteOffPending { get; private set; }
+
+    private void ResetWriteOffForm()
+    {
+        _writeOffProductId = "";
+        WriteOffBarcode = "";
+        WriteOffProductName = "";
+        WriteOffQuantity = 1;
+    }
+
+    /// <summary>2026-11-03 (аудит №3, Т3-02): итог списания, ответ на которое пришёл уже после срока 8 с — плашка или окно с причиной, журнал обновляется.</summary>
+    private void FinishBackgroundWriteOff(Task<ProductActions.Result> task, string productName)
+    {
+        if (task.IsCompletedSuccessfully && task.Result.Ok)
+        {
+            InventoryApiService.InvalidateActsCache();
+            LoadWriteOffHistory();
+            NurMarketKassa.AvaloniaHost.Views.SuccessToast.Show(Tr.T($"Списание «{productName}» проведено.", $"«{productName}» эсептен чыгаруу аткарылды.", $"Write-off of “{productName}” posted.", $"«{productName}» düşümü tamamlandı.", $"«{productName}» hisobdan chiqarish o'tkazildi."));
+            return;
+        }
+
+        var reason = task.IsCompletedSuccessfully
+            ? task.Result.Message
+            : Tr.T($"Ответа сервера по списанию «{productName}» нет. Проверьте журнал списаний на NurCRM; повторное списание сначала проверит прошлый акт.",
+                $"«{productName}» эсептен чыгаруу боюнча сервер жообу жок. NurCRM'деги эсептен чыгаруулар журналын текшериңиз; кайра эсептен чыгаруу адегенде мурунку актыны текшерет.",
+                $"No server answer for the write-off of “{productName}”. Check the write-off log on NurCRM; a repeated write-off will first check the previous document.",
+                $"«{productName}» düşümü için sunucu yanıtı yok. NurCRM'deki düşüm günlüğünü kontrol edin; tekrarlanan düşüm önce önceki belgeyi kontrol eder.",
+                $"«{productName}» hisobdan chiqarish bo'yicha server javobi yo'q. NurCRM'dagi hisobdan chiqarishlar jurnalini tekshiring; qayta hisobdan chiqarish avval oldingi hujjatni tekshiradi.");
+        if (!task.IsCompletedSuccessfully)
+            PosLogger.Log($"Списание «{productName}»: фоновый итог — {task.Exception?.GetBaseException().GetType().Name ?? "отмена"}.", "WARNING");
+        _ = NurMarketKassa.AvaloniaHost.Views.Dialogs.PosAlertDialog.ShowAsync(null,
+            Tr.T("Списание не проведено", "Эсептен чыгаруу өткөрүлгөн жок", "Write-off not posted", "Düşüm yapılmadı", "Hisobdan chiqarish o'tkazilmadi"), reason,
+            NurMarketKassa.AvaloniaHost.Views.Dialogs.PosAlertKind.Warning, null, info: true);
     }
 
     private static void ApplyCountedStock(string productId, double newQuantity)

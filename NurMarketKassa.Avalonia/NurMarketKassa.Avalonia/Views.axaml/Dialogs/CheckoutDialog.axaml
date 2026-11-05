@@ -778,8 +778,11 @@
                                            VerticalAlignment="Bottom"/>
                                 <TextBlock Grid.Column="2" Text="{DynamicResource csh.checkout.mixedNonCash}" Classes="pay-label"
                                            VerticalAlignment="Bottom"/>
-                                <TextBox x:Name="MixedCashBox" Grid.Column="0" Grid.Row="2" Classes="pay-amount" Text="{Binding MixedCashAmount}"/>
-                                <TextBox x:Name="MixedNonCashBox" Grid.Column="2" Grid.Row="2" Classes="pay-amount" Text="{Binding MixedNonCashAmount}"/>
+                                <!-- 2026-11-05 (Н-12, приёмка 1.17.75): явные имена для диктора — поле «Наличными» читалось как «Безналично». -->
+                                <TextBox x:Name="MixedCashBox" Grid.Column="0" Grid.Row="2" Classes="pay-amount" Text="{Binding MixedCashAmount}"
+                                         AutomationProperties.Name="{DynamicResource csh.checkout.mixedCash}"/>
+                                <TextBox x:Name="MixedNonCashBox" Grid.Column="2" Grid.Row="2" Classes="pay-amount" Text="{Binding MixedNonCashAmount}"
+                                         AutomationProperties.Name="{DynamicResource csh.checkout.mixedNonCash}"/>
                             </Grid>
 
                             <!-- Плашка остатка: «Сумма сходится» — зелёная, «Не хватает / Лишнее» — красная. -->

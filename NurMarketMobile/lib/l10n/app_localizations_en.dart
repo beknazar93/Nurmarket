@@ -7180,4 +7180,60 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get updOpenSettings => 'Open settings';
+
+  @override
+  String get prnStalled =>
+      'The connection to the printer was lost. Check whether the receipt printed before printing again.';
+
+  @override
+  String scaleNoPlu(String plu) {
+    return 'Scale label: no product with PLU $plu';
+  }
+
+  @override
+  String get scaleBindPlu => 'Pick a product and assign this PLU';
+
+  @override
+  String scaleBindAsk(String plu, String name) {
+    return 'Assign PLU $plu to \"$name\"?';
+  }
+
+  @override
+  String get scaleLabelAgain =>
+      'This label is already in the receipt. Add it again?';
+
+  @override
+  String scaleNotWeighed(String name) {
+    return 'This is a scale label, but \"$name\" is sold by piece. Add it?';
+  }
+
+  @override
+  String get scaleLayoutPick =>
+      'The label can be read in two ways — pick the product';
+
+  @override
+  String get aiSlow => 'AI is taking longer than usual…';
+
+  @override
+  String aiElapsed(int s) {
+    return '$s s elapsed';
+  }
+
+  @override
+  String get aiAskOwner => 'AI is not set up — ask the owner';
+
+  @override
+  String get prnNotPrinted => 'Receipt not printed';
+
+  @override
+  String get prnPrintAgain => 'Print again';
+
+  @override
+  String prnChecked(int n, int total) {
+    return 'Checked $n of $total';
+  }
+
+  @override
+  String get prnLocationOff =>
+      'To find a Bluetooth printer on this Android, turn on Location.';
 }

@@ -51,6 +51,11 @@ public static class PrinterPortService
                 : new PortProbeResult(false, Tr.T("○ COM не найден в системе", "○ COM системада табылган жок", "○ No COM port found in the system", "○ Sistemde COM bulunamadı", "○ Tizimda COM topilmadi"), "com");
         }
 
+        // 2026-11-05 (аудит №3, А3-04): дальше — только Windows (QueryDosDevice, очередь печати winspool). На Android/Linux набор адреса в поле
+        // «Порт принтера» («B», «BT», «USB:…» до полного адреса) падал DllNotFoundException на каждой букве и показывал окно «Ошибка».
+        if (!OperatingSystem.IsWindows())
+            return new PortProbeResult(false, Tr.T("○ Порт не распознан (примеры: BT:адрес, USB, TCP:192.168.1.50)", "○ Порт таанылган жок (мисал: BT:дарек, USB, TCP:192.168.1.50)", "○ Port not recognised (examples: BT:address, USB, TCP:192.168.1.50)", "○ Port tanınmadı (örnek: BT:adres, USB, TCP:192.168.1.50)", "○ Port tanilmadi (misol: BT:manzil, USB, TCP:192.168.1.50)"), "unknown");
+
         if (HardwarePortHelper.LooksLikeLptPort(port))
         {
             // Проверяем существование устройства через QueryDosDevice — без открытия
@@ -205,6 +210,12 @@ public static class PrinterPortService
         ArgumentNullException.ThrowIfNull(payload);
         var port = NormalizePort(rawPort);
         if (string.IsNullOrWhiteSpace(port) || payload.Length == 0)
+            return false;
+
+        // 2026-11-05 (аудит №3, А3-03): на Android фоновая проверка Bluetooth/USB сама вызывала окна разрешений Android (Bluetooth через ~90 с
+        // после входа, USB — с блокировкой порта на 30 с, чек в это время «не принимался») и подключалась к принтеру раз в 90 с впустую.
+        // Разрешения просим только по действию кассира (печать, «Проверить»); сеть (TCP) проверяется как раньше.
+        if (OperatingSystem.IsAndroid() && !NetworkPrinterAddress.IsNetworkPort(port))
             return false;
 
         var portLock = GetPortLock(port);

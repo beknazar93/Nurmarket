@@ -10,6 +10,12 @@ $bk = Join-Path $env:TEMP ("nurmarket-dbbackup-" + (Get-Date -Format 'yyyyMMdd-H
 # если за 15 с не закрылась; ждём именно завершения процессов, а не 2 с.
 $p = @(Get-Process NurMarketKassa.Avalonia -ErrorAction SilentlyContinue)
 if ($p.Count -gt 0) {
+    # 2026-11-05 (аудит №3, Р3-02): сначала тихая просьба «закройся без вопросов» (--close-quiet): CloseMainWindow показывал «Смена не закрыта» / «Сохранить и выйти?»,
+    # и через 15 с процесс убивали. Смена не закрывается. Старая версия без ключа просто покажет окно — тогда сработает CloseMainWindow ниже.
+    $oldExe = "$env:LOCALAPPDATA\NurMarketKassa\current\NurMarketKassa.Avalonia.exe"
+    if (Test-Path $oldExe) {
+        try { & $oldExe --close-quiet; & $oldExe --owner --close-quiet; $p | Wait-Process -Timeout 8 -ErrorAction SilentlyContinue } catch { }
+    }
     $p | ForEach-Object { [void]$_.CloseMainWindow() }
     $p | Wait-Process -Timeout 15 -ErrorAction SilentlyContinue
     $left = @(Get-Process NurMarketKassa.Avalonia -ErrorAction SilentlyContinue)

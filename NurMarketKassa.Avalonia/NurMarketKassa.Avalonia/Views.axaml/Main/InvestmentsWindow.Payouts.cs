@@ -55,7 +55,7 @@ public sealed partial class InvestmentsWindow
             $"Yatırım {Money0(sel.Invested)}, {sel.Investor.Date:dd.MM.yyyy} · taban — {InvestmentText.BaseTitle(sel.Investor.Terms.Base)} · koşul sürümü {sel.Investor.Terms.Version}.",
             $"Sarmoya {Money0(sel.Invested)}, {sel.Investor.Date:dd.MM.yyyy} · baza — {InvestmentText.BaseTitle(sel.Investor.Terms.Base)} · shartlar versiyasi {sel.Investor.Terms.Version}."), 13));
 
-        var rows = InvestmentText.Statement(sel, payments);
+        var rows = InvestmentText.Statement(sel, payments, R.Investors); // 2026-11-05 (И-04): «Владельцу» = чистая минус выплаты ВСЕМ инвесторам
         if (rows.Count == 0)
         {
             page.Children.Add(Soft(T("С даты вложения ещё нет ни одного месяца.", "Салым күнүнөн бери бир да ай жок.", "There is not a single month since the investment date yet.", "Yatırım tarihinden beri henüz ay yok.", "Sarmoya sanasidan beri hali bitta ham oy yo'q."), 14));
@@ -106,8 +106,9 @@ public sealed partial class InvestmentsWindow
         table.Children.Add(tot);
         page.Children.Add(Card(new ScrollViewer { Content = table, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled }));
 
-        var paid = rows.Where(x => x.Paid).Sum(x => x.ToHand);
-        var due = rows.Where(x => !x.Paid).Sum(x => x.ToHand);
+        // 2026-11-05 (И-05): «Выплачено» - сумма, отмеченная при выплате (PayMark.Amount), а не пересчитанная; разница пересчёта и отметки - «доплатить».
+        var paid = rows.Where(x => x.Paid).Sum(x => x.PaidAmount);
+        var due = rows.Where(x => !x.Paid).Sum(x => x.ToHand) + rows.Where(x => x.Paid).Sum(x => Math.Max(0m, x.PaidDiff));
         page.Children.Add(Plain(T($"Выплачено: {Money(paid)} · Начислено, но не выплачено: {Money(due)}.", $"Төлөндү: {Money(paid)} · Эсептелди, бирок төлөнгөн жок: {Money(due)}.", $"Paid: {Money(paid)} · Accrued but not paid: {Money(due)}.",
             $"Ödendi: {Money(paid)} · Tahakkuk etti ama ödenmedi: {Money(due)}.", $"To'landi: {Money(paid)} · Hisoblandi, lekin to'lanmadi: {Money(due)}."), 14, true));
         page.Children.Add(Soft(T("Чистая прибыль — из отчёта «Прибыль и деньги». Выплата за месяц не больше чистой прибыли месяца (если доля выше — она урезается, это видно в строке). Отметку «Выплачено» вы ставите сами, когда деньги переданы; она сохраняется в общих настройках компании.",
@@ -154,17 +155,19 @@ public sealed partial class InvestmentsWindow
         Cell(2, r.Base.ToString("N2", Ru));
         Cell(3, r.Carried > 0m ? r.Carried.ToString("N2", Ru) : "—", brush: "BrushTextSoft");
         Cell(4, r.Stage, left: true, brush: "BrushTextSoft");
-        Cell(5, r.Pay.ToString("N2", Ru), bold: true, sub: r.CutByCap > 0m
+        Cell(5, r.Pay.ToString("N2", Ru), bold: true, sub: r.CutByCap >= 0.01m // 2026-11-05 (И-11): «урезано −0,00» из-за округления не показываем
             ? T("урезано до чистой прибыли: −", "таза пайдага чейин кыскартылды: −", "cut to net profit: −", "net kâra kısıldı: −", "sof foydagacha qisqartirildi: −") + r.CutByCap.ToString("N2", Ru) : null);
         Cell(6, r.Tax.ToString("N2", Ru), brush: "BrushTextSoft");
         Cell(7, r.ToHand.ToString("N2", Ru), bold: true);
         Cell(8, r.Owner.ToString("N2", Ru), brush: r.Owner < 0m ? "BrushDanger" : "BrushText");
 
         // Статус: кнопка-отметка (44 px).
-        var canMark = r.Pay > 0m || r.Paid;
+        // 2026-11-05 (И-05): отмечать можно только закрытые месяцы - в идущем месяце начисление ещё растёт, а отметка зафиксировала бы сумму на сегодня.
+        var canMark = r.Paid || (r.Pay > 0m && r.MonthClosed);
         var btn = new Button
         {
-            Content = r.Paid ? T("✓ Выплачено", "✓ Төлөндү", "✓ Paid", "✓ Ödendi", "✓ To'landi") : canMark ? T("Начислено · отметить", "Эсептелди · белгилөө", "Accrued · mark paid", "Tahakkuk · işaretle", "Hisoblandi · belgilash") : "—",
+            Content = r.Paid ? T("✓ Выплачено", "✓ Төлөндү", "✓ Paid", "✓ Ödendi", "✓ To'landi") : canMark ? T("Начислено · отметить", "Эсептелди · белгилөө", "Accrued · mark paid", "Tahakkuk · işaretle", "Hisoblandi · belgilash")
+                : r.Pay > 0m ? T("Месяц идёт", "Ай уланууда", "Month in progress", "Ay sürüyor", "Oy davom etmoqda") : "—",
             MinHeight = 44, Padding = new Thickness(10, 0), CornerRadius = new CornerRadius(10), FontSize = 12.5, IsEnabled = canMark, Focusable = false,
             HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Center, HorizontalContentAlignment = HorizontalAlignment.Center,
         };
@@ -182,8 +185,19 @@ public sealed partial class InvestmentsWindow
             if (StartupCostsStore.SetPaid(inv.Investor.Id, r.MonthKey, r.ToHand, !r.Paid) is { } err)
                 _status.Text = err;
         };
-        Grid.SetColumn(btn, 9);
-        grid.Children.Add(btn);
+        if (r.Pay > 0m && !r.Paid && !r.MonthClosed)
+            ToolTip.SetTip(btn, T("Месяц ещё идёт: отметить выплату можно после его окончания.", "Ай али бүтө элек: төлөмдү ай аяктагандан кийин белгилейсиз.", "The month is still running: mark the payout after it ends.",
+                "Ay henüz bitmedi: ödemeyi ay bittikten sonra işaretleyin.", "Oy hali tugamagan: to'lovni oy tugagach belgilang."));
+        var statusCell = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Spacing = 2, Children = { btn } };
+        if (r.Paid && Math.Abs(r.PaidDiff) >= 0.01m)
+        {
+            var d = r.PaidDiff;
+            statusCell.Children.Add(Soft(d > 0m
+                ? T($"выплачено {r.PaidAmount.ToString("N2", Ru)} · доплатить {d.ToString("N2", Ru)}", $"төлөндү {r.PaidAmount.ToString("N2", Ru)} · кошумча төлөө {d.ToString("N2", Ru)}", $"paid {r.PaidAmount.ToString("N2", Ru)} · {d.ToString("N2", Ru)} left to pay", $"ödendi {r.PaidAmount.ToString("N2", Ru)} · {d.ToString("N2", Ru)} eksik", $"to'landi {r.PaidAmount.ToString("N2", Ru)} · {d.ToString("N2", Ru)} qo'shimcha to'lash")
+                : T($"выплачено {r.PaidAmount.ToString("N2", Ru)} · переплачено {(-d).ToString("N2", Ru)}", $"төлөндү {r.PaidAmount.ToString("N2", Ru)} · ашык төлөндү {(-d).ToString("N2", Ru)}", $"paid {r.PaidAmount.ToString("N2", Ru)} · overpaid {(-d).ToString("N2", Ru)}", $"ödendi {r.PaidAmount.ToString("N2", Ru)} · {(-d).ToString("N2", Ru)} fazla", $"to'landi {r.PaidAmount.ToString("N2", Ru)} · {(-d).ToString("N2", Ru)} ortiqcha"), 11));
+        }
+        Grid.SetColumn(statusCell, 9);
+        grid.Children.Add(statusCell);
         return grid;
     }
 }

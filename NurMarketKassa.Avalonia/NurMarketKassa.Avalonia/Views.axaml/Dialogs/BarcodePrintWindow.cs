@@ -1526,7 +1526,8 @@ public sealed class BarcodePrintWindow : Window
     private void PrinterCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         // 2026-10-27 (приёмка 26.10): PDF/XPS/OneNote/факс как принтер этикеток в настройках не запоминаем
-        if (_printerCombo.SelectedItem is DiscoveredPrinter p && !_init && !p.IsVirtual)
+        if (_printerCombo.SelectedItem is DiscoveredPrinter p && !_init && !p.IsVirtual
+            && !LabelPrinterSelector.IsSameAsReceiptPrinter(p.DevicePath)) // 2026-11-05 (аудит №3, С2-29): принтер чеков не запоминаем как принтер этикеток (после этого «одна кнопка» слала бы этикетки на чековый); в этом окне печать на нём остаётся доступной.
         {
             UserPreferences.Instance.LabelPrinterDevicePath = p.DevicePath;
             UserPreferences.Instance.SaveToDisk();

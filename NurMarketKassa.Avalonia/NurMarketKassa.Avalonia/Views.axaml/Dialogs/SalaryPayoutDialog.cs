@@ -66,6 +66,10 @@ public sealed class SalaryPayoutDialog : Window
     private readonly TextBlock _sourceInfo = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private bool _loaded;
     private bool _running;
+
+    /// <summary>2026-11-03 (аудит №3, Д3-01/С-08): сервер молчит 8 с, выплата отправлена и ждёт ответа в фоне — окно можно закрыть (выплату ведёт SalaryPayoutService с замком и журналом); окно закрыто — итог плашкой.</summary>
+    private bool _slowReleased;
+    private bool _windowClosed;
     private bool _done;
     private bool _paidAny;
     private bool _amountErrorHard = true;
@@ -197,7 +201,7 @@ public sealed class SalaryPayoutDialog : Window
         // обработчики и порядок — прежние, Enter «Выплатить» по-прежнему не нажимает.
         _cancel = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         _cancel.IsCancel = true;
-        _cancel.Click += (_, _) => { if (!_running) Close(); };
+        _cancel.Click += (_, _) => { if (!_running || _slowReleased) Close(); };
         _go = SectionCards.Primary(T("Выплатить", "Төлөө", "Pay out", "Öde", "To'lash"));
         _go.MinWidth = 220;
         _go.IsEnabled = false;
@@ -215,9 +219,10 @@ public sealed class SalaryPayoutDialog : Window
         Closing += (_, e) =>
         {
             // Пока расход уходит на сервер, окно не закрывается (✕/Esc) — иначе владелец не узнает, прошла ли выплата.
-            if (_running)
+            if (_running && !_slowReleased)
                 e.Cancel = true;
         };
+        Closed += (_, _) => _windowClosed = true;
     }
 
     /// <summary>«Выплачено» этого сотрудника и правило доверия (четвёртое ревью, п.9): строка в карточке, жёлтая плашка и — только
@@ -554,6 +559,12 @@ public sealed class SalaryPayoutDialog : Window
         // Защита от двойного нажатия: флаг ставится до первого await.
         if (_running || Blocked || _done || Value is not { } amount || amount <= 0 || SelectedSource is not { Cashbox: { } cashbox } source || amount > MaxAmount)
             return;
+        // 2026-11-03 (аудит №3, Д3-01/С-08): выплата этому сотруднику уже ждёт медленный сервер — вторую не отправляем.
+        if (SlowMoneyCall.IsActive("salary|" + _userId))
+        {
+            ShowMessage(SlowMoneyCall.StillRunningText, "warning");
+            return;
+        }
         // 2026-11-01 (В-01): та же проверка остатка ящика смены, что в UpdateState (кнопка могла остаться доступной до обновления).
         if (source is { Kind: SalaryPayoutService.PayoutSourceKind.Shift, Balance: { } shiftLeft } && amount > shiftLeft + 0.005)
             return;
@@ -582,10 +593,11 @@ public sealed class SalaryPayoutDialog : Window
         try
         {
             // Пятая проверка (п.3): время на категорию (15 с) и на расход (45 с) PayAsync отмеряет сам.
-            var result = await SalaryPayoutService.PayAsync(
+            // 2026-11-03 (Д3-01/С-08): ждём сервер не дольше 8 с; запрос НЕ отменяется и не задваивается (ключ тот же, замок и журнал — в сервисе), ответ дожидается.
+            var result = await SlowMoneyCall.RunAsync("salary/pay", "salary|" + _userId, t => SalaryPayoutService.PayAsync(
                 new SalaryPayoutService.PayoutRequest(key, _userId, _employee, _from, _to, amount, cashbox, _comment.Text,
                     source.Kind == SalaryPayoutService.PayoutSourceKind.Shift ? source.ShiftId : null,
-                    source.Kind == SalaryPayoutService.PayoutSourceKind.OwnerPocket), CancellationToken.None).ConfigureAwait(true);
+                    source.Kind == SalaryPayoutService.PayoutSourceKind.OwnerPocket), t), () => _slowReleased = true).ConfigureAwait(true);
             switch (result.Outcome)
             {
                 case SalaryPayoutService.PayoutOutcome.Done:
@@ -602,6 +614,9 @@ public sealed class SalaryPayoutDialog : Window
                     ShowMessage(UnknownText(amount, cashbox.Name), "warning");
                     break;
             }
+            // 2026-11-03 (Д3-01): ответ пришёл, когда окно уже закрыли (не стали ждать медленный сервер) — итог плашкой.
+            if (_slowReleased && _windowClosed && !string.IsNullOrWhiteSpace(_message.Text))
+                SuccessToast.Show(_message.Text, result.Outcome == SalaryPayoutService.PayoutOutcome.Done ? ToastKind.Success : ToastKind.Warning, null, null, sticky: result.Outcome != SalaryPayoutService.PayoutOutcome.Done);
         }
         catch (OperationCanceledException)
         {
@@ -618,6 +633,7 @@ public sealed class SalaryPayoutDialog : Window
         finally
         {
             _running = false;
+            _slowReleased = false;
             UpdateState();
         }
     }

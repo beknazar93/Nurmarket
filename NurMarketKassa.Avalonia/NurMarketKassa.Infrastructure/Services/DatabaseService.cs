@@ -659,6 +659,32 @@ public sealed class DatabaseService
                 // Файл занят антивирусом или открыт — не беда, удалим в следующий раз.
             }
         }
+
+        // 2026-11-05 (аудит №3, Н-11): копий 7, но база с каталогом на 15 тыс. товаров — сотни МБ, и 7 копий съедали гигабайты на слабом диске.
+        // Сверх числа копий — предел по общему размеру (1,5 ГБ): самые старые убираем, но две последние оставляем всегда.
+        try
+        {
+            const long maxTotalBytes = 1_500_000_000L;
+            var left = new DirectoryInfo(BackupDirectory).GetFiles("pos_local_*.db").OrderByDescending(f => f.LastWriteTimeUtc).ToList();
+            var total = left.Sum(f => f.Length);
+            for (var i = left.Count - 1; i >= 2 && total > maxTotalBytes; i--)
+            {
+                try
+                {
+                    var size = left[i].Length;
+                    left[i].Delete();
+                    total -= size;
+                }
+                catch (Exception)
+                {
+                    // занят — уберём в следующий раз
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // каталог недоступен — предел применим в следующий раз
+        }
     }
 
     /// <summary>Делает копию не чаще раза в сутки. Вызывается при старте в фоне: касса не

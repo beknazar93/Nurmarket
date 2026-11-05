@@ -139,6 +139,14 @@ const _t = <String, List<String>>{
     'There are {n} held carts. Which one — say the number (the first is the newest).',
     '{n} bekleyen fiş var. Hangisi — numarasını söyleyin (birincisi en yenisi).',
   ],
+  // 2026-11-05 (аудит №3, М4-01/02): чек оплачивается — команды ИИ его не меняют
+  'cartPaying': [
+    'Чек сейчас оплачивается — подождите, пока оплата закончится, и повторите.',
+    'Чек азыр төлөнүүдө — төлөм бүткөнчө күтүп, кайра айтыңыз.',
+    "Chek hozir to'lanmoqda — to'lov tugaguncha kuting va qayta ayting.",
+    'The cart is being paid right now — wait for the payment to finish and ask again.',
+    'Fiş şu anda ödeniyor — ödeme bitene kadar bekleyin ve tekrar söyleyin.',
+  ],
   'cartNotEmpty': [
     'В чеке уже есть товары — сначала очистите чек или отложите его.',
     'Чекте товарлар бар — адегенде чекти тазалаңыз же кое туруңуз.',

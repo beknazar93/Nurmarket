@@ -127,7 +127,7 @@ public partial class MainWindow
         using var wait = new NurMarketKassa.AvaloniaHost.Services.ServerWaitIndicator(text => _viewModel.Basket.CartMessage = text ?? "");
         var saleId = sale.SaleId;
         var serverTask = wait.RunAsync("pos/sales/get", ct => App.SalesApi.PosSaleGetAsync(saleId, ct));
-        await Task.WhenAny(serverTask, Task.Delay(TimeSpan.FromMilliseconds(1500))).ConfigureAwait(true);
+        await Task.WhenAny(serverTask, Task.Delay(TimeSpan.FromMilliseconds(300))).ConfigureAwait(true); // 2026-11-05 (С-05): окно «Чек» открывается за < 0,5 с (раньше ждало до 1,5 с), чек сервера заменяет бумагу на месте
 
         if (serverTask.IsCompleted)
         {

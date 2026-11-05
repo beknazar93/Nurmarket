@@ -72,8 +72,11 @@ void main() {
       }
       expect(cart.total, greaterThanOrEqualTo(0));
       final sumLines = cart.lines.fold(0.0, (s, l) => roundMoney(s + l.total));
-      expect((cart.total - roundMoney(sumLines - cart.orderDiscount)).abs(), lessThan(0.011));
-      expect(cart.orderDiscount, lessThanOrEqualTo(sumLines + 0.001));
+      // 2026-11-05: подытог по правилу сервера (весовые вниз, остальное вверх, 1.18.16) не равен сумме округлённых строк: каждая строка
+      // отличается от точной не больше чем на полкопейки, подытог — не больше чем на копейку.
+      final tol = 0.005 * cart.lines.length + 0.011;
+      expect((cart.total - roundMoney(sumLines - cart.orderDiscount)).abs(), lessThan(tol));
+      expect(cart.orderDiscount, lessThanOrEqualTo(sumLines + tol));
     }
   });
 

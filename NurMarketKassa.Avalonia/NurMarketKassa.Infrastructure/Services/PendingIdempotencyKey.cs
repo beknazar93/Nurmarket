@@ -25,6 +25,9 @@ public sealed class PendingIdempotencyKey
 
     private bool IsAlive => _key != null && (_lifetime is not { } life || DateTime.UtcNow - _createdUtc <= life);
 
+    /// <summary>2026-11-03 (аудит №3, Д3-05): ключ жив и относится к операции с этой подписью (Get вернул бы тот же ключ). Ничего не меняет.</summary>
+    public bool Matches(string signature) => IsAlive && string.Equals(_signature, signature, StringComparison.Ordinal);
+
     /// <summary>Ключ для операции с этой подписью: прежний, если прошлая попытка той же операции осталась без ответа.</summary>
     public string Get(string signature)
     {

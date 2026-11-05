@@ -32,6 +32,7 @@ import '../../../features/stock/stock_repository.dart';
 import '../../api/api_client.dart';
 import '../../api/session_store.dart';
 import '../../db/database.dart';
+import '../../language_pack.dart';
 import '../../providers.dart';
 import '../../util/audit.dart';
 import '../live_tools.dart';
@@ -124,8 +125,18 @@ abstract interface class PendingOpsSource {
   Future<int> pendingOpsFor(String productId);
 }
 
+/// 2026-11-05 (аудит №3, М4-01/02): необязательная возможность источника — чек заморожен (идёт оплата). Фейки без неё считаются
+/// «не заморожен».
+abstract interface class CartFreezeSource {
+  bool get cartFrozen;
+}
+
+/// Идёт оплата — команды ИИ не трогают чек и честно отвечают «подождите» (ничего не пишем в журналы).
+// 2026-11-05: host не повышается до CartFreezeSource (тип не подтип ActionHost) — явное приведение после проверки.
+bool _cartFrozen(ActionHost host) => host is CartFreezeSource && (host as CartFreezeSource).cartFrozen;
+
 /// Рабочая реализация: репозитории и провайдеры приложения. Не проверяется юнит-тестами сети (живая проверка — В9).
-class RepoActionHost implements ActionHost, ScoredProductSearch, PendingOpsSource {
+class RepoActionHost implements ActionHost, ScoredProductSearch, PendingOpsSource, CartFreezeSource {
   final AppDatabase db;
   final ApiClient api;
   final AdminRepository admin;
@@ -214,6 +225,8 @@ class RepoActionHost implements ActionHost, ScoredProductSearch, PendingOpsSourc
 
   @override
   Cart get cart => getCart();
+  @override
+  bool get cartFrozen => cartController().frozen;
   @override
   void restoreCart(Cart cart) => cartController().restore(cart);
   @override
@@ -802,10 +815,13 @@ Future<ToolResult> _cartRun(ActionKit k, ToolRequest r) async {
   final lang = env.lang;
   final host = k.host;
   final op = _s(r.args['op']);
+  // 2026-11-05 (аудит №3, М4-01/02): идёт оплата — чек заморожен; не отвечаем «сделано» и ничего не пишем в журнал удалений
+  if (_cartFrozen(host)) return _fail(env, 'cartPaying');
   final before = cloneCart(host.cart);
 
   /// Откат снимком; если чек менялся после ИИ (вручную) — не затираем чужую правку.
   Future<UndoResult> restoreTo(String afterSig, Cart snapshot) async {
+    if (_cartFrozen(host)) return UndoResult.conflict;
     if (cartSignature(host.cart) != afterSig) return UndoResult.conflict;
     host.restoreCart(cloneCart(snapshot));
     return UndoResult.ok;
@@ -834,6 +850,7 @@ Future<ToolResult> _cartRun(ActionKit k, ToolRequest r) async {
         if (pp.stop != null) return pp.stop!;
         final p = pp.product!;
         if (!p.isWeight && qty != qty.roundToDouble()) return _fail(env, 'qtyWhole');
+        if (_cartFrozen(host)) return _fail(env, 'cartPaying'); // 2026-11-05: оплата началась, пока искали товар
         host.addToCart(p, qty);
         final line = host.cart.lines.lastWhere((l) => l.productId == p.id, orElse: () => host.cart.lines.last);
         final say = am('added', lang, {
@@ -938,6 +955,7 @@ AssistantTool _holdCart(ActionKit k) => AssistantTool(
     final lang = env.lang;
     final host = k.host;
     final op = _s(r.args['op']);
+    if (_cartFrozen(host)) return _fail(env, 'cartPaying'); // 2026-11-05 (М4-01): идёт оплата — чек не откладываем и не подменяем
     if (op == 'hold') {
       if (host.cart.isEmpty) return _fail(env, 'emptyCart');
       final snap = cloneCart(host.cart);
@@ -954,7 +972,7 @@ AssistantTool _holdCart(ActionKit k) => AssistantTool(
         label: (l) => tr5(l, 'отложила чек', 'чекти кое турдум', 'chekni qoldirdim', 'held the cart', 'fişi askıya aldım'),
         data: {'op': 'hold', 'lines': snap.count, 'total': snap.total},
         undoFn: (_) async {
-          if (!host.cart.isEmpty) return UndoResult.conflict;
+          if (_cartFrozen(host) || !host.cart.isEmpty) return UndoResult.conflict;
           if (heldId != null) await host.removeHeld(heldId);
           host.restoreCart(cloneCart(snap));
           return UndoResult.ok;
@@ -995,7 +1013,7 @@ AssistantTool _holdCart(ActionKit k) => AssistantTool(
         label: (l) => tr5(l, 'вернула отложенный чек', 'кечиктирилген чекти кайтардым', 'qoldirilgan chekni qaytardim', 'restored a held cart', 'bekleyen fişi getirdim'),
         data: {'op': 'restore', 'lines': target.cart.count, 'total': target.cart.total},
         undoFn: (_) async {
-          if (cartSignature(host.cart) != sig) return UndoResult.conflict;
+          if (_cartFrozen(host) || cartSignature(host.cart) != sig) return UndoResult.conflict;
           await host.holdCart(cloneCart(target.cart), target.note);
           host.restoreCart(const Cart());
           return UndoResult.ok;
@@ -2207,6 +2225,15 @@ AssistantTool _uiSettings(ActionKit k) => AssistantTool(
     final theme = _s(r.args['theme']);
     final language = _s(r.args['language']);
     if (theme.isEmpty && language.isEmpty) return _fail(env, 'nothingToChange');
+    // 2026-11-05 (языковой пакет): en/tr/uz без пакета «Язык» не включаем — честный ответ, язык не меняется
+    if (language.isNotEmpty && const {'ru', 'ky', 'uz', 'en', 'tr'}.contains(language) && !LanguagePackGate.isAvailable(language)) {
+      return ToolResult(
+        ToolStatus.denied,
+        tr5(lang, 'Языковой пакет не подключён — доступны русский и кыргызский.', 'Тил топтому туташтырылган эмес — орусча жана кыргызча гана бар.',
+            "Til paketi ulanmagan — faqat rus va qirg'iz tillari mavjud.", 'The language pack is not connected — only Russian and Kyrgyz are available.',
+            'Dil paketi bağlı değil — yalnızca Rusça ve Kırgızca kullanılabilir.'),
+      );
+    }
     final prevTheme = k.host.themeMode;
     final prevLang = k.host.language;
     final says = <String>[];

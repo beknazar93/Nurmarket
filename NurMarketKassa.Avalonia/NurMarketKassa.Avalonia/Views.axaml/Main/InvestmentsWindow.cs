@@ -64,7 +64,9 @@ public sealed partial class InvestmentsWindow : Window, IOwnerSectionRefresh
         _scroll.Content = _body;
         _scroll.HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
         _scroll.VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto;
-        _scroll.Padding = new Thickness(0, 0, 14, 0);
+        // 2026-11-05 (И-16, приёмка 1.17.75): отступ под полосу прокрутки был Padding у ScrollViewer — «жадные» плитки (KpiTileGrid) мерились по полной
+        // ширине и вылезали за правый край на 14 px (рамка 5-й плитки и правых карточек обрезана). Тот же отступ — Margin содержимого: считается верно.
+        _body.Margin = new Thickness(0, 0, 14, 0);
         Grid.SetRow(_scroll, 1);
         root.Children.Add(_scroll);
         Content = root;
@@ -512,8 +514,9 @@ public sealed partial class InvestmentsWindow : Window, IOwnerSectionRefresh
     private static string Short(decimal v)
     {
         var a = Math.Abs(v);
-        var s = a >= 1_000_000m ? (a / 1_000_000m).ToString("0.#", Ru) + " " + T("млн", "млн", "M", "mn", "mln")
-            : a >= 1000m ? Math.Round(a / 1000m).ToString("0", Ru) + T("к", "м", "k", "b", "ming") : a.ToString("0", Ru);
+        // 2026-11-05 (И-19): сначала округляем, потом выбираем «млн/к» — 999 600 было «1000к», стало «1 млн».
+        var s = a >= 1_000_000m || Math.Round(a / 1000m) >= 1000m ? (a / 1_000_000m).ToString("0.#", Ru) + " " + T("млн", "млн", "M", "mn", "mln")
+            : Math.Round(a) >= 1000m ? Math.Round(a / 1000m).ToString("0", Ru) + T("к", "м", "k", "b", "ming") : a.ToString("0", Ru);
         return (v < 0m ? "−" : "") + s;
     }
 

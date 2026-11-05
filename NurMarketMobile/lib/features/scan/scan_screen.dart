@@ -16,6 +16,7 @@ import '../../l10n/app_localizations.dart';
 import '../sale/sale_screen.dart';
 import 'barcode_lookup.dart';
 import 'code_lookup.dart';
+import 'scale_label_flow.dart';
 import 'live_shot.dart';
 import 'shot_flow.dart';
 import '../../core/util/beep.dart';
@@ -60,6 +61,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
 
   /// 2026-10-22 (аудит С-1): повтор скана — по каждому коду отдельно ([ScanRepeat]).
   late final _repeat = ScanRepeat(receiving: widget.returnCodes);
+
+  /// 2026-11-05 (М5-13): весовые этикетки, уже добавленные в текущий чек, — та же этикетка сама второй раз не добавляется.
+  final _labels = ScaleLabelMemory();
 
   /// Идёт разбор кода (окно размера одежды, вопрос «добавить товар?») — новые коды не берём (аудит С-3).
   bool _processing = false;
@@ -162,7 +166,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       return;
     }
     final now = DateTime.now();
-    _repeat.receiving = widget.returnCodes || _mode != ScanMode.sale;
+    // 2026-11-05 (М5-13): код весовой этикетки из чека — снова только после того, как этикетка ушла из кадра (раньше та же
+    // этикетка в кадре ложилась в чек второй раз через 1,5 с)
+    _labels.syncWithCart(cartEmpty: ref.read(cartProvider).isEmpty);
+    _repeat.receiving = widget.returnCodes || _mode != ScanMode.sale || _labels.contains(code);
     if (!_repeat.isNew(code, now) || _processing || _asking) return;
     _repeat.counted(code, now);
     _processing = true;
@@ -203,12 +210,13 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
   Future<void> _setupKassa() => _handOver(() => Navigator.of(context).push<void>(MaterialPageRoute(builder: (_) => const KassaLinkScreen())));
 
   Future<void> _handleCode(String code) async {
-    HapticFeedback.mediumImpact();
-    // 2026-10-22 (мобилка, админ): бип через Android (слышен и при выключенных звуках касаний), было SystemSound.click.
-    Beep.ok();
     final db = ref.read(databaseProvider);
 
     if (widget.returnCodes) {
+      // 2026-11-05 (М5-18): в приёмке код только записывается, поиска «не найден» нет — сигнал сразу
+      HapticFeedback.mediumImpact();
+      // 2026-10-22 (мобилка, админ): бип через Android (слышен и при выключенных звуках касаний), было SystemSound.click.
+      Beep.ok();
       _received.add(code);
       _frame.currentState?.success();
       // приёмка: этикетка весов — не товар поставки
@@ -222,32 +230,100 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     // 2026-10-22 (аудит С-4): незнакомый код — сначала сервер (2 с), как касса; без связи — не предлагать дубль
     final hit = await CodeLookup.find(db, ref.read(apiProvider), code);
     if (!mounted) return;
-    final p = hit.product;
+    var p = hit.product;
+    var qty = hit.qty;
     if (p == null) {
+      // 2026-11-05 (М5-18): один сигнал после поиска — «не найден» = только ошибка (раньше сначала звучал «бип ОК»)
       _frame.currentState?.fail();
       HapticFeedback.heavyImpact();
       Beep.error();
       if (hit.unavailable) {
         toast(context, context.l.notFoundOffline(code), error: true);
+      } else if (await CodeLookup.isScaleLabel(db, code)) {
+        // 2026-11-05 (М5-12): весовая этикетка с неизвестным PLU — не «Добавить товар со штрихкодом этикетки», а привязка PLU
+        await _scaleLabelMiss(code);
+      } else if (!_confirmedTwice(code)) {
+        // 2026-11-05 (М5-19): «Добавить товар» — только после второго одинакового прочтения; первое — лишь «не найден»
+        toast(context, context.l.barcodeNotFound(code), error: true);
       } else {
         await _offerNewProduct(code);
       }
       return;
     }
+    // 2026-11-05 (М5-14): раскладка этикеток не задана, и два прочтения нашли разные товары — выбор, а не молчаливое угадывание
+    final label = parseWeightLabel(code);
+    if (qty != null && label != null && ScaleRules.current.layout.isEmpty && label.candidates.length > 1) {
+      final hits = await db.weightLabelHits(code);
+      if (!mounted) return;
+      if (hits.length > 1 && hits.any((h) => h.product.id == p!.id)) {
+        final pick = await pickLabelReading(context, hits);
+        if (pick == null || !mounted) return;
+        p = pick.product;
+        qty = pick.qty;
+      }
+    }
+    // 2026-11-05 (М5-13): та же весовая этикетка уже в чеке — спросить, а не класть вторую строку молча
+    final isLabel = qty != null && label != null && AppDatabase.isWeighed(p);
+    final auto = _mode == ScanMode.sale && _continuous && (!p.isWeight || qty != null);
+    if (isLabel && auto && _labels.contains(code) && !await confirmLabelAgain(context)) return;
+    if (!mounted) return;
+    // 2026-11-05 (М5-18): сигнал «найден» — после поиска
+    HapticFeedback.mediumImpact();
+    Beep.ok();
     _frame.currentState?.success();
+    final found = p;
+    final foundQty = qty;
     setState(() {
-      _found = p;
+      _found = found;
       _foundCode = code;
-      _foundQty = hit.qty;
-      _qty = hit.qty ?? 1;
+      _foundQty = foundQty;
+      _qty = foundQty ?? 1;
     });
-    if (_mode == ScanMode.sale && _continuous && (!p.isWeight || hit.qty != null)) {
+    if (auto) {
       // Весовая этикетка несёт вес — добавляем сразу, без вопроса «сколько кг».
-      await addProduct(context, ref, p, qty: hit.qty, code: code); // 2026-10-31: штрихкод размера — сразу нужный размер
-      _popups.currentState?.add(hit.qty == null ? '+1 ${p.name}' : '+${qtyText(hit.qty!)} ${p.unit} ${p.name}');
+      final before = ref.read(cartProvider).quantity;
+      await addProduct(context, ref, found, qty: foundQty, code: code); // 2026-10-31: штрихкод размера — сразу нужный размер
+      if (isLabel && mounted && ref.read(cartProvider).quantity != before) _labels.add(code);
+      _popups.currentState?.add(foundQty == null ? '+1 ${found.name}' : '+${qtyText(foundQty)} ${found.unit} ${found.name}');
     } else if (_mode == ScanMode.price) {
       _popups.currentState?.add('${money(p.price)} ${context.l.som}', color: T.navy);
     }
+  }
+
+  /// 2026-11-05 (М5-19): неизвестный код видели в последние [_confirmWindow] — значит, это второе одинаковое прочтение. Одна неверно
+  /// прочитанная камерой цифра иначе заводила бы товар с чужим штрихкодом.
+  static const _confirmWindow = Duration(seconds: 4);
+  final _unknownSeen = <String, DateTime>{};
+
+  bool _confirmedTwice(String code) {
+    final now = DateTime.now();
+    _unknownSeen.removeWhere((_, t) => now.difference(t) > _confirmWindow);
+    final prev = _unknownSeen[code];
+    if (prev != null) {
+      _unknownSeen.remove(code);
+      return true;
+    }
+    _unknownSeen[code] = now;
+    return false;
+  }
+
+  /// 2026-11-05 (М5-12): весовая этикетка, товара среди весовых нет. Штучный товар с таким кодом — вопрос «это весовая этикетка, а товар
+  /// штучный — добавить?»; иначе «PLU не найден» с привязкой PLU к выбранному товару (с правом на товары).
+  Future<void> _scaleLabelMiss(String code) async {
+    final db = ref.read(databaseProvider);
+    final piece = (await db.weightLabelHits(code, includePiece: true)).firstOrNull;
+    if (!mounted) return;
+    final ({Product product, double? qty})? chosen;
+    if (piece != null) {
+      chosen = await confirmPieceProduct(context, piece.product) ? (product: piece.product, qty: null) : null;
+    } else {
+      chosen = await offerUnknownPlu(context, ref, code);
+    }
+    if (chosen != null && mounted && _mode == ScanMode.sale) {
+      await addProduct(context, ref, chosen.product, qty: chosen.qty);
+      _popups.currentState?.add(chosen.qty == null ? '+1 ${chosen.product.name}' : '+${qtyText(chosen.qty!)} ${chosen.product.unit} ${chosen.product.name}');
+    }
+    _repeat.seen(code, DateTime.now());
   }
 
   /// 13.10, владелец: «в сканере, если товар не найден, нужно предложить добавить товар». Камера на время вопроса

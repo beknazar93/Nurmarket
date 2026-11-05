@@ -6,6 +6,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/session_store.dart';
 import '../../core/sync/account_switch.dart';
 import '../../core/sync/outbox_meta.dart';
+import '../../core/language_pack.dart';
 import '../../core/providers.dart';
 import '../../core/theme/brand_mark.dart';
 import '../../core/ui/account_banners.dart';
@@ -50,9 +51,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final e in _languages.entries)
+              // 2026-11-05 (языковой пакет): en/tr/uz без пакета «Язык» заблокированы с подсказкой
               ListTile(
+                enabled: LanguagePackGate.isAvailable(e.key),
                 title: Text(e.value),
-                trailing: e.key == current ? const Icon(Icons.check_rounded) : null,
+                subtitle: LanguagePackGate.isAvailable(e.key) ? null : Text(languagePackMissingText(c)),
+                trailing: !LanguagePackGate.isAvailable(e.key) ? const Icon(Icons.lock_outline_rounded) : (e.key == current ? const Icon(Icons.check_rounded) : null),
                 onTap: () => Navigator.pop(c, e.key),
               ),
           ],

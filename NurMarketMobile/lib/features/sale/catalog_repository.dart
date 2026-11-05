@@ -253,6 +253,7 @@ class CatalogRepository {
     var cursor = await db.getSetting(feedCursorKey) ?? '';
     var changed = 0;
     var missing = false;
+    var namesChanged = false; // 2026-11-05 (М5-25)
     for (var page = 0; page < maxFeedPages; page++) {
       dynamic data;
       // ETag прошлого ответа по этому же курсору → If-None-Match (без W/): ничего нового — 304, без разбора и записи
@@ -291,6 +292,7 @@ class CatalogRepository {
         final r = await _applyFeed(parsed);
         changed += r.changed;
         missing |= r.missing;
+        namesChanged |= r.names;
       }
       final requested = cursor;
       final moved = parsed.cursor.isNotEmpty && parsed.cursor != cursor;
@@ -304,6 +306,7 @@ class CatalogRepository {
     }
     await _markChecked();
     if (changed > 0) await db.setSetting('catalog.syncedAt', DateTime.now().toIso8601String());
+    if (namesChanged) await db.setSetting('catalog.namesAt', DateTime.now().toIso8601String()); // 2026-11-05 (М5-25)
     if (missing) {
       // в ленте товар без карточки, которого нет на телефоне — нужна полная загрузка (не чаще раза в 5 минут)
       final fullAt = DateTime.tryParse(await db.getSetting(fullAtKey) ?? '');
@@ -314,7 +317,7 @@ class CatalogRepository {
 
   /// Применить страницу ленты: карточка с названием — как при полной загрузке, но поля, которых в ней нет, остаются прежними;
   /// без названия — только присланные цена, опт, остаток, минимум. Остаток не отправленных продаж вычитается заново.
-  Future<({int changed, bool missing})> _applyFeed(FeedPage page) async {
+  Future<({int changed, bool missing, bool names})> _applyFeed(FeedPage page) async {
     final ids = <String>{for (final m in page.items) ?(str(m, 'id') ?? str(m, 'product_id'))};
     final old = await db.productsByIds(ids);
     final inserts = <ProductsCompanion>[];
@@ -322,6 +325,8 @@ class CatalogRepository {
     final packs = <String, PiecePack?>{};
     final touched = <String>{};
     var missing = false;
+    // 2026-11-05 (М5-25): изменились ли названия/штрихкоды/артикулы/категории или состав товаров — только тогда индекс умной камеры перестраивается
+    var names = page.deleted.isNotEmpty;
     for (final m in page.items) {
       final id = str(m, 'id') ?? str(m, 'product_id');
       if (id == null) continue;
@@ -332,8 +337,14 @@ class CatalogRepository {
         if (row == null) continue;
         if (prev == null) {
           inserts.add(row);
+          names = true;
         } else {
           updates.add(mergeCard(m, row, prev));
+          names |= row.name.value != prev.name ||
+              (_hasAny(m, const ['barcode', 'ean']) && row.barcode.value != prev.barcode) ||
+              (m.containsKey('alternate_barcodes') && row.altBarcodes.value != prev.altBarcodes) ||
+              (_hasAny(m, const ['sku', 'article', 'code']) && row.sku.value != prev.sku) ||
+              (_hasAny(m, const ['category', 'category_name']) && row.category.value != prev.category);
         }
         if (m.containsKey('packages')) packs[id] = str(m, 'kind') == 'bundle' ? null : PiecePack.first(m['packages']);
       } else if (prev == null) {
@@ -381,7 +392,7 @@ class CatalogRepository {
     }
     // остаток пришёл с сервера, а свои неотправленные продажи и приходы он ещё не знает — только для изменённых товаров
     if (touched.isNotEmpty) await _reapplyPending(only: touched);
-    return (changed: touched.length + page.deleted.length, missing: missing);
+    return (changed: touched.length + page.deleted.length, missing: missing, names: names);
   }
 
   static bool _hasAny(Map<String, dynamic> m, List<String> keys) => keys.any(m.containsKey);
@@ -408,6 +419,7 @@ class CatalogRepository {
       altBarcodes: has(const ['alternate_barcodes']) ? row.altBarcodes : const Value.absent(),
       sku: has(const ['sku', 'article', 'code']) ? row.sku : const Value.absent(),
       plu: has(const ['plu']) ? row.plu : const Value.absent(),
+      productCode: has(const ['code']) ? row.productCode : const Value.absent(), // 2026-11-05 (М5-16)
       unit: has(const ['unit', 'unit_display']) ? row.unit : const Value.absent(),
       isWeight: has(const ['unit', 'unit_display', 'is_weight', 'is_wait', 'is_weigh', 'is_weight_product', 'sale_as_weight', 'sells_by_weight'])
           ? row.isWeight
@@ -680,7 +692,10 @@ class CatalogRepository {
         Audit.log('sync', 'Каталог: загружено ${haveNow()} из ${total ?? '?'}${rejected > 0 ? ' (без названия: $rejected)' : ''} — загрузка не завершена');
       }
     }
-    if (written > 0) await db.setSetting('catalog.syncedAt', DateTime.now().toIso8601String());
+    if (written > 0) {
+      await db.setSetting('catalog.syncedAt', DateTime.now().toIso8601String());
+      await db.setSetting('catalog.namesAt', DateTime.now().toIso8601String()); // 2026-11-05 (М5-25): полная загрузка — индекс камеры заново
+    }
     progress.value = const CatalogProgress();
     return written;
   }
@@ -768,6 +783,8 @@ class CatalogRepository {
       altBarcodes: Value(alt.join('\n')),
       sku: Value(str(p, 'sku') ?? str(p, 'article') ?? str(p, 'code')),
       plu: Value(str(p, 'plu')),
+      // 2026-11-05 (М5-16): «Код товара» отдельно от артикула (раньше терялся, когда заполнен артикул)
+      productCode: Value(str(p, 'code')),
       unit: Value(unit.isEmpty ? 'шт' : unit),
       isWeight: Value(isWeight),
       // 2026-11-01: чистый is_weight сервера отдельно от единицы кг/г; поля в ответе нет — null (весовой по isWeight, как раньше)

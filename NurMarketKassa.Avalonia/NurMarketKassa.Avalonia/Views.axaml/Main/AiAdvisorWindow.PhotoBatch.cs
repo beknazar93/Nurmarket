@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
@@ -22,6 +23,57 @@ public sealed partial class AiAdvisorWindow
     private bool _photoRunning;
     private int _photoGen;
     private int _photoPending;
+
+    // 2026-11-05 (аудит №3, Р3-01): лента фото пачек росла без предела (режим «по очереди» — бесконечно): каждая карточка держит декодированную
+    // картинку. Теперь помним плитки по пачкам и убираем самые старые, когда карточек больше MaxPhotoCards; их картинки освобождаются (Dispose).
+    private const int MaxPhotoCards = 150;
+    private readonly List<(Control Strip, Control? All, int Cards)> _photoStrips = new();
+
+    private static void ReleaseImages(Control root)
+    {
+        try
+        {
+            foreach (var image in root.GetVisualDescendants().OfType<Image>().ToList())
+            {
+                var bitmap = image.Source as IDisposable;
+                image.Source = null;
+                bitmap?.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"ИИ-советник: картинки ленты не освобождены ({ex.Message}).", "DEBUG");
+        }
+    }
+
+    /// <summary>Убирает из ленты самые старые плитки фото, если их больше MaxPhotoCards (самую свежую пачку не трогаем).</summary>
+    private void TrimPhotoFeed()
+    {
+        var total = _photoStrips.Sum(x => x.Cards);
+        var removed = 0;
+        while (total > MaxPhotoCards && _photoStrips.Count > 1)
+        {
+            var oldest = _photoStrips[0];
+            _photoStrips.RemoveAt(0);
+            total -= oldest.Cards;
+            ReleaseImages(oldest.Strip);
+            _messages.Children.Remove(oldest.Strip);
+            if (oldest.All is not null)
+                _messages.Children.Remove(oldest.All);
+            removed += oldest.Cards;
+        }
+        if (removed > 0)
+            PosLogger.Log($"ИИ-советник: из ленты фото убрано старых плиток: {removed} (лимит {MaxPhotoCards}).", "INFO");
+    }
+
+    /// <summary>Закрытие «Нур Советника»: картинки ленты и кэш скачанных картинок освобождаются.</summary>
+    private void ReleasePhotoMemory()
+    {
+        foreach (var item in _photoStrips)
+            ReleaseImages(item.Strip);
+        _photoStrips.Clear();
+        ProductPhotoFinder.ClearRecentImages();
+    }
 
     /// <summary>Пауза между пачками в режиме «по очереди».</summary>
     private static readonly TimeSpan PhotoAutoPause = TimeSpan.FromSeconds(7);
@@ -249,8 +301,10 @@ public sealed partial class AiAdvisorWindow
         RemovePhotoControls();
         _photoPending = r.Remaining;
         var explicitMode = _photoExplicit is not null;
-        var good = r.Found.Where(f => !f.Result.Doubtful).Select(f => f.Result).ToList();
-        var weak = r.Found.Where(f => f.Result.Doubtful).Select(f => f.Result).ToList();
+        // 2026-11-05 (приёмка 1.17.75, С-2): одна и та же картинка у разных товаров пачки — скорее всего чужой снимок; такие идут в «проверьте».
+        var sameImage = r.Found.GroupBy(f => f.Result.ImageUrl).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
+        var good = r.Found.Where(f => !f.Result.Doubtful && !sameImage.Contains(f.Result.ImageUrl)).Select(f => f.Result).ToList();
+        var weak = r.Found.Where(f => f.Result.Doubtful || sameImage.Contains(f.Result.ImageUrl)).Select(f => f.Result with { Doubtful = true }).ToList();
         if (!explicitMode && r.Processed > 0)
         {
             var header = new TextBlock
@@ -330,6 +384,7 @@ public sealed partial class AiAdvisorWindow
             _photoStatus.Text = explicitMode ? line : line + "\n" + PhotoCountsLine(0);
         }
         AttachPhotoControls(_photoRunning);
+        TrimPhotoFeed();
         ScrollToEnd();
     }
 
@@ -337,6 +392,7 @@ public sealed partial class AiAdvisorWindow
     private void AddPhotoStrip(List<ProductPhotoFinder.Candidate> items, bool withAll)
     {
         var strip = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(4, 0, 0, 0) };
+        Control? allButton = null;
         var setButtons = new List<(Button Button, ProductPhotoFinder.Candidate Candidate)>();
         foreach (var candidate in items)
         {
@@ -393,7 +449,9 @@ public sealed partial class AiAdvisorWindow
                     await ApplyPhotoAsync(button, candidate).ConfigureAwait(true);
             };
             _messages.Children.Add(all);
+            allButton = all;
         }
         _messages.Children.Add(strip);
+        _photoStrips.Add((strip, allButton, items.Count));
     }
 }

@@ -25,8 +25,15 @@ class CodeLookup {
   }) async {
     final local = await db.productByScan(raw, allowWeightLabel: allowWeightLabel);
     if (local != null) return (product: local.product, qty: local.qty, unavailable: false);
+    // 2026-11-05 (М5-12): код устроен как весовая этикетка (13 цифр на «2», верная контрольная цифра), а товара среди весовых нет —
+    // на сервере её штрихкода не найдётся (этикетка каждый раз с новым весом), ждать 2 с незачем. Сканер скажет «PLU не найден».
+    if (allowWeightLabel && await isScaleLabel(db, raw)) return (product: null, qty: null, unavailable: false);
     return findOnServer(db, api, raw);
   }
+
+  /// 2026-11-05 (М5-12): это весовая этикетка по правилам компании (в «Одежде» — только с явно записанным префиксом).
+  static Future<bool> isScaleLabel(AppDatabase db, String raw) async =>
+      parseWeightLabel(normalizeCode(raw), clothing: (await db.getSetting('shop.clothing')) == '1') != null;
 
   /// 2026-10-30 (владелец: «даже если есть товар, приёмка пишет "неизвестный штрихкод"»): коды, которых сервер только что не знал, —
   /// запоминаем на [missTtl], чтобы пачка сканов одного и того же кода не била сервер запросами. Товар, найденный сервером, кладётся

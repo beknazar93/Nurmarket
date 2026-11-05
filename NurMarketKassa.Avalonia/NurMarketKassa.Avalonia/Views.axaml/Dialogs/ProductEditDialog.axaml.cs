@@ -2006,6 +2006,54 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         Barcode = BarcodeGenerator.GenerateForCatalog();
     }
 
+    /// <summary>2026-11-05 (С2-34): текст ошибки, если новый/изменённый штрихкод уже занят другим товаром каталога или повторён в карточке; null — всё в порядке.</summary>
+    private string? FindBarcodeConflict()
+    {
+        string Norm(string? v) => (v ?? "").Trim().ToLowerInvariant();
+        var oldCodes = new HashSet<string>();
+        if (_existing is not null)
+        {
+            oldCodes.Add(Norm(_existing.Barcode));
+            foreach (var v in _existing.AlternateBarcodeVariants ?? new List<AlternateBarcodeVariant>())
+                oldCodes.Add(Norm(v.Barcode));
+        }
+
+        var mine = new List<(string Code, string Raw)> { (Norm(_barcode), _barcode.Trim()) };
+        mine.AddRange(_variants.Select(v => (Norm(v.Barcode), (v.Barcode ?? "").Trim())));
+        mine = mine.Where(m => m.Code.Length > 0).ToList();
+
+        var dup = mine.GroupBy(m => m.Code).FirstOrDefault(g => g.Count() > 1);
+        if (dup is not null)
+        {
+            var code = dup.First().Raw;
+            return Tr.T($"Штрихкод {code} повторяется в этой карточке (основной и дополнительные не должны совпадать).",
+                $"{code} штрихкоду бул карточкада кайталанды (негизги жана кошумча штрихкоддор дал келбеши керек).",
+                $"Barcode {code} is repeated in this card (the main and extra barcodes must differ).",
+                $"{code} barkodu bu kartta tekrarlanıyor (ana ve ek barkodlar farklı olmalı).",
+                $"{code} shtrix-kodi bu kartada takrorlandi (asosiy va qo'shimcha shtrix-kodlar har xil bo'lishi kerak).");
+        }
+
+        var fresh = mine.Where(m => !oldCodes.Contains(m.Code)).ToList();
+        if (fresh.Count == 0)
+            return null;
+        List<CatalogProductTileVm> snapshot;
+        try { snapshot = CatalogCacheService.Products.ToList(); }
+        catch (InvalidOperationException) { return null; } // каталог обновлялся в этот момент — серверная проверка при сохранении остаётся
+        foreach (var (code, raw) in fresh)
+        {
+            var owner = snapshot.FirstOrDefault(p =>
+                !string.Equals(p.Id, _existing?.Id, StringComparison.OrdinalIgnoreCase)
+                && (Norm(p.Barcode) == code || (p.AlternateBarcodeVariants ?? new List<AlternateBarcodeVariant>()).Any(a => Norm(a.Barcode) == code)));
+            if (owner is not null)
+                return Tr.T($"Штрихкод {raw} уже есть у товара «{owner.Title}». Один штрихкод не может быть у двух товаров.",
+                    $"{raw} штрихкоду «{owner.Title}» товарында мурунтан бар. Бир штрихкод эки товарда болушу мүмкүн эмес.",
+                    $"Barcode {raw} already belongs to “{owner.Title}”. One barcode cannot be on two products.",
+                    $"{raw} barkodu zaten «{owner.Title}» ürününde var. Bir barkod iki üründe olamaz.",
+                    $"{raw} shtrix-kodi «{owner.Title}» mahsulotida allaqachon bor. Bitta shtrix-kod ikki mahsulotda bo'lishi mumkin emas.");
+        }
+        return null;
+    }
+
     private async Task SaveAsync()
     {
         if (string.IsNullOrWhiteSpace(_name))
@@ -2026,6 +2074,14 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         if (barcodeChanged && !BarcodeInput.IsValid(_barcode.Trim()))
         {
             ErrorMessage = BarcodeInput.Hint(_barcode.Trim()) is { Length: > 0 } hint ? hint : BarcodeInput.Hint("0");
+            return;
+        }
+
+        // 2026-11-05 (аудит №3, С2-34): штрихкод (основной или дополнительный), который уже принадлежит ДРУГОМУ товару каталога или повторяется в этой же карточке,
+        // не сохраняем: касса при сканировании нашла бы не тот товар. Проверяются только новые/изменённые коды (старые дубли не блокируют правку названия).
+        if (FindBarcodeConflict() is { } conflictText)
+        {
+            ErrorMessage = conflictText;
             return;
         }
 
@@ -2229,7 +2285,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                     double? serverNow = null;
                     try
                     {
-                        // 2026-11-03 (С-06, аудит «зависание при медленном сервере»): сверка остатка перед записью — не дольше 8 с (раньше до 55 с); не успели — пишем введённое (ветка catch).
+                        // 2026-11-03 (С-06, аудит «зависание при медленном сервере»): сверка остатка перед записью — не дольше 8 с (раньше до 55 с); не успели — остаток НЕ шлём, остальные поля сохраняются (ветка catch; 2026-11-05, Т3-14: комментарий приведён к коду).
                         var existingId = _existing.Id;
                         if (await ServerAnswerWait.ForegroundAsync("products/detail", t => PosApp.CatalogApi.ProductsDetailAsync(existingId, t)).ConfigureAwait(true) is { ValueKind: System.Text.Json.JsonValueKind.Object } freshCard)
                             serverNow = StockSyncService.ResolveStockQuantity(freshCard, _isWeight);
@@ -2299,12 +2355,12 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         }
         catch (ApiException ex)
         {
-            ErrorMessage = ex.Message;
+            ErrorMessage = ServerOutageMonitor.FriendlyError(ex, showServerText: true); // 2026-11-05 (С2-38): 401/403/5xx — понятным текстом, ответ сервера 4xx — как есть
             StatusMessage = "";
         }
         catch (Exception ex)
         {
-            ErrorMessage = Tr.T("Не удалось сохранить товар: ", "Товарды сактоо мүмкүн болгон жок: ", "Could not save the product: ", "Ürün kaydedilemedi: ", "Mahsulotni saqlab bo'lmadi: ") + ex.Message;
+            ErrorMessage = Tr.T("Не удалось сохранить товар: ", "Товарды сактоо мүмкүн болгон жок: ", "Could not save the product: ", "Ürün kaydedilemedi: ", "Mahsulotni saqlab bo'lmadi: ") + ServerOutageMonitor.FriendlyError(ex); // 2026-11-05 (С2-38)
             StatusMessage = "";
             PosLogger.Log($"Product save failed: {ex}", "WAREHOUSE");
         }

@@ -63,9 +63,13 @@ public static class ProductActions
 
     public static string Qty(double v) => v.ToString("0.###", Ru);
 
+    /// <summary>2026-11-05 (аудит №3, Т3-10): количество с запятой и единицей («2,5 кг», «3 шт.»); единица не задана — «кг» для весового, иначе «шт.».</summary>
+    public static string QtyWithUnit(double v, string? unit, bool mustWeigh) =>
+        Qty(v) + " " + (string.IsNullOrWhiteSpace(unit) ? (mustWeigh ? "кг" : "шт.") : unit.Trim());
+
     /// <summary>Изменить остаток: <paramref name="delta"/> (+ приход, − списание) или <paramref name="setTo"/> (точное количество).</summary>
     public static async Task<Result> ChangeStockAsync(string productId, double? delta, double? setTo, string reason, string? actor,
-        CancellationToken ct = default, double? expectedCurrent = null)
+        CancellationToken ct = default, double? expectedCurrent = null, string? historyReason = null)
     {
         var product = Find(productId);
         if (product is null)
@@ -240,7 +244,7 @@ public static class ProductActions
             try
             {
                 var unitCost = product.PurchasePrice > 0 ? product.PurchasePrice : LocalCartService.ParsePrice(product.PriceLine);
-                WriteOffHistoryStore.Append(product.Id, product.Title, -diff, reason, actor ?? PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId, unitCost > 0 ? unitCost : null);
+                WriteOffHistoryStore.Append(product.Id, product.Title, -diff, historyReason ?? reason, actor ?? PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId, unitCost > 0 ? unitCost : null);
                 if (unitCost > 0)
                     ShiftEventsStore.Record(ShiftEventsStore.KindWriteOff, PosApp.ActiveShiftId, ShiftEventsStore.OperationKey(product.Id + ":" + DateTime.UtcNow.Ticks), -diff * unitCost, product.Title);
             }

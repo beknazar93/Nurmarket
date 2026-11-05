@@ -61,7 +61,8 @@ public interface ICatalogApiService
     Task UnarchiveProductAsync(string productId, CancellationToken ct = default);
 
     /// <summary>2026-11-02 (аудит №2, С3-12): архивные товары компании (GET products/list/?include_archived=1, оставляем только помеченные is_archived). Пустой список — архива нет или сервер не отдаёт.</summary>
-    Task<List<JsonElement>> ListArchivedProductsAsync(IProgress<(int Loaded, int? Total)>? progress = null, CancellationToken ct = default) => Task.FromResult(new List<JsonElement>());
+    /// 2026-11-03 (аудит №3, Т3-04): <paramref name="onFound"/> вызывается для каждого найденного архивного товара сразу при чтении страницы (из фонового потока) — окно показывает их по мере поиска; отмена — <paramref name="ct"/>.
+    Task<List<JsonElement>> ListArchivedProductsAsync(IProgress<(int Loaded, int? Total)>? progress = null, CancellationToken ct = default, Action<JsonElement>? onFound = null) => Task.FromResult(new List<JsonElement>());
 
     /// <summary>Приёмка, 2026-09-24 — те же запросы, что шлёт «Массовое сканирование» сайта
     /// (подсмотрены в его сетевых запросах).

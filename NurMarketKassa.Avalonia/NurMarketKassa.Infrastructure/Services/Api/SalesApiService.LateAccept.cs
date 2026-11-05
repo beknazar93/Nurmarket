@@ -37,6 +37,7 @@ public sealed partial class SalesApiService : IPosLateAcceptApi
         try
         {
             // TODO(Умар): адрес и тело {pin} — по ответу 31.10 (раздел 2); формат ошибки неверного PIN (код 400/403?) не описан.
+            using var critical = ApiThrottle.BeginCritical(); // 2026-11-03 (Д3-02): проверка PIN перед проведением старого чека — быстрая полоса очереди
             var response = await _client.RequestAsync(HttpMethod.Post, "api/users/auth/pin/verify/",
                 new JsonObject { ["pin"] = pin.Trim() }, null, ct, TimeSpan.FromSeconds(15)).ConfigureAwait(false);
             if (response.ValueKind == JsonValueKind.Object)
@@ -96,6 +97,7 @@ public sealed partial class SalesApiService : IPosLateAcceptApi
         var headers = new Dictionary<string, string> { ["Idempotency-Key"] = idempotencyKey.Trim() };
         if (!string.IsNullOrWhiteSpace(confirmToken))
             headers[ConfirmTokenHeader] = confirmToken.Trim();
+        using var critical = ApiThrottle.BeginCritical(); // 2026-11-03 (Д3-02): проведение старого чека — деньги, быстрая полоса очереди
         var (response, _) = await _client.RequestWithHeadersAsync(HttpMethod.Post, "api/main/pos/checkout/", body, headers, ct, timeout).ConfigureAwait(false);
         return response;
     }

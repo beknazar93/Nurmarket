@@ -276,6 +276,14 @@ public static class SaleReturnLedger
         }
     }
 
+    /// <summary>2026-11-03 (аудит №3, Д3-04): номер чека из ответа оплаты (PAY … number=…) — «История чеков» без ответа сервера показывает его вместо порядкового «№1».</summary>
+    public static void RememberNumber(string saleId, string number)
+    {
+        if (string.IsNullOrWhiteSpace(saleId) || string.IsNullOrWhiteSpace(number))
+            return;
+        Update(saleId, entry => entry.Number = number.Trim());
+    }
+
     private static SaleLedgerEntry Update(string saleId, Action<SaleLedgerEntry> change)
     {
         var id = saleId.Trim();

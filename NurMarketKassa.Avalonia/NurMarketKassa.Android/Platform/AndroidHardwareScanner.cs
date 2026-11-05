@@ -107,6 +107,9 @@ internal static class AndroidHardwareScanner
         {
             if (intent?.Action is not { } action)
                 return;
+            // 2026-11-05 (аудит №3, А3-07): свёрнутая касса не принимает чужие сканы (скан в другом приложении не должен попасть в открытый чек)
+            if (NurMarketKassa.Services.SyncCenter.AppInBackground)
+                return;
             var code = ReadCode(intent);
             if (string.IsNullOrEmpty(code) || code.Length > 128)
                 return;

@@ -741,16 +741,8 @@ public sealed class VariantEditorWindow : Window
         {
             if (!string.IsNullOrWhiteSpace(row.Barcode.Text) || (string.IsNullOrWhiteSpace(row.Size.Text) && string.IsNullOrWhiteSpace(row.Color.Text)))
                 continue;
-            string code;
-            do
-            {
-                var first12 = "29" + string.Concat(Enumerable.Range(0, 10).Select(_ => System.Security.Cryptography.RandomNumberGenerator.GetInt32(10)));
-                var sum = 0;
-                for (var i = 0; i < 12; i++)
-                    sum += (first12[i] - '0') * (i % 2 == 0 ? 1 : 3);
-                code = first12 + ((10 - sum % 10) % 10).ToString(Inv);
-            }
-            while (taken.Contains(code) || VariantBarcodeIndex.Contains(code));
+            // 2026-11-05 (аудит №3, С2-39): общий генератор кассы (первая цифра не 0 и не 2). Прежние коды на «29…» кассой разбирались как весовая этикетка.
+            var code = NurMarketKassa.Services.BarcodeGenerator.Generate(taken, c => VariantBarcodeIndex.Contains(c));
             taken.Add(code);
             row.Barcode.Text = code;
             made++;
@@ -873,7 +865,7 @@ public sealed class VariantEditorWindow : Window
                 {
                     Barcode = row.Barcode.Text!.Trim(),
                     Variant = string.Join(", ", new[] { row.Size.Text?.Trim(), row.Color.Text?.Trim() }.Where(x => !string.IsNullOrWhiteSpace(x))),
-                    PriceText = price.ToString("0.00", Inv) + " сом",
+                    PriceText = price.ToString("0.00", CultureInfo.GetCultureInfo("ru-RU")) + " сом", // 2026-11-05 (С2-43): «85,00 сом», как во всей программе
                     Remaining = copies,
                 });
             }

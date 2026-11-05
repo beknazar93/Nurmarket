@@ -127,6 +127,7 @@ void main() {
         ),
     ]);
     await db.setSetting('catalog.syncedAt', '2026-10-27T06:17:00Z');
+    await db.setSetting('catalog.namesAt', '2026-10-27T06:17:00Z'); // 2026-11-05 (М5-25): индекс камеры перестраивается по namesAt
   });
   tearDownAll(() {
     try {

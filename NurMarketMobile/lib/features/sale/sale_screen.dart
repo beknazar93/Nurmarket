@@ -15,7 +15,9 @@ import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 import '../admin/admin_repository.dart';
 import '../admin/admin_screens.dart';
+import '../scan/barcode_lookup.dart' show ScaleRules, parseWeightLabel;
 import '../scan/code_lookup.dart';
+import '../scan/scale_label_flow.dart';
 import '../scan/scan_animations.dart';
 import '../scan/weigh_camera.dart';
 import '../../core/tester/tester_mode.dart' show TesterGate;
@@ -109,6 +111,22 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
 
   bool _scanBusy = false;
 
+  /// 2026-11-05 (М5-13): весовые этикетки, уже добавленные в текущий чек, — та же этикетка второй раз без вопроса не ложится.
+  final _labels = ScaleLabelMemory();
+
+  /// 2026-11-05 (М5-12): весовая этикетка, товара среди весовых нет — штучный с таким кодом (вопрос) или «PLU не найден» с привязкой.
+  Future<void> _scaleLabelMiss(String code) async {
+    final piece = (await ref.read(databaseProvider).weightLabelHits(code, includePiece: true)).firstOrNull;
+    if (!mounted) return;
+    final ({Product product, double? qty})? chosen;
+    if (piece != null) {
+      chosen = await confirmPieceProduct(context, piece.product) ? (product: piece.product, qty: null) : null;
+    } else {
+      chosen = await offerUnknownPlu(context, ref, code);
+    }
+    if (chosen != null && mounted) await addProduct(context, ref, chosen.product, qty: chosen.qty, code: code);
+  }
+
   /// Enter в поиске или код ручного сканера: точный штрихкод (на телефоне, потом на сервере) — сразу в чек.
   /// Не код — обычный поиск.
   Future<void> _submitScan(String raw) async {
@@ -129,10 +147,39 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
       final l = context.l;
       final hit = await CodeLookup.find(ref.read(databaseProvider), ref.read(apiProvider), q);
       if (!mounted) return;
-      final p = hit.product;
+      var p = hit.product;
+      var qty = hit.qty;
+      if (p == null && !hit.unavailable && await CodeLookup.isScaleLabel(ref.read(databaseProvider), q)) {
+        // 2026-11-05 (М5-12): неизвестный PLU весовой этикетки — не «Создать товар с этим кодом»
+        await _afterScan(hadFocus);
+        if (!mounted) return;
+        await _scaleLabelMiss(q);
+        return;
+      }
       if (p != null) {
+        // 2026-11-05 (М5-14): раскладка не задана, два прочтения этикетки нашли разные товары — выбор
+        final label = parseWeightLabel(q);
+        if (qty != null && label != null && ScaleRules.current.layout.isEmpty && label.candidates.length > 1) {
+          final hits = await ref.read(databaseProvider).weightLabelHits(q);
+          if (!mounted) return;
+          if (hits.length > 1 && hits.any((h) => h.product.id == p!.id)) {
+            final pick = await pickLabelReading(context, hits);
+            if (pick == null || !mounted) return;
+            p = pick.product;
+            qty = pick.qty;
+          }
+        }
+        // 2026-11-05 (М5-13): та же весовая этикетка уже в чеке — спросить
+        _labels.syncWithCart(cartEmpty: ref.read(cartProvider).isEmpty);
+        final isLabel = qty != null && label != null && AppDatabase.isWeighed(p);
+        if (isLabel && _labels.contains(q) && !await confirmLabelAgain(context)) {
+          await _afterScan(hadFocus);
+          return;
+        }
+        if (!mounted) return;
         final before = ref.read(cartProvider).quantity;
-        await addProduct(context, ref, p, qty: hit.qty, code: q);
+        await addProduct(context, ref, p, qty: qty, code: q);
+        if (isLabel && mounted && ref.read(cartProvider).quantity != before) _labels.add(q);
         if (!mounted) return;
         // 2026-10-31: «Добавлено» — только если в чеке что-то прибавилось (размер закончился или отключён — там своё сообщение)
         if (ref.read(cartProvider).quantity != before) toast(context, l.addedToCheckName(p.name));
@@ -493,8 +540,12 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                           itemCount: _products.length,
                           itemBuilder: (c, i) => _ProductTile(_products[i], inCart: inCart[_products[i].id], pack: _packs[_products[i].id], variants: _variants[_products[i].id], mode: ref.watch(prefsProvider).shopChosen ? ref.watch(prefsProvider).shop : null, onTap: () {
                             _hideNotice();
-                            addProduct(context, ref, _products[i]).whenComplete(() {
-                              if (mounted) _reload(keepWindow: true);
+                            final tapped = _products[i];
+                            // 2026-11-05 (М5-32): касание плитки больше не перечитывает окно до 400+ товаров и не пересчитывает остальное —
+                            // значок «×N» берётся из чека, остаток от добавления в чек не меняется. Перечитываем только товар с размерами
+                            // (окно выбора размера могло подтянуть варианты с сервера).
+                            addProduct(context, ref, tapped).whenComplete(() {
+                              if (mounted && _variants.containsKey(tapped.id)) _reload(keepWindow: true);
                             });
                           }),
                         ),

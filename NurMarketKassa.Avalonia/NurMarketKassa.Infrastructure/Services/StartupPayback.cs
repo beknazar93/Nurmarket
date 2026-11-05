@@ -58,14 +58,19 @@ public sealed class PaybackResult
     public IReadOnlyList<PaybackRow> Rows { get; init; } = Array.Empty<PaybackRow>();
     /// <summary>Сумма амортизации за всё время (вложения, списанные к сегодня).</summary>
     public decimal AmortizedToDate { get; init; }
+    /// <summary>2026-11-05 (И-10): «Вернулось» достигло вложений только за счёт засчитанного товарного остатка (прибылью — ещё нет): окупится при распродаже остатка, месяца окупаемости нет.</summary>
+    public bool NeedsStockSale { get; init; }
+    /// <summary>2026-11-05 (И-01): дата первого вложения — с неё (по дням) идёт «Вернулось»; null — вложений нет.</summary>
+    public DateTime? FirstInvestmentDate { get; init; }
 }
 
 /// <summary>2026-10-28, владелец: «для аналитики как расход на начало бизнеса». Расчёт окупаемости вложений на открытие.
 ///
 /// Формулы (всё по чистой прибыли отчёта сервера, <see cref="NetProfitCalculator"/> — той же, что в «Прибыли и деньгах»):
-///   • Вложено = сумма стартовых расходов (<see cref="StartupCostsStore"/>).
-///   • Вернулось = накопленная чистая прибыль с даты открытия бизнеса до сегодня (сумма по месяцам; чистая = валовая − расходы NurCRM).
-///     Стартовые расходы сюда НЕ вычитаются — они вне операционной прибыли (иначе вложения посчитались бы дважды).
+///   • Вложено = сумма стартовых расходов (<see cref="StartupCostsStore"/>) БЕЗ статьи «Товар» (2026-11-05, решение владельца: товар окупается
+///     продажами через себестоимость, иначе он считался бы дважды). Вложения идут ступенькой по датам статей (и инвесторов, если они больше статей).
+///   • Вернулось = накопленная чистая прибыль с первого вложения до сегодня (сумма по месяцам; чистая = валовая − расходы NurCRM; месяц первого
+///     вложения — по дням). Прибыль, заработанная ДО вложения, его не окупает. Стартовые расходы в прибыль НЕ вычитаются (иначе посчитались бы дважды).
 ///   • Осталось окупить = max(0, Вложено − Вернулось); Окупаемость, % = Вернулось ÷ Вложено × 100.
 ///   • Среднемесячная прибыль = среднее чистой прибыли за последние до 3 ПОЛНЫХ месяцев (первый неполный и текущий неполный месяцы
 ///     не берутся). Полных месяцев нет, а с открытия прошло не меньше 14 дней — берётся прибыль на день за всё время × 30,4375.
@@ -79,43 +84,98 @@ public static class StartupPayback
     /// <summary>Сколько последних полных месяцев берётся для прогноза.</summary>
     public const int ForecastMonths = 3;
 
-    public static PaybackResult Compute(IReadOnlyList<StartupCostItem> items, StartupCostsMeta meta, IReadOnlyList<PaybackMonth> months, DateTime today,
-        decimal? investedOverride = null, int forecastMonths = ForecastMonths, decimal extraReturned = 0m)
+    /// <summary>2026-11-05 (И-01): ступенька вложений по датам — (дата, сумма вложено на эту дату нарастающим итогом). Статьи «Товар» не входят
+    /// (И-03). Если инвесторов вложено больше, чем статей, берётся большее из двух (как и итог «Вложено»).</summary>
+    public static List<(DateTime Date, decimal Total)> InvestedSteps(IEnumerable<StartupCostItem> items, IEnumerable<InvestorItem>? investors = null)
     {
-        var invested = investedOverride ?? StartupCostsStore.Sum(items);
+        var costs = items.Where(i => !i.Deleted && !StartupCostsStore.IsStock(i) && i.Amount > 0m).Select(i => (Date: i.Date.Date, i.Amount)).ToList();
+        var invs = (investors ?? Array.Empty<InvestorItem>()).Where(i => !i.Deleted && i.Amount > 0m).Select(i => (Date: i.Date.Date, i.Amount)).ToList();
+        var dates = costs.Select(c => c.Date).Concat(invs.Select(c => c.Date)).Distinct().OrderBy(d => d).ToList();
+        var list = new List<(DateTime, decimal)>();
+        foreach (var d in dates)
+            list.Add((d, Math.Max(costs.Where(c => c.Date <= d).Sum(c => c.Amount), invs.Where(c => c.Date <= d).Sum(c => c.Amount))));
+        return list;
+    }
+
+    /// <summary>Сколько вложено к концу <paramref name="day"/> (ступенька); 0 — до первого вложения.</summary>
+    public static decimal InvestedAt(IReadOnlyList<(DateTime Date, decimal Total)> steps, DateTime day)
+    {
+        decimal v = 0m;
+        foreach (var st in steps)
+            if (st.Date <= day.Date)
+                v = st.Total;
+        return v;
+    }
+
+    /// <summary>2026-11-05 (И-01): какая часть прибыли периода относится ко времени после первого вложения: 0 — период кончился до вложения,
+    /// 1 — целиком после, между — период, в котором сделано первое вложение (по дням).</summary>
+    public static decimal CountedFraction(DateTime from, DateTime to, DateTime? firstInvestment)
+    {
+        if (firstInvestment is not { } fi)
+            return 0m;
+        if (to.Date < fi.Date)
+            return 0m;
+        if (fi.Date <= from.Date)
+            return 1m;
+        var total = (to.Date - from.Date).TotalDays + 1;
+        return total <= 0 ? 1m : (decimal)(((to.Date - fi.Date).TotalDays + 1) / total);
+    }
+
+    /// <summary>2026-11-05 (И-02): ЕДИНАЯ среднемесячная для всего экрана: среднее за последние <paramref name="forecastMonths"/> полных месяцев;
+    /// полных нет, а с открытия прошло не меньше 14 дней — значение на день за всё время × 30,4375; иначе null («мало данных для прогноза»).
+    /// <paramref name="value"/> — ряд (чистая прибыль бизнеса или база инвестора) по индексам месяцев.</summary>
+    public static decimal? AverageMonthly(IReadOnlyList<PaybackMonth> months, Func<int, decimal> value, DateTime opened, DateTime today, int forecastMonths, out int used)
+    {
+        var idx = Enumerable.Range(0, months.Count).Where(i => months[i].IsFull && months[i].To.Date < today.Date).ToList();
+        if (idx.Count > 0)
+        {
+            var take = idx.TakeLast(Math.Max(1, forecastMonths)).ToList();
+            used = take.Count;
+            return take.Average(value);
+        }
+        used = 0;
+        var days = (today.Date - opened.Date).TotalDays + 1;
+        if (days >= 14 && months.Count > 0)
+            return Enumerable.Range(0, months.Count).Sum(value) / (decimal)days * (decimal)DaysInMonth;
+        return null;
+    }
+
+    public static PaybackResult Compute(IReadOnlyList<StartupCostItem> items, StartupCostsMeta meta, IReadOnlyList<PaybackMonth> months, DateTime today,
+        decimal? investedOverride = null, int forecastMonths = ForecastMonths, decimal extraReturned = 0m,
+        IReadOnlyList<(DateTime Date, decimal Total)>? investedSteps = null)
+    {
+        var steps = investedSteps ?? InvestedSteps(items);
+        var invested = investedOverride ?? StartupCostsStore.InvestedSum(items);
         if (invested <= 0m)
             return new PaybackResult { Status = PaybackStatus.NoCosts };
         if (meta.OpenedOn is not { } opened)
             return new PaybackResult { Status = PaybackStatus.NoOpeningDate, Invested = invested };
 
+        // 2026-11-05 (И-01): вложения по датам. «Вернулось» считается с первого вложения (прибыль до вложения его не окупает); «Вложено» в строке —
+        // ступенька на конец месяца; «окупилось в» — не раньше месяца последнего вложения. Без шагов (стенды) — всё вложено на дату открытия.
+        if (steps.Count == 0)
+            steps = new List<(DateTime, decimal)> { (opened.Date, invested) };
+        var firstInvestment = steps[0].Date;
+        var lastInvestmentMonth = new DateTime(steps[^1].Date.Year, steps[^1].Date.Month, 1);
+
         var ordered = months.OrderBy(m => m.From).ToList();
-        var returned = ordered.Sum(m => m.Net) + extraReturned;
         var rows = new List<PaybackRow>();
         decimal cumulative = 0m;
         DateTime? paidBack = null;
         foreach (var m in ordered)
         {
-            cumulative += m.Net;
-            rows.Add(new PaybackRow(new DateTime(m.From.Year, m.From.Month, 1), m.Net, cumulative, invested, AmortizationFor(invested, opened, meta.AmortMonths, m.From, m.To)));
-            if (paidBack is null && cumulative >= invested)
-                paidBack = new DateTime(m.From.Year, m.From.Month, 1);
+            cumulative += m.Net * CountedFraction(m.From, m.To, firstInvestment);
+            var monthStart = new DateTime(m.From.Year, m.From.Month, 1);
+            var investedAt = InvestedAt(steps, m.To);
+            rows.Add(new PaybackRow(monthStart, m.Net, cumulative, investedAt, AmortizationFor(invested, opened, meta.AmortMonths, m.From, m.To)));
+            if (paidBack is null && investedAt > 0m && monthStart >= lastInvestmentMonth && cumulative >= invested)
+                paidBack = monthStart;
         }
+        var returnedByProfit = cumulative;
+        var returned = returnedByProfit + extraReturned;
 
-        // Прогноз: последние до 3 полных месяцев.
-        var full = ordered.Where(m => m.IsFull && m.To.Date < today.Date).TakeLast(Math.Max(1, forecastMonths)).ToList();
-        decimal? avg = null;
-        var used = 0;
-        if (full.Count > 0)
-        {
-            avg = full.Average(m => m.Net);
-            used = full.Count;
-        }
-        else
-        {
-            var days = (today.Date - opened.Date).TotalDays + 1;
-            if (days >= 14)
-                avg = returned / (decimal)days * (decimal)DaysInMonth;
-        }
+        // Прогноз: единая средняя (см. AverageMonthly).
+        var avg = AverageMonthly(ordered, i => ordered[i].Net, opened, today, forecastMonths, out var used);
 
         var remaining = Math.Max(0m, invested - returned);
         decimal? monthsLeft = null;
@@ -144,6 +204,8 @@ public static class StartupPayback
             ElapsedMonths = Math.Max(0m, elapsed),
             Rows = rows,
             AmortizedToDate = AmortizationFor(invested, opened, meta.AmortMonths, opened, today),
+            NeedsStockSale = returned >= invested && returnedByProfit < invested,
+            FirstInvestmentDate = firstInvestment,
         };
     }
 
@@ -163,12 +225,13 @@ public static class StartupPayback
         return overlap <= 0 ? 0m : invested * (decimal)(overlap / windowDays);
     }
 
-    /// <summary>Амортизация за период для окон «Прибыль и деньги» и «Сводка»: 0, если переключатель выключен, даты открытия или вложений нет.</summary>
+    /// <summary>Амортизация за период (2026-11-05, И-18: сейчас нигде не вызывается — «чистая прибыль с учётом амортизации» показывается только в разделе «Инвестиции»):
+    /// 0, если переключатель выключен, даты открытия или вложений нет.</summary>
     public static decimal AmortizationForPeriod(IReadOnlyList<StartupCostItem> items, StartupCostsMeta meta, DateTime from, DateTime to)
     {
         if (!meta.Amortize || meta.OpenedOn is not { } opened)
             return 0m;
-        return AmortizationFor(StartupCostsStore.Sum(items), opened, meta.AmortMonths, from, to);
+        return AmortizationFor(StartupCostsStore.InvestedSum(items), opened, meta.AmortMonths, from, to);
     }
 
     /// <summary>Месяцы от даты открытия до сегодня: первый — с даты открытия, последний — по сегодня.</summary>
@@ -180,7 +243,11 @@ public static class StartupPayback
         {
             var from = m < openedOn.Date ? openedOn.Date : m;
             var endOfMonth = m.AddMonths(1).AddDays(-1);
-            list.Add((from, endOfMonth > today.Date ? today.Date : endOfMonth));
+            var to = endOfMonth > today.Date ? today.Date : endOfMonth;
+            // 2026-11-05 (И-13): дата открытия «завтра» давала диапазон 04.11–03.11 и такой запрос уходил на сервер — пустые месяцы пропускаем.
+            if (from > to)
+                continue;
+            list.Add((from, to));
         }
         return list;
     }

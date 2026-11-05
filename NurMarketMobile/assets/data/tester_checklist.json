@@ -3982,6 +3982,214 @@
           "Kırgızca ve Özbekçe, koyu temada ve büyük yazı tipinde (360 dp) kontrol edin: tutarlar ve yazılar kesilmez."
         ]
       }
+    },
+    {
+      "id": "1.18.17/payment-hold-frozen",
+      "version": "1.18.17",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Во время оплаты чек нельзя отложить или очистить",
+        "ky": "Төлөм учурунда чекти кое туруу же тазалоо мүмкүн эмес",
+        "uz": "To'lov paytida chekni kechiktirib yoki tozalab bo'lmaydi",
+        "en": "During payment the receipt cannot be held or cleared",
+        "tr": "Ödeme sırasında fiş ertelenemez veya temizlenemez"
+      },
+      "changed": {
+        "ru": "Команды ИИ («отложи чек», «очисти», «верни отложенный») и ручное «Вернуть отложенный» ждут конца оплаты; ИИ отвечает «чек сейчас оплачивается».",
+        "ky": "ИИ буйруктары («чекти кое тур», «тазала», «кечиктирилгенди кайтар») жана кол менен «Кечиктирилгенди кайтаруу» төлөм бүткөнчө күтөт; ИИ «чек азыр төлөнүүдө» деп жооп берет.",
+        "uz": "AI buyruqlari («chekni kechiktir», «tozala», «kechiktirilganni qaytar») va qo'lda «Kechiktirilganni qaytarish» to'lov tugaguncha kutadi; AI «chek hozir to'lanmoqda» deb javob beradi.",
+        "en": "AI commands (“hold the receipt”, “clear”, “bring back the held one”) and the manual “Restore held” wait until payment ends; the AI answers “the receipt is being paid right now”.",
+        "tr": "Yapay zekâ komutları («fişi beklemeye al», «temizle», «beklemedekini getir») ve elle «Beklemedekini getir» ödeme bitene kadar bekler; yapay zekâ «fiş şu an ödeniyor» yanıtını verir."
+      },
+      "steps": {
+        "ru": [
+          "Добавьте товар в чек и откройте окно оплаты.",
+          "Во время оплаты скажите ИИ «отложи чек» или «очисти чек»: чек не меняется, ИИ говорит, что идёт оплата.",
+          "Завершите оплату и повторите команду: теперь чек откладывается.",
+          "Проверьте журнал ИИ: записи «Удалено из чека» за время оплаты нет."
+        ],
+        "ky": [
+          "Чекке товар кошуп, төлөм терезесин ачыңыз.",
+          "Төлөм учурунда ИИге «чекти кое тур» же «чекти тазала» деп айтыңыз: чек өзгөрбөйт, ИИ төлөм жүрүп жатканын айтат.",
+          "Төлөмдү аягына чыгарып, буйрукту кайталаңыз: эми чек кечиктирилет.",
+          "ИИ журналын караңыз: төлөм учурунда «Чектен өчүрүлдү» жазуусу жок."
+        ],
+        "uz": [
+          "Chekka mahsulot qo'shib, to'lov oynasini oching.",
+          "To'lov paytida AIga «chekni kechiktir» yoki «chekni tozala» deng: chek o'zgarmaydi, AI to'lov ketayotganini aytadi.",
+          "To'lovni tugatib, buyruqni takrorlang: endi chek kechiktiriladi.",
+          "AI jurnalini ko'ring: to'lov paytida «Chekdan o'chirildi» yozuvi yo'q."
+        ],
+        "en": [
+          "Add a product to the receipt and open the payment window.",
+          "During payment tell the AI “hold the receipt” or “clear the receipt”: the receipt does not change, the AI says payment is in progress.",
+          "Finish the payment and repeat the command: now the receipt is held.",
+          "Check the AI log: there is no “Removed from receipt” entry for the payment period."
+        ],
+        "tr": [
+          "Fişe ürün ekleyin ve ödeme penceresini açın.",
+          "Ödeme sırasında yapay zekâya «fişi beklemeye al» veya «fişi temizle» deyin: fiş değişmez, yapay zekâ ödemenin sürdüğünü söyler.",
+          "Ödemeyi bitirip komutu tekrarlayın: şimdi fiş beklemeye alınır.",
+          "Yapay zekâ günlüğüne bakın: ödeme süresince «Fişten silindi» kaydı yoktur."
+        ]
+      }
+    },
+    {
+      "id": "1.18.17/bluetooth-print-once",
+      "version": "1.18.17",
+      "area": "other",
+      "severity": "important",
+      "title": {
+        "ru": "Чек по Bluetooth не печатается дважды",
+        "ky": "Bluetooth аркылуу чек эки жолу басылбайт",
+        "uz": "Bluetooth orqali chek ikki marta chop etilmaydi",
+        "en": "A Bluetooth receipt is not printed twice",
+        "tr": "Bluetooth fişi iki kez yazdırılmaz"
+      },
+      "changed": {
+        "ru": "Если принтер долго подключается, второй чек вдогонку не ставится; при потере связи приложение говорит «проверьте, напечатался ли чек». После неудачной печати на экране «Оплачено» остаётся плашка «Чек не напечатан» с кнопкой «Повторить печать».",
+        "ky": "Принтер узак туташса, кошумча экинчи чек коюлбайт; байланыш үзүлсө — «чек басылганын текшериңиз». Басуу ишке ашпаса, «Төлөндү» экранында «Чек басылган жок» плашкасы жана «Кайра басуу» баскычы калат.",
+        "uz": "Printer uzoq ulansa, ortidan ikkinchi chek qo'yilmaydi; aloqa uzilsa — «chek chop etilganini tekshiring». Chop etish bajarilmasa, «To'landi» ekranida «Chek chop etilmadi» plashkasi va «Qayta chop etish» tugmasi qoladi.",
+        "en": "If the printer takes long to connect, a second receipt is not queued behind it; on a lost connection the app says “check whether the receipt printed”. After a failed print the “Paid” screen keeps a “Receipt not printed” banner with a “Print again” button.",
+        "tr": "Yazıcı uzun süre bağlanırsa arkasından ikinci fiş kuyruğa alınmaz; bağlantı koparsa uygulama «fişin yazdırılıp yazdırılmadığını kontrol edin» der. Başarısız yazdırmadan sonra «Ödendi» ekranında «Fiş yazdırılmadı» uyarısı ve «Tekrar yazdır» düğmesi kalır."
+      },
+      "steps": {
+        "ru": [
+          "Подключите Bluetooth-принтер в настройках: сопряжённые устройства видны сразу, единственный принтер выбирается сам.",
+          "Проведите продажу с печатью чека: чек выходит один раз.",
+          "Выключите принтер и проведите продажу: на «Оплачено» красная плашка «Чек не напечатан».",
+          "Включите принтер и нажмите «Повторить печать»: чек выходит один раз."
+        ],
+        "ky": [
+          "Жөндөөлөрдө Bluetooth-принтерди туташтырыңыз: жупташкан түзмөктөр дароо көрүнөт, жалгыз принтер өзү тандалат.",
+          "Чекти басуу менен сатууну өткөрүңүз: чек бир эле жолу чыгат.",
+          "Принтерди өчүрүп, сатууну өткөрүңүз: «Төлөндү» экранында кызыл «Чек басылган жок» плашкасы чыгат.",
+          "Принтерди күйгүзүп, «Кайра басуу» баскычын басыңыз: чек бир эле жолу чыгат."
+        ],
+        "uz": [
+          "Sozlamalarda Bluetooth-printerni ulang: juftlangan qurilmalar darhol ko'rinadi, yagona printer o'zi tanlanadi.",
+          "Chek chop etish bilan sotuvni o'tkazing: chek bir marta chiqadi.",
+          "Printerni o'chirib sotuvni o'tkazing: «To'landi» ekranida qizil «Chek chop etilmadi» plashkasi chiqadi.",
+          "Printerni yoqib «Qayta chop etish» tugmasini bosing: chek bir marta chiqadi."
+        ],
+        "en": [
+          "Connect a Bluetooth printer in settings: paired devices are shown at once, a single printer is selected automatically.",
+          "Complete a sale with receipt printing: the receipt comes out once.",
+          "Switch the printer off and complete a sale: the “Paid” screen shows a red “Receipt not printed” banner.",
+          "Switch the printer on and press “Print again”: the receipt comes out once."
+        ],
+        "tr": [
+          "Ayarlarda Bluetooth yazıcıyı bağlayın: eşleşmiş cihazlar hemen görünür, tek yazıcı kendiliğinden seçilir.",
+          "Fiş yazdırmalı bir satış yapın: fiş bir kez çıkar.",
+          "Yazıcıyı kapatıp satış yapın: «Ödendi» ekranında kırmızı «Fiş yazdırılmadı» uyarısı çıkar.",
+          "Yazıcıyı açıp «Tekrar yazdır» düğmesine basın: fiş bir kez çıkar."
+        ]
+      }
+    },
+    {
+      "id": "1.18.17/weight-label-weighed-only",
+      "version": "1.18.17",
+      "area": "scanner",
+      "severity": "important",
+      "title": {
+        "ru": "Весовая этикетка находит только весовой товар",
+        "ky": "Таразанын этикеткасы салмактуу товарды гана табат",
+        "uz": "Tarozi etiketkasi faqat vaznli mahsulotni topadi",
+        "en": "A weight label finds only weighed products",
+        "tr": "Terazi etiketi yalnızca tartılı ürünü bulur"
+      },
+      "changed": {
+        "ru": "Штучный товар с артикулом 12 больше не подменяет весовой «Картофель» с PLU 12 (как на кассе). Неизвестный PLU предлагает «Выбрать товар и записать ему PLU». Одна и та же этикетка в кадре не ложится в чек второй раз без вопроса.",
+        "ky": "12 артикулдуу даана товар PLU 12 болгон салмактуу «Картошканы» алмаштырбайт (кассадагыдай). Белгисиз PLU «Товарды тандап, ага PLU жазуу» сунуштайт. Бир эле этикетка кадрда суроосуз чекке экинчи жолу түшпөйт.",
+        "uz": "12-artikulli donali mahsulot endi PLU 12 bo'lgan vaznli «Kartoshka»ni almashtirmaydi (kassadagidek). Noma'lum PLU «Mahsulotni tanlab, unga PLU yozish»ni taklif qiladi. Kadrdagi bir xil etiketka savolsiz chekka ikkinchi marta tushmaydi.",
+        "en": "A piece product with article 12 no longer replaces the weighed “Potatoes” with PLU 12 (as on the till). An unknown PLU offers “Pick a product and save the PLU to it”. The same label in the frame is not added to the receipt a second time without asking.",
+        "tr": "12 numaralı adetli ürün artık PLU 12 olan tartılı «Patates»in yerine geçmez (kasadaki gibi). Bilinmeyen PLU «Ürünü seçip PLU yaz» önerir. Kadrajdaki aynı etiket sormadan ikinci kez fişe eklenmez."
+      },
+      "steps": {
+        "ru": [
+          "В продаже наведите камеру на весовую этикетку с PLU 12: добавляется весовой товар, а не штучный с артикулом 12.",
+          "Оставьте ту же этикетку в кадре: второй раз в чек она сама не ложится — приложение спрашивает.",
+          "Наведите на этикетку с неизвестным PLU: предлагается «Выбрать товар и записать ему PLU», а не «Добавить товар».",
+          "Выберите товар: PLU записан, повторное сканирование находит его сразу."
+        ],
+        "ky": [
+          "Сатууда камераны PLU 12 болгон салмактуу этикеткага багыттаңыз: артикулу 12 даана товар эмес, салмактуу товар кошулат.",
+          "Ошол этикетканы кадрда калтырыңыз: чекке экинчи жолу өзү түшпөйт — тиркеме сурайт.",
+          "PLU белгисиз этикеткага багыттаңыз: «Товар кошуу» эмес, «Товарды тандап, ага PLU жазуу» сунушталат.",
+          "Товарды тандаңыз: PLU жазылды, кайра сканерлегенде дароо табылат."
+        ],
+        "uz": [
+          "Sotuvda kamerani PLU 12 bo'lgan vaznli etiketkaga yo'naltiring: 12-artikulli donali emas, vaznli mahsulot qo'shiladi.",
+          "Shu etiketkani kadrda qoldiring: chekka ikkinchi marta o'zi tushmaydi — ilova so'raydi.",
+          "PLU noma'lum etiketkaga yo'naltiring: «Mahsulot qo'shish» emas, «Mahsulotni tanlab, unga PLU yozish» taklif qilinadi.",
+          "Mahsulotni tanlang: PLU yozildi, qayta skanerlaganda darhol topiladi."
+        ],
+        "en": [
+          "In a sale point the camera at a weight label with PLU 12: the weighed product is added, not the piece product with article 12.",
+          "Leave the same label in the frame: it does not go into the receipt a second time on its own — the app asks.",
+          "Point at a label with an unknown PLU: it offers “Pick a product and save the PLU to it”, not “Add a product”.",
+          "Pick a product: the PLU is saved and scanning again finds it at once."
+        ],
+        "tr": [
+          "Satışta kamerayı PLU 12 olan tartılı etikete tutun: 12 numaralı adetli ürün değil, tartılı ürün eklenir.",
+          "Aynı etiketi kadrajda bırakın: ikinci kez kendiliğinden fişe girmez — uygulama sorar.",
+          "Bilinmeyen PLU'lu etikete tutun: «Ürün ekle» değil, «Ürünü seçip PLU yaz» önerilir.",
+          "Ürünü seçin: PLU kaydedilir, tekrar taramada hemen bulunur."
+        ]
+      }
+    },
+    {
+      "id": "1.18.17/ai-language-fixed",
+      "version": "1.18.17",
+      "area": "videocall",
+      "severity": "important",
+      "title": {
+        "ru": "ИИ отвечает на языке приложения",
+        "ky": "ИИ колдонмонун тилинде жооп берет",
+        "uz": "AI ilova tilida javob beradi",
+        "en": "The AI answers in the app language",
+        "tr": "Yapay zekâ uygulama dilinde yanıt verir"
+      },
+      "changed": {
+        "ru": "В звонке, видеозвонке и чате ИИ говорит на языке приложения (русский или кыргызский) и не уходит на узбекский или турецкий. Язык меняется настройкой или явной командой («кыргызча жооп бер», «говори по-русски»). Английский, турецкий и узбекский — платный языковой пакет.",
+        "ky": "Чалууда, видеочалууда жана чатта ИИ колдонмонун тилинде (орусча же кыргызча) сүйлөйт, өзбекче же түркчө кетпейт. Тил жөндөө же так буйрук менен өзгөрөт («кыргызча жооп бер», «орусча сүйлө»). Англисче, түркчө жана өзбекче — акы төлөнүүчү тил пакети.",
+        "uz": "Qo'ng'iroq, video-qo'ng'iroq va chatda AI ilova tilida (ruscha yoki qirg'izcha) gapiradi, o'zbekcha yoki turkchaga o'tmaydi. Til sozlama yoki aniq buyruq bilan o'zgaradi («qirg'izcha javob ber», «ruscha gapir»). Inglizcha, turkcha va o'zbekcha — pullik til paketi.",
+        "en": "In calls, video calls and chat the AI speaks the app language (Russian or Kyrgyz) and does not drift to Uzbek or Turkish. The language changes by a setting or an explicit command (“answer in Kyrgyz”, “speak Russian”). English, Turkish and Uzbek are a paid language pack.",
+        "tr": "Aramada, görüntülü aramada ve sohbette yapay zekâ uygulama dilinde (Rusça veya Kırgızca) konuşur, Özbekçe veya Türkçeye kaymaz. Dil ayarla ya da açık komutla değişir («Kırgızca yanıtla», «Rusça konuş»). İngilizce, Türkçe ve Özbekçe ücretli dil paketidir."
+      },
+      "steps": {
+        "ru": [
+          "Включите русский язык приложения, начните звонок ИИ и говорите по-русски: ответы только на русском.",
+          "Скажите «кыргызча жооп бер»: ИИ переходит на кыргызский, звонок не обрывается.",
+          "Скажите «говори по-русски»: ИИ возвращается на русский.",
+          "Без языкового пакета откройте «Язык»: английский, турецкий и узбекский закрыты («Языковой пакет не подключён»)."
+        ],
+        "ky": [
+          "Колдонмонун орус тилин күйгүзүп, ИИ менен чалууну баштаңыз да орусча сүйлөңүз: жооптор орусча гана.",
+          "«кыргызча жооп бер» деп айтыңыз: ИИ кыргызчага өтөт, чалуу үзүлбөйт.",
+          "«орусча сүйлө» деп айтыңыз: ИИ кайра орусчага өтөт.",
+          "Тил пакетисиз «Тил» бөлүмүн ачыңыз: англисче, түркчө жана өзбекче жабык («Тил пакети туташкан эмес»)."
+        ],
+        "uz": [
+          "Ilovaning rus tilini yoqing, AI bilan qo'ng'iroqni boshlang va ruscha gapiring: javoblar faqat ruscha.",
+          "«qirg'izcha javob ber» deng: AI qirg'izchaga o'tadi, qo'ng'iroq uzilmaydi.",
+          "«ruscha gapir» deng: AI yana ruschaga qaytadi.",
+          "Til paketisiz «Til»ni oching: inglizcha, turkcha va o'zbekcha yopiq («Til paketi ulanmagan»)."
+        ],
+        "en": [
+          "Set the app to Russian, start an AI call and speak Russian: replies are in Russian only.",
+          "Say “answer in Kyrgyz”: the AI switches to Kyrgyz, the call does not drop.",
+          "Say “speak Russian”: the AI returns to Russian.",
+          "Without the language pack open “Language”: English, Turkish and Uzbek are locked (“Language pack not connected”)."
+        ],
+        "tr": [
+          "Uygulamayı Rusçaya ayarlayın, yapay zekâ aramasını başlatın ve Rusça konuşun: yanıtlar yalnızca Rusça.",
+          "«Kırgızca yanıtla» deyin: yapay zekâ Kırgızcaya geçer, arama kopmaz.",
+          "«Rusça konuş» deyin: yapay zekâ Rusçaya döner.",
+          "Dil paketi olmadan «Dil»i açın: İngilizce, Türkçe ve Özbekçe kilitlidir («Dil paketi bağlı değil»)."
+        ]
+      }
     }
   ]
 }

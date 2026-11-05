@@ -8,6 +8,7 @@ import '../../features/sale/catalog_repository.dart';
 import '../../features/scan/code_lookup.dart';
 import '../ai/cam_aliases.dart';
 import '../ai/vision.dart';
+import '../catalog/catalog_matcher.dart';
 import '../db/database.dart';
 import '../link/kassa_link.dart';
 import '../util/audit.dart';
@@ -192,6 +193,7 @@ class AccountSwitch {
   static Future<void> _forgetMemory() async {
     VisionService.forgetAccount();
     CamAliases.forgetAccount();
+    CatalogMatcher.forgetAccount(); // 2026-11-05 (М5-25): индекс умной камеры прошлого магазина
     ScaleRulesLoader.forgetAccount();
     try {
       await KassaLink.instance.forgetAccount();

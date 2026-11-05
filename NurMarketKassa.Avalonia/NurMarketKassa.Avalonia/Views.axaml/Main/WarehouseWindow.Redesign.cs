@@ -103,7 +103,10 @@ public partial class WarehouseWindow
             var archiveApi = App.AppHost?.Services.GetService(typeof(NurMarketKassa.Services.Api.ICatalogApiService)) as NurMarketKassa.Services.Api.ICatalogApiService;
             if (archiveApi is null)
                 return;
-            var dialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ArchivedProductsDialog(archiveApi);
+            // 2026-11-03 (аудит №3, Т3-03): без права «Склад: редактирование» архив открывается только для просмотра (кнопка «Вернуть» скрыта)
+            var canRestore = App.AppHost?.Services.GetService(typeof(NurMarketKassa.Core.Contracts.IPermissionService)) is not NurMarketKassa.Core.Contracts.IPermissionService perm
+                             || perm.HasPermission(NurMarketKassa.Core.Contracts.PosPermissions.EditProducts);
+            var dialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ArchivedProductsDialog(archiveApi, canRestore);
             if (await dialog.ShowDialog<bool>(this).ConfigureAwait(true))
             {
                 await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
@@ -434,6 +437,8 @@ public partial class WarehouseWindow
     private async void StockAdjust_Click(object? sender, RoutedEventArgs e)
     {
         if ((sender as Control)?.Tag is not CatalogProductTileVm product)
+            return;
+        if (!EnsureCanEditProducts()) // 2026-11-03 (аудит №3, Т3-03): остаток правит владелец, администратор или сотрудник с правом «Склад: редактирование»
             return;
         var dialog = new StockAdjustDialog(product);
         if (await dialog.ShowDialog<bool>(this).ConfigureAwait(true))

@@ -130,10 +130,11 @@ public sealed partial class InvestmentsWindow
         var b2 = new StackPanel { Spacing = 10 };
         var b2head = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         b2head.Children.Add(Heading(T("2. От чего считается доля", "2. Үлүш эмнеден эсептелет", "2. What the share is calculated from", "2. Pay neye göre hesaplanır", "2. Ulush nimadan hisoblanadi"), 15));
-        var last = _result?.Months.LastOrDefault(m => m.Detail != null);
+        // 2026-11-05 (И-06): база - за последний ПОЛНЫЙ месяц (неполный текущий - только если полных нет), с подписью периода.
+        var last = _result?.Months.LastOrDefault(m => m.IsFull && m.Detail != null) ?? _result?.Months.LastOrDefault(m => m.Detail != null);
         if (last?.Detail is { } lp)
         {
-            var now = Soft(T("База за ", "Базасы: ", "Base for ", "Taban: ", "Baza: ") + MonthName(last.From) + ": " + Money0(InvestmentAnalysis.BaseOf(lp, terms)), 12.5);
+            var now = Soft(T("База за ", "Базасы: ", "Base for ", "Taban: ", "Baza: ") + LastMonthLabel(last) + ": " + Money0(InvestmentAnalysis.BaseOf(lp, terms)), 12.5);
             now.VerticalAlignment = VerticalAlignment.Center;
             Grid.SetColumn(now, 1);
             b2head.Children.Add(now);
@@ -327,6 +328,9 @@ public sealed partial class InvestmentsWindow
         _ = wasNew;
         // Store.Changed перерисует вкладку; на случай если сервер не отвечает — перерисуем сами.
         Recompute();
+        // 2026-11-05 (И-08): при сохранении предупреждаем, если доли инвесторов в сумме больше 100 %.
+        if (_result != null && InvestmentAnalysis.ShareWarning(_result) is { } sw)
+            _termsMsg += " ⚠ " + sw;
         RenderTab();
     }
 
@@ -501,6 +505,9 @@ public sealed partial class InvestmentsWindow
         var sim = InvestmentAnalysis.Simulate(terms, draft.Amount, OwnInvestedFor(draft), SimMonthly(terms));
         if (sim.InvestorMonths is null && sim.Monthly > 0m && draft.Amount > 0m)
             warnings.Add(T("При такой прибыли инвестор не вернёт вложения за 10 лет.", "Мындай пайда менен инвестор 10 жылда салымын кайтарбайт.", "At this profit the investor will not get the investment back in 10 years.", "Bu kârla yatırımcı 10 yılda yatırımını geri alamaz.", "Bunday foyda bilan investor 10 yilda sarmoyasini qaytarib olmaydi."));
+        // 2026-11-05 (И-08): сумма долей инвесторов на текущих этапах (с этим черновиком) больше 100 %.
+        if (SharesWarning(draft) is { } shareWarn)
+            warnings.Add(shareWarn);
         if (warnings.Count == 0)
             reading.Children.Add(new TextBlock { Text = T("Условия корректны", "Шарттар туура", "The terms are valid", "Koşullar doğru", "Shartlar to'g'ri"), FontSize = 13, FontWeight = FontWeight.Bold, Foreground = Brush.Parse("#8FD3B4") });
         foreach (var w in warnings)
@@ -522,7 +529,7 @@ public sealed partial class InvestmentsWindow
             var chips = new List<Control>();
             foreach (var mult in new[] { 0.6m, 1m, 1.6m, 2.4m })
             {
-                var v = Math.Round(baseDefault * mult / 10000m) * 10000m;
+                var v = Math.Round(baseDefault * mult / 100m) * 100m; // 2026-11-05 (И-17)
                 if (v <= 0m)
                     continue;
                 chips.Add(ChipBtn(Short(v), SimMonthly(terms) == v, () =>
@@ -543,6 +550,19 @@ public sealed partial class InvestmentsWindow
 
     private StackPanel? _simResult;
 
+    /// <summary>Доли на текущих этапах: у остальных инвесторов — по расчёту, у черновика — его текущий этап (новый — первый).</summary>
+    private string? SharesWarning(InvestorItem draft)
+    {
+        var now = new List<(string Base, decimal Pct)>();
+        foreach (var r in _result?.Investors ?? new List<InvestorResult>())
+            if (r.Investor.Id != draft.Id && r.StageNow < r.Investor.Terms.Stages.Count)
+                now.Add((r.Investor.Terms.Base, r.Investor.Terms.Stages[r.StageNow].Pct));
+        var own = _result?.Investors.FirstOrDefault(r => r.Investor.Id == draft.Id)?.StageNow ?? 0;
+        if (own < draft.Terms.Stages.Count)
+            now.Add((draft.Terms.Base, draft.Terms.Stages[own].Pct));
+        return InvestmentAnalysis.ShareWarning(now);
+    }
+
     private decimal OwnInvestedFor(InvestorItem draft)
     {
         var others = StartupCostsStore.Investors.Where(i => i.Id != draft.Id).Sum(i => i.Amount);
@@ -556,7 +576,7 @@ public sealed partial class InvestmentsWindow
         return last?.Detail is { } p ? Math.Max(0m, InvestmentAnalysis.BaseOf(p, terms)) : 0m;
     }
 
-    private decimal SimMonthly(InvestorTerms terms) => _simMonthly ?? Math.Round(DefaultSimMonthly(terms) / 10000m) * 10000m;
+    private decimal SimMonthly(InvestorTerms terms) => _simMonthly ?? Math.Round(DefaultSimMonthly(terms) / 100m) * 100m; // 2026-11-05 (И-17): было до 10 000 - у магазина с прибылью 4 000/мес. поле оставалось пустым
 
     private void RebuildSimResult()
     {

@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/ai/ai_language.dart';
 import '../../core/ai/vision.dart';
+import '../../core/language_pack.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 
@@ -256,9 +258,37 @@ class _AdvisorScreenState extends ConsumerState<AdvisorScreen> {
       _messages.add(_Msg(true, text));
       _input.clear();
     });
+    // 2026-11-05: явная команда смены языка («кыргызча жооп бер», «переведи на кыргызский») — узнаёт программа, без ИИ
+    if (await _tryLanguageCommand(text)) return;
     // 2026-10-27: короткая команда «открой …» разбирается на телефоне за миллисекунды — без сводки магазина и без ИИ
     if (await _tryLocalNav(text)) return;
     await _answer();
+  }
+
+  /// 2026-11-05 (язык ИИ меняется только настройкой или явной командой): в чате команда выполняется на телефоне и подтверждается локально.
+  /// Платный язык без пакета «Язык» — честный ответ, язык не меняется. false — это не команда.
+  Future<bool> _tryLanguageCommand(String text) async {
+    final cmd = AiLanguage.parse(text);
+    if (cmd == null) return false;
+    final db = ref.read(databaseProvider);
+    await AiLanguage.load(db);
+    final ui = ref.read(prefsProvider).locale.languageCode;
+    String say;
+    if (!LanguagePackGate.isAvailable(cmd.code)) {
+      say = AiLanguage.notConnectedText(AiLanguage.of(ui));
+    } else {
+      await AiLanguage.save(db, cmd.code);
+      if (cmd.interfaceToo && cmd.code != ui) await ref.read(prefsProvider.notifier).setLocale(cmd.code);
+      say = AiLanguage.confirmPhrase(cmd.code);
+    }
+    final i = _messages.lastIndexWhere((m) => m.user);
+    if (!mounted) return true;
+    setState(() {
+      if (i >= 0) _messages[i] = _Msg(true, _messages[i].text, raw: _messages[i].raw, local: true);
+      _messages.add(_Msg(false, say, local: true));
+    });
+    _toEnd();
+    return true;
   }
 
   /// Язык ответа программы: по языку фразы; кириллица без ң/ө/ү при кыргызском интерфейсе — кыргызский, латиница при uz/tr — язык интерфейса.
@@ -414,8 +444,10 @@ class _AdvisorScreenState extends ConsumerState<AdvisorScreen> {
     }
   }
 
+  // 2026-11-05: язык ответа — язык ИИ (не язык вопроса): жёсткое правило первой строкой
   String _system(String shop, String data) =>
-      'Ты — Нур Советник, помощник владельца магазина «$shop» в Кыргызстане. Отвечай на языке вопроса, коротко и по делу, '
+      '${AiLanguage.rule(AiLanguage.of(ref.read(prefsProvider).locale.languageCode))}\n\n'
+      'Ты — Нур Советник, помощник владельца магазина «$shop» в Кыргызстане. Отвечай на языке ИИ из правила выше, коротко и по делу, '
       'с цифрами из данных магазина ниже — называй их как есть, не пересчитывай. Таблицы делай Markdown-таблицей (| колонка | колонка | и строка |---|---|), не больше 4 колонок; выделяй главное **жирным**. '
       'Если данных нет — так и скажи, не выдумывай. Суммы — в сомах. Советуй конкретно: что заказать, кому напомнить о долге, что продаётся лучше. '
       'Должников называй только кодами в квадратных скобках, например [Д1]. '

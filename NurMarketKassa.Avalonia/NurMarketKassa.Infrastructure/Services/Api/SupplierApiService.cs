@@ -89,11 +89,15 @@ public sealed record ReceiptEditCaps(bool Edit, bool Discount, bool SalePrice)
 public sealed record SupplierProduct(string Id, string Name, string Code, string Article, double Price, double PurchasePrice, double Quantity);
 
 /// <summary>Возврат поставщику (GET suppliers/returns/): compensation — cash / debt_offset / none.</summary>
-public sealed record SupplierReturnLine(string ProductName, double Qty, string Unit, double PurchasePrice, double Total);
+public sealed record SupplierReturnLine(string ProductName, double Qty, string Unit, double PurchasePrice, double Total,
+    // 2026-11-05 (накладная на возврат поставщику): артикул и штрихкод строки, если сервер их отдаёт; иначе пусто.
+    string Article = "", string Barcode = "");
 
 public sealed record SupplierReturnInfo(
     string Id, string SupplierId, string SupplierName, string ReceiptId, DateTime? CreatedAt, string Reason, string Compensation, double Total,
-    string CreatedBy, string Comment, IReadOnlyList<SupplierReturnLine> Lines);
+    string CreatedBy, string Comment, IReadOnlyList<SupplierReturnLine> Lines,
+    // 2026-11-05 (накладная на возврат поставщику): серверный номер («ВП-2026-000010» / «ВП-11»), номер прихода-основания и склад, если сервер их отдал.
+    string NumberDisplay = "", string ReceiptNumber = "", string Warehouse = "");
 
 /// <summary>Строка списка «Поставщики»: долг (kpis), предоплата, просрочка и ближайший срок (по сделкам), последняя закупка (приходы).
 /// Loaded=false — долг по поставщику получить не удалось (строка показывает «не загрузилось»).</summary>
@@ -566,6 +570,11 @@ public sealed class SupplierApiService
         return new DocPage(docs, count, hasNext, hasCount && (count > docs.Count || !hasNext));
     }
 
+    /// <summary>2026-11-05: карточка одного возврата (GET suppliers/returns/{id}/) — для накладной на возврат: может нести номер, артикулы и склад,
+    /// которых нет в строке списка.</summary>
+    public async Task<SupplierReturnInfo> GetReturnAsync(string returnId, CancellationToken ct = default) =>
+        ParseReturn(await GetJsonAsync($"api/main/suppliers/returns/{Esc(returnId)}/", null, ct).ConfigureAwait(false));
+
     /// <summary>Возвраты поставщику (GET suppliers/returns/ — те же, что в разделе «Возвраты поставщикам»).</summary>
     public async Task<List<SupplierReturnInfo>> GetReturnsAsync(string? supplierId, CancellationToken ct = default)
     {
@@ -769,14 +778,25 @@ public sealed class SupplierApiService
             (int)Num(x, "version"), Str(x, "payment_type"), Num(x, "paid_amount"), Num(x, "discount"), Num(x, "discount_percent"), Str(x, "number_display"));
     }
 
-    private static SupplierReturnInfo ParseReturn(JsonElement x)
+    /// <summary>Возврат из ответа сервера (строка списка suppliers/returns/ или карточка suppliers/returns/{id}/). 2026-11-05: публичный — по нему же
+    /// строится накладная на возврат (SupplierReturnDocuments), в том числе из окна «Возвраты поставщикам», которое держит строки как JSON.</summary>
+    public static SupplierReturnInfo ParseReturn(JsonElement x)
     {
+        string First(JsonElement e, params string[] names) => names.Select(n => Str(e, n)).FirstOrDefault(v => v.Length > 0) ?? "";
         var items = Arr(x, "items") is { Count: > 0 } it ? it : Arr(x, "lines");
         var lines = items.Select(i => new SupplierReturnLine(Str(i, "product_name"), Num(i, "qty"), Str(i, "unit"), Num(i, "purchase_price"),
-            Num(i, "line_total") is > 0 and var lt ? lt : Num(i, "qty") * Num(i, "purchase_price"))).ToList();
+            Num(i, "line_total") is > 0 and var lt ? lt : Num(i, "qty") * Num(i, "purchase_price"),
+            First(i, "article", "product_article", "product_code"), First(i, "barcode", "product_barcode"))).ToList();
+        // Номер: number_display («ВП-2026-000010»); нет — number (число у сервера) с префиксом «ВП-».
+        var number = Str(x, "number_display");
+        if (number.Length == 0 && Str(x, "number") is { Length: > 0 } plain)
+            number = plain.Any(char.IsLetter) ? plain : "ВП-" + plain;
+        var receiptNumber = First(x, "receipt_number_display", "receipt_display", "receipt_number");
+        if (!receiptNumber.Any(char.IsLetter))
+            receiptNumber = "";
         return new SupplierReturnInfo(Str(x, "id"), Str(x, "supplier_id"), Str(x, "supplier_name"), Str(x, "receipt_id"), Date(Str(x, "created_at")),
             Str(x, "reason"), Str(x, "compensation") is { Length: > 0 } c ? c : Str(x, "compensation_type"), Num(x, "total_amount"), Str(x, "created_by_name"),
-            Str(x, "comment"), lines);
+            Str(x, "comment"), lines, number, receiptNumber, First(x, "warehouse_name", "warehouse"));
     }
 
     private static IEnumerable<JsonElement> Rows(JsonElement d) =>

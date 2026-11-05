@@ -75,7 +75,7 @@ void main() {
     expect(await db.getSetting('cart.clearedSeq'), '1');
   });
 
-  test('М3-01: пока оплата идёт (frozen), состав чека не меняется; очистка работает всегда', () async {
+  test('М3-01: пока оплата идёт (frozen), состав чека не меняется; очистка самой оплатой работает всегда', () async {
     final c = container();
     final n = c.read(cartProvider.notifier);
     n.restore(_cart());
@@ -85,7 +85,10 @@ void main() {
     n.addCustom('Услуга', 50, 1);
     expect(c.read(cartProvider).lines.single.qty, 1);
     expect(c.read(cartProvider).lines.length, 1);
-    n.clear(); // очистка после оплаты — всегда
+    // 2026-11-05 (М4-01): обычная очистка (команда ИИ) во время оплаты не действует; очистка самой оплатой — force.
+    n.clear();
+    expect(c.read(cartProvider).lines.length, 1);
+    n.clear(force: true); // очистка после оплаты — всегда
     expect(c.read(cartProvider).isEmpty, isTrue);
     n.frozen = false;
     await n.flush();

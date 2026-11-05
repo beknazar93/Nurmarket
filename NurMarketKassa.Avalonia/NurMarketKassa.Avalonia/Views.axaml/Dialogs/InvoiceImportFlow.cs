@@ -263,13 +263,16 @@ public static class InvoiceImportFlow
         PosLogger.Log($"INVOICE_IMPORT: накладная {name} перенесена в приёмку — строк {added}, новых товаров {newCount}, сумма {result.Total:0.##}, поставщик {(supplier is null ? "не выбран" : "выбран")}, пропущено нераспознанных {result.Unrecognized}.", "INVOICE_IMPORT");
 
         // Номер накладной в приёмку/на сервер как поле не передаётся (в документе прихода NurCRM для него нет поля) — подсказываем кассиру на экране.
-        var invoiceLabel = (result.Number.Length > 0 ? "№ " + result.Number : T("накладная", "накладной", "invoice", "fatura", "yuk xati"))
-                           + (result.Date is { } d ? " " + T("от", "күнү", "dated", "tarih", "sana") + " " + d.ToString("dd.MM.yyyy") : "");
-        vm.ShowReceivingInfo(T($"Накладная {invoiceLabel} добавлена: строк {added}, на {result.Total:N2}. Проверьте цены продажи и нажмите «Оприходовать».",
-            $"Накладной {invoiceLabel} кошулду: саптар {added}, {result.Total:N2}. Сатуу баасын текшерип, «Кирешеге алуу» басыңыз.",
-            $"Invoice {invoiceLabel} added: {added} lines, {result.Total:N2}. Check the sale prices and press “Receive”.",
-            $"Fatura {invoiceLabel} eklendi: {added} satır, {result.Total:N2}. Satış fiyatlarını kontrol edip «Stoğa al»'a basın.",
-            $"Yuk xati {invoiceLabel} qo'shildi: {added} qator, {result.Total:N2}. Sotuv narxlarini tekshirib, «Kirim qilish»ni bosing."));
+        // 2026-11-05 (Н-8, приёмка 1.17.75): без номера и даты было «Накладная накладная добавлена» — теперь подпись пустая, а не слово «накладная» второй раз.
+        var invoiceLabel = (result.Number.Length > 0 ? "№ " + result.Number : "")
+                           + (result.Date is { } d ? (result.Number.Length > 0 ? " " : "") + T("от", "күнү", "dated", "tarih", "sana") + " " + d.ToString("dd.MM.yyyy") : "");
+        if (invoiceLabel.Length > 0)
+            invoiceLabel = " " + invoiceLabel;
+        vm.ShowReceivingInfo(T($"Накладная{invoiceLabel} добавлена: строк {added}, на {result.Total:N2}. Проверьте цены продажи и нажмите «Оприходовать».",
+            $"Накладной{invoiceLabel} кошулду: саптар {added}, {result.Total:N2}. Сатуу баасын текшерип, «Кирешеге алуу» басыңыз.",
+            $"Invoice{invoiceLabel} added: {added} lines, {result.Total:N2}. Check the sale prices and press “Receive”.",
+            $"Fatura{invoiceLabel} eklendi: {added} satır, {result.Total:N2}. Satış fiyatlarını kontrol edip «Stoğa al»'a basın.",
+            $"Yuk xati{invoiceLabel} qo'shildi: {added} qator, {result.Total:N2}. Sotuv narxlarini tekshirib, «Kirim qilish»ni bosing."));
     }
 
     /// <summary>2026-10-27 (ревью Ск-2): перед «Оприходовать» — накладная уже оприходована раньше или лежит в приёмке дважды. true — провести всё равно.</summary>

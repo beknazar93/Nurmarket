@@ -72,11 +72,11 @@ public sealed class StartupCostDialog : Window
         };
         Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
         Content = SectionCards.Shell(Title,
-            T("Вложение на открытие бизнеса: ремонт, оборудование, мебель, первоначальная закупка, лицензии, реклама, залог за аренду.",
-                "Бизнести ачуудагы салым: оңдоо, жабдуу, эмерек, баштапкы товар, лицензия, жарнама, ижара күрөөсү.",
-                "An opening investment: repairs, equipment, furniture, first stock purchase, licences, advertising, rent deposit.",
-                "Açılış yatırımı: tadilat, ekipman, mobilya, ilk mal alımı, lisans, reklam, kira depozitosu.",
-                "Ochilishdagi sarmoya: ta'mir, uskuna, mebel, dastlabki tovar, litsenziya, reklama, ijara garovi."),
+            T("Вложение на открытие бизнеса: ремонт, оборудование, мебель, лицензии, реклама, залог за аренду. Товар на старт во «Вложено» не входит — он окупается продажами.",
+                "Бизнести ачуудагы салым: оңдоо, жабдуу, эмерек, лицензия, жарнама, ижара күрөөсү. Баштапкы товар «Салынды» ичине кирбейт — ал сатуу менен кайтат.",
+                "An opening investment: repairs, equipment, furniture, licences, advertising, rent deposit. The first stock is not part of “Invested” — it pays back through sales.",
+                "Açılış yatırımı: tadilat, ekipman, mobilya, lisans, reklam, kira depozitosu. İlk mal «Yatırılan»a dahil değil — satışla geri döner.",
+                "Ochilishdagi sarmoya: ta'mir, uskuna, mebel, litsenziya, reklama, ijara garovi. Dastlabki tovar «Kiritilgan»ga kirmaydi — u sotuv bilan qaytadi."),
             panel, SectionCards.Buttons(cancel, ok), hint);
         Opened += (_, _) => _title.Focus();
     }

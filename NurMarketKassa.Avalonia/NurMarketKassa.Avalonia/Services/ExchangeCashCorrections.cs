@@ -44,6 +44,42 @@ public static class ExchangeCashCorrections
             return Load(forWrite: false).Where(e => string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase)).Sum(e => e.Amount);
     }
 
+    // 2026-11-05 (аудит №3, Р3-06 / Д3-11): наличные возврата, которые сервер уже вычел из остатка смены, но кассе об этом ещё не сказал (ответ на «остаток смены» медленный) —
+    // шапка «Касса:» вычитает их сразу, а не через ~8 с. Запись снимается, когда пришёл остаток, который КАССА СПРОСИЛА ПОСЛЕ неё; через 90 с — сама.
+    private static readonly List<(DateTime At, string ShiftId, decimal Amount)> PendingServerCashList = new();
+
+    /// <summary>Возврат выдал наличные <paramref name="cashOut"/>, сервер вычтет их из остатка смены. Только для чеков НЕ в долг (у долгового сервер наличные не вычитает — там своя поправка).</summary>
+    public static void NotePendingServerCash(string? shiftId, decimal cashOut)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId) || cashOut <= 0.005m)
+            return;
+        lock (PendingServerCashList)
+            PendingServerCashList.Add((DateTime.UtcNow, shiftId, cashOut));
+        PosDataEvents.RaiseSalesChanged(); // шапка пересчитывается сразу, даже если окно возврата ещё открыто
+    }
+
+    /// <summary>Сколько наличных возвратов по смене сервер ещё не отразил в остатке (для шапки «Касса:»).</summary>
+    public static decimal PendingServerCash(string? shiftId)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId))
+            return 0m;
+        var limit = DateTime.UtcNow.AddSeconds(-90);
+        lock (PendingServerCashList)
+        {
+            PendingServerCashList.RemoveAll(e => e.At < limit);
+            return PendingServerCashList.Where(e => string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase)).Sum(e => e.Amount);
+        }
+    }
+
+    /// <summary>Пришёл остаток смены, запрос которого начался в <paramref name="requestedAtUtc"/>: все возвраты, выданные раньше, в нём уже учтены.</summary>
+    public static void ClearPendingServerCash(string? shiftId, DateTime requestedAtUtc)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId))
+            return;
+        lock (PendingServerCashList)
+            PendingServerCashList.RemoveAll(e => e.At < requestedAtUtc && string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>expected_cash смены с сервера; null — не удалось узнать (тогда поправку не считаем).</summary>
     public static async Task<decimal?> ReadExpectedCashAsync(NurMarketApiClient api, string? shiftId)
     {
@@ -159,6 +195,11 @@ public static class ExchangeCashCorrections
         lock (FileLock)
         {
             var list = Load();
+            // 2026-11-05 (аудит №3, Д3-06): снятые ключи запоминаем — при занятом файле отложенная запись объединяет память с файлом и иначе вернула бы снятую поправку («воскресла» бы).
+            foreach (var gone in list.Where(e => string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase)
+                && e.ExchangeId.StartsWith("debtprepay:", StringComparison.OrdinalIgnoreCase)
+                && e.ExchangeId.Contains(saleId, StringComparison.OrdinalIgnoreCase)))
+                RemovedKeys[gone.ExchangeId] = 0;
             removed = list.RemoveAll(e => string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase)
                 && e.ExchangeId.StartsWith("debtprepay:", StringComparison.OrdinalIgnoreCase)
                 && e.ExchangeId.Contains(saleId, StringComparison.OrdinalIgnoreCase)) > 0;
@@ -176,6 +217,9 @@ public static class ExchangeCashCorrections
     // 2026-11-02 (аудит №2 кассы, К3-01; приёмка круга 3): «файл занят» (антивирус, индексатор) — это НЕ «пусто». Файл не прочитан или записать не вышло — запись откладывается
     // (AtomicFile.DeferWrite): самое свежее состояние лежит в памяти и читается ПЕРВЫМ, таймер дописывает его в файл (с объединением), при закрытии — запасной файл *.pending.
     private static bool _blocked;
+
+    /// <summary>2026-11-05 (Д3-06): ключи поправок, снятых в этом сеансе (памяти хватает: их единицы за смену). Читается/пишется под <see cref="FileLock"/>; MergeEntries зовётся из AtomicFile — читаем копию.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> RemovedKeys = new(StringComparer.OrdinalIgnoreCase);
 
     private static List<Entry>? Parse(string? text)
     {
@@ -196,7 +240,8 @@ public static class ExchangeCashCorrections
     {
         var memory = Parse(memoryText) ?? new List<Entry>();
         foreach (var e in Parse(fileText) ?? new List<Entry>())
-            if (!memory.Any(x => string.Equals(x.ExchangeId, e.ExchangeId, StringComparison.OrdinalIgnoreCase)))
+            if (!memory.Any(x => string.Equals(x.ExchangeId, e.ExchangeId, StringComparison.OrdinalIgnoreCase))
+                && !RemovedKeys.ContainsKey(e.ExchangeId)) // 2026-11-05 (Д3-06): снятая в этом сеансе поправка из файла не возвращается
                 memory.Add(e);
         return JsonSerializer.Serialize(memory, JsonOpts);
     }

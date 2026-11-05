@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,6 +23,8 @@ String printerProblemText(AppLocalizations l, PrinterException e) => switch (e.p
   PrinterProblem.usbDenied => l.prnErrUsbDenied,
   PrinterProblem.usbNotFound => l.prnErrUsbNotFound,
   PrinterProblem.io => l.prnErrIo(e.detail),
+  // 2026-11-05 (М5-01): исход неизвестен — «проверьте, напечатался ли чек», повтора нет
+  PrinterProblem.stalled => l.prnStalled,
 };
 
 /// Печать чека с любого экрана (после оплаты, «Чек», «Чеки»). [silentIfNone] — автопечать: принтера нет — молчим.
@@ -73,7 +77,25 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
         _port.text = '${c.port}';
         _table.text = '${c.codeTable}';
       });
+      if (c.kind == PrinterKind.bluetooth) unawaited(_showPaired());
     });
+  }
+
+  /// 2026-11-05 (М5-06): вкладка Bluetooth сразу показывает сопряжённые устройства — без «Поиска» и без разрешения на поиск (достаточно
+  /// «Устройства поблизости»). Принтер один и ещё не выбран — выбирается сам. Окон не открывает: нет разрешения или Bluetooth выключен —
+  /// всё остаётся как раньше (кнопка «Поиск»).
+  Future<void> _showPaired() async {
+    try {
+      final st = await _service.btState();
+      if (!st.supported || !st.enabled || !st.permission) return;
+      final list = await _service.btDevices();
+      if (!mounted || _c.kind != PrinterKind.bluetooth || list.isEmpty) return;
+      setState(() => _found = list);
+      final printers = list.where((d) => d.isPrinter && d.paired).toList();
+      if (_c.address.isEmpty && printers.length == 1) _pick(printers.single);
+    } catch (_) {
+      // сопряжённых не показать — остаётся «Поиск»
+    }
   }
 
   @override
@@ -102,6 +124,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
       _note = null;
     });
     _save();
+    if (k == PrinterKind.bluetooth) unawaited(_showPaired()); // 2026-11-05 (М5-06)
   }
 
   /// Bluetooth: разрешение → включён ли → список сопряжённых и найденных рядом.
@@ -130,6 +153,12 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
       _found = null;
     });
     try {
+      // 2026-11-05 (М5-06): Android до 12 — «Местоположение» выключено: поиск ничего не найдёт, говорим об этом и открываем настройки
+      if (_c.kind == PrinterKind.bluetooth && !await _service.locationOn()) {
+        if (mounted) setState(() => _note = l.prnLocationOff);
+        await _service.openLocationSettings();
+        return;
+      }
       final list = switch (_c.kind) {
         PrinterKind.bluetooth => await _btReady(scan: true) ? await _service.btDevices(discover: true) : <PrinterDevice>[],
         PrinterKind.usb => await _service.usbDevices(),

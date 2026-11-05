@@ -2008,5 +2008,19 @@
   "updCancel": "Cancel",
   "updPermTitle": "Allow installation",
   "updPermBody": "To update NurCRM, allow the app to install updates: turn on the switch on the screen that opens, come back here and tap “Update” again.",
-  "updOpenSettings": "Open settings"
+  "updOpenSettings": "Open settings",
+  "prnStalled": "The connection to the printer was lost. Check whether the receipt printed before printing again.",
+  "scaleNoPlu": "Scale label: no product with PLU {plu}",
+  "scaleBindPlu": "Pick a product and assign this PLU",
+  "scaleBindAsk": "Assign PLU {plu} to \"{name}\"?",
+  "scaleLabelAgain": "This label is already in the receipt. Add it again?",
+  "scaleNotWeighed": "This is a scale label, but \"{name}\" is sold by piece. Add it?",
+  "scaleLayoutPick": "The label can be read in two ways — pick the product",
+  "aiSlow": "AI is taking longer than usual…",
+  "aiElapsed": "{s} s elapsed",
+  "aiAskOwner": "AI is not set up — ask the owner",
+  "prnNotPrinted": "Receipt not printed",
+  "prnPrintAgain": "Print again",
+  "prnChecked": "Checked {n} of {total}",
+  "prnLocationOff": "To find a Bluetooth printer on this Android, turn on Location."
 }

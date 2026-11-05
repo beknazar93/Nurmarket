@@ -12165,6 +12165,90 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Открыть настройки'**
   String get updOpenSettings;
+
+  /// No description provided for @prnStalled.
+  ///
+  /// In ru, this message translates to:
+  /// **'Связь с принтером оборвалась. Проверьте, напечатался ли чек, и только потом печатайте заново.'**
+  String get prnStalled;
+
+  /// No description provided for @scaleNoPlu.
+  ///
+  /// In ru, this message translates to:
+  /// **'Весовая этикетка: товар с PLU {plu} не найден'**
+  String scaleNoPlu(String plu);
+
+  /// No description provided for @scaleBindPlu.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выбрать товар и записать ему PLU'**
+  String get scaleBindPlu;
+
+  /// No description provided for @scaleBindAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Записать PLU {plu} товару «{name}»?'**
+  String scaleBindAsk(String plu, String name);
+
+  /// No description provided for @scaleLabelAgain.
+  ///
+  /// In ru, this message translates to:
+  /// **'Эта этикетка уже в чеке. Добавить ещё раз?'**
+  String get scaleLabelAgain;
+
+  /// No description provided for @scaleNotWeighed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Это весовая этикетка, а «{name}» — штучный товар. Добавить?'**
+  String scaleNotWeighed(String name);
+
+  /// No description provided for @scaleLayoutPick.
+  ///
+  /// In ru, this message translates to:
+  /// **'Этикетку можно прочитать двумя способами — выберите товар'**
+  String get scaleLayoutPick;
+
+  /// No description provided for @aiSlow.
+  ///
+  /// In ru, this message translates to:
+  /// **'ИИ думает дольше обычного…'**
+  String get aiSlow;
+
+  /// No description provided for @aiElapsed.
+  ///
+  /// In ru, this message translates to:
+  /// **'Прошло {s} с'**
+  String aiElapsed(int s);
+
+  /// No description provided for @aiAskOwner.
+  ///
+  /// In ru, this message translates to:
+  /// **'ИИ не настроен — попросите владельца'**
+  String get aiAskOwner;
+
+  /// No description provided for @prnNotPrinted.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чек не напечатан'**
+  String get prnNotPrinted;
+
+  /// No description provided for @prnPrintAgain.
+  ///
+  /// In ru, this message translates to:
+  /// **'Повторить печать'**
+  String get prnPrintAgain;
+
+  /// No description provided for @prnChecked.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проверено {n} из {total}'**
+  String prnChecked(int n, int total);
+
+  /// No description provided for @prnLocationOff.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чтобы найти Bluetooth-принтер на этом Android, включите «Местоположение».'**
+  String get prnLocationOff;
 }
 
 class _AppLocalizationsDelegate

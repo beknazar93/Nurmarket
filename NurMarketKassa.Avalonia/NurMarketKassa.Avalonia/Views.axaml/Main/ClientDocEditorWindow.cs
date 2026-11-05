@@ -1520,11 +1520,13 @@ public sealed class ClientDocEditorWindow : Window
                 SuggestedFileName = FileBaseName() + ".pdf",
                 FileTypeChoices = [new FilePickerFileType("PDF") { Patterns = ["*.pdf"] }],
             }).ConfigureAwait(true);
-            var path = file?.TryGetLocalPath();
-            if (string.IsNullOrEmpty(path))
+            // 2026-11-05 (А3-05): Android — без локального пути: временный файл + копия через OpenWriteAsync
+            var path = file is null ? null : ExportFileBridge.PathFor(file);
+            if (file is null || string.IsNullOrEmpty(path))
                 return;
             var input = MakeInput();
             await Task.Run(() => ClientDocRenderer.SavePdf(input, path)).ConfigureAwait(true);
+            path = await ExportFileBridge.CompleteAsync(file, path).ConfigureAwait(true);
             _doc.AddHistory("PDF");
             Changed();
             ShowFile(path, T("PDF сохранён: ", "PDF сакталды: ", "PDF saved: ", "PDF kaydedildi: ", "PDF saqlandi: "));
@@ -1547,11 +1549,12 @@ public sealed class ClientDocEditorWindow : Window
                 SuggestedFileName = FileBaseName() + ".docx",
                 FileTypeChoices = [new FilePickerFileType("Word") { Patterns = ["*.docx"] }],
             }).ConfigureAwait(true);
-            var path = file?.TryGetLocalPath();
-            if (string.IsNullOrEmpty(path))
+            var path = file is null ? null : ExportFileBridge.PathFor(file); // 2026-11-05 (А3-05)
+            if (file is null || string.IsNullOrEmpty(path))
                 return;
             var input = MakeInput();
             await Task.Run(() => ClientDocWord.Save(input, path)).ConfigureAwait(true);
+            path = await ExportFileBridge.CompleteAsync(file, path).ConfigureAwait(true);
             ShowFile(path, T("Word сохранён: ", "Word сакталды: ", "Word saved: ", "Word kaydedildi: ", "Word saqlandi: "));
         }
         catch (Exception ex)

@@ -65,6 +65,8 @@ class _Server extends ApiClient {
     if (path == 'api/users/profile/') {
       return {'user': {'id': me['id'], 'first_name': me['name'], 'role': me['role'], 'is_owner': me['role'] == 'owner', 'language': me['lang']}};
     }
+    // 2026-11-05: пакет «Язык» включён на сервере — платный язык из профиля (en) разрешён; без пакета он отсеивается (language_pack)
+    if (path == 'api/users/company/addons/') return [{'code': 'kassa-language', 'active': true}];
     if (path == 'api/users/company/') return {'name': 'Магазин ${me['name']}', 'inn': '1${me['id']}', 'address': 'ул. ${me['name']}'};
     if (path == 'api/main/app-settings/nurmarket-mobile/') {
       return {

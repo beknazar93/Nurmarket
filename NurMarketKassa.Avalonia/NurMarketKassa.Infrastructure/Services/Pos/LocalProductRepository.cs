@@ -1358,6 +1358,9 @@ public sealed class LocalProductRepository
     /// <summary>Сколько строк кэша правим точечно; больше — проще и не медленнее пересобрать целиком.</summary>
     private const int MaxRowsToPatch = 3000;
 
+    /// <summary>2026-11-05 (Н-03): сколько НОВЫХ товаров вставляем в кэш точечно, не пересобирая его.</summary>
+    private const int MaxNewRowsToPatch = 20;
+
     /// <summary>2026-10-04, п. 15: точечная правка кэша после синхронизации (см. SyncReplaceAllWithDiff).
     /// false — правка не применима (кэш не готов, есть новые товары, сменилось название, товара нет в
     /// кэше, кэш успели пересобрать) — вызывающий пересобирает кэш как раньше.</summary>
@@ -1367,7 +1370,8 @@ public sealed class LocalProductRepository
         int added,
         IReadOnlyCollection<string> deletedIds)
     {
-        if (!_cacheReady || added > 0 || upserted.Count + deletedIds.Count > MaxRowsToPatch)
+        // 2026-11-05 (аудит №3, Н-03): один-два новых товара больше не пересобирают весь кэш (15 тыс. товаров, ~1–2 с на каждое добавление) — вставляем их по названию; много новых сразу — как раньше.
+        if (!_cacheReady || added > MaxNewRowsToPatch || upserted.Count + deletedIds.Count > MaxRowsToPatch)
             return false;
 
         try
@@ -1388,10 +1392,21 @@ public sealed class LocalProductRepository
             }
 
             var replacements = new Dictionary<string, CatalogProductTileVm>(StringComparer.OrdinalIgnoreCase);
+            var newTiles = new List<CatalogProductTileVm>(); // 2026-11-05 (Н-03)
             foreach (var id in upserted)
             {
-                if (!incoming.TryGetValue(id, out var record) || !oldSku.TryGetValue(id.Trim(), out var current))
+                if (!incoming.TryGetValue(id, out var record))
                     return false;
+                if (!oldSku.TryGetValue(id.Trim(), out var current))
+                {
+                    // Новый товар: в кэше его ещё нет — готовим плитку, ниже вставим по названию.
+                    if (string.IsNullOrWhiteSpace(record.Description) && record.Description is not null)
+                        record.Description = null;
+                    if (ToTileVm(record) is not { } newTile)
+                        return false;
+                    newTiles.Add(newTile);
+                    continue;
+                }
                 // Кэш и строки поиска упорядочены по названию — новое название меняет порядок.
                 if (!string.Equals(current.Title, record.Name, StringComparison.Ordinal))
                     return false;
@@ -1420,6 +1435,16 @@ public sealed class LocalProductRepository
                 rows.Add(replacements.TryGetValue(row.Tile.Id, out var replaced) ? CachedProductRow.From(replaced) : row);
             }
 
+            // 2026-11-05 (Н-03): новые товары — на своё место по названию (список упорядочен по названию, как при полной пересборке).
+            foreach (var inserted in newTiles)
+            {
+                var key = inserted.Title.Trim();
+                var at = all.FindIndex(t => string.Compare(t.Title.Trim(), key, StringComparison.OrdinalIgnoreCase) > 0);
+                all.Insert(at < 0 ? all.Count : at, inserted);
+                var rowAt = rows.FindIndex(r => string.Compare(r.SortKey, key, StringComparison.OrdinalIgnoreCase) > 0);
+                rows.Insert(rowAt < 0 ? rows.Count : rowAt, CachedProductRow.From(inserted));
+            }
+
             var sku = new Dictionary<string, CatalogProductTileVm>(all.Count, StringComparer.OrdinalIgnoreCase);
             foreach (var tile in all)
                 sku[tile.Id.Trim()] = tile;
@@ -1441,7 +1466,7 @@ public sealed class LocalProductRepository
                 _cacheLock.ExitWriteLock();
             }
 
-            PosLogger.Log($"CATALOG cache patched: изменено {replacements.Count}, удалено {deleted.Count} (без пересборки, всего {all.Count})", "CATALOG");
+            PosLogger.Log($"CATALOG cache patched: изменено {replacements.Count}, новых {newTiles.Count}, удалено {deleted.Count} (без пересборки, всего {all.Count})", "CATALOG");
             return true;
         }
         catch (Exception ex)

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
@@ -297,12 +298,7 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
         if (file is null)
             return;
 
-        var path = file.TryGetLocalPath();
-        if (string.IsNullOrEmpty(path))
-        {
-            ShowError(Tr.T("Не удалось определить путь файла — выберите папку на этом компьютере.", "Файлдын жолун аныктоо мүмкүн болгон жок — ушул компьютерден папка тандаңыз.", "Could not determine the file path — choose a folder on this computer.", "Dosya yolu belirlenemedi — bu bilgisayarda bir klasör seçin.", "Fayl yo'lini aniqlab bo'lmadi — shu kompyuterdagi papkani tanlang."));
-            return;
-        }
+        var path = ExportFileBridge.PathFor(file); // 2026-11-05 (А3-05): на Android без локального пути — через временный файл
 
         try
         {
@@ -318,6 +314,7 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
                 else
                     AnalyticsExportService.ExportToExcel(path!, data, shop);
             }).ConfigureAwait(true);
+            path = await ExportFileBridge.CompleteAsync(file, path); // 2026-11-05 (А3-05)
 
             ShowError(Tr.T("Отчёт сохранён", "Отчёт сакталды", "Report saved", "Rapor kaydedildi", "Hisobot saqlandi") + $": {path}");
             AvaloniaHost.Services.NoticeBanner.Apply(ErrorBox, ErrorText, success: true);

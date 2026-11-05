@@ -12,8 +12,8 @@ namespace NurMarketKassa.Services;
 public static class TransferDocumentRenderer
 {
     private static readonly string[] FontStack = { "Arial", "Segoe UI", "DejaVu Sans", "Noto Sans", "Liberation Sans" };
-    private const string Ink = "#000000";
-    private const string Soft = "#444444";
+    internal const string Ink = "#000000";
+    internal const string Soft = "#444444";
     private const string Line = "#000000";
     private const string HeadFill = "#E9E9E9";
     private const string TotalFill = "#F4F4F4";
@@ -54,41 +54,68 @@ public static class TransferDocumentRenderer
         public string Dash => "—";
     }
 
-    private static string NumberLine(TransferDocData d, L l)
+    private static string NumberLine(TransferDocData d, L l) => NumberLine(d.Number, d.Date, l);
+
+    // 2026-11-05: общая строка «№ … от …» — её же берёт накладная на возврат поставщику (SupplierReturnDocumentRenderer).
+    internal static string NumberLine(string number, DateTime when, L l)
     {
-        var date = d.Date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+        var date = when.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
         return l.Lang switch
         {
-            "ky" => $"№ {d.Number}, {date}-ж.",
-            "en" => $"No. {d.Number} dated {date}",
-            "tr" => $"No: {d.Number}, tarih: {date}",
-            "uz" => $"№ {d.Number}, {date}",
-            _ => $"№ {d.Number} от {date}",
+            "ky" => $"№ {number}, {date}-ж.",
+            "en" => $"No. {number} dated {date}",
+            "tr" => $"No: {number}, tarih: {date}",
+            "uz" => $"№ {number}, {date}",
+            _ => $"№ {number} от {date}",
         };
     }
 
     /// <summary>Сумма прописью: по-русски и по-кыргызски — словами (MoneyWords), на en/tr/uz — цифрами с подписью.</summary>
-    private static string AmountInWords(double total, L l) => l.Lang switch
+    internal static string AmountInWords(double total, L l) => l.Lang switch
     {
         "ru" => MoneyWords.Amount(total, "ru"),
         "ky" => MoneyWords.Amount(total, "ky"),
         _ => l.T("", "", "Amount in figures: ", "Rakamla tutar: ", "Raqamlarda summa: ") + l.Money(total) + " " + l.Currency,
     };
 
-    private static string OrgLine(TransferDocData d, L l) => string.Join(", ", new[]
+    private static string OrgLine(TransferDocData d, L l) => OrgLine(d.OrgInn, d.OrgAddress, d.OrgPhone, l);
+
+    internal static string OrgLine(string inn, string address, string phone, L l) => string.Join(", ", new[]
     {
-        string.IsNullOrWhiteSpace(d.OrgInn) ? null : l.T("ИНН ", "ИНН ", "TIN ", "VKN ", "STIR ") + d.OrgInn,
-        d.OrgAddress,
-        string.IsNullOrWhiteSpace(d.OrgPhone) ? null : l.T("тел. ", "тел. ", "tel. ", "tel. ", "tel. ") + d.OrgPhone,
+        string.IsNullOrWhiteSpace(inn) ? null : l.T("ИНН ", "ИНН ", "TIN ", "VKN ", "STIR ") + inn,
+        address,
+        string.IsNullOrWhiteSpace(phone) ? null : l.T("тел. ", "тел. ", "tel. ", "tel. ", "tel. ") + phone,
     }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
-    private const string Blank = "________________________________";
+    internal const string Blank = "________________________________";
 
     // ───────────────────────────── страница ─────────────────────────────
 
     private static IDocument Build(TransferDocData d)
     {
         var l = new L(d.Lang);
+        return Compose(l, $"{TransferDocuments.Title(d.Kind, d.Lang)} {d.Number} · {TransferDocuments.Stamp(d.CreatedAt)}", col =>
+        {
+            Header(col, d, l);
+            switch (d.Kind)
+            {
+                case TransferDocKind.Act:
+                    ActBody(col, d, l);
+                    break;
+                case TransferDocKind.Transport:
+                    TransportBody(col, d, l);
+                    break;
+                default:
+                    WaybillBody(col, d, l);
+                    break;
+            }
+        });
+    }
+
+    /// <summary>2026-11-05: страница A4 с полями, шрифтом и подвалом («название · пояс», «стр. N из M») — общая для документов перемещения и
+    /// накладной на возврат поставщику; содержимое рисует <paramref name="content"/>.</summary>
+    internal static IDocument Compose(L l, string footerLeft, Action<ColumnDescriptor> content)
+    {
         return Document.Create(container =>
         {
             container.Page(page =>
@@ -102,24 +129,12 @@ public static class TransferDocumentRenderer
                 page.Content().Column(col =>
                 {
                     col.Spacing(8);
-                    Header(col, d, l);
-                    switch (d.Kind)
-                    {
-                        case TransferDocKind.Act:
-                            ActBody(col, d, l);
-                            break;
-                        case TransferDocKind.Transport:
-                            TransportBody(col, d, l);
-                            break;
-                        default:
-                            WaybillBody(col, d, l);
-                            break;
-                    }
+                    content(col);
                 });
 
                 page.Footer().PaddingTop(6).Row(row =>
                 {
-                    row.RelativeItem().Text($"{TransferDocuments.Title(d.Kind, d.Lang)} {d.Number} · {TransferDocuments.Stamp(d.CreatedAt)}").FontSize(8).FontColor(Soft);
+                    row.RelativeItem().Text(footerLeft).FontSize(8).FontColor(Soft);
                     row.AutoItem().Text(t =>
                     {
                         t.DefaultTextStyle(x => x.FontSize(8).FontColor(Soft));
@@ -135,21 +150,23 @@ public static class TransferDocumentRenderer
 
     // ───────────────────────────── шапка ─────────────────────────────
 
-    private static void Header(ColumnDescriptor col, TransferDocData d, L l)
+    private static void Header(ColumnDescriptor col, TransferDocData d, L l) =>
+        HeaderBlock(col, d.OrgName, OrgLine(d, l), TransferDocuments.Title(d.Kind, d.Lang) + " " + NumberLine(d, l));
+
+    internal static void HeaderBlock(ColumnDescriptor col, string orgName, string orgLine, string titleLine)
     {
         col.Item().Column(c =>
         {
-            c.Item().Text(string.IsNullOrWhiteSpace(d.OrgName) ? Blank : d.OrgName).Bold().FontSize(12);
-            var line = OrgLine(d, l);
-            if (line.Length > 0)
-                c.Item().Text(line).FontSize(9);
+            c.Item().Text(string.IsNullOrWhiteSpace(orgName) ? Blank : orgName).Bold().FontSize(12);
+            if (orgLine.Length > 0)
+                c.Item().Text(orgLine).FontSize(9);
         });
-        col.Item().PaddingTop(6).AlignCenter().Text(TransferDocuments.Title(d.Kind, d.Lang) + " " + NumberLine(d, l)).Bold().FontSize(14);
+        col.Item().PaddingTop(6).AlignCenter().Text(titleLine).Bold().FontSize(14);
         col.Item().LineHorizontal(1.2f).LineColor(Ink);
     }
 
     /// <summary>Строки «подпись: значение» — как у накладной КР (Отправитель / Получатель / Основание).</summary>
-    private static void Parties(ColumnDescriptor col, IEnumerable<(string Label, string Value)> rows)
+    internal static void Parties(ColumnDescriptor col, IEnumerable<(string Label, string Value)> rows)
     {
         col.Item().Table(t =>
         {
@@ -473,18 +490,18 @@ public static class TransferDocumentRenderer
 
     private static string Fill(string value) => string.IsNullOrWhiteSpace(value) ? "________________" : value;
 
-    private static IContainer Head(IContainer x) =>
+    internal static IContainer Head(IContainer x) =>
         x.Border(0.7f).BorderColor(Line).Background(HeadFill).PaddingVertical(4).PaddingHorizontal(3)
             .DefaultTextStyle(s => s.SemiBold().FontSize(8.5f));
 
-    private static IContainer Cell(IContainer x) =>
+    internal static IContainer Cell(IContainer x) =>
         x.Border(0.7f).BorderColor(Line).PaddingVertical(3).PaddingHorizontal(3).MinHeight(18);
 
-    private static IContainer Total(IContainer x) =>
+    internal static IContainer Total(IContainer x) =>
         x.Border(0.7f).BorderColor(Line).Background(TotalFill).PaddingVertical(3).PaddingHorizontal(3).DefaultTextStyle(s => s.SemiBold());
 
     /// <summary>Подписи: «Отпустил: ________» с подписью-пояснением «(подпись, Ф.И.О.)» и квадратом «М.П.» (место под печать).</summary>
-    private static void Signatures(ColumnDescriptor col, L l, params (string Role, string Name, bool Stamp)[] roles)
+    internal static void Signatures(ColumnDescriptor col, L l, params (string Role, string Name, bool Stamp)[] roles)
     {
         col.Item().PaddingTop(10).Row(row =>
         {

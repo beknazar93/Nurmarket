@@ -1178,6 +1178,8 @@ public sealed class SupplierCardView : UserControl
                     MoneyText.Som(l.PurchasePrice), MoneyText.Som(l.Total))).ToList(), T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), T("Кол-во", "Саны", "Qty", "Adet", "Soni"),
                     T("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), T("Сумма", "Суммасы", "Amount", "Tutar", "Summa")));
         }
+        // 2026-11-05, жалоба владельца: накладная на возврат — печать, PDF, Word, Excel (реквизиты поставщика уже в карточке).
+        body.Children.Add(SupplierReturnDocUi.Bar(this, () => r, _info));
         return Card(body);
     }
 

@@ -134,7 +134,9 @@ public static class ReceiptEditAuditLog
             ? Tr.T(" (не применено)", " (колдонулган жок)", " (not applied)", " (uygulanmadı)", " (qo'llanmadi)") : "";
         static string Disp(string v) => double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d)
             ? d.ToString("0.####", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")) : v; // 2026-11-01: на экране «1 → 1,01», в журнале (jsonl) — исходные значения
-        return $"{f.Subject}: {label} {Disp(f.Before)} → {Disp(f.After)}{pending}";
+        // 2026-11-05 (аудит №3, Н-7): запятую и обрезку нулей применяем только к числовым полям — номер накладной «00123» и комментарий «1.5» показываем как есть.
+        var numeric = f.Field is "sale_price" or "markup_percent" or "quantity" or "purchase_price" or "discount" or "payment" or "removed" or "added_item";
+        return $"{f.Subject}: {label} {(numeric ? Disp(f.Before) : f.Before)} → {(numeric ? Disp(f.After) : f.After)}{pending}";
     }
 
     private static string N(double? v) => v is { } x ? x.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) : "?";

@@ -338,6 +338,8 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
             body.Children.Add(SectionCards.LinesTable(this, table, T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), T("Кол-во", "Саны", "Qty", "Adet", "Soni"),
                 T("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), T("Сумма", "Суммасы", "Amount", "Tutar", "Summa")));
         }
+        // 2026-11-05, жалоба владельца: у каждого возврата — «Печать накладной», PDF, Word, Excel (документ строится по данным сервера).
+        body.Children.Add(SupplierReturnDocUi.Bar(this, () => SupplierApiService.ParseReturn(row)));
         card.Child = body;
         card.PointerPressed += (_, _) =>
         {
@@ -391,6 +393,11 @@ public sealed class SupplierReturnDialog : Window
     private readonly TextBlock _total = new() { FontSize = 16, FontWeight = FontWeight.Bold };
     private readonly TextBlock _error = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap, IsVisible = false };
     private readonly Button _save;
+    private readonly Button _cancel;
+    private readonly StackPanel _form;
+    // 2026-11-05: после оформления окно остаётся открытым — главная кнопка становится «Распечатать накладную возврата», «Готово» закрывает окно.
+    private bool _saved;
+    private SupplierReturnInfo? _savedInfo;
     private readonly List<Line> _rows = new();
     private List<(string Id, string Name)> _suppliers = new();
     private List<(string Id, string Title)> _receipts = new();
@@ -420,6 +427,7 @@ public sealed class SupplierReturnDialog : Window
         SectionCards.AsModal(this, 672);
 
         var panel = new StackPanel { Spacing = 8 };
+        _form = panel;
 
         panel.Children.Add(Label(T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi")));
         _supplier.SelectionChanged += async (_, _) => await OnSupplierChangedAsync().ConfigureAwait(true);
@@ -457,9 +465,16 @@ public sealed class SupplierReturnDialog : Window
         panel.Children.Add(errorBox);
 
         var cancel = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
-        cancel.Click += (_, _) => Close(false);
+        _cancel = cancel;
+        cancel.Click += (_, _) => Close(_saved);
         _save = SectionCards.Primary(T("Оформить возврат", "Кайтарууну тариздөө", "Make the return", "İadeyi kaydet", "Qaytarishni rasmiylashtirish"));
-        _save.Click += async (_, _) => await SaveAsync().ConfigureAwait(true);
+        _save.Click += async (_, _) =>
+        {
+            if (_saved)
+                await PrintSavedAsync().ConfigureAwait(true);
+            else
+                await SaveAsync().ConfigureAwait(true);
+        };
 
         // 2026-10-22 (модалки, пакет 4): оболочка запоминается — на время запроса окно занято (IsBusy): ✕, Esc и «Отмена»
         // выключены, окно не закрыть посреди оформления (иначе не узнать, оформлен ли возврат); чипы и поля — 44 px.
@@ -775,11 +790,11 @@ public sealed class SupplierReturnDialog : Window
             var signature = supplierId + "|" + string.Join(";", items.Select(i => i["product_id"] + ":" + i["qty"] + ":" + i["purchase_price"]).OrderBy(x => x, StringComparer.Ordinal))
                 + "|" + body["reason"] + "|" + body["compensation"] + "|" + (body.TryGetValue("receipt_id", out var rid) ? rid : "");
             var key = _pendingKey.Get(signature);
-            await new SupplierApiService(_api).PostReturnAsync(supplierId, body, key, CancellationToken.None).ConfigureAwait(true);
+            var newId = await new SupplierApiService(_api).PostReturnAsync(supplierId, body, key, CancellationToken.None).ConfigureAwait(true);
             _pendingKey.OnSuccess();
             PosLogger.Log($"Возврат поставщику оформлен: {items.Count} строк(и), {_reason}, {_compensation}.", "INFO");
             _shell.EndBusy();
-            Close(true);
+            ShowSaved(supplierId, newId, items.Count);
         }
         catch (Exception ex)
         {
@@ -789,6 +804,62 @@ public sealed class SupplierReturnDialog : Window
             ShowError(T("Не оформлено: ", "Тариздөлгөн жок: ", "Not saved: ", "Kaydedilmedi: ", "Rasmiylashtirilmadi: ") + ServerTelegramBotApi.DescribeFields(ex));
             PosLogger.Log($"Возврат поставщику: не оформлен ({ex.Message}).", "WARNING");
         }
+    }
+
+    /// <summary>2026-11-05, жалоба владельца: возврат оформлен — окно не закрывается, а предлагает «Распечатать накладную возврата» (без лишних окон).
+    /// Список возвратов обновится по «Готово» (результат окна — true). Если сервер не вернул id возврата, накладную соберёт FindSavedReturnAsync.</summary>
+    private void ShowSaved(string supplierId, string? newId, int lineCount)
+    {
+        _saved = true;
+        var lines = _rows.Where(r => ParseQty(r.Qty.Text) > 0).Select(r => new SupplierReturnLine(r.Name, ParseQty(r.Qty.Text), r.Unit, r.Price, Math.Round(ParseQty(r.Qty.Text) * r.Price, 2))).ToList();
+        _savedInfo = new SupplierReturnInfo(newId ?? "", supplierId, _suppliers.FirstOrDefault(x => x.Id == supplierId).Name ?? "",
+            _byReceipt && _receipt.SelectedIndex >= 0 && _receipt.SelectedIndex < _receipts.Count ? _receipts[_receipt.SelectedIndex].Id : "",
+            DateTime.Now, _reason, _compensation, lines.Sum(l => l.Total), "", (_comment.Text ?? "").Trim(), lines);
+        _form.IsEnabled = false;
+        _save.IsEnabled = true;
+        _save.Content = T("Распечатать накладную возврата", "Кайтаруу накладнойун басып чыгаруу", "Print the return waybill", "İade irsaliyesini yazdır", "Qaytarish yuk xatini chop etish");
+        _cancel.Content = T("Готово", "Даяр", "Done", "Tamam", "Tayyor");
+        _total.Text = T($"Возврат оформлен ({lineCount} поз.). Накладную можно распечатать.", $"Кайтаруу тариздалды ({lineCount} поз.). Накладнойду басып чыгарса болот.",
+            $"The return is registered ({lineCount} items). You can print the waybill.", $"İade kaydedildi ({lineCount} kalem). İrsaliye yazdırılabilir.", $"Qaytarish rasmiylashtirildi ({lineCount} ta). Yuk xatini chop etish mumkin.");
+    }
+
+    private async Task PrintSavedAsync()
+    {
+        if (_savedInfo is not { } info)
+            return;
+        _save.IsEnabled = false;
+        try
+        {
+            await SupplierReturnDocUi.RunAsync(this, SupplierReturnDocUi.Format.Print, () => FindSavedReturnAsync(info), null, text => _total.Text = text).ConfigureAwait(true);
+        }
+        finally
+        {
+            _save.IsEnabled = true;
+        }
+    }
+
+    /// <summary>Найти только что оформленный возврат на сервере (по id из ответа; нет id — самый новый у поставщика с той же суммой). Не нашли —
+    /// накладная строится из того, что ввели в окне (номер тогда короткий код).</summary>
+    private async Task<SupplierReturnInfo> FindSavedReturnAsync(SupplierReturnInfo local)
+    {
+        if (local.Id.Length > 0)
+            return local;
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+            var list = await new SupplierApiService(_api).GetReturnsAsync(local.SupplierId, cts.Token).ConfigureAwait(true);
+            var found = list.FirstOrDefault(r => Math.Abs(r.Total - local.Total) < 0.01 && (r.CreatedAt is null || r.CreatedAt >= DateTime.Now.AddMinutes(-30)));
+            if (found is not null)
+            {
+                _savedInfo = found;
+                return found;
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Возврат поставщику: оформленный возврат на сервере не найден ({ex.Message}) — накладная из данных окна.", "INFO");
+        }
+        return local;
     }
 
     private TextBlock Hint(string text)

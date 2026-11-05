@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -123,7 +124,23 @@ class PrinterDevice {
 }
 
 /// Причина, по которой не напечаталось, — экран показывает понятный текст на языке кассира.
-enum PrinterProblem { notConfigured, btUnsupported, btOff, noPermission, notFound, bleOnly, timeout, refused, usbDenied, usbNotFound, io }
+enum PrinterProblem {
+  notConfigured,
+  btUnsupported,
+  btOff,
+  noPermission,
+  notFound,
+  bleOnly,
+  timeout,
+  refused,
+  usbDenied,
+  usbNotFound,
+  io,
+
+  /// 2026-11-05 (мобилка, М5-01): принтер перестал отвечать посреди печати — чек мог выйти. Исход неизвестен: повторять нельзя
+  /// (второй чек), кассиру — «проверьте, напечатался ли чек».
+  stalled,
+}
 
 class PrinterException implements Exception {
   final PrinterProblem problem;
@@ -169,7 +186,9 @@ class PrinterService {
     return PrinterException(p, e.message ?? '', e.details == 'sent');
   }
 
-  Future<T> _call<T>(String method, [Map<String, Object?>? args, Duration timeout = const Duration(seconds: 25)]) async {
+  /// [stalledOnTimeout] — для печати: нет ответа в срок не значит «не напечатано» (задание могло дойти до принтера),
+  /// поэтому вместо «не отвечает» с повтором — [PrinterProblem.stalled] с sent = true, и повтора нет.
+  Future<T> _call<T>(String method, [Map<String, Object?>? args, Duration timeout = const Duration(seconds: 25), bool stalledOnTimeout = false]) async {
     if (!Platform.isAndroid) throw const PrinterException(PrinterProblem.btUnsupported);
     try {
       final r = await _channel.invokeMethod<T>(method, args).timeout(timeout);
@@ -179,9 +198,18 @@ class PrinterService {
     } on MissingPluginException {
       throw const PrinterException(PrinterProblem.btUnsupported);
     } on TimeoutException {
+      // 2026-11-05 (М5-01): раньше после 25 с ставился повтор в ту же очередь, а Kotlin ещё подключался и печатал первый чек
+      if (stalledOnTimeout) throw const PrinterException(PrinterProblem.stalled, '', true);
       throw const PrinterException(PrinterProblem.timeout);
     }
   }
+
+  /// 2026-11-05 (М5-01): срок ожидания ответа Android на печать по Bluetooth — заведомо больше срока самого Android
+  /// (подключение до 15 с + запись + хвост), чтобы «нет ответа» означало настоящий зависший канал, а не медленное подключение.
+  @visibleForTesting
+  static Duration btTimeout(int bytes) => Duration(seconds: 45 + bytes ~/ 2000);
+
+  int _jobSeq = 0;
 
   /// Bluetooth: включён ли и есть ли разрешение (Android 12+ — «Устройства поблизости»).
   Future<({bool supported, bool enabled, bool permission})> btState() async {
@@ -197,6 +225,12 @@ class PrinterService {
 
   /// Настройки Bluetooth телефона — сопряжение принтера (PIN обычно 0000 или 1234).
   Future<void> openBtSettings() => _call<Object?>('btSettings');
+
+  /// 2026-11-05 (М5-06): включено ли «Местоположение» — до Android 12 без него поиск новых Bluetooth-устройств ничего не находит.
+  Future<bool> locationOn() async => await _call<bool>('btLocationOn') != false;
+
+  /// Настройки «Местоположение» телефона.
+  Future<void> openLocationSettings() => _call<Object?>('locationSettings');
 
   /// Сопряжённые устройства и (если [discover]) найденные поиском за ~8 с. Принтеры — первыми.
   Future<List<PrinterDevice>> btDevices({bool discover = false}) async {
@@ -268,9 +302,9 @@ class PrinterService {
         return;
       } on PrinterException catch (e) {
         last = e;
-        // настройка или разрешение — повтор не поможет; байты ушли — повтор напечатает второй чек
+        // настройка или разрешение — повтор не поможет; байты ушли (или исход неизвестен) — повтор напечатает второй чек
         if (e.sent ||
-            const {PrinterProblem.btOff, PrinterProblem.noPermission, PrinterProblem.btUnsupported, PrinterProblem.bleOnly, PrinterProblem.usbDenied, PrinterProblem.notConfigured}
+            const {PrinterProblem.btOff, PrinterProblem.noPermission, PrinterProblem.btUnsupported, PrinterProblem.bleOnly, PrinterProblem.usbDenied, PrinterProblem.notConfigured, PrinterProblem.stalled}
                 .contains(e.problem)) {
           rethrow;
         }
@@ -305,9 +339,16 @@ class PrinterService {
           s?.destroy();
         }
       case PrinterKind.bluetooth:
-        await _call<Object?>('btPrint', {'address': c.address, 'data': bytes});
+        // 2026-11-05 (М5-01): задание с номером — по таймауту Dart говорит Android «не начинай», а сам не повторяет
+        final job = ++_jobSeq;
+        try {
+          await _call<Object?>('btPrint', {'address': c.address, 'data': bytes, 'job': job}, btTimeout(bytes.length), true);
+        } on PrinterException catch (e) {
+          if (e.problem == PrinterProblem.stalled) unawaited(_call<Object?>('btCancel', {'job': job}).then<Object?>((_) => null, onError: (_) => null));
+          rethrow;
+        }
       case PrinterKind.usb:
-        await _call<Object?>('usbPrint', {'device': c.address, 'data': bytes}, const Duration(minutes: 1));
+        await _call<Object?>('usbPrint', {'device': c.address, 'data': bytes}, const Duration(minutes: 1), true);
       case PrinterKind.none:
         throw const PrinterException(PrinterProblem.notConfigured);
     }

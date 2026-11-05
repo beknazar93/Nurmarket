@@ -43,7 +43,7 @@ internal sealed class AndroidPrinterTransport : IPlatformPrinterTransport
         if (IsTcp(port))
             WriteTcp(port, payload, timeout);
         else if (IsBluetooth(port))
-            WriteBluetooth(port, payload);
+            WriteBluetooth(port, payload, timeout);
         else
             WriteUsb(port, payload, timeout);
     }
@@ -102,7 +102,7 @@ internal sealed class AndroidPrinterTransport : IPlatformPrinterTransport
         if (AndroidBootstrap.AppContext.CheckSelfPermission(Manifest.Permission.BluetoothConnect) == Permission.Granted)
             return;
         var activity = AndroidBootstrap.CurrentActivity;
-        activity?.RunOnUiThread(() => activity.RequestPermissions(new[] { Manifest.Permission.BluetoothConnect, Manifest.Permission.BluetoothScan }, 4711));
+        activity?.RunOnUiThread(() => activity.RequestPermissions(new[] { Manifest.Permission.BluetoothConnect, Manifest.Permission.BluetoothScan }, 4712)); // 2026-11-05 (А3-08): 4711 — у камеры
         throw new InvalidOperationException(Tr.T("Разрешите программе доступ к Bluetooth (окно Android) и повторите печать.", "Программага Bluetooth'ка уруксат бериңиз (Android терезеси) жана басып чыгарууну кайталаңыз.", "Allow Bluetooth access for the app (Android prompt) and print again.", "Uygulamaya Bluetooth erişimi verin (Android penceresi) ve yeniden yazdırın.", "Dasturga Bluetooth ruxsatini bering (Android oynasi) va qayta chop eting."));
     }
 
@@ -129,21 +129,58 @@ internal sealed class AndroidPrinterTransport : IPlatformPrinterTransport
                                              || (d.Name ?? "").Contains("inner", StringComparison.OrdinalIgnoreCase));
     }
 
-    private static void WriteBluetooth(string port, byte[] payload)
+    private static void WriteBluetooth(string port, byte[] payload, TimeSpan timeout)
     {
+        // 2026-11-05 (аудит №3, А3-02): подключение и запись — с тайм-аутом; обрыв ПОСЛЕ начала записи — PrinterStalledException
+        // (SendRawBytes его не повторяет: часть чека уже могла напечататься, повтор дал бы дубль), как для сети в 1.17.73.
+        var limit = timeout > TimeSpan.Zero ? timeout : TimeSpan.FromSeconds(15);
         var device = FindBluetoothDevice(port)
                      ?? throw new IOException(Tr.T("Bluetooth-принтер не найден среди сопряжённых устройств.", "Bluetooth-принтер жупташтырылган түзмөктөрдүн арасында табылган жок.", "Bluetooth printer not found among paired devices.", "Bluetooth yazıcı eşleştirilmiş cihazlar arasında bulunamadı.", "Bluetooth-printer ulangan qurilmalar orasida topilmadi."));
         try { Adapter?.CancelDiscovery(); } catch { /* поиск не шёл */ }
         using var socket = device.CreateRfcommSocketToServiceRecord(SppUuid)
                            ?? throw new IOException("Bluetooth: socket = null");
-        socket.Connect();
+        var connect = Task.Run(() => socket.Connect());
+        bool connected;
+        try { connected = connect.Wait(limit); }
+        catch (AggregateException ae) when (ae.InnerException is not null)
+        {
+            throw new IOException(ae.InnerException.Message, ae.InnerException); // не подключились — ничего не печаталось, повтор безопасен
+        }
+        if (!connected)
+        {
+            try { socket.Close(); } catch { /* закрываем, чтобы поток подключения не держал RFCOMM */ }
+            throw new PrinterPortService.PrinterStalledException(BluetoothInterruptedText());
+        }
         var stream = socket.OutputStream ?? throw new IOException("Bluetooth: нет потока записи");
-        stream.Write(payload, 0, payload.Length);
-        stream.Flush();
+        var write = Task.Run(() =>
+        {
+            stream.Write(payload, 0, payload.Length);
+            stream.Flush();
+        });
+        bool written;
+        try { written = write.Wait(limit); }
+        catch (AggregateException ae)
+        {
+            PosLogger.Log($"Bluetooth: запись прервалась ({ae.InnerException?.GetType().Name}); повтор не делаю.", "PRINTER");
+            throw new PrinterPortService.PrinterStalledException(BluetoothInterruptedText(), ae.InnerException);
+        }
+        if (!written)
+        {
+            try { socket.Close(); } catch { /* закрытие сокета прерывает зависшую запись */ }
+            PosLogger.Log("Bluetooth: запись не завершилась за отведённое время; повтор не делаю.", "PRINTER");
+            throw new PrinterPortService.PrinterStalledException(BluetoothInterruptedText());
+        }
         // Многие Bluetooth-принтеры теряют хвост чека, если соединение закрыть сразу.
         Thread.Sleep(Math.Min(1500, 200 + payload.Length / 20));
         socket.Close();
     }
+
+    private static string BluetoothInterruptedText() => Tr.T(
+        "Связь с Bluetooth-принтером оборвалась. Проверьте, не напечатался ли чек, и только потом печатайте заново.",
+        "Bluetooth-принтер менен байланыш үзүлдү. Чек басылганын текшерип, андан кийин кайра басыңыз.",
+        "The connection to the Bluetooth printer was lost. Check whether the receipt printed before printing again.",
+        "Bluetooth yazıcı bağlantısı koptu. Fişin basılıp basılmadığını kontrol edin, sonra yeniden yazdırın.",
+        "Bluetooth-printer bilan aloqa uzildi. Chek chop etilganini tekshiring, keyin qayta chop eting.");
 
     // ---------------- USB host ----------------
 

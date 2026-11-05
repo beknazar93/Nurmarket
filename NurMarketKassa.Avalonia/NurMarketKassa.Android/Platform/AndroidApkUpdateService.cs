@@ -22,7 +22,8 @@ internal sealed class AndroidApkUpdateService : IAppUpdateService
     private Release? _pending;
     private long _downloadId = -1;
 
-    private sealed record Release(Version Version, string Text, string ApkUrl, string? Notes, bool Prerelease);
+    // 2026-11-05 (аудит №3, А3-12): Size и Sha256 — из ответа GitHub (поле digest «sha256:…»); проверяются после загрузки, до установки.
+    private sealed record Release(Version Version, string Text, string ApkUrl, string? Notes, bool Prerelease, long Size = 0, string? Sha256 = null);
 
     public bool HasPendingUpdate => _pending is not null;
 
@@ -71,19 +72,65 @@ internal sealed class AndroidApkUpdateService : IAppUpdateService
             if (!Version.TryParse(text, out var version))
                 continue;
             string? apk = null;
+            long apkSize = 0;
+            string? apkSha = null;
             if (r.TryGetProperty("assets", out var assets))
                 foreach (var a in assets.EnumerateArray())
                     if ((a.GetProperty("name").GetString() ?? "").EndsWith(".apk", StringComparison.OrdinalIgnoreCase))
                     {
                         apk = a.GetProperty("browser_download_url").GetString();
+                        if (a.TryGetProperty("size", out var sz) && sz.ValueKind == JsonValueKind.Number)
+                            apkSize = sz.GetInt64();
+                        var digest = a.TryGetProperty("digest", out var dg) && dg.ValueKind == JsonValueKind.String ? dg.GetString() : null;
+                        if (digest is not null && digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
+                            apkSha = digest[7..].Trim().ToLowerInvariant();
                         break;
                     }
-            if (apk is null)
+            // 2026-11-05 (А3-12): ссылка на APK — только https с GitHub (api.github.com отдаёт browser_download_url на github.com)
+            if (apk is null || !IsTrustedApkUrl(apk))
                 continue;
             list.Add(new Release(Norm(version), text, apk, r.TryGetProperty("body", out var b) ? b.GetString() : null,
-                r.TryGetProperty("prerelease", out var p) && p.ValueKind == JsonValueKind.True));
+                r.TryGetProperty("prerelease", out var p) && p.ValueKind == JsonValueKind.True, apkSize, apkSha));
         }
         return list.OrderByDescending(x => x.Version).ToList();
+    }
+
+    private static bool IsTrustedApkUrl(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps
+        && (u.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) || u.Host.EndsWith(".github.com", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>2026-11-05 (А3-12): скачанный APK — сверка размера и SHA-256 с данными GitHub до установки. Не сошлось — файл удаляется,
+    /// установка не открывается. Если GitHub не отдал размер/digest — проверяем только то, что есть.</summary>
+    private static void VerifyDownloaded(Release release, string fileName)
+    {
+        var ctx = Android.App.Application.Context;
+        var dir = ctx.GetExternalFilesDir(Android.OS.Environment.DirectoryDownloads);
+        if (dir is null)
+            return;
+        var path = System.IO.Path.Combine(dir.AbsolutePath, fileName);
+        if (!System.IO.File.Exists(path))
+            return;
+        string? problem = null;
+        var actualSize = new System.IO.FileInfo(path).Length;
+        if (release.Size > 0 && actualSize != release.Size)
+            problem = $"размер {actualSize} вместо {release.Size}";
+        else if (release.Sha256 is not null)
+        {
+            using var stream = System.IO.File.OpenRead(path);
+            var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream)).ToLowerInvariant();
+            if (hash != release.Sha256)
+                problem = "контрольная сумма SHA-256 не совпала";
+        }
+        if (problem is null)
+            return;
+        try { System.IO.File.Delete(path); } catch { /* не удалось — не страшно */ }
+        PosLogger.Log($"Обновление Android: {release.Text} — {problem}; файл удалён.", "WARNING");
+        throw new InvalidOperationException(Tr.T(
+            "скачанный файл повреждён (не совпала контрольная сумма) — нажмите «Проверить обновления» и скачайте заново",
+            "жүктөлгөн файл бузулган (текшерүү суммасы дал келген жок) — «Жаңыртууларды текшерүү» басып, кайра жүктөңүз",
+            "the downloaded file is damaged (checksum mismatch) — press “Check for updates” and download again",
+            "indirilen dosya bozuk (sağlama toplamı uyuşmuyor) — «Güncellemeleri kontrol et»e basıp yeniden indirin",
+            "yuklangan fayl buzilgan (nazorat summasi mos kelmadi) — «Yangilanishlarni tekshirish»ni bosib, qayta yuklab oling"));
     }
 
     public async Task<AppUpdateCheckResult> CheckAsync(CancellationToken cancellationToken = default)
@@ -160,6 +207,7 @@ internal sealed class AndroidApkUpdateService : IAppUpdateService
                     {
                         onProgress(100);
                         PosLogger.Log($"Обновление Android: {release.Text} скачана ({total / 1048576.0:0.0} МБ).", "INFO");
+                        await Task.Run(() => VerifyDownloaded(release, name), cancellationToken).ConfigureAwait(false);
                         return;
                     }
                     if (status == DownloadStatus.Failed)

@@ -72,6 +72,47 @@ public sealed class GeminiLiveVoice
     public Func<string, string, Task<string>>? ToolHandler { get; set; }
 
     private bool _toolsOff;
+    private volatile bool _languageFixSent; // 2026-11-05: поправка языка отправлена (один раз за сеанс)
+    private string _saidBuffer = ""; // 2026-11-05: расшифровка речи владельца с начала фразы (по кускам) — для распознавателя команд смены языка
+
+    /// <summary>2026-11-05: владелец голосом попросил сменить язык ИИ («кыргызча жооп бер», «говори по-русски») — язык ИИ уже сохранён и служебная реплика
+    /// ушла в сеанс (из фонового потока). Окно звонка обновляет подпись языка.</summary>
+    public event Action<AppLanguage>? AiLanguageChanged;
+
+    /// <summary>2026-11-05: «переведи программу на …» голосом — окно меняет язык интерфейса (с учётом платного пакета) (из фонового потока).</summary>
+    public event Action<AppLanguage>? InterfaceLanguageRequested;
+
+    private void CheckLanguageCommand(string saidChunk)
+    {
+        try
+        {
+            _saidBuffer = (_saidBuffer + " " + saidChunk).Trim();
+            if (_saidBuffer.Length > 200)
+                _saidBuffer = _saidBuffer[^200..];
+            if (AiLanguageCommand.Detect(_saidBuffer) is not { } command)
+                return;
+            _saidBuffer = "";
+            PosLogger.Log($"Живой разговор ИИ: команда смены языка ({(command.Interface ? "интерфейс" : "ИИ")} → {command.Language}).", "INFO");
+            if (command.Interface)
+            {
+                InterfaceLanguageRequested?.Invoke(command.Language);
+                return;
+            }
+            if (!LanguagePackGate.IsAvailable(command.Language))
+            {
+                _ = SendTextAsync($"[Программа] Пользователь просил сменить язык, но языковой пакет не подключён. Скажи коротко на текущем языке ({AiVoiceLanguage.Label(AiVoiceLanguage.Current())}): «{AiVoiceLanguage.PackMissingText(AiVoiceLanguage.Current())}» Язык не меняй.");
+                return;
+            }
+            AiVoiceLanguage.SetAiLanguage(command.Language);
+            _languageFixSent = false;
+            _ = SendTextAsync(AiVoiceLanguage.SwitchText(command.Language));
+            AiLanguageChanged?.Invoke(command.Language);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Живой разговор ИИ: команда языка не разобрана ({ex.Message}).", "DEBUG");
+        }
+    }
 
     public string? Model { get; private set; }
 
@@ -97,6 +138,18 @@ public sealed class GeminiLiveVoice
     public GeminiLiveVoice(string instruction)
     {
         _instruction = instruction;
+        _ruleAtStart = AiVoiceLanguage.Rule();
+    }
+
+    // 2026-11-05: правило языка, с которым собрана инструкция. После команды смены языка (и при переподключении раз в ~10 минут) оно подменяется текущим.
+    private readonly string _ruleAtStart;
+
+    private string CurrentInstruction()
+    {
+        var rule = AiVoiceLanguage.Rule();
+        return rule != _ruleAtStart && _instruction.Contains(_ruleAtStart, StringComparison.Ordinal)
+            ? _instruction.Replace(_ruleAtStart, rule, StringComparison.Ordinal)
+            : _instruction;
     }
 
     public void Start() => _run = Task.Run(RunAsync);
@@ -290,7 +343,7 @@ public sealed class GeminiLiveVoice
         {
             ["model"] = "models/" + model,
             ["generationConfig"] = new JsonObject { ["responseModalities"] = new JsonArray("AUDIO") },
-            ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = _instruction }) },
+            ["systemInstruction"] = new JsonObject { ["parts"] = new JsonArray(new JsonObject { ["text"] = CurrentInstruction() }) },
             // Расшифровка речи обеих сторон — для чата и истории разговоров.
             ["inputAudioTranscription"] = new JsonObject(),
             ["outputAudioTranscription"] = new JsonObject(),
@@ -437,6 +490,7 @@ public sealed class GeminiLiveVoice
         {
             LastActivityUtc = DateTime.UtcNow;
             UserText?.Invoke(saidText);
+            CheckLanguageCommand(saidText);
         }
         if (!_dropAnswer)
         {
@@ -459,11 +513,22 @@ public sealed class GeminiLiveVoice
             }
             if (content.TryGetProperty("outputTranscription", out var output) && output.TryGetProperty("text", out var spoken)
                 && spoken.GetString() is { Length: > 0 } spokenText)
+            {
                 AiText?.Invoke(spokenText);
+                // 2026-11-05, жалоба «ИИ сам уходит на узбекский/турецкий»: заметили чужую речь — ОДИН раз за сеанс шлём тихую поправку
+                // (в память разговора, без ответа вслух и без записи в чат). Следующие ответы вернутся на язык интерфейса.
+                if (!_languageFixSent && AiVoiceLanguage.LooksForeign(spokenText))
+                {
+                    _languageFixSent = true;
+                    PosLogger.Log("Живой разговор ИИ: в ответе замечен чужой язык — отправлена поправка «отвечай на языке интерфейса».", "INFO");
+                    _ = SendTextAsync(AiVoiceLanguage.CorrectionText(), respond: false);
+                }
+            }
         }
         if (content.TryGetProperty("turnComplete", out var complete) && complete.ValueKind == JsonValueKind.True)
         {
             var dropped = _dropAnswer;
+            _saidBuffer = "";
             _modelTurn = false;
             _dropAnswer = false;
             LastActivityUtc = DateTime.UtcNow;

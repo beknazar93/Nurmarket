@@ -65,7 +65,9 @@ public static class ProductPhotoFinder
     }
 
     /// <summary>Фото похоже на другой товар (или подписи нет) — не включается в «Поставить все».</summary>
-    private static bool IsDoubtfulMatch(string title, string? caption) => NameMatch(title, caption) < 0.5;
+    // 2026-11-05 (приёмка 1.17.75, С-2): порог был 0,5 — «Губка кухонная Дует 5шт» получила снимок «ДОМИ» (совпали «губка», «кухон», не совпал бренд «Дует»)
+    // как «уверенный». Теперь уверенное — когда совпало не меньше 0,8 значимых слов (бренд и объём не отбрасываются); остальное — «проверьте».
+    private static bool IsDoubtfulMatch(string title, string? caption) => NameMatch(title, caption) < 0.8;
 
     private enum PhotoQuality { Bad, Doubtful, Good }
 
@@ -144,7 +146,90 @@ public static class ProductPhotoFinder
         return PhotoQuality.Good;
     }
 
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> RecentImages = new();
+    // 2026-11-05 (аудит №3, Р3-01/Р3-05): раньше — до 61 картинки по 8 МБ (~0,5 ГБ) и сброс целиком. Теперь LRU по объёму: не больше 64 МБ,
+    // одна картинка не больше 4 МБ; вытесненные байты освобождаются сборщиком (Bitmap здесь не держим — окно советника декодирует сам и сжимает до 224 px).
+    private const long RecentImagesMaxBytes = 64L * 1024 * 1024;
+    private const int MaxImageBytes = 4 * 1024 * 1024;
+    private static readonly object RecentGate = new();
+    private static readonly LinkedList<string> RecentOrder = new();
+    private static readonly Dictionary<string, (byte[] Bytes, LinkedListNode<string> Node)> RecentImages = new();
+    private static long _recentBytes;
+
+    /// <summary>Для диагностики памяти: сколько картинок и байт держит кэш поиска фото.</summary>
+    public static (int Count, long Bytes) RecentImagesStats()
+    {
+        lock (RecentGate)
+            return (RecentImages.Count, _recentBytes);
+    }
+
+    /// <summary>Освободить кэш картинок (закрытие «Нур Советника»).</summary>
+    public static void ClearRecentImages()
+    {
+        lock (RecentGate)
+        {
+            RecentImages.Clear();
+            RecentOrder.Clear();
+            _recentBytes = 0;
+        }
+    }
+
+    private static bool TryGetRecent(string url, out byte[]? bytes)
+    {
+        lock (RecentGate)
+        {
+            if (RecentImages.TryGetValue(url, out var entry))
+            {
+                RecentOrder.Remove(entry.Node);
+                RecentOrder.AddFirst(entry.Node);
+                bytes = entry.Bytes;
+                return true;
+            }
+        }
+        bytes = null;
+        return false;
+    }
+
+    private static void AddRecent(string url, byte[] bytes)
+    {
+        lock (RecentGate)
+        {
+            if (RecentImages.TryGetValue(url, out var old))
+            {
+                _recentBytes -= old.Bytes.Length;
+                RecentOrder.Remove(old.Node);
+                RecentImages.Remove(url);
+            }
+            RecentImages[url] = (bytes, RecentOrder.AddFirst(url));
+            _recentBytes += bytes.Length;
+            while (_recentBytes > RecentImagesMaxBytes && RecentOrder.Last is { } last)
+            {
+                if (RecentImages.Remove(last.Value, out var dropped))
+                    _recentBytes -= dropped.Bytes.Length;
+                RecentOrder.RemoveLast();
+            }
+        }
+    }
+
+    /// <summary>2026-11-05: скачать картинку с пределом MaxImageBytes (заголовок Content-Length и обрыв по ходу чтения), а не целиком.</summary>
+    private static async Task<byte[]?> ReadLimitedAsync(string url, CancellationToken ct)
+    {
+        using var response = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            return null;
+        if (response.Content.Headers.ContentLength is { } declared && declared > MaxImageBytes)
+            return null;
+        await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+        using var buffer = new MemoryStream();
+        var chunk = new byte[16 * 1024];
+        int read;
+        while ((read = await stream.ReadAsync(chunk, ct).ConfigureAwait(false)) > 0)
+        {
+            if (buffer.Length + read > MaxImageBytes)
+                return null;
+            buffer.Write(chunk, 0, read);
+        }
+        return buffer.ToArray();
+    }
 
     private static readonly (string Name, string Host)[] Sources =
     {
@@ -304,24 +389,43 @@ public static class ProductPhotoFinder
         }
         if (hit is null && allowWeb())
         {
-            await WebPacer.WaitAsync(ct).ConfigureAwait(false);
-            hit = await TryFindOnWebCoreAsync(product, ct, throwOnQuota: true).ConfigureAwait(false);
-        }
-        if (hit is not null && withDescription && string.IsNullOrWhiteSpace(product.Description) && DescriptionSearchAvailable)
-        {
-            try
+            // 2026-11-05 (приёмка 1.17.75, С-1): поминутный 429 — подождать ~30 с и повторить (до 2 раз), а не останавливать пачку.
+            for (var retry = 0; ; retry++)
             {
                 await WebPacer.WaitAsync(ct).ConfigureAwait(false);
-                var (text, source) = await FindDescriptionAsync(product, ct, throwOnQuota: true).ConfigureAwait(false);
-                if (text is not null)
-                    hit = hit with { Description = text, DescriptionSource = source };
-            }
-            catch (PhotoQuotaException q)
-            {
-                throw new PhotoQuotaException(q.Message, hit);
+                try
+                {
+                    hit = await TryFindOnWebCoreAsync(product, ct, throwOnQuota: true).ConfigureAwait(false);
+                    break;
+                }
+                catch (PhotoQuotaException q) when (retry < MinuteLimitRetries && IsMinuteLimit(q.Message))
+                {
+                    await WaitMinuteLimitAsync(product.Title, ct).ConfigureAwait(false);
+                }
             }
         }
+        // 2026-11-05: описание — необязательное дополнение к уже найденному фото; отказ по лимиту не должен ни терять фото, ни останавливать пачку.
+        if (hit is not null && withDescription && string.IsNullOrWhiteSpace(product.Description) && DescriptionSearchAvailable)
+        {
+            await WebPacer.WaitAsync(ct).ConfigureAwait(false);
+            var (text, source) = await FindDescriptionAsync(product, ct, throwOnQuota: false).ConfigureAwait(false);
+            if (text is not null)
+                hit = hit with { Description = text, DescriptionSource = source };
+        }
         return hit;
+    }
+
+    private const int MinuteLimitRetries = 2;
+
+    /// <summary>2026-11-05: суточная квота («исчерпан суточный лимит») — ждать бесполезно; всё остальное (поминутный 429) — повторять.</summary>
+    private static bool IsMinuteLimit(string? error) => error is not null && !error.Contains("суточн", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>2026-11-05: пауза ~30 с на поминутный лимит Gemini и снятие 30-минутной блокировки поиска перед повтором.</summary>
+    private static async Task WaitMinuteLimitAsync(string title, CancellationToken ct)
+    {
+        PosLogger.Log($"Поиск фото: лимит запросов в минуту (товар «{title}») — жду 30 с и повторяю.", "CATALOG");
+        await Task.Delay(TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
+        TelegramAiChat.ResetWebSearchBlockIfMinuteLimit();
     }
 
     /// <summary>Можно ли искать описание: ключ ИИ есть, поиск Google сейчас не заблокирован, владелец не выключил отправку названий в интернет (bc.web).</summary>
@@ -667,17 +771,13 @@ public static class ProductPhotoFinder
     {
         // 2026-10-06 (снимок владельца: часть вариантов — пустые рамки): картинку скачивали дважды — при проверке и для
         // показа; второй раз сайты (otzovik, ozon) отвечали медленно. Последние скачанные — из памяти.
-        if (RecentImages.TryGetValue(url, out var cached))
+        if (TryGetRecent(url, out var cached))
             return cached;
         try
         {
-            var bytes = await Http.GetByteArrayAsync(url, ct).ConfigureAwait(false);
-            if (bytes.Length is > 0 and < 8_000_000)
-            {
-                if (RecentImages.Count > 60)
-                    RecentImages.Clear();
-                RecentImages[url] = bytes;
-            }
+            var bytes = await ReadLimitedAsync(url, ct).ConfigureAwait(false);
+            if (bytes is { Length: > 0 })
+                AddRecent(url, bytes);
             return bytes;
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)

@@ -36,11 +36,23 @@ public static class StartupCostsExport
     /// <summary>Строки итогов окупаемости: подпись → значение (текст) — общие для PDF и CSV.</summary>
     private static List<(string Label, string Value)> Summary(IReadOnlyList<StartupCostItem> items, StartupCostsMeta meta, PaybackResult? p)
     {
+        // 2026-11-05 (И-09): «Вложено» в выгрузке - то же число, что на экране (с инвестициями сверх статей), с расшифровкой; (И-03) «Товар» во «Вложено» не входит.
+        var costsOnly = StartupCostsStore.InvestedSum(items);
+        var shown = p is { Invested: > 0m } ? p.Invested : costsOnly;
         var rows = new List<(string, string)>
         {
             (Tr.T("Дата открытия бизнеса", "Бизнес ачылган күн", "Business opening date", "İşletme açılış tarihi", "Biznes ochilgan sana"), OpenedText(meta)),
-            (Tr.T("Вложено", "Салынды", "Invested", "Yatırılan", "Kiritilgan"), Money(StartupCostsStore.Sum(items))),
+            (Tr.T("Вложено", "Салынды", "Invested", "Yatırılan", "Kiritilgan"), Money(shown)),
         };
+        if (shown - costsOnly >= 0.01m)
+        {
+            rows.Add((Tr.T("из них стартовые расходы", "анын ичинен баштапкы чыгымдар", "of which startup costs", "bunun başlangıç giderleri", "shundan boshlang'ich xarajatlar"), Money(costsOnly)));
+            rows.Add((Tr.T("из них инвестиции сверх расходов", "анын ичинен чыгымдардан ашкан инвестициялар", "of which investments above the costs", "bunun giderleri aşan yatırımlar", "shundan xarajatlardan oshgan investitsiyalar"), Money(shown - costsOnly)));
+        }
+        var stockOnly = StartupCostsStore.StockSum(items);
+        if (stockOnly > 0m)
+            rows.Add((Tr.T("Деньги в товаре (не входят во «Вложено»: товар окупается продажами)", "Товардагы акча («Салынды» ичине кирбейт: товар сатуу менен кайтат)", "Money in stock (not part of “Invested”: stock pays back through sales)",
+                "Maldaki para («Yatırılan»a dahil değil: mal satışla geri döner)", "Tovardagi pul («Kiritilgan»ga kirmaydi: tovar sotuv bilan qaytadi)"), Money(stockOnly)));
         if (p is { Status: PaybackStatus.InProgress or PaybackStatus.PaidBack })
         {
             rows.Add((Tr.T("Вернулось (накопленная чистая прибыль)", "Кайтты (топтолгон таза пайда)", "Returned (cumulative net profit)", "Geri dönen (birikmiş net kâr)", "Qaytdi (jamlangan sof foyda)"), Money(p.Returned)));
@@ -51,11 +63,16 @@ public static class StartupCostsExport
                     "Aylık ortalama net kâr (son aylar)", "O'rtacha oylik sof foyda (so'nggi oylar)"), Money(avg)));
             if (p.Status == PaybackStatus.PaidBack)
                 rows.Add((Tr.T("Срок окупаемости", "Кайтарым мөөнөтү", "Payback period", "Geri dönüş süresi", "Oqlanish muddati"),
-                    p.PaidBackMonth is { } pm ? Tr.T("окупилось в ", "кайтты ", "paid back in ", "geri döndü: ", "oqlandi: ") + pm.ToString("MM.yyyy", CultureInfo.InvariantCulture)
+                    p.NeedsStockSale ? Tr.T("окупится при распродаже остатка", "калдык сатылганда кайтат", "pays back when the stock is sold", "stok satılınca geri döner", "qoldiq sotilganda oqlanadi")
+                    : p.PaidBackMonth is { } pm ? Tr.T("окупилось: ", "кайтты: ", "paid back: ", "geri döndü: ", "oqlandi: ") + pm.ToString("MM.yyyy", CultureInfo.InvariantCulture)
                         : Tr.T("окупилось", "кайтты", "paid back", "geri döndü", "oqlandi")));
             else if (p.MonthsToPayback is { } mtp && p.ForecastDate is { } fd)
                 rows.Add((Tr.T("Прогноз срока окупаемости", "Кайтарым мөөнөтүнүн божомолу", "Payback forecast", "Geri dönüş tahmini", "Oqlanish prognozi"),
                     MonthsText(mtp) + " (" + fd.ToString("MM.yyyy", CultureInfo.InvariantCulture) + ")"));
+            else if (p.AvgMonthlyNet is null)
+                rows.Add((Tr.T("Прогноз срока окупаемости", "Кайтарым мөөнөтүнүн божомолу", "Payback forecast", "Geri dönüş tahmini", "Oqlanish prognozi"),
+                    Tr.T("мало данных для прогноза: нужен хотя бы один полный месяц или 14 дней работы", "божомол үчүн маалымат аз: жок дегенде бир толук ай же 14 күн иштөө керек",
+                        "not enough data for a forecast: at least one full month or 14 days of work is needed", "tahmin için veri az: en az bir tam ay veya 14 gün çalışma gerekir", "prognoz uchun ma'lumot kam: kamida bitta to'liq oy yoki 14 kun ish kerak")));
             else
                 rows.Add((Tr.T("Прогноз срока окупаемости", "Кайтарым мөөнөтүнүн божомолу", "Payback forecast", "Geri dönüş tahmini", "Oqlanish prognozi"),
                     Tr.T("нет — прибыль за последние месяцы не положительная или данных мало", "жок — акыркы айлардагы пайда оң эмес же маалымат аз",

@@ -28,6 +28,44 @@ public partial class ReceiptHistoryWindow : Window
     private ReceiptHistoryPeriod _period = ReceiptHistoryPeriod.CurrentShift;
     private List<RowVm> _rows = new();
     private CancellationTokenSource? _loadCts;
+
+    // 2026-11-05 (аудит №3, В4-01): сервер медлит >3 с — в плашке «Ждём ответ сервера NurCRM… N с» и «Отменить ожидание» (показаны чеки этой кассы).
+    private ServerWaitIndicator? _serverWait;
+    private Button? _serverWaitCancel;
+    private string? _serverWaitShown;
+
+    private ServerWaitIndicator EnsureServerWait()
+    {
+        if (_serverWait is not null)
+            return _serverWait;
+        _serverWaitCancel = new Button
+        {
+            Content = ServerWaitIndicator.CancelText, FontSize = 12.5, Padding = new Avalonia.Thickness(10, 3), IsVisible = false,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left, Margin = new Avalonia.Thickness(0, 4, 0, 0),
+        };
+        _serverWaitCancel.Click += (_, _) => _loadCts?.Cancel();
+        if (NoticeBorder.Parent is Panel panel)
+            panel.Children.Insert(panel.Children.IndexOf(NoticeBorder) + 1, _serverWaitCancel);
+        _serverWait = new ServerWaitIndicator(
+            text =>
+            {
+                if (text is not null)
+                {
+                    _serverWaitShown = text;
+                    NoticeText.Text = text;
+                    NoticeBorder.IsVisible = true;
+                }
+                else if (_serverWaitShown is not null)
+                {
+                    if (NoticeText.Text == _serverWaitShown)
+                        NoticeText.Text = Tr.T("Данные сервера не получены — показаны чеки этой кассы.", "Сервердин маалыматы алынган жок — ушул кассанын чектери көрсөтүлдү.",
+                            "Server data was not received — showing this till's receipts.", "Sunucu verileri alınamadı — bu kasanın fişleri gösteriliyor.", "Server ma'lumotlari olinmadi — shu kassaning cheklari ko'rsatildi.");
+                    _serverWaitShown = null;
+                }
+            },
+            visible => _serverWaitCancel.IsVisible = visible);
+        return _serverWait;
+    }
     private CancellationTokenSource? _detailCts;
     private RowVm? _selected;
     private JsonElement? _selectedDetail;
@@ -285,6 +323,11 @@ public partial class ReceiptHistoryWindow : Window
         _loadCts = cts;
 
         LoadingBar.IsVisible = true;
+        Avalonia.Threading.DispatcherTimer.RunOnce(() =>
+        {
+            if (ReferenceEquals(_loadCts, cts) && _historyPending)
+                EnsureServerWait().OnSlow(true);
+        }, ServerAnswerWait.SlowNoticeAfter);
         _historyPending = true; // 2026-11-03 (Д-3): пока сервер не ответил, «чеков нет» не пишем
         try
         {
@@ -316,6 +359,7 @@ public partial class ReceiptHistoryWindow : Window
             _serverUnavailable = result.ServerUnavailable;
             _rows = result.Entries.Select(entry => new RowVm(entry)).ToList();
             _rowsPeriod = _period;
+            _serverWait?.OnSlow(false); // 2026-11-05: ответ пришёл — «Ждём ответ сервера…» убрана до показа итогового сообщения
             ShowNotice(result);
             ApplyFilter(keepSelectedId);
         }
@@ -334,6 +378,7 @@ public partial class ReceiptHistoryWindow : Window
             if (ReferenceEquals(_loadCts, cts))
             {
                 _loadCts = null;
+                _serverWait?.OnSlow(false);
                 LoadingBar.IsVisible = false;
                 _historyPending = false;
             }

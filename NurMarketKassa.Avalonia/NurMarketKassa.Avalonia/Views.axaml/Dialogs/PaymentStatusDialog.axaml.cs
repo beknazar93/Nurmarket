@@ -45,7 +45,8 @@ public partial class PaymentStatusDialog : Window
         // Кнопку показываем не сразу: первые секунды ожидание нормально, и ранний «выход»
         // провоцировал бы закрывать окно, пока оплата ещё идёт. Через 20 секунд ожидание уже
         // ненормально, и человек должен иметь возможность вернуться к чеку.
-        _escapeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+        // 2026-11-03 (аудит №3, Д3-01/С-09): «Закрыть окно» — через 8 с (ServerAnswerWait.ForegroundBudget), а не 20: оплата «в долг» и смешанная не отменяется и в очередь не встаёт, кассир не должен ждать окно 20 с.
+        _escapeTimer = new DispatcherTimer { Interval = NurMarketKassa.Services.ServerAnswerWait.ForegroundBudget };
         _escapeTimer.Tick += OnEscapeAvailable;
         _escapeTimer.Start();
 

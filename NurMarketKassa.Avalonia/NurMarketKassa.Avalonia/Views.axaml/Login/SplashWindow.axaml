@@ -62,6 +62,20 @@
                          HorizontalAlignment="Stretch"
                          IsIndeterminate="True"
                          Foreground="{DynamicResource SplashProgressBarForeground}" />
+
+            <!-- 2026-11-05 (С-03, аудит «зависание при медленном сервере»): если запуск тянется долго, появляется подсказка и «Выйти» — окно без выхода больше не заперто. -->
+            <StackPanel x:Name="SlowPanel" IsVisible="False" Spacing="10" HorizontalAlignment="Center">
+                <TextBlock x:Name="SlowText"
+                           HorizontalAlignment="Center"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           FontSize="13"
+                           Foreground="{DynamicResource SplashSubtitleBrush}" />
+                <Button x:Name="ExitButton"
+                        HorizontalAlignment="Center"
+                        Padding="22,8"
+                        Click="ExitButton_Click" />
+            </StackPanel>
         </StackPanel>
     </Border>
 </Window>

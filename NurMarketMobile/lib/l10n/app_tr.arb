@@ -2008,5 +2008,19 @@
   "updCancel": "İptal",
   "updPermTitle": "Yüklemeye izin verin",
   "updPermBody": "NurCRM'i güncellemek için uygulamanın güncelleme yüklemesine izin verin: açılan ekrandaki anahtarı açın, buraya dönün ve «Güncelle»ye tekrar dokunun.",
-  "updOpenSettings": "Ayarları aç"
+  "updOpenSettings": "Ayarları aç",
+  "prnStalled": "Yazıcı bağlantısı koptu. Fişin basılıp basılmadığını kontrol edin, sonra yeniden yazdırın.",
+  "scaleNoPlu": "Terazi etiketi: PLU {plu} olan ürün bulunamadı",
+  "scaleBindPlu": "Ürün seçip bu PLU'yu ata",
+  "scaleBindAsk": "\"{name}\" ürününe PLU {plu} atansın mı?",
+  "scaleLabelAgain": "Bu etiket zaten fişte. Tekrar eklensin mi?",
+  "scaleNotWeighed": "Bu bir terazi etiketi, ama \"{name}\" adetle satılıyor. Eklensin mi?",
+  "scaleLayoutPick": "Etiket iki şekilde okunabilir — ürünü seçin",
+  "aiSlow": "Yapay zekâ her zamankinden uzun düşünüyor…",
+  "aiElapsed": "{s} sn geçti",
+  "aiAskOwner": "Yapay zekâ ayarlanmamış — sahibine sorun",
+  "prnNotPrinted": "Fiş yazdırılmadı",
+  "prnPrintAgain": "Tekrar yazdır",
+  "prnChecked": "{total} içinden {n} kontrol edildi",
+  "prnLocationOff": "Bu Android'de Bluetooth yazıcıyı bulmak için Konum'u açın."
 }

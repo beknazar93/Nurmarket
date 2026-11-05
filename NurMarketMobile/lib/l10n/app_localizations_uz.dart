@@ -7095,4 +7095,59 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get updOpenSettings => 'Sozlamalarni ochish';
+
+  @override
+  String get prnStalled =>
+      'Printer bilan aloqa uzildi. Chek chop etilganini tekshiring, keyin qayta chop eting.';
+
+  @override
+  String scaleNoPlu(String plu) {
+    return 'Tarozi yorlig\'i: PLU $plu bo\'lgan tovar topilmadi';
+  }
+
+  @override
+  String get scaleBindPlu => 'Tovarni tanlab, unga PLU yozish';
+
+  @override
+  String scaleBindAsk(String plu, String name) {
+    return '«$name» tovariga PLU $plu yozilsinmi?';
+  }
+
+  @override
+  String get scaleLabelAgain => 'Bu yorliq chekda bor. Yana qo\'shilsinmi?';
+
+  @override
+  String scaleNotWeighed(String name) {
+    return 'Bu tarozi yorlig\'i, lekin «$name» donali tovar. Qo\'shilsinmi?';
+  }
+
+  @override
+  String get scaleLayoutPick =>
+      'Yorliqni ikki xil o\'qish mumkin — tovarni tanlang';
+
+  @override
+  String get aiSlow => 'Sun\'iy intellekt odatdagidan uzoqroq o\'ylayapti…';
+
+  @override
+  String aiElapsed(int s) {
+    return '$s s o\'tdi';
+  }
+
+  @override
+  String get aiAskOwner => 'Sun\'iy intellekt sozlanmagan — egasidan so\'rang';
+
+  @override
+  String get prnNotPrinted => 'Chek chop etilmadi';
+
+  @override
+  String get prnPrintAgain => 'Qayta chop etish';
+
+  @override
+  String prnChecked(int n, int total) {
+    return '$total tadan $n tasi tekshirildi';
+  }
+
+  @override
+  String get prnLocationOff =>
+      'Bu Android\'da Bluetooth-printerni topish uchun «Joylashuv»ni yoqing.';
 }

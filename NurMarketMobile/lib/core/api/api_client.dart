@@ -314,6 +314,16 @@ double num0(Map<String, dynamic>? m, String key) {
   return 0;
 }
 
+/// 2026-11-05 (аудит №3, М4-13): закупочная цена для сервера — до 4 знаков, как в кассе 1.17.73 (закупка 0,1234 не должна становиться 0,12),
+/// но не меньше 2 («80.00», «0.1234»): лишние нули справа после второго знака отбрасываются.
+String purchaseText(double v) {
+  var t = v.toStringAsFixed(4);
+  while (t.endsWith('0') && t.length - t.indexOf('.') > 3) {
+    t = t.substring(0, t.length - 1);
+  }
+  return t;
+}
+
 /// Ответ 304 на условный запрос (см. [ApiClient.ifNoneMatch]).
 class _NotModified {
   const _NotModified();

@@ -437,7 +437,11 @@ class _HeldScreenState extends ConsumerState<HeldScreen> {
       toast(context, l.checkBusy, error: true);
       return;
     }
-    ref.read(cartProvider.notifier).restore(h.cart);
+    // 2026-11-05 (М4-01): идёт оплата — чек не подменяем и отложенный не удаляем
+    if (!ref.read(cartProvider.notifier).restore(h.cart)) {
+      toast(context, l.checkBusy, error: true);
+      return;
+    }
     await ref.read(opsRepoProvider).removeHeld(h.id);
     if (mounted) context.go('/sale');
   }

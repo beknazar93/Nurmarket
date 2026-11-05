@@ -240,7 +240,7 @@ public partial class WarehouseWindow
                 while (left[i] > 0)
                 {
                     var batch = Math.Min(left[i], 99);
-                    var request = new LabelPrintRequest(item.Title, item.Barcode, item.Price.ToString("0.00", CultureInfo.InvariantCulture) + " сом", batch, printer, template,
+                    var request = new LabelPrintRequest(item.Title, item.Barcode, item.Price.ToString("0.00", CultureInfo.GetCultureInfo("ru-RU")) + " сом" /* 2026-11-05 (С2-43): запятая */, batch, printer, template,
                         StoreName: UserPreferences.Instance.StoreName, VariantText: item.VariantText);
                     BarcodeLabelService.ClearPartial(printer); // 2026-11-02 (С3-16): «N из M» хранится по принтеру
                     var result = await Task.Run(() => BarcodeLabelService.Print(request)).ConfigureAwait(true);

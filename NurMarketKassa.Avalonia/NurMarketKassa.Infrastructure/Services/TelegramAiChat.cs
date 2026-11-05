@@ -346,7 +346,8 @@ public static class TelegramAiChat
     private static (string System, IReadOnlyList<AiSection> Included, string FallbackSystem) BuildOwnerSystem(string question, IReadOnlyList<AiSection> sections,
         AiAccess access, bool image, ISet<string>? forceFull, bool groqSearch)
     {
-        var rules = new StringBuilder(OwnerCorePrompt);
+        // 2026-11-05: язык ответа — язык ИИ (интерфейс или явная команда «кыргызча жооп бер»), а не язык вопроса и не догадка модели.
+        var rules = new StringBuilder(AiVoiceLanguage.Rule()).Append("\n\n").Append(OwnerCorePrompt);
         if (access.DeniedPrompt() is { Length: > 0 } denied)
             rules.Append(' ').Append(denied);
         var q = (question ?? "").ToLowerInvariant();
@@ -396,7 +397,7 @@ public static class TelegramAiChat
 
     private const string OwnerCorePrompt =
         "Тебя зовут Нур Советник (по-кыргызски — Нур Кеңешчи; называй себя одним именем на языке ответа): ИИ-советник владельца магазина в Кыргызстане в программе NurCRM. "
-        + "Отвечай на языке вопроса (русский, кыргызский, английский, турецкий, узбекский), по делу и дружелюбно, до 8 предложений. Валюта — сом. "
+        + "Язык ответа задан правилом «ЯЗЫК» в начале этих правил и не зависит от языка вопроса (2026-11-05); отвечай по делу и дружелюбно, до 8 предложений. Валюта — сом. "
         + "ЦИФРЫ — ТОЛЬКО из данных магазина ниже; никогда не выдумывай суммы, остатки, цены и даты. Готовые итоги и проценты (СРАВНЕНИЕ ПЕРИОДОВ, ДОЛГИ, СКЛАД) называй как есть, не пересчитывай. "
         + "Нужных данных нет (другой период, будущая дата, нет такого товара) — честно скажи и назови раздел программы («Сводка», «Продажи», «ABC-анализ», «Пополнение и сроки», «Долги клиентов», «Склад», «Зарплата»). "
         + "Должники обозначены кодами [Д1], сотрудники — [С1]: пиши код ВСЕГДА в квадратных скобках ровно как в данных — программа сама покажет имя; не пиши, что имена скрыты. "
@@ -457,6 +458,21 @@ public static class TelegramAiChat
     /// <summary>Поиск в интернете сейчас недоступен для ключа (последний запрос с поиском получил 429).</summary>
     public static bool WebSearchUnavailable => DateTime.UtcNow < _webSearchBlockedUntilUtc;
 
+    /// <summary>2026-11-05: отказ поиска — суточная квота (в ответе Google «PerDay»/«per day»), а не поминутный лимит.</summary>
+    private static bool _webSearchBlockedDaily;
+
+    /// <summary>2026-11-05 (приёмка 1.17.75, С-1): поминутный 429 не должен считаться «лимит исчерпан». После паузы блокировку снимаем
+    /// и пробуем снова; суточную квоту не трогаем (там ждать бесполезно).</summary>
+    public static bool ResetWebSearchBlockIfMinuteLimit()
+    {
+        if (_webSearchBlockedDaily)
+            return false;
+        _webSearchBlockedUntilUtc = DateTime.MinValue;
+        return true;
+    }
+
+    private const string WebSearchDailyText = "исчерпан суточный лимит поиска в интернете для этого ключа ИИ";
+
     /// <summary>Один вопрос с поиском Google, без истории (поиск фото товара в интернете — ProductPhotoFinder).</summary>
     public static async Task<(string? Answer, IReadOnlyList<WebSource> Sources, string? Error)> AskWebAsync(string system, string question, CancellationToken ct)
     {
@@ -470,7 +486,7 @@ public static class TelegramAiChat
         if (string.IsNullOrWhiteSpace(key))
             return (null, Array.Empty<WebSource>(), "ключ ИИ не задан");
         if (WebSearchUnavailable)
-            return (null, Array.Empty<WebSource>(), "поиск в интернете недоступен для этого ключа ИИ");
+            return (null, Array.Empty<WebSource>(), _webSearchBlockedDaily ? WebSearchDailyText : "поиск в интернете недоступен для этого ключа ИИ");
         var (answer, error, sources) = await GenerateCoreAsync(key!, system, new List<(string, string)>(), question, ct,
             webSearch: true, fallbackWithoutSearch: false).ConfigureAwait(false);
         return (answer, sources, error);
@@ -499,7 +515,8 @@ public static class TelegramAiChat
     /// «старые просьбы не выполнять» (звонок 07.10 искал фото товаров из прошлых просьб).</summary>
     public static string BuildOwnerVoiceInstruction(IReadOnlyList<AiSection> shop, IEnumerable<(bool Owner, string Text)> recent, string? staff, AiAccess access)
     {
-        var sb = new StringBuilder(OwnerVoicePrompt);
+        // 2026-11-05, жалоба владельца «ИИ в звонке сам уходит на узбекский/турецкий»: жёсткое правило языка — первой строкой инструкции.
+        var sb = new StringBuilder(AiVoiceLanguage.Rule()).Append("\n\n").Append(OwnerVoicePrompt);
         if (access.DeniedPrompt() is { Length: > 0 } denied)
             sb.Append(' ').Append(denied);
         // 2026-10-30: возможности, выключенные владельцем, сильнее общих обещаний выше (изменение товаров, фото, интернет, сайт, разделы).
@@ -526,8 +543,9 @@ public static class TelegramAiChat
         // 2026-10-06, владелец: «дай название нашему ИИ — на кыргызском Нур Кеңешчи, на русском Нур Советник».
         + "Если спрашивают, как тебя зовут, — по-русски «Нур Советник», по-кыргызски «Нур Кеңешчи». Сейчас вы разговариваете ГОЛОСОМ "
         + "в реальном времени, как по телефону. Отвечай коротко и разговорно: одно–три предложения, без списков, таблиц, ссылок и символов. "
-        + "Крупные суммы округляй для слуха («около восьмисот восьмидесяти шести тысяч сом»). Говори на языке ПОСЛЕДНЕЙ фразы владельца "
-        + "(русский, кыргызский, английский, турецкий или узбекский): сказал по-русски — отвечай по-русски, по-кыргызски — по-кыргызски; "
+        + "Крупные суммы округляй для слуха («около восьмисот восьмидесяти шести тысяч сом»). Язык разговора задан правилом в самом начале этих инструкций "
+        // 2026-11-05: раньше здесь было «говори на языке последней фразы (русский, кыргызский, английский, турецкий или узбекский)» — модель принимала кыргызскую/русскую речь за узбекскую и турецкую.
+        + "и НЕ меняется от слов или акцента владельца; "
         // 2026-10-06, владелец (снимок звонка): говорил по-русски, а советник отвечал по-кыргызски (в прошлых репликах чата был кыргызский).
         + "язык прошлых реплик чата и сообщений «[Программа]» на выбор языка не влияет. Хочет подробностей — расскажи следующую часть или предложи посмотреть раздел программы. "
         + "Цифры магазина бери ТОЛЬКО из сводки ниже; если нужных данных в ней нет — честно скажи об этом и подскажи раздел программы: "
@@ -1337,9 +1355,11 @@ public static class TelegramAiChat
                 {
                     // Поиск Google не входит в квоту ключа — полчаса не пробуем; ответ без поиска (если можно).
                     _webSearchBlockedUntilUtc = DateTime.UtcNow.AddMinutes(30);
-                    PosLogger.Log($"ИИ: поиск в интернете недоступен для ключа (429 у {model}) — {(fallbackWithoutSearch ? "отвечаю без поиска" : "пропускаю")}.", "TELEGRAM");
+                    // 2026-11-05: суточная квота отличается от поминутной по тексту ответа Google; пачки фото на поминутную ждут и повторяют.
+                    _webSearchBlockedDaily = json.Contains("PerDay", StringComparison.OrdinalIgnoreCase) || json.Contains("per day", StringComparison.OrdinalIgnoreCase);
+                    PosLogger.Log($"ИИ: поиск в интернете недоступен для ключа (429 у {model}{(_webSearchBlockedDaily ? ", суточная квота" : "")}) — {(fallbackWithoutSearch ? "отвечаю без поиска" : "пропускаю")}.", "TELEGRAM");
                     if (!fallbackWithoutSearch)
-                        return (null, "поиск в интернете недоступен для этого ключа ИИ", none);
+                        return (null, _webSearchBlockedDaily ? WebSearchDailyText : "поиск в интернете недоступен для этого ключа ИИ", none);
                     webSearch = false;
                     body = Body(false);
                     mi--;

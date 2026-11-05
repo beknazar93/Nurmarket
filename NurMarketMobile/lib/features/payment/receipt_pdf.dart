@@ -123,6 +123,7 @@ Future<List<int>> receiptPdfBytes(Receipt r) async {
             ),
           dashed(),
           if (r.discount > 0) ...[pair('Сумма без скидки', money(r.subtotal)), pair('Скидка', '−${money(r.discount)}', color: red)],
+          if (r.weightRounding >= 0.005) pair('Округление весовых', '−${money(r.weightRounding)}'), // 2026-11-05 (М4-14)
           pw.Padding(
             padding: const pw.EdgeInsets.symmetric(vertical: 3),
             child: pw.Row(

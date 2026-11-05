@@ -7198,4 +7198,59 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get updOpenSettings => 'Открыть настройки';
+
+  @override
+  String get prnStalled =>
+      'Связь с принтером оборвалась. Проверьте, напечатался ли чек, и только потом печатайте заново.';
+
+  @override
+  String scaleNoPlu(String plu) {
+    return 'Весовая этикетка: товар с PLU $plu не найден';
+  }
+
+  @override
+  String get scaleBindPlu => 'Выбрать товар и записать ему PLU';
+
+  @override
+  String scaleBindAsk(String plu, String name) {
+    return 'Записать PLU $plu товару «$name»?';
+  }
+
+  @override
+  String get scaleLabelAgain => 'Эта этикетка уже в чеке. Добавить ещё раз?';
+
+  @override
+  String scaleNotWeighed(String name) {
+    return 'Это весовая этикетка, а «$name» — штучный товар. Добавить?';
+  }
+
+  @override
+  String get scaleLayoutPick =>
+      'Этикетку можно прочитать двумя способами — выберите товар';
+
+  @override
+  String get aiSlow => 'ИИ думает дольше обычного…';
+
+  @override
+  String aiElapsed(int s) {
+    return 'Прошло $s с';
+  }
+
+  @override
+  String get aiAskOwner => 'ИИ не настроен — попросите владельца';
+
+  @override
+  String get prnNotPrinted => 'Чек не напечатан';
+
+  @override
+  String get prnPrintAgain => 'Повторить печать';
+
+  @override
+  String prnChecked(int n, int total) {
+    return 'Проверено $n из $total';
+  }
+
+  @override
+  String get prnLocationOff =>
+      'Чтобы найти Bluetooth-принтер на этом Android, включите «Местоположение».';
 }

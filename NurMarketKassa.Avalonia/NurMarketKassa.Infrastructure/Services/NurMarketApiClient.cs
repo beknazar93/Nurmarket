@@ -1646,11 +1646,26 @@ public sealed partial class NurMarketApiClient : IDisposable
     /// <summary>2026-11-03 (Д-1, живая проверка 1.17.73): 403 без JSON-объекта в теле — не ответ NurCRM (Django отдаёт {"detail": …}),
     /// а страница прокси/CDN/WAF/провайдера. Такой ответ не «доступ отозван»: сессию стирать нельзя.</summary>
     internal static bool IsForeignForbidden(ApiException ex) =>
-        ex.StatusCode == 403 && ex.Payload is not { ValueKind: JsonValueKind.Object };
+        ex.StatusCode == 403 && !IsNurCrmBody(ex.Payload);
 
     /// <summary>2026-11-03 (Д-1): отказ 403 от самого NurCRM (в теле JSON-объект) — настоящий отзыв доступа.</summary>
     internal static bool IsGenuineAccessDenied(ApiException ex) =>
-        ex.StatusCode == 403 && ex.Payload is { ValueKind: JsonValueKind.Object };
+        ex.StatusCode == 403 && IsNurCrmBody(ex.Payload);
+
+    /// <summary>2026-11-03 (аудит №3, П-1): тело ответа считается ответом NurCRM, только если это JSON-объект с полем <c>detail</c> или <c>code</c> (Django/DRF) и в нём нет
+    /// признаков Cloudflare (<c>error_code</c>, <c>cloudflare_error</c>, <c>ray_id</c>, <c>title</c> вида «Error 10xx»). Раньше любой JSON-объект считался «настоящим отказом NurCRM»,
+    /// а Cloudflare тоже отдаёт JSON — вход стирался при отказе посредника. Единственное место правила: его используют все три проверки 403.</summary>
+    internal static bool IsNurCrmBody(JsonElement? payload)
+    {
+        if (payload is not { ValueKind: JsonValueKind.Object } body)
+            return false;
+        if (body.TryGetProperty("error_code", out _) || body.TryGetProperty("cloudflare_error", out _) || body.TryGetProperty("ray_id", out _))
+            return false;
+        if (body.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String
+            && System.Text.RegularExpressions.Regex.IsMatch(title.GetString() ?? "", @"^\s*Error\s+10\d\d", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            return false;
+        return body.TryGetProperty("detail", out _) || body.TryGetProperty("code", out _);
+    }
 
     /// <summary>2026-11-03 (Д-1): отказ на обновлении токена с кодом 403 и чужим телом (не JSON-объект) — сбой посредника (502), а не «refresh отозван»:
     /// иначе автовход и JwtBearerRefreshHandler стирали сохранённый вход.</summary>
@@ -1661,9 +1676,9 @@ public sealed partial class NurMarketApiClient : IDisposable
         string text;
         try { text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false); }
         catch (Exception ex) when (ex is HttpRequestException or IOException) { text = ""; }
-        if (TryParse(text) is { ValueKind: JsonValueKind.Object })
+        if (IsNurCrmBody(TryParse(text)))
             return;
-        PosLogger.Log("Обновление токена: ответ 403 не от NurCRM (нет JSON) — вход не стираем, считаем сбоем сервера.", "AUTH");
+        PosLogger.Log("Обновление токена: ответ 403 не от NurCRM (нет JSON с detail/code или признаки Cloudflare) — вход не стираем, считаем сбоем сервера.", "AUTH");
         throw new ApiException("HTTP 403 (ответ промежуточного узла, не NurCRM)", 502);
     }
 

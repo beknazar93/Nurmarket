@@ -368,6 +368,13 @@ public partial class App : Application
             var splash = new SplashWindow();
             desktop.MainWindow = splash;
             splash.Show();
+            // 2026-11-05 (С-03): «Выйти» на затянувшейся заставке — отменяем запуск и закрываем программу (смена и данные не затрагиваются).
+            splash.ExitRequested += () =>
+            {
+                try { ShutdownCts.Cancel(); }
+                catch { /* уже отменён */ }
+                desktop.Shutdown();
+            };
             // 2026-09-23. Чекпоинт WAL висел ТОЛЬКО на desktop.Exit. Когда кассир
             // выключает компьютер через «Пуск», Windows шлёт запрос на завершение сеанса и
             // затем убивает процесс — Exit не срабатывает, и несведённый WAL остаётся на
@@ -384,6 +391,7 @@ public partial class App : Application
                 catch (Exception ex) { NurMarketKassa.Services.PosLogger.Log($"WAL checkpoint (shutdown) failed: {ex.Message}", "WARNING"); }
             };
 
+            NurMarketKassa.AvaloniaHost.Services.MemoryDiagnostics.Start(); // 2026-11-05 (аудит №3, Р3-01): раз в 5 минут — память в журнал
             AppDomain.CurrentDomain.ProcessExit += (_, _) =>
             {
                 try { NurMarketKassa.Services.DatabaseService.CheckpointWal(); }

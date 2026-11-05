@@ -226,7 +226,7 @@ class AdminReceiveRepository {
       // 2026-10-27 (М4): поштучная продажа из упаковки — packages_input, как BuildProductBody кассы
       if (packages != null && packages.isNotEmpty) 'packages_input': packages,
       'barcode': l.barcode.isEmpty ? null : l.barcode,
-      'purchase_price': l.cost.toStringAsFixed(2),
+      'purchase_price': purchaseText(l.cost), // 2026-11-05 (аудит №3, М4-13): до 4 знаков
       'price': l.price.toStringAsFixed(2),
       'stock': false,
       'promotion_rules_input': <Object>[],
@@ -304,6 +304,38 @@ class AdminReceiveRepository {
   /// прошлой попытки с тем же составом неизвестен, повтор идёт ТЕМ ЖЕ ключом (сервер, знающий поле, не проведёт приход
   /// второй раз). Хранится в базе телефона 24 часа — переживает закрытие экрана.
   static const pendingReceiptKeySetting = 'receive.pendingKey';
+
+  /// 2026-11-05 (аудит №3, М4-05): pendingPre/pendingTarget хранились только в памяти строки — после тайм-аута и закрытия экрана тот же приход
+  /// с нового экрана прибавлялся второй раз. Теперь метка (остаток до, записываемый, время) лежит в настройках телефона по товару и
+  /// действует сутки; очищается, когда прибавка подтверждена или отвергнута.
+  static String _pendingKey(String productId) => 'receive.stockPatch.$productId';
+
+  Future<void> _loadPending(ReceiveLine l) async {
+    if (l.pendingTarget != null && l.pendingPre != null) return;
+    try {
+      final raw = await db.getSetting(_pendingKey(l.productId));
+      if (raw == null || raw.isEmpty) return;
+      final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
+      final at = DateTime.tryParse('${m['at']}');
+      if (at == null || DateTime.now().difference(at) > const Duration(hours: 24)) return;
+      l.pendingPre = (m['pre'] as num).toDouble();
+      l.pendingTarget = (m['target'] as num).toDouble();
+    } catch (_) {
+      // испорченная метка — как будто её нет
+    }
+  }
+
+  Future<void> _savePending(ReceiveLine l) async {
+    try {
+      final has = l.pendingPre != null && l.pendingTarget != null;
+      await db.setSetting(
+        _pendingKey(l.productId),
+        has ? jsonEncode({'pre': l.pendingPre, 'target': l.pendingTarget, 'at': DateTime.now().toIso8601String()}) : '',
+      );
+    } catch (_) {
+      // база недоступна — работаем как раньше, по метке в памяти
+    }
+  }
 
   static String receiptSignature(String supplierId, bool paidNow, List<ReceiveLine> ready) =>
       '$supplierId|$paidNow|${(ready.map((l) => '${l.productId}:${l.qty.toStringAsFixed(3)}:${l.cost.toStringAsFixed(2)}').toList()..sort()).join(';')}';
@@ -410,6 +442,7 @@ class AdminReceiveRepository {
           // 2026-10-22 (мобилка, админ, П8/П12): как PendingStockPatch кассы — прошлый PATCH остатка мог дойти без ответа.
           // Остаток уже равен записанному — повторно не прибавляем; изменился иначе — не понять, прибавилось ли: не трогаем.
           var pre = stock;
+          if (!setStock) await _loadPending(l); // 2026-11-05 (М4-05): метка начатой прибавки живёт и после закрытия экрана
           if (!setStock && l.pendingTarget != null && l.pendingPre != null) {
             if ((stock - l.pendingTarget!).abs() < 0.0005) {
               pre = l.pendingPre!;
@@ -419,12 +452,13 @@ class AdminReceiveRepository {
             }
           }
           final target = setStock ? roundQty(l.qty) : roundQty(pre + l.qty);
-          final body = <String, Object>{'purchase_price': l.cost.toStringAsFixed(2), 'price': l.price.toStringAsFixed(2)};
+          final body = <String, Object>{'purchase_price': purchaseText(l.cost), 'price': l.price.toStringAsFixed(2)};
           if ((stock - target).abs() >= 0.0005) {
             body['quantity'] = target;
             if (!setStock) {
               l.pendingPre = pre;
               l.pendingTarget = target;
+              await _savePending(l);
             }
           }
           try {
@@ -434,14 +468,17 @@ class AdminReceiveRepository {
             if (!outcomeUnknown(e) && body.containsKey('quantity') && !setStock) {
               if ((stock - pre).abs() < 0.0005) {
                 l.pendingPre = l.pendingTarget = null;
+                await _savePending(l);
               } else {
                 l.pendingPre = pre;
                 l.pendingTarget = stock;
+                await _savePending(l);
               }
             }
             rethrow;
           }
           l.pendingPre = l.pendingTarget = null;
+          await _savePending(l);
           // 2026-10-26 (П0, Б1): остаток записан — отметка сразу, а не в конце: если следующая строка оборвёт проведение
           // неожиданной ошибкой, повтор не прибавит этой строке остаток второй раз
           l.posted = true;

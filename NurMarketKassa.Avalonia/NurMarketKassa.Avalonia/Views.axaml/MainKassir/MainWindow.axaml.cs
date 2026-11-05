@@ -1609,8 +1609,14 @@ public partial class MainWindow : Window
             decimal? change = method == "cash" && sale.ChangeDue is { } back ? (decimal)back : null;
             var soldAt = new DateTimeOffset(sale.SoldAt);
             var soldInShift = NurMarketKassa.PosApp.ActiveShiftId; // 2026-10-30: смена продажи — для Z-отчёта без связи (LocalShiftTotals)
-            _ = Task.Run(() => SaleReturnLedger.RememberPayment(saleId, total, method, paidCash, paidNonCash, received, change, linesTotal, soldAt,
-                dueDate, schedule, clientName, clientPhone, soldInShift));
+            var saleNumber = sale.SaleNumber; // 2026-11-03 (Д3-04): номер чека из ответа оплаты — для «Истории чеков» без сервера
+            _ = Task.Run(() =>
+            {
+                SaleReturnLedger.RememberPayment(saleId, total, method, paidCash, paidNonCash, received, change, linesTotal, soldAt,
+                    dueDate, schedule, clientName, clientPhone, soldInShift);
+                if (!string.IsNullOrWhiteSpace(saleNumber))
+                    SaleReturnLedger.RememberNumber(saleId, saleNumber);
+            });
         }
         catch (Exception ex)
         {
@@ -1660,6 +1666,7 @@ public partial class MainWindow : Window
             // 2026-10-04: чеки очереди, которых ещё нет на сервере, — снимок ДО запроса остатка
             // (см. OfflineQueueCash: так отправленные чеки не считаются дважды).
             var queueAtBalance = OfflineQueueCash.Snapshot(_session.ActiveShiftId);
+            var balanceRequestedAt = DateTime.UtcNow; // 2026-11-05 (Р3-06): возвраты, выданные раньше этого момента, в полученном остатке уже есть
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(_windowCts.Token);
             cts.CancelAfter(TimeSpan.FromSeconds(8));
             var recent = afterSale
@@ -1676,6 +1683,7 @@ public partial class MainWindow : Window
             // 2026-10-22 (аудит 1.17.59, П-А): сверка с реальным движением наличных (предоплата долга безналом).
             CheckSaleCashAgainstServer(_shiftCashBalance, balance);
             _shiftCashBalance = balance;
+            ExchangeCashCorrections.ClearPendingServerCash(_session.ActiveShiftId, balanceRequestedAt); // 2026-11-05 (Р3-06)
             _queueCashAtBalance = queueAtBalance;
             _shiftTotals = ShiftBalanceHelper.FindOpenShiftTotals(list, App.PosCashboxId) ?? _shiftTotals;
             UpdateShiftBalanceUi();
@@ -1767,7 +1775,9 @@ public partial class MainWindow : Window
             if (_shiftCashBalance is null && net == 0m && queued == 0m)
                 return null;
 
-            return (_shiftCashBalance ?? 0m) + net + queued;
+            // 2026-11-05 (Р3-06 / Д3-11): наличные только что проведённого возврата сервер уже вычел, а остаток он нам ещё не прислал — вычитаем сразу.
+            var pendingReturnCash = _shiftCashBalance is null ? 0m : ExchangeCashCorrections.PendingServerCash(_session.ActiveShiftId);
+            return (_shiftCashBalance ?? 0m) + net + queued - pendingReturnCash;
         }
     }
 
@@ -2613,8 +2623,16 @@ public partial class MainWindow : Window
             prefs.AccentTheme, "glass", System.StringComparison.OrdinalIgnoreCase);
     }
 
-    private void OnClosing(object? sender, CancelEventArgs e)
+    private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
+        // 2026-11-05 (аудит №3, Р3-02): выключение Windows / установщик («--close-quiet») — «Смена не закрыта» не показываем (вопрос без срока,
+        // через 15 с процесс убивали). Смена остаётся открытой, состояние сохраняем и выходим; кнопка ✕ пользователя — как раньше.
+        if (!_allowMainWindowClose && QuietShutdown.ShouldSkipPrompts(e))
+        {
+            PosLogger.Log("Закрытие по сигналу системы/установщика: выходим без вопросов, смена остаётся открытой.", "INFO");
+            App.ExitWithoutLoginRedirect = true;
+        }
+
         if (!App.ExitWithoutLoginRedirect && !_allowMainWindowClose)
         {
             e.Cancel = true;

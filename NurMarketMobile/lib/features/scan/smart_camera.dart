@@ -66,6 +66,12 @@ Future<bool> ensureAiKey(BuildContext context, WidgetRef ref) async {
   }
   if (!context.mounted) return false;
   final l = context.l;
+  // 2026-11-05 (М5-31): ключа нет — поле «вставьте ключ» только владельцу и администратору; кассиру — «ИИ не настроен — попросите владельца»
+  final who = ref.read(sessionProvider);
+  if (who != null && !who.isAdmin) {
+    toast(context, l.aiAskOwner, error: true);
+    return false;
+  }
   final ctrl = TextEditingController();
   final ok = await showDialog<bool>(
     context: context,
@@ -114,8 +120,9 @@ Future<String?> _readShotBarcode(Uint8List jpeg) async {
     tmp = File('${dir.path}${Platform.pathSeparator}shot_${DateTime.now().microsecondsSinceEpoch}.jpg');
     await tmp.writeAsBytes(jpeg, flush: true);
     final r = await scanner.analyzeImage(tmp.path);
-    final v = r?.barcodes.firstOrNull?.rawValue;
-    return v == null || v.trim().isEmpty ? null : v.trim();
+    // 2026-11-05 (М5-24): на снимке несколько разных кодов — это пачка товаров, ответ даёт ИИ; один код — сразу товар
+    final codes = {for (final b in r?.barcodes ?? const <Barcode>[]) if ((b.rawValue ?? '').trim().isNotEmpty) b.rawValue!.trim()};
+    return codes.length == 1 ? codes.first : null;
   } finally {
     await scanner.dispose();
     try {
@@ -138,52 +145,39 @@ Future<List<SeenMatch>?> recognizeBytes(
   int? pages,
 }) async {
   final l = context.l;
+  // 2026-11-05 (М5-23): окно ожидания не «глухое» — идут секунды, через 6 с «ИИ думает дольше обычного…», есть «Отмена»
+  // (раньше до 25–40 с без выхода). Отмена бросает ожидание: ответ ИИ, когда придёт, игнорируется.
+  final cancel = Completer<void>();
+  var dialogOpen = true;
   showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (c) => AlertDialog(
-      content: Row(
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(width: 16),
-          Expanded(child: Text(pages != null && pages > 1 && page != null ? '${l.recognizing}\n${l.camPageOf(page, pages)}' : l.recognizing)),
-        ],
-      ),
+    builder: (c) => RecognizeWait(
+      text: pages != null && pages > 1 && page != null ? '${l.recognizing}\n${l.camPageOf(page, pages)}' : l.recognizing,
+      onCancel: () {
+        if (cancel.isCompleted) return;
+        cancel.complete();
+        dialogOpen = false;
+        Navigator.of(c, rootNavigator: true).pop();
+      },
     ),
   );
-  try {
-    final vision = ref.read(visionProvider);
-    final isImage = mime.startsWith('image/');
-    String? code;
-    if (mode == 'shelf' && isImage) {
-      try {
-        code = await shotBarcodeReader(bytes).timeout(const Duration(seconds: 3));
-      } catch (_) {
-        code = null;
-      }
-      if (code != null) {
-        final hit = await CodeLookup.find(ref.read(databaseProvider), ref.read(apiProvider), code, allowWeightLabel: false);
-        if (hit.product != null) {
-          if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
-          final p = hit.product!;
-          return [SeenMatch(SeenItem(name: p.name, barcode: code, count: hit.qty?.round().clamp(1, 999) ?? 1), [(p, 1.0)])];
-        }
-      }
-    }
-    var seen = await vision.recognize(bytes, mode: mode, mime: mime);
-    // штрихкод снимка не нашёл товара, но на снимке один товар — код достаётся его карточке
-    if (code != null && seen.length == 1 && seen.first.barcode.isEmpty) {
-      final s0 = seen.first;
-      seen = [SeenItem(name: s0.name, nameRu: s0.nameRu, brand: s0.brand, size: s0.size, barcode: code, count: s0.count, labelPrice: s0.labelPrice)];
-    }
-    var matches = await vision.match(seen);
-    // 14.10, владелец: обученные товары (3 фото + штрихкод) — точное совпадение с эталонами, первыми в списке.
-    if (isImage && (mode == 'sale' || mode == 'shelf')) matches = mergeExact(await exactMatches(ref, bytes, matches), matches);
+  void closeWait() {
+    if (!dialogOpen) return;
+    dialogOpen = false;
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
-    return matches;
+  }
+
+  try {
+    final r = await Future.any<List<SeenMatch>?>([
+      _recognizeWork(ref, bytes, mode, mime),
+      cancel.future.then<List<SeenMatch>?>((_) => null),
+    ]);
+    closeWait();
+    return r;
   } on VisionException catch (e) {
+    closeWait();
     if (context.mounted) {
-      Navigator.of(context, rootNavigator: true).pop();
       if (e.noKey) {
         // 2026-10-27: ключ Google отклонил — он уже помечен на 30 минут (ротация ключей); НЕ стираем и не помечаем «навсегда»
         // (раньше saveKey('') навсегда выключал общий облачный ключ на этом телефоне и ломал чат Советника)
@@ -193,6 +187,98 @@ Future<List<SeenMatch>?> recognizeBytes(
       }
     }
     return null;
+  }
+}
+
+/// Сам разбор снимка (без окна ожидания): штрихкод со снимка → ИИ → сопоставление с каталогом.
+Future<List<SeenMatch>?> _recognizeWork(WidgetRef ref, Uint8List bytes, String mode, String mime) async {
+  final vision = ref.read(visionProvider);
+  final isImage = mime.startsWith('image/');
+  String? code;
+  // 2026-11-05 (М5-24): штрихкод читается и в продаже — на снимке с видимым кодом товар находится за миллисекунды, без запроса к ИИ
+  if ((mode == 'shelf' || mode == 'sale') && isImage) {
+    try {
+      code = await shotBarcodeReader(bytes).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      code = null;
+    }
+    if (code != null) {
+      final hit = await CodeLookup.find(ref.read(databaseProvider), ref.read(apiProvider), code, allowWeightLabel: false);
+      if (hit.product != null) {
+        final p = hit.product!;
+        return [SeenMatch(SeenItem(name: p.name, barcode: code, count: hit.qty?.round().clamp(1, 999) ?? 1), [(p, 1.0)])];
+      }
+    }
+  }
+  var seen = await vision.recognize(bytes, mode: mode, mime: mime);
+  // штрихкод снимка не нашёл товара, но на снимке один товар — код достаётся его карточке
+  if (code != null && seen.length == 1 && seen.first.barcode.isEmpty) {
+    final s0 = seen.first;
+    seen = [SeenItem(name: s0.name, nameRu: s0.nameRu, brand: s0.brand, size: s0.size, barcode: code, count: s0.count, labelPrice: s0.labelPrice)];
+  }
+  var matches = await vision.match(seen);
+  // 14.10, владелец: обученные товары (3 фото + штрихкод) — точное совпадение с эталонами, первыми в списке.
+  if (isImage && (mode == 'sale' || mode == 'shelf')) matches = mergeExact(await exactMatches(ref, bytes, matches), matches);
+  return matches;
+}
+
+/// 2026-11-05 (М5-23): окно «Узнаю товар…» с секундами и кнопкой «Отмена»; системная «Назад» тоже отменяет.
+class RecognizeWait extends StatefulWidget {
+  final String text;
+  final VoidCallback onCancel;
+  const RecognizeWait({super.key, required this.text, required this.onCancel});
+  @override
+  State<RecognizeWait> createState() => _RecognizeWaitState();
+}
+
+class _RecognizeWaitState extends State<RecognizeWait> {
+  final _started = DateTime.now();
+  Timer? _tick;
+  int _sec = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _sec = DateTime.now().difference(_started).inSeconds);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) widget.onCancel();
+      },
+      child: AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.text),
+                  const SizedBox(height: 4),
+                  Text(_sec >= 6 ? '${l.aiSlow} · ${l.aiElapsed(_sec)}' : l.aiElapsed(_sec), style: TextStyle(color: context.pal.textSoft, fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [TextButton(onPressed: widget.onCancel, child: Text(l.cancel))],
+      ),
+    );
   }
 }
 
@@ -305,8 +391,9 @@ Future<List<SeenMatch>> exactMatches(WidgetRef ref, Uint8List shot, List<SeenMat
         if (imgs[i].isNotEmpty) refs.add((want[i], imgs[i]));
       }
     }
-    // общий размер снимков — не больше 2,5 МБ (в base64 ещё +33 %)
-    var budget = 2500 * 1024 - shot.length;
+    // общий размер снимков — не больше 1,3 МБ вместе с кадром (в base64 ещё +33 %); 2026-11-05 (М5-26): было 2,5 МБ — на мобильном интернете
+    // сверка занимала 5–13 с
+    var budget = 1300 * 1024 - shot.length;
     for (var i = 0; i < refs.length; i++) {
       final keep = <Uint8List>[];
       for (final img in refs[i].$2) {
@@ -326,6 +413,10 @@ Future<List<SeenMatch>> exactMatches(WidgetRef ref, Uint8List shot, List<SeenMat
     return const [];
   }
 }
+
+/// 2026-11-05 (М5-26): у каждой увиденной позиции лучший кандидат уверенный (оценка ≥ autoScore и отрыв от второго ≥ autoGap).
+@visibleForTesting
+bool saleConfident(List<SeenMatch> first) => first.isNotEmpty && first.every((m) => m.picked != null);
 
 /// Точные совпадения — первыми, без повторов того же товара.
 List<SeenMatch> mergeExact(List<SeenMatch> exact, List<SeenMatch> matches) {
@@ -435,7 +526,8 @@ Future<void> recognizeSaleShot(WidgetRef ref, Uint8List jpeg, void Function(List
   final early = trained.isNotEmpty && trained.length <= 6 ? exactMatches(ref, jpeg, const [], withUrl: false) : null;
   final first = await vision.match(await seenF);
   // обученных больше 8 — берём похожие на увиденное; фото NurCRM — для похожих необученных
-  final needUrl = first.any((m) => m.candidates.take(2).any((c) => c.$1.imageUrl != null && !trained.contains(c.$1.id)));
+  // 2026-11-05 (М5-26): ответ ИИ уже уверенный (≥ autoScore с отрывом autoGap у каждой позиции) — второй, тяжёлый запрос со сверкой не нужен
+  final needUrl = !saleConfident(first) && first.any((m) => m.candidates.take(2).any((c) => c.$1.imageUrl != null && !trained.contains(c.$1.id)));
   final late = early == null || needUrl ? exactMatches(ref, jpeg, first, withTrained: early == null) : null;
   if (early == null && late == null) {
     show(first, true);

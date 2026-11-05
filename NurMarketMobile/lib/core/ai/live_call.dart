@@ -323,7 +323,8 @@ class LiveCall {
 
   // 2026-10-27 (дополнительные ключи Gemini): ключ можно сменить на следующий, если Google отказал ему ДО начала сеанса.
   String apiKey;
-  final String instruction;
+  // 2026-11-05: не final — после явной команды смены языка новая инструкция уходит и в переподключение (звонок не обрывается)
+  String instruction;
   final LiveConnect connect;
   final LiveAudio audio;
   final Duration maxDuration;

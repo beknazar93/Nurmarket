@@ -220,7 +220,14 @@ public static class AtomicFile
     /// когда файл станет читаемым (по умолчанию пишется текст памяти). Замена уже отложенной записи того же файла — новее выигрывает.</summary>
     public static void DeferWrite(string path, string storeName, string text, Func<string?, string, string>? merge = null)
     {
-        Deferred[path] = new DeferredWrite(storeName, text, merge);
+        var deferred = new DeferredWrite(storeName, text, merge);
+        Deferred[path] = deferred;
+        // 2026-11-05 (аудит №3, Р3-04): функция слияния хранилища запоминается по пути — ею же сливается запасной файл при восстановлении.
+        if (merge is not null)
+            MergeByPath[path] = merge;
+        // 2026-11-05 (Р3-04): запасной файл пишется СРАЗУ при отказе (не только при закрытии): убийство процесса (установщик через 15 с, «Всё равно завершить»
+        // в Windows) не даёт сработать ProcessExit — раньше отложенное состояние тогда терялось. Не чаще раза в 2 с на файл.
+        WritePendingThrottled(path, deferred);
         NoteWriteBlocked(storeName);
         lock (DeferredTimerGate)
         {
@@ -269,11 +276,38 @@ public static class AtomicFile
         }
     }
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Func<string?, string, string>> MergeByPath = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> PendingWrittenAt = new(StringComparer.OrdinalIgnoreCase);
+
+    private static void WritePendingThrottled(string path, DeferredWrite deferred)
+    {
+        var now = DateTime.UtcNow;
+        if (PendingWrittenAt.TryGetValue(path, out var last) && now - last < TimeSpan.FromSeconds(2))
+            return;
+        PendingWrittenAt[path] = now;
+        try
+        {
+            using var stream = new FileStream(path + ".pending", FileMode.Create, FileAccess.Write, FileShare.Read);
+            var bytes = Utf8NoBom.GetBytes(deferred.Text);
+            stream.Write(bytes, 0, bytes.Length);
+            stream.Flush(true); // 2026-11-05: на диск, не в кэш системы
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"{deferred.Name}: запасной файл сразу не записан ({ex.Message}).", "DEBUG");
+        }
+    }
+
     private static void WritePending(string path, DeferredWrite deferred)
     {
         try
         {
-            File.WriteAllText(path + ".pending", deferred.Text, Utf8NoBom);
+            using (var stream = new FileStream(path + ".pending", FileMode.Create, FileAccess.Write, FileShare.Read))
+            {
+                var bytes = Utf8NoBom.GetBytes(deferred.Text);
+                stream.Write(bytes, 0, bytes.Length);
+                stream.Flush(true); // 2026-11-05 (Р3-04): сброс на диск
+            }
             PosLogger.Log($"{deferred.Name}: файл занят при закрытии — состояние сохранено в {Path.GetFileName(path)}.pending, подхватится при следующем запуске.", "WARNING");
         }
         catch (Exception ex)
@@ -293,14 +327,35 @@ public static class AtomicFile
             var pendingStamp = File.GetLastWriteTimeUtc(pending);
             if (File.Exists(path) && File.GetLastWriteTimeUtc(path) >= pendingStamp)
             {
-                File.Delete(pending);
+                // 2026-11-05 (Р3-04): рабочий файл новее — запасной НЕ удаляем молча (в нём могли быть правки, которых в файле нет): если функция слияния
+                // хранилища известна — сливаем, иначе откладываем копию рядом (*.pending.old, перезаписывается) и пишем в журнал.
+                var oldText = File.ReadAllText(pending);
+                if (IsJson(oldText) && MergeByPath.TryGetValue(path, out var knownMerge) && TryReadFile(path, null, 1, 100) is { Status: not ReadStatus.Unreadable } current
+                    && current.Text != oldText)
+                {
+                    Deferred[path] = new DeferredWrite(Path.GetFileName(path), oldText, knownMerge);
+                    PosLogger.Log($"{Path.GetFileName(path)}: запасной файл старее рабочего — сливаем с ним функцией хранилища.", "WARNING");
+                    lock (DeferredTimerGate)
+                        _deferredTimer ??= new Timer(_ => FlushDeferred(onExit: false), null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(7));
+                    return;
+                }
+                try
+                {
+                    File.Move(pending, pending + ".old", overwrite: true);
+                    PosLogger.Log($"{Path.GetFileName(path)}: запасной файл старее рабочего — отложен как {Path.GetFileName(pending)}.old (на случай ручного восстановления).", "WARNING");
+                }
+                catch (Exception)
+                {
+                    File.Delete(pending);
+                }
                 return;
             }
             var text = File.ReadAllText(pending);
             if (IsJson(text))
             {
                 PosLogger.Log($"{Path.GetFileName(path)}: найден запасной файл прошлого запуска — состояние восстановлено и будет записано.", "WARNING");
-                Deferred[path] = new DeferredWrite(Path.GetFileName(path), text, null);
+                MergeByPath.TryGetValue(path, out var recoverMerge);
+                Deferred[path] = new DeferredWrite(Path.GetFileName(path), text, recoverMerge);
                 lock (DeferredTimerGate)
                     _deferredTimer ??= new Timer(_ => FlushDeferred(onExit: false), null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(7));
             }

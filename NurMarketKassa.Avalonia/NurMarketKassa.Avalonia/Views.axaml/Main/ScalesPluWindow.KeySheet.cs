@@ -215,14 +215,16 @@ public partial class ScalesPluWindow
             SuggestedFileName = $"scale-keys-{System.DateTime.Now:yyyy-MM-dd}.docx",
             FileTypeChoices = [new FilePickerFileType("Word") { Patterns = ["*.docx"] }],
         }).ConfigureAwait(true);
-        var path = file?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(path))
+        // 2026-11-05 (А3-05): на Android у выбранного файла нет локального пути — пишем во временный файл и копируем через OpenWriteAsync
+        var path = file is null ? null : ExportFileBridge.PathFor(file);
+        if (file is null || string.IsNullOrWhiteSpace(path))
             return;
         var title = ScaleTitle;
         var shop = ReportShopName.Current;
         try
         {
             await Task.Run(() => ScaleKeySheetService.SaveWord(path!, title, shop, rows)).ConfigureAwait(true);
+            path = await ExportFileBridge.CompleteAsync(file, path!).ConfigureAwait(true);
             StatusText.Text = Tr.T($"Лист кнопок сохранён: {path}", $"Баскычтар барагы сакталды: {path}", $"Key sheet saved: {path}", $"Tuş listesi kaydedildi: {path}", $"Tugmalar varag‘i saqlandi: {path}");
         }
         catch (System.Exception ex)

@@ -439,12 +439,7 @@ public sealed class ProfitPayWindow : Window
         });
         if (file is null)
             return;
-        var path = file.TryGetLocalPath();
-        if (string.IsNullOrEmpty(path))
-        {
-            ShowError(T("Не удалось определить путь файла — выберите папку на этом компьютере.", "Файлдын жолун аныктоо мүмкүн болгон жок — ушул компьютерден папка тандаңыз.", "Could not determine the file path — choose a folder on this computer.", "Dosya yolu belirlenemedi — bu bilgisayarda bir klasör seçin.", "Fayl yo'lini aniqlab bo'lmadi — shu kompyuterdagi papkani tanlang."));
-            return;
-        }
+        var path = ExportFileBridge.PathFor(file); // 2026-11-05 (А3-05): на Android без локального пути — через временный файл
         var rows = _data.Rows;
         try
         {
@@ -457,6 +452,7 @@ public sealed class ProfitPayWindow : Window
                     default: ProfitPayExport.ExportPdf(path, res, rows, _from, _to, shop); break;
                 }
             }).ConfigureAwait(true);
+            path = await ExportFileBridge.CompleteAsync(file, path); // 2026-11-05 (А3-05)
             ShowError(null);
             _status.Text = T("Ведомость сохранена", "Ведомость сакталды", "Statement saved", "Bordro kaydedildi", "Qaydnoma saqlandi") + ": " + path;
         }

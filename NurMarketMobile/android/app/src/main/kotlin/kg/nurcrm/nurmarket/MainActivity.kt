@@ -23,6 +23,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -57,7 +58,18 @@ class MainActivity : FlutterActivity() {
         private val SPP: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
         private const val REQ_BT = 7101
         private const val USB_PERMISSION = "kg.nurcrm.nurmarket.USB_PERMISSION"
+
+        // 2026-11-05 (мобилка, М5-01): общий срок на ВСЕ попытки подключения к Bluetooth-принтеру. Раньше три попытки шли по
+        // очереди, каждая connect() висела до 10–12 с — до 36 с; Dart бросал ожидание на 25-й секунде и ставил повтор, а первая
+        // попытка продолжала подключаться и печатала чек, затем печатал и повтор (двойной чек). Теперь Kotlin сам отвечает «не
+        // подключился» не позже этого срока, а Dart ждёт заведомо дольше (printer_service.dart, btTimeout).
+        private const val BT_CONNECT_BUDGET_MS = 15000L
     }
+
+    // 2026-11-05 (М5-01): задания печати, от которых Dart отказался (ожидание кончилось) — не начинать и не подключаться.
+    private val cancelledJobs: MutableSet<Int> = java.util.Collections.synchronizedSet(HashSet())
+
+    private fun isCancelled(job: Int) = job != 0 && cancelledJobs.contains(job)
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -176,6 +188,24 @@ class MainActivity : FlutterActivity() {
                 startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
                 result.success(null)
             }
+            // 2026-11-05 (М5-06): до Android 12 поиск новых Bluetooth-устройств молча ничего не находит, если выключено «Местоположение»
+            "btLocationOn" -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    result.success(true)
+                } else {
+                    val lm = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+                    val on = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        lm.isLocationEnabled
+                    } else {
+                        lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+                    }
+                    result.success(on)
+                }
+            }
+            "locationSettings" -> {
+                startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                result.success(null)
+            }
             "btSettings" -> {
                 startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 result.success(null)
@@ -184,19 +214,29 @@ class MainActivity : FlutterActivity() {
             "btPrint" -> {
                 val address = call.argument<String>("address") ?: ""
                 val data = call.argument<ByteArray>("data") ?: ByteArray(0)
+                val job = call.argument<Int>("job") ?: 0
                 val a = adapter() ?: return result.error("btUnsupported", null, null)
                 if (!btPermitted(false)) return result.error("noPermission", null, null)
                 if (!a.isEnabled) return result.error("btOff", null, null)
                 io.execute {
                     try {
-                        btPrint(a, address, data)
+                        btPrint(a, address, data, job)
                         main.post { result.success(null) }
                     } catch (e: PrinterError) {
                         main.post { result.error(e.code, e.message, if (e.sent) "sent" else null) }
                     } catch (e: Exception) {
                         main.post { result.error("io", e.message, null) }
+                    } finally {
+                        cancelledJobs.remove(job)
                     }
                 }
+            }
+            // 2026-11-05 (М5-01): Dart перестал ждать это задание — если оно ещё не начало подключаться, пусть не начинает
+            // (иначе чек выйдет через минуту сам по себе, а кассир уже нажал «печатать» заново).
+            "btCancel" -> {
+                if (cancelledJobs.size > 100) cancelledJobs.clear()
+                cancelledJobs.add(call.argument<Int>("job") ?: 0)
+                result.success(null)
             }
             "usbDevices" -> {
                 val m = getSystemService(Context.USB_SERVICE) as UsbManager
@@ -292,13 +332,15 @@ class MainActivity : FlutterActivity() {
         }, 8000)
     }
 
-    private fun btPrint(a: BluetoothAdapter, address: String, data: ByteArray) {
+    private fun btPrint(a: BluetoothAdapter, address: String, data: ByteArray, job: Int) {
         val device = try {
             a.getRemoteDevice(address.uppercase())
         } catch (e: IllegalArgumentException) {
             throw PrinterError("notFound", e.message)
         }
         if (device.type == BluetoothDevice.DEVICE_TYPE_LE) throw PrinterError("bleOnly")
+        // 2026-11-05 (М5-01): отказались от задания, пока оно ждало очереди, — ничего не делаем
+        if (isCancelled(job)) throw PrinterError("io", "cancelled")
         try {
             a.cancelDiscovery() // поиск сильно тормозит и рвёт подключение
         } catch (_: SecurityException) {
@@ -311,19 +353,59 @@ class MainActivity : FlutterActivity() {
             { device.createInsecureRfcommSocketToServiceRecord(SPP) },
             { device.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType).invoke(device, 1) as BluetoothSocket },
         )
+        val started = SystemClock.elapsedRealtime()
         for (make in attempts) {
+            // 2026-11-05 (М5-01): остаток общего срока; меньше 1,5 с на новую попытку не хватит
+            val left = BT_CONNECT_BUDGET_MS - (SystemClock.elapsedRealtime() - started)
+            if (left < 1500) break
+            var candidate: BluetoothSocket? = null
+            var watchdog: Runnable? = null
             try {
                 val s = make()
+                candidate = s
+                // зависший connect() прерывается закрытием сокета: он бросит IOException, и попытка кончится по сроку
+                val w = Runnable {
+                    try {
+                        s.close()
+                    } catch (_: IOException) {
+                    }
+                }
+                watchdog = w
+                main.postDelayed(w, left)
                 s.connect()
+                main.removeCallbacks(w)
                 socket = s
                 break
             } catch (e: SecurityException) {
+                watchdog?.let { main.removeCallbacks(it) }
                 throw PrinterError("noPermission", e.message)
             } catch (e: Exception) {
+                watchdog?.let { main.removeCallbacks(it) }
+                try {
+                    candidate?.close()
+                } catch (_: IOException) {
+                }
                 lastError = e
             }
         }
+        // не подключились ни одним способом: ни один байт не ушёл — Dart вправе повторить (sent = false)
         val s = socket ?: throw PrinterError("timeout", lastError?.message)
+        // 2026-11-05 (М5-01): пока подключались, Dart мог отказаться ждать — тогда не печатаем вовсе
+        if (isCancelled(job)) {
+            try {
+                s.close()
+            } catch (_: IOException) {
+            }
+            throw PrinterError("io", "cancelled")
+        }
+        // принтер встал посреди записи (буфер полон, бумага/крышка): закрытие сокета снимает зависшую запись
+        val writeWatch = Runnable {
+            try {
+                s.close()
+            } catch (_: IOException) {
+            }
+        }
+        main.postDelayed(writeWatch, 15000L + data.size / 4)
         var sentBytes = 0
         try {
             val out = s.outputStream
@@ -342,6 +424,7 @@ class MainActivity : FlutterActivity() {
         } catch (e: IOException) {
             throw PrinterError("io", e.message, sent = sentBytes > 0)
         } finally {
+            main.removeCallbacks(writeWatch)
             try {
                 s.close()
             } catch (_: IOException) {

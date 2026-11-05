@@ -115,6 +115,42 @@ class ShiftRepository {
     return ShiftLookup(null, foreignOnThisCashbox: foreignHere);
   }
 
+  /// 2026-11-05 (аудит №3, М4-12): «Остаток по системе» для открытия смены — как касса 1.17.73 (ShiftBalanceHelper.FindLastClosedShiftCash):
+  /// у самой свежей закрытой смены берётся closing_cash (пересчёт кассира), нет его — расчётная expected_cash (estimated = true).
+  /// Сначала смены этой кассы, иначе самые свежие любые. null — не удалось узнать (нет связи, нет закрытых смен).
+  Future<({double cash, bool estimated})?> lastClosedCash(String? cashboxId) async {
+    try {
+      final data = await api.get('api/construction/shifts/', query: {'status': 'closed'});
+      DateTime? bestAt, bestOwnAt;
+      ({double cash, bool estimated})? best, bestOwn;
+      for (final m in asList(data)) {
+        if ((str(m, 'status') ?? 'closed') == 'open') continue;
+        final at = DateTime.tryParse(str(m, 'closed_at') ?? '');
+        if (at == null) continue;
+        final ({double cash, bool estimated}) v;
+        if (m['closing_cash'] != null) {
+          v = (cash: num0(m, 'closing_cash'), estimated: false);
+        } else if (m['expected_cash'] != null) {
+          v = (cash: num0(m, 'expected_cash'), estimated: true);
+        } else {
+          continue;
+        }
+        if (bestAt == null || at.isAfter(bestAt)) {
+          bestAt = at;
+          best = v;
+        }
+        final box = str(m, 'cashbox') ?? str(m, 'cashbox_id');
+        if (cashboxId != null && cashboxId.isNotEmpty && box == cashboxId && (bestOwnAt == null || at.isAfter(bestOwnAt))) {
+          bestOwnAt = at;
+          bestOwn = v;
+        }
+      }
+      return bestOwn ?? best;
+    } on ApiException {
+      return null;
+    }
+  }
+
   Future<ShiftInfo> open(String cashboxId, double openingCash) async {
     final cash = openingCash.toStringAsFixed(2);
     try {

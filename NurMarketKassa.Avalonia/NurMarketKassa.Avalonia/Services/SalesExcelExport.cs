@@ -65,18 +65,14 @@ internal static class SalesExcelExport
             if (file is null)
                 return;
 
-            var path = file.TryGetLocalPath();
-            if (string.IsNullOrEmpty(path))
-            {
-                setMessage(Tr.T("Не удалось определить путь файла — выберите папку на этом компьютере.", "Файлдын жолун аныктоо мүмкүн болгон жок — ушул компьютердеги папканы тандаңыз.", "Could not determine the file path — choose a folder on this computer.", "Dosya yolu belirlenemedi — bu bilgisayarda bir klasör seçin.", "Fayl yo'lini aniqlab bo'lmadi — shu kompyuterdagi papkani tanlang."));
-                return;
-            }
+            var path = ExportFileBridge.PathFor(file); // 2026-11-05 (А3-05): на Android без локального пути — через временный файл
 
             setMessage(Preparing);
             // Progress создан на потоке окна — сообщения приходят туда же.
             var progress = new Progress<string>(text => setMessage(text));
             var data = await LoadAsync(from, to, progress, cts.Token).ConfigureAwait(true);
             await Task.Run(() => SalesExportService.ExportToExcel(path!, data, shop), cts.Token).ConfigureAwait(true);
+            path = await ExportFileBridge.CompleteAsync(file, path); // 2026-11-05 (А3-05)
 
             setMessage(Tr.T($"Отчёт сохранён: {path}", $"Отчёт сакталды: {path}", $"Report saved: {path}", $"Rapor kaydedildi: {path}", $"Hisobot saqlandi: {path}"));
             markSuccess();

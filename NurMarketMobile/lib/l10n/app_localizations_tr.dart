@@ -7046,4 +7046,58 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get updOpenSettings => 'Ayarları aç';
+
+  @override
+  String get prnStalled =>
+      'Yazıcı bağlantısı koptu. Fişin basılıp basılmadığını kontrol edin, sonra yeniden yazdırın.';
+
+  @override
+  String scaleNoPlu(String plu) {
+    return 'Terazi etiketi: PLU $plu olan ürün bulunamadı';
+  }
+
+  @override
+  String get scaleBindPlu => 'Ürün seçip bu PLU\'yu ata';
+
+  @override
+  String scaleBindAsk(String plu, String name) {
+    return '\"$name\" ürününe PLU $plu atansın mı?';
+  }
+
+  @override
+  String get scaleLabelAgain => 'Bu etiket zaten fişte. Tekrar eklensin mi?';
+
+  @override
+  String scaleNotWeighed(String name) {
+    return 'Bu bir terazi etiketi, ama \"$name\" adetle satılıyor. Eklensin mi?';
+  }
+
+  @override
+  String get scaleLayoutPick => 'Etiket iki şekilde okunabilir — ürünü seçin';
+
+  @override
+  String get aiSlow => 'Yapay zekâ her zamankinden uzun düşünüyor…';
+
+  @override
+  String aiElapsed(int s) {
+    return '$s sn geçti';
+  }
+
+  @override
+  String get aiAskOwner => 'Yapay zekâ ayarlanmamış — sahibine sorun';
+
+  @override
+  String get prnNotPrinted => 'Fiş yazdırılmadı';
+
+  @override
+  String get prnPrintAgain => 'Tekrar yazdır';
+
+  @override
+  String prnChecked(int n, int total) {
+    return '$total içinden $n kontrol edildi';
+  }
+
+  @override
+  String get prnLocationOff =>
+      'Bu Android\'de Bluetooth yazıcıyı bulmak için Konum\'u açın.';
 }

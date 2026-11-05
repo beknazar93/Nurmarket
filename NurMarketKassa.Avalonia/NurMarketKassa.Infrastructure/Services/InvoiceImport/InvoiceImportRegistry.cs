@@ -217,6 +217,35 @@ public static class InvoiceImportRegistry
         }
     }
 
+    /// <summary>2026-11-05 (Н-7, приёмка 1.17.75): список приёмки очищен без проведения — непроведённые записи этих накладных забываем, иначе повторная загрузка
+    /// того же файла пугала «лежит в приёмке», хотя её там уже нет. Проведённые записи не трогаем.</summary>
+    public static void ForgetUnposted(IEnumerable<string> ids)
+    {
+        var set = ids.ToHashSet(StringComparer.Ordinal);
+        if (set.Count == 0)
+            return;
+        lock (Sync)
+        {
+            var store = Read();
+            var removed = store.Invoices.Where(x => set.Contains(x.Id) && !x.Posted).ToList();
+            if (removed.Count == 0)
+                return;
+            foreach (var e in removed.Where(r => !string.IsNullOrWhiteSpace(r.StoredFile)))
+            {
+                try
+                {
+                    File.Delete(Path.Combine(FilesDir, Path.GetFileName(e.StoredFile)));
+                }
+                catch
+                {
+                    // файл занят или уже удалён — не страшно
+                }
+            }
+            store.Invoices.RemoveAll(x => set.Contains(x.Id) && !x.Posted);
+            Write(store);
+        }
+    }
+
     /// <summary>Запомнить: накладная перенесена в приёмку.</summary>
     public static void Record(InvoiceImportEntry entry)
     {

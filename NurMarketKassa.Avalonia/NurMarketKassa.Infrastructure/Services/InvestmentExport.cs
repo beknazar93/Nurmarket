@@ -8,7 +8,11 @@ namespace NurMarketKassa.Services;
 
 /// <summary>Строка ведомости выплат инвестору за месяц.</summary>
 public sealed record StatementRow(string MonthKey, DateTime From, decimal Net, decimal Base, decimal Carried, string Stage, decimal Pay, decimal Tax,
-    decimal ToHand, decimal Owner, decimal CutByCap, bool Paid, DateTime? PaidOn);
+    decimal ToHand, decimal Owner, decimal CutByCap, bool Paid, DateTime? PaidOn, decimal PaidAmount = 0m, bool MonthClosed = true)
+{
+    /// <summary>2026-11-05 (И-05): разница между начисленным «к выплате» и фактически отмеченным: &gt; 0 — доплатить, &lt; 0 — переплачено; 0 — нет отметки или совпало.</summary>
+    public decimal PaidDiff => Paid ? Math.Round(ToHand - PaidAmount, 2) : 0m;
+}
 
 /// <summary>Общие подписи модуля «Инвестиции и окупаемость».</summary>
 public static class InvestmentText
@@ -44,13 +48,32 @@ public static class InvestmentText
         _ => Tr.T("Прочие расходы", "Башка чыгымдар", "Other expenses", "Diğer giderler", "Boshqa xarajatlar"),
     };
 
-    /// <summary>Ведомость инвестора: месяцы с даты его вложения.</summary>
-    public static List<StatementRow> Statement(InvestorResult r, IReadOnlyList<PayMark> payments) =>
+    /// <summary>Подпись этапа строки: «Этап 1 · 60%»; если этап сменился внутри месяца — «Этап 1 → 2»; первый неполный месяц — «(с 25.10)».</summary>
+    private static string RowStage(InvestorResult r, MonthPayout x)
+    {
+        var name = StageName(r.Investor.Terms, x.StageBefore);
+        if (x.StageAfter >= 0 && x.StageAfter != x.StageBefore && x.StageBefore < r.Investor.Terms.Stages.Count && x.Pay > 0m)
+        {
+            var after = x.StageAfter >= r.Investor.Terms.Stages.Count
+                ? Tr.T("завершён", "аяктады", "finished", "tamamlandı", "tugadi")
+                : (x.StageAfter + 1).ToString(CultureInfo.InvariantCulture);
+            name = Tr.T($"Этап {x.StageBefore + 1} → {after}", $"{x.StageBefore + 1}-этап → {after}", $"Stage {x.StageBefore + 1} → {after}", $"{x.StageBefore + 1}. aşama → {after}", $"{x.StageBefore + 1}-bosqich → {after}");
+        }
+        if (x.ShareFrom is { } sf)
+            name += Tr.T(" (с ", " (", " (from ", " (", " (") + sf.ToString("dd.MM", CultureInfo.InvariantCulture) + Tr.T(")", " баштап)", ")", " itibaren)", " dan)");
+        return name;
+    }
+
+    /// <summary>Ведомость инвестора: месяцы с даты его вложения. <paramref name="all"/> — результаты ВСЕХ инвесторов: «Владельцу» = чистая месяца минус выплаты
+    /// всем инвесторам за этот месяц (2026-11-05, И-04); без списка — только этому инвестору.</summary>
+    public static List<StatementRow> Statement(InvestorResult r, IReadOnlyList<PayMark> payments, IReadOnlyList<InvestorResult>? all = null) =>
         r.Rows.Where(x => x.To.Date >= r.Investor.Date.Date).Select(x =>
         {
             var mark = payments.FirstOrDefault(p => p.Id == PayMark.KeyOf(r.Investor.Id, x.MonthKey) && !p.Deleted);
-            return new StatementRow(x.MonthKey, x.From, x.Net, x.Base, x.Carried, StageName(r.Investor.Terms, x.StageBefore), x.Pay, x.Tax, x.ToHand,
-                x.Net - x.Pay, x.CutByCap, mark != null, mark?.PaidOn);
+            var paidAll = all == null ? x.Pay : all.Sum(a => a.Rows.FirstOrDefault(y => y.MonthKey == x.MonthKey)?.Pay ?? 0m);
+            var closed = x.From.AddDays(1 - x.From.Day).AddMonths(1).AddDays(-1) < DateTime.Today;
+            return new StatementRow(x.MonthKey, x.From, x.Net, x.Base, x.Carried, RowStage(r, x), x.Pay, x.Tax, x.ToHand,
+                x.Net - paidAll, x.CutByCap, mark != null, mark?.PaidOn, mark?.Amount ?? 0m, closed);
         }).ToList();
 }
 
@@ -72,9 +95,19 @@ public static class InvestmentExport
     public static string SuggestFileName(string? shop, string extension) =>
         ExportFileName.Build(Title, DateTime.Today.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture), shop, extension);
 
-    private static string StatusText(StatementRow r) => r.Paid
-        ? Tr.T("Выплачено", "Төлөндү", "Paid", "Ödendi", "To'landi")
-        : Tr.T("Начислено", "Эсептелди", "Accrued", "Tahakkuk", "Hisoblandi");
+    // 2026-11-05 (И-15): нулевая выплата без отметки - «—», а не «Начислено»; (И-05): при расхождении с отметкой - «доплатить / переплачено».
+    private static string StatusText(StatementRow r)
+    {
+        if (!r.Paid)
+            return r.Pay > 0m ? Tr.T("Начислено", "Эсептелди", "Accrued", "Tahakkuk", "Hisoblandi") : "—";
+        var text = Tr.T("Выплачено ", "Төлөндү ", "Paid ", "Ödendi ", "To'landi ") + r.PaidAmount.ToString("N2", Ru);
+        var diff = r.PaidDiff;
+        if (diff >= 0.01m)
+            text += Tr.T($" · доплатить {diff:N2}", $" · кошумча төлөө {diff:N2}", $" · {diff:N2} left to pay", $" · {diff:N2} eksik ödeme", $" · {diff:N2} qo'shimcha to'lash");
+        else if (diff <= -0.01m)
+            text += Tr.T($" · переплачено {-diff:N2}", $" · ашык төлөндү {-diff:N2}", $" · overpaid {-diff:N2}", $" · {-diff:N2} fazla ödendi", $" · {-diff:N2} ortiqcha to'landi");
+        return text;
+    }
 
     private static string[] Headers() => new[]
     {
@@ -116,7 +149,7 @@ public static class InvestmentExport
                 new(h[4]), new(h[5] + ", " + cur, XlKind.Money, XlTotal.Sum), new(h[6] + ", " + cur, XlKind.Money, XlTotal.Sum), new(h[7] + ", " + cur, XlKind.Money, XlTotal.Sum),
                 new(h[8] + ", " + cur, XlKind.Money, XlTotal.Sum), new(h[9]),
             };
-            sheet.AddTable(cols, InvestmentText.Statement(r, payments).Select(x => new object?[]
+            sheet.AddTable(cols, InvestmentText.Statement(r, payments, result.Investors).Select(x => new object?[]
             {
                 InvestmentText.MonthTitle(x.MonthKey), x.Net, x.Base, x.Carried, x.Stage, x.Pay, x.Tax, x.ToHand, x.Owner, StatusText(x),
             }).ToList());
@@ -138,7 +171,7 @@ public static class InvestmentExport
             sb.AppendLine();
             sb.AppendLine(Cell(r.Investor.Name) + sep + r.Invested.ToString("0.00", Ru) + sep + r.Investor.Date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture));
             sb.AppendLine(string.Join(sep, Headers()));
-            foreach (var x in InvestmentText.Statement(r, payments))
+            foreach (var x in InvestmentText.Statement(r, payments, result.Investors))
                 sb.AppendLine(string.Join(sep, InvestmentText.MonthTitle(x.MonthKey), x.Net.ToString("0.00", Ru), x.Base.ToString("0.00", Ru), x.Carried.ToString("0.00", Ru),
                     Cell(x.Stage), x.Pay.ToString("0.00", Ru), x.Tax.ToString("0.00", Ru), x.ToHand.ToString("0.00", Ru), x.Owner.ToString("0.00", Ru), StatusText(x)));
         }
@@ -184,7 +217,7 @@ public static class InvestmentExport
                     foreach (var r in result.Investors)
                     {
                         col.Item().PaddingTop(8).Text(r.Investor.Name + " · " + InvestmentText.Money(r.Invested) + " · " + r.Investor.Date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture)).FontSize(11).Bold();
-                        var rows = InvestmentText.Statement(r, payments);
+                        var rows = InvestmentText.Statement(r, payments, result.Investors);
                         col.Item().Table(table =>
                         {
                             table.ColumnsDefinition(c =>

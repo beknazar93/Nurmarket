@@ -27,6 +27,9 @@ public static class DeferredCartsStore
     // (AtomicFile.DeferWrite): свежее состояние читается из памяти первым, таймер дописывает его в файл (с объединением по Id), при закрытии — запасной файл *.pending.
     private static bool _blocked;
 
+    /// <summary>2026-11-05 (Д3-06): id отложенных чеков, удалённых в этом сеансе — при занятом файле объединение с файлом иначе вернуло бы их.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> RemovedIds = new(StringComparer.Ordinal);
+
     private static string MergeEntries(string? fileText, string memoryText)
     {
         List<DeferredCartEntry> Parse(string? text)
@@ -42,7 +45,7 @@ public static class DeferredCartsStore
         }
         var memory = Parse(memoryText);
         foreach (var e in Parse(fileText))
-            if (!memory.Any(x => string.Equals(x.Id, e.Id, StringComparison.Ordinal)))
+            if (!memory.Any(x => string.Equals(x.Id, e.Id, StringComparison.Ordinal)) && !RemovedIds.ContainsKey(e.Id)) // 2026-11-05 (аудит №3, Д3-06): удалённый в этом сеансе чек из файла не возвращается
                 memory.Add(e);
         return JsonSerializer.Serialize(memory, JsonOpts);
     }
@@ -138,6 +141,8 @@ public static class DeferredCartsStore
     public static void RemoveIds(IEnumerable<string> ids)
     {
         var set = new HashSet<string>(ids, StringComparer.Ordinal);
+        foreach (var id in set)
+            RemovedIds[id] = 0;
         lock (UpdateGate)
             SaveAll(LoadAll().Where(x => !set.Contains(x.Id)).ToList());
     }

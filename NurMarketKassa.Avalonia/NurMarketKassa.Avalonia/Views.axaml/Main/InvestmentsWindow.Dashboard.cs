@@ -28,11 +28,11 @@ public sealed partial class InvestmentsWindow
         if (costs.Count == 0 && investors.Count == 0)
         {
             page.Children.Add(EmptyState(
-                T("Добавьте стартовые расходы — программа покажет, когда магазин окупится. Вложения на открытие: ремонт, оборудование, мебель, первоначальная закупка, лицензии, реклама, залог за аренду. Если у вас есть инвесторы — добавьте и их.",
-                    "Баштапкы чыгымдарды кошуңуз — дүкөн качан кайтарарын программа көрсөтөт. Ачылыштагы салымдар: оңдоо, жабдуу, эмерек, баштапкы товар, лицензия, жарнама, ижара күрөөсү. Инвесторлоруңуз болсо — аларды да кошуңуз.",
-                    "Add startup costs — the program will show when the store pays back. Opening investments: repairs, equipment, furniture, first stock purchase, licences, advertising, rent deposit. If you have investors, add them too.",
-                    "Başlangıç giderlerini ekleyin — program mağazanın ne zaman geri döneceğini gösterir. Açılış yatırımları: tadilat, ekipman, mobilya, ilk mal alımı, lisans, reklam, kira depozitosu. Yatırımcılarınız varsa onları da ekleyin.",
-                    "Boshlang'ich xarajatlarni qo'shing — dastur do'kon qachon o'zini oqlashini ko'rsatadi. Ochilishdagi sarmoyalar: ta'mir, uskuna, mebel, dastlabki tovar, litsenziya, reklama, ijara garovi. Investorlaringiz bo'lsa — ularni ham qo'shing."),
+                T("Добавьте стартовые расходы — программа покажет, когда магазин окупится. Вложения на открытие: ремонт, оборудование, мебель, лицензии, реклама, залог за аренду. Товар на старт во «Вложено» не входит — он окупается продажами. Если у вас есть инвесторы — добавьте и их.",
+                    "Баштапкы чыгымдарды кошуңуз — дүкөн качан кайтарарын программа көрсөтөт. Ачылыштагы салымдар: оңдоо, жабдуу, эмерек, лицензия, жарнама, ижара күрөөсү. Баштапкы товар «Салынды» ичине кирбейт — ал сатуу менен кайтат. Инвесторлоруңуз болсо — аларды да кошуңуз.",
+                    "Add startup costs — the program will show when the store pays back. Opening investments: repairs, equipment, furniture, licences, advertising, rent deposit. The first stock is not part of “Invested” — it pays back through sales. If you have investors, add them too.",
+                    "Başlangıç giderlerini ekleyin — program mağazanın ne zaman geri döneceğini gösterir. Açılış yatırımları: tadilat, ekipman, mobilya, lisans, reklam, kira depozitosu. İlk mal «Yatırılan»a dahil değil — satışla geri döner. Yatırımcılarınız varsa onları da ekleyin.",
+                    "Boshlang'ich xarajatlarni qo'shing — dastur do'kon qachon o'zini oqlashini ko'rsatadi. Ochilishdagi sarmoyalar: ta'mir, uskuna, mebel, litsenziya, reklama, ijara garovi. Dastlabki tovar «Kiritilgan»ga kirmaydi — u sotuv bilan qaytadi. Investorlaringiz bo'lsa — ularni ham qo'shing."),
                 T("Добавить вложения", "Салымдарды кошуу", "Add investments", "Yatırım ekle", "Sarmoya qo'shish"), () => GoTo(Tab.Costs)));
             return page;
         }
@@ -63,6 +63,37 @@ public sealed partial class InvestmentsWindow
             return page;
         }
         var B = R.Business;
+
+        // 2026-11-05 (И-20): даты открытия нет — считаем от самой ранней даты вложения; говорим об этом прямо.
+        if (meta.OpenedOn == null && InvestmentAnalysis.AnalysisStart(costs, meta, investors) is { } calcFrom)
+        {
+            var dateRow = new StackPanel { Spacing = 8 };
+            dateRow.Children.Add(Plain(T($"Дата открытия не указана — считаем с {calcFrom:dd.MM.yyyy} (самая ранняя дата вложения).", $"Ачылган күн көрсөтүлгөн эмес — {calcFrom:dd.MM.yyyy} күнүнөн эсептейбиз (эң эрте салым күнү).",
+                $"The opening date is not set — counting from {calcFrom:dd.MM.yyyy} (the earliest investment date).", $"Açılış tarihi belirtilmemiş — {calcFrom:dd.MM.yyyy} tarihinden hesaplıyoruz (en erken yatırım tarihi).",
+                $"Ochilgan sana ko'rsatilmagan — {calcFrom:dd.MM.yyyy} dan hisoblaymiz (eng erta sarmoya sanasi)."), 13.5));
+            var setDate = UiKit.Ghost(this, T("Указать дату", "Күндү көрсөтүү", "Set the date", "Tarihi belirt", "Sanani ko'rsatish"));
+            setDate.HorizontalAlignment = HorizontalAlignment.Left;
+            setDate.Click += (_, _) => GoTo(Tab.Costs);
+            dateRow.Children.Add(setDate);
+            page.Children.Add(Card(dateRow, 14));
+        }
+        var stockMoney = StartupCostsStore.StockSum(costs);
+        if (stockMoney > 0m)
+            page.Children.Add(Soft(T($"Деньги в товаре на старт: {Money0(stockMoney)} — во «Вложено» не входят: товар окупается продажами (его цена уже вычтена из чистой прибыли как себестоимость).",
+                $"Баштапкы товардагы акча: {Money0(stockMoney)} — «Салынды» ичине кирбейт: товар сатуу менен кайтат (анын баасы таза пайдадан өздүк баа катары алынып салынган).",
+                $"Money in the opening stock: {Money0(stockMoney)} — not part of “Invested”: stock pays back through sales (its cost is already deducted from net profit as cost of goods).",
+                $"Açılış stokundaki para: {Money0(stockMoney)} — «Yatırılan»a dahil değil: mal satışla geri döner (maliyeti net kârdan zaten düşüldü).",
+                $"Ochilishdagi tovardagi pul: {Money0(stockMoney)} — «Kiritilgan»ga kirmaydi: tovar sotuv bilan qaytadi (uning narxi sof foydadan tannarx sifatida allaqachon ayirilgan)."), 13));
+        if (R.TotalInvested <= 0m)
+        {
+            page.Children.Add(EmptyState(T("Во «Вложено» пока ничего нет: товар на старт не учитывается. Добавьте ремонт, оборудование, лицензии, рекламу, залог за аренду или инвестора.",
+                    "«Салынды» ичинде азырынча эч нерсе жок: баштапкы товар эсепке алынбайт. Оңдоо, жабдуу, лицензия, жарнама, ижара күрөөсүн же инвесторду кошуңуз.",
+                    "“Invested” is empty so far: the opening stock is not counted. Add repairs, equipment, licences, advertising, a rent deposit or an investor.",
+                    "«Yatırılan» henüz boş: açılış stoku sayılmaz. Tadilat, ekipman, lisans, reklam, kira depozitosu veya yatırımcı ekleyin.",
+                    "«Kiritilgan» hozircha bo'sh: ochilishdagi tovar hisobga olinmaydi. Ta'mir, uskuna, litsenziya, reklama, ijara garovi yoki investor qo'shing."),
+                T("Открыть «Вложения»", "«Салымдарды» ачуу", "Open “Investments”", "«Yatırımlar»ı aç", "«Sarmoyalar»ni ochish"), () => GoTo(Tab.Costs)));
+            return page;
+        }
 
         // Панель: прогноз по средней за N месяцев и план окупаемости.
         var bar = new WrapPanel { Orientation = Orientation.Horizontal };
@@ -103,9 +134,7 @@ public sealed partial class InvestmentsWindow
             Money0(B.Returned), danger: B.Returned < 0m));
         tiles.Children.Add(UiKit.Kpi(T("Осталось окупить", "Кайтарууга калды", "Left to pay back", "Geri dönecek kalan", "Oqlash uchun qoldi"), Money0(B.Remaining)));
         tiles.Children.Add(UiKit.Kpi(T("Окупаемость вложений", "Салымдардын кайтарымы", "Payback of the investment", "Yatırımın geri dönüşü", "Sarmoyaning oqlanishi"), B.PercentBack.ToString("0.#", Ru) + " %", danger: B.PercentBack < 0m));
-        tiles.Children.Add(UiKit.Kpi(T("Срок окупаемости", "Кайтарым мөөнөтү", "Payback period", "Geri dönüş süresi", "Oqlanish muddati"),
-            B.Status == PaybackStatus.PaidBack ? T("окупился", "кайтты", "paid back", "geri döndü", "oqlandi")
-                : B.MonthsToPayback is { } mtp && B.ForecastDate is { } fd ? MonthsText(mtp) + " · " + fd.ToString("MM.yyyy", CultureInfo.InvariantCulture) : "—"));
+        tiles.Children.Add(UiKit.Kpi(T("Срок окупаемости", "Кайтарым мөөнөтү", "Payback period", "Geri dönüş süresi", "Oqlanish muddati"), PaybackTerm(R)));
         page.Children.Add(tiles);
 
         var notes = new StackPanel { Spacing = 4 };
@@ -121,7 +150,13 @@ public sealed partial class InvestmentsWindow
         if (B.Status == PaybackStatus.InProgress && B.AvgMonthlyNet is <= 0m)
             notes.Children.Add(Danger(T("При нынешней прибыли вложения не окупятся: средняя чистая прибыль не положительная.", "Азыркы пайда менен салымдар кайтпайт: орточо таза пайда оң эмес.",
                 "At the current profit the investment will not pay back: the average net profit is not positive.", "Mevcut kârla yatırım geri dönmez: ortalama net kâr pozitif değil.", "Hozirgi foyda bilan sarmoya oqlanmaydi: o'rtacha sof foyda musbat emas.")));
-        if (meta.PlanMonths > 0)
+        if (meta.PlanMonths > 0 && R.AheadOfPlan is null && R.AvgNet is null && B.Status != PaybackStatus.PaidBack)
+            notes.Children.Add(Soft(T($"План: {meta.PlanMonths} мес. Для сравнения с планом пока мало данных.", $"План: {meta.PlanMonths} ай. Планга салыштыруу үчүн азырынча маалымат аз.", $"Plan: {meta.PlanMonths} months. Not enough data to compare with the plan yet.",
+                $"Plan: {meta.PlanMonths} ay. Plana kıyaslamak için henüz veri az.", $"Reja: {meta.PlanMonths} oy. Rejaga solishtirish uchun ma'lumot hali kam.")));
+        else if (meta.PlanMonths > 0 && R.AheadOfPlan is null && B.Status == PaybackStatus.PaidBack)
+            notes.Children.Add(Soft(T($"План: {meta.PlanMonths} мес. Бизнес уже окупился.", $"План: {meta.PlanMonths} ай. Бизнес мурунтан эле кайтарды.", $"Plan: {meta.PlanMonths} months. The business has already paid back.",
+                $"Plan: {meta.PlanMonths} ay. İşletme zaten geri döndü.", $"Reja: {meta.PlanMonths} oy. Biznes allaqachon oqlangan.")));
+        else if (meta.PlanMonths > 0)
             notes.Children.Add(Soft(R.AheadOfPlan is { } ahead
                 ? ahead > 0 ? T($"План: {meta.PlanMonths} мес. Окупаемость по прогнозу на {ahead} мес. раньше плана.", $"План: {meta.PlanMonths} ай. Божомол боюнча планга караганда {ahead} ай эрте.", $"Plan: {meta.PlanMonths} months. The forecast is {ahead} months ahead of plan.", $"Plan: {meta.PlanMonths} ay. Tahmine göre plandan {ahead} ay önce.", $"Reja: {meta.PlanMonths} oy. Prognoz bo'yicha rejadan {ahead} oy oldin.")
                 : ahead < 0 ? T($"План: {meta.PlanMonths} мес. Окупаемость по прогнозу на {-ahead} мес. позже плана.", $"План: {meta.PlanMonths} ай. Божомол боюнча планга караганда {-ahead} ай кеч.", $"Plan: {meta.PlanMonths} months. The forecast is {-ahead} months behind plan.", $"Plan: {meta.PlanMonths} ay. Tahmine göre plandan {-ahead} ay sonra.", $"Reja: {meta.PlanMonths} oy. Prognoz bo'yicha rejadan {-ahead} oy keyin.")
@@ -132,12 +167,14 @@ public sealed partial class InvestmentsWindow
                 $"Stock counted towards payback: {Money0(R.StockCredit)} (at cost × liquidity).", $"Geri dönüşe mal stoku sayıldı: {Money0(R.StockCredit)} (alış × likidite).", $"Oqlanishga tovar qoldig'i hisoblandi: {Money0(R.StockCredit)} (xarid × likvidlik).")));
         if (meta.Amortize && R.LastMonth is { } lm)
         {
-            var amort = StartupPayback.AmortizationFor(StartupCostsStore.Sum(costs), meta.OpenedOn ?? B.Rows.FirstOrDefault()?.Month ?? lm.From, meta.AmortMonths, lm.From, lm.To);
-            notes.Children.Add(Soft(T($"Амортизация ({meta.AmortMonths} мес.): за {MonthName(lm.From)} списано {Money0(amort)}; чистая прибыль с учётом амортизации — {Money0(NetProfitCalculator.AfterAmortization(lm.Net, amort))}.",
-                $"Амортизация ({meta.AmortMonths} ай): {MonthName(lm.From)} үчүн {Money0(amort)} эсептен чыкты; амортизацияны эске алганда таза пайда — {Money0(NetProfitCalculator.AfterAmortization(lm.Net, amort))}.",
-                $"Amortization ({meta.AmortMonths} months): {Money0(amort)} written off for {MonthName(lm.From)}; net profit after amortization — {Money0(NetProfitCalculator.AfterAmortization(lm.Net, amort))}.",
-                $"Amortisman ({meta.AmortMonths} ay): {MonthName(lm.From)} için {Money0(amort)} yazıldı; amortisman sonrası net kâr — {Money0(NetProfitCalculator.AfterAmortization(lm.Net, amort))}.",
-                $"Amortizatsiya ({meta.AmortMonths} oy): {MonthName(lm.From)} uchun {Money0(amort)} hisobdan chiqdi; amortizatsiyadan keyingi sof foyda — {Money0(NetProfitCalculator.AfterAmortization(lm.Net, amort))}.")));
+            // 2026-11-05 (И-06): «последний месяц» - последний полный (раньше брался неполный текущий: «за ноябрь списано 547» вместо октября 5 657); подпись показывает период.
+            var amort = StartupPayback.AmortizationFor(R.TotalInvested, meta.OpenedOn ?? B.Rows.FirstOrDefault()?.Month ?? lm.From, meta.AmortMonths, lm.From, lm.To);
+            var lmName = LastMonthLabel(lm);
+            notes.Children.Add(Soft(T($"Амортизация ({meta.AmortMonths} мес.): за {lmName} списано {Money0(amort)}; чистая прибыль с учётом амортизации — {Money0(NetProfitCalculator.AfterAmortization(lm.Net, amort))}.",
+                $"Амортизация ({meta.AmortMonths} ай): {lmName} үчүн {Money0(amort)} эсептен чыкты; амортизацияны эске алганда таза пайда — {Money0(NetProfitCalculator.AfterAmortization(lm.Net, amort))}.",
+                $"Amortization ({meta.AmortMonths} months): {Money0(amort)} written off for {lmName}; net profit after amortization — {Money0(NetProfitCalculator.AfterAmortization(lm.Net, amort))}.",
+                $"Amortisman ({meta.AmortMonths} ay): {lmName} için {Money0(amort)} yazıldı; amortisman sonrası net kâr — {Money0(NetProfitCalculator.AfterAmortization(lm.Net, amort))}.",
+                $"Amortizatsiya ({meta.AmortMonths} oy): {lmName} uchun {Money0(amort)} hisobdan chiqdi; amortizatsiyadan keyingi sof foyda — {Money0(NetProfitCalculator.AfterAmortization(lm.Net, amort))}.")));
         }
         page.Children.Add(notes);
 
@@ -151,33 +188,42 @@ public sealed partial class InvestmentsWindow
         big.Children.Add(Plain(T($"{Money0(B.Returned)} из {Money0(R.TotalInvested)}", $"{Money0(R.TotalInvested)} ичинен {Money0(B.Returned)}", $"{Money0(B.Returned)} of {Money0(R.TotalInvested)}",
             $"{Money0(R.TotalInvested)} içinden {Money0(B.Returned)}", $"{Money0(R.TotalInvested)} dan {Money0(B.Returned)}"), 14, true));
         big.Children.Add(Soft(T("Старт: ", "Башталышы: ", "Start: ", "Başlangıç: ", "Boshlanishi: ") + (R.Months.Count > 0 ? MonthName(R.Months[0].From) : "—")
+            + (B.FirstInvestmentDate is { } fiDate && R.Months.Count > 0 && fiDate.Date > R.Months[0].From.Date ? " · " + T("вложения с ", "салымдар ", "investments from ", "yatırımlar ", "sarmoyalar ") + fiDate.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) + T("", " баштап", "", " itibaren", " dan") : "")
             + "   ·   " + (B.Status == PaybackStatus.PaidBack
-                ? B.PaidBackMonth is { } pm ? T("окупилось в ", "кайтты: ", "paid back in ", "geri döndü: ", "oqlandi: ") + MonthName(pm) : T("окупилось", "кайтты", "paid back", "geri döndü", "oqlandi")
+                ? B.NeedsStockSale ? T("окупится при распродаже остатка", "калдык сатылганда кайтат", "pays back when the stock is sold", "stok satılınca geri döner", "qoldiq sotilganda oqlanadi")
+                : B.PaidBackMonth is { } pm ? T("окупилось: ", "кайтты: ", "paid back: ", "geri döndü: ", "oqlandi: ") + MonthName(pm) : T("окупилось", "кайтты", "paid back", "geri döndü", "oqlandi")
                 : R.BusinessPaybackMonth is { } bpm ? T("полная окупаемость по прогнозу: ", "божомол боюнча толук кайтарым: ", "full payback forecast: ", "tahmini tam geri dönüş: ", "to'liq oqlanish prognozi: ") + MonthName(bpm)
+                : R.AvgNet == null ? NoDataText()
                 : T("при текущем темпе не окупится", "азыркы темп менен кайтпайт", "will not pay back at the current pace", "mevcut hızla geri dönmez", "hozirgi sur'atda oqlanmaydi")), 13));
+        if (R.Months.Count == 0)
+            big.Children.Add(Soft(T("Окупаемость начнётся с даты открытия: полных дней работы пока нет.", "Кайтарым ачылган күндөн башталат: иштеген күндөр азырынча жок.", "Payback starts from the opening date: there are no days of work yet.",
+                "Geri dönüş açılış tarihinden başlar: henüz çalışma günü yok.", "O'zini oqlash ochilgan sanadan boshlanadi: ish kunlari hali yo'q."), 12));
         page.Children.Add(Card(big, 22));
 
         // Показатели сферы.
         page.Children.Add(SphereMetricsCard(R));
 
         // Окупаемость по участникам.
+        if (InvestmentAnalysis.ShareWarning(R) is { } shareWarn) // 2026-11-05 (И-08): сумма долей инвесторов > 100 %
+            page.Children.Add(Card(Danger("⚠ " + shareWarn, 13.5), 14));
         page.Children.Add(Heading(T("Окупаемость по участникам", "Катышуучулар боюнча кайтарым", "Payback by participant", "Katılımcılara göre geri dönüş", "Ishtirokchilar bo'yicha oqlanish"), 18));
         var levels = new KpiTileGrid { MinTileWidth = 300, Spacing = 12 };
         levels.Children.Add(Participant(T("Бизнес в целом", "Бизнес жалпысынан", "The business as a whole", "İşletme bütünü", "Butun biznes"), T("все учтённые вложения", "эсептелген бардык салымдар", "all counted investments", "sayılan tüm yatırımlar", "hisoblangan barcha sarmoyalar"),
-            "business", R.TotalInvested, B.Returned, B.PercentBack, T("Чистая прибыль за последний месяц", "Акыркы айдагы таза пайда", "Net profit last month", "Son ayın net kârı", "Oxirgi oydagi sof foyda"), R.LastMonth?.Net ?? 0m,
-            B.Status == PaybackStatus.PaidBack ? T("окупился", "кайтты", "paid back", "geri döndü", "oqlandi")
-                : B.MonthsToPayback is { } m1 && B.ForecastDate is { } d1 ? MonthsText(m1) + " · " + d1.ToString("MM.yyyy", CultureInfo.InvariantCulture) : T("не окупится", "кайтпайт", "will not pay back", "geri dönmez", "oqlanmaydi")));
+            "business", R.TotalInvested, B.Returned, B.PercentBack, T("Чистая прибыль за последний месяц", "Акыркы айдагы таза пайда", "Net profit last month", "Son ayın net kârı", "Oxirgi oydagi sof foyda") + LastMonthSuffix(R), R.LastMonth?.Net ?? 0m,
+            PaybackTerm(R)));
         foreach (var inv in R.Investors)
             levels.Children.Add(Participant(inv.Investor.Name, T("инвестор · ", "инвестор · ", "investor · ", "yatırımcı · ", "investor · ") + InvestmentText.StageName(inv.Investor.Terms, inv.StageNow).ToLowerInvariant(),
-                "investor:" + inv.Investor.Id, inv.Invested, inv.Got, inv.Percent, T("Выплата за последний месяц", "Акыркы айдагы төлөм", "Payout last month", "Son ay ödemesi", "Oxirgi oydagi to'lov"), inv.LastPay,
+                "investor:" + inv.Investor.Id, inv.Invested, inv.Got, inv.Percent, T("Выплата за последний месяц", "Акыркы айдагы төлөм", "Payout last month", "Son ay ödemesi", "Oxirgi oydagi to'lov") + LastMonthSuffix(R), inv.LastPay,
                 inv.Got >= inv.Invested - 0.005m ? T("вернул вложения", "салымын кайтарды", "got the investment back", "yatırımını geri aldı", "sarmoyasini qaytarib oldi")
-                    : inv.PaybackMonths is { } pmn && inv.PaybackDate is { } pd ? T($"через {pmn} мес.", $"{pmn} айдан кийин", $"in {pmn} months", $"{pmn} ay sonra", $"{pmn} oydan keyin") + " · " + pd.ToString("MM.yyyy", CultureInfo.InvariantCulture)
+                    : R.AvgNet == null ? NoDataText()
+                    : inv.PaybackMonths is not null && inv.PaybackDate is { } pd ? FromNowText(pd) + " · " + pd.ToString("MM.yyyy", CultureInfo.InvariantCulture)
                     : T("не вернёт при текущей прибыли", "азыркы пайда менен кайтарбайт", "will not get it back at the current profit", "mevcut kârla geri alamaz", "hozirgi foyda bilan qaytarib olmaydi")));
         if (R.Owner.Invested > 0m)
             levels.Children.Add(Participant(T("Владелец", "Ээси", "Owner", "Sahibi", "Egasi"), T("собственные средства", "жеке каражаттар", "own funds", "öz kaynaklar", "o'z mablag'lari"), OwnerKey, R.Owner.Invested, R.Owner.Got, R.Owner.Percent,
-                T("Осталось за последний месяц", "Акыркы айда калды", "Left last month", "Son ay kalan", "Oxirgi oy qolgan"), R.Owner.LastMonthly,
+                T("Осталось за последний месяц", "Акыркы айда калды", "Left last month", "Son ay kalan", "Oxirgi oy qolgan") + LastMonthSuffix(R), R.Owner.LastMonthly,
                 R.Owner.Got >= R.Owner.Invested - 0.005m ? T("вернул вложения", "салымын кайтарды", "got the investment back", "yatırımını geri aldı", "sarmoyasini qaytarib oldi")
-                    : R.Owner.PaybackMonths is { } om && R.Owner.PaybackDate is { } od ? T($"через {om} мес.", $"{om} айдан кийин", $"in {om} months", $"{om} ay sonra", $"{om} oydan keyin") + " · " + od.ToString("MM.yyyy", CultureInfo.InvariantCulture)
+                    : R.AvgNet == null ? NoDataText()
+                    : R.Owner.PaybackMonths is not null && R.Owner.PaybackDate is { } od ? FromNowText(od) + " · " + od.ToString("MM.yyyy", CultureInfo.InvariantCulture)
                     : T("не вернёт при текущей прибыли", "азыркы пайда менен кайтарбайт", "will not get it back at the current profit", "mevcut kârla geri alamaz", "hozirgi foyda bilan qaytarib olmaydi")));
         page.Children.Add(levels);
 
@@ -187,6 +233,41 @@ public sealed partial class InvestmentsWindow
         page.Children.Add(StructureCard(R, costs));
         return page;
     }
+
+    /// <summary>2026-11-05 (И-02): «мало данных для прогноза» - одна и та же фраза везде, где нет единой средней прибыли.</summary>
+    private static string NoDataText() => T("мало данных для прогноза", "божомол үчүн маалымат аз", "not enough data for a forecast", "tahmin için veri az", "prognoz uchun ma'lumot kam");
+
+    /// <summary>2026-11-05 (И-02): ОДИН срок окупаемости бизнеса для плитки и карточки «Бизнес в целом» (считает StartupPayback.Compute).</summary>
+    private static string PaybackTerm(InvestmentResult R)
+    {
+        var B = R.Business;
+        if (B.Status == PaybackStatus.PaidBack)
+            return B.NeedsStockSale ? T("окупится при распродаже остатка", "калдык сатылганда кайтат", "pays back when the stock is sold", "stok satılınca geri döner", "qoldiq sotilganda oqlanadi")
+                : T("окупился", "кайтты", "paid back", "geri döndü", "oqlandi");
+        if (R.AvgNet == null)
+            return NoDataText();
+        if (B.MonthsToPayback is { } mtp && B.ForecastDate is { } fd)
+            // 2026-11-05 (Н-2): меньше месяца — «меньше месяца», а не «0 мес.» (и не «через 1 мес.» рядом на том же экране).
+            return (mtp < 1m ? LessThanMonthText() : MonthsText(mtp)) + " · " + fd.ToString("MM.yyyy", CultureInfo.InvariantCulture);
+        return T("не окупится", "кайтпайт", "will not pay back", "geri dönmez", "oqlanmaydi");
+    }
+
+    private static string LessThanMonthText() => T("меньше месяца", "бир айдан аз", "less than a month", "bir aydan az", "bir oydan kam");
+
+    /// <summary>2026-11-05 (И-02): «через N мес.» (дальше идёт « · MM.yyyy») — N считается от СЕГОДНЯ (как срок бизнеса), а не от открытия или даты вложения.</summary>
+    private static string FromNowText(DateTime month)
+    {
+        var n = (month.Year - DateTime.Today.Year) * 12 + month.Month - DateTime.Today.Month;
+        if (n < 1)
+            return LessThanMonthText(); // 2026-11-05 (Н-2): тот же месяц — одна и та же фраза на плитке и на карточке владельца
+        return T($"через {n} мес.", $"{n} айдан кийин", $"in {n} months", $"{n} ay sonra", $"{n} oydan keyin");
+    }
+
+    /// <summary>Подпись месяца для карточек «за последний месяц»: «октябрь 2026»; неполный - с периодом.</summary>
+    private static string LastMonthLabel(PaybackMonth m) => MonthName(m.From)
+        + (m.IsFull ? "" : T(" (неполный: ", " (толук эмес: ", " (partial: ", " (eksik: ", " (to'liq emas: ") + m.From.ToString("dd.MM", CultureInfo.InvariantCulture) + "–" + m.To.ToString("dd.MM", CultureInfo.InvariantCulture) + ")");
+
+    private static string LastMonthSuffix(InvestmentResult R) => R.LastMonth is { } m ? " (" + LastMonthLabel(m) + ")" : "";
 
     private Control Participant(string title, string who, string colorKey, decimal invested, decimal got, decimal pct, string monthlyLabel, decimal monthly, string forecast)
     {
@@ -377,7 +458,8 @@ public sealed partial class InvestmentsWindow
             return Card(stack);
         var shown = rows.TakeLast(24).ToList();
         var invested = R.TotalInvested;
-        var maxV = Math.Max(invested, Math.Max(1m, shown.Max(r => r.Cumulative)));
+        // 2026-11-05 (И-01): линия «вложено» - ступенька по датам вложений, а не одна высота на весь период.
+        var maxV = Math.Max(shown.Max(r => r.Invested), Math.Max(1m, shown.Max(r => r.Cumulative)));
         const double h = 170;
         var area = new Grid { Height = h + 44, MinWidth = Math.Min(900, 44 * shown.Count) };
         var cols = new Grid { ColumnDefinitions = new ColumnDefinitions(string.Join(",", Enumerable.Repeat("*", shown.Count))) };
@@ -399,14 +481,22 @@ public sealed partial class InvestmentsWindow
             Grid.SetColumn(col, c);
             cols.Children.Add(col);
         }
-        // Линия «вложено»: на высоте invested/maxV над подписями месяцев (нижняя строка — 22 px).
-        var line = new Border
+        // Линия «вложено»: у каждого месяца на высоте вложено-к-месяцу / maxV над подписями месяцев (нижняя строка — 22 px).
+        var lines = new Grid { ColumnDefinitions = new ColumnDefinitions(string.Join(",", Enumerable.Repeat("*", shown.Count))), IsHitTestVisible = false };
+        for (var c = 0; c < shown.Count; c++)
         {
-            Height = 2, Background = Brush.Parse(invColor), VerticalAlignment = VerticalAlignment.Bottom, IsHitTestVisible = false,
-            Margin = new Thickness(0, 0, 0, 22 + (double)(invested / maxV) * h),
-        };
+            if (shown[c].Invested <= 0m)
+                continue;
+            var seg = new Border
+            {
+                Height = 2, Background = Brush.Parse(invColor), VerticalAlignment = VerticalAlignment.Bottom,
+                Margin = new Thickness(0, 0, 0, 22 + (double)(shown[c].Invested / maxV) * h),
+            };
+            Grid.SetColumn(seg, c);
+            lines.Children.Add(seg);
+        }
         area.Children.Add(cols);
-        area.Children.Add(line);
+        area.Children.Add(lines);
         stack.Children.Add(new ScrollViewer { Content = area, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
         stack.Children.Add(Soft(T($"Линия — вложено {Money0(invested)}. Столбик достигает линии — вложения окупились.", $"Сызык — салынды {Money0(invested)}. Мамычы сызыкка жетсе — салым кайтты.",
             $"The line is the amount invested, {Money0(invested)}. When the bar reaches the line, the investment has paid back.", $"Çizgi yatırılan tutar: {Money0(invested)}. Sütun çizgiye ulaşınca yatırım geri dönmüştür.", $"Chiziq — kiritilgan {Money0(invested)}. Ustun chiziqqa yetsa — sarmoya oqlandi."), 12));

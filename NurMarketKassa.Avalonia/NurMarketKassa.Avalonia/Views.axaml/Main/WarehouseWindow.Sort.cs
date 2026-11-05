@@ -27,6 +27,14 @@ public partial class WarehouseWindow
         ("Quantity", "stock", "csh.catalog.colStock", HorizontalAlignment.Center),
     ];
 
+    /// <summary>2026-11-05 (аудит №3, Т3-11): заголовок столбца — для экранного диктора называется текстом надписи, а не «Avalonia.Controls.TextBlock»
+    /// (имя заголовка таблица берёт из ToString содержимого; у TextBlock с Inlines это имя типа).</summary>
+    private sealed class NamedHeaderText : TextBlock
+    {
+        public Func<string>? NameOf { get; init; }
+        public override string ToString() => NameOf?.Invoke() ?? Text ?? "";
+    }
+
     private readonly Dictionary<string, Avalonia.Controls.Documents.Run> _sortArrows = new();
     private ComboBox? _sortPicker;
     private StackPanel? _sortPickerPanel;
@@ -65,14 +73,27 @@ public partial class WarehouseWindow
         _sortReady = true;
 
         // Заголовки: прежняя надпись (та же строка ресурса, меняется с языком) + стрелка ▲/▼ справа.
+        // 2026-11-05 (Т3-11): сама таблица называется «Список товаров» (раньше диктор брал «Единица продажи» — подпись соседнего фильтра).
+        Avalonia.Automation.AutomationProperties.SetName(ProductsGrid, T("Список товаров", "Товарлордун тизмеси", "Product list", "Ürün listesi", "Mahsulotlar ro'yxati"));
         foreach (var column in ProductsGrid.Columns)
         {
             var def = SortColumns.FirstOrDefault(c => c.Path == column.SortMemberPath);
             if (def.Key is null)
-                continue;
-            // Одна строка из двух частей (надпись + стрелка): отдельные TextBlock в StackPanel заголовок таблицы накладывал друг на друга.
-            var header = new TextBlock
             {
+                // Столбец без сортировки («Действия»): заголовок-надпись получает то же читаемое имя.
+                if (column.Header is TextBlock { Text: { Length: > 0 } } plain && column.SortMemberPath is null or "")
+                {
+                    var actions = new NamedHeaderText { TextAlignment = plain.TextAlignment, VerticalAlignment = VerticalAlignment.Center };
+                    actions.Bind(TextBlock.TextProperty, actions.GetResourceObservable("warehouse.colActions"));
+                    column.Header = actions;
+                }
+                continue;
+            }
+            // Одна строка из двух частей (надпись + стрелка): отдельные TextBlock в StackPanel заголовок таблицы накладывал друг на друга.
+            NamedHeaderText header = null!;
+            header = new NamedHeaderText
+            {
+                NameOf = () => string.Concat(header.Inlines?.OfType<Avalonia.Controls.Documents.Run>().Take(1).Select(r => r.Text) ?? Array.Empty<string>()),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextAlignment = def.Align switch { HorizontalAlignment.Right => TextAlignment.Right, HorizontalAlignment.Center => TextAlignment.Center, _ => TextAlignment.Left },
             };

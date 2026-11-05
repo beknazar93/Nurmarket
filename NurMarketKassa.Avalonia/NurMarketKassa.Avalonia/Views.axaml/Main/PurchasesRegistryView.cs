@@ -1189,17 +1189,11 @@ internal sealed class PurchasesRegistryView : UserControl
             }).ConfigureAwait(true);
             if (file is null)
                 return;
-            var path = file.TryGetLocalPath();
-            if (string.IsNullOrEmpty(path))
-            {
-                _note = T("Не удалось определить путь файла — выберите папку на этом компьютере.", "Файлдын жолун аныктоо мүмкүн болгон жок — ушул компьютердеги папканы тандаңыз.", "Could not determine the file path — choose a folder on this computer.",
-                    "Dosya yolu belirlenemedi — bu bilgisayarda bir klasör seçin.", "Fayl yo'lini aniqlab bo'lmadi — shu kompyuterdagi papkani tanlang.");
-                UpdateInfo();
-                return;
-            }
+            var path = ExportFileBridge.PathFor(file); // 2026-11-05 (А3-05): на Android без локального пути — через временный файл
             _note = T("Сохраняю…", "Сакталууда…", "Saving…", "Kaydediliyor…", "Saqlanmoqda…");
             UpdateInfo();
             await Task.Run(() => PurchasesRegistryExport.Save(path!, csv, lines, docs, ls, totals, meta, _money, warehouse)).ConfigureAwait(true);
+            path = await ExportFileBridge.CompleteAsync(file, path); // 2026-11-05 (А3-05)
             _note = T("Реестр сохранён: ", "Реестр сакталды: ", "Registry saved: ", "Kayıt kaydedildi: ", "Reestr saqlandi: ") + path;
             PosLogger.Log($"Реестр закупок: выгрузка {(csv ? "CSV" : "Excel")} — {(lines ? ls.Count + " позиций" : docs.Count + " документов")} ({path}).", "INFO");
         }

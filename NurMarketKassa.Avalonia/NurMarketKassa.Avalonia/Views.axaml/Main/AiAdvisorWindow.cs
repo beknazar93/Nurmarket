@@ -474,6 +474,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             _recorder?.Dispose();
             _recorder = null;
             VoiceChatPlayer.Stop();
+            ReleasePhotoMemory(); // 2026-11-05 (Р3-01): картинки ленты фото и кэш скачанных картинок
         };
     }
 
@@ -647,6 +648,16 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         _input.Text = "";
         RefreshKeyCard();
         AddBubble(image is null ? question : "📎 " + imageName + "\n" + question, fromOwner: true);
+        // 2026-11-05: команда смены языка («отвечай по-кыргызски», «переведи на русский») — выполняет программа, в ИИ не уходит.
+        if (image is null && TryHandleLanguageCommand(question))
+        {
+            _busy = false;
+            RefreshKeyCard();
+            SaveCurrentChat();
+            ScrollToEnd();
+            _input.Focus();
+            return;
+        }
         // 2026-10-06: «поставь фото 4» / «четвёртое» — вариант из последнего поиска фото ставит программа, без нейросети.
         // Короткая команда «открой …» (до 6 слов) — сразу; длинный вопрос со словом «открой» отвечает ИИ (он тоже умеет открывать).
         if (image is null && IsNoPhotoInventoryQuery(question))
@@ -3726,6 +3737,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
         var texts = new StackPanel { Spacing = 2, Margin = new Thickness(14, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center };
         texts.Children.Add(_liveState);
         texts.Children.Add(_liveHint);
+        AttachLiveLanguageLabel(texts); // 2026-11-05: подпись языка ИИ в звонке
         Grid.SetColumn(texts, 1);
         row.Children.Add(texts);
         _liveInterrupt = UiKit.Ghost(this, T("Перебить", "Бөлүү", "Interrupt", "Böl", "To'xtatish"));
@@ -3817,6 +3829,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             return;
         _liveDebtors = names;
         var live = new GeminiLiveVoice(instruction);
+        WireLiveLanguage(live); // 2026-11-05: команды «кыргызча жооп бер» / «говори по-русски» голосом
         // 2026-10-27: инструмент open_section — переход по словарю программы с проверкой; модель говорит только результат.
         if (ProductActionPlan.OpenNavTarget is not null)
             live.ToolHandler = (toolName, toolArgs) => LiveToolAsync(live, toolName, toolArgs);

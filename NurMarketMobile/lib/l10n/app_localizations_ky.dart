@@ -7068,4 +7068,59 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get updOpenSettings => 'Жөндөөлөрдү ачуу';
+
+  @override
+  String get prnStalled =>
+      'Принтер менен байланыш үзүлдү. Чек басылганын текшерип, андан кийин кайра басыңыз.';
+
+  @override
+  String scaleNoPlu(String plu) {
+    return 'Таразанын этикеткасы: PLU $plu менен товар табылган жок';
+  }
+
+  @override
+  String get scaleBindPlu => 'Товарды тандап, ага PLU жазуу';
+
+  @override
+  String scaleBindAsk(String plu, String name) {
+    return '«$name» товарына PLU $plu жазылсынбы?';
+  }
+
+  @override
+  String get scaleLabelAgain => 'Бул этикетка чекте бар. Дагы кошосузбу?';
+
+  @override
+  String scaleNotWeighed(String name) {
+    return 'Бул таразанын этикеткасы, ал эми «$name» даана товар. Кошосузбу?';
+  }
+
+  @override
+  String get scaleLayoutPick =>
+      'Этикетканы эки жол менен окууга болот — товарды тандаңыз';
+
+  @override
+  String get aiSlow => 'ИИ адаттагыдан узак ойлонуп жатат…';
+
+  @override
+  String aiElapsed(int s) {
+    return '$s сек өттү';
+  }
+
+  @override
+  String get aiAskOwner => 'ИИ жөндөлгөн эмес — ээсинен сураңыз';
+
+  @override
+  String get prnNotPrinted => 'Чек басылган жок';
+
+  @override
+  String get prnPrintAgain => 'Кайра басуу';
+
+  @override
+  String prnChecked(int n, int total) {
+    return '$total ичинен $n текшерилди';
+  }
+
+  @override
+  String get prnLocationOff =>
+      'Бул Android\'де Bluetooth-принтерди табуу үчүн «Жайгашкан жерди» күйгүзүңүз.';
 }

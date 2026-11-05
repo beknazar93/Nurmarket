@@ -299,6 +299,8 @@ public class ModalShell : ContentControl
             _serverWaitCancel.Click -= ServerWaitCancel_Click;
         _serverWaitBar = e.NameScope.Find<Border>("PART_ServerWait");
         _serverWaitText = e.NameScope.Find<TextBlock>("PART_ServerWaitText");
+        if (_serverWaitText is not null) // 2026-11-05 (аудит №3, Д4-02): «Ждём ответ сервера… N с» озвучивается диктором как живая область
+            Avalonia.Automation.AutomationProperties.SetLiveSetting(_serverWaitText, Avalonia.Automation.AutomationLiveSetting.Polite);
         _serverWaitCancel = e.NameScope.Find<Button>("PART_ServerWaitCancel");
         if (_serverWaitCancel is not null)
             _serverWaitCancel.Click += ServerWaitCancel_Click;

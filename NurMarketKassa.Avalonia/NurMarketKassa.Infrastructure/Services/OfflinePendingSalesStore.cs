@@ -16,8 +16,15 @@ public static class OfflinePendingSalesStore
 
     public static void Append(OfflineSaleEntry entry)
     {
+        // 2026-11-05 (аудит №3, Н2-04): счётчик «В очереди» в пути оплаты без сети перечитывал всю очередь из базы после КАЖДОГО чека (сброс кэша). Если до записи кэш был верным
+        // (версия совпадала) и никто другой очередь не менял, добавленный чек просто прибавляется к числу — кэш остаётся верным, база не читается. Срок жизни кэша — от настоящего чтения.
+        var versionBefore = Volatile.Read(ref _pendingVersion);
+        var cachedBefore = Volatile.Read(ref _pendingCache);
         OfflineDatabase.Append(entry);
         InvalidatePendingCache(); // 2026-11-01 (Н-02)
+        if (cachedBefore is not null && cachedBefore.Version == versionBefore && Volatile.Read(ref _pendingVersion) == versionBefore + 1
+            && Environment.TickCount64 - cachedBefore.AtMs is >= 0 and < 60_000)
+            Volatile.Write(ref _pendingCache, new PendingCountCache(cachedBefore.Value + (IsPendingLike(entry) ? 1 : 0), versionBefore + 1, cachedBefore.AtMs));
         PosLogger.Log($"OFFLINE queue append: id={entry.Id}, receipt={entry.CreatedAt:yyyyMMdd-HHmmss}", "OFFLINE");
         try { Appended?.Invoke(); }
         catch (Exception ex) { PosLogger.Log($"OFFLINE: обработчик постановки в очередь не отработал: {ex.Message}", "WARNING"); }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -65,7 +66,8 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
             OnPropertyChanged();
             // 2026-10-27 (приёмка 26.10): в настройки владельца попадал «Microsoft Print to PDF» — окно само подставляло первый принтер из списка.
             // Запоминаем только выбор кассира (не стартовую подстановку) и только реальный принтер этикеток, не PDF/XPS/OneNote/факс.
-            if (value is not null && !_initializing && !value.IsVirtual)
+            if (value is not null && !_initializing && !value.IsVirtual
+                && !LabelPrinterSelector.IsSameAsReceiptPrinter(value.DevicePath)) // 2026-11-05 (аудит №3, С2-29): принтер чеков не запоминаем как принтер этикеток (после этого «одна кнопка» слала бы этикетки на чековый); в этом окне печать на нём остаётся доступной.
             {
                 UserPreferences.Instance.LabelPrinterDevicePath = value.DevicePath;
                 UserPreferences.Instance.SaveToDisk();
@@ -103,16 +105,31 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
         InitializeComponent();
         DataContext = this;
 
+        // 2026-11-05 (аудит №3, С2-26): перебор принтеров (USB/LPT/COM/сеть, до секунд) раньше шёл в конструкторе на потоке окна — «Этикетка» замирала. Теперь окно
+        // открывается сразу, список принтеров и выбор по настройкам подгружаются в фоне (LoadPrintersAsync).
+        if (!CanPrint)
+            StatusMessage = Tr.T("У товара не указан штрих-код — печать недоступна.", "Товардын штрихкоду көрсөтүлгөн эмес — басып чыгаруу мүмкүн эмес.", "The product has no barcode — printing is unavailable.", "Ürünün barkodu yok — yazdırılamaz.", "Mahsulotda shtrix-kod ko'rsatilmagan — chop etib bo'lmaydi.");
+
+        RefreshPreview();
+        _ = LoadPrintersAsync();
+    }
+
+    /// <summary>2026-11-05 (С2-26): список принтеров этикеток — в фоне; по готовности подставляется принтер из Настроек и подсказка (как раньше делал конструктор).</summary>
+    private async Task LoadPrintersAsync()
+    {
+        IReadOnlyList<DiscoveredPrinter> list = Array.Empty<DiscoveredPrinter>();
         try
         {
             // 2026-11-01: список принтеров этикеток — без PDF/XPS/OneNote/факса.
-            foreach (var printer in LabelPrinterSelector.GetChoices())
-                Printers.Add(printer);
+            list = await Task.Run(() => LabelPrinterSelector.GetChoices()).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Label dialog: printer enumeration failed: {ex.GetType().Name}", "WARNING");
         }
+
+        foreach (var printer in list)
+            Printers.Add(printer);
 
         // 2026-11-01 (два принтера): печать — сразу на принтер этикеток из Настроек; «первый попавшийся» из списка больше не
         // подставляется (им часто оказывался принтер чеков). Не выбран/не найден — подсказка, список ниже остаётся для выбора.
@@ -121,16 +138,15 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
         SelectedPrinter = resolution.Printer;
         _initializing = false;
 
-        if (!CanPrint)
-            StatusMessage = Tr.T("У товара не указан штрих-код — печать недоступна.", "Товардын штрихкоду көрсөтүлгөн эмес — басып чыгаруу мүмкүн эмес.", "The product has no barcode — printing is unavailable.", "Ürünün barkodu yok — yazdırılamaz.", "Mahsulotda shtrix-kod ko'rsatilmagan — chop etib bo'lmaydi.");
-        else if (Printers.Count == 0)
+        // Подсказки — только если окно ещё ничего не сказало (нет штрихкода / предупреждение предпросмотра важнее).
+        if (!string.IsNullOrEmpty(StatusMessage))
+            return;
+        if (Printers.Count == 0)
             StatusMessage = Tr.T("Не найдено ни одного установленного принтера в Windows.", "Windows'то бир дагы орнотулган принтер табылган жок.", "No printers are installed in Windows.", "Windows'ta yüklü yazıcı bulunamadı.", "Windows'da birorta ham o'rnatilgan printer topilmadi.");
         else if (!resolution.IsReady)
             StatusMessage = LabelPrinterSelector.HintText(resolution.State);
         else if (LabelPrinterSelector.LooksLikeTextOnlyQueue(resolution.Printer?.Label))
             StatusMessage = LabelPrinterSelector.TextOnlyWarning; // 2026-11-01 (С-8)
-
-        RefreshPreview();
     }
 
     private void RefreshPreview()

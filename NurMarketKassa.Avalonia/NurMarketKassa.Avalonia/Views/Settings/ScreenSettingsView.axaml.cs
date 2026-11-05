@@ -21,6 +21,24 @@ public partial class ScreenSettingsView : UserControl
     // ThemeSettingsDialog.axaml.cs для FontSizeSlider).
     private bool _suppressUiScaleChange = true;
 
+    /// <summary>2026-11-05 (аудит №3, В4-10): подпись пункта «Авто» собирается при каждом обращении, а список касс пересобирается при смене языка
+    /// (раньше после переключения на узбекский в списке оставался турецкий «Otomatik (ilk aktif kasa)»).</summary>
+    private static string AutoCashboxText =>
+        Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)");
+
+    private void OnLanguageChangedCashboxes()
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (CashboxCombo.ItemsSource is not IEnumerable<CashboxOption> current)
+                return;
+            var selectedId = (CashboxCombo.SelectedItem as CashboxOption)?.Id;
+            var list = current.Select(o => o.Id is null ? new CashboxOption(null, AutoCashboxText) : o).ToList();
+            CashboxCombo.ItemsSource = list;
+            CashboxCombo.SelectedItem = list.FirstOrDefault(o => o.Id == selectedId) ?? list[0];
+        });
+    }
+
     public event EventHandler? SaveRequested;
 
     /// <summary>Раздельно от SaveRequested — масштаб применяется мгновенно при перетаскивании
@@ -114,6 +132,13 @@ public partial class ScreenSettingsView : UserControl
     public ScreenSettingsView()
     {
         InitializeComponent();
+        // 2026-11-05 (В4-10): пункт «Авто» списка касс следует за языком программы.
+        AttachedToVisualTree += (_, _) =>
+        {
+            Tr.LanguageChanged -= OnLanguageChangedCashboxes;
+            Tr.LanguageChanged += OnLanguageChangedCashboxes;
+        };
+        DetachedFromVisualTree += (_, _) => Tr.LanguageChanged -= OnLanguageChangedCashboxes;
         // 2026-10-05, снимок владельца с телефона: на Android видны пункты только для Windows — «Полноэкранный
         // режим», «Настоящий полноэкранный режим (панель задач Windows)», «Запускать вместе с Windows».
         // На Android касса и так во весь экран, а автозапуска у неё нет — строки скрыты.
@@ -132,7 +157,7 @@ public partial class ScreenSettingsView : UserControl
             BuildOwnerMenuStyleCard(KassaMenuStyles.Catalog); // 2026-10-19: вид меню ☰ кассы (старое / новое)
         BuildSectionsCard();
         // 2026-10-22 (аудит 1.17.59, П-Г): карточка «Оплата долга» и «Предоплата при продаже в долг» переехали во вкладку «Операции» (OperationsSettingsView).
-        CashboxCombo.ItemsSource =new[] { new CashboxOption(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)")) };
+        CashboxCombo.ItemsSource =new[] { new CashboxOption(null, AutoCashboxText) };
         CashboxCombo.SelectedIndex = 0;
 
         _suppressUiScaleChange = true;
@@ -334,7 +359,7 @@ public partial class ScreenSettingsView : UserControl
 
     /// <summary>Выбранная касса: null означает "Авто".</summary>
     public CashboxOption SelectedCashbox =>
-        CashboxCombo.SelectedItem as CashboxOption ?? new CashboxOption(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)"));
+        CashboxCombo.SelectedItem as CashboxOption ?? new CashboxOption(null, AutoCashboxText);
 
     /// <summary>Ставит текущее сохранённое значение как выбранное (после первой загрузки списка
     /// список содержит только "Авто" — выбор синхронизируется повторно после RefreshCashboxes_Click).</summary>
@@ -359,7 +384,7 @@ public partial class ScreenSettingsView : UserControl
         // Список ещё не загружен с сервера — показываем сохранённое имя как временный пункт,
         // чтобы не выглядело как "сброшено на Авто" пока кассир не нажмёт "Обновить".
         var placeholder = new CashboxOption(id, name ?? id);
-        CashboxCombo.ItemsSource = new[] { new CashboxOption(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)")), placeholder };
+        CashboxCombo.ItemsSource = new[] { new CashboxOption(null, AutoCashboxText), placeholder };
         CashboxCombo.SelectedItem = placeholder;
     }
 
@@ -372,9 +397,9 @@ public partial class ScreenSettingsView : UserControl
             var raw = await App.ShiftApi.ConstructionCashboxesListAsync().ConfigureAwait(true);
             var boxes = CartDisplayHelper.ListCashboxes(raw);
 
-            var options = new List<CashboxOption> { new(null, Tr.T("Авто (первая активная касса)", "Авто (биринчи активдүү касса)", "Auto (first active till)", "Otomatik (ilk aktif kasa)", "Avto (birinchi faol kassa)")) };
+            var options = new List<CashboxOption> { new(null, AutoCashboxText) };
             options.AddRange(boxes.Select(b =>
-                new CashboxOption(b.Id, b.IsActive ? b.DisplayName : $"{b.DisplayName} (неактивна)")));
+                new CashboxOption(b.Id, b.IsActive ? b.DisplayName : $"{b.DisplayName} " + Tr.T("(неактивна)", "(активдүү эмес)", "(inactive)", "(etkin değil)", "(faol emas)"))));
 
             CashboxCombo.ItemsSource = options;
             CashboxCombo.SelectedItem = options.FirstOrDefault(o => o.Id == previousId) ?? options[0];

@@ -209,7 +209,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ),
                     TextButton(
                       onPressed: () async {
-                        ref.read(cartProvider.notifier).restore(h.cart);
+                        // 2026-11-05 (М4-01): идёт оплата — не подменяем чек и не удаляем отложенный
+                        if (!ref.read(cartProvider.notifier).restore(h.cart)) return;
                         await ref.read(opsRepoProvider).removeHeld(h.id);
                         if (context.mounted) context.go('/sale');
                       },

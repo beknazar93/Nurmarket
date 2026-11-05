@@ -504,7 +504,7 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
         foreach (var c in checks.EnumerateArray())
         {
             var good = CheckOk(c);
-            var name = c.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
+            var name = LocalizeCheckName(c.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "");
             var diff = Num(c, "diff") ?? 0;
             var right = good ? "✅" : "⚠ " + Tr.T("разница ", "айырма ", "diff ", "fark ", "farq ") + diff.ToString("N2", Ru);
             if (!good && c.TryGetProperty("examples", out var ex) && ex.ValueKind == JsonValueKind.Array && ex.GetArrayLength() > 0)
@@ -518,6 +518,20 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
             "Mutabakatı NurCRM sunucusu hesaplar. Uyuşmazlık varsa fiş numaralarıyla NurCRM desteğine yazın.",
             "Solishtirishni NurCRM serveri hisoblaydi. Farq bo'lsa — chek raqamlari bilan NurCRM yordamiga yozing.")));
     }
+
+    /// <summary>2026-11-05 (Н-10, приёмка 1.17.75): названия проверок сервер присылает только по-русски — известные переводим на язык программы, незнакомые показываем как есть.</summary>
+    private static string LocalizeCheckName(string name) => name.Trim() switch
+    {
+        "Продажи = аналитика продаж" => Tr.T(name, "Сатуулар = сатуулар аналитикасы", "Sales = sales analytics", "Satışlar = satış analitiği", "Sotuvlar = sotuv analitikasi"),
+        "Выручка = оплаты по способам + непогашенный долг" => Tr.T(name, "Түшүм = төлөм түрлөрү боюнча төлөмдөр + төлөнбөгөн карыз", "Revenue = payments by method + unpaid debt",
+            "Ciro = yönteme göre ödemeler + ödenmemiş borç", "Tushum = usullar bo'yicha to'lovlar + to'lanmagan qarz"),
+        "Возвраты: документы = позиции" => Tr.T(name, "Кайтаруулар: документтер = позициялар", "Returns: documents = items", "İadeler: belgeler = kalemler", "Qaytarishlar: hujjatlar = pozitsiyalar"),
+        "Остаток = начальный + движения" => Tr.T(name, "Калдык = баштапкы + кыймылдар", "Stock = opening + movements", "Stok = açılış + hareketler", "Qoldiq = boshlang'ich + harakatlar"),
+        "Продажи товара = сумма строк" => Tr.T(name, "Товар сатуулары = саптардын суммасы", "Product sales = sum of lines", "Ürün satışları = satırların toplamı", "Mahsulot sotuvlari = qatorlar yig'indisi"),
+        "Финансовый доход = уникальные платежи" => Tr.T(name, "Каржылык киреше = уникалдуу төлөмдөр", "Financial income = unique payments", "Finansal gelir = benzersiz ödemeler", "Moliyaviy daromad = noyob to'lovlar"),
+        "Финансовый расход = уникальные выплаты" => Tr.T(name, "Каржылык чыгым = уникалдуу төлөнүүчүлөр", "Financial expense = unique payouts", "Finansal gider = benzersiz ödemeler", "Moliyaviy xarajat = noyob to'lovlar"),
+        _ => name,
+    };
 
     private static string NotAvailable() => Tr.T("Сервер не ответил или ещё не поддерживает этот отчёт.", "Сервер жооп берген жок же бул отчётту азырынча колдобойт.",
         "The server did not respond or does not support this report yet.", "Sunucu yanıt vermedi veya bu raporu henüz desteklemiyor.",
