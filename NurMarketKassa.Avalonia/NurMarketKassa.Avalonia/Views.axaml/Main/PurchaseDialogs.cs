@@ -377,7 +377,16 @@ public sealed class PurchaseDoneDialog : Window
             message.IsVisible = true;
             pdf.IsEnabled = true;
         };
-        Content = SectionCards.Shell(Title, null, panel, SectionCards.Buttons(close, print, pdf));
+        // 2026-11-05 (волна 2-А, функция 7): закупка выросла, а цена продажи прежняя — «Подсказки цены» (список «Поднять цену с … до …?»).
+        var hints = outcome.Result.PostedLines.Count > 0 ? PriceHints.ForPosted(outcome.Result.PostedLines) : new List<PriceHint>();
+        if (hints.Count > 0)
+        {
+            var hintButton = SectionCards.Secondary(T($"Подсказки цены ({hints.Count})", $"Баа кеңештери ({hints.Count})", $"Price hints ({hints.Count})", $"Fiyat ipuçları ({hints.Count})", $"Narx maslahatlari ({hints.Count})"));
+            hintButton.Click += async (_, _) => await new PriceHintsDialog(hints).ShowDialog(this).ConfigureAwait(true);
+            Content = SectionCards.Shell(Title, null, panel, SectionCards.Buttons(close, hintButton, print, pdf));
+        }
+        else
+            Content = SectionCards.Shell(Title, null, panel, SectionCards.Buttons(close, print, pdf));
     }
 
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));

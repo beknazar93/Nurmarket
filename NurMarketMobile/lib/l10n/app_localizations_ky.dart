@@ -7123,4 +7123,61 @@ class AppLocalizationsKy extends AppLocalizations {
   @override
   String get prnLocationOff =>
       'Бул Android\'де Bluetooth-принтерди табуу үчүн «Жайгашкан жерди» күйгүзүңүз.';
+
+  @override
+  String get clearCheckAsk => 'Учурдагы чекти тазалайбызбы?';
+
+  @override
+  String get qtyReduced => 'Саны азайтылды';
+
+  @override
+  String heldDeleteAsk(String sum) {
+    return '$sum сомдук кийинкиге калтырылган чекти өчүрөбүзбү?';
+  }
+
+  @override
+  String qtySure(String qty) {
+    return 'Чын эле $qty? Бул абдан көп.';
+  }
+
+  @override
+  String get phoneClockWrong =>
+      'Телефондогу убакыт туура эмес — жөндөөлөрдөн дата менен убакытты оңдоңуз. Сатуулар сервердин убактысы менен өтөт.';
+
+  @override
+  String get payWaiting => 'Төлөм жүрүп жатат…';
+
+  @override
+  String payShortfall(String total, String rest) {
+    return 'Сервер $total сом деп эсептеди — дагы $rest сом алыңыз';
+  }
+
+  @override
+  String closeShiftCartAsk(int n) {
+    return 'Чекте позициялар калды: $n. Эмне кылабыз?';
+  }
+
+  @override
+  String syncServerDown(String time, int n) {
+    return 'Сервер $time бери жооп бербей жатат. Сатуулар күтүүдө: $n. Телефон өзү жөнөтөт.';
+  }
+
+  @override
+  String get prnSunmi => 'Sunmi орнотулган принтери';
+
+  @override
+  String get prnSunmiHint =>
+      'Чек Sunmi каражаттары менен басылат, бардык тамгалар (ң ө ү ş ğ) туура чыгат. Bluetooth, тармак жана USB колдонулбайт.';
+
+  @override
+  String scaleBindOverwrite(String name, String old, String plu) {
+    return '«$name» товарынын PLU $old, $plu болот. PLU $old боюнча жөндөлгөн таразалар аны таппай калат. Жазалыбы?';
+  }
+
+  @override
+  String get apiSaleDuplicateLine =>
+      'Чекте бир эле товар ар түрдүү баада же башка бирдикте: сервер саптарды бириктире албайт. Бир баа калтырыңыз же ашыкча сапты алып салыңыз.';
+
+  @override
+  String get payLinesMerged => 'Чектеги бирдей саптар бирөөгө бириктирилди.';
 }

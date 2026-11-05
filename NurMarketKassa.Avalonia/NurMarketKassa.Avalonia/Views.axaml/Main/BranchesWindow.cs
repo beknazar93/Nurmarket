@@ -1530,6 +1530,8 @@ public sealed class BranchTransferDialog : Window
         body["date"] = transferDate; // выбранная дата (у найденной отложенной записи она та же — входит в область)
         var comment = ((_comment.Text ?? "").Trim() + Views.Dialogs.StockTransferDialog.KeyTag(transferKey)).Trim();
         body["comment"] = comment;
+        if (NurMarketKassa.Services.Api.ServerCapabilities.Has(NurMarketKassa.Services.Api.ServerCapabilities.IdempotencyLookupBonusTransfers))
+            body["idempotency_key"] = transferKey; // 2026-11-05 (сервер ceba67c): ключ и в теле — перемещение находится в журнале ключей
         _save.IsEnabled = false;
         try
         {

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 2026-11-05: замеры скорости и памяти (BenchmarkDotNet, MIT). НЕ входит в решение выпуска и не попадает в установку кассы:
+       лежит вне папки NurMarketKassa.Avalonia, собирается только вручную (см. README.md рядом). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>NurMarketKassa.Bench</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\NurMarketKassa.Avalonia\NurMarketKassa.Core\NurMarketKassa.Core.csproj" />
+    <ProjectReference Include="..\..\..\NurMarketKassa.Avalonia\NurMarketKassa.Infrastructure\NurMarketKassa.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

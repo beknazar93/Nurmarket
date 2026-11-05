@@ -29,7 +29,7 @@ public static class AiProviders
     private const string GroqChatModel = "openai/gpt-oss-120b";
     private const string OpenRouterModel = "openrouter/free";
 
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
+    internal static HttpClient Http { get; set; } = ExternalHttp.Create(TimeSpan.FromSeconds(60)); // 2026-11-05 (Н-19): общая фабрика — сжатие и срок жизни соединения
     private static DateTime _groqSearchBlockedUntilUtc = DateTime.MinValue;
     private static readonly Dictionary<string, DateTime> SearchModelBlockedUntilUtc = new();
     // Поиски по одному: два параллельных поиска фото за секунды съедали поминутный лимит Groq (8000 токенов).
@@ -176,12 +176,20 @@ public static class AiProviders
         || (message ?? "").Contains("(RPD)", StringComparison.OrdinalIgnoreCase)
         || (message ?? "").Contains("(TPD)", StringComparison.OrdinalIgnoreCase);
 
+    // 2026-11-05 (Н-12): сроки запасных моделей; internal set — тест ставит короткие.
+    internal static TimeSpan FallbackOneTimeout { get; set; } = TimeSpan.FromSeconds(25);
+    internal static TimeSpan FallbackTotalTimeout { get; set; } = TimeSpan.FromSeconds(40);
+
     /// <summary>Запасной ответ, когда Gemini не ответил: OpenRouter (бесплатные модели, полная сводка), затем Groq
     /// (короткая сводка — у бесплатного Groq 8000 токенов в минуту).</summary>
     public static async Task<(string? Answer, string? Error)> ChatFallbackAsync(
         string system, IReadOnlyList<(string Role, string Text)> history, string question, CancellationToken ct)
     {
         string? lastError = null;
+        // 2026-11-05 (аудит скорости, Н-12): раньше у запасных моделей не было своего срока — OpenRouter, потом Groq могли занять до 120 с.
+        // Теперь на каждую модель 25 с, на обе вместе 40 с; срок — «не ответила», а не исключение наверх.
+        using var totalLimit = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        totalLimit.CancelAfter(FallbackTotalTimeout);
         foreach (var (name, url, key, model, maxSystem) in new[]
                  {
                      ("OpenRouter", OpenRouterUrl, UserPreferences.Instance.OpenRouterApiKey, OpenRouterModel, 120_000),
@@ -201,7 +209,22 @@ public static class AiProviders
             messages.Add(new JsonObject { ["role"] = "user", ["content"] = question });
             var body = new JsonObject { ["model"] = model, ["messages"] = messages, ["max_tokens"] = 1200 };
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            var (json, status) = await PostAsync(url, key!, body, ct).ConfigureAwait(false);
+            string json;
+            int status;
+            try
+            {
+                using var oneLimit = CancellationTokenSource.CreateLinkedTokenSource(totalLimit.Token);
+                oneLimit.CancelAfter(FallbackOneTimeout);
+                (json, status) = await PostAsync(url, key!, body, oneLimit.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                lastError = $"{name}: " + ExternalHttp.TimeoutMessage(name, (int)(totalLimit.IsCancellationRequested ? FallbackTotalTimeout : FallbackOneTimeout).TotalSeconds);
+                PosLogger.Log($"ИИ: запасная модель {name} не ответила за {watch.ElapsedMilliseconds} мс — срок.", "TELEGRAM");
+                if (totalLimit.IsCancellationRequested)
+                    break;
+                continue;
+            }
             if (status is >= 200 and < 300)
             {
                 var (answer, _) = ReadAnswer(json);

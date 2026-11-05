@@ -27,8 +27,7 @@ public sealed class ReceivingMarkupDialog : Window
     /// <summary>Владелец или администратор (программа владельца и автономный режим — владелец) — как доступ к ключам ИИ в настройках.</summary>
     internal static bool CanEditSettings()
     {
-        if (AppMode.IsOwner)
-            return true;
+        // 2026-11-05 (ревью волн 0–3, Л4-10): --owner сам по себе права не даёт — роль owner/admin из профиля или автономный режим.
         if (NurMarketKassa.AvaloniaHost.App.AppHost?.Services is not { } sp)
             return false;
         if (sp.GetService<IAutonomousAuthService>() is { IsCurrentSessionAutonomous: true })

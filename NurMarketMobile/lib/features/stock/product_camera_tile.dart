@@ -164,7 +164,7 @@ class _ProductCameraTileState extends ConsumerState<ProductCameraTile> {
                 child: Text(
                   l.ctCount(_count, ProductRefs.slotCount),
                   key: const Key('camTileCount'),
-                  style: TextStyle(fontWeight: FontWeight.w700, color: _count == 0 ? pal.textSoft : T.success),
+                  style: TextStyle(fontWeight: FontWeight.w700, color: _count == 0 ? pal.textSoft : context.pal.success),
                 ),
               ),
             ],

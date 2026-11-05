@@ -104,7 +104,14 @@ public sealed partial class SyncService
         catch (ApiException ex) when (ex.StatusCode == 429)
         {
             // 2026-11-01: сервер сам блокирует проверку PIN на 15 минут после 5 ошибок подряд (проверка бэкенда 01.11).
+            // 2026-11-05 (сервер ceba67c): 429 pin_locked + retry_after (секунды, заголовок Retry-After) — «повторите через N мин»; до конца блокировки новых запросов не шлём.
             PosLogger.Log("OFFLINE late-accept: сервер заблокировал проверку PIN (429).", "WARNING");
+            if (ServerErrorCodes.RetryAfterSeconds(ex) is { } retryAfter)
+            {
+                lock (LatePinGate)
+                    _latePinLockedUntilUtc = DateTime.UtcNow.AddSeconds(retryAfter);
+                return new LatePinResult(LatePinStatus.Locked, null, ServerErrorCodes.PinLockedText(retryAfter));
+            }
             return new LatePinResult(LatePinStatus.Locked, null, Tr.T(
                 "Сервер временно заблокировал проверку PIN (слишком много ошибок). Подождите около 15 минут и повторите.",
                 "Сервер PIN текшерүүнү убактылуу бөгөттөдү (өтө көп ката). Болжолдуу 15 мүнөт күтүп, кайталаңыз.",
@@ -155,6 +162,9 @@ public sealed partial class SyncService
             var lockNow = LatePinLockSecondsLeft;
             if (lockNow > 0)
                 return new LatePinResult(LatePinStatus.Locked, null, LatePinLockedText(lockNow));
+            // 2026-11-05: сервер сказал, сколько попыток осталось (attempts_left), — показываем его число, а не своё.
+            if (result.AttemptsLeft is { } serverLeft)
+                return new LatePinResult(LatePinStatus.Wrong, null, ServerErrorCodes.PinInvalidText(serverLeft));
             return new LatePinResult(LatePinStatus.Wrong, null, Tr.T(
                 $"Неверный PIN. Осталось попыток: {left}.",
                 $"PIN туура эмес. Калган аракет: {left}.",

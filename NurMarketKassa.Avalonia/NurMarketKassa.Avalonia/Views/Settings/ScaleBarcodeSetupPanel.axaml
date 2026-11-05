@@ -193,6 +193,17 @@
                             </StackPanel>
                         </Button>
                     </UniformGrid>
+                    <!-- 2026-11-05: суммы в обеих единицах и подсказка «цифры в тыйынах», если сумма нереальна -->
+                    <Border x:Name="UnitHintBorder" Classes="NoteBlock" IsVisible="False" Margin="0,6,0,0">
+                        <StackPanel Spacing="6">
+                            <TextBlock x:Name="UnitBothText" TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource BrushText}"/>
+                            <TextBlock x:Name="UnitWarnText" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold" IsVisible="False"
+                                       Foreground="{DynamicResource BrushText}"/>
+                            <WrapPanel x:Name="UnitFixRow" IsVisible="False">
+                                <Button x:Name="UnitFixButton" Classes="ScalePrimary" Margin="0,0,8,0" Click="UnitFix_Click"/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <Border x:Name="WizardResultBorder" Classes="NoteBlock" IsVisible="False">
@@ -227,6 +238,8 @@
                 <WrapPanel x:Name="ExampleSegments"/>
                 <TextBlock x:Name="ExampleText" TextWrapping="Wrap" FontSize="13.5" Foreground="{DynamicResource BrushText}"/>
                 <TextBlock x:Name="CompanyFormatText" Classes="SettingsCardBody"/>
+                <!-- 2026-11-05: выбор единицы суммы «в тыйынах / в сомах» на этой кассе (код: ScaleUi.AmountUnitPicker) -->
+                <StackPanel x:Name="UnitBox" Spacing="6"/>
                 <WrapPanel x:Name="OnScaleRow" Margin="0,2,-8,-8">
                     <Button x:Name="OnScaleButton" Classes="ScaleSecondary" Click="OnScale_Click"/>
                 </WrapPanel>

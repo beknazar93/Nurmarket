@@ -585,21 +585,29 @@ public class ModalShell : ContentControl
     private void CloseButton_Click(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
+        if (!TryCloseFromUser() && TopLevel.GetTopLevel(this) is Window window)
+            window.Close();
+    }
+
+    /// <summary>2026-11-05 (ревью волн 0–3, А-1): общий путь для ✕ и для «Назад» на Android — с защитой «идёт операция».
+    /// Возвращает true, если запрос обработан (ожидание отменено, окно занято, нажата «Отмена» или она скрыта);
+    /// false — кнопки отмены нет совсем, окно нужно закрыть самому.</summary>
+    internal bool TryCloseFromUser()
+    {
         if (IsServerWaiting && _serverWaitShown)
         {
             CancelServerWait(); // 2026-11-03 (С-01): ✕ во время «Ждём сервер…» = «Отменить ожидание»
-            return;
+            return true;
         }
         if (IsBusy)
-            return; // 2026-10-22 (модалки, пакет 0): во время операции ✕ ничего не делает
+            return true; // 2026-10-22 (модалки, пакет 0): во время операции ✕ ничего не делает
         if (FindCancelButton() is { } cancel)
         {
             if (cancel.IsEffectivelyVisible && cancel.IsEffectivelyEnabled)
                 PressButton(cancel);
-            return;
+            return true;
         }
-        if (TopLevel.GetTopLevel(this) is Window window)
-            window.Close();
+        return false;
     }
 
     /// <summary>Нажатие кнопки так же, как Button.OnClick (его зовёт и Esc у IsCancel): событие Click, затем

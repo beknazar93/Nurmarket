@@ -71,7 +71,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private bool _isHamburgerOpen;
 
         private static readonly string CashHistoryFilePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            NurMarketKassa.Services.AppPaths.Roaming,
             NurMarketKassa.Services.AppMode.DataFolderName,
             "cash_history.json");
 
@@ -272,6 +272,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
             PosDataEvents.SalesChanged += OnSalesChangedExternally;
+            // 2026-11-05 (аудит №4, Л4-12): спрятанный раздел продажи не перекачивал — раздел показали, а данные устарели → один пересчёт.
+            Activated += (_, _) =>
+            {
+                if (IsVisible && _staleWhileHidden)
+                {
+                    _staleWhileHidden = false;
+                    OnSalesChangedExternally();
+                }
+            };
 
             SyncDatePickers(_historyFrom, _historyTo);
             CustomDatePill.IsChecked = false;
@@ -1308,6 +1317,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// Сигнал приходит из фонового потока, поэтому обязательно уходим на UI-поток.</summary>
         private System.Threading.CancellationTokenSource? _liveCts;
 
+        // 2026-11-05 (аудит №4, Л4-12): пока окно спрятано (раздел программы владельца), по продаже только пометка «устарело».
+        private bool _staleWhileHidden;
+
         private void OnSalesChangedExternally()
         {
             // 2026-10-31 (приёмка 1.17.68): SalesChanged поднимается и с фоновых потоков (оплата долга, пульс продаж) — поля и _liveCts трогаем только в UI-потоке.
@@ -1318,6 +1330,13 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
             // Сезонность раздела «Аналитика» пересчитается после перезагрузки (если вкладка открыта).
             _seasonalityLoaded = false;
+            // 2026-11-05 (аудит №4, Л4-12): окно спрятано — не качаем период по каждой продаже, только пометка; пересчёт при показе.
+            if (!IsVisible)
+            {
+                _staleWhileHidden = true;
+                _liveCts?.Cancel();
+                return;
+            }
             _liveCts?.Cancel();
             _liveCts?.Dispose();
             var cts = new System.Threading.CancellationTokenSource();
@@ -1333,8 +1352,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     // одна-две страницы) перекачиваем; плитки и так берутся со сводки сервера заново.
                     // 2026-10-18, ревью объединения: в «Продажах и финансах» список по сегодня перекачивается при любом периоде —
                     // иначе «Чеки» и «Скидки» на «Месяце» не видели новую продажу.
-                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => await LoadDataAsync(_historyFrom, _historyTo,
-                        forceRefresh: _historyTo.Date >= DateTime.Today && (_mergedSales != null || (_historyTo.Date - _historyFrom.Date).Days < 7)));
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+                    {
+                        if (!IsVisible) { _staleWhileHidden = true; return; } // 2026-11-05 (Л4-12): спрятали, пока ждали
+                        await LoadDataAsync(_historyFrom, _historyTo,
+                        forceRefresh: _historyTo.Date >= DateTime.Today && (_mergedSales != null || (_historyTo.Date - _historyFrom.Date).Days < 7));
+                    });
                 }
                 catch (System.OperationCanceledException)
                 {

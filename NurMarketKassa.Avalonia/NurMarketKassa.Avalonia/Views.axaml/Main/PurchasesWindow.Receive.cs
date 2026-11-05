@@ -59,6 +59,9 @@ public sealed partial class PurchasesWindow
         // 2026-10-24, ТЗ «Склад» (Б2): «скан → строка» как в Склад → Приёмка (Б1).
         public CheckBox FastNext = null!;
         public Button Raise = null!;
+        /// <summary>2026-11-05 (функция 11): доп. расходы прихода (доставка, грузчики) и способ разнесения; доли лежат в строках (LandedExtraPerUnit).</summary>
+        public double LandedTotal;
+        public LandedMethod LandedMode;
         public Button SupplierGoods = null!;
         public ScrollViewer Scroll = null!;
         public Border GoodsPanel = null!;
@@ -298,7 +301,7 @@ public sealed partial class PurchasesWindow
         page.Children.Add(card);
 
         // Низ: итог и одна жёлтая «Оприходовать товары» (шаг 3 — окно «Подтверждение оплаты»).
-        var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"), Margin = new Thickness(0, 12, 0, 0) };
+        var footer = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto"), Margin = new Thickness(0, 12, 0, 0) };
         Use(s.Footer, TextBlock.ForegroundProperty, "BrushText");
         footer.Children.Add(s.Footer);
         // 2026-10-28: «Наценка…» — правила автонаценки (наценка по умолчанию, по категориям, округление); менять могут владелец и администратор.
@@ -309,20 +312,28 @@ public sealed partial class PurchasesWindow
         markupButton.Click += async (_, _) => await new ReceivingMarkupDialog().ShowDialog(this).ConfigureAwait(true);
         Grid.SetColumn(markupButton, 1);
         footer.Children.Add(markupButton);
+        // 2026-11-05 (функция 11): «Доп. расходы…» — доставка/грузчики разносятся на закупочную цену строк (себестоимость); долг поставщику не меняется.
+        var landedButton = UiKit.Ghost(this, T("Доп. расходы…", "Кошумча чыгым…", "Extra costs…", "Ek masraf…", "Qo'shimcha xarajat…"));
+        landedButton.Height = 48;
+        landedButton.Margin = new Thickness(0, 0, 10, 0);
+        Avalonia.Automation.AutomationProperties.SetName(landedButton, T("Доп. расходы прихода: доставка, грузчики", "Кирүүнүн кошумча чыгымдары: жеткирүү, жүк ташуучулар", "Extra delivery costs: delivery, loaders", "Ek giriş masrafları: nakliye, hamal", "Kirimning qo'shimcha xarajatlari: yetkazib berish, yuk tashuvchilar"));
+        landedButton.Click += async (_, _) => await ReceiveLandedAsync(s).ConfigureAwait(true);
+        Grid.SetColumn(landedButton, 2);
+        footer.Children.Add(landedButton);
         // 2026-10-24, ТЗ «Склад» (Б2): «Обновить цены продажи (N)» — видна, пока есть строки с подорожанием и непоправленной продажей.
         s.Raise = UiKit.Ghost(this, "");
         s.Raise.Height = 48;
         s.Raise.Margin = new Thickness(0, 0, 10, 0);
         s.Raise.IsVisible = false;
         s.Raise.Click += async (_, _) => await ReceiveRaiseAsync(s).ConfigureAwait(true);
-        Grid.SetColumn(s.Raise, 2);
+        Grid.SetColumn(s.Raise, 3);
         footer.Children.Add(s.Raise);
         s.Post = UiKit.Primary(this, T("Оприходовать товары", "Товарларды кирешке алуу", "Post the goods", "Malları kaydet", "Tovarlarni kirim qilish"));
         s.Post.Height = 48;
         s.Post.Focusable = true;
         Avalonia.Automation.AutomationProperties.SetName(s.Post, s.Post.Content as string);
         s.Post.Click += async (_, _) => await ReceivePostAsync().ConfigureAwait(true);
-        Grid.SetColumn(s.Post, 3);
+        Grid.SetColumn(s.Post, 4);
         footer.Children.Add(s.Post);
         Grid.SetRow(footer, 6);
         page.Children.Add(footer);
@@ -1046,6 +1057,50 @@ public sealed partial class PurchasesWindow
             ReceiveRefresh();
     }
 
+    /// <summary>2026-11-05 (функция 11): «Доп. расходы…» — окно разнесения доставки/грузчиков на закупку строк.</summary>
+    private async Task ReceiveLandedAsync(ReceiveState s)
+    {
+        var active = s.Lines.Where(l => l.Quantity > 0).ToList();
+        if (active.Count == 0)
+        {
+            ReceiveMessage(T("Сначала добавьте товары в приход.", "Адегенде кирүүгө товарларды кошуңуз.", "Add the goods to the delivery first.", "Önce girişe ürün ekleyin.", "Avval kirimga mahsulot qo'shing."), warning: true);
+            return;
+        }
+        var dialog = new ReceivingLandedCostDialog(active, s.LandedTotal, s.LandedMode);
+        await dialog.ShowDialog(this).ConfigureAwait(true);
+        if (dialog.Applied)
+        {
+            s.LandedTotal = dialog.AppliedTotal;
+            s.LandedMode = dialog.AppliedMethod;
+            PosLogger.Log($"Закупки: доп. расходы прихода {dialog.AppliedTotal:0.00} сом, способ {dialog.AppliedMethod}, строк {active.Count}.", "STOCK");
+        }
+        if (_receive == s)
+            ReceiveRefresh();
+    }
+
+    /// <summary>2026-11-05 (функция 11): перед «Оприходовать» — «закупка 100,00 → 103,45» по строкам; долг поставщику остаётся по накладной. false — кассир передумал.</summary>
+    private Task<bool> ReceiveConfirmLandedAsync(IReadOnlyList<LandedPreviewRow> rows, double total)
+    {
+        var ru = System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
+        var shown = rows.Where(r => r.ExtraPerUnit > 0).Take(12).Select(r =>
+            $"• {(string.IsNullOrWhiteSpace(r.Line.ProductName) ? r.Line.Barcode : r.Line.ProductName)}: {r.OldCost.ToString("0.00##", ru)} → {r.NewCost.ToString("0.00##", ru)}").ToList();
+        var all = rows.Count(r => r.ExtraPerUnit > 0);
+        if (all > shown.Count)
+            shown.Add(T($"…и ещё {all - shown.Count}", $"…жана дагы {all - shown.Count}", $"…and {all - shown.Count} more", $"…ve {all - shown.Count} tane daha", $"…va yana {all - shown.Count}"));
+        var message = T($"Доп. расходы {total.ToString("0.00", ru)} сом войдут в себестоимость товаров (закупка → с расходами):",
+                $"Кошумча чыгым {total.ToString("0.00", ru)} сом товардын өздүк баасына кирет (сатып алуу → чыгым менен):",
+                $"Extra costs {total.ToString("0.00", ru)} som go into the product cost (purchase → with costs):",
+                $"Ek masraf {total.ToString("0.00", ru)} som ürün maliyetine eklenir (alış → masrafla):",
+                $"Qo'shimcha xarajat {total.ToString("0.00", ru)} so'm mahsulot tannarxiga qo'shiladi (xarid → xarajat bilan):")
+            + "\n\n" + string.Join("\n", shown) + "\n\n"
+            + T("Долг поставщику не меняется: он по накладной.", "Жеткирүүчүгө карыз өзгөрбөйт: ал накладная боюнча.", "The supplier debt does not change: it stays as per the invoice.",
+                "Tedarikçi borcu değişmez: faturadaki gibi kalır.", "Yetkazib beruvchiga qarz o'zgarmaydi: u nakladnoy bo'yicha.");
+        return PosConfirmDialog.ShowModalAsync(this,
+            T("Доп. расходы", "Кошумча чыгым", "Extra costs", "Ek masraf", "Qo'shimcha xarajat"), message,
+            T("Продолжить", "Улантуу", "Continue", "Devam", "Davom etish"),
+            T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), PosConfirmAccent.Primary);
+    }
+
     /// <summary>Перед «Оприходовать»: «Цена продажи изменится у K товаров» со списком (прежняя → новая). false — кассир передумал.</summary>
     private Task<bool> ReceiveConfirmPriceChangesAsync(IReadOnlyList<ReceivingLineVm> changed)
     {
@@ -1516,7 +1571,9 @@ public sealed partial class PurchasesWindow
             : T("Позиций", "Позициялар", "Items", "Kalem", "Pozitsiyalar") + $": {active.Count} · " + T("штук", "даана", "pieces", "adet", "dona") + $": {active.Sum(l => l.Quantity).ToString("0.###", Ru)} · "
               + T("закупка на", "сатып алуу", "purchase", "alış", "xarid") + " " + MoneyText.Som(active.Sum(l => l.LineTotal)) + " · "
               + T("продажа на", "сатуу", "sale", "satış", "sotuv") + " " + MoneyText.Som(active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.SalePrice))) + " · "
-              + T("прибыль", "пайда", "profit", "kâr", "foyda") + " " + MoneyText.Som(active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.SalePrice)) - active.Sum(l => l.LineTotal)) + raisedText
+              // 2026-11-05 (функция 11): прибыль считается от себестоимости (закупка + доп. расходы), как её увидит склад после прихода
+              + T("прибыль", "пайда", "profit", "kâr", "foyda") + " " + MoneyText.Som(active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.SalePrice)) - active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.CostPrice))) + raisedText
+              + (active.Any(l => l.LandedExtraPerUnit > 0) ? T(" · доп. расходы ", " · кошумча чыгым ", " · extra costs ", " · ek masraf ", " · qo'shimcha xarajat ") + MoneyText.Som(LandedCost.DistributedTotal(active)) : "")
               + (s.Picker.Selected is null ? T(" — выберите поставщика (шаг 1).", " — жеткирүүчүнү тандаңыз (1-кадам).", " — choose a supplier (step 1).", " — tedarikçi seçin (1. adım).", " — yetkazib beruvchini tanlang (1-qadam).") : "");
         // 2026-10-24 (Б2): «Обновить цены продажи (N)» — пока есть строки с подорожанием и непоправленной продажей.
         var raisable = PurchaseReceivingService.CountRaisableSalePrices(active);
@@ -1566,6 +1623,16 @@ public sealed partial class PurchasesWindow
                            + (problems.Count > 4 ? T($" …и ещё {problems.Count - 4}", $" …жана дагы {problems.Count - 4}", $" …and {problems.Count - 4} more", $" …ve {problems.Count - 4} tane daha", $" …va yana {problems.Count - 4}") : ""), warning: true);
             return;
         }
+        // 2026-11-05 (функция 11): количество могли поправить после «Доп. расходы…» — доли пересчитываем и показываем превью «закупка → с расходами»; долг поставщику не меняется.
+        if (s.LandedTotal > 0)
+        {
+            var landedRows = LandedCost.Preview(lines, s.LandedTotal, s.LandedMode);
+            LandedCost.Apply(landedRows);
+            if (!await ReceiveConfirmLandedAsync(landedRows, s.LandedTotal).ConfigureAwait(true))
+                return;
+        }
+        else
+            LandedCost.Clear(lines);
         // 2026-10-24, ТЗ «Склад» (Б2): меняются цены продажи — короткое подтверждение со списком, как в Склад → Приёмка.
         if (PurchaseReceivingService.SalePriceChanges(lines) is { Count: > 0 } changedPrices
             && !await ReceiveConfirmPriceChangesAsync(changedPrices).ConfigureAwait(true))
@@ -1614,6 +1681,7 @@ public sealed partial class PurchasesWindow
         }
 
         s.DocNumber.Text = ""; // 2026-10-30: номер накладной поставщика ушёл с приходом
+        s.LandedTotal = 0; // 2026-11-05 (функция 11): доп. расходы ушли с этим приходом (доли — в строках задачи)
         // Задача на диске — список очищаем сразу и готовимся к следующей накладной (заказ уже закрыт этой задачей — к новому приёму не привязываем).
         _bgWaiting.Add(jobId);
         foreach (var line in lines)
@@ -1731,6 +1799,10 @@ public sealed partial class PurchasesWindow
                 ReceiveMessage(text, warning);
             else if (warning)
                 SetStatus(text, true);   // успех уже показал общий тост «Приходов в фоне» (BackgroundReceiptsHost), здесь — только замечания по деньгам
+            // 2026-11-05 (приёмка волн 0–3, В-1): на боевом сервере приход идёт 4–5 с и уходит в фон, диалог «Оприходование завершено» не показывается —
+            // «Подсказки цены» строим здесь, по завершении фоновой задачи, и даём кнопку «Подсказки цены (N)» наверху окна.
+            if (job.Status == ReceivingJobStatus.Done && job.PostedCount > 0)
+                UpdatePendingPriceHints(job);
             if (job.PostedCount > 0)
                 await ReloadAsync().ConfigureAwait(true);
         }
@@ -1738,6 +1810,37 @@ public sealed partial class PurchasesWindow
         {
             PosLogger.Log($"Закупки: итог фонового прихода {job.Id} не показан ({ex.Message}).", "WARNING");
         }
+    }
+
+    /// <summary>2026-11-05 (В-1): подсказки цены по проведённым строкам фонового прихода → кнопка «Подсказки цены (N)»; нет подсказок — кнопка прячется.</summary>
+    private void UpdatePendingPriceHints(ReceivingJob job)
+    {
+        List<PriceHint> hints;
+        try
+        {
+            hints = PriceHints.ForPosted(job.Lines.Where(l => l.Outcome == ReceivingLineOutcome.Posted).Select(l => l.ToVm()).ToList());
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Закупки: подсказки цены по приходу {job.Id} не построены ({ex.Message}).", "WARNING");
+            return;
+        }
+        _pendingHints = hints;
+        _hintsButton.IsVisible = hints.Count > 0;
+        if (hints.Count == 0)
+            return;
+        var label = T($"Подсказки цены ({hints.Count})", $"Баа кеңештери ({hints.Count})", $"Price hints ({hints.Count})", $"Fiyat ipuçları ({hints.Count})", $"Narx maslahatlari ({hints.Count})");
+        _hintsButton.Content = label;
+        Avalonia.Automation.AutomationProperties.SetName(_hintsButton, label);
+        PosLogger.Log($"Закупки: после фонового прихода {job.Id} есть подсказки цены ({hints.Count}).", "INFO");
+    }
+
+    private async Task ShowPendingPriceHintsAsync()
+    {
+        if (_pendingHints.Count == 0)
+            return;
+        await new PriceHintsDialog(_pendingHints).ShowDialog(this).ConfigureAwait(true);
+        // Закрыли окно подсказок: кнопка остаётся, пока приход не сменится новым (подсказки можно открыть ещё раз; «Поднять» повторно не навредит — цена уже другая).
     }
 
     /// <summary>Итог фоновой задачи словами кассира (раздел 3 п. 5 ТЗ): принято — на какую сумму и от кого; нет — куда смотреть.</summary>

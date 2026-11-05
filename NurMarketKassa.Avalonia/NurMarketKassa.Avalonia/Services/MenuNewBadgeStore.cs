@@ -10,7 +10,7 @@ public static class MenuNewBadgeStore
     private static HashSet<string>? _seen;
 
     private static string FilePath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "menu-badges-seen.txt");
+        Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "menu-badges-seen.txt");
 
     public static bool IsSeen(string key)
     {

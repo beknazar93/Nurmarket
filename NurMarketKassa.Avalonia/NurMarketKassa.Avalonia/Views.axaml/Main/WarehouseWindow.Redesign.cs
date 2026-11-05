@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.VisualTree;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.ViewModels;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Models.Pos;
@@ -94,9 +95,11 @@ public partial class WarehouseWindow
         }
         // 2026-11-02 (аудит №2, С3-12): «Архив» — окно архивных товаров с возвратом из архива (POST unarchive). Не фильтр наличия, а отдельное окно.
         var archiveButton = SectionCards.Secondary(T("Архив", "Архив", "Archive", "Arşiv", "Arxiv"));
-        archiveButton.Margin = new Thickness(0, 0, 0, 6);
+        // 2026-11-05 (аудит №4, Д4-21): «Архив» был пилюлей ~22 px (MinHeight = 0) — цель касания ниже 24 px (WCAG 2.5.8); теперь 40 px и отступ от сегмента слева.
+        archiveButton.Margin = new Thickness(12, 0, 0, 6);
         archiveButton.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
-        archiveButton.MinHeight = 0;
+        archiveButton.MinHeight = 40;
+        archiveButton.Padding = new Thickness(16, 0);
         ToolTip.SetTip(archiveButton, T("Товары, отправленные в архив: посмотреть и вернуть", "Архивге жөнөтүлгөн товарлар: карап чыгуу жана кайтаруу", "Products sent to the archive: view and restore", "Arşive gönderilen ürünler: görüntüle ve geri al", "Arxivga yuborilgan mahsulotlar: ko'rish va qaytarish"));
         archiveButton.Click += async (_, _) =>
         {
@@ -423,6 +426,36 @@ public partial class WarehouseWindow
             stack.Children.Add(l);
             stack.Children.Add(new Viewbox { Classes = { "sec-kpi-fit" }, Child = v });
             stack.Children.Add(s);
+            // 2026-11-05 (волна 2-А, функция 1): на плитке «Срок годности» — «Списать просроченное» (если есть просроченное с остатком) и «Настройка» (режим проверки при продаже).
+            if (filterKey == "expiry")
+            {
+                var buttons = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 0) };
+                if (expired > 0)
+                {
+                    var writeOff = new Button { Content = T("Списать просроченное", "Мөөнөтү өткөндү эсептен чыгаруу", "Write off expired", "Süresi geçmişi düş", "Muddati o'tganni hisobdan chiqarish"),
+                        Classes = { "SecondaryButton" }, Padding = new Thickness(10, 4), Margin = new Thickness(0, 0, 6, 4) };
+                    writeOff.Click += async (_, e) =>
+                    {
+                        e.Handled = true;
+                        if (!EnsureCanEditProducts())
+                            return;
+                        if (await ExpiredWriteOff.RunAsync(this).ConfigureAwait(true) > 0)
+                        {
+                            RefreshWarehouseTotals();
+                            await RefreshExpiryAsync(true).ConfigureAwait(true);
+                        }
+                    };
+                    buttons.Children.Add(writeOff);
+                }
+                var setup = new Button { Content = "⚙ " + T("Настройка", "Жөндөө", "Settings", "Ayarlar", "Sozlama"), Classes = { "SecondaryButton" }, Padding = new Thickness(10, 4), Margin = new Thickness(0, 0, 0, 4) };
+                setup.Click += async (_, e) =>
+                {
+                    e.Handled = true;
+                    await ShopAutomationWindow.ShowAsync(this).ConfigureAwait(true);
+                };
+                buttons.Children.Add(setup);
+                stack.Children.Add(buttons);
+            }
             border.Child = stack;
             ToolTip.SetTip(border, label + ": " + value + "\n" + sub);
             if (filterKey != null)

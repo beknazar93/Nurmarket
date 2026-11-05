@@ -1901,11 +1901,11 @@ public sealed class ClientDocEditorWindow : Window
                 AllowMultiple = false,
                 FileTypeFilter = [new FilePickerFileType(T("Картинка", "Сүрөт", "Image", "Resim", "Rasm")) { Patterns = ["*.png", "*.jpg", "*.jpeg"] }],
             }).ConfigureAwait(true);
-            var path = files.FirstOrDefault()?.TryGetLocalPath();
+            var path = await NurMarketKassa.AvaloniaHost.Services.ImportFileBridge.TemporaryPathAsync(files.FirstOrDefault()).ConfigureAwait(true); // 2026-11-05 (А4-06): Android — копия (ниже она копируется в папку данных)
             if (string.IsNullOrEmpty(path))
                 return;
             // Копия рядом с документами — исходный файл можно удалить/переместить.
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "client-docs");
+            var dir = Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "client-docs");
             Directory.CreateDirectory(dir);
             var copy = Path.Combine(dir, "logo" + Path.GetExtension(path).ToLowerInvariant());
             File.Copy(path, copy, overwrite: true);

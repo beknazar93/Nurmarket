@@ -202,7 +202,7 @@ class _AiAccessPanelState extends ConsumerState<AiAccessPanel> {
           Padding(
             key: const Key('aiAccWarn'),
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(_warn, style: const TextStyle(color: T.danger, fontWeight: FontWeight.w700, fontSize: 12.5)),
+            child: Text(_warn, style: TextStyle(color: context.pal.danger, fontWeight: FontWeight.w700, fontSize: 12.5)),
           ),
         if (!manage)
           Padding(
@@ -212,7 +212,7 @@ class _AiAccessPanelState extends ConsumerState<AiAccessPanel> {
         if (_staffFailed)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(l.aiAccStaffNotLoaded, style: const TextStyle(color: T.danger, fontSize: 12.5)),
+            child: Text(l.aiAccStaffNotLoaded, style: TextStyle(color: context.pal.danger, fontSize: 12.5)),
           ),
         if (manage && chosen == 0)
           Padding(

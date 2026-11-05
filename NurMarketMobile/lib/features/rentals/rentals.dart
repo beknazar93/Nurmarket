@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/server_capabilities.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
-import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 import '../payment/sales_repository.dart';
 import '../sale/cart.dart' show roundMoney;
@@ -106,6 +107,7 @@ class RentalsRepository {
     required bool money,
     required double deposit,
     String? document,
+    String? idempotencyKey,
   }) async {
     String d(DateTime x) => '${x.year}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
     final r = await api.post(
@@ -123,6 +125,8 @@ class RentalsRepository {
         if (money) 'deposit_method': 'cash',
         if (!money && document != null) 'deposit_document': document,
       },
+      // 2026-11-05 (сервер ceba67c, признак rental_idempotency): повтор того же нажатия «Выдать» возвращает тот же прокат (replayed), а не второй
+      headers: idempotencyKey != null && ServerCapabilities.has(ServerCapabilities.rentalIdempotency) ? {'Idempotency-Key': idempotencyKey} : null,
     );
     return r is Map ? num0(r.cast<String, dynamic>(), 'number').round() : 0;
   }
@@ -209,7 +213,7 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen> {
                 if (late.days > 0)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
-                    child: Text(l.rentalLateHint(late.days, money(perDay), money(late.sum)), style: TextStyle(fontSize: 12.5, color: T.danger)),
+                    child: Text(l.rentalLateHint(late.days, money(perDay), money(late.sum)), style: TextStyle(fontSize: 12.5, color: context.pal.danger)),
                   ),
                 const SizedBox(height: 10),
                 Text(
@@ -221,7 +225,7 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen> {
                 if (s.excess > 0)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Text(l.rentalExcess(money(s.excess)), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: T.danger)),
+                    child: Text(l.rentalExcess(money(s.excess)), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: context.pal.danger)),
                   ),
               ],
             ),
@@ -323,7 +327,7 @@ class _RentalsScreenState extends ConsumerState<RentalsScreen> {
                                   ),
                                   Text(
                                     r.overdue ? l.rentalOverdue : l.rentalActive,
-                                    style: TextStyle(fontWeight: FontWeight.w700, color: r.overdue ? T.danger : T.success),
+                                    style: TextStyle(fontWeight: FontWeight.w700, color: r.overdue ? context.pal.danger : context.pal.success),
                                   ),
                                 ],
                               ),
@@ -361,6 +365,10 @@ class _NewRentalScreenState extends ConsumerState<NewRentalScreen> {
   final _document = TextEditingController();
   // 2026-10-22 (мобилка, админ): П15 — пеня за сутки просрочки (как на ПК): запоминается для этого проката и по умолчанию.
   final _late = TextEditingController();
+
+  /// 2026-11-05: ключ повтора выдачи проката — один на нажатие «Выдать», живёт до ответа сервера; другие данные формы — новый ключ.
+  String? _rentalKey;
+  String? _rentalKeySig;
   bool _money = true;
   bool _busy = false;
 
@@ -496,6 +504,11 @@ class _NewRentalScreenState extends ConsumerState<NewRentalScreen> {
     }
     setState(() => _busy = true);
     try {
+      final sig = '${_client!.id}|${_product!.id}|${_variant?.id}|${_to.toIso8601String().substring(0, 10)}|$_money|${_deposit.text}|${_document.text.trim()}';
+      if (_rentalKey == null || _rentalKeySig != sig) {
+        _rentalKey = const Uuid().v4();
+        _rentalKeySig = sig;
+      }
       final number = await ref
           .read(rentalsRepoProvider)
           .create(
@@ -507,7 +520,9 @@ class _NewRentalScreenState extends ConsumerState<NewRentalScreen> {
             money: _money,
             deposit: parseNum(_deposit.text) ?? 0,
             document: _document.text.trim(),
+            idempotencyKey: _rentalKey,
           );
+      _rentalKey = null; // выдача принята — следующая будет новой
       final perDay = parseNum(_perDay.text) ?? 0;
       if (perDay > 0) ref.read(cartProvider.notifier).addCustom(l.rentalLine(number, _days.toString()), perDay * _days, 1);
       final late = parseNum(_late.text) ?? 0;
@@ -519,6 +534,7 @@ class _NewRentalScreenState extends ConsumerState<NewRentalScreen> {
       toast(context, l.rentalCreated(number));
       context.go('/sale');
     } on ApiException catch (e) {
+      if (!e.isTransient) _rentalKey = null; // отказ по существу — повтор с новым ключом
       if (mounted) toast(context, e.message, error: true);
     } finally {
       if (mounted) setState(() => _busy = false);

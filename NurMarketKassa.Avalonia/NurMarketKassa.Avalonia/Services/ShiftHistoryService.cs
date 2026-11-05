@@ -174,7 +174,7 @@ public static class ShiftHistoryService
         foreach (var n in names)
         {
             if (!row.TryGetProperty(n, out var p)) continue;
-            if (p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), out var dt)) return dt;
+            if (p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt)) return dt; // 2026-11-05 (аудит №4, Л4-23): не по культуре ПК
         }
         return null;
     }

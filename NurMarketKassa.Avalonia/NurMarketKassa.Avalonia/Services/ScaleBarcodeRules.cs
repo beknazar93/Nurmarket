@@ -18,7 +18,8 @@ internal sealed record ScaleLabelReading(
     double WeightKg,
     double AmountSom,
     double WeightFromAmountKg,
-    WeightBarcodeValueKind CurrentKind);
+    WeightBarcodeValueKind CurrentKind,
+    int Raw = 0); // 2026-11-05: цифры значения числом — для проверки единицы суммы
 
 /// <summary>Товар из каталога кассы для прочтения этикетки (название, PLU, цена).</summary>
 internal sealed record CatalogProductTileVmRef(string Title, int? Plu, string? Article, string PriceLine);
@@ -155,8 +156,38 @@ internal static class ScaleBarcodeRules
         string.Equals(WeightBarcodeParser.Layout, "code", StringComparison.OrdinalIgnoreCase) ? (6, 4) : (5, 5);
 
     /// <summary>Сумма из цифр значения по единице компании (тыйын — ÷100, сом — как есть).</summary>
-    public static double AmountFromRaw(int raw) =>
-        string.Equals(WeightBarcodeParser.AmountUnit, "som", StringComparison.OrdinalIgnoreCase) ? raw : raw / 100.0;
+    public static double AmountFromRaw(int raw) => WeightBarcodeParser.AmountFromRaw(raw, WeightBarcodeParser.AmountUnit);
+
+    /// <summary>2026-11-05: сумма, вес по сумме и подсказка для цифр этикетки при ЗАДАННОЙ единице («tiyin» / «som»).</summary>
+    public static (double Amount, double WeightKg) ReadAs(int raw, string unit, double pricePerKg)
+    {
+        var amount = WeightBarcodeParser.AmountFromRaw(raw, unit);
+        return (amount, new WeightBarcodeParseResult("", amount, WeightBarcodeValueKind.Amount).ResolveWeightKg(pricePerKg));
+    }
+
+    /// <summary>2026-11-05: «Сумма выглядит нереально» — при текущей единице сумма выше предела или вес по сумме/цене > 600 кг.
+    /// null — всё в порядке. Иначе единица, которую стоит предложить (если при ней значения реальны), либо пустая строка (нереально при любой).</summary>
+    public static string? UnrealisticAmountSuggestion(int raw, double pricePerKg)
+    {
+        if (raw <= 0)
+            return null;
+        var current = WeightBarcodeParser.AmountUnit;
+        if (!WeightBarcodeParser.IsUnrealisticAmount(WeightBarcodeParser.AmountFromRaw(raw, current), pricePerKg))
+            return null;
+        return WeightBarcodeParser.SuggestAmountUnit(raw, pricePerKg, current) ?? "";
+    }
+
+    /// <summary>2026-11-05: название единицы суммы на языке интерфейса — «в тыйынах» / «в сомах».</summary>
+    public static string UnitWord(string? unit) => string.Equals(unit, WeightBarcodeParser.UnitSom, StringComparison.OrdinalIgnoreCase)
+        ? Tr.T("в сомах", "сом менен", "in som", "som cinsinden", "so‘mda")
+        : Tr.T("в тыйынах", "тыйын менен", "in tiyin", "tiyin cinsinden", "tiyinda");
+
+    /// <summary>2026-11-05: запоминает единицу суммы на этой кассе (важнее серверной) и пишет в журнал.</summary>
+    public static void SetLocalUnit(string unit)
+    {
+        UserPreferences.Instance.SetLocalScaleAmountUnit(unit);
+        PosLogger.Log($"Весы: единица суммы на этикетке задана на кассе — {unit} (серверная: {UserPreferences.Instance.ScaleBarcodeAmountUnit})", "SCALES");
+    }
 
     /// <summary>Разбирает штрихкод с этикетки в ОБА прочтения. null и текст ошибки — если это не
     /// весовой EAN-13 (не 13 цифр, не 2…, неверная контрольная цифра, значение 0).</summary>
@@ -214,7 +245,8 @@ internal static class ScaleBarcodeRules
             raw / 1000.0,
             amount,
             weightFromAmount,
-            Effective(prefix));
+            Effective(prefix),
+            raw);
     }
 
     /// <summary>«0,220 кг × 60,00 = 13,20 сом» — строка чека, как её посчитает касса.</summary>
@@ -254,7 +286,7 @@ internal static class ScaleBarcodeRules
         const int grams = 220;
         long raw = kind == WeightBarcodeValueKind.Weight
             ? grams
-            : (long)Math.Round((decimal)price * grams / 1000m * (string.Equals(WeightBarcodeParser.AmountUnit, "som", StringComparison.OrdinalIgnoreCase) ? 1m : 100m), MidpointRounding.AwayFromZero);
+            : (long)Math.Round((decimal)price * grams / 1000m * (string.Equals(WeightBarcodeParser.AmountUnit, WeightBarcodeParser.UnitSom, StringComparison.OrdinalIgnoreCase) ? 1m : 100m), MidpointRounding.AwayFromZero);
         if (raw >= (long)Math.Pow(10, valueLength))
             return "";
         var first12 = prefix + plu.ToString(new string('0', codeLength), CultureInfo.InvariantCulture) + raw.ToString(new string('0', valueLength), CultureInfo.InvariantCulture);

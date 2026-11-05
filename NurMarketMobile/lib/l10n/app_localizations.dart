@@ -12249,6 +12249,90 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Чтобы найти Bluetooth-принтер на этом Android, включите «Местоположение».'**
   String get prnLocationOff;
+
+  /// No description provided for @clearCheckAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Очистить текущий чек?'**
+  String get clearCheckAsk;
+
+  /// No description provided for @qtyReduced.
+  ///
+  /// In ru, this message translates to:
+  /// **'Количество уменьшено'**
+  String get qtyReduced;
+
+  /// No description provided for @heldDeleteAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'Удалить отложенный чек на {sum} сом?'**
+  String heldDeleteAsk(String sum);
+
+  /// No description provided for @qtySure.
+  ///
+  /// In ru, this message translates to:
+  /// **'Точно {qty}? Это очень много.'**
+  String qtySure(String qty);
+
+  /// No description provided for @phoneClockWrong.
+  ///
+  /// In ru, this message translates to:
+  /// **'Время на телефоне неверное — исправьте дату и время в настройках. Продажи идут по времени сервера.'**
+  String get phoneClockWrong;
+
+  /// No description provided for @payWaiting.
+  ///
+  /// In ru, this message translates to:
+  /// **'Проводим оплату…'**
+  String get payWaiting;
+
+  /// No description provided for @payShortfall.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сервер посчитал {total} сом — доберите ещё {rest} сом'**
+  String payShortfall(String total, String rest);
+
+  /// No description provided for @closeShiftCartAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'В чеке остались позиции: {n}. Что сделать?'**
+  String closeShiftCartAsk(int n);
+
+  /// No description provided for @syncServerDown.
+  ///
+  /// In ru, this message translates to:
+  /// **'Сервер не отвечает с {time}. Продажи ждут: {n}. Телефон отправит их сам.'**
+  String syncServerDown(String time, int n);
+
+  /// No description provided for @prnSunmi.
+  ///
+  /// In ru, this message translates to:
+  /// **'Встроенный принтер Sunmi'**
+  String get prnSunmi;
+
+  /// No description provided for @prnSunmiHint.
+  ///
+  /// In ru, this message translates to:
+  /// **'Чек печатается средствами Sunmi, все буквы (ң ө ү ş ğ) выходят правильно. Bluetooth, сеть и USB при этом не используются.'**
+  String get prnSunmiHint;
+
+  /// No description provided for @scaleBindOverwrite.
+  ///
+  /// In ru, this message translates to:
+  /// **'У товара «{name}» PLU {old}, будет {plu}. Весы, запрограммированные на PLU {old}, перестанут его находить. Записать?'**
+  String scaleBindOverwrite(String name, String old, String plu);
+
+  /// No description provided for @apiSaleDuplicateLine.
+  ///
+  /// In ru, this message translates to:
+  /// **'Один товар в чеке с разной ценой или единицей: сервер не может объединить строки. Оставьте одну цену или уберите лишнюю строку.'**
+  String get apiSaleDuplicateLine;
+
+  /// No description provided for @payLinesMerged.
+  ///
+  /// In ru, this message translates to:
+  /// **'Одинаковые строки чека объединены в одну.'**
+  String get payLinesMerged;
 }
 
 class _AppLocalizationsDelegate

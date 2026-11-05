@@ -7,8 +7,8 @@ namespace NurMarketKassa.Tests.Concurrency;
 /// <summary>
 /// КОНКУРЕНТНОСТЬ: <see cref="DeferredCartsStore"/> — «прочитать-изменить-сохранить» из нескольких потоков.
 /// <para>
-/// Хранилище пишет в РЕАЛЬНЫЙ файл профиля пользователя
-/// (<c>%APPDATA%\NurMarketKassa\deferred_carts.json</c>), поэтому класс снимает побайтовый бэкап
+/// 2026-11-05: хранилище пишет в файл внутри NURMARKET_DATA_ROOT (в тестах — временная папка; раньше — в РЕАЛЬНЫЙ профиль
+/// <c>%APPDATA%\NurMarketKassa\deferred_carts.json</c>), поэтому класс снимает побайтовый бэкап
 /// файла в конструкторе и точно восстанавливает его в <see cref="Dispose"/> — включая случай,
 /// когда файла изначально не было (тогда он удаляется). Восстановление происходит и при падении
 /// теста, потому что xUnit всегда вызывает Dispose. Все тестовые записи используют префикс
@@ -18,7 +18,7 @@ namespace NurMarketKassa.Tests.Concurrency;
 public sealed class DeferredCartsStoreConcurrencyTests : IDisposable
 {
     private static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming, // 2026-11-05: путь строит AppPaths — в тестах это временная NURMARKET_DATA_ROOT
         "NurMarketKassa",
         "deferred_carts.json");
 

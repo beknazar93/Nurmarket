@@ -38,7 +38,7 @@ public sealed class BarcodePrintSettings
 public static class BarcodePrintSettingsStore
 {
     private static readonly string FilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         NurMarketKassa.Services.AppMode.DataFolderName, "barcode-print-settings.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };

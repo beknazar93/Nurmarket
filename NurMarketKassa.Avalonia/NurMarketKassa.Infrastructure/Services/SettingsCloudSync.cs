@@ -1025,7 +1025,7 @@ public static class SettingsCloudSync
     {
         try
         {
-            var dir = BackupDirectoryOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "backups", "settings-migration");
+            var dir = BackupDirectoryOverride ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "backups", "settings-migration");
             Directory.CreateDirectory(dir);
             var safeCompany = new string(companyId.Where(char.IsLetterOrDigit).ToArray());
             var path = Path.Combine(dir, $"{DateTime.UtcNow:yyyyMMdd-HHmmss-fff}-{(safeCompany.Length > 0 ? safeCompany : "company")}.json");

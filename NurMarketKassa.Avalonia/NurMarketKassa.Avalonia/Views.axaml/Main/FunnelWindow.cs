@@ -101,7 +101,7 @@ public sealed class FunnelWindow : Window, IOwnerSection
     private readonly List<(Avalonia.Input.GestureRecognizers.ScrollGestureRecognizer Recognizer, bool H, bool V)> _pausedScroll = new();
 
     private static string StorePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "funnel.json");
+        NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "funnel.json");
 
     public FunnelWindow()
     {

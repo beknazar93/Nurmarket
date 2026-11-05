@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show BooleanExpressionOperators, StringExpressionOperators;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -26,7 +27,8 @@ class AccountSwitch {
   static const lastOwnerKey = 'session.lastOwner';
 
   /// Не стирается: метка «ключи поиска приведены к новому виду» (миграция базы), данных аккаунта в ней нет.
-  static const _keepKeys = {'search.keyV'};
+  // 2026-11-05: и случайный номер установки `device.key` (поле device_key чека; личных данных в нём нет, у установки он один)
+  static const _keepKeys = {'search.keyV', 'device.key'};
 
   /// Секреты телефона, привязанные к аккаунту: ключи ИИ (Gemini, Groq, OpenRouter), сопряжение с кассой (PhoneLink), вход.
   static const secretKeys = [...VisionService.accountSecretKeys, 'kassa.link.pairing', 'kassa.link.phone', 'kassa.link.seq', 'nurmarket.session'];
@@ -137,7 +139,8 @@ class AccountSwitch {
       await db.delete(db.products).go();
       await db.delete(db.productVariants).go(); // 2026-10-31: размеры и цвета прошлого аккаунта
       await db.delete(db.variantChecks).go();
-      await (db.delete(db.settings)..where((s) => s.key.isNotIn(_keepKeys))).go();
+      // 2026-11-05 (М6-03): журнал «Удалено из чека» привязан к аккаунту и выходом не стирается (ключи deletions.log.<логин>)
+      await (db.delete(db.settings)..where((s) => s.key.isNotIn(_keepKeys) & s.key.like('deletions.log.%').not())).go();
     });
     await _wipeSecrets(deleteSecret);
     await _wipeFiles(directory);

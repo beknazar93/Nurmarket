@@ -240,7 +240,7 @@ class _DeleteDialogState extends State<_DeleteDialog> {
                 child: Text(
                   l.pdStockWarn(qtyText(widget.stock), p.unit),
                   key: const Key('deleteStockWarn'),
-                  style: const TextStyle(color: T.danger, fontWeight: FontWeight.w700),
+                  style: TextStyle(color: context.pal.danger, fontWeight: FontWeight.w700),
                 ),
               ),
             ],

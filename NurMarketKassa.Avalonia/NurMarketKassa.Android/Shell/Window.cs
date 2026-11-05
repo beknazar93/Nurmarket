@@ -141,6 +141,7 @@ public class Window : WindowBase
 
     private TaskCompletionSource<object?>? _dialogResult;
     private bool _closing;
+    private bool _touchedSinceOpen;
 
     public Window()
     {
@@ -150,6 +151,8 @@ public class Window : WindowBase
         this[!FontFamilyProperty] = this.GetResourceObservable("AppFontFamily").ToBinding();
         this[!FontSizeProperty] = this.GetResourceObservable("AppFontSize").ToBinding();
         Focusable = true;
+        // 2026-11-05 (аудит №4, А4-29): касание окна после открытия — кассир сам выбрал поле, клавиатуру не прячем.
+        AddHandler(PointerPressedEvent, (_, _) => _touchedSinceOpen = true, RoutingStrategies.Tunnel, handledEventsToo: true);
         KeyboardNavigation.SetTabNavigation(this, KeyboardNavigationMode.Cycle);
         ClipToBounds = true;
         Template = ChromeTemplate;
@@ -175,7 +178,7 @@ public class Window : WindowBase
             Content = "✕",
             FontSize = 18,
             MinWidth = 52,
-            MinHeight = 44,
+            MinHeight = 48, // 2026-11-05 (аудит №4, А4-21): цель касания не меньше 48 dp
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,
             Background = Brushes.Transparent,
@@ -185,7 +188,7 @@ public class Window : WindowBase
         DockPanel.SetDock(close, Dock.Right);
         var bar = new Border
         {
-            MinHeight = 44,
+            MinHeight = 48,
             [!Border.BackgroundProperty] = window.GetResourceObservable("BrushPanelElevated").ToBinding(),
             [!Border.BorderBrushProperty] = window.GetResourceObservable("BrushBorder").ToBinding(),
             BorderThickness = new Thickness(0, 0, 0, 1),
@@ -379,9 +382,11 @@ public class Window : WindowBase
             // 2026-10-04, владелец: «при оплате клавиатура мешает»; Z-отчёт и другие окна тоже ставят курсор в поле
             // при открытии — экранная клавиатура выезжала сама и закрывала окно. Курсор остаётся (сканер и
             // USB-клавиатура пишут в поле), а экранная клавиатура появится, когда кассир сам нажмёт на поле.
+            // 2026-11-05 (А4-29): если кассир уже коснулся окна (выбрал поле), клавиатуру через 150/600 мс не прячем.
+            _touchedSinceOpen = false;
             HideSoftKeyboard();
-            DispatcherTimer.RunOnce(HideSoftKeyboard, TimeSpan.FromMilliseconds(150));
-            DispatcherTimer.RunOnce(HideSoftKeyboard, TimeSpan.FromMilliseconds(600));
+            DispatcherTimer.RunOnce(() => { if (!_touchedSinceOpen) HideSoftKeyboard(); }, TimeSpan.FromMilliseconds(150));
+            DispatcherTimer.RunOnce(() => { if (!_touchedSinceOpen) HideSoftKeyboard(); }, TimeSpan.FromMilliseconds(600));
         }, DispatcherPriority.Loaded);
     }
 

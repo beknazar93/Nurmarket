@@ -1118,7 +1118,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
     private sealed record SavedChat(string Id, DateTime At, string Title, List<SavedLine> Lines);
 
     private static string ChatsPath => System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "ai-chats.json");
+        NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "ai-chats.json");
 
     private static List<SavedChat> LoadChats()
     {
@@ -1387,6 +1387,9 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             () => _ = GeminiKeysWindow.ShowAsync(this).ContinueWith(_ => Dispatcher.UIThread.Post(RefreshKeyCard), TaskScheduler.Default));
         Item("☀ " + T("Утренний отчёт…", "Эртең мененки отчёт…", "Morning report…", "Sabah raporu…", "Ertalabki hisobot…"), () => _ = MorningReportSettingsWindow.ShowAsync(this));
         Item("✉ " + T("Напоминания должникам…", "Карыздарга эскертүүлөр…", "Debt reminders…", "Borç hatırlatmaları…", "Qarz eslatmalari…"), OpenDebtReminders);
+        // 2026-11-05 (волна 2-А): просрочка при продаже, автозаказ v2, подсказки цены, оповещения «Сообщать в Telegram, если…».
+        Item("⚙ " + T("Автоматизация магазина…", "Дүкөндү автоматташтыруу…", "Shop automation…", "Mağaza otomasyonu…", "Do'kon avtomatlashtirish…"), () => _ = ShopAutomationWindow.ShowAsync(this));
+        Item("🛡 " + T("Подозрительные операции…", "Шектүү операциялар…", "Suspicious operations…", "Şüpheli işlemler…", "Shubhali amallar…"), () => _ = FraudWindow.ShowAsync(this)); // 2026-11-05 (волна 2-Б, функция 2)
         models.Flyout = gearMenu;
         buttons.Children.Add(models);
         Grid.SetColumn(buttons, 1);

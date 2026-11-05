@@ -16,6 +16,9 @@ public static class ProductExpiryIndex
     private static readonly SemaphoreSlim Gate = new(1, 1);
     private static Dictionary<string, Mark> _marks = new(StringComparer.OrdinalIgnoreCase);
     private static DateTime _loadedUtc = DateTime.MinValue;
+    // 2026-11-05 (ревью волн 0–3, С4): неудачная попытка тоже откладывает следующую на 5 минут — иначе при медленном сервере или 403 (нет прав на аналитику)
+    // каждый скан ставил в очередь новый тяжёлый запрос.
+    private static DateTime _failedUtc = DateTime.MinValue;
 
     public static IReadOnlyDictionary<string, Mark> Marks => _marks;
 
@@ -24,12 +27,12 @@ public static class ProductExpiryIndex
     /// <summary>Сроки с сервера (из кеша, если моложе 5 минут). Ошибка — прежние данные.</summary>
     public static async Task<IReadOnlyDictionary<string, Mark>> RefreshAsync(bool force = false, CancellationToken ct = default)
     {
-        if (!force && DateTime.UtcNow - _loadedUtc < MaxAge)
+        if (!force && (DateTime.UtcNow - _loadedUtc < MaxAge || DateTime.UtcNow - _failedUtc < MaxAge))
             return _marks;
         await Gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (!force && DateTime.UtcNow - _loadedUtc < MaxAge)
+            if (!force && (DateTime.UtcNow - _loadedUtc < MaxAge || DateTime.UtcNow - _failedUtc < MaxAge))
                 return _marks;
             var today = DateTime.Today;
             var report = await PosApp.SalesApi.MarketProductsReportAsync(today, today, ct).ConfigureAwait(false);
@@ -51,11 +54,13 @@ public static class ProductExpiryIndex
             }
             _marks = marks;
             _loadedUtc = DateTime.UtcNow;
+            _failedUtc = DateTime.MinValue;
             return marks;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!(ex is OperationCanceledException && ct.IsCancellationRequested)) // тайм-аут HttpClient (TaskCanceledException) — тоже ошибка запроса, а не отмена
         {
-            PosLogger.Log($"Сроки годности: не получены с сервера ({ex.Message}).", "WARNING");
+            _failedUtc = DateTime.UtcNow;
+            PosLogger.Log($"Сроки годности: не получены с сервера ({ex.Message}) — следующая попытка через 5 минут, проверка просрочки пока по старым данным.", "WARNING");
             return _marks;
         }
         finally

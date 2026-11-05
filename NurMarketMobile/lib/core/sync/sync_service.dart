@@ -40,6 +40,63 @@ class SyncService {
   /// останавливал всю очередь навсегда. Обрыв связи (нет ответа) попытки не тратит — очередь просто ждёт.
   static const maxServerAttempts = 3;
 
+  /// 2026-11-05 (аудит №4, М6-05): сервер лежит (502/503/504/408/429 и 500) — продажи НЕ уходят в «Не принято»: ждут с
+  /// нарастающей паузой 20 с → 40 с → 80 с … до 10 минут. Раньше 3 попытки (~1 минута) — и каждая продажа за 10-минутную
+  /// выкладку сервера становилась «Не принято», а смену нельзя было закрыть. Шлюзовые коды и тайм-аут ждут до [serverDownMaxAge]
+  /// с первой ошибки сервера по записи; «чистая» 500 (может быть ошибкой именно этого чека) — [maxServer500Attempts] попыток, потом «Не принято».
+  static const serverDownMaxAge = Duration(hours: 24);
+  static const maxServer500Attempts = 8;
+  static const serverDownPauseMax = Duration(minutes: 10);
+
+  /// Когда сервер перестал отвечать (null — отвечает). Для плашки «Сервер не отвечает с ЧЧ:ММ» на экране «Синхронизация».
+  DateTime? serverDownSince;
+
+  /// Сколько записей очереди ждёт из-за недоступного сервера (по последнему проходу).
+  int serverDownWaiting = 0;
+  int _serverDownStreak = 0;
+  DateTime? _retryAt;
+
+  /// 2026-11-05 (ревью волн 0–3, М-2/М-3): счёт ответов сервера 5xx по записи хранится в базе (таблица настроек, ключ `sync.srv.<id>`,
+  /// значение `n500|первая ошибка|последняя ошибка`), а не в памяти: перезапуск приложения и каждый фоновый проход (новый SyncService)
+  /// больше не обнуляют его, и один «плохой» чек не держит очередь сутками. «Сдаться по возрасту» считается от ПЕРВОЙ ошибки сервера
+  /// по этой записи, а не от создания чека (чек, пролежавший офлайн больше суток, при первой же 502 не уходит в «Не принято»).
+  /// Пауза между ошибками дольше [serverTallyGap] — счёт начинается заново.
+  static const serverTallyGap = Duration(hours: 2);
+  static String tallyKey(String id) => 'sync.srv.$id';
+
+  static ({int n500, DateTime first, DateTime last}) parseTally(String? value, DateTime now) {
+    final parts = (value ?? '').split('|');
+    if (parts.length == 3) {
+      final n = int.tryParse(parts[0]);
+      final first = DateTime.tryParse(parts[1]);
+      final last = DateTime.tryParse(parts[2]);
+      if (n != null && first != null && last != null && now.difference(last) <= serverTallyGap) {
+        return (n500: n, first: first, last: last);
+      }
+    }
+    return (n500: 0, first: now, last: now);
+  }
+
+  static String formatTally(int n500, DateTime first, DateTime last) => '$n500|${first.toIso8601String()}|${last.toIso8601String()}';
+
+  Future<void> _clearTally(String id) async {
+    try {
+      await db.customStatement('DELETE FROM settings WHERE key = ?', [tallyKey(id)]);
+    } catch (_) {
+      // счёт — вспомогательный; не вышло убрать — устареет сам (serverTallyGap)
+    }
+  }
+
+  /// Пауза после [streak]-й подряд неудачи сервера: 20 с, 40 с, 80 с … не больше [serverDownPauseMax].
+  static Duration serverDownPause(int streak) {
+    final sec = 20 * (1 << (streak <= 1 ? 0 : (streak - 1).clamp(0, 10)));
+    final d = Duration(seconds: sec);
+    return d > serverDownPauseMax ? serverDownPauseMax : d;
+  }
+
+  /// Ответ сервера «лежу / перегружен»: запись остаётся ждать (а не «Не принято»).
+  static bool isServerDown(ApiException e) => e.status != null && (e.status! >= 500 || e.status == 408 || e.status == 429);
+
   /// 2026-10-29 (аудит, п. 3): кто держит замок отправки очереди — 'app' (основной изолят) или 'bg' (фоновая задача WorkManager).
   final String lockOwner;
 
@@ -79,6 +136,8 @@ class SyncService {
   void _tick() {
     final f = _failedAt;
     if (f != null && DateTime.now().difference(f) < failedBackoff) return;
+    final r = _retryAt; // 2026-11-05 (М6-05): пауза после ответа «сервер не работает» нарастает до 10 минут
+    if (r != null && DateTime.now().isBefore(r)) return;
     runOnce();
   }
 
@@ -186,6 +245,8 @@ class SyncService {
   Future<void> _drainQueue() async {
     final me = owner();
     final legacy = await db.getSetting(OutboxMeta.legacyOwnerSetting);
+    var downThisPass = false;
+    var waiting = 0;
     for (final row in await db.pending()) {
       // К-6: чек другого аккаунта (вход сменили) — не отправляем под этим токеном, ждёт входа своим логином.
       if (!OutboxMeta.belongsTo(row, me, legacyOwner: legacy)) continue;
@@ -200,6 +261,7 @@ class SyncService {
           case 'sale':
             final resp = await sales.replay(row);
             await db.markSent(row.id, serverId: str(resp, 'id'), serverNumber: str(resp, 'number'));
+            SalesRepository.noteWarnings(resp, number: str(resp, 'number')); // 2026-11-05: below_cost / negative_stock досылки — в журнал
           case 'bonus':
             await sales.replayBonus(row); // 2026-11-01 (М-05): бонусы клиента, не прошедшие сразу после продажи
           case 'receive':
@@ -208,6 +270,7 @@ class SyncService {
             await stock.replayAudit(row, fromQueue: true); // 2026-10-29: из очереди ревизия не проводится (см. replayAudit)
         }
         lastError = null;
+        await _clearTally(row.id);
       } on ApiException catch (e) {
         lastError = e.message;
         if (e.status == 401) {
@@ -237,6 +300,30 @@ class SyncService {
           await db.markAttempt(row.id, ApiText.saleTooOld, failed: true);
           continue;
         }
+        // 2026-11-05 (сервер ceba67c): 400 duplicate_line на досылке — тот же товар по разной цене/единице; причина понятным текстом, в «Не принято»
+        if (e.status == 400 && row.kind == 'sale' && SalesRepository.isDuplicateLine(e.payload)) {
+          lastError = ApiText.saleDuplicateLine;
+          await db.markAttempt(row.id, ApiText.saleDuplicateLine, failed: true);
+          continue;
+        }
+        if (isServerDown(e)) {
+          // 2026-11-05 (М6-05): сервер недоступен — запись ждёт; в «Не принято» только «чистая» 500 после многих попыток
+          // или запись старше суток. Порядок очереди не нарушаем.
+          final now = DateTime.now();
+          final tally = parseTally(await db.getSetting(tallyKey(row.id)), now);
+          final n500 = tally.n500 + (e.status == 500 ? 1 : 0);
+          final old = now.difference(tally.first) > serverDownMaxAge;
+          final giveUp = old || (e.status == 500 && n500 >= maxServer500Attempts);
+          await db.markAttempt(row.id, e.message, failed: giveUp);
+          if (giveUp) {
+            await _clearTally(row.id);
+            continue;
+          }
+          await db.setSetting(tallyKey(row.id), formatTally(n500, tally.first, now));
+          downThisPass = true;
+          waiting = await db.pendingCountFor(me, legacyOwner: legacy);
+          break;
+        }
         if (e.isTransient) {
           final giveUp = row.attempts + 1 >= maxServerAttempts;
           await db.markAttempt(row.id, e.message, failed: giveUp);
@@ -252,6 +339,17 @@ class SyncService {
         await db.markAttempt(row.id, '$e', failed: giveUp);
         if (!giveUp) break;
       }
+    }
+    if (downThisPass) {
+      _serverDownStreak++;
+      serverDownSince ??= DateTime.now();
+      serverDownWaiting = waiting;
+      _retryAt = DateTime.now().add(serverDownPause(_serverDownStreak));
+    } else {
+      _serverDownStreak = 0;
+      serverDownSince = null;
+      serverDownWaiting = 0;
+      _retryAt = null;
     }
   }
 }

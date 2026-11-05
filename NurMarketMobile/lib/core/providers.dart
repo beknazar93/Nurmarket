@@ -14,6 +14,8 @@ import '../features/shift/shift_repository.dart';
 import '../features/stock/product_packages.dart' show PiecePack;
 import '../features/stock/stock_repository.dart';
 import 'api/api_client.dart';
+import 'api/checkout_device.dart';
+import 'api/server_capabilities.dart';
 import 'api/session_store.dart';
 import 'db/database.dart';
 import 'ai/ai_language.dart';
@@ -118,6 +120,10 @@ class SessionController extends Notifier<Session?> {
     // 13.10: доступы сотрудника — при каждом запуске (владелец мог их поменять на сайте), вход не ждёт.
     unawaited(refreshProfile());
     unawaited(refreshLanguagePack()); // 2026-11-05: пакет «Язык» — обновить с сервера; потеряли пакет — платный язык сбросится на русский
+    // 2026-11-05 (сервер ceba67c): признаки сервера — сначала последний известный список этого аккаунта (офлайн-старт считает чек по тем же правилам),
+    // потом свежий с сервера в фоне (список отдаётся только после входа)
+    await ServerCapabilities.loadCached(ref.read(databaseProvider), OutboxMeta.ownerOf(s));
+    unawaited(ServerCapabilities.refresh(_api, ref.read(databaseProvider), OutboxMeta.ownerOf(s)));
     return true;
   }
 
@@ -145,6 +151,7 @@ class SessionController extends Notifier<Session?> {
       if (cur == null || profile is! Map) return false;
       final user = (profile['user'] is Map ? profile['user'] : profile) as Map;
       final u = user.cast<String, dynamic>();
+      CheckoutDevice.branch = CheckoutDevice.branchOf(profile.cast<String, dynamic>(), u); // 2026-11-05: филиал сотрудника — в тело чека (checkout_branch)
       final s = cur.copyWith(
         // 2026-10-27: номер пользователя подгружается, если при входе профиль не загрузился (нужен для списка «Доступ к ИИ»)
         userId: cur.userId.isEmpty ? (str(u, 'id') ?? '') : cur.userId,
@@ -201,6 +208,7 @@ class SessionController extends Notifier<Session?> {
       final profile = (await _api.get('api/users/profile/')) as Map<String, dynamic>;
       final user = (profile['user'] is Map ? profile['user'] : profile) as Map;
       final u = user.cast<String, dynamic>();
+      CheckoutDevice.branch = CheckoutDevice.branchOf(profile, u); // 2026-11-05: филиал сотрудника — в тело чека (checkout_branch)
       final name = [str(u, 'first_name'), str(u, 'last_name')].whereType<String>().join(' ').trim();
       s = s.copyWith(
         userId: str(u, 'id') ?? '',
@@ -240,6 +248,9 @@ class SessionController extends Notifier<Session?> {
     // 2026-11-05 (языковой пакет): состояние пакета «Язык» этого аккаунта — до выбора языка. Нет пакета — только ru и ky.
     await LanguagePackGate.loadCached(db, owner);
     await LanguagePackGate.refresh(_api, db, owner);
+    // 2026-11-05 (сервер ceba67c): признаки сервера этого аккаунта (смена аккаунта — список прошлого сбрасывается); сбой не мешает входу и не запоминается
+    await ServerCapabilities.loadCached(db, owner);
+    await ServerCapabilities.refresh(_api, db, owner);
     // язык интерфейса нового аккаунта — с сервера (если прислал и пользователь сам не выбирал на экране входа)
     // 2026-11-05: платный язык из профиля сервера без пакета не включаем
     if (serverLang != null && LanguagePackGate.isAvailable(serverLang) && (await db.getSetting('ui.lang') ?? '').isEmpty) {
@@ -346,6 +357,8 @@ class SessionController extends Notifier<Session?> {
     ref.read(cartProvider.notifier).clear(force: true); // 2026-11-05 (М4-01): выход чистит чек всегда
     await ref.read(cartProvider.notifier).flush();
     await LanguagePackGate.reset(ref.read(databaseProvider)); // 2026-11-05: пакет «Язык» прошлого аккаунта не действует
+    await ServerCapabilities.reset(ref.read(databaseProvider)); // 2026-11-05: признаки сервера и филиал прошлого аккаунта не действуют
+    CheckoutDevice.branch = '';
     ref.read(shiftProvider.notifier).reset();
     ref.read(accountLoadProvider.notifier).set(const AccountLoadState());
     state = null;

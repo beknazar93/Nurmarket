@@ -131,13 +131,15 @@
             <Setter Property="Padding" Value="16,10"/>
         </Style>
         <!-- 2026-11-01: единая кнопка верхней панели (общий стиль top-tool, PosDialogStyles): 72×52 (подпись «Клавиатура» при 58 обрезалась у края). -->
+        <!-- 2026-11-05 (аудит №4, Д4-02): ширина не зашита (было Width=72, подпись «Клавиат…» обрезалась, в ky/uz — длиннее): MinWidth 72 + по содержимому. -->
         <Style Selector="Button.header-tool">
-            <Setter Property="Width" Value="72"/>
+            <Setter Property="Width" Value="NaN"/>
+            <Setter Property="MinWidth" Value="72"/>
             <Setter Property="Height" Value="52"/>
-            <Setter Property="Padding" Value="2,4"/>
+            <Setter Property="Padding" Value="6,4"/>
         </Style>
         <Style Selector="TextBlock.header-tool-label">
-            <Setter Property="MaxWidth" Value="66"/>
+            <Setter Property="MaxWidth" Value="104"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
             <Setter Property="TextWrapping" Value="NoWrap"/>
             <Setter Property="TextAlignment" Value="Center"/>
@@ -156,6 +158,11 @@
         <Style Selector="Button.shift-action">
             <Setter Property="MinHeight" Value="44"/>
         </Style>
+        <!-- 2026-11-05 (аудит №4, Д4-01/Д4-10): из двух кнопок смены одна всегда недоступна (смена или открыта, или нет), и серая заливка недоступной читалась
+             заметнее активной. Недоступную прячем при любом размере окна (раньше — только в компактном виде): остаётся одна кнопка — та, что можно нажать. -->
+        <Style Selector="Button.shift-action:disabled">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
         <Style Selector="TextBlock.header-title">
             <Setter Property="MaxWidth" Value="360"/>
         </Style>
@@ -173,6 +180,7 @@
         </Style>
         <Style Selector=".compact Button.header-tool">
             <Setter Property="Width" Value="48"/>
+            <Setter Property="MinWidth" Value="48"/>
             <Setter Property="Height" Value="44"/>
         </Style>
         <Style Selector=".compact TextBlock.header-tool-label">
@@ -210,6 +218,7 @@
         </Style>
         <Style Selector=".headernarrow Button.header-tool">
             <Setter Property="Width" Value="48"/>
+            <Setter Property="MinWidth" Value="48"/>
             <Setter Property="Height" Value="44"/>
         </Style>
         <Style Selector=".headernarrow TextBlock.header-tool-label">

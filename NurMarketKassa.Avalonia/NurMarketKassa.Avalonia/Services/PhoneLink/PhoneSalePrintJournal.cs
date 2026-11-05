@@ -76,7 +76,7 @@ public sealed class PhoneSalePrintJournal
     public PhoneSalePrintJournal(string path) => _path = path;
 
     public static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         NurMarketKassa.Services.AppMode.DataFolderName,
         "data",
         "phone-print-journal.json");

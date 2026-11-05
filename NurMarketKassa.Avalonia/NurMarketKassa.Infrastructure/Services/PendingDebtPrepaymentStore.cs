@@ -27,7 +27,7 @@ public static class PendingDebtPrepaymentStore
 
     /// <summary>Путь к файлу. Тест/стенд может подменить, чтобы не трогать настоящий профиль.</summary>
     public static string FilePath { get; set; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         AppMode.DataFolderName,
         "pending_debt_prepayments.json");
 

@@ -32,6 +32,8 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
     internal static string Q(double v) => v.ToString("0.###", Ru);
 
     private readonly SupplierApiService _svc;
+    private readonly Button _hintsButton;
+    private List<PriceHint> _pendingHints = new(); // 2026-11-05 (В-1): подсказки цены по последнему фоновому приходу, пока окно открыто
     private bool _canDelete; // 2026-10-31: кнопка «Удалить» в истории приходов — есть право и сервер объявил receipt_delete
     private readonly Panel _host = new();
     private readonly Grid _main = new() { Margin = new Thickness(24, 16, 24, 20), RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto,Auto,*") };
@@ -102,24 +104,31 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         Use(_kpiLine, TextBlock.ForegroundProperty, "BrushText");
 
         // Наверху: «Рекомендуемый заказ», «Возврат поставщику» — обводкой, «＋ Приём товара» — единственная жёлтая кнопка экрана.
-        var top = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"), Margin = new Thickness(0, 0, 0, 12) };
+        // 2026-11-05 (приёмка волн 0–3, В-1): колонка 1 — «Подсказки цены (N)» после фонового прихода (видна, только когда подсказки есть).
+        var top = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto"), Margin = new Thickness(0, 0, 0, 12) };
+        _hintsButton = UiKit.Ghost(this, "");
+        _hintsButton.IsVisible = false;
+        _hintsButton.Margin = new Thickness(0, 0, 8, 0);
+        _hintsButton.Click += async (_, _) => await ShowPendingPriceHintsAsync().ConfigureAwait(true);
+        Grid.SetColumn(_hintsButton, 1);
+        top.Children.Add(_hintsButton);
         top.Children.Add(_hint);
         var recommend = UiKit.Ghost(this, T("Рекомендуемый заказ", "Сунушталган буйрутма", "Recommended order", "Önerilen sipariş", "Tavsiya etilgan buyurtma"));
         Avalonia.Automation.AutomationProperties.SetName(recommend, recommend.Content as string);
         recommend.Click += (_, _) => OpenRecommend(null);
-        Grid.SetColumn(recommend, 1);
+        Grid.SetColumn(recommend, 2);
         top.Children.Add(recommend);
         var giveBack = UiKit.Ghost(this, T("Возврат поставщику", "Жеткирүүчүгө кайтаруу", "Return to supplier", "Tedarikçiye iade", "Yetkazib beruvchiga qaytarish"));
         Avalonia.Automation.AutomationProperties.SetName(giveBack, giveBack.Content as string);
         giveBack.Margin = new Thickness(8, 0, 0, 0);
         giveBack.Click += async (_, _) => await ReturnAsync(null, null).ConfigureAwait(true);
-        Grid.SetColumn(giveBack, 2);
+        Grid.SetColumn(giveBack, 3);
         top.Children.Add(giveBack);
         var receive = UiKit.Primary(this, T("＋ Приём товара", "＋ Товар кабыл алуу", "＋ Receive goods", "＋ Mal kabul", "＋ Tovar qabul qilish"));
         Avalonia.Automation.AutomationProperties.SetName(receive, T("Приём товара от поставщика", "Жеткирүүчүдөн товар кабыл алуу", "Receive goods from a supplier", "Tedarikçiden mal kabul", "Yetkazib beruvchidan tovar qabul qilish"));
         receive.Margin = new Thickness(8, 0, 0, 0);
         receive.Click += (_, _) => OpenReceive(null);
-        Grid.SetColumn(receive, 3);
+        Grid.SetColumn(receive, 4);
         top.Children.Add(receive);
         top.Classes.Add("no-reflow");
 
@@ -1261,7 +1270,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             if (!_deleteKeys.TryGetValue(r.Id, out var deleteKey))
                 _deleteKeys[r.Id] = deleteKey = new PendingIdempotencyKey();
             var deleteKeyValue = deleteKey.Get(r.Id + "|" + reason);
-            await _svc.DeleteReceiptAsync(r.Id, reason, deleteKeyValue).ConfigureAwait(true);
+            await _svc.DeleteReceiptAsync(r.Id, reason, deleteKeyValue, default, r.Version).ConfigureAwait(true);
             deleteKey.OnSuccess();
             PosLogger.Log($"Закупки: приход {number} ({r.Id}) удалён, причина: {reason}.", "INFO");
             await ReloadAsync().ConfigureAwait(true);
@@ -1274,7 +1283,8 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
                 failedKey.OnError(ex); // исход неизвестен (тайм-аут, 5xx) — ключ остаётся для повтора; отказ по существу — забыт
             PosLogger.Log($"Закупки: приход {number} ({r.Id}) не удалён: {ex.Message}", "WARNING");
             await PosMessageBox.ShowModalAsync(this,
-                T("Приход не удалён: ", "Кирүү өчүрүлгөн жок: ", "The delivery was not deleted: ", "Giriş silinmedi: ", "Kirim o'chirilmadi: ") + ex.Message,
+                // 2026-11-05 (сервер ceba67c): 409 negative_stock / has_returns / debt_already_paid — понятные тексты на языке кассы, остальное — слова сервера.
+                T("Приход не удалён: ", "Кирүү өчүрүлгөн жок: ", "The delivery was not deleted: ", "Giriş silinmedi: ", "Kirim o'chirilmadi: ") + (ServerErrorCodes.Friendly(ex) ?? ex.Message),
                 T("Удаление прихода", "Кирүүнү өчүрүү", "Delete delivery", "Girişi sil", "Kirimni o'chirish"), MessageBoxButton.OK, MessageBoxImage.Warning).ConfigureAwait(true);
         }
     }

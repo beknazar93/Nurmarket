@@ -15,7 +15,8 @@ public static class ProductInfoResearch
 {
     public sealed record Finding(CatalogProductTileVm Product, string Text, IReadOnlyList<TelegramAiChat.WebSource> Sources);
 
-    private static readonly HttpClient Http = CreateHttp();
+    // 2026-11-05 (аудит скорости, Н-13/Н-19): internal set — тест подставляет клиента с поддельным медленным сервером.
+    internal static HttpClient Http { get; set; } = CreateHttp();
     private static readonly ConcurrentDictionary<string, (DateTime At, Finding Finding)> Cache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan CacheAge = TimeSpan.FromHours(1);
 
@@ -28,10 +29,8 @@ public static class ProductInfoResearch
 
     private static HttpClient CreateHttp()
     {
-        var http = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
-        // Open Food Facts просит указывать программу в User-Agent.
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("NurMarketKassa/1.17 (+https://nurcrm.kg)");
-        return http;
+        // Open Food Facts просит указывать программу в User-Agent. 2026-11-05 (Н-19): общая фабрика — сжатие, срок жизни соединения.
+        return ExternalHttp.Create(TimeSpan.FromSeconds(12), "NurMarketKassa/1.17 (+https://nurcrm.kg)");
     }
 
     /// <summary>Просьба о сведениях о товаре: дополнить, описать, заполнить карточку, найти состав/страну/производителя.</summary>
@@ -59,7 +58,9 @@ public static class ProductInfoResearch
             {
                 results[i] = await ResearchOneAsync(p, ct).ConfigureAwait(false);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            // 2026-11-05 (Н-13): срок источника (HttpClient.Timeout) — это OperationCanceledException при НЕ отменённом ct; раньше он
+            // уходил наверх и ломал весь ответ Советника. Теперь пропускаем только настоящую отмену пользователем.
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
             {
                 PosLogger.Log($"Сведения о товаре «{p.Title}»: не найдены ({ex.Message}).", "WARNING");
             }
@@ -146,7 +147,7 @@ public static class ProductInfoResearch
     public static async Task<IReadOnlyList<string>> SearchPageUrlsAsync(string query, CancellationToken ct) =>
         (await DuckDuckGoAsync(query, ct).ConfigureAwait(false)).Sources.Select(s => s.Uri).ToList();
 
-    private static async Task<(string Text, List<TelegramAiChat.WebSource> Sources)> DuckDuckGoAsync(string query, CancellationToken ct)
+    internal static async Task<(string Text, List<TelegramAiChat.WebSource> Sources)> DuckDuckGoAsync(string query, CancellationToken ct)
     {
         var sources = new List<TelegramAiChat.WebSource>();
         try
@@ -179,7 +180,8 @@ public static class ProductInfoResearch
             }
             return (string.Join("\n", lines), sources);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // 2026-11-05 (Н-13): срок источника не бросаем наверх — источник пропускается, остальное отвечает.
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             PosLogger.Log($"Сведения о товаре: поиск DuckDuckGo не удался ({ex.Message}).", "INFO");
             return ("", sources);
@@ -187,7 +189,7 @@ public static class ProductInfoResearch
     }
 
     /// <summary>Карточка из открытой базы по штрихкоду — строкой фактов; null — нет такого товара.</summary>
-    private static async Task<string?> OpenBaseAsync(string host, string barcode, CancellationToken ct)
+    internal static async Task<string?> OpenBaseAsync(string host, string barcode, CancellationToken ct)
     {
         try
         {
@@ -216,8 +218,11 @@ public static class ProductInfoResearch
             Add("отметки", S("labels"));
             return facts.Count > 0 ? string.Join("; ", facts) : null;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // 2026-11-05 (Н-13): срок открытой базы — «в этой базе нет», идём к следующей.
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
+            if (ExternalHttp.IsTimeout(ex, ct))
+                PosLogger.Log($"Сведения о товаре: {host} не ответил за 12 с — источник пропущен.", "INFO");
             return null;
         }
     }

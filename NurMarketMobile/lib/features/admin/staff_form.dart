@@ -466,7 +466,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
               if (self)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(l.rightSelfLocked, style: const TextStyle(color: T.warn, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  child: Text(l.rightSelfLocked, style: TextStyle(color: context.pal.warn, fontSize: 12.5, fontWeight: FontWeight.w600)),
                 ),
               if (!canRights)
                 Padding(

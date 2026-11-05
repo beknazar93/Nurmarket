@@ -43,6 +43,31 @@ double unitsToMoney(BigInt u) {
   return (neg ? -cents : cents) / 100;
 }
 
+/// 2026-11-05 (сервер ceba67c, признак `weight_line_total_floor`): `line_total` весовой строки = FLOOR(цена × вес до шага весов) − скидка,
+/// сумма строк = subtotal (66,00 × 0,343 с акцией 15 % → 22,63 − 3,40 = 19,23). Вниз округляется КАЖДАЯ позиция (строки одного товара по одной
+/// цене сервер склеивает), а не сумма всех весовых. Шаг весов — `scale_barcode_amount_unit` компании: tiyin = 0,01 (1 копейка), som = 1 сом (100).
+/// Выключено по умолчанию: без признака (старый сервер, список не получен) считаем «как раньше». Включает ServerCapabilities после входа.
+class ServerRounding {
+  static bool weightLineFloor = false;
+
+  /// Шаг весов в копейках: 1 (tiyin) или 100 (som).
+  static int weightStepCents = 1;
+
+  static void reset() {
+    weightLineFloor = false;
+    weightStepCents = 1;
+  }
+}
+
+/// Единицы → вниз до шага весов (для весовых строк при [ServerRounding.weightLineFloor]).
+BigInt _floorStep(BigInt u) {
+  final step = _unitsPerCent * BigInt.from(ServerRounding.weightStepCents < 1 ? 1 : ServerRounding.weightStepCents);
+  return (u ~/ step) * step;
+}
+
+/// Единицы → копейки HALF_UP, обратно в единицы (скидка позиции хранится целыми копейками).
+BigInt _roundCentsUnits(BigInt u) => moneyUnits(unitsToMoney(u));
+
 /// Доля процента от единиц — точно (единицы кратны 10^4, см. _exactDigits).
 BigInt _percentOf(BigInt units, double percent) => (units * _scaled(percent, 2)) ~/ BigInt.from(10000); // units кратны 10^4 — деление точное
 
@@ -227,7 +252,14 @@ class CartLine {
   }
 
   double get gross => unitsToMoney(grossUnits);
-  double get total => unitsToMoney(grossUnits - discountUnits);
+
+  /// 2026-11-05 (weight_line_total_floor): сумма весовой строки без скидки так, как её считает сервер — вниз до шага весов; остальные — как есть.
+  BigInt get _lineGrossUnits => ServerRounding.weightLineFloor && weighedForRounding ? _floorStep(grossUnits) : grossUnits;
+
+  /// Сумма строки для бумаги: вниз до шага весов у весовой (при признаке), иначе [gross].
+  double get printedGross => ServerRounding.weightLineFloor && weighedForRounding ? unitsToMoney(_lineGrossUnits) : gross;
+
+  double get total => unitsToMoney(_lineGrossUnits - discountUnits);
 }
 
 class Cart {
@@ -248,6 +280,7 @@ class Cart {
   /// Вниз округляется СУММА весовых строк, а не каждая (4,875 + 22,638 = 27,513 → 27,51). Строки считаются точно, без округления.
   /// Весовая — `CartLine.weighedForRounding` (чистый is_weight сервера, иначе isWeight). Результат — в единицах, кратных копейке.
   BigInt get _subtotalUnits {
+    if (ServerRounding.weightLineFloor) return _subtotalUnitsFloor;
     var weighed = BigInt.zero, other = BigInt.zero;
     for (final l in lines) {
       if (l.weighedForRounding) {
@@ -259,6 +292,30 @@ class Cart {
     final w = (weighed ~/ _unitsPerCent) * _unitsPerCent;
     final o = ((other + _unitsPerCent ~/ BigInt.two) ~/ _unitsPerCent) * _unitsPerCent;
     return w + o;
+  }
+
+  /// 2026-11-05 (weight_line_total_floor): весовые — каждая позиция (строки одного товара по одной цене склеены) вниз до шага весов, потом
+  /// складываются; остальные — сумма HALF_UP до 0,01, как раньше. 4,875 + 22,638 → 4,87 + 22,63 = 27,50.
+  BigInt get _subtotalUnitsFloor {
+    var weighed = BigInt.zero, other = BigInt.zero;
+    final groups = <String, BigInt>{};
+    for (final l in lines) {
+      if (l.weighedForRounding) {
+        final k = l.mergeKey;
+        if (k == null) {
+          weighed += _floorStep(l.grossUnits);
+        } else {
+          groups[k] = (groups[k] ?? BigInt.zero) + l.grossUnits;
+        }
+      } else {
+        other += l.grossUnits;
+      }
+    }
+    for (final g in groups.values) {
+      weighed += _floorStep(g);
+    }
+    final o = ((other + _unitsPerCent ~/ BigInt.two) ~/ _unitsPerCent) * _unitsPerCent;
+    return weighed + o;
   }
 
   /// 2026-11-01 (контрольный аудит, М2-01): скидки строк считаются по тем же позициям, что уходят на сервер: строки одного товара по одной цене
@@ -277,7 +334,9 @@ class Cart {
     for (final g in groups.values) {
       final first = g.first;
       if (first.hasPromo) {
-        total += promoDiscountUnits(first.promo, g.fold(0.0, (s, l) => s + l.qty), first.price);
+        final d = promoDiscountUnits(first.promo, g.fold(0.0, (s, l) => s + l.qty), first.price);
+        // 2026-11-05 (weight_line_total_floor): скидка весовой позиции — HALF_UP до копейки от точной суммы, своя у каждой позиции (22,638 × 15 % = 3,3957 → 3,40)
+        total += ServerRounding.weightLineFloor && first.weighedForRounding ? _roundCentsUnits(d) : d;
       } else {
         for (final l in g) {
           total += l.discountUnits;
@@ -309,6 +368,26 @@ class Cart {
   /// (4,875 + 22,638 = 27,513 → 27,51: 0,003). 0 — весовых строк нет или они сошлись до копейки.
   double get weightRounding {
     var weighed = BigInt.zero;
+    if (ServerRounding.weightLineFloor) {
+      // 2026-11-05 (weight_line_total_floor): вниз округляется каждая позиция, «съеденное» — сумма остатков по позициям
+      var flooredSum = BigInt.zero;
+      final groups = <String, BigInt>{};
+      for (final l in lines) {
+        if (!l.weighedForRounding) continue;
+        final k = l.mergeKey;
+        if (k == null) {
+          weighed += l.grossUnits;
+          flooredSum += _floorStep(l.grossUnits);
+        } else {
+          groups[k] = (groups[k] ?? BigInt.zero) + l.grossUnits;
+        }
+      }
+      for (final g in groups.values) {
+        weighed += g;
+        flooredSum += _floorStep(g);
+      }
+      return (weighed - flooredSum).toDouble() / (_unitsPerCent.toDouble() * 100);
+    }
     for (final l in lines) {
       if (l.weighedForRounding) weighed += l.grossUnits;
     }
@@ -316,6 +395,20 @@ class Cart {
     // 2026-11-05: точная доля копейки (0,003), а не округлённая до копейки — иначе всегда 0; на экране и в печати порог ≥ 0,005 прежний.
     return (weighed - floored).toDouble() / (_unitsPerCent.toDouble() * 100);
   }
+
+  /// 2026-11-05 (аудит №4, М6-06): сумма строк так, как они напечатаны на бумаге (каждая HALF_UP до копейки). С [subtotal] она может
+  /// расходиться на копейку: весовые 4,875 + 22,638 печатаются 4,88 + 22,64 = 27,52, а подытог сервера 27,51.
+  double get printedSubtotal {
+    var cents = 0;
+    for (final l in lines) {
+      cents += (roundMoney(l.printedGross) * 100).round(); // 2026-11-05: весовая — вниз до шага весов при weight_line_total_floor
+    }
+    return cents / 100;
+  }
+
+  /// 2026-11-05 (М6-06): строка «Округление» на чеке — сколько надо вычесть из суммы напечатанных строк, чтобы сошлось с итогом
+  /// (4,88 + 22,64 − 27,51 = 0,01). Может быть отрицательной (строки напечатаны меньше подытога). 0 — бумага сходится сама.
+  double get paperRounding => roundMoney(printedSubtotal - subtotal);
   double get lineDiscounts => unitsToMoney(_lineDiscountUnits);
   double get orderDiscount => unitsToMoney(_orderDiscountUnits);
 

@@ -100,6 +100,9 @@ public sealed partial class NurMarketApiClient : IDisposable
             Timeout = TimeSpan.FromSeconds(55),
         };
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        // 2026-11-05 (аудит №4, п. 4): сервер видит, какая версия кассы пришла (поддержка, будущие проверки совместимости).
+        try { _http.DefaultRequestHeaders.TryAddWithoutValidation("X-NurMarket-Client", "kassa/" + AppVersionInfo.CurrentVersionLabel); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Заголовок X-NurMarket-Client не добавлен: {ex.GetType().Name}", "WARNING"); }
         UserPayload = default;
         // 2026-09-29: этим клиентом ServerOutageMonitor проверяет, ожил ли сервер после аварии.
         ServerOutageMonitor.HealthProbe = ProbeServerHealthAsync;
@@ -1450,15 +1453,41 @@ public sealed partial class NurMarketApiClient : IDisposable
         if (requestTimeout.HasValue)
             linked.CancelAfter(requestTimeout.Value);
 
-        var slot = await AcquireSlotAsync(linked.Token).ConfigureAwait(false);
+        // 2026-11-05 (аудит №4, Л4-07/Л4-08): денежный POST без собственного ключа получает Idempotency-Key по подписи запроса (MoneyRequestKeys):
+        // повтор того же запроса после неизвестного исхода уходит с тем же ключом, а пока такой же ещё выполняется — второй не отправляется.
+        string? moneySig = null;
+        string? moneyKey = null;
+        if (MoneyRequestKeys.Applies(method, relativePath))
+        {
+            var json = jsonBody is null ? null : JsonSerializer.Serialize(jsonBody, _jsonWrite);
+            moneySig = MoneyRequestKeys.Signature(method, relativePath, json);
+            if (moneySig != null && !MoneyRequestKeys.TryBegin(moneySig, out moneyKey))
+            {
+                PosLogger.Log($"Денежный запрос {relativePath} уже выполняется — повтор не отправлен.", "WARNING");
+                throw MoneyRequestKeys.StillRunning();
+            }
+        }
+
         try
         {
-            return await SendOnceAsync(method, relativePath, jsonBody, query, linked.Token)
-                .ConfigureAwait(false);
+            var slot = await AcquireSlotAsync(linked.Token).ConfigureAwait(false);
+            try
+            {
+                var result = await SendOnceAsync(method, relativePath, jsonBody, query, linked.Token, idempotencyKey: moneyKey)
+                    .ConfigureAwait(false);
+                if (moneySig != null)
+                    MoneyRequestKeys.OnSuccess(moneySig);
+                return result;
+            }
+            finally
+            {
+                slot.Release();
+            }
         }
-        finally
+        catch (Exception ex) when (moneySig != null && moneyKey != null)
         {
-            slot.Release();
+            MoneyRequestKeys.OnError(moneySig, ex);
+            throw;
         }
     }
 
@@ -1468,12 +1497,15 @@ public sealed partial class NurMarketApiClient : IDisposable
         object? jsonBody,
         IReadOnlyDictionary<string, string>? query,
         CancellationToken ct,
-        bool retryThrottle = true)
+        bool retryThrottle = true,
+        string? idempotencyKey = null)
     {
         relativePath = ApiPathNormalizer.EnsureTrailingSlash(relativePath, method);
         var uri = BuildUri(relativePath, query);
         using var req = new HttpRequestMessage(method, uri);
         ApplyBearerAuthorization(req);
+        if (idempotencyKey != null)
+            req.Headers.TryAddWithoutValidation("Idempotency-Key", idempotencyKey); // 2026-11-05 (Л4-08)
         if (jsonBody is not null)
         {
             var json = JsonSerializer.Serialize(jsonBody, _jsonWrite);
@@ -1490,8 +1522,10 @@ public sealed partial class NurMarketApiClient : IDisposable
 
         // 2026-10-30 (приёмка 1.17.65, «Важно» 2): 429 — сервер отклонил запрос ДО обработки (ограничение частоты), повтор безопасен, в том числе POST.
         // Один повтор: общий щит (JwtBearerRefreshHandler) сам выдержит паузу Retry-After; не помогло — ApiException 429 («Сервер занят»), а не обрыв связи.
-        if ((int)resp.StatusCode == 429 && retryThrottle && ApiThrottle.RemainingBlock <= TimeSpan.FromSeconds(15) && !ct.IsCancellationRequested)
-            return await SendOnceAsync(method, relativePath, jsonBody, query, ct, retryThrottle: false).ConfigureAwait(false);
+        // 2026-11-05 (сервер ceba67c): 429 pin_locked на users/auth/pin/verify — блокировка PIN на 15 минут, а не «слишком частые запросы»: повторять бессмысленно.
+        if ((int)resp.StatusCode == 429 && retryThrottle && ApiThrottle.RemainingBlock <= TimeSpan.FromSeconds(15) && !ct.IsCancellationRequested
+            && !relativePath.Contains("pin/verify", StringComparison.OrdinalIgnoreCase))
+            return await SendOnceAsync(method, relativePath, jsonBody, query, ct, retryThrottle: false, idempotencyKey: idempotencyKey).ConfigureAwait(false);
 
         if (!resp.IsSuccessStatusCode)
         {

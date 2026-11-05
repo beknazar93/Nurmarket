@@ -1280,7 +1280,7 @@ internal static class SalaryPayoutService
     }
 
     private static string JournalPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "salary_payouts.json");
+        NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "salary_payouts.json");
 
     /// <summary>Замок: неразрешённая выплата этого сотрудника (ответ не дошёл) — новая выплата закрыта, пока владелец не решит.
     /// Пятая проверка: Readable=false — журнал не прочитался, замок неизвестен (выплаты закрыты); старые записи без компании —

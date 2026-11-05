@@ -104,7 +104,7 @@ public partial class WarehouseWindow
     /// <summary>Закупочные цены в выгрузке — только в программе владельца (вопрос В-7 ТЗ: кассиру закупку не показываем).
     /// 2026-10-29 (владелец: «где приходные цены?»): то же видит владелец/администратор магазина и автономный режим в обычной кассе —
     /// как доступ к ключам ИИ в настройках; кассир (роль не owner/admin) закупку по-прежнему не видит. Права «видеть закупку» в проекте нет.</summary>
-    internal static bool RevisionShowPurchase => AppMode.IsOwner || ReceivingMarkupDialog.CanEditSettings();
+    internal static bool RevisionShowPurchase => ReceivingMarkupDialog.CanEditSettings(); // 2026-11-05 (Л4-10): --owner сам по себе закупку не открывает
 
     // ------------------------------------------------------------------ сборка вкладки
 
@@ -277,6 +277,7 @@ public partial class WarehouseWindow
         _revStockLabel.VerticalAlignment = VerticalAlignment.Center;
         pillsRow.Children.Add(segment);
         pillsRow.Children.Add(_revStockLabel);
+        pillsRow.Children.Add(BuildCycleCountButton()); // 2026-11-05 (функция 9): «Пересчёт дня…»
 
         // --- карточка текущего товара
         var card = BuildRevisionCard();
@@ -682,6 +683,7 @@ public partial class WarehouseWindow
     private void RevisionAttach(RevisionSession s)
     {
         _rev = s;
+        CycleCountReset(); // 2026-11-05 (функция 9)
         _revChangedHandler = () => Dispatcher.UIThread.Post(RevisionScheduleTotals);
         s.Changed += _revChangedHandler;
         s.StockApplied = RevisionSession.ApplyToLocalCatalog;
@@ -726,6 +728,7 @@ public partial class WarehouseWindow
         if (s is not null && _revChangedHandler is not null)
             s.Changed -= _revChangedHandler;
         _revChangedHandler = null;
+        CycleCountReset(); // 2026-11-05 (функция 9)
         _revCurrent = null;
         _revScanQueue.Clear();
         _revView = new ObservableCollection<RevisionRow>();
@@ -826,12 +829,14 @@ public partial class WarehouseWindow
         if (s is null)
             return;
         var search = _revSearchBox.Text?.Trim() ?? "";
-        var key = ((int)_revFilter).ToString(CultureInfo.InvariantCulture) + "|" + search + "|" + _revCategory;
+        var key = ((int)_revFilter).ToString(CultureInfo.InvariantCulture) + "|" + search + "|" + _revCategory + "|" + (_cycleIds?.Count.ToString(CultureInfo.InvariantCulture) ?? "");
         if (!force && key == _revViewKey)
             return;
         _revViewKey = key;
         var watch = System.Diagnostics.Stopwatch.StartNew();
         var list = s.Filter(_revFilter, search, _revCategory);
+        if (_cycleIds is not null) // 2026-11-05 (функция 9): «Пересчёт дня» — в списке только выбранные позиции
+            list = list.Where(r => _cycleIds.Contains(r.ProductId)).ToList();
         _revView = new ObservableCollection<RevisionRow>(list);
         _revSuppressSel = true;
         _revList.ItemsSource = _revView;
@@ -945,7 +950,7 @@ public partial class WarehouseWindow
                 note = RevT($"Уже посчитано: {ReportFormat.Quantity(r.Fact ?? 0)} ({r.CountedAt:HH:mm})", $"Мурун саналган: {ReportFormat.Quantity(r.Fact ?? 0)} ({r.CountedAt:HH:mm})",
                     $"Already counted: {ReportFormat.Quantity(r.Fact ?? 0)} ({r.CountedAt:HH:mm})", $"Zaten sayıldı: {ReportFormat.Quantity(r.Fact ?? 0)} ({r.CountedAt:HH:mm})", $"Allaqachon sanalgan: {ReportFormat.Quantity(r.Fact ?? 0)} ({r.CountedAt:HH:mm})");
             else
-                note = "";
+                note = CycleCountStore.HistoryText(r.ProductId); // 2026-11-05 (функция 9): «Считали: 12.10.2026 (−2, порча)»
         }
 
         _revCardNote.Text = note;
@@ -1354,7 +1359,8 @@ public partial class WarehouseWindow
         if (s is null)
             return;
         RevisionCommitPending();
-        var ok = PosConfirmDialog.Show(this,
+        // 2026-11-05 (приёмка волн 0–3, Н-4): ничего не посчитано (0 позиций) — терять нечего, вопрос «Бросить ревизию?» не задаём.
+        var ok = s.CountedCount == 0 || PosConfirmDialog.Show(this,
             RevT("Бросить ревизию?", "Ревизияны таштайсызбы?", "Discard the stocktake?", "Sayım bırakılsın mı?", "Inventarizatsiya tashlansinmi?"),
             RevT($"Подсчёт ({s.CountedCount} позиций) будет удалён, остатки не изменятся.", $"Саноо ({s.CountedCount} позиция) өчүрүлөт, калдыктар өзгөрбөйт.",
                 $"The count ({s.CountedCount} items) will be deleted; stock will not change.", $"Sayım ({s.CountedCount} kalem) silinecek, stoklar değişmeyecek.", $"Hisob ({s.CountedCount} pozitsiya) o'chiriladi, qoldiqlar o'zgarmaydi."),
@@ -1393,10 +1399,14 @@ public partial class WarehouseWindow
             return;
         }
 
+        // 2026-11-05 (функция 9): причины расхождений (в примечание акта) и PIN владельца при крупной недостаче — до окна итога.
+        if (!s.IsPostingStarted && !await CycleCountBeforeFinishAsync(s).ConfigureAwait(true))
+            return;
         var dialog = new RevisionFinishDialog(s, api, RevisionRefreshForApplyAsync, RevisionShowExportMenu);
         await PosDialogHost.ShowAsync(dialog, this).ConfigureAwait(true);
         if (dialog.Result is { Status: RevisionApplyStatus.Done } done)
         {
+            CycleCountRecordDone(s); // 2026-11-05 (функция 9): история «когда считали товар»
             RevisionDetach();
             _viewModel.ReapplyProductFilter();
             RefreshWarehouseTotals();

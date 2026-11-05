@@ -101,8 +101,12 @@ internal sealed class AndroidPrinterTransport : IPlatformPrinterTransport
             return;
         if (AndroidBootstrap.AppContext.CheckSelfPermission(Manifest.Permission.BluetoothConnect) == Permission.Granted)
             return;
-        var activity = AndroidBootstrap.CurrentActivity;
-        activity?.RunOnUiThread(() => activity.RequestPermissions(new[] { Manifest.Permission.BluetoothConnect, Manifest.Permission.BluetoothScan }, 4712)); // 2026-11-05 (А3-08): 4711 — у камеры
+        // 2026-11-05 (аудит №4, А4-12/А4-13): раньше право запрашивалось и сразу бросалась ошибка — первый чек после установки
+        // не печатался. Теперь ждём ответ в окне Android (до 45 с) и печатаем дальше; код 4712 — в таблице AndroidPermissions.
+        AndroidPermissions.RequestAndWait(AndroidPermissions.Bluetooth, TimeSpan.FromSeconds(45),
+            Manifest.Permission.BluetoothConnect, Manifest.Permission.BluetoothScan);
+        if (AndroidBootstrap.AppContext.CheckSelfPermission(Manifest.Permission.BluetoothConnect) == Permission.Granted)
+            return;
         throw new InvalidOperationException(Tr.T("Разрешите программе доступ к Bluetooth (окно Android) и повторите печать.", "Программага Bluetooth'ка уруксат бериңиз (Android терезеси) жана басып чыгарууну кайталаңыз.", "Allow Bluetooth access for the app (Android prompt) and print again.", "Uygulamaya Bluetooth erişimi verin (Android penceresi) ve yeniden yazdırın.", "Dasturga Bluetooth ruxsatini bering (Android oynasi) va qayta chop eting."));
     }
 
@@ -137,20 +141,12 @@ internal sealed class AndroidPrinterTransport : IPlatformPrinterTransport
         var device = FindBluetoothDevice(port)
                      ?? throw new IOException(Tr.T("Bluetooth-принтер не найден среди сопряжённых устройств.", "Bluetooth-принтер жупташтырылган түзмөктөрдүн арасында табылган жок.", "Bluetooth printer not found among paired devices.", "Bluetooth yazıcı eşleştirilmiş cihazlar arasında bulunamadı.", "Bluetooth-printer ulangan qurilmalar orasida topilmadi."));
         try { Adapter?.CancelDiscovery(); } catch { /* поиск не шёл */ }
-        using var socket = device.CreateRfcommSocketToServiceRecord(SppUuid)
-                           ?? throw new IOException("Bluetooth: socket = null");
-        var connect = Task.Run(() => socket.Connect());
-        bool connected;
-        try { connected = connect.Wait(limit); }
-        catch (AggregateException ae) when (ae.InnerException is not null)
-        {
-            throw new IOException(ae.InnerException.Message, ae.InnerException); // не подключились — ничего не печаталось, повтор безопасен
-        }
-        if (!connected)
-        {
-            try { socket.Close(); } catch { /* закрываем, чтобы поток подключения не держал RFCOMM */ }
-            throw new PrinterPortService.PrinterStalledException(BluetoothInterruptedText());
-        }
+        // 2026-11-05 (аудит №4, А4-11): дешёвые 58-мм принтеры не принимают «защищённый» сокет («read failed, socket might closed»).
+        // Пробуем по очереди: обычный → «небезопасный» → скрытый createRfcommSocket(1); удачный способ запоминаем по адресу.
+        // Каждая попытка — не дольше 8 с (раньше три повтора по 15 с держали порт до 45 с). Все попытки неудачны — ничего не печаталось;
+        // повтор самим кассиром (PrinterStalledException — SendRawBytes не повторяет, чтобы не копить очередь ожиданий).
+        var socket = ConnectBluetooth(device, TimeSpan.FromSeconds(Math.Min(8, limit.TotalSeconds)));
+        using var socketGuard = socket;
         var stream = socket.OutputStream ?? throw new IOException("Bluetooth: нет потока записи");
         var write = Task.Run(() =>
         {
@@ -173,6 +169,69 @@ internal sealed class AndroidPrinterTransport : IPlatformPrinterTransport
         // Многие Bluetooth-принтеры теряют хвост чека, если соединение закрыть сразу.
         Thread.Sleep(Math.Min(1500, 200 + payload.Length / 20));
         socket.Close();
+    }
+
+    private static readonly Dictionary<string, int> BluetoothMethod = new(StringComparer.OrdinalIgnoreCase);
+
+    private static BluetoothSocket? CreateBluetoothSocket(BluetoothDevice device, int method)
+    {
+        switch (method)
+        {
+            case 1:
+                return device.CreateInsecureRfcommSocketToServiceRecord(SppUuid);
+            case 2:
+                // Скрытый метод createRfcommSocket(int) — последний запасной путь; на новых Android может быть закрыт.
+                var m = device.Class?.GetMethod("createRfcommSocket", Java.Lang.Integer.Type);
+                var created = m?.Invoke(device, new Java.Lang.Integer(1));
+                return created is null ? null : Android.Runtime.Extensions.JavaCast<BluetoothSocket>(created);
+            default:
+                return device.CreateRfcommSocketToServiceRecord(SppUuid);
+        }
+    }
+
+    private static BluetoothSocket ConnectBluetooth(BluetoothDevice device, TimeSpan perAttempt)
+    {
+        var key = device.Address ?? "";
+        var first = BluetoothMethod.TryGetValue(key, out var known) ? known : 0;
+        string? lastError = null;
+        for (var i = 0; i < 3; i++)
+        {
+            var method = (first + i) % 3;
+            BluetoothSocket? socket = null;
+            try
+            {
+                socket = CreateBluetoothSocket(device, method);
+                if (socket is null)
+                    continue;
+                var s = socket;
+                var connect = Task.Run(() => s.Connect());
+                if (connect.Wait(perAttempt))
+                {
+                    BluetoothMethod[key] = method;
+                    if (method != 0)
+                        PosLogger.Log($"Bluetooth: подключение способом {method} (0 — обычный, 1 — небезопасный, 2 — запасной).", "PRINTER");
+                    return socket;
+                }
+                lastError = "timeout";
+            }
+            catch (AggregateException ae)
+            {
+                lastError = ae.InnerException?.Message ?? ae.Message;
+            }
+            catch (Exception ex)
+            {
+                lastError = ex.Message;
+            }
+            try { socket?.Close(); } catch { /* закрываем, чтобы поток подключения не держал RFCOMM */ }
+            socket?.Dispose();
+        }
+        PosLogger.Log($"Bluetooth: не удалось подключиться ни одним способом ({lastError}).", "PRINTER");
+        throw new PrinterPortService.PrinterStalledException(Tr.T(
+            "Не удалось подключиться к Bluetooth-принтеру. Проверьте, что он включён и рядом, и повторите печать.",
+            "Bluetooth-принтерге туташуу мүмкүн болгон жок. Анын күйгүзүлгөнүн жана жакын экенин текшерип, кайра басыңыз.",
+            "Could not connect to the Bluetooth printer. Check that it is on and nearby, then print again.",
+            "Bluetooth yazıcıya bağlanılamadı. Açık ve yakında olduğundan emin olun, sonra yeniden yazdırın.",
+            "Bluetooth-printerga ulanib bo'lmadi. U yoqilgani va yaqinda ekanini tekshiring, so'ng qayta chop eting."));
     }
 
     private static string BluetoothInterruptedText() => Tr.T(

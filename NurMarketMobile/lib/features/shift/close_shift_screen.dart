@@ -11,6 +11,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 import '../ops/ops_repository.dart' show OpsRepository;
 import '../ops/tape_doc.dart';
+import '../sale/sale_screen.dart' show clearCartAudited;
 import 'shift_doc.dart';
 import 'shift_infographic.dart';
 import 'shift_repository.dart';
@@ -88,6 +89,47 @@ class _CloseShiftScreenState extends ConsumerState<CloseShiftScreen> {
     return (mine.where((r) => r.status == 'pending').length, mine.where((r) => r.status == 'failed' && r.kind == 'sale').length);
   }
 
+  /// 2026-11-05 (аудит №4, М6-24, паритет с кассой KindShiftClose): в чеке остались позиции — смена закрывается только после выбора:
+  /// отложить чек или очистить (каждая строка — в «Удалено из чека»). Иначе утром следующий кассир видел чужой чек.
+  /// 2026-11-05 (ревью волн 0–3, М-6): вопрос задаётся сразу, а сам чек отложить/очистить — только после последнего подтверждения
+  /// «Закрыть смену?» ([_applyOpenCart]); иначе «Отмена» во втором окне оставляла смену открытой, а чек уже стёртым.
+  /// Возвращает: '' — чек пуст, 'clear' / 'hold' — выбор кассира, null — отмена (смена не закрывается).
+  Future<String?> _askOpenCart() async {
+    final cart = ref.read(cartProvider);
+    if (cart.isEmpty) return '';
+    final l = context.l;
+    if (ref.read(cartProvider.notifier).frozen) {
+      toast(context, l.payInProgressScan, error: true);
+      return null;
+    }
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l.closeShiftCartAsk(cart.lines.length)),
+        content: Text('${money(cart.total)} ${l.som}'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: Text(l.cancel)),
+          TextButton(onPressed: () => Navigator.pop(c, 'clear'), child: Text(l.clearCheck, style: TextStyle(color: c.pal.danger))),
+          FilledButton(onPressed: () => Navigator.pop(c, 'hold'), child: Text(l.holdCheck)),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return null;
+    return choice;
+  }
+
+  /// Выполнить выбор из [_askOpenCart] (после подтверждения закрытия). true — можно закрывать смену.
+  Future<bool> _applyOpenCart(String choice) async {
+    if (choice.isEmpty) return true;
+    if (ref.read(cartProvider).isEmpty) return true; // за время вопросов чек уже опустел
+    if (choice == 'hold') {
+      await ref.read(opsRepoProvider).hold(ref.read(cartProvider), context.l.closeShift);
+      ref.read(cartProvider.notifier).clear();
+      return true;
+    }
+    return clearCartAudited(context, ref);
+  }
+
   Future<void> _close({bool ask = true}) async {
     final l = context.l;
     if (_busy) return;
@@ -108,6 +150,8 @@ class _CloseShiftScreenState extends ConsumerState<CloseShiftScreen> {
         return;
       }
       if (!mounted) return;
+      final cartChoice = await _askOpenCart();
+      if (cartChoice == null || !mounted) return;
       // 2026-10-26 (П6): свежие итоги прямо перед закрытием — по ним же строится Z-итог (после закрытия смены их уже не взять).
       final bd = await _reload() ?? _bd;
       if (!mounted) return;
@@ -134,6 +178,7 @@ class _CloseShiftScreenState extends ConsumerState<CloseShiftScreen> {
               ),
             );
       if (ok != true) return;
+      if (!mounted || !await _applyOpenCart(cartChoice)) return;
       await ref.read(shiftProvider.notifier).close(counted);
       _aiSink.report(HandleOutcome.ok({'counted': counted ?? 0.0}));
       if (!mounted) return;

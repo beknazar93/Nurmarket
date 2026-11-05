@@ -23,6 +23,74 @@ public sealed partial class TelegramBotPollingService
 
     private static string ShopName => Escape(UserPreferences.Instance.StoreName);
 
+    // 2026-11-05 (волна 2-Б, функция 8): «Получать чеки и бонусы в Telegram». «/start receipts» — покупатель ждёт кнопку «Подтвердить номер»; пришёл его настоящий контакт —
+    // телефон ↔ чат записываются в TelegramReceiptLinks (общий файл кассы и владельца); «/stop» — привязка снимается. Без сервера.
+    private static readonly TimeSpan ReceiptConsentLifetime = TimeSpan.FromMinutes(15);
+    private readonly Dictionary<string, DateTime> _receiptConsent = new(StringComparer.Ordinal);
+
+    private (string Text, object? Markup) StartReceipts(string chatId)
+    {
+        lock (_subscriptionGate)
+        {
+            if (_receiptConsent.Count > 500)
+                foreach (var old in _receiptConsent.Where(p => p.Value < DateTime.UtcNow).Select(p => p.Key).ToList())
+                    _receiptConsent.Remove(old);
+            _receiptConsent[chatId] = DateTime.UtcNow + ReceiptConsentLifetime;
+        }
+        PosLogger.Log("Телеграм-бот: «Старт» по ссылке «Чеки в Telegram» — жду номер телефона.", "TELEGRAM");
+        return (TelegramBotText.T(
+                $"Хотите получать чеки, бонусы и напоминания о долге «{ShopName}» в Telegram? Нажмите кнопку ниже и поделитесь номером — я привяжу его к этому чату и буду присылать чеки покупок, сделанных по этому номеру. Отписаться можно в любой момент командой /stop.",
+                $"«{ShopName}» чектерин, бонустарын жана карыз эскертмелерин Telegram'да алгыңыз келеби? Төмөнкү баскычты басып, номериңизди бөлүшүңүз — аны ушул чатка байлап, ушул номер боюнча сатып алуулардын чектерин жөнөтөм. Каалаган убакта /stop буйругу менен баш тартсаңыз болот.",
+                $"Want to get receipts, bonuses and debt reminders from “{ShopName}” in Telegram? Press the button below and share your number — I'll link it to this chat and send receipts of purchases made with this number. You can opt out any time with /stop.",
+                $"«{ShopName}» fişlerini, bonuslarını ve borç hatırlatmalarını Telegram'da almak ister misiniz? Aşağıdaki düğmeye basıp numaranızı paylaşın — bu sohbete bağlayıp bu numarayla yapılan alışverişlerin fişlerini göndereceğim. İstediğiniz zaman /stop ile vazgeçebilirsiniz.",
+                $"«{ShopName}» cheklari, bonuslari va qarz eslatmalarini Telegram'da olishni xohlaysizmi? Pastdagi tugmani bosib raqamingizni ulashing — uni shu chatga bog'lab, shu raqam bilan qilingan xaridlar cheklarini yuboraman. Istalgan vaqtda /stop buyrug'i bilan voz kechishingiz mumkin."),
+            TelegramBotText.ContactKeyboard());
+    }
+
+    /// <summary>Контакт пришёл, и мы ждали его для чеков: только СВОЙ номер (user_id контакта = отправитель). false — это не наш случай.</summary>
+    private async Task<bool> TryHandleReceiptContactAsync(string chatId, long? fromId, JsonElement contact, string? name, CancellationToken ct)
+    {
+        bool waiting;
+        lock (_subscriptionGate)
+            waiting = _receiptConsent.TryGetValue(chatId, out var until) && until > DateTime.UtcNow;
+        if (!waiting)
+            return false;
+        long? contactUser = contact.TryGetProperty("user_id", out var u) && u.TryGetInt64(out var uid) ? uid : null;
+        if (contactUser is null || contactUser != fromId)
+        {
+            await SendReplyAsync(chatId, TelegramBotText.T("Отправьте, пожалуйста, СВОЙ номер — кнопкой «Подтвердить номер».", "Сураныч, ӨЗҮҢҮЗДҮН номериңизди «Номерди ырастоо» баскычы менен жөнөтүңүз.",
+                "Please send YOUR OWN number with the “Confirm my number” button.", "Lütfen KENDİ numaranızı «Numaramı doğrula» düğmesiyle gönderin.",
+                "Iltimos, O'Z raqamingizni «Raqamni tasdiqlash» tugmasi bilan yuboring."), ct, TelegramBotText.ContactKeyboard()).ConfigureAwait(false);
+            return true;
+        }
+        lock (_subscriptionGate)
+            _receiptConsent.Remove(chatId);
+        var phone = contact.TryGetProperty("phone_number", out var ph) ? ph.GetString() : null;
+        if (!TelegramReceiptLinks.IsUsablePhone(phone))
+        {
+            await SendReplyAsync(chatId, TelegramBotText.T("Не удалось прочитать номер. Откройте ссылку на кассе ещё раз.", "Номерди окуу мүмкүн болгон жок. Кассадагы шилтемени кайра ачыңыз.",
+                "I couldn't read the number. Open the link at the till again.", "Numara okunamadı. Kasadaki bağlantıyı tekrar açın.", "Raqamni o'qib bo'lmadi. Kassadagi havolani qayta oching."), ct, TelegramBotText.CustomerKeyboard()).ConfigureAwait(false);
+            return true;
+        }
+        TelegramReceiptLinks.Link(phone, chatId, name);
+        await SendReplyAsync(chatId, TelegramBotText.T("Готово! Теперь чеки ваших покупок и баланс бонусов будут приходить сюда. Отписаться — /stop.",
+            "Даяр! Эми сатып алуулардын чектери жана бонус балансы ушул жерге келет. Баш тартуу — /stop.",
+            "Done! Receipts of your purchases and the bonus balance will now come here. To opt out — /stop.",
+            "Tamam! Artık alışveriş fişleriniz ve bonus bakiyeniz buraya gelecek. Vazgeçmek için — /stop.",
+            "Tayyor! Endi xaridlaringiz cheklari va bonus balansi shu yerga keladi. Voz kechish — /stop."), ct, TelegramBotText.CustomerKeyboard()).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>«/stop» от покупателя: чеки больше не присылаем.</summary>
+    private static string StopReceiptsReply(string chatId)
+    {
+        var had = TelegramReceiptLinks.Unlink(chatId);
+        return had
+            ? TelegramBotText.T("Хорошо, чеки в Telegram больше не приходят. Передумаете — откройте ссылку на кассе снова.", "Макул, Telegram'га чектер келбейт. Оюңуз өзгөрсө — кассадагы шилтемени кайра ачыңыз.",
+                "OK, no more receipts in Telegram. Changed your mind? Open the link at the till again.", "Tamam, Telegram'a artık fiş gelmeyecek. Fikrinizi değiştirirseniz kasadaki bağlantıyı tekrar açın.", "Yaxshi, Telegram'ga cheklar kelmaydi. Fikringiz o'zgarsa — kassadagi havolani qayta oching.")
+            : TelegramBotText.T("Чеки в Telegram вам и так не приходят.", "Сизге Telegram'га чектер баары бир келбейт.", "You aren't receiving receipts in Telegram anyway.", "Zaten Telegram'a fiş almıyorsunuz.", "Sizga Telegram'ga cheklar baribir kelmayapti.");
+    }
+
     /// <summary>Приветствие покупателю с меню кнопками.</summary>
     private static string CustomerGreeting() => TelegramAiChat.IsConfigured
         ? TelegramBotText.T(
@@ -89,6 +157,8 @@ public sealed partial class TelegramBotPollingService
     /// <summary>«/start &lt;параметр&gt;» от покупателя: проверка ссылки, затем телефона. Возвращает ответ и кнопки.</summary>
     private async Task<(string Text, object? Markup)> StartWithArgumentAsync(string chatId, bool isOwner, bool isGroup, string argument, CancellationToken ct)
     {
+        if (!isOwner && !isGroup && TelegramReceiptLinks.IsReceiptsStart(argument))
+            return StartReceipts(chatId); // 2026-11-05 (функция 8)
         var (clientId, signed) = TelegramSubscriberStore.ParseStartParameter(argument);
         if (clientId is null)
         {
@@ -150,6 +220,8 @@ public sealed partial class TelegramBotPollingService
     /// <summary>Покупатель нажал «Подтвердить номер» — Telegram прислал его контакт.</summary>
     private async Task HandleContactAsync(string chatId, long? fromId, JsonElement contact, string? name, CancellationToken ct)
     {
+        if (await TryHandleReceiptContactAsync(chatId, fromId, contact, name, ct).ConfigureAwait(false)) // 2026-11-05 (функция 8)
+            return;
         PendingSubscription? pending;
         lock (_subscriptionGate)
         {

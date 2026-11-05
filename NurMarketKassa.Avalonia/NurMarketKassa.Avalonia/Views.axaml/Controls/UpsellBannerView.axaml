@@ -46,16 +46,20 @@
                     Padding="12,4"
                     VerticalAlignment="Center"
                     Background="{DynamicResource BrushPanel}"
-                    BorderBrush="{DynamicResource BrushBorderStrong}"
-                    BorderThickness="1"
+                    BorderBrush="{DynamicResource BrushText}"
+                    BorderThickness="1.5"
                     Foreground="{DynamicResource BrushText}"
                     Command="{Binding AcceptUpsellCommand}"
                     Content="{DynamicResource csh.upsell.add}"/>
+            <!-- 2026-11-05 (аудит №4, Д4-39): «Пропустить» — текстовая кнопка без заливки (отказ не должен выглядеть главным действием), «Добавить» — с жирной рамкой. -->
             <Button x:Name="SkipButton" Grid.Column="3" Margin="6,0,0,0" CornerRadius="10"
                     Focusable="False"
                     MinHeight="36"
                     Padding="10,4"
                     VerticalAlignment="Center"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Foreground="{DynamicResource BrushTextMuted}"
                     Command="{Binding SkipUpsellCommand}"
                     Content="{DynamicResource csh.upsell.skip}"/>
         </Grid>

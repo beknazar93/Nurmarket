@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/scan/code_lookup.dart';
 import '../db/database.dart';
 import '../providers.dart';
-import '../theme/tokens.dart';
 import 'ui.dart';
 
 /// 14.10, владелец: «в КП не выходит список товаров, добавь туда фильтр — и фильтр везде, где есть товары».
@@ -284,7 +283,7 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
                             title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
                             subtitle: Text(
                               widget.subtitle?.call(p) ?? '${money(p.price)} ${l.som}${p.isService ? '' : ' · ${qtyText(p.quantity)} ${p.unit}'}',
-                              style: TextStyle(color: !p.isService && isLowStock(p.quantity, p.minQuantity) ? T.warn : pal.textSoft, fontSize: 12.5),
+                              style: TextStyle(color: !p.isService && isLowStock(p.quantity, p.minQuantity) ? context.pal.warn : pal.textSoft, fontSize: 12.5),
                             ),
                             trailing: Icon(Icons.add_circle_rounded, color: pal.action, size: 28),
                             onTap: () => _pick(p),

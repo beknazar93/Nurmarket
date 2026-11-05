@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/api/api_client.dart';
 import 'core/catalog/global_products.dart';
 import 'core/db/database.dart';
 import 'core/providers.dart';
+import 'core/sync/outbox_meta.dart';
+import 'core/tester/tester_mode.dart' show AppBuild;
 import 'core/util/audit.dart';
 import 'core/util/photo_cache.dart';
 
@@ -25,12 +28,18 @@ Future<void> main() async {
   };
   // 2026-10-30 (оптимизация): кэш декодированных картинок в памяти 60 МБ вместо 100 МБ по умолчанию — на телефонах с 2–3 ГБ ОЗУ
   PaintingBinding.instance.imageCache.maximumSizeBytes = 60 << 20;
+  ApiClient.clientTag = 'mobile/${AppBuild.version}'; // 2026-11-05: метка клиента для сервера (source чека)
   final db = AppDatabase();
   final container = ProviderContainer(overrides: [databaseProvider.overrideWithValue(db)]);
   // Язык и вход читаются параллельно — заставка висит меньше (13.10, «открытие очень долгое»).
   final (_, signedIn) = await (container.read(prefsProvider.notifier).load(), container.read(sessionProvider.notifier).restore()).wait;
   // 2026-10-27: справочник готовых наименований NurCRM открывается заранее, в фоне (первый запуск копирует его из assets)
   container.read(globalProductsProvider).warmUp();
+  // 2026-11-05 (ревью волн 0–3, М-1): вход восстановлен до runApp, а ref.listen в app.dart срабатывает только на изменение —
+  // владелец и имя для журнала ставим здесь, иначе после перезапуска записи «delete» шли без владельца, а журнал показывал чужие.
+  final restored = container.read(sessionProvider);
+  Audit.currentUser = restored?.userName ?? '';
+  Audit.currentOwner = OutboxMeta.ownerOf(restored);
   // 2026-10-30 (оптимизация, п. 12): дисковый кэш фото не больше 200 МБ — лишнее удаляется в фоне (не чаще раза в 6 часов)
   PhotoCache.trim();
   runApp(

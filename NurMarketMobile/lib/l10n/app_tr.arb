@@ -2022,5 +2022,19 @@
   "prnNotPrinted": "Fiş yazdırılmadı",
   "prnPrintAgain": "Tekrar yazdır",
   "prnChecked": "{total} içinden {n} kontrol edildi",
-  "prnLocationOff": "Bu Android'de Bluetooth yazıcıyı bulmak için Konum'u açın."
+  "prnLocationOff": "Bu Android'de Bluetooth yazıcıyı bulmak için Konum'u açın.",
+  "clearCheckAsk": "Geçerli fiş temizlensin mi?",
+  "qtyReduced": "Miktar azaltıldı",
+  "heldDeleteAsk": "{sum} som tutarındaki bekleyen fiş silinsin mi?",
+  "qtySure": "Gerçekten {qty}? Bu çok fazla.",
+  "phoneClockWrong": "Telefonun saati yanlış — ayarlardan tarih ve saati düzeltin. Satışlar sunucu saatiyle yapılır.",
+  "payWaiting": "Ödeme işleniyor…",
+  "payShortfall": "Sunucu {total} som hesapladı — {rest} som daha alın",
+  "closeShiftCartAsk": "Fişte {n} kalem kaldı. Ne yapılsın?",
+  "syncServerDown": "Sunucu {time} saatinden beri yanıt vermiyor. Bekleyen satış: {n}. Telefon kendisi gönderecek.",
+  "prnSunmi": "Dahili Sunmi yazıcı",
+  "prnSunmiHint": "Fiş Sunmi tarafından yazdırılır, tüm harfler (ң ө ү ş ğ) doğru çıkar. Bluetooth, ağ ve USB kullanılmaz.",
+  "scaleBindOverwrite": "«{name}» ürününün PLU'su {old}, {plu} olacak. PLU {old} ile programlanmış teraziler onu bulamaz. Kaydedilsin mi?",
+  "apiSaleDuplicateLine": "Aynı ürün fişte farklı fiyat veya birimle var: sunucu satırları birleştiremez. Tek fiyat bırakın veya fazla satırı kaldırın.",
+  "payLinesMerged": "Fişteki aynı satırlar tek satırda birleştirildi."
 }

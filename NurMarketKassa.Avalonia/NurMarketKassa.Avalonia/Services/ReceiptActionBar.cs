@@ -195,6 +195,23 @@ internal sealed class ReceiptActionBar : Border
         }
         var wa = Item("WhatsApp");
         var tg = Item("Telegram");
+        // 2026-11-05 (волна 2-Б, функция 8): чек через Telegram-бот магазина (по телефону, привязанному покупателем) и QR «Чеки в Telegram»; видны, только если функция включена.
+        var shopBot = Item(Tr.T("Бот магазина (по номеру)", "Дүкөндүн бот (номер боюнча)", "Shop bot (by phone)", "Mağaza botu (numaraya göre)", "Do'kon boti (raqam bo'yicha)"));
+        var shopBotQr = Item(Tr.T("QR: чеки в Telegram", "QR: Telegram'да чектер", "QR: receipts in Telegram", "QR: Telegram'da fişler", "QR: Telegram'da cheklar"));
+        flyout.Opening += (_, _) => shopBot.IsVisible = shopBotQr.IsVisible = AntiFraudSettingsStore.Current.Receipts.Enabled;
+        shopBot.IsVisible = shopBotQr.IsVisible = false;
+        shopBot.Click += async (_, _) =>
+        {
+            flyout.Hide();
+            if (GetData() is not { } d) return;
+            var result = await TelegramReceiptDelivery.SendCardAsync(Phone, null, d).ConfigureAwait(true);
+            ShowMessage(TelegramReceiptUi.ResultText(result), result == TelegramReceiptSendResult.Sent);
+        };
+        shopBotQr.Click += (_, _) =>
+        {
+            flyout.Hide();
+            TelegramReceiptUi.ShowQr(OwnerWindow ?? TopLevel.GetTopLevel(this) as Window);
+        };
         var file = Item(Tr.T("PDF и папка", "PDF жана папка", "PDF and folder", "PDF ve klasör", "PDF va papka"));
         var copy = Item(Tr.T("Скопировать текст", "Текстти көчүрүү", "Copy text", "Metni kopyala", "Matnni nusxalash"));
         var note = new TextBlock

@@ -206,7 +206,10 @@ public static class ReceiptHistoryService
             entry.SearchText = entry.ReceiptNumber + " " + entry.SearchText;
         }
 
-        result.Entries.Sort((a, b) => b.CreatedAt.CompareTo(a.CreatedAt));
+        // 2026-11-05 (приёмка волн 0–3, Н-2): новые первыми; при равном времени — больший номер чека выше (List.Sort нестабилен и ставил 2043, 2044, 2045 перед 2041).
+        var sorted = result.Entries.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => new string(e.ReceiptNumber.Where(char.IsDigit).ToArray()).PadLeft(12, '0'), StringComparer.Ordinal).ToList();
+        result.Entries.Clear();
+        result.Entries.AddRange(sorted);
     }
 
     /// <summary>2026-11-03 (Д-3): продажи, проведённые на этой кассе (база кассы, SoldLineItems), которых нет в списке сервера и в очереди.

@@ -13,14 +13,17 @@ class AuditEntry {
   final String kind;
   final String text;
   final double? amount;
-  const AuditEntry(this.at, this.user, this.kind, this.text, this.amount);
 
-  Map<String, dynamic> toJson() => {'at': at.toIso8601String(), 'user': user, 'kind': kind, 'text': text, if (amount != null) 'amount': amount};
+  /// 2026-11-05 (М6-03): логин аккаунта, чья запись (пусто — запись прежних версий). По нему выход оставляет «удаления», а чужие не показываются.
+  final String owner;
+  const AuditEntry(this.at, this.user, this.kind, this.text, this.amount, {this.owner = ''});
+
+  Map<String, dynamic> toJson() => {'at': at.toIso8601String(), 'user': user, 'kind': kind, 'text': text, if (amount != null) 'amount': amount, if (owner.isNotEmpty) 'o': owner};
 
   static AuditEntry? fromJson(String line) {
     try {
       final m = jsonDecode(line) as Map<String, dynamic>;
-      return AuditEntry(DateTime.parse(m['at'] as String), '${m['user'] ?? ''}', '${m['kind'] ?? ''}', '${m['text'] ?? ''}', (m['amount'] as num?)?.toDouble());
+      return AuditEntry(DateTime.parse(m['at'] as String), '${m['user'] ?? ''}', '${m['kind'] ?? ''}', '${m['text'] ?? ''}', (m['amount'] as num?)?.toDouble(), owner: '${m['o'] ?? ''}');
     } catch (_) {
       return null;
     }
@@ -32,6 +35,12 @@ class Audit {
 
   /// Кто сейчас работает (ставит app.dart при входе/выходе) — пишется в каждую запись.
   static String currentUser = '';
+
+  /// 2026-11-05 (М6-03): логин текущего аккаунта (нижний регистр) — ставится рядом с [currentUser].
+  static String currentOwner = '';
+
+  /// 2026-11-05 (М6-03): эти виды записей (удаления из чека) выход из аккаунта не стирает — они остаются, привязанные к аккаунту.
+  static const keepOnWipe = {'delete'};
   static const _max = 5000;
 
   /// Только для тестов: папка вместо папки приложения.
@@ -56,7 +65,7 @@ class Audit {
   /// 14.10, стресс-тест: раньше каждая запись открывала файл и сбрасывала его на диск — 6000 записей подряд не
   /// успевали за 30 с. Теперь записи копятся и уходят в файл пачкой (одна запись на диск на пачку).
   static Future<void> log(String kind, String text, {double? amount}) {
-    _pending.add('${jsonEncode(AuditEntry(DateTime.now(), currentUser, kind, text, amount).toJson())}\n');
+    _pending.add('${jsonEncode(AuditEntry(DateTime.now(), currentUser, kind, text, amount, owner: currentOwner).toJson())}\n');
     return _flushing ??= _serial(_flush);
   }
 
@@ -139,19 +148,43 @@ class Audit {
   /// при выходе и смене аккаунта; накопленные, но не записанные строки сбрасываются.
   static Future<void> wipeAll({Directory? directory}) async {
     await _flushing;
+    // 2026-11-05 (М6-03): записи «удалено из чека» с логином аккаунта остаются (кассир не заметёт следы выходом)
+    final keep = <String>[
+      for (final line in _pending)
+        if (_isKept(line)) line.trim(),
+    ];
     _pending.clear();
     currentUser = '';
+    currentOwner = '';
     try {
       await _serial(() async {
         final dir = directory ?? testDirectory ?? await getApplicationDocumentsDirectory();
         await for (final e in dir.list()) {
           final name = e.uri.pathSegments.last;
-          if (e is File && name.startsWith('audit') && name.endsWith('.jsonl')) await e.delete();
+          if (e is File && name.startsWith('audit') && name.endsWith('.jsonl')) {
+            if (name == 'audit.jsonl') {
+              try {
+                keep.insertAll(0, [
+                  for (final line in await e.readAsLines())
+                    if (_isKept(line)) line,
+                ]);
+              } catch (_) {
+                // файл не прочитался — удаления прошлого аккаунта не сохранятся
+              }
+            }
+            await e.delete();
+          }
         }
+        if (keep.isNotEmpty) await File('${dir.path}/audit.jsonl').writeAsString('${keep.join('\n')}\n', flush: true);
       });
     } catch (_) {
       // журнал не стёрся — новые записи пойдут поверх
     }
+  }
+
+  static bool _isKept(String line) {
+    final e = AuditEntry.fromJson(line.trim());
+    return e != null && e.owner.isNotEmpty && keepOnWipe.contains(e.kind);
   }
 
   /// Новые сверху. Лишнее сверх 5000 записей при чтении обрезается в файле.
@@ -169,7 +202,13 @@ class Audit {
           await tmp.writeAsString('${lines.sublist(lines.length - _max).join('\n')}\n', flush: true);
           await tmp.rename(f.path);
         }
-        return [for (final l in lines.reversed.take(_max)) ?AuditEntry.fromJson(l)];
+        final mine = currentOwner;
+        // 2026-11-05 (М6-03): записи другого аккаунта (остались после выхода) не показываются.
+        // 2026-11-05 (ревью волн 0–3, М-1): и если владелец текущего входа неизвестен — только записи без владельца, а не все подряд.
+        return [
+          for (final l in lines.reversed.take(_max))
+            if (AuditEntry.fromJson(l) case final e? when e.owner.isEmpty || e.owner == mine) e,
+        ];
       });
     } catch (_) {
       return [];

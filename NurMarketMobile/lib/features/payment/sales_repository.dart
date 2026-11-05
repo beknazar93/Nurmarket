@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:uuid/uuid.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/checkout_device.dart';
 import '../../core/db/database.dart';
 import '../../core/sync/outbox_meta.dart';
 import '../../core/util/audit.dart';
@@ -112,7 +113,17 @@ class CheckoutResult {
   /// 2026-10-29 (аудит мобилки, п. 1): сервер ответил 409 idempotency_conflict — продажа с этим ключом у него уже есть,
   /// номер и сумма неизвестны. Это «проведено, сверьте в «Чеки»», а не «не принято».
   final bool reconcile;
-  const CheckoutResult({required this.queued, required this.key, this.number, required this.total, this.receiptUrl, this.response, this.stockWarnings = const [], this.reconcile = false});
+
+  /// 2026-11-05 (сервер ceba67c): сервер склеил одинаковые строки чека в одну (`warnings: lines_merged`) — на экране «Оплачено» тихая подсказка.
+  final bool linesMerged;
+  const CheckoutResult({required this.queued, required this.key, this.number, required this.total, this.receiptUrl, this.response, this.stockWarnings = const [], this.reconcile = false, this.linesMerged = false});
+}
+
+/// 2026-11-05: предупреждение сервера в ответе checkout (`warnings[]`): код и поля как пришли.
+class CheckoutWarning {
+  final String code;
+  final Map<String, dynamic> data;
+  const CheckoutWarning(this.code, this.data);
 }
 
 /// Продажа одним запросом: POST api/main/pos/checkout/ с заголовком Idempotency-Key.
@@ -304,7 +315,10 @@ class SalesRepository {
     }
     final key = const Uuid().v4().replaceAll('-', '');
     final n = DateTime.now();
-    final att = _Attempt(key, body, DateTime(n.year, n.month, n.day, n.hour, n.minute, n.second), api.session?.cashboxId, false, signature, n);
+    // 2026-11-05 (аудит №4, М6-07): время продажи — по часам сервера, если на телефоне сбилась дата (иначе 400 «старше 7 суток»)
+    final sold = ServerClock.fix(n);
+    // 2026-11-05 (checkout_branch): device_key/device_name/branch дописываются один раз, при создании попытки, — повторы и досылка уходят с теми же полями
+    final att = _Attempt(key, await CheckoutDevice.apply(body, db), DateTime(sold.year, sold.month, sold.day, sold.hour, sold.minute, sold.second), api.session?.cashboxId, false, signature, n);
     await _saveAttempt(att);
     return att;
   }
@@ -351,6 +365,31 @@ class SalesRepository {
 
   /// 2026-11-01 (аудит 10 из 10, М-08): 400 offline_too_old — офлайн-продажа старше 7 суток (до 90 суток — только с подтверждением владельца).
   static bool isTooOld(Object? payload) => _payloadHas(payload, 'offline_too_old');
+
+  /// 2026-11-05 (сервер ceba67c): 400 duplicate_line — тот же товар в чеке другой ценой/единицей (`duplicate_of` — индекс первой строки).
+  static bool isDuplicateLine(Object? payload) => _payloadHas(payload, 'duplicate_line');
+
+  /// 2026-11-05 (сервер ceba67c): `warnings` ответа checkout — не ошибки. `lines_merged {index, into}` — подсказка на экране «Оплачено»;
+  /// `below_cost` и `negative_stock` (чек из очереди ниже закупки / без остатка) — в журнал действий. Строки ответа с чеком по номеру НЕ
+  /// сопоставляются: сервер склеивает одинаковые строки и меняет порядок (телефон строит чек по своей корзине).
+  static List<CheckoutWarning> parseWarnings(Object? resp) {
+    if (resp is! Map || resp['warnings'] is! List) return const [];
+    return [
+      for (final w in resp['warnings'] as List)
+        if (w is Map && '${w['code'] ?? ''}'.isNotEmpty) CheckoutWarning('${w['code']}', w.cast<String, dynamic>()),
+    ];
+  }
+
+  /// Разобрать предупреждения и записать важные в журнал. Возвращает список (для подсказки на экране).
+  static List<CheckoutWarning> noteWarnings(Object? resp, {String? number}) {
+    final list = parseWarnings(resp);
+    for (final w in list) {
+      if (w.code == 'below_cost' || w.code == 'negative_stock') {
+        Audit.log('sale', 'Чек ${number ?? ''}: ${w.code} · товар ${w.data['product_id'] ?? w.data['product'] ?? '?'} · цена ${w.data['price'] ?? '?'} · закупка ${w.data['purchase_price'] ?? '?'}');
+      }
+    }
+    return list;
+  }
 
   static bool _payloadHas(Object? payload, String code) {
     if (payload == null) return false;
@@ -521,6 +560,8 @@ class SalesRepository {
       }
       if (!e.isTransient) {
         await _forgetKey();
+        // 2026-11-05 (сервер ceba67c): тот же товар в чеке по разной цене/единице склеить нельзя — понятный текст вместо сырого ответа
+        if (e.status == 400 && isDuplicateLine(e.payload)) throw ApiException(ApiText.saleDuplicateLine, status: 400, payload: e.payload);
         rethrow;
       }
       // Долг без сервера не оформляется: нужна сделка клиента (как у кассы). Ключ остаётся — повтор той же оплаты безопасен.
@@ -537,7 +578,9 @@ class SalesRepository {
     await db.markSent(key, serverId: str(resp, 'id'), serverNumber: str(resp, 'number'));
     await _applyStock(cart);
     final warnings = before.isEmpty ? const <PackStockMismatch>[] : await verifyPackStock(cart, before);
+    final serverWarnings = noteWarnings(resp, number: str(resp, 'number'));
     return CheckoutResult(
+      linesMerged: serverWarnings.any((w) => w.code == 'lines_merged'),
       queued: false,
       key: key,
       number: str(resp, 'number'),

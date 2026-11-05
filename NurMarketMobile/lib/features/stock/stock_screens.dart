@@ -156,7 +156,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                   title: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis),
                   trailing: Text(
                     '${qtyText(p.quantity)} ${p.unit}',
-                    style: TextStyle(fontWeight: FontWeight.w800, color: p.quantity <= 0 ? T.danger : T.warn),
+                    style: TextStyle(fontWeight: FontWeight.w800, color: p.quantity <= 0 ? context.pal.danger : context.pal.warn),
                   ),
                 );
               }
@@ -203,8 +203,8 @@ class _StockScreenState extends ConsumerState<StockScreen> {
             if (canEdit) ListTile(leading: const Icon(Icons.center_focus_strong_rounded), title: Text(l.teachCamera), onTap: () => Navigator.pop(c, 'teach')),
             if (canEdit)
               ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: T.danger),
-                title: Text(l.deleteProduct, style: const TextStyle(color: T.danger)),
+                leading: Icon(Icons.delete_outline_rounded, color: context.pal.danger),
+                title: Text(l.deleteProduct, style: TextStyle(color: context.pal.danger)),
                 onTap: () => Navigator.pop(c, 'delete'),
               ),
           ],
@@ -742,8 +742,8 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
     final canEdit = _canEdit;
     final lines = <Widget>[];
     final buttons = <Widget>[];
-    Widget head(String t) => Text(t, style: const TextStyle(color: T.warn, fontWeight: FontWeight.w800));
-    Widget small(String t) => Text(t, style: const TextStyle(color: T.warn, fontSize: 12));
+    Widget head(String t) => Text(t, style: TextStyle(color: context.pal.warn, fontWeight: FontWeight.w800));
+    Widget small(String t) => Text(t, style: TextStyle(color: context.pal.warn, fontSize: 12));
     Widget button(String label, VoidCallback onTap, {Key? key}) => FilledButton.tonal(
       key: key,
       style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
@@ -880,7 +880,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
                   ),
                   InkWell(
                     onTap: () async {
-                      final v = await askNumber(context, title: _lines[i].name, initial: _lines[i].qty);
+                      final v = await askNumber(context, title: _lines[i].name, initial: _lines[i].qty, kind: NumKind.qty);
                       if (v != null && v >= 0) {
                         setState(() => _lines[i].qty = v);
                         _saveDraft();
@@ -1131,7 +1131,7 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
                   ),
                   child: Text(
                     l.auditContinue((d['counted'] as Map).length),
-                    style: const TextStyle(fontWeight: FontWeight.w800, color: T.success),
+                    style: TextStyle(fontWeight: FontWeight.w800, color: context.pal.success),
                   ),
                 ),
               ),
@@ -1215,7 +1215,7 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
                     child: ChoiceChip(
                       label: Text(label),
                       selected: _filter == v,
-                      labelStyle: TextStyle(color: _filter == v ? Colors.white : pal.text, fontWeight: FontWeight.w600),
+                      labelStyle: TextStyle(color: _filter == v ? pal.onAction : pal.text, fontWeight: FontWeight.w600), // 2026-11-05 (М6-11)
                       onSelected: (_) => setState(() => _filter = v),
                     ),
                   ),
@@ -1263,6 +1263,7 @@ class _AuditScreenState extends ConsumerState<AuditScreen> {
                         child: TextField(
                           controller: _ctrlFor(p),
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [numberLimit(NumKind.qty)], // 2026-11-05 (М6-16)
                           textAlign: TextAlign.center,
                           decoration: const InputDecoration(hintText: '?'),
                           onChanged: (s) {

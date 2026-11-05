@@ -5,8 +5,8 @@ namespace NurMarketKassa.Tests.Security;
 
 /// <summary>
 /// Автономный (офлайн, без NurCRM) режим — локальный логин/пароль (2026-09-10). Пишет в ту же
-/// изолированную от реальной кассы БД, что и <see cref="DatabaseServiceInjectionTests"/> (см. её
-/// комментарий о пути AppDomain.CurrentDomain.BaseDirectory/data/pos_local.db — гарантированно
+/// БД внутри NURMARKET_DATA_ROOT (временная папка тестов, 2026-11-05), что и <see cref="DatabaseServiceInjectionTests"/> (см. её
+/// предохранитель пути) — гарантированно
 /// НЕ каталог кассы). Использует те же логин/пароль, что владелец использовал для живого теста
 /// (test@ofline.kg / 12345678), чтобы проверить именно тот путь, который он реально нажимал.
 /// </summary>

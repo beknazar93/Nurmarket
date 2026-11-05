@@ -598,6 +598,8 @@ public sealed partial class TelegramBotPollingService
             "start" or "menu" when !isGroup => CustomerGreeting(),
             "help" or "помощь" when isOwner => TelegramReportBuilder.BuildHelp(),
             "help" when !isGroup => CustomerGreeting(),
+            // 2026-11-05 (волна 2-Б, функция 8): покупатель отписывается от чеков в Telegram.
+            "stop" when !isOwner && !isGroup => StopReceiptsReply(chatId!),
             _ when ownerCommand && !isOwner => isGroup ? "" : OwnerOnlyForCustomer(),
             "dolgi" or "долги" when !isOwnerFull => OwnerOnlyInGroup(),
             "top" or "топ" => TelegramReportBuilder.BuildTopProducts(7),
@@ -749,7 +751,9 @@ public sealed partial class TelegramBotPollingService
             return;
         }
         var parts = data.Split(':');
-        if (parts.Length != 3 || parts[0] != "pa" || chatId == null)
+        // 2026-11-05 (волна 2-А, функция 3): «po:make» — кнопка «Сформировать заказы» под утренним «пора заказать»; остальное — «pa:токен:y|n» как раньше.
+        var isOrderButton = parts.Length == 2 && parts[0] == "po" && parts[1] == "make";
+        if ((!isOrderButton && (parts.Length != 3 || parts[0] != "pa")) || chatId == null)
         {
             await TelegramBotService.AnswerCallbackAsync(id, null, null, null, ct).ConfigureAwait(false);
             return;
@@ -764,6 +768,12 @@ public sealed partial class TelegramBotPollingService
         {
             await TelegramBotService.AnswerCallbackAsync(id, TelegramBotText.T("Только владелец может подтверждать изменения.", "Өзгөртүүлөрдү ээси гана ырастай алат.",
                 "Only the owner can confirm changes.", "Değişiklikleri yalnızca sahip onaylayabilir.", "O'zgarishlarni faqat ega tasdiqlay oladi."), null, null, ct).ConfigureAwait(false);
+            return;
+        }
+        if (isOrderButton)
+        {
+            await TelegramBotService.AnswerCallbackAsync(id, TelegramBotText.T("Формирую…", "Түзүп жатам…", "Working on it…", "Hazırlıyorum…", "Yaratmoqdaman…"), chatId, messageId, ct).ConfigureAwait(false);
+            await SendReplyAsync(chatId, Escape(AutoOrderCheck.MakeDraftsFromLatest(TelegramBotText.T("Телеграм-бот", "Телеграм-бот", "Telegram bot", "Telegram botu", "Telegram-bot"))), ct).ConfigureAwait(false);
             return;
         }
         // 2026-10-16: владелец дважды прислал ту же накладную — два ключа; нажатая старая карточка после выполнения новой отвечает
@@ -1001,9 +1011,12 @@ public sealed partial class TelegramBotPollingService
         // 2026-09-28: должники и chat_id — с сервера (BE-03/BE-04): напоминание получит и тот,
         // кто нажал «Старт» через другую кассу; chat_id этой кассы — если на сервере его нет.
         List<(string ClientId, double Amount, string? ServerChat)> targets;
+        var debtPhones = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase); // 2026-11-05 (функция 8): телефон должника — запасной путь к чату «чеки в Telegram»
         if (await TryLoadServerDebtorsAsync(ct).ConfigureAwait(false) is { } serverDebtors)
         {
             targets = serverDebtors.Where(d => d.DebtTotal > 0.005).Select(d => (d.ClientId, d.DebtTotal, d.TelegramChatId)).ToList();
+            foreach (var d in serverDebtors)
+                debtPhones[d.ClientId] = d.Phone;
         }
         else
         {
@@ -1040,6 +1053,9 @@ public sealed partial class TelegramBotPollingService
             foreach (var (clientId, amount, serverChat) in targets)
             {
                 var chatId = !string.IsNullOrWhiteSpace(serverChat) ? serverChat : TelegramSubscriberStore.TryGetChatId(clientId);
+                // 2026-11-05 (функция 8): подписки по карточке нет, но покупатель сам привязал телефон к боту («Чеки в Telegram») — напоминание придёт туда.
+                if (string.IsNullOrWhiteSpace(chatId) && debtPhones.TryGetValue(clientId, out var debtPhone))
+                    chatId = TelegramReceiptDelivery.ChatForDebtReminder(debtPhone);
                 if (string.IsNullOrWhiteSpace(chatId))
                     continue;
                 if (TelegramReminderLog.SentRecently(chatId!))

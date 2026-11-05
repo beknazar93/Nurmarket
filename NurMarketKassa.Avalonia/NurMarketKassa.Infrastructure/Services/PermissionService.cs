@@ -81,11 +81,11 @@ public sealed class PermissionService : IPermissionService
     }
 
     /// <summary>2026-10-22 (аудит 1.17.59, П-Г, Б3): владелец или админ магазина (роль owner/admin) — ему можно показывать
-    /// ключи ИИ в настройках; кассиру — нет. Автономный режим и программа владельца — владелец.</summary>
+    /// ключи ИИ в настройках; кассиру — нет. 2026-11-05: программа владельца (--owner) прав сама по себе не даёт.</summary>
     public static bool IsOwnerOrAdmin(JsonElement payload)
     {
-        if (AppMode.IsOwner)
-            return true;
+        // 2026-11-05 (аудит №4, Л4-10): ключ --owner / NURMARKET_MODE=owner больше НЕ даёт прав владельца — кассир, запустивший exe с ключом под своим
+        // логином, видел ключи ИИ. Только роль из профиля (как в CanEditPurchaseDocuments).
         var user = OfflineAuthSessionStore.ResolveUserObject(payload);
         if (user.ValueKind != JsonValueKind.Object)
             user = payload;

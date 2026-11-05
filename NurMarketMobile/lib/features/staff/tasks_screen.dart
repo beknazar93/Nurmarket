@@ -329,7 +329,7 @@ class _TaskActions extends StatelessWidget {
     Widget tile(IconData icon, String text, _TaskAct a, {bool danger = false}) => ListTile(
       minTileHeight: 52,
       leading: Icon(icon, color: danger ? T.danger : null),
-      title: Text(text, style: TextStyle(color: danger ? T.danger : null, fontWeight: FontWeight.w600)),
+      title: Text(text, style: TextStyle(color: danger ? context.pal.danger : null, fontWeight: FontWeight.w600)),
       onTap: () => Navigator.pop(context, a),
     );
     return SafeArea(

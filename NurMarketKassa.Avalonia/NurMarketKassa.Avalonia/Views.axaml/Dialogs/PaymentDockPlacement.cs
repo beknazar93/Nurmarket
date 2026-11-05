@@ -15,7 +15,7 @@ internal static class PaymentDockPlacement
     public const string FileName = "payment_dialog_position.json";
 
     public static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "data", FileName);
+        NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "data", FileName);
 
     /// <summary>true — режим «прижимать к низу». Нет файла или он испорчен — false (по центру).</summary>
     public static bool ReadBottomMode(string? path = null)

@@ -41,7 +41,7 @@ public sealed class BulkImportJournal
     private HashSet<string>? _set;
     private readonly object _gate = new();
 
-    private static string Dir => DirOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName);
+    private static string Dir => DirOverride ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName);
 
     public static string PathFor(string hash) => Path.Combine(Dir, $"bulk-journal-{hash}.json");
 

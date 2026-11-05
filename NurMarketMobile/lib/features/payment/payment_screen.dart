@@ -220,12 +220,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       prevMayPass = !_sentSigs.contains(SalesRepository.signatureOf(body, _method));
     }
     final payButton = FilledButton(
+      key: const Key('doPayBtn'), // 2026-11-05 (E2E)
       onPressed: canPay ? _pay : null,
-      child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: T.navy)) : Text(l.doPay),
+      // 2026-11-05 (аудит №4, М6-15): индикатор цвета текста (navy на тёмной неактивной кнопке не виден) + подпись «Проводим оплату…»
+      child: _busy
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: pal.text)),
+                const SizedBox(width: 10),
+                Flexible(child: Text(l.payWaiting, overflow: TextOverflow.ellipsis)),
+              ],
+            )
+          : Text(l.doPay),
     );
     final scaffold = Scaffold(
       appBar: ScreenTitle(l.payment),
-      body: ListView(
+      // 2026-11-05 (аудит №4, М6-17): на планшете форма оплаты не растягивается на 1200 dp — не шире 560 dp по центру
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         children: [
           if (prevMayPass)
@@ -394,6 +410,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               // 2026-11-01 (аудит 10 из 10, М-10): не больше 10 цифр до запятой и 3 после — штрихкод, отсканированный в поле,
               // и лишние нули не уходят на сервер (он отклоняет «Получено» длиннее 12 цифр, чек потом «Не принят», деньги взяты)
               inputFormatters: [TextInputFormatter.withFunction((old, nw) => RegExp(r'^\d{0,10}([.,]\d{0,3})?$').hasMatch(nw.text) ? nw : old)],
+              // 2026-11-05 (М6-14): «Готово» на клавиатуре — провести оплату, если сумма достаточна (кнопка раньше пряталась под клавиатурой)
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (!_busy && _canPayWith(_payCart(ref.read(cartProvider)), parseNum(_received.text) ?? 0)) _pay();
+              },
               onChanged: (_) => setState(() {}),
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
               decoration: InputDecoration(
@@ -452,7 +473,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 ChoiceChip(
                   label: Text(label),
                   selected: _receipt == r,
-                  labelStyle: TextStyle(color: _receipt == r ? Colors.white : pal.text, fontWeight: FontWeight.w600),
+                  labelStyle: TextStyle(color: _receipt == r ? pal.onAction : pal.text, fontWeight: FontWeight.w600), // 2026-11-05 (М6-11)
                   onSelected: (_) => setState(() => _receipt = r),
                 ),
             ],
@@ -464,12 +485,21 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           ],
         ],
       ),
+        ),
+      ),
       bottomNavigationBar: compact
           ? null
           : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-                child: payButton,
+              child: Center(
+                heightFactor: 1,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Padding(
+                    // 2026-11-05 (М6-14): нижняя панель Scaffold лежит по низу экрана и пряталась под клавиатурой — поднимаем на её высоту
+                    padding: EdgeInsets.fromLTRB(16, 6, 16, 12 + MediaQuery.viewInsetsOf(context).bottom),
+                    child: payButton,
+                  ),
+                ),
               ),
             ),
     );
@@ -659,15 +689,17 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       } else {
         cleared = false; // 2026-11-02 (М3-01): чек изменился во время оплаты — ключ НЕ стираем (иначе оплата того же состава пройдёт второй раз)
       }
-    } catch (_) {
+    } catch (e) {
       cleared = false;
+      Audit.log('error', 'оплата: очистка чека: $e'); // 2026-11-05 (аудит №4, Р-1): сбой на денежном пути виден в журнале
     }
     if (cleared) {
       // 2026-11-01 (Н-1): стирание ключа — без ref; если не выполнится, ключ помечен done и после очистки чека считается «зомби» (М2-04)
       try {
         await sales.forgetPendingKey();
-      } catch (_) {
+      } catch (e) {
         // не стёрся — помечен done, следующему такому же чеку не достанется
+        Audit.log('error', 'оплата: ключ повтора не стёрт: $e'); // 2026-11-05 (Р-1)
       }
     }
     // 2026-10-29 (аудит мобилки, п. 1): сервер уже имел продажу с этим ключом — «проведено, сверьте», а не ошибка.
@@ -719,8 +751,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           );
         }
       }
-    } catch (_) {
+    } catch (e) {
       // продажа проведена — второстепенное не мешает показать «Оплачено»
+      Audit.log('error', 'оплата: после продажи (бонусы, журнал): $e'); // 2026-11-05 (Р-1)
     }
     shiftNotifier.refresh();
     // 2026-11-05 (М4-14): итог чека и сдача — из ответа сервера (result.total), а не из корзины: если правила сервера разошлись с
@@ -756,7 +789,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     // 2026-10-22: сначала «Оплачено», потом PDF — ошибка отправки PDF больше не прячет сдачу.
     context.pushReplacement(
       '/paid',
-      extra: PaidInfo(result, method == PayMethod.cash ? change(received ?? paidTotal, paidTotal) : 0, receipt, showQr: _receipt == ReceiptTo.qr),
+      extra: PaidInfo(
+        result,
+        method == PayMethod.cash ? change(received ?? paidTotal, paidTotal) : 0,
+        receipt,
+        showQr: _receipt == ReceiptTo.qr,
+        // 2026-11-05 (аудит №4, М6-08): сервер насчитал больше, чем получено наличными, — сколько доплатить
+        shortfall: method == PayMethod.cash && received != null && received + 0.004 < paidTotal ? roundMoney(paidTotal - received) : 0,
+      ),
     );
     // 13.10, владелец: чек клиенту — PDF-файлом (WhatsApp, Telegram…), а не текстом.
     if (sharePdf) unawaited(shareReceiptPdf(receipt).catchError((_) {}));
@@ -770,7 +810,10 @@ class PaidInfo {
 
   /// Кассир выбрал «QR-код» — экран чека сразу показывает QR покупателю.
   final bool showQr;
-  const PaidInfo(this.result, this.change, this.receipt, {this.showQr = false});
+
+  /// 2026-11-05 (М6-08): наличных получено меньше итога сервера — столько надо добрать (0 — всё сходится).
+  final double shortfall;
+  const PaidInfo(this.result, this.change, this.receipt, {this.showQr = false, this.shortfall = 0});
 }
 
 /// Чек проведён (или сохранён без связи — уйдёт на сервер сам).
@@ -897,6 +940,31 @@ class _PaidScreenState extends State<PaidScreen> {
                         style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: pal.success),
                       ),
                     ],
+                    if (info.shortfall > 0) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        key: const Key('payShortfall'),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: pal.dangerSoft, borderRadius: BorderRadius.circular(12)),
+                        child: Row(
+                          children: [
+                            Icon(Icons.error_outline_rounded, color: pal.danger),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                l.payShortfall(money(info.result.total), money(info.shortfall)),
+                                style: TextStyle(color: pal.danger, fontWeight: FontWeight.w800, fontSize: 13.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    // 2026-11-05 (сервер ceba67c): сервер склеил одинаковые строки — тихая подсказка (чек и сумма верны)
+                    if (info.result.linesMerged) ...[
+                      const SizedBox(height: 10),
+                      Text(l.payLinesMerged, key: const Key('linesMerged'), style: TextStyle(color: pal.textSoft, fontSize: 12.5), textAlign: TextAlign.center),
+                    ],
                     // 2026-10-27 (ревью М-6): остаток после продажи штуки из упаковки не сошёлся с сервером — жёлтая плашка
                     if (info.result.stockWarnings.isNotEmpty) ...[
                       const SizedBox(height: 14),
@@ -958,7 +1026,7 @@ class _PaidScreenState extends State<PaidScreen> {
                     // 2026-10-20: печать на принтер чеков (Bluetooth / сеть / USB); 2026-10-26: «Печать», «QR», «PDF» — короткие подписи
                     ReceiptActionBar(receipt: info.receipt, qrTitle: '$_checkTitle · ${money(info.result.total)} ${l.som}', afterSale: true),
                     const SizedBox(height: 10),
-                    FilledButton(onPressed: () => context.go('/sale'), child: Text(l.newCheck)),
+                    FilledButton(key: const Key('newCheckBtn'), onPressed: () => context.go('/sale'), child: Text(l.newCheck)), // 2026-11-05 (E2E)
                   ],
                 ),
               ),

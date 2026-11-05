@@ -889,7 +889,7 @@ public partial class ScalesPluWindow
             // В строке журнала не записано, на какие весы шла отправка: при нескольких весах одной
             // марки журналу не доверяем — номера по порядку списка.
             var onlyScaleOfBrand = LabelScaleStore.All.Count(p => p.Brand == profile.Brand) == 1;
-            var logFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppMode.DataFolderName, "Logs");
+            var logFolder = Path.Combine(NurMarketKassa.Services.AppPaths.Local, AppMode.DataFolderName, "Logs");
             var fromLog = onlyScaleOfBrand
                 ? await Task.Run(() => FindLastLayoutInLog(logFolder, marker, products, selected)).ConfigureAwait(true)
                 : null;

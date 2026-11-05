@@ -272,6 +272,10 @@ public sealed class RevisionSession
     private Task<RevisionApplyResult>? _applyTask;
     private RevisionApplyResult? _doneResult;
 
+    /// <summary>2026-11-05 (функция 9): причины расхождений по товарам (коды <see cref="CycleCountReasons"/>) — уходят в примечание акта на сервере. В черновик не пишутся
+    /// (выбираются при завершении ревизии); при обрыве и повторе непроведённые части уйдут без причин, если окно закрыли.</summary>
+    public Dictionary<string, string> DifferenceReasons { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     private RevisionSession(RevisionOptions options)
     {
         _sized = new HashSet<string>(options.SizedProductIds ?? [], StringComparer.OrdinalIgnoreCase);
@@ -1008,7 +1012,29 @@ public sealed class RevisionSession
                     var note = Tr.T($"Ревизия из кассы {StartedAt:dd.MM.yyyy HH:mm} ({i + 1}/{total})", $"Кассадан ревизия {StartedAt:dd.MM.yyyy HH:mm} ({i + 1}/{total})",
                         $"Stocktake from the register {StartedAt:dd.MM.yyyy HH:mm} ({i + 1}/{total})", $"Kasadan sayım {StartedAt:dd.MM.yyyy HH:mm} ({i + 1}/{total})",
                         $"Kassadan inventarizatsiya {StartedAt:dd.MM.yyyy HH:mm} ({i + 1}/{total})");
-                    var sessionId = await api.CreateSessionAsync(note, items, ct).ConfigureAwait(false);
+                    var baseNote = note;
+                    // 2026-11-05 (функция 9): причины расхождений этой части — в примечание акта (без причин примечание прежнее).
+                    if (DifferenceReasons.Count > 0)
+                    {
+                        string suffix;
+                        lock (_gate)
+                            suffix = CycleCountReasons.NoteSuffix(items.Select(it => (it.ProductId, _byId.TryGetValue(it.ProductId, out var rr) ? rr : null))
+                                .Where(x => x.Item2 is not null && DifferenceReasons.ContainsKey(x.ProductId))
+                                .Select(x => (x.Item2!.Name, x.Item2.Difference, (string?)DifferenceReasons[x.ProductId])), maxLength: 150); // 2026-11-05 (ревью п. 16): короче — предел поля примечания на сервере не подтверждён
+                        if (suffix.Length > 0)
+                            note += ". " + suffix;
+                    }
+                    string? sessionId;
+                    try
+                    {
+                        sessionId = await api.CreateSessionAsync(note, items, ct).ConfigureAwait(false);
+                    }
+                    catch (ApiException ex) when (ex.StatusCode == 400 && note != baseNote)
+                    {
+                        // 2026-11-05 (ревью волн 0–3, п. 16): сервер мог отклонить длинное примечание — создаём акт с прежним коротким (причины остаются в кассе).
+                        PosLogger.Log($"Ревизия: примечание с причинами отклонено сервером (400) — акт создаётся без причин.", "WARNING");
+                        sessionId = await api.CreateSessionAsync(baseNote, items, ct).ConfigureAwait(false);
+                    }
                     if (string.IsNullOrWhiteSpace(sessionId))
                     {
                         result.Status = RevisionApplyStatus.Failed;
@@ -1371,7 +1397,7 @@ public static class RevisionDraftStore
     public static string? DataDirOverride { get; set; }
 
     internal static string DataDir => DataDirOverride
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketKassa", "revision");
+        ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "revision");
 
     private static string FilePath => Path.Combine(DataDir, "draft.json");
     private static string LockPath => Path.Combine(DataDir, "draft.lock");

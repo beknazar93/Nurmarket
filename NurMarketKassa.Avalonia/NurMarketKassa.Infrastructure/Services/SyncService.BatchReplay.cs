@@ -135,6 +135,8 @@ public sealed partial class SyncService
                     });
                     await ResyncStockAfterReplayAsync(entry, ct).ConfigureAwait(false);
                     PosLogger.Log($"OFFLINE replay batch: чек {entry.Id} проведён, продажа {saleId ?? "—"}{(status == 200 ? ", повтор по ключу" : "")}.", "OFFLINE");
+                    if (status == 201)
+                        CheckoutWarnings.HandleReplayResponse(entry.Id, saleId, result); // 2026-11-05: предупреждения сервера (below_cost → «Некорректные чеки»)
                     OfflinePendingSalesStore.MarkSynced(entry.Id, saleId);
                     OfflinePendingSalesStore.RemoveSynced(entry.Id);
                     Interlocked.Increment(ref _replayedCount);

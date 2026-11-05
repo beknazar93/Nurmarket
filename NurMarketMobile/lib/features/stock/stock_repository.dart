@@ -190,6 +190,12 @@ class StockRepository {
     await db.markSent(row.id);
   });
 
+  /// 2026-11-05 (аудит №4, М6-09): «5.00» как и раньше, а вес с долями грамма — три знака («1.235»), а не округление до двух.
+  static String _fact(double v) {
+    final two = v.toStringAsFixed(2);
+    return double.parse(two) == v ? two : v.toStringAsFixed(3);
+  }
+
   static String _fmt(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(3);
 
   /// 2026-10-22 (мобилка, деньги, К-10): ревизия кассира проводится, как на ПК (WarehouseViewModel): акт
@@ -202,7 +208,8 @@ class StockRepository {
     final key = const Uuid().v4();
     final body = {
       'note': note,
-      'items': counted.entries.map((e) => {'product_id': e.key, 'quantity_fact': e.value.toStringAsFixed(2)}).toList(),
+      // 2026-11-05 (аудит №4, М6-09): три знака веса (1,235 кг) — раньше два, и остаток телефона расходился с сервером
+      'items': counted.entries.map((e) => {'product_id': e.key, 'quantity_fact': _fact(e.value)}).toList(),
       OutboxMeta.key: {..._meta(), 'apply': true},
     };
     await db.enqueue(

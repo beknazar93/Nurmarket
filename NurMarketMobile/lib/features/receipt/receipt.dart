@@ -86,7 +86,7 @@ class Receipt {
   /// до копейки; null — по строкам чека.
   final double? subtotalOverride;
 
-  /// 2026-11-05 (М4-14): «Округление весовых» — сколько отброшено при округлении суммы весовых строк вниз; 0 — строки не показываем.
+  /// 2026-11-05 (М4-14, М6-06): строка «Округление» — на сколько сумма напечатанных строк больше подытога (минус) или меньше (плюс); 0 — не показываем.
   final double weightRounding;
 
   const Receipt({
@@ -169,6 +169,7 @@ class Receipt {
     final lines = [for (final l in cart.lines) ReceiptLine(name: l.name, qty: l.qty, unit: l.unit, price: l.price, discount: l.discount, total: l.total)];
     // 2026-11-05 (М4-14): итог чека — из ответа сервера (его и записал сервер), корзина — запасной путь (чек в очереди, ответ без суммы)
     final total = serverTotal != null && serverTotal > 0 ? serverTotal : cart.total;
+    final discount = roundMoney(cart.lineDiscounts + cart.orderDiscount);
     return Receipt(
       shop: _shop(session),
       inn: session?.companyInn ?? '',
@@ -180,7 +181,7 @@ class Receipt {
       cashbox: session?.cashboxName ?? '',
       client: client,
       lines: lines,
-      discount: roundMoney(cart.lineDiscounts + cart.orderDiscount),
+      discount: discount,
       total: total,
       payment: payment,
       received: received,
@@ -189,8 +190,10 @@ class Receipt {
       eReceiptUrl: qr.eReceiptUrl(response),
       offline: offline,
       debtDue: debtDue,
-      subtotalOverride: cart.subtotal,
-      weightRounding: cart.weightRounding,
+      subtotalOverride: cart.printedSubtotal, // 2026-11-05 (аудит №4, М6-06): подытог = сумма напечатанных строк
+      // 2026-11-05 (ревью волн 0–3, М-5): «Округление» — от ИТОГОВОЙ суммы (серверной, если есть), чтобы бумага сходилась до копейки:
+      // сумма напечатанных строк − скидка − итог. Без ответа сервера (total = cart.total) это прежний cart.paperRounding.
+      weightRounding: roundMoney(cart.printedSubtotal - discount - total),
     );
   }
 
@@ -286,7 +289,7 @@ class Receipt {
     }
     b.writeln(dash);
     if (discount > 0) b.writeln('Скидка: −${money(discount)}');
-    if (weightRounding >= 0.005) b.writeln('Округление весовых: −${money(weightRounding)}'); // 2026-11-05 (М4-14)
+    if (weightRounding.abs() >= 0.005) b.writeln('Округление: ${roundingSigned(weightRounding)}'); // 2026-11-05 (М4-14, М6-06)
     b.writeln('ИТОГО: ${money(total)} сом');
     for (final (k, v) in paymentLines) {
       b.writeln('$k: $v');
@@ -308,3 +311,7 @@ class Receipt {
 
   String get fileName => '${isReturn ? 'Возврат' : 'Чек'} №$numberText';
 }
+
+/// 2026-11-05 (аудит №4, М6-06): строка «Округление» чека: [v] > 0 — вычитается («−0,01»), [v] < 0 — прибавляется («+0,01»).
+/// [ascii] — дефис вместо «−» (чековые принтеры без Юникода).
+String roundingSigned(double v, {bool ascii = false}) => v > 0 ? '${ascii ? '-' : '−'}${money(v)}' : '+${money(-v)}';

@@ -57,7 +57,7 @@ public static class InvoiceImportRegistry
     public static string? DataDirOverride { get; set; }
 
     private static string DataDir => DataDirOverride
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketKassa", "purchases");
+        ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "purchases");
 
     private static string FilePath => Path.Combine(DataDir, "invoice-imports.json");
     private static readonly object Sync = new();

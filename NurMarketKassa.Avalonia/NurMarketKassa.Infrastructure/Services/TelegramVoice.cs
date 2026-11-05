@@ -20,7 +20,7 @@ namespace NurMarketKassa.Services;
 /// </summary>
 public static class TelegramVoice
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(40) };
+    private static readonly HttpClient Http = ExternalHttp.Create(TimeSpan.FromSeconds(40)); // 2026-11-05 (Н-19)
 
     // 30.09: проверено на ключе владельца — обе модели TTS отвечают за 2,5–3,5 с.
     // 2026-10-05, владелец: «голос очень сильно тормозит». Замер на ключе владельца: короткая фраза — 2,6–4,3 с у всех

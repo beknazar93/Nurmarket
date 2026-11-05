@@ -311,7 +311,7 @@ public sealed partial class TelegramBotPollingService
 
         public static UpdateInbox Open(string botId)
         {
-            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketKassa",
+            var path = Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa",
                 $"telegram-updates-{string.Concat(botId.Where(char.IsLetterOrDigit))}.json");
             var inbox = new UpdateInbox(path);
             try

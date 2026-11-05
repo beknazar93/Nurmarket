@@ -43,7 +43,7 @@ public sealed class CatalogFeedSync
 
     /// <summary>Файл курсора. Стенд подменяет, чтобы не трогать настоящий профиль.</summary>
     public static string StorePath { get; set; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         AppMode.DataFolderName,
         "catalog_feed_cursor.json");
 

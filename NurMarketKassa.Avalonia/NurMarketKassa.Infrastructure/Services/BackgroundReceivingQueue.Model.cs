@@ -70,6 +70,8 @@ public sealed class JobLine
     public double StockBefore { get; set; }
     public double Quantity { get; set; }
     public double PurchasePrice { get; set; }
+    /// <summary>2026-11-05 (функция 11): доля доп. расходов прихода на единицу — переживает перезапуск вместе с задачей.</summary>
+    public double LandedExtraPerUnit { get; set; }
     public double SalePrice { get; set; }
     public string OriginalName { get; set; } = "";
     public string OriginalUnit { get; set; } = "";
@@ -100,6 +102,7 @@ public sealed class JobLine
         StockBefore = l.StockBefore,
         Quantity = l.Quantity,
         PurchasePrice = l.PurchasePrice,
+        LandedExtraPerUnit = l.LandedExtraPerUnit,
         SalePrice = l.SalePrice,
         OriginalName = l.OriginalName,
         OriginalUnit = l.OriginalUnit,
@@ -134,6 +137,7 @@ public sealed class JobLine
             vm.SetVariants(new Dictionary<string, double>(VariantQuantities), VariantLabels is null ? new Dictionary<string, string>() : new Dictionary<string, string>(VariantLabels));
         vm.Quantity = Quantity;
         vm.PurchasePrice = PurchasePrice;
+        vm.LandedExtraPerUnit = LandedExtraPerUnit;
         vm.SalePrice = SalePrice;
         return vm;
     }

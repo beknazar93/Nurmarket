@@ -80,7 +80,7 @@ public sealed class StockAdjustDialog : Window
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right };
         var cancel = UiKit.Ghost(this, T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
         cancel.IsCancel = true; // ✕ оболочки нажимает кнопку с IsCancel
-        cancel.Click += (_, _) => Close(false);
+        cancel.Click += (_, _) => { if (!_shell.IsBusy) Close(false); }; // 2026-11-05 (ревью А-1): во время запроса окно не закрываем
         _apply = UiKit.Primary(this, T("Провести", "Өткөрүү", "Apply", "Uygula", "O'tkazish"));
         _apply.Click += async (_, _) => await ApplyAsync().ConfigureAwait(true);
         buttons.Children.Add(cancel);

@@ -44,7 +44,7 @@ public sealed class WebView2Host : NativeControlHost
         try
         {
             var userDataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                NurMarketKassa.Services.AppPaths.Roaming,
                 NurMarketKassa.Services.AppMode.DataFolderName, "WebView2");
             Directory.CreateDirectory(userDataFolder);
 

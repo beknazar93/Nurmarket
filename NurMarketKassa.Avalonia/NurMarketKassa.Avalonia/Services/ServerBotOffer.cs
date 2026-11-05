@@ -19,7 +19,7 @@ public static class ServerBotOffer
     private static bool _scheduled;
 
     private static string MarkerPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketKassa", "telegram-server-offer.done");
+        NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "telegram-server-offer.done");
 
     /// <summary>Через 20 с после открытия окна (чтобы не наложиться на «Что нового» и вход).</summary>
     public static void Schedule(Window owner)

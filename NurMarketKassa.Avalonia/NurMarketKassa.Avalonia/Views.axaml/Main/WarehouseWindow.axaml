@@ -1502,8 +1502,9 @@
                         <StackPanel Grid.Row="4" x:Name="ReceivingEmptyState" Classes="empty-state" MaxWidth="540">
                             <Border Width="72" Height="72" CornerRadius="20" HorizontalAlignment="Center" Margin="0,0,0,6"
                                     Background="{DynamicResource BrushPanelSoft}">
-                                <TextBlock Classes="mdl2" Text="&#xE722;" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource BrushTextSoft}"/>
+                                <!-- 2026-11-05 (аудит №4, Д4-22): был символ шрифта Segoe MDL2 (на Linux/Android и без шрифта — «▯»); теперь векторный значок штрихкода. -->
+                                <PathIcon Data="{StaticResource IconBarcode}" Width="34" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Foreground="{DynamicResource BrushTextSoft}"/>
                             </Border>
                             <TextBlock x:Name="ReceivingEmptyTitle" Classes="empty-title" FontSize="18"/>
                             <TextBlock x:Name="ReceivingEmptyHint" Classes="empty-hint" FontSize="13.5"/>

@@ -25,7 +25,10 @@ namespace NurMarketKassa.Droid;
     ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode
                            | ConfigChanges.Keyboard | ConfigChanges.KeyboardHidden | ConfigChanges.Navigation
                            | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density
-                           | ConfigChanges.Locale | ConfigChanges.LayoutDirection | ConfigChanges.FontScale)]
+                           | ConfigChanges.Locale | ConfigChanges.LayoutDirection | ConfigChanges.FontScale
+                           // 2026-11-05 (аудит №3 А3-13): смена цвета/шрифта системы, SIM, сенсорного экрана не пересоздаёт окно
+                           | ConfigChanges.ColorMode | ConfigChanges.FontWeightAdjustment | ConfigChanges.Mcc | ConfigChanges.Mnc
+                           | ConfigChanges.Touchscreen)]
 [IntentFilter(new[] { "android.hardware.usb.action.USB_DEVICE_ATTACHED" })]
 [MetaData("android.hardware.usb.action.USB_DEVICE_ATTACHED", Resource = "@xml/usb_device_filter")]
 public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App>
@@ -120,10 +123,12 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
     {
         NurMarketKassa.Services.SyncCenter.NoteInput(); // 2026-10-30: клавиша/сканер — тоже ввод
         // Громкость, питание, камера — системе как есть.
+        // 2026-11-05 (аудит №4, А4-03): HID-сканер режет начало кода — пауза между цифрами считалась по времени ОБРАБОТКИ.
+        // Теперь на время обработки клавиши кладём время самого события (AndroidKeyClock), как GetMessageTime в Windows.
         if (e is null || !NurMarketKassa.AndroidNestedLoop.Enabled || IsSystemKey(e.KeyCode))
-            return base.DispatchKeyEvent(e);
+            return e is null ? base.DispatchKeyEvent(e) : AndroidKeyClock.Dispatch(e, k => base.DispatchKeyEvent(k));
         var copy = new Android.Views.KeyEvent(e);
-        InputHandler.Post(() => base.DispatchKeyEvent(copy));
+        InputHandler.Post(() => AndroidKeyClock.Dispatch(copy, k => base.DispatchKeyEvent(k)));
         return true;
     }
 
@@ -158,7 +163,54 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
         NurMarketKassa.Services.SyncCenter.WindowMinimized = false;
         NurMarketKassa.Services.SyncCenter.NoteInput();
         NurMarketKassa.Services.SyncCenter.FeedKick.Kick();
+        AndroidMulticast.Resume(); // 2026-11-05 (А4-10)
         KassaKeepAliveService.Start(this, IsOwnerProgram);
+        // 2026-11-05 (аудит №4, А4-19): экран не гаснет, пока открыта смена (кассовая программа; у владельца — как обычно).
+        if (!IsOwnerProgram)
+        {
+            NurMarketKassa.Services.ShiftService.ShiftStateChanged -= OnShiftStateChanged;
+            NurMarketKassa.Services.ShiftService.ShiftStateChanged += OnShiftStateChanged;
+            ApplyKeepScreenOn(NurMarketKassa.Services.ShiftService.IsShiftOpen);
+        }
+        AskNotificationsOnce();
+    }
+
+    private void OnShiftStateChanged(bool open) => RunOnUiThread(() => ApplyKeepScreenOn(open));
+
+    private void ApplyKeepScreenOn(bool keep)
+    {
+        try
+        {
+            if (keep)
+                Window?.AddFlags(Android.Views.WindowManagerFlags.KeepScreenOn);
+            else
+                Window?.ClearFlags(Android.Views.WindowManagerFlags.KeepScreenOn);
+        }
+        catch
+        {
+            // не критично
+        }
+    }
+
+    /// <summary>2026-11-05 (аудит №3 А3-11, №4 А4-30): право на уведомления (Android 13+) — спросить один раз, иначе значок
+    /// службы «касса работает» скрыт. Отказ не повторяем: дальше — только вручную в настройках Android.</summary>
+    private void AskNotificationsOnce()
+    {
+        try
+        {
+            if (!OperatingSystem.IsAndroidVersionAtLeast(33)
+                || AndroidPermissions.IsGranted(Android.Manifest.Permission.PostNotifications))
+                return;
+            var prefs = GetSharedPreferences("nurmarket_permissions", FileCreationMode.Private);
+            if (prefs?.GetBoolean("notifications_asked", false) == true)
+                return;
+            prefs?.Edit()?.PutBoolean("notifications_asked", true)?.Apply();
+            _ = AndroidPermissions.RequestAsync(AndroidPermissions.Notifications, Android.Manifest.Permission.PostNotifications);
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"Android: запрос уведомлений — {ex.Message}", "WARNING");
+        }
     }
 
     protected override void OnStop()
@@ -166,6 +218,8 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
         // 2026-10-30 (Б1): касса в фоне живёт как служба переднего плана — опросы ленты/пульса/смены/настроек редкие (60 с и реже), LAN 15 с.
         NurMarketKassa.Services.SyncCenter.AppInBackground = true;
         NurMarketKassa.Services.SyncCenter.WindowMinimized = true;
+        NurMarketKassa.Services.ShiftService.ShiftStateChanged -= OnShiftStateChanged;
+        ApplyKeepScreenOn(false);
         AndroidBootstrap.OnEnteredBackground();
         base.OnStop();
     }
@@ -175,26 +229,29 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
     public override void OnTrimMemory(TrimMemory level)
     {
         base.OnTrimMemory(level);
-        if (level < TrimMemory.UiHidden)
+        // 2026-11-05 (аудит №4, А4-18): раньше уровни «касса на экране, памяти мало» (RunningLow/RunningCritical) пропускались,
+        // а при уходе в фон шла блокирующая сборка с уплотнением на главном потоке — касса «замирала» при быстром возврате.
+        // Теперь: на экране при нехватке — обычная сборка без уплотнения; в фоне — то же в фоновом потоке.
+        if (level < TrimMemory.RunningLow)
             return;
-        try
+        _ = System.Threading.Tasks.Task.Run(() =>
         {
-            System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
-            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
-            GC.WaitForPendingFinalizers();
-            Java.Lang.Runtime.GetRuntime()?.Gc();
-        }
-        catch
-        {
-            // не критично
-        }
+            try
+            {
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, blocking: false, compacting: false);
+            }
+            catch
+            {
+                // не критично
+            }
+        });
     }
 
     public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
     {
         base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-        // 2026-10-04: разрешение на камеру для сканера штрихкодов.
-        AndroidCameraScanner.OnPermissionResult(requestCode, grantResults);
+        // 2026-11-05 (А4-13): все ответы на запросы прав — через общий помощник (камера, Bluetooth, микрофон, уведомления).
+        AndroidPermissions.OnResult(requestCode, grantResults);
     }
 
     protected override void OnNewIntent(Intent? intent)
@@ -219,7 +276,10 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
     ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode
                            | ConfigChanges.Keyboard | ConfigChanges.KeyboardHidden | ConfigChanges.Navigation
                            | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density
-                           | ConfigChanges.Locale | ConfigChanges.LayoutDirection | ConfigChanges.FontScale)]
+                           | ConfigChanges.Locale | ConfigChanges.LayoutDirection | ConfigChanges.FontScale
+                           // 2026-11-05 (аудит №3 А3-13): смена цвета/шрифта системы, SIM, сенсорного экрана не пересоздаёт окно
+                           | ConfigChanges.ColorMode | ConfigChanges.FontWeightAdjustment | ConfigChanges.Mcc | ConfigChanges.Mnc
+                           | ConfigChanges.Touchscreen)]
 public class OwnerActivity : MainActivity
 {
     protected override bool IsOwnerProgram => true;

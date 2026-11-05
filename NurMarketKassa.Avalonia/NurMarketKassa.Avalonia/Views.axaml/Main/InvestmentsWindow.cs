@@ -288,8 +288,9 @@ public sealed partial class InvestmentsWindow : Window, IOwnerSectionRefresh
             SuggestedFileName = name,
             FileTypeChoices = [new FilePickerFileType(kind.ToUpperInvariant()) { Patterns = [$"*.{kind}"] }],
         }).ConfigureAwait(true);
-        var path = file?.TryGetLocalPath();
-        if (string.IsNullOrEmpty(path))
+        // 2026-11-05 (аудит №4, А4-07): Android — временный файл + копия в выбранный (ExportFileBridge).
+        var path = file is null ? null : NurMarketKassa.AvaloniaHost.Services.ExportFileBridge.PathFor(file);
+        if (file is null || string.IsNullOrEmpty(path))
             return;
         try
         {
@@ -322,6 +323,7 @@ public sealed partial class InvestmentsWindow : Window, IOwnerSectionRefresh
                     }
                 }
             }).ConfigureAwait(true);
+            path = await NurMarketKassa.AvaloniaHost.Services.ExportFileBridge.CompleteAsync(file, path).ConfigureAwait(true);
             _status.Text = T("Файл сохранён: ", "Файл сакталды: ", "File saved: ", "Dosya kaydedildi: ", "Fayl saqlandi: ") + path;
         }
         catch (Exception ex)
@@ -481,7 +483,8 @@ public sealed partial class InvestmentsWindow : Window, IOwnerSectionRefresh
     {
         percent = Math.Clamp(double.IsNaN(percent) ? 0 : percent, 0, 100);
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions($"{percent.ToString("0.####", CultureInfo.InvariantCulture)}*,{(100 - percent).ToString("0.####", CultureInfo.InvariantCulture)}*") };
-        grid.Children.Add(new Border { Background = Brush.Parse(hex), CornerRadius = new CornerRadius(height / 2) });
+        // 2026-11-05 (Д4-28): 1 % — не «точка»: заливка не короче 8 точек, пока процент больше нуля.
+        grid.Children.Add(new Border { Background = Brush.Parse(hex), CornerRadius = new CornerRadius(height / 2), MinWidth = percent > 0 ? 8 : 0, HorizontalAlignment = HorizontalAlignment.Left });
         var track = new Border { Height = height, CornerRadius = new CornerRadius(height / 2), ClipToBounds = true, Child = grid };
         Use(track, Border.BackgroundProperty, "BrushSurfaceSubtle");
         return track;

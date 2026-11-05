@@ -197,6 +197,9 @@ public partial class App : Application
         // 2026-10-29: при смене компании всё прежнее стирается; неотправленное — только по решению пользователя (UnsentDataDialog).
         AccountDataIsolation.UnsentDecisionHandler = UnsentDataDialog.Ask;
         AccountDataIsolation.UnsentExported += UnsentDataDialog.ShowExported;
+        // 2026-11-05 (аудит №4, Л4-01/Л4-04): вопрос при любой смене компании; сбой переноса данных — сообщение и выход из входа.
+        AccountDataIsolation.CompanyChangeConfirmHandler = UnsentDataDialog.ConfirmCompanyChange;
+        AccountDataIsolation.SwitchFailedHandler = UnsentDataDialog.ShowSwitchFailed;
         CompanyInfoService.CompanyChanged += id => AccountDataIsolation.SwitchTo(id);
         // 2026-10-04: общий кеш размеров/цветов одежды (окно выбора размера, прокат, бот) — см. ProductVariantCache.
         ProductVariantCache.Loader = (productId, token) => CatalogApi.GetProductVariantsAsync(productId, token);
@@ -632,6 +635,7 @@ public partial class App : Application
             desktop.MainWindow = mainWindow;
             shell.PlaceOnPrimaryScreen();
             mainWindow.Show();
+            NurMarketKassa.Services.StartupMark.FirstWindowShown("автовход"); // 2026-11-05: замер старта (аудит скорости, 20.1)
             splash.Close();
         }
         catch (OperationCanceledException)
@@ -694,6 +698,7 @@ public partial class App : Application
         desktop.MainWindow = mainWindow;
         mainWindow.PlaceOnPrimaryScreen();
         mainWindow.Show();
+        NurMarketKassa.Services.StartupMark.FirstWindowShown("автономный вход"); // 2026-11-05: замер старта (аудит скорости, 20.1)
         splash.Close();
         return true;
     }
@@ -740,7 +745,7 @@ public partial class App : Application
     private static void ConfigureServices(IServiceCollection services)
     {
         var logDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            NurMarketKassa.Services.AppPaths.Local,
             NurMarketKassa.Services.AppMode.DataFolderName,
             "Logs");
 #if DEBUG

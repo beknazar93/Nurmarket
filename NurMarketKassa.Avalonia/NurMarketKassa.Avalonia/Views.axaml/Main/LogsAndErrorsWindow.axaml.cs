@@ -262,7 +262,7 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
     }
 
     private static string LogDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        NurMarketKassa.Services.AppPaths.Local,
         NurMarketKassa.Services.AppMode.DataFolderName,
         "Logs");
 

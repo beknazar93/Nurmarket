@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/api_client.dart' show ApiException, ApiText;
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/util/product_picker.dart';
@@ -14,15 +15,24 @@ import 'barcode_lookup.dart';
 
 /// Коды весовых этикеток, уже лежащие в ТЕКУЩЕМ чеке. Тот же код второй раз без вопроса не добавляется; чек опустел — память чистая.
 class ScaleLabelMemory {
-  final _codes = <String>{};
+  /// код этикетки → строка чека, которую она создала (identityHashCode; null — строка неизвестна)
+  final _codes = <String, int?>{};
 
-  bool contains(String code) => _codes.contains(code);
+  bool contains(String code) => _codes.containsKey(code);
 
-  void add(String code) => _codes.add(code);
+  /// [line] — строка чека, созданная этой этикеткой: удалили строку — этикетку можно добавить снова без вопроса (2026-11-05, М6-27).
+  void add(String code, {Object? line}) => _codes[code] = line == null ? null : identityHashCode(line);
 
-  /// Чек пуст (оплатили, очистили) — прежние этикетки больше не «в чеке».
-  void syncWithCart({required bool cartEmpty}) {
-    if (cartEmpty) _codes.clear();
+  /// Чек пуст (оплатили, очистили) — прежние этикетки больше не «в чеке». Если передан [lines] (строки чека сейчас), из памяти уходят
+  /// и этикетки, чьих строк в чеке уже нет (2026-11-05, аудит №4, М6-27: после удаления строки скан спрашивал «уже в чеке»).
+  void syncWithCart({required bool cartEmpty, Iterable<Object>? lines}) {
+    if (cartEmpty) {
+      _codes.clear();
+      return;
+    }
+    if (lines == null) return;
+    final alive = {for (final l in lines) identityHashCode(l)};
+    _codes.removeWhere((_, id) => id != null && !alive.contains(id));
   }
 
   bool get isEmpty => _codes.isEmpty;
@@ -115,7 +125,8 @@ Future<({Product product, double? qty})?> offerUnknownPlu(BuildContext context, 
   final ok = await showDialog<bool>(
     context: context,
     builder: (c) => AlertDialog(
-      content: Text(l.scaleBindAsk(pluV, p.name)),
+      // 2026-11-05 (аудит №4, М6-26): у товара уже другой PLU — предупредить, что весы с прежним PLU перестанут его находить
+      content: Text((p.plu ?? '').trim().isNotEmpty && p.plu!.trim() != pluV ? l.scaleBindOverwrite(p.plu!.trim(), pluV, p.name) : l.scaleBindAsk(pluV, p.name)),
       actions: [
         TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
         FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.save)),
@@ -129,7 +140,8 @@ Future<({Product product, double? qty})?> offerUnknownPlu(BuildContext context, 
     // журнал: кто и кому записал PLU (в логе приложения; на сервере остаётся история изменения товара)
     debugPrint('scale-label: PLU $pluV записан товару ${p.id} «${p.name}»');
   } catch (e) {
-    if (context.mounted) toast(context, '$e', error: true);
+    // 2026-11-05 (М6-26): понятная причина, а не сырое «Instance of …»
+    if (context.mounted) toast(context, e is ApiException ? e.message : ApiText.badResponse, error: true);
     return null;
   }
   final hit = (await db.weightLabelHits(code, includePiece: true)).where((h) => h.product.id == p.id).firstOrNull;

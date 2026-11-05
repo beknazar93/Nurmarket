@@ -23,7 +23,7 @@ public static class ExchangeCashCorrections
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true, WriteIndented = true };
 
     private static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         AppMode.DataFolderName,
         "exchange_cash_fix.json");
 
@@ -35,13 +35,84 @@ public static class ExchangeCashCorrections
         public DateTime CreatedAt { get; set; }
     }
 
+    /// <summary>Архив старых поправок: <see cref="FilePath"/> с суффиксом. Появление файла = «миграция под сервер ceba67c сделана».</summary>
+    private static string ArchivePath => Path.Combine(Path.GetDirectoryName(FilePath)!, "exchange_cash_fix.archived.json");
+
+    private sealed class ArchiveFile
+    {
+        public DateTime ArchivedAt { get; set; }
+        public string Reason { get; set; } = "";
+        public List<Entry> Entries { get; set; } = new();
+    }
+
+    // 2026-11-05 (сервер ceba67c, признак debt_return_drawer_cash): сервер сам снимает наличные с ожидаемой наличности смены при возврате долгового чека и ПЕРЕСЧИТАЛ прошлые смены задним числом
+    // (смена 19fefe82: 987 → 979). Все поправки, записанные кассой ДО этого, поэтому вычитались бы второй раз. Как только признак виден, ВСЕ старые записи файла переносятся в архив
+    // (один раз; файл-архив остаётся для разбора) и больше не применяются. Поправки, записанные уже после (новые ошибки сервера: обмен, предоплата безналом), работают как раньше.
+    private static bool _archiveDone;
+
+    /// <summary>true — старые поправки уже в архиве (или переносить нечего). Вызывать под <see cref="FileLock"/>. false — перенос не удался (файл занят): пока считаем поправки нулевыми.</summary>
+    private static bool EnsureOldCorrectionsArchived()
+    {
+        if (_archiveDone)
+            return true;
+        try
+        {
+            if (File.Exists(ArchivePath))
+                return _archiveDone = true;
+            var read = AtomicFile.TryRead(FilePath, attempts: 2, pauseMs: 60);
+            if (read.Status == AtomicFile.ReadStatus.Unreadable || read.FromMemory)
+                return false; // файл занят — попробуем при следующем пересчёте
+            var old = Parse(read.Text) ?? new List<Entry>();
+            AtomicFile.WriteAllText(ArchivePath, JsonSerializer.Serialize(new ArchiveFile
+            {
+                ArchivedAt = DateTime.Now,
+                Reason = "debt_return_drawer_cash: сервер пересчитал прошлые смены сам; поправки кассы до этого момента больше не применяются",
+                Entries = old,
+            }, JsonOpts));
+            foreach (var e in old)
+                RemovedKeys[e.ExchangeId] = 0;
+            if (old.Count > 0)
+                Save(new List<Entry>());
+            PosLogger.Log($"Поправки ящика: сервер ведёт возврат долгового чека сам (debt_return_drawer_cash) — {old.Count} старых записей перенесены в exchange_cash_fix.archived.json и не применяются" +
+                          (old.Count > 0 ? $" (сумма {old.Sum(e => e.Amount):0.00})." : "."), "WARNING");
+            return _archiveDone = true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            PosLogger.Log($"Поправки ящика: архив старых записей не создан ({ex.Message}).", "WARNING");
+            return false;
+        }
+    }
+
+    /// <summary>Проверяется при каждом пересчёте «Касса:»; false — признака нет / список ещё не получен (поведение как раньше).</summary>
+    internal static Func<bool> ServerSubtractsDebtRefund { get; set; } = () => NurMarketKassa.Services.Api.ServerCapabilities.Has(NurMarketKassa.Services.Api.ServerCapabilities.DebtReturnDrawerCash);
+
+    /// <summary>true — у этого аккаунта сервер сам снимает наличные при возврате долгового чека (признак debt_return_drawer_cash): поправку не пишем и не применяем.</summary>
+    public static bool DebtRefundHandledByServer => ServerSubtractsDebtRefund();
+
+    private static bool _featureNoted;
+
+    /// <summary>2026-11-05: в журнал (один раз за запуск) — возврат долгового чека на сумму, сервер сам снял её с ожидаемой наличности; наша поправка не применялась.</summary>
+    public static void NoteServerFeatureDebtRefund(string? shiftId, decimal cashOut)
+    {
+        if (_featureNoted)
+            return;
+        _featureNoted = true;
+        PosLogger.Log($"Возврат долгового чека на {cashOut:0.00}: сервер сам снимает наличные с ожидаемой наличности смены (признак debt_return_drawer_cash) — поправка кассы не применяется.", "SALES");
+    }
+
     /// <summary>Сумма поправок по смене (обычно отрицательная — сервер завысил остаток).</summary>
     public static decimal ForShift(string? shiftId)
     {
         if (string.IsNullOrWhiteSpace(shiftId))
             return 0m;
+        var serverDoesIt = ServerSubtractsDebtRefund();
         lock (FileLock)
+        {
+            if (serverDoesIt && !EnsureOldCorrectionsArchived())
+                return 0m; // старые записи не применяем и тогда, когда архив пока не создать (файл занят)
             return Load(forWrite: false).Where(e => string.Equals(e.ShiftId, shiftId, StringComparison.OrdinalIgnoreCase)).Sum(e => e.Amount);
+        }
     }
 
     // 2026-11-05 (аудит №3, Р3-06 / Д3-11): наличные возврата, которые сервер уже вычел из остатка смены, но кассе об этом ещё не сказал (ответ на «остаток смены» медленный) —
@@ -160,9 +231,12 @@ public static class ExchangeCashCorrections
     /// шапка «Касса» врала). <paramref name="overstated"/> — на сколько сервер ушёл от реального движения наличных
     /// (изменение остатка минус наличные, прошедшие через ящик); поправка пишется, только если оно равно известной сумме
     /// <paramref name="suspect"/> (чужие операции в это же время её не вызывают). Исправят сервер — разницы не будет.</summary>
-    public static void RecordIfKnownServerError(string? shiftId, string key, decimal overstated, decimal suspect, string what)
+    public static void RecordIfKnownServerError(string? shiftId, string key, decimal overstated, decimal suspect, string what, bool debtRefund = false)
     {
         if (string.IsNullOrWhiteSpace(shiftId) || string.IsNullOrWhiteSpace(key) || suspect <= 0m)
+            return;
+        // 2026-11-05: возврат долгового чека, а сервер сам вычитает наличные (признак debt_return_drawer_cash) — поправку не пишем.
+        if (debtRefund && ServerSubtractsDebtRefund())
             return;
         if (Math.Abs(overstated) < 0.01m)
             return;
@@ -182,6 +256,21 @@ public static class ExchangeCashCorrections
         }
         PosLogger.Log($"{what}: сервер ошибся в остатке смены на {overstated:0.00} — касса учитывает поправку.", "WARNING");
         PosDataEvents.RaiseSalesChanged();
+    }
+
+    private static bool _serverFixNoted;
+
+    /// <summary>2026-11-05 (приёмка волн 0–3, С-1): возврат долгового чека, а сервер вычел наличные сам (остаток изменился ровно на выдачу) — ошибка сервера исправлена.
+    /// Новые поправки при этом не пишутся (RecordIfKnownServerError: разницы нет), двойного вычета нет. Поправки этой же смены, записанные ДО исправления, остаются: сервер мог
+    /// пересчитать их задним числом, а мог и нет — по одному остатку это не отличить; в журнал (один раз за запуск) идёт сумма, чтобы при закрытии смены сверить ящик.</summary>
+    public static void NoteServerSubtractsDebtRefund(string? shiftId, decimal cashOut)
+    {
+        if (_serverFixNoted || string.IsNullOrWhiteSpace(shiftId))
+            return;
+        _serverFixNoted = true;
+        var kept = ForShift(shiftId);
+        PosLogger.Log($"Возврат долгового чека на {cashOut:0.00}: сервер сам вычел наличные из остатка смены — ошибка сервера исправлена, новые поправки не пишутся."
+                      + (Math.Abs(kept) > 0.005m ? $" Поправки этой смены ({kept:0.00}) записаны до исправления — при закрытии смены сверьте ящик." : ""), "WARNING");
     }
 
     /// <summary>2026-10-23 (живой аудит, Б-1): возврат долгового чека с безналичной предоплатой — сервер вычел её из

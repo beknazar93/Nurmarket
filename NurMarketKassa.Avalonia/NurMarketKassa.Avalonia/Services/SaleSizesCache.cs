@@ -64,7 +64,7 @@ public static class SaleSizesCache
     private static int _unsaved;
 
     private static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         AppMode.DataFolderName,
         "sale_sizes_cache.json");
 

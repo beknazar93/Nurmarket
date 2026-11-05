@@ -107,7 +107,16 @@ public static class AccentThemeService
     {
         // Родной вид кассы — то, с чем она ставится: жёлтый акцент в светлом режиме, синий в
         // тёмном, прямые углы.
-        ["classic"] = new(BaseLight, BaseDark, ButtonRadius: 0, CardRadius: 0, FontSize: 14),
+        // 2026-11-05 (аудит №4, Д4-31/Д4-32): в тёмной «Классической» акцент был синим (#2563EB) и цены синие — касса выглядела «чужой» рядом с программой
+        // владельца (там в тёмной жёлтый). Теперь тёмная — тот же жёлтый #FFB208 с тёмным текстом (как у «NurMarket»), цена — цветом текста, выбранная вкладка —
+        // жёлтая; белые «инверсные» плашки выбранного убирает CheckoutDialog/MainViewStyles (мягкий акцент + рамка).
+        ["classic"] = new(BaseLight,
+            BaseDark with
+            {
+                Accent = "#FFB208", AccentStrong = "#FFC84D", AccentSoft = "#3A2D10", AccentForeground = "#191919",
+                Price = "#F5F5F5", TabBgSelected = "#FFB208", TabBorderSelected = "#FFC84D", Focus = "#FFB208",
+            },
+            ButtonRadius: 0, CardRadius: 0, FontSize: 14),
 
         // 2026-10-22, брендбук NUR CRM (docs/Брендбук NUR CRM — применение в программах (22.10.2026).md): «NurMarket» —
         // брендовая тема. Golden Light #FFB208 — главное действие и выбранное, Deep Night #191919 — текст и тёмный фон,
@@ -718,6 +727,11 @@ public static class AccentThemeService
         // текста ровно настолько, насколько нужно. Данные темы (Border/BorderStrong) не меняются — декоративные границы карточек прежние.
         app.Resources["BrushInputBorder"] = Brush(Readable(p.BorderStrong, p.Input, p.Text, 3.0));
         app.Resources["BrushMoney"] = Brush(p.Money);
+        // 2026-11-05 (аудит №4, Д4-32): «выбранное» (вкладка чека, страница каталога, способ оплаты) в светлой теме — цвет текста с надписью цветом панели
+        // (как было), в тёмной — вместо белой плашки, слепящей в тёмном зале, мягкий акцент с рамкой акцента и текстом темы.
+        app.Resources["BrushSelectedBg"] = Brush(dark ? p.AccentSoft : p.Text);
+        app.Resources["BrushSelectedBorder"] = Brush(dark ? p.Accent : p.Text);
+        app.Resources["BrushSelectedFg"] = Brush(dark ? p.Text : p.Panel);
         app.Resources["BrushSurfaceSubtle"] = Brush(p.SurfaceSubtle);
         // 2026-10-18: отклик кнопок на нажатие (PosDialogStyles.axaml): нажатая главная — на шаг дальше
         // наведения (AccentStrong), нажатая кнопка с обводкой — на шаг темнее мягкого фона наведения

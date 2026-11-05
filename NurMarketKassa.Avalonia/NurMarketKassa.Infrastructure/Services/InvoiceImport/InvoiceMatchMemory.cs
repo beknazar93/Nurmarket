@@ -18,7 +18,7 @@ public static class InvoiceMatchMemory
     public static string? DataDirOverride { get; set; }
 
     private static string DataDir => DataDirOverride
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "purchases");
+        ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "purchases");
 
     private static string FilePath => Path.Combine(DataDir, "invoice-match-memory.json");
     private static readonly object Sync = new();

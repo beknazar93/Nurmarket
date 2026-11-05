@@ -127,6 +127,14 @@ public sealed class UnsentDataDialog : Window
             parts.Add(T($"отложенных чеков: {s.DeferredCarts}", $"токтотулган чектер: {s.DeferredCarts}", $"parked receipts: {s.DeferredCarts}", $"bekletilen fişler: {s.DeferredCarts}", $"kechiktirilgan cheklar: {s.DeferredCarts}"));
         if (s.DebtOperations > 0)
             parts.Add(T($"неподтверждённых операций по долгам: {s.DebtOperations}", $"тастыкталбаган карыз операциялары: {s.DebtOperations}", $"unconfirmed debt operations: {s.DebtOperations}", $"onaylanmamış borç işlemleri: {s.DebtOperations}", $"tasdiqlanmagan qarz amallari: {s.DebtOperations}"));
+        // 2026-11-05 (Л4-05): оплата с неизвестным исходом, очередь бонусов и данные Telegram тоже не стираем молча.
+        if (s.UnknownCheckouts > 0)
+            parts.Add(T($"оплата с неизвестным исходом (возможно, продажа проведена): {s.UnknownCheckouts}", $"натыйжасы белгисиз төлөм (сатуу өтүп кетиши мүмкүн): {s.UnknownCheckouts}", $"payment with unknown outcome (the sale may have gone through): {s.UnknownCheckouts}",
+                $"sonucu belirsiz ödeme (satış geçmiş olabilir): {s.UnknownCheckouts}", $"natijasi noma'lum to'lov (sotuv o'tgan bo'lishi mumkin): {s.UnknownCheckouts}"));
+        if (s.BonusQueue > 0)
+            parts.Add(T($"бонусов в очереди: {s.BonusQueue}", $"кезектеги бонустар: {s.BonusQueue}", $"bonuses in the queue: {s.BonusQueue}", $"kuyruktaki bonuslar: {s.BonusQueue}", $"navbatdagi bonuslar: {s.BonusQueue}"));
+        if (s.TelegramItems > 0)
+            parts.Add(T($"обращений и клиентов Telegram: {s.TelegramItems}", $"Telegram кайрылуулары жана кардарлары: {s.TelegramItems}", $"Telegram inquiries and customers: {s.TelegramItems}", $"Telegram talepleri ve müşterileri: {s.TelegramItems}", $"Telegram murojaatlari va mijozlari: {s.TelegramItems}"));
         return T("Не отправлено на сервер: ", "Сервердик жөнөтүлө элек: ", "Not sent to the server: ", "Sunucuya gönderilmedi: ", "Serverga yuborilmagan: ") + string.Join("; ", parts) + ".";
     }
 
@@ -148,6 +156,55 @@ public sealed class UnsentDataDialog : Window
         if (decision == UnsentDecision.Cancel)
             AbortSignIn();
         return decision;
+    }
+
+    /// <summary>2026-11-05 (Л4-01): вопрос при смене компании, когда неотправленного нет. «Нет» — выход из только что выполненного входа.</summary>
+    public static bool ConfirmCompanyChange(string previousKey, string newKey)
+    {
+        bool Show() => PosConfirmDialog.Show(ActiveWindow(),
+            T("Вход в другую компанию", "Башка компанияга кирүү", "Signing in to a different company", "Başka bir şirkete giriş", "Boshqa kompaniyaga kirish"),
+            T($"Вы входите в другую компанию ({newKey}). Данные прежней ({previousKey}) на этом компьютере будут убраны: копия хранится 14 дней, потом удалится. Продолжить?",
+                $"Сиз башка компанияга кирип жатасыз ({newKey}). Мурункусунун ({previousKey}) маалыматтары бул компьютерден алынат: көчүрмөсү 14 күн сакталып, андан кийин өчөт. Улантасызбы?",
+                $"You are signing in to a different company ({newKey}). The data of the previous one ({previousKey}) will be removed from this computer: a copy is kept for 14 days, then deleted. Continue?",
+                $"Başka bir şirkete ({newKey}) giriş yapıyorsunuz. Önceki şirketin ({previousKey}) verileri bu bilgisayardan kaldırılacak: kopya 14 gün saklanır, sonra silinir. Devam edilsin mi?",
+                $"Siz boshqa kompaniyaga ({newKey}) kiryapsiz. Avvalgisining ({previousKey}) ma'lumotlari bu kompyuterdan olib tashlanadi: nusxasi 14 kun saqlanadi, keyin o'chadi. Davom etasizmi?"),
+            accent: PosConfirmAccent.Danger);
+
+        var ok = Dispatcher.UIThread.CheckAccess()
+            ? Show()
+            : Dispatcher.UIThread.InvokeAsync(Show).GetAwaiter().GetResult();
+        if (!ok)
+            AbortSignIn();
+        return ok;
+    }
+
+    /// <summary>2026-11-05 (Л4-04): данные прежней компании убрать не удалось (файл занят) — всё возвращено на место, вход прерываем.
+    /// 2026-11-05 (ревью волн 0–3, п. 7): сообщение показываем ДО закрытия программы и ждём, пока его закроют, — раньше окно появлялось и сразу закрывалось вместе с кассой.</summary>
+    public static void ShowSwitchFailed(string reason)
+    {
+        async Task ShowAndWaitAsync() => await PosAlertDialog.ShowAsync(ActiveWindow(),
+            T("Не удалось сменить компанию", "Компанияны алмаштыруу мүмкүн болгон жок", "Could not switch company", "Şirket değiştirilemedi", "Kompaniyani almashtirib bo'lmadi"),
+            T($"Данные прежней компании заняты другой программой ({reason}). Закройте программу владельца и антивирус и войдите снова. Ничего не потеряно.",
+                $"Мурунку компаниянын маалыматтарын башка программа кармап турат ({reason}). Ээси программасын жана антивирусту жаап, кайра кириңиз. Эч нерсе жоголгон жок.",
+                $"The previous company's data is held by another program ({reason}). Close the owner program and antivirus, then sign in again. Nothing was lost.",
+                $"Önceki şirketin verileri başka bir program tarafından kullanılıyor ({reason}). Sahip programını ve antivirüsü kapatıp tekrar girin. Hiçbir şey kaybolmadı.",
+                $"Avvalgi kompaniya ma'lumotlarini boshqa dastur ushlab turibdi ({reason}). Egasi dasturini va antivirusni yopib, qayta kiring. Hech narsa yo'qolmadi."),
+            PosAlertKind.Warning).ConfigureAwait(true);
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            // Мы в потоке окон: ждать здесь нельзя (повисло бы окно) — выходим из входа, когда сообщение закроют.
+            Dispatcher.UIThread.Post(async () =>
+            {
+                try { await ShowAndWaitAsync().ConfigureAwait(true); }
+                catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Смена аккаунта: сообщение о сбое не показано ({ex.Message}).", "WARNING"); }
+                AbortSignIn();
+            });
+            return;
+        }
+        try { Dispatcher.UIThread.InvokeAsync(ShowAndWaitAsync).GetAwaiter().GetResult(); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Смена аккаунта: сообщение о сбое не показано ({ex.Message}).", "WARNING"); }
+        AbortSignIn();
     }
 
     /// <summary>Файл «неотправленное» записан — сказать, где он лежит (не блокирует: окно покажется после смены).</summary>

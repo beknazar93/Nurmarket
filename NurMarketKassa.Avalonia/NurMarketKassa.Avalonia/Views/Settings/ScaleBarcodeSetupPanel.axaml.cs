@@ -1,3 +1,4 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -6,6 +7,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
+using NurMarketKassa.Core.Application;
 using NurMarketKassa.Core.Domain;
 using NurMarketKassa.Services;
 
@@ -34,6 +36,33 @@ public partial class ScaleBarcodeSetupPanel : UserControl
     public ScaleBarcodeSetupPanel()
     {
         InitializeComponent();
+        // 2026-11-05: выбор единицы суммы (тыйын / сом) на этой кассе — общий блок для всех марок весов.
+        UnitBox.Children.Add(ScaleUi.AmountUnitPicker(this, OnUnitChanged, "ScaleSecondary"));
+    }
+
+    /// <summary>2026-11-05: единицу суммы поменяли — перечитываем введённую этикетку и перерисовываем примеры.</summary>
+    private void OnUnitChanged()
+    {
+        if (_reading is not null && !string.IsNullOrWhiteSpace(LabelCodeBox.Text))
+        {
+            var again = ScaleBarcodeRules.Read(LabelCodeBox.Text, out _);
+            if (again is not null)
+                _reading = again with { CurrentKind = ScaleBarcodeRules.Effective(again.Prefix) };
+        }
+        Refresh();
+        RulesChanged?.Invoke();
+    }
+
+    /// <summary>2026-11-05: «Цифры в тыйынах» / «Цифры в сомах» под нереальной суммой — применяет единицу локально и пересчитывает.</summary>
+    private void UnitFix_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_reading is null)
+            return;
+        var suggested = ScaleBarcodeRules.UnrealisticAmountSuggestion(_reading.Raw, _reading.PricePerKg);
+        if (string.IsNullOrEmpty(suggested))
+            return;
+        ScaleBarcodeRules.SetLocalUnit(suggested);
+        OnUnitChanged();
     }
 
     private void Panel_Loaded(object? sender, RoutedEventArgs e) => Refresh();
@@ -292,7 +321,12 @@ public partial class ScaleBarcodeSetupPanel : UserControl
         AmountOptionValue.Text = ScaleBarcodeRules.Money(reading.AmountSom) + " " + ScaleBarcodeRules.Som();
         AmountOptionDetail.Text = hasPrice
             ? "= " + ScaleBarcodeRules.LineText(reading.WeightFromAmountKg, reading.PricePerKg)
-            : L($"цифры {reading.ValueDigits} — тыйыны", $"{reading.ValueDigits} сандары — тыйын", $"digits {reading.ValueDigits} are tiyin", $"{reading.ValueDigits} haneleri tiyin", $"{reading.ValueDigits} raqamlari — tiyin");
+            : string.Equals(WeightBarcodeParser.AmountUnit, WeightBarcodeParser.UnitSom, StringComparison.OrdinalIgnoreCase)
+                // 2026-11-05: подпись зависит от текущей единицы (раньше всегда «тыйыны», даже когда касса считала в сомах)
+                ? L($"цифры {reading.ValueDigits} — сомы", $"{reading.ValueDigits} сандары — сом", $"digits {reading.ValueDigits} are som", $"{reading.ValueDigits} haneleri som", $"{reading.ValueDigits} raqamlari — so‘m")
+                : L($"цифры {reading.ValueDigits} — тыйыны", $"{reading.ValueDigits} сандары — тыйын", $"digits {reading.ValueDigits} are tiyin", $"{reading.ValueDigits} haneleri tiyin", $"{reading.ValueDigits} raqamlari — tiyin");
+
+        ShowUnitHint(reading);
 
         var now = L("← так касса читает сейчас", "← касса азыр ушундай окуйт", "← how the till reads it now", "← kasa şu an böyle okuyor", "← kassa hozir shunday o‘qiydi");
         // Префикс без правила: касса ещё спросит при скане — «как читает сейчас» не показываем.
@@ -301,6 +335,51 @@ public partial class ScaleBarcodeSetupPanel : UserControl
         AmountOptionNote.Text = !asks && reading.CurrentKind == WeightBarcodeValueKind.Amount ? now : "";
         WeightOptionButton.Classes.Set("current", !asks && reading.CurrentKind == WeightBarcodeValueKind.Weight);
         AmountOptionButton.Classes.Set("current", !asks && reading.CurrentKind == WeightBarcodeValueKind.Amount);
+    }
+
+    /// <summary>2026-11-05: суммы в обеих единицах и подсказка при нереальной сумме (больше порога или вес больше 600 кг).</summary>
+    private void ShowUnitHint(ScaleLabelReading reading)
+    {
+        if (reading.Raw <= 0)
+        {
+            UnitHintBorder.IsVisible = false;
+            return;
+        }
+        UnitHintBorder.IsVisible = true;
+        var price = reading.PricePerKg;
+        string One(string unit)
+        {
+            var (amount, kg) = ScaleBarcodeRules.ReadAs(reading.Raw, unit, price);
+            return $"{ScaleBarcodeRules.UnitWord(unit)}: {ScaleBarcodeRules.Money(amount)} {ScaleBarcodeRules.Som()}"
+                   + (price > 0 ? $" ({ScaleBarcodeRules.Kg(kg)})" : "");
+        }
+        UnitBothText.Text = L("Если цифры — сумма: ", "Сандар сумма болсо: ", "If the digits are the amount: ", "Haneler tutarsa: ", "Raqamlar summa bo‘lsa: ")
+                            + One(WeightBarcodeParser.UnitTiyin) + "; " + One(WeightBarcodeParser.UnitSom) + ".";
+
+        var suggestion = ScaleBarcodeRules.UnrealisticAmountSuggestion(reading.Raw, price);
+        var cur = ScaleBarcodeRules.ReadAs(reading.Raw, WeightBarcodeParser.AmountUnit, price);
+        UnitWarnText.IsVisible = suggestion is not null;
+        UnitFixRow.IsVisible = !string.IsNullOrEmpty(suggestion);
+        UnitHintBorder.Background = Brush(suggestion is null ? "BrushSurfaceSubtle" : "BrushWarningSoft", Brushes.LightYellow);
+        UnitHintBorder.BorderBrush = Brush(suggestion is null ? "BrushBorder" : "BrushWarning", Brushes.Goldenrod);
+        if (suggestion is null)
+            return;
+        var big = cur.Amount.ToString("#,0.##", CultureInfo.CurrentCulture);
+        if (string.IsNullOrEmpty(suggestion))
+        {
+            UnitWarnText.Text = "⚠ " + L($"Сумма выглядит нереально ({big} сом) — проверьте цифры на этикетке.", $"Сумма реалдуу эмес көрүнөт ({big} сом) — этикеткадагы сандарды текшериңиз.",
+                $"The amount looks unrealistic ({big} som) — check the digits on the label.", $"Tutar gerçekçi görünmüyor ({big} som) — etiketteki haneleri kontrol edin.", $"Summa haqiqatga to‘g‘ri kelmaydi ({big} so‘m) — yorliqdagi raqamlarni tekshiring.");
+            return;
+        }
+        var tiyin = suggestion == WeightBarcodeParser.UnitTiyin;
+        UnitWarnText.Text = "⚠ " + (tiyin
+            ? L($"Сумма выглядит нереально ({big} сом) — скорее всего цифры в тыйынах.", $"Сумма реалдуу эмес көрүнөт ({big} сом) — көбүнчө сандар тыйын менен.",
+                $"The amount looks unrealistic ({big} som) — most likely the digits are in tiyin.", $"Tutar gerçekçi görünmüyor ({big} som) — büyük olasılıkla haneler tiyin.", $"Summa haqiqatga to‘g‘ri kelmaydi ({big} so‘m) — ehtimol raqamlar tiyinda.")
+            : L($"Сумма выглядит нереально ({big} сом) — скорее всего цифры в сомах.", $"Сумма реалдуу эмес көрүнөт ({big} сом) — көбүнчө сандар сом менен.",
+                $"The amount looks unrealistic ({big} som) — most likely the digits are in som.", $"Tutar gerçekçi görünmüyor ({big} som) — büyük olasılıkla haneler som.", $"Summa haqiqatga to‘g‘ri kelmaydi ({big} so‘m) — ehtimol raqamlar so‘mda."));
+        UnitFixButton.Content = tiyin
+            ? L("Цифры в тыйынах", "Сандар тыйын менен", "Digits in tiyin", "Haneler tiyin", "Raqamlar tiyinda")
+            : L("Цифры в сомах", "Сандар сом менен", "Digits in som", "Haneler som", "Raqamlar so‘mda");
     }
 
     private void WeightOption_Click(object? sender, RoutedEventArgs e) => ChooseReading(WeightBarcodeValueKind.Weight);
@@ -405,10 +484,8 @@ public partial class ScaleBarcodeSetupPanel : UserControl
             FillSegments(ExampleSegments, barcode[..2], barcode.Substring(2, codeLength), barcode.Substring(2 + codeLength, valueLength), barcode[12..]);
         ExampleText.Text = L("Пример: ", "Мисал: ", "Example: ", "Örnek: ", "Namuna: ") + example;
 
-        var unit = string.Equals(NurMarketKassa.Core.Application.WeightBarcodeParser.AmountUnit, "som", StringComparison.OrdinalIgnoreCase)
-            ? L("Сумма в штрихкоде — в сомах.", "Штрих-коддогу сумма — сом менен.", "The amount in the barcode is in som.", "Barkoddaki tutar som cinsinden.", "Shtrix-koddagi summa — so‘mda.")
-            : L("Сумма в штрихкоде — в тыйынах (1320 = 13,20 сом).", "Штрих-коддогу сумма — тыйын менен (1320 = 13,20 сом).", "The amount in the barcode is in tiyin (1320 = 13.20 som).", "Barkoddaki tutar tiyin cinsinden (1320 = 13,20 som).", "Shtrix-koddagi summa — tiyinda (1320 = 13,20 so‘m).");
-        CompanyFormatText.Text = ScaleUi.CompanyFormatText() + " " + unit;
+        // 2026-11-05: единица суммы и её источник (выбрано на кассе / с сайта) уже внутри ScaleUi.CompanyFormatText.
+        CompanyFormatText.Text = ScaleUi.CompanyFormatText();
 
         var brand = ScaleUi.NormalizeBrand(UserPreferences.Instance.ScaleBrand);
         OnScaleRow.IsVisible = brand != ScaleUi.BrandAi;

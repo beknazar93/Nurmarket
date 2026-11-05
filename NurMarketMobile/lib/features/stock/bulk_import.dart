@@ -15,7 +15,6 @@ import '../../core/api/api_client.dart';
 import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
-import '../../core/theme/tokens.dart';
 import '../../core/units.dart';
 import '../../core/util/ui.dart';
 import '../../l10n/app_localizations.dart';
@@ -649,7 +648,7 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
 
   Future<void> _massQty() async {
     final l = context.l;
-    final v = await askNumber(context, title: l.bkSetQty, label: l.quantityLabel, ok: l.bkApplyTo(_selected.length));
+    final v = await askNumber(context, title: l.bkSetQty, label: l.quantityLabel, ok: l.bkApplyTo(_selected.length), kind: NumKind.qty);
     if (v == null || v < 0 || !mounted) return;
     await _change({for (final r in _selected) r: r.copyWith(qty: v)});
   }
@@ -831,7 +830,7 @@ class _BulkImportScreenState extends ConsumerState<BulkImportScreen> {
                           if (r.category.isNotEmpty) r.category,
                           if (_up.uploaded.contains(r)) l.pAUploaded else if (_up.existing.containsKey(r)) l.bulkExists,
                         ].join(' · '),
-                  style: TextStyle(color: r.valid && !_up.duplicates.containsKey(r) ? pal.textSoft : T.danger, fontSize: 12),
+                  style: TextStyle(color: r.valid && !_up.duplicates.containsKey(r) ? pal.textSoft : context.pal.danger, fontSize: 12),
                 ),
                 trailing: Text(money(r.price), style: const TextStyle(fontWeight: FontWeight.w800)),
               ),
@@ -958,7 +957,7 @@ class _RowSheetState extends State<_RowSheet> {
                 }),
               ),
               if (problems.contains(RowProblem.badUnit))
-                Padding(padding: const EdgeInsets.only(top: 4), child: Text(l.bkErrUnit(_unit), style: const TextStyle(color: T.danger, fontSize: 12))),
+                Padding(padding: const EdgeInsets.only(top: 4), child: Text(l.bkErrUnit(_unit), style: TextStyle(color: context.pal.danger, fontSize: 12))),
               FieldLabel(l.categoryLabel),
               TextField(key: const Key('bkCategory'), controller: _category, textCapitalization: TextCapitalization.sentences),
               const SizedBox(height: 14),

@@ -175,7 +175,7 @@ private void SpeakerAdd(byte[] pcm) { if (_pspk is not null) _pspk.Write(pcm, 0,
 csproj не меняется. Служба `KeepAliveService` не меняется (типы `microphone/camera` не добавляем — в фоне звонок не работает, раздел 6.4).
 
 ### 4.2. Новый `NurMarketKassa.Android/Platform/AndroidPermissions.cs`
-`Task<MicAccess> RequestAsync(string permission, int code)` — по образцу `AndroidCameraScanner.ScanAsync` (стр. 45–60): API < 23 → `Granted`; `CheckSelfPermission == Granted` → `Granted`; иначе `RequestPermissions`, `TaskCompletionSource` по коду. Отказ: если раньше уже спрашивали (флаг `asked_<permission>` в `SharedPreferences "nur_permissions"`) и `ShouldShowRequestPermissionRationale == false` → `Blocked`, иначе `Denied` (так же делает мобилка, `VoiceCallAudio.kt:152–159`). Коды: 4712 — микрофон, 4713 — камера звонка (4711 занят сканером — его код не трогаем).
+`Task<MicAccess> RequestAsync(string permission, int code)` — по образцу `AndroidCameraScanner.ScanAsync` (стр. 45–60): API < 23 → `Granted`; `CheckSelfPermission == Granted` → `Granted`; иначе `RequestPermissions`, `TaskCompletionSource` по коду. Отказ: если раньше уже спрашивали (флаг `asked_<permission>` в `SharedPreferences "nur_permissions"`) и `ShouldShowRequestPermissionRationale == false` → `Blocked`, иначе `Denied` (так же делает мобилка, `VoiceCallAudio.kt:152–159`). Коды (исправлено 05.11.2026, аудит №4 А4-13): **4713 — микрофон, 4714 — камера звонка**; 4711 — камера-сканер, 4712 — Bluetooth-принтер (с 1.17.75), 4715 — уведомления. Запрос — через общий `Platform/AndroidPermissions.cs` (`RequestAsync(code, permissions)` — Task, завершается ответом пользователя; ответы приходят из `MainActivity.OnRequestPermissionsResult`), а не отдельным `TaskCompletionSource` в каждом классе.
 `MainActivity.OnRequestPermissionsResult` — одной строкой добавить `AndroidPermissions.OnResult(requestCode, grantResults);` (строку сканера оставить).
 
 ### 4.3. Где спрашивать
@@ -205,7 +205,7 @@ public interface ILiveCamera : IDisposable
     /// Предпросмотр для окна: JPEG как с датчика + поворот (0/90/180/270) и зеркало (фронтальная) — поворачивает окно.
     event Action<byte[], int, bool>? PreviewFrame;
     event Action<string>? Failed;                      // занята другой программой / пропала
-    Task<MicAccess> StartAsync(LiveCameraFacing facing); // спрашивает CAMERA (код 4713); MicAccess здесь — общий «результат права»
+    Task<MicAccess> StartAsync(LiveCameraFacing facing); // спрашивает CAMERA (код 4714, `AndroidPermissions.CallCamera`); MicAccess здесь — общий «результат права»
                                                          // (можно переименовать в PermissionResult для обоих — на выбор исполнителя)
     void Stop();
     Task SwitchAsync();

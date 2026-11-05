@@ -430,7 +430,7 @@ public partial class StockTransferDialog : Window
         var kind = (FileKindBox.SelectedItem as ComboBoxItem)?.Tag as string ?? "other";
         foreach (var file in files)
         {
-            var path = file.TryGetLocalPath();
+            var path = await NurMarketKassa.AvaloniaHost.Services.ImportFileBridge.TemporaryPathAsync(file).ConfigureAwait(true); // 2026-11-05 (А4-06): Android — копия из content://
             if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
                 StockTransferService.Instance.AttachFile(_transferId, path, kind);
         }

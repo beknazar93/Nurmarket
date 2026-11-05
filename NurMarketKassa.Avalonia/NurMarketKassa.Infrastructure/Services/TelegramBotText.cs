@@ -68,7 +68,7 @@ public static class TelegramBotText
     }
 
     private static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketKassa", "telegram-chat-lang.json");
+        NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "telegram-chat-lang.json");
 
     private static void EnsureLoaded()
     {

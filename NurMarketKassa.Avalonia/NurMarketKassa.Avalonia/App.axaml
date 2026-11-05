@@ -81,6 +81,7 @@
     <FluentTheme />
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Themes/AppControlStyles.axaml"/>
+    <StyleInclude Source="avares://NurMarketKassa.Avalonia/Themes/MobileInputStyles.axaml"/>
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Dialogs/PosDialogStyles.axaml"/>
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views.axaml/Shared/ShiftHistoryResources.axaml"/>
     <!-- Шрифт темы. Одного Setter'а на Window мало: FluentTheme задаёт начертание своим

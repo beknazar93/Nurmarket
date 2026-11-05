@@ -104,7 +104,7 @@ public static class PurchasesStore
     public static bool ReadOnly { get; set; }
 
     private static string DataDir => DataDirOverride
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketKassa", "purchases");
+        ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "purchases");
 
     /// <summary>2026-10-30: папка журнала закупок — рядом лежат индекс нумерации документов и журнал наценок приходов.</summary>
     public static string StorageDir => DataDir;

@@ -175,6 +175,8 @@ public static class OwnerMorningReport
                 _timer.Start();
             }, TimeSpan.FromSeconds(90));
             PosLogger.Log("Утренний отчёт: планировщик запущен.", "INFO");
+            // 2026-11-05 (волна 2-А): рядом — дежурный оповещений «Сообщать в Telegram, если…» и утренней проверки «пора заказать» (по настройкам).
+            ShopAlertsRunner.Start();
         }
         catch (Exception ex)
         {
@@ -444,7 +446,13 @@ public static class OwnerMorningReport
             var shiftsTask = Guard(T("Смены (разница в кассе)", "Сменалар (кассадагы айырма)", "Shifts (cash difference)", "Vardiyalar (kasa farkı)", "Smenalar (kassadagi farq)"),
                 TimeSpan.FromSeconds(30), async c => new Box<IReadOnlyList<NurMarketKassa.Models.ShiftHistoryEntry>>(await ShiftHistoryService.LoadAsync(c).ConfigureAwait(false)), problems, ct);
 
-            await Task.WhenAll(statsTask, debtsTask, stockTask, expiryTask, salesTask, removalsTask, shiftsTask).ConfigureAwait(true);
+            // 2026-11-05 (волна 2-А, функция 3): «пора заказать у N поставщиков на X сом» — только если включено в «Автоматизации магазина».
+            var orderTask = isYesterday && ShopAutomationSettings.Current.MorningOrderCheck
+                ? Guard(T("Пора заказать", "Буйрутма берүү убактысы", "Time to order", "Sipariş zamanı", "Buyurtma vaqti"), TimeSpan.FromSeconds(75),
+                    c => ShopAlertsRunner.OrderCheckAsync(c), problems, ct)
+                : Task.FromResult<AutoOrderResult?>(null);
+            await Task.WhenAll(statsTask, debtsTask, stockTask, expiryTask, salesTask, removalsTask, shiftsTask, orderTask).ConfigureAwait(true);
+            var orderCheck = orderTask.Result;
             var stats = statsTask.Result;
             var debts = debtsTask.Result;
             var stock = stockTask.Result;
@@ -556,6 +564,8 @@ public static class OwnerMorningReport
                 aiFacts.AppendLine($"Склад: закончились ходовые товары — {soldOut.Count}, запаса меньше чем на неделю — {low.Count}"
                                    + (runningOut.Count > 0 ? " (например: " + string.Join(", ", soldOut.Concat(low).Take(4).Select(r => r.Name)) + ")" : "") + ".");
             }
+            if (orderCheck is { Count: > 0 })
+                runningOut.Insert(0, new Item(AutoOrderCheck.SummaryText(orderCheck), false, "restock"));
 
             // ── Сроки годности ──
             var expiryItems = new List<Item>();
@@ -565,7 +575,11 @@ public static class OwnerMorningReport
                 sources.Add(T("Сроки годности (сервер)", "Жарамдуулук мөөнөттөрү (сервер)", "Expiry dates (server)", "Son kullanma tarihleri (sunucu)", "Yaroqlilik muddatlari (server)"));
                 var marks = expiry.Values.OrderBy(m => m.Expired ? 0 : 1).ThenBy(m => m.DaysLeft).ToList();
                 expiryTotal = marks.Count;
-                foreach (var m in marks.Take(5))
+                // 2026-11-05 (волна 2-А, функция 1): первой строкой — «Просрочено N товаров на X сом» (сумма по закупке).
+                var expiredSummary = ExpiryRules.Summarize(marks, DateTime.Today, id => ShopAlertsRunner.PurchasePriceOf(id));
+                if (expiredSummary.Count > 0)
+                    expiryItems.Add(new Item(ExpiryRules.SummaryText(expiredSummary), true, "warehouse"));
+                foreach (var m in marks.Take(expiredSummary.Count > 0 ? 4 : 5))
                     expiryItems.Add(new Item($"{m.Name} — {ProductExpiryIndex.BadgeText(m)}" + (m.Quantity > 0
                         ? T($" (ост. {m.Quantity:0.###})", $" (калды {m.Quantity:0.###})", $" ({m.Quantity:0.###} left)", $" ({m.Quantity:0.###} kaldı)", $" ({m.Quantity:0.###} qoldi)") : ""),
                         m.Expired, "warehouse"));
@@ -973,7 +987,7 @@ public static class OwnerMorningReport
     private static readonly object StateLock = new();
     private static StateFile? _state;
 
-    private static string StatePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "advisor-morning.json");
+    private static string StatePath => Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "advisor-morning.json");
 
     /// <summary>Состояние (читается один раз). Только под StateLock.</summary>
     private static StateFile State

@@ -105,7 +105,7 @@ internal static class DebtPaymentRunner
     /// <summary>Оплату начала эта программа (повтор и решение — только здесь).</summary>
     public static bool IsOwnProgram(UnknownDebtPayment p) => string.Equals(p.Program ?? ProgramKassa, CurrentProgram, StringComparison.Ordinal);
 
-    private static string AppDataRoot => Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+    private static string AppDataRoot => NurMarketKassa.Services.AppPaths.Roaming;
 
     /// <summary>2026-10-18, седьмой круг (деньги): ОДИН журнал на компьютер для кассы и владельца (один пользователь) —
     /// %APPDATA%\NurMarketKassa\debt-payments; владелец пишет туда же (та же учётная запись). НЕ в папке data: её

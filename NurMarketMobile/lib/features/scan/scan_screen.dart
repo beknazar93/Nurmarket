@@ -168,7 +168,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     final now = DateTime.now();
     // 2026-11-05 (М5-13): код весовой этикетки из чека — снова только после того, как этикетка ушла из кадра (раньше та же
     // этикетка в кадре ложилась в чек второй раз через 1,5 с)
-    _labels.syncWithCart(cartEmpty: ref.read(cartProvider).isEmpty);
+    _labels.syncWithCart(cartEmpty: ref.read(cartProvider).isEmpty, lines: ref.read(cartProvider).lines);
     _repeat.receiving = widget.returnCodes || _mode != ScanMode.sale || _labels.contains(code);
     if (!_repeat.isNew(code, now) || _processing || _asking) return;
     _repeat.counted(code, now);
@@ -283,7 +283,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       // Весовая этикетка несёт вес — добавляем сразу, без вопроса «сколько кг».
       final before = ref.read(cartProvider).quantity;
       await addProduct(context, ref, found, qty: foundQty, code: code); // 2026-10-31: штрихкод размера — сразу нужный размер
-      if (isLabel && mounted && ref.read(cartProvider).quantity != before) _labels.add(code);
+      if (isLabel && mounted && ref.read(cartProvider).quantity != before) _labels.add(code, line: ref.read(cartProvider).lines.isEmpty ? null : ref.read(cartProvider).lines.last);
       _popups.currentState?.add(foundQty == null ? '+1 ${found.name}' : '+${qtyText(foundQty)} ${found.unit} ${found.name}');
     } else if (_mode == ScanMode.price) {
       _popups.currentState?.add('${money(p.price)} ${context.l.som}', color: T.navy);
@@ -357,7 +357,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
             Text(l.notFoundAsk(code)),
             if (known != null) ...[
               const SizedBox(height: 10),
-              Text(l.globalFoundAsk(known.name), style: const TextStyle(color: T.success, fontWeight: FontWeight.w700)),
+              Text(l.globalFoundAsk(known.name), style: TextStyle(color: context.pal.success, fontWeight: FontWeight.w700)),
               Text(l.globalSource, style: TextStyle(color: c.pal.textSoft, fontSize: 12)),
             ],
           ],

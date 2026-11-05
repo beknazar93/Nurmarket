@@ -31,7 +31,8 @@ public static class TelegramBotService
 
     /// <summary>Таймаут намеренно небольшой: отправка сводки не должна задерживать закрытие
     /// смены, а если Telegram недоступен — лучше быстро записать это в лог и идти дальше.</summary>
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    // 2026-11-05 (Н-19): общая фабрика (сжатие, срок жизни соединения); internal set — тест подставляет клиента с поддельным сервером.
+    internal static HttpClient Http { get; set; } = ExternalHttp.Create(TimeSpan.FromSeconds(20));
 
     public static bool IsConfigured =>
         !string.IsNullOrWhiteSpace(UserPreferences.Instance.TelegramBotToken)
@@ -317,12 +318,12 @@ public static class TelegramBotService
     /// говорит, сколько подождать (retry_after), — раньше сообщение просто терялось (ответ владельцу,
     /// напоминание должнику при рассылке). Теперь ждём и повторяем, до трёх раз. Ответ 400 с
     /// migrate_to_chat_id — группу превратили в супергруппу: шлём в новый чат и запоминаем его.</summary>
-    private enum PartResult { Ok, Parse, Blocked, Failed }
+    internal enum PartResult { Ok, Parse, Blocked, Failed }
 
     /// <summary>2026-10-21 (бот, п. 4 и ВАЖНО 6): перед каждой отправкой — общий ограничитель темпа (≤25/с на бота, ~1/с в чат).
     /// 429 с любой паузой до 15 минут больше не теряет ответ (раньше — только до 60 с и 3 попыток): чат ждёт сам, остальные чаты —
     /// нет (очередь по чатам). 403 — без повторов, чат запоминается как заблокировавший.</summary>
-    private static async Task<(string? Error, string ChatId, PartResult Kind)> SendPartAsync(string token, string chatId, string text, object? replyMarkup, CancellationToken ct)
+    internal static async Task<(string? Error, string ChatId, PartResult Kind)> SendPartAsync(string token, string chatId, string text, object? replyMarkup, CancellationToken ct)
     {
         var waited429 = false;
         for (var attempt = 1; ; attempt++)
@@ -359,11 +360,18 @@ public static class TelegramBotService
                     continue;
                 }
 
-                // Сбой на стороне Telegram (502/503/504 от его шлюза) — до двух повторов через 2 и 4 с.
-                if (code >= 500 && attempt <= 2)
+                // 2026-11-05 (аудит скорости, Н-14): sendMessage НЕ идемпотентен. При 502/503/504 от шлюза Telegram сообщение могло уже
+                // уйти — повтор (раньше до двух раз через 2 и 4 с) давал дубли в чате владельца. Не повторяем: честная ошибка, дальше решает вызывающий.
+                // 429 (повтор выше) безопасен: Telegram при нём сообщение не принимал. Повторы остались только у безопасных запросов (getUpdates и т. п.).
+                if (code >= 500)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(2 * attempt), ct).ConfigureAwait(false);
-                    continue;
+                    PosLogger.Log($"Telegram sendMessage: ответ {code} — повтор не делаем (сообщение могло уйти, дубль хуже пропуска).", "WARNING");
+                    return (Tr.T(
+                        $"Telegram ответил ошибкой {code}. Сообщение могло дойти — повторно не отправляем, чтобы не было дубля.",
+                        $"Telegram {code} ката менен жооп берди. Билдирүү жетиши мүмкүн — кайталап жөнөтпөйбүз, эки жолу болбосун үчүн.",
+                        $"Telegram replied with error {code}. The message may have been delivered — not resending to avoid a duplicate.",
+                        $"Telegram {code} hatası verdi. Mesaj ulaşmış olabilir — kopya olmaması için tekrar göndermiyoruz.",
+                        $"Telegram {code} xatosi bilan javob berdi. Xabar yetib borgan bo‘lishi mumkin — dublikat bo‘lmasligi uchun qayta yubormaymiz."), chatId, PartResult.Failed);
                 }
 
                 if (!string.IsNullOrWhiteSpace(migrateTo) && migrateTo != chatId && attempt <= 3)
@@ -390,7 +398,8 @@ public static class TelegramBotService
             }
             catch (TaskCanceledException) when (!ct.IsCancellationRequested)
             {
-                return ("Telegram не ответил за 20 секунд — проверьте интернет.", chatId, PartResult.Failed);
+                // 2026-11-05 (Н-14/Н-19): срок — понятная надпись на 5 языках; повтор не делаем (сообщение могло уйти).
+                return (ExternalHttp.TimeoutMessage("Telegram", 20), chatId, PartResult.Failed);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -606,7 +615,7 @@ public static class TelegramBotService
         }
     }
 
-    private static readonly HttpClient LongPollHttp = new() { Timeout = TimeSpan.FromSeconds(60) };
+    private static readonly HttpClient LongPollHttp = ExternalHttp.Create(TimeSpan.FromSeconds(60)); // 2026-11-05 (Н-19)
 
     // 2026-10-21 (бот, К1): TryDetectChatIdAsync («получатель = чат последнего сообщения боту от кого угодно») убран — получатель
     // и владелец подтверждаются одноразовым кодом: TelegramBotOwner.Begin (программа показывает код, владелец отправляет его боту).
@@ -642,7 +651,7 @@ public static class TelegramBotService
         }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested)
         {
-            return (null, null, "Telegram не ответил за 20 секунд — проверьте интернет.");
+            return (null, null, ExternalHttp.TimeoutMessage("Telegram", 20));
         }
         catch (Exception ex)
         {

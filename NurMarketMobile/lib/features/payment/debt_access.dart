@@ -270,7 +270,7 @@ class _DebtAccessScreenState extends ConsumerState<DebtAccessScreen> {
                 if (_note.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
-                    child: Text(_note, style: const TextStyle(color: T.danger, fontSize: 12.5)),
+                    child: Text(_note, style: TextStyle(color: context.pal.danger, fontSize: 12.5)),
                   ),
                 const SizedBox(height: 10),
                 for (final x in _lines!)

@@ -433,7 +433,7 @@ class _TesterScreenState extends ConsumerState<TesterScreen> {
                   decoration: BoxDecoration(color: pal.accentSoft, borderRadius: BorderRadius.circular(8)),
                   child: Text(
                     l.tsTestBuild,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: pal.dark ? T.accent : T.warn),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: pal.dark ? T.accent : context.pal.warn),
                   ),
                 ),
             ],

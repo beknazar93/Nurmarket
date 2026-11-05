@@ -52,17 +52,46 @@ public static class PortableSecret
         {
             if (_key is not null)
                 return _key;
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NurMarketKassa");
+            var dir = Path.Combine(NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa");
             Directory.CreateDirectory(dir);
             var path = Path.Combine(dir, ".secret-key");
             if (File.Exists(path) && File.ReadAllBytes(path) is { Length: 32 } existing)
                 return _key = existing;
 
             var key = RandomNumberGenerator.GetBytes(32);
-            File.WriteAllBytes(path, key);
-            if (!OperatingSystem.IsWindows())
-                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-            return _key = key;
+            // 2026-11-05 (аудит №4, А4-25): касса и процесс владельца (:owner) делят этот файл. Раньше при одновременном первом
+            // запуске оба писали свой ключ — токены одного не расшифровывались (повторный вход). Теперь файл создаётся
+            // только если его ещё нет (CreateNew), проигравший перечитывает ключ победителя.
+            try
+            {
+                using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read))
+                {
+                    stream.Write(key, 0, key.Length);
+                    stream.Flush(true);
+                }
+                if (!OperatingSystem.IsWindows())
+                    File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+                return _key = key;
+            }
+            catch (IOException) when (File.Exists(path))
+            {
+                for (var attempt = 0; attempt < 20; attempt++)
+                {
+                    try
+                    {
+                        if (File.ReadAllBytes(path) is { Length: 32 } winner)
+                            return _key = winner;
+                    }
+                    catch (IOException)
+                    {
+                        // победитель ещё пишет файл — подождём
+                    }
+                    System.Threading.Thread.Sleep(50);
+                }
+                // файл остался битым (не 32 байта) — перезаписываем, как раньше
+                File.WriteAllBytes(path, key);
+                return _key = key;
+            }
         }
     }
 }

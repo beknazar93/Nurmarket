@@ -73,7 +73,7 @@ public static class ServerAddons
         (ApiProvider ?? ServerLoyalty.ApiProvider)?.Invoke() is { } api && !string.IsNullOrEmpty(api.AccessToken) ? api : null;
 
     private static string CachePath => Path.Combine(
-        DirOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName),
+        DirOverride ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName),
         "server-addons.json");
 
     // ───────────────────────────── проверка доступа ─────────────────────────────
@@ -271,6 +271,7 @@ public static class ServerAddons
     {
         StartAutoRefresh();
         _ = RefreshAsync();
+        NurMarketKassa.Services.Api.ServerCapabilities.WarmUp(); // 2026-11-05: признаки сервера (capabilities) — заранее, чтобы синхронные проверки сразу знали ответ
     }
 
     public static void StartAutoRefresh()
@@ -347,7 +348,7 @@ public static class ServerAddons
             }
 
             _lastIssue = "";
-            var snap = new Snap { Account = "c:" + companyId.Trim(), LoadedAtUtc = NowUtc, Items = items };
+            var snap = new Snap { Account = AppPaths.CompanyKey(companyId) /* 2026-11-05: с префиксом стенда, как LastDataAccountKey */, LoadedAtUtc = NowUtc, Items = items };
             _snap = snap;
             Volatile.Write(ref _diskLoaded, 1);
             SaveToDisk(snap);

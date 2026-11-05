@@ -1263,6 +1263,8 @@ public partial class ShtrikhScaleSettingsWindow : Window
 
         _companyFormatText = new TextBlock { Classes = { "hint" } };
         body.Children.Add(_companyFormatText);
+        // 2026-11-05: единица суммы (тыйын/сом) — на этой кассе, важнее сайта.
+        body.Children.Add(ScaleUi.AmountUnitPicker(this, UpdateBarcodePreview));
 
         _sampleCode = new NumericUpDown { Minimum = 1, Maximum = 999999, Value = 1, Increment = 1, FormatString = "0", MinWidth = 160 };
         _sampleCode.ValueChanged += (_, _) => UpdateBarcodePreview();
@@ -1301,7 +1303,8 @@ public partial class ShtrikhScaleSettingsWindow : Window
             + L(", режим ", ", режим ", ", mode ", ", mod ", ", rejim ") + mode
             + L(". Касса ждёт на весах структуру ", ". Касса таразада күтөт: түзүлүш ", ". The till expects scale structure ", ". Kasa tartıda şu yapıyı bekler: ", ". Kassa tarozida kutadi: tuzilma ")
             + $"{ShtrikhBarcodeFormat.RecommendedStructure(layout)} ({ShtrikhBarcodeFormat.Structures[ShtrikhBarcodeFormat.RecommendedStructure(layout)]})"
-            + L(" и префикс 20–29.", " жана префикс 20–29.", " and prefix 20–29.", " ve önek 20–29.", " va prefiks 20–29.");
+            + L(" и префикс 20–29. ", " жана префикс 20–29. ", " and prefix 20–29. ", " ve önek 20–29. ", " va prefiks 20–29. ")
+            + ScaleUi.AmountUnitSentence();
 
         var structure = EditorLong(BarcodeParam(P.CmdGetBarcodeStructure));
         var prefixType = EditorLong(BarcodeParam(P.CmdGetBarcodePrefixType));

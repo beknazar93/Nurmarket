@@ -631,8 +631,9 @@ public sealed partial class AiAdvisorWindow
             SuggestedFileName = T("Нур Советник", "Нур Кеңешчи", "Nur Advisor", "Nur Danışman", "Nur Maslahatchi") + $" {DateTime.Now:yyyy-MM-dd HH-mm}.xlsx",
             FileTypeChoices = new[] { new Avalonia.Platform.Storage.FilePickerFileType("Excel") { Patterns = new[] { "*.xlsx" } } },
         }).ConfigureAwait(true);
-        var path = file?.TryGetLocalPath();
-        if (string.IsNullOrEmpty(path))
+        // 2026-11-05 (аудит №4, А4-07): Android — временный файл + копия в выбранный (ExportFileBridge).
+        var path = file is null ? null : NurMarketKassa.AvaloniaHost.Services.ExportFileBridge.PathFor(file);
+        if (file is null || string.IsNullOrEmpty(path))
             return;
         var shop = UserPreferences.Instance.StoreName;
         await Task.Run(() =>
@@ -652,6 +653,7 @@ public sealed partial class AiAdvisorWindow
             }
             book.Save();
         }).ConfigureAwait(true);
+        path = await NurMarketKassa.AvaloniaHost.Services.ExportFileBridge.CompleteAsync(file, path!).ConfigureAwait(true);
         PosLogger.Log($"ИИ-советник: таблица ответа сохранена в Excel ({tables.Count} шт.).", "INFO");
         AddBubble(T($"✓ Сохранено: {path}", $"✓ Сакталды: {path}", $"✓ Saved: {path}", $"✓ Kaydedildi: {path}", $"✓ Saqlandi: {path}"), fromOwner: false);
     }

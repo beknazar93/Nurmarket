@@ -391,12 +391,13 @@ void main() {
         throw ApiException('Ошибка сервера 500.', status: 500);
       })..attach(session('a@x.kg'));
       final sync = SyncService(db: db, sales: SalesRepository(api, db), stock: StockRepository(api, db), catalog: CatalogRepository(api, db), owner: () => 'a@x.kg');
-      for (var i = 0; i < SyncService.maxServerAttempts * 2 + 1; i++) {
+      // 2026-11-05 (аудит №4, М6-05): «чистая» 500 — не 3 попытки, а maxServer500Attempts (простой сервера с 502/503 не сдаётся вообще)
+      for (var i = 0; i < SyncService.maxServer500Attempts * 2 + 1; i++) {
         await sync.runOnce();
       }
       final all = await db.select(db.outbox).get();
       expect(all.every((r) => r.status == 'failed'), isTrue);
-      expect(calls, SyncService.maxServerAttempts * 2);
+      expect(calls, SyncService.maxServer500Attempts * 2);
     });
 
     test('чужая запись видна как чужая', () async {

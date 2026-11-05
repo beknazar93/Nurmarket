@@ -2328,6 +2328,15 @@ public partial class MainWindow : Window
             _telegramRetryTimer.Tick += (_, _) => StartTelegramBot();
             _telegramRetryTimer.Start();
         }
+        // 2026-11-05 (ревью волн 0–3, В1/С9): очередь оповещений «до утра» (например недостача при закрытии смены ночью) и накопленные подозрительные операции
+        // досылает и касса — раньше это делала только программа владельца, и сообщение могло не прийти никогда. Файлы общие, повтора не будет.
+        if (_shopAlertsFlushTimer is null)
+        {
+            _shopAlertsFlushTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(10) };
+            _shopAlertsFlushTimer.Tick += (_, _) => _ = FlushShopAlertsQuietAsync();
+            _shopAlertsFlushTimer.Start();
+            FraudMonitor.StartDigest();
+        }
         // 2026-10-22 (аудит новой сборки, П1): раз в 90 с сверяем смену с сервером (он мог закрыть её сам в 23:00).
         if (_shiftWatchTimer is null)
         {
@@ -2703,6 +2712,13 @@ public partial class MainWindow : Window
 
     private TelegramBotPollingService? _telegramBot;
     private DispatcherTimer? _telegramRetryTimer;
+    private DispatcherTimer? _shopAlertsFlushTimer;
+
+    private static async Task FlushShopAlertsQuietAsync()
+    {
+        try { await ShopAlerts.FlushPendingAsync().ConfigureAwait(false); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Оповещения магазина: досылка очереди не удалась ({ex.GetType().Name}).", "WARNING"); }
+    }
 
     /// <summary>Поднимает опрос команд бота. Вызывается при открытии окна и повторно после
     /// сохранения настроек бота — повторный вызов на уже запущенном опросе безвреден.</summary>
@@ -4031,6 +4047,15 @@ public partial class MainWindow : Window
     private static void SendShiftSummaryToTelegram(ShiftModel shift, string? shiftId)
     {
         var prefs = UserPreferences.Instance;
+        // 2026-11-05 (волна 2-Б, функция 2): недостача при закрытии смены — в журнал «Подозрительных операций» (сама проверяет, включено ли).
+        var (fraudDeposits, fraudWithdrawals) = string.IsNullOrEmpty(shiftId) ? (0m, 0m) : ShiftCashOperationsStore.SumsForShift(shiftId);
+        FraudMonitor.OnShiftClosed(shift, fraudDeposits, fraudWithdrawals);
+        // 2026-11-05 (волна 2-А, функция 5): «Сообщать в Telegram, если недостача при закрытии смены больше N» — отдельно от сводки смены (свой тумблер и порог).
+        if (TelegramBotService.IsConfigured && TariffGate.CanUseTelegramBot && ShopAutomationSettings.Current.Alerts is { Enabled: true, ShiftShortage: true })
+        {
+            var (alertDeposits, alertWithdrawals) = string.IsNullOrEmpty(shiftId) ? (0m, 0m) : ShiftCashOperationsStore.SumsForShift(shiftId);
+            _ = ShopAlerts.OnShiftClosedAsync(shift, alertDeposits, alertWithdrawals);
+        }
         if (!prefs.TelegramShiftSummaryEnabled || !TelegramBotService.IsConfigured || !TariffGate.CanUseTelegramBot)
             return;
 

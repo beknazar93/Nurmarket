@@ -246,8 +246,6 @@ public static class RevisionExportService
     {
         var title = TitleOf(meta);
         var reportMeta = ReportMeta.Create(title, meta.ShopName, PeriodText(meta));
-        using var book = new ExcelWorkbookBuilder(path, reportMeta);
-
         var purchase = options.IncludePurchasePrices;
         var recorded = HasRecorded(lines);
         var columns = new List<XlColumn>
@@ -272,8 +270,6 @@ public static class RevisionExportService
         var note = ScopeText(options.Scope)
             + (meta.StockAsOf is { } asOf ? "   ·   " + L("Остатки на", "Калдыктар", "Stock as of", "Stok tarihi", "Qoldiqlar sanasi") + " " + ReportFormat.DateAndTime(asOf) : "")
             + "   ·   " + L("Провёл", "Өткөрдү", "Conducted by", "Yapan", "O'tkazdi") + ": " + ConductedBy(meta);
-        var sheet = book.AddSheet(L("Ревизия", "Ревизия", "Stocktake", "Sayım", "Reviziya"), title, note, landscape: true);
-
         IEnumerable<object?[]> Rows()
         {
             var i = 0;
@@ -299,11 +295,6 @@ public static class RevisionExportService
             }
         }
 
-        sheet.AddTable(columns, Rows());
-        ct.ThrowIfCancellationRequested();
-
-        // Второй лист — шапка акта и сводка (первый лист — сама таблица, чтобы файл открывался сразу на ней).
-        var summarySheet = book.AddSheet(L("Итоги", "Жыйынтык", "Summary", "Özet", "Yakun"), title);
         var items = new List<XlKeyValue>
         {
             new(L("Документ", "Документ", "Document", "Belge", "Hujjat"), title),
@@ -340,6 +331,21 @@ public static class RevisionExportService
             items.Add(new XlKeyValue(L("Позиций с расхождением без цены закупки", "Сатып алуу баасы жок айырмалуу позициялар", "Items with a difference and no purchase price", "Alış fiyatı olmayan farklı kalemler", "Xarid narxi yo'q farqli pozitsiyalar"), summary.NoCostCount, XlKind.Integer, summary.NoCostCount > 0 ? ReportTone.Warn : ReportTone.None));
         }
 
+        // 2026-11-05: больше ~5000 строк (15 000 товаров) — потоковая запись MiniExcel: почти без памяти, без стилей и «Итого» (сводка на втором листе).
+        if (lines.Count > LargeExcelWriter.Threshold)
+        {
+            LargeExcelWriter.Write(path, L("Ревизия", "Ревизия", "Stocktake", "Sayım", "Reviziya"), columns, Rows(),
+                L("Итоги", "Жыйынтык", "Summary", "Özet", "Yakun"), items, ct);
+            return;
+        }
+
+        using var book = new ExcelWorkbookBuilder(path, reportMeta);
+        var sheet = book.AddSheet(L("Ревизия", "Ревизия", "Stocktake", "Sayım", "Reviziya"), title, note, landscape: true);
+        sheet.AddTable(columns, Rows());
+        ct.ThrowIfCancellationRequested();
+
+        // Второй лист — шапка акта и сводка (первый лист — сама таблица, чтобы файл открывался сразу на ней).
+        var summarySheet = book.AddSheet(L("Итоги", "Жыйынтык", "Summary", "Özet", "Yakun"), title);
         summarySheet.AddKeyValues(items);
 
         book.Save();

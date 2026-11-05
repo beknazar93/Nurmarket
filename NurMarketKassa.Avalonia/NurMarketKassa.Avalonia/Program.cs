@@ -39,6 +39,18 @@ internal static class Program
         // Касса или программа владельца — до любых путей к данным и общесистемных имён (AppMode).
         NurMarketKassa.Services.AppMode.Initialize(args);
 
+        // 2026-11-05 (аудит №4, Л4-01): стенд, подменивший APPDATA/LOCALAPPDATA без NURMARKET_DATA_ROOT, писал бы в НАСТОЯЩИЕ данные кассы
+        // (.NET подмену не видит). Отказываемся стартовать до любых путей к данным: ничего не читаем и не стираем.
+        if (NurMarketKassa.Services.AppPaths.CheckStandIsolation() is { } isolationProblem)
+        {
+            try { NurMarketKassa.Services.PosLogger.Log("Запуск отменён: " + isolationProblem, "ERROR"); }
+            catch { /* журнал недоступен — код выхода 3 и stderr остаются */ }
+            // Окно сообщения не показываем: скрипт стенда повис бы на нём; причина — в журнале и в stderr, код выхода 3.
+            Console.Error.WriteLine(isolationProblem);
+            Environment.ExitCode = 3;
+            return;
+        }
+
         // У программы владельца своё имя: на одном компьютере с кассой они не должны мешать друг другу.
         _singleInstanceMutex = new Mutex(initiallyOwned: true,
             @"Global\NurMarketKassa-SingleInstance" + NurMarketKassa.Services.AppMode.InstanceSuffix, out var createdNew);
@@ -349,7 +361,7 @@ internal static class Program
         try
         {
             var path = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                NurMarketKassa.Services.AppPaths.Roaming,
                 NurMarketKassa.Services.AppMode.DataFolderName, "user-settings.json");
             if (!File.Exists(path))
                 return false;

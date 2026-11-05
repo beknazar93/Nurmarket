@@ -19,6 +19,9 @@ public sealed class IrregularReceiptEntry
     /// <summary>2026-11-01: смена закрыта «с пометкой» — внесения/изъятия не успели уйти на сервер (CashShiftService). Строка для владельца: что и на какую сумму.</summary>
     public const string ShiftClosedUnsentCash = "shift_closed_unsent_cash";
 
+    /// <summary>2026-11-05 (сервер ceba67c, warning below_cost): чек из очереди проведён, но сервер предупредил — позиция продана ниже закупки. Справка для владельца, чек проведён.</summary>
+    public const string SoldBelowCost = "sold_below_cost";
+
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
 
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;

@@ -278,6 +278,9 @@ public static class CartReceiptTextBuilder
 
             // ─── Footer ────────────────────────────────────────────────
             Line(ReceiptLineLayout.Center("Спасибо за покупку! :)", W));
+            // 2026-11-05 (волна 2-Б, функция 8): ссылка «Чеки и бонусы в Telegram» (по настройке; по умолчанию бумага как раньше).
+            foreach (var telegramLine in TelegramReceiptLinks.PaperLines())
+                Line(ReceiptLineLayout.Center(telegramLine, W));
             Blank();
             Blank();
             Blank();

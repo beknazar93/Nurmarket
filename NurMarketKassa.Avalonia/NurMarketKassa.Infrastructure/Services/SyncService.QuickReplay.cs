@@ -99,6 +99,13 @@ public sealed partial class SyncService
                     "OFFLINE");
                 return (false, null);
             }
+            // 2026-11-05 (сервер ceba67c): 400 duplicate_line на ключ, который уже уходил, — одна и та же вещь двумя строками с разной ценой/единицей. Продажи нет (отказ до записи);
+            // старым путём без ключа не идём — чек на проверку с понятным текстом.
+            catch (ApiException ex) when (ex.StatusCode == 400 && ServerErrorCodes.Is(ex, ServerErrorCodes.DuplicateLine))
+            {
+                PosLogger.Log($"OFFLINE replay quick: чек {entry.Id} — 400 duplicate_line: {ex.Message}. На проверку.", "WARNING");
+                throw new ReplayDeferredException(ServerErrorCodes.DuplicateLineText()) { NeedsReview = true };
+            }
         }
 
         var saleId = CheckoutResponseHelper.TrySaleId(response);
@@ -113,6 +120,8 @@ public sealed partial class SyncService
         PosLogger.Log(
             $"OFFLINE replay quick: чек {entry.Id} проведён за {sw.ElapsedMilliseconds} мс, продажа {saleId ?? "—"}, replayed={replayed}.",
             "OFFLINE");
+        if (!replayed)
+            CheckoutWarnings.HandleReplayResponse(entry.Id, saleId, response); // 2026-11-05: below_cost → «Некорректные чеки», остальное — в журнал
 
         await ResyncStockAfterReplayAsync(entry, ct).ConfigureAwait(false);
         return (true, saleId);
@@ -201,7 +210,9 @@ public sealed partial class SyncService
         // 2026-10-05, ТЗ ч.12, п. 2.4 (сервер выложил 05.10): время продажи и касса. Сервер относит чек к смене этой кассы,
         // открытой в момент продажи, даже если она уже закрыта (раньше — 400 «Смена не открыта», деньги получены, а продажи
         // на сервере нет). Проверено 05.10: sold_at в закрытой смене → 201 в ту смену, повтор тем же ключом → 200 replayed.
-        body["sold_at"] = entry.CreatedAt.ToString("yyyy-MM-ddTHH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
+        // 2026-11-05 (аудит №4, Л4-06): + поправка часов ПК к серверным (ServerClock; 0, если разница < 2 с или > суток или не известна).
+        // 2026-11-05 (ревью волн 0–3, п. 4): поправка берётся ТА, что была в момент продажи (entry.ClockSkewAtSaleSeconds), не на момент досылки; не больше 30 мин и не позже «сейчас» по серверу.
+        body["sold_at"] = ServerClock.SoldAt(entry.CreatedAt, entry.ClockSkewAtSaleSeconds, ServerClock.Now).ToString("yyyy-MM-ddTHH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture);
         if (Guid.TryParse(entry.CashboxId, out _))
             body["cashbox"] = entry.CashboxId!.Trim();
         return body;

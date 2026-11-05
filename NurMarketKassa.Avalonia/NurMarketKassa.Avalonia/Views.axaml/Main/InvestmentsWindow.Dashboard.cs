@@ -192,6 +192,7 @@ public sealed partial class InvestmentsWindow
             + "   ·   " + (B.Status == PaybackStatus.PaidBack
                 ? B.NeedsStockSale ? T("окупится при распродаже остатка", "калдык сатылганда кайтат", "pays back when the stock is sold", "stok satılınca geri döner", "qoldiq sotilganda oqlanadi")
                 : B.PaidBackMonth is { } pm ? T("окупилось: ", "кайтты: ", "paid back: ", "geri döndü: ", "oqlandi: ") + MonthName(pm) : T("окупилось", "кайтты", "paid back", "geri döndü", "oqlandi")
+                : NotPayingYet(R) ? NotPayingYetText() + T(" — чистая прибыль за последний месяц отрицательная", " — акыркы айдагы таза пайда терс", " — net profit for the last month is negative", " — son ayın net kârı negatif", " — oxirgi oydagi sof foyda manfiy")
                 : R.BusinessPaybackMonth is { } bpm ? T("полная окупаемость по прогнозу: ", "божомол боюнча толук кайтарым: ", "full payback forecast: ", "tahmini tam geri dönüş: ", "to'liq oqlanish prognozi: ") + MonthName(bpm)
                 : R.AvgNet == null ? NoDataText()
                 : T("при текущем темпе не окупится", "азыркы темп менен кайтпайт", "will not pay back at the current pace", "mevcut hızla geri dönmez", "hozirgi sur'atda oqlanmaydi")), 13));
@@ -216,6 +217,7 @@ public sealed partial class InvestmentsWindow
                 "investor:" + inv.Investor.Id, inv.Invested, inv.Got, inv.Percent, T("Выплата за последний месяц", "Акыркы айдагы төлөм", "Payout last month", "Son ay ödemesi", "Oxirgi oydagi to'lov") + LastMonthSuffix(R), inv.LastPay,
                 inv.Got >= inv.Invested - 0.005m ? T("вернул вложения", "салымын кайтарды", "got the investment back", "yatırımını geri aldı", "sarmoyasini qaytarib oldi")
                     : R.AvgNet == null ? NoDataText()
+                    : NotPayingYet(R) ? NotPayingYetText()
                     : inv.PaybackMonths is not null && inv.PaybackDate is { } pd ? FromNowText(pd) + " · " + pd.ToString("MM.yyyy", CultureInfo.InvariantCulture)
                     : T("не вернёт при текущей прибыли", "азыркы пайда менен кайтарбайт", "will not get it back at the current profit", "mevcut kârla geri alamaz", "hozirgi foyda bilan qaytarib olmaydi")));
         if (R.Owner.Invested > 0m)
@@ -223,6 +225,7 @@ public sealed partial class InvestmentsWindow
                 T("Осталось за последний месяц", "Акыркы айда калды", "Left last month", "Son ay kalan", "Oxirgi oy qolgan") + LastMonthSuffix(R), R.Owner.LastMonthly,
                 R.Owner.Got >= R.Owner.Invested - 0.005m ? T("вернул вложения", "салымын кайтарды", "got the investment back", "yatırımını geri aldı", "sarmoyasini qaytarib oldi")
                     : R.AvgNet == null ? NoDataText()
+                    : NotPayingYet(R) ? NotPayingYetText()
                     : R.Owner.PaybackMonths is not null && R.Owner.PaybackDate is { } od ? FromNowText(od) + " · " + od.ToString("MM.yyyy", CultureInfo.InvariantCulture)
                     : T("не вернёт при текущей прибыли", "азыркы пайда менен кайтарбайт", "will not get it back at the current profit", "mevcut kârla geri alamaz", "hozirgi foyda bilan qaytarib olmaydi")));
         page.Children.Add(levels);
@@ -246,11 +249,20 @@ public sealed partial class InvestmentsWindow
                 : T("окупился", "кайтты", "paid back", "geri döndü", "oqlandi");
         if (R.AvgNet == null)
             return NoDataText();
+        if (NotPayingYet(R))
+            return NotPayingYetText();
         if (B.MonthsToPayback is { } mtp && B.ForecastDate is { } fd)
             // 2026-11-05 (Н-2): меньше месяца — «меньше месяца», а не «0 мес.» (и не «через 1 мес.» рядом на том же экране).
             return (mtp < 1m ? LessThanMonthText() : MonthsText(mtp)) + " · " + fd.ToString("MM.yyyy", CultureInfo.InvariantCulture);
         return T("не окупится", "кайтпайт", "will not pay back", "geri dönmez", "oqlanmaydi");
     }
+
+    /// <summary>2026-11-05 (аудит №4, Д4-28): чистая прибыль последнего полного месяца отрицательная (или средняя не положительная) — «меньше месяца» и
+    /// «окупилось 1 %» рядом с минусом противоречат друг другу. Вместо срока и даты — явное состояние «ещё не окупается».</summary>
+    private static bool NotPayingYet(InvestmentResult R) =>
+        R.Business.Status != PaybackStatus.PaidBack && (R.LastMonth is { Net: < 0m } || R.Business.AvgMonthlyNet is <= 0m);
+
+    private static string NotPayingYetText() => T("ещё не окупается", "азырынча кайтпайт", "not paying back yet", "henüz geri dönmüyor", "hali oqlanmayapti");
 
     private static string LessThanMonthText() => T("меньше месяца", "бир айдан аз", "less than a month", "bir aydan az", "bir oydan kam");
 

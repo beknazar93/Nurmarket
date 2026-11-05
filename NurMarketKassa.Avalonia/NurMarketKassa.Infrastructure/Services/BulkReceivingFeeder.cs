@@ -160,7 +160,7 @@ public sealed class BulkReceivingFeeder
     private bool _subscribed;
 
     private static string DataDir => DataDirOverride ?? BackgroundReceivingQueue.DataDirOverride
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "background-receipts");
+        ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "background-receipts");
 
     private static string IndexPath => Path.Combine(DataDir, "bulk-pending.json");
     private static string LinesPath(string batchId) => Path.Combine(DataDir, $"bulk-{batchId}.lines.json");

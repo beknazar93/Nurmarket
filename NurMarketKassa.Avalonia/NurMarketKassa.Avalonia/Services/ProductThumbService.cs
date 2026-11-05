@@ -4,23 +4,36 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using Avalonia.Threading;
+using NurMarketKassa.AvaloniaHost.Converters;
 using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.Services;
 
-/// <summary>Avalonia port: disk cache + download for product thumbnails (path-based, no WPF ImageSource).</summary>
+/// <summary>Avalonia port: disk cache + download for product thumbnails (path-based, no WPF ImageSource).
+/// 2026-11-05 (аудит скорости, п. 15 а, б): в кэше теперь не оригиналы с сайта, а миниатюры 320 px WebP (<c>&lt;sha&gt;.t320.webp</c>,
+/// см. <see cref="ThumbImageCompressor"/>); старые тяжёлые файлы пересжимаются лениво в фоне при первом обращении;
+/// всё скачивание, сжатие и расшифровка — вне потока интерфейса. Для карточки товара (просмотр фото на весь экран) есть отдельный
+/// больший размер — <see cref="GetFullPathAsync"/>.</summary>
 internal sealed class ProductThumbService
 {
     private static readonly HttpClient PublicHttp = new() { Timeout = TimeSpan.FromSeconds(25) };
+    private const int ThumbQuality = 80;
+    private const int FullQuality = 85;
+    private const string FullFolder = "full";
+    private static readonly string[] ThumbExtensions = { ".webp", ".jpg", ".png" };
+
+    // Ленивое пересжатие старых файлов: по одному за раз (слабый ПК), каждый файл — один раз за запуск программы.
+    private static readonly SemaphoreSlim RecompressGate = new(1, 1);
+    private static readonly ConcurrentDictionary<string, byte> RecompressSeen = new(StringComparer.OrdinalIgnoreCase);
+    private static int _recompressDone;
+    private static long _recompressSavedBytes;
+
     private readonly string _cacheDir;
     private readonly ConcurrentDictionary<string, Task<string?>> _downloadTasks = new(StringComparer.OrdinalIgnoreCase);
 
     public ProductThumbService()
     {
-        _cacheDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            NurMarketKassa.Services.AppMode.DataFolderName,
-            "product_thumbs");
+        _cacheDir = CacheDirectory();
         try
         {
             Directory.CreateDirectory(_cacheDir);
@@ -30,6 +43,11 @@ internal sealed class ProductThumbService
             PosLogger.Log($"Product thumbnail cache creation failed: {ex.GetType().Name}", "WARNING");
         }
     }
+
+    private static string CacheDirectory() => Path.Combine(
+        NurMarketKassa.Services.AppPaths.Roaming,
+        NurMarketKassa.Services.AppMode.DataFolderName,
+        "product_thumbs");
 
     public async Task SetThumbAsync(
         Dispatcher uiDispatcher,
@@ -42,12 +60,46 @@ internal sealed class ProductThumbService
         if (!string.IsNullOrEmpty(vm.ProductImagePath))
             return;
 
-        var path = await GetOrDownloadPathAsync(authApi, apiBaseUrl, imageUrl, ct).ConfigureAwait(false);
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+        // 2026-11-05 (п. 15 б): вызывающие зовут нас с потока интерфейса, а проверка файла, сжатие и расшифровка картинки — работа диска и
+        // процессора. Всё это — в Task.Run; на поток интерфейса возвращаем только готовый путь, а картинка к этому моменту уже лежит в кэше конвертера.
+        var path = await Task.Run(async () =>
+        {
+            var p = await GetOrDownloadPathAsync(authApi, apiBaseUrl, imageUrl, ct).ConfigureAwait(false);
+            if (string.IsNullOrEmpty(p) || !File.Exists(p))
+                return null;
+            PrewarmBitmap(p);
+            return p;
+        }, ct).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(path))
             return;
 
         await uiDispatcher.InvokeAsync(() => vm.ProductImagePath = path);
+
+        // Старый тяжёлый файл: отдали сразу (плитка не ждёт), пересжимаем в фоне и подменяем путь на новый файл.
+        if (!IsThumbFile(path))
+            ScheduleRecompress(imageUrl, path, onDone: newPath => uiDispatcher.InvokeAsync(() =>
+            {
+                if (string.Equals(vm.ProductImagePath, path, StringComparison.OrdinalIgnoreCase))
+                    vm.ProductImagePath = newPath;
+            }));
     }
+
+    /// <summary>Расшифровать миниатюру в фоне и положить в кэш конвертера (тот же ключ «путь|thumb»): плитка получит готовую картинку без расшифровки в потоке интерфейса.</summary>
+    private static void PrewarmBitmap(string path)
+    {
+        try
+        {
+            AssetPathToBitmapConverter.Instance.Convert(path, typeof(Avalonia.Media.Imaging.Bitmap), "thumb", System.Globalization.CultureInfo.InvariantCulture);
+        }
+        catch
+        {
+            // подогрев — только ускорение; плитка загрузит сама
+        }
+    }
+
+    /// <summary>true — файл уже в новом формате (<c>.t320.</c>) и пересжимать его не надо.</summary>
+    internal static bool IsThumbFile(string path) =>
+        Path.GetFileName(path).Contains(ThumbImageCompressor.ThumbMarker, StringComparison.OrdinalIgnoreCase);
 
     private async Task<string?> GetOrDownloadPathAsync(
         IAuthApiService authApi,
@@ -57,18 +109,37 @@ internal sealed class ProductThumbService
         bool forceDownload = false)
     {
         var key = Sha256Hex(imageUrl);
-        var ext = GuessExt(imageUrl);
-        var local = Path.Combine(_cacheDir, key + ext);
-        if (!forceDownload && File.Exists(local))
-            return local;
+        if (!forceDownload)
+        {
+            var existing = FindExisting(_cacheDir, key, GuessExt(imageUrl));
+            if (existing is not null)
+                return existing;
+        }
 
-        var task = _downloadTasks.GetOrAdd(local, _ => DownloadToCacheAsync(local, authApi, apiBaseUrl, imageUrl, ct));
+        // Ключ задач — без расширения: новый файл получает своё имя (.t320.webp), старого имени у него нет.
+        var taskKey = Path.Combine(_cacheDir, key);
+        var task = _downloadTasks.GetOrAdd(taskKey, _ => DownloadToCacheAsync(_cacheDir, key, GuessExt(imageUrl), authApi, apiBaseUrl, imageUrl, ct));
         try { return await task.ConfigureAwait(false); }
-        finally { _downloadTasks.TryRemove(local, out _); }
+        finally { _downloadTasks.TryRemove(taskKey, out _); }
+    }
+
+    /// <summary>Что уже лежит в кэше: сначала новая миниатюра, потом старый файл-оригинал (имя по расширению ссылки).</summary>
+    private static string? FindExisting(string dir, string key, string legacyExt)
+    {
+        foreach (var ext in ThumbExtensions)
+        {
+            var thumb = Path.Combine(dir, key + ThumbImageCompressor.ThumbMarker.TrimEnd('.') + ext);
+            if (File.Exists(thumb))
+                return thumb;
+        }
+        var legacy = Path.Combine(dir, key + legacyExt);
+        return File.Exists(legacy) ? legacy : null;
     }
 
     private static async Task<string?> DownloadToCacheAsync(
-        string local,
+        string dir,
+        string key,
+        string legacyExt,
         IAuthApiService authApi,
         string apiBaseUrl,
         string imageUrl,
@@ -76,27 +147,143 @@ internal sealed class ProductThumbService
     {
         try
         {
-            var uri = BuildAbsoluteUri(apiBaseUrl, imageUrl);
-            using var req = new HttpRequestMessage(HttpMethod.Get, uri);
-            var token = authApi.AccessToken;
-            if (!string.IsNullOrWhiteSpace(token))
-                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
-            using var resp = await PublicHttp.SendAsync(req, ct).ConfigureAwait(false);
-            if (!resp.IsSuccessStatusCode)
+            var bytes = await DownloadBytesAsync(authApi, apiBaseUrl, imageUrl, ct).ConfigureAwait(false);
+            if (bytes is null)
                 return null;
 
-            var bytes = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
-            if (bytes.Length == 0)
-                return null;
+            // Сжатие — не в потоке интерфейса и не в потоке сетевого ответа.
+            var packed = await Task.Run(() => ThumbImageCompressor.Compress(bytes, ThumbImageCompressor.ThumbMaxSide, ThumbQuality, out _), ct).ConfigureAwait(false);
+            if (packed is not null)
+            {
+                var local = Path.Combine(dir, key + ThumbImageCompressor.ThumbMarker.TrimEnd('.') + ExtOf(packed));
+                if (ThumbImageCompressor.TryWriteAtomic(local, packed))
+                    return local;
+            }
 
-            await File.WriteAllBytesAsync(local, bytes, ct).ConfigureAwait(false);
-            return local;
+            // Не картинка или не расшифровалась: как раньше — кладём байты как есть (чтобы не качать заново при каждом показе плитки).
+            var raw = Path.Combine(dir, key + legacyExt);
+            await File.WriteAllBytesAsync(raw, bytes, ct).ConfigureAwait(false);
+            return raw;
         }
         catch
         {
             return null;
         }
+    }
+
+    /// <summary>Расширение результата сжатия по заголовку: RIFF…WEBP → .webp, PNG → .png, иначе .jpg.</summary>
+    private static string ExtOf(byte[] packed)
+    {
+        if (packed.Length > 12 && packed[0] == 'R' && packed[1] == 'I' && packed[2] == 'F' && packed[3] == 'F' && packed[8] == 'W')
+            return ".webp";
+        if (packed.Length > 4 && packed[0] == 0x89 && packed[1] == 'P')
+            return ".png";
+        return ".jpg";
+    }
+
+    private static async Task<byte[]?> DownloadBytesAsync(IAuthApiService authApi, string apiBaseUrl, string imageUrl, CancellationToken ct)
+    {
+        var uri = BuildAbsoluteUri(apiBaseUrl, imageUrl);
+        using var req = new HttpRequestMessage(HttpMethod.Get, uri);
+        // 2026-11-05 (Н-9): токен NurCRM — только своему серверу. Раньше он уходил и на чужие хосты картинок (CDN, магазины, поисковики фото).
+        var token = authApi.AccessToken;
+        if (!string.IsNullOrWhiteSpace(token) && IsOwnHost(uri, apiBaseUrl))
+            req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        using var resp = await PublicHttp.SendAsync(req, ct).ConfigureAwait(false);
+        if (!resp.IsSuccessStatusCode)
+            return null;
+
+        var bytes = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+        return bytes.Length == 0 ? null : bytes;
+    }
+
+    /// <summary>true — адрес картинки на том же хосте, что и API NurCRM (тогда Bearer-токен можно отправлять).</summary>
+    internal static bool IsOwnHost(Uri imageUri, string apiBaseUrl)
+    {
+        try
+        {
+            return Uri.TryCreate(apiBaseUrl, UriKind.Absolute, out var api)
+                   && string.Equals(imageUri.Host, api.Host, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>2026-11-05: фото побольше для карточки товара («Открыть на весь экран»): оригинал с сайта ужимается до 1600 px WebP и лежит в product_thumbs/full.
+    /// Миниатюры 320 px для полноэкранного просмотра мало. null — не получилось (нет сети и т.п.): вызывающий оставляет то, что уже показывает.</summary>
+    public async Task<string?> GetFullPathAsync(IAuthApiService authApi, string apiBaseUrl, string imageUrl, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+            return null;
+        try
+        {
+            var dir = Path.Combine(_cacheDir, FullFolder);
+            var local = Path.Combine(dir, Sha256Hex(imageUrl) + ".webp");
+            if (File.Exists(local))
+                return local;
+            return await Task.Run(async () =>
+            {
+                Directory.CreateDirectory(dir);
+                var bytes = await DownloadBytesAsync(authApi, apiBaseUrl, imageUrl, ct).ConfigureAwait(false);
+                if (bytes is null)
+                    return null;
+                var packed = ThumbImageCompressor.Compress(bytes, ThumbImageCompressor.FullMaxSide, FullQuality, out _);
+                if (packed is null)
+                    return null;
+                var file = Path.Combine(dir, Sha256Hex(imageUrl) + ExtOf(packed));
+                return ThumbImageCompressor.TryWriteAtomic(file, packed) ? file : null;
+            }, ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // ---- ленивое пересжатие старых файлов ----
+
+    private static void ScheduleRecompress(string imageUrl, string legacyPath, Func<string, DispatcherOperation>? onDone)
+    {
+        if (!RecompressSeen.TryAdd(legacyPath, 0))
+            return;
+        _ = Task.Run(async () =>
+        {
+            await RecompressGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var dir = Path.GetDirectoryName(legacyPath)!;
+                var key = Path.GetFileNameWithoutExtension(legacyPath);
+                var before = new FileInfo(legacyPath).Length;
+                var bytes = await File.ReadAllBytesAsync(legacyPath).ConfigureAwait(false);
+                var packed = ThumbImageCompressor.Compress(bytes, ThumbImageCompressor.ThumbMaxSide, ThumbQuality, out _);
+                if (packed is null)
+                    return; // повреждённый файл не трогаем — как был (и не падаем)
+                var newPath = Path.Combine(dir, key + ThumbImageCompressor.ThumbMarker.TrimEnd('.') + ExtOf(packed));
+                if (!ThumbImageCompressor.TryWriteAtomic(newPath, packed))
+                    return; // не записалось — старый файл остаётся нетронутым
+                // Новый файл записан целиком — только теперь старый можно убрать.
+                PrewarmBitmap(newPath);
+                if (onDone is not null)
+                    await onDone(newPath).GetTask().ConfigureAwait(false);
+                try { File.Delete(legacyPath); } catch { /* занят — удалится при следующем запуске, новый файл уже главный */ }
+
+                Interlocked.Add(ref _recompressSavedBytes, Math.Max(0, before - packed.Length));
+                var done = Interlocked.Increment(ref _recompressDone);
+                if (done % 25 == 0)
+                    PosLogger.Log($"Миниатюры товаров: пересжато {done} файлов, освобождено {Interlocked.Read(ref _recompressSavedBytes) / 1024 / 1024} МБ.", "CATALOG");
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Миниатюра не пересжата: {ex.GetType().Name}", "WARNING");
+            }
+            finally
+            {
+                RecompressGate.Release();
+            }
+        });
     }
 
     private static Uri BuildAbsoluteUri(string apiBaseUrl, string imageUrl)
@@ -108,19 +295,16 @@ internal sealed class ProductThumbService
     }
 
     /// <summary>Уже скачанная миниатюра товара или null — без скачивания (2026-09-28): экран
-    /// покупателя показывает фото позиций чека из того же кэша, что и плитки каталога.</summary>
+    /// покупателя показывает фото позиций чека из того же кэша, что и плитки каталога.
+    /// 2026-11-05: сначала новая миниатюра 320 px (.t320.), потом старый файл. Экран покупателя и так расшифровывает миниатюры в 320 px
+    /// (ConverterParameter=thumb), поэтому размера 320 ему хватает, вид не меняется.</summary>
     public static string? TryGetCachedPath(string? imageUrl)
     {
         if (string.IsNullOrWhiteSpace(imageUrl))
             return null;
         try
         {
-            var local = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                NurMarketKassa.Services.AppMode.DataFolderName,
-                "product_thumbs",
-                Sha256Hex(imageUrl) + GuessExt(imageUrl));
-            return File.Exists(local) ? local : null;
+            return FindExisting(CacheDirectory(), Sha256Hex(imageUrl), GuessExt(imageUrl));
         }
         catch (Exception)
         {

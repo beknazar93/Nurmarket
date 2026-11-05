@@ -308,7 +308,10 @@ public partial class TmScaleSettingsWindow : Window
               "F — bayrak (ürünün «barkod öneki», kasa onu her ürünle gönderir), W — ürün kodu, N — ağırlık, E — tutar, C — kontrol hanesi. Kasa 13 hane okur: 2 önek + 5 PLU + 5 değer + kontrol — yani FFWWWWWNNNNNC (ağırlık) veya FFWWWWWEEEEEC (tutar).",
               "F — bayroq (tovarning «shtrix-kod prefiksi», kassa uni har bir tovar bilan yuboradi), W — tovar kodi, N — vazn, E — summa, C — nazorat raqami. Kassa 13 raqamni o‘qiydi: 2 prefiks + 5 PLU + 5 qiymat + nazorat — bu FFWWWWWNNNNNC (vazn) yoki FFWWWWWEEEEEC (summa)."),
             out var body);
-        body.Children.Add(Text(CompanyFormatText(), "hint"));
+        var formatHint = Text(CompanyFormatText(), "hint");
+        body.Children.Add(formatHint);
+        // 2026-11-05: единица суммы (тыйын/сом) — на этой кассе, важнее сайта (хотфикс TM-30F: 76800 = 768,00 сом, а не 76 800).
+        body.Children.Add(AmountUnitPicker(this, () => { formatHint.Text = CompanyFormatText(); UpdateSample(); }));
 
         _formatBox = new ComboBox { MinWidth = 320, FontFamily = new FontFamily("Consolas, Segoe UI") };
         var byWeightNow = !string.Equals(WeightBarcodeParser.Mode, "amount", StringComparison.OrdinalIgnoreCase);

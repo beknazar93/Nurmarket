@@ -880,12 +880,12 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
                                   final (ok, total) = ref.read(visionProvider).geminiCounts(_gem);
                                   return Text(
                                     total == 0 ? l.aiNoKeyShort : l.gkWorkingCount(ok, total),
-                                    style: TextStyle(color: total == 0 ? pal.textSoft : (ok == 0 ? T.danger : T.success), fontWeight: FontWeight.w700, fontSize: 12.5),
+                                    style: TextStyle(color: total == 0 ? pal.textSoft : (ok == 0 ? context.pal.danger : context.pal.success), fontWeight: FontWeight.w700, fontSize: 12.5),
                                   );
                                 }
                                 return Text(
                                   k == null ? l.aiNoKeyShort : '${l.aiConnected} · ${_mask(k)}',
-                                  style: TextStyle(color: k == null ? pal.textSoft : T.success, fontWeight: FontWeight.w700, fontSize: 12.5),
+                                  style: TextStyle(color: k == null ? pal.textSoft : context.pal.success, fontWeight: FontWeight.w700, fontSize: 12.5),
                                 );
                               },
                             ),
@@ -914,7 +914,7 @@ class _AiSettingsScreenState extends ConsumerState<AiSettingsScreen> {
                             padding: const EdgeInsets.only(top: 6),
                             child: Text(
                               _result[id]!.isEmpty ? l.aiTestOk : _result[id]!,
-                              style: TextStyle(color: _result[id]!.isEmpty ? T.success : T.danger, fontWeight: FontWeight.w600, fontSize: 12.5),
+                              style: TextStyle(color: _result[id]!.isEmpty ? context.pal.success : context.pal.danger, fontWeight: FontWeight.w600, fontSize: 12.5),
                             ),
                           ),
                         const SizedBox(height: 6),

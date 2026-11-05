@@ -110,7 +110,7 @@ public static class OfflineOperationsStore
 
     /// <summary>Путь к файлу. Тест/стенд подменяет, чтобы не трогать настоящий профиль.</summary>
     public static string FilePath { get; set; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         AppMode.DataFolderName,
         "offline_operations.json");
 

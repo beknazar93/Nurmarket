@@ -172,6 +172,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         children: [
                           FieldLabel(l.loginLabel),
                           TextField(
+                            key: const Key('loginEmail'), // 2026-11-05 (E2E)
                             controller: _login,
                             keyboardType: TextInputType.emailAddress,
                             // 2026-10-29: без автозаполнения — на экране входа не должно быть следов прошлого аккаунта
@@ -185,6 +186,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const SizedBox(height: 12),
                           FieldLabel(l.passwordLabel),
                           TextField(
+                            key: const Key('loginPassword'), // 2026-11-05 (E2E)
                             controller: _password,
                             focusNode: _passwordFocus,
                             obscureText: _hide,
@@ -207,7 +209,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(color: context.pal.dangerSoft, borderRadius: BorderRadius.circular(12)),
-                              child: Text(_error!, style: const TextStyle(color: T.danger, fontSize: 13)),
+                              child: Text(_error!, style: TextStyle(color: context.pal.danger, fontSize: 13)),
                             ),
                           ],
                           // 2026-10-29 (полная изоляция аккаунтов): «Загружаем данные аккаунта…» после входа и неотправленные продажи других аккаунтов
@@ -217,6 +219,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           SafeArea(
                             top: false,
                             child: FilledButton(
+                              key: const Key('loginSubmit'), // 2026-11-05 (E2E)
                               onPressed: _busy ? null : _submit,
                               child: _busy ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: T.navy)) : Text(l.signIn),
                             ),

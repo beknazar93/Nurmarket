@@ -13,11 +13,25 @@
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
     <PackageReference Include="FluentAssertions" Version="7.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
-    <PackageReference Include="xunit" Version="2.9.2" />
+    <!-- 2026-11-05: xunit 2.9.2 -> 2.9.3 (нужно Verify.Xunit; Verify — MIT, снимки текста чека/X-Z/TSPL в папке Snapshots) -->
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="Verify.Xunit" Version="31.0.0" />
+    <!-- 2026-11-05 (аудит №4, волна 0-A): поддельный NurCRM на localhost (Apache-2.0) и тесты денег на случайных данных (Apache-2.0). -->
+    <PackageReference Include="WireMock.Net" Version="2.21.0" />
+    <PackageReference Include="CsCheck" Version="4.9.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <!-- 2026-11-05 (аудит скорости, п. 15 а): тесты ужатия миниатюр. Проект кассы с интерфейсом тестами не подключается, поэтому файл
+       ThumbImageCompressor.cs берётся ссылкой; SkiaSharp 2.88.9 — та же версия, что у Avalonia 11.2.5 (уже в кэше пакетов, только для тестов). -->
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\ThumbImageCompressor.cs" Link="Linked\ThumbImageCompressor.cs" />
+    <!-- 2026-11-05: поправки ящика (сервер ceba67c, debt_return_drawer_cash) — файл приложения, зависит только от Infrastructure; тесты используют его напрямую. -->
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\ExchangeCashCorrections.cs" Link="Linked\ExchangeCashCorrections.cs" />
   </ItemGroup>
 
   <ItemGroup>

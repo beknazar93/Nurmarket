@@ -13,6 +13,21 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Возврат долгового чека: Исправлено двойное вычитание «Касса:» при возврате долгового чека (сервер NurCRM теперь сам снимает наличные): старые местные поправки больше не применяются.",
+        "Приход, чек и ошибки сервера: Удаление прихода (с причиной); филиал и устройство в чеке; ключи повтора для проката, бонусов и перемещений; понятные сообщения об ошибках сервера и неверном PIN.",
+        "Округление весовых как на сервере: Весовые строки округляются как на сервере — вниз до шага весов.",
+        "Весы: единица суммы в штрихкоде: Единица суммы в штрихкоде этикетки (тыйыны или сомы) выбирается на кассе — в мастере «Настроить по этикетке» и в окнах весов; защита от нелепого веса при скане.",
+        "Внешние сервисы: Советник, Telegram и проверка обновлений: сроки ожидания ответа, без дублей сообщений.",
+        "Безопасные данные: Проверочные тесты работают в отдельной папке и не трогают данные кассы; файлы с деньгами и настройками пишутся без риска потери.",
+        "Защита денег и время сервера: Возвраты, внесения, изъятия, оплата долга и перемещения уходят с ключом повтора: после обрыва связи та же операция не проведётся дважды. Время продажи берётся по часам сервера — сбитая дата на ПК или телефоне не портит отчёты.",
+        "Подозрительные операции и PIN старшего: Выключено по умолчанию — включает владелец. Журнал крупных удалений строк, скидок, возвратов без чека и недостач, баллы кассиров, сообщения владельцу в Telegram (ночью — утром); PIN старшего на скидку, возврат, ручную цену и закрытие смены с недостачей.",
+        "Электронный чек в Telegram: Только по согласию клиента: он привязывает телефон к боту магазина, и касса присылает чек с балансом бонусов; на экране покупателя — QR на бота. Ссылка на бумажном чеке по умолчанию выключена, по «/stop» чеки прекращаются.",
+        "Просрочка при продаже: Касса предупреждает «Товар просрочен. Продать всё равно?» или пускает только с PIN владельца — режим выбирает владелец, по умолчанию выключено.",
+        "Закупки и цены: Автозаказ v2: потерянный спрос, кратность упаковки, минимальная партия, срок поставки; анализ ABC + XYZ (насколько ровен спрос); подсказки цены после прихода («Поднять цену с 85 до 95?») и целевая наценка по категориям; доп. расходы прихода (доставка, грузчики) входят в себестоимость товара.",
+        "«Пересчёт дня» и сверка выписки: «Пересчёт дня» — каждый день 20–30 позиций вместо полной ревизии (сначала подозрительные, потом по классам ABC); сверка банковской выписки (MBank, Optima: Excel/CSV) с безналом смен и оплатами поставщикам.",
+        "Программа владельца экономнее: Закрытые разделы больше не остаются в памяти спрятанными окнами — программа владельца занимает меньше памяти при долгой работе.",
+        "Дизайн: Удаление строки чека, смешанная оплата, плотность списков, тёмная тема и экраны инвестиций стали аккуратнее и читаемее.",
+        "Скорость: Миниатюры товаров в 8 раз легче — списки открываются быстрее и занимают меньше места; в журнале появились замеры скорости запросов для поддержки. Плюс мелкие исправления.",
         "Возврат: «Касса:» в шапке уменьшается сразу после возврата наличными (не ждёт ответа сервера и меняется даже при открытом окне возврата); в строке частично возвращённого чека видно «возвращено 1 из 2»; галочка строки не сбрасывается после ввода количества; слово в поле «Код или название» ищется по названию, а не предлагает создать товар. «Последний чек» печатается сразу из продажи этой смены, окно «Чек» с плашки открывается мгновенно, а чек сервера подставляется на месте.",
         "Надёжнее: продажа «в долг» уходит в офлайн-долг только если запрос точно не отправился (иначе кассир видит «оплата могла пройти»); снятая поправка ящика и удалённый отложенный чек не возвращаются при занятом файле; новый товар встаёт в каталог без полной пересборки; часы, переведённые назад, не останавливают обновление каталога; телефоны клиентов в журнале закрыты; копии базы не занимают больше 1,5 ГБ; счётчик «В очереди» после офлайн-чека не перечитывает всю очередь.",
         "Заставка запуска, если сервер отвечает долго, через 15 с объясняет это и даёт кнопку «Выйти».",
@@ -155,6 +170,21 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Карыз чегин кайтаруу: Карыз чегин кайтарууда «Касса:» эки жолу кемиген ката оңдолду (NurCRM сервери накталайды өзү алат): эски жергиликтүү оңдоолор колдонулбайт.",
+        "Киреше, чек жана сервердин каталары: Кирешени өчүрүү (себеби менен); чекте филиал жана түзмөк; прокат, бонустар жана жылдыруулар үчүн кайталоо ачкычтары; сервердин каталары жана PIN туура эместиги тууралуу түшүнүктүү билдирүүлөр.",
+        "Салмактуу саптарды сервердей тегеректөө: Салмактуу саптар сервердегидей тегеректелет — тараза кадамына чейин төмөн карай.",
+        "Тараза: штрихкоддогу сумманын бирдиги: Этикетка штрихкодундагы сумманын бирдиги (тыйын же сом) кассада тандалат — «Этикетка боюнча жөндөө» устасында жана тараза терезелеринде; сканерлегенде акылга сыйбаган салмактан коргоо.",
+        "Тышкы кызматтар: Кеңешчи, Telegram жана жаңыртууларды текшерүү: жоопту күтүү мөөнөттөрү, билдирүүлөр кайталанбайт.",
+        "Коопсуз маалыматтар: Текшерүү тесттери өзүнчө папкада иштейт жана кассанын маалыматтарына тийбейт; акча жана жөндөөлөр файлдары жоголуу коркунучусуз жазылат.",
+        "Акчаны коргоо жана сервердин убактысы: Кайтаруулар, киргизүүлөр, чыгаруулар, карыз төлөө жана жылдыруулар кайталоо ачкычы менен кетет: байланыш үзүлгөндөн кийин ошол эле амал эки жолу өтпөйт. Сатуу убактысы сервердин саты боюнча алынат — компьютердеги же телефондогу бузулган дата отчётторду бузбайт.",
+        "Шектүү операциялар жана улуунун PIN-коду: Демейки боюнча өчүк — ээси иштетет. Чоң сап өчүрүүлөрдүн, арзандатуулардын, чексиз кайтаруулардын жана жетишпөөлөрдүн журналы, кассирлердин баллдары, ээсине Telegram аркылуу билдирүүлөр (түнкүсүн — эртең менен); арзандатууга, кайтарууга, кол менен бааға жана жетишпөөсү бар сменаны жабууга улуунун PIN-коду.",
+        "Telegram'да электрондук чек: Кардардын макулдугу менен гана: ал телефонун дүкөндүн ботуна байлайт, касса чекти бонус балансы менен жөнөтөт; кардардын экранында ботко QR. Кагаз чектеги шилтеме демейки боюнча өчүк, «/stop» менен чектер токтойт.",
+        "Сатууда мөөнөтү бүткөн товар: Касса «Товардун мөөнөтү бүткөн. Баары бир сатасызбы?» деп эскертет же ээсинин PIN-коду менен гана өткөрөт — режимди ээси тандайт, демейки боюнча өчүк.",
+        "Сатып алуу жана баалар: Автобуйрутма v2: жоголгон суроо-талап, таңгак эселиги, минималдуу партия, жеткирүү мөөнөтү; ABC + XYZ талдоосу (суроо-талап канчалык туруктуу); товар кабыл алуудан кийинки баа кеңештери («Баасын 85тен 95ке көтөрөбүзбү?») жана категория боюнча максаттуу кошумча баа; кабыл алуунун кошумча чыгымдары (жеткирүү, жүк ташуучулар) товардын өздүк наркына кирет.",
+        "«Күндүн кайра эсеби» жана көчүрмөнү салыштыруу: «Күндүн кайра эсеби» — толук ревизиянын ордуна күн сайын 20–30 позиция (адегенде шектүүлөр, анан ABC класстары боюнча); банк көчүрмөсүн (MBank, Optima: Excel/CSV) смендердин накталайсыз түшүмү жана жеткирүүчүлөргө төлөмдөр менен салыштыруу.",
+        "Ээсинин программасы үнөмдүүрөөк: Жабылган бөлүмдөр жашырылган терезе болуп эсте калбайт — ээсинин программасы узак иштегенде аз эс тутумду ээлейт.",
+        "Дизайн: Чек сабын өчүрүү, аралаш төлөм, тизмелердин тыгыздыгы, караңгы тема жана инвестиция экрандары тыкандуу жана окууга ыңгайлуураак болду.",
+        "Ылдамдык: Товар миниатюралары 8 эсе жеңил — тизмелер тезирээк ачылат жана аз орун ээлейт; колдоо үчүн журналда суроо ылдамдыгынын өлчөмдөрү пайда болду. Кошумча майда оңдоолор.",
         "Кайтаруу: баш жактагы «Касса:» накталай акча кайтарылгандан кийин дароо азаят (сервердин жообун күтпөйт жана кайтаруу терезеси ачык болсо да өзгөрөт); жарым-жартылай кайтарылган чектин сабында «кайтарылды 1 / 2» көрүнөт; сан киргизгенден кийин сап белгиси түшүп калбайт; «Код же аталыш» талаасындагы сөз товар түзүүнү сунуштабай, аталыш боюнча изделет. «Акыркы чек» ушул смендеги сатуудан дароо басылат, плашкадан «Чек» терезеси заматта ачылат, сервердин чеги ордуна коюлат.",
         "Ишенимдүүрөөк: «карызга» сатуу сурам так жөнөтүлбөсө гана оффлайн-карызга кетет (болбосо кассир «төлөм өтүп кетиши мүмкүн» деп көрөт); алынган кассанын оңдоосу жана өчүрүлгөн кечиктирилген чек файл бош эмес болгондо кайтып келбейт; жаңы товар каталогго толук кайра куруусуз коюлат; артка которулган саат каталогду жаңыртууну токтотпойт; журналда кардарлардын телефондору жабылган; базанын көчүрмөлөрү 1,5 ГБдан ашпайт; оффлайн чектен кийин «Кезекте» эсептегичи бүт кезекти кайра окубайт.",
         "Иштетүү заставкасы сервер узак жооп берсе, 15 секунддан кийин муну түшүндүрүп, «Чыгуу» баскычын берет.",
@@ -295,6 +325,21 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Debt receipt return: Fixed the double subtraction of “Till:” when returning a debt receipt (the NurCRM server now takes the cash itself): old local adjustments are no longer applied.",
+        "Goods receipt, branch and server errors: Deleting a goods receipt (with a reason); branch and device on the receipt; retry keys for rental, bonuses and transfers; clear messages for server errors and a wrong PIN.",
+        "Weighed lines rounded like the server: Weighed lines are rounded like on the server — down to the scale step.",
+        "Scales: amount unit in the barcode: The unit of the amount in the label barcode (tyiyn or som) is chosen on the till — in the “Set up from a label” wizard and in the scale windows; protection against an absurd weight when scanning.",
+        "External services: Advisor, Telegram and update checks: response timeouts, no duplicate messages.",
+        "Safe data: Verification tests run in a separate folder and never touch the till's data; money and settings files are written without risk of loss.",
+        "Money protection and server time: Returns, deposits, withdrawals, debt payments and transfers are sent with a retry key: after a dropped connection the same operation is never posted twice. The sale time comes from the server clock, so a wrong date on the PC or phone no longer spoils reports.",
+        "Suspicious operations and senior PIN: Off by default — the owner turns it on. A log of large line removals, discounts, returns without a receipt and shortages, cashier scores, Telegram messages to the owner (at night — held until morning); a senior PIN for discounts, returns, manual prices and closing a shift with a shortage.",
+        "Electronic receipt in Telegram: Only with the customer's consent: they link their phone to the shop's bot and the till sends the receipt with the bonus balance; the customer display shows a QR to the bot. The link on the paper receipt is off by default, “/stop” ends the receipts.",
+        "Expired goods at the sale: The till warns “The product is expired. Sell anyway?” or lets it through only with the owner's PIN — the owner picks the mode, off by default.",
+        "Purchasing and prices: Auto-order v2: lost demand, pack multiples, minimum batch, supplier lead time; ABC + XYZ analysis (how steady demand is); price hints after receiving (“Raise the price from 85 to 95?”) and a target markup per category; extra receiving costs (delivery, loaders) go into the product cost.",
+        "“Day recount” and statement reconciliation: “Day recount” — 20–30 items a day instead of a full stock count (suspicious ones first, then by ABC class); reconciliation of a bank statement (MBank, Optima: Excel/CSV) with shifts' non-cash sales and supplier payments.",
+        "Leaner owner program: Closed sections no longer stay in memory as hidden windows — the owner program uses less memory over a long session.",
+        "Design: Line removal, mixed payment, list density, the dark theme and the investment screens are tidier and easier to read.",
+        "Speed: Product thumbnails are 8 times lighter — lists open faster and take less space; the log now records request timings for support. Plus small fixes.",
         "Returns: the “Till:” header goes down right after a cash return (it no longer waits for the server and updates even while the return window is open); a partly returned receipt line shows “returned 1 of 2”; the row checkmark is no longer reset after typing the quantity; a word typed in “Code or name” is searched by name instead of offering to create a product. “Last receipt” prints at once from this shift's sale, the “Receipt” window from the banner opens instantly and the server receipt replaces it in place.",
         "More reliable: a credit sale goes to the offline debt queue only if the request was definitely not sent (otherwise the cashier sees “the payment may have gone through”); a removed drawer correction and a deleted deferred receipt do not come back when the file is busy; a new product is inserted into the catalog without a full rebuild; a clock set back no longer stops catalog refresh; client phone numbers are masked in the log; database backups take at most 1.5 GB; the “Queued” counter no longer re-reads the whole queue after an offline receipt.",
         "If the server answers slowly, the startup splash explains it after 15 s and offers an “Exit” button.",
@@ -435,6 +480,21 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Borç fişi iadesi: Borç fişi iadesinde «Kasa:» değerinin iki kez düşülmesi düzeltildi (NurCRM sunucusu artık nakdi kendisi düşer): eski yerel düzeltmeler artık uygulanmaz.",
+        "Mal kabulü, şube ve sunucu hataları: Mal kabulünü silme (nedenle); fişte şube ve cihaz; kiralama, bonus ve transferler için yeniden deneme anahtarları; sunucu hataları ve yanlış PIN için anlaşılır mesajlar.",
+        "Tartılı satırlar sunucu gibi yuvarlanır: Tartılı satırlar sunucudaki gibi yuvarlanır — terazi adımına kadar aşağı.",
+        "Terazi: barkoddaki tutar birimi: Etiket barkodundaki tutar birimi (tıyın veya som) kasada seçilir — «Etiketten ayarla» sihirbazında ve terazi pencerelerinde; taramada saçma ağırlığa karşı koruma.",
+        "Harici hizmetler: Danışman, Telegram ve güncelleme kontrolü: yanıt bekleme süreleri, tekrarlanan mesaj yok.",
+        "Güvenli veri: Doğrulama testleri ayrı bir klasörde çalışır ve kasa verilerine dokunmaz; para ve ayar dosyaları kayıp riski olmadan yazılır.",
+        "Para koruması ve sunucu saati: İadeler, para girişleri, çıkışları, borç ödemeleri ve transferler yeniden deneme anahtarıyla gider: bağlantı koptuktan sonra aynı işlem iki kez işlenmez. Satış zamanı sunucu saatinden alınır — bilgisayardaki veya telefondaki yanlış tarih raporları bozmaz.",
+        "Şüpheli işlemler ve yönetici PIN'i: Varsayılan olarak kapalı — sahibi açar. Büyük satır silmelerin, indirimlerin, fişsiz iadelerin ve eksiklerin günlüğü, kasiyer puanları, sahibine Telegram mesajları (geceleri — sabaha bırakılır); indirim, iade, elle fiyat ve eksikli vardiya kapatma için yönetici PIN'i.",
+        "Telegram'da elektronik fiş: Yalnızca müşterinin onayıyla: telefonunu mağaza botuna bağlar, kasa fişi bonus bakiyesiyle gönderir; müşteri ekranında bota QR görünür. Kağıt fişteki bağlantı varsayılan olarak kapalıdır, «/stop» ile fişler durur.",
+        "Satışta son kullanma tarihi: Kasa «Ürünün tarihi geçmiş. Yine de satılsın mı?» diye uyarır veya yalnızca sahibin PIN'iyle geçirir — modu sahibi seçer, varsayılan olarak kapalı.",
+        "Satın alma ve fiyatlar: Otomatik sipariş v2: kaybedilen talep, paket katı, asgari parti, tedarik süresi; ABC + XYZ analizi (talep ne kadar düzenli); mal kabulünden sonra fiyat önerileri («Fiyat 85'ten 95'e çıkarılsın mı?») ve kategori başına hedef kâr oranı; mal kabulünün ek masrafları (nakliye, hamal) ürün maliyetine girer.",
+        "«Günün sayımı» ve ekstre uzlaştırma: «Günün sayımı» — tam sayım yerine günde 20–30 kalem (önce şüpheliler, sonra ABC sınıfına göre); banka ekstresinin (MBank, Optima: Excel/CSV) vardiyaların nakitsiz satışları ve tedarikçi ödemeleriyle uzlaştırılması.",
+        "Daha hafif sahip programı: Kapatılan bölümler artık gizli pencere olarak bellekte kalmaz — sahip programı uzun çalışmada daha az bellek kullanır.",
+        "Tasarım: Satır silme, karma ödeme, liste yoğunluğu, koyu tema ve yatırım ekranları daha derli toplu ve okunaklı.",
+        "Hız: Ürün küçük resimleri 8 kat daha hafif — listeler daha hızlı açılır ve daha az yer kaplar; günlükte destek için istek süresi ölçümleri var. Ayrıca küçük düzeltmeler.",
         "İade: üstteki «Kasa:» nakit iadeden hemen sonra azalır (sunucu yanıtını beklemez, iade penceresi açıkken de değişir); kısmen iade edilen fiş satırında «iade edilen 1 / 2» görünür; miktar yazıldıktan sonra satırın onay işareti sıfırlanmaz; «Kod veya ad» alanına yazılan kelime ürün oluşturmayı önermek yerine ada göre aranır. «Son fiş» bu vardiyanın satışından hemen yazdırılır, bildirimden «Fiş» penceresi anında açılır ve sunucu fişi yerinde değiştirir.",
         "Daha güvenilir: veresiye satış, istek kesinlikle gönderilmediyse çevrimdışı borca gider (aksi halde kasiyer «ödeme geçmiş olabilir» görür); kaldırılan çekmece düzeltmesi ve silinen ertelenmiş fiş dosya meşgulken geri gelmez; yeni ürün kataloğa tam yeniden kurulum olmadan eklenir; geri alınan saat katalog yenilemeyi durdurmaz; müşteri telefonları günlükte maskelenir; veritabanı yedekleri en fazla 1,5 GB tutar; «Sırada» sayacı çevrimdışı fişten sonra tüm kuyruğu yeniden okumaz.",
         "Sunucu yavaş yanıt verirse açılış ekranı 15 sn sonra bunu açıklar ve «Çıkış» düğmesi sunar.",
@@ -575,6 +635,21 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Qarz cheki qaytarilishi: Qarz chekini qaytarishda «Kassa:» ikki marta ayrilishi tuzatildi (NurCRM serveri endi naqdni o'zi yechadi): eski mahalliy tuzatishlar endi qo'llanilmaydi.",
+        "Kirim, filial va server xatolari: Kirimni o'chirish (sabab bilan); chekda filial va qurilma; ijara, bonus va ko'chirishlar uchun takrorlash kalitlari; server xatolari va noto'g'ri PIN haqida tushunarli xabarlar.",
+        "Tarozi qatorlari server kabi yaxlitlanadi: Tarozi qatorlari serverdagidek yaxlitlanadi — tarozi qadamigacha pastga.",
+        "Tarozi: shtrix-koddagi summa birligi: Yorliq shtrix-kodidagi summa birligi (tiyin yoki so'm) kassada tanlanadi — «Yorliq bo'yicha sozlash» ustasida va tarozi oynalarida; skanerlashda bema'ni vazndan himoya.",
+        "Tashqi xizmatlar: Maslahatchi, Telegram va yangilanishlarni tekshirish: javob kutish muddatlari, xabarlar takrorlanmaydi.",
+        "Xavfsiz ma'lumotlar: Tekshiruv testlari alohida papkada ishlaydi va kassa ma'lumotlariga tegmaydi; pul va sozlama fayllari yo'qolish xavfisiz yoziladi.",
+        "Pulni himoya va server vaqti: Qaytarish, kiritish, chiqarish, qarz to'lovi va ko'chirishlar takrorlash kaliti bilan yuboriladi: aloqa uzilgandan keyin bir xil amal ikki marta o'tmaydi. Sotuv vaqti server soati bo'yicha olinadi — kompyuter yoki telefondagi noto'g'ri sana hisobotlarni buzmaydi.",
+        "Shubhali amallar va katta PIN: Odatda o'chiq — egasi yoqadi. Katta qator o'chirishlar, chegirmalar, cheksiz qaytarishlar va kamomadlar jurnali, kassirlar ballari, egasiga Telegram xabarlari (tunda — ertalabgacha kutadi); chegirma, qaytarish, qo'lda narx va kamomadli smenani yopish uchun katta PIN.",
+        "Telegram'da elektron chek: Faqat mijoz roziligi bilan: u telefonini do'kon botiga bog'laydi, kassa chekni bonus balansi bilan yuboradi; mijoz ekranida botga QR. Qog'oz chekdagi havola odatda o'chiq, «/stop» bilan cheklar to'xtaydi.",
+        "Sotuvda muddati o'tgan tovar: Kassa «Tovarning muddati o'tgan. Baribir sotilsinmi?» deb ogohlantiradi yoki faqat egasining PIN-kodi bilan o'tkazadi — rejimni egasi tanlaydi, odatda o'chiq.",
+        "Xaridlar va narxlar: Avtobuyurtma v2: yo'qolgan talab, o'ram karraligi, minimal partiya, yetkazib berish muddati; ABC + XYZ tahlili (talab qanchalik barqaror); tovar qabul qilingandan keyingi narx maslahatlari («Narxni 85 dan 95 ga ko'tarilsinmi?») va kategoriya bo'yicha maqsadli ustama; qabulning qo'shimcha xarajatlari (yetkazish, yuk tashuvchilar) tovar tannarxiga kiradi.",
+        "«Kun qayta hisobi» va ko'chirmani solishtirish: «Kun qayta hisobi» — to'liq reviziya o'rniga har kuni 20–30 pozitsiya (avval shubhalilar, keyin ABC sinfi bo'yicha); bank ko'chirmasini (MBank, Optima: Excel/CSV) smenalarning naqdsiz tushumi va yetkazib beruvchilarga to'lovlar bilan solishtirish.",
+        "Egasi dasturi tejamkorroq: Yopilgan bo'limlar endi yashirin oyna sifatida xotirada qolmaydi — egasi dasturi uzoq ishlaganda kamroq xotira egallaydi.",
+        "Dizayn: Qatorni o'chirish, aralash to'lov, ro'yxat zichligi, qorong'i mavzu va investitsiya ekranlari ixchamroq va o'qishga qulayroq bo'ldi.",
+        "Tezlik: Tovar miniatyuralari 8 baravar yengil — ro'yxatlar tezroq ochiladi va kamroq joy egallaydi; jurnalda yordam uchun so'rov tezligi o'lchovlari paydo bo'ldi. Qo'shimcha mayda tuzatishlar.",
         "Qaytarish: tepadagi «Kassa:» naqd qaytarishdan keyin darhol kamayadi (server javobini kutmaydi va qaytarish oynasi ochiq bo'lsa ham o'zgaradi); qisman qaytarilgan chek qatorida «qaytarildi 1 / 2» ko'rinadi; miqdor kiritilgandan keyin qator belgisi tushib qolmaydi; «Kod yoki nom» maydoniga yozilgan so'z mahsulot yaratishni taklif qilmasdan nomi bo'yicha qidiriladi. «Oxirgi chek» shu smenadagi sotuvdan darhol chop etiladi, plashkadan «Chek» oynasi bir zumda ochiladi va server cheki joyida almashadi.",
         "Ishonchliroq: «qarzga» sotuv so'rov aniq yuborilmagan bo'lsagina oflayn qarzga ketadi (aks holda kassir «to'lov o'tib ketgan bo'lishi mumkin» deb ko'radi); olib tashlangan quti tuzatishi va o'chirilgan kechiktirilgan chek fayl band bo'lganda qaytib kelmaydi; yangi mahsulot katalogga to'liq qayta qurishsiz qo'yiladi; orqaga surilgan soat katalog yangilanishini to'xtatmaydi; mijozlar telefonlari jurnalda yopiladi; baza nusxalari 1,5 GB dan oshmaydi; oflayn chekdan keyin «Navbatda» hisoblagichi butun navbatni qayta o'qimaydi.",
         "Server sekin javob bersa, ishga tushirish oynasi 15 soniyadan keyin buni tushuntiradi va «Chiqish» tugmasini beradi.",
@@ -716,6 +791,9 @@ public static class AppChangelog
     // 2026-10-05, владелец: «описание андройд выводи на андройд … не смешивай описание». На Android окно
     // «Касса обновлена» показывало пункты десктопа («на вашем компьютере», «сведения о компьютере») —
     // у Android свой список, тот же, что в выпуске Nurmarket-Android.
+    // 2026-11-05: 1.17.76 (добавка 2, под сервер ceba67c) — сверху всех Latest* и AndroidLatest* пункты «Возврат долгового чека», «Приход, чек и ошибки сервера», «Округление весовых как на сервере».
+    // 2026-11-05: 1.17.76 (добавка) — сверху всех Latest* пункты «Весы: единица суммы в штрихкоде» и «Внешние сервисы», сверху AndroidLatest* — «Внешние сервисы».
+    // 2026-11-05: 1.17.76 — сверху всех Latest* (Windows) добавлено 10 пунктов (безопасные данные, защита денег и время сервера, антифрод и PIN старшего, чек в Telegram, просрочка, закупки и цены, «Пересчёт дня» и сверка выписки, память владельца, дизайн, скорость), сверху всех AndroidLatest* — 5 (Android, деньги, просрочка, дизайн, скорость).
     // 2026-11-05: 1.17.75 — сверху всех Latest* (Windows) добавлен пункт «Склад и печать стали аккуратнее» (аудит №3, добивка: Т3-06, Т3-08, Т3-10…Т3-12, Т3-15, С2-26, С2-28, С2-29, С2-31, С2-34, С2-39, С2-43, Н-7, Н-8, Д-6, Д-9).
     // 2026-11-05: 1.17.75 — сверху всех AndroidLatest* добавлен пункт «Сохранение файлов на Android» (А3-05 добивка, А3-10).
     // 2026-11-05: 1.17.75 — сверху всех AndroidLatest* добавлен пункт «Android-касса стала спокойнее» (аудит №3: А3-01…А3-06, А3-12).
@@ -760,6 +838,15 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Возврат долгового чека: Исправлено двойное вычитание «Касса:» при возврате долгового чека (сервер NurCRM теперь сам снимает наличные): старые местные поправки больше не применяются.",
+        "Приход, чек и ошибки сервера: Удаление прихода (с причиной); филиал и устройство в чеке; ключи повтора для проката, бонусов и перемещений; понятные сообщения об ошибках сервера и неверном PIN.",
+        "Округление весовых как на сервере: Весовые строки округляются как на сервере — вниз до шага весов.",
+        "Внешние сервисы: Советник, Telegram и проверка обновлений: сроки ожидания ответа, без дублей сообщений.",
+        "Android: Сканер штрихкодов, кнопка «Назад», экранная клавиатура, выбор фото, QR и выгрузка в Excel работают надёжнее.",
+        "Защита денег и время сервера: Возвраты, внесения, изъятия, оплата долга и перемещения уходят с ключом повтора: после обрыва связи та же операция не проведётся дважды. Время продажи берётся по часам сервера — сбитая дата на ПК или телефоне не портит отчёты.",
+        "Просрочка при продаже: Касса предупреждает «Товар просрочен. Продать всё равно?» или пускает только с PIN владельца — режим выбирает владелец, по умолчанию выключено.",
+        "Дизайн: Удаление строки чека, смешанная оплата, плотность списков, тёмная тема и экраны инвестиций стали аккуратнее и читаемее.",
+        "Скорость: Миниатюры товаров в 8 раз легче — списки открываются быстрее и занимают меньше места; в журнале появились замеры скорости запросов для поддержки. Плюс мелкие исправления.",
         "Сохранение файлов на Android: документ клиента (PDF, Word), перемещение (Excel, Word, CSV) и лист кнопок весов сохраняются в выбранный файл, а не молча пропадают; сигналы кассы слышны и в режиме «Не беспокоить»",
         "Android-касса стала спокойнее: уход в фон и открытие камеры больше не показывают «Выйти / Подождать» и не закрывают программу; печать по Bluetooth при обрыве связи не печатает чек дважды; фоновая проверка принтера больше не вызывает окна разрешений; в поле «Порт принтера» нет ошибок при наборе; выгрузки в Excel и Word на Android сохраняются; обновление проверяет контрольную сумму файла",
         "Накладная на возврат поставщику: у каждого возврата в «Возвратах поставщикам» и в карточке поставщика есть кнопки «PDF», «Word», «Excel» (и «Печать накладной» — она сохраняет PDF); после оформления возврата можно сразу нажать «Распечатать накладную возврата». В накладной номер с сервера (ВП-…), поставщик, приход-основание, товары с ценами закупки, сумма прописью, места для подписей и печати",
@@ -859,6 +946,15 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Карыз чегин кайтаруу: Карыз чегин кайтарууда «Касса:» эки жолу кемиген ката оңдолду (NurCRM сервери накталайды өзү алат): эски жергиликтүү оңдоолор колдонулбайт.",
+        "Киреше, чек жана сервердин каталары: Кирешени өчүрүү (себеби менен); чекте филиал жана түзмөк; прокат, бонустар жана жылдыруулар үчүн кайталоо ачкычтары; сервердин каталары жана PIN туура эместиги тууралуу түшүнүктүү билдирүүлөр.",
+        "Салмактуу саптарды сервердей тегеректөө: Салмактуу саптар сервердегидей тегеректелет — тараза кадамына чейин төмөн карай.",
+        "Тышкы кызматтар: Кеңешчи, Telegram жана жаңыртууларды текшерүү: жоопту күтүү мөөнөттөрү, билдирүүлөр кайталанбайт.",
+        "Android: Штрихкод сканери, «Артка» баскычы, экрандык баскычтоп, сүрөт тандоо, QR жана Excelге чыгаруу ишенимдүүрөөк иштейт.",
+        "Акчаны коргоо жана сервердин убактысы: Кайтаруулар, киргизүүлөр, чыгаруулар, карыз төлөө жана жылдыруулар кайталоо ачкычы менен кетет: байланыш үзүлгөндөн кийин ошол эле амал эки жолу өтпөйт. Сатуу убактысы сервердин саты боюнча алынат — компьютердеги же телефондогу бузулган дата отчётторду бузбайт.",
+        "Сатууда мөөнөтү бүткөн товар: Касса «Товардун мөөнөтү бүткөн. Баары бир сатасызбы?» деп эскертет же ээсинин PIN-коду менен гана өткөрөт — режимди ээси тандайт, демейки боюнча өчүк.",
+        "Дизайн: Чек сабын өчүрүү, аралаш төлөм, тизмелердин тыгыздыгы, караңгы тема жана инвестиция экрандары тыкандуу жана окууга ыңгайлуураак болду.",
+        "Ылдамдык: Товар миниатюралары 8 эсе жеңил — тизмелер тезирээк ачылат жана аз орун ээлейт; колдоо үчүн журналда суроо ылдамдыгынын өлчөмдөрү пайда болду. Кошумча майда оңдоолор.",
         "Android'де файлдарды сактоо: кардар документи (PDF, Word), жылыштыруу (Excel, Word, CSV) жана тараза баскычтарынын барагы тандалган файлга сакталат, унчукпай жоголбойт; кассанын сигналдары «Тынчымды алба» режиминде да угулат",
         "Android-касса тынчыраак иштейт: фонго чыгуу жана камераны ачуу «Чыгуу / Күтүү» терезесин көрсөтпөйт жана программаны жаппайт; Bluetooth аркылуу басууда байланыш үзүлсө чек эки жолу басылбайт; принтерди фондо текшерүү уруксат терезелерин чакырбайт; «Принтер порту» талаасында терүүдө ката жок; Android'де Excel жана Word жүктөөлөрү сакталат; жаңыртуу файлдын текшерүү суммасын текшерет",
         "Жеткирүүчүгө кайтаруу накладнойу: «Жеткирүүчүлөргө кайтаруулар» бөлүмүндө жана жеткирүүчүнүн карточкасында ар бир кайтарууда «PDF», «Word», «Excel» баскычтары бар («Накладнойду басып чыгаруу» PDF сактайт); кайтарууну тариздегенден кийин дароо «Кайтаруу накладнойун басып чыгаруу» басууга болот. Накладнойдо серверден номер (ВП-…), жеткирүүчү, негиз болгон кириш, сатып алуу баасы менен товарлар, сумма сөз менен, кол жана мөөр коюучу жайлар",
@@ -956,6 +1052,15 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Debt receipt return: Fixed the double subtraction of “Till:” when returning a debt receipt (the NurCRM server now takes the cash itself): old local adjustments are no longer applied.",
+        "Goods receipt, branch and server errors: Deleting a goods receipt (with a reason); branch and device on the receipt; retry keys for rental, bonuses and transfers; clear messages for server errors and a wrong PIN.",
+        "Weighed lines rounded like the server: Weighed lines are rounded like on the server — down to the scale step.",
+        "External services: Advisor, Telegram and update checks: response timeouts, no duplicate messages.",
+        "Android: The barcode scanner, the “Back” button, the on-screen keyboard, photo picking, QR and Excel export work more reliably.",
+        "Money protection and server time: Returns, deposits, withdrawals, debt payments and transfers are sent with a retry key: after a dropped connection the same operation is never posted twice. The sale time comes from the server clock, so a wrong date on the PC or phone no longer spoils reports.",
+        "Expired goods at the sale: The till warns “The product is expired. Sell anyway?” or lets it through only with the owner's PIN — the owner picks the mode, off by default.",
+        "Design: Line removal, mixed payment, list density, the dark theme and the investment screens are tidier and easier to read.",
+        "Speed: Product thumbnails are 8 times lighter — lists open faster and take less space; the log now records request timings for support. Plus small fixes.",
         "Saving files on Android: the client document (PDF, Word), the transfer (Excel, Word, CSV) and the scale key sheet are saved into the chosen file instead of silently vanishing; till sounds are audible in Do Not Disturb mode too",
         "The Android till is calmer: going to the background or opening the camera no longer shows “Exit / Wait” or closes the program; Bluetooth printing after a dropped connection does not print the receipt twice; the background printer check no longer pops up permission windows; typing in the “Printer port” field gives no errors; Excel and Word exports are saved on Android; the update checks the file checksum",
         "Return-to-supplier waybill: every return in “Returns to suppliers” and in the supplier card has the buttons “PDF”, “Word”, “Excel” (and “Print waybill”, which saves a PDF); right after you register a return you can press “Print the return waybill”. The waybill has the server number (ВП-…), the supplier, the delivery it is based on, goods with purchase prices, the amount in words, and places for signatures and the stamp",
@@ -1053,6 +1158,15 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Borç fişi iadesi: Borç fişi iadesinde «Kasa:» değerinin iki kez düşülmesi düzeltildi (NurCRM sunucusu artık nakdi kendisi düşer): eski yerel düzeltmeler artık uygulanmaz.",
+        "Mal kabulü, şube ve sunucu hataları: Mal kabulünü silme (nedenle); fişte şube ve cihaz; kiralama, bonus ve transferler için yeniden deneme anahtarları; sunucu hataları ve yanlış PIN için anlaşılır mesajlar.",
+        "Tartılı satırlar sunucu gibi yuvarlanır: Tartılı satırlar sunucudaki gibi yuvarlanır — terazi adımına kadar aşağı.",
+        "Harici hizmetler: Danışman, Telegram ve güncelleme kontrolü: yanıt bekleme süreleri, tekrarlanan mesaj yok.",
+        "Android: Barkod tarayıcı, «Geri» düğmesi, ekran klavyesi, fotoğraf seçimi, QR ve Excel dışa aktarma daha güvenilir çalışır.",
+        "Para koruması ve sunucu saati: İadeler, para girişleri, çıkışları, borç ödemeleri ve transferler yeniden deneme anahtarıyla gider: bağlantı koptuktan sonra aynı işlem iki kez işlenmez. Satış zamanı sunucu saatinden alınır — bilgisayardaki veya telefondaki yanlış tarih raporları bozmaz.",
+        "Satışta son kullanma tarihi: Kasa «Ürünün tarihi geçmiş. Yine de satılsın mı?» diye uyarır veya yalnızca sahibin PIN'iyle geçirir — modu sahibi seçer, varsayılan olarak kapalı.",
+        "Tasarım: Satır silme, karma ödeme, liste yoğunluğu, koyu tema ve yatırım ekranları daha derli toplu ve okunaklı.",
+        "Hız: Ürün küçük resimleri 8 kat daha hafif — listeler daha hızlı açılır ve daha az yer kaplar; günlükte destek için istek süresi ölçümleri var. Ayrıca küçük düzeltmeler.",
         "Android'de dosya kaydetme: müşteri belgesi (PDF, Word), transfer (Excel, Word, CSV) ve tartı tuş listesi seçilen dosyaya kaydedilir, sessizce kaybolmaz; kasa sesleri Rahatsız Etme modunda da duyulur",
         "Android kasa daha sakin: arka plana geçmek veya kamerayı açmak artık «Çık / Bekle» penceresini göstermiyor ve programı kapatmıyor; bağlantı kopunca Bluetooth ile fiş iki kez basılmıyor; arka plandaki yazıcı kontrolü izin pencereleri açmıyor; «Yazıcı portu» alanında yazarken hata çıkmıyor; Android'de Excel ve Word dışa aktarımları kaydediliyor; güncelleme dosyanın sağlama toplamını kontrol ediyor",
         "Tedarikçiye iade irsaliyesi: «Tedarikçiye iadeler»deki ve tedarikçi kartındaki her iadede «PDF», «Word», «Excel» düğmeleri var («İrsaliyeyi yazdır» PDF kaydeder); iadeyi kaydettikten hemen sonra «İade irsaliyesini yazdır»a basabilirsiniz. İrsaliyede sunucudan gelen numara (ВП-…), tedarikçi, dayanak giriş, alış fiyatlı ürünler, yazıyla tutar, imza ve mühür yerleri bulunur",
@@ -1150,6 +1264,15 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Qarz cheki qaytarilishi: Qarz chekini qaytarishda «Kassa:» ikki marta ayrilishi tuzatildi (NurCRM serveri endi naqdni o'zi yechadi): eski mahalliy tuzatishlar endi qo'llanilmaydi.",
+        "Kirim, filial va server xatolari: Kirimni o'chirish (sabab bilan); chekda filial va qurilma; ijara, bonus va ko'chirishlar uchun takrorlash kalitlari; server xatolari va noto'g'ri PIN haqida tushunarli xabarlar.",
+        "Tarozi qatorlari server kabi yaxlitlanadi: Tarozi qatorlari serverdagidek yaxlitlanadi — tarozi qadamigacha pastga.",
+        "Tashqi xizmatlar: Maslahatchi, Telegram va yangilanishlarni tekshirish: javob kutish muddatlari, xabarlar takrorlanmaydi.",
+        "Android: Shtrix-kod skaneri, «Orqaga» tugmasi, ekran klaviaturasi, rasm tanlash, QR va Excelga yuklash ishonchliroq ishlaydi.",
+        "Pulni himoya va server vaqti: Qaytarish, kiritish, chiqarish, qarz to'lovi va ko'chirishlar takrorlash kaliti bilan yuboriladi: aloqa uzilgandan keyin bir xil amal ikki marta o'tmaydi. Sotuv vaqti server soati bo'yicha olinadi — kompyuter yoki telefondagi noto'g'ri sana hisobotlarni buzmaydi.",
+        "Sotuvda muddati o'tgan tovar: Kassa «Tovarning muddati o'tgan. Baribir sotilsinmi?» deb ogohlantiradi yoki faqat egasining PIN-kodi bilan o'tkazadi — rejimni egasi tanlaydi, odatda o'chiq.",
+        "Dizayn: Qatorni o'chirish, aralash to'lov, ro'yxat zichligi, qorong'i mavzu va investitsiya ekranlari ixchamroq va o'qishga qulayroq bo'ldi.",
+        "Tezlik: Tovar miniatyuralari 8 baravar yengil — ro'yxatlar tezroq ochiladi va kamroq joy egallaydi; jurnalda yordam uchun so'rov tezligi o'lchovlari paydo bo'ldi. Qo'shimcha mayda tuzatishlar.",
         "Android'da fayllarni saqlash: mijoz hujjati (PDF, Word), ko'chirish (Excel, Word, CSV) va tarozi tugmalari varag'i tanlangan faylga saqlanadi, jimgina yo'qolmaydi; kassa signallari «Bezovta qilmang» rejimida ham eshitiladi",
         "Android kassa tinchroq ishlaydi: fonga o'tish yoki kamerani ochish endi «Chiqish / Kutish» oynasini ko'rsatmaydi va dasturni yopmaydi; aloqa uzilganda Bluetooth orqali chek ikki marta chop etilmaydi; printerni fonda tekshirish ruxsat oynalarini chiqarmaydi; «Printer porti» maydoniga yozishda xato yo'q; Android'da Excel va Word eksportlari saqlanadi; yangilanish faylning nazorat summasini tekshiradi",
         "Yetkazib beruvchiga qaytarish yuk xati: «Yetkazib beruvchilarga qaytarishlar»dagi va yetkazib beruvchi kartasidagi har bir qaytarishda «PDF», «Word», «Excel» tugmalari bor («Yuk xatini chop etish» PDF saqlaydi); qaytarishni rasmiylashtirgach darrov «Qaytarish yuk xatini chop etish»ni bosish mumkin. Yuk xatida serverdagi raqam (ВП-…), yetkazib beruvchi, asos bo'lgan kirim, xarid narxli mahsulotlar, summa so'z bilan, imzo va muhr joylari bor",

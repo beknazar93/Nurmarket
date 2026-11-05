@@ -35,31 +35,56 @@ class OpsRepository {
   static const _pendingPrefix = 'ops.pending.';
   static const _pendingLife = Duration(minutes: 10);
 
+  /// 2026-11-05 (аудит №4, М6-04): раньше на тип операции была ОДНА ячейка — возврат по чеку №121 затирал ключ неизвестного
+  /// возврата №120, и повтор №120 уходил с новым ключом (двойной возврат). Теперь в ячейке список до [_pendingMax] записей
+  /// {sig, key, at}, ключ ищется по подписи. Возврат помнится 24 часа, остальные операции — 10 минут (повтор такого же
+  /// внесения через сутки не должен «молча находить» старую запись).
+  static const _pendingMax = 5;
+  static Duration _lifeOf(String op) => op == 'return' ? const Duration(hours: 24) : _pendingLife;
+
   /// Последний [pendingKey] вернул прежний ключ (это повтор неудачной попытки).
   bool lastKeyReused = false;
 
-  Future<String> pendingKey(String op, String signature) async {
+  /// Записи ячейки операции [op]: свежие, новые первыми. Понимает и прежний формат (одна запись-Map).
+  Future<List<Map<String, dynamic>>> _pendingEntries(String op) async {
     final raw = await db.getSetting('$_pendingPrefix$op');
-    if (raw != null && raw.isNotEmpty) {
-      try {
-        final m = (jsonDecode(raw) as Map).cast<String, dynamic>();
-        final at = DateTime.tryParse(m['at'] as String? ?? '');
-        if (m['sig'] == signature && m['key'] is String && at != null && DateTime.now().difference(at) < _pendingLife) {
-          lastKeyReused = true;
-          return m['key'] as String;
-        }
-      } catch (_) {
-        // новый ключ
+    if (raw == null || raw.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(raw);
+      final list = decoded is List ? decoded : [decoded];
+      final life = _lifeOf(op);
+      final now = DateTime.now();
+      return [
+        for (final e in list)
+          if (e is Map && e['key'] is String && e['sig'] is String)
+            if ((DateTime.tryParse(e['at'] as String? ?? '')) case final at? when now.difference(at) < life) e.cast<String, dynamic>(),
+      ];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<String> pendingKey(String op, String signature) async {
+    final entries = await _pendingEntries(op);
+    for (final e in entries) {
+      if (e['sig'] == signature) {
+        lastKeyReused = true;
+        return e['key'] as String;
       }
     }
     lastKeyReused = false;
     final key = newKey();
-    await db.setSetting('$_pendingPrefix$op', jsonEncode({'key': key, 'sig': signature, 'at': DateTime.now().toIso8601String()}));
+    entries.insert(0, {'key': key, 'sig': signature, 'at': DateTime.now().toIso8601String()});
+    if (entries.length > _pendingMax) entries.removeRange(_pendingMax, entries.length);
+    await db.setSetting('$_pendingPrefix$op', jsonEncode(entries));
     return key;
   }
 
-  /// Операция прошла (или сервер отказал по существу) — следующая будет новой.
-  Future<void> forgetKey(String op) => db.setSetting('$_pendingPrefix$op', '');
+  /// Операция [signature] прошла (или сервер отказал по существу) — её ключ забыт, ключи других операций остаются.
+  Future<void> forgetKey(String op, String signature) async {
+    final entries = (await _pendingEntries(op))..removeWhere((e) => e['sig'] == signature);
+    await db.setSetting('$_pendingPrefix$op', entries.isEmpty ? '' : jsonEncode(entries));
+  }
 
   /// Исход неизвестен (обрыв, тайм-аут, 5xx) — ключ оставить для повтора.
   static bool outcomeUnknown(Object e) => e is! ApiException || e.status == null || e.status == 408 || e.status == 429 || e.status! >= 500;
@@ -68,10 +93,10 @@ class OpsRepository {
     final key = await pendingKey(op, signature);
     try {
       final r = await run(key);
-      await forgetKey(op);
+      await forgetKey(op, signature);
       return r;
     } catch (e) {
-      if (!outcomeUnknown(e)) await forgetKey(op);
+      if (!outcomeUnknown(e)) await forgetKey(op, signature);
       rethrow;
     }
   }
@@ -209,7 +234,7 @@ class OpsRepository {
   Future<Map<String, dynamic>> returnSale(String saleId, List<(String itemId, double qty)> lines) {
     String q(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(3);
     final sig = '$saleId|${lines.map((l) => '${l.$1}:${q(l.$2)}').join(',')}';
-    return _withKey('return', sig, (key) async {
+    return _returnWithFreshness(saleId, sig).then((_) => _withKey('return', sig, (key) async {
       final resp = await api.post(
         'api/main/pos/sales/$saleId/return/',
         body: {
@@ -222,7 +247,38 @@ class OpsRepository {
         },
       );
       return resp is Map<String, dynamic> ? resp : <String, dynamic>{};
-    });
+    }));
+  }
+
+  /// 2026-11-05 (ревью волн 0–3, М-4): ключ возврата помнится 24 часа, но через сутки такой же законный возврат (вторая такая же
+  /// штука) с тем же ключом сервер «повторил» бы ответом прошлого — кассир выдал бы деньги без записи на сервере. Если ключ старше
+  /// [_pendingLife], сверяем с сервером: есть документ возврата по этому чеку после создания ключа — прошлая попытка прошла,
+  /// ключ забываем (новый возврат пойдёт новым ключом; лишнее сверх проданного сервер всё равно отклонит). Нет документа или
+  /// нет связи — прошлая попытка не прошла, повтор тем же ключом.
+  Future<void> _returnWithFreshness(String saleId, String sig) async {
+    final entries = await _pendingEntries('return');
+    for (final e in entries) {
+      if (e['sig'] != sig) continue;
+      final at = DateTime.tryParse(e['at'] as String? ?? '');
+      if (at == null || DateTime.now().difference(at) <= _pendingLife) return;
+      if (await returnRecordedSince(saleId, at)) await forgetKey('return', sig);
+      return;
+    }
+  }
+
+  /// Есть ли у чека документ возврата, созданный не раньше [since] (минус запас 2 минуты на разницу часов). Нет связи — false.
+  Future<bool> returnRecordedSince(String saleId, DateTime since) async {
+    try {
+      final rows = asList(await api.get('api/main/pos/returns/', query: {'sale': saleId}, timeout: const Duration(seconds: 8)));
+      final from = since.subtract(const Duration(minutes: 2));
+      return rows.any((r) {
+        if (str(r, 'sale') != saleId) return false;
+        final at = DateTime.tryParse(str(r, 'created_at') ?? '');
+        return at != null && !at.toLocal().isBefore(from);
+      });
+    } catch (_) {
+      return false;
+    }
   }
 
   /// 2026-10-22 (мобилка, деньги): текущий остаток долга чека «в долг» с сервера (remaining_debt сделки, как

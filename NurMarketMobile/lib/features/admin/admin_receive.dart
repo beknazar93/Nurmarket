@@ -15,7 +15,6 @@ import '../../core/catalog/global_products.dart';
 import '../../core/db/database.dart';
 import '../../core/invoice/invoice_match.dart' show InvoiceGuard;
 import '../../core/providers.dart';
-import '../../core/theme/tokens.dart';
 import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
 import '../../core/util/audit.dart';
@@ -795,7 +794,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                 if (found != null) ...[
                   Text(
                     l.foundInBase,
-                    style: const TextStyle(color: T.success, fontSize: 12.5, fontWeight: FontWeight.w700),
+                    style: TextStyle(color: context.pal.success, fontSize: 12.5, fontWeight: FontWeight.w700),
                   ),
                   // 2026-10-27: откуда подставлено — встроенный справочник NurCRM (работает и без связи)
                   Text(l.globalSource, style: TextStyle(color: c.pal.textSoft, fontSize: 12)),
@@ -1277,7 +1276,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                                         : costUp
                                         ? '${l.purchasePrice} ${money(line.oldCost)} → ${money(line.cost)}'
                                         : '${l.onStockLabel}: ${qtyText(line.before)} ${line.unit}',
-                                    style: TextStyle(fontSize: 12, color: line.isNew || costUp ? T.warn : c.pal.textSoft),
+                                    style: TextStyle(fontSize: 12, color: line.isNew || costUp ? context.pal.warn : c.pal.textSoft),
                                   ),
                                   // 2026-10-31 (одежда): у товара есть размеры и цвета — пометка и остаток по размерам (из базы телефона)
                                   if (!line.isNew) _VariantsNote(productId: line.productId),
@@ -1291,7 +1290,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                             // 13.10, владелец: «количество не вводится» — нажатие на число: ввод количества
                             InkWell(
                               onTap: () async {
-                                final v = await askNumber(context, title: line.name, initial: line.qty);
+                                final v = await askNumber(context, title: line.name, initial: line.qty, kind: NumKind.qty);
                                 if (v != null && v > 0) setState(() => line.qty = v);
                               },
                               borderRadius: BorderRadius.circular(8),
@@ -1321,7 +1320,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                             if (line.cost > 0)
                               Text(
                                 '${line.markup >= 0 ? '+' : ''}${line.markup.toStringAsFixed(0)} %',
-                                style: TextStyle(fontWeight: FontWeight.w800, color: line.price < line.cost ? T.danger : T.success),
+                                style: TextStyle(fontWeight: FontWeight.w800, color: line.price < line.cost ? context.pal.danger : context.pal.success),
                               ),
                           ],
                         ),

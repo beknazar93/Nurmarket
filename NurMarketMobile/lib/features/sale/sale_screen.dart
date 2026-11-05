@@ -15,6 +15,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 import '../admin/admin_repository.dart';
 import '../admin/admin_screens.dart';
+import '../home/home_screen.dart' show openShiftFlow;
 import '../scan/barcode_lookup.dart' show ScaleRules, parseWeightLabel;
 import '../scan/code_lookup.dart';
 import '../scan/scale_label_flow.dart';
@@ -64,6 +65,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _catalogProgress?.removeListener(_onCatalogProgress);
     _scroll.dispose();
     HardwareKeyboard.instance.removeHandler(_onKey);
     _search.dispose();
@@ -75,9 +77,32 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
   void initState() {
     super.initState();
     _reload(refreshMeta: true);
+    // 2026-11-05 (аудит №4, М6-19): сетка следует за загрузкой каталога (раньше «Ничего не найдено» до первого ввода в поиск)
+    _catalogProgress = ref.read(catalogRepoProvider).progress..addListener(_onCatalogProgress);
+    _catalogWasRunning = _catalogProgress!.value.running;
     _scroll.addListener(_onScrollMore);
     HardwareKeyboard.instance.addHandler(_onKey);
     unawaited(ScaleRulesLoader.ensure(ref.read(databaseProvider), ref.read(apiProvider)).catchError((_) {}));
+  }
+
+  ValueNotifier<CatalogProgress>? _catalogProgress;
+  bool _catalogWasRunning = false;
+  DateTime _catalogReloadAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Каталог догружается: сетка перечитывается не чаще раза в 3 секунды, а по окончании загрузки — сразу (вместе с категориями).
+  void _onCatalogProgress() {
+    final st = _catalogProgress!.value;
+    final finished = _catalogWasRunning && !st.running;
+    _catalogWasRunning = st.running;
+    if (!mounted) return;
+    final now = DateTime.now();
+    if (finished) {
+      _catalogReloadAt = now;
+      _reload(keepWindow: true, refreshMeta: true);
+    } else if (st.running && now.difference(_catalogReloadAt) > const Duration(seconds: 3)) {
+      _catalogReloadAt = now;
+      _reload(keepWindow: true);
+    }
   }
 
   /// 2026-10-22 (аудит П5): ручной сканер-клавиатура (Bluetooth, ТСД Sunmi/Urovo). Сканер «печатает» код быстро
@@ -90,8 +115,10 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
     if (e is! KeyDownEvent) return false;
     // 2026-11-02 (аудит №2, М3-01): экран оплаты (или другое окно) поверх продажи — сканер в чек не пишет
     if (!mounted || ModalRoute.of(context)?.isCurrent != true) return false;
-    final focused = FocusManager.instance.primaryFocus?.context?.widget;
-    if (focused is EditableText) return false; // печатает человек или сканер в поле — там свой Enter
+    // 2026-11-05 (аудит №4, М6-30): узел фокуса — это Focus ВНУТРИ EditableText, поэтому прежняя проверка `widget is EditableText`
+    // не срабатывала никогда; ищем EditableTextState среди предков
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null && focused.findAncestorStateOfType<EditableTextState>() != null) return false; // печатает человек или сканер в поле — там свой Enter
     final now = DateTime.now();
     if (now.difference(_lastKey) > const Duration(milliseconds: 80)) _keys.clear();
     _lastKey = now;
@@ -170,7 +197,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
           }
         }
         // 2026-11-05 (М5-13): та же весовая этикетка уже в чеке — спросить
-        _labels.syncWithCart(cartEmpty: ref.read(cartProvider).isEmpty);
+        _labels.syncWithCart(cartEmpty: ref.read(cartProvider).isEmpty, lines: ref.read(cartProvider).lines);
         final isLabel = qty != null && label != null && AppDatabase.isWeighed(p);
         if (isLabel && _labels.contains(q) && !await confirmLabelAgain(context)) {
           await _afterScan(hadFocus);
@@ -179,10 +206,15 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
         if (!mounted) return;
         final before = ref.read(cartProvider).quantity;
         await addProduct(context, ref, p, qty: qty, code: q);
-        if (isLabel && mounted && ref.read(cartProvider).quantity != before) _labels.add(q);
+        if (isLabel && mounted && ref.read(cartProvider).quantity != before) _labels.add(q, line: ref.read(cartProvider).lines.isEmpty ? null : ref.read(cartProvider).lines.last);
         if (!mounted) return;
         // 2026-10-31: «Добавлено» — только если в чеке что-то прибавилось (размер закончился или отключён — там своё сообщение)
-        if (ref.read(cartProvider).quantity != before) toast(context, l.addedToCheckName(p.name));
+        // 2026-11-05 (аудит №4, М6-13): плашка короткая (1,5 с) и «плавает» НАД панелью «Оплатить» — раньше после каждого скана
+        // висела 4 с поверх кнопки оплаты, и касание попадало в плашку
+        if (ref.read(cartProvider).quantity != before) {
+          HapticFeedback.selectionClick();
+          toastAbove(context, l.addedToCheckName(p.name), bottom: (_payBarKey.currentContext?.size?.height ?? 72) + 8);
+        }
         await _afterScan(hadFocus);
         return;
       }
@@ -414,6 +446,8 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
         ),
         if (!_showCheck) ...[
           const LinkBanner(catalog: true, margin: EdgeInsets.fromLTRB(16, 0, 16, 8)), // 2026-10-29 (аудит, п. 5): «Остатки на ЧЧ:ММ»
+          // 2026-11-05 (аудит №4, М6-22): смена закрыта — кнопка прямо здесь, а не «Главная → Открыть смену → Продажа» (4 лишних касания)
+          if (!ref.watch(shiftProvider).isOpen && !ref.watch(shiftProvider).loading) _shiftClosedBar(context),
           if (_clothingHint) _clothingHintCard(context),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -497,7 +531,7 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                     child: ChoiceChip(
                       label: Text(label),
                       selected: _category == value,
-                      labelStyle: TextStyle(color: _category == value ? Colors.white : p.text, fontWeight: FontWeight.w600, fontSize: 13),
+                      labelStyle: TextStyle(color: _category == value ? p.onAction : p.text, fontWeight: FontWeight.w600, fontSize: 13), // 2026-11-05 (М6-11): белый на жёлтом нечитаем
                       onSelected: (_) {
                         setState(() => _category = value);
                         _reload();
@@ -521,7 +555,10 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                             padding: const EdgeInsets.all(24),
                             child: Center(
                               child: Text(
-                                ref.watch(prefsProvider).shopChosen ? '${l.nothingFound}\n${ref.watch(prefsProvider).shop.emptyText(l)}' : l.nothingFound,
+                                // 2026-11-05 (М6-19): каталог ещё качается — это не «ничего нет», а «загружаем»
+                                _search.text.isEmpty && (_catalogProgress?.value.running ?? false)
+                                    ? l.catalogLoadingNoTotal(_catalogProgress!.value.loaded)
+                                    : (ref.watch(prefsProvider).shopChosen ? '${l.nothingFound}\n${ref.watch(prefsProvider).shop.emptyText(l)}' : l.nothingFound),
                                 key: const Key('saleEmpty'),
                                 textAlign: TextAlign.center,
                                 style: TextStyle(color: p.textSoft),
@@ -532,10 +569,10 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                       : SliverGrid.builder(
                           // 2026-10-26 (П3): высота плитки от шрифта (добавилась строка остатка), а не фиксированное соотношение
                           gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 140,
+                            maxCrossAxisExtent: MediaQuery.sizeOf(context).width >= 840 ? 180 : 140, // 2026-11-05 (М6-17): плитки крупнее на планшете
                             mainAxisSpacing: 8,
                             crossAxisSpacing: 8,
-                            mainAxisExtent: 96 + (_variants.isEmpty ? 62 : 76) * textScale,
+                            mainAxisExtent: 96 + (_variants.isEmpty ? 72 : 86) * textScale, // 2026-11-05 (М6-21): шрифты плитки крупнее
                           ),
                           itemCount: _products.length,
                           itemBuilder: (c, i) => _ProductTile(_products[i], inCart: inCart[_products[i].id], pack: _packs[_products[i].id], variants: _variants[_products[i].id], mode: ref.watch(prefsProvider).shopChosen ? ref.watch(prefsProvider).shop : null, onTap: () {
@@ -667,13 +704,16 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
                     PopupMenuItem(value: 'custom', child: Text(l.extraService)),
                     PopupMenuItem(value: 'hold', enabled: !cart.isEmpty, child: Text(l.holdCheck)),
                     PopupMenuItem(value: 'held', child: Text(l.heldChecks)),
-                    PopupMenuItem(value: 'clear', enabled: !cart.isEmpty, child: Text(l.clearCheck)),
+                    // 2026-11-05 (М6-01): «Очистить чек» отделён чертой и красный — рядом с «Отложенными» его легко задеть
+                    const PopupMenuDivider(),
+                    PopupMenuItem(value: 'clear', enabled: !cart.isEmpty, child: Text(l.clearCheck, style: TextStyle(color: cart.isEmpty ? null : c.pal.danger))),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: FilledButton(
+                  key: const Key('salePayBtn'), // 2026-11-05 (E2E)
                   onPressed: cart.isEmpty ? null : () => context.push('/pay'),
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 220),
@@ -689,6 +729,27 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _shiftClosedBar(BuildContext context) {
+    final l = context.l;
+    final p = context.pal;
+    return Padding(
+      key: const Key('shiftClosedBar'),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 4, 6, 4),
+        decoration: BoxDecoration(color: p.warnSoft, borderRadius: BorderRadius.circular(12)),
+        child: Row(
+          children: [
+            Icon(Icons.lock_clock_rounded, color: p.warn, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text(l.shiftClosed, style: TextStyle(color: p.warn, fontWeight: FontWeight.w700, fontSize: 13))),
+            TextButton(onPressed: () => openShiftFlow(context, ref), child: Text(l.openShift)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -738,7 +799,8 @@ class _SaleScreenState extends ConsumerState<SaleScreen> {
       case 'held':
         if (context.mounted) context.push('/held');
       case 'clear':
-        cart.clear();
+        // 2026-11-05 (аудит №4, М6-01): очистка чека — право «удаление из чека», вопрос и запись каждой строки в «Удалено из чека»
+        await clearCartAudited(context, ref);
     }
   }
 }
@@ -826,7 +888,16 @@ Future<({double percent, double sum})?> askDiscount(BuildContext context, {requi
 Future<void> addProduct(BuildContext context, WidgetRef ref, Product p, {double? qty, String? code}) async {
   final l = context.l;
   if (!ref.read(shiftProvider).isOpen) {
-    toast(context, l.openShiftFirst, error: true);
+    // 2026-11-05 (М6-22): в плашке сразу кнопка «Открыть смену»
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(l.openShiftFirst),
+          backgroundColor: T.danger,
+          action: SnackBarAction(label: l.openShift, textColor: Colors.white, onPressed: () => openShiftFlow(context, ref)),
+        ),
+      );
     return;
   }
   // 2026-10-31 (владелец: «почему продажа одежды в мобилке нету?»): товар с размерами и цветами — сначала выбор варианта
@@ -857,7 +928,7 @@ Future<void> addProduct(BuildContext context, WidgetRef ref, Product p, {double?
   if (p.isWeight && qty == null) {
     // 2026-10-31 (режим «Продукты»): быстрый ввод веса — кнопки 0,25 / 0,5 / 1 / 2 / 5 и «Другой вес»
     final quick = ref.read(prefsProvider).shopChosen && ref.read(prefsProvider).shop == ShopMode.grocery;
-    final kg = quick ? await askWeightQuick(context, p) : await askNumber(context, title: l.weightOf(p.name), hint: l.kg);
+    final kg = quick ? await askWeightQuick(context, p) : await askNumber(context, title: l.weightOf(p.name), hint: l.kg, kind: NumKind.weight);
     if (kg == null || kg <= 0) return;
     q = kg;
   }
@@ -909,7 +980,7 @@ Future<double?> askWeightQuick(BuildContext context, Product p) {
               key: const Key('quickWeightOther'),
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
               onPressed: () async {
-                final v = await askNumber(c, title: l.weightOf(p.name), hint: p.unit);
+                final v = await askNumber(c, title: l.weightOf(p.name), hint: p.unit, kind: NumKind.weight);
                 if (c.mounted && v != null) Navigator.pop(c, v);
               },
               child: Text(l.kg == p.unit ? '${l.weightOf(p.name)}…' : '${p.unit}…'),
@@ -1014,7 +1085,7 @@ Future<bool?> askPackOrPiece(BuildContext context, Product p, PiecePack pack, {b
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
-              Text(sub, style: TextStyle(fontSize: 12.5, color: empty ? T.danger : null)),
+              Text(sub, style: TextStyle(fontSize: 12.5, color: empty ? context.pal.danger : null)),
             ],
           ),
         ),
@@ -1124,8 +1195,11 @@ class _ProductTile extends StatelessWidget {
               : pack == null
               ? '${qtyText(product.quantity)} ${product.unit}'
               : stockWithPack(qtyText, product.quantity, pack, packWord: l.pkPackShort, pcs: l.pkPcs));
+    // 2026-11-05 (аудит №4, М6-21): TalkBack называет плитку кнопкой: «Название, цена»
     return Semantics(
-      label: inCart == null ? null : '${l.inCheck}: ${qtyText(inCart!)}',
+      button: true,
+      label: '${product.name}, ${money(product.price)} ${l.som}${inCart == null ? '' : ', ${l.inCheck}: ${qtyText(inCart!)}'}',
+      excludeSemantics: true,
       child: Pressable(
         onTap: onTap,
         child: Panel(
@@ -1168,12 +1242,12 @@ class _ProductTile extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, height: 1.15),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.15), // 2026-11-05 (М6-21): было 11,5
               ),
               Text(
                 '${money(product.price)} ${l.som}',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: p.price),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: p.price), // было 12,5
               ),
               if (stock != null)
                 Text(
@@ -1181,7 +1255,7 @@ class _ProductTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10.5, color: p.textSoft.withValues(alpha: (v?.qty ?? product.quantity) <= 0 ? .7 : 1)),
+                  style: TextStyle(fontSize: 11.5, color: p.textSoft.withValues(alpha: (v?.qty ?? product.quantity) <= 0 ? .7 : 1)), // было 10,5
                 ),
               if (v != null)
                 // 2026-10-31: подпись сжимается по ширине плитки, а не обрезается («3 размера/цвета» целиком)
@@ -1206,6 +1280,55 @@ class _ProductTile extends StatelessWidget {
 /// 13.10, владелец: «сделай удобной корзину в мобилке». Строка чека — карточка: крупные «−»/«+» (48 точек), нажатие на
 /// количество — ввод числа (и веса), видимые «%» (скидка строки) и корзина (удалить с причиной); «−» на последней штуке
 /// предлагает убрать строку. Свайп влево по-прежнему удаляет.
+/// 2026-11-05 (аудит №4, М6-01, паритет с кассой BasketPanelViewModel): очистка всего чека — право [Session.deleteLine], вопрос и
+/// запись КАЖДОЙ строки в «Удалено из чека» и аудит (раньше — одно касание в меню без права и без следа). true — чек очищен.
+Future<bool> clearCartAudited(BuildContext context, WidgetRef ref) async {
+  if (!checkAccess(context, ref, Session.deleteLine)) return false;
+  final cart = ref.read(cartProvider);
+  if (cart.isEmpty || ref.read(cartProvider.notifier).frozen) return false;
+  final l = context.l;
+  if (!await confirmAsk(context, title: l.clearCheckAsk, message: '${cart.lines.length} · ${money(cart.total)} ${l.som}', ok: l.clearCheck)) return false;
+  if (!context.mounted) return false;
+  final ctrl = ref.read(cartProvider.notifier);
+  if (ctrl.frozen) return false;
+  final lines = ref.read(cartProvider).lines; // после вопроса — актуальный состав
+  final who = ref.read(sessionProvider)?.userName ?? '';
+  final admin = ref.read(adminRepoProvider);
+  for (final ln in lines) {
+    final sum = ln.qty * ln.price - ln.discount;
+    try {
+      await admin.logDeletion(DeletionRow(DateTime.now(), ln.name, ln.qty, sum, l.clearCheck, who));
+    } catch (e) {
+      Audit.log('error', 'clear cart log: $e');
+    }
+    Audit.log('delete', '${ln.name} × ${qtyText(ln.qty)} · ${l.clearCheck}', amount: sum);
+  }
+  ctrl.clear();
+  return true;
+}
+
+/// 2026-11-05 (аудит №4, М6-02): уменьшение количества строки (кнопка «−», ввод меньшего числа) — право [Session.deleteLine] и запись
+/// разницы в «Удалено из чека» (на кассе — KindOne). true — можно уменьшать; увеличение и то же число проходят без проверки.
+Future<bool> allowReduceQty(BuildContext context, WidgetRef ref, int index, double newQty) async {
+  final cart = ref.read(cartProvider);
+  if (index >= cart.lines.length) return false;
+  final line = cart.lines[index];
+  final diff = line.qty - newQty;
+  if (diff <= 1e-9) return true;
+  if (!checkAccess(context, ref, Session.deleteLine)) return false;
+  if (ref.read(cartProvider.notifier).frozen) return false;
+  final l = context.l;
+  final sum = roundMoney(diff * line.price);
+  final who = ref.read(sessionProvider)?.userName ?? '';
+  try {
+    await ref.read(adminRepoProvider).logDeletion(DeletionRow(DateTime.now(), line.name, diff, sum, l.qtyReduced, who));
+  } catch (e) {
+    Audit.log('error', 'reduce qty log: $e');
+  }
+  Audit.log('delete', '${line.name} − ${qtyText(diff)} · ${l.qtyReduced}', amount: sum);
+  return true;
+}
+
 Future<bool> _removeLine(BuildContext context, WidgetRef ref, int index) async {
   if (!checkAccess(context, ref, Session.deleteLine)) return false;
   final cart = ref.read(cartProvider);
@@ -1242,7 +1365,7 @@ class _CartRow extends ConsumerWidget {
     }
 
     Future<void> editQty() async {
-      final v = await askNumber(context, title: line.name, hint: line.isWeight ? line.unit : l.packQty, initial: line.qty);
+      final v = await askNumber(context, title: line.name, hint: line.isWeight ? line.unit : l.packQty, initial: line.qty, kind: line.isWeight ? NumKind.weight : NumKind.qty);
       if (v == null) return;
       // 14.10, проверка логики: штучный товар — только целое (сервер принимает штуки целыми; 1,5 уходило как 2 и сумма
       // на телефоне расходилась с NurCRM).
@@ -1257,8 +1380,15 @@ class _CartRow extends ConsumerWidget {
       if (q <= 0) {
         if (context.mounted && await _removeLine(context, ref, index)) ctrl.remove(index);
       } else {
+        // 2026-11-05 (М6-02): меньше прежнего — право и запись в журнал удалений
+        if (!context.mounted || !await allowReduceQty(context, ref, index, q)) return;
         ctrl.setQty(index, q);
       }
+    }
+
+    Future<void> minusOne() async {
+      if (!context.mounted || !await allowReduceQty(context, ref, index, line.qty - 1)) return;
+      ctrl.setQty(index, line.qty - 1);
     }
 
     Future<void> plusOne() async {
@@ -1376,13 +1506,13 @@ class _CartRow extends ConsumerWidget {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: line.wholesale ? T.navy : Colors.transparent,
-                                border: Border.all(color: line.wholesale ? T.navy : p.border),
+                                color: line.wholesale ? p.action : Colors.transparent, // 2026-11-05 (М6-11): в тёмной теме navy = фон окна
+                                border: Border.all(color: line.wholesale ? p.action : p.border),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 l.wholesaleTag,
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: line.wholesale ? Colors.white : p.textSoft),
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: line.wholesale ? p.onAction : p.textSoft),
                               ),
                             ),
                           ),
@@ -1397,7 +1527,7 @@ class _CartRow extends ConsumerWidget {
                   // 2026-10-26 (живой аудит, П3, Н-2): при количестве 1 «−» неактивна (корзина справа одна, а не две)
                   _Step(
                     icon: Icons.remove,
-                    onTap: line.isWeight ? editQty : (line.qty <= 1 ? null : () => ctrl.setQty(index, line.qty - 1)),
+                    onTap: line.isWeight ? editQty : (line.qty <= 1 ? null : minusOne),
                   ),
                   Flexible(
                     child: InkWell(

@@ -386,7 +386,7 @@ class _PayQrSettingsScreenState extends ConsumerState<PayQrSettingsScreen> {
                       Text(
                         l.payQrStaticOnly,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: T.warn, fontSize: 12),
+                        style: TextStyle(color: context.pal.warn, fontSize: 12),
                       ),
                   ],
                   SwitchListTile(
@@ -489,7 +489,7 @@ class _PayQrSettingsScreenState extends ConsumerState<PayQrSettingsScreen> {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(color: pal.textSoft, fontSize: 12.5),
                                 ),
-                                if (q.dynamicAmount) Text(l.payQrDynamic, style: const TextStyle(color: T.success, fontSize: 12)),
+                                if (q.dynamicAmount) Text(l.payQrDynamic, style: TextStyle(color: context.pal.success, fontSize: 12)),
                               ],
                             ),
                           ),

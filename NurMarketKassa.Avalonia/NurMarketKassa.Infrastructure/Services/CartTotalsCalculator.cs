@@ -57,7 +57,7 @@ public static class CartTotalsCalculator
         // скидка чека процентом считается от неокруглённой суммы, и округляется ОДИН раз — итог чека (до 0,01, половина вверх).
         // Раньше каждая строка и каждая промежуточная сумма округлялись отдельно — у весовых чеков копейки расходились с сервером.
         // Скидки строк — уже суммы (до копейки, их кассир ввёл или они ушли на сервер так же), в decimal не округляются повторно.
-        decimal weighedSum = 0;
+        var weighedLines = new List<decimal>(); // 2026-11-05: точные суммы весовых строк (при weight_line_total_floor каждая округляется вниз отдельно)
         decimal otherSum = 0;
         decimal lineDiscountsExact = 0;
         decimal shownLinesSum = 0; // 2026-11-02 (К3-07): сумма строк, как они показаны (каждая — половиной вверх, за вычетом скидки строки)
@@ -73,7 +73,7 @@ public static class CartTotalsCalculator
             var exact = QuantityRules.GrossExact(qty, unitPrice);
             if (CartDisplayHelper.LineIsWeightProduct(it))
             {
-                weighedSum += exact;
+                weighedLines.Add(exact);
                 hasWeighed = true;
             }
             else
@@ -92,7 +92,7 @@ public static class CartTotalsCalculator
         // 2026-11-01 (опыты на сервере NBS, чеки 1971–1988): подытог = ВНИЗ до 0,01 (сумма весовых) + ВВЕРХ до 0,01 (сумма остальных);
         // процент скидки чека — от (подытог − скидки строк), сумма скидки округляется отдельно (половина вверх); итог = подытог − скидки.
         // 4,875 + 22,638 → 27,51; 22,638 → 22,63; чек 1977: 1,425 → 1,43, 50 % = 0,715 → 0,72, итог 0,71; 17,00 × 2,5 % → 0,43 → 16,57.
-        var subtotalExact = QuantityRules.Subtotal(weighedSum, otherSum);
+        var subtotalExact = QuantityRules.Subtotal(weighedLines, otherSum);
         var orderDiscountBase = Math.Max(0m, QuantityRules.RoundMoney(subtotalExact - lineDiscountsExact));
         var orderDiscountExact = QuantityRules.RoundMoney(ReadOrderDiscount(cart, orderDiscountBase, lineDiscountsExact));
         var rawTotal = QuantityRules.RoundMoney(subtotalExact - lineDiscountsExact) - orderDiscountExact;

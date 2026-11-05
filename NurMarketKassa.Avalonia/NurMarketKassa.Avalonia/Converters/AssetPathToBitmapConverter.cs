@@ -161,7 +161,11 @@ public sealed class AssetPathToBitmapConverter : IValueConverter
         if (thumb)
         {
             using var stream = File.OpenRead(filePath);
-            bitmap = Bitmap.DecodeToWidth(stream, ThumbDecodeWidth);
+            // 2026-11-05 (аудит скорости, п. 15): готовая миниатюра (<sha>.t320.webp, длинная сторона ≤ 320 px) уже нужного размера — берём как есть,
+            // иначе узкое высокое фото растягивалось бы до ширины 320 px (лишняя память). Старые оригиналы по-прежнему ужимаются при расшифровке.
+            bitmap = Path.GetFileName(filePath).Contains(".t320.", StringComparison.OrdinalIgnoreCase)
+                ? new Bitmap(stream)
+                : Bitmap.DecodeToWidth(stream, ThumbDecodeWidth);
             return true;
         }
 

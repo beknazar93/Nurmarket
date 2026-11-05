@@ -10,6 +10,7 @@ import '../../features/receipt/receipt.dart';
 import '../db/database.dart';
 import '../providers.dart';
 import 'escpos.dart';
+import 'sunmi_builtin.dart';
 
 /// 2026-10-20, владелец: «в мобилке андроид флаттер исправь подключение к принтерам!». До этого печати на телефоне
 /// не было вовсе (в профиле стояло «Bluetooth — в следующем обновлении»), поэтому ни один принтер не подключался.
@@ -34,6 +35,10 @@ class PrinterConfig {
   final int drawerPin;
   final bool qr;
 
+  /// 2026-11-05 (волна 0-D, М5-05): печать на встроенный принтер Sunmi (пакет sunmi_printer_plus). Работает только на телефоне
+  /// с Build.MANUFACTURER == SUNMI; выключено по умолчанию. Тип подключения тогда не нужен.
+  final bool sunmi;
+
   const PrinterConfig({
     this.kind = PrinterKind.none,
     this.address = '',
@@ -46,9 +51,10 @@ class PrinterConfig {
     this.drawer = false,
     this.drawerPin = 0,
     this.qr = true,
+    this.sunmi = false,
   });
 
-  bool get ready => kind != PrinterKind.none && address.trim().isNotEmpty;
+  bool get ready => sunmi || (kind != PrinterKind.none && address.trim().isNotEmpty);
 
   PrinterConfig copyWith({
     PrinterKind? kind,
@@ -62,6 +68,7 @@ class PrinterConfig {
     bool? drawer,
     int? drawerPin,
     bool? qr,
+    bool? sunmi,
   }) => PrinterConfig(
     kind: kind ?? this.kind,
     address: address ?? this.address,
@@ -74,6 +81,7 @@ class PrinterConfig {
     drawer: drawer ?? this.drawer,
     drawerPin: drawerPin ?? this.drawerPin,
     qr: qr ?? this.qr,
+    sunmi: sunmi ?? this.sunmi,
   );
 
   Map<String, Object?> toJson() => {
@@ -88,6 +96,7 @@ class PrinterConfig {
     'drawer': drawer,
     'pin': drawerPin,
     'qr': qr,
+    'sunmi': sunmi,
   };
 
   static PrinterConfig fromJson(String? raw) {
@@ -107,6 +116,7 @@ class PrinterConfig {
         drawer: m['drawer'] == true,
         drawerPin: (m['pin'] as num?)?.toInt() == 1 ? 1 : 0,
         qr: m['qr'] != false,
+        sunmi: m['sunmi'] == true,
       );
     } catch (_) {
       return const PrinterConfig();
@@ -363,7 +373,19 @@ class PrinterService {
     final f = () async {
       final c = config ?? await load();
       final drawer = afterSale && c.drawer && receiptNeedsDrawer(r) && !_drawerDone.contains(key);
-      await send(c, receiptToEscPos(r, paperMm: c.paperMm, codepage: c.codepage, codeTable: c.codeTable, qr: c.qr, openDrawer: drawer, drawerPin: c.drawerPin));
+      // 2026-11-05 (волна 0-D, М5-05): встроенный принтер Sunmi — текстом средствами Sunmi (все буквы); только на SUNMI и по настройке
+      if (await _useSunmi(c)) {
+        await _enqueue(() => SunmiBuiltIn.printLines(receiptLines(r, lineWidth(c.paperMm)), qr: c.qr ? receiptQrData(r) : null, drawer: drawer));
+        if (drawer) _drawerDone.add(key);
+        return;
+      }
+      try {
+        await send(c, receiptToEscPos(r, paperMm: c.paperMm, codepage: c.codepage, codeTable: c.codeTable, qr: c.qr, openDrawer: drawer, drawerPin: c.drawerPin));
+      } on PrinterException catch (e) {
+        // 2026-11-05 (аудит №4, М6-28): часть байтов (с импульсом ящика) уже ушла или принтер завис — «Повторить печать» не должна открывать ящик второй раз
+        if (drawer && (e.sent || e.problem == PrinterProblem.stalled)) _drawerDone.add(key);
+        rethrow;
+      }
       if (drawer) _drawerDone.add(key);
     }();
     _inflight[key] = f;
@@ -375,14 +397,26 @@ class PrinterService {
     final key = _receiptKey(r);
     if (!c.ready || !c.drawer || !receiptNeedsDrawer(r) || _drawerDone.contains(key)) return;
     _drawerDone.add(key);
+    if (await _useSunmi(c)) return _enqueue(SunmiBuiltIn.openDrawer);
     await send(c, drawerPulse(pin: c.drawerPin));
   }
 
-  /// Кнопка «Открыть ящик» в настройках.
-  Future<void> openDrawerTest(PrinterConfig c) => send(c, drawerPulse(pin: c.drawerPin));
+  /// Идти ли печатью через встроенный принтер Sunmi: настройка включена И телефон — Sunmi.
+  Future<bool> _useSunmi(PrinterConfig c) async => c.sunmi && await SunmiBuiltIn.isSunmi();
 
-  Future<void> printTest(PrinterConfig c, {String title = 'NurCRM'}) =>
-      send(c, testPage(paperMm: c.paperMm, codepage: c.codepage, codeTable: c.codeTable, title: title));
+  /// Кнопка «Открыть ящик» в настройках.
+  Future<void> openDrawerTest(PrinterConfig c) async {
+    if (await _useSunmi(c)) return _enqueue(SunmiBuiltIn.openDrawer);
+    return send(c, drawerPulse(pin: c.drawerPin));
+  }
+
+  Future<void> printTest(PrinterConfig c, {String title = 'NurCRM'}) async {
+    if (await _useSunmi(c)) {
+      // 2026-11-05 (М5-05): проверка всех букв, включая кыргызские и турецкие
+      return _enqueue(() => SunmiBuiltIn.printLines([PrintLine(title, bold: true, center: true), const PrintLine('ң ө ү ş ğ ё Ж'), const PrintLine('NurCRM · Sunmi', center: true)]));
+    }
+    return send(c, testPage(paperMm: c.paperMm, codepage: c.codepage, codeTable: c.codeTable, title: title));
+  }
 }
 
 final printerProvider = Provider((ref) => PrinterService(ref.watch(databaseProvider)));

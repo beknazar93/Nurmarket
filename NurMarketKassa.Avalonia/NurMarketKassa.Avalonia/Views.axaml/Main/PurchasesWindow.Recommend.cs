@@ -133,6 +133,45 @@ public sealed partial class PurchasesWindow
             RecommendRender();
         };
         tools.Children.Add(clear);
+        // 2026-11-05 (волна 2-А, функция 3): «Автозаказ v2…» (срок поставки, мин. сумма, упаковка) и «Спросить цены у других поставщиков» (WhatsApp запасным поставщикам).
+        var rulesButton = UiKit.Ghost(this, T("Автозаказ v2…", "Автобуйрутма v2…", "Auto-order v2…", "Otomatik sipariş v2…", "Avtobuyurtma v2…"));
+        rulesButton.Height = 44;
+        rulesButton.Margin = new Thickness(0, 0, 8, 6);
+        Avalonia.Automation.AutomationProperties.SetName(rulesButton, T("Автозаказ v2: срок поставки, упаковка, минимальная партия", "Автобуйрутма v2: жеткирүү мөөнөтү, таңгак, минималдуу партия", "Auto-order v2: lead time, pack, minimum batch", "Otomatik sipariş v2: teslim süresi, paket, asgari parti", "Avtobuyurtma v2: yetkazish muddati, qadoq, minimal partiya"));
+        rulesButton.Click += async (_, _) =>
+        {
+            if (s.Picker.Selected is not { } picked)
+            {
+                s.Note.Text = T("Сначала выберите поставщика.", "Адегенде жеткирүүчүнү тандаңыз.", "Pick a supplier first.", "Önce bir tedarikçi seçin.", "Avval yetkazib beruvchini tanlang.");
+                s.Note.IsVisible = true;
+                return;
+            }
+            var dialog = new PlannerRulesDialog(picked, s.Rows0);
+            await dialog.ShowDialog(this).ConfigureAwait(true);
+            if (dialog.Saved)
+                await RecommendLoadAsync().ConfigureAwait(true);
+        };
+        tools.Children.Add(rulesButton);
+        var askPrices = UiKit.Ghost(this, T("Спросить цены у других поставщиков", "Башка жеткирүүчүлөрдөн баа сурау", "Ask other suppliers for prices", "Diğer tedarikçilerden fiyat sor", "Boshqa yetkazib beruvchilardan narx so'rash"));
+        askPrices.Height = 44;
+        askPrices.Margin = new Thickness(0, 0, 8, 6);
+        Avalonia.Automation.AutomationProperties.SetName(askPrices, askPrices.Content as string);
+        askPrices.Click += async (_, _) =>
+        {
+            var chosen = RecommendLines().Select(l => (l.Name, l.Qty, l.Unit)).ToList();
+            if (chosen.Count == 0)
+                chosen = s.Rows0.Where(r => r.NeedsPurchase).Select(r => (r.Product.Name, r.Recommended, r.Product.Unit)).ToList();
+            if (chosen.Count == 0)
+            {
+                s.Note.Text = T("Впишите количество в колонке «Заказать» или нажмите «Заполнить рекомендуемый заказ» — этот список уйдёт поставщикам.", "«Буйрутма» тилкесине санын жазыңыз же «Сунушталган буйрутманы толтурууну» басыңыз — ушул тизме жеткирүүчүлөргө кетет.",
+                    "Enter quantities in the “Order” column or press “Fill recommended order” — this list goes to the suppliers.", "«Sipariş» sütununa miktar girin veya «Önerilen siparişi doldur»a basın — bu liste tedarikçilere gider.",
+                    "«Buyurtma» ustuniga miqdor kiriting yoki «Tavsiya etilgan buyurtmani to'ldirish»ni bosing — shu ro'yxat yetkazib beruvchilarga ketadi.");
+                s.Note.IsVisible = true;
+                return;
+            }
+            await new AskPricesDialog(chosen).ShowDialog(this).ConfigureAwait(true);
+        };
+        tools.Children.Add(askPrices);
         Grid.SetRow(tools, 2);
         page.Children.Add(tools);
 
@@ -278,7 +317,7 @@ public sealed partial class PurchasesWindow
     // Данные поставщика держим между пересчётами (смена настроек не ходит на сервер).
     // ServerRows — строки, посчитанные сервером (как у сайта); null — считаем сами по Products/Sales.
     private sealed record RecommendSource(List<PlannerProduct> Products, Dictionary<string, (DateTime At, double Qty)> Last, List<PlannerSale> Sales, DateTime? HistoryStart, bool SalesOk,
-        List<PlannerRow>? ServerRows = null);
+        List<PlannerRow>? ServerRows = null, List<PlannerReceipt>? Receipts = null, Dictionary<string, string>? Classes = null);
     private RecommendSource? _recommendSource;
 
     private async Task RecommendLoadAsync(bool reloadServer = true)
@@ -330,7 +369,13 @@ public sealed partial class PurchasesWindow
         try
         {
             var settings = _recommend?.Settings0 ?? new PlannerSettings();
-            if (await _svc.GetRecommendationsAsync(supplier.Id, settings, cts.Token).ConfigureAwait(true) is { } server)
+            // 2026-11-05 (волна 2-А, функция 3): срок поставки поставщика (если включён) добавляется к запасу до закупки в запросе к серверу.
+            var v2Data = ShopAutomationSettings.Current;
+            if (v2Data.PlanLeadTime && PlannerV2Math.LeadDaysOf(v2Data, supplier.Id) is > 0 and var leadDays)
+                settings = settings with { CoverDays = Math.Min(365, settings.CoverDays + leadDays) };
+            // 2026-11-05 (ревью волн 0–3, С2): включены функции, которых сервер не знает (дни без товара, день недели, TSB, страховой запас ABC×XYZ), — считает касса.
+            if (!PlannerV2Options.From(v2Data).NeedsLocalCalc
+                && await _svc.GetRecommendationsAsync(supplier.Id, settings, cts.Token).ConfigureAwait(true) is { } server)
             {
                 PosLogger.Log($"Закупки: рекомендуемый заказ «{supplier.Name}» — сервер, товаров {server.Count}, к заказу {server.Count(r => r.NeedsPurchase)} ({settings.PeriodDays}/{settings.CoverDays}/{settings.SafetyDays} дн.).", "INFO");
                 return new RecommendSource(new(), new(), new(), null, true, server);
@@ -405,7 +450,27 @@ public sealed partial class PurchasesWindow
             PosLogger.Log($"Закупки: история продаж для рекомендуемого заказа не прочитана ({ex.Message}).", "WARNING");
         }
         PosLogger.Log($"Закупки: рекомендуемый заказ «{supplier.Name}» — товаров {list.Count}, продаж за 60 дн. {sales.Count}, приходов {receipts.Count}.", "INFO");
-        return new RecommendSource(list, last, sales, start, ok);
+        // 2026-11-05 (волна 2-А, функция 3): для v2 — приходы по строкам (восстановить остаток по дням) и классы ABC×XYZ (страховой запас).
+        var v2 = ShopAutomationSettings.Current;
+        List<PlannerReceipt>? receiptLines = v2.PlanLostDemand
+            ? receipts.Where(r => r.CreatedAt is not null).SelectMany(r => r.Lines.Where(l => l.ProductId.Length > 0).Select(l => new PlannerReceipt(l.ProductId, l.Qty, r.CreatedAt!.Value.ToUniversalTime()))).ToList()
+            : null;
+        Dictionary<string, string>? classes = null;
+        if (v2.PlanXyzSafety && ok)
+        {
+            try
+            {
+                var today = DateTime.Today;
+                classes = await Task.Run(() => AbcXyz.Compute(SoldLineItemsStore.LoadWithPriceSince(today.AddDays(-83).ToUniversalTime())
+                        .Select(l => (l.ProductId, l.ProductName, l.Quantity, l.Quantity * l.UnitPrice, l.SoldAt.ToLocalTime())), today)
+                    .Items.Where(i => i.Xyz is not null).ToDictionary(i => i.Key, i => i.Cell, StringComparer.OrdinalIgnoreCase)).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Закупки: классы ABC×XYZ для страхового запаса не посчитаны ({ex.Message}).", "WARNING");
+            }
+        }
+        return new RecommendSource(list, last, sales, start, ok, null, receiptLines, classes);
     }
 
     /// <summary>Пересчитать по загруженным данным (и стенд снимков без сети).</summary>
@@ -414,8 +479,24 @@ public sealed partial class PurchasesWindow
         if (_recommend is not { } s)
             return;
         _recommendSource = src;
-        s.Rows0 = src.ServerRows is { } server ? PurchasePlanner.Order(server) : PurchasePlanner.Build(src.Products, src.Sales, src.Last, s.Settings0, DateTime.Now, src.HistoryStart);
-        s.Note.Text = src.ServerRows is not null ? ""
+        // 2026-11-05 (волна 2-А, функция 3): автозаказ v2 — по настройкам «Автоматизации магазина»; всё выключено — расчёт как раньше.
+        var v2Data = ShopAutomationSettings.Current;
+        var v2Options = PlannerV2Options.From(v2Data);
+        if (src.ServerRows is { } server)
+        {
+            s.Rows0 = PurchasePlanner.Order(server);
+            if (v2Options.PackRules)
+                s.Rows0 = PlannerV2Math.ApplyOrderRules(s.Rows0, PlannerV2Math.RulesFrom(v2Data));
+        }
+        else
+        {
+            var v2 = v2Options.Any
+                ? new PlannerV2(v2Options, PlannerV2Math.LeadDaysOf(v2Data, s.Picker.Selected?.Id), src.Receipts ?? new List<PlannerReceipt>(), PlannerV2Math.RulesFrom(v2Data),
+                    src.Classes ?? new Dictionary<string, string>())
+                : null;
+            s.Rows0 = PurchasePlanner.Build(src.Products, src.Sales, src.Last, s.Settings0, DateTime.Now, src.HistoryStart, v2);
+        }
+        var baseNote = src.ServerRows is not null ? ""
             : !src.SalesOk
             ? T("История продаж на этом компьютере недоступна — рекомендации без продаж. Остатки и последние закупки — с сервера.",
                 "Бул компьютерде сатуу тарыхы жеткиликсиз — сунуштар сатуусуз. Калдыктар жана акыркы сатып алуулар — серверден.",
@@ -429,6 +510,14 @@ public sealed partial class PurchasesWindow
                     $"Bu bilgisayardaki satışlar {start.ToLocalTime():dd.MM.yyyy} tarihinden itibaren: günlük ortalama bu günlere göre.",
                     $"Bu kompyuterdagi sotuvlar {start.ToLocalTime():dd.MM.yyyy} dan: kunlik o'rtacha shu kunlar bo'yicha.")
                 : "";
+        var localNote = src.ServerRows is null && v2Options.NeedsLocalCalc
+            ? T("Расчёт кассы: включены функции автозаказа v2 (дни без товара, день недели, TSB, страховой запас) — считаю по продажам этого компьютера, а не сервера.",
+                "Кассанын эсеби: автобуйрутма v2 функциялары күйгүзүлгөн (товарсыз күндөр, жума күнү, TSB, камдык) — сервер эмес, ушул компьютердин сатуулары боюнча эсептелет.",
+                "Till calculation: autoorder v2 functions are on (days without stock, weekday, TSB, safety stock) — calculated from this computer's sales, not the server's.",
+                "Kasa hesabı: otomatik sipariş v2 işlevleri açık (stoksuz günler, haftanın günü, TSB, emniyet stoku) — sunucu değil, bu bilgisayarın satışlarına göre.",
+                "Kassa hisobi: avtobuyurtma v2 funksiyalari yoqilgan (tovarsiz kunlar, hafta kuni, TSB, zaxira) — server emas, shu kompyuter sotuvlari bo'yicha.")
+            : "";
+        s.Note.Text = localNote.Length > 0 && baseNote.Length > 0 ? localNote + "\n" + baseNote : localNote + baseNote;
         s.Note.IsVisible = s.Note.Text.Length > 0;
         RecommendRender();
     }

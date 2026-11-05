@@ -132,6 +132,15 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private async void Window_Loaded(object sender, RoutedEventArgs e)
         {
             PosDataEvents.SalesChanged += OnSalesChangedExternally;
+            // 2026-11-05 (аудит №4, Л4-12): спрятанный раздел продажи не перекачивал — раздел показали, а данные устарели → один пересчёт.
+            Activated += (_, _) =>
+            {
+                if (IsVisible && _staleWhileHidden)
+                {
+                    _staleWhileHidden = false;
+                    OnSalesChangedExternally();
+                }
+            };
 
             SyncDatePickers(_historyFrom, _historyTo);
             CustomDatePill.IsChecked = false;
@@ -263,12 +272,22 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// Сигнал приходит из фонового потока, поэтому обязательно уходим на UI-поток.</summary>
         private System.Threading.CancellationTokenSource? _liveCts;
 
+        // 2026-11-05 (аудит №4, Л4-12): пока окно спрятано (раздел программы владельца), по продаже только пометка «устарело».
+        private bool _staleWhileHidden;
+
         private void OnSalesChangedExternally()
         {
             // 2026-10-31 (приёмка 1.17.68): SalesChanged поднимается и с фоновых потоков (оплата долга, пульс продаж) — поля и _liveCts трогаем только в UI-потоке.
             if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
             {
                 Avalonia.Threading.Dispatcher.UIThread.Post(OnSalesChangedExternally);
+                return;
+            }
+            // 2026-11-05 (аудит №4, Л4-12): окно спрятано — не качаем период по каждой продаже, только пометка; пересчёт при показе.
+            if (!IsVisible)
+            {
+                _staleWhileHidden = true;
+                _liveCts?.Cancel();
                 return;
             }
             _liveCts?.Cancel();
@@ -281,7 +300,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 try
                 {
                     await System.Threading.Tasks.Task.Delay(1200, cts.Token).ConfigureAwait(false);
-                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => await LoadDataAsync(_historyFrom, _historyTo));
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+                    {
+                        if (!IsVisible) { _staleWhileHidden = true; return; } // 2026-11-05 (Л4-12)
+                        await LoadDataAsync(_historyFrom, _historyTo);
+                    });
                 }
                 catch (System.OperationCanceledException)
                 {

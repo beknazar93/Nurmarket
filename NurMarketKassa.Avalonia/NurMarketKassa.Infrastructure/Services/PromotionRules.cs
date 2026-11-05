@@ -39,7 +39,7 @@ public static class PromotionRules
 
     private static string FilePath =>
         Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            NurMarketKassa.Services.AppPaths.Roaming,
             AppMode.DataFolderName,
             "promotion_rules.json");
 

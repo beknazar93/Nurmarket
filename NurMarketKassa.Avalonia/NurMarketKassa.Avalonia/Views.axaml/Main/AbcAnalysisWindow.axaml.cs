@@ -37,6 +37,15 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
     private async void Window_Loaded(object? sender, RoutedEventArgs e)
     {
         PosDataEvents.SalesChanged += OnSalesChangedExternally;
+        // 2026-11-05 (аудит №4, Л4-12): показали спрятанный раздел с устаревшими данными — один пересчёт.
+        Activated += (_, _) =>
+        {
+            if (IsVisible && _staleWhileHidden)
+            {
+                _staleWhileHidden = false;
+                OnSalesChangedExternally();
+            }
+        };
         AbcSection.ProductAnalyticsRequested += ShowProductAnalytics;
         AbcSection.RetryRequested += () => _ = ReloadAsync(); // 2026-10-31: «Нет связи с сервером» → «Повторить»
         ApplyTexts();
@@ -194,6 +203,7 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
     }
 
     private CancellationTokenSource? _liveCts;
+    private bool _staleWhileHidden; // 2026-11-05 (Л4-12)
 
     /// <summary>Пересчёт по сигналу «продажи изменились». С задержкой: за один чек сигнал
     /// приходит несколько раз, а при выгрузке офлайн-очереди — по разу на чек, и без неё
@@ -207,6 +217,13 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
             Avalonia.Threading.Dispatcher.UIThread.Post(OnSalesChangedExternally);
             return;
         }
+        // 2026-11-05 (аудит №4, Л4-12): окно спрятано — только пометка «устарело», пересчёт при показе.
+        if (!IsVisible)
+        {
+            _staleWhileHidden = true;
+            _liveCts?.Cancel();
+            return;
+        }
         _liveCts?.Cancel();
         _liveCts?.Dispose();
         var cts = new CancellationTokenSource();
@@ -217,7 +234,11 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
             try
             {
                 await Task.Delay(1200, cts.Token).ConfigureAwait(false);
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () => await ReloadAsync());
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    if (!IsVisible) { _staleWhileHidden = true; return; } // 2026-11-05 (Л4-12)
+                    await ReloadAsync();
+                });
             }
             catch (OperationCanceledException)
             {

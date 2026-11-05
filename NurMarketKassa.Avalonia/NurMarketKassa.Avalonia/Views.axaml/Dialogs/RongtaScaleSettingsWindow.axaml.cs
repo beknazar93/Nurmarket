@@ -304,7 +304,10 @@ public partial class RongtaScaleSettingsWindow : Window
               "Turi (0–99) RLS1000 da belgilanadi: «Setting» → «barcode type», tovarda — PLU Manager dagi «Barcode Type» maydoni; tarozida — [SETTING] → «set default barcode type». Turlar jadvali — RLS1000 qo‘llanmasi, Appendix II."),
             out var body);
 
-        body.Children.Add(Text(CompanyFormatText(), "hint"));
+        var formatHint = Text(CompanyFormatText(), "hint");
+        body.Children.Add(formatHint);
+        // 2026-11-05: единица суммы (тыйын/сом) — на этой кассе, важнее сайта (хотфикс TM-30F: 76800 = 768,00 сом, а не 76 800).
+        body.Children.Add(AmountUnitPicker(this, () => { formatHint.Text = CompanyFormatText(); UpdateSample(); }));
 
         _typeBox = new ComboBox { MinWidth = 360 };
         foreach (var t in _types)

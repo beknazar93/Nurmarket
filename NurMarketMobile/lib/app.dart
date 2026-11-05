@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'core/api/api_client.dart' show ApiClient, ApiText;
 import 'core/api/session_store.dart';
 import 'core/sync/background_sync.dart';
+import 'core/sync/outbox_meta.dart' show OutboxMeta;
 import 'core/util/access.dart';
 import 'core/util/ui.dart' show statusBarStyle;
 import 'core/providers.dart';
@@ -269,6 +270,7 @@ class _NurMarketAppState extends ConsumerState<NurMarketApp> {
     ref.listen(sessionProvider, (prev, next) {
       // 14.10: журнал аудита — кто работает; вход и выход.
       Audit.currentUser = next?.userName ?? '';
+      Audit.currentOwner = OutboxMeta.ownerOf(next); // 2026-11-05 (М6-03): записи журнала привязаны к аккаунту
       if (prev == null && next != null) Audit.log('login', 'Вход · ${next.email}');
       // 2026-10-29: запись «Выход» не пишем — выход стирает журнал, следов аккаунта на телефоне не остаётся
       if (prev == null && next != null) {

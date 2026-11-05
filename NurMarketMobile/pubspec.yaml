@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.18.17+18
+version: 1.18.18+19
 
 environment:
   sdk: ^3.13.4
@@ -63,9 +63,23 @@ dependencies:
   camera: ^0.12.1
   # 2026-10-29 (аудит мобилки, п. 3; разрешено владельцем): фоновая отправка очереди продаж при закрытом приложении (только Android)
   workmanager: 0.10.10
+  # 2026-11-05 (волна 0-D, разрешено владельцем; Apache-2.0): явная строка вместо транзитивной (через pdf, в lock 2.2.9) — штрихкод этикетки
+  # рисуется картинкой и уходит в TSPL BITMAP (М5-03), см. lib/core/print/label_bitmap.dart
+  barcode: ^2.2.9
+  # 2026-11-05 (волна 0-D, разрешено владельцем; BSD-3): встроенный принтер Sunmi (V2, T2…) — путь только при Build.MANUFACTURER == SUNMI,
+  # включается настройкой; обычные Bluetooth/LAN/USB-принтеры идут своим Kotlin-кодом как раньше (М5-05)
+  # 2026-11-05 (ревью волн 0–3, М-7/М-8/М-9): пакет лежит в packages/ с правкой Kotlin-части — SDK Sunmi стартует лениво и только на
+  # аппаратах SUNMI (оригинал запускал его в каждом движке, в том числе в фоновой отправке очереди на любом телефоне),
+  # сбои печати приходят как PlatformException. Версия оригинала — 4.2.0 (BSD-3, LICENSE рядом).
+  sunmi_printer_plus:
+    path: packages/sunmi_printer_plus
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+
+  # 2026-11-05 (E2E-тесты на эмуляторе, разрешено владельцем): из Flutter SDK, в сборку приложения не входит
+  integration_test:
     sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to

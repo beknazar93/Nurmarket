@@ -889,7 +889,8 @@ public sealed class PurchaseReceivingService
             // продажи остаётся прежней, наценка пересчитывается под новую закупку) или это товар из общей базы CRM (его закупка пришла только
             // документом прихода, наценки на сервере нет). Новый товар «своей» карточкой наценку получил при создании.
             bool PurchaseChanged(ReceivingLineVm l) => !l.IsNew && Math.Abs(l.PurchasePrice - l.OriginalPurchasePrice) > 0.00005;
-            bool NeedsPricePatch(ReceivingLineVm l) => PriceChanged(l) || PurchaseChanged(l) || l.Source == ReceivingSource.GlobalBase;
+            // 2026-11-05 (функция 11): доп. расходы прихода — себестоимость пишется в карточку отдельным PATCH (документ и долг поставщику остаются по накладной).
+            bool NeedsPricePatch(ReceivingLineVm l) => PriceChanged(l) || PurchaseChanged(l) || l.Source == ReceivingSource.GlobalBase || l.LandedExtraPerUnit > 0;
             double SaleToWrite(ReceivingLineVm l) =>
                 priceTargets.FirstOrDefault(t => ReferenceEquals(t.Line, l)) is { Line: not null, Target: > 0 } t ? t.Target : l.SalePrice;
             foreach (var line in ready.Where(l => NeedsPricePatch(l) || l.NameOrUnitChanged))
@@ -915,9 +916,19 @@ public sealed class PurchaseReceivingService
                         if (sale > 0)
                         {
                             fields["price"] = sale;
-                            if (ReceivingPricing.MarkupPercent(line.PurchasePrice, sale) is { } markup)
+                            // 2026-11-05 (функция 11): с доп. расходами в карточку пишется себестоимость (накладная + доля расходов) и наценка от неё;
+                            // только вместе с ценой продажи, чтобы сервер не пересчитал цену от новой закупки сам.
+                            if (line.LandedExtraPerUnit > 0)
+                                fields["purchase_price"] = Math.Round(line.CostPrice, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero);
+                            if (ReceivingPricing.MarkupPercent(line.CostPrice, sale) is { } markup)
                                 fields["markup_percent"] = markup;
                         }
+                        else if (line.LandedExtraPerUnit > 0)
+                            errors.Add(Tr.T($"{line.ProductName}: приход проведён, но себестоимость с доставкой не записана (цена продажи на сервере не прочитана) — поправьте закупку в карточке товара.",
+                                $"{line.ProductName}: кирүү өткөрүлдү, бирок жеткирүү менен өздүк баа жазылган жок (сервердеги сатуу баасы окулган жок) — товар карточкасындагы сатып алуу баасын оңдоңуз.",
+                                $"{line.ProductName}: the delivery is posted, but the landed cost was not saved (the selling price could not be read from the server) — fix the purchase price in the product card.",
+                                $"{line.ProductName}: giriş işlendi ancak nakliye dahil maliyet yazılmadı (sunucudaki satış fiyatı okunamadı) — ürün kartında alış fiyatını düzeltin.",
+                                $"{line.ProductName}: kirim o'tkazildi, lekin yetkazib berish bilan tannarx yozilmadi (serverdagi sotuv narxi o'qilmadi) — mahsulot kartasida xarid narxini to'g'rilang."));
                     }
                     AddNameAndUnit(line, fields);
                     if (fields.Count == 0)
@@ -1011,11 +1022,12 @@ public sealed class PurchaseReceivingService
 
                     var fields = new Dictionary<string, object?>
                     {
-                        ["purchase_price"] = Math.Round(line.PurchasePrice, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero), // 2026-11-01: PATCH товара принимает 4 знака (проверка бэкенда)
+                        // 2026-11-05 (функция 11): без поставщика долга нет — в карточку сразу идёт себестоимость (CostPrice = закупка + доля расходов; без расходов = закупка).
+                        ["purchase_price"] = Math.Round(line.CostPrice, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero), // 2026-11-01: PATCH товара принимает 4 знака (проверка бэкенда)
                         ["price"] = line.SalePrice,
                     };
                     // 2026-10-24 (Б0, ТЗ «Склад» 4.2): наценка вместе с закупкой и продажей, как карточка товара.
-                    if (ReceivingPricing.MarkupPercent(line.PurchasePrice, line.SalePrice) is { } markupPercent)
+                    if (ReceivingPricing.MarkupPercent(line.CostPrice, line.SalePrice) is { } markupPercent)
                         fields["markup_percent"] = markupPercent;
                     if (Math.Abs(stock - target) < 0.0005)
                         PosLogger.Log($"Приёмка: остаток товара {line.ProductId} уже {stock:0.###} — прошлая попытка дошла, количество повторно не прибавляем.", "CATALOG");

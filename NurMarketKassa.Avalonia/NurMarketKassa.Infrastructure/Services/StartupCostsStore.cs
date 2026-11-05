@@ -123,7 +123,7 @@ public static class StartupCostsStore
     {
         get
         {
-            var dir = DataDirOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "startup-costs");
+            var dir = DataDirOverride ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "startup-costs");
             var safe = string.Concat(CompanyKey.Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_'));
             return Path.Combine(dir, (safe.Length == 0 ? "default" : safe) + ".json");
         }

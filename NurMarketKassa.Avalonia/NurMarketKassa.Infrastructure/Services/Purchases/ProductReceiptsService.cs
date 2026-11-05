@@ -81,7 +81,7 @@ public static class ProductReceiptsService
     public static string? DataDirOverride { get; set; }
 
     private static string CacheDir => DataDirOverride
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketKassa", "purchases", "product-receipts");
+        ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "purchases", "product-receipts");
 
     private static string CachePath(string productId)
     {

@@ -132,6 +132,13 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         }
     }
 
+    /// <summary>2026-11-05 (функция 11): доля доп. расходов прихода (доставка, грузчики) на ЕДИНИЦУ товара. В документ прихода и в долг поставщику
+    /// НЕ входит (там накладная <see cref="PurchasePrice"/>); себестоимость <see cref="CostPrice"/> уходит в карточку товара отдельным PATCH после прихода.</summary>
+    public double LandedExtraPerUnit { get; set; }
+
+    /// <summary>Себестоимость единицы: накладная закупка + доля доп. расходов (до 4 знаков).</summary>
+    public double CostPrice => Math.Round(PurchasePrice + Math.Max(LandedExtraPerUnit, 0), 4, MidpointRounding.AwayFromZero);
+
     public double SalePrice
     {
         get => _salePrice;
@@ -520,13 +527,13 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         if (!NurMarketKassa.Services.ReceivingMarkupSettingsStore.Current.AutoEnabled)
             return;
         _saleMode = SalePriceMode.Auto;
-        ApplyAutoSale();
+        ApplyAutoSale(allowBelowCurrent: true); // 2026-11-05 (С-3): «Как у всех» — явная просьба, цена может быть и ниже прежней
         NotifyMode();
     }
 
     /// <summary>Пересчитать цену продажи по закупке и общей наценке, если строка в режиме «авто». Нулевая закупка цену не трогает.
     /// true — цена изменилась.</summary>
-    public bool ApplyAutoSale()
+    public bool ApplyAutoSale(bool allowBelowCurrent = false)
     {
         var settings = NurMarketKassa.Services.ReceivingMarkupSettingsStore.Current;
         if (_saleMode != SalePriceMode.Auto || !settings.AutoEnabled || PurchasePrice <= 0)
@@ -536,6 +543,17 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         {
             NotifyMode();
             return false;
+        }
+        // 2026-11-05 (приёмка волн 0–3, С-3): у товара склада с уже заданной ценой продажи автонаценка только повышает цену (не ниже прежней); понижение —
+        // руками или кнопкой «Как у всех» (явное действие, allowBelowCurrent). Иначе приход молча ронял цену (1,00 → 0,50 при общей наценке 20 %).
+        if (!allowBelowCurrent && !IsNew && OriginalSalePrice > 0 && sale < OriginalSalePrice - 0.004)
+        {
+            if (Math.Abs(SalePrice - OriginalSalePrice) < 1e-9)
+            {
+                NotifyMode();
+                return false;
+            }
+            sale = OriginalSalePrice;
         }
         SalePrice = sale; // свойство, не ввод: режим остаётся «авто»
         return true;

@@ -871,6 +871,15 @@ Future<ToolResult> _cartRun(ActionKit k, ToolRequest r) async {
         if (ln.stop != null) return ln.stop!;
         final line = host.cart.lines[ln.index!];
         if (!line.isWeight && qty != qty.roundToDouble()) return _fail(env, 'qtyWhole');
+        // 2026-11-05 (аудит №4, М6-02): уменьшение количества — право «удаление из чека» и запись в журнал, как ручная правка
+        if (qty < line.qty - 1e-9) {
+          if (!env.session.can(Session.deleteLine)) return _denied(env, 'Удаление из чека');
+          if (_cartFrozen(host)) return _fail(env, 'cartPaying'); // 2026-11-05 (ревью М-10): оплата началась — в журнал не пишем удаление, которого не будет
+          final diff = line.qty - qty;
+          final sum = roundMoney(diff * line.price);
+          await host.logDeletion(DeletionRow(env.now(), line.name, diff, sum, 'ИИ: уменьшено', env.session.userName));
+          Audit.log('delete', '${line.name} − $diff · ИИ: уменьшено', amount: sum);
+        }
         host.setCartQty(ln.index!, qty);
         final say = am('qtySet', lang, {'name': _clip(line.name, 40), 'qty': _q(qty, lang, line.unit), 'total': _m(host.cart.total, lang)});
         return finish(say, (l) => '${_clip(line.name, 30)}: ${_q(qty, l)}');
@@ -881,6 +890,7 @@ Future<ToolResult> _cartRun(ActionKit k, ToolRequest r) async {
         final ln = _cartLine(k, r);
         if (ln.stop != null) return ln.stop!;
         final line = host.cart.lines[ln.index!];
+        if (_cartFrozen(host)) return _fail(env, 'cartPaying'); // 2026-11-05 (ревью М-10): идёт оплата — удаление не записываем
         final reason = _s(r.args['reason']);
         final sum = line.qty * line.price - line.discount;
         // Как ручное удаление строки (sale_screen): запись в «Удалено из чека» с пометкой «ИИ» и в журнал аудита.
@@ -926,7 +936,14 @@ Future<ToolResult> _cartRun(ActionKit k, ToolRequest r) async {
       {
         if (!env.session.can(Session.deleteLine)) return _denied(env, 'Удаление из чека');
         if (host.cart.isEmpty) return _fail(env, 'emptyCart');
+        if (_cartFrozen(host)) return _fail(env, 'cartPaying'); // 2026-11-05 (ревью М-10): идёт оплата — очистку не записываем
         final n = host.cart.count;
+        // 2026-11-05 (аудит №4, М6-01): каждая строка — в «Удалено из чека» и аудит, как ручная очистка чека
+        for (final ln in List.of(host.cart.lines)) {
+          final sum = ln.qty * ln.price - ln.discount;
+          await host.logDeletion(DeletionRow(env.now(), ln.name, ln.qty, sum, 'ИИ: очистка чека', env.session.userName));
+          Audit.log('delete', '${ln.name} × ${ln.qty} · ИИ: очистка чека', amount: sum);
+        }
         host.clearCart();
         return finish(am('cleared', lang, {'count': '$n'}), (l) => tr5(l, 'очистка чека', 'чекти тазалоо', 'chekni tozalash', 'cart cleared', 'fişi temizleme'));
       }

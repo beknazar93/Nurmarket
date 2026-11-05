@@ -106,6 +106,9 @@ public static class LocalCartService
                 return false;
 
             var weightKg = weighted.ResolveWeightKg(ParsePrice(weighedTile.PriceLine));
+            // 2026-11-05: вес больше 600 кг — почти наверняка неверная единица суммы; молча не добавляем (диалог с исправлением — в BasketPanelViewModel).
+            if (WeightBarcodeParser.IsUnrealisticLabel(weighted, weightKg))
+                return false;
             AddProduct(cart, weighedTile, weightKg.ToString("0.###", CultureInfo.InvariantCulture));
             return true;
         }

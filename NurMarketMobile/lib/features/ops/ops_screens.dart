@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/session_store.dart' show Session;
 import '../../core/providers.dart';
+import '../../core/util/access.dart' show checkAccess;
 import '../../core/sync/outbox_meta.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/ui/infographic/chart_logic.dart' show percentText;
@@ -125,6 +127,7 @@ class _CashOpScreenState extends ConsumerState<CashOpScreen> {
           TextField(
             controller: _amount,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [numberLimit(NumKind.money)], // 2026-11-05 (М6-16): штрихкод в поле суммы не принимается целиком
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
             autofocus: true,
           ),
@@ -156,7 +159,7 @@ class _CashOpScreenState extends ConsumerState<CashOpScreen> {
                     if (at != null) Text('${TimeOfDay.fromDateTime(at).format(context)}  ', style: TextStyle(color: context.pal.textSoft, fontSize: 12)),
                     Text(
                       '${outflow ? '−' : '+'}${money(amount)} ${l.som}',
-                      style: TextStyle(fontWeight: FontWeight.w800, color: outflow ? T.danger : T.success),
+                      style: TextStyle(fontWeight: FontWeight.w800, color: outflow ? context.pal.danger : context.pal.success),
                     ),
                   ],
                 ),
@@ -249,6 +252,7 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
                 TextField(
                   controller: amount,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [numberLimit(NumKind.money)], // 2026-11-05 (М6-16)
                   decoration: InputDecoration(labelText: method == 'cash' ? l.received : l.amount),
                   onChanged: (_) => set(() {}),
                 ),
@@ -267,9 +271,9 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
                   if (change > 0)
                     Text(
                       '${l.change}: ${money(change)} ${l.som}',
-                      style: const TextStyle(fontWeight: FontWeight.w800, color: T.success, fontSize: 16),
+                      style: TextStyle(fontWeight: FontWeight.w800, color: context.pal.success, fontSize: 16),
                     ),
-                  if (method != 'cash' && got > d.debt + 0.004) Text(l.payDebtOverCard, style: const TextStyle(color: T.danger, fontSize: 12.5)),
+                  if (method != 'cash' && got > d.debt + 0.004) Text(l.payDebtOverCard, style: TextStyle(color: context.pal.danger, fontSize: 12.5)),
                 ],
               ],
             ),
@@ -396,7 +400,7 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
                               ),
                               Text(
                                 '${money(d.debt)} ${l.som}',
-                                style: const TextStyle(fontWeight: FontWeight.w800, color: T.danger),
+                                style: TextStyle(fontWeight: FontWeight.w800, color: context.pal.danger),
                               ),
                             ],
                           ),
@@ -495,7 +499,12 @@ class _HeldScreenState extends ConsumerState<HeldScreen> {
                               ),
                               const SizedBox(width: 8),
                               OutlinedButton(
+                                style: OutlinedButton.styleFrom(foregroundColor: pal.danger, minimumSize: const Size(64, 48)),
                                 onPressed: () async {
+                                  // 2026-11-05 (аудит №4, М6-23): право «удаление из чека» и вопрос — раньше удалял любой одним касанием
+                                  if (!checkAccess(context, ref, Session.deleteLine)) return;
+                                  if (!await confirmAsk(context, title: l.heldDeleteAsk(money(h.cart.total)), ok: l.delete)) return;
+                                  if (!context.mounted) return;
                                   // 2026-10-26 (живой аудит, П5): удаление отложенного чека — в журнал удалений, как строки чека.
                                   final who = ref.read(sessionProvider)?.userName ?? '';
                                   final name = '${l.heldChecks}: ${h.note.isEmpty ? TimeOfDay.fromDateTime(h.at).format(context) : h.note}';
@@ -821,7 +830,7 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
                                 if (_lines[i].refundable < _lines[i].qty - 1e-6)
                                   Text(
                                     l.returnedQty(qtyText(_lines[i].qty - _lines[i].refundable)),
-                                    style: const TextStyle(fontSize: 12, color: T.warn, fontWeight: FontWeight.w700),
+                                    style: TextStyle(fontSize: 12, color: context.pal.warn, fontWeight: FontWeight.w700),
                                   ),
                               ],
                             ),
@@ -869,7 +878,7 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
                 const SizedBox(height: 12),
                 FilledButton(onPressed: _busy || sum <= 0 ? null : () => _submit(whole: false), child: Text(l.returnSelected)),
                 const SizedBox(height: 8),
-                OutlinedButton(onPressed: _busy || _lines.every((x) => x.refundable <= 0) ? null : () => _submit(whole: true), child: Text(l.returnAll)),
+                OutlinedButton(key: const Key('returnAllBtn'), onPressed: _busy || _lines.every((x) => x.refundable <= 0) ? null : () => _submit(whole: true), child: Text(l.returnAll)), // 2026-11-05 (E2E)
               ],
             ),
     );

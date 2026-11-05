@@ -87,6 +87,10 @@ public sealed class AndroidDesktopLifetime : IClassicDesktopStyleApplicationLife
     /// работа идёт в фоновом потоке, чтобы не держать UI до 2 с.</summary>
     internal void OnEnteredBackground()
     {
+        // 2026-11-05 (аудит №4, А4-17): открытые чеки пишутся с задержкой 0,4 с — при уходе в фон записываем сразу
+        // (быстро, на диск одним файлом), пока Android не выгрузил процесс.
+        try { NurMarketKassa.ViewModels.Main.ApplicationStateService.FlushPendingNow(); }
+        catch (Exception ex) { NurMarketKassa.Services.PosLogger.Log($"Android: запись чеков при уходе в фон — {ex.Message}", "WARNING"); }
         _ = System.Threading.Tasks.Task.Run(() =>
         {
             try { NurMarketKassa.Services.CartRemovalLogStore.FlushAsync().Wait(TimeSpan.FromSeconds(2)); }

@@ -17,7 +17,7 @@ public sealed class DatabaseService
     // используют OfflineAuthSessionStore/UserPreferences для этого продукта — стабильно
     // независимо от того, в какую папку Velopack развернул текущую версию.
     private static readonly string DataDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         NurMarketKassa.Services.AppMode.DataFolderName, "data");
     private static readonly string DbPath = Path.Combine(DataDirectory, "pos_local.db");
     private static readonly string LegacyCatalogDbPath = Path.Combine(DataDirectory, "catalog.db");
@@ -2878,7 +2878,7 @@ public sealed class DatabaseService
             return;
 
         var legacyPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            NurMarketKassa.Services.AppPaths.Roaming,
             NurMarketKassa.Services.AppMode.DataFolderName,
             "offline_sales_pending.json");
         if (!File.Exists(legacyPath))

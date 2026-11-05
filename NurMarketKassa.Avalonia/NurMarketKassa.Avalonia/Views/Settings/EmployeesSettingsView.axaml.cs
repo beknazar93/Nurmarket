@@ -186,7 +186,7 @@ public partial class EmployeesSettingsView : UserControl
     private static bool IsSignedInOwnerRow(EmployeeAccessCode employee)
     {
         var auth = AuthApi;
-        if (!(AppMode.IsOwner || (auth is not null && PermissionService.IsOwnerOrAdmin(auth.UserPayload))))
+        if (!(auth is not null && PermissionService.IsOwnerOrAdmin(auth.UserPayload))) // 2026-11-05: --owner прав не даёт
             return false;
         var id = NurMarketKassa.PosApp.CurrentUserId;
         if (!string.IsNullOrWhiteSpace(id) && string.Equals(employee.ServerId, id, System.StringComparison.OrdinalIgnoreCase))

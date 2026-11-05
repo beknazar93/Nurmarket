@@ -44,7 +44,7 @@ public static class GeminiKeyPool
     internal static string BaseUrl = "https://generativelanguage.googleapis.com";
 
     /// <summary>Клиент проверки ключей (список моделей). Стенд подменяет его отражением.</summary>
-    internal static HttpClient CheckHttp = new() { Timeout = TimeSpan.FromSeconds(15) };
+    internal static HttpClient CheckHttp = ExternalHttp.Create(TimeSpan.FromSeconds(15)); // 2026-11-05 (Н-19)
 
     private static readonly object Sync = new();
     private static readonly Dictionary<string, DateTime> Blocked = new(); // "ключ\nмодель" -> до (UTC)

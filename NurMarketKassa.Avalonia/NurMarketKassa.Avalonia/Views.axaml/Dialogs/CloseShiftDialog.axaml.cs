@@ -546,6 +546,17 @@ public partial class CloseShiftDialog : Window
         if (_blindRevealed && (_awaitEnterRelease || Environment.TickCount64 - _blindRevealedAtTicks < 700))
             return;
 
+        // 2026-11-05 (функция 12): закрытие смены с недостачей от порога — PIN старшего (по настройке); без него смена не закрывается, окно остаётся.
+        // 2026-11-05 (Н3): PIN дан на конкретную недостачу — если после PIN сумму изменили и недостача выросла, спрашиваем снова.
+        if (_shortagePinGranted && SuggestedBalance is { } grantedCash && (double)(grantedCash - amount) > _shortagePinFor + 0.005)
+            _shortagePinGranted = false;
+        if (!_shortagePinGranted && SuggestedBalance is { } systemCash && systemCash > amount
+            && ActionGuardPolicy.NeedsPin(GuardAction.ShiftShortage, (double)(systemCash - amount), AntiFraudSettingsStore.Current.Guard))
+        {
+            if (!_shortagePinPending)
+                _ = CloseAfterShortagePinAsync(amount, (double)(systemCash - amount));
+            return;
+        }
         _confirmedClosingCash = amount;
         if (_blindCount && !string.IsNullOrEmpty(UserPreferences.Instance.BlindCountFirstAttempt))
         {
@@ -558,4 +569,26 @@ public partial class CloseShiftDialog : Window
     }
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);
+
+    // 2026-11-05 (функция 12): PIN старшего за закрытие смены с недостачей. Спрашиваем один раз; получили — повторяем нажатие «Закрыть смену».
+    private bool _shortagePinPending;
+    private bool _shortagePinGranted;
+    private double _shortagePinFor;
+
+    private async Task CloseAfterShortagePinAsync(decimal amount, double shortage)
+    {
+        _shortagePinPending = true;
+        try
+        {
+            if (!await ActionGuard.ConfirmAsync(GuardAction.ShiftShortage, shortage).ConfigureAwait(true))
+                return;
+            _shortagePinGranted = true;
+            _shortagePinFor = shortage;
+        }
+        finally
+        {
+            _shortagePinPending = false;
+        }
+        Ok_Click(this, new RoutedEventArgs());
+    }
 }

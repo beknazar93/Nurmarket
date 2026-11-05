@@ -65,8 +65,7 @@ public sealed class AdvisorSettingsCard : Border
     {
         get
         {
-            if (AppMode.IsOwner)
-                return true;
+            // 2026-11-05 (ревью волн 0–3, Л4-10): --owner сам по себе права не даёт — роль из профиля или автономный режим.
             if (App.AppHost?.Services is not { } sp)
                 return false;
             if (sp.GetService<NurMarketKassa.Core.Contracts.IAutonomousAuthService>() is { IsCurrentSessionAutonomous: true })

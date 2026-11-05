@@ -1681,7 +1681,7 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection, IOwnerSect
                 AllowMultiple = false,
                 FileTypeFilter = new[] { new FilePickerFileType(T("Картинки", "Сүрөттөр", "Pictures", "Resimler", "Rasmlar")) { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp" } } },
             }).ConfigureAwait(true);
-            var local = files.FirstOrDefault()?.TryGetLocalPath();
+            var local = await NurMarketKassa.AvaloniaHost.Services.ImportFileBridge.TemporaryPathAsync(files.FirstOrDefault()).ConfigureAwait(true); // 2026-11-05 (А4-06): Android — временная копия
             if (local is null)
                 return;
             state.Text = T("загружаю…", "жүктөлүүдө…", "uploading…", "yükleniyor…", "yuklanmoqda…");

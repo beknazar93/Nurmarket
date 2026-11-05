@@ -20,20 +20,36 @@ namespace NurMarketKassa.Services;
 /// состояние, а не строки.</summary>
 public static class SaleDetailCache
 {
-    private const int MaxEntries = 5000;
-    private static readonly ConcurrentDictionary<string, JsonElement> Cache = new(StringComparer.OrdinalIgnoreCase);
+    // 2026-11-05 (аудит №4, Л4-13): было 5000 чеков и при переполнении Clear() целиком (обвал попаданий, пик перекачки). Сначала предел 2000 по очереди записи.
+    // 2026-11-05 (ревью волн 0–3, С8/Н4): 2000 мало — месячные отчёты крупного магазина (3000 чеков) постоянно перекачивали чеки и упирались в 429.
+    // Предел 3500 и вытеснение «давно не читали» (по отметке последнего чтения) — по сотне, а не всё сразу. Очередь записи убрана (из-за Forget в ней копились дубли).
+    private const int MaxEntries = 3500;
+    private const int EvictBatch = 200;
+    private sealed class Entry
+    {
+        public JsonElement Detail;
+        public long LastUsed;
+    }
+    private static long _clock;
+    private static readonly ConcurrentDictionary<string, Entry> Cache = new(StringComparer.OrdinalIgnoreCase);
 
     public static async Task<JsonElement> GetAsync(string saleId, CancellationToken ct = default)
     {
         if (Cache.TryGetValue(saleId, out var cached))
-            return cached;
+        {
+            cached.LastUsed = Interlocked.Increment(ref _clock);
+            return cached.Detail;
+        }
 
         var detail = await ApiThrottle.RunBulkAsync(() => App.SalesApi.PosSaleGetAsync(saleId, ct), ct).ConfigureAwait(false);
         if (detail.ValueKind == JsonValueKind.Object)
         {
             if (Cache.Count >= MaxEntries)
-                Cache.Clear();
-            Cache[saleId] = detail;
+            {
+                foreach (var old in Cache.ToArray().OrderBy(kv => kv.Value.LastUsed).Take(EvictBatch))
+                    Cache.TryRemove(old.Key, out _);
+            }
+            Cache[saleId] = new Entry { Detail = detail, LastUsed = Interlocked.Increment(ref _clock) };
         }
 
         return detail;

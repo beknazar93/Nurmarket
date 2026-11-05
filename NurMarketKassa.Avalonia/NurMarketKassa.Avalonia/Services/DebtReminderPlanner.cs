@@ -19,7 +19,7 @@ public static class DebtReminderPlanner
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
 
     private static readonly string FilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "debt-reminders.json");
+        NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "debt-reminders.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 

@@ -23,7 +23,7 @@ public static class ServerPriceContract
 
     /// <summary>Путь к файлу настроек. Стенд подменяет, чтобы не трогать настоящий профиль.</summary>
     public static string SettingsPath { get; set; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         AppMode.DataFolderName,
         "server_prices.json");
 

@@ -19,12 +19,12 @@ public static class SupportLogService
 {
     private const string ConfigFileName = "support-bot.json";
     private const long MaxLogBytesPerFile = 3 * 1024 * 1024;
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(90) };
+    private static readonly HttpClient Http = ExternalHttp.Create(TimeSpan.FromSeconds(90)); // 2026-11-05 (Н-19)
 
     private sealed record Config(string Token, string ChatId);
 
     private static string DataDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppMode.DataFolderName);
+        NurMarketKassa.Services.AppPaths.Local, AppMode.DataFolderName);
 
     private static Config? LoadConfig()
     {
@@ -32,7 +32,7 @@ public static class SupportLogService
                  {
                      AppContext.BaseDirectory,
                      DataDirectory,
-                     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName),
+                     Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName),
                  })
         {
             try

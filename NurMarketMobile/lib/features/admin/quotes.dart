@@ -1096,7 +1096,7 @@ class _QuoteEditScreenState extends ConsumerState<QuoteEditScreen> {
                           InkWell(
                             borderRadius: BorderRadius.circular(10),
                             onTap: () async {
-                              final v = await askNumber(context, title: x.name, hint: x.unit, initial: x.qty);
+                              final v = await askNumber(context, title: x.name, hint: x.unit, initial: x.qty, kind: NumKind.qty);
                               if (v != null && v > 0) setState(() => x.qty = v);
                             },
                             child: Container(
@@ -1306,7 +1306,7 @@ class _QuoteScanSheetState extends ConsumerState<_QuoteScanSheet> {
             Text(
               _msg ?? l.scanHint,
               textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.w700, color: _error ? T.warn : null),
+              style: TextStyle(fontWeight: FontWeight.w700, color: _error ? context.pal.warn : null),
             ),
             const SizedBox(height: 10),
             FilledButton(onPressed: () => Navigator.pop(context), child: Text(l.done)),

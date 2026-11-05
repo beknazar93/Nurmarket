@@ -39,9 +39,33 @@ class LinkBanner extends ConsumerWidget {
         );
       },
     );
+    // 2026-11-05 (аудит №4, М6-07): сбитые часы телефона — плашка «Время на телефоне неверное» (продажи идут по времени сервера)
+    final clock = ValueListenableBuilder<bool>(
+      valueListenable: ServerClock.wrong,
+      builder: (c, bad, _) => bad ? _clockBox(c) : const SizedBox.shrink(),
+    );
     // 2026-10-31 («в мобилке не отображаются все товары»): под плашкой связи — ход загрузки каталога («Загружено N из M»)
-    if (!catalog) return link;
-    return Column(mainAxisSize: MainAxisSize.min, children: [link, CatalogLoadBanner(margin: margin)]);
+    if (!catalog) return Column(mainAxisSize: MainAxisSize.min, children: [link, clock]);
+    return Column(mainAxisSize: MainAxisSize.min, children: [link, clock, CatalogLoadBanner(margin: margin)]);
+  }
+
+  Widget _clockBox(BuildContext c) {
+    final p = c.pal;
+    return Padding(
+      padding: margin,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: p.warnSoft, borderRadius: BorderRadius.circular(12)),
+        child: Row(
+          children: [
+            Icon(Icons.schedule_rounded, color: p.warn, size: 18),
+            const SizedBox(width: 8),
+            Expanded(child: Text(c.l.phoneClockWrong, style: TextStyle(color: p.warn, fontSize: 12.5, fontWeight: FontWeight.w700))),
+          ],
+        ),
+      ),
+    );
   }
 
   static String _hm(BuildContext c, DateTime t) => TimeOfDay.fromDateTime(t).format(c);

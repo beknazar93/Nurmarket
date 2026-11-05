@@ -82,7 +82,7 @@ public static class ReceivingMarkupSettingsStore
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     private static string FilePath => Path.Combine(
-        DataDirOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName),
+        DataDirOverride ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName),
         "receiving-markup.json");
 
     /// <summary>Текущие настройки (читаются один раз; копию править и отдавать в <see cref="Save"/>).</summary>

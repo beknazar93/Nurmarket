@@ -51,7 +51,7 @@ public static class PhoneLinkHost
             {
                 if (_pairing is null)
                 {
-                    var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "data");
+                    var dir = Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "data");
                     _pairing = new PhoneLinkPairing(dir, () => CompanyInfoService.LastCompany?.Id);
                     _pairing.Changed += () => StateChanged?.Invoke();
                 }

@@ -266,6 +266,8 @@ public partial class StockTransferDialog
                 ["comment"] = comment,
                 ["items"] = lines.Select(l => new Dictionary<string, object?> { ["product"] = l.ProductId, ["quantity"] = l.Quantity }).ToList(),
             };
+            if (NurMarketKassa.Services.Api.ServerCapabilities.Has(NurMarketKassa.Services.Api.ServerCapabilities.IdempotencyLookupBonusTransfers))
+                body["idempotency_key"] = transferKey; // 2026-11-05 (сервер ceba67c): ключ и в теле, и в заголовке — перемещение находится в журнале ключей
             JsonElement data;
             if (alreadyPosted is { } already)
                 data = already; // прошлая отправка нашлась на сервере — второй раз не шлём
@@ -487,6 +489,22 @@ public partial class StockTransferDialog
         IReadOnlyCollection<(string ProductId, double Quantity)> lines, Action<string?>? progress = null)
     {
         var since = DateTime.TryParse(date, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d.AddDays(-1) : DateTime.Today.AddDays(-1);
+        // 2026-11-05 (сервер ceba67c, idempotency_lookup_bonus_transfers): журнал ключей знает состояние перемещения. in_progress — сервер ещё выполняет: ждём (до ~30 с), не повторяем;
+        // failed — прошлая попытка не удалась: ключ остаётся за перемещением, повтор уйдёт тем же ключом (ниже запись PendingTransferKeys).
+        for (var wait = 0; wait < 6; wait++)
+        {
+            var verdict = await NurMarketKassa.Services.Api.IdempotencyJournal.CheckAsync(api, key).ConfigureAwait(true);
+            if (verdict == NurMarketKassa.Services.Api.IdempotencyVerdict.InProgress)
+            {
+                progress?.Invoke(T("Сервер ещё проводит перемещение — ждём…", "Сервер жылдырууну дагы өткөрүп жатат — күтөбүз…", "The server is still posting the transfer — waiting…", "Sunucu transferi hâlâ işliyor — bekleniyor…", "Server ko'chirishni hali o'tkazmoqda — kutamiz…"));
+                await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(true);
+                continue;
+            }
+            if (verdict == NurMarketKassa.Services.Api.IdempotencyVerdict.FailedRetry)
+                PosLogger.Log("Перемещение: журнал сервера — прошлая попытка не удалась (failed), повтор пойдёт тем же ключом.", "INFO");
+            break;
+        }
+        progress?.Invoke(null);
         var (row, _) = await SearchPostedTransferAsync(api, key, fromId, toId, lines, since).ConfigureAwait(true);
         if (row is null)
         {

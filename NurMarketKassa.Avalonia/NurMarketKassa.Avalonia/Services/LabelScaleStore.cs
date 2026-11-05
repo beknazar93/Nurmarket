@@ -264,7 +264,7 @@ public static class LabelScaleStore
     // ------------------------------------------------------------------ файл
 
     private static string FilePath(string folder) =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), folder, FileName);
+        Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, folder, FileName);
 
     private static FileModel Load()
     {

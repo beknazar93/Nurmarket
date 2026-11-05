@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -159,6 +160,7 @@ public sealed class WindowLayerHost : Panel
         _layers.Remove(window);
         _windows.Remove(window);
         _lastFocus.Remove(window);
+        _suppressedButtons.Remove(window);
         Children.Remove(layer);
         layer.Detach();
         UpdateInteractivity();
@@ -240,6 +242,57 @@ public sealed class WindowLayerHost : Panel
         var top = TopWindow;
         foreach (var w in _windows)
             w.SetActive(ReferenceEquals(w, top));
+        UpdateDefaultButtons(top);
+    }
+
+    // ---- 2026-11-05 (аудит №4, А4-01): Enter/Esc только верхнему окну ----
+    // Кнопки IsDefault/IsCancel подписываются на клавиши КОРНЯ дерева, а на Android корень у всех «окон» один (TopLevel).
+    // Открыто «Закрыть смену», поверх — вопрос «Да/Нет»: Enter с USB-клавиатуры или сканера нажимал кнопку нижнего окна,
+    // а верхний вопрос висел. У окон ниже верхнего снимаем IsDefault/IsCancel (SetCurrentValue — привязки не теряются),
+    // когда окно снова сверху — возвращаем.
+
+    private readonly Dictionary<Window, List<(Button Button, bool IsDefault, bool IsCancel)>> _suppressedButtons = new();
+
+    private void UpdateDefaultButtons(Window? top)
+    {
+        try
+        {
+            foreach (var w in _windows)
+            {
+                if (ReferenceEquals(w, top))
+                {
+                    if (_suppressedButtons.Remove(w, out var saved))
+                    {
+                        foreach (var (button, isDefault, isCancel) in saved)
+                        {
+                            if (isDefault)
+                                button.SetCurrentValue(Button.IsDefaultProperty, true);
+                            if (isCancel)
+                                button.SetCurrentValue(Button.IsCancelProperty, true);
+                        }
+                    }
+                    continue;
+                }
+                if (_suppressedButtons.ContainsKey(w))
+                    continue;
+                var list = new List<(Button, bool, bool)>();
+                foreach (var button in w.GetVisualDescendants().OfType<Button>())
+                {
+                    if (!button.IsDefault && !button.IsCancel)
+                        continue;
+                    list.Add((button, button.IsDefault, button.IsCancel));
+                    if (button.IsDefault)
+                        button.SetCurrentValue(Button.IsDefaultProperty, false);
+                    if (button.IsCancel)
+                        button.SetCurrentValue(Button.IsCancelProperty, false);
+                }
+                _suppressedButtons[w] = list;
+            }
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"Android: кнопки по умолчанию нижних окон — {ex.Message}", "UI");
+        }
     }
 
     // ---- 2026-10-30: размытие фона под модалкой (затемнение уже есть в слое модалки; здесь — блюр слоёв ниже неё) ----
@@ -571,6 +624,59 @@ public sealed class WindowLayerHost : Panel
         _attachedTop.AddHandler(KeyDownEvent, ForwardUnfocusedKey, RoutingStrategies.Bubble);
         _attachedTop.AddHandler(KeyUpEvent, ForwardUnfocusedKey, RoutingStrategies.Bubble);
         _attachedTop.AddHandler(TextInputEvent, ForwardUnfocusedText, RoutingStrategies.Bubble);
+        // 2026-11-05 (аудит №4, А4-04): экранная клавиатура закрывала поле ввода — Avalonia сама ничего не сдвигает.
+        // Пока клавиатура открыта (и при каждом новом поле в фокусе) прокручиваем поле в видимую часть.
+        _attachedTop.AddHandler(InputElement.GotFocusEvent, OnFieldGotFocus, RoutingStrategies.Bubble);
+        try
+        {
+            if (_attachedTop.InputPane is { } pane)
+            {
+                _inputPane = pane;
+                pane.StateChanged += OnInputPaneStateChanged;
+            }
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"Android: InputPane недоступен — {ex.Message}", "UI");
+        }
+    }
+
+    private Avalonia.Controls.Platform.IInputPane? _inputPane;
+
+    private void OnInputPaneStateChanged(object? sender, Avalonia.Controls.Platform.InputPaneStateEventArgs e)
+    {
+        if (e.NewState == Avalonia.Controls.Platform.InputPaneState.Open)
+            ScheduleBringFocusedIntoView();
+    }
+
+    private void OnFieldGotFocus(object? sender, GotFocusEventArgs e)
+    {
+        if (e.Source is TextBox && _inputPane?.State == Avalonia.Controls.Platform.InputPaneState.Open)
+            ScheduleBringFocusedIntoView();
+    }
+
+    /// <summary>Клавиатура выезжает с анимацией, а вид сжимается (AdjustResize) не сразу — повторяем после раскладки.</summary>
+    private void ScheduleBringFocusedIntoView()
+    {
+        foreach (var delay in new[] { 120, 400 })
+        {
+            DispatcherTimer.RunOnce(() =>
+            {
+                try
+                {
+                    if (AvTopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox { IsEffectivelyVisible: true } box
+                        && TopWindow is { } top && box.GetVisualAncestors().Contains(top))
+                    {
+                        // Поле плюс запас 16 точек со всех сторон — чтобы рядом было видно подпись и кнопку.
+                        box.BringIntoView(new Rect(-16, -16, box.Bounds.Width + 32, box.Bounds.Height + 32));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    NurMarketKassa.Services.PosLogger.Log($"Android: поле над клавиатурой — {ex.Message}", "UI");
+                }
+            }, TimeSpan.FromMilliseconds(delay));
+        }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -581,6 +687,10 @@ public sealed class WindowLayerHost : Panel
             _attachedTop.RemoveHandler(KeyDownEvent, ForwardUnfocusedKey);
             _attachedTop.RemoveHandler(KeyUpEvent, ForwardUnfocusedKey);
             _attachedTop.RemoveHandler(TextInputEvent, ForwardUnfocusedText);
+            _attachedTop.RemoveHandler(InputElement.GotFocusEvent, OnFieldGotFocus);
+            if (_inputPane is not null)
+                _inputPane.StateChanged -= OnInputPaneStateChanged;
+            _inputPane = null;
             _attachedTop = null;
         }
         base.OnDetachedFromVisualTree(e);
@@ -593,7 +703,34 @@ public sealed class WindowLayerHost : Panel
         e.Handled = true;
         if (TopWindow is not { } top || (IsMainWindow?.Invoke(top) ?? false) || _windows.Count <= 1)
             return;
+        // 2026-11-05 (аудит №4, А4-02): «Назад» = Esc. Если у верхнего окна есть кнопка «Отмена» (IsCancel) — нажимаем её:
+        // там живут вопросы «Закрыть оплату?», «Есть несохранённые данные». Раньше окно закрывалось в обход них.
+        if (TryPressCancelButton(top))
+            return;
         top.RequestCloseFromUser();
+    }
+
+    private static bool TryPressCancelButton(Window top)
+    {
+        try
+        {
+            // 2026-11-05 (ревью волн 0–3, А-1/А-3): окно на ModalShell — «Назад» идёт тем же путём, что ✕ и Esc
+            // (кнопка «Отмена» из подвала, защита «идёт операция», «Отменить ожидание сервера»).
+            if (top.GetVisualDescendants().OfType<NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalShell>().FirstOrDefault() is { } shell)
+                return shell.TryCloseFromUser();
+            // Окно без ModalShell: порядок как у Button.OnClick (Click, затем Command, если Click не перехватил) — А-2.
+            var cancel = top.GetVisualDescendants().OfType<Button>()
+                .FirstOrDefault(b => b.IsCancel && b.IsEffectivelyVisible && b.IsEffectivelyEnabled);
+            if (cancel is null)
+                return false;
+            NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalShell.PressButton(cancel);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"Android: «Назад» через кнопку «Отмена» — {ex.Message}", "UI");
+            return false;
+        }
     }
 
     /// <summary>Нажатие пришло, когда фокус не внутри окна (никто не в фокусе) — отдаём его

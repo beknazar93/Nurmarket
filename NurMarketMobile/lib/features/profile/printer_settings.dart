@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/print/escpos.dart';
 import '../../core/print/printer_service.dart';
+import '../../core/print/sunmi_builtin.dart';
 import '../../core/providers.dart';
 import '../../core/util/ui.dart';
 import '../../l10n/app_localizations.dart';
@@ -54,6 +55,9 @@ class PrinterSettingsScreen extends ConsumerStatefulWidget {
 
 class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
   PrinterConfig _c = const PrinterConfig();
+
+  /// 2026-11-05 (М5-05): телефон — Sunmi с встроенным принтером; переключатель показывается только на нём.
+  bool _sunmiDevice = false;
   bool _loaded = false;
   bool _busy = false;
   bool _searching = false;
@@ -68,6 +72,9 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
   @override
   void initState() {
     super.initState();
+    SunmiBuiltIn.isSunmi().then((v) {
+      if (mounted && v) setState(() => _sunmiDevice = true);
+    }).catchError((_) {});
     _service.load().then((c) {
       if (!mounted) return;
       setState(() {
@@ -195,7 +202,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     }
     setState(() => _busy = true);
     try {
-      if (_c.kind == PrinterKind.bluetooth && !await _btReady()) return;
+      if (_c.kind == PrinterKind.bluetooth && !_c.sunmi && !await _btReady()) return;
       await _service.printTest(_c, title: ref.read(sessionProvider)?.companyName ?? 'NurCRM');
       if (mounted) {
         setState(() => _note = l.prnTestHint);
@@ -214,7 +221,7 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
     if (!mounted) return;
     setState(() => _busy = true);
     try {
-      if (_c.kind == PrinterKind.bluetooth && !await _btReady()) return;
+      if (_c.kind == PrinterKind.bluetooth && !_c.sunmi && !await _btReady()) return;
       await _service.openDrawerTest(_c);
       if (mounted) toast(context, l.prnDrawerSent);
     } on PrinterException catch (e) {
@@ -248,6 +255,19 @@ class _PrinterSettingsScreenState extends ConsumerState<PrinterSettingsScreen> {
                 ChoiceChip(label: Text(label), selected: _c.kind == k, onSelected: (_) => _setKind(k)),
             ],
           ),
+          // 2026-11-05 (волна 0-D, М5-05): встроенный принтер Sunmi — одним переключателем, только на телефоне SUNMI; выключен по умолчанию
+          if (_sunmiDevice)
+            SwitchListTile(
+              key: const Key('sunmiSwitch'),
+              contentPadding: EdgeInsets.zero,
+              title: Text(l.prnSunmi, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(l.prnSunmiHint, style: TextStyle(color: pal.textSoft, fontSize: 12)),
+              value: _c.sunmi,
+              onChanged: (v) {
+                setState(() => _c = _c.copyWith(sunmi: v));
+                _save();
+              },
+            ),
           if (_c.kind == PrinterKind.network) ...[
             const SizedBox(height: 10),
             Row(

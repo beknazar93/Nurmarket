@@ -586,8 +586,7 @@ public partial class OperationsSettingsView : UserControl
     {
         get
         {
-            if (NurMarketKassa.Services.AppMode.IsOwner)
-                return true;
+            // 2026-11-05 (ревью волн 0–3, Л4-10): запуск с ключом --owner сам по себе ключи ИИ не открывает (кассир мог так их увидеть) — только роль из профиля или автономный режим.
             if (App.AppHost?.Services is not { } sp)
                 return false;
             if (Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<NurMarketKassa.Core.Contracts.IAutonomousAuthService>(sp) is { IsCurrentSessionAutonomous: true })
@@ -903,7 +902,7 @@ public partial class OperationsSettingsView : UserControl
             }
         });
 
-        var path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+        var path = files.Count > 0 ? await NurMarketKassa.AvaloniaHost.Services.ImportFileBridge.PermanentPathAsync(files[0]).ConfigureAwait(true) : null; // 2026-11-05 (А4-06): Android — копия в папку данных
         if (string.IsNullOrEmpty(path))
             return;
 
@@ -934,7 +933,7 @@ public partial class OperationsSettingsView : UserControl
             }
         });
 
-        var path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
+        var path = files.Count > 0 ? await NurMarketKassa.AvaloniaHost.Services.ImportFileBridge.PermanentPathAsync(files[0]).ConfigureAwait(true) : null; // 2026-11-05 (А4-06)
         if (string.IsNullOrEmpty(path))
             return;
 

@@ -299,8 +299,9 @@
   <Style Selector="ToggleButton.SettingsGroupHeader:pointerover">
     <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
   </Style>
+  <!-- 2026-11-05 (аудит №4, Д4-29): шеврон группы был 12 px — мелкая цель; 16 px (вся строка-заголовок и так кликабельна). -->
   <Style Selector="TextBlock.SettingsGroupChevron">
-    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="FontSize" Value="16"/>
     <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
   </Style>

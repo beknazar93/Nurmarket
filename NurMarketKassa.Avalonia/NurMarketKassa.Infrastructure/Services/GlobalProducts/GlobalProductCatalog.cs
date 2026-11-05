@@ -47,7 +47,7 @@ public sealed class GlobalProductCatalog
     }
 
     private static string DefaultPath() => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         AppMode.DataFolderName, "global-products.sqlite");
 
     private readonly string _path;

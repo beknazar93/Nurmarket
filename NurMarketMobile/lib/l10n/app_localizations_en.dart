@@ -7236,4 +7236,61 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get prnLocationOff =>
       'To find a Bluetooth printer on this Android, turn on Location.';
+
+  @override
+  String get clearCheckAsk => 'Clear the current receipt?';
+
+  @override
+  String get qtyReduced => 'Quantity reduced';
+
+  @override
+  String heldDeleteAsk(String sum) {
+    return 'Delete the held receipt for $sum som?';
+  }
+
+  @override
+  String qtySure(String qty) {
+    return 'Really $qty? That is a lot.';
+  }
+
+  @override
+  String get phoneClockWrong =>
+      'The phone\'s clock is wrong — fix the date and time in settings. Sales use the server\'s time.';
+
+  @override
+  String get payWaiting => 'Processing payment…';
+
+  @override
+  String payShortfall(String total, String rest) {
+    return 'The server counted $total som — collect $rest som more';
+  }
+
+  @override
+  String closeShiftCartAsk(int n) {
+    return 'The receipt still has $n items. What to do?';
+  }
+
+  @override
+  String syncServerDown(String time, int n) {
+    return 'The server has not answered since $time. Sales waiting: $n. The phone will send them itself.';
+  }
+
+  @override
+  String get prnSunmi => 'Built-in Sunmi printer';
+
+  @override
+  String get prnSunmiHint =>
+      'The receipt is printed by Sunmi itself, all letters (ң ө ү ş ğ) come out right. Bluetooth, network and USB are not used.';
+
+  @override
+  String scaleBindOverwrite(String name, String old, String plu) {
+    return 'Product “$name” has PLU $old, it will become $plu. Scales programmed with PLU $old will stop finding it. Save?';
+  }
+
+  @override
+  String get apiSaleDuplicateLine =>
+      'The same product is in the receipt with a different price or unit: the server cannot merge the lines. Keep one price or remove the extra line.';
+
+  @override
+  String get payLinesMerged => 'Identical receipt lines were merged into one.';
 }

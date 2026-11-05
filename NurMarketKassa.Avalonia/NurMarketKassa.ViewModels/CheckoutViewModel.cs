@@ -744,6 +744,7 @@ namespace NurMarketKassa.ViewModels
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(MixedRemainingText));
                 OnPropertyChanged(nameof(MixedAmountsMatch));
+                RaiseMixedViewProps();
                 ErrorMessage = "";
                 RaiseCommandsCanExecuteChanged();
                 SyncMixedAmount(fromCash: true);
@@ -761,6 +762,7 @@ namespace NurMarketKassa.ViewModels
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(MixedRemainingText));
                 OnPropertyChanged(nameof(MixedAmountsMatch));
+                RaiseMixedViewProps();
                 ErrorMessage = "";
                 RaiseCommandsCanExecuteChanged();
                 SyncMixedAmount(fromCash: false);
@@ -823,6 +825,35 @@ namespace NurMarketKassa.ViewModels
                     return false;
                 return Math.Abs(c + n - _effectiveTotalDue) < 0.005;
             }
+        }
+
+        // 2026-11-05 (аудит №4, Д4-12): зелёное «Сумма сходится» — только когда обе части больше нуля; иначе на входе в «Смешанная»
+        // (наличными = итог, безнал = 0) оно висело вместе с ошибкой «обе суммы должны быть больше нуля».
+        public bool ShowMixedMatch => MixedAmountsMatch && MixedPartsPositive;
+        public bool ShowMixedPartsHint => MixedAmountsMatch && !MixedPartsPositive;
+        public bool ShowMixedMismatch => !MixedAmountsMatch;
+
+        public string MixedPartsHintText => Tr.T(
+            "Введите сумму наличными — остаток пойдёт на безнал",
+            "Накталай сумманы киргизиңиз — калганы накталай эмес болот",
+            "Enter the cash amount — the rest goes to cashless",
+            "Nakit tutarı girin — kalanı nakitsiz olur",
+            "Naqd summani kiriting — qolgani naqdsizga o'tadi");
+
+        // Д4-12: QR и его подпись в смешанной оплате — по безналичной части (раньше подпись брала весь итог чека: риск двойной оплаты).
+        public bool ShowQrCard => HasQrCode && (!IsMixedMode || (ParseNonNegative(_mixedNonCashAmount) ?? 0) > 0.004);
+
+        public string QrAmountDisplay => IsMixedMode ? MoneyText.Som(ParseNonNegative(_mixedNonCashAmount) ?? 0) : PayableDisplay;
+
+        private void RaiseMixedViewProps()
+        {
+            OnPropertyChanged(nameof(ShowMixedMatch));
+            OnPropertyChanged(nameof(ShowMixedPartsHint));
+            OnPropertyChanged(nameof(ShowMixedMismatch));
+            OnPropertyChanged(nameof(ShowQrCard));
+            OnPropertyChanged(nameof(QrAmountDisplay));
+            // 2026-11-05 (ревью п. 17): экран покупателя строит динамический QR по безналичной части, а не по всему чеку.
+            _customerDisplay?.SetQrAmount(IsMixedMode ? ParseNonNegative(_mixedNonCashAmount) : null);
         }
 
         public bool IsLoadingClients
@@ -1006,6 +1037,7 @@ namespace NurMarketKassa.ViewModels
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(QrCodePath));
                 OnPropertyChanged(nameof(HasQrCode));
+                RaiseMixedViewProps();
                 // 2026-09-21: раньше экран покупателя не знал о выборе банка в этом диалоге вовсе
                 // и всегда показывал первый попавшийся загруженный QR — независимо от того, какой
                 // банк реально выбрал кассир (жалоба: "QR не меняется смотря на банк").
@@ -1195,6 +1227,7 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(InstallmentRows));
             OnPropertyChanged(nameof(InstallmentSummary));
             OnPropertyChanged(nameof(MixedRemainingText));
+            RaiseMixedViewProps();
             OnPropertyChanged(nameof(PointsRedeemed));
             OnPropertyChanged(nameof(EarnedPointsPreview));
             OnPropertyChanged(nameof(EarnedPointsPreviewDisplay));
@@ -1600,6 +1633,7 @@ namespace NurMarketKassa.ViewModels
             OnPropertyChanged(nameof(TotalDueLabel));
             OnPropertyChanged(nameof(BigTotalDisplay));
             OnPropertyChanged(nameof(PayableDisplay));
+            RaiseMixedViewProps();
             UpdateCashState();
 
             if (IsDebtMode)

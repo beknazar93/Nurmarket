@@ -40,9 +40,12 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
             // 2026-11-03 (С-18, аудит «зависание при медленном сервере»): долгий ответ — строка в журнал (метод, путь, секунды; без токенов и тел),
             // чтобы владелец и мы видели «сервер медлил». Быстрые ответы подряд снимают значок «Сервер медлит».
             var elapsed = DateTime.UtcNow - started;
+            // 2026-11-05 (аудит скорости, Н-1): счётчик путей — раз в 5 минут 10 самых частых уходят в журнал (раздел API STATS), без query и значений.
+            ApiPathStats.Record(request.Method, request.RequestUri?.AbsolutePath, elapsed.TotalMilliseconds);
             if (elapsed >= SlowResponse)
             {
-                PosLogger.Log($"SLOW {request.Method} {request.RequestUri?.AbsolutePath} {elapsed.TotalSeconds:0.0} с", "API SLOW");
+                // 2026-11-05 (аудит скорости, 18.1): рядом с клиентским временем — серверное (x-response-time-ms) и x-request-id, если сервер их отдал.
+                PosLogger.Log($"SLOW {request.Method} {request.RequestUri?.AbsolutePath} {elapsed.TotalSeconds:0.0} с{ApiPathStats.FormatServerTimingSuffix(response)}", "API SLOW");
                 // 2026-11-03 (ревью Н-6): загрузка файла (фото товара) честно долгая — значок «Сервер медлит» от неё не ставим.
                 if (request.Content is not MultipartContent)
                     ServerOutageMonitor.ReportSlow(DescribeRequest(request));
@@ -54,13 +57,22 @@ public sealed class JwtBearerRefreshHandler : DelegatingHandler
             // 429 — сервер жив и просит паузу: это не авария. Иначе поток 429 при загрузке
             // аналитики (программа владельца, тот же пользователь) переводил бы кассу в автономный
             // режим. Оплата, которая упёрлась в 429 после своих повторов, сама объявит аварию.
-            if (status == 429)
+            // 2026-11-05 (сервер ceba67c): 429 pin_locked (проверка PIN заблокирована на 15 минут) — не «слишком частые запросы»: общую паузу кассы не ставим, продажи не страдают.
+            if (status == 429 && request.RequestUri?.AbsolutePath.Contains("pin/verify", StringComparison.OrdinalIgnoreCase) == true)
+                ServerOutageMonitor.ReportSuccess(DescribeRequest(request));
+            else if (status == 429)
                 ApiThrottle.ReportThrottled(response, null);
             else if (ServerOutageMonitor.IsServerFailureStatus(status))
                 ServerOutageMonitor.ReportFailure(DescribeRequest(request), $"HTTP {status}");
             else if (status >= 400)
                 ServerOutageMonitor.ReportSuccess(DescribeRequest(request));
             return response;
+        }
+        catch (HttpRequestException ex) when (ex.Data[TransportTuningHandler.BreakerMarker] is true)
+        {
+            // 2026-11-05 (ревью волн 0–3, п. 3): отказ предохранителя — не настоящий обрыв (запрос на сервер даже не уходил); монитор аварий его не получает,
+            // иначе сразу после возврата сервера авария объявлялась бы снова и кнопки офлайна мигали.
+            throw;
         }
         catch (HttpRequestException ex)
         {

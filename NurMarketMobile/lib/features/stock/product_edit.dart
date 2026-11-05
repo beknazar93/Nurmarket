@@ -8,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
-import '../../core/theme/tokens.dart';
 import '../../core/util/audit.dart';
 import '../../core/util/barcode_generator.dart';
 import '../../core/util/photo_cache.dart';
@@ -559,7 +558,7 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 pr < co ? l.belowCost : l.markup(((pr - co) / co * 100).toStringAsFixed(0)),
-                style: TextStyle(color: pr < co ? T.danger : T.success, fontWeight: FontWeight.w700),
+                style: TextStyle(color: pr < co ? context.pal.danger : context.pal.success, fontWeight: FontWeight.w700),
               ),
             ),
           FieldLabel(l.wholesalePrice),
@@ -679,7 +678,7 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
                   Text(
                     // 2026-10-27 (М4): товар с упаковкой — «12 пачек + 5 шт»; остаток на сервере хранится в упаковках
                     stockWithPack(qtyText, _stock, _before?.pack, packWord: l.pkPackShort, pcs: l.pkPcs, unit: _unit),
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _stock <= 0 ? T.danger : null),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _stock <= 0 ? context.pal.danger : null),
                   ),
                   const SizedBox(height: 4),
                   Text(l.peStockHint, style: TextStyle(fontSize: 12, color: pal.textSoft)),
@@ -799,7 +798,7 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
               itemBuilder: (c) => [
                 PopupMenuItem(value: 'batches', child: Text(l.pbTitle)), // 2026-10-30 (1.18.12)
                 PopupMenuItem(value: 'teach', child: Text(l.teachCamera)),
-                if (canDeleteProducts(ref.read(sessionProvider))) PopupMenuItem(value: 'delete', child: Text(l.deleteProduct, style: const TextStyle(color: T.danger))),
+                if (canDeleteProducts(ref.read(sessionProvider))) PopupMenuItem(value: 'delete', child: Text(l.deleteProduct, style: TextStyle(color: context.pal.danger))),
               ],
             ),
           ],

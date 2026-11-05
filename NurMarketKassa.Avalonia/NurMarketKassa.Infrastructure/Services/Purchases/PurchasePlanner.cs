@@ -46,7 +46,8 @@ public static class PurchasePlanner
     /// <summary>Строки рекомендуемого заказа по товарам поставщика. <paramref name="historyStartUtc"/> — с какого момента на ПК есть
     /// история продаж (новая касса): период короче истории — средняя считается по реальным дням, а не делится на пустые.</summary>
     public static List<PlannerRow> Build(IReadOnlyList<PlannerProduct> products, IReadOnlyList<PlannerSale> sales,
-        IReadOnlyDictionary<string, (DateTime At, double Qty)> lastPurchases, PlannerSettings settings, DateTime nowLocal, DateTime? historyStartUtc)
+        IReadOnlyDictionary<string, (DateTime At, double Qty)> lastPurchases, PlannerSettings settings, DateTime nowLocal, DateTime? historyStartUtc,
+        PlannerV2? v2 = null)
     {
         var period = Math.Clamp(settings.PeriodDays, 1, 365);
         var cover = Math.Clamp(settings.CoverDays, 0, 365);
@@ -66,6 +67,13 @@ public static class PurchasePlanner
 
         var byProduct = sales.GroupBy(s => s.ProductId, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+        // 2026-11-05 (волна 2-А, функция 3): автозаказ v2 — всё по настройке; v2 == null или всё выключено — расчёт ровно как раньше.
+        var o = v2?.Options ?? new PlannerV2Options();
+        var weights = o.Weekday ? PlannerV2Math.WeekdayWeights(sales, nowLocal, 56, historyStartUtc) : null;
+        var lead = o.LeadTime ? Math.Max(0, v2?.LeadDays ?? 0) : 0;
+        var receiptsBy = o.LostDemand && v2 is not null
+            ? v2.Receipts.GroupBy(r => r.ProductId, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => (IReadOnlyList<PlannerReceipt>)g.ToList(), StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, IReadOnlyList<PlannerReceipt>>(StringComparer.OrdinalIgnoreCase);
         var rows = new List<PlannerRow>();
         foreach (var p in products)
         {
@@ -74,20 +82,39 @@ public static class PurchasePlanner
             var salesPeriod = Sum(fromPeriod);
             var salesPrev = Sum(fromPrev, fromPeriod);
             var perDay = salesPeriod / periodDays;
+            if (o.LostDemand && salesPeriod > 0)
+            {
+                // Дни «без остатка» не считаем: средняя берётся по дням, когда товар мог продаваться (не меньше трети периода).
+                var out0 = PlannerV2Math.StockoutDays(p.Stock, list, receiptsBy.GetValueOrDefault(p.Id) ?? Array.Empty<PlannerReceipt>(), nowLocal, period, historyStartUtc);
+                if (out0 > 0)
+                    // 2026-11-05 (ревью волн 0–3, С3): остаток восстанавливается только по продажам и приходам этой кассы, «пустых» дней может выйти слишком много —
+                    // поправка не поднимает среднюю за день больше чем в 1,5 раза.
+                    perDay = Math.Min(salesPeriod / Math.Max(periodDays - out0, Math.Max(1.0, periodDays / 3)), perDay * PlannerV2Math.LostDemandMaxBoost);
+            }
+            if (o.Tsb && salesPeriod > 0)
+            {
+                var series = PlannerV2Math.DailySeries(list, nowLocal, Math.Min(60, period * 2), historyStartUtc);
+                if (series.Length >= 14 && (double)series.Count(x => x > 0) / series.Length < PlannerV2Math.RareShare)
+                    perDay = PlannerV2Math.Tsb(series);
+            }
+            var safetyEff = o.XyzSafety && v2 is not null && v2.Classes.TryGetValue(p.Id, out var cls) ? safety * AbcXyz.SafetyMultiplier(cls) : safety;
+            var horizon = cover + lead + safetyEff;
             double? daysLeft = perDay > 0 ? Math.Max(0, p.Stock) / perDay : null;
-            var need = perDay * (cover + safety) - Math.Max(0, p.Stock);
+            var need = perDay * PlannerV2Math.HorizonDays(weights, nowLocal, horizon) - Math.Max(0, p.Stock);
             var recommended = need > 0.0005 ? RoundUp(need, p.IsWeighted) : 0;
+            if (o.PackRules && v2 is not null && recommended > 0)
+                recommended = PlannerV2Math.ApplyRule(recommended, v2.Rules.GetValueOrDefault(p.Id), p.IsWeighted);
 
             PlannerStatus status;
             if (perDay <= 0)
                 status = p.Stock <= 0 && lastPurchases.ContainsKey(p.Id) ? PlannerStatus.OutOfStock : PlannerStatus.NoSales;
             else if (p.Stock <= 0)
                 status = PlannerStatus.OutOfStock;
-            else if (daysLeft <= safety)
+            else if (daysLeft <= safetyEff)
                 status = PlannerStatus.Critical;
-            else if (daysLeft <= cover)
+            else if (daysLeft <= cover + lead)
                 status = PlannerStatus.Soon;
-            else if (daysLeft < cover + safety)
+            else if (daysLeft < horizon)
                 status = PlannerStatus.Low;
             else
                 status = PlannerStatus.Enough;

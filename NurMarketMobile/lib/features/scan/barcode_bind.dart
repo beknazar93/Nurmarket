@@ -357,7 +357,7 @@ class BarcodeBindPageState extends ConsumerState<BarcodeBindPage> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.check_circle_rounded, color: T.success, size: 30),
+                    Icon(Icons.check_circle_rounded, color: context.pal.success, size: 30),
                     const SizedBox(width: 12),
                     Expanded(child: Text(_message, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, height: 1.3))),
                   ],

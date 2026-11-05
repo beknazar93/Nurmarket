@@ -136,7 +136,7 @@ internal sealed class PosixPrinterTransport : IPlatformPrinterTransport
     {
         var name = CupsName(port);
         if (string.IsNullOrWhiteSpace(name))
-            throw new InvalidOperationException("Не указана очередь CUPS (CUPS:имя).");
+            throw new InvalidOperationException(Tr.T("Не указана очередь CUPS (CUPS:имя).", "CUPS кезеги көрсөтүлгөн эмес (CUPS:аты).", "CUPS queue is not specified (CUPS:name).", "CUPS kuyruğu belirtilmedi (CUPS:ad).", "CUPS navbati ko'rsatilmagan (CUPS:nom)."));
         var psi = new ProcessStartInfo("lp")
         {
             UseShellExecute = false,
@@ -148,16 +148,16 @@ internal sealed class PosixPrinterTransport : IPlatformPrinterTransport
         psi.ArgumentList.Add(name);
         psi.ArgumentList.Add("-o");
         psi.ArgumentList.Add("raw");
-        using var proc = Process.Start(psi) ?? throw new IOException("Не удалось запустить lp (CUPS).");
+        using var proc = Process.Start(psi) ?? throw new IOException(Tr.T("Не удалось запустить lp (CUPS).", "lp (CUPS) иштетүү мүмкүн болгон жок.", "Could not start lp (CUPS).", "lp (CUPS) başlatılamadı.", "lp (CUPS) ishga tushmadi."));
         proc.StandardInput.BaseStream.Write(payload, 0, payload.Length);
         proc.StandardInput.Close();
         if (!proc.WaitForExit((int)timeout.TotalMilliseconds))
         {
             try { proc.Kill(true); } catch { /* уже завершился */ }
-            throw new TimeoutException($"CUPS не принял задание для «{name}» за {timeout.TotalSeconds:0} с.");
+            throw new TimeoutException(Tr.T($"CUPS не принял задание для «{name}» за {timeout.TotalSeconds:0} с.", $"CUPS «{name}» үчүн тапшырманы {timeout.TotalSeconds:0} сек ичинде кабыл алган жок.", $"CUPS did not accept the job for \"{name}\" within {timeout.TotalSeconds:0} s.", $"CUPS \"{name}\" için işi {timeout.TotalSeconds:0} sn içinde kabul etmedi.", $"CUPS \"{name}\" uchun vazifani {timeout.TotalSeconds:0} soniyada qabul qilmadi."));
         }
         if (proc.ExitCode != 0)
-            throw new IOException($"CUPS «{name}»: {proc.StandardError.ReadToEnd().Trim()}");
+            throw new IOException($"CUPS «{name}»: {proc.StandardError.ReadToEnd().Trim()}"); // текст — от самого CUPS
     }
 
     private static void WriteSerial(string port, byte[] payload)
@@ -170,23 +170,47 @@ internal sealed class PosixPrinterTransport : IPlatformPrinterTransport
             RtsEnable = true,
         };
         serial.Open();
-        serial.Write(payload, 0, payload.Length);
-        serial.BaseStream.Flush();
+        // 2026-11-05 (аудит №4, А4-26): обрыв ПОСЛЕ начала записи — часть чека уже напечатана; обычный IOException SendRawBytes повторил бы
+        // (дубль). Поэтому — PrinterStalledException (не повторяется), как для сети и Bluetooth. Ошибка открытия порта — обычная (повтор безопасен).
+        try
+        {
+            serial.Write(payload, 0, payload.Length);
+            serial.BaseStream.Flush();
+        }
+        catch (Exception ex) when (ex is IOException or TimeoutException or InvalidOperationException)
+        {
+            throw new PrinterPortService.PrinterStalledException(InterruptedText(), ex);
+        }
         Thread.Sleep(50);
     }
+
+    private static string InterruptedText() => Tr.T(
+        "Связь с принтером оборвалась. Проверьте, не напечатался ли чек, и только потом печатайте заново.",
+        "Принтер менен байланыш үзүлдү. Чек басылганын текшерип, андан кийин кайра басыңыз.",
+        "The connection to the printer was lost. Check whether the receipt printed before printing again.",
+        "Yazıcı bağlantısı koptu. Fişin basılıp basılmadığını kontrol edin, sonra yeniden yazdırın.",
+        "Printer bilan aloqa uzildi. Chek chop etilganini tekshiring, keyin qayta chop eting.");
 
     private static void WriteDevice(string port, byte[] payload)
     {
         try
         {
             using var stream = new FileStream(port, FileMode.Open, FileAccess.Write, FileShare.ReadWrite, 4096, FileOptions.WriteThrough);
-            stream.Write(payload, 0, payload.Length);
-            stream.Flush();
+            // 2026-11-05 (А4-26): обрыв после начала записи — не повторять (иначе часть чека печатается дважды).
+            try
+            {
+                stream.Write(payload, 0, payload.Length);
+                stream.Flush();
+            }
+            catch (IOException ex)
+            {
+                throw new PrinterPortService.PrinterStalledException(InterruptedText(), ex);
+            }
             Thread.Sleep(50);
         }
         catch (UnauthorizedAccessException ex)
         {
-            throw new IOException($"Нет прав на {port}: добавьте пользователя в группу lp (или dialout) и перезайдите в систему.", ex);
+            throw new IOException(Tr.T($"Нет прав на {port}: добавьте пользователя в группу lp (или dialout) и перезайдите в систему.", $"{port} үчүн укук жок: колдонуучуну lp (же dialout) тобуна кошуп, кайра кириңиз.", $"No permission for {port}: add the user to the lp (or dialout) group and log in again.", $"{port} için izin yok: kullanıcıyı lp (veya dialout) grubuna ekleyip yeniden giriş yapın.", $"{port} uchun ruxsat yo'q: foydalanuvchini lp (yoki dialout) guruhiga qo'shib qayta kiring."), ex);
         }
     }
 

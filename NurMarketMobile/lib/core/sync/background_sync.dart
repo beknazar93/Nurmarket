@@ -12,6 +12,7 @@ import '../../features/stock/stock_repository.dart';
 import '../api/api_client.dart';
 import '../api/session_store.dart';
 import '../db/database.dart';
+import '../tester/tester_mode.dart' show AppBuild;
 import '../util/audit.dart';
 import 'outbox_meta.dart';
 import 'sync_service.dart';
@@ -121,8 +122,10 @@ class BackgroundSync {
       Future<int> mine() => db.pendingCountFor(me, legacyOwner: legacy); // 2026-11-01 (М-07): счёт в SQL
       final before = await mine();
       if (before == 0) return true;
+      ApiClient.clientTag = 'mobile/${AppBuild.version}'; // 2026-11-05: метка клиента и в фоновой отправке
       final api = ApiClient(store)..attach(session);
       Audit.currentUser = session.userName;
+      Audit.currentOwner = OutboxMeta.ownerOf(session);
       final svc = SyncService(
         db: db,
         sales: SalesRepository(api, db),

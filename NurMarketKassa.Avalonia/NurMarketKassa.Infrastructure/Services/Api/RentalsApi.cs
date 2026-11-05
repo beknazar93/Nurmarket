@@ -34,7 +34,8 @@ public sealed record RentalDto(
     DateTimeOffset? CreatedAt,
     DateTimeOffset? ReturnedAt,
     double DepositRefunded,
-    double DepositWithheld)
+    double DepositWithheld,
+    bool Replayed = false)
 {
     /// <summary>На руках — всё, что не возвращено (2026-10-02, проверка: сервер может отдать статус
     /// «overdue» — раньше у такого проката не было кнопки «Принять возврат»).</summary>
@@ -99,8 +100,14 @@ public sealed class RentalsApi
             body["deposit_document"] = depositDocument;
         if (!string.IsNullOrWhiteSpace(note))
             body["note"] = note;
+        // 2026-11-05 (сервер ceba67c, rental_idempotency): POST rentals/ принимает Idempotency-Key; повтор с тем же ключом возвращает тот же прокат и replayed:true (200, не ошибка).
+        // Ключ ставит RequestAsync по подписи запроса (MoneyRequestKeys: путь содержит «rental»): повтор после обрыва уходит с ТЕМ ЖЕ ключом, пока не придёт ответ по существу.
+        // Здесь — только разбор replayed: прокат уже был создан первой попыткой, второго нет, а окно оформления показывает его как созданный.
         var data = await _api.RequestAsync(HttpMethod.Post, Root, body, null, ct).ConfigureAwait(false);
-        return Parse(data);
+        var created = Parse(data);
+        if (created.Replayed)
+            PosLogger.Log($"Прокат №{created.Number}: сервер вернул уже созданный прокат (повтор по ключу, replayed) — второго не создано.", "INFO");
+        return created;
     }
 
     /// <summary>Возврат: condition ok | damaged, штраф удерживается из залога.</summary>
@@ -166,7 +173,8 @@ public sealed class RentalsApi
             Stamp(d, "created_at"),
             Stamp(d, "returned_at"),
             refunded,
-            withheld);
+            withheld,
+            d.TryGetProperty("replayed", out var rp) && rp.ValueKind == JsonValueKind.True);
     }
 
     /// <summary>2026-10-04, живой случай (Z-отчёт, прокат №8, залог 500 деньгами, возвращён): в блоке

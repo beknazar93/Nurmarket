@@ -255,9 +255,73 @@ void toast(BuildContext context, String text, {bool error = false}) {
     ..showSnackBar(SnackBar(content: Text(text), backgroundColor: error ? T.danger : T.navy));
 }
 
+/// 2026-11-05 (аудит №4, М6-13): короткая плашка, которая «плавает» над нижней панелью (отступ [bottom]) и уходит сама через [duration].
+void toastAbove(BuildContext context, String text, {required double bottom, Duration duration = const Duration(milliseconds: 1500), bool error = false}) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(text),
+        backgroundColor: error ? T.danger : T.navy,
+        persist: false,
+        duration: duration,
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.fromLTRB(12, 0, 12, bottom),
+      ),
+    );
+}
+
+/// 2026-11-05 (аудит №4, М6-01/М6-23): короткий вопрос «Да / Нет» для опасных действий (очистка чека, удаление отложенного).
+/// [danger] — кнопка подтверждения красная. true — подтвердили.
+Future<bool> confirmAsk(BuildContext context, {required String title, String? message, String? ok, bool danger = true}) async {
+  final v = await showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+      content: message == null ? null : Text(message),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c, false), child: Text(c.l.cancel)),
+        FilledButton(
+          style: FilledButton.styleFrom(minimumSize: const Size(110, 48), backgroundColor: danger ? c.pal.danger : null, foregroundColor: danger ? Colors.white : null),
+          onPressed: () => Navigator.pop(c, true),
+          child: Text(ok ?? c.l.done),
+        ),
+      ],
+    ),
+  );
+  return v == true;
+}
+
+/// 2026-11-05 (аудит №4, М6-16): вид числового поля — от него зависит предел цифр. Штрихкод, отсканированный в поле «Количество»
+/// (ТСД, Bluetooth-сканер), раньше давал 4 870 001 159 955 шт. и ответ 400 от сервера.
+enum NumKind {
+  /// сумма: до 10 цифр и 3 знака после запятой
+  money(10),
+
+  /// количество: до 6 цифр (свыше 999 — вопрос «Точно?»)
+  qty(6),
+
+  /// вес: до 3 цифр и 3 знака после запятой (≤ 999,999)
+  weight(3);
+
+  final int maxInt;
+  const NumKind(this.maxInt);
+
+  RegExp get pattern => RegExp('^\\d{0,$maxInt}([.,]\\d{0,3})?\$');
+
+  /// Из числа в поле «Количество» больше этого — переспросить.
+  static const double askAbove = 999;
+}
+
+/// Фильтр ввода числа по [kind]: лишние цифры не принимаются (поле остаётся прежним).
+TextInputFormatter numberLimit(NumKind kind) {
+  final re = kind.pattern;
+  return TextInputFormatter.withFunction((old, nw) => re.hasMatch(nw.text) ? nw : old);
+}
+
 /// Спросить число (сумма, количество, вес).
 // 2026-10-26 (живой аудит, П2, Н-10): необязательные подпись поля [label] и единица [suffix] (сом) — поле открытия смены было без подписи.
-Future<double?> askNumber(BuildContext context, {required String title, String? hint, double? initial, String? ok, String? label, String? suffix}) async {
+Future<double?> askNumber(BuildContext context, {required String title, String? hint, double? initial, String? ok, String? label, String? suffix, NumKind kind = NumKind.money}) async {
   // 2026-10-21, владелец: «на Enter при добавлении товара в КП и счёт он удаляет или дублирует». Число в поле не было
   // выделено — «1» и набранное «2» давали 12 (количество «удваивалось»); Enter и «Готово» подряд закрывали окно дважды —
   // второе закрытие уводило с экрана документа. Теперь прежнее число выделено (набор заменяет его), окно закрывается один раз.
@@ -284,6 +348,7 @@ Future<double?> askNumber(BuildContext context, {required String title, String? 
         autofocus: true,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textInputAction: TextInputAction.done,
+        inputFormatters: [numberLimit(kind)], // 2026-11-05 (М6-16): штрихкод, отсканированный в поле, не превращается в триллионы штук
         decoration: InputDecoration(hintText: hint, labelText: label, suffixText: suffix),
         onSubmitted: (s) => close(c, parseNum(s)),
       ),
@@ -297,6 +362,10 @@ Future<double?> askNumber(BuildContext context, {required String title, String? 
       ],
     ),
   );
+  // 2026-11-05 (М6-16): очень большое количество — переспросить (случайный скан, лишний нуль)
+  if (v != null && kind == NumKind.qty && v > NumKind.askAbove && context.mounted) {
+    if (!await confirmAsk(context, title: context.l.qtySure(qtyText(v)), danger: false)) return null;
+  }
   return v;
 }
 
@@ -430,7 +499,7 @@ class _MarginFieldsState extends State<MarginFields> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               l.belowCost,
-              style: const TextStyle(color: T.danger, fontWeight: FontWeight.w700, fontSize: 12),
+              style: TextStyle(color: context.pal.danger, fontWeight: FontWeight.w700, fontSize: 12),
             ),
           ),
       ],

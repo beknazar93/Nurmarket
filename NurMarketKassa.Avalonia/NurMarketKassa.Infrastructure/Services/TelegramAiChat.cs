@@ -24,7 +24,7 @@ namespace NurMarketKassa.Services;
 /// </summary>
 public static class TelegramAiChat
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(45) }; // 2026-10-06: 25 → 45 с — накладная по фото отвечает дольше
+    private static readonly HttpClient Http = ExternalHttp.Create(TimeSpan.FromSeconds(45)); // 2026-10-06: 25 → 45 с — накладная по фото отвечает дольше; 2026-11-05 (Н-19): общая фабрика — сжатие и срок жизни соединения
 
     // 2026-09-30: проверено на ключе владельца — «лёгкие» модели отвечают за 1,5–2,5 с, gemini-flash-latest и
     // gemini-3.5-flash «думают» 4–9 с и бывают перегружены (503); gemini-2.5-flash-lite этому ключу недоступна (404).
@@ -253,14 +253,15 @@ public static class TelegramAiChat
         msExpiry = expiry.IsCompleted ? watch.ElapsedMilliseconds : -2;
         string cards, staff, sales;
         (string Text, IReadOnlyList<WebSource> Sources) research;
+        // 2026-11-05 (аудит скорости, Н-13): срок источника (OperationCanceledException при НЕ отменённом ct) не роняет весь ответ — этот блок пропускается.
         try { cards = await cardsTask.ConfigureAwait(false); }
-        catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"ИИ: карточки товаров не получены ({ex.Message}).", "WARNING"); cards = ""; }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested) { PosLogger.Log($"ИИ: карточки товаров не получены ({ex.Message}).", "WARNING"); cards = ""; }
         try { research = await researchTask.ConfigureAwait(false); }
-        catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"ИИ: сведения из интернета не получены ({ex.Message}).", "WARNING"); research = ("", Array.Empty<WebSource>()); }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested) { PosLogger.Log($"ИИ: сведения из интернета не получены ({ex.Message}).", "WARNING"); research = ("", Array.Empty<WebSource>()); }
         try { staff = await staffTask.ConfigureAwait(false); }
-        catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"ИИ: сотрудники не получены ({ex.Message}).", "WARNING"); staff = ""; }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested) { PosLogger.Log($"ИИ: сотрудники не получены ({ex.Message}).", "WARNING"); staff = ""; }
         try { sales = await salesTask.ConfigureAwait(false); }
-        catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"ИИ: чеки за период не получены ({ex.Message}).", "WARNING"); sales = ""; }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested) { PosLogger.Log($"ИИ: чеки за период не получены ({ex.Message}).", "WARNING"); sales = ""; }
 
         var list = new List<AiSection>();
         if (cards.Length > 0)

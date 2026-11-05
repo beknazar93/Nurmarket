@@ -2620,7 +2620,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     new FilePickerFileType(Tr.T("Изображения", "Сүрөттөр", "Images", "Görseller", "Rasmlar")) { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp" } }
                 }
             });
-            return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+            return files.Count > 0 ? await NurMarketKassa.AvaloniaHost.Services.ImportFileBridge.PermanentPathAsync(files[0]).ConfigureAwait(true) : null; // 2026-11-05 (А4-06): QR банка на Android — копия в папку данных
         }
     }
 }

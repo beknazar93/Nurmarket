@@ -51,9 +51,15 @@ public sealed class ApplicationStateService : IDisposable
     /// иначе корзина прежней компании дописалась бы в state.json уже новой.</summary>
     private static int _generation;
 
+    // 2026-11-05 (аудит №4, А4-17): ожидающий снимок открытых чеков (запись через 0,4 с). Android при уходе кассы в фон
+    // может выгрузить процесс раньше — FlushPendingNow() записывает снимок сразу.
+    private ApplicationState? _pendingSnapshot;
+    private int _pendingGeneration;
+    private static ApplicationStateService? _latest;
+
     private static string StateFilePath =>
         Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            NurMarketKassa.Services.AppPaths.Roaming,
             NurMarketKassa.Services.AppMode.DataFolderName,
             "state.json");
 
@@ -197,6 +203,9 @@ public sealed class ApplicationStateService : IDisposable
             _saveDebounceCts?.Cancel();
             _saveDebounceCts = new CancellationTokenSource();
             currentCts = _saveDebounceCts;
+            _pendingSnapshot = snapshot;
+            _pendingGeneration = Volatile.Read(ref _generation);
+            _latest = this;
         }
 
         _ = SaveAfterDelayAsync(snapshot, currentCts, delayMs, Volatile.Read(ref _generation));
@@ -222,6 +231,11 @@ public sealed class ApplicationStateService : IDisposable
             }
 
             Save(snapshot);
+            lock (_syncRoot)
+            {
+                if (ReferenceEquals(_pendingSnapshot, snapshot))
+                    _pendingSnapshot = null;
+            }
         }
         catch (OperationCanceledException)
         {
@@ -236,6 +250,24 @@ public sealed class ApplicationStateService : IDisposable
             }
             cts.Dispose();
         }
+    }
+
+    /// <summary>2026-11-05 (А4-17): записать ожидающий снимок немедленно (уход кассы в фон на Android). Если записывать нечего — ничего не делает.</summary>
+    public static void FlushPendingNow()
+    {
+        var service = _latest;
+        if (service is null)
+            return;
+        ApplicationState? snapshot;
+        lock (service._syncRoot)
+        {
+            snapshot = service._pendingSnapshot;
+            service._pendingSnapshot = null;
+            if (snapshot is null || service._disposed || service._pendingGeneration != Volatile.Read(ref _generation))
+                return;
+            service._saveDebounceCts?.Cancel();
+        }
+        service.Save(snapshot);
     }
 
     public void CancelPendingSave()

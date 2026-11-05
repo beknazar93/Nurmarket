@@ -152,7 +152,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             _isWeight = existing.MustWeigh;
             _quantity = existing.Quantity.ToString("0.###", CultureInfo.InvariantCulture);
             _purchasePrice = existing.PurchasePrice > 0
-                ? existing.PurchasePrice.ToString("0.####", CultureInfo.InvariantCulture) : ""; // 2026-11-02 (аудит №2, С3-07): сервер хранит закупку с 4 знаками
+                ? existing.PurchasePrice.ToString("0.####", CultureInfo.InvariantCulture).Replace('.', ',') : ""; // 2026-11-05 (Н-12): запятая, как у цены продажи; 2026-11-02 (аудит №2, С3-07): сервер хранит закупку с 4 знаками
             _price = ExtractPrice(existing.PriceLine);
             _hotkeyGroup = string.IsNullOrWhiteSpace(existing.HotkeyGroup) ? "Без горячей клавиши" : existing.HotkeyGroup!;
             _plu = existing.Plu?.ToString(CultureInfo.InvariantCulture) ?? "";

@@ -183,10 +183,12 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
                     // суммой чека, чтобы покупателю не набирать её руками. Любая осечка
                     // (не распознали картинку, это не ELQR, нулевой чек) возвращает null,
                     // и ниже показывается тот же статический QR, что и раньше.
-                    if (preferences.DynamicPaymentQrEnabled && _snapshot.Total > 0 && !_designPreview)
+                    // 2026-11-05 (ревью п. 17): в смешанной оплате — безналичная часть (QrAmount), а не весь чек.
+                    var qrTotal = _state.QrAmount is > 0 ? _state.QrAmount.Value : _snapshot.Total;
+                    if (preferences.DynamicPaymentQrEnabled && qrTotal > 0 && !_designPreview)
                     {
                         var dynamicQr = DynamicPaymentQrService.TryBuildDynamicQrImage(
-                            staticQr, (decimal)_snapshot.Total);
+                            staticQr, (decimal)qrTotal);
                         if (!string.IsNullOrWhiteSpace(dynamicQr))
                             return dynamicQr;
                     }

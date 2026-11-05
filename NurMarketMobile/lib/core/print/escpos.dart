@@ -201,7 +201,7 @@ List<PrintLine> receiptLines(Receipt r, int width) {
   }
   out.add(dash);
   if (r.discount > 0) out.addAll(twoColumns('Скидка', '-${money(r.discount)}', width).map(PrintLine.new));
-  if (r.weightRounding >= 0.005) out.addAll(twoColumns('Округл. весовых', '-${money(r.weightRounding)}', width).map(PrintLine.new)); // 2026-11-05 (М4-14)
+  if (r.weightRounding.abs() >= 0.005) out.addAll(twoColumns('Округление', roundingSigned(r.weightRounding, ascii: true), width).map(PrintLine.new)); // 2026-11-05 (М4-14, М6-06)
   out.addAll(twoColumns('ИТОГО', '${money(r.total)} сом', width).map((s) => PrintLine(s, bold: true)));
   // 2026-10-22 (мобилка, деньги): долг — внесено / долг / «Вернуть до».
   for (final (k, v) in r.paymentLines) {

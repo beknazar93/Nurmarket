@@ -12,6 +12,10 @@ ThemeData buildTheme({required bool dark}) {
     onPrimary: T.navy,
     secondary: T.navy,
     onSecondary: Colors.white,
+    // 2026-11-05 (аудит №4, М6-11): выбранный сегмент SegmentedButton красится secondaryContainer. По умолчанию это secondary = navy
+    // #191919 = цвет фона тёмной темы: «Розница / Опт», «Товары / Чек», «% / сом» не отличались от невыбранных. В тёмной — жёлтый.
+    secondaryContainer: dark ? T.accent : T.navy,
+    onSecondaryContainer: dark ? T.navy : Colors.white,
     error: T.danger,
     onError: Colors.white,
     surface: p.panel,
@@ -118,18 +122,18 @@ ThemeData buildTheme({required bool dark}) {
     ),
     chipTheme: ChipThemeData(
       backgroundColor: p.panel,
-      selectedColor: T.navy,
+      selectedColor: dark ? T.accent : T.navy, // 2026-11-05 (М6-11): в тёмной теме navy = фон окна, выбранный чип был невидим
       // 14.10, владелец (снимок «Одежда»): у выбранных размеров текст сливался с тёмно-синим фоном — у выбранного чипа белый.
       labelStyle: TextStyle(
         fontFamily: 'Montserrat',
         fontWeight: FontWeight.w600,
         fontSize: 13,
-        color: WidgetStateColor.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : p.text),
+        color: WidgetStateColor.resolveWith((s) => s.contains(WidgetState.selected) ? p.onAction : p.text),
       ),
-      checkmarkColor: Colors.white,
+      checkmarkColor: p.onAction,
       // 2026-10-21: значки чипов («+ Добавить товар», сканер) были жёлтыми на белом — тёмные.
       iconTheme: IconThemeData(color: ink, size: 18),
-      secondaryLabelStyle: const TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white),
+      secondaryLabelStyle: TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.w700, fontSize: 13, color: p.onAction),
       side: BorderSide(color: p.border),
       shape: const StadiumBorder(),
       showCheckmark: false,

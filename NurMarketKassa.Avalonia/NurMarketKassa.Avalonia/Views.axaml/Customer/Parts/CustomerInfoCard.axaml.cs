@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using NurMarketKassa.AvaloniaHost.Controls;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.ViewModels;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Customer.Parts;
@@ -24,6 +25,7 @@ public partial class CustomerInfoCard : UserControl
     private WebView2Host? _web;
     private string? _lastNavigatedAdMediaPath;
     private double _appliedSize = -1;
+    private Control? _telegramBlock; // 2026-11-05 (функция 8): QR «Чеки и бонусы в Telegram» под рекламой/QR оплаты
 
     public CustomerInfoCard()
     {
@@ -127,10 +129,28 @@ public partial class CustomerInfoCard : UserControl
             if (_vm is not null)
                 _vm.PresentationChanged += OnPresentationChanged;
         }
+        UpdateTelegramBlock();
         UpdateAdMedia();
     }
 
     private void OnPresentationChanged(object? sender, EventArgs e) => UpdateAdMedia();
+
+    /// <summary>2026-11-05 (функция 8): маленький QR «Получайте чеки и бонусы в Telegram» — только если включён в настройках (иначе экран как раньше).</summary>
+    private void UpdateTelegramBlock()
+    {
+        if (_telegramBlock is not null)
+        {
+            CardStack.Children.Remove(_telegramBlock);
+            _telegramBlock = null;
+        }
+        if (_vm is null)
+            return;
+        if (TelegramReceiptUi.BuildCustomerBlock(Math.Min(96, Math.Max(64, ImageSize / 2.2))) is { } block)
+        {
+            _telegramBlock = block;
+            CardStack.Children.Add(block);
+        }
+    }
 
     /// <summary>
     /// Avalonia.Image не умеет проигрывать GIF/видео (только первый кадр), поэтому для таких

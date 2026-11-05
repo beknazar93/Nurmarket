@@ -117,7 +117,7 @@ public partial class IrregularReceiptsWindow : Window
 
     // 2026-10-30 («Некорректные чеки»: 8 возвратов + 1 продажа висели без действий, «Отправить повторно» была бесполезна): строки сгруппированы
     // по причине (фильтры сверху), у каждой — свои кнопки: «Показать», «Отправить» (только отклонённые сервером чеки очереди) и «Закрыть».
-    private enum Kind { Failed, Overpaid, Stock, Pending, ShiftNote, Bonus }
+    private enum Kind { Failed, Overpaid, Stock, Pending, ShiftNote, Bonus, BelowCost }
 
     private List<RowVm> _rows = new();
     private Kind? _filter;
@@ -133,6 +133,8 @@ public partial class IrregularReceiptsWindow : Window
         Kind.ShiftNote => Tr.T("Смена закрыта с пометкой", "Смена белги менен жабылды", "Shift closed with a note", "Vardiya notla kapatıldı", "Smena izoh bilan yopildi"),
         // 2026-11-02 (аудит №2, К3-10): сервер не принял начисление/списание баллов — скидка бонусами выдана, баллы не списаны.
         Kind.Bonus => Tr.T("Баллы не приняты сервером", "Баллдарды сервер кабыл алган жок", "Points not accepted by the server", "Puanlar sunucu tarafından kabul edilmedi", "Ballarni server qabul qilmadi"),
+        // 2026-11-05 (сервер ceba67c): чек из очереди проведён с предупреждением «ниже закупки».
+        Kind.BelowCost => Tr.T("Проведён ниже закупки", "Сатып алуудан төмөн өткөрүлдү", "Posted below cost", "Alış fiyatının altında işlendi", "Xariddan past o'tkazildi"),
         Kind.Stock => Tr.T("Не хватило остатка", "Калдык жетпей калды", "Not enough stock", "Stok yetersiz", "Qoldiq yetarli emas"),
         _ => Tr.T("В процессе (ожидает выгрузку)", "Жүрүп жатат (жүктөлүүнү күтүүдө)", "In progress (awaiting upload)", "İşlemde (gönderilmeyi bekliyor)", "Jarayonda (yuklashni kutmoqda)"),
     };
@@ -154,14 +156,15 @@ public partial class IrregularReceiptsWindow : Window
             var overpaid = entry.Tag == IrregularReceiptEntry.ReturnOverpaid;
             var shiftNote = entry.Tag == IrregularReceiptEntry.ShiftClosedUnsentCash;
             var bonusRejected = entry.Tag == IrregularReceiptEntry.BonusRejected;
-            var kind = bonusRejected ? Kind.Bonus : shiftNote ? Kind.ShiftNote : overpaid ? Kind.Overpaid : Kind.Stock;
+            var belowCost = entry.Tag == IrregularReceiptEntry.SoldBelowCost;
+            var kind = belowCost ? Kind.BelowCost : bonusRejected ? Kind.Bonus : shiftNote ? Kind.ShiftNote : overpaid ? Kind.Overpaid : Kind.Stock;
             var hasCart = !string.IsNullOrEmpty(entry.CartJson) && entry.CartJson != "{}";
             rows.Add(new RowVm
             {
                 CreatedAt = entry.CreatedAt,
                 Kind = kind,
-                IsInsufficientStock = !overpaid && !shiftNote && !bonusRejected,
-                IsError = overpaid || shiftNote || bonusRejected,
+                IsInsufficientStock = !overpaid && !shiftNote && !bonusRejected && !belowCost,
+                IsError = overpaid || shiftNote || bonusRejected || belowCost,
                 StatusText = KindTitle(kind),
                 Note = (entry.Note ?? "") + (entry.ClosedAt is null ? "" : "  [" + Tr.T("Закрыто: ", "Жабылды: ", "Closed: ", "Kapatıldı: ", "Yopildi: ") + entry.ClosedReason + "]"),
                 RawNote = entry.Note ?? "",
@@ -218,7 +221,7 @@ public partial class IrregularReceiptsWindow : Window
 
     private void ApplyFilter()
     {
-        var order = new Dictionary<Kind, int> { [Kind.Failed] = 0, [Kind.Overpaid] = 1, [Kind.Stock] = 2, [Kind.Pending] = 3, [Kind.ShiftNote] = 1, [Kind.Bonus] = 1 };
+        var order = new Dictionary<Kind, int> { [Kind.Failed] = 0, [Kind.Overpaid] = 1, [Kind.Stock] = 2, [Kind.Pending] = 3, [Kind.ShiftNote] = 1, [Kind.Bonus] = 1, [Kind.BelowCost] = 1 };
         var shown = _rows
             .Where(r => _filter is null || r.Kind == _filter)
             .OrderBy(r => r.IsClosed)
@@ -271,7 +274,7 @@ public partial class IrregularReceiptsWindow : Window
         if (_filter is { } f && open.All(r => r.Kind != f))
             _filter = null; // выбранной причины больше нет (всё закрыто) — показать все
         FilterPanel.Children.Add(Chip(Tr.T($"Все: {open.Count}", $"Баары: {open.Count}", $"All: {open.Count}", $"Tümü: {open.Count}", $"Hammasi: {open.Count}"), _filter is null, () => { _filter = null; BuildFilterChips(); ApplyFilter(); }));
-        foreach (var kind in new[] { Kind.Failed, Kind.Overpaid, Kind.ShiftNote, Kind.Bonus, Kind.Stock, Kind.Pending })
+        foreach (var kind in new[] { Kind.Failed, Kind.Overpaid, Kind.ShiftNote, Kind.Bonus, Kind.BelowCost, Kind.Stock, Kind.Pending })
         {
             var count = open.Count(r => r.Kind == kind);
             if (count == 0)

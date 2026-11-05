@@ -144,7 +144,9 @@
         <Setter Property="Opacity" Value="1"/>
     </Style>
     <Style Selector="Button.main-primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        <!-- 2026-11-05 (аудит №4, Д4-10): без заливки — только рамка. -->
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
     </Style>

@@ -85,7 +85,7 @@ public partial class MonitorSettingsView : UserControl
             FileTypeFilter = [adMediaFilter],
         });
         if (files.Count > 0)
-            ViewModel.Settings.AdvertisementImagePath = files[0].TryGetLocalPath() ?? "";
+            ViewModel.Settings.AdvertisementImagePath = await NurMarketKassa.AvaloniaHost.Services.ImportFileBridge.PermanentPathAsync(files[0]).ConfigureAwait(true) ?? ""; // 2026-11-05 (А4-06): Android — копия в папку данных
     }
 
     private async void PickBackground_Click(object? sender, RoutedEventArgs e)
@@ -99,6 +99,6 @@ public partial class MonitorSettingsView : UserControl
             FileTypeFilter = [FilePickerFileTypes.ImageAll],
         });
         if (files.Count > 0)
-            ViewModel.Settings.BackgroundImagePath = files[0].TryGetLocalPath() ?? "";
+            ViewModel.Settings.BackgroundImagePath = await NurMarketKassa.AvaloniaHost.Services.ImportFileBridge.PermanentPathAsync(files[0]).ConfigureAwait(true) ?? ""; // 2026-11-05 (А4-06)
     }
 }

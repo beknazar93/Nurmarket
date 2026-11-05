@@ -12,7 +12,7 @@
   </UserControl.Resources>
 
   <Border x:Name="CardBorder" Classes="cd-card" Padding="18">
-    <StackPanel Spacing="12">
+    <StackPanel x:Name="CardStack" Spacing="12">
       <TextBlock Classes="cd-eyebrow" Text="{Binding InformationEyebrow}"/>
       <TextBlock x:Name="TitleText" Classes="cd-text" Text="{Binding InformationTitle}" FontSize="{DynamicResource CdFont22}"
                  FontWeight="Bold" TextWrapping="Wrap"/>

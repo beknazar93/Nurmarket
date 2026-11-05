@@ -465,7 +465,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
 
     public bool CanGoToPreviousPage => CurrentPage > 1;
     public bool CanGoToNextPage => CurrentPage < TotalPages;
-    public bool ShowPager => _filteredProductCount > 0;
+    // 2026-11-05 (аудит №4, Д4-07): «‹ Назад · 1 · Страница 1 из 1 · Вперёд ›» на одной странице не нужна — 60 px под плитки.
+    public bool ShowPager => _filteredProductCount > 0 && _totalPages > 1;
     public string PageStatusText => Tr.T($"Страница {CurrentPage} из {TotalPages}", $"Барак {CurrentPage} / {TotalPages}",
         $"Page {CurrentPage} of {TotalPages}", $"Sayfa {CurrentPage} / {TotalPages}", $"Sahifa {CurrentPage} / {TotalPages}");
 

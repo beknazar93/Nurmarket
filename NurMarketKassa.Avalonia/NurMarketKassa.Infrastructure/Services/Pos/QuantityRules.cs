@@ -142,6 +142,33 @@ public static class QuantityRules
     public static decimal Subtotal(decimal weighedSum, decimal otherSum) =>
         (weighedSum > 0 ? Math.Floor(weighedSum * 100m) / 100m : RoundMoney(weighedSum)) + RoundMoney(otherSum);
 
+    /// <summary>2026-11-05 (сервер ceba67c, признак weight_line_total_floor): сервер считает <c>line_total</c> КАЖДОЙ весовой строки как FLOOR(цена × вес) до шага весов (минус скидка), а подытог —
+    /// как сумму строк (пример: 0,486 × 66 = 32,076 → 32,07). Подмена нужна тестам; по умолчанию — признак из capabilities (нет списка → прежнее правило).</summary>
+    public static Func<bool> WeightLineFloorEnabled { get; set; } = () => NurMarketKassa.Services.Api.ServerCapabilities.Has(NurMarketKassa.Services.Api.ServerCapabilities.WeightLineTotalFloor);
+
+    /// <summary>Шаг весов (scale_barcode_amount_unit компании): «som» — 1 сом, иначе «tiyin» — 0,01.</summary>
+    public static Func<decimal> WeightStep { get; set; } = () =>
+        string.Equals(UserPreferences.Instance.EffectiveScaleAmountUnit, "som", StringComparison.OrdinalIgnoreCase) ? 1m : 0.01m;
+
+    /// <summary>Вниз до шага (положительные значения); шаг ≤ 0 — до копейки.</summary>
+    public static decimal FloorToStep(decimal value, decimal step)
+    {
+        if (step <= 0m)
+            step = 0.01m;
+        return Math.Floor(value / step) * step;
+    }
+
+    /// <summary>Подытог чека: весовые строки (точные суммы цена × вес) + сумма остальных. Без признака weight_line_total_floor — прежнее правило (вниз от СУММЫ весовых);
+    /// с признаком — каждая весовая строка вниз до шага весов, потом сумма (сумма строк = подытог, как у сервера). Остальные — половина вверх от суммы, как раньше.</summary>
+    public static decimal Subtotal(IReadOnlyList<decimal> weighedLines, decimal otherSum)
+    {
+        if (!WeightLineFloorEnabled())
+            return Subtotal(weighedLines.Sum(), otherSum);
+        var step = WeightStep();
+        var weighed = weighedLines.Sum(x => x > 0 ? FloorToStep(x, step) : RoundMoney(x));
+        return weighed + RoundMoney(otherSum);
+    }
+
     /// <summary>2026-11-01: единственная точка округления денег чека — до 0,01, половина вверх (ROUND_HALF_UP сервера).</summary>
     public static decimal RoundMoney(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 

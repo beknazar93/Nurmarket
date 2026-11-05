@@ -89,6 +89,9 @@ public static class InvoiceNameData
             var c = char.ToLowerInvariant(ch);
             if (CyrToLat.TryGetValue(c, out var lat))
                 sb.Append(lat);
+            else if (c > 127 && char.IsLetter(c) && AnyAscii.Transliteration.Transliterate(c.ToString()) is { Length: > 0 } ascii)
+                // 2026-11-05: буква не из нашей таблицы (ş ğ ı ç ö ü ў ҳ ñ é и т. п.) — запасной транслит AnyAscii (ISC), «ş» → «s», «ў» → «u».
+                sb.Append(ascii.ToLowerInvariant());
             else
                 sb.Append(c);
         }

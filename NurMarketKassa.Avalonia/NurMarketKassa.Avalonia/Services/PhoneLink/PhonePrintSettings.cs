@@ -68,7 +68,7 @@ public sealed class PhonePrintSettings
 
     /// <summary>Настройки этой кассы: свой файл, id ПК — тот же, что в обмене по сети магазина (LAN).</summary>
     public static PhonePrintSettings Default => _default ??= new PhonePrintSettings(
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "data", "phone-print-settings.json"),
+        Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "data", "phone-print-settings.json"),
         () => LanSyncService.DeviceId,
         () => CompanyInfoService.LastCompany?.Id,
         () => SettingsCloudSync.ApiProvider?.Invoke());

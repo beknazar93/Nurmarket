@@ -506,7 +506,7 @@ public sealed class BonusAnalyticsData
 /// По умолчанию — где потратили. Хранится в своём JSON рядом с остальными данными программы (UserPreferences не трогаем).</summary>
 public static class BonusBranchRule
 {
-    private static string PathOf => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "bonus-branch-rule.json");
+    private static string PathOf => Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "bonus-branch-rule.json");
 
     /// <summary>true — расход бонуса несёт филиал, где бонус потратили; false — где начислили (по умолчанию, решение владельца 28.10:
     /// филиал-начислитель должен филиалу, где бонусы потратили, сумму потраченных там бонусов, 1 бонус = 1 сом).</summary>

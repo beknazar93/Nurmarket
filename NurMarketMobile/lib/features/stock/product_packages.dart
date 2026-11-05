@@ -385,7 +385,7 @@ class PackSection extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       piece < perPieceCost ? l.pkBelowCost(money(perPieceCost)) : l.pkMarkup(((piece - perPieceCost) / perPieceCost * 100).round()),
-                      style: TextStyle(color: piece < perPieceCost ? T.danger : T.success, fontWeight: FontWeight.w700),
+                      style: TextStyle(color: piece < perPieceCost ? context.pal.danger : context.pal.success, fontWeight: FontWeight.w700),
                     ),
                   ),
                 if (err != null)
@@ -394,7 +394,7 @@ class PackSection extends StatelessWidget {
                     child: Text(
                       err,
                       key: const Key('packError'),
-                      style: const TextStyle(color: T.danger, fontWeight: FontWeight.w700),
+                      style: TextStyle(color: context.pal.danger, fontWeight: FontWeight.w700),
                     ),
                   ),
                 if (problem == PackProblem.mismatch)
@@ -403,7 +403,7 @@ class PackSection extends StatelessWidget {
                     child: Text(
                       l.pkMismatch(_fmt(qty), money(piece), money(piece * qty), money(ctrl.packPrice)),
                       key: const Key('packWarn'),
-                      style: const TextStyle(color: T.warn, fontWeight: FontWeight.w700, fontSize: 12.5),
+                      style: TextStyle(color: context.pal.warn, fontWeight: FontWeight.w700, fontSize: 12.5),
                     ),
                   ),
               ],

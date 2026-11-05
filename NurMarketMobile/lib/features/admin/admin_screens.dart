@@ -514,7 +514,7 @@ class _ProductPriceScreenState extends ConsumerState<ProductPriceScreen> {
                             ),
                             Text(
                               '${l.onStockLabel}: ${qtyText(p.quantity)} ${p.unit}',
-                              style: TextStyle(fontSize: 12, color: isLowStock(p.quantity, p.minQuantity) ? T.warn : c.pal.textSoft),
+                              style: TextStyle(fontSize: 12, color: isLowStock(p.quantity, p.minQuantity) ? context.pal.warn : c.pal.textSoft),
                             ),
                           ],
                         ),
@@ -1237,7 +1237,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                                 if (r.debt > 0)
                                   Text(
                                     '${l.debt}: ${money(r.debt)} ${l.som}',
-                                    style: const TextStyle(color: T.danger, fontWeight: FontWeight.w700),
+                                    style: TextStyle(color: context.pal.danger, fontWeight: FontWeight.w700),
                                   ),
                               ],
                             ),
@@ -1402,7 +1402,7 @@ class _SupplierOrderScreenState extends ConsumerState<SupplierOrderScreen> {
 
   Future<void> _qty(String id) async {
     final line = _lines[id]!;
-    final v = await askNumber(context, title: context.l.orderQty, hint: line.$1, initial: line.$4);
+    final v = await askNumber(context, title: context.l.orderQty, hint: line.$1, initial: line.$4, kind: NumKind.qty);
     if (v == null) return;
     setState(() => v <= 0 ? _lines.remove(id) : _lines[id] = (line.$1, line.$2, line.$3, v));
   }

@@ -12,6 +12,7 @@ public sealed class CustomerDisplayStateService : ICustomerDisplayService
     private CustomerDisplayPaymentStatus _status = CustomerDisplayPaymentStatus.Idle;
     private string? _statusMessage;
     private string? _selectedBankQrPath;
+    private double? _qrAmount;
 
     public event Action? StateChanged;
 
@@ -49,6 +50,20 @@ public sealed class CustomerDisplayStateService : ICustomerDisplayService
     public void SetSelectedBankQrPath(string? qrPath)
     {
         _selectedBankQrPath = qrPath;
+        if (qrPath is null)
+            _qrAmount = null; // диалог оплаты закрыт — сумма QR сбрасывается вместе с выбором банка
+        StateChanged?.Invoke();
+    }
+
+    /// <summary>2026-11-05 (ревью п. 17): сумма динамического QR (безналичная часть смешанной оплаты); null — по итогу чека.</summary>
+    public double? QrAmount => _qrAmount;
+
+    public void SetQrAmount(double? amount)
+    {
+        var normalized = amount is > 0.004 ? amount : null;
+        if (_qrAmount == normalized)
+            return;
+        _qrAmount = normalized;
         StateChanged?.Invoke();
     }
 }

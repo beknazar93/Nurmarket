@@ -636,8 +636,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
         });
 
-        var path = file?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(path))
+        // 2026-11-05 (аудит №4, А4-07): на Android нет локального пути — пишем во временный файл и копируем в выбранный (ExportFileBridge).
+        var path = file is null ? null : NurMarketKassa.AvaloniaHost.Services.ExportFileBridge.PathFor(file);
+        if (file is null || string.IsNullOrWhiteSpace(path))
             return;
 
         try
@@ -654,6 +655,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
                 else
                     StockTransferExportService.ExportJournalToExcel(path!, transfers, TransferStatusText, shop);
             }).ConfigureAwait(true);
+            await NurMarketKassa.AvaloniaHost.Services.ExportFileBridge.CompleteAsync(file, path!).ConfigureAwait(true);
         }
         catch (Exception ex)
         {

@@ -602,7 +602,7 @@ public sealed class LanSyncService
     // ------------------------------------------------------------------ поиск соседей: этот ПК
 
     private static string RegistryDir => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NurMarketLan", "peers");
+        NurMarketKassa.Services.AppPaths.Local, "NurMarketLan", "peers");
 
     private sealed class RegistryEntry
     {
@@ -740,10 +740,16 @@ public sealed class LanSyncService
         }
     }
 
+    /// <summary>2026-11-05 (аудит №4, А4-10): крючок платформы перед поиском соседей. Android берёт здесь MulticastLock —
+    /// без него Wi-Fi Android отбрасывает широковещательные пакеты, и Android-касса не видит соседние кассы.</summary>
+    public static Action? BeforeDiscovery { get; set; }
+
     private void StartDiscovery(CancellationToken ct)
     {
         try
         {
+            try { BeforeDiscovery?.Invoke(); }
+            catch (Exception ex) { PosLogger.Log($"LAN: подготовка поиска соседей — {ex.Message}", "LAN"); }
             var udp = new UdpClient { ExclusiveAddressUse = false, EnableBroadcast = true };
             udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             udp.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryPort));

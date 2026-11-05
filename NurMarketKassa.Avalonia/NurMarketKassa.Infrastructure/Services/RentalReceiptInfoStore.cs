@@ -28,7 +28,7 @@ public static class RentalReceiptInfoStore
     private static Dictionary<int, RentalReceiptInfo>? _cache;
 
     private static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "rental-receipts.json");
+        NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "rental-receipts.json");
 
     public static void Save(RentalReceiptInfo info)
     {

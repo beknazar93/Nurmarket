@@ -442,7 +442,8 @@ public static class OfflineOperationsReplayer
         }
 
         // Поправка ящика: наличные выданы, а сервер остаток смены не уменьшил (долговой чек).
-        if (drawerBefore is { } before && DrawerReader is { } reader2 && DrawerCorrector is { } corrector)
+        // 2026-11-05 (сервер ceba67c, debt_return_drawer_cash): сервер сам снимает наличные при возврате долгового чека — поправку кассы не пишем (иначе дважды).
+        if (drawerBefore is { } before && DrawerReader is { } reader2 && DrawerCorrector is { } corrector && !NurMarketKassa.Services.Api.ServerCapabilities.Has(NurMarketKassa.Services.Api.ServerCapabilities.DebtReturnDrawerCash))
         {
             try
             {

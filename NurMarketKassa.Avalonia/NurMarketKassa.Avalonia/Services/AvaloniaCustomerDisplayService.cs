@@ -91,6 +91,8 @@ public sealed class AvaloniaCustomerDisplayService : ICustomerDisplayService, ID
 
     public void SetSelectedBankQrPath(string? qrPath) => _state.SetSelectedBankQrPath(qrPath);
 
+    public void SetQrAmount(double? amount) => _state.SetQrAmount(amount); // 2026-11-05 (ревью п. 17)
+
     public Task OpenAsync()
     {
         OpenManually();

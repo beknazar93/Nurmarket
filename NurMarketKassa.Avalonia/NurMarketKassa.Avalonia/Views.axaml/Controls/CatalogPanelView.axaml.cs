@@ -191,17 +191,48 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
         available -= 2; // запас на округление — иначе последняя плитка ряда переносится
         if (available < preferredWidth + TileSlotMargin)
             return;
-        var minWidth = Math.Max(150, preferredWidth * 0.85);
-        var columns = Math.Max(1, (int)Math.Ceiling(available / (preferredWidth + TileSlotMargin)));
+        // 2026-11-05 (аудит №4, Д4-36): в тесном окне (класс окна "compact" — моноблок 1024/1366, масштаб 125 %; "shortscreen" — ниже 640)
+        // плитки ниже и уже: на 1024×700 было 4 товара, на 125 % — 6. Название берёт до трёх строк, цена и остаток — как были.
+        var dense = _hostWindow is { } hw && (hw.Classes.Contains("compact") || hw.Classes.Contains("shortscreen"));
+        var slotWidth = dense ? Math.Max(150, preferredWidth * 0.8) : preferredWidth;
+        var tileHeight = dense ? Math.Round(Math.Max(140, preferredHeight * 0.72)) : preferredHeight;
+        var minWidth = dense ? Math.Max(140, preferredWidth * 0.7) : Math.Max(150, preferredWidth * 0.85);
+        var columns = Math.Max(1, (int)Math.Ceiling(available / (slotWidth + TileSlotMargin)));
         while (columns > 1 && available / columns - TileSlotMargin < minWidth)
             columns--;
         var width = Math.Floor(available / columns - TileSlotMargin);
         if (Resources.TryGetValue("CatalogTileWidth", out var oldW) && oldW is double ow && Math.Abs(ow - width) < 0.5
-            && Resources.TryGetValue("CatalogTileHeight", out var oldH) && oldH is double oh && Math.Abs(oh - preferredHeight) < 0.5)
+            && Resources.TryGetValue("CatalogTileHeight", out var oldH) && oldH is double oh && Math.Abs(oh - tileHeight) < 0.5)
             return;
         Resources["CatalogTileWidth"] = width;
-        Resources["CatalogTileHeight"] = preferredHeight;
+        Resources["CatalogTileHeight"] = tileHeight;
     }
+
+    // 2026-11-05 (Д4-36): окно кассы — по его классам "compact"/"shortscreen" плитки каталога становятся плотнее (см. FitTilesToRowDesktop).
+    private Window? _hostWindow;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (OperatingSystem.IsAndroid())
+            return;
+        if (_hostWindow is not null)
+            _hostWindow.Classes.CollectionChanged -= OnHostClassesChanged;
+        _hostWindow = e.Root as Window;
+        if (_hostWindow is not null)
+            _hostWindow.Classes.CollectionChanged += OnHostClassesChanged;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (_hostWindow is not null)
+            _hostWindow.Classes.CollectionChanged -= OnHostClassesChanged;
+        _hostWindow = null;
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnHostClassesChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        Dispatcher.UIThread.Post(FitTilesToRowDesktop, DispatcherPriority.Background);
 
     /// <summary>2026-10-19, К1: правая кнопка мыши или долгое нажатие по плитке — карточка товара (как значок «i»),
     /// только там, где значок показывается (одежда и услуги или у товара есть описание). Товар в чек не добавляется.</summary>

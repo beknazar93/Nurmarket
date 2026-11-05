@@ -18,7 +18,7 @@ public interface IPosLateAcceptApi
 }
 
 /// <summary>Итог проверки PIN владельца. Token — значение для X-Confirm-Token (значение в журнал не пишется). Rejected — сервер ЯВНО сказал «PIN неверен»; Unauthorized — 401/403 (сессия истекла/нет прав, попытка PIN не тратится).</summary>
-public readonly record struct OwnerPinResult(bool Accepted, bool Rejected, string? Token, string? Error, bool Unauthorized = false);
+public readonly record struct OwnerPinResult(bool Accepted, bool Rejected, string? Token, string? Error, bool Unauthorized = false, int? AttemptsLeft = null);
 
 public sealed partial class SalesApiService : IPosLateAcceptApi
 {
@@ -64,7 +64,8 @@ public sealed partial class SalesApiService : IPosLateAcceptApi
         }
         catch (ApiException ex) when (ex.StatusCode == 400 && IsExplicitWrongPin(ex))
         {
-            return new OwnerPinResult(false, true, null, null);
+            // 2026-11-05 (сервер ceba67c): 400 pin_invalid + attempts_left — сколько попыток осталось до блокировки (5 ошибок → 429 pin_locked на 15 минут).
+            return new OwnerPinResult(false, true, null, null, AttemptsLeft: ServerErrorCodes.AttemptsLeft(ex));
         }
         // 400 без явного указания на PIN и прочие ошибки уходят вызывающему как ApiException (общая ошибка сервера).
     }

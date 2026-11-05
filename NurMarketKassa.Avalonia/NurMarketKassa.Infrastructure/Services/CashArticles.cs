@@ -186,7 +186,7 @@ public static class CashArticles
     private static string CompanyKey => CompanyInfoService.LastCompany?.Id is { Length: > 0 } id ? id : "default";
 
     private static string CacheFilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "cash_articles.json");
+        NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "cash_articles.json");
 
     /// <summary>Справочник из кэша (память → файл) без запроса к серверу.</summary>
     public static IReadOnlyList<ServerCategory> CachedCategories()

@@ -75,8 +75,8 @@ public static class VariantBarcodeIndex
         {
             var company = CompanyInfoService.LastCompany?.Id;
             if (!string.IsNullOrWhiteSpace(company) && company.All(ch => char.IsLetterOrDigit(ch) || ch == '-'))
-                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketShared", company, "variant_barcodes.json");
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "variant_barcodes.json");
+                return Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, "NurMarketShared", company, "variant_barcodes.json");
+            return Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "variant_barcodes.json");
         }
     }
 

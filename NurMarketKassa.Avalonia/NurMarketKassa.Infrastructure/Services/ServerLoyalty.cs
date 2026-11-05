@@ -40,7 +40,7 @@ public static class ServerLoyalty
 
     private static NurMarketApiClient? Api => ApiProvider?.Invoke() is { } api && !string.IsNullOrEmpty(api.AccessToken) ? api : null;
 
-    private static string DataDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName);
+    private static string DataDir => Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName);
 
     private static string QueuePath => Path.Combine(DataDir, "loyalty-queue.json");
 
@@ -165,6 +165,20 @@ public static class ServerLoyalty
         if (Api is not { } api)
             return SendResult.NoConnection;
         var key = OpKey(op);
+        // 2026-11-05 (сервер ceba67c, idempotency_lookup_bonus_transfers): повторная отправка из очереди (первая уже была давно) — сначала спросить журнал сервера по ключу:
+        // done — операция уже проведена, не повторяем; in_progress — сервер ещё выполняет, не повторяем (подождём следующего сброса очереди); failed — повторим тем же ключом.
+        if (DateTime.UtcNow - op.AtUtc > TimeSpan.FromSeconds(20))
+        {
+            switch (await NurMarketKassa.Services.Api.IdempotencyJournal.CheckAsync(api, key).ConfigureAwait(false))
+            {
+                case NurMarketKassa.Services.Api.IdempotencyVerdict.Done:
+                    PosLogger.Log($"Бонусы: операция {op.Reason} {op.Delta:+0.##;-0.##} уже проведена на сервере (журнал ключей) — повтор не нужен.", "INFO");
+                    return SendResult.Done;
+                case NurMarketKassa.Services.Api.IdempotencyVerdict.InProgress:
+                    PosLogger.Log($"Бонусы: операция {op.Reason} {op.Delta:+0.##;-0.##} ещё выполняется на сервере — повтор позже, не дублируем.", "INFO");
+                    return SendResult.NoConnection; // не считаем попыткой сервера: очередь вернётся к ней при следующем сбросе
+            }
+        }
         var body = new Dictionary<string, object?> { ["delta"] = Inv(op.Delta), ["reason"] = op.Reason, ["idempotency_key"] = key };
         if (!string.IsNullOrWhiteSpace(op.SaleId))
             body["sale"] = op.SaleId;

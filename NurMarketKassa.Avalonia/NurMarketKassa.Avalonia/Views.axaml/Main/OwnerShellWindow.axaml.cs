@@ -279,6 +279,11 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-30: сессия недействительна — одно окно «Сессия истекла. Войдите снова» (права и данные не сбрасываются).
         var sessionPrompt = NurMarketKassa.AvaloniaHost.Services.SessionExpiredPrompt.Attach(this, SignOutAsync);
         Closed += (_, _) => sessionPrompt.Dispose();
+        // 2026-11-05 (аудит №4, Л4-11): раз в минуту — закрыть спрятанные разделы, которые давно не открывали (память).
+        var idleSectionsTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        idleSectionsTimer.Tick += (_, _) => TrimIdleHiddenSections();
+        Opened += (_, _) => idleSectionsTimer.Start();
+        Closed += (_, _) => idleSectionsTimer.Stop();
         Tr.LanguageChanged += OnLanguageChanged;
         LanSyncService.Instance.PeerDataChanged += OnLanPeerData;
         PosDataEvents.SalesChanged += OnSalesChangedForAbc;
@@ -889,6 +894,9 @@ public partial class OwnerShellWindow : Window, IMainShell
 
         /// <summary>2026-10-20: номер последнего показа — кого из спрятанных закрыть первым (TrimHiddenSections).</summary>
         public long LastShown { get; set; }
+
+        /// <summary>2026-11-05 (аудит №4, Л4-11): с какого момента раздел спрятан; null — показан сейчас (TrimIdleHiddenSections).</summary>
+        public DateTime? HiddenSince { get; set; }
     }
 
     /// <summary>2026-10-20, живой аудит (п. 9, память): к концу аудита ≈ 25 спрятанных разделов держали 933 МБ рабочего
@@ -1051,9 +1059,15 @@ public partial class OwnerShellWindow : Window, IMainShell
         PlaceRentalAlert();
         foreach (var other in _sections)
         {
-            if (!ReferenceEquals(other, section) && other.Window.IsVisible)
-                other.Window.Hide();
+            if (!ReferenceEquals(other, section))
+            {
+                if (other.Window.IsVisible)
+                    other.Window.Hide();
+                other.HiddenSince ??= DateTime.UtcNow; // 2026-11-05 (Л4-11): отсчёт простоя спрятанного раздела
+            }
         }
+        if (section != null)
+            section.HiddenSince = null;
         // 2026-10-20, память: лишние спрятанные разделы — закрыть.
         TrimHiddenSections();
 
@@ -1183,6 +1197,24 @@ public partial class OwnerShellWindow : Window, IMainShell
                 ScheduleHeavySectionClose(section);
             else if (++kept > HiddenSectionsKept)
                 CloseHiddenSection(section, "давно не открывали");
+        }
+    }
+
+    /// <summary>2026-11-05 (аудит №4, Л4-11): спрятанный раздел, который не открывали дольше IdleCloseAfter и где нет реально несохранённого
+    /// ввода (SectionBusy), закрывается — освобождает ~37 МБ дерева элементов. Раньше «давно не открывали» срабатывало только при открытии
+    /// другого раздела и пропускало всё, где общий признак ввода «залип». Вкладка и период вернутся при следующем открытии (CaptureSectionState).</summary>
+    private static readonly TimeSpan IdleCloseAfter = TimeSpan.FromMinutes(10);
+
+    private void TrimIdleHiddenSections()
+    {
+        if (_closingAllSections)
+            return;
+        var now = DateTime.UtcNow;
+        foreach (var section in _sections.Where(s => !ReferenceEquals(s, _activeSection) && s.HiddenSince is { } since && now - since >= IdleCloseAfter).ToList())
+        {
+            if (section.Window.IsVisible || SectionBusy(section))
+                continue;
+            CloseHiddenSection(section, "простой больше 10 минут");
         }
     }
 

@@ -460,25 +460,77 @@ public sealed class SupplierApiService
     // 2026-10-31: признак receipt_delete из GET main/capabilities/ — кнопка «Удалить» в «Истории закупок» показывается только при нём (ТЗ бэкенду п. 30).
     // 2026-11-01 (контрольное ревью): запрос, разбор и кэш общие с остальными признаками — ServerCapabilities (кэш привязан к аккаунту).
     public async Task<bool> CanDeleteReceiptsAsync(CancellationToken ct = default) =>
-        await ServerCapabilities.HasAsync(_api, "receipt_delete", ct).ConfigureAwait(false);
+        await ServerCapabilities.HasAsync(_api, ServerCapabilities.ReceiptDelete, ct).ConfigureAwait(false);
 
     /// <summary>2026-10-31: удаление (аннулирование) прихода DELETE suppliers/receipts/{id}/ с Idempotency-Key и причиной
     /// (ТЗ бэкенду п. 30). Сервер откатывает остаток и долг поставщику; отказы 409 — has_sales_after / has_returns /
     /// debt_already_paid / period_closed, 403 — нет права: текст берётся из ответа (ApiException.Message).</summary>
-    public async Task DeleteReceiptAsync(string receiptId, string reason, string idempotencyKey, CancellationToken ct = default)
+    /// <param name="knownVersion">2026-11-05 (сервер ceba67c, receipt_version_required): версия прихода, которую видит окно; 0 — неизвестна (тогда читаем приход). Касса шлёт её в If-Match и
+    /// в теле (version): без неё сервер отвечает 428 version_required. 428 — перечитать приход и повторить с версией; 412 — версия устарела: перечитать и повторить с НОВЫМ ключом.</param>
+    public async Task DeleteReceiptAsync(string receiptId, string reason, string idempotencyKey, CancellationToken ct = default, int knownVersion = 0)
     {
         if (string.IsNullOrWhiteSpace(idempotencyKey))
             throw new ArgumentException("Idempotency-Key обязателен.", nameof(idempotencyKey));
-        var headers = new Dictionary<string, string> { ["Idempotency-Key"] = idempotencyKey.Trim() };
         InvalidateSummaries(); // долг поставщику меняется — кэш сводок устарел
         try
         {
-            await _api.RequestWithHeadersAsync(HttpMethod.Delete, $"api/main/suppliers/receipts/{Esc(receiptId)}/",
-                new Dictionary<string, object?> { ["reason"] = reason.Trim() }, headers, ct, TimeSpan.FromSeconds(40)).ConfigureAwait(false);
+            var version = knownVersion > 0 ? knownVersion : await ReadReceiptVersionAsync(receiptId, ct).ConfigureAwait(false);
+            var key = idempotencyKey.Trim();
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    await SendDeleteReceiptAsync(receiptId, reason, key, version, ct).ConfigureAwait(false);
+                    return;
+                }
+                catch (ApiException ex) when (attempt == 1 && ex.StatusCode == 428)
+                {
+                    // версия не была отправлена или не принята как обязательная: узнаём текущую (из ответа или чтением прихода) и повторяем тем же ключом — запрос отклонён до обработки
+                    version = CurrentVersionFrom(ex) ?? await ReadReceiptVersionAsync(receiptId, ct).ConfigureAwait(false);
+                    PosLogger.Log($"Закупки: удаление прихода {receiptId} — 428 version_required, повтор с версией {version}.", "INFO");
+                }
+                catch (ApiException ex) when (attempt == 1 && ex.StatusCode == 412)
+                {
+                    // версия устарела (приход правили на другом устройстве): перечитать и повторить с НОВЫМ ключом
+                    version = await ReadReceiptVersionAsync(receiptId, ct).ConfigureAwait(false);
+                    key = Guid.NewGuid().ToString();
+                    PosLogger.Log($"Закупки: удаление прихода {receiptId} — 412, приход перечитан (версия {version}), повтор с новым ключом.", "INFO");
+                }
+            }
         }
         finally
         {
             InvalidateSummaries();
+        }
+    }
+
+    private async Task SendDeleteReceiptAsync(string receiptId, string reason, string key, int version, CancellationToken ct)
+    {
+        var headers = new Dictionary<string, string> { ["Idempotency-Key"] = key };
+        var body = new Dictionary<string, object?> { ["reason"] = reason.Trim() };
+        if (version > 0)
+        {
+            headers["If-Match"] = "\"" + version.ToString(CultureInfo.InvariantCulture) + "\"";
+            body["version"] = version;
+        }
+        await _api.RequestWithHeadersAsync(HttpMethod.Delete, $"api/main/suppliers/receipts/{Esc(receiptId)}/", body, headers, ct, TimeSpan.FromSeconds(40)).ConfigureAwait(false);
+    }
+
+    /// <summary>current_version из тела 428/412; null — не прислан.</summary>
+    internal static int? CurrentVersionFrom(ApiException ex) =>
+        ex.Payload is { } p && ServerErrorCodes.Number(p, "current_version") is { } n && n > 0 ? (int)n : null;
+
+    /// <summary>Текущая версия прихода на сервере (GET suppliers/receipts/{id}/); 0 — сервер её не отдаёт.</summary>
+    private async Task<int> ReadReceiptVersionAsync(string receiptId, CancellationToken ct)
+    {
+        try
+        {
+            return (await GetReceiptAsync(receiptId, ct).ConfigureAwait(false)).Version;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Закупки: версия прихода {receiptId} не прочитана ({ex.Message}).", "WARNING");
+            return 0;
         }
     }
 
@@ -497,15 +549,33 @@ public sealed class SupplierApiService
         if (string.IsNullOrWhiteSpace(idempotencyKey))
             throw new ArgumentException("Idempotency-Key обязателен.", nameof(idempotencyKey));
         var headers = new Dictionary<string, string> { ["Idempotency-Key"] = idempotencyKey.Trim() };
-        if (version > 0)
+        // 2026-11-05 (сервер ceba67c, receipt_version_required): PATCH без версии получает 428 — версия уходит ВСЕГДА (If-Match + version). Версия не известна окну — читаем приход.
+        if (version <= 0 && ServerCapabilities.Cached(ServerCapabilities.ReceiptVersionRequired) != false)
+            version = await ReadReceiptVersionAsync(receiptId, ct).ConfigureAwait(false);
+        void ApplyVersion()
         {
+            if (version <= 0)
+                return;
             headers["If-Match"] = "\"" + version.ToString(CultureInfo.InvariantCulture) + "\"";
             body["version"] = version;
         }
+        ApplyVersion();
         try
         {
-            var (data, _) = await _api.RequestWithHeadersAsync(HttpMethod.Patch, $"api/main/suppliers/receipts/{Esc(receiptId)}/", body, headers, ct, TimeSpan.FromSeconds(60)).ConfigureAwait(false);
-            return data;
+            try
+            {
+                var (data, _) = await _api.RequestWithHeadersAsync(HttpMethod.Patch, $"api/main/suppliers/receipts/{Esc(receiptId)}/", body, headers, ct, TimeSpan.FromSeconds(60)).ConfigureAwait(false);
+                return data;
+            }
+            catch (ApiException ex) when (ex.StatusCode == 428)
+            {
+                // 428 version_required: запрос отклонён до обработки — узнаём версию (current_version в ответе или чтением прихода) и повторяем один раз тем же ключом
+                version = CurrentVersionFrom(ex) ?? await ReadReceiptVersionAsync(receiptId, ct).ConfigureAwait(false);
+                PosLogger.Log($"Закупки: правка прихода {receiptId} — 428 version_required, повтор с версией {version}.", "INFO");
+                ApplyVersion();
+                var (data, _) = await _api.RequestWithHeadersAsync(HttpMethod.Patch, $"api/main/suppliers/receipts/{Esc(receiptId)}/", body, headers, ct, TimeSpan.FromSeconds(60)).ConfigureAwait(false);
+                return data;
+            }
         }
         finally
         {

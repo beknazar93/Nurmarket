@@ -134,7 +134,7 @@ class _GeminiKeysScreenState extends ConsumerState<GeminiKeysScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(c, true),
-            child: Text(l.gkDelete, style: TextStyle(color: T.danger)),
+            child: Text(l.gkDelete, style: TextStyle(color: context.pal.danger)),
           ),
         ],
       ),

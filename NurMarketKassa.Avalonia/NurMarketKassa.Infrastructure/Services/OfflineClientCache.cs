@@ -43,7 +43,7 @@ public static class OfflineClientCache
     };
 
     public static string FilePath { get; set; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         AppMode.DataFolderName,
         "offline_clients.json");
 

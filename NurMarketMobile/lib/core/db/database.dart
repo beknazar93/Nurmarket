@@ -311,21 +311,28 @@ class AppDatabase extends _$AppDatabase {
 
   /// 2026-10-31 (мобилка «не все товары»): условие поиска вынесено — один и тот же фильтр для списка (_searchRows) и для счётчика
   /// «Найдено M» ([countProducts]); счётчик раньше брали из длины окна, а не из базы.
+  /// 2026-11-05 (М6-31): `%` и `_` в тексте запроса — шаблон LIKE, а не буквы; убираем, чтобы запрос «50%» не находил всё подряд.
+  static String _likeSafe(String t) => t.replaceAll('%', '').replaceAll('_', '');
+
   Expression<bool> _searchWhere($ProductsTable p, String query, SearchQuery sq, {required bool fuzzy, String? category, required bool favorites, Expression<bool> Function($ProductsTable p)? extra}) {
     Expression<bool> e = const Constant(true);
     if (!sq.isEmpty) {
       // каждое слово запроса — в любом месте ключа («кола 2л» найдёт «Кока-Кола (ПЭТ) 2л»)
       Expression<bool> text = const Constant(true);
       for (var i = 0; i < sq.tokens.length; i++) {
-        Expression<bool> one = p.searchKey.like('%${sq.tokens[i]}%');
+        Expression<bool> one = p.searchKey.like('%${_likeSafe(sq.tokens[i])}%');
         if (fuzzy) {
           for (final v in sq.variants[i]) {
-            one = one | p.searchKey.like('%$v%');
+            one = one | p.searchKey.like('%${_likeSafe(v)}%');
           }
         }
         text = text & one;
       }
-      e = text | p.barcode.equals(query.trim()) | p.altBarcodes.like('%${query.trim()}%');
+      e = text | p.barcode.equals(query.trim());
+      // 2026-11-05 (аудит №4, М6-31): по дополнительным штрихкодам — только если в запросе 4+ цифры (раньше «5» добавлял в выдачу
+      // сотни товаров, у которых в доп. штрихкоде есть «5»)
+      final digits = query.trim();
+      if (RegExp(r'^\d{4,}$').hasMatch(digits)) e = e | p.altBarcodes.like('%$digits%');
     }
     if (category != null && category.isNotEmpty) e = e & p.category.equals(category);
     if (favorites) e = e & p.isFavorite.equals(true);

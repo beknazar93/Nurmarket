@@ -126,6 +126,9 @@ public sealed class PosCheckoutResult
     /// (журнал PRICE_SYNC пишется в сервисе оплаты). null — расхождений нет или сервер поле не прислал.</summary>
     public string? PriceMismatchNote { get; set; }
 
+    /// <summary>2026-11-05 (сервер ceba67c, warnings.lines_merged): продажа проведена, сервер объединил одинаковые строки чека — ненавязчивый тост «одинаковые строки объединены». null — нет.</summary>
+    public string? ServerWarningNote { get; set; }
+
     public static PosCheckoutResult Succeeded(
         double total,
         string? cartJson,

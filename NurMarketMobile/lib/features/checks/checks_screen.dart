@@ -156,6 +156,29 @@ class _ChecksScreenState extends ConsumerState<ChecksScreen> {
                 onSelectionChanged: (s) => setState(() => _unsent = s.first),
               ),
             ),
+            // 2026-11-05 (аудит №4, М6-05): сервер не отвечает — продажи ждут и уходят сами с нарастающей паузой (в «Не принято» не попадают)
+            if (_unsent && ref.read(syncProvider).serverDownSince != null)
+              Padding(
+                key: const Key('serverDownBar'),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: pal.warnSoft, borderRadius: BorderRadius.circular(12)),
+                  child: Row(
+                    children: [
+                      Icon(Icons.cloud_off_rounded, color: pal.warn, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.syncServerDown(TimeOfDay.fromDateTime(ref.read(syncProvider).serverDownSince!).format(context), ref.read(syncProvider).serverDownWaiting),
+                          style: TextStyle(color: pal.warn, fontSize: 12.5, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
               child: TextField(
@@ -248,17 +271,17 @@ class _CheckTile extends StatelessWidget {
               if (r.pending)
                 Text(
                   foreign ? l.otherAccount : (r.local?.lastError != null && r.local!.status == 'failed' ? l.notAccepted : l.waitsForNetwork),
-                  style: TextStyle(fontSize: 11.5, color: r.local?.status == 'failed' ? T.danger : T.warn, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 11.5, color: r.local?.status == 'failed' ? context.pal.danger : context.pal.warn, fontWeight: FontWeight.w700),
                 )
               else if (returned)
                 Text(
                   l.returned,
-                  style: const TextStyle(fontSize: 11.5, color: T.danger, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 11.5, color: context.pal.danger, fontWeight: FontWeight.w700),
                 )
               else if (partly)
                 Text(
                   l.returnedPartly,
-                  style: const TextStyle(fontSize: 11.5, color: T.warn, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 11.5, color: context.pal.warn, fontWeight: FontWeight.w700),
                 ),
             ],
           ),
@@ -380,10 +403,10 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
               decoration: BoxDecoration(color: context.pal.warnSoft, borderRadius: BorderRadius.circular(12)),
               child: Row(
                 children: [
-                  const Icon(Icons.wifi_off_rounded, color: T.warn, size: 18),
+                  Icon(Icons.wifi_off_rounded, color: context.pal.warn, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(r.local?.lastError ?? l.offlineCheckHint, style: const TextStyle(color: T.warn, fontSize: 12.5)),
+                    child: Text(r.local?.lastError ?? l.offlineCheckHint, style: TextStyle(color: context.pal.warn, fontSize: 12.5)),
                   ),
                 ],
               ),
@@ -460,6 +483,7 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
           if (!r.pending && _sale != null && !checkFullyReturned(r.status, _sale)) ...[
             const SizedBox(height: 8),
             OutlinedButton.icon(
+              key: const Key('checkReturnBtn'), // 2026-11-05 (E2E)
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), foregroundColor: T.danger),
               onPressed: () async {
                 if (!checkAccess(context, ref, Session.employeeReturn)) return;

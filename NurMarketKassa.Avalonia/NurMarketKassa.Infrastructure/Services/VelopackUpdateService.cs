@@ -22,6 +22,10 @@ namespace NurMarketKassa.Services;
 /// </summary>
 public sealed class VelopackUpdateService : IAppUpdateService
 {
+    /// <summary>2026-11-05 (аудит скорости, Н-16): один клиент для GitHub REST (список выпусков, заметки, тестовая версия) со сроком 15 с
+    /// вместо new HttpClient() со сроком по умолчанию 100 с на каждый вызов. Без входа GitHub даёт 60 запросов в час на IP.</summary>
+    private static readonly HttpClient GitHubHttp = ExternalHttp.Create(TimeSpan.FromSeconds(15), "NurMarketKassa-Kassa");
+
     private static readonly Regex GithubApiUrlPattern = new(
         @"api\.github\.com/repos/(?<owner>[^/]+)/(?<repo>[^/]+)/releases",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -290,8 +294,7 @@ public sealed class VelopackUpdateService : IAppUpdateService
     private static async Task<List<(string Tag, string Version)>> ListReleaseTagsWithFullPackageAsync(
         (string Owner, string Repo) repo, string appId, CancellationToken cancellationToken)
     {
-        using var http = new HttpClient();
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("NurMarketKassa-Kassa");
+        var http = GitHubHttp; // 2026-11-05 (Н-16): общий клиент вместо new HttpClient() на каждый вызов
         var url = $"https://api.github.com/repos/{repo.Owner}/{repo.Repo}/releases?per_page=30";
         using var response = await http.GetAsync(url, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
@@ -352,8 +355,7 @@ public sealed class VelopackUpdateService : IAppUpdateService
 
         try
         {
-            using var http = new HttpClient();
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("NurMarketKassa-Kassa");
+            var http = GitHubHttp; // 2026-11-05 (Н-16)
             var url = $"https://api.github.com/repos/{repo.Value.Owner}/{repo.Value.Repo}/releases/tags/v{version}";
             using var response = await http.GetAsync(url, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -422,8 +424,7 @@ public sealed class VelopackUpdateService : IAppUpdateService
 
         try
         {
-            using var http = new HttpClient();
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("NurMarketKassa-Kassa");
+            var http = GitHubHttp; // 2026-11-05 (Н-16)
             using var response = await http
                 .GetAsync($"https://api.github.com/repos/{repo.Value.Owner}/{repo.Value.Repo}/releases?per_page=10", cancellationToken)
                 .ConfigureAwait(false);
@@ -441,7 +442,8 @@ public sealed class VelopackUpdateService : IAppUpdateService
                     return tag;
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // 2026-11-05 (Н-16): срок запроса к GitHub (15 с) — не отмена; раньше исключение срока уходило наверх.
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
             PosLogger.Log($"Проверка тестовой версии не удалась: {ex.Message}", "DEBUG");
         }

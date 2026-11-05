@@ -13,6 +13,12 @@ public static class SectionTableExport
 
     public static void ExportToExcel(string path, SectionTable table, string? shopName)
     {
+        // 2026-11-05: очень длинная таблица (больше ~5000 строк) — потоковая запись MiniExcel без стилей: память почти не растёт.
+        if (LargeExcelWriter.IsLarge(table.Rows.Count))
+        {
+            LargeExcelWriter.Write(path, table.Title.Length > 28 ? table.Title[..28] : table.Title, table.Columns, table.Rows);
+            return;
+        }
         var meta = ReportMeta.Create(table.Title, shopName, table.Period);
         using var book = new ExcelWorkbookBuilder(path, meta);
         var name = table.Title.Length > 28 ? table.Title[..28] : table.Title;

@@ -146,7 +146,7 @@ public static class SaleDocumentHtmlBuilder
 
         var pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         var pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var local = NurMarketKassa.Services.AppPaths.Local;
         var browsers = new[]
         {
             Path.Combine(pf86, @"Microsoft\Edge\Application\msedge.exe"),

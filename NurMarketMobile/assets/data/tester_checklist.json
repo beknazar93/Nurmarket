@@ -4190,6 +4190,476 @@
           "Dil paketi olmadan «Dil»i açın: İngilizce, Türkçe ve Özbekçe kilitlidir («Dil paketi bağlı değil»)."
         ]
       }
+    },
+    {
+      "id": "1.18.18/cart-delete-rights",
+      "version": "1.18.18",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "«Очистить чек» и «−» — только с правом и с записью в журнал",
+        "ky": "«Чекти тазалоо» жана «−» — укук менен жана журналга жазуу менен",
+        "en": "“Clear receipt” and “−” need the right and are logged",
+        "tr": "«Fişi temizle» ve «−» — yetki gerekir ve günlüğe yazılır",
+        "uz": "«Chekni tozalash» va «−» — huquq bilan va jurnalga yozib"
+      },
+      "changed": {
+        "ru": "Кнопка «Очистить чек» и «−» (и ввод меньшего количества) теперь требуют право «удаление из чека», как на кассе. «Очистить чек» спрашивает подтверждение и пишет каждую строку в «Удалено из чека». Команды ИИ делают то же самое. Удаление отложенного чека тоже с вопросом и правом.",
+        "ky": "«Чекти тазалоо» баскычы жана «−» (азыраак сан киргизүү) эми кассадагыдай «чектен өчүрүү» укугун талап кылат. «Чекти тазалоо» ырастоону сурайт жана ар бир сапты «Чектен өчүрүлдү» журналына жазат. ИИ буйруктары да ушундай. Кечиктирилген чекти өчүрүү да суроо жана укук менен.",
+        "en": "The “Clear receipt” button and “−” (and entering a smaller quantity) now require the “delete from receipt” right, as on the till. “Clear receipt” asks for confirmation and writes every line to “Removed from receipt”. AI commands do the same. Deleting a held receipt also asks and checks the right.",
+        "tr": "«Fişi temizle» düğmesi ve «−» (ve daha küçük miktar girişi) artık kasadaki gibi «fişten silme» yetkisi ister. «Fişi temizle» onay sorar ve her satırı «Fişten silindi» günlüğüne yazar. Yapay zekâ komutları da aynısını yapar. Bekleyen fişi silmek de soru ve yetki ister.",
+        "uz": "«Chekni tozalash» tugmasi va «−» (va kichikroq miqdor kiritish) endi kassadagidek «chekdan o'chirish» huquqini talab qiladi. «Chekni tozalash» tasdiq so'raydi va har bir qatorni «Chekdan o'chirildi» jurnaliga yozadi. AI buyruqlari ham shunday. Kechiktirilgan chekni o'chirish ham savol va huquq bilan."
+      },
+      "steps": {
+        "ru": [
+          "Войдите кассиром без права «удаление из чека» (владелец отключает его на сайте), наберите 3 товара.",
+          "«⋯ → Очистить чек» и «−» у строки: «Нет доступа», чек не меняется.",
+          "Войдите с правом: «Очистить чек» спрашивает подтверждение; после «Очистить» в «Удалено из чека» по строке на каждый товар; «−» пишет разницу."
+        ],
+        "ky": [
+          "«Чектен өчүрүү» укугу жок кассир менен кириңиз (ээси сайтта өчүрөт), 3 товар терип коюңуз.",
+          "«⋯ → Чекти тазалоо» жана саптагы «−»: «Мүмкүнчүлүк жок», чек өзгөрбөйт.",
+          "Укук менен кириңиз: «Чекти тазалоо» ырастоону сурайт; «Тазалоодон» кийин «Чектен өчүрүлдү» журналында ар бир товар үчүн сап; «−» айырманы жазат."
+        ],
+        "uz": [
+          "«Chekdan o'chirish» huquqisiz kassir bilan kiring (egasi saytda o'chiradi), 3 ta tovar kiriting.",
+          "«⋯ → Chekni tozalash» va qatordagi «−»: «Ruxsat yo'q», chek o'zgarmaydi.",
+          "Huquq bilan kiring: «Chekni tozalash» tasdiq so'raydi; «Tozalash»dan keyin «Chekdan o'chirildi» jurnalida har bir tovar uchun qator; «−» farqni yozadi."
+        ],
+        "en": [
+          "Sign in as a cashier without the “delete from receipt” right (the owner switches it off on the site) and add 3 products.",
+          "“⋯ → Clear receipt” and the line “−”: “No access”, the receipt does not change.",
+          "Sign in with the right: “Clear receipt” asks for confirmation; after “Clear” the “Removed from receipt” log has a line for every product; “−” logs the difference."
+        ],
+        "tr": [
+          "«Fişten silme» yetkisi olmayan kasiyerle girin (sahibi sitede kapatır), 3 ürün ekleyin.",
+          "«⋯ → Fişi temizle» ve satırdaki «−»: «Erişim yok», fiş değişmez.",
+          "Yetkiyle girin: «Fişi temizle» onay sorar; «Temizle»den sonra «Fişten silindi» günlüğünde her ürün için satır olur; «−» farkı yazar."
+        ]
+      }
+    },
+    {
+      "id": "1.18.18/server-outage-queue",
+      "version": "1.18.18",
+      "area": "other",
+      "severity": "money",
+      "title": {
+        "ru": "Сервер не отвечает — продажи ждут и уходят сами",
+        "ky": "Сервер жооп бербейт — сатуулар күтөт жана өзү кетет",
+        "en": "Server down — sales wait and go on their own",
+        "tr": "Sunucu yanıt vermiyor — satışlar bekler ve kendiliğinden gider",
+        "uz": "Server javob bermaydi — sotuvlar kutadi va o'zi ketadi"
+      },
+      "changed": {
+        "ru": "При ответах сервера 502/503/504/408/429 (и 500 — до 8 попыток) продажи из очереди больше не уходят в «Не принято» через минуту: телефон повторяет с паузой 20 с → 40 с → 80 с … до 10 минут. В «Чеки → Не отправленные» горит плашка «Сервер не отвечает с ЧЧ:ММ».",
+        "ky": "Сервер 502/503/504/408/429 (жана 500 — 8 аракетке чейин) деп жооп бергенде, кезектеги сатуулар бир мүнөттөн кийин «Кабыл алынган жок» болуп калбайт: телефон 20 с → 40 с → 80 с … 10 мүнөткө чейин тыныгуу менен кайталайт. «Чектер → Жөнөтүлгөн жок» бөлүмүндө «Сервер ЧЧ:ММ бери жооп бербейт» плашкасы жанат.",
+        "en": "On server answers 502/503/504/408/429 (and 500 — up to 8 attempts) queued sales no longer go to “Not accepted” after a minute: the phone retries with a pause of 20 s → 40 s → 80 s … up to 10 minutes. “Receipts → Unsent” shows a “Server not answering since HH:MM” banner.",
+        "tr": "Sunucu 502/503/504/408/429 (ve 500 — 8 denemeye kadar) yanıtı verirse kuyruktaki satışlar bir dakika sonra «Kabul edilmedi»ye düşmez: telefon 20 sn → 40 sn → 80 sn … 10 dakikaya kadar bekleyerek yeniden dener. «Fişler → Gönderilmeyenler»de «Sunucu SS:DD'den beri yanıt vermiyor» uyarısı görünür.",
+        "uz": "Server 502/503/504/408/429 (va 500 — 8 martagacha) javob berganda navbatdagi sotuvlar bir daqiqadan keyin «Qabul qilinmadi»ga tushmaydi: telefon 20 s → 40 s → 80 s … 10 daqiqagacha pauza bilan takrorlaydi. «Cheklar → Yuborilmagan»da «Server SS:DD dan beri javob bermayapti» belgisi chiqadi."
+      },
+      "steps": {
+        "ru": [
+          "Поставьте тестовому серверу ответ 502 (с Умаром) или отключите интернет на 2 минуты и проведите 2 продажи за наличные.",
+          "«Чеки → Не отправленные»: обе продажи «ждут связи», плашка «Сервер не отвечает», ни одной «Не принято».",
+          "Верните связь: продажи уходят сами по порядку, «Закрыть смену» после этого проходит."
+        ],
+        "ky": [
+          "Сыноо серверине 502 жообун койдуруңуз (Умар менен) же интернетти 2 мүнөткө өчүрүп, накталай 2 сатуу өткөрүңүз.",
+          "«Чектер → Жөнөтүлгөн жок»: эки сатуу тең «байланышты күтөт», «Сервер жооп бербейт» плашкасы, бир дагы «Кабыл алынган жок» жок.",
+          "Байланышты кайтарыңыз: сатуулар өзү иретти сактап кетет, андан кийин «Сменаны жабуу» өтөт."
+        ],
+        "uz": [
+          "Sinov serveriga 502 javobini qo'ying (Umar bilan) yoki internetni 2 daqiqaga o'chirib, naqd 2 ta sotuv o'tkazing.",
+          "«Cheklar → Yuborilmagan»: ikkala sotuv «aloqani kutadi», «Server javob bermayapti» belgisi, birortasi ham «Qabul qilinmadi» emas.",
+          "Aloqani qaytaring: sotuvlar o'zi tartib bilan ketadi, shundan keyin «Smenani yopish» o'tadi."
+        ],
+        "en": [
+          "Make the test server answer 502 (with Umar) or switch the internet off for 2 minutes and complete 2 cash sales.",
+          "“Receipts → Unsent”: both sales are “waiting for connection”, the “Server not answering” banner shows, none is “Not accepted”.",
+          "Restore the connection: the sales go by themselves in order, and “Close shift” then works."
+        ],
+        "tr": [
+          "Test sunucusuna 502 yanıtı verdirin (Umar ile) veya interneti 2 dakika kapatıp 2 nakit satış yapın.",
+          "«Fişler → Gönderilmeyenler»: iki satış da «bağlantı bekliyor», «Sunucu yanıt vermiyor» uyarısı görünür, hiçbiri «Kabul edilmedi» olmaz.",
+          "Bağlantıyı geri getirin: satışlar sırayla kendiliğinden gider, ardından «Vardiyayı kapat» çalışır."
+        ]
+      }
+    },
+    {
+      "id": "1.18.18/receipt-rounding",
+      "version": "1.18.18",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Бумажный чек сходится до копейки: строка «Округление»",
+        "ky": "Кагаз чек тыйынына чейин дал келет: «Тегеректөө» сабы",
+        "en": "The paper receipt adds up to the cent: a “Rounding” line",
+        "tr": "Kağıt fiş kuruşu kuruşuna tutar: «Yuvarlama» satırı",
+        "uz": "Qog'oz chek tiyinigacha to'g'ri keladi: «Yaxlitlash» qatori"
+      },
+      "changed": {
+        "ru": "Строки чека печатаются как есть, подытог = сумма напечатанных строк, а разница с ИТОГО (весовые 4,875 + 22,638 → 4,88 + 22,64 = 27,52, ИТОГО 27,51) выводится строкой «Округление −0,01» на экране, в PDF и на печати.",
+        "ky": "Чектин сапторлору өзүнчө басылат, жыйынтык = басылган саптардын суммасы, ал эми ЖАЛПЫ менен айырма (салмактуу 4,875 + 22,638 → 4,88 + 22,64 = 27,52, ЖАЛПЫ 27,51) экранда, PDFте жана басууда «Тегеректөө −0,01» сабы менен көрсөтүлөт.",
+        "en": "Receipt lines print as they are, the subtotal equals the sum of printed lines, and the difference to TOTAL (weighed 4.875 + 22.638 → 4.88 + 22.64 = 27.52, TOTAL 27.51) shows as a “Rounding −0.01” line on screen, in the PDF and on paper.",
+        "tr": "Fiş satırları olduğu gibi basılır, ara toplam basılan satırların toplamıdır; TOPLAM ile fark (tartılı 4,875 + 22,638 → 4,88 + 22,64 = 27,52, TOPLAM 27,51) ekranda, PDF'te ve kağıtta «Yuvarlama −0,01» satırı olarak görünür.",
+        "uz": "Chek qatorlari o'z holicha chop etiladi, oraliq jami = chop etilgan qatorlar yig'indisi, JAMI bilan farq (tortiladigan 4,875 + 22,638 → 4,88 + 22,64 = 27,52, JAMI 27,51) ekranda, PDFda va qog'ozda «Yaxlitlash −0,01» qatori bilan ko'rsatiladi."
+      },
+      "steps": {
+        "ru": [
+          "Добавьте два весовых товара так, чтобы строки вышли 4,88 и 22,64 (0,375 кг × 13 и 0,343 кг × 66).",
+          "Проведите продажу и откройте чек: «Округление −0,01», ИТОГО 27,51.",
+          "Напечатайте чек и посчитайте на калькуляторе: сумма строк минус округление = ИТОГО."
+        ],
+        "ky": [
+          "Эки салмактуу товарды 4,88 жана 22,64 болуп чыккандай кошуңуз (0,375 кг × 13 жана 0,343 кг × 66).",
+          "Сатууну өткөрүп, чекти ачыңыз: «Тегеректөө −0,01», ЖАЛПЫ 27,51.",
+          "Чекти басып, калькуляторго салыңыз: саптардын суммасы минус тегеректөө = ЖАЛПЫ."
+        ],
+        "uz": [
+          "Ikki tortiladigan tovarni qatorlar 4,88 va 22,64 bo'ladigan qilib qo'shing (0,375 kg × 13 va 0,343 kg × 66).",
+          "Sotuvni o'tkazib, chekni oching: «Yaxlitlash −0,01», JAMI 27,51.",
+          "Chekni chop eting va kalkulyatorda hisoblang: qatorlar yig'indisi minus yaxlitlash = JAMI."
+        ],
+        "en": [
+          "Add two weighed products so the lines come out as 4.88 and 22.64 (0.375 kg × 13 and 0.343 kg × 66).",
+          "Complete the sale and open the receipt: “Rounding −0.01”, TOTAL 27.51.",
+          "Print the receipt and check with a calculator: sum of lines minus rounding = TOTAL."
+        ],
+        "tr": [
+          "İki tartılı ürünü satırlar 4,88 ve 22,64 çıkacak şekilde ekleyin (0,375 kg × 13 ve 0,343 kg × 66).",
+          "Satışı tamamlayıp fişi açın: «Yuvarlama −0,01», TOPLAM 27,51.",
+          "Fişi yazdırıp hesap makinesiyle kontrol edin: satır toplamı eksi yuvarlama = TOPLAM."
+        ]
+      }
+    },
+    {
+      "id": "1.18.18/return-keys",
+      "version": "1.18.18",
+      "area": "other",
+      "severity": "money",
+      "title": {
+        "ru": "Возврат: два возврата подряд не затирают ключи повтора",
+        "ky": "Кайтаруу: ырааттуу эки кайтаруу кайталоо ачкычтарын өчүрбөйт",
+        "en": "Returns: two returns in a row do not overwrite retry keys",
+        "tr": "İade: art arda iki iade yeniden deneme anahtarlarını ezmez",
+        "uz": "Qaytarish: ketma-ket ikki qaytarish takrorlash kalitlarini o'chirmaydi"
+      },
+      "changed": {
+        "ru": "Ключи повтора возвратов, внесений и оплат долга хранятся по подписи (до 5 штук, возврат — 24 часа). Возврат по чеку A с оборванной связью после возврата по чеку B повторяется ТЕМ ЖЕ ключом и не даёт двойной выдачи денег.",
+        "ky": "Кайтаруулардын, киргизүүлөрдүн жана карыз төлөмдөрүнүн кайталоо ачкычтары кол тамга боюнча сакталат (5ке чейин, кайтарууда — 24 саат). B чеги боюнча кайтаруудан кийин үзүлгөн A чеги боюнча кайтаруу ӨЗҮ ЭЛЕ ачкыч менен кайталанат жана акчаны эки жолу бербейт.",
+        "en": "Retry keys for returns, deposits and debt payments are stored per signature (up to 5, returns — 24 hours). A return of receipt A with a dropped connection, repeated after a return of receipt B, goes with the SAME key and does not pay money out twice.",
+        "tr": "İade, para yatırma ve borç ödemesi yeniden deneme anahtarları imzaya göre saklanır (5'e kadar, iade — 24 saat). A fişi iadesi bağlantı koptuktan sonra B fişi iadesinin ardından AYNI anahtarla tekrarlanır ve parayı iki kez vermez.",
+        "uz": "Qaytarish, kiritish va qarz to'lovlarining takrorlash kalitlari imzo bo'yicha saqlanadi (5 tagacha, qaytarishda — 24 soat). A cheki bo'yicha aloqa uzilgan qaytarish B cheki qaytarilganidan keyin XUDDI SHU kalit bilan takrorlanadi va pulni ikki marta bermaydi."
+      },
+      "steps": {
+        "ru": [
+          "Возврат по чеку A: на середине выключите интернет (исход неизвестен).",
+          "Включите интернет и сделайте возврат по чеку B.",
+          "Вернитесь к чеку A и повторите возврат: на сервере у чека A ровно один документ возврата (сумма не удвоилась)."
+        ],
+        "ky": [
+          "A чеги боюнча кайтарууда: ортосунда интернетти өчүрүңүз (жыйынтыгы белгисиз).",
+          "Интернетти күйгүзүп, B чеги боюнча кайтаруу жасаңыз.",
+          "A чегине кайтып, кайтарууну кайталаңыз: серверде A чеги боюнча так бир кайтаруу документи (сумма эки эсе болгон жок)."
+        ],
+        "uz": [
+          "A cheki bo'yicha qaytarishda: o'rtasida internetni o'chiring (natija noma'lum).",
+          "Internetni yoqib, B cheki bo'yicha qaytarish qiling.",
+          "A chekiga qaytib, qaytarishni takrorlang: serverda A cheki bo'yicha aynan bitta qaytarish hujjati (summa ikki baravar bo'lmadi)."
+        ],
+        "en": [
+          "Return receipt A and switch the internet off halfway (outcome unknown).",
+          "Switch the internet on and return receipt B.",
+          "Go back to receipt A and repeat the return: the server has exactly one return document for receipt A (the amount did not double)."
+        ],
+        "tr": [
+          "A fişini iade ederken ortasında interneti kapatın (sonuç belirsiz).",
+          "İnterneti açıp B fişini iade edin.",
+          "A fişine dönüp iadeyi tekrarlayın: sunucuda A fişi için tam bir iade belgesi vardır (tutar ikiye katlanmadı)."
+        ]
+      }
+    },
+    {
+      "id": "1.18.18/dark-theme-contrast",
+      "version": "1.18.18",
+      "area": "profile",
+      "severity": "important",
+      "title": {
+        "ru": "Тёмная тема: видно «Опт», выбранные чипы и цветные суммы",
+        "ky": "Караңгы тема: «Дүң», тандалган чиптер жана түстүү суммалар көрүнөт",
+        "en": "Dark theme: “Wholesale”, selected chips and coloured sums are visible",
+        "tr": "Koyu tema: «Toptan», seçili çipler ve renkli tutarlar görünür",
+        "uz": "Qorong'i mavzu: «Ulgurji», tanlangan chiplar va rangli summalar ko'rinadi"
+      },
+      "changed": {
+        "ru": "В тёмной теме выбранный сегмент («Розница / Опт», «Товары / Чек», «% / сом», «Внесение / Изъятие») и чип категории — жёлтые с тёмным текстом. Красные, зелёные и жёлтые суммы и подписи (долги, журнал денег, статусы чеков) стали светлее и читаются (контраст не ниже 4,5:1).",
+        "ky": "Караңгы темада тандалган сегмент («Чекене / Дүң», «Товарлар / Чек», «% / сом», «Киргизүү / Алуу») жана категория чиби — сары, текст кара. Кызыл, жашыл жана сары суммалар менен жазуулар (карыздар, акча журналы, чек статустары) ачыгыраак болуп, окулат (контраст 4,5:1ден кем эмес).",
+        "en": "In the dark theme the selected segment (“Retail / Wholesale”, “Products / Receipt”, “% / som”, “Deposit / Withdrawal”) and the category chip are yellow with dark text. Red, green and yellow sums and captions (debts, cash log, receipt statuses) are lighter and readable (contrast at least 4.5:1).",
+        "tr": "Koyu temada seçili segment («Perakende / Toptan», «Ürünler / Fiş», «% / som», «Para girişi / çıkışı») ve kategori çipi sarı, metni koyudur. Kırmızı, yeşil ve sarı tutarlar ile yazılar (borçlar, para günlüğü, fiş durumları) daha açık ve okunaklıdır (kontrast en az 4,5:1).",
+        "uz": "Qorong'i mavzuda tanlangan segment («Chakana / Ulgurji», «Tovarlar / Chek», «% / so'm», «Kiritish / Olish») va kategoriya chipi sariq, matni qora. Qizil, yashil va sariq summalar hamda yozuvlar (qarzlar, pul jurnali, chek holatlari) ochroq va o'qiladi (kontrast 4,5:1 dan kam emas)."
+      },
+      "steps": {
+        "ru": [
+          "Включите тёмную тему. «Продажа → Чек → Опт»: выбранный сегмент жёлтый, видно, что включён опт.",
+          "Категории на продаже, «Внесение / Изъятие», «Наличные / Карта» в оплате долга: выбранное отличается от остальных.",
+          "«Долги» и журнал внесений: красные и зелёные суммы читаются без напряжения."
+        ],
+        "ky": [
+          "Караңгы теманы күйгүзүңүз. «Сатуу → Чек → Дүң»: тандалган сегмент сары, дүң күйгөнү көрүнөт.",
+          "Сатуудагы категориялар, «Киргизүү / Алуу», карыз төлөмүндөгү «Накталай / Карта»: тандалгандары калгандарынан айырмаланат.",
+          "«Карыздар» жана киргизүү журналы: кызыл жана жашыл суммалар кыйналбай окулат."
+        ],
+        "uz": [
+          "Qorong'i mavzuni yoqing. «Sotuv → Chek → Ulgurji»: tanlangan segment sariq, ulgurji yoqilgani ko'rinadi.",
+          "Sotuvdagi kategoriyalar, «Kiritish / Olish», qarz to'lovidagi «Naqd / Karta»: tanlangani qolganlaridan ajralib turadi.",
+          "«Qarzlar» va kiritishlar jurnali: qizil va yashil summalar qiynalmay o'qiladi."
+        ],
+        "en": [
+          "Switch on the dark theme. “Sale → Receipt → Wholesale”: the selected segment is yellow, you can see wholesale is on.",
+          "Categories on the sale screen, “Deposit / Withdrawal”, “Cash / Card” in debt payment: the selected one stands out.",
+          "“Debts” and the deposits log: red and green sums are easy to read."
+        ],
+        "tr": [
+          "Koyu temayı açın. «Satış → Fiş → Toptan»: seçili segment sarıdır, toptanın açık olduğu görünür.",
+          "Satıştaki kategoriler, «Para girişi / çıkışı», borç ödemesinde «Nakit / Kart»: seçili olan diğerlerinden ayrılır.",
+          "«Borçlar» ve para günlüğü: kırmızı ve yeşil tutarlar rahat okunur."
+        ]
+      }
+    },
+    {
+      "id": "1.18.18/pay-bar-keyboard",
+      "version": "1.18.18",
+      "area": "sale",
+      "severity": "important",
+      "title": {
+        "ru": "«Оплатить» не закрывает плашка; кнопка оплаты над клавиатурой",
+        "ky": "«Төлөө» баскычын плашка жаппайт; төлөм баскычы баскычтоптун үстүндө",
+        "en": "No banner over “Pay”; the pay button sits above the keyboard",
+        "tr": "«Öde»nin üstünü uyarı kapatmaz; ödeme düğmesi klavyenin üstünde",
+        "uz": "«To'lash»ni plashka yopmaydi; to'lov tugmasi klaviatura ustida"
+      },
+      "changed": {
+        "ru": "После каждого скана плашка «Добавлено в чек» короче (1,5 с) и «плавает» над панелью «Оплатить». На экране оплаты при вводе «Получено» кнопка «Провести оплату» поднимается над клавиатурой, а «Готово» на клавиатуре проводит оплату, если сумма достаточна. Во время оплаты на кнопке видно «Проводим оплату…». На планшете форма оплаты не шире 560 dp.",
+        "ky": "Ар бир сканерден кийин «Чекке кошулду» плашкасы кыска (1,5 с) жана «Төлөө» панелинин үстүндө калкып турат. Төлөм экранында «Алынды» киргизилгенде «Төлөмдү өткөрүү» баскычы баскычтоптун үстүнө көтөрүлөт, баскычтоптогу «Даяр» сумма жетиштүү болсо төлөмдү өткөрөт. Төлөм учурунда баскычта «Төлөм жүрүп жатат…» көрүнөт. Планшетте төлөм формасы 560 dpден кең эмес.",
+        "en": "After every scan the “Added to receipt” banner is shorter (1.5 s) and floats above the “Pay” bar. On the payment screen, while typing “Received”, the “Pay” button rises above the keyboard, and “Done” on the keyboard completes the payment if the amount is enough. During payment the button shows “Processing payment…”. On a tablet the payment form is at most 560 dp wide.",
+        "tr": "Her taramadan sonra «Fişe eklendi» uyarısı daha kısadır (1,5 sn) ve «Öde» çubuğunun üstünde durur. Ödeme ekranında «Alınan» yazılırken «Ödemeyi yap» düğmesi klavyenin üstüne çıkar, klavyedeki «Bitti» tutar yeterliyse ödemeyi yapar. Ödeme sırasında düğmede «Ödeme işleniyor…» görünür. Tablette ödeme formu en çok 560 dp genişliğindedir.",
+        "uz": "Har bir skanerdan keyin «Chekka qo'shildi» plashkasi qisqaroq (1,5 s) va «To'lash» paneli ustida turadi. To'lov ekranida «Olindi» kiritilganda «To'lovni o'tkazish» tugmasi klaviatura ustiga ko'tariladi, klaviaturadagi «Tayyor» summa yetarli bo'lsa to'lovni o'tkazadi. To'lov paytida tugmada «To'lov o'tkazilmoqda…» ko'rinadi. Planshetda to'lov shakli 560 dp dan keng emas."
+      },
+      "steps": {
+        "ru": [
+          "Отсканируйте 5 товаров подряд: плашка «Добавлено» над панелью «Оплатить», кнопка «Оплатить» нажимается сразу.",
+          "«Оплатить» → наличные, введите «Получено»: кнопка «Провести оплату» видна над клавиатурой.",
+          "Нажмите «Готово» на клавиатуре: оплата проходит; на кнопке видно «Проводим оплату…» (в тёмной теме индикатор виден)."
+        ],
+        "ky": [
+          "Удаа 5 товарды сканерлеңиз: «Кошулду» плашкасы «Төлөө» панелинин үстүндө, «Төлөө» баскычы дароо басылат.",
+          "«Төлөө» → накталай, «Алынды» киргизиңиз: «Төлөмдү өткөрүү» баскычы баскычтоптун үстүндө көрүнөт.",
+          "Баскычтоптогу «Даяр» басыңыз: төлөм өтөт; баскычта «Төлөм жүрүп жатат…» көрүнөт (караңгы темада индикатор көрүнөт)."
+        ],
+        "uz": [
+          "Ketma-ket 5 ta tovarni skanerlang: «Qo'shildi» plashkasi «To'lash» paneli ustida, «To'lash» tugmasi darrov bosiladi.",
+          "«To'lash» → naqd, «Olindi»ni kiriting: «To'lovni o'tkazish» tugmasi klaviatura ustida ko'rinadi.",
+          "Klaviaturadagi «Tayyor»ni bosing: to'lov o'tadi; tugmada «To'lov o'tkazilmoqda…» ko'rinadi (qorong'i mavzuda indikator ko'rinadi)."
+        ],
+        "en": [
+          "Scan 5 products in a row: the “Added” banner floats above the “Pay” bar and the “Pay” button responds at once.",
+          "“Pay” → cash, type “Received”: the “Pay” button is visible above the keyboard.",
+          "Press “Done” on the keyboard: the payment goes through; the button shows “Processing payment…” (the spinner is visible in the dark theme)."
+        ],
+        "tr": [
+          "Art arda 5 ürün tarayın: «Eklendi» uyarısı «Öde» çubuğunun üstünde durur, «Öde» düğmesine hemen basılır.",
+          "«Öde» → nakit, «Alınan» yazın: «Ödemeyi yap» düğmesi klavyenin üstünde görünür.",
+          "Klavyede «Bitti»ye basın: ödeme geçer; düğmede «Ödeme işleniyor…» görünür (koyu temada gösterge görünür)."
+        ]
+      }
+    },
+    {
+      "id": "1.18.18/phone-clock",
+      "version": "1.18.18",
+      "area": "other",
+      "severity": "money",
+      "title": {
+        "ru": "Сбитая дата телефона не мешает продавать",
+        "ky": "Телефондун датасы бузулса сатууга тоскоол болбойт",
+        "en": "A wrong phone date does not stop sales",
+        "tr": "Yanlış telefon tarihi satışı engellemez",
+        "uz": "Telefon sanasi buzilsa sotuvga xalaqit bermaydi"
+      },
+      "changed": {
+        "ru": "Телефон сверяет часы по заголовку Date ответов сервера. Если время расходится больше чем на 5 минут, на «Продаже» и главной — плашка «Время на телефоне неверное», а время продажи (sold_at) берётся по часам сервера. Раньше при дате телефона на месяц назад онлайн-оплата получала «старше 7 суток».",
+        "ky": "Телефон сервердин жооптору Date башы боюнча саатты салыштырат. Убакыт 5 мүнөттөн ашык айырмаланса, «Сатуу» жана башкы экранда «Телефондогу убакыт туура эмес» плашкасы чыгат, ал эми сатуу убактысы (sold_at) сервердин саты боюнча алынат. Мурун телефондун датасы бир ай мурун болсо, онлайн төлөм «7 суткадан эски» деп алчу.",
+        "en": "The phone compares its clock with the Date header of server answers. If the time differs by more than 5 minutes, “Sale” and Home show a “The phone's clock is wrong” banner, and the sale time (sold_at) is taken from the server clock. Before, with the phone date a month back, an online payment got “older than 7 days”.",
+        "tr": "Telefon, sunucu yanıtlarının Date başlığına göre saati karşılaştırır. Fark 5 dakikadan fazlaysa «Satış» ve ana ekranda «Telefonun saati yanlış» uyarısı çıkar, satış zamanı (sold_at) sunucu saatinden alınır. Önceden telefon tarihi bir ay geriyken çevrimiçi ödeme «7 günden eski» alıyordu.",
+        "uz": "Telefon server javoblaridagi Date sarlavhasi bo'yicha soatni solishtiradi. Vaqt 5 daqiqadan ko'p farq qilsa, «Sotuv» va bosh ekranda «Telefondagi vaqt noto'g'ri» belgisi chiqadi, sotuv vaqti (sold_at) server soati bo'yicha olinadi. Avval telefon sanasi bir oy orqada bo'lsa, onlayn to'lov «7 sutkadan eski» deb olinardi."
+      },
+      "steps": {
+        "ru": [
+          "Поставьте дату телефона на месяц назад (автоматическое время выключить).",
+          "Откройте «Продажа»: плашка «Время на телефоне неверное…».",
+          "Проведите онлайн-продажу: проходит, в чеках — сегодняшняя дата. Верните автоматическое время."
+        ],
+        "ky": [
+          "Телефондун датасын бир ай артка коюңуз (автоматтык убакытты өчүрүңүз).",
+          "«Сатуу» экранын ачыңыз: «Телефондогу убакыт туура эмес…» плашкасы.",
+          "Онлайн сатуу өткөрүңүз: өтөт, чектерде бүгүнкү дата. Автоматтык убакытты кайтарыңыз."
+        ],
+        "uz": [
+          "Telefon sanasini bir oy orqaga qo'ying (avtomatik vaqtni o'chiring).",
+          "«Sotuv»ni oching: «Telefondagi vaqt noto'g'ri…» belgisi.",
+          "Onlayn sotuv o'tkazing: o'tadi, cheklarda bugungi sana. Avtomatik vaqtni qaytaring."
+        ],
+        "en": [
+          "Set the phone date a month back (switch automatic time off).",
+          "Open “Sale”: the “The phone's clock is wrong…” banner shows.",
+          "Complete an online sale: it goes through, receipts carry today's date. Switch automatic time back on."
+        ],
+        "tr": [
+          "Telefon tarihini bir ay geriye alın (otomatik saati kapatın).",
+          "«Satış»ı açın: «Telefonun saati yanlış…» uyarısı çıkar.",
+          "Çevrimiçi satış yapın: geçer, fişlerde bugünün tarihi olur. Otomatik saati geri açın."
+        ]
+      }
+    },
+    {
+      "id": "1.18.18/deletion-log-kept",
+      "version": "1.18.18",
+      "area": "profile",
+      "severity": "important",
+      "title": {
+        "ru": "Журнал «Удалено из чека» не стирается выходом из аккаунта",
+        "ky": "«Чектен өчүрүлдү» журналы аккаунттан чыгууда өчпөйт",
+        "en": "The “Removed from receipt” log survives sign-out",
+        "tr": "«Fişten silindi» günlüğü çıkışla silinmez",
+        "uz": "«Chekdan o'chirildi» jurnali akkauntdan chiqishda o'chmaydi"
+      },
+      "changed": {
+        "ru": "Записи удалений привязаны к аккаунту (логину) и остаются на телефоне после выхода; тот же аккаунт при следующем входе их видит, другой аккаунт — нет. Остальное (очередь, настройки, ключи) по-прежнему стирается при выходе.",
+        "ky": "Өчүрүү жазуулары аккаунтка (логинге) байланган жана чыккандан кийин телефондо калат; ошол эле аккаунт кийинки кирүүдө аларды көрөт, башка аккаунт — жок. Калганы (кезек, жөндөөлөр, ачкычтар) чыгууда мурдагыдай өчөт.",
+        "en": "Deletion entries are tied to the account (login) and stay on the phone after sign-out; the same account sees them on the next sign-in, another account does not. Everything else (queue, settings, keys) is still wiped on sign-out.",
+        "tr": "Silme kayıtları hesaba (kullanıcı adına) bağlıdır ve çıkıştan sonra telefonda kalır; aynı hesap sonraki girişte görür, başka hesap görmez. Geri kalan her şey (kuyruk, ayarlar, anahtarlar) çıkışta eskisi gibi silinir.",
+        "uz": "O'chirish yozuvlari akkauntga (loginga) bog'langan va chiqqandan keyin telefonda qoladi; o'sha akkaunt keyingi kirishda ularni ko'radi, boshqa akkaunt — yo'q. Qolgani (navbat, sozlamalar, kalitlar) chiqishda avvalgidek o'chadi."
+      },
+      "steps": {
+        "ru": [
+          "Удалите строку из чека с причиной, откройте «Удалено из чека» — запись есть.",
+          "Выйдите из аккаунта (очередь пуста) и войдите тем же логином: запись на месте.",
+          "Войдите другим логином: журнал пуст, чужих записей нет."
+        ],
+        "ky": [
+          "Чектен сапты себеби менен өчүрүп, «Чектен өчүрүлдү» бөлүмүн ачыңыз — жазуу бар.",
+          "Аккаунттан чыгып (кезек бош), ошол эле логин менен кириңиз: жазуу ордунда.",
+          "Башка логин менен кириңиз: журнал бош, бөтөн жазуулар жок."
+        ],
+        "uz": [
+          "Chekdan qatorni sabab bilan o'chiring, «Chekdan o'chirildi»ni oching — yozuv bor.",
+          "Akkauntdan chiqing (navbat bo'sh) va o'sha login bilan kiring: yozuv joyida.",
+          "Boshqa login bilan kiring: jurnal bo'sh, begona yozuvlar yo'q."
+        ],
+        "en": [
+          "Delete a receipt line with a reason and open “Removed from receipt” — the entry is there.",
+          "Sign out (queue empty) and sign in with the same login: the entry is still there.",
+          "Sign in with another login: the log is empty, no foreign entries."
+        ],
+        "tr": [
+          "Fişten bir satırı nedenle silin, «Fişten silindi»yi açın — kayıt orada.",
+          "Çıkış yapın (kuyruk boş) ve aynı kullanıcı adıyla girin: kayıt yerinde.",
+          "Başka kullanıcı adıyla girin: günlük boş, yabancı kayıt yok."
+        ]
+      }
+    },
+    {
+      "id": "1.18.18/qty-limits",
+      "version": "1.18.18",
+      "area": "sale",
+      "severity": "important",
+      "title": {
+        "ru": "Штрихкод в поле количества, веса и суммы не принимается целиком",
+        "ky": "Сан, салмак жана сумма талаасына штрихкод толугу менен кабыл алынбайт",
+        "en": "A barcode in a quantity, weight or sum field is not accepted whole",
+        "tr": "Miktar, ağırlık ve tutar alanına barkod bütün olarak kabul edilmez",
+        "uz": "Miqdor, vazn va summa maydoniga shtrix-kod to'liq qabul qilinmaydi"
+      },
+      "changed": {
+        "ru": "Поля количества (до 6 цифр), веса (до 999,999) и суммы (до 10 цифр) не принимают лишние цифры: штрихкод, отсканированный в окне «Количество», больше не даёт триллионы штук. Количество больше 999 — вопрос «Точно?». Ревизия сохраняет вес с тремя знаками (1,235 кг).",
+        "ky": "Сан (6 цифрага чейин), салмак (999,999га чейин) жана сумма (10 цифрага чейин) талаалары ашыкча цифраларды кабыл албайт: «Саны» терезесинде сканерленген штрихкод эми триллион даана бербейт. 999дан көп сан — «Чын элеби?» деген суроо. Ревизия салмакты үч белги менен сактайт (1,235 кг).",
+        "en": "Quantity (up to 6 digits), weight (up to 999.999) and sum (up to 10 digits) fields reject extra digits: a barcode scanned into the “Quantity” window no longer gives trillions of pieces. A quantity over 999 asks “Really?”. Stock count keeps weight with three decimals (1.235 kg).",
+        "tr": "Miktar (6 haneye kadar), ağırlık (999,999'a kadar) ve tutar (10 haneye kadar) alanları fazla haneleri kabul etmez: «Miktar» penceresinde taranan barkod artık trilyonlarca adet vermez. 999'dan büyük miktar «Emin misiniz?» diye sorar. Sayım ağırlığı üç ondalıkla saklar (1,235 kg).",
+        "uz": "Miqdor (6 raqamgacha), vazn (999,999 gacha) va summa (10 raqamgacha) maydonlari ortiqcha raqamlarni qabul qilmaydi: «Miqdor» oynasida skanerlangan shtrix-kod endi trillion dona bermaydi. 999 dan ko'p miqdor — «Aniqmi?» savoli. Inventarizatsiya vaznni uch xona bilan saqlaydi (1,235 kg)."
+      },
+      "steps": {
+        "ru": [
+          "Нажмите на количество в строке чека и отсканируйте штрихкод (или введите 13 цифр): поле остаётся на 6 цифрах.",
+          "Введите 5000: «Точно 5 000?». Отмена — количество не меняется.",
+          "Ревизия весового товара 1,235 кг → «Провести»: на сайте остаток 1,235."
+        ],
+        "ky": [
+          "Чектеги сапта санды басып, штрихкодду сканерлеңиз (же 13 цифра киргизиңиз): талаа 6 цифрада токтойт.",
+          "5000 киргизиңиз: «Чын эле 5 000?». Баш тартсаңыз — сан өзгөрбөйт.",
+          "Салмактуу товардын ревизиясы 1,235 кг → «Өткөрүү»: сайтта калдык 1,235."
+        ],
+        "uz": [
+          "Chek qatoridagi miqdorni bosing va shtrix-kodni skanerlang (yoki 13 raqam kiriting): maydon 6 raqamda to'xtaydi.",
+          "5000 kiriting: «Aniqmi 5 000?». Bekor qilsangiz — miqdor o'zgarmaydi.",
+          "Tortiladigan tovar inventarizatsiyasi 1,235 kg → «O'tkazish»: saytda qoldiq 1,235."
+        ],
+        "en": [
+          "Tap the quantity in a receipt line and scan a barcode (or type 13 digits): the field stops at 6 digits.",
+          "Type 5000: “Really 5,000?”. Cancel — the quantity does not change.",
+          "Stock count of a weighed product 1.235 kg → “Post”: the site shows 1.235."
+        ],
+        "tr": [
+          "Fiş satırındaki miktara dokunup barkod tarayın (veya 13 hane yazın): alan 6 hanede durur.",
+          "5000 yazın: «Gerçekten 5.000?». İptal — miktar değişmez.",
+          "Tartılı ürün sayımı 1,235 kg → «İşle»: sitede stok 1,235 olur."
+        ]
+      }
+    },
+    {
+      "id": "1.18.18/sunmi-printer",
+      "version": "1.18.18",
+      "area": "other",
+      "severity": "normal",
+      "title": {
+        "ru": "Встроенный принтер Sunmi (по желанию)",
+        "ky": "Sunmi орнотулган принтери (каалоо боюнча)",
+        "en": "Built-in Sunmi printer (optional)",
+        "tr": "Dahili Sunmi yazıcı (isteğe bağlı)",
+        "uz": "Sunmi o'rnatilgan printeri (ixtiyoriy)"
+      },
+      "changed": {
+        "ru": "На телефоне Sunmi (V2, T2…) в «Принтер чеков» появляется переключатель «Встроенный принтер Sunmi». Чек печатается средствами Sunmi, все буквы (ң ө ү ş ğ) выходят правильно. На остальных телефонах переключателя нет, обычные Bluetooth/сеть/USB-принтеры работают как раньше. Проверка — только на Sunmi.",
+        "ky": "Sunmi телефонунда (V2, T2…) «Чек принтери» бөлүмүндө «Sunmi орнотулган принтери» которгучу пайда болот. Чек Sunmi каражаттары менен басылат, бардык тамгалар (ң ө ү ş ğ) туура чыгат. Башка телефондордо которгуч жок, кадимки Bluetooth/тармак/USB принтерлер мурдагыдай иштейт. Текшерүү — Sunmi гана.",
+        "en": "On a Sunmi phone (V2, T2…) “Receipt printer” shows a “Built-in Sunmi printer” switch. The receipt is printed by Sunmi itself, all letters (ң ө ү ş ğ) come out right. Other phones have no switch, and ordinary Bluetooth/network/USB printers work as before. Check on Sunmi only.",
+        "tr": "Sunmi telefonda (V2, T2…) «Fiş yazıcısı»nda «Dahili Sunmi yazıcı» anahtarı görünür. Fiş Sunmi tarafından yazdırılır, tüm harfler (ң ө ү ş ğ) doğru çıkar. Diğer telefonlarda anahtar yoktur, sıradan Bluetooth/ağ/USB yazıcılar eskisi gibi çalışır. Kontrol yalnız Sunmi'de.",
+        "uz": "Sunmi telefonida (V2, T2…) «Chek printeri»da «Sunmi o'rnatilgan printeri» tugmasi paydo bo'ladi. Chek Sunmi vositalari bilan chop etiladi, barcha harflar (ң ө ү ş ğ) to'g'ri chiqadi. Boshqa telefonlarda tugma yo'q, oddiy Bluetooth/tarmoq/USB printerlar avvalgidek ishlaydi. Tekshiruv — faqat Sunmi'da."
+      },
+      "steps": {
+        "ru": [
+          "Профиль → «Принтер чеков» на Sunmi: включите «Встроенный принтер Sunmi», нажмите «Проверить печать»: выходит «ң ө ү ş ğ ё Ж».",
+          "Проведите наличную продажу с автопечатью: чек печатается, ящик (если включён) открывается один раз.",
+          "На обычном телефоне (не Sunmi) переключателя нет, печать по Bluetooth/сети/USB работает как раньше."
+        ],
+        "ky": [
+          "Профиль → Sunmi’деги «Чек принтери»: «Sunmi орнотулган принтери» күйгүзүп, «Басууну текшерүү» басыңыз: «ң ө ү ş ğ ё Ж» чыгат.",
+          "Автобасуу менен накталай сатуу өткөрүңүз: чек басылат, кассалык суурма (күйгүзүлгөн болсо) бир жолу ачылат.",
+          "Кадимки телефондо (Sunmi эмес) которгуч жок, Bluetooth/тармак/USB аркылуу басуу мурдагыдай иштейт."
+        ],
+        "uz": [
+          "Profil → Sunmi'dagi «Chek printeri»: «Sunmi o'rnatilgan printeri»ni yoqing, «Chop etishni tekshirish»ni bosing: «ң ө ү ş ğ ё Ж» chiqadi.",
+          "Avtochop bilan naqd sotuv o'tkazing: chek chop etiladi, kassa tortmasi (yoqilgan bo'lsa) bir marta ochiladi.",
+          "Oddiy telefonda (Sunmi emas) tugma yo'q, Bluetooth/tarmoq/USB orqali chop etish avvalgidek ishlaydi."
+        ],
+        "en": [
+          "Profile → “Receipt printer” on a Sunmi: switch on “Built-in Sunmi printer”, press “Test print”: “ң ө ү ş ğ ё Ж” comes out.",
+          "Complete a cash sale with auto-print: the receipt prints, the drawer (if enabled) opens once.",
+          "On an ordinary phone (not Sunmi) there is no switch, and Bluetooth/network/USB printing works as before."
+        ],
+        "tr": [
+          "Profil → Sunmi'de «Fiş yazıcısı»: «Dahili Sunmi yazıcı»yı açın, «Yazdırmayı dene»ye basın: «ң ө ү ş ğ ё Ж» çıkar.",
+          "Otomatik yazdırmalı nakit satış yapın: fiş yazdırılır, çekmece (açıksa) bir kez açılır.",
+          "Sıradan telefonda (Sunmi değil) anahtar yoktur, Bluetooth/ağ/USB yazdırma eskisi gibi çalışır."
+        ]
+      }
     }
   ]
 }

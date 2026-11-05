@@ -24,7 +24,7 @@ public sealed class UpdateCheckService : IUpdateCheckService
 
     private static HttpClient CreateClient()
     {
-        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        var client = ExternalHttp.Create(TimeSpan.FromSeconds(10)); // 2026-11-05 (Н-19): общая фабрика — сжатие и срок жизни соединения
         // GitHub's REST API rejects requests without a User-Agent header.
         client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("NurMarketKassa", "1.0"));
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));

@@ -96,7 +96,7 @@ public static class CompanyInfoService
             // 2026-11-03 (ревью Н-5): фоновая догрузка пришла минуту спустя; если компания сервера не та, чьи данные лежат на ПК (LastDataAccountKey), применение вызвало бы
             // AccountDataIsolation.SwitchTo из потока пула посреди работы кассира (стирание файлов и переоткрытие базы). Данные на ходу не меняем — смена случится при следующем запуске/входе.
             var knownKey = UserPreferences.Instance.LastDataAccountKey ?? "";
-            if (company is not null && knownKey.Length > 0 && !string.Equals(knownKey, "c:" + company.Id, StringComparison.OrdinalIgnoreCase))
+            if (company is not null && knownKey.Length > 0 && !string.Equals(knownKey, AppPaths.CompanyKey(company.Id), StringComparison.OrdinalIgnoreCase)) // 2026-11-05: ключ с префиксом стенда
             {
                 PosLogger.Log($"Компания с сервера ({company.Id}) отличается от данных на этом ПК ({knownKey}) — фоновая догрузка не применена, чтобы не менять данные посреди работы. Перезапустите кассу.", "WARNING");
                 return;
@@ -184,36 +184,44 @@ public static class CompanyInfoService
         try
         {
             var (layout, mode, amountUnit) = await authApi.GetScaleSettingsAsync(ct).ConfigureAwait(false);
-            var prefs = UserPreferences.Instance;
-            var changed = false;
-            if (!string.IsNullOrWhiteSpace(layout) && prefs.ScaleBarcodeLayout != layout)
-            {
-                prefs.ScaleBarcodeLayout = layout;
-                changed = true;
-            }
-            if (!string.IsNullOrWhiteSpace(mode) && prefs.ScaleBarcodeMode != mode)
-            {
-                prefs.ScaleBarcodeMode = mode;
-                changed = true;
-            }
-            if (!string.IsNullOrWhiteSpace(amountUnit) && prefs.ScaleBarcodeAmountUnit != amountUnit)
-            {
-                prefs.ScaleBarcodeAmountUnit = amountUnit;
-                changed = true;
-            }
-            if (changed)
-            {
-                prefs.SaveToDisk();
-                PosLogger.Log(
-                    $"Scale barcode settings: layout={prefs.ScaleBarcodeLayout}, mode={prefs.ScaleBarcodeMode}, amountUnit={prefs.ScaleBarcodeAmountUnit}",
-                    "API");
-            }
-            SyncWeightBarcodeParserSettings();
+            ApplyServerScaleSettings(layout, mode, amountUnit);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Не удалось загрузить настройки весов: {ex.Message}", "API");
         }
+    }
+
+    /// <summary>2026-11-05: применяет настройки весов с сервера. Серверная единица суммы пишется в ScaleBarcodeAmountUnit,
+    /// но ЛОКАЛЬНАЯ (ScaleBarcodeAmountUnitLocal, выбор на кассе) её не затирается и остаётся важнее
+    /// (WeightBarcodeParser.AmountUnit = локальная ?? серверная).</summary>
+    internal static void ApplyServerScaleSettings(string? layout, string? mode, string? amountUnit)
+    {
+        var prefs = UserPreferences.Instance;
+        var changed = false;
+        if (!string.IsNullOrWhiteSpace(layout) && prefs.ScaleBarcodeLayout != layout)
+        {
+            prefs.ScaleBarcodeLayout = layout;
+            changed = true;
+        }
+        if (!string.IsNullOrWhiteSpace(mode) && prefs.ScaleBarcodeMode != mode)
+        {
+            prefs.ScaleBarcodeMode = mode;
+            changed = true;
+        }
+        if (!string.IsNullOrWhiteSpace(amountUnit) && prefs.ScaleBarcodeAmountUnit != amountUnit)
+        {
+            prefs.ScaleBarcodeAmountUnit = amountUnit;
+            changed = true;
+        }
+        if (changed)
+        {
+            prefs.SaveToDisk();
+            PosLogger.Log(
+                $"Scale barcode settings: layout={prefs.ScaleBarcodeLayout}, mode={prefs.ScaleBarcodeMode}, amountUnit={prefs.ScaleBarcodeAmountUnit}, amountUnitLocal={prefs.ScaleBarcodeAmountUnitLocal ?? "-"}",
+                "API");
+        }
+        SyncWeightBarcodeParserSettings();
     }
 
     /// <summary>Прокидывает текущие (сохранённые или дефолтные) scale_barcode_layout/mode
@@ -224,7 +232,8 @@ public static class CompanyInfoService
         var prefs = UserPreferences.Instance;
         NurMarketKassa.Core.Application.WeightBarcodeParser.Layout = prefs.ScaleBarcodeLayout;
         NurMarketKassa.Core.Application.WeightBarcodeParser.Mode = prefs.ScaleBarcodeMode;
-        NurMarketKassa.Core.Application.WeightBarcodeParser.AmountUnit = prefs.ScaleBarcodeAmountUnit;
+        NurMarketKassa.Core.Application.WeightBarcodeParser.AmountUnit = prefs.EffectiveScaleAmountUnit; // 2026-11-05: локальная ?? серверная
+        NurMarketKassa.Core.Application.WeightBarcodeParser.MaxLabelAmountSom = prefs.ScaleMaxLabelAmountSom > 0 ? prefs.ScaleMaxLabelAmountSom : 20000;
         NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes = UserPreferences.ParseAmountPrefixes(prefs.ScaleAmountPrefixes);
         // 2026-09-28: и обратное правило «в штрихкоде вес» (мастер «Настроить по этикетке»).
         NurMarketKassa.Core.Application.WeightBarcodeParser.WeightPrefixes = UserPreferences.ParseAmountPrefixes(prefs.ScaleWeightPrefixes);

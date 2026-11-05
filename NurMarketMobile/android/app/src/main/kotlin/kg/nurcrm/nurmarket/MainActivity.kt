@@ -248,6 +248,8 @@ class MainActivity : FlutterActivity() {
                     )
                 })
             }
+            // 2026-11-05 (волна 0-D, М5-05): производитель телефона — Dart включает путь «встроенный принтер» только для SUNMI
+            "manufacturer" -> result.success(Build.MANUFACTURER ?: "")
             "usbPrint" -> usbPrint(call.argument<String>("device") ?: "", call.argument<ByteArray>("data") ?: ByteArray(0), result)
             else -> result.notImplemented()
         }

@@ -21,7 +21,8 @@ namespace NurMarketKassa.Services.Api;
 public sealed partial class SalesApiService
 {
     private static readonly ConcurrentDictionary<string, (DateTime AtUtc, Task<JsonElement> Task)> ReportCache = new();
-    private const int ReportCacheLimit = 24;
+    // 2026-11-05 (аудит №4, Л4-13): было 24 ответа (вкладка «Товары» с limit=10000 — тяжёлая); предел 8, просроченные убираются при каждой записи.
+    private const int ReportCacheLimit = 8;
 
     static SalesApiService()
     {
@@ -64,6 +65,8 @@ public sealed partial class SalesApiService
             TaskContinuationOptions.NotOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
 
+        foreach (var stale in ReportCache.Where(kv => now - kv.Value.AtUtc > TimeSpan.FromMinutes(10) && kv.Value.Task.IsCompleted).ToList())
+            ReportCache.TryRemove(stale);
         if (ReportCache.Count > ReportCacheLimit)
         {
             foreach (var old in ReportCache.OrderBy(kv => kv.Value.AtUtc).Take(ReportCache.Count - ReportCacheLimit).ToList())

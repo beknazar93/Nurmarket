@@ -61,7 +61,40 @@ public static class DynamicPaymentQrService
         return DecodedCache.GetOrAdd(cacheKey, _ => DecodeFile(imagePath));
     }
 
-    private static string? DecodeFile(string imagePath)
+    /// <summary>2026-11-05 (аудит №4, А4-09): читалка картинки для Android и Linux, где System.Drawing нет. Приложение (Avalonia) ставит её
+    /// при запуске: возвращает пиксели в порядке BGRA (4 байта на точку) — ширина, высота. null — картинку прочитать не удалось.</summary>
+    public static Func<string, (byte[] Bgra, int Width, int Height)?>? PlatformImageReader { get; set; }
+
+    private static string? DecodeFile(string imagePath) =>
+        OperatingSystem.IsWindows() ? DecodeFileWindows(imagePath) : DecodeFilePortable(imagePath);
+
+    private static string? DecodeFilePortable(string imagePath)
+    {
+        try
+        {
+            if (PlatformImageReader?.Invoke(imagePath) is not { } image)
+                return null;
+            var luminance = new RGBLuminanceSource(image.Bgra, image.Width, image.Height, RGBLuminanceSource.BitmapFormat.BGRA32);
+            var reader = new BarcodeReaderGeneric
+            {
+                AutoRotate = true,
+                Options = new ZXing.Common.DecodingOptions
+                {
+                    TryHarder = true,
+                    PossibleFormats = new[] { BarcodeFormat.QR_CODE },
+                },
+            };
+            return reader.Decode(luminance)?.Text;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Не удалось распознать статический QR «{Path.GetFileName(imagePath)}»: {ex.Message}", "QR");
+            return null;
+        }
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static string? DecodeFileWindows(string imagePath)
     {
         try
         {
@@ -143,11 +176,11 @@ public static class DynamicPaymentQrService
             Directory.CreateDirectory(OutputDirectory);
             var target = Path.Combine(OutputDirectory, $"dynamic_{Guid.NewGuid():N}.png");
 
-            using (var bitmap = BarcodeLabelService.RenderBarcode(
-                       dynamicPayload, sizePx, sizePx, LabelBarcodeFormat.QrCode, margin: 1))
-            {
-                bitmap.Save(target, ImageFormat.Png);
-            }
+            // 2026-11-05 (аудит №4, А4-09): на Android и Linux System.Drawing нет — QR рисуется матрицей ZXing и пишется как PNG (QrPngWriter).
+            if (OperatingSystem.IsWindows())
+                RenderWindows(dynamicPayload, sizePx, target);
+            else
+                QrPngWriter.Write(dynamicPayload, sizePx, target);
 
             DeleteQuietly(_lastGeneratedPath);
             _lastGeneratedPath = target;
@@ -159,6 +192,14 @@ public static class DynamicPaymentQrService
             PosLogger.Log($"Не удалось собрать динамический QR: {ex.GetType().Name}: {ex.Message}", "QR");
             return null;
         }
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void RenderWindows(string payload, int sizePx, string target)
+    {
+        using var bitmap = BarcodeLabelService.RenderBarcode(
+            payload, sizePx, sizePx, LabelBarcodeFormat.QrCode, margin: 1);
+        bitmap.Save(target, ImageFormat.Png);
     }
 
     private static void DeleteQuietly(string? path)

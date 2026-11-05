@@ -436,7 +436,7 @@ internal static class PurchaseFinishMarks
 
     private static readonly object Sync = new();
     private static string Dir => BackgroundReceivingQueue.DataDirOverride
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "background-receipts");
+        ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "background-receipts");
     private static string FilePath => Path.Combine(Dir, "purchases-finisher.json");
 
     private static Dictionary<string, Entry> Read()

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Raffinert.FuzzySharp;
 
 namespace NurMarketKassa.Services.InvoiceImport;
 
@@ -122,7 +123,8 @@ public static class InvoiceNameParser
             return true;
         if (b.Abbrev && y.Length >= 2 && x.StartsWith(y, StringComparison.Ordinal))
             return true;
-        return min >= 5 && Math.Abs(x.Length - y.Length) <= 1 && Levenshtein(x, y) <= 1;
+        // 2026-11-05: расстояние Левенштейна — из Raffinert.FuzzySharp (MIT), вместо своей реализации; правило «≤ 1 правка у слов от 5 букв» прежнее.
+        return min >= 5 && Math.Abs(x.Length - y.Length) <= 1 && Levenshtein.Distance(x, y) <= 1;
     }
 
     /// <summary>Похожесть двух названий 0..1. Числа/объём/модель разные у обеих сторон — несовпадение (0). Иначе: 2 × общее / (всего слов и фактов), минус 0,12,
@@ -180,21 +182,5 @@ public static class InvoiceNameParser
         if (covered && shortP.Size >= 2 && (mf > 0 || shortP.Words.Length >= 2))
             score = Math.Max(score, Math.Min(0.95, 0.72 + 0.2 * shortP.Size / (double)longP.Size));
         return new Comparison(score, false, mw, mf, covered);
-    }
-
-    private static int Levenshtein(string a, string b)
-    {
-        var prev = new int[b.Length + 1];
-        var cur = new int[b.Length + 1];
-        for (var j = 0; j <= b.Length; j++)
-            prev[j] = j;
-        for (var i = 1; i <= a.Length; i++)
-        {
-            cur[0] = i;
-            for (var j = 1; j <= b.Length; j++)
-                cur[j] = Math.Min(Math.Min(cur[j - 1] + 1, prev[j] + 1), prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
-            (prev, cur) = (cur, prev);
-        }
-        return prev[b.Length];
     }
 }

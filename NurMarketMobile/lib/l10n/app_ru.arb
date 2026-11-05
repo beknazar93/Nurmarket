@@ -5127,5 +5127,73 @@
       }
     }
   },
-  "prnLocationOff": "Чтобы найти Bluetooth-принтер на этом Android, включите «Местоположение»."
+  "prnLocationOff": "Чтобы найти Bluetooth-принтер на этом Android, включите «Местоположение».",
+  "clearCheckAsk": "Очистить текущий чек?",
+  "qtyReduced": "Количество уменьшено",
+  "heldDeleteAsk": "Удалить отложенный чек на {sum} сом?",
+  "@heldDeleteAsk": {
+    "placeholders": {
+      "sum": {
+        "type": "String"
+      }
+    }
+  },
+  "qtySure": "Точно {qty}? Это очень много.",
+  "@qtySure": {
+    "placeholders": {
+      "qty": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneClockWrong": "Время на телефоне неверное — исправьте дату и время в настройках. Продажи идут по времени сервера.",
+  "payWaiting": "Проводим оплату…",
+  "payShortfall": "Сервер посчитал {total} сом — доберите ещё {rest} сом",
+  "@payShortfall": {
+    "placeholders": {
+      "total": {
+        "type": "String"
+      },
+      "rest": {
+        "type": "String"
+      }
+    }
+  },
+  "closeShiftCartAsk": "В чеке остались позиции: {n}. Что сделать?",
+  "@closeShiftCartAsk": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "syncServerDown": "Сервер не отвечает с {time}. Продажи ждут: {n}. Телефон отправит их сам.",
+  "@syncServerDown": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      },
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "prnSunmi": "Встроенный принтер Sunmi",
+  "prnSunmiHint": "Чек печатается средствами Sunmi, все буквы (ң ө ү ş ğ) выходят правильно. Bluetooth, сеть и USB при этом не используются.",
+  "scaleBindOverwrite": "У товара «{name}» PLU {old}, будет {plu}. Весы, запрограммированные на PLU {old}, перестанут его находить. Записать?",
+  "@scaleBindOverwrite": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "old": {
+        "type": "String"
+      },
+      "plu": {
+        "type": "String"
+      }
+    }
+  },
+  "apiSaleDuplicateLine": "Один товар в чеке с разной ценой или единицей: сервер не может объединить строки. Оставьте одну цену или уберите лишнюю строку.",
+  "payLinesMerged": "Одинаковые строки чека объединены в одну."
 }

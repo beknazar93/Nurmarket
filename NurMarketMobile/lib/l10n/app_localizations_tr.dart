@@ -7100,4 +7100,62 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get prnLocationOff =>
       'Bu Android\'de Bluetooth yazıcıyı bulmak için Konum\'u açın.';
+
+  @override
+  String get clearCheckAsk => 'Geçerli fiş temizlensin mi?';
+
+  @override
+  String get qtyReduced => 'Miktar azaltıldı';
+
+  @override
+  String heldDeleteAsk(String sum) {
+    return '$sum som tutarındaki bekleyen fiş silinsin mi?';
+  }
+
+  @override
+  String qtySure(String qty) {
+    return 'Gerçekten $qty? Bu çok fazla.';
+  }
+
+  @override
+  String get phoneClockWrong =>
+      'Telefonun saati yanlış — ayarlardan tarih ve saati düzeltin. Satışlar sunucu saatiyle yapılır.';
+
+  @override
+  String get payWaiting => 'Ödeme işleniyor…';
+
+  @override
+  String payShortfall(String total, String rest) {
+    return 'Sunucu $total som hesapladı — $rest som daha alın';
+  }
+
+  @override
+  String closeShiftCartAsk(int n) {
+    return 'Fişte $n kalem kaldı. Ne yapılsın?';
+  }
+
+  @override
+  String syncServerDown(String time, int n) {
+    return 'Sunucu $time saatinden beri yanıt vermiyor. Bekleyen satış: $n. Telefon kendisi gönderecek.';
+  }
+
+  @override
+  String get prnSunmi => 'Dahili Sunmi yazıcı';
+
+  @override
+  String get prnSunmiHint =>
+      'Fiş Sunmi tarafından yazdırılır, tüm harfler (ң ө ү ş ğ) doğru çıkar. Bluetooth, ağ ve USB kullanılmaz.';
+
+  @override
+  String scaleBindOverwrite(String name, String old, String plu) {
+    return '«$name» ürününün PLU\'su $old, $plu olacak. PLU $old ile programlanmış teraziler onu bulamaz. Kaydedilsin mi?';
+  }
+
+  @override
+  String get apiSaleDuplicateLine =>
+      'Aynı ürün fişte farklı fiyat veya birimle var: sunucu satırları birleştiremez. Tek fiyat bırakın veya fazla satırı kaldırın.';
+
+  @override
+  String get payLinesMerged =>
+      'Fişteki aynı satırlar tek satırda birleştirildi.';
 }

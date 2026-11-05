@@ -40,6 +40,10 @@ public sealed class OfflineSaleEntry
     /// записи (схема таблицы не меняется); у старых записей null — досылка как раньше.</summary>
     public string? ClientId { get; set; }
 
+    /// <summary>2026-11-05 (ревью волн 0–3, п. 4): поправка часов «сервер − ПК» (секунды) В МОМЕНТ продажи — sold_at при досылке считается по ней, а не по поправке на момент досылки
+    /// (часы к тому времени могли сбиться или быть исправлены). Поле лежит в JSON записи (схема таблицы не меняется); у старых записей null — досылка по CreatedAt как раньше.</summary>
+    public double? ClockSkewAtSaleSeconds { get; set; }
+
     public string CartJson { get; set; } = "{}";
 
     public DateTimeOffset? LastAttemptAt { get; set; }

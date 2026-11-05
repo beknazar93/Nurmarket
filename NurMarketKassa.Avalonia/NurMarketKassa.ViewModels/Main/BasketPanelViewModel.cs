@@ -410,12 +410,17 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(RoundingAdjustmentText));
         OnPropertyChanged(nameof(RoundingAdjustmentValue));
         OnPropertyChanged(nameof(SubtotalDisplay));
+        OnPropertyChanged(nameof(PayButtonText)); // 2026-11-05 (ревью п. 19)
     }
     public string DiscountDisplay => MoneyText.Som(Discount);
     public string TotalDisplay => MoneyText.Som(Total);
     public string TotalAmount => MoneyText.Amount(Total);
+    // 2026-11-05 (аудит №4, Д4-05): на кнопке — сумма («Оплатить 524,70 сом»): кассир видит, сколько возьмёт, не глядя на итог выше.
+    // 2026-11-05 (ревью волн 0–3, п. 19): при округлении весовых окно оплаты может показать другую «к оплате» — сумму на кнопке тогда не пишем, чтобы кассир не видел две разные суммы.
     public string PayButtonText =>
-        Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash");
+        Total > 0.005 && _roundingAdjustment == 0m
+            ? $"{Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash")} {MoneyText.Som(Total)}"
+            : Tr.T("Оплатить", "Төлөө", "Pay", "Öde", "To'lash");
 
     public string CartMessage
     {
@@ -1355,7 +1360,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             return weighted;
         var price = LocalCartService.ParsePrice(product.PriceLine);
         var asWeight = new WeightBarcodeParseResult(weighted.ProductCode, raw / 1000.0, WeightBarcodeValueKind.Weight);
-        var amountValue = string.Equals(WeightBarcodeParser.AmountUnit, "som", StringComparison.OrdinalIgnoreCase) ? raw : raw / 100.0;
+        var amountValue = WeightBarcodeParser.AmountFromRaw(raw, WeightBarcodeParser.AmountUnit);
         var asAmount = new WeightBarcodeParseResult(weighted.ProductCode, amountValue, WeightBarcodeValueKind.Amount);
         var inv = CultureInfo.InvariantCulture;
         var wKg = asWeight.Value.ToString("0.000", inv);
@@ -1394,6 +1399,75 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         prefs.SaveToDisk();
         PosLogger.Log($"[SCALE] prefix {prefix} confirmed as {(isAmount ? "amount" : "weight")} by cashier", "CART");
         return isAmount ? asAmount : asWeight;
+    }
+
+    /// <summary>2026-11-05: цифры значения (5 или 4) из весового штрихкода по раскладке компании.</summary>
+    private static bool TryReadLabelRaw(string barcode, out int raw)
+    {
+        raw = 0;
+        var code = barcode.Trim();
+        if (code.Length != 13)
+            return false;
+        var useCodeLayout = string.Equals(WeightBarcodeParser.Layout, "code", StringComparison.OrdinalIgnoreCase);
+        return int.TryParse(useCodeLayout ? code.Substring(8, 4) : code.Substring(7, 5), out raw) && raw > 0;
+    }
+
+    /// <summary>2026-11-05, срочный хотфикс (весы TM-30F у клиента: 2500001768001 = «Банан» 3,840 кг × 200 = 768,00 сом, цифры 76800 — тыйыны):
+    /// у компании на сервере стояло «som», касса читала 76 800 сом и вес 384 кг. Защита перед добавлением весового товара по этикетке:
+    /// (1) режим «сумма», цена известна, при текущей единице вес больше 600 кг, а при другой — реальный → один раз спрашиваем
+    /// «Исправить единицу суммы?» (Да — запоминается на этой кассе навсегда, важнее сайта); товар не найден или режим «вес» — не угадываем;
+    /// (2) вес всё равно больше 600 кг → предупреждение «проверьте этикетку/единицу суммы»: «Всё равно добавить» / «Отмена» (по умолчанию не добавлять).
+    /// Возвращает исправленный разбор либо null — товар не добавлять.</summary>
+    private async Task<WeightBarcodeParseResult?> GuardWeightBarcodeAsync(string barcode, WeightBarcodeParseResult weighted, CatalogProductTileVm product)
+    {
+        var price = LocalCartService.ParsePrice(product.PriceLine);
+        var weightKg = weighted.ResolveWeightKg(price);
+        if (!WeightBarcodeParser.IsUnrealisticLabel(weighted, weightKg))
+            return weighted;
+
+        var inv = CultureInfo.InvariantCulture;
+        var name = product.Title;
+        if (weighted.Kind == WeightBarcodeValueKind.Amount && price > 0 && TryReadLabelRaw(barcode, out var raw)
+            && WeightBarcodeParser.SuggestAmountUnit(raw, price, WeightBarcodeParser.AmountUnit) is { } other)
+        {
+            var fixedAmount = WeightBarcodeParser.AmountFromRaw(raw, other);
+            var fixedKg = new WeightBarcodeParseResult(weighted.ProductCode, fixedAmount, WeightBarcodeValueKind.Amount).ResolveWeightKg(price);
+            var amountNow = weighted.Value.ToString("0.##", inv);
+            var kgNow = weightKg.ToString("0.###", inv);
+            var sumNew = fixedAmount.ToString("0.00", inv);
+            var kgNew = fixedKg.ToString("0.###", inv);
+            var tiyin = other == WeightBarcodeParser.UnitTiyin;
+            var fix = await _prompts.ConfirmAsync(Tr.T(
+                $"«{name}»: по этикетке выходит {amountNow} сом и вес {kgNow} кг — так не бывает.\n\nЕсли цифры на этикетке {(tiyin ? "в тыйынах" : "в сомах")}, это {sumNew} сом и {kgNew} кг. Исправить единицу суммы на {(tiyin ? "тыйыны" : "сомы")}? Запомнится на этой кассе (важнее настройки сайта).",
+                $"«{name}»: этикетка боюнча {amountNow} сом жана салмагы {kgNow} кг чыгат — мындай болбойт.\n\nЭгер этикеткадагы сандар {(tiyin ? "тыйын менен" : "сом менен")} болсо, бул {sumNew} сом жана {kgNew} кг. Сумманын бирдигин {(tiyin ? "тыйынга" : "сомго")} оңдойбузбу? Ушул кассада эстеп калат (сайттын жөндөөсүнөн маанилүү).",
+                $"“{name}”: the label gives {amountNow} som and {kgNow} kg — that cannot be right.\n\nIf the label digits are in {(tiyin ? "tiyin" : "som")}, it is {sumNew} som and {kgNew} kg. Change the amount unit to {(tiyin ? "tiyin" : "som")}? It is remembered on this till (overrides the website setting).",
+                $"«{name}»: etikete göre {amountNow} som ve {kgNow} kg çıkıyor — bu olamaz.\n\nEtiketteki haneler {(tiyin ? "tiyin" : "som")} ise, bu {sumNew} som ve {kgNew} kg eder. Tutar birimi {(tiyin ? "tiyin" : "som")} olarak düzeltilsin mi? Bu kasada hatırlanır (site ayarından önemlidir).",
+                $"«{name}»: yorliq bo'yicha {amountNow} so'm va {kgNow} kg chiqadi — bunday bo'lmaydi.\n\nAgar yorliqdagi raqamlar {(tiyin ? "tiyinda" : "so'mda")} bo'lsa, bu {sumNew} so'm va {kgNew} kg. Summa birligi {(tiyin ? "tiyin" : "so'm")}ga to'g'rilansinmi? Shu kassada eslab qolinadi (sayt sozlamasidan ustun)."),
+                Tr.T($"Да, {(tiyin ? "в тыйынах" : "в сомах")}", $"Ооба, {(tiyin ? "тыйын менен" : "сом менен")}", $"Yes, in {(tiyin ? "tiyin" : "som")}", $"Evet, {(tiyin ? "tiyin" : "som")}", $"Ha, {(tiyin ? "tiyinda" : "so'mda")}"),
+                Tr.T("Нет, не менять", "Жок, өзгөртпөө", "No, keep it", "Hayır, değiştirme", "Yo'q, o'zgartirmaslik")).ConfigureAwait(true);
+            if (fix)
+            {
+                UserPreferences.Instance.SetLocalScaleAmountUnit(other);
+                PosLogger.Log($"[SCALE] amount unit fixed to {other} on this till (was {(tiyin ? "som" : "tiyin")}; label {barcode}, price {price})", "CART");
+                return new WeightBarcodeParseResult(weighted.ProductCode, fixedAmount, WeightBarcodeValueKind.Amount);
+            }
+        }
+
+        var kgText = weightKg.ToString("0.###", inv);
+        var add = await _prompts.ConfirmAsync(Tr.T(
+            $"Вес {kgText} кг — проверьте этикетку и единицу суммы (Настройки → Весы → «Настроить по этикетке»). Товар «{name}» нереально тяжёлый для одной этикетки.",
+            $"Салмагы {kgText} кг — этикетканы жана сумманын бирдигин текшериңиз (Жөндөөлөр → Таразалар → «Этикетка боюнча жөндөө»). «{name}» бир этикетка үчүн өтө оор.",
+            $"Weight {kgText} kg — check the label and the amount unit (Settings → Scales → “Set up from a label”). “{name}” is unrealistically heavy for one label.",
+            $"Ağırlık {kgText} kg — etiketi ve tutar birimini kontrol edin (Ayarlar → Teraziler → «Etiketten ayarla»). «{name}» tek etiket için gerçekçi olmayacak kadar ağır.",
+            $"Vazn {kgText} kg — yorliq va summa birligini tekshiring (Sozlamalar → Tarozilar → «Yorliq bo'yicha sozlash»). «{name}» bitta yorliq uchun haddan tashqari og'ir."),
+            Tr.T("Всё равно добавить", "Баары бир кошуу", "Add anyway", "Yine de ekle", "Baribir qo'shish"),
+            Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true);
+        if (!add)
+        {
+            PosLogger.Log($"[SCALE] label {barcode}: weight {kgText} kg rejected by cashier", "CART");
+            return null;
+        }
+        return weighted;
     }
 
     private async Task AddByBarcodeAsync(string barcode)
@@ -1475,6 +1549,11 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 }
 
                 weighted = await ConfirmWeightBarcodeKindAsync(barcode, weighted, weighedProduct).ConfigureAwait(true);
+                // 2026-11-05: защита от «384 кг» (неверная единица суммы) — исправить единицу / добавить всё равно / отмена.
+                var guarded = await GuardWeightBarcodeAsync(barcode, weighted, weighedProduct).ConfigureAwait(true);
+                if (guarded is null)
+                    return;
+                weighted = guarded;
                 var weightKg = weighted.ResolveWeightKg(LocalCartService.ParsePrice(weighedProduct.PriceLine));
                 if (_addWeighedProductWithKnownWeight != null)
                 {
@@ -2178,6 +2257,12 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 var mismatchNote = result.PriceMismatchNote;
                 await RunOnUiThreadAsync(() => MainStatusViewModel.TryShowInfoToast(mismatchNote)).ConfigureAwait(false);
             }
+            // 2026-11-05 (сервер ceba67c): сервер объединил одинаковые строки — ненавязчивый тост, чек не ломается.
+            if (!string.IsNullOrWhiteSpace(result.ServerWarningNote))
+            {
+                var warningNote = result.ServerWarningNote;
+                await RunOnUiThreadAsync(() => MainStatusViewModel.TryShowInfoToast(warningNote)).ConfigureAwait(false);
+            }
 
             LogPendingInsufficientStockOverrideIfAny(result);
             // 2026-10-29 (ревью, В-7): онлайн-продажа «в долг» — долг клиента в кэше растёт сразу (для проверки лимита «в долг» без связи).
@@ -2272,6 +2357,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                     // 2026-10-21 (ревью денег, п. 1): безналичная часть — для журнала возвратов.
                     checkoutVm.NonCashReceivedForApi,
                     TryReadSaleNumber(result));
+                // 2026-11-05 (волна 2-Б, функция 8): клиент с привязанным к боту телефоном получает чек в Telegram (в фоне; выключено — ничего).
+                TelegramReceiptDelivery.AfterSale(checkoutVm.ClientId, checkoutVm.SelectedClient?.Phone, result.CartJsonSnapshot, TryReadSaleNumber(result), result.TotalAmount,
+                    checkoutVm.PaymentMethod, cashReceived, DateTime.Now, result.SavedOffline);
                 CheckoutSucceeded?.Invoke(this, EventArgs.Empty);
                 CartMessage = result.SavedOffline
                     ? result.InfoMessage ?? Tr.T("Оплата сохранена локально.", "Төлөм локалдык түрдө сакталды.", "Payment saved locally.", "Ödeme yerel olarak kaydedildi.", "To'lov shu kompyuterda saqlandi.")
@@ -3101,6 +3189,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 };
             }).ToList();
             CartRemovalLogStore.Append(records);
+            FraudMonitor.OnRemovals(records); // 2026-11-05 (волна 2-Б, функция 2): крупные удаления и «много за смену» — в «Подозрительные операции»
         }
         catch (Exception ex)
         {

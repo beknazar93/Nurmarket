@@ -34,7 +34,7 @@ public static class ProfitPayStore
     {
         get
         {
-            var dir = DataDirOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "profit-pay");
+            var dir = DataDirOverride ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "profit-pay");
             var safe = string.Concat(CompanyKey.Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_'));
             return Path.Combine(dir, (safe.Length == 0 ? "default" : safe) + ".json");
         }

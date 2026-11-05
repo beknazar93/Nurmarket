@@ -31,7 +31,7 @@ public sealed class LossSaleRecord
 public static class LossSalesStore
 {
     private static readonly string FilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NurMarketKassa", "loss-sales.json");
+        NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa", "loss-sales.json");
     private static readonly object Gate = new();
 
     public static event Action? Changed;
@@ -54,6 +54,7 @@ public static class LossSalesStore
         }
         PosLogger.Log($"Продажа в убыток записана: {record.Loss:0.00} сом, позиций {record.Lines.Count}.", "CART");
         try { Changed?.Invoke(); } catch { /* журнал — не повод ломать оплату */ }
+        FraudMonitor.OnLossSale(record); // 2026-11-05 (волна 2-Б, функция 2): цена ниже закупки — в «Подозрительные операции» (сама проверяет, включено ли)
     }
 
     public static IReadOnlyList<LossSaleRecord> ReadAll()

@@ -10,6 +10,8 @@ namespace NurMarketKassa.Tests.Hardware;
 /// тыйынами; (2) вес, восстановленный из суммового штрих-кода, вычислялся наивным делением
 /// (Value/price), хотя весы обрезают дробную часть суммы при печати этикетки — наивное деление
 /// систематически занижает вес почти на каждой продаже по суммовому штрих-коду.</summary>
+// 2026-11-05: общая коллекция со ScaleAmountUnitTests — оба меняют статические настройки парсера и не должны идти параллельно.
+[Collection("UserPreferences")]
 public sealed class WeightBarcodeParserTests
 {
     public WeightBarcodeParserTests()

@@ -121,7 +121,7 @@ public sealed partial class SalesApiService : IPosQuickCheckoutApi
         }
     }
 
-    private static IdempotencyRecord? ReadIdempotencyRecord(JsonElement response)
+    internal static IdempotencyRecord? ReadIdempotencyRecord(JsonElement response)
     {
         if (response.ValueKind != JsonValueKind.Object || !response.TryGetProperty("found", out var found)
             || found.ValueKind is not (JsonValueKind.True or JsonValueKind.False))

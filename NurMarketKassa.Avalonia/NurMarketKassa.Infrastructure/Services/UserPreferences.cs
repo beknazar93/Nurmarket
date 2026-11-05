@@ -1,4 +1,4 @@
-﻿using System.IO;
+﻿﻿using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using NurMarketKassa.Configuration;
@@ -794,6 +794,29 @@ public sealed class UserPreferences
     /// запрашивалась и не хранилась вовсе — касса всегда считала как "tiyin", хотя NurCRM
     /// поддерживает и "som" (см. WeightBarcodeParser).</summary>
     public string ScaleBarcodeAmountUnit { get; set; } = "tiyin";
+
+    /// <summary>2026-11-05: ЛОКАЛЬНАЯ единица суммы этикетки на этой кассе — «tiyin» или «som»; null = брать серверную
+    /// (<see cref="ScaleBarcodeAmountUnit"/>). Важнее серверной, синхронизация с сайтом её не затирает (хотфикс: у клиента на сервере
+    /// стояло «som», а весы Штрих-М печатают сумму в тыйынах — сумма читалась в 100 раз больше).</summary>
+    public string? ScaleBarcodeAmountUnitLocal { get; set; }
+
+    /// <summary>2026-11-05: предел суммы на весовой этикетке, сом (выше — «сумма выглядит нереально»). По умолчанию 20 000.</summary>
+    public double ScaleMaxLabelAmountSom { get; set; } = 20000;
+
+    /// <summary>2026-11-05: единица суммы, которой касса реально пользуется: локальная ?? серверная.</summary>
+    public string EffectiveScaleAmountUnit =>
+        NurMarketKassa.Core.Application.WeightBarcodeParser.ResolveAmountUnit(ScaleBarcodeAmountUnitLocal, ScaleBarcodeAmountUnit);
+
+    /// <summary>2026-11-05: задаёт локальную единицу суммы («tiyin» / «som»; null — вернуться к серверной), сохраняет настройки
+    /// и сразу применяет к разбору этикеток (без перезапуска).</summary>
+    public void SetLocalScaleAmountUnit(string? unit)
+    {
+        var t = (unit ?? "").Trim().ToLowerInvariant();
+        ScaleBarcodeAmountUnitLocal = t is NurMarketKassa.Core.Application.WeightBarcodeParser.UnitSom or NurMarketKassa.Core.Application.WeightBarcodeParser.UnitTiyin ? t : null;
+        SaveToDisk();
+        NurMarketKassa.Core.Application.WeightBarcodeParser.AmountUnit = EffectiveScaleAmountUnit;
+    }
+
     public bool ToolsPanelExpanded { get; set; }
     /// <summary>Абсолютный путь к пользовательским обоям.</summary>
     public string BackgroundImagePath { get; set; } = "";
@@ -927,13 +950,13 @@ public sealed class UserPreferences
 
     private static string FilePath =>
         Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            NurMarketKassa.Services.AppPaths.Roaming,
             SettingsAppFolder,
             "user-settings.json");
 
     private static string? FindExistingSettingsFile()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var appData = NurMarketKassa.Services.AppPaths.Roaming;
         foreach (var folder in SettingsSearchFolders)
         {
             var path = Path.Combine(appData, folder, "user-settings.json");
@@ -960,7 +983,7 @@ public sealed class UserPreferences
         try
         {
             var other = NurMarketKassa.Services.AppMode.IsOwner ? "NurMarketKassa" : "NurMarketOwner";
-            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), other, "user-settings.json");
+            var path = Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, other, "user-settings.json");
             if (!File.Exists(path))
                 return false;
             var written = File.GetLastWriteTimeUtc(path);
@@ -1419,6 +1442,11 @@ public sealed class UserPreferences
                 p.ScaleWeightPrefixes = fromFile.ScaleWeightPrefixes;
             if (fromFile.ScaleBarcodeAmountUnit is not null)
                 p.ScaleBarcodeAmountUnit = fromFile.ScaleBarcodeAmountUnit;
+            // 2026-11-05: локальная единица суммы этикетки и предел суммы (хотфикс TM-30F, см. WeightBarcodeParser.AmountUnit).
+            if (fromFile.ScaleBarcodeAmountUnitLocal is not null)
+                p.ScaleBarcodeAmountUnitLocal = fromFile.ScaleBarcodeAmountUnitLocal;
+            if (fromFile.ScaleMaxLabelAmountSom is > 0)
+                p.ScaleMaxLabelAmountSom = fromFile.ScaleMaxLabelAmountSom.Value;
             if (fromFile.ToolsPanelExpanded is not null)
                 p.ToolsPanelExpanded = fromFile.ToolsPanelExpanded.Value;
             if (fromFile.DynamicPaymentQrEnabled is not null)
@@ -1650,7 +1678,7 @@ public sealed class UserPreferences
 
         // 2026-10-18, ревью безопасности: старые файлы настроек на этом ПК (NurCrmKassa; файл кассы, который читает
         // программа владельца, и наоборот) — без открытых кодов и паролей сотрудников. Свой файл чистит SaveToDisk.
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var appData = NurMarketKassa.Services.AppPaths.Roaming;
         foreach (var folder in new[] { "NurMarketKassa", "NurMarketOwner", "NurCrmKassa" })
         {
             var path = Path.Combine(appData, folder, "user-settings.json");
@@ -1817,6 +1845,8 @@ public sealed class UserPreferences
                 ScaleAmountPrefixes = ScaleAmountPrefixes,
                 ScaleWeightPrefixes = ScaleWeightPrefixes,
                 ScaleBarcodeAmountUnit = ScaleBarcodeAmountUnit,
+                ScaleBarcodeAmountUnitLocal = ScaleBarcodeAmountUnitLocal,
+                ScaleMaxLabelAmountSom = ScaleMaxLabelAmountSom,
                 ToolsPanelExpanded = ToolsPanelExpanded,
                 DynamicPaymentQrEnabled = DynamicPaymentQrEnabled,
                 BlindCashCount = BlindCashCount,
@@ -2163,6 +2193,8 @@ public sealed class UserPreferences
         public string? ScaleAmountPrefixes { get; set; }
         public string? ScaleWeightPrefixes { get; set; }
         public string? ScaleBarcodeAmountUnit { get; set; }
+        public string? ScaleBarcodeAmountUnitLocal { get; set; }
+        public double? ScaleMaxLabelAmountSom { get; set; }
         public bool? ToolsPanelExpanded { get; set; }
         public bool? DynamicPaymentQrEnabled { get; set; }
         public bool? BlindCashCount { get; set; }

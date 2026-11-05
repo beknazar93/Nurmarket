@@ -20,6 +20,9 @@ class LanguagePackGate {
   /// Серверный код платной функции (как в кассе: `kassa-` + `language`).
   static const addonCode = 'kassa-language';
 
+  /// 2026-11-05: код пакета в ответе сервера ceba67c (`users/company/addons/` читают все роли).
+  static const addonCodeServer = 'language';
+
   static const _cacheKey = 'addons.language';
   static const _cacheTtl = Duration(days: 7);
 
@@ -40,12 +43,15 @@ class LanguagePackGate {
   /// Разобрать ответ сервера: пакет включён, если есть запись [addonCode] с active = true и сроком не в прошлом.
   static bool parseGranted(dynamic data, {DateTime? now}) {
     final today = now ?? DateTime.now();
+    // 2026-11-05 (сервер ceba67c, п. 11): код языкового пакета теперь `language` (`{code:"language", active:true}`); прежний `kassa-language` поддержан.
+    // Несколько записей — пакет действует, если действует любая.
     for (final m in asList(data)) {
-      if ((str(m, 'code') ?? '').trim().toLowerCase() != addonCode) continue;
+      final code = (str(m, 'code') ?? '').trim().toLowerCase();
+      if (code != addonCode && code != addonCodeServer) continue;
       final active = m['active'] == true || '${m['active']}'.toLowerCase() == 'true';
-      if (!active) return false;
+      if (!active) continue;
       final until = DateTime.tryParse(str(m, 'until') ?? '');
-      if (until != null && DateTime(until.year, until.month, until.day, 23, 59, 59).isBefore(today)) return false;
+      if (until != null && DateTime(until.year, until.month, until.day, 23, 59, 59).isBefore(today)) continue;
       return true;
     }
     return false;

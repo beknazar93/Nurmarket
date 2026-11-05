@@ -430,6 +430,14 @@ public sealed partial class PosCheckoutService
         finished.TotalMismatchWarning = mismatchWarning;
         if (priceMismatch.Count > 0)
             finished.PriceMismatchNote = ServerPriceContract.MismatchToast(priceMismatch);
+        // 2026-11-05 (сервер ceba67c): warnings ответа — продажа уже проведена, чек не ломаем. lines_merged — тост, остальное — журнал.
+        var serverWarnings = CheckoutWarnings.Parse(response);
+        if (serverWarnings.Count > 0)
+        {
+            PosLogger.Log($"PAY quick: предупреждения сервера: {CheckoutWarnings.Describe(serverWarnings)}.", "PAYMENT");
+            if (CheckoutWarnings.Has(serverWarnings, CheckoutWarnings.LinesMerged))
+                finished.ServerWarningNote = ServerErrorCodes.LinesMergedToast();
+        }
         return finished;
     }
 

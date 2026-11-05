@@ -94,3 +94,7 @@ NurSupportBot/out-linux/
 # ---- Добавлено 2026-10-27 (аудит редакторов) ----
 # Assets\** собирается в программу (AvaloniaResource): служебные файлы стенда снимков (results-*.txt) не должны попасть в выпуск.
 NurMarketKassa.Avalonia/NurMarketKassa.Avalonia/Assets/**/results-*.txt
+
+# ---- 2026-11-05: замеры (BenchmarkDotNet) и снимки Verify ----
+BenchmarkDotNet.Artifacts/
+*.received.*

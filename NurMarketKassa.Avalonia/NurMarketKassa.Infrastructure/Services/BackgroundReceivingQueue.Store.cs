@@ -12,7 +12,7 @@ public sealed partial class BackgroundReceivingQueue
     private const int LockWaitSeconds = 45;
 
     private static string DataDir => DataDirOverride
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "background-receipts");
+        ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "background-receipts");
 
     private static string FilePath => Path.Combine(DataDir, "queue.json");
     private static string LockPath => Path.Combine(DataDir, "queue.lock");

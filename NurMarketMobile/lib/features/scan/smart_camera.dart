@@ -594,7 +594,7 @@ String aiErrorText(BuildContext c, VisionException e) {
 
 Widget _errorPanel(BuildContext c, String text) => Padding(
   padding: const EdgeInsets.fromLTRB(16, 16, 48, 16),
-  child: Text(text, style: const TextStyle(color: T.danger, fontWeight: FontWeight.w700)),
+  child: Text(text, style: TextStyle(color: c.pal.danger, fontWeight: FontWeight.w700)),
 );
 
 Widget _salePanel(BuildContext c, WidgetRef ref, List<SeenMatch> matches, {required bool checking, required double seconds, required Set<String> added}) {
@@ -628,14 +628,14 @@ Widget _salePanel(BuildContext c, WidgetRef ref, List<SeenMatch> matches, {requi
             ],
           ),
         ),
-      if (matches.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(l.recognizedNone, style: const TextStyle(color: T.warn))),
+      if (matches.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(l.recognizedNone, style: TextStyle(color: c.pal.warn))),
       for (final m in matches) ...[
         const SizedBox(height: 8),
         Text(
           '${m.seen.title} · ×${m.seen.count}${m.seen.name.startsWith('✓') ? ' · ${l.exactMatch}' : ''}',
-          style: TextStyle(color: m.seen.name.startsWith('✓') ? T.success : c.pal.textSoft, fontWeight: FontWeight.w700),
+          style: TextStyle(color: m.seen.name.startsWith('✓') ? c.pal.success : c.pal.textSoft, fontWeight: FontWeight.w700),
         ),
-        if (m.candidates.isEmpty) Text(l.notInCatalog, style: const TextStyle(color: T.warn)),
+        if (m.candidates.isEmpty) Text(l.notInCatalog, style: TextStyle(color: c.pal.warn)),
         for (final (p, score) in m.candidates)
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -644,7 +644,7 @@ Widget _salePanel(BuildContext c, WidgetRef ref, List<SeenMatch> matches, {requi
             title: Text(p.name, style: TextStyle(fontWeight: score >= .5 ? FontWeight.w800 : FontWeight.w500)),
             subtitle: Text('${money(p.price)} ${l.som} · ${l.inStock(qtyText(p.quantity), p.unit)}'),
             // 2026-10-22 (аудит У-10): второе касание того же товара — спросить, а не добавить молча ещё строку
-            trailing: added.contains(p.id) ? const Icon(Icons.check_circle_rounded, color: T.success) : const Icon(Icons.add_shopping_cart_rounded),
+            trailing: added.contains(p.id) ? Icon(Icons.check_circle_rounded, color: c.pal.success) : const Icon(Icons.add_shopping_cart_rounded),
             onTap: () async {
               if (added.contains(p.id) && await _askYes(c, l.addAgain(p.name)) != true) return;
               if (!c.mounted) return;
@@ -1164,12 +1164,12 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
         : '${l.smartRowUnknown}${x.error == null ? '' : '\n${x.error}'}';
     return Padding(
       padding: const EdgeInsets.only(top: 6),
-      child: Text(text, style: TextStyle(color: st == CamRowState.rejected ? T.danger : T.warn, fontSize: 12.5, fontWeight: FontWeight.w700)),
+      child: Text(text, style: TextStyle(color: st == CamRowState.rejected ? context.pal.danger : context.pal.warn, fontSize: 12.5, fontWeight: FontWeight.w700)),
     );
   }
 
   Future<void> _editQty(_CamItem x) async {
-    final v = await askNumber(context, title: x.product?.name ?? x.name.text, initial: x.qty);
+    final v = await askNumber(context, title: x.product?.name ?? x.name.text, initial: x.qty, kind: NumKind.qty);
     if (v != null) setState(() => x.qty = v.clamp(0, 99999).toDouble());
   }
 

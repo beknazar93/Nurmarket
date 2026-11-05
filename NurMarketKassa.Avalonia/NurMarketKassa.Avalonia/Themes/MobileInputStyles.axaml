@@ -1,0 +1,14 @@
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- 2026-11-05 (аудит №4, А4-05): на Android для сумм, цен, количества и телефона открывалась полная буквенная клавиатура.
+       Подсказка системе: какая клавиатура нужна полю. Своей клавиатуры нет (правило владельца) — это системная
+       клавиатура в цифровом виде; на Windows и Linux подсказка ни на что не влияет. Запятая и точка принимаются
+       (CheckoutValidation.NormalizeDecimal). Поля находятся по имени (x:Name), чтобы не править десятки окон. -->
+  <Style Selector="TextBox#CashReceivedBox, TextBox#MixedCashBox, TextBox#MixedNonCashBox, TextBox#ClosingCashBox, TextBox#OpeningCashBox, TextBox#AmountBox, TextBox#PayAllAmountBox, TextBox#PriceBox, TextBox#QuantityBox, TextBox#ItemQuantityBox, TextBox#QtyBox, TextBox#WeightBox, TextBox#OldPriceBox, TextBox#DiscountBox, TextBox#ValueBox, TextBox#PriceMinBox, TextBox#PriceMaxBox, TextBox#ReceivingQuantityBox, TextBox#ReceivingMarkupBox, TextBox#WriteOffQuantityBox">
+    <!-- 2026-11-05 (ревью волн 0–3, А-5): ContentType=Number убран. В Avalonia 11.2.5 Android он даёт только InputType.ClassNumber
+         без NumberFlagDecimal (проверено по IL Avalonia.Android.dll: флаг 0x2000 в сборке не используется), а Samsung Keyboard и др.
+         тогда прячут «,» и «.», и 150,50 сом или 0,75 кг не ввести. Все эти поля могут быть дробными, вида «десятичное» в Avalonia нет —
+         оставляем обычную клавиатуру (запятая и точка есть всегда). Вернуть Number можно, когда появится поддержка NumberFlagDecimal. -->
+    <Setter Property="TextInputOptions.ReturnKeyType" Value="Done"/>
+  </Style>
+  <!-- Телефон (PhoneBox, OwnerPhoneBox) намеренно без цифровой клавиатуры: в Avalonia 11.2 нет вида «телефон», а цифровая не даёт набрать «+». -->
+</Styles>

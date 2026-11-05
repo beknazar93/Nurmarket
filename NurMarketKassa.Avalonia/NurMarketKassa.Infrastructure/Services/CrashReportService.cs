@@ -13,7 +13,7 @@ namespace NurMarketKassa.Services;
 public static class CrashReportService
 {
     private static readonly string ReportsDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        NurMarketKassa.Services.AppPaths.Local,
         NurMarketKassa.Services.AppMode.DataFolderName, "CrashReports");
 
     /// <summary>

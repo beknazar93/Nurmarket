@@ -55,6 +55,8 @@ public sealed class AbcSectionView : UserControl
     private IReadOnlyList<AnalyticsReportData.AbcSlice> _slicesNow = [];
     private bool[] _dirty = [];
     private readonly SeasonalityView _seasonality = new();
+    // 2026-11-05 (волна 2-А, функция 6): вкладка «ABC×XYZ» — после срезов продаж, перед сезонностью.
+    private readonly AbcXyzView _xyz = new();
     private IReadOnlyList<string> _sliceKeys = SalesSliceKeys;
     private bool _showSeasonality = true;
 
@@ -147,6 +149,11 @@ public sealed class AbcSectionView : UserControl
     /// <summary>2026-10-30: наполнить срез открытой вкладки, если он ещё не показан для текущих данных.</summary>
     private void FillSelectedView()
     {
+        if (_selected >= 0 && _selected < _pages.Count && _pages[_selected].Content is AbcXyzView xyzView)
+        {
+            xyzView.EnsureLoaded();
+            return;
+        }
         if (_selected < 0 || _selected >= _pages.Count || _pages[_selected].Content is not SliceView view)
             return;
         var i = _views.IndexOf(view);
@@ -185,7 +192,8 @@ public sealed class AbcSectionView : UserControl
         var noSales = wantsSales && !slices.Any(s => s.Key != AnalyticsReportData.KeyStock);
         var message = noSales || slices.Count == 0;
 
-        var layout = (message ? (_serverFailed ? "!!" : "!") : "") + string.Join("|", slices.Select(s => s.Key)) + (_showSeasonality ? "|~" : "");
+        var showXyz = !message && slices.Any(s => s.Key == AnalyticsReportData.KeyRevenue);
+        var layout = (message ? (_serverFailed ? "!!" : "!") : "") + string.Join("|", slices.Select(s => s.Key)) + (showXyz ? "|x" : "") + (_showSeasonality ? "|~" : "");
         if (layout != _layout)
         {
             _layout = layout;
@@ -218,6 +226,9 @@ public sealed class AbcSectionView : UserControl
                 _views.Add(view);
                 AddPage(slice.Title, view);
             }
+
+            if (showXyz)
+                AddPage("ABC×XYZ", _xyz);
 
             // Сезонность считается по всей истории, а не за выбранный период, поэтому она
             // осмысленна даже когда в периоде продаж нет.

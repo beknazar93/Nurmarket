@@ -223,8 +223,9 @@ public partial class StockTransferDialog
             SuggestedFileName = TransferDocuments.FileName(data, extension),
             FileTypeChoices = [new FilePickerFileType(toWord ? "Word" : "Excel") { Patterns = [$"*.{extension}"] }],
         });
-        var path = file?.TryGetLocalPath();
-        if (string.IsNullOrWhiteSpace(path))
+        // 2026-11-05 (аудит №4, А4-07): Android — временный файл + копия в выбранный (ExportFileBridge).
+        var path = file is null ? null : NurMarketKassa.AvaloniaHost.Services.ExportFileBridge.PathFor(file);
+        if (file is null || string.IsNullOrWhiteSpace(path))
             return;
 
         try
@@ -236,6 +237,7 @@ public partial class StockTransferDialog
                 else
                     TransferDocumentOffice.SaveExcel(data, path!);
             }).ConfigureAwait(true);
+            path = await NurMarketKassa.AvaloniaHost.Services.ExportFileBridge.CompleteAsync(file, path!).ConfigureAwait(true);
             SayDoc(T("Файл сохранён: ", "Файл сакталды: ", "File saved: ", "Dosya kaydedildi: ", "Fayl saqlandi: ") + path);
         }
         catch (System.Exception ex)

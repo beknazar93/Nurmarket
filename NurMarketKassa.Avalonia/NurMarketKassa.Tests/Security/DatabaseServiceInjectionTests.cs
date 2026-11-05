@@ -9,11 +9,9 @@ namespace NurMarketKassa.Tests.Security;
 /// <summary>
 /// БЕЗОПАСНОСТЬ (OWASP A03 Injection): SQL-инъекции в локальную SQLite-БД.
 /// <para>
-/// БЕЗОПАСНОСТЬ ДАННЫХ ПОЛЬЗОВАТЕЛЯ: <see cref="DatabaseService"/> хранит БД по пути
-/// <c>AppDomain.CurrentDomain.BaseDirectory/data/pos_local.db</c>, то есть В КАТАЛОГЕ СБОРКИ
-/// ТЕСТОВ, а не в профиле пользователя (<c>%APPDATA%</c>/<c>%LOCALAPPDATA%</c>). Первый тест
-/// класса это проверяет как предохранитель: если путь когда-нибудь переедет в профиль
-/// пользователя, тесты упадут ДО того, как что-либо запишут в реальные данные кассы.
+/// БЕЗОПАСНОСТЬ ДАННЫХ ПОЛЬЗОВАТЕЛЯ: <see cref="DatabaseService"/> хранит БД внутри <c>NURMARKET_DATA_ROOT</c>
+/// (в тестах — уникальная временная папка, см. TestDataRoot), а не в профиле пользователя. Первый тест
+/// класса это проверяет как предохранитель.
 /// </para>
 /// <para>
 /// Все данные создаются с префиксом <c>test-sec-</c> и удаляются в <see cref="Dispose"/>.
@@ -46,21 +44,22 @@ public sealed class DatabaseServiceInjectionTests : IDisposable
         _repository.SyncReplaceAllWithDiff(Array.Empty<CatalogProductTileVm>());
     }
 
+    // 2026-11-05 (аудит №4, Л4-01): правило поменялось. База больше не «в каталоге сборки» (так было до 13.09.2026) — путь строит AppPaths,
+    // а в тестах NURMARKET_DATA_ROOT указывает на уникальную временную папку (TestDataRoot). Предохранитель: база обязана лежать внутри неё.
     [Fact]
-    public void DatabasePath_StaysInsideBuildOutput_AndNeverInUserProfile()
+    public void DatabasePath_StaysInsideDataRoot_AndNeverInUserProfile()
     {
         var dbPath = Path.GetFullPath(DatabaseService.Instance.DatabasePath);
-        var baseDirectory = Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory);
+        var dataRoot = Path.GetFullPath(NurMarketKassa.Tests.Infrastructure.TestDataRoot.Path);
 
         dbPath.Should().StartWith(
-            baseDirectory,
-            "тесты обязаны писать только в каталог сборки, иначе они трогают реальную БД кассы");
+            dataRoot,
+            "тесты обязаны писать только в NURMARKET_DATA_ROOT, иначе они трогают реальную БД кассы");
 
         foreach (var folder in new[]
                  {
                      Environment.SpecialFolder.ApplicationData,
                      Environment.SpecialFolder.LocalApplicationData,
-                     Environment.SpecialFolder.UserProfile,
                  })
         {
             var userFolder = Environment.GetFolderPath(folder);
@@ -68,8 +67,8 @@ public sealed class DatabaseServiceInjectionTests : IDisposable
                 continue;
 
             var normalized = Path.GetFullPath(userFolder);
-            if (baseDirectory.StartsWith(normalized, StringComparison.OrdinalIgnoreCase))
-                continue; // репозиторий лежит внутри профиля — сравнение теряет смысл
+            if (dataRoot.StartsWith(normalized, StringComparison.OrdinalIgnoreCase))
+                continue; // временная папка лежит внутри профиля (TEMP = Temp внутри LOCALAPPDATA) — сравнение теряет смысл
 
             dbPath.Should().NotStartWith(normalized);
         }

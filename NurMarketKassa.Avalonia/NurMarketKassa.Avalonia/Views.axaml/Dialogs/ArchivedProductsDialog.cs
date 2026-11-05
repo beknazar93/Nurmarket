@@ -33,7 +33,7 @@ internal sealed class ArchivedProductsDialog : Window
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(10);
 
     private static string CachePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "archive-products-cache.json");
+        NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "archive-products-cache.json");
 
     /// <summary>true — хотя бы один товар вернули из архива (вызывающий обновляет каталог).</summary>
     public bool Restored { get; private set; }

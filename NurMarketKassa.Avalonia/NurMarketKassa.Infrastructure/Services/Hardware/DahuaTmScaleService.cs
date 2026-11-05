@@ -114,7 +114,7 @@ public sealed class DahuaTmScaleService
 
     /// <summary>%LOCALAPPDATA%\NurMarketKassa\Logs\tm30f-exchange.log (у программы владельца — своя папка).</summary>
     public static string ExchangeLogPath => ExchangeLogPathOverride ?? Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        NurMarketKassa.Services.AppPaths.Local,
         AppMode.DataFolderName, "Logs", "tm30f-exchange.log");
 
     /// <summary>Для стенда: писать журнал в другое место, не в папку установленной кассы.</summary>

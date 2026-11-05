@@ -32,7 +32,7 @@ public static class TelegramInquiryStore
     public sealed record Entry(DateTime At, string ChatId, string? Name, string Text, string? OrderNumber = null);
 
     private static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketKassa", "telegram-inquiries.json");
+        NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "telegram-inquiries.json");
 
     /// <summary>Список в памяти (под Gate). Файл изменила другая программа, а у нас нет незаписанного — перечитываем.</summary>
     private static List<Entry> Cache()
@@ -228,7 +228,7 @@ public static class TelegramInquiryStore
     public sealed record CustomerProfile(string Name, string Phone, DateTime UpdatedAt);
 
     private static string ProfilesPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NurMarketKassa", "telegram-customers.json");
+        NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "telegram-customers.json");
 
     public static CustomerProfile? GetProfile(string chatId)
     {

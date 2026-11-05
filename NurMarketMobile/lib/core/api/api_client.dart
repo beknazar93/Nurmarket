@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show HttpDate;
 import 'dart:math';
 
 import 'package:dio/dio.dart';
@@ -25,6 +26,9 @@ class ApiText {
   // 2026-11-01 (аудит 10 из 10, М-08): офлайн-чек старше 7 суток — сервер отвечает offline_too_old
   static String get saleTooOld =>
       l?.apiSaleTooOld ?? 'Чек старше 7 суток: сервер не принимает его без подтверждения владельца. Не снимайте чек, сообщите владельцу.';
+  // 2026-11-05 (сервер ceba67c): 400 duplicate_line — тот же товар в чеке по разной цене или в другой единице
+  static String get saleDuplicateLine =>
+      l?.apiSaleDuplicateLine ?? 'Один товар в чеке с разной ценой или единицей: сервер не может объединить строки. Оставьте одну цену или уберите лишнюю строку.';
   static String get auditStale => l?.apiAuditStale ?? 'Ревизия не проведена вовремя — остатки могли измениться. Пересчитайте заново (акт остался черновиком).';
 }
 
@@ -42,6 +46,45 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// 2026-11-05 (аудит №4, М6-07): часы сервера по заголовку `Date` его ответов. Если время на телефоне сбилось (села батарея, дата
+/// 01.01.2025), онлайн-продажа с `sold_at` телефона получала 400 «старше 7 суток» — кассир не мог продать. [offset] = сервер − телефон;
+/// при расхождении больше [tolerance] время продажи берётся по часам сервера ([fix]), а на экране — плашка «Время на телефоне неверное».
+class ServerClock {
+  static const tolerance = Duration(minutes: 5);
+
+  /// сервер − телефон; null — ещё не измерялось.
+  static Duration? offset;
+
+  /// Расхождение больше допуска — для плашки (слушается экранами).
+  static final ValueNotifier<bool> wrong = ValueNotifier(false);
+
+  /// Запомнить время сервера из заголовка `Date` ответа (формат HTTP-date, секундная точность — для 5 минут достаточно).
+  static void note(String? dateHeader, {DateTime? phoneNow}) {
+    if (dateHeader == null || dateHeader.isEmpty) return;
+    try {
+      final server = HttpDate.parse(dateHeader);
+      offset = server.difference((phoneNow ?? DateTime.now()).toUtc());
+      final bad = offset!.abs() > tolerance;
+      if (wrong.value != bad) wrong.value = bad;
+    } catch (_) {
+      // непонятный заголовок — часы не трогаем
+    }
+  }
+
+  /// Время для продажи: часы телефона, а при заметном расхождении — исправленные на [offset] (локальное время телефона).
+  static DateTime fix(DateTime phone) {
+    final o = offset;
+    if (o == null || o.abs() <= tolerance) return phone;
+    return phone.add(o);
+  }
+
+  /// Для тестов.
+  static void reset() {
+    offset = null;
+    wrong.value = false;
+  }
+}
+
 /// 2026-10-29 (аудит мобилки, п. 5): состояние связи для плашки «Нет связи · данные от ЧЧ:ММ». [offline] — последний запрос
 /// не дошёл до сервера (обрыв, тайм-аут, страница входа Wi-Fi); любой ответ сервера, кроме 5xx, считается «связь есть».
 /// [lastOk] — когда сервер отвечал в последний раз.
@@ -53,7 +96,13 @@ class LinkStatus {
 
 /// Клиент NurCRM (ТЗ, раздел 1: dio): JWT и его обновление, повтор при 429 с паузой, журнал без токенов.
 class ApiClient {
-  static const defaultBaseUrl = 'https://app.nurcrm.kg';
+  // 2026-11-05 (E2E-тесты): адрес можно подменить при сборке — `--dart-define=NURMARKET_API_URL=http://127.0.0.1:порт` (поддельный сервер
+  // в integration_test). Без define — боевой адрес, поведение сборки не меняется.
+  static const defaultBaseUrl = String.fromEnvironment('NURMARKET_API_URL', defaultValue: 'https://app.nurcrm.kg');
+
+  /// 2026-11-05 (сервер ceba67c): метка клиента `X-NurMarket-Client: mobile/<версия>` во всех запросах — сервер ставит чекам свой `source`.
+  /// Версию выставляют main.dart и фоновая задача (AppBuild.version).
+  static String clientTag = 'mobile/0';
 
   final Dio _dio;
   final SessionStore _store;
@@ -115,6 +164,7 @@ class ApiClient {
           if (token != null && token.isNotEmpty && !o.path.contains('auth/login') && !o.path.contains('auth/refresh')) {
             o.headers['Authorization'] = 'Bearer $token';
           }
+          o.headers['X-NurMarket-Client'] = clientTag;
           if (kDebugMode) debugPrint('API → ${o.method} ${o.path}');
           h.next(o);
         },
@@ -217,9 +267,11 @@ class ApiClient {
           throw ApiException(ApiText.wifiPortal);
         }
         _linkOk();
+        ServerClock.note(resp.headers.value('date')); // 2026-11-05 (М6-07)
         return answer;
       } on DioException catch (e) {
         final code = e.response?.statusCode;
+        if (code != null) ServerClock.note(e.response?.headers.value('date'));
         // 5xx — сервер болен, но связь есть: «нет связи» не пишем; без ответа вовсе — связи нет
         if (code == null) {
           _linkDown();

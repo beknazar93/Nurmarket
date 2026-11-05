@@ -15,7 +15,7 @@ public sealed class LocalAccountsManager : ILocalAccountsStore
     // (как база и настройки); старый файл переносится при первом открытии (MigrateLegacy).
     // «local_accounts», а не «accounts»: в data\accounts AccountDataIsolation откладывает данные компаний.
     private static readonly string AccountsDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         AppMode.DataFolderName, "local_accounts");
 
     private static readonly string LegacyAccountsDirectory =

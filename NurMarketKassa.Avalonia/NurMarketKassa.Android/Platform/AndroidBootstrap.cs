@@ -95,6 +95,10 @@ internal static class AndroidBootstrap
         catch { /* останется как есть */ }
         Environment.SetEnvironmentVariable("DOTNET_hostBuilder__reloadConfigOnChange", "false");
 
+        // 2026-11-05 (аудит №4, А4-03): время нажатия клавиши для HID-сканера (см. AndroidKeyClock).
+        AndroidKeyClock.Install();
+        // 2026-11-05 (аудит №4, А4-10): MulticastLock для поиска соседних касс по Wi-Fi.
+        AndroidMulticast.Install();
         // Звук (сигналы, голосовые подсказки) — через MediaPlayer Android.
         NurMarketKassa.AvaloniaHost.Portable.PortablePlatform.WavPlayer = AndroidSound.PlayWav;
         // Печать чека: USB host, Bluetooth, сеть (TCP 9100) — см. AndroidPrinterTransport.
@@ -167,7 +171,11 @@ internal static class AndroidBootstrap
         AndroidCustomerDisplay.Initialize(activity);
     }
 
-    public static void OnEnteredBackground() => AndroidDesktopLifetime.Instance?.OnEnteredBackground();
+    public static void OnEnteredBackground()
+    {
+        AndroidMulticast.ReleaseLater();
+        AndroidDesktopLifetime.Instance?.OnEnteredBackground();
+    }
 
     public static void OnUsbDeviceAttached(Intent? intent) => AndroidPrinterTransport.OnDeviceAttached(intent);
 }

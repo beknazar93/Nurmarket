@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.AvaloniaHost.Converters;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services;
@@ -190,17 +191,49 @@ public sealed class ProductDetailsWindow : Window
     /// <summary>2026-10-23: фото на весь экран; закрывается кликом, касанием или любой клавишей.</summary>
     private void ShowFullPhoto(Bitmap bitmap)
     {
+        var fullImage = new Image { Source = bitmap, Stretch = Stretch.Uniform, Margin = new Thickness(12) };
         var viewer = new Window
         {
             WindowState = WindowState.FullScreen,
             SystemDecorations = SystemDecorations.None,
             Background = Brushes.Black,
             ShowInTaskbar = false,
-            Content = new Image { Source = bitmap, Stretch = Stretch.Uniform, Margin = new Thickness(12) },
+            Content = fullImage,
         };
         viewer.PointerPressed += (_, _) => viewer.Close();
         viewer.KeyDown += (_, _) => viewer.Close();
         _ = viewer.ShowDialog(this);
+        _ = UpgradeFullPhotoAsync(viewer, fullImage);
+    }
+
+    /// <summary>2026-11-05 (аудит скорости, п. 15 а): миниатюра в кэше теперь 320 px — на весь экран её мало. Пока открыт просмотр, фоном берём
+    /// фото побольше (до 1600 px, WebP, кэш product_thumbs/full) и подменяем картинку; не вышло (нет сети) — остаётся миниатюра.</summary>
+    private async Task UpgradeFullPhotoAsync(Window viewer, Image target)
+    {
+        try
+        {
+            var url = _product.ImageUrl;
+            var services = App.AppHost?.Services;
+            if (string.IsNullOrWhiteSpace(url) || services is null)
+                return;
+            var thumbs = services.GetRequiredService<ProductThumbService>();
+            var authApi = services.GetRequiredService<NurMarketKassa.Services.Api.IAuthApiService>();
+            var apiBase = services.GetRequiredService<NurMarketKassa.Configuration.AppSettings>().ApiBaseUrl;
+            var bigBitmap = await Task.Run(async () =>
+            {
+                var path = await thumbs.GetFullPathAsync(authApi, apiBase, url, CancellationToken.None).ConfigureAwait(false);
+                if (string.IsNullOrEmpty(path))
+                    return null;
+                using var stream = System.IO.File.OpenRead(path);
+                return new Bitmap(stream);
+            }).ConfigureAwait(true);
+            if (bigBitmap is not null && viewer.IsVisible)
+                target.Source = bigBitmap;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Карточка товара: большое фото не загружено ({ex.GetType().Name}).", "WARNING");
+        }
     }
 
     /// <summary>2026-10-23: плашка наличия — «В наличии 12 шт» (зелёная), «Заканчивается · 5 шт» (оранжевая), «Нет в наличии» (серая).</summary>

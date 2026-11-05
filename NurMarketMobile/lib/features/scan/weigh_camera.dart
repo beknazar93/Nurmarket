@@ -448,7 +448,7 @@ Future<bool> _addWeighed(BuildContext context, WidgetRef ref, Product p, double?
   var w = kg;
   final check = checkWeight(w);
   if (check == WeightCheck.zero || check == WeightCheck.negative) {
-    w = await askNumber(context, title: l.weightOf(p.name), hint: l.kg);
+    w = await askNumber(context, title: l.weightOf(p.name), hint: l.kg, kind: NumKind.weight);
     if (w == null || checkWeight(w) == WeightCheck.zero || checkWeight(w) == WeightCheck.negative || !context.mounted) return false;
   }
   if (checkWeight(w) == WeightCheck.tooHeavy) {
@@ -552,19 +552,19 @@ Future<void> _confirmSheet(BuildContext context, WidgetRef ref, WeighResult r) a
                 Text(l.weighConfirm, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 6),
                 Text(l.weighRead(r.seenName.isEmpty ? '—' : r.seenName, kg == null ? '—' : kgText(kg!)), style: TextStyle(color: c.pal.textSoft)),
-                if (!r.stable && kg != null) Text(l.weighNotStable, style: const TextStyle(color: T.warn, fontWeight: FontWeight.w600)),
-                if (check == WeightCheck.zero) Text(l.weighZero, style: const TextStyle(color: T.warn, fontWeight: FontWeight.w600)),
-                if (check == WeightCheck.tooHeavy) Text(l.weighTooHeavy(kgText(kg!)), style: const TextStyle(color: T.warn, fontWeight: FontWeight.w600)),
+                if (!r.stable && kg != null) Text(l.weighNotStable, style: TextStyle(color: context.pal.warn, fontWeight: FontWeight.w600)),
+                if (check == WeightCheck.zero) Text(l.weighZero, style: TextStyle(color: context.pal.warn, fontWeight: FontWeight.w600)),
+                if (check == WeightCheck.tooHeavy) Text(l.weighTooHeavy(kgText(kg!)), style: TextStyle(color: context.pal.warn, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 6),
                 OutlinedButton.icon(
                   onPressed: () async {
-                    final v = await askNumber(c, title: l.weighEditKg, hint: l.kg, initial: kg);
+                    final v = await askNumber(c, title: l.weighEditKg, hint: l.kg, initial: kg, kind: NumKind.weight);
                     if (v != null) setSheet(() => kg = v);
                   },
                   icon: const Icon(Icons.scale_rounded),
                   label: Text(l.weighEditKg),
                 ),
-                if (r.candidates.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(l.notInCatalog, style: const TextStyle(color: T.warn))),
+                if (r.candidates.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(l.notInCatalog, style: TextStyle(color: context.pal.warn))),
                 for (final (p, score) in r.candidates.take(3))
                   ListTile(
                     contentPadding: EdgeInsets.zero,

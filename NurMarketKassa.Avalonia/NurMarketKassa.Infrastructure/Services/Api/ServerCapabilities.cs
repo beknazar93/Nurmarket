@@ -23,6 +23,52 @@ public static class ServerCapabilities
     /// <summary>Забыть признаки (смена аккаунта, выход).</summary>
     public static void Reset() => _cache = null;
 
+    // 2026-11-05 (сервер ceba67c): имена новых признаков — в одном месте.
+    public const string DebtReturnDrawerCash = "debt_return_drawer_cash";
+    public const string CheckoutBranch = "checkout_branch";
+    public const string CheckoutLinesMerged = "checkout_lines_merged";
+    public const string CheckoutBelowCostWarning = "checkout_below_cost_warning";
+    public const string WeightLineTotalFloor = "weight_line_total_floor";
+    public const string ReceiptDelete = "receipt_delete";
+    public const string ReceiptVersionRequired = "receipt_version_required";
+    public const string RentalIdempotency = "rental_idempotency";
+    public const string ProductsArchivedFilter = "products_archived_filter";
+    public const string IdempotencyLookupBonusTransfers = "idempotency_lookup_bonus_transfers";
+
+    /// <summary>2026-11-05: синхронная проверка признака для мест, где ждать сеть нельзя (расчёт «Касса:», тело чека). true — признак есть у ЭТОГО аккаунта; нет списка, он устарел
+    /// или запрос не удался — false (поведение «как раньше»). Если список не получен или старше срока, в фоне просит его заново (ServerAddons.Api — тот же клиент, что у бонусов).</summary>
+    public static bool Has(string name)
+    {
+        var known = Cached(name);
+        if (!Fresh(out _)) // список ещё не получен, устарел или прошлый запрос не удался (раз в минуту) — в фоне запросить заново; сама проверка не ждёт
+            RefreshInBackground(force: false);
+        return known == true;
+    }
+
+    private static int _bgRunning;
+
+    private static void RefreshInBackground(bool force)
+    {
+        if (ServerLoyalty.ApiProvider?.Invoke() is not { } api || string.IsNullOrEmpty(api.AccessToken))
+            return;
+        if (Interlocked.Exchange(ref _bgRunning, 1) == 1)
+            return;
+        _ = Task.Run(async () =>
+        {
+            try { await LoadAsync(api, force: force).ConfigureAwait(false); }
+            catch { /* LoadAsync сам пишет в журнал */ }
+            finally { Volatile.Write(ref _bgRunning, 0); }
+        });
+    }
+
+    /// <summary>Загрузить список заранее — после входа и при смене аккаунта (сервер ceba67c отдаёт признаки только с токеном: до входа — 401, пустой список после 401 не считается «признаков нет»,
+    /// а повторяется), чтобы Has() сразу знал ответ. Запрос всегда заново, а не из кэша неудачи.</summary>
+    public static void WarmUp() => RefreshInBackground(force: true);
+
+    /// <summary>Только для тестов: подставить список признаков для текущего аккаунта.</summary>
+    internal static void SetFeaturesForTests(params string[] names) =>
+        _cache = (DateTime.UtcNow, AccountKey(), new HashSet<string>(names, StringComparer.OrdinalIgnoreCase), true);
+
     private static bool Fresh(out (DateTime At, string Account, HashSet<string> Features, bool Ok) c)
     {
         if (_cache is { } cur && cur.Account == AccountKey() && DateTime.UtcNow - cur.At < (cur.Ok ? Ttl : FailTtl))

@@ -67,6 +67,9 @@ public partial class MainWindow
     /// null — «Оставить» (Esc, ✕): строка остаётся.</summary>
     private async Task<CartRemovalReasonAnswer?> AskCartRemovalReasonAsync(CartRemovalReasonRequest request)
     {
+        // 2026-11-05 (функция 12): удаление крупной строки после пробития — PIN старшего (по настройке); отказ = «Оставить», строка остаётся.
+        if (!await ActionGuard.ConfirmAsync(GuardAction.RemovalAfterRing, request.LineTotal, request.Title).ConfigureAwait(true))
+            return null;
         var dlg = new CartRemovalReasonDialog(request);
         return await PosDialogHost.ShowModalAsync(dlg, this).ConfigureAwait(true) == true ? dlg.Answer : null;
     }
@@ -88,6 +91,10 @@ public partial class MainWindow
             if (!_session.IsShiftOpen)
                 return;
         }
+
+        // 2026-11-05 (волна 2-А, функция 1): просроченный товар — «Продать всё равно? / Убрать» (или PIN владельца) по настройке; логика в ExpiredSaleGuard.
+        if (!await ExpiredSaleGuard.ConfirmAsync(PosDialogHost.ResolveOwner(this), vm.Id, vm.Title).ConfigureAwait(true))
+            return;
 
         var cart = ResolveCartService();
         double qtyToAdd;
@@ -252,6 +259,10 @@ public partial class MainWindow
         }
 
         if (weightKg <= 0)
+            return;
+
+        // 2026-11-05 (ревью волн 0–3, В4): весовые этикетки (мясо, сыр, колбаса) — главный случай просрочки; проверка та же, что в AddProductFromCatalogAsync.
+        if (!await ExpiredSaleGuard.ConfirmAsync(PosDialogHost.ResolveOwner(this), vm.Id, vm.Title).ConfigureAwait(true))
             return;
 
         var cart = ResolveCartService();
@@ -552,6 +563,12 @@ public partial class MainWindow
             return;
         }
 
+        // 2026-11-05 (функции 2 и 12): скидка на чек выше порога — PIN старшего (по настройке); процент считаем от суммы строк.
+        var orderBase = (double)_viewModel.Basket.Lines.Sum(l => l.LineTotal);
+        var orderPercent = FraudAnalyzer.DiscountPercentOf(dlg.DiscountMode, double.TryParse(dlg.DiscountValue, NumberStyles.Any, CultureInfo.InvariantCulture, out var orderValue) ? orderValue : 0, orderBase);
+        if (!await ActionGuard.ConfirmAsync(GuardAction.Discount, orderPercent, Tr.T("на чек", "чекке", "on the receipt", "fişe", "chekka")).ConfigureAwait(true))
+            return;
+
         var (previousPercent, previousTotal) = _viewModel.Basket.ReadOrderDiscount();
         // 2026-10-20 (живой аудит кассы, К5): скидка записывается в чек без обновления экрана — покупатель её не видит,
         // пока кассир не ответит «Я знаю что делаю»; «Отмена» — прежняя скидка, экран не менялся.
@@ -564,6 +581,7 @@ public partial class MainWindow
                 return;
             }
             _viewModel.Basket.RefreshFromCart();
+            FraudMonitor.OnDiscount(orderPercent, orderBase * orderPercent / 100, Tr.T("на чек", "чекке", "on the receipt", "fişe", "chekka")); // 2026-11-05 (функция 2)
             _viewModel.Basket.CartMessage = dlg.DiscountMode == "percent"
                 ? Tr.T($"Скидка {dlg.DiscountValue}% применена.", $"{dlg.DiscountValue}% арзандатуу колдонулду.", $"{dlg.DiscountValue}% discount applied.", $"%{dlg.DiscountValue} indirim uygulandı.", $"{dlg.DiscountValue}% chegirma qo'llandi.")
                 : Tr.T($"Скидка {dlg.DiscountValue} сом применена.", $"{dlg.DiscountValue} сом арзандатуу колдонулду.", $"{dlg.DiscountValue} som discount applied.", $"{dlg.DiscountValue} som indirim uygulandı.", $"{dlg.DiscountValue} so'm chegirma qo'llandi.");
@@ -651,6 +669,12 @@ public partial class MainWindow
         if (await PosDialogHost.ShowModalAsync(dialog, this).ConfigureAwait(true) != true)
             return;
 
+        // 2026-11-05 (функции 2 и 12): скидка на позицию выше порога — PIN старшего (по настройке).
+        var linePercent = dialog.ClearRequested ? 0 : FraudAnalyzer.DiscountPercentOf(dialog.DiscountMode,
+            double.TryParse(dialog.DiscountValue, NumberStyles.Any, CultureInfo.InvariantCulture, out var lineValue) ? lineValue : 0, line.UnitPrice * line.Quantity);
+        if (!await ActionGuard.ConfirmAsync(GuardAction.Discount, linePercent, line.Title).ConfigureAwait(true))
+            return;
+
         // 2026-09-08: "Максимальная скидка" — реальная серверная настройка (app.nurcrm.kg,
         // Моя компания → Касса), владелец попросил применять её и к скидке на позицию, а не
         // только на весь чек (см. тот же лимит в BasketPanelViewModel.ApplyOrderDiscount).
@@ -716,6 +740,8 @@ public partial class MainWindow
             return;
         }
         _viewModel.Basket.RefreshFromCart();
+        if (!dialog.ClearRequested)
+            FraudMonitor.OnDiscount(linePercent, line.UnitPrice * line.Quantity * linePercent / 100, line.Title); // 2026-11-05 (функция 2)
         _viewModel.Basket.CartMessage = dialog.ClearRequested
             ? Tr.T($"Скидка на «{line.Title}» удалена.", $"«{line.Title}» үчүн арзандатуу алынып салынды.", $"Discount on “{line.Title}” removed.", $"«{line.Title}» için indirim kaldırıldı.", $"«{line.Title}» uchun chegirma olib tashlandi.")
             : Tr.T($"Скидка на «{line.Title}» применена.", $"«{line.Title}» үчүн арзандатуу колдонулду.", $"Discount on “{line.Title}” applied.", $"«{line.Title}» için indirim uygulandı.", $"«{line.Title}» uchun chegirma qo'llandi.");

@@ -1303,6 +1303,12 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         if (defectPreset is null)
             return;
 
+        // 2026-11-05 (функции 2 и 12): возврат от порога — PIN старшего (по настройке) и запись в «Подозрительные операции».
+        if (!await ActionGuard.ConfirmAsync(GuardAction.Return, (double)total, _currentReceiptNumber).ConfigureAwait(true))
+            return;
+        // 2026-11-05 (ревью волн 0–3, п. 14): событие «подозрительный возврат» пишем ПОСЛЕ успешного ответа сервера (отмена причины или отказ сервера его не порождают).
+        var fraudAmount = (double)total;
+
         var reasonDialog = new ReturnLineReasonDialog(selected.Count) { IsDefect = defectPreset == true };
         if (await PosDialogHost.ShowModalAsync(reasonDialog, this).ConfigureAwait(true) != true)
             return;
@@ -1350,6 +1356,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 t,
                 idempotencyKey: returnKey), () => IsBusy = false).ConfigureAwait(true);
             PendingReturn.OnSuccess();
+            FraudMonitor.OnReturn(saleId, _currentReceiptNumber, fraudAmount);
 
             SaleDetailCache.Forget(saleId);
 
@@ -1366,9 +1373,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 ServerRefundFigures.TryRead(refundResponse)) // 2026-11-01 (ответ Умара): выдача — из refund.cash
                 .ConfigureAwait(true);
             total = outcome.Amount;
-            if (!debtSaleForDrawer) // 2026-11-05 (Р3-06 / Д3-11): шапка «Касса:» уменьшается сразу, не ждёт ответа сервера об остатке
+            if (!debtSaleForDrawer || ExchangeCashCorrections.DebtRefundHandledByServer) // 2026-11-05 (Р3-06 / Д3-11): шапка «Касса:» уменьшается сразу, не ждёт ответа сервера об остатке; у долгового чека — если сервер снимает наличные сам
                 ExchangeCashCorrections.NotePendingServerCash(PosApp.ActiveShiftId, Math.Min(outcome.Cash, outcome.ServerCashOut ?? outcome.Cash));
-            CheckDrawerAfterRefund(cashBefore, outcome.Cash, "lines|" + returnKey, saleId, outcome.NonCash, outcome.ServerCashOut);
+            CheckDrawerAfterRefund(cashBefore, outcome.Cash, "lines|" + returnKey, saleId, outcome.NonCash, outcome.ServerCashOut, debtSaleForDrawer);
 
             // В итогах смены на сервере возвратов нет вовсе — записываем сами, иначе кассир
             // при закрытии смены их не увидит (см. ShiftEventsStore).
@@ -1533,7 +1540,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             return null;
         // 2026-11-01 (финальная приёмка 1.17.73, Ф-2): у долгового чека сервер не вычитает выдачу из expected_cash — поправка ящика нужна, а она считается по остатку «до». Поэтому для долгового
         // чека ждём остаток прежние 6 с (внутренний предел запроса), для остальных — 2,5 с (там ошибки сервера нет, пропуск сверки безвреден).
-        var maxWait = debtSale ? TimeSpan.FromSeconds(6.5) : TimeSpan.FromMilliseconds(2500);
+        // 2026-11-05: при признаке debt_return_drawer_cash сервер сам снимает наличные с долгового чека — сверка не нужна, ждём как у обычного чека.
+        var maxWait = debtSale && !ExchangeCashCorrections.DebtRefundHandledByServer ? TimeSpan.FromSeconds(6.5) : TimeSpan.FromMilliseconds(2500);
         // 2026-11-01 (контрольный аудит, К2-12): остаток «до» ждём не дольше 2,5 с (раньше до 6 с перед каждым возвратом). Не успели — null: сверка ящика после возврата пропускается,
         // сам возврат не задерживается (поправка не запишется, но шапку и X/Z можно обновить F5/следующей сверкой).
         var read = ExchangeCashCorrections.ReadExpectedCashAsync(App.GetRequiredService<NurMarketApiClient>(), shiftId);
@@ -1558,7 +1566,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
 
     /// <summary>2026-11-01 (Ф-2): остаток смены «до» возврата долгового чека не получен — поправка ящика не записана; кассиру — честное предупреждение (в журнале WARNING есть).</summary>
     private static string DrawerUnverifiedNote(bool debtSale, decimal? cashBefore, decimal cashOut) =>
-        debtSale && cashBefore is null && cashOut > 0.005m
+        debtSale && cashBefore is null && cashOut > 0.005m && !ExchangeCashCorrections.DebtRefundHandledByServer // 2026-11-05: сервер считает сам — предупреждение не нужно
             ? "\n" + Tr.T(
                 "Внимание: остаток смены с сервера не получен вовремя — «Касса:» после возврата долгового чека может быть завышена на выданную сумму. Проверьте «Касса:» и пересчёт ящика при закрытии смены.",
                 "Көңүл буруңуз: смена калдыгы серверден өз убагында алынган жок — карыз чегин кайтаргандан кийин «Касса:» берилген сумма боюнча жогору көрүнүшү мүмкүн. Смена жабылганда «Касса:» жана кассаны кайра санаңыз.",
@@ -1570,7 +1578,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// <summary>Сверка после возврата: наличные ушли из ящика на <paramref name="cashOut"/>, а сервер остаток не уменьшил — поправка.</summary>
     /// <param name="serverCashOut">2026-11-01 (приёмка, Ж-01): сколько наличных выдачи записал сервер, если меньше выданного кассой (касса выдала по оплатам клиента, сервер
     /// — по движениям денег: чек 001967, касса 2, сервер 1). Остаток смены на сервере тогда завышен на разницу — поправка пишется на неё, ящик сходится.</param>
-    private static void CheckDrawerAfterRefund(decimal? before, decimal cashOut, string key, string? saleId = null, decimal nonCash = 0m, decimal? serverCashOut = null)
+    private static void CheckDrawerAfterRefund(decimal? before, decimal cashOut, string key, string? saleId = null, decimal nonCash = 0m, decimal? serverCashOut = null, bool debtSale = false)
     {
         var shiftId = PosApp.ActiveShiftId;
         // 2026-10-23 (живой аудит, Б-1): долговой чек с безналичной предоплатой — наличные не уходят (cashOut 0), но сервер
@@ -1595,7 +1603,17 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             var after = await ExchangeCashCorrections.ReadExpectedCashAsync(client, shiftId).ConfigureAwait(false);
             if (after is { } a)
             {
+                // 2026-11-05 (сервер ceba67c, debt_return_drawer_cash): долговой чек — наличные снял сервер, наша поправка не пишется и не применяется (иначе вычтется дважды).
+                if (debtSale && ExchangeCashCorrections.DebtRefundHandledByServer)
+                {
+                    ExchangeCashCorrections.NoteServerFeatureDebtRefund(shiftId, cashOut);
+                    return;
+                }
                 var overstated = (a - before.Value) + cashOut;
+                // 2026-11-05 (приёмка волн 0–3, С-1): долговой чек, а сервер сам вычел выданные наличные — ошибку сервера исправили; новые поправки не пишутся (проверка ниже)
+                // и это попадает в журнал один раз, чтобы поправки текущей смены не пережили исправление незамеченными.
+                if (debtSale && cashOut > 0.005m && Math.Abs(overstated) < 0.01m)
+                    ExchangeCashCorrections.NoteServerSubtractsDebtRefund(shiftId, cashOut);
                 // 2026-11-01 (приёмка, Ж-01): сервер вычел из ящика меньше, чем выдала касса, — ожидаемое завышение = разница; иначе прежняя проверка (сервер не вычел ничего).
                 var suspect = cashOut;
                 if (serverCashOut is { } serverGave && serverGave < cashOut - 0.009m)
@@ -1612,7 +1630,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                     else
                         PosLogger.Log($"Возврат (наличные): остаток смены разошёлся на {overstated:0.00} при выдаче {cashOut:0.00} (сервер записал {serverGave:0.00}) — поправка не записана, сверить смену вручную.", "WARNING");
                 }
-                ExchangeCashCorrections.RecordIfKnownServerError(shiftId, "refund:" + key, overstated, suspect, "Возврат (наличные)");
+                ExchangeCashCorrections.RecordIfKnownServerError(shiftId, "refund:" + key, overstated, suspect, "Возврат (наличные)", debtRefund: debtSale);
             }
         });
     }
@@ -2713,6 +2731,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         if (defectPreset is null)
             return;
 
+        // 2026-11-05 (функции 2 и 12): возврат от порога — PIN старшего (по настройке) и запись в «Подозрительные операции».
+        if (!await ActionGuard.ConfirmAsync(GuardAction.Return, (double)estimatedWhole, _currentReceiptNumber).ConfigureAwait(true))
+            return;
+        // 2026-11-05 (ревью волн 0–3, п. 14): событие — после успешного ответа сервера, а не до окна причины.
+
         var reasonDialog = new ReturnLineReasonDialog(kind: ReturnReasonDialogKind.FullReceipt) { IsDefect = defectPreset == true };
         // 2026-10-04: ShowModalAsync — в Windows прежний синхронный показ, на Android — без вложенного цикла.
         if (await PosDialogHost.ShowModalAsync(reasonDialog, this).ConfigureAwait(true) != true)
@@ -2768,6 +2791,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                     t,
                     idempotencyKey: returnKey), () => IsBusy = false).ConfigureAwait(true);
             PendingReturn.OnSuccess();
+            FraudMonitor.OnReturn(saleId, _currentReceiptNumber, (double)estimatedWhole);
 
             // 2026-09-23, живой баг: полный возврат чека не писал событие смены вообще — запись
             // стояла только в построчном возврате. Вернули покупателю весь чек наличными, а в
@@ -2784,9 +2808,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 ServerRefundFigures.TryRead(wholeResponse)) // 2026-11-01 (ответ Умара): выдача — из refund.cash
                 .ConfigureAwait(true);
             var wholeTotal = wholeOutcome.Amount;
-            if (!debtSaleForDrawer) // 2026-11-05 (Р3-06 / Д3-11): шапка «Касса:» уменьшается сразу
+            if (!debtSaleForDrawer || ExchangeCashCorrections.DebtRefundHandledByServer) // 2026-11-05 (Р3-06 / Д3-11): шапка «Касса:» уменьшается сразу
                 ExchangeCashCorrections.NotePendingServerCash(PosApp.ActiveShiftId, Math.Min(wholeOutcome.Cash, wholeOutcome.ServerCashOut ?? wholeOutcome.Cash));
-            CheckDrawerAfterRefund(cashBeforeWhole, wholeOutcome.Cash, "whole|" + returnKey, saleId, wholeOutcome.NonCash, wholeOutcome.ServerCashOut);
+            CheckDrawerAfterRefund(cashBeforeWhole, wholeOutcome.Cash, "whole|" + returnKey, saleId, wholeOutcome.NonCash, wholeOutcome.ServerCashOut, debtSaleForDrawer);
             ShiftEventsStore.Record(
                 ShiftEventsStore.KindReturn,
                 PosApp.ActiveShiftId,

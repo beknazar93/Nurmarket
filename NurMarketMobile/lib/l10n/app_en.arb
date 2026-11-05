@@ -2022,5 +2022,19 @@
   "prnNotPrinted": "Receipt not printed",
   "prnPrintAgain": "Print again",
   "prnChecked": "Checked {n} of {total}",
-  "prnLocationOff": "To find a Bluetooth printer on this Android, turn on Location."
+  "prnLocationOff": "To find a Bluetooth printer on this Android, turn on Location.",
+  "clearCheckAsk": "Clear the current receipt?",
+  "qtyReduced": "Quantity reduced",
+  "heldDeleteAsk": "Delete the held receipt for {sum} som?",
+  "qtySure": "Really {qty}? That is a lot.",
+  "phoneClockWrong": "The phone's clock is wrong — fix the date and time in settings. Sales use the server's time.",
+  "payWaiting": "Processing payment…",
+  "payShortfall": "The server counted {total} som — collect {rest} som more",
+  "closeShiftCartAsk": "The receipt still has {n} items. What to do?",
+  "syncServerDown": "The server has not answered since {time}. Sales waiting: {n}. The phone will send them itself.",
+  "prnSunmi": "Built-in Sunmi printer",
+  "prnSunmiHint": "The receipt is printed by Sunmi itself, all letters (ң ө ү ş ğ) come out right. Bluetooth, network and USB are not used.",
+  "scaleBindOverwrite": "Product “{name}” has PLU {old}, it will become {plu}. Scales programmed with PLU {old} will stop finding it. Save?",
+  "apiSaleDuplicateLine": "The same product is in the receipt with a different price or unit: the server cannot merge the lines. Keep one price or remove the extra line.",
+  "payLinesMerged": "Identical receipt lines were merged into one."
 }

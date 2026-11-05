@@ -336,10 +336,18 @@ class AdminRepository {
 
   // ------------------------------------------------------------------ журнал удалений (на телефоне)
 
-  static const _delKey = 'deletions.log';
+  /// 2026-11-05 (аудит №4, М6-03, консервативно): журнал привязан к аккаунту и НЕ стирается при выходе (AccountSwitch.wipeAll
+  /// оставляет ключи `deletions.log.*`): кассир не заметёт следы выходом-входом, а чужой аккаунт чужой журнал не видит.
+  static const delKeyPrefix = 'deletions.log.';
+  static const _legacyDelKey = 'deletions.log';
+  String get _delKey {
+    final owner = (api.session?.email ?? '').trim().toLowerCase();
+    return owner.isEmpty ? _legacyDelKey : '$delKeyPrefix$owner';
+  }
 
   Future<List<DeletionRow>> deletions() async {
-    final raw = await db.getSetting(_delKey);
+    var raw = await db.getSetting(_delKey);
+    if (raw == null || raw.isEmpty) raw = await db.getSetting(_legacyDelKey); // записи до 1.18.18
     if (raw == null || raw.isEmpty) return [];
     try {
       return [for (final m in (jsonDecode(raw) as List).cast<Map<String, dynamic>>()) DeletionRow.fromJson(m)];

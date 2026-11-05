@@ -23,9 +23,8 @@ namespace NurMarketKassa.Droid;
 /// Считанный код касса получает как скан USB-сканера (CameraScan → AvaloniaKeyboardWedgeBarcodeService).</summary>
 internal static class AndroidCameraScanner
 {
-    internal const int PermissionRequestCode = 4711;
+    internal const int PermissionRequestCode = AndroidPermissions.Camera; // 2026-11-05 (А4-13): коды — в AndroidPermissions
     private static TaskCompletionSource<string?>? _pending;
-    private static TaskCompletionSource<bool>? _permission;
 
     public static void Install() => NurMarketKassa.AvaloniaHost.Services.CameraScan.Scanner = ScanAsync;
 
@@ -45,9 +44,7 @@ internal static class AndroidCameraScanner
         if (OperatingSystem.IsAndroidVersionAtLeast(23)
             && activity.CheckSelfPermission(Android.Manifest.Permission.Camera) != Permission.Granted)
         {
-            _permission = new TaskCompletionSource<bool>();
-            activity.RequestPermissions(new[] { Android.Manifest.Permission.Camera }, PermissionRequestCode);
-            if (!await _permission.Task.ConfigureAwait(true))
+            if (!await AndroidPermissions.RequestAsync(AndroidPermissions.Camera, Android.Manifest.Permission.Camera).ConfigureAwait(true))
             {
                 Toast.MakeText(activity, AndroidCrashReport.T(
                     "Нет доступа к камере. Разрешите его: Настройки Android → Приложения → NurCRM → Разрешения.",
@@ -66,12 +63,6 @@ internal static class AndroidCameraScanner
         var type = NurMarketKassa.Services.AppMode.IsOwner ? typeof(OwnerScannerActivity) : typeof(ScannerActivity);
         activity.StartActivity(new Intent(activity, type));
         return await pending.Task.ConfigureAwait(true);
-    }
-
-    internal static void OnPermissionResult(int requestCode, Permission[] grantResults)
-    {
-        if (requestCode == PermissionRequestCode)
-            _permission?.TrySetResult(grantResults.Length > 0 && grantResults[0] == Permission.Granted);
     }
 
     internal static void Deliver(string? code)
@@ -392,8 +383,11 @@ public class ScannerActivity : Activity, ISurfaceHolderCallback, Camera.IPreview
         _delivered = true;
         try
         {
-            using var tone = new ToneGenerator(Android.Media.Stream.Notification, 80);
+            // 2026-11-05 (аудит №4, А4-14): раньше `using` освобождал ToneGenerator сразу после StartTone — писк обрывался, а поток
+            // Notification глушится «Не беспокоить». Поток Music; генератор освобождаем через 300 мс, когда сигнал отзвучал.
+            var tone = new ToneGenerator(Android.Media.Stream.Music, 80);
             tone.StartTone(Tone.PropBeep, 120);
+            new Handler(Looper.MainLooper!).PostDelayed(() => { try { tone.Release(); } catch { /* уже освобождён */ } }, 300);
         }
         catch { /* без звука */ }
         AndroidCameraScanner.Deliver(code.Trim());

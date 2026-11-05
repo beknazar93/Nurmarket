@@ -94,8 +94,18 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern int GetMessageTime();
 
+    /// <summary>2026-11-05 (аудит №4, А4-03): метка времени нажатия не из Windows. Android ставит сюда время события клавиши
+    /// (KeyEvent.EventTime, мс от загрузки системы), пока клавиша обрабатывается; вне обработки возвращает null —
+    /// тогда пауза меряется по часам, как раньше.</summary>
+    public static Func<ulong?>? KeyPressTimestampProvider { get; set; }
+
     internal static ulong? KeyPressTimestamp()
     {
+        if (KeyPressTimestampProvider is { } provider)
+        {
+            try { return provider(); }
+            catch { return null; }
+        }
         if (!OperatingSystem.IsWindows())
             return null;
         try

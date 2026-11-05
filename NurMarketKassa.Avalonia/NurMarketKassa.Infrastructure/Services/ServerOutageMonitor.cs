@@ -424,6 +424,9 @@ public static class ServerOutageMonitor
             return ServerAnswerWait.SlowMessage;
         if (ex is ServerNotAnsweringException)
             return ServerAnswerWait.ThrottledMessage;
+        // 2026-11-05 (сервер ceba67c): известные коды ошибок (duplicate_line, has_returns, read_only, pin_locked…) — понятный текст на языке кассы вместо слов сервера.
+        if (ex is ApiException && ServerErrorCodes.Friendly(ex) is { } known)
+            return known;
         if (ex is null || IsNetworkOrServer(ex))
             return UnavailableText + ". " + Tr.T("Проверьте интернет и нажмите «Обновить».", "Интернетти текшериңиз да «Жаңыртуу» басыңыз.",
                 "Check the internet and press “Refresh”.", "İnterneti kontrol edip «Yenile»ye basın.", "Internetni tekshirib, «Yangilash»ni bosing.");

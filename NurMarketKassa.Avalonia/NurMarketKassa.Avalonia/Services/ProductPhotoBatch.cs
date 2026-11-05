@@ -103,7 +103,7 @@ public sealed class PhotoSearchMemory
     }
 
     private static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         NurMarketKassa.Services.AppMode.DataFolderName, "photo-search-progress.json");
 
     private static PhotoSearchMemory? _instance;

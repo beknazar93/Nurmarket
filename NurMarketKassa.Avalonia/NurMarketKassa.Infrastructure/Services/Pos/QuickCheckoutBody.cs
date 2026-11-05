@@ -174,6 +174,7 @@ public static class QuickCheckoutBody
             }
 
             body["print_receipt"] = printReceipt;
+            DeviceIdentity.ApplyTo(body); // 2026-11-05: device_key / device_name / branch — только при признаке сервера checkout_branch
             return body;
         }
     }
@@ -278,7 +279,7 @@ public static class QuickCheckoutBody
         // 2026-11-01 (ответ Умара + живая сверка с NBS): как у сервера и как CartTotalsCalculator — обычные строки без округления,
         // весовая — вниз до 0,01; подытог округляется один раз (половина вверх); скидка чека процентом — от ОКРУГЛЁННОГО подытога
         // и сама округляется отдельно; итог = подытог − скидка.
-        decimal weighedSum = 0;
+        var weighedLines = new List<decimal>(); // 2026-11-05: каждая весовая строка отдельно (weight_line_total_floor)
         decimal otherSum = 0;
         decimal lineDiscounts = 0;
         if (body["items"] is JsonArray items)
@@ -291,7 +292,7 @@ public static class QuickCheckoutBody
                 var price = ReadMoney(line["price"]);
                 var exact = QuantityRules.GrossExact(qty, price);
                 if (WeighedLines.TryGetValue(line, out _))
-                    weighedSum += exact;
+                    weighedLines.Add(exact);
                 else
                     otherSum += exact;
                 lineDiscounts += QuantityRules.ToMoneyDecimal(ReadMoney(line["discount"]));
@@ -299,7 +300,7 @@ public static class QuickCheckoutBody
         }
 
         // 2026-11-01 (опыты на сервере NBS): подытог = вниз(Σ весовых) + вверх(Σ остальных), как в CartTotalsCalculator.
-        var subtotal = QuantityRules.Subtotal(weighedSum, otherSum);
+        var subtotal = QuantityRules.Subtotal(weighedLines, otherSum);
         var discountBase = Math.Max(0m, QuantityRules.RoundMoney(subtotal - lineDiscounts));
         decimal orderDiscount = 0;
         if (body["order_discount_percent"] is { } pct)

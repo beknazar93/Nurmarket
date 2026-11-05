@@ -63,7 +63,7 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
         // 2026-10-18, этап О3: шапка — одна строка: слева пояснение «Период: … Цифры — с сервера NurCRM» (переносится), справа
         // период сегментами. Крупный заголовок «Прибыль, движение денег и сверка» убран — он повторял название раздела.
         var root = new Grid { Margin = OwnerSectionLayout.Margin, RowDefinitions = new RowDefinitions("Auto,*") };
-        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 16) };
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(0, 0, 0, 16) };
         Use(_status, TextBlock.ForegroundProperty, "BrushTextSoft");
         _status.VerticalAlignment = VerticalAlignment.Center;
         _status.Margin = new Thickness(0, 0, 16, 0);
@@ -71,6 +71,19 @@ public sealed class ProfitCashReconcileWindow : Window, IOwnerSectionRefresh, IO
         Grid.SetColumn(periods, 1);
         header.Children.Add(_status);
         header.Children.Add(periods);
+        // 2026-11-05 (функция 13): «Сверка выписки…» — безнал смен и оплаты поставщикам против банковской выписки (Excel/CSV), итог за месяц и выгрузка в Excel.
+        var bankButton = UiKit.Ghost(this, Tr.T("Сверка выписки…", "Көчүрмөнү салыштыруу…", "Bank statement…", "Ekstre mutabakatı…", "Ko'chirmani solishtirish…"));
+        bankButton.Margin = new Thickness(12, 0, 0, 0);
+        bankButton.VerticalAlignment = VerticalAlignment.Center;
+        Avalonia.Automation.AutomationProperties.SetName(bankButton, Tr.T("Сверка банковской выписки", "Банк көчүрмөсүн салыштыруу", "Bank statement reconciliation", "Banka ekstresi mutabakatı", "Bank ko'chirmasini solishtirish"));
+        bankButton.Click += async (_, _) =>
+        {
+            // Раздел встроен в окно владельца: родитель диалога — окно, в котором он показан (как у DebtsWindow).
+            if (TopLevel.GetTopLevel(this) is Window owner)
+                await new NurMarketKassa.AvaloniaHost.Views.Dialogs.BankReconcileWindow().ShowDialog(owner).ConfigureAwait(true);
+        };
+        Grid.SetColumn(bankButton, 2);
+        header.Children.Add(bankButton);
         root.Children.Add(header);
 
         var columns = new Grid { ColumnDefinitions = new ColumnDefinitions("*,16,*,16,*") };

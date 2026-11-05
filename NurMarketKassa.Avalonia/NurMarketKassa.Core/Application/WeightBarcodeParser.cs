@@ -30,6 +30,67 @@ public static class WeightBarcodeParser
     /// получали сумму (а значит и вес весового товара) в 100 раз меньше настоящей.</summary>
     public static string AmountUnit { get; set; } = "tiyin";
 
+    /// <summary>2026-11-05: хотфикс (весы Штрих-М у клиента: 25 00001 76800 1 = 768,00 сом, а касса читала 76 800 сом и 384 кг,
+    /// потому что на сервере у компании стояла единица «som»). Единица суммы теперь может быть задана на самой кассе
+    /// (UserPreferences.ScaleBarcodeAmountUnitLocal) и важнее серверной: AmountUnit = локальная ?? серверная
+    /// (см. <see cref="ResolveAmountUnit"/>). Предел ниже — для проверки «сумма/вес нереальные».</summary>
+    public const string UnitTiyin = "tiyin";
+
+    /// <summary>См. <see cref="UnitTiyin"/>.</summary>
+    public const string UnitSom = "som";
+
+    /// <summary>2026-11-05: предел веса одной этикетки, кг. Тяжелее — почти наверняка не та единица суммы (384 кг вместо 3,84).</summary>
+    public const double MaxRealisticWeightKg = 600;
+
+    /// <summary>2026-11-05: предел суммы на этикетке, сом. Больше — «сумма выглядит нереально», скорее всего цифры в тыйынах.
+    /// Меняется настройкой кассы (UserPreferences.ScaleMaxLabelAmountSom), по умолчанию 20 000.</summary>
+    public static double MaxLabelAmountSom { get; set; } = 20000;
+
+    /// <summary>2026-11-05: итоговая единица — локальная (если задана и допустима) важнее серверной; неизвестное значение = «tiyin».</summary>
+    public static string ResolveAmountUnit(string? local, string? server)
+    {
+        static string? Norm(string? v)
+        {
+            var t = (v ?? "").Trim().ToLowerInvariant();
+            return t is UnitSom or UnitTiyin ? t : null;
+        }
+        return Norm(local) ?? Norm(server) ?? UnitTiyin;
+    }
+
+    /// <summary>2026-11-05: сумма в сомах из цифр этикетки при заданной единице.</summary>
+    public static double AmountFromRaw(int raw, string? unit) =>
+        string.Equals(unit, UnitSom, StringComparison.OrdinalIgnoreCase) ? raw : raw / 100.0;
+
+    /// <summary>2026-11-05: противоположная единица.</summary>
+    public static string OtherAmountUnit(string? unit) =>
+        string.Equals(unit, UnitSom, StringComparison.OrdinalIgnoreCase) ? UnitTiyin : UnitSom;
+
+    /// <summary>2026-11-05: вес больше предела этикетки (или не число) — защита от «384 кг».</summary>
+    public static bool IsUnrealisticWeight(double kg) => kg > MaxRealisticWeightKg || double.IsNaN(kg) || double.IsInfinity(kg);
+
+    /// <summary>2026-11-05: этикетка нереальна — вес больше предела, либо напечатана СУММА выше <see cref="MaxLabelAmountSom"/>
+    /// (76 800 сом при весе 384 кг: вес формально меньше 600 кг, но сумма на этикетке весов такой не бывает).</summary>
+    public static bool IsUnrealisticLabel(WeightBarcodeParseResult parsed, double weightKg) =>
+        IsUnrealisticWeight(weightKg) || (parsed.Kind == WeightBarcodeValueKind.Amount && parsed.Value > MaxLabelAmountSom);
+
+    /// <summary>2026-11-05: сумма или вес, вычисленный из суммы и цены за кг, нереальны (сумма выше предела
+    /// <see cref="MaxLabelAmountSom"/> либо вес выше <see cref="MaxRealisticWeightKg"/>). Цена ≤ 0 — вес не проверяется.</summary>
+    public static bool IsUnrealisticAmount(double amountSom, double pricePerKg) =>
+        amountSom > MaxLabelAmountSom || (pricePerKg > 0 && IsUnrealisticWeight(amountSom / pricePerKg));
+
+    /// <summary>2026-11-05: автоопределение единицы суммы по цифрам этикетки и цене за кг. Возвращает единицу, которую
+    /// стоит предложить, — только если при ТЕКУЩЕЙ единице сумма/вес нереальны, а при другой — реальны. Иначе null (не угадываем).</summary>
+    public static string? SuggestAmountUnit(int raw, double pricePerKg, string? currentUnit)
+    {
+        if (raw <= 0)
+            return null;
+        var current = string.Equals(currentUnit, UnitSom, StringComparison.OrdinalIgnoreCase) ? UnitSom : UnitTiyin;
+        var other = OtherAmountUnit(current);
+        return IsUnrealisticAmount(AmountFromRaw(raw, current), pricePerKg) && !IsUnrealisticAmount(AmountFromRaw(raw, other), pricePerKg)
+            ? other
+            : null;
+    }
+
     /// <summary>2026-09-28: префиксы, у которых в штрихкоде записана СУММА, а не вес — например,
     /// весы TM-30F (Dahua) владельца печатают формат FFWWWWWEEEEEC с префиксом 21, а режим компании
     /// «По весу». Без этого касса находила товар, но читала сумму 12,07 как вес 1,207 кг.

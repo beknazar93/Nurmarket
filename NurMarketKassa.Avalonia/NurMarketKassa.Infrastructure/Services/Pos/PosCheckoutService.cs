@@ -1437,6 +1437,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
         var isAutonomous = _autonomous.IsCurrentSessionAutonomous;
         var entry = new OfflineSaleEntry
         {
+            ClockSkewAtSaleSeconds = ServerClock.Skew.TotalSeconds, // 2026-11-05 (ревью волн 0–3, п. 4): поправка часов запоминается в момент продажи
             PaymentMethod = request.PaymentMethod ?? "",
             CashReceived = request.CashReceived,
             CartJson = cartJsonSnapshot,

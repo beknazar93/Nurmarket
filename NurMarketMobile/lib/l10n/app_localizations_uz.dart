@@ -7150,4 +7150,62 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get prnLocationOff =>
       'Bu Android\'da Bluetooth-printerni topish uchun «Joylashuv»ni yoqing.';
+
+  @override
+  String get clearCheckAsk => 'Joriy chek tozalansinmi?';
+
+  @override
+  String get qtyReduced => 'Miqdor kamaytirildi';
+
+  @override
+  String heldDeleteAsk(String sum) {
+    return '$sum so\'mlik kechiktirilgan chek o\'chirilsinmi?';
+  }
+
+  @override
+  String qtySure(String qty) {
+    return 'Rostdan $qty? Bu juda ko\'p.';
+  }
+
+  @override
+  String get phoneClockWrong =>
+      'Telefondagi vaqt noto\'g\'ri — sozlamalarda sana va vaqtni to\'g\'rilang. Sotuvlar server vaqti bilan o\'tadi.';
+
+  @override
+  String get payWaiting => 'To\'lov o\'tkazilmoqda…';
+
+  @override
+  String payShortfall(String total, String rest) {
+    return 'Server $total so\'m hisobladi — yana $rest so\'m oling';
+  }
+
+  @override
+  String closeShiftCartAsk(int n) {
+    return 'Chekda $n ta pozitsiya qoldi. Nima qilamiz?';
+  }
+
+  @override
+  String syncServerDown(String time, int n) {
+    return 'Server $time dan beri javob bermayapti. Kutayotgan sotuvlar: $n. Telefon o\'zi yuboradi.';
+  }
+
+  @override
+  String get prnSunmi => 'Sunmi o\'rnatilgan printeri';
+
+  @override
+  String get prnSunmiHint =>
+      'Chek Sunmi vositalari bilan chop etiladi, barcha harflar (ң ө ү ş ğ) to\'g\'ri chiqadi. Bluetooth, tarmoq va USB ishlatilmaydi.';
+
+  @override
+  String scaleBindOverwrite(String name, String old, String plu) {
+    return '«$name» tovarining PLU si $old, $plu bo\'ladi. PLU $old ga sozlangan tarozilar uni topa olmaydi. Yozilsinmi?';
+  }
+
+  @override
+  String get apiSaleDuplicateLine =>
+      'Chekda bitta tovar turli narx yoki birlikda: server qatorlarni birlashtira olmaydi. Bitta narxni qoldiring yoki ortiqcha qatorni olib tashlang.';
+
+  @override
+  String get payLinesMerged =>
+      'Chekdagi bir xil qatorlar bittaga birlashtirildi.';
 }

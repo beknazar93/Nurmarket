@@ -34,7 +34,7 @@ public static class ScaleLabelCodeRegistry
 #pragma warning restore CS0649
 
     private static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         AppMode.DataFolderName,
         FileName);
 
@@ -66,7 +66,7 @@ public static class ScaleLabelCodeRegistry
     private static string SiblingFolder => AppMode.DataFolderName == "NurMarketOwner" ? "NurMarketKassa" : "NurMarketOwner";
 
     private static string SiblingFilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), SiblingFolder, FileName);
+        NurMarketKassa.Services.AppPaths.Roaming, SiblingFolder, FileName);
 
     private static void RefreshIfChanged(ref Dictionary<string, string>? map, ref DateTime stamp, string path)
     {
@@ -163,7 +163,7 @@ public static class ScaleLabelCodeRegistry
             return;
         try
         {
-            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, AmountPrefixesFile);
+            var path = Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, AmountPrefixesFile);
             var set = ReadPrefixes(path);
             if (!set.Add(prefix))
                 return;
@@ -183,7 +183,7 @@ public static class ScaleLabelCodeRegistry
             return;
         try
         {
-            var root = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var root = NurMarketKassa.Services.AppPaths.Roaming;
             var own = Path.Combine(root, AppMode.DataFolderName, AmountPrefixesFile);
             var sibling = Path.Combine(root, SiblingFolder, AmountPrefixesFile);
             var ownTime = File.Exists(own) ? File.GetLastWriteTimeUtc(own) : DateTime.MinValue;

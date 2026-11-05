@@ -36,7 +36,7 @@ public static class UpsellServerSync
     }
 
     private static string StatePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "upsell-sync.json");
+        NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "upsell-sync.json");
 
     /// <summary>Запустить отправку раз в 5 минут (повторный вызов ничего не делает).</summary>
     public static void EnsureStarted()

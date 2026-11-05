@@ -451,7 +451,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
                         Text(info.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                         Text(
                           '${l.internetFound} · ${l.barcodeMatched}',
-                          style: const TextStyle(color: T.success, fontSize: 12, fontWeight: FontWeight.w700),
+                          style: TextStyle(color: context.pal.success, fontSize: 12, fontWeight: FontWeight.w700),
                         ),
                         if (info.category != null || info.brand != null)
                           Text([info.category, info.brand].whereType<String>().join(' · '), style: TextStyle(color: c.pal.textSoft, fontSize: 12.5)),
@@ -771,7 +771,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
             if (_found) ...[
               Text(
                 l.foundInBase,
-                style: const TextStyle(color: T.success, fontWeight: FontWeight.w700),
+                style: TextStyle(color: context.pal.success, fontWeight: FontWeight.w700),
               ),
               // 2026-10-27: откуда подставлено — встроенный справочник NurCRM (работает и без связи)
               Text(l.globalSource, style: TextStyle(color: context.pal.textSoft, fontSize: 12)),
@@ -946,7 +946,7 @@ class _NewItemScreenState extends ConsumerState<NewItemScreen> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               l.costWithDiscount(money(_effectiveCost)),
-              style: const TextStyle(fontWeight: FontWeight.w800, color: T.success),
+              style: TextStyle(fontWeight: FontWeight.w800, color: context.pal.success),
             ),
           ),
         const SizedBox(height: 6),

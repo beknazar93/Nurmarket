@@ -7253,4 +7253,61 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get prnLocationOff =>
       'Чтобы найти Bluetooth-принтер на этом Android, включите «Местоположение».';
+
+  @override
+  String get clearCheckAsk => 'Очистить текущий чек?';
+
+  @override
+  String get qtyReduced => 'Количество уменьшено';
+
+  @override
+  String heldDeleteAsk(String sum) {
+    return 'Удалить отложенный чек на $sum сом?';
+  }
+
+  @override
+  String qtySure(String qty) {
+    return 'Точно $qty? Это очень много.';
+  }
+
+  @override
+  String get phoneClockWrong =>
+      'Время на телефоне неверное — исправьте дату и время в настройках. Продажи идут по времени сервера.';
+
+  @override
+  String get payWaiting => 'Проводим оплату…';
+
+  @override
+  String payShortfall(String total, String rest) {
+    return 'Сервер посчитал $total сом — доберите ещё $rest сом';
+  }
+
+  @override
+  String closeShiftCartAsk(int n) {
+    return 'В чеке остались позиции: $n. Что сделать?';
+  }
+
+  @override
+  String syncServerDown(String time, int n) {
+    return 'Сервер не отвечает с $time. Продажи ждут: $n. Телефон отправит их сам.';
+  }
+
+  @override
+  String get prnSunmi => 'Встроенный принтер Sunmi';
+
+  @override
+  String get prnSunmiHint =>
+      'Чек печатается средствами Sunmi, все буквы (ң ө ү ş ğ) выходят правильно. Bluetooth, сеть и USB при этом не используются.';
+
+  @override
+  String scaleBindOverwrite(String name, String old, String plu) {
+    return 'У товара «$name» PLU $old, будет $plu. Весы, запрограммированные на PLU $old, перестанут его находить. Записать?';
+  }
+
+  @override
+  String get apiSaleDuplicateLine =>
+      'Один товар в чеке с разной ценой или единицей: сервер не может объединить строки. Оставьте одну цену или уберите лишнюю строку.';
+
+  @override
+  String get payLinesMerged => 'Одинаковые строки чека объединены в одну.';
 }

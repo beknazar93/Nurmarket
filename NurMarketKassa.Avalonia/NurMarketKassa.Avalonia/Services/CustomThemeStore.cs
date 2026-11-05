@@ -195,7 +195,7 @@ public static class CustomThemeStore
     private static List<CustomThemeDefinition> Themes => _themes ??= Load();
 
     private static string FilePath(string folder) =>
-        Path.Combine(_rootOverride ?? Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), folder, FileName);
+        Path.Combine(_rootOverride ?? NurMarketKassa.Services.AppPaths.Roaming, folder, FileName);
 
     /// <summary>Читает файл тем; бросает исключение, если файл испорчен.</summary>
     private static List<CustomThemeDefinition> ReadFile(string path)

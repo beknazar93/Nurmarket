@@ -554,7 +554,7 @@ Future<void> chooseShopMode(BuildContext context, WidgetRef ref) async {
                   leading: Icon(m.icon),
                   title: Text(m.title(l), style: const TextStyle(fontWeight: FontWeight.w700)),
                   subtitle: Text(m.subtitle(l), style: TextStyle(fontSize: 12, color: c.pal.textSoft)),
-                  trailing: m == cur ? const Icon(Icons.check_circle_rounded, color: T.success) : null,
+                  trailing: m == cur ? Icon(Icons.check_circle_rounded, color: context.pal.success) : null,
                   onTap: () => Navigator.pop(c, m),
                 ),
               ),

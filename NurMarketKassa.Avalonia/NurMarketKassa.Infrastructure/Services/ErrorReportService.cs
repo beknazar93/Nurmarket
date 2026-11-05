@@ -52,7 +52,7 @@ public static class ErrorReportService
     }
 
     private static string QueuePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppMode.DataFolderName, "error-reports.json");
+        NurMarketKassa.Services.AppPaths.Roaming, AppMode.DataFolderName, "error-reports.json");
 
     /// <summary>Подписаться на журнал и запустить отправку раз в 5 минут. Вызывать один раз при запуске.</summary>
     public static void Start()

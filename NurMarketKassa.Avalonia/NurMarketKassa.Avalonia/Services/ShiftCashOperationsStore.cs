@@ -16,7 +16,7 @@ public static class ShiftCashOperationsStore
     private static readonly object FileLock = new();
 
     private static string HistoryFilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        NurMarketKassa.Services.AppPaths.Roaming,
         NurMarketKassa.Services.AppMode.DataFolderName,
         "cash_history.json");
 
