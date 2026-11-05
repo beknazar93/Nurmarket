@@ -645,7 +645,7 @@ class _ShiftsScreenState extends ConsumerState<ShiftsScreen> {
                   if (s.isOpen && (ref.read(sessionProvider)?.can(Session.viewSettings) ?? false)) ...[
                     const SizedBox(height: 10),
                     OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(foregroundColor: T.danger, minimumSize: const Size.fromHeight(46)),
+                      style: OutlinedButton.styleFrom(foregroundColor: context.pal.danger, minimumSize: const Size.fromHeight(46)),
                       onPressed: () => _close(s, n('expected_cash')),
                       icon: const Icon(Icons.lock_clock_outlined),
                       label: Text(l.closeShift),
@@ -918,7 +918,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                                 Align(
                                   alignment: Alignment.centerRight,
                                   child: TextButton.icon(
-                                    style: TextButton.styleFrom(foregroundColor: T.danger, minimumSize: const Size(48, 48)),
+                                    style: TextButton.styleFrom(foregroundColor: context.pal.danger, minimumSize: const Size(48, 48)),
                                     onPressed: () => _cancel(o),
                                     icon: const Icon(Icons.cancel_outlined, size: 18),
                                     label: Text(l.cancelOrder),

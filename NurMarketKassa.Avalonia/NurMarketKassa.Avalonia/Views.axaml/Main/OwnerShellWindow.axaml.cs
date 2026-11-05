@@ -1387,10 +1387,11 @@ public partial class OwnerShellWindow : Window, IMainShell
             }).ConfigureAwait(true);
             if (file is null)
                 return;
-            var path = file.TryGetLocalPath();
-            if (string.IsNullOrEmpty(path))
-                return;
+            // 2026-11-06 (аудит №5, А5-02): на Android выбор файла отдаёт content:// без локального пути — раньше Excel раздела владельца оставался пустым файлом на 0 байт.
+            // Пишем по пути из ExportFileBridge (на ПК — выбранный путь, на Android — временный файл), затем CompleteAsync копирует его в выбранный документ.
+            var path = ExportFileBridge.PathFor(file);
             await Task.Run(() => SectionTableExport.ExportToExcel(path, table, shop)).ConfigureAwait(true);
+            path = await ExportFileBridge.CompleteAsync(file, path).ConfigureAwait(true);
             PosMessageBox.Show(this, Tr.T($"Файл сохранён: {path}", $"Файл сакталды: {path}", $"File saved: {path}", $"Dosya kaydedildi: {path}", $"Fayl saqlandi: {path}"),
                 Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
         }

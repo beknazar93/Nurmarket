@@ -6,6 +6,7 @@ import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/util/product_picker.dart';
 import '../../core/util/ui.dart';
+import '../../l10n/app_localizations.dart';
 import 'barcode_lookup.dart';
 
 /// 2026-11-05 (мобилка, М5-12, М5-13, М5-14): всё, что сканер и ручной сканер делают с ВЕСОВОЙ этикеткой сверх обычного поиска.
@@ -126,7 +127,7 @@ Future<({Product product, double? qty})?> offerUnknownPlu(BuildContext context, 
     context: context,
     builder: (c) => AlertDialog(
       // 2026-11-05 (аудит №4, М6-26): у товара уже другой PLU — предупредить, что весы с прежним PLU перестанут его находить
-      content: Text((p.plu ?? '').trim().isNotEmpty && p.plu!.trim() != pluV ? l.scaleBindOverwrite(p.plu!.trim(), pluV, p.name) : l.scaleBindAsk(pluV, p.name)),
+      content: Text(scaleBindPrompt(l, name: p.name, oldPlu: p.plu, plu: pluV)), // 2026-11-06 (М7-07): аргументы окна были перепутаны
       actions: [
         TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
         FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l.save)),
@@ -148,4 +149,11 @@ Future<({Product product, double? qty})?> offerUnknownPlu(BuildContext context, 
   if (hit == null) return null;
   if (!hit.weighed && context.mounted && !await confirmPieceProduct(context, hit.product)) return null;
   return (product: hit.product, qty: hit.weighed ? hit.qty : null);
+}
+
+/// 2026-11-06 (аудит №5, М7-07): текст окна привязки PLU. У товара уже другой PLU — предупреждение «У товара «Молоко» PLU 15, будет 12»
+/// (раньше название, прежний и новый PLU стояли не на своих местах). Иначе — обычный вопрос.
+String scaleBindPrompt(AppLocalizations l, {required String name, String? oldPlu, required String plu}) {
+  final old = (oldPlu ?? '').trim();
+  return old.isNotEmpty && old != plu ? l.scaleBindOverwrite(name, old, plu) : l.scaleBindAsk(plu, name);
 }

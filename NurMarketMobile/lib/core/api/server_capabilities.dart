@@ -26,6 +26,13 @@ class ServerCapabilities {
   static Set<String>? _features;
   static String? _owner;
 
+  /// 2026-11-06 (аудит №5, М7-08): шаг весов компании получен. false — признак округления есть, а `users/company/` не ответил: шаг «копейка»
+  /// взят по умолчанию и НЕ закрепляется на 14 дней (кэш помечается, запрос повторяется на следующем проходе очереди).
+  static bool _stepKnown = true;
+
+  /// Нужно повторить запрос (признаки есть, шаг весов не получен).
+  static bool get stepUnknown => _features != null && !_stepKnown;
+
   /// Признак есть у ЭТОГО аккаунта (список уже получен). Нет списка — false.
   static bool has(String name) => _features?.contains(name) ?? false;
 
@@ -60,7 +67,8 @@ class ServerCapabilities {
   /// Шаг весов в копейках по `scale_barcode_amount_unit` компании: tiyin = 0,01 → 1, som = 1 → 100. Непонятное значение — tiyin.
   static int stepCentsOf(Object? unit) => '${unit ?? ''}'.trim().toLowerCase() == 'som' ? 100 : 1;
 
-  static void _apply({int? stepCents}) {
+  static void _apply({int? stepCents, bool stepKnown = true}) {
+    _stepKnown = stepKnown;
     ServerRounding.weightLineFloor = has(weightLineTotalFloor);
     if (stepCents != null) ServerRounding.weightStepCents = stepCents;
   }
@@ -69,6 +77,7 @@ class ServerCapabilities {
   static Future<void> reset(AppDatabase? db) async {
     _features = null;
     _owner = null;
+    _stepKnown = true;
     ServerRounding.reset();
     try {
       await db?.setSetting(_cacheKey, '');
@@ -85,7 +94,7 @@ class ServerCapabilities {
       if ((m['owner'] ?? '') != owner || at == null || DateTime.now().difference(at) > _cacheTtl || m['features'] is! List) return _forgetIfOther(owner);
       _features = {for (final x in m['features'] as List) '$x'};
       _owner = owner;
-      _apply(stepCents: (m['step'] as num?)?.toInt() ?? 1);
+      _apply(stepCents: (m['step'] as num?)?.toInt() ?? 1, stepKnown: m['stepKnown'] != false);
     } catch (_) {
       _forgetIfOther(owner); // испорченный кэш — как будто признаков нет
     }
@@ -104,26 +113,33 @@ class ServerCapabilities {
       final data = await api.get('api/main/capabilities/', timeout: const Duration(seconds: 8));
       final set = parse(data);
       if (set.isEmpty && data is! Map && data is! List) return false; // ответ не того вида — это сбой, а не «признаков нет»
+      final prevStepKnown = _owner == owner && _features != null && _stepKnown; // шаг того же аккаунта был известен
       if (_owner != owner) ServerRounding.reset(); // список другого аккаунта не должен влиять
       _features = set;
       _owner = owner;
       var step = ServerRounding.weightStepCents;
+      var stepKnown = true;
       if (set.contains(weightLineTotalFloor)) {
-        // шаг весов — настройка компании; не получили — прежний (по умолчанию копейка)
+        // шаг весов — настройка компании
         try {
           final company = await api.get('api/users/company/', timeout: const Duration(seconds: 8));
-          if (company is Map) step = stepCentsOf(company['scale_barcode_amount_unit']);
+          if (company is Map) {
+            step = stepCentsOf(company['scale_barcode_amount_unit']);
+          } else {
+            stepKnown = prevStepKnown;
+          }
         } catch (_) {
-          // остаётся прежний шаг
+          stepKnown = prevStepKnown; // не получили: прежний шаг того же аккаунта (если был известен), иначе «копейка» без закрепления
         }
+        if (!stepKnown) step = 1;
       }
-      _apply(stepCents: step);
+      _apply(stepCents: step, stepKnown: stepKnown);
       try {
-        await db.setSetting(_cacheKey, jsonEncode({'owner': owner, 'at': DateTime.now().toIso8601String(), 'features': set.toList()..sort(), 'step': step}));
+        await db.setSetting(_cacheKey, jsonEncode({'owner': owner, 'at': DateTime.now().toIso8601String(), 'features': set.toList()..sort(), 'step': step, if (!stepKnown) 'stepKnown': false}));
       } catch (_) {
         // кэш — удобство
       }
-      return true;
+      return stepKnown;
     } catch (_) {
       return false; // нет связи, 401, 5xx: прошлый список остаётся, повтор при следующем входе/запуске
     }

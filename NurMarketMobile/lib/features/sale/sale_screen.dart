@@ -980,7 +980,7 @@ Future<double?> askWeightQuick(BuildContext context, Product p) {
               key: const Key('quickWeightOther'),
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
               onPressed: () async {
-                final v = await askNumber(c, title: l.weightOf(p.name), hint: p.unit, kind: NumKind.weight);
+                final v = await askNumber(c, title: l.weightOf(p.name), hint: p.unit, kind: NumKind.weight, sureAbove: l.kg == p.unit ? null : 50000); // 2026-11-06 (М7-10): не кг — граммы, 500 г обычно
                 if (c.mounted && v != null) Navigator.pop(c, v);
               },
               child: Text(l.kg == p.unit ? '${l.weightOf(p.name)}…' : '${p.unit}…'),
@@ -1365,7 +1365,7 @@ class _CartRow extends ConsumerWidget {
     }
 
     Future<void> editQty() async {
-      final v = await askNumber(context, title: line.name, hint: line.isWeight ? line.unit : l.packQty, initial: line.qty, kind: line.isWeight ? NumKind.weight : NumKind.qty);
+      final v = await askNumber(context, title: line.name, hint: line.isWeight ? line.unit : l.packQty, initial: line.qty, kind: line.isWeight ? NumKind.weight : NumKind.qty, sureAbove: line.isWeight && line.unit != l.kg ? 50000 : null);
       if (v == null) return;
       // 14.10, проверка логики: штучный товар — только целое (сервер принимает штуки целыми; 1,5 уходило как 2 и сумма
       // на телефоне расходилась с NurCRM).

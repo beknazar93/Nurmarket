@@ -243,9 +243,26 @@ internal static class TimeoutPathTracker
         {
             foreach (var old in LastTimeoutUtc.Where(kv => nowUtc - kv.Value > Window).Select(kv => kv.Key).ToList())
                 LastTimeoutUtc.Remove(old);
-            LastTimeoutUtc[(path ?? "").Trim('/')] = nowUtc;
+            LastTimeoutUtc[NormalizePath(path)] = nowUtc;
             return LastTimeoutUtc.Count >= 2;
         }
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex IdSegment = new(
+        @"^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9a-fA-F]{32}|\d+)$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>2026-11-06 (аудит №5, Л5-12): путь для учёта таймаутов — id (UUID, 32 hex, число) заменяются на {id}: «pos/sales/{id}» с разными id — ОДИН путь. Раньше при открытии экрана десятки
+    /// медленных GET pos/sales/&lt;разные id&gt; считались «разными путями» и открывали предохранитель на 15 с для ВСЕХ чтений (каталог, клиенты, долги).</summary>
+    internal static string NormalizePath(string? path)
+    {
+        var trimmed = (path ?? "").Trim('/');
+        if (trimmed.Length == 0)
+            return "";
+        var parts = trimmed.Split('/');
+        for (var i = 0; i < parts.Length; i++)
+            if (IdSegment.IsMatch(parts[i]))
+                parts[i] = "{id}";
+        return string.Join('/', parts);
     }
 
     internal static void Reset()

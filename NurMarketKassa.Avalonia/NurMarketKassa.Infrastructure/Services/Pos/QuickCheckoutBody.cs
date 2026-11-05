@@ -179,6 +179,57 @@ public static class QuickCheckoutBody
         }
     }
 
+    private static readonly string[] DeviceFieldNames = { "device_key", "device_name", "branch" };
+
+    /// <summary>2026-11-06 (аудит №5, Л5-01): «отпечаток» тела для ключа повтора — тело БЕЗ device_key / device_name / branch. Эти поля зависят от признака сервера checkout_branch и имени кассы,
+    /// а признак мог «мигнуть» между первой оплатой с неясным исходом и повтором: тогда отпечаток менялся, ключ становился новым, и оплата «в долг» могла пройти дважды. Состав чека,
+    /// суммы и способ оплаты в отпечатке остаются. Принимает текст тела (в том числе записанный на диск до этого изменения).</summary>
+    public static string Fingerprint(string bodyJson)
+    {
+        try
+        {
+            if (JsonNode.Parse(bodyJson) is JsonObject o)
+            {
+                foreach (var name in DeviceFieldNames)
+                    o.Remove(name);
+                return o.ToJsonString();
+            }
+        }
+        catch (JsonException) { /* не JSON — сравнивается как есть */ }
+        return bodyJson;
+    }
+
+    /// <summary>См. <see cref="Fingerprint(string)"/>.</summary>
+    public static string Fingerprint(JsonObject body) => Fingerprint(body.ToJsonString());
+
+    /// <summary>2026-11-06: поля устройства из тела (или из записанного текста тела) — их фиксируют вместе с ключом повтора, чтобы повтор ушёл с теми же, что и первая попытка.</summary>
+    public static Dictionary<string, JsonNode?> DeviceFields(string? bodyJson)
+    {
+        var result = new Dictionary<string, JsonNode?>();
+        if (string.IsNullOrWhiteSpace(bodyJson))
+            return result;
+        try
+        {
+            if (JsonNode.Parse(bodyJson) is JsonObject o)
+                foreach (var name in DeviceFieldNames)
+                    if (o[name] is { } v)
+                        result[name] = v.DeepClone();
+        }
+        catch (JsonException) { /* нечитаемая запись — полей нет */ }
+        return result;
+    }
+
+    /// <summary>2026-11-06: ставит в тело ровно зафиксированные поля устройства (лишние убирает): повтор оплаты тем же ключом уходит с тем же телом, даже если признак сервера «мигнул».</summary>
+    public static void ReplaceDeviceFields(JsonObject body, IReadOnlyDictionary<string, JsonNode?> fields)
+    {
+        foreach (var name in DeviceFieldNames)
+        {
+            body.Remove(name);
+            if (fields.TryGetValue(name, out var v) && v is not null)
+                body[name] = v.DeepClone();
+        }
+    }
+
     private static JsonObject? TryBuildLine(JsonElement it, out string? unsupportedReason)
     {
         unsupportedReason = null;

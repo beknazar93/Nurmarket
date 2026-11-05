@@ -120,9 +120,12 @@ void main() {
     });
 
     test('филиал из профиля: строка, число, объект с id; нет — пусто', () {
-      expect(CheckoutDevice.branchOf({}, {'branch': 'b1'}), 'b1');
+      // 2026-11-06 (М7-14): id филиала — uuid или число; название («b1», «Центр») не отправляется
+      const u = '3f2b8c1e-5a47-4d1b-9c33-0a1b2c3d4e5f';
+      expect(CheckoutDevice.branchOf({}, {'branch': u}), u);
+      expect(CheckoutDevice.branchOf({}, {'branch': 'b1'}), '');
       expect(CheckoutDevice.branchOf({}, {'branch_id': 7}), '7');
-      expect(CheckoutDevice.branchOf({'branch': {'id': 'x9', 'name': 'Центр'}}, {}), 'x9');
+      expect(CheckoutDevice.branchOf({'branch': {'id': u, 'name': 'Центр'}}, {}), u);
       expect(CheckoutDevice.branchOf({}, {'branch': null}), '');
     });
 

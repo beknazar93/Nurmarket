@@ -4660,6 +4660,194 @@
           "Sıradan telefonda (Sunmi değil) anahtar yoktur, Bluetooth/ağ/USB yazdırma eskisi gibi çalışır."
         ]
       }
+    },
+    {
+      "id": "1.18.19/weighed-paper-receipt",
+      "version": "1.18.19",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Весовые строки на бумажном чеке сходятся с ИТОГО",
+        "ky": "Кагаз чекте салмактуу саптар ЖАЛПЫ менен дал келет",
+        "en": "Weighed lines on the paper receipt add up to the TOTAL",
+        "tr": "Kağıt fişte tartılı satırlar TOPLAM ile tutar",
+        "uz": "Qog'oz chekda tarozi qatorlari JAMI bilan to'g'ri keladi"
+      },
+      "changed": {
+        "ru": "Принтер (Bluetooth, сеть, USB и встроенный Sunmi) печатает сумму весовой строки так же, как считает сервер NurCRM: вниз до шага весов (0,343 кг × 66 = 22,638 → 22,63, а не 22,64). Два взвешивания одного товара становятся одной строкой, как на сервере. Строка «Округление» появляется только если она нужна. Повторная печать из «Чеков» больше не показывает «скидку −0,01» у весовых.",
+        "ky": "Принтер (Bluetooth, тармак, USB жана орнотулган Sunmi) салмактуу саптын суммасын NurCRM сервери эсептегендей басат: тараза кадамына чейин төмөн (0,343 кг × 66 = 22,638 → 22,63, 22,64 эмес). Бир товардын эки таразасы сервердегидей бир сап болот. «Тегеректөө» сабы керек болгондо гана чыгат. «Чектерден» кайра басканда салмактуу саптарда «−0,01 арзандатуу» көрүнбөйт.",
+        "en": "The printer (Bluetooth, network, USB and the built-in Sunmi) prints a weighed line the way the NurCRM server counts it: down to the scale step (0.343 kg × 66 = 22.638 → 22.63, not 22.64). Two weighings of one product become one line, like on the server. The “Rounding” line appears only when needed. Printing again from Receipts no longer shows a “discount −0.01” on weighed lines.",
+        "tr": "Yazıcı (Bluetooth, ağ, USB ve dahili Sunmi) tartılı satırı NurCRM sunucusunun hesapladığı gibi basar: terazi adımına kadar aşağı (0,343 kg × 66 = 22,638 → 22,63, 22,64 değil). Aynı ürünün iki tartımı sunucudaki gibi tek satır olur. «Yuvarlama» satırı yalnız gerektiğinde çıkar. «Fişler»den tekrar yazdırınca tartılı satırlarda «−0,01 indirim» görünmez.",
+        "uz": "Printer (Bluetooth, tarmoq, USB va o'rnatilgan Sunmi) tarozi qatorining summasini NurCRM serveri hisoblagandek chop etadi: tarozi qadamigacha pastga (0,343 kg × 66 = 22,638 → 22,63, 22,64 emas). Bir tovarning ikki tortilishi serverdagidek bitta qator bo'ladi. «Yaxlitlash» qatori faqat kerak bo'lganda chiqadi. «Cheklar»dan qayta chop etganda tarozi qatorlarida «−0,01 chegirma» ko'rinmaydi."
+      },
+      "steps": {
+        "ru": [
+          "Продайте сыр 0,343 кг по 66 сом и воду за 3 сома, оплатите, распечатайте чек: строка сыра «22,63», строки «Округление» нет, ИТОГО 25,63.",
+          "Сыр двумя взвешиваниями по 0,243 кг по 66 сом: на чеке одна строка 32,07 (не 16,03 + 16,03 и без «Округление +0,01»).",
+          "«Чеки» → этот чек → печать: строки те же, слов «скидка» у весового товара нет."
+        ],
+        "ky": [
+          "Сырды 0,343 кг 66 сомдон жана сууну 3 сомго сатыңыз, төлөңүз, чекти басыңыз: сыр сабы «22,63», «Тегеректөө» сабы жок, ЖАЛПЫ 25,63.",
+          "Сырды 0,243 кг эки жолу таразалаңыз, 66 сомдон: чекте бир сап 32,07 (16,03 + 16,03 эмес, «Тегеректөө +0,01» жок).",
+          "«Чектер» → ошол чек → басуу: саптар ошондой, салмактуу товарда «арзандатуу» деген сөз жок."
+        ],
+        "en": [
+          "Sell cheese 0.343 kg at 66 som and water for 3 som, pay, print the receipt: the cheese line is “22.63”, there is no “Rounding” line, the TOTAL is 25.63.",
+          "Cheese in two weighings of 0.243 kg at 66 som: the receipt has one line 32.07 (not 16.03 + 16.03, and no “Rounding +0.01”).",
+          "Receipts → this receipt → print: the same lines, and no word “discount” on the weighed product."
+        ],
+        "tr": [
+          "0,343 kg peyniri 66 somdan ve 3 somluk suyu satın, ödemeyi alın, fişi yazdırın: peynir satırı «22,63», «Yuvarlama» satırı yok, TOPLAM 25,63.",
+          "Peynir 0,243 kg iki tartımla, 66 somdan: fişte tek satır 32,07 (16,03 + 16,03 değil, «Yuvarlama +0,01» yok).",
+          "«Fişler» → bu fiş → yazdır: satırlar aynı, tartılı üründe «indirim» sözü yok."
+        ],
+        "uz": [
+          "Pishloqni 0,343 kg 66 so'mdan va suvni 3 so'mga soting, to'lovni oling, chekni chop eting: pishloq qatori «22,63», «Yaxlitlash» qatori yo'q, JAMI 25,63.",
+          "Pishloqni 0,243 kg ikki marta torting, 66 so'mdan: chekda bitta qator 32,07 (16,03 + 16,03 emas, «Yaxlitlash +0,01» yo'q).",
+          "«Cheklar» → shu chek → chop etish: qatorlar bir xil, tarozi tovarida «chegirma» so'zi yo'q."
+        ]
+      }
+    },
+    {
+      "id": "1.18.19/logout-with-cart",
+      "version": "1.18.19",
+      "area": "profile",
+      "severity": "important",
+      "title": {
+        "ru": "Выход из аккаунта не стирает чек молча",
+        "ky": "Аккаунттан чыгуу чекти унчукпай өчүрбөйт",
+        "en": "Signing out does not erase the receipt silently",
+        "tr": "Çıkış yapmak fişi sessizce silmez",
+        "uz": "Akkauntdan chiqish chekni jimgina o'chirmaydi"
+      },
+      "changed": {
+        "ru": "Если в чеке есть позиции или есть отложенные чеки, «Выйти из аккаунта» просит право «удаление из чека», спрашивает «позиций N, отложено M» и пишет каждую строку в «Удалено из чека» с причиной «Выйти из аккаунта». Пустой чек — выход как раньше.",
+        "ky": "Чекте позиция бар болсо же кечиктирилген чектер болсо, «Аккаунттан чыгуу» «чектен өчүрүү» укугун талап кылат, «позиция N, кечиктирилген M» деп сурайт жана ар бир сапты «Чектен өчүрүлдү» журналына «Аккаунттан чыгуу» себеби менен жазат. Чек бош болсо — мурдагыдай чыгат.",
+        "en": "If the receipt has items or there are held receipts, “Sign out” asks for the “delete from receipt” right, asks “N items, M held” and writes every line to “Removed from receipt” with the reason “Sign out”. An empty receipt signs out as before.",
+        "tr": "Fişte kalem varsa veya bekleyen fişler varsa «Çıkış» «fişten silme» yetkisi ister, «N kalem, M bekleyen» diye sorar ve her satırı «Çıkış» nedeniyle «Fişten silindi» günlüğüne yazar. Boş fiş — çıkış eskisi gibi.",
+        "uz": "Chekda pozitsiya yoki kechiktirilgan cheklar bo'lsa, «Akkauntdan chiqish» «chekdan o'chirish» huquqini talab qiladi, «pozitsiya N, kechiktirilgan M» deb so'raydi va har bir qatorni «Chekdan o'chirildi» jurnaliga «Akkauntdan chiqish» sababi bilan yozadi. Chek bo'sh bo'lsa — chiqish avvalgidek."
+      },
+      "steps": {
+        "ru": [
+          "Кассир без права «удаление из чека»: наберите 2 товара, «Профиль» → «Выйти из аккаунта»: «Нет доступа», вы остались в аккаунте, чек на месте.",
+          "Владелец (или с правом): тот же чек и один отложенный → вопрос «позиций: 2, отложено чеков: 1» → «Выйти из аккаунта».",
+          "Войдите снова тем же логином → «Удалено из чека»: 3 строки с причиной «Выйти из аккаунта»."
+        ],
+        "ky": [
+          "«Чектен өчүрүү» укугу жок кассир: 2 товар терип, «Профиль» → «Аккаунттан чыгуу»: «Кирүүгө уруксат жок», аккаунтта калдыңыз, чек ордунда.",
+          "Ээси (же укугу бар): ошол чек жана бир кечиктирилген → «позиция: 2, кечиктирилген чектер: 1» суроосу → «Аккаунттан чыгуу».",
+          "Ошол эле логин менен кайра кириңиз → «Чектен өчүрүлдү»: «Аккаунттан чыгуу» себеби менен 3 сап."
+        ],
+        "en": [
+          "A cashier without the “delete from receipt” right: add 2 products, Profile → Sign out: “No access”, you stay signed in, the receipt is intact.",
+          "The owner (or with the right): the same receipt and one held → the question “items: 2, held receipts: 1” → Sign out.",
+          "Sign in again with the same login → Removed from receipt: 3 lines with the reason “Sign out”."
+        ],
+        "tr": [
+          "«Fişten silme» yetkisi olmayan kasiyer: 2 ürün ekleyin, Profil → Çıkış: «Erişim yok», hesapta kalırsınız, fiş yerinde.",
+          "Sahip (veya yetkili): aynı fiş ve bir bekleyen → «kalem: 2, bekleyen fiş: 1» sorusu → Çıkış.",
+          "Aynı kullanıcı adıyla tekrar girin → «Fişten silindi»: «Çıkış» nedeniyle 3 satır."
+        ],
+        "uz": [
+          "«Chekdan o'chirish» huquqi yo'q kassir: 2 tovar terib, Profil → Akkauntdan chiqish: «Ruxsat yo'q», akkauntda qolasiz, chek joyida.",
+          "Egasi (yoki huquqi bor): shu chek va bitta kechiktirilgan → «pozitsiyalar: 2, kechiktirilgan cheklar: 1» savoli → Akkauntdan chiqish.",
+          "Shu login bilan qayta kiring → «Chekdan o'chirildi»: «Akkauntdan chiqish» sababi bilan 3 qator."
+        ]
+      }
+    },
+    {
+      "id": "1.18.19/return-repeat-check",
+      "version": "1.18.19",
+      "area": "sale",
+      "severity": "money",
+      "title": {
+        "ru": "Повтор возврата не выдаёт деньги второй раз",
+        "ky": "Кайтарууну кайталоо акчаны экинчи жолу бербейт",
+        "en": "Repeating a return does not pay out twice",
+        "tr": "İadeyi tekrarlamak parayı ikinci kez vermez",
+        "uz": "Qaytarishni takrorlash pulni ikkinchi marta bermaydi"
+      },
+      "changed": {
+        "ru": "Если ответ на возврат потерялся, а кассир нажал «Вернуть» снова через 10 минут и позже, телефон сверяется с сервером: при найденном возврате новый НЕ отправляется, показывается «Возврат мог уже пройти», экран закрывается. Сверка учитывает часы сервера, а не только телефона. Один товар по двум ценам в чеке больше не даёт «Не принято»: онлайн чек не оплачивается без выбора одной цены, чек из очереди сводится в одну строку.",
+        "ky": "Кайтарууга жооп жоголуп, кассир 10 мүнөттөн кийин кайра «Кайтаруу» бассо, телефон сервер менен салыштырат: кайтаруу табылса, жаңысы ЖӨНӨТҮЛБӨЙТ, «Кайтаруу өтүп кетиши мүмкүн» көрүнөт, экран жабылат. Салыштыруу телефондун гана эмес, сервердин саатын да эске алат. Чекте бир товар эки баада болсо «Кабыл алынган жок» болбойт: онлайн чек бир баа тандалмайынча төлөнбөйт, кезектеги чек бир сапка бириктирилет.",
+        "en": "If the answer to a return was lost and the cashier presses “Return” again 10 minutes or more later, the phone checks the server: when a return is found, a new one is NOT sent, “The return may already be done” is shown and the screen closes. The check uses the server clock, not only the phone. One product at two prices in a receipt no longer ends in “Not accepted”: online the receipt cannot be paid until one price is chosen, a queued receipt is merged into one line.",
+        "tr": "İade yanıtı kaybolur ve kasiyer 10 dakika veya daha sonra «İade»ye tekrar basarsa, telefon sunucuyla karşılaştırır: iade bulunursa yenisi GÖNDERİLMEZ, «İade zaten yapılmış olabilir» gösterilir, ekran kapanır. Karşılaştırma yalnız telefonun değil sunucunun saatini de dikkate alır. Fişte aynı ürünün iki fiyatla olması artık «Kabul edilmedi»ye düşürmez: çevrimiçi fiş tek fiyat seçilmeden ödenmez, kuyruktaki fiş tek satırda birleştirilir.",
+        "uz": "Qaytarishga javob yo'qolib, kassir 10 daqiqadan keyin yana «Qaytarish»ni bossa, telefon server bilan solishtiradi: qaytarish topilsa, yangisi YUBORILMAYDI, «Qaytarish allaqachon o'tgan bo'lishi mumkin» ko'rsatiladi, ekran yopiladi. Solishtirish telefonning emas, serverning soatini ham hisobga oladi. Chekda bir tovarning ikki narxda bo'lishi endi «Qabul qilinmadi»ga olib kelmaydi: onlayn chek bitta narx tanlanmaguncha to'lanmaydi, navbatdagi chek bitta qatorga birlashtiriladi."
+      },
+      "steps": {
+        "ru": [
+          "Возврат 1 шт. из 5 (копеечный товар), во время запроса выключите Wi-Fi, экран не закрывайте, через 11 минут включите сеть и нажмите «Вернуть» снова: окно «Возврат мог уже пройти», второго документа возврата на сервере нет.",
+          "В чеке «Кола» розница и «Кола» опт (переключатель «Розница / Опт» у одной строки): «Оплатить» → «Кола в чеке по двум ценам…», оплата не проходит.",
+          "Оставьте одну цену → оплата проходит. В режиме полёта то же самое: чек в очередь не встаёт, пока цена одна не выбрана."
+        ],
+        "ky": [
+          "5тен 1 даана кайтарыңыз (арзан товар), сурам учурунда Wi-Fi өчүрүңүз, экранды жаппаңыз, 11 мүнөттөн кийин тармакты күйгүзүп, «Кайтаруу» кайра басыңыз: «Кайтаруу өтүп кетиши мүмкүн» терезеси, серверде экинчи кайтаруу документи жок.",
+          "Чекте «Кола» чекене жана «Кола» дүң («Чекене / Дүң» которгучу бир сапта): «Төлөө» → «Кола чекте эки баада…», төлөм өтпөйт.",
+          "Бир баа калтырыңыз → төлөм өтөт. Учуу режиминде да ушундай: бир баа тандалмайынча чек кезекке турбайт."
+        ],
+        "en": [
+          "Return 1 piece out of 5 (a cheap product), switch Wi-Fi off during the request, do not close the screen, after 11 minutes switch the network on and press “Return” again: the “The return may already be done” window appears, the server has no second return document.",
+          "A receipt with “Cola” retail and “Cola” wholesale (the Retail / Wholesale switch on one line): Pay → “Cola is in the receipt at two prices…”, the payment does not go through.",
+          "Keep one price → the payment goes through. The same in airplane mode: the receipt is not queued until one price is chosen."
+        ],
+        "tr": [
+          "5 üründen 1 adet iade edin (ucuz bir ürün), istek sırasında Wi-Fi'ı kapatın, ekranı kapatmayın, 11 dakika sonra ağı açıp «İade»ye tekrar basın: «İade zaten yapılmış olabilir» penceresi, sunucuda ikinci iade belgesi yok.",
+          "Fişte «Kola» perakende ve «Kola» toptan (bir satırda Perakende / Toptan anahtarı): Öde → «Kola fişte iki fiyatla…», ödeme geçmez.",
+          "Tek fiyat bırakın → ödeme geçer. Uçak modunda da aynı: tek fiyat seçilmeden fiş kuyruğa girmez."
+        ],
+        "uz": [
+          "5 tadan 1 donani qaytaring (arzon tovar), so'rov paytida Wi-Fi'ni o'chiring, ekranni yopmang, 11 daqiqadan keyin tarmoqni yoqib, «Qaytarish»ni yana bosing: «Qaytarish allaqachon o'tgan bo'lishi mumkin» oynasi, serverda ikkinchi qaytarish hujjati yo'q.",
+          "Chekda «Kola» chakana va «Kola» ulgurji (bir qatorda Chakana / Ulgurji tugmasi): To'lash → «Kola chekda ikki narxda…», to'lov o'tmaydi.",
+          "Bitta narxni qoldiring → to'lov o'tadi. Parvoz rejimida ham shunday: bitta narx tanlanmaguncha chek navbatga turmaydi."
+        ]
+      }
+    },
+    {
+      "id": "1.18.19/weight-scan-question",
+      "version": "1.18.19",
+      "area": "scanner",
+      "severity": "important",
+      "title": {
+        "ru": "Вес больше 50 кг переспрашивается",
+        "ky": "50 кг дан ашык салмак кайра суралат",
+        "en": "A weight over 50 kg is asked again",
+        "tr": "50 kg üzeri ağırlık tekrar sorulur",
+        "uz": "50 kg dan ortiq vazn qayta so'raladi"
+      },
+      "changed": {
+        "ru": "Случайный скан штрихкода в окне веса (4870001159955 → «487») больше не даёт 487 кг молча: вес больше 50 кг переспрашивается «Точно 487?». Окно «У товара PLU…» при привязке весов показывает название, прежний и новый PLU на своих местах. Профиль с названием филиала вместо номера не ломает отправку чеков.",
+        "ky": "Салмак терезесинде штрихкоддун кокусунан сканерлениши (4870001159955 → «487») 487 кг ны унчукпай бербейт: 50 кг дан ашык салмак «Чын эле 487?» деп кайра сурайт. Таразаны байлоодо «Товардын PLU…» терезеси атын, мурунку жана жаңы PLU ну өз ордунда көрсөтөт. Номердин ордуна филиал аты бар профиль чектерди жөнөтүүнү бузбайт.",
+        "en": "An accidental barcode scan in the weight window (4870001159955 → “487”) no longer gives 487 kg silently: a weight over 50 kg asks “Really 487?”. The “The product has PLU…” window when binding scales shows the name, the old and the new PLU in their places. A profile with a branch name instead of an id does not break sending receipts.",
+        "tr": "Ağırlık penceresinde yanlışlıkla barkod okutmak (4870001159955 → «487») artık sessizce 487 kg vermez: 50 kg üzeri ağırlık «Gerçekten 487?» diye sorar. Terazi bağlanırken «Ürünün PLU…» penceresi adı, eski ve yeni PLU'yu yerinde gösterir. Numara yerine şube adı olan profil fiş göndermeyi bozmaz.",
+        "uz": "Vazn oynasida tasodifiy shtrix-kod skanerlash (4870001159955 → «487») endi 487 kg ni jimgina bermaydi: 50 kg dan ortiq vazn «Aniqmi 487?» deb so'raydi. Tarozini bog'lashda «Tovarning PLU…» oynasi nomni, eski va yangi PLU ni o'z joyida ko'rsatadi. Raqam o'rniga filial nomi bor profil cheklarni yuborishni buzmaydi."
+      },
+      "steps": {
+        "ru": [
+          "Склад или продажа → весовой товар → в окне веса введите 487 (или отсканируйте штрихкод 4870001159955) → «Готово»: вопрос «Точно 487?». «Отмена» — вес не добавлен.",
+          "Вес 0,343 вводится без вопросов.",
+          "Привязка PLU: у товара «Молоко» PLU 15, отсканируйте этикетку с PLU 12: «У товара «Молоко» PLU 15, будет 12…»."
+        ],
+        "ky": [
+          "Кампа же сатуу → салмактуу товар → салмак терезесинде 487 киргизиңиз (же 4870001159955 штрихкодун сканерлеңиз) → «Даяр»: «Чын эле 487?» суроосу. «Жокко чыгаруу» — салмак кошулган жок.",
+          "0,343 салмагы суроосуз киргизилет.",
+          "PLU байлоо: «Сүт» товарынын PLU 15, PLU 12 этикеткасын сканерлеңиз: «Товардын «Сүт» PLU 15, болот 12…»."
+        ],
+        "en": [
+          "Stock or Sale → a weighed product → in the weight window type 487 (or scan the barcode 4870001159955) → Done: the question “Really 487?”. Cancel — the weight is not added.",
+          "A weight of 0.343 is entered without questions.",
+          "PLU binding: the product “Milk” has PLU 15, scan a label with PLU 12: “The product “Milk” has PLU 15, it will be 12…”."
+        ],
+        "tr": [
+          "Depo veya Satış → tartılı ürün → ağırlık penceresine 487 yazın (veya 4870001159955 barkodunu okutun) → Tamam: «Gerçekten 487?» sorusu. İptal — ağırlık eklenmez.",
+          "0,343 ağırlığı soru sorulmadan girilir.",
+          "PLU bağlama: «Süt» ürününün PLU'su 15, PLU 12 etiketi okutun: «Ürünün «Süt» PLU'su 15, 12 olacak…»."
+        ],
+        "uz": [
+          "Ombor yoki Sotuv → tarozi tovar → vazn oynasiga 487 kiriting (yoki 4870001159955 shtrix-kodini skanerlang) → Tayyor: «Aniqmi 487?» savoli. Bekor qilish — vazn qo'shilmaydi.",
+          "0,343 vazni savolsiz kiritiladi.",
+          "PLU bog'lash: «Sut» tovarining PLU si 15, PLU 12 yorlig'ini skanerlang: «Tovar «Sut» PLU 15, bo'ladi 12…»."
+        ]
+      }
     }
   ]
 }

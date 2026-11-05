@@ -1,7 +1,7 @@
 // 2026-11-05 (E2E-тесты мобилки, первый этап; разрешено владельцем): сценарии на эмуляторе Pixel_7_API_35 с поддельным сервером.
 //   а) вход и главный экран;  б) открытие смены и продажа наличными с чеком («Округление» для весового);  в) возврат;
 //   г) офлайн-очередь: сервер недоступен -> чек в очереди -> сервер вернулся -> уходит один раз; 503 — очередь ждёт, не теряет;
-//   д) миграция базы 9 -> 10, данные целы.
+//   д) миграция базы 9 -> 10, данные целы;  б2) весовой чек по правилу сервера ceba67c (FLOOR по позиции, шаг «копейка»/«сом»).
 // Сервер — fake_nur_server.dart внутри самого теста (127.0.0.1 устройства); боевой сервер, настоящие учётки и ключи не используются.
 // Запуск: tools/qa/mobile-e2e.ps1 (поднимает эмулятор, подставляет NURMARKET_API_URL, останавливает эмулятор).
 import 'dart:io';
@@ -155,7 +155,8 @@ void main() {
 
   // ------------------------------------------------------------------ б) смена и продажа наличными
   group('б) смена и продажа наличными', () {
-    testWidgets('открытие смены, продажа, экран «Оплата проведена», чек с «Округлением» для весового', (t) async {
+    testWidgets('открытие смены, продажа, экран «Оплата проведена», чек с «Округлением» для весового (старый сервер без признаков)', (t) async {
+      server.weightLineFloor = false; // 2026-11-06 (М7-19): старое правило — FLOOR от суммы весовых; новое проверяют тесты ниже
       final app = await launchApp(t);
       await signInAndOpenShift(t, app);
       expect(server.openShiftId, isNotNull, reason: 'смена открыта на сервере');
@@ -185,6 +186,66 @@ void main() {
       await pumpUntil(t, find.text('Округление'), reason: 'строка «Округление» на чеке');
       expect(find.text(roundingSigned(0.01)), findsOneWidget);
       expect(find.textContaining(money(112.45)), findsWidgets);
+      await closeApp(t, app);
+    });
+  });
+
+  // ------------------------------------------------------------------ б2) весовой чек по правилу сервера ceba67c
+  // 2026-11-06 (аудит №5, М7-19): сервер отдаёт признак weight_line_total_floor — округление вниз ПО ПОЗИЦИИ до шага весов, одинаковые
+  // строки склеены. Телефон считает так же, а чек на экране и бумаге сходится с ИТОГО без строки «Округление» (М7-01, М7-02).
+  group('б2) весовой чек: FLOOR по позиции до шага весов', () {
+    testWidgets('одно взвешивание 0,343 кг × 75: строка 25,72, ИТОГО 110,72, «Округления» нет', (t) async {
+      final app = await launchApp(t);
+      await signInAndOpenShift(t, app);
+      await goToSale(t, app);
+      await addByName(t, app, 'Вода «Нур» 1,5 л');
+      await addWeighed(t, app, 'Сыр «Сулугуни»', '0.343');
+      expect(find.text(app.l.payAmount(money(110.72))), findsOneWidget, reason: '85 + FLOOR(25,725) = 110,72');
+      await payCash(t);
+      await pumpUntil(t, find.text(app.l.paidOk), reason: 'экран «Оплата проведена»');
+      final checkout = server.requests('POST', '/api/main/pos/checkout').single;
+      expect(checkout.headers['x-nurmarket-client'], startsWith('mobile/'), reason: 'заголовок клиента');
+      expect((checkout.body as Map)['device_key'], isNotEmpty, reason: 'признак checkout_branch: device_key в теле');
+      final sale = server.sales.values.single;
+      expect(sale['total'], '110.72');
+      final cheese = (sale['items'] as List).cast<Map>().firstWhere((x) => x['product'] == 'p14');
+      expect(cheese['total'], '25.72');
+      await t.tap(find.text(app.l.showReceipt));
+      await pumpUntil(t, find.text(money(25.72)), reason: 'строка сыра на чеке — 25,72');
+      expect(find.text('Округление'), findsNothing, reason: 'строки на бумаге сходятся с итогом сервера');
+      await closeApp(t, app);
+    });
+
+    testWidgets('два взвешивания одного сыра 0,243 + 0,243: одна позиция 36,45 (а не 18,22 + 18,22), «Округления» нет', (t) async {
+      final app = await launchApp(t);
+      await signInAndOpenShift(t, app);
+      await goToSale(t, app);
+      await addByName(t, app, 'Вода «Нур» 1,5 л');
+      await addWeighed(t, app, 'Сыр «Сулугуни»', '0.243');
+      await addWeighed(t, app, 'Сыр «Сулугуни»', '0.243');
+      expect(find.text(app.l.payAmount(money(121.45))), findsOneWidget, reason: '85 + FLOOR(0,486 × 75 = 36,45)');
+      await payCash(t);
+      await pumpUntil(t, find.text(app.l.paidOk), reason: 'экран «Оплата проведена»');
+      final sale = server.sales.values.single;
+      expect(sale['total'], '121.45');
+      expect((sale['items'] as List).where((x) => (x as Map)['product'] == 'p14'), hasLength(1), reason: 'сервер склеил два взвешивания в одну позицию');
+      await t.tap(find.text(app.l.showReceipt));
+      await pumpUntil(t, find.text(money(36.45)), reason: 'одна строка сыра на чеке — 36,45');
+      expect(find.text('Округление'), findsNothing);
+      await closeApp(t, app);
+    });
+
+    testWidgets('шаг весов «сом»: 0,343 кг × 75 = 25,725 → 25,00, ИТОГО 110,00', (t) async {
+      server.weightStepSom = true;
+      final app = await launchApp(t);
+      await signInAndOpenShift(t, app);
+      await goToSale(t, app);
+      await addByName(t, app, 'Вода «Нур» 1,5 л');
+      await addWeighed(t, app, 'Сыр «Сулугуни»', '0.343');
+      expect(find.text(app.l.payAmount(money(110))), findsOneWidget, reason: 'телефон узнал шаг «сом» из api/users/company/');
+      await payCash(t);
+      await pumpUntil(t, find.text(app.l.paidOk), reason: 'экран «Оплата проведена»');
+      expect(server.sales.values.single['total'], '110.00');
       await closeApp(t, app);
     });
   });

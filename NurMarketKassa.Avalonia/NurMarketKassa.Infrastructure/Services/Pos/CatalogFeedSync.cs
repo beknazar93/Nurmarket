@@ -506,7 +506,25 @@ public sealed class CatalogFeedSync
             tile.Category = local.Category;
         if (!item.TryGetProperty("brand", out _))
             tile.Brand = local.Brand;
+
+        // 2026-11-06 (Б-1, И-3): в сокращённой карточке ленты нет ни картинки, ни горячей клавиши — фото и клавиша товара стирались при любой правке цены/остатка
+        // (отсюда жалоба «фото не попадают в кассу»). Ключа нет — берём локальное значение; ключ пришёл (даже пустой) — применяется как пришло.
+        if (!HasAnyKey(item, ImageKeys) && string.IsNullOrWhiteSpace(tile.ImageUrl) && !string.IsNullOrWhiteSpace(local.ImageUrl))
+            tile.ImageUrl = local.ImageUrl;
+        if (!item.TryGetProperty("hotkey_group", out _))
+            tile.HotkeyGroup = local.HotkeyGroup;
     }
+
+    /// <summary>2026-11-06 (И-3): ключи, из которых ProductImageUrl собирает адрес фото.</summary>
+    private static readonly string[] ImageKeys =
+    [
+        "primary_image_url", "image_url", "thumbnail_url", "photo_url", "picture_url", "main_image_url", "cover_url", "preview_url", "image_path", "media_url",
+        "image", "photo", "thumbnail", "picture", "cover", "img", "primary_image", "main_image", "cover_image", "image_data", "photo_data",
+        "images", "photos", "gallery", "media", "attachments",
+    ];
+
+    /// <summary>2026-11-06 (Б-1, И-1): в карточке есть хоть один ключ единицы/«весовой» (у сокращённой карточки ленты их нет).</summary>
+    public static bool HasUnitOrWeightKey(JsonElement item) => HasAnyKey(item, UnitAndWeightKeys);
 
     /// <summary>2026-11-01 (Б-2): ключи, по которым карточка определяет единицу и «весовой» (см. CartDisplayHelper.ProductMustWeigh / ProductCatalogMapper).</summary>
     private static readonly string[] UnitAndWeightKeys =

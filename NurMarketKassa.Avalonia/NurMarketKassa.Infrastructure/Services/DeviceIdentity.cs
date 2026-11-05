@@ -63,10 +63,23 @@ public static class DeviceIdentity
             string? raw = null;
             try { raw = NameProvider(); } catch { /* настройки недоступны — имя ПК */ }
             if (string.IsNullOrWhiteSpace(raw))
-                raw = Environment.MachineName;
+                raw = DefaultName(Environment.MachineName, OperatingSystem.IsAndroid(), () => Key);
             var clean = new string((raw ?? "").Where(c => !char.IsControl(c)).ToArray()).Trim();
             return clean.Length > 64 ? clean[..64] : clean;
         }
+    }
+
+    /// <summary>2026-11-06 (аудит №5, А5-08): имя по умолчанию. На Android <c>Environment.MachineName</c> всегда «localhost» — все планшеты выглядели в отчётах сервера одинаково; берём «Android» и 4 знака ключа установки
+    /// (стабильно для устройства, различает планшеты). На ПК — имя компьютера, как раньше.</summary>
+    internal static string DefaultName(string? machineName, bool isAndroid, Func<string> key)
+    {
+        var name = (machineName ?? "").Trim();
+        if (isAndroid || string.Equals(name, "localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            var tail = new string((key() ?? "").Where(char.IsLetterOrDigit).ToArray());
+            return "Android " + (tail.Length > 4 ? tail[^4..] : tail);
+        }
+        return name;
     }
 
     /// <summary>Дописывает device_key, device_name и branch в тело pos/checkout — только при признаке checkout_branch. Уже заданные поля не трогает.</summary>

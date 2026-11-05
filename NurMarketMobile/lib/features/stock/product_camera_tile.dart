@@ -214,7 +214,7 @@ class _ProductCameraTileState extends ConsumerState<ProductCameraTile> {
               if (_count > 0)
                 OutlinedButton.icon(
                   key: const Key('camReset'),
-                  style: OutlinedButton.styleFrom(minimumSize: const Size(64, 48), foregroundColor: T.danger),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(64, 48), foregroundColor: context.pal.danger),
                   onPressed: _busy ? null : _resetAll,
                   icon: const Icon(Icons.delete_sweep_outlined, size: 20),
                   label: Text(l.ctReset),
@@ -284,7 +284,7 @@ class _ProductCameraTileState extends ConsumerState<ProductCameraTile> {
                   child: IconButton(
                     key: Key('camSlotRemove$i'),
                     tooltip: l.ctRemove,
-                    style: IconButton.styleFrom(minimumSize: const Size(48, 48), foregroundColor: T.danger),
+                    style: IconButton.styleFrom(minimumSize: const Size(48, 48), foregroundColor: context.pal.danger),
                     onPressed: _busy ? null : () => _remove(i),
                     icon: const Icon(Icons.delete_outline_rounded),
                   ),

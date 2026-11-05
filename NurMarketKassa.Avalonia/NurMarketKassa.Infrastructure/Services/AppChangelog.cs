@@ -13,6 +13,8 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Загрузка каталога: Исправлена загрузка каталога при чистой установке и смене аккаунта: весовые товары, штрихкоды и PLU больше не теряются (касса сама перезагрузит неполный каталог один раз).",
+        "Исправлено по независимому аудиту: Признаки сервера не пропадают при сбое связи (оплата в долг не дублируется); шаг округления весовых берётся только по серверной единице (весы TM-30F); PIN старшего не обходится ошибкой сервера; оповещения не теряются; смена компании очищает отложенные записи.",
         "Возврат долгового чека: Исправлено двойное вычитание «Касса:» при возврате долгового чека (сервер NurCRM теперь сам снимает наличные): старые местные поправки больше не применяются.",
         "Приход, чек и ошибки сервера: Удаление прихода (с причиной); филиал и устройство в чеке; ключи повтора для проката, бонусов и перемещений; понятные сообщения об ошибках сервера и неверном PIN.",
         "Округление весовых как на сервере: Весовые строки округляются как на сервере — вниз до шага весов.",
@@ -170,6 +172,8 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Каталогду жүктөө: Таза орнотууда жана аккаунтту алмаштырууда каталогду жүктөө оңдолду: салмактуу товарлар, штрихкоддор жана PLU жоголбойт (касса толук эмес каталогду бир жолу өзү кайра жүктөйт).",
+        "Көз карандысыз аудит боюнча оңдоолор: Байланыш үзүлгөндө сервердин белгилери жоголбойт (карызга төлөм кайталанбайт); салмактуу саптарды тегеректөө кадамы сервердин бирдиги боюнча гана алынат (TM-30F тараза); улуунун PIN-коду сервер катасы менен айланып өтпөйт; эскертмелер жоголбойт; компанияны алмаштырууда кечиктирилген жазуулар тазаланат.",
         "Карыз чегин кайтаруу: Карыз чегин кайтарууда «Касса:» эки жолу кемиген ката оңдолду (NurCRM сервери накталайды өзү алат): эски жергиликтүү оңдоолор колдонулбайт.",
         "Киреше, чек жана сервердин каталары: Кирешени өчүрүү (себеби менен); чекте филиал жана түзмөк; прокат, бонустар жана жылдыруулар үчүн кайталоо ачкычтары; сервердин каталары жана PIN туура эместиги тууралуу түшүнүктүү билдирүүлөр.",
         "Салмактуу саптарды сервердей тегеректөө: Салмактуу саптар сервердегидей тегеректелет — тараза кадамына чейин төмөн карай.",
@@ -325,6 +329,8 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Catalog loading: Fixed catalog loading on a clean install and when switching accounts: weighed products, barcodes and PLU are no longer lost (the till reloads an incomplete catalog once by itself).",
+        "Fixes from the independent audit: Server flags are not lost when the connection drops (a debt payment is not duplicated); the weighed-line rounding step comes only from the server unit (TM-30F scales); the senior PIN cannot be bypassed by a server error; notifications are not lost; switching company clears pending records.",
         "Debt receipt return: Fixed the double subtraction of “Till:” when returning a debt receipt (the NurCRM server now takes the cash itself): old local adjustments are no longer applied.",
         "Goods receipt, branch and server errors: Deleting a goods receipt (with a reason); branch and device on the receipt; retry keys for rental, bonuses and transfers; clear messages for server errors and a wrong PIN.",
         "Weighed lines rounded like the server: Weighed lines are rounded like on the server — down to the scale step.",
@@ -480,6 +486,8 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Katalog yükleme: Temiz kurulumda ve hesap değiştirirken katalog yükleme düzeltildi: tartılı ürünler, barkodlar ve PLU artık kaybolmaz (kasa eksik kataloğu bir kez kendisi yeniden yükler).",
+        "Bağımsız denetimden düzeltmeler: Bağlantı koptuğunda sunucu bayrakları kaybolmaz (borçlu ödeme tekrarlanmaz); tartılı satır yuvarlama adımı yalnızca sunucu birimine göre alınır (TM-30F terazi); yönetici PIN'i sunucu hatasıyla atlanamaz; bildirimler kaybolmaz; şirket değiştirmek bekleyen kayıtları temizler.",
         "Borç fişi iadesi: Borç fişi iadesinde «Kasa:» değerinin iki kez düşülmesi düzeltildi (NurCRM sunucusu artık nakdi kendisi düşer): eski yerel düzeltmeler artık uygulanmaz.",
         "Mal kabulü, şube ve sunucu hataları: Mal kabulünü silme (nedenle); fişte şube ve cihaz; kiralama, bonus ve transferler için yeniden deneme anahtarları; sunucu hataları ve yanlış PIN için anlaşılır mesajlar.",
         "Tartılı satırlar sunucu gibi yuvarlanır: Tartılı satırlar sunucudaki gibi yuvarlanır — terazi adımına kadar aşağı.",
@@ -635,6 +643,8 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Katalogni yuklash: Toza o'rnatishda va akkauntni almashtirishda katalogni yuklash tuzatildi: tarozi tovarlar, shtrix-kodlar va PLU endi yo'qolmaydi (kassa to'liq bo'lmagan katalogni bir marta o'zi qayta yuklaydi).",
+        "Mustaqil auditdan tuzatishlar: Aloqa uzilganda server belgilari yo'qolmaydi (qarzga to'lov takrorlanmaydi); tarozi qatorlarini yaxlitlash qadami faqat server birligi bo'yicha olinadi (TM-30F tarozi); katta PIN server xatosi bilan aylanib o'tilmaydi; ogohlantirishlar yo'qolmaydi; kompaniyani almashtirish kechiktirilgan yozuvlarni tozalaydi.",
         "Qarz cheki qaytarilishi: Qarz chekini qaytarishda «Kassa:» ikki marta ayrilishi tuzatildi (NurCRM serveri endi naqdni o'zi yechadi): eski mahalliy tuzatishlar endi qo'llanilmaydi.",
         "Kirim, filial va server xatolari: Kirimni o'chirish (sabab bilan); chekda filial va qurilma; ijara, bonus va ko'chirishlar uchun takrorlash kalitlari; server xatolari va noto'g'ri PIN haqida tushunarli xabarlar.",
         "Tarozi qatorlari server kabi yaxlitlanadi: Tarozi qatorlari serverdagidek yaxlitlanadi — tarozi qadamigacha pastga.",
@@ -793,6 +803,8 @@ public static class AppChangelog
     // у Android свой список, тот же, что в выпуске Nurmarket-Android.
     // 2026-11-05: 1.17.76 (добавка 2, под сервер ceba67c) — сверху всех Latest* и AndroidLatest* пункты «Возврат долгового чека», «Приход, чек и ошибки сервера», «Округление весовых как на сервере».
     // 2026-11-05: 1.17.76 (добавка) — сверху всех Latest* пункты «Весы: единица суммы в штрихкоде» и «Внешние сервисы», сверху AndroidLatest* — «Внешние сервисы».
+    // 2026-11-06: 1.17.77 (добавка) — первым пунктом всех Latest* и AndroidLatest* «Загрузка каталога» (срочный фикс Б-1).
+    // 2026-11-06: 1.17.77 — сверху всех Latest* и AndroidLatest* пункт «Исправлено по независимому аудиту» (аудит №5), в AndroidLatest* ещё «Android».
     // 2026-11-05: 1.17.76 — сверху всех Latest* (Windows) добавлено 10 пунктов (безопасные данные, защита денег и время сервера, антифрод и PIN старшего, чек в Telegram, просрочка, закупки и цены, «Пересчёт дня» и сверка выписки, память владельца, дизайн, скорость), сверху всех AndroidLatest* — 5 (Android, деньги, просрочка, дизайн, скорость).
     // 2026-11-05: 1.17.75 — сверху всех Latest* (Windows) добавлен пункт «Склад и печать стали аккуратнее» (аудит №3, добивка: Т3-06, Т3-08, Т3-10…Т3-12, Т3-15, С2-26, С2-28, С2-29, С2-31, С2-34, С2-39, С2-43, Н-7, Н-8, Д-6, Д-9).
     // 2026-11-05: 1.17.75 — сверху всех AndroidLatest* добавлен пункт «Сохранение файлов на Android» (А3-05 добивка, А3-10).
@@ -838,6 +850,9 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Загрузка каталога: Исправлена загрузка каталога при чистой установке и смене аккаунта: весовые товары, штрихкоды и PLU больше не теряются (касса сама перезагрузит неполный каталог один раз).",
+        "Android: Excel в программе владельца, накладная из файла, плашки не перехватывают фокус.",
+        "Исправлено по независимому аудиту: Признаки сервера не пропадают при сбое связи (оплата в долг не дублируется); шаг округления весовых берётся только по серверной единице (весы TM-30F); PIN старшего не обходится ошибкой сервера; оповещения не теряются; смена компании очищает отложенные записи.",
         "Возврат долгового чека: Исправлено двойное вычитание «Касса:» при возврате долгового чека (сервер NurCRM теперь сам снимает наличные): старые местные поправки больше не применяются.",
         "Приход, чек и ошибки сервера: Удаление прихода (с причиной); филиал и устройство в чеке; ключи повтора для проката, бонусов и перемещений; понятные сообщения об ошибках сервера и неверном PIN.",
         "Округление весовых как на сервере: Весовые строки округляются как на сервере — вниз до шага весов.",
@@ -946,6 +961,9 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Каталогду жүктөө: Таза орнотууда жана аккаунтту алмаштырууда каталогду жүктөө оңдолду: салмактуу товарлар, штрихкоддор жана PLU жоголбойт (касса толук эмес каталогду бир жолу өзү кайра жүктөйт).",
+        "Android: Ээсинин программасында Excel, файлдан накладной, плашкалар фокусту тартып албайт.",
+        "Көз карандысыз аудит боюнча оңдоолор: Байланыш үзүлгөндө сервердин белгилери жоголбойт (карызга төлөм кайталанбайт); салмактуу саптарды тегеректөө кадамы сервердин бирдиги боюнча гана алынат (TM-30F тараза); улуунун PIN-коду сервер катасы менен айланып өтпөйт; эскертмелер жоголбойт; компанияны алмаштырууда кечиктирилген жазуулар тазаланат.",
         "Карыз чегин кайтаруу: Карыз чегин кайтарууда «Касса:» эки жолу кемиген ката оңдолду (NurCRM сервери накталайды өзү алат): эски жергиликтүү оңдоолор колдонулбайт.",
         "Киреше, чек жана сервердин каталары: Кирешени өчүрүү (себеби менен); чекте филиал жана түзмөк; прокат, бонустар жана жылдыруулар үчүн кайталоо ачкычтары; сервердин каталары жана PIN туура эместиги тууралуу түшүнүктүү билдирүүлөр.",
         "Салмактуу саптарды сервердей тегеректөө: Салмактуу саптар сервердегидей тегеректелет — тараза кадамына чейин төмөн карай.",
@@ -1052,6 +1070,9 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Catalog loading: Fixed catalog loading on a clean install and when switching accounts: weighed products, barcodes and PLU are no longer lost (the till reloads an incomplete catalog once by itself).",
+        "Android: Owner-program Excel, invoice from a file; banners no longer steal focus.",
+        "Fixes from the independent audit: Server flags are not lost when the connection drops (a debt payment is not duplicated); the weighed-line rounding step comes only from the server unit (TM-30F scales); the senior PIN cannot be bypassed by a server error; notifications are not lost; switching company clears pending records.",
         "Debt receipt return: Fixed the double subtraction of “Till:” when returning a debt receipt (the NurCRM server now takes the cash itself): old local adjustments are no longer applied.",
         "Goods receipt, branch and server errors: Deleting a goods receipt (with a reason); branch and device on the receipt; retry keys for rental, bonuses and transfers; clear messages for server errors and a wrong PIN.",
         "Weighed lines rounded like the server: Weighed lines are rounded like on the server — down to the scale step.",
@@ -1158,6 +1179,9 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Katalog yükleme: Temiz kurulumda ve hesap değiştirirken katalog yükleme düzeltildi: tartılı ürünler, barkodlar ve PLU artık kaybolmaz (kasa eksik kataloğu bir kez kendisi yeniden yükler).",
+        "Android: Sahip programında Excel, dosyadan irsaliye; uyarı şeritleri odağı çalmaz.",
+        "Bağımsız denetimden düzeltmeler: Bağlantı koptuğunda sunucu bayrakları kaybolmaz (borçlu ödeme tekrarlanmaz); tartılı satır yuvarlama adımı yalnızca sunucu birimine göre alınır (TM-30F terazi); yönetici PIN'i sunucu hatasıyla atlanamaz; bildirimler kaybolmaz; şirket değiştirmek bekleyen kayıtları temizler.",
         "Borç fişi iadesi: Borç fişi iadesinde «Kasa:» değerinin iki kez düşülmesi düzeltildi (NurCRM sunucusu artık nakdi kendisi düşer): eski yerel düzeltmeler artık uygulanmaz.",
         "Mal kabulü, şube ve sunucu hataları: Mal kabulünü silme (nedenle); fişte şube ve cihaz; kiralama, bonus ve transferler için yeniden deneme anahtarları; sunucu hataları ve yanlış PIN için anlaşılır mesajlar.",
         "Tartılı satırlar sunucu gibi yuvarlanır: Tartılı satırlar sunucudaki gibi yuvarlanır — terazi adımına kadar aşağı.",
@@ -1264,6 +1288,9 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Katalogni yuklash: Toza o'rnatishda va akkauntni almashtirishda katalogni yuklash tuzatildi: tarozi tovarlar, shtrix-kodlar va PLU endi yo'qolmaydi (kassa to'liq bo'lmagan katalogni bir marta o'zi qayta yuklaydi).",
+        "Android: Egasi dasturida Excel, fayldan yuk xati; plashkalar fokusni tortib olmaydi.",
+        "Mustaqil auditdan tuzatishlar: Aloqa uzilganda server belgilari yo'qolmaydi (qarzga to'lov takrorlanmaydi); tarozi qatorlarini yaxlitlash qadami faqat server birligi bo'yicha olinadi (TM-30F tarozi); katta PIN server xatosi bilan aylanib o'tilmaydi; ogohlantirishlar yo'qolmaydi; kompaniyani almashtirish kechiktirilgan yozuvlarni tozalaydi.",
         "Qarz cheki qaytarilishi: Qarz chekini qaytarishda «Kassa:» ikki marta ayrilishi tuzatildi (NurCRM serveri endi naqdni o'zi yechadi): eski mahalliy tuzatishlar endi qo'llanilmaydi.",
         "Kirim, filial va server xatolari: Kirimni o'chirish (sabab bilan); chekda filial va qurilma; ijara, bonus va ko'chirishlar uchun takrorlash kalitlari; server xatolari va noto'g'ri PIN haqida tushunarli xabarlar.",
         "Tarozi qatorlari server kabi yaxlitlanadi: Tarozi qatorlari serverdagidek yaxlitlanadi — tarozi qadamigacha pastga.",

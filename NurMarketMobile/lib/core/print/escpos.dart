@@ -196,7 +196,7 @@ List<PrintLine> receiptLines(Receipt r, int width) {
     final l = r.lines[i];
     out.addAll(wrapText('${i + 1}. ${l.name}', width).map(PrintLine.new));
     final qty = l.unit == 'кг' || l.unit == 'kg' ? l.qty.toStringAsFixed(3).replaceAll('.', ',') : qtyText(l.qty);
-    out.addAll(twoColumns('  $qty${l.unit.isEmpty ? '' : ' ${l.unit}'} x ${money(l.price)}', money(_gross(l)), width).map(PrintLine.new));
+    out.addAll(twoColumns('  $qty${l.unit.isEmpty ? '' : ' ${l.unit}'} x ${money(l.price)}', money(l.printedGross), width).map(PrintLine.new));
     if (l.discount > 0) out.addAll(twoColumns('  скидка', '-${money(l.discount)}', width).map(PrintLine.new));
   }
   out.add(dash);
@@ -223,8 +223,6 @@ List<PrintLine> receiptLines(Receipt r, int width) {
   out.add(const PrintLine('Спасибо за покупку!', center: true));
   return out;
 }
-
-double _gross(ReceiptLine l) => (l.qty * l.price * 100).roundToDouble() / 100;
 
 /// 2026-10-22 (мобилка, админ): П6 — что зашить в QR на бумаге: проверка фискального чека или электронный чек.
 String? receiptQrData(Receipt r) {

@@ -291,7 +291,7 @@ class DeleteProductButton extends StatelessWidget {
         key: const Key('deleteProductButton'),
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(52),
-          foregroundColor: T.danger,
+          foregroundColor: context.pal.danger,
           side: const BorderSide(color: T.danger),
         ),
         onPressed: onPressed,

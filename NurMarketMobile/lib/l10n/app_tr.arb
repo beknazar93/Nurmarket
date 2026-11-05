@@ -2036,5 +2036,10 @@
   "prnSunmiHint": "Fiş Sunmi tarafından yazdırılır, tüm harfler (ң ө ү ş ğ) doğru çıkar. Bluetooth, ağ ve USB kullanılmaz.",
   "scaleBindOverwrite": "«{name}» ürününün PLU'su {old}, {plu} olacak. PLU {old} ile programlanmış teraziler onu bulamaz. Kaydedilsin mi?",
   "apiSaleDuplicateLine": "Aynı ürün fişte farklı fiyat veya birimle var: sunucu satırları birleştiremez. Tek fiyat bırakın veya fazla satırı kaldırın.",
-  "payLinesMerged": "Fişteki aynı satırlar tek satırda birleştirildi."
+  "payLinesMerged": "Fişteki aynı satırlar tek satırda birleştirildi.",
+  "returnMaybeDoneTitle": "İade zaten yapılmış olabilir",
+  "returnMaybeDoneBody": "Bu fişte önceki denemeden sonra saat {time}'de {sum} som tutarında bir iade zaten var. Para iki kez verilmesin diye yeni iade GÖNDERİLMEDİ. «Fişler»de fişin iadelerini kontrol edin; bir iade daha gerekiyorsa fişi yeniden açın.",
+  "payDuplicatePrice": "«{name}» fişte iki fiyatla (perakende ve toptan) yer alıyor. Tek fiyat bırakın veya fazla satırı kaldırın.",
+  "logoutCartTitle": "Tamamlanmamış fişle çıkış yapılsın mı?",
+  "logoutCartAsk": "Fişteki kalem: {lines}, bekletilen fiş: {held}. Çıkışta silinecekler; her satır «Fişten silindi» günlüğüne yazılır."
 }

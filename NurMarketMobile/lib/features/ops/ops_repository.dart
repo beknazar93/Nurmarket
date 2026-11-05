@@ -252,32 +252,42 @@ class OpsRepository {
 
   /// 2026-11-05 (ревью волн 0–3, М-4): ключ возврата помнится 24 часа, но через сутки такой же законный возврат (вторая такая же
   /// штука) с тем же ключом сервер «повторил» бы ответом прошлого — кассир выдал бы деньги без записи на сервере. Если ключ старше
-  /// [_pendingLife], сверяем с сервером: есть документ возврата по этому чеку после создания ключа — прошлая попытка прошла,
-  /// ключ забываем (новый возврат пойдёт новым ключом; лишнее сверх проданного сервер всё равно отклонит). Нет документа или
-  /// нет связи — прошлая попытка не прошла, повтор тем же ключом.
+  /// [_pendingLife], сверяем с сервером. Нет документа или нет связи — прошлая попытка не прошла, повтор тем же ключом.
+  /// 2026-11-06 (аудит №5, М7-05): есть документ возврата по этому чеку после создания ключа — НЕ решаем молча и НЕ шлём новый возврат
+  /// (прошлая попытка могла пройти, а ответ потеряться — деньги ушли бы дважды): ключ забываем и бросаем [ReturnMaybeDone] —
+  /// экран просит проверить возвраты по чеку и закрывается, после повторного открытия «можно вернуть» берётся свежее.
   Future<void> _returnWithFreshness(String saleId, String sig) async {
     final entries = await _pendingEntries('return');
     for (final e in entries) {
       if (e['sig'] != sig) continue;
       final at = DateTime.tryParse(e['at'] as String? ?? '');
       if (at == null || DateTime.now().difference(at) <= _pendingLife) return;
-      if (await returnRecordedSince(saleId, at)) await forgetKey('return', sig);
+      final doc = await returnDocSince(saleId, at);
+      if (doc != null) {
+        await forgetKey('return', sig);
+        throw ReturnMaybeDone(doc.at, doc.amount);
+      }
       return;
     }
   }
 
-  /// Есть ли у чека документ возврата, созданный не раньше [since] (минус запас 2 минуты на разницу часов). Нет связи — false.
-  Future<bool> returnRecordedSince(String saleId, DateTime since) async {
+  /// Есть ли у чека документ возврата, созданный не раньше [since] (минус запас 2 минуты). Нет связи — false.
+  Future<bool> returnRecordedSince(String saleId, DateTime since) async => await returnDocSince(saleId, since) != null;
+
+  /// Документ возврата по чеку, созданный не раньше [since]; null — нет или нет связи.
+  /// 2026-11-06 (М7-16): [since] — время телефона, документ датирован часами сервера: переводим на часы сервера ([ServerClock.offset]).
+  Future<({DateTime at, double amount})?> returnDocSince(String saleId, DateTime since) async {
     try {
       final rows = asList(await api.get('api/main/pos/returns/', query: {'sale': saleId}, timeout: const Duration(seconds: 8)));
-      final from = since.subtract(const Duration(minutes: 2));
-      return rows.any((r) {
-        if (str(r, 'sale') != saleId) return false;
+      final from = since.toUtc().add(ServerClock.offset ?? Duration.zero).subtract(const Duration(minutes: 2));
+      for (final r in rows) {
+        if (str(r, 'sale') != saleId) continue;
         final at = DateTime.tryParse(str(r, 'created_at') ?? '');
-        return at != null && !at.toLocal().isBefore(from);
-      });
+        if (at != null && !at.toUtc().isBefore(from)) return (at: at.toLocal(), amount: num0(r, 'amount') > 0 ? num0(r, 'amount') : num0(r, 'total'));
+      }
+      return null;
     } catch (_) {
-      return false;
+      return null;
     }
   }
 
@@ -368,6 +378,16 @@ class OpsRepository {
     final list = (await held())..removeWhere((h) => h.id == id);
     await db.setSetting(_heldKey, jsonEncode([for (final h in list) h.toJson()]));
   }
+}
+
+/// 2026-11-06 (аудит №5, М7-05): по чеку уже есть документ возврата, созданный после ключа прошлой (возможно, потерянной) попытки.
+/// Новый возврат не отправлен: кассир проверяет возвраты по чеку.
+class ReturnMaybeDone implements Exception {
+  final DateTime at;
+  final double amount;
+  const ReturnMaybeDone(this.at, this.amount);
+  @override
+  String toString() => 'ReturnMaybeDone($at, $amount)';
 }
 
 class HeldCart {

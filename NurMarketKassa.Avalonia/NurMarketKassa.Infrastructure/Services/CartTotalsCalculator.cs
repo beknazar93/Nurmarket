@@ -109,17 +109,19 @@ public static class CartTotalsCalculator
             LineCount = lineCount,
             SubtotalExact = subtotalExact,
             LineDiscountsExact = lineDiscountsExact,
-            RoundingAdjustment = lineCount == 0 ? 0m : ShownRounding(subtotalExact - lineDiscountsExact - shownLinesSum, lineCount),
+            RoundingAdjustment = lineCount == 0 ? 0m : ShownRounding(subtotalExact - lineDiscountsExact - shownLinesSum, lineCount,
+                // 2026-11-06 (Л5-02): при шаге весов 1 сом строка «Округление весовых» может быть до 1 сома на строку — не прятать её (раньше предел был 0,01 на строку)
+                hasWeighed && QuantityRules.WeightLineFloorEnabled() ? Math.Max(0.01m, QuantityRules.WeightStep()) : 0.01m),
             HasWeighedLines = hasWeighed,
         };
     }
 
     /// <summary>2026-11-02 (К3-07): разность округляется до копейки; больше «по копейке на строку» быть не может (это уже не округление, а скидка
     /// больше суммы строки и т.п.) — тогда строку не показываем. Меньше копейки — тоже 0.</summary>
-    private static decimal ShownRounding(decimal difference, int lineCount)
+    private static decimal ShownRounding(decimal difference, int lineCount, decimal perLine = 0.01m)
     {
         var adj = QuantityRules.RoundMoney(difference);
-        return Math.Abs(adj) >= 0.005m && Math.Abs(adj) <= 0.01m * lineCount + 0.001m ? adj : 0m;
+        return Math.Abs(adj) >= 0.005m && Math.Abs(adj) <= perLine * lineCount + 0.001m ? adj : 0m;
     }
 
     /// <summary>2026-11-02 (К3-07): то же для чека с сервера (история, повторная печать): строки — как показал сервер (line_total, половина вверх),

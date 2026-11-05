@@ -193,15 +193,15 @@ public partial class WarehouseWindow
                     "Sahip PIN'i kabul edilmedi — sayım bitirilmedi.", "Egasining PIN kodi qabul qilinmadi — inventarizatsiya yakunlanmadi."));
                 return false;
             }
-            if (status == LatePinStatus.Error)
+            if (status == LatePinStatus.Unavailable)
             {
-                // PIN проверить нельзя — ревизию не блокируем (без связи её иначе не провести), но говорим прямо и пишем в журнал.
-                PosLogger.Log("Склад: ревизия — PIN владельца проверить не удалось (нет связи/прав), ревизия продолжена с предупреждением.", "SECURITY");
-                RevisionWarn(RevT("PIN владельца проверить не удалось (нет связи или прав). Ревизия продолжается — владельцу стоит проверить акт.",
-                    "Ээсинин PIN кодун текшерүү мүмкүн болгон жок (байланыш же укук жок). Ревизия улантылат — ээси актты текшергени оң.",
-                    "The owner PIN could not be checked (no connection or rights). The stocktake continues — the owner should review the document.",
-                    "Sahip PIN'i doğrulanamadı (bağlantı veya yetki yok). Sayım devam ediyor — sahibin tutanağı kontrol etmesi iyi olur.",
-                    "Egasining PIN kodini tekshirib bo'lmadi (aloqa yoki huquq yo'q). Inventarizatsiya davom etadi — egasi aktni tekshirgani ma'qul."));
+                // PIN проверить нельзя из-за отсутствия связи — ревизию не блокируем (без связи её иначе не провести), но говорим прямо и пишем в журнал.
+                PosLogger.Log("Склад: ревизия — PIN владельца проверить не удалось (нет связи), ревизия продолжена с предупреждением.", "SECURITY");
+                RevisionWarn(RevT("PIN владельца проверить не удалось (нет связи). Ревизия продолжается — владельцу стоит проверить акт.",
+                    "Ээсинин PIN кодун текшерүү мүмкүн болгон жок (байланыш жок). Ревизия улантылат — ээси актты текшергени оң.",
+                    "The owner PIN could not be checked (no connection). The stocktake continues — the owner should review the document.",
+                    "Sahip PIN'i doğrulanamadı (bağlantı yok). Sayım devam ediyor — sahibin tutanağı kontrol etmesi iyi olur.",
+                    "Egasining PIN kodini tekshirib bo'lmadi (aloqa yo'q). Inventarizatsiya davom etadi — egasi aktni tekshirgani ma'qul."));
             }
             _cyclePinSignature = signature;
             return true;
@@ -232,7 +232,7 @@ public partial class WarehouseWindow
     }
 
     /// <summary>PIN владельца: та же проверка на сервере, что для «старого чека» и просрочки (SyncService.VerifyOwnerPinForLateAsync); PIN нигде не хранится.
-    /// Возвращает итог: Ok — принят; Wrong/Locked — не принят; Error — проверить не удалось (нет связи, нет прав сессии).</summary>
+    /// Возвращает итог: Ok — принят; Wrong/Locked — не принят; Unavailable — нет связи (единственный обход); Error — сервер отказал / нет прав (отказ).</summary>
     private static async Task<LatePinStatus> CycleAskOwnerPinAsync(string firstInfo)
     {
         var prompts = App.GetRequiredService<IUserPrompts>();
@@ -248,8 +248,8 @@ public partial class WarehouseWindow
                 return LatePinStatus.Wrong;
             var verified = await sync.VerifyOwnerPinForLateAsync(entered).ConfigureAwait(true);
             entered = null;
-            if (verified.Status is LatePinStatus.Ok or LatePinStatus.Error)
-                return verified.Status; // Error — предупреждение покажет вызывающий
+            if (verified.Status is LatePinStatus.Ok or LatePinStatus.Unavailable)
+                return verified.Status; // Unavailable (нет связи) — предупреждение покажет вызывающий; Error (отказ сервера) — сообщение ниже, ревизия не завершается (2026-11-06, Л5-06)
             info = verified.Message;
             if (verified.Status != LatePinStatus.Wrong)
             {

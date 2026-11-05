@@ -1244,6 +1244,17 @@ public sealed class LocalProductRepository
 
     public string? GetCatalogVersionToken() => GetMetaValue("catalog_version");
 
+    /// <summary>2026-11-06 (Б-1, И-2): сколько товаров в базе и у скольких из них задан признак is_weight (NULL = карточка пришла сокращённой лентой). Один запрос, схема не меняется.</summary>
+    public (int Total, int WithWeightFlag) CountWeightFlagCoverage()
+    {
+        EnsureSchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*), COALESCE(SUM(CASE WHEN IsWeight IS NOT NULL THEN 1 ELSE 0 END), 0) FROM Products;";
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? (Convert.ToInt32(reader.GetInt64(0)), Convert.ToInt32(reader.GetInt64(1))) : (0, 0);
+    }
+
     public void SetCatalogVersionToken(string token) => SetMetaValue("catalog_version", token);
 
     public string? GetMetaValue(string key)

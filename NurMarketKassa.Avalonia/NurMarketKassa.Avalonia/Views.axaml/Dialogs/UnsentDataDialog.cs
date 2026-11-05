@@ -227,6 +227,27 @@ public sealed class UnsentDataDialog : Window
     /// запуске пользователь войдёт в прежний аккаунт и неотправленное уйдёт на сервер как обычно.</summary>
     private static void AbortSignIn()
     {
+        // 2026-11-06 (аудит №5, Л4-25): в потоке окон ждать стирание сессии (GetResult) нельзя — окно «замирало» на время обращения к хранилищу. Здесь синхронная часть стирается сразу,
+        // а асинхронная идёт в фоне, и программа закрывается ПОСЛЕ неё. В не-UI потоке (смена компании идёт из сетевого потока) прежнее ожидание остаётся.
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            try
+            {
+                App.AuthApi.ClearSession();
+                OfflineAuthSessionStore.Clear();
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Смена аккаунта: вход не стёрт при отказе ({ex.Message}).", "ERROR");
+            }
+            _ = Task.Run(async () =>
+            {
+                try { await App.GetRequiredService<NurMarketKassa.Core.Contracts.IAuthSessionManager>().ClearSessionAsync().ConfigureAwait(false); }
+                catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Смена аккаунта: сохранённая сессия не стёрта при отказе ({ex.Message}).", "ERROR"); }
+                Dispatcher.UIThread.Post(ShutdownApp);
+            });
+            return;
+        }
         try
         {
             App.AuthApi.ClearSession();
@@ -240,10 +261,12 @@ public sealed class UnsentDataDialog : Window
         {
             PosLogger.Log($"Смена аккаунта: вход не стёрт при отказе ({ex.Message}).", "ERROR");
         }
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-                desktop.Shutdown();
-        });
+        Dispatcher.UIThread.Post(ShutdownApp);
+    }
+
+    private static void ShutdownApp()
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            desktop.Shutdown();
     }
 }

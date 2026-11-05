@@ -178,8 +178,10 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         OpenPayDebtCommand = new RelayCommand(() => _openPayDebt?.Invoke());
         ApplyOrderDiscountCommand = new AsyncRelayCommand(ApplyOrderDiscountAsync, () => HasItems && !IsBusy);
         AddCustomItemCommand = new AsyncRelayCommand(AddCustomItemAsync);
-        AddQuickProductCommand = new RelayCommand<CatalogProductTileVm>(
-            product => { if (product != null) AddProductFromCatalog(product); },
+        // 2026-11-06 (аудит №5, Л5-09): быстрые товары идут тем же путём, что скан и каталог (_addProductFromCatalog окна): открытая смена, проверка просрочки
+        // (ExpiredSaleGuard), взвешивание, остаток. Раньше команда вызывала AddProductFromCatalog напрямую и обходила «Запретить без PIN» для просроченного.
+        AddQuickProductCommand = new AsyncRelayCommand<CatalogProductTileVm>(
+            product => product != null ? AddFoundCatalogProductAsync(product) : Task.CompletedTask,
             product => product != null && !IsBusy);
         RefreshQuickProducts();
         // Каталог мог обновиться (синхронизация, отметка звёздочкой) — перечитываем.

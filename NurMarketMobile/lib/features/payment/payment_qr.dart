@@ -418,7 +418,7 @@ class _PayQrSettingsScreenState extends ConsumerState<PayQrSettingsScreen> {
                   ),
                   if (q != null)
                     TextButton.icon(
-                      style: TextButton.styleFrom(foregroundColor: T.danger),
+                      style: TextButton.styleFrom(foregroundColor: context.pal.danger),
                       onPressed: () {
                         setState(() => _list!.remove(q));
                         Navigator.pop(c, false);

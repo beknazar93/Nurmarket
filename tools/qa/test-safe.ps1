@@ -7,7 +7,7 @@
 #   2) берёт общий замок сборки Global\NurMarketBuildLock (ПК 7,8 ГБ: ничего параллельно);
 #   3) `dotnet test NurMarketKassa.Tests -m:1 -nodeReuse:false`;
 #   4) сверяет SHA-256 настоящих %APPDATA%\NurMarketKassa\data\pos_local.db (+ -wal) и user-settings.json ДО и ПОСЛЕ и список изменённых
-#      файлов; результат пишет в консоль и в %LOCALAPPDATA%\Temp\nurmarket-tests\test-safe-last.txt.
+#      файлов; результат пишет в консоль и в %LOCALAPPDATA%\Temp\nurmarket-tests\test-safe-last-<id запуска>.txt (полный вывод — test-safe-output-<id>.txt; id уникален на запуск, 2026-11-06).
 # Если касса запущена и сама пишет в pos_local.db, хэш может измениться без вины тестов — тогда смотрите список «изменённые файлы»:
 # файлы с именами тестов (test-*, run-*) или новые файлы в боевой папке = тесты писали в боевые данные.
 param(
@@ -20,8 +20,10 @@ $repo = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $solution = Join-Path $repo "NurMarketKassa.Avalonia"
 $tempBase = Join-Path ([IO.Path]::GetTempPath()) "nurmarket-tests"
 New-Item -ItemType Directory -Force -Path $tempBase | Out-Null
-$resultFile = Join-Path $tempBase "test-safe-last.txt"
-$dataRoot = Join-Path $tempBase ("root-" + [Guid]::NewGuid().ToString("N").Substring(0, 8))
+# 2026-11-06: файлы результата и полного вывода — с уникальным суффиксом запуска (раньше общие test-safe-last.txt / test-safe-output.txt, параллельные прогоны затирали друг друга).
+$runId = [Guid]::NewGuid().ToString("N").Substring(0, 8)
+$resultFile = Join-Path $tempBase "test-safe-last-$runId.txt"
+$dataRoot = Join-Path $tempBase ("root-" + $runId)
 New-Item -ItemType Directory -Force -Path $dataRoot | Out-Null
 
 # --- настоящие данные кассы: что охраняем
@@ -82,7 +84,7 @@ if (-not $got) {
     exit 3
 }
 $testExit = 1
-$outFile = Join-Path $tempBase "test-safe-output.txt"
+$outFile = Join-Path $tempBase "test-safe-output-$runId.txt"
 try {
     $env:NURMARKET_DATA_ROOT = $dataRoot
     $env:DESKTOP_MARKET_API_URL = "http://127.0.0.1:9"

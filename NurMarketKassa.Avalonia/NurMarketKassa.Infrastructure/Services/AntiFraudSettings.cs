@@ -133,6 +133,9 @@ public static class AntiFraudSettingsStore
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
     private static AntiFraudData? _current;
     private static DateTime _readStamp;
+    // 2026-11-06 (аудит №5, Л5-10): последнее чтение файла не удалось (занят антивирусом, нет доступа). Прежние настройки НЕ сбрасываются на «всё выключено»,
+    // файл не переименовывается и поверх него ничего не пишется, пока он не прочитается.
+    private static bool _readFailed;
 
     /// <summary>Только для тестов: другая папка вместо %LOCALAPPDATA%\NurMarketKassa.</summary>
     public static string? DataDirOverride { get; set; }
@@ -150,10 +153,13 @@ public static class AntiFraudSettingsStore
             lock (Gate)
             {
                 var stamp = StampOf(FilePath);
-                if (_current is null || stamp != _readStamp)
+                if (_current is null || stamp != _readStamp || _readFailed)
                 {
-                    _current = Read();
-                    _readStamp = stamp;
+                    var fresh = Read();
+                    if (!_readFailed || _current is null)
+                        _current = fresh; // сбой чтения и есть прежние настройки — остаются они (Л5-10)
+                    if (!_readFailed)
+                        _readStamp = stamp;
                 }
                 return _current;
             }
@@ -165,6 +171,12 @@ public static class AntiFraudSettingsStore
         lock (Gate)
         {
             var data = Current;
+            if (_readFailed)
+            {
+                // 2026-11-06 (Л5-10): файл не прочитан — записать «изменённые умолчания» поверх настоящих правил защиты нельзя.
+                PosLogger.Log("Антифрод: файл настроек сейчас не читается — изменение не записано, повторите позже.", "WARNING");
+                return;
+            }
             change(data);
             data.Normalize();
             try
@@ -199,11 +211,28 @@ public static class AntiFraudSettingsStore
 
     private static AntiFraudData Read()
     {
+        _readFailed = false;
         try
         {
             if (File.Exists(FilePath))
             {
-                var data = JsonSerializer.Deserialize<AntiFraudData>(AtomicFile.ReadAllText(FilePath) ?? "{}", Json) ?? new AntiFraudData();
+                var r = AtomicFile.TryRead(FilePath, attempts: 2, pauseMs: 50);
+                if (r.Status == AtomicFile.ReadStatus.Unreadable)
+                {
+                    // 2026-11-06 (аудит №5, Л5-10): файл занят/недоступен — это не «правил нет». Берём прежние настройки; если их нет — копию .bak (прошлая запись);
+                    // и только если нет ничего — безопасный режим (PIN старшего включён), а не «всё выключено».
+                    _readFailed = true;
+                    if (_current is not null)
+                        return _current;
+                    PosLogger.Log("Антифрод: файл настроек занят и не прочитан — взяты прежние правила (копия .bak) или безопасный режим.", "WARNING");
+                    if (r.Text is { } bakText && JsonSerializer.Deserialize<AntiFraudData>(bakText, Json) is { } fromBak)
+                    {
+                        fromBak.Normalize();
+                        return fromBak;
+                    }
+                    return SafeDefaults();
+                }
+                var data = JsonSerializer.Deserialize<AntiFraudData>(r.Text ?? "{}", Json) ?? new AntiFraudData();
                 data.Normalize();
                 return data;
             }
@@ -215,5 +244,14 @@ public static class AntiFraudSettingsStore
         var fresh = new AntiFraudData();
         fresh.Normalize();
         return fresh;
+    }
+
+    /// <summary>2026-11-06 (аудит №5, Л5-10): настройки при сбое чтения, когда прежних нет вовсе: PIN старшего включён (скидка, возврат, недостача по умолчанию).</summary>
+    internal static AntiFraudData SafeDefaults()
+    {
+        var safe = new AntiFraudData();
+        safe.Guard.Enabled = true;
+        safe.Normalize();
+        return safe;
     }
 }

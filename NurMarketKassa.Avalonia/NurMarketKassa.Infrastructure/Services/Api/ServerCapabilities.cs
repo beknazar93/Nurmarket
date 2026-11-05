@@ -14,14 +14,21 @@ public static class ServerCapabilities
     private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan FailTtl = TimeSpan.FromMinutes(1);
     private static readonly SemaphoreSlim Gate = new(1, 1);
-    private static (DateTime At, string Account, HashSet<string> Features, bool Ok)? _cache;
+    // 2026-11-06 (аудит №5, Л5-01): Stale = список остался с прошлого раза (последний известный): последнее обновление не удалось или список взят с диска.
+    // Ok = список пригоден для Has()/Cached(). Сбой обновления НЕ заменяет хороший список пустым.
+    private static (DateTime At, string Account, HashSet<string> Features, bool Ok, bool Stale)? _cache;
+    private static string? _diskTriedFor;
     private static bool _shapeWarned;
     private static Exception? _lastError;
 
     private static string AccountKey() => (UserPreferences.Instance.LastDataAccountKey ?? "") + "|" + (CompanyInfoService.LastCompany?.Id ?? "");
 
     /// <summary>Забыть признаки (смена аккаунта, выход).</summary>
-    public static void Reset() => _cache = null;
+    public static void Reset()
+    {
+        _cache = null;
+        _diskTriedFor = null; // 2026-11-06: после смены аккаунта список нового аккаунта снова ищется на диске
+    }
 
     // 2026-11-05 (сервер ceba67c): имена новых признаков — в одном месте.
     public const string DebtReturnDrawerCash = "debt_return_drawer_cash";
@@ -66,12 +73,30 @@ public static class ServerCapabilities
     public static void WarmUp() => RefreshInBackground(force: true);
 
     /// <summary>Только для тестов: подставить список признаков для текущего аккаунта.</summary>
-    internal static void SetFeaturesForTests(params string[] names) =>
-        _cache = (DateTime.UtcNow, AccountKey(), new HashSet<string>(names, StringComparer.OrdinalIgnoreCase), true);
-
-    private static bool Fresh(out (DateTime At, string Account, HashSet<string> Features, bool Ok) c)
+    internal static void SetFeaturesForTests(params string[] names)
     {
-        if (_cache is { } cur && cur.Account == AccountKey() && DateTime.UtcNow - cur.At < (cur.Ok ? Ttl : FailTtl))
+        _cache = (DateTime.UtcNow, AccountKey(), new HashSet<string>(names, StringComparer.OrdinalIgnoreCase), true, false);
+        _diskTriedFor = AccountKey(); // тест ставит список сам — с диска ничего не подмешиваем
+    }
+
+    /// <summary>Только для тестов: сбросить память (файл на диске остаётся) — как перезапуск кассы.</summary>
+    internal static void ResetMemoryForTests()
+    {
+        _cache = null;
+        _diskTriedFor = null;
+        _lastError = null;
+    }
+
+    /// <summary>Только для тестов: папка файла признаков (по умолчанию AppPaths.Local\NurMarketKassa — общая для кассы и программы владельца).</summary>
+    internal static string? DirOverride { get; set; }
+
+    /// <summary>Только для тестов: список в памяти — «последний известный» (обновление не удалось или взят с диска).</summary>
+    internal static bool IsStaleForTests => _cache is { Stale: true };
+
+    private static bool Fresh(out (DateTime At, string Account, HashSet<string> Features, bool Ok, bool Stale) c)
+    {
+        TryLoadFromDisk();
+        if (_cache is { } cur && cur.Account == AccountKey() && DateTime.UtcNow - cur.At < (cur.Ok && !cur.Stale ? Ttl : FailTtl))
         {
             c = cur;
             return true;
@@ -81,8 +106,87 @@ public static class ServerCapabilities
     }
 
     /// <summary>Без запроса: true/false, если список уже получен для ЭТОГО аккаунта; null — ещё не спрашивали или запрос не удался.</summary>
-    public static bool? Cached(string name) =>
-        _cache is { Ok: true } c && c.Account == AccountKey() ? c.Features.Contains(name) : null;
+    public static bool? Cached(string name)
+    {
+        TryLoadFromDisk();
+        return _cache is { Ok: true } c && c.Account == AccountKey() ? c.Features.Contains(name) : null;
+    }
+
+    // ───────────── 2026-11-06 (аудит №5, Л5-01): последний известный список — на диске, по аккаунту ─────────────
+
+    private static string FilePath => Path.Combine(DirOverride ?? Path.Combine(AppPaths.Local, "NurMarketKassa"), "server-capabilities.json");
+
+    private static bool HasAccount(string account) => account.Trim('|').Length > 0;
+
+    private static string DiskKey(string account) => AppPaths.ServerKeyPrefix + account;
+
+    /// <summary>Если в памяти списка этого аккаунта нет — берёт последний известный с диска (помечает устаревшим: в фоне всё равно запросится заново). Так сбой при запуске или нет связи
+    /// не выключают денежные признаки (weight_line_total_floor, checkout_branch, debt_return_drawer_cash). Ключ записи = сервер (для стенда) + аккаунт и компания.</summary>
+    private static void TryLoadFromDisk()
+    {
+        var account = AccountKey();
+        if (_diskTriedFor == account || !HasAccount(account))
+            return;
+        _diskTriedFor = account;
+        if (_cache is { } cur && cur.Account == account && cur.Ok)
+            return;
+        try
+        {
+            var path = FilePath;
+            if (!File.Exists(path))
+                return;
+            var text = AtomicFile.ReadAllText(path);
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+            using var doc = JsonDocument.Parse(text);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object
+                || !doc.RootElement.TryGetProperty("accounts", out var accounts) || accounts.ValueKind != JsonValueKind.Object
+                || !accounts.TryGetProperty(DiskKey(account), out var entry) || entry.ValueKind != JsonValueKind.Object
+                || !entry.TryGetProperty("features", out var list) || list.ValueKind != JsonValueKind.Array)
+                return;
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            Collect(list, set);
+            _cache = (DateTime.MinValue, account, set, true, true);
+            PosLogger.Log($"Признаки сервера (capabilities): взят последний известный список с диска ({set.Count} шт.), обновление запрошено заново.", "INFO");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or System.Security.SecurityException)
+        {
+            PosLogger.Log($"Признаки сервера (capabilities): файл с последним списком не прочитан ({ex.GetType().Name}).", "WARNING");
+        }
+    }
+
+    private static void SaveToDisk(string account, HashSet<string> set)
+    {
+        if (!HasAccount(account))
+            return;
+        try
+        {
+            var path = FilePath;
+            var accounts = new System.Text.Json.Nodes.JsonObject();
+            try
+            {
+                if (File.Exists(path) && AtomicFile.ReadAllText(path) is { Length: > 0 } old
+                    && System.Text.Json.Nodes.JsonNode.Parse(old) is System.Text.Json.Nodes.JsonObject oldRoot
+                    && oldRoot["accounts"] is System.Text.Json.Nodes.JsonObject oldAccounts)
+                {
+                    foreach (var kv in oldAccounts.ToArray()) // не больше 8 записей: новая поверх, лишние старые выбрасываются
+                        if (accounts.Count < 7 && kv.Key != DiskKey(account))
+                            accounts[kv.Key] = kv.Value?.DeepClone();
+                }
+            }
+            catch (Exception ex) when (ex is JsonException or IOException or InvalidOperationException) { /* битый файл — перепишем с нуля */ }
+            var features = new System.Text.Json.Nodes.JsonArray();
+            foreach (var f in set.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+                features.Add(f);
+            accounts[DiskKey(account)] = new System.Text.Json.Nodes.JsonObject { ["saved_at"] = DateTime.UtcNow.ToString("O"), ["features"] = features };
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            AtomicFile.WriteAllText(path, new System.Text.Json.Nodes.JsonObject { ["accounts"] = accounts }.ToJsonString());
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            PosLogger.Log($"Признаки сервера (capabilities): список не записан на диск ({ex.GetType().Name}).", "WARNING");
+        }
+    }
 
     public static async Task<bool> HasAsync(NurMarketApiClient api, string name, CancellationToken ct = default) =>
         (await LoadAsync(api, ct).ConfigureAwait(false)).Contains(name);
@@ -93,7 +197,7 @@ public static class ServerCapabilities
     public static async Task<(IReadOnlySet<string> Features, Exception? Error)> TryLoadAsync(NurMarketApiClient api, CancellationToken ct = default, bool force = false)
     {
         var set = await LoadAsync(api, ct, force).ConfigureAwait(false);
-        return (set, _cache is { Ok: false } ? _lastError : null);
+        return (set, _cache is { Ok: false } or { Stale: true } ? _lastError : null);
     }
 
     public static async Task<IReadOnlySet<string>> LoadAsync(NurMarketApiClient api, CancellationToken ct = default, bool force = false)
@@ -110,16 +214,26 @@ public static class ServerCapabilities
             {
                 var d = await api.RequestAsync(HttpMethod.Get, "api/main/capabilities/", null, null, ct).ConfigureAwait(false);
                 var set = Parse(d);
-                _cache = (DateTime.UtcNow, account, set, true);
+                _cache = (DateTime.UtcNow, account, set, true, false);
                 _lastError = null;
+                SaveToDisk(account, set); // 2026-11-06 (Л5-01): ответ получен — это новый «последний известный» список (в том числе пустой: сервер реально ответил без признаков)
                 return set;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 PosLogger.Log($"Признаки сервера (capabilities) не получены: {ex.Message}", "WARNING");
-                var empty = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                _cache = (DateTime.UtcNow, account, empty, false);
                 _lastError = ex;
+                // 2026-11-06 (аудит №5, Л5-01): сбой обновления НЕ заменяет хороший список пустым. Раньше «мигнувший» checkout_branch менял тело оплаты (и ключ повтора),
+                // а weight_line_total_floor — правило округления. Держим последний известный список этого аккаунта (память или диск), помечаем устаревшим — повтор через минуту.
+                TryLoadFromDisk();
+                if (_cache is { Ok: true } good && good.Account == account)
+                {
+                    _cache = (DateTime.UtcNow, account, good.Features, true, true);
+                    return good.Features;
+                }
+
+                var empty = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                _cache = (DateTime.UtcNow, account, empty, false, false);
                 return empty;
             }
         }

@@ -106,7 +106,8 @@ public static class ExpiredSaleGuard
             info = verified.Message;
             if (verified.Status != LatePinStatus.Wrong)
             {
-                LastPinCheckUnavailable = verified.Status == LatePinStatus.Error; // 2026-11-05 (ревью волн 0–3, С13): нет связи/сервер не ответил — не «неверный PIN»
+                // 2026-11-06 (аудит №5, Л5-06): «нет связи» — только Unavailable; ошибка/отказ сервера (4xx, нет прав) = Error = отказ, обхода нет.
+                LastPinCheckUnavailable = verified.Status == LatePinStatus.Unavailable;
                 prompts.ShowError(verified.Message);
                 return false;
             }

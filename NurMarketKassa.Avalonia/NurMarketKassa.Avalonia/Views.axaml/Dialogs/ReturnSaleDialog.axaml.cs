@@ -1607,6 +1607,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 if (debtSale && ExchangeCashCorrections.DebtRefundHandledByServer)
                 {
                     ExchangeCashCorrections.NoteServerFeatureDebtRefund(shiftId, cashOut);
+                    // 2026-11-06 (аудит №5, Л5-05, Ж-01): сервер снимает свою запись выдачи; если касса выдала больше (чек 001967: 2 против 1), ящик расходится на разницу — поправка как раньше.
+                    ExchangeCashCorrections.RecordServerUnderRecordedDebtRefund(shiftId, key, before.Value, a, cashOut, serverCashOut);
                     return;
                 }
                 var overstated = (a - before.Value) + cashOut;
@@ -2596,6 +2598,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             return;
         }
         if (await CheckReturnRulesAsync(selected, exchange: true).ConfigureAwait(true) is null)
+            return;
+
+        // 2026-11-06 (аудит №5, Л5-08): обмен — это возврат отмеченных позиций с выдачей разницы; PIN старшего «возврат от суммы» требуется и здесь,
+        // иначе дорогой товар меняли на дешёвый и выдавали разницу наличными без PIN. Сумма — стоимость возвращаемых позиций.
+        if (!await ActionGuard.ConfirmAsync(GuardAction.Return, (double)selected.Sum(l => l.RefundSum), _currentReceiptNumber).ConfigureAwait(true))
             return;
 
         var lines = selected.Select(l => new ExchangeReturnLine(l.LineId, l.ProductId, l.Title,

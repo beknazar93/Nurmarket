@@ -76,6 +76,25 @@ public sealed record SupplierReceipt(
     // 2026-11-01 (проверка бэкенда): готовый номер документа от сервера («ПР-2026-000073») — для показа, если поле пришло.
     string NumberDisplay = "");
 
+/// <summary>2026-11-06 (аудит №5, Л5-13): приход изменён на другом устройстве между показом и удалением (412). <see cref="Current"/> — перечитанный приход (null, если перечитать не вышло);
+/// повторять удаление можно только после повторного подтверждения пользователя: <c>DeleteReceiptAsync(..., knownVersion: CurrentVersion)</c> с новым ключом.</summary>
+public sealed class ReceiptChangedException : Exception
+{
+    public string ReceiptId { get; }
+    public int KnownVersion { get; }
+    public int CurrentVersion { get; }
+    public SupplierReceipt? Current { get; }
+
+    public ReceiptChangedException(string receiptId, int knownVersion, int currentVersion, SupplierReceipt? current, Exception inner)
+        : base("Приход изменён на другом устройстве (412).", inner)
+    {
+        ReceiptId = receiptId;
+        KnownVersion = knownVersion;
+        CurrentVersion = currentVersion;
+        Current = current;
+    }
+}
+
 /// <summary>2026-11-01: версия прихода из серверной истории (GET suppliers/receipts/{id}/history/ — то же, что versions/).</summary>
 public sealed record ServerEditVersion(int Version, DateTime? At, string User, string Device, string Reason, double Total, string Summary);
 
@@ -466,7 +485,8 @@ public sealed class SupplierApiService
     /// (ТЗ бэкенду п. 30). Сервер откатывает остаток и долг поставщику; отказы 409 — has_sales_after / has_returns /
     /// debt_already_paid / period_closed, 403 — нет права: текст берётся из ответа (ApiException.Message).</summary>
     /// <param name="knownVersion">2026-11-05 (сервер ceba67c, receipt_version_required): версия прихода, которую видит окно; 0 — неизвестна (тогда читаем приход). Касса шлёт её в If-Match и
-    /// в теле (version): без неё сервер отвечает 428 version_required. 428 — перечитать приход и повторить с версией; 412 — версия устарела: перечитать и повторить с НОВЫМ ключом.</param>
+    /// в теле (version): без неё сервер отвечает 428 version_required. 428 — перечитать приход и повторить с версией; 412 — версия устарела (приход изменён на другом устройстве): НЕ повторяется,
+    /// бросается <see cref="ReceiptChangedException"/> (2026-11-06, Л5-13) — повтор с НОВЫМ ключом и новой версией только после повторного подтверждения пользователя.</param>
     public async Task DeleteReceiptAsync(string receiptId, string reason, string idempotencyKey, CancellationToken ct = default, int knownVersion = 0)
     {
         if (string.IsNullOrWhiteSpace(idempotencyKey))
@@ -489,12 +509,16 @@ public sealed class SupplierApiService
                     version = CurrentVersionFrom(ex) ?? await ReadReceiptVersionAsync(receiptId, ct).ConfigureAwait(false);
                     PosLogger.Log($"Закупки: удаление прихода {receiptId} — 428 version_required, повтор с версией {version}.", "INFO");
                 }
-                catch (ApiException ex) when (attempt == 1 && ex.StatusCode == 412)
+                catch (ApiException ex) when (ex.StatusCode == 412)
                 {
-                    // версия устарела (приход правили на другом устройстве): перечитать и повторить с НОВЫМ ключом
-                    version = await ReadReceiptVersionAsync(receiptId, ct).ConfigureAwait(false);
-                    key = Guid.NewGuid().ToString();
-                    PosLogger.Log($"Закупки: удаление прихода {receiptId} — 412, приход перечитан (версия {version}), повтор с новым ключом.", "INFO");
+                    // 2026-11-06 (аудит №5, Л5-13): версия устарела — приход правили на другом устройстве. Раньше касса молча перечитывала версию и удаляла НОВЫЙ приход (в него могли добавить строки)
+                    // с подтверждением на СТАРЫЙ. Теперь удаление НЕ повторяется: перечитываем приход и отдаём вызывающему расхождение — повтор (с новым ключом) только после повторного подтверждения пользователя.
+                    SupplierReceipt? current = null;
+                    try { current = await GetReceiptAsync(receiptId, ct).ConfigureAwait(false); }
+                    catch (Exception readEx) when (readEx is not OperationCanceledException) { PosLogger.Log($"Закупки: приход {receiptId} после 412 не перечитан ({readEx.Message}).", "WARNING"); }
+                    var currentVersion = CurrentVersionFrom(ex) ?? current?.Version ?? 0;
+                    PosLogger.Log($"Закупки: удаление прихода {receiptId} — 412: приход изменён на другом устройстве (версия была {version}, стала {currentVersion}); удаление не повторено, нужно новое подтверждение.", "WARNING");
+                    throw new ReceiptChangedException(receiptId, version, currentVersion, current, ex);
                 }
             }
         }

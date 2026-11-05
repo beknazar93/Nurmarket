@@ -33,13 +33,21 @@ class CheckoutDevice {
     }
   }
 
+  static final _uuid = RegExp(r'^[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}$');
+  static final _digits = RegExp(r'^[0-9]{1,18}$');
+
+  /// Похоже на id филиала (uuid или число), а не на название.
+  static bool looksLikeId(String v) => _uuid.hasMatch(v.trim()) || _digits.hasMatch(v.trim());
+
   /// Филиал из ответа профиля: `branch` / `branch_id` (строка, число или объект с id) у пользователя или в корне.
   static String branchOf(Map<String, dynamic> profile, Map<String, dynamic> user) {
     for (final m in [user, profile]) {
       for (final k in ['branch', 'branch_id']) {
         final v = m[k];
         final id = v is Map ? v['id'] : v;
-        if (id != null && '$id'.isNotEmpty && '$id' != 'null') return '$id';
+        // 2026-11-06 (аудит №5, М7-14): сервер ждёт id филиала. Если профиль отдал название («Центральный»), оно не уходит в чек: иначе
+        // каждый чек получил бы 400, а офлайн-чеки легли бы в «Не принято».
+        if (id != null && looksLikeId('$id')) return '$id';
       }
     }
     return '';

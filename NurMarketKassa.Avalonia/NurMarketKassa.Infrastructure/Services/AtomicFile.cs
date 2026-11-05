@@ -244,6 +244,42 @@ public static class AtomicFile
         try { File.Delete(path + ".pending"); } catch (Exception) { /* запасного файла нет или занят */ }
     }
 
+    /// <summary>2026-11-06 (аудит №5, Л5-03): отложенные записи, снятые со всех файлов внутри папок (смена компании). Хранит их, чтобы при откате вернуть.</summary>
+    public sealed class DetachedDeferred
+    {
+        internal readonly List<KeyValuePair<string, object>> Items = new();
+        public int Count => Items.Count;
+    }
+
+    /// <summary>2026-11-06 (аудит №5, Л5-03): снять ВСЕ отложенные записи файлов внутри указанных папок (таймер не запишет состояние прежней компании на место
+    /// файла новой). Возвращает снятое — при откате смены вернуть через <see cref="RestoreDeferred"/>. Запасные файлы *.pending на диске здесь не трогаются
+    /// (их уносит карантин вместе с рабочим файлом).</summary>
+    public static DetachedDeferred DetachDeferredUnder(IEnumerable<string> folders)
+    {
+        var result = new DetachedDeferred();
+        var prefixes = folders.Select(f => Path.GetFullPath(f).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar).ToList();
+        foreach (var (path, deferred) in Deferred.ToArray())
+        {
+            string full;
+            try { full = Path.GetFullPath(path); }
+            catch (Exception) { continue; }
+            if (!prefixes.Any(p => full.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+                continue;
+            if (Deferred.TryRemove(path, out var removed))
+                result.Items.Add(new KeyValuePair<string, object>(path, removed));
+            PendingWrittenAt.TryRemove(path, out _);
+        }
+        return result;
+    }
+
+    /// <summary>Вернуть снятые <see cref="DetachDeferredUnder"/> отложенные записи (смена компании не состоялась). Если для пути уже появилась новая запись — она новее и остаётся.</summary>
+    public static void RestoreDeferred(DetachedDeferred detached)
+    {
+        foreach (var (path, entry) in detached.Items)
+            if (entry is DeferredWrite deferred)
+                Deferred.TryAdd(path, deferred);
+    }
+
     private static void FlushDeferred(bool onExit)
     {
         foreach (var (path, deferred) in Deferred.ToArray())

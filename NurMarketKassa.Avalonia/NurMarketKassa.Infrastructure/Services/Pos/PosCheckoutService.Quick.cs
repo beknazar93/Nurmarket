@@ -35,6 +35,10 @@ public sealed partial class PosCheckoutService
     private string? _quickKey;
     private string? _quickKeyFingerprint;
 
+    /// <summary>2026-11-06 (аудит №5, Л5-01): поля устройства (device_key / device_name / branch), с которыми тело ушло в ПЕРВЫЙ раз под этим ключом. Повтор той же оплаты берёт ровно их,
+    /// даже если признак сервера checkout_branch в это время «мигнул»: ключ повтора не зависит от этих полей (см. <see cref="QuickCheckoutBody.Fingerprint(string)"/>).</summary>
+    private Dictionary<string, System.Text.Json.Nodes.JsonNode?>? _quickKeyDevice;
+
     /// <summary>Ключ, на который сервер дважды ответил 500 в этой оплате (см. TryQuickCheckoutAsync).</summary>
     private string? _quickKeyAbandonedOn500;
 
@@ -50,6 +54,7 @@ public sealed partial class PosCheckoutService
     {
         _quickKey = null;
         _quickKeyFingerprint = null;
+        _quickKeyDevice = null;
         _quickKeyMaybeSent = null;
     }
 
@@ -115,8 +120,10 @@ public sealed partial class PosCheckoutService
             return null;
         }
 
-        var fingerprint = body.ToJsonString();
-        if (_quickKey == null || !string.Equals(_quickKeyFingerprint, fingerprint, StringComparison.Ordinal)
+        // 2026-11-06 (аудит №5, Л5-01): ключ повтора привязан к составу/суммам/способу оплаты, а НЕ к полям устройства: признак checkout_branch мог «мигнуть» между
+        // первой попыткой с неясным исходом и повтором — тело менялось, ключ становился новым, «в долг» могло пройти дважды.
+        var normalized = QuickCheckoutBody.Fingerprint(body);
+        if (_quickKey == null || !string.Equals(_quickKeyFingerprint, normalized, StringComparison.Ordinal)
             || !string.Equals(_quickKeyCheckToken, _checkoutToken, StringComparison.Ordinal))
         {
             _quickKeyCheckToken = _checkoutToken;
@@ -124,17 +131,27 @@ public sealed partial class PosCheckoutService
             // повтор уходит прежним ключом, сервер вернёт прежнюю продажу (replayed). Только для ТОГО ЖЕ чека: у следующего покупателя
             // с таким же составом ключ должен быть новым, иначе его продажа «превратится» в повтор чужой.
             if (_unknownCheckout is { QuickKey: { Length: > 0 } restoredKey } pendingQuick
-                && string.Equals(pendingQuick.QuickBody, fingerprint, StringComparison.Ordinal)
+                && pendingQuick.QuickBody is { Length: > 0 } pendingBody
+                && string.Equals(QuickCheckoutBody.Fingerprint(pendingBody), normalized, StringComparison.Ordinal)
                 && IsSameCheckAsUnknown(pendingQuick))
             {
                 _quickKey = restoredKey;
                 _quickKeyMaybeSent = restoredKey;
+                _quickKeyDevice = QuickCheckoutBody.DeviceFields(pendingBody); // поля устройства — как в первой попытке (с диска)
                 PosLogger.Log($"PAY quick: повтор неясной оплаты ({pendingQuick.Method}) тем же ключом {restoredKey}.", "PAYMENT");
             }
             else
+            {
                 _quickKey = Guid.NewGuid().ToString("N");
-            _quickKeyFingerprint = fingerprint;
+                _quickKeyDevice = QuickCheckoutBody.DeviceFields(body.ToJsonString());
+            }
+            _quickKeyFingerprint = normalized;
         }
+
+        // Тело уходит с теми полями устройства, что были при создании ключа (а не с теми, что дал признак в эту секунду).
+        if (_quickKeyDevice is not null)
+            QuickCheckoutBody.ReplaceDeviceFields(body, _quickKeyDevice);
+        var fingerprint = body.ToJsonString(); // записывается на диск вместе с ключом; сравнивается всегда через QuickCheckoutBody.Fingerprint
 
         var key = _quickKey;
         // 2026-10-29 (приёмка 1.17.65, В-1): ключ и тело — на диск ДО отправки (атомарно, с fsync) для ВСЕХ способов оплаты. Раньше запись была только при
@@ -622,8 +639,9 @@ public sealed partial class PosCheckoutService
         // 2026-10-29 (В-1): сервер подтвердил оплату этого чека по ключу — тот же чек повторно не пробиваем ни при каких данных.
         if (unknown.PaidConfirmed)
             return PosCheckoutResult.Failed(InFlightPaidMessage());
-        if (!quickDeclined && string.Equals(unknown.QuickBody, QuickBodyFingerprint(request), StringComparison.Ordinal))
-            return null;
+        if (!quickDeclined && unknown.QuickBody is { } savedBody && QuickBodyFingerprint(request) is { } currentBody
+            && string.Equals(QuickCheckoutBody.Fingerprint(savedBody), QuickCheckoutBody.Fingerprint(currentBody), StringComparison.Ordinal))
+            return null; // 2026-11-06 (Л5-01): без полей устройства — «мигание» признака не меняет решение
         PosLogger.Log(
             $"PAY: чек с неясной оплатой «{unknown.Method}» (ключ {unknown.QuickKey}) — другой способ/состав не проводим, пока исход не подтверждён.", "WARNING");
         return PosCheckoutResult.Failed(unknown.InFlight ? InFlightMaybeMessage() : QuickUnknownMessage());

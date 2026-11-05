@@ -311,6 +311,13 @@ enum NumKind {
 
   /// Из числа в поле «Количество» больше этого — переспросить.
   static const double askAbove = 999;
+
+  /// 2026-11-06 (аудит №5, М7-10): вес больше этого — переспросить. Скан штрихкода 4870001159955 в поле веса пропускал «487» (3 цифры)
+  /// и давал 487 кг × 600 сом = 292 200 сом без вопроса.
+  static const double askWeightAbove = 50;
+
+  /// Нужно ли переспросить число [v] этого вида.
+  bool needsSure(double v, {double? above}) => (this == NumKind.qty && v > (above ?? askAbove)) || (this == NumKind.weight && v > (above ?? askWeightAbove));
 }
 
 /// Фильтр ввода числа по [kind]: лишние цифры не принимаются (поле остаётся прежним).
@@ -321,7 +328,7 @@ TextInputFormatter numberLimit(NumKind kind) {
 
 /// Спросить число (сумма, количество, вес).
 // 2026-10-26 (живой аудит, П2, Н-10): необязательные подпись поля [label] и единица [suffix] (сом) — поле открытия смены было без подписи.
-Future<double?> askNumber(BuildContext context, {required String title, String? hint, double? initial, String? ok, String? label, String? suffix, NumKind kind = NumKind.money}) async {
+Future<double?> askNumber(BuildContext context, {required String title, String? hint, double? initial, String? ok, String? label, String? suffix, NumKind kind = NumKind.money, double? sureAbove}) async {
   // 2026-10-21, владелец: «на Enter при добавлении товара в КП и счёт он удаляет или дублирует». Число в поле не было
   // выделено — «1» и набранное «2» давали 12 (количество «удваивалось»); Enter и «Готово» подряд закрывали окно дважды —
   // второе закрытие уводило с экрана документа. Теперь прежнее число выделено (набор заменяет его), окно закрывается один раз.
@@ -363,7 +370,7 @@ Future<double?> askNumber(BuildContext context, {required String title, String? 
     ),
   );
   // 2026-11-05 (М6-16): очень большое количество — переспросить (случайный скан, лишний нуль)
-  if (v != null && kind == NumKind.qty && v > NumKind.askAbove && context.mounted) {
+  if (v != null && kind.needsSure(v, above: sureAbove) && context.mounted) {
     if (!await confirmAsk(context, title: context.l.qtySure(qtyText(v)), danger: false)) return null;
   }
   return v;

@@ -11,15 +11,17 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 
 public static class ActionGuard
 {
-    /// <summary>true — действие можно выполнять. Ничего не бросает: любая ошибка самой проверки = «можно» (касса не должна встать из-за проверки прав).</summary>
+    /// <summary>true — действие можно выполнять. Ничего не бросает. 2026-11-06 (аудит №5): сбой проверки, когда PIN нужен, = отказ (кроме закрытия смены с недостачей).</summary>
     /// <param name="value">Процент скидки (Discount) или сумма в сомах (Return, RemovalAfterRing, ShiftShortage).</param>
     public static async Task<bool> ConfirmAsync(GuardAction action, double value, string? subject = null)
     {
+        var needsPin = false; // 2026-11-06 (аудит №5, Л5-06/Л5-10): знаем ли мы, что PIN нужен, — от этого зависит, чем кончается сбой самой проверки
         try
         {
             var rules = AntiFraudSettingsStore.Current.Guard;
             if (!ActionGuardPolicy.NeedsPin(action, value, rules) || IsSenior())
                 return true;
+            needsPin = true;
 
             PosLogger.Log($"PIN старшего: нужен для действия «{ActionGuardPolicy.Describe(action, value)}».", "SECURITY");
             var granted = await ExpiredSaleGuard.AskOwnerPinAsync().ConfigureAwait(true);
@@ -48,8 +50,29 @@ public static class ActionGuard
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            PosLogger.Log($"PIN старшего: проверка не выполнена ({ex.GetType().Name}: {ex.Message}) — действие разрешено.", "WARNING");
-            return true;
+            // 2026-11-06 (аудит №5, Л5-06/Л5-10): сбой проверки ≠ разрешение. Если PIN нужен — отказ (скидка, возврат, ручная цена, ящик…); исключение — закрытие смены
+            // с недостачей: смену не блокируем (как и при отсутствии связи), но пишем в журнал антифрода.
+            if (!needsPin)
+            {
+                PosLogger.Log($"PIN старшего: правила не прочитаны ({ex.GetType().Name}: {ex.Message}) — PIN не требуется.", "WARNING");
+                return true;
+            }
+            if (ActionGuardPolicy.AllowWhenCheckFailed(action, needsPin)) // здесь needsPin = true: разрешено только закрытие смены с недостачей
+            {
+                PosLogger.Log($"PIN старшего: проверка не выполнена ({ex.GetType().Name}: {ex.Message}) — смена с недостачей {value:0.##} закрывается, подтвердить позже.", "SECURITY");
+                try { FraudMonitor.OnShortagePinSkipped(value); } catch (Exception ex2) when (ex2 is not OutOfMemoryException) { }
+                return true;
+            }
+            PosLogger.Log($"PIN старшего: проверка не выполнена ({ex.GetType().Name}: {ex.Message}) — действие «{action}» отклонено.", "SECURITY");
+            try
+            {
+                App.GetRequiredService<IUserPrompts>().ShowToast(
+                    Tr.T("Не удалось проверить PIN старшего — действие отменено. Повторите.", "Улуунун PIN кодун текшерүү мүмкүн болгон жок — аракет токтотулду. Кайталаңыз.",
+                        "The senior's PIN could not be checked — the action was cancelled. Try again.", "Yetkili PIN'i doğrulanamadı — işlem iptal edildi. Tekrar deneyin.",
+                        "Katta xodimning PIN kodini tekshirib bo'lmadi — amal bekor qilindi. Qayta urinib ko'ring."), isWarning: true);
+            }
+            catch (Exception ex2) when (ex2 is not OutOfMemoryException) { }
+            return false;
         }
     }
 

@@ -2036,5 +2036,10 @@
   "prnSunmiHint": "Chek Sunmi vositalari bilan chop etiladi, barcha harflar (ң ө ү ş ğ) to'g'ri chiqadi. Bluetooth, tarmoq va USB ishlatilmaydi.",
   "scaleBindOverwrite": "«{name}» tovarining PLU si {old}, {plu} bo'ladi. PLU {old} ga sozlangan tarozilar uni topa olmaydi. Yozilsinmi?",
   "apiSaleDuplicateLine": "Chekda bitta tovar turli narx yoki birlikda: server qatorlarni birlashtira olmaydi. Bitta narxni qoldiring yoki ortiqcha qatorni olib tashlang.",
-  "payLinesMerged": "Chekdagi bir xil qatorlar bittaga birlashtirildi."
+  "payLinesMerged": "Chekdagi bir xil qatorlar bittaga birlashtirildi.",
+  "returnMaybeDoneTitle": "Qaytarish allaqachon o'tgan bo'lishi mumkin",
+  "returnMaybeDoneBody": "Bu chek bo'yicha oldingi urinishdan keyin soat {time} da {sum} so'mlik qaytarish bor. Pul ikki marta berilmasligi uchun yangi qaytarish YUBORILMADI. «Cheklar»da chekning qaytarishlarini tekshiring; yana qaytarish kerak bo'lsa — chekni qayta oching.",
+  "payDuplicatePrice": "«{name}» chekda ikki narxda (chakana va ulgurji). Bitta narxni qoldiring yoki ortiqcha qatorni olib tashlang.",
+  "logoutCartTitle": "Tugallanmagan chek bilan chiqasizmi?",
+  "logoutCartAsk": "Chekdagi pozitsiyalar: {lines}, kechiktirilgan cheklar: {held}. Chiqqanda ular yo'qoladi; har bir qator «Chekdan o'chirildi» jurnaliga yoziladi."
 }

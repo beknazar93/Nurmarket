@@ -40,6 +40,8 @@ public static class ExchangeCashCorrections
 
     private sealed class ArchiveFile
     {
+        /// <summary>2026-11-06 (аудит №5, Л5-04): 2 — в архиве ТОЛЬКО поправки возврата долгового чека («refund:…»). Версия 1 (выпуск 1.17.76) унесла и поправки обмена и предоплаты безналом — они возвращаются в рабочий файл.</summary>
+        public int Version { get; set; }
         public DateTime ArchivedAt { get; set; }
         public string Reason { get; set; } = "";
         public List<Entry> Entries { get; set; } = new();
@@ -58,23 +60,28 @@ public static class ExchangeCashCorrections
         try
         {
             if (File.Exists(ArchivePath))
-                return _archiveDone = true;
+                return _archiveDone = MigrateArchiveToV2();
             var read = AtomicFile.TryRead(FilePath, attempts: 2, pauseMs: 60);
             if (read.Status == AtomicFile.ReadStatus.Unreadable || read.FromMemory)
                 return false; // файл занят — попробуем при следующем пересчёте
-            var old = Parse(read.Text) ?? new List<Entry>();
+            var all = Parse(read.Text) ?? new List<Entry>();
+            // 2026-11-06 (аудит №5, Л5-04): сервер пересчитал задним числом только возвраты ДОЛГОВЫХ чеков («refund:…»). Поправки обмена чека закрытой смены (14.1), обмена по чеку со скидкой (К2-03)
+            // и безналичной предоплаты долга сервер ceba67c не обещал исправлять — они остаются рабочими, иначе «Касса:» и окно закрытия смены завышены и кассир видит ложную недостачу.
+            var old = all.Where(e => IsDebtRefundKey(e.ExchangeId)).ToList();
+            var keep = all.Where(e => !IsDebtRefundKey(e.ExchangeId)).ToList();
             AtomicFile.WriteAllText(ArchivePath, JsonSerializer.Serialize(new ArchiveFile
             {
+                Version = 2,
                 ArchivedAt = DateTime.Now,
-                Reason = "debt_return_drawer_cash: сервер пересчитал прошлые смены сам; поправки кассы до этого момента больше не применяются",
+                Reason = "debt_return_drawer_cash: сервер пересчитал прошлые смены сам; поправки возврата долгового чека до этого момента больше не применяются (обмен и предоплата безналом остаются)",
                 Entries = old,
             }, JsonOpts));
             foreach (var e in old)
                 RemovedKeys[e.ExchangeId] = 0;
             if (old.Count > 0)
-                Save(new List<Entry>());
-            PosLogger.Log($"Поправки ящика: сервер ведёт возврат долгового чека сам (debt_return_drawer_cash) — {old.Count} старых записей перенесены в exchange_cash_fix.archived.json и не применяются" +
-                          (old.Count > 0 ? $" (сумма {old.Sum(e => e.Amount):0.00})." : "."), "WARNING");
+                Save(keep);
+            PosLogger.Log($"Поправки ящика: сервер ведёт возврат долгового чека сам (debt_return_drawer_cash) — {old.Count} старых записей возврата перенесены в exchange_cash_fix.archived.json и не применяются" +
+                          (old.Count > 0 ? $" (сумма {old.Sum(e => e.Amount):0.00})" : "") + $"; поправки обмена и предоплаты ({keep.Count}) остались рабочими.", "WARNING");
             return _archiveDone = true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -82,6 +89,76 @@ public static class ExchangeCashCorrections
             PosLogger.Log($"Поправки ящика: архив старых записей не создан ({ex.Message}).", "WARNING");
             return false;
         }
+    }
+
+    /// <summary>Только для тестов: забыть состояние переноса и файлы поправок (рабочий и архив).</summary>
+    internal static void ResetForTests()
+    {
+        lock (FileLock)
+        {
+            _archiveDone = false;
+            _blocked = false;
+            RemovedKeys.Clear();
+            AtomicFile.CancelDeferred(FilePath);
+            foreach (var path in new[] { FilePath, ArchivePath })
+                try { if (File.Exists(path)) File.Delete(path); } catch (IOException) { /* временная папка теста */ }
+        }
+    }
+
+    /// <summary>2026-11-06 (Л5-04): ключи поправок возврата долгового чека: «refund:{ключ}» (окно возврата) и «refund:offline:{id}» (возврат без связи). Обмен — без префикса или «exchange-overcredit:», предоплата — «debtprepay:».</summary>
+    internal static bool IsDebtRefundKey(string? key) => key is not null && key.StartsWith("refund:", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>2026-11-06 (Л5-04): архив версии 1 (выпуск 1.17.76 унёс ВСЕ записи, в том числе поправки обмена и предоплаты) — не-возвратные записи возвращаются в рабочий файл, архив
+    /// остаётся только с возвратами долговых чеков (Version = 2). Вызывать под <see cref="FileLock"/>. false — не вышло (файл занят), повтор при следующем пересчёте.</summary>
+    private static bool MigrateArchiveToV2()
+    {
+        var read = AtomicFile.TryRead(ArchivePath, attempts: 2, pauseMs: 60);
+        if (read.Status == AtomicFile.ReadStatus.Unreadable || read.FromMemory)
+            return false;
+        ArchiveFile? archive;
+        try { archive = JsonSerializer.Deserialize<ArchiveFile>(read.Text ?? "", JsonOpts); }
+        catch (JsonException) { archive = null; }
+        if (archive is null || archive.Version >= 2)
+            return true; // архив версии 2 (или нечитаемый — не мешаем)
+        var restore = archive.Entries.Where(e => !IsDebtRefundKey(e.ExchangeId) && e.CreatedAt >= DateTime.Now.AddDays(-60)).ToList();
+        if (restore.Count > 0)
+        {
+            var list = Load();
+            foreach (var e in restore)
+                if (!list.Any(x => string.Equals(x.ExchangeId, e.ExchangeId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    list.Add(e);
+                    RemovedKeys.TryRemove(e.ExchangeId, out _);
+                }
+            Save(list);
+        }
+        archive.Version = 2;
+        archive.Entries = archive.Entries.Where(e => IsDebtRefundKey(e.ExchangeId)).ToList();
+        AtomicFile.WriteAllText(ArchivePath, JsonSerializer.Serialize(archive, JsonOpts));
+        PosLogger.Log($"Поправки ящика: из архива 1.17.76 возвращено в работу {restore.Count} поправок обмена и предоплаты безналом (в архиве остались только возвраты долговых чеков).", "WARNING");
+        return true;
+    }
+
+    /// <summary>2026-11-06 (аудит №5, Л5-05, Ж-01): при признаке debt_return_drawer_cash сервер снимает с ожидаемой наличности ровно свою запись выдачи (<paramref name="serverCashOut"/>). Если касса выдала БОЛЬШЕ
+    /// (чек 001967: по оплатам клиента 2, сервер записал 1), ящик расходится с сервером на разницу — поправка пишется, как до признака. Случай «сервер не вычел ничего» пропускается (это не Ж-01).
+    /// Возвращает true, если поправка записана.</summary>
+    public static bool RecordServerUnderRecordedDebtRefund(string? shiftId, string key, decimal expectedBefore, decimal expectedAfter, decimal cashOut, decimal? serverCashOut)
+    {
+        if (string.IsNullOrWhiteSpace(shiftId) || string.IsNullOrWhiteSpace(key) || cashOut <= 0.005m)
+            return false;
+        if (serverCashOut is not { } serverGave || serverGave >= cashOut - 0.009m)
+            return false;
+        var overstated = (expectedAfter - expectedBefore) + cashOut;
+        if (overstated <= 0.009m || overstated >= cashOut - 0.009m)
+        {
+            PosLogger.Log($"Возврат долгового чека (наличные): остаток смены изменился так, что поправка Ж-01 не нужна или не ясна (завышение {overstated:0.00}, выдано {cashOut:0.00}, сервер записал {serverGave:0.00}) — не пишем.", "WARNING");
+            return false;
+        }
+        var gap = cashOut - serverGave;
+        if (Math.Abs(overstated - gap) > 0.01m)
+            PosLogger.Log($"Возврат долгового чека (наличные): остаток смены на сервере завышен на {overstated:0.00}, ожидалось {gap:0.00} (выдано {cashOut:0.00}, сервер записал {serverGave:0.00}) — поправка по факту.", "WARNING");
+        RecordIfKnownServerError(shiftId, "refund:" + key, overstated, overstated, "Возврат долгового чека (выдано больше записи сервера)");
+        return true;
     }
 
     /// <summary>Проверяется при каждом пересчёте «Касса:»; false — признака нет / список ещё не получен (поведение как раньше).</summary>
@@ -247,6 +324,9 @@ public static class ExchangeCashCorrections
         }
         lock (FileLock)
         {
+            // 2026-11-06 (Л5-04/05): запись «refund:…» при признаке пишется ПОСЛЕ переноса старых записей в архив — иначе перенос унёс бы и её.
+            if (IsDebtRefundKey(key) && ServerSubtractsDebtRefund() && !EnsureOldCorrectionsArchived())
+                return;
             var list = Load();
             if (list.Any(e => string.Equals(e.ExchangeId, key, StringComparison.OrdinalIgnoreCase)))
                 return;

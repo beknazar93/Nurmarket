@@ -36,7 +36,8 @@ public sealed class ReviewWaves03FixesTests
 
     [Theory]
     [InlineData(LatePinStatus.Ok, true)]
-    [InlineData(LatePinStatus.Error, true)]   // нет связи/прав — ревизию не блокируем, показываем предупреждение
+    [InlineData(LatePinStatus.Unavailable, true)]   // 2026-11-06 (Л5-06): только «нет связи» — ревизию не блокируем, показываем предупреждение
+    [InlineData(LatePinStatus.Error, false)]   // ошибка/«нет прав» сервера — отказ, не обход
     [InlineData(LatePinStatus.Wrong, false)]
     [InlineData(LatePinStatus.Locked, false)]
     public void CycleCount_PinOutcome_OnlyWrongOrLockedBlocks(LatePinStatus status, bool allows) =>

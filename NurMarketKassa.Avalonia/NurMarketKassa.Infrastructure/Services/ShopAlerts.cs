@@ -118,28 +118,49 @@ public static class ShopAlerts
     /// <summary>Отметка «уже отправляли» без проверки времени — для событий с уникальным ключом (чек, смена).</summary>
     public static bool TryMarkEvent(string key, DateTime now) => TryMarkSentToday(key, now);
 
-    /// <summary>Отправить оповещение владельцу: вне тихих часов — сразу, в тихие — в очередь до утра. Бот не подключён или оповещения выключены — ничего.</summary>
-    public static async Task NotifyAsync(string title, string details, DateTime? now = null, bool ignoreQuiet = false)
+    /// <summary>Отправить оповещение владельцу: вне тихих часов — сразу, в тихие — в очередь до утра. Бот не подключён или оповещения выключены — ничего.
+    /// 2026-11-06 (аудит №5, Л5-07): если Telegram недоступен (ошибка отправки или сбой связи) — сообщение ставится в ту же очередь Pending и уходит позже
+    /// (<see cref="FlushPendingAsync"/> по таймеру), а не теряется.</summary>
+    public static Task NotifyAsync(string title, string details, DateTime? now = null, bool ignoreQuiet = false) =>
+        NotifyCoreAsync(ShopAutomationSettings.Current.Alerts, TelegramBotService.IsConfigured, title, details, now ?? DateTime.Now, ignoreQuiet,
+            text => TelegramBotService.SendAsync(text));
+
+    /// <summary>Ядро <see cref="NotifyAsync"/> с подставляемой отправкой (тесты проверяют очередь без настоящего Telegram). send возвращает текст ошибки или null.</summary>
+    public static async Task NotifyCoreAsync(ShopAlertRules rules, bool botConfigured, string title, string details, DateTime at, bool ignoreQuiet, Func<string, Task<string?>> send)
     {
-        var rules = ShopAutomationSettings.Current.Alerts;
-        if (!rules.Enabled || !TelegramBotService.IsConfigured)
+        if (!rules.Enabled || !botConfigured)
             return;
-        var at = now ?? DateTime.Now;
         if (!ignoreQuiet && InQuietHours(rules, at))
         {
-            lock (Gate)
-            {
-                var s = Read();
-                s.Pending.Add(new PendingAlert { Title = title, Details = details, At = at });
-                if (s.Pending.Count > 50)
-                    s.Pending.RemoveRange(0, s.Pending.Count - 50);
-                Write(s);
-            }
+            EnqueuePending(title, details, at);
             return;
         }
-        var error = await TelegramBotService.SendAsync(TelegramBotService.BuildAlert(title, details)).ConfigureAwait(false);
+        string? error;
+        try
+        {
+            error = await send(TelegramBotService.BuildAlert(title, details)).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            error = ex.GetType().Name;
+        }
         if (error != null)
-            PosLogger.Log($"Оповещение «{title}» не ушло в Telegram ({error}).", "WARNING");
+        {
+            EnqueuePending(title, details, at);
+            PosLogger.Log($"Оповещение «{title}» не ушло в Telegram ({error}) — поставлено в очередь, будет отправлено позже.", "WARNING");
+        }
+    }
+
+    private static void EnqueuePending(string title, string details, DateTime at)
+    {
+        lock (Gate)
+        {
+            var s = Read();
+            s.Pending.Add(new PendingAlert { Title = title, Details = details, At = at });
+            if (s.Pending.Count > 50)
+                s.Pending.RemoveRange(0, s.Pending.Count - 50);
+            Write(s);
+        }
     }
 
     /// <summary>Отправить накопленные за тихие часы оповещения одним сообщением (когда тихие часы кончились).</summary>

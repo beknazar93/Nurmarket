@@ -4,6 +4,7 @@ using NurMarketKassa.Services;
 namespace NurMarketKassa.Tests.Shop;
 
 /// <summary>2026-11-05 (волна 2-А): модульные тесты новой логики — просрочка, автозаказ v2, XYZ, подсказки цены, правила оповещений. Без сети и без боевых данных.</summary>
+[Collection("UserPreferences")] // 2026-11-06: общие статические хранилища (shop-automation/alerts) — по очереди с другими тестами защиты
 public sealed class ShopAutomationTests
 {
     private static readonly DateTime Now = DateTime.Today.AddHours(15);
@@ -479,7 +480,8 @@ public sealed class ShopAutomationTests
             File.WriteAllText(Path.Combine(dir, "shop-automation.json"), "{ это не json");
             ShopAutomationSettings.Reset();
             ShopAutomationSettings.Current.PlanTsb.Should().BeFalse("испорченный файл — умолчания");
-            Directory.GetFiles(dir, "shop-automation.bad-*.json").Should().NotBeEmpty("испорченный файл отложен рядом");
+            // 2026-11-06 (аудит №5, Л5-10): чтение через AtomicFile — битый файл переименовывается в .bad (откат на .bak, если там целая копия)
+            File.Exists(Path.Combine(dir, "shop-automation.json.bad")).Should().BeTrue("испорченный файл отложен рядом");
         }
         finally
         {

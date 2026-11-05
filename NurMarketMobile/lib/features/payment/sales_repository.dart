@@ -668,6 +668,54 @@ class SalesRepository {
     return resp.cast<String, dynamic>();
   }
 
+  /// 2026-11-06 (аудит №5, М7-06; ответ Умара п. 4): чек из очереди, который сервер отклонил 400 `duplicate_line` (один товар в нескольких строках
+  /// по РАЗНЫМ ценам). Строки такого товара сводятся в одну: количество — сумма, цена — наибольшая из них, а разница до суммы покупателя — скидка
+  /// строки (итог чека не меняется: деньги взяты по тем ценам, что были на экране). Возвращает новое тело записи очереди (служебные поля на месте)
+  /// или null, если разных цен у одного товара нет (сводить нечего).
+  static String? mergeDuplicateLines(String rawBody) {
+    try {
+      final raw = (jsonDecode(rawBody) as Map).cast<String, dynamic>();
+      final items = (raw['items'] as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+      final groups = <String, List<int>>{};
+      for (var i = 0; i < items.length; i++) {
+        final it = items[i];
+        if (it['custom'] == true || it['product'] == null) continue;
+        (groups['${it['product']}|${it['variant'] ?? ''}|${it['sale_package_id'] ?? ''}'] ??= []).add(i);
+      }
+      final drop = <int>{};
+      var changed = false;
+      for (final idx in groups.values) {
+        if (idx.length < 2) continue;
+        final prices = {for (final i in idx) (double.tryParse('${items[i]['price']}') ?? 0).toStringAsFixed(2)};
+        if (prices.length < 2) continue; // одинаковые цены сервер склеивает сам (lines_merged)
+        var best = idx.first;
+        var qty = 0.0, paid = 0.0;
+        for (final i in idx) {
+          final q = double.tryParse('${items[i]['qty']}') ?? 0;
+          final pr = double.tryParse('${items[i]['price']}') ?? 0;
+          qty += q;
+          paid += q * pr - (double.tryParse('${items[i]['discount'] ?? '0'}') ?? 0);
+          if (pr > (double.tryParse('${items[best]['price']}') ?? 0)) best = i;
+        }
+        final bestPrice = double.tryParse('${items[best]['price']}') ?? 0;
+        final discount = qty * bestPrice - paid;
+        final merged = Map<String, dynamic>.from(items[best]);
+        final weighed = idx.any((i) => '${items[i]['qty']}'.contains('.'));
+        merged['qty'] = qty.toStringAsFixed(weighed ? 3 : 0);
+        merged.remove('discount');
+        if (discount > 0.004) merged['discount'] = discount.toStringAsFixed(2);
+        items[idx.first] = merged;
+        drop.addAll(idx.skip(1));
+        changed = true;
+      }
+      if (!changed) return null;
+      raw['items'] = [for (var i = 0; i < items.length; i++) if (!drop.contains(i)) items[i]];
+      return jsonEncode(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Досылка чека из очереди тем же ключом (SyncService). 2026-10-22 (мобилка, деньги): как SyncService.QuickReplay кассы —
   /// время продажи (sold_at) и касса: сервер относит чек к смене этой кассы, открытой в момент продажи, даже если она
   /// уже закрыта (раньше чек, досланный после закрытия смены, отклонялся — деньги взяты, продажи нет). Досылка — 45 с.

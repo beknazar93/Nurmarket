@@ -181,6 +181,19 @@ public partial class App : Application
             : Task.FromResult<decimal?>(null);
         // 2026-11-01 (Д-1): общий расчёт «ожидаемо в ящике» (X/Z, Telegram, утренний отчёт, выплата зарплаты) знает поправки кассы.
         ShiftExpectedCash.CorrectionProvider = ExchangeCashCorrections.ForShift;
+        // 2026-11-06 (аудит №5, А5-07): часы ПК/терминала отличаются от серверных (по согласным замерам) — предупреждение кассиру, как «Время на телефоне неверное» в мобилке. Раз в 30 минут, пока так и есть.
+        ServerClock.WrongClockDetected += diff => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            var ahead = diff < TimeSpan.Zero; // diff = сервер − устройство; меньше нуля — часы устройства спешат
+            var by = diff.Duration().TotalDays >= 1 ? $"{diff.Duration().TotalDays:0.#} " + Tr.T("дн.", "күн", "days", "gün", "kun") : $"{diff.Duration().TotalMinutes:0} " + Tr.T("мин.", "мүн.", "min", "dk", "daq.");
+            SuccessToast.Show(Tr.T(
+                $"Часы устройства неверны: {(ahead ? "спешат" : "отстают")} от сервера на {by}. Исправьте дату и время в настройках — иначе чеки без связи уйдут с неверной датой.",
+                $"Түзмөктүн сааты туура эмес: серверден {by} {(ahead ? "алдыда" : "артта")}. Күндү жана убакытты жөндөөлөрдөн оңдоңуз — болбосо байланышсыз чектер туура эмес күн менен кетет.",
+                $"The device clock is wrong: it is {by} {(ahead ? "ahead of" : "behind")} the server. Fix the date and time in settings, otherwise offline receipts will be sent with a wrong date.",
+                $"Cihaz saati yanlış: sunucudan {by} {(ahead ? "ileride" : "geride")}. Ayarlardan tarih ve saati düzeltin, aksi halde çevrimdışı fişler yanlış tarihle gönderilir.",
+                $"Qurilma soati noto'g'ri: serverdan {by} {(ahead ? "oldinda" : "orqada")}. Sozlamalardan sana va vaqtni to'g'rilang, aks holda aloqasiz cheklar noto'g'ri sana bilan ketadi."),
+                ToastKind.Warning, TimeSpan.FromSeconds(30));
+        });
         OfflineOperationsReplayer.DrawerCorrector = (shiftId, key, overstated, cashOut, what) =>
             ExchangeCashCorrections.RecordIfKnownServerError(shiftId, key, overstated, cashOut, what);
         OfflineClientCache.Refresher = async (fullClients, ct) =>

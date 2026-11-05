@@ -12333,6 +12333,36 @@ abstract class AppLocalizations {
   /// In ru, this message translates to:
   /// **'Одинаковые строки чека объединены в одну.'**
   String get payLinesMerged;
+
+  /// No description provided for @returnMaybeDoneTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Возврат мог уже пройти'**
+  String get returnMaybeDoneTitle;
+
+  /// No description provided for @returnMaybeDoneBody.
+  ///
+  /// In ru, this message translates to:
+  /// **'По этому чеку уже есть возврат в {time} на {sum} сом — после прошлой попытки. Новый возврат НЕ отправлен, чтобы не выдать деньги дважды. Проверьте возвраты по чеку в «Чеках»; если нужен ещё один возврат — откройте чек заново.'**
+  String returnMaybeDoneBody(String time, String sum);
+
+  /// No description provided for @payDuplicatePrice.
+  ///
+  /// In ru, this message translates to:
+  /// **'«{name}» в чеке по двум ценам (розница и опт). Оставьте одну цену или уберите лишнюю строку.'**
+  String payDuplicatePrice(String name);
+
+  /// No description provided for @logoutCartTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выйти с неоформленным чеком?'**
+  String get logoutCartTitle;
+
+  /// No description provided for @logoutCartAsk.
+  ///
+  /// In ru, this message translates to:
+  /// **'В чеке позиций: {lines}, отложено чеков: {held}. При выходе они пропадут; каждая строка будет записана в «Удалено из чека».'**
+  String logoutCartAsk(int lines, int held);
 }
 
 class _AppLocalizationsDelegate

@@ -7310,4 +7310,25 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get payLinesMerged => 'Одинаковые строки чека объединены в одну.';
+
+  @override
+  String get returnMaybeDoneTitle => 'Возврат мог уже пройти';
+
+  @override
+  String returnMaybeDoneBody(String time, String sum) {
+    return 'По этому чеку уже есть возврат в $time на $sum сом — после прошлой попытки. Новый возврат НЕ отправлен, чтобы не выдать деньги дважды. Проверьте возвраты по чеку в «Чеках»; если нужен ещё один возврат — откройте чек заново.';
+  }
+
+  @override
+  String payDuplicatePrice(String name) {
+    return '«$name» в чеке по двум ценам (розница и опт). Оставьте одну цену или уберите лишнюю строку.';
+  }
+
+  @override
+  String get logoutCartTitle => 'Выйти с неоформленным чеком?';
+
+  @override
+  String logoutCartAsk(int lines, int held) {
+    return 'В чеке позиций: $lines, отложено чеков: $held. При выходе они пропадут; каждая строка будет записана в «Удалено из чека».';
+  }
 }

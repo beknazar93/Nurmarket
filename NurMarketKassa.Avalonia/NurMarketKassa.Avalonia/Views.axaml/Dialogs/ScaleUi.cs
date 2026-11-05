@@ -120,7 +120,18 @@ internal static partial class ScaleUi
         var src = local
             ? L(" Выбрано на этой кассе (важнее сайта).", " Ушул кассада тандалган (сайттан маанилүү).", " Chosen on this till (overrides the website).", " Bu kasada seçildi (siteden önemli).", " Shu kassada tanlangan (saytdan ustun).")
             : L($" Взято с сайта (scale_barcode_amount_unit = {prefs.ScaleBarcodeAmountUnit}).", $" Сайттан алынды (scale_barcode_amount_unit = {prefs.ScaleBarcodeAmountUnit}).", $" Taken from the website (scale_barcode_amount_unit = {prefs.ScaleBarcodeAmountUnit}).", $" Siteden alındı (scale_barcode_amount_unit = {prefs.ScaleBarcodeAmountUnit}).", $" Saytdan olingan (scale_barcode_amount_unit = {prefs.ScaleBarcodeAmountUnit}).");
-        return main + src;
+        // 2026-11-06 (аудит №5, Л5-02 / А5-01): единица на кассе нужна ТОЛЬКО для чтения цифр этикетки. Суммы весовых строк в чеке сервер округляет по единице компании с сайта —
+        // если они разные, кассир должен знать, что на деньги чека выбор кассы не влияет, а настройку сайта стоит поправить.
+        var serverUnit = WeightBarcodeParser.ResolveAmountUnit(null, prefs.ScaleBarcodeAmountUnit);
+        var differs = local && !string.Equals(serverUnit, unit, StringComparison.OrdinalIgnoreCase);
+        var warn = differs
+            ? L($" Внимание: на сайте стоит «{serverUnit}» — по ней сервер округляет суммы весовых строк чека. Выбор кассы влияет только на чтение этикетки; для верных сумм исправьте единицу на сайте.",
+                $" Көңүл буруңуз: сайтта «{serverUnit}» коюлган — сервер чектеги таразалуу саптардын суммаларын ушуга жараша тегиздейт. Кассадагы тандоо этикетканы окууга гана таасир этет; суммалар туура болушу үчүн сайттагы бирдикти оңдоңуз.",
+                $" Note: the website has “{serverUnit}” — the server rounds weighed line totals by it. The till choice only affects reading the label; fix the unit on the website for correct totals.",
+                $" Dikkat: sitede «{serverUnit}» ayarlı — sunucu tartılı satır tutarlarını buna göre yuvarlar. Kasadaki seçim yalnızca etiketin okunmasını etkiler; doğru tutarlar için birimi sitede düzeltin.",
+                $" Diqqat: saytda «{serverUnit}» o‘rnatilgan — server tarozili qator summalarini shunga ko‘ra yaxlitlaydi. Kassadagi tanlov faqat yorliqni o‘qishga ta’sir qiladi; summalar to‘g‘ri bo‘lishi uchun saytdagi birlikni tuzating.")
+            : "";
+        return main + src + warn;
     }
 
     /// <summary>2026-11-05: выбор единицы суммы в штрихкоде этикетки — «в тыйынах» / «в сомах» / «как на сайте». Работает для любой марки весов

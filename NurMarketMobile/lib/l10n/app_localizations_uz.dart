@@ -7208,4 +7208,26 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get payLinesMerged =>
       'Chekdagi bir xil qatorlar bittaga birlashtirildi.';
+
+  @override
+  String get returnMaybeDoneTitle =>
+      'Qaytarish allaqachon o\'tgan bo\'lishi mumkin';
+
+  @override
+  String returnMaybeDoneBody(String time, String sum) {
+    return 'Bu chek bo\'yicha oldingi urinishdan keyin soat $time da $sum so\'mlik qaytarish bor. Pul ikki marta berilmasligi uchun yangi qaytarish YUBORILMADI. «Cheklar»da chekning qaytarishlarini tekshiring; yana qaytarish kerak bo\'lsa — chekni qayta oching.';
+  }
+
+  @override
+  String payDuplicatePrice(String name) {
+    return '«$name» chekda ikki narxda (chakana va ulgurji). Bitta narxni qoldiring yoki ortiqcha qatorni olib tashlang.';
+  }
+
+  @override
+  String get logoutCartTitle => 'Tugallanmagan chek bilan chiqasizmi?';
+
+  @override
+  String logoutCartAsk(int lines, int held) {
+    return 'Chekdagi pozitsiyalar: $lines, kechiktirilgan cheklar: $held. Chiqqanda ular yo\'qoladi; har bir qator «Chekdan o\'chirildi» jurnaliga yoziladi.';
+  }
 }

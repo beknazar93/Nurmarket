@@ -729,6 +729,22 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
     try {
       resp = await ops.returnSale(widget.saleId, send);
       _aiPosted = amount;
+    } on ReturnMaybeDone catch (d) {
+      // 2026-11-06 (аудит №5, М7-05): по чеку уже есть возврат после прошлой попытки — новый НЕ отправлен, просим проверить возвраты
+      final hm = '${d.at.hour.toString().padLeft(2, '0')}:${d.at.minute.toString().padLeft(2, '0')}';
+      _aiSink.report(const HandleOutcome(ToolStatus.error, unknown: true));
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => AlertDialog(
+          title: Text(c.l.returnMaybeDoneTitle),
+          content: Text(c.l.returnMaybeDoneBody(hm, money(d.amount))),
+          actions: [FilledButton(onPressed: () => Navigator.pop(c), child: Text(c.l.done))],
+        ),
+      );
+      if (mounted) context.pop(false);
+      return;
     } on ApiException catch (e) {
       if (mounted) toast(context, e.message, error: true);
       // ответ не дошёл — возврат мог пройти; повтор пойдёт тем же ключом (OpsRepository._withKey) и второй раз не проведётся

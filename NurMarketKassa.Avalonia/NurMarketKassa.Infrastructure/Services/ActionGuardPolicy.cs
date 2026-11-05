@@ -23,6 +23,10 @@ public static class ActionGuardPolicy
         };
     }
 
+    /// <summary>2026-11-06 (аудит №5, Л5-06/Л5-10): что делать, если сама проверка PIN старшего дала сбой (исключение), а PIN был нужен. Сбой проверки ≠ разрешение:
+    /// действие отклоняется. Единственное исключение — закрытие смены с недостачей (смену не блокируем, недостача пишется в журнал антифрода). Если PIN и не требовался — можно.</summary>
+    public static bool AllowWhenCheckFailed(GuardAction action, bool pinWasRequired) => !pinWasRequired || action == GuardAction.ShiftShortage;
+
     /// <summary>Подпись суммы/процента для окна PIN: «скидка 15 %», «возврат 2 400 сом».</summary>
     public static string Describe(GuardAction action, double value)
     {

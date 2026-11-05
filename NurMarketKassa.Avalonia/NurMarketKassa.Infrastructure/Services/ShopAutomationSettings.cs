@@ -144,6 +144,8 @@ public static class ShopAutomationSettings
     private static ShopAutomationData? _current;
     private static DateTime _readStamp;
     private static long _checkedTick;
+    // 2026-11-06 (аудит №5, Л5-10): последнее чтение файла не удалось (занят, нет доступа) — прежние настройки остаются, файл не переименовывается и не перезаписывается.
+    private static bool _readFailed;
 
     /// <summary>Только для тестов и стенда: другая папка вместо %LOCALAPPDATA%\NurMarketKassa.</summary>
     public static string? DataDirOverride { get; set; }
@@ -171,10 +173,13 @@ public static class ShopAutomationSettings
         {
             _checkedTick = tick;
             var stamp = StampOf(FilePath);
-            if (_current is null || stamp != _readStamp)
+            if (_current is null || stamp != _readStamp || _readFailed)
             {
-                _current = Read();
-                _readStamp = StampOf(FilePath);
+                var fresh = Read();
+                if (!_readFailed || _current is null)
+                    _current = fresh; // сбой чтения и есть прежние настройки — остаются они (Л5-10)
+                if (!_readFailed)
+                    _readStamp = StampOf(FilePath);
             }
         }
         return _current;
@@ -186,7 +191,14 @@ public static class ShopAutomationSettings
         {
             _checkedTick = 0; // перед правкой берём самое свежее содержимое файла
             // 2026-11-05 (Н13): правим копию и подменяем ссылку — читатели в фоне не видят полуготовый объект.
-            var data = Clone(CurrentLocked());
+            var cur = CurrentLocked();
+            if (_readFailed)
+            {
+                // 2026-11-06 (Л5-10): файл не прочитан — записать «изменённые умолчания» поверх настоящих настроек нельзя.
+                PosLogger.Log("Автоматизация магазина: файл настроек сейчас не читается — изменение не записано, повторите позже.", "WARNING");
+                return;
+            }
+            var data = Clone(cur);
             change(data);
             data.Normalize();
             _current = data;
@@ -231,11 +243,30 @@ public static class ShopAutomationSettings
 
     private static ShopAutomationData Read()
     {
+        _readFailed = false;
         try
         {
             if (File.Exists(FilePath))
             {
-                var data = JsonSerializer.Deserialize<ShopAutomationData>(File.ReadAllText(FilePath), Json) ?? new ShopAutomationData();
+                // 2026-11-06 (аудит №5, Л5-10): чтение через AtomicFile (повторы, откат на .bak). Файл занят — НЕ «битый»: не переименовываем в .bad и не сбрасываем
+                // режим просрочки/оповещения на умолчания; берём прежние настройки, а если их нет — копию .bak или безопасный режим.
+                var r = AtomicFile.TryRead(FilePath, attempts: 2, pauseMs: 50);
+                if (r.Status == AtomicFile.ReadStatus.Unreadable)
+                {
+                    _readFailed = true;
+                    if (_current is not null)
+                        return _current;
+                    PosLogger.Log("Автоматизация магазина: файл настроек занят и не прочитан — взяты прежние настройки (копия .bak) или безопасный режим.", "WARNING");
+                    if (r.Text is { } bakText && JsonSerializer.Deserialize<ShopAutomationData>(bakText, Json) is { } fromBak)
+                    {
+                        fromBak.Normalize();
+                        return fromBak;
+                    }
+                    var safe = new ShopAutomationData { ExpiryMode = ExpiryModes.Block };
+                    safe.Normalize();
+                    return safe;
+                }
+                var data = JsonSerializer.Deserialize<ShopAutomationData>(r.Text ?? "{}", Json) ?? new ShopAutomationData();
                 data.Normalize();
                 return data;
             }

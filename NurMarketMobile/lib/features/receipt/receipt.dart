@@ -20,7 +20,13 @@ class ReceiptLine {
   final double price;
   final double discount;
   final double total;
-  const ReceiptLine({required this.name, required this.qty, this.unit = '', required this.price, this.discount = 0, required this.total});
+
+  /// 2026-11-06 (аудит №5, М7-01): сумма строки до скидки так, как её посчитал сервер (весовая — вниз до шага весов); null — qty × price (HALF_UP).
+  final double? gross;
+  const ReceiptLine({required this.name, required this.qty, this.unit = '', required this.price, this.discount = 0, required this.total, this.gross});
+
+  /// Сумма строки до скидки для бумаги: [gross] или qty × price, HALF_UP до копейки.
+  double get printedGross => gross ?? roundMoney(qty * price);
 }
 
 class ReceiptTax {
@@ -131,7 +137,7 @@ class Receipt {
     return [(paymentText, money(received ?? total))];
   }
 
-  double get subtotal => subtotalOverride ?? roundMoney(lines.fold(0.0, (s, l) => s + l.qty * l.price));
+  double get subtotal => subtotalOverride ?? roundMoney(lines.fold(0.0, (s, l) => s + (l.gross ?? l.qty * l.price)));
   int get itemCount => lines.length;
 
   String get title {
@@ -166,7 +172,8 @@ class Receipt {
     DateTime? debtDue,
     double? serverTotal,
   }) {
-    final lines = [for (final l in cart.lines) ReceiptLine(name: l.name, qty: l.qty, unit: l.unit, price: l.price, discount: l.discount, total: l.total)];
+    // 2026-11-06 (аудит №5, М7-01/М7-02): строки — как их запишет сервер (весовые вниз до шага весов, одинаковые склеены), gross печатается на бумаге
+    final lines = [for (final l in cart.printedLines) ReceiptLine(name: l.name, qty: l.qty, unit: l.unit, price: l.price, discount: l.discount, total: l.total, gross: l.gross)];
     // 2026-11-05 (М4-14): итог чека — из ответа сервера (его и записал сервер), корзина — запасной путь (чек в очереди, ответ без суммы)
     final total = serverTotal != null && serverTotal > 0 ? serverTotal : cart.total;
     final discount = roundMoney(cart.lineDiscounts + cart.orderDiscount);
@@ -214,19 +221,28 @@ class Receipt {
       final qty = num0(m, 'quantity') > 0 ? num0(m, 'quantity') : num0(m, 'qty');
       final price = num0(m, 'unit_price') > 0 ? num0(m, 'unit_price') : num0(m, 'price');
       final lineTotal = num0(m, 'total') > 0 ? num0(m, 'total') : (num0(m, 'line_total') > 0 ? num0(m, 'line_total') : roundMoney(qty * price));
+      final discTotal = num0(m, 'discount_total');
+      // 2026-11-06 (аудит №5, М7-03): у весовой строки разница qty × price − line_total меньше шага весов — это округление сервера (вниз),
+      // а не скидка: без неё на повторной печати была «скидка −0,01», которой никто не давал.
+      final step = (ServerRounding.weightStepCents < 1 ? 1 : ServerRounding.weightStepCents) / 100;
+      final diff = qty * price - lineTotal;
+      final weighed = _isWeighedItem(m, _unitOf(m));
+      final rounded = weighed && discTotal <= 0 && diff > 0 && diff < step + 0.005;
+      final disc = discTotal > 0 ? discTotal : (rounded ? 0.0 : roundMoney(diff.clamp(0, double.infinity).toDouble()));
       lines.add(
         ReceiptLine(
           name: saleItemName(m), // 2026-10-31: с размером и цветом
           qty: qty,
           // 2026-10-27 (М4): штука из упаковки (sale_package_id в строке продажи) — «3 шт × 12», а не единица упаковки товара
-          unit: (str(m, 'sale_package_id') ?? '').isNotEmpty ? 'шт' : (str(m, 'unit') ?? ''),
+          unit: (str(m, 'sale_package_id') ?? '').isNotEmpty ? 'шт' : _unitOf(m),
           price: price,
-          discount: num0(m, 'discount_total') > 0 ? num0(m, 'discount_total') : roundMoney((qty * price - lineTotal).clamp(0, double.infinity).toDouble()),
+          discount: disc,
           total: lineTotal,
+          gross: weighed && (discTotal > 0 || rounded) ? roundMoney(lineTotal + disc) : null,
         ),
       );
     }
-    final gross = roundMoney(lines.fold(0.0, (s, l) => s + l.qty * l.price));
+    final gross = roundMoney(lines.fold(0.0, (s, l) => s + (l.gross ?? l.qty * l.price)));
     final client = sale['client'] is Map
         ? (str((sale['client'] as Map).cast<String, dynamic>(), 'full_name') ?? str((sale['client'] as Map).cast<String, dynamic>(), 'name') ?? '')
         : (str(sale, 'client_name') ?? '');
@@ -256,6 +272,13 @@ class Receipt {
       fiscal: ReceiptFiscal.parse(sale),
       eReceiptUrl: qr.eReceiptUrl(sale),
     );
+  }
+
+  static String _unitOf(Map<String, dynamic> m) => str(m, 'unit') ?? '';
+
+  static bool _isWeighedItem(Map<String, dynamic> m, String unit) {
+    final u = unit.trim().toLowerCase();
+    return m['is_weight'] == true || u == 'кг' || u == 'kg' || u == 'г' || u == 'g';
   }
 
   static String _shop(Session? s) => (s?.companyName.isNotEmpty ?? false) ? s!.companyName : 'NurCRM';

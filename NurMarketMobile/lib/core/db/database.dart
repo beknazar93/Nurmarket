@@ -695,8 +695,10 @@ class AppDatabase extends _$AppDatabase {
     OutboxCompanion(status: const Value('sent'), serverId: Value(serverId), serverNumber: Value(serverNumber), lastError: const Value(null)),
   );
 
-  Future<void> markAttempt(String id, String error, {bool failed = false}) => customUpdate(
-    'UPDATE outbox SET attempts = attempts + 1, last_error = ?, status = ? WHERE id = ?',
+  /// 2026-11-06 (аудит №5, М7-09): [count] = false — обрыв связи, простой сервера и истёкший вход попыток не тратят: после долгого офлайна
+  /// (счётчик был бы 30) первая же 409/423 не должна сразу уводить оплаченный чек в «Не принято» (нужны три «настоящих» ответа).
+  Future<void> markAttempt(String id, String error, {bool failed = false, bool count = true}) => customUpdate(
+    'UPDATE outbox SET attempts = attempts + ${count ? 1 : 0}, last_error = ?, status = ? WHERE id = ?',
     variables: [Variable.withString(error), Variable.withString(failed ? 'failed' : 'pending'), Variable.withString(id)],
     updates: {outbox},
   );

@@ -55,8 +55,13 @@ public sealed class WindowLayerHost : Panel
     /// <summary>Окна снизу вверх.</summary>
     public IReadOnlyList<Window> Windows => _windows;
 
-    /// <summary>Верхнее видимое окно (активное).</summary>
-    public Window? TopWindow => _windows.LastOrDefault(w => w.IsVisible);
+    /// <summary>Верхнее видимое окно (активное).
+    /// 2026-11-06 (аудит №5, А5-03): всплывающие плашки (SuccessToast: ShowActivated=false / Focusable=false) «верхним окном» не считаются — иначе при висящей
+    /// плашке (особенно липкой ошибке) модалка теряла фокус, Enter/Esc и «Назад», а цифры сканера уходили плашке. Плашка остаётся видимой сверху, но клавиши и фокус — у окна под ней.</summary>
+    public Window? TopWindow => _windows.LastOrDefault(w => w.IsVisible && !IsPassive(w));
+
+    /// <summary>Окно-плашка: не берёт фокус и не активируется (тост, подсказка). Клавиши и «Назад» ему не отдаются.</summary>
+    internal static bool IsPassive(Window w) => !w.ShowActivated || !w.Focusable;
 
     /// <summary>Главное окно задаёт AndroidDesktopLifetime (desktop.MainWindow = …).</summary>
     internal Func<Window, bool>? IsMainWindow { get; set; }
@@ -701,7 +706,7 @@ public sealed class WindowLayerHost : Panel
     private void OnBackRequested(object? sender, RoutedEventArgs e)
     {
         e.Handled = true;
-        if (TopWindow is not { } top || (IsMainWindow?.Invoke(top) ?? false) || _windows.Count <= 1)
+        if (TopWindow is not { } top || (IsMainWindow?.Invoke(top) ?? false) || _windows.Count(w => !IsPassive(w)) <= 1)
             return;
         // 2026-11-05 (аудит №4, А4-02): «Назад» = Esc. Если у верхнего окна есть кнопка «Отмена» (IsCancel) — нажимаем её:
         // там живут вопросы «Закрыть оплату?», «Есть несохранённые данные». Раньше окно закрывалось в обход них.

@@ -6,6 +6,7 @@ import '../../features/payment/sales_repository.dart';
 import '../../features/sale/catalog_repository.dart';
 import '../../features/stock/stock_repository.dart';
 import '../api/api_client.dart';
+import '../api/server_capabilities.dart';
 import '../db/database.dart';
 import 'outbox_meta.dart';
 
@@ -64,6 +65,9 @@ class SyncService {
   static const serverTallyGap = Duration(hours: 2);
   static String tallyKey(String id) => 'sync.srv.$id';
 
+  /// 2026-11-06 (М7-06): чек уже один раз пересобран после 400 duplicate_line — второй раз не сводим.
+  static String dupFixKey(String id) => 'sync.dupfix.$id';
+
   static ({int n500, DateTime first, DateTime last}) parseTally(String? value, DateTime now) {
     final parts = (value ?? '').split('|');
     if (parts.length == 3) {
@@ -104,7 +108,10 @@ class SyncService {
   /// WorkManager (задаёт основной изолят; в самой фоновой задаче не нужен).
   final void Function(bool hasUnsent)? onUnsentChanged;
 
-  SyncService({required this.db, required this.sales, required this.stock, required this.catalog, required this.owner, this.quotes, this.lockOwner = 'app', this.onUnsentChanged});
+  /// 2026-11-06 (аудит №5, М7-08): повторный запрос признаков сервера, если шаг весов компании не получили (см. ServerCapabilities.stepUnknown).
+  final Future<void> Function()? refreshCapabilities;
+
+  SyncService({required this.db, required this.sales, required this.stock, required this.catalog, required this.owner, this.quotes, this.lockOwner = 'app', this.onUnsentChanged, this.refreshCapabilities});
 
   /// 2026-10-30 (оптимизация, п. 3, 14): есть ли что отправлять ЭТОМУ входу. Дёшево: без ждущих записей тела не читаются.
   Future<bool> hasOwnWork() async {
@@ -189,6 +196,13 @@ class SyncService {
   Future<void> runOnce({bool force = false}) async {
     // Таймер: очередь уже идёт — не ждём и не копим проходы.
     if (_queueRun == null) await runQueue();
+    if (ServerCapabilities.stepUnknown) {
+      try {
+        await refreshCapabilities?.call();
+      } catch (_) {
+        // шаг весов подождёт следующего прохода
+      }
+    }
     var failed = lastError != null && await db.hasPending(); // очередь не ушла (нет связи, ошибка сервера)
     if (!_quotesRunning) {
       _quotesRunning = true;
@@ -275,13 +289,13 @@ class SyncService {
         lastError = e.message;
         if (e.status == 401) {
           // К-5: истёкшая сессия — не отказ по существу. Запись остаётся в очереди, досылка — после входа.
-          await db.markAttempt(row.id, e.message, failed: false);
+          await db.markAttempt(row.id, e.message, failed: false, count: false);
           authPaused = true;
           break;
         }
         if (e.status == null) {
-          // нет связи — порядок не нарушаем, ждём
-          await db.markAttempt(row.id, e.message, failed: false);
+          // нет связи — порядок не нарушаем, ждём (2026-11-06, М7-09: попытку не тратим)
+          await db.markAttempt(row.id, e.message, failed: false, count: false);
           break;
         }
         // 2026-10-29 (аудит мобилки, п. 1): 409 idempotency_conflict на досылке — продажа с этим ключом у сервера УЖЕ есть:
@@ -302,6 +316,15 @@ class SyncService {
         }
         // 2026-11-05 (сервер ceba67c): 400 duplicate_line на досылке — тот же товар по разной цене/единице; причина понятным текстом, в «Не принято»
         if (e.status == 400 && row.kind == 'sale' && SalesRepository.isDuplicateLine(e.payload)) {
+          // 2026-11-06 (аудит №5, М7-06): деньги за чек уже взяты — один раз сводим строки одного товара в одну (итог тот же) и досылаем;
+          // продажи у сервера нет (отказ до записи). Не помогло или сводить нечего — «Не принято» с понятным текстом, как раньше.
+          final fixed = await db.getSetting(dupFixKey(row.id)) == null ? SalesRepository.mergeDuplicateLines(row.body) : null;
+          if (fixed != null) {
+            await db.setSetting(dupFixKey(row.id), '1');
+            await (db.update(db.outbox)..where((o) => o.id.equals(row.id))).write(OutboxCompanion(body: Value(fixed)));
+            await db.markAttempt(row.id, ApiText.saleDuplicateLine, failed: false);
+            continue;
+          }
           lastError = ApiText.saleDuplicateLine;
           await db.markAttempt(row.id, ApiText.saleDuplicateLine, failed: true);
           continue;
@@ -314,7 +337,7 @@ class SyncService {
           final n500 = tally.n500 + (e.status == 500 ? 1 : 0);
           final old = now.difference(tally.first) > serverDownMaxAge;
           final giveUp = old || (e.status == 500 && n500 >= maxServer500Attempts);
-          await db.markAttempt(row.id, e.message, failed: giveUp);
+          await db.markAttempt(row.id, e.message, failed: giveUp, count: false); // 2026-11-06 (М7-09): простой сервера считает свой счёт (tally)
           if (giveUp) {
             await _clearTally(row.id);
             continue;

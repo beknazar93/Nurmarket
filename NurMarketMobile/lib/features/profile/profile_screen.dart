@@ -295,6 +295,8 @@ class ProfileScreen extends ConsumerWidget {
             onPressed: () async {
               // 2026-10-29 («ничего не должно остаться»): с неотправленными продажами выйти нельзя — отправить, выгрузить в файл
               // или удалить, подтвердив словом; после этого выход стирает с телефона всё
+              if (!await confirmCartDiscarded(context, ref)) return; // 2026-11-06 (аудит №5, М7-04): чек и отложенные не стираются молча
+              if (!context.mounted) return;
               if (!await confirmQueueResolved(context, ref)) return;
               await ref.read(sessionProvider.notifier).logout();
               if (context.mounted) context.go('/login');

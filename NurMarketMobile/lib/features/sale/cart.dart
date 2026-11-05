@@ -262,6 +262,18 @@ class CartLine {
   double get total => unitsToMoney(_lineGrossUnits - discountUnits);
 }
 
+/// 2026-11-06 (аудит №5, М7-01): строка чека для экрана, PDF и принтера — сумма [gross] уже по правилу сервера (весовая — вниз до шага весов).
+class PrintedLine {
+  final String name;
+  final double qty;
+  final String unit;
+  final double price;
+  final double gross;
+  final double discount;
+  final double total;
+  const PrintedLine({required this.name, required this.qty, required this.unit, required this.price, required this.gross, required this.discount, required this.total});
+}
+
 class Cart {
   final List<CartLine> lines;
 
@@ -364,6 +376,24 @@ class Cart {
 
   double get subtotal => unitsToMoney(_subtotalUnits);
 
+  /// 2026-11-06 (аудит №5, М7-06; ответ Умара п. 4): сервер отвечает 400 `duplicate_line`, если один товар (и вариант, и упаковка) стоит в чеке
+  /// по разным ценам (розница и опт в соседних строках). Название первого такого товара; null — конфликта нет. Оплачивать такой чек нельзя.
+  String? get priceConflictName {
+    final seen = <String, String>{};
+    for (final l in lines) {
+      if (l.custom) continue;
+      final k = '${l.productId}|${l.variantId ?? ''}|${l.salePackageId ?? ''}';
+      final price = l.price.toStringAsFixed(2);
+      final prev = seen[k];
+      if (prev == null) {
+        seen[k] = price;
+      } else if (prev != price) {
+        return l.name;
+      }
+    }
+    return null;
+  }
+
   /// 2026-11-05 (М4-14, как строка «Округление весовых» кассы 1.17.73): сколько округление вниз суммы весовых строк «съело» у покупателя
   /// (4,875 + 22,638 = 27,513 → 27,51: 0,003). 0 — весовых строк нет или они сошлись до копейки.
   double get weightRounding {
@@ -396,12 +426,55 @@ class Cart {
     return (weighed - floored).toDouble() / (_unitsPerCent.toDouble() * 100);
   }
 
+  /// 2026-11-06 (аудит №5, М7-01/М7-02): строки чека так, как они печатаются и как их запишет сервер. Без признака weight_line_total_floor —
+  /// строки корзины как есть. С признаком весовые строки одного товара по одной цене склеиваются в одну (сервер так же склеивает), а сумма
+  /// позиции — вниз до шага весов (0,243 + 0,243 по 66 = 0,486 × 66 = 32,076 → 32,07, а не 16,03 + 16,03).
+  List<PrintedLine> get printedLines {
+    if (!ServerRounding.weightLineFloor) {
+      return [for (final l in lines) PrintedLine(name: l.name, qty: l.qty, unit: l.unit, price: l.price, gross: l.gross, discount: l.discount, total: l.total)];
+    }
+    final out = <PrintedLine>[];
+    final groupAt = <String, int>{};
+    final groups = <String, List<CartLine>>{};
+    for (final l in lines) {
+      final k = l.weighedForRounding ? l.mergeKey : null;
+      if (k == null) {
+        out.add(PrintedLine(name: l.name, qty: l.qty, unit: l.unit, price: l.price, gross: l.printedGross, discount: l.discount, total: l.total));
+      } else if (groupAt.containsKey(k)) {
+        groups[k]!.add(l);
+      } else {
+        groupAt[k] = out.length;
+        groups[k] = [l];
+        out.add(PrintedLine(name: l.name, qty: l.qty, unit: l.unit, price: l.price, gross: l.printedGross, discount: l.discount, total: l.total)); // место группы
+      }
+    }
+    for (final e in groups.entries) {
+      final g = e.value;
+      if (g.length == 1) continue;
+      final first = g.first;
+      final qty = g.fold(0.0, (s, l) => s + l.qty);
+      final grossU = _floorStep(g.fold(BigInt.zero, (s, l) => s + l.grossUnits));
+      final discU = first.hasPromo ? _roundCentsUnits(promoDiscountUnits(first.promo, qty, first.price)) : g.fold(BigInt.zero, (s, l) => s + l.discountUnits);
+      final disc = unitsToMoney(discU > grossU ? grossU : discU);
+      out[groupAt[e.key]!] = PrintedLine(
+        name: first.name,
+        qty: qty,
+        unit: first.unit,
+        price: first.price,
+        gross: unitsToMoney(grossU),
+        discount: disc,
+        total: unitsToMoney(grossU - (discU > grossU ? grossU : discU)),
+      );
+    }
+    return out;
+  }
+
   /// 2026-11-05 (аудит №4, М6-06): сумма строк так, как они напечатаны на бумаге (каждая HALF_UP до копейки). С [subtotal] она может
-  /// расходиться на копейку: весовые 4,875 + 22,638 печатаются 4,88 + 22,64 = 27,52, а подытог сервера 27,51.
+  /// расходиться на копейку. 2026-11-06 (М7-01): с weight_line_total_floor на бумаге те же значения (вниз до шага весов), что и в сумме.
   double get printedSubtotal {
     var cents = 0;
-    for (final l in lines) {
-      cents += (roundMoney(l.printedGross) * 100).round(); // 2026-11-05: весовая — вниз до шага весов при weight_line_total_floor
+    for (final l in printedLines) {
+      cents += (roundMoney(l.gross) * 100).round();
     }
     return cents / 100;
   }

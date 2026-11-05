@@ -2036,5 +2036,10 @@
   "prnSunmiHint": "The receipt is printed by Sunmi itself, all letters (ң ө ү ş ğ) come out right. Bluetooth, network and USB are not used.",
   "scaleBindOverwrite": "Product “{name}” has PLU {old}, it will become {plu}. Scales programmed with PLU {old} will stop finding it. Save?",
   "apiSaleDuplicateLine": "The same product is in the receipt with a different price or unit: the server cannot merge the lines. Keep one price or remove the extra line.",
-  "payLinesMerged": "Identical receipt lines were merged into one."
+  "payLinesMerged": "Identical receipt lines were merged into one.",
+  "returnMaybeDoneTitle": "The return may already be done",
+  "returnMaybeDoneBody": "This receipt already has a return at {time} for {sum} som from the earlier attempt. A new return was NOT sent, so the money is not paid out twice. Check the receipt's returns in Receipts; if you need one more return, open the receipt again.",
+  "payDuplicatePrice": "“{name}” is in the receipt at two prices (retail and wholesale). Keep one price or remove the extra line.",
+  "logoutCartTitle": "Sign out with an unfinished receipt?",
+  "logoutCartAsk": "Items in the receipt: {lines}, held receipts: {held}. They will be lost on sign-out; every line is written to “Removed from receipt”."
 }

@@ -14,7 +14,6 @@ import '../../core/api/api_client.dart';
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
 import '../../core/sync/outbox_meta.dart';
-import '../../core/theme/tokens.dart';
 import '../../core/util/ui.dart';
 import '../payment/receipt_qr.dart';
 import '../admin/admin_more.dart';
@@ -484,7 +483,7 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
             const SizedBox(height: 8),
             OutlinedButton.icon(
               key: const Key('checkReturnBtn'), // 2026-11-05 (E2E)
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), foregroundColor: T.danger),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), foregroundColor: context.pal.danger),
               onPressed: () async {
                 if (!checkAccess(context, ref, Session.employeeReturn)) return;
                 final done = await Navigator.of(context).push<bool>(
@@ -511,7 +510,7 @@ class _CheckDetailScreenState extends ConsumerState<CheckDetailScreen> {
             // 2026-10-22 (мобилка, деньги): отклонённый сервером чек можно снять — он не уйдёт и не держит закрытие смены.
             const SizedBox(height: 8),
             OutlinedButton(
-              style: OutlinedButton.styleFrom(foregroundColor: T.danger),
+              style: OutlinedButton.styleFrom(foregroundColor: context.pal.danger),
               onPressed: () async {
                 final ok = await showDialog<bool>(
                   context: context,

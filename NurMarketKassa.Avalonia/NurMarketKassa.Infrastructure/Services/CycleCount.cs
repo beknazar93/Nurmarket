@@ -188,7 +188,8 @@ public static class CycleCountRules
 
     /// <summary>2026-11-05 (ревью волн 0–3, п. 1): можно ли завершать ревизию после проверки PIN. Принят — да. Неверный/заблокирован — нет.
     /// Не удалось проверить (нет связи, нет прав у сессии, ответ сервера непонятен) — да, но с честным предупреждением: иначе без интернета ревизию не провести вообще.</summary>
-    public static bool PinOutcomeAllowsFinish(LatePinStatus status) => status is LatePinStatus.Ok or LatePinStatus.Error;
+    // 2026-11-06 (аудит №5, Л5-06): обход PIN — только при настоящем отсутствии связи (Unavailable); ошибка/«нет прав» сервера (Error) — отказ.
+    public static bool PinOutcomeAllowsFinish(LatePinStatus status) => status is LatePinStatus.Ok or LatePinStatus.Unavailable;
 }
 
 /// <summary>Одна запись истории пересчёта товара.</summary>
@@ -226,18 +227,44 @@ public static class CycleCountStore
     private static readonly object Gate = new();
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
     private static CycleCountData? _current;
+    private static DateTime _readStamp;
 
-    /// <summary>Только для тестов и стенда: другая папка вместо %APPDATA%.</summary>
+    /// <summary>Только для тестов и стенда: другая папка вместо %LOCALAPPDATA%\NurMarketKassa.</summary>
     public static string? DataDirOverride { get; set; }
 
-    private static string FilePath => Path.Combine(DataDirOverride ?? Path.Combine(AppPaths.Roaming, AppMode.DataFolderName), "cycle-count.json");
+    // 2026-11-06 (аудит №5, Л5-11): порог PIN ревизии и история пересчётов — ОБЩИЙ файл кассы и программы владельца (%LOCALAPPDATA%\NurMarketKassa, как shop-automation.json).
+    // Раньше у каждой программы был свой файл (AppMode.DataFolderName), и порог, поставленный владельцем, касса не видела. Старые файлы при первом чтении переносятся.
+    private static string FilePath => Path.Combine(DataDirOverride ?? Path.Combine(AppPaths.Local, "NurMarketKassa"), "cycle-count.json");
+
+    /// <summary>Данные с учётом изменений файла другой программой (отметка времени).</summary>
+    private static CycleCountData Load()
+    {
+        var stamp = StampOf(FilePath);
+        if (_current is null || stamp != _readStamp)
+        {
+            var fresh = Read(out var ok);
+            if (ok || _current is null)
+                _current = fresh;
+            if (ok)
+                _readStamp = stamp;
+        }
+        return _current;
+    }
+
+    private static string MigratedFlagPath => Path.Combine(AppPaths.Local, "NurMarketKassa", "cycle-count.migrated");
+
+    private static DateTime StampOf(string path)
+    {
+        try { return File.Exists(path) ? File.GetLastWriteTimeUtc(path) : default; }
+        catch (Exception) { return default; }
+    }
 
     public static CycleCountData Current
     {
         get
         {
             lock (Gate)
-                return _current ??= Read();
+                return Load();
         }
     }
 
@@ -245,7 +272,7 @@ public static class CycleCountStore
     {
         lock (Gate)
         {
-            var data = _current ??= Read();
+            var data = Load();
             change(data);
             data.Normalize();
             Save(data);
@@ -255,7 +282,10 @@ public static class CycleCountStore
     public static void Reset()
     {
         lock (Gate)
+        {
             _current = null;
+            _readStamp = default;
+        }
     }
 
     /// <summary>Записать итог пересчёта: дата, расхождение и причина по каждой посчитанной позиции.</summary>
@@ -263,7 +293,7 @@ public static class CycleCountStore
     {
         lock (Gate)
         {
-            var data = _current ??= Read();
+            var data = Load();
             foreach (var (id, diff, reason) in rows)
             {
                 if (string.IsNullOrWhiteSpace(id))
@@ -283,7 +313,7 @@ public static class CycleCountStore
     {
         lock (Gate)
         {
-            var data = _current ??= Read();
+            var data = Load();
             return data.History.TryGetValue(productId, out var list) && list.Count > 0 ? list.Max(e => e.At) : null;
         }
     }
@@ -294,7 +324,7 @@ public static class CycleCountStore
         List<CycleCountHistoryEntry> list;
         lock (Gate)
         {
-            var data = _current ??= Read();
+            var data = Load();
             if (!data.History.TryGetValue(productId, out var found) || found.Count == 0)
                 return "";
             list = found.OrderByDescending(e => e.At).Take(take).ToList();
@@ -315,6 +345,7 @@ public static class CycleCountStore
         {
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
             AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(data, Json));
+            _readStamp = StampOf(FilePath);
         }
         catch (Exception ex)
         {
@@ -322,15 +353,39 @@ public static class CycleCountStore
         }
     }
 
-    private static CycleCountData Read()
+    /// <summary>ok = false — файл есть, но прочитать не удалось (занят): прежние настройки остаются, поверх файла умолчания не пишутся (Л5-10).</summary>
+    private static CycleCountData Read(out bool ok)
     {
+        ok = true;
         try
         {
             if (File.Exists(FilePath))
             {
-                var data = JsonSerializer.Deserialize<CycleCountData>(File.ReadAllText(FilePath), Json) ?? new CycleCountData();
-                data.Normalize();
-                return data;
+                var r = AtomicFile.TryRead(FilePath, attempts: 2, pauseMs: 50);
+                if (r.Status == AtomicFile.ReadStatus.Unreadable)
+                {
+                    ok = false;
+                    PosLogger.Log("Пересчёт дня: файл занят и не прочитан — остаются прежние настройки.", "WARNING");
+                }
+                else
+                {
+                    var data = JsonSerializer.Deserialize<CycleCountData>(r.Text ?? "{}", Json) ?? new CycleCountData();
+                    data.Normalize();
+                    return data;
+                }
+            }
+            else if (DataDirOverride is null && !File.Exists(MigratedFlagPath))
+            {
+                // перенос делается один раз: после смены компании общий файл уносится в _previous, и без отметки старый файл соседней программы «воскресил» бы чужую историю
+                var migrated = MigrateLegacy();
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(MigratedFlagPath)!);
+                    File.WriteAllText(MigratedFlagPath, DateTime.Now.ToString("O"));
+                }
+                catch (Exception) { /* без отметки перенос просто повторится */ }
+                if (migrated is not null)
+                    return migrated;
             }
         }
         catch (Exception ex)
@@ -340,5 +395,61 @@ public static class CycleCountStore
         var fresh = new CycleCountData();
         fresh.Normalize();
         return fresh;
+    }
+
+    /// <summary>2026-11-06 (Л5-11): личные файлы кассы и владельца (%APPDATA%\NurMarketKassa|NurMarketOwner\cycle-count.json) → общий. Берётся более новый;
+    /// история пересчётов сливается (по товару — записи обоих файлов). Старые файлы не удаляются. null — старых нет.</summary>
+    private static CycleCountData? MigrateLegacy()
+    {
+        var found = new List<(DateTime At, CycleCountData Data)>();
+        foreach (var folder in new[] { "NurMarketKassa", "NurMarketOwner" })
+        {
+            try
+            {
+                var old = Path.Combine(AppPaths.Roaming, folder, "cycle-count.json");
+                if (!File.Exists(old))
+                    continue;
+                var d = JsonSerializer.Deserialize<CycleCountData>(File.ReadAllText(old), Json);
+                if (d is null)
+                    continue;
+                d.Normalize();
+                found.Add((File.GetLastWriteTimeUtc(old), d));
+            }
+            catch (Exception)
+            {
+                // испорченный старый файл пропускаем — он остаётся на месте
+            }
+        }
+        if (found.Count == 0)
+            return null;
+        found.Sort((a, b) => b.At.CompareTo(a.At));
+        var merged = found[0].Data;
+        for (var i = 1; i < found.Count; i++)
+        {
+            foreach (var (id, list) in found[i].Data.History)
+            {
+                if (!merged.History.TryGetValue(id, out var mine))
+                    merged.History[id] = mine = new List<CycleCountHistoryEntry>();
+                foreach (var entry in list.Where(x => !mine.Any(m => m.At == x.At)).ToList())
+                    mine.Add(entry);
+                mine.Sort((a, b) => a.At.CompareTo(b.At));
+                if (mine.Count > KeepPerProduct)
+                    mine.RemoveRange(0, mine.Count - KeepPerProduct);
+            }
+            if (merged.PinThreshold <= 0 && found[i].Data.PinThreshold > 0)
+                merged.PinThreshold = found[i].Data.PinThreshold; // защита не ослабляется
+        }
+        merged.Normalize();
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(merged, Json));
+            PosLogger.Log($"Пересчёт дня: настройки и история собраны в общий файл из {found.Count} старых.", "INFO");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Пересчёт дня: общий файл не записан ({ex.GetType().Name}).", "WARNING");
+        }
+        return merged;
     }
 }

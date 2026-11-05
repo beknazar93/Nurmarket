@@ -7158,4 +7158,25 @@ class AppLocalizationsTr extends AppLocalizations {
   @override
   String get payLinesMerged =>
       'Fişteki aynı satırlar tek satırda birleştirildi.';
+
+  @override
+  String get returnMaybeDoneTitle => 'İade zaten yapılmış olabilir';
+
+  @override
+  String returnMaybeDoneBody(String time, String sum) {
+    return 'Bu fişte önceki denemeden sonra saat $time\'de $sum som tutarında bir iade zaten var. Para iki kez verilmesin diye yeni iade GÖNDERİLMEDİ. «Fişler»de fişin iadelerini kontrol edin; bir iade daha gerekiyorsa fişi yeniden açın.';
+  }
+
+  @override
+  String payDuplicatePrice(String name) {
+    return '«$name» fişte iki fiyatla (perakende ve toptan) yer alıyor. Tek fiyat bırakın veya fazla satırı kaldırın.';
+  }
+
+  @override
+  String get logoutCartTitle => 'Tamamlanmamış fişle çıkış yapılsın mı?';
+
+  @override
+  String logoutCartAsk(int lines, int held) {
+    return 'Fişteki kalem: $lines, bekletilen fiş: $held. Çıkışta silinecekler; her satır «Fişten silindi» günlüğüne yazılır.';
+  }
 }

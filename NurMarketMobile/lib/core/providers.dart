@@ -58,6 +58,11 @@ final syncProvider = Provider(
     quotes: () => ref.read(quotesStoreProvider).sync(onlyIfDirty: true),
     // 2026-10-30 (оптимизация, п. 14): фоновая отправка (Android) — разовая задача только пока есть неотправленное
     onUnsentChanged: (has) => has ? BackgroundSync.schedule() : BackgroundSync.cancel(),
+    // 2026-11-06 (аудит №5, М7-08): шаг весов компании не получили — просим признаки ещё раз на следующем проходе
+    refreshCapabilities: () async {
+      final api = ref.read(apiProvider);
+      if (api.session != null) await ServerCapabilities.refresh(api, ref.read(databaseProvider), OutboxMeta.ownerOf(api.session));
+    },
   ),
 );
 

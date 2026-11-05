@@ -7180,4 +7180,25 @@ class AppLocalizationsKy extends AppLocalizations {
 
   @override
   String get payLinesMerged => 'Чектеги бирдей саптар бирөөгө бириктирилди.';
+
+  @override
+  String get returnMaybeDoneTitle => 'Кайтаруу өтүп кетиши мүмкүн';
+
+  @override
+  String returnMaybeDoneBody(String time, String sum) {
+    return 'Бул чек боюнча өткөн аракеттен кийин саат $time болгон $sum сомдук кайтаруу бар. Акча эки жолу берилбеши үчүн жаңы кайтаруу ЖӨНӨТҮЛГӨН ЖОК. «Чектер» бөлүмүндө чектин кайтарууларын текшериңиз; дагы кайтаруу керек болсо — чекти кайра ачыңыз.';
+  }
+
+  @override
+  String payDuplicatePrice(String name) {
+    return '«$name» чекте эки баада (чекене жана дүң). Бир баа калтырыңыз же ашыкча сапты алып салыңыз.';
+  }
+
+  @override
+  String get logoutCartTitle => 'Бүтпөгөн чек менен чыгасызбы?';
+
+  @override
+  String logoutCartAsk(int lines, int held) {
+    return 'Чекте позиция: $lines, кечиктирилген чектер: $held. Чыкканда алар жок болот; ар бир сап «Чектен өчүрүлдү» журналына жазылат.';
+  }
 }

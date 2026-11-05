@@ -126,6 +126,7 @@ public static class AccountDataIsolation
         "pending_unknown_checkout.json", "loyalty-queue.json", "loyalty-queue.json.bak", "server_prices.json",
         "telegram-inquiries.json", "telegram-inquiries.json.bak", "telegram-customers.json", "telegram-customers.json.bak", "telegram-owner.json",
         // 2026-11-05 (ревью волн 0–3, п. 6): хранилища волн 2-А/2-Б (список по Grep AppPaths в новых файлах) — иначе новая компания видела бы чужие данные.
+        "exchange_cash_fix.archived.json",                    // 2026-11-06 (Л5-03): архив старых поправок «Касса:» (ExchangeCashCorrections) — данные компании
         "cycle-count.json",                                   // «Пересчёт дня»: порог PIN и история «когда считали товар» (товары прежней компании)
         "bank-rules.json",                                    // правила сверки банковской выписки (поставщики, названия платежей)
         "imported",                                           // копии файлов, выбранных в «Импорте» (QR банка, фон, реклама), — настройки с путями сбрасываются
@@ -135,7 +136,9 @@ public static class AccountDataIsolation
     ];
 
     /// <summary>Шаблоны имён в папке данных (флаги «бонусы импортированы» по компаниям, резервные копии настроек с ключами).</summary>
-    private static readonly string[] CompanyPatterns = ["loyalty-imported-*.flag", "user-settings.json.bak*", "telegram-updates-*.json", "bulk-journal-*.json"];
+    private static readonly string[] CompanyPatterns = ["loyalty-imported-*.flag", "user-settings.json.bak*", "telegram-updates-*.json", "bulk-journal-*.json",
+        // 2026-11-06 (аудит №5, Л5-03): запасные файлы отложенной записи (AtomicFile) — иначе при следующем запуске RecoverPending вернёт состояние прежней компании на место рабочего файла.
+        "*.pending", "*.pending.old"];
 
     /// <summary>Журналы компании в %LOCALAPPDATA%\NurMarketKassa (возвраты, списания «в минус», удаления из чека).</summary>
     private static readonly string[] LocalLogItems =
@@ -144,6 +147,8 @@ public static class AccountDataIsolation
         // 2026-11-05 (ревью волн 0–3, п. 6): общие файлы кассы и владельца волн 2-А/2-Б (антифрод, привязки Telegram к чекам, оповещения и автоматика магазина, уведомления об аренде).
         "antifraud-settings.json", "fraud-events.jsonl", "fraud-notified.json", "telegram-receipt-links.json",
         "shop-alerts-state.json", "shop-automation.json", "rental-alerts.json",
+        // 2026-11-06 (аудит №5, Л5-11): порог PIN ревизии и история пересчётов теперь общий файл кассы и владельца (история — товары прежней компании).
+        "cycle-count.json", "cycle-count.json.bak",
     ];
 
     /// <summary>Пользователь отказался менять компанию: повторный вызов для того же ключа в течение двух минут молча отказывает
@@ -331,7 +336,12 @@ public static class AccountDataIsolation
         var moved = new List<(string From, string To)>();
         var failed = new List<string>();
 
+        // 2026-11-06 (аудит №5, Л5-03): отложенные записи (AtomicFile.DeferWrite) файлов этой папки снимаем ДО переноса: иначе через 7 с таймер запишет состояние
+        // прежней компании (смена, касса, отложенные чеки…) на место файла новой, а AtomicFile.TryRead отдаст его из памяти первым. Сбой — вернуть назад.
+        var detached = AtomicFile.DetachDeferredUnder([Root]);
         var items = CompanyItems.Select(item => Path.Combine(Root, item)).ToList();
+        // …и «хвосты» каждого файла компании: копия .bak, запасной *.pending / *.pending.old (у папок таких нет — пропускаются).
+        items.AddRange(CompanyItems.SelectMany(item => new[] { ".bak", ".pending", ".pending.old" }.Select(ext => Path.Combine(Root, item + ext))).ToList());
         if (Directory.Exists(Root))
         {
             foreach (var pattern in CompanyPatterns)
@@ -357,6 +367,7 @@ public static class AccountDataIsolation
 
         if (failed.Count == 0)
             return;
+        AtomicFile.RestoreDeferred(detached); // 2026-11-06 (Л5-03): смена не состоялась — прежняя компания остаётся, её отложенные записи возвращаются
         for (var i = moved.Count - 1; i >= 0; i--)
         {
             try

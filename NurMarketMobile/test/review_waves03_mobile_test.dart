@@ -137,8 +137,8 @@ void main() {
       return keys;
     }
 
-    test('на сервере есть документ возврата после ключа — прошлая попытка прошла, новый возврат идёт НОВЫМ ключом', () async {
-      expect((await run(serverHasReturn: true)).single, isNot('old-key'));
+    test('на сервере есть документ возврата после ключа — прошлая попытка могла пройти: новый возврат НЕ отправляется (2026-11-06, М7-05)', () async {
+      await expectLater(run(serverHasReturn: true), throwsA(isA<ReturnMaybeDone>()));
     });
 
     test('документа нет — прошлая попытка не прошла, повтор тем же ключом', () async {

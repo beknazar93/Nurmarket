@@ -54,7 +54,7 @@ class PrinterConfig {
     this.sunmi = false,
   });
 
-  bool get ready => sunmi || (kind != PrinterKind.none && address.trim().isNotEmpty);
+  bool get ready => (sunmi && !SunmiBuiltIn.knownNotSunmi) || (kind != PrinterKind.none && address.trim().isNotEmpty);
 
   PrinterConfig copyWith({
     PrinterKind? kind,

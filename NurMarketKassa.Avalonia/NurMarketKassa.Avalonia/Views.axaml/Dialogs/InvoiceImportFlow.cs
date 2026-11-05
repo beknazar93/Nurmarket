@@ -73,9 +73,17 @@ public static class InvoiceImportFlow
                     AllowMultiple = false,
                     FileTypeFilter = FileTypes(),
                 }).ConfigureAwait(true);
-                path = files.Count > 0 ? files[0].TryGetLocalPath() : null;
-                if (string.IsNullOrEmpty(path))
+                if (files.Count == 0)
                     return;
+                // 2026-11-06 (аудит №5, А5-06): на Android выбор файла отдаёт content:// без локального пути — раньше накладная молча не загружалась.
+                // ImportFileBridge копирует файл во временную папку (с локальным путём на ПК — прежний путь, ничего не копируется).
+                path = await ImportFileBridge.TemporaryPathAsync(files[0]).ConfigureAwait(true);
+                if (string.IsNullOrEmpty(path))
+                {
+                    PosDialogs.Error(owner, T("Не удалось прочитать выбранный файл накладной.", "Тандалган накладной файлын окуу мүмкүн болгон жок.", "The selected invoice file could not be read.",
+                        "Seçilen fatura dosyası okunamadı.", "Tanlangan yuk xati faylini o'qib bo'lmadi."));
+                    return;
+                }
             }
 
             await ImportFileAsync(owner, vm, path).ConfigureAwait(true);

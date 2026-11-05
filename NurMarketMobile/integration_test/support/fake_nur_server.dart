@@ -129,6 +129,15 @@ class FakeNurServer {
   /// Задержка ответа на любой запрос (для проверки «медленного сервера»).
   Duration latency = Duration.zero;
 
+  /// 2026-11-06 (аудит №5, М7-19): правило сервера ceba67c — признаки `weight_line_total_floor`, `checkout_branch`, `checkout_lines_merged`
+  /// в `GET api/main/capabilities/`. Включено: `line_total` весовой строки = FLOOR(цена × вес до шага весов) − скидка, одинаковые строки
+  /// склеиваются, один товар по двум ценам — 400 `duplicate_line`, сумма строк = subtotal. Выключено — старый сервер (FLOOR от суммы весовых,
+  /// признаков нет).
+  bool weightLineFloor = true;
+
+  /// Шаг весов компании (`scale_barcode_amount_unit`): false — tiyin (0,01), true — som (целый сом).
+  bool weightStepSom = false;
+
   /// Все пришедшие запросы (для утверждений в тестах).
   final log = <RecordedRequest>[];
 
@@ -160,6 +169,8 @@ class FakeNurServer {
     checkoutHitsByKey.clear();
     checkoutPlan.clear();
     latency = Duration.zero;
+    weightLineFloor = true;
+    weightStepSom = false;
     log.clear();
   }
 
@@ -229,7 +240,14 @@ class FakeNurServer {
       });
     }
     if (method == 'GET' && is_('/api/users/company')) {
-      return send(200, {'id': 'co-e2e', 'name': 'Магазин E2E', 'inn': '00000000000000', 'address': 'г. Бишкек, ул. Тестовая, 1'});
+      return send(200, {'id': 'co-e2e', 'name': 'Магазин E2E', 'inn': '00000000000000', 'address': 'г. Бишкек, ул. Тестовая, 1', 'scale_barcode_amount_unit': weightStepSom ? 'som' : 'tiyin'});
+    }
+    // 2026-11-06 (М7-19): признаки возможностей сервера (после входа); у «старого» сервера список пуст
+    if (method == 'GET' && is_('/api/main/capabilities')) {
+      return send(200, {
+        'server_version': 'ceba67c',
+        'features': weightLineFloor ? ['weight_line_total_floor', 'checkout_branch', 'checkout_lines_merged'] : <String>[],
+      });
     }
 
     // ---- касса и смены
@@ -279,6 +297,11 @@ class FakeNurServer {
       if (step is CheckoutStatus) return send(step.status, {'detail': 'Сервис временно недоступен'});
       if (step is CheckoutSlow) await Future<void>.delayed(step.delay);
       final existingId = _salesByKey[key];
+      // 2026-11-06 (М7-19, ответ Умара п. 4): тот же товар другой ценой — 400 duplicate_line (продажа не записывается)
+      if (existingId == null && weightLineFloor && body is Map) {
+        final dup = _duplicateLineIndex(body.cast<String, dynamic>());
+        if (dup != null) return send(400, {'code': 'duplicate_line', 'detail': 'duplicate_line', 'duplicate_of': dup});
+      }
       Map<String, dynamic> sale;
       if (existingId != null) {
         sale = sales[existingId]!; // повтор с тем же ключом — тот же чек, второй продажи нет
@@ -337,37 +360,79 @@ class FakeNurServer {
     };
   }
 
-  /// Правило итога сервера (чеки 1971–1988, см. Cart._subtotalUnits): сумма весовых строк округляется ВНИЗ до копейки одной суммой,
-  /// остальные строки — HALF_UP до копейки; из этого вычитается скидка. Единицы — 1e-5 сома (количество до 3 знаков × цена до 2).
+  /// Индекс первой строки, если тот же товар (и вариант) стоит в чеке с другой ценой; null — конфликта нет.
+  int? _duplicateLineIndex(Map<String, dynamic> body) {
+    final first = <String, int>{};
+    final prices = <String, int>{};
+    final list = body['items'] as List? ?? const [];
+    for (var i = 0; i < list.length; i++) {
+      final it = (list[i] as Map).cast<String, dynamic>();
+      if (it['custom'] == true) continue;
+      final k = '${it['product']}|${it['variant'] ?? ""}|${it['sale_package_id'] ?? ""}';
+      final price = _fixed(it['price'], 2);
+      if (!first.containsKey(k)) {
+        first[k] = i;
+        prices[k] = price;
+      } else if (prices[k] != price) {
+        return first[k];
+      }
+    }
+    return null;
+  }
+
+  /// Правило итога сервера. Старое (чеки 1971–1988, см. Cart._subtotalUnits): сумма весовых строк округляется ВНИЗ до копейки одной суммой,
+  /// остальные строки — HALF_UP до копейки; из этого вычитается скидка. Новое (ceba67c, [weightLineFloor]): одинаковые строки склеены,
+  /// каждая весовая позиция — вниз до шага весов, сумма строк = subtotal. Единицы — 1e-5 сома (количество до 3 знаков × цена до 2).
   Map<String, dynamic> _createSale(Map<String, dynamic> body) {
     const unit = 100000; // 1 сом
     const cent = 1000; // 0,01 сом
+    final step = weightStepSom ? unit : cent;
     var weighed = 0, other = 0, discount = 0;
     final items = <Map<String, dynamic>>[];
+    // 2026-11-06 (М7-19): при новом правиле строки одного товара по одной цене склеиваются в одну позицию
+    final rows = <Map<String, dynamic>>[];
     for (final raw in (body['items'] as List? ?? const [])) {
-      final it = (raw as Map).cast<String, dynamic>();
+      final it = Map<String, dynamic>.from((raw as Map).cast<String, dynamic>());
+      if (weightLineFloor && it['custom'] != true) {
+        final same = rows.where((r) => r['product'] == it['product'] && _fixed(r['price'], 2) == _fixed(it['price'], 2) && r['variant'] == it['variant']).firstOrNull;
+        if (same != null) {
+          same['qty'] = ((_fixed(same['qty'], 3) + _fixed(it['qty'], 3)) / 1000).toStringAsFixed(3);
+          same['discount'] = ((_fixed(same['discount'], 2) + _fixed(it['discount'], 2)) / 100).toStringAsFixed(2);
+          continue;
+        }
+      }
+      rows.add(it);
+    }
+    for (final it in rows) {
       final product = products.where((x) => x.id == it['product']).firstOrNull;
       final qty = _fixed(it['qty'], 3); // в тысячных
       final price = _fixed(it['price'], 2); // в сотых
       final gross = qty * price; // 1e-5 сома
+      final lineDiscount = _fixed(it['discount'], 2) * 1000;
+      var lineTotal = ((gross + cent ~/ 2) ~/ cent) * cent;
       if (product?.isWeight == true) {
-        weighed += gross;
+        if (weightLineFloor) {
+          lineTotal = (gross ~/ step) * step;
+          weighed += lineTotal;
+        } else {
+          weighed += gross;
+        }
       } else {
         other += gross;
       }
-      discount += _fixed(it['discount'], 2) * 1000;
-      final lineTotal = ((gross + cent ~/ 2) ~/ cent) * cent;
+      if (weightLineFloor) lineTotal -= lineDiscount;
+      discount += lineDiscount;
       items.add({
         'id': 'si-${_saleCounter + 1}-${items.length + 1}',
         'product': it['product'],
-        'product_name': product?.name ?? '${it['name'] ?? ''}',
+        'product_name': product?.name ?? '${it['name'] ?? ""}',
         'quantity': (qty / 1000).toStringAsFixed(3),
         'unit_price': (price / 100).toStringAsFixed(2),
         'total': (lineTotal / unit).toStringAsFixed(2),
         'returned_qty': '0',
       });
     }
-    final subtotal = (weighed ~/ cent) * cent + ((other + cent ~/ 2) ~/ cent) * cent;
+    final subtotal = (weightLineFloor ? weighed : (weighed ~/ cent) * cent) + ((other + cent ~/ 2) ~/ cent) * cent;
     final total = subtotal - discount < 0 ? 0 : subtotal - discount;
     final id = 'sale-e2e-${++_saleCounter}';
     final payment = body['payment'] is Map ? (body['payment'] as Map).cast<String, dynamic>() : <String, dynamic>{};

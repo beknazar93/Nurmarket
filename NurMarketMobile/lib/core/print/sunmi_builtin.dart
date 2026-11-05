@@ -35,6 +35,9 @@ class SunmiBuiltIn {
     printOverride = null;
   }
 
+  /// 2026-11-06 (аудит №5, М7-13): уже выяснили, что телефон НЕ Sunmi (запомненный ответ) — настройка «Встроенный принтер Sunmi» не делает принтер готовым.
+  static bool get knownNotSunmi => _isSunmi == false;
+
   /// Производитель телефона — SUNMI (регистр не важен). Не Android, ошибка канала или таймаут — false.
   static Future<bool> isSunmi() async {
     final o = isSunmiOverride;
@@ -64,8 +67,8 @@ class SunmiBuiltIn {
           l.text,
           style: SunmiTextStyle(fontSize: l.big ? fontSize + 8 : fontSize, bold: l.bold, align: l.center ? SunmiPrintAlign.CENTER : SunmiPrintAlign.LEFT),
         );
+        checkReply(r); // 2026-11-06 (аудит №5, М7-12): «начали» — только после ПРИНЯТОЙ команды: «error» на первой строке — ничего не вышло
         started = true;
-        checkReply(r);
       }
       if (qr != null && qr.isNotEmpty) checkReply(await SunmiPrinter.printQRCode(qr));
       checkReply(await SunmiPrinter.lineWrap(3));

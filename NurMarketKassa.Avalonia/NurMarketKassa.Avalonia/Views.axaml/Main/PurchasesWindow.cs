@@ -1264,18 +1264,46 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             return;
         }
 
+        var knownVersion = r.Version;
+        for (var round = 0; ; round++)
         try
         {
             // 2026-11-01 (код-ревью): один ключ на накладную, пока нет ответа по существу (PendingIdempotencyKey): повтор после тайм-аута не даст ложный 404/409.
             if (!_deleteKeys.TryGetValue(r.Id, out var deleteKey))
                 _deleteKeys[r.Id] = deleteKey = new PendingIdempotencyKey();
-            var deleteKeyValue = deleteKey.Get(r.Id + "|" + reason);
-            await _svc.DeleteReceiptAsync(r.Id, reason, deleteKeyValue, default, r.Version).ConfigureAwait(true);
+            var deleteKeyValue = deleteKey.Get(r.Id + "|" + reason + "|v" + knownVersion);
+            await _svc.DeleteReceiptAsync(r.Id, reason, deleteKeyValue, default, knownVersion).ConfigureAwait(true);
             deleteKey.OnSuccess();
             PosLogger.Log($"Закупки: приход {number} ({r.Id}) удалён, причина: {reason}.", "INFO");
             await ReloadAsync().ConfigureAwait(true);
             if (_tab == "registry")
                 _registry?.Reload();
+            return;
+        }
+        catch (ReceiptChangedException changed) when (round == 0)
+        {
+            // 2026-11-06 (аудит №5, Л5-13): приход изменили на другом устройстве, пока его удаляли (412). Сервер ничего не удалил. Список перечитывается, пользователь видит, что изменилось,
+            // и только после нового подтверждения удаление повторяется — уже с НОВЫМ ключом и актуальной версией (раньше касса молча удаляла новую версию, например приход на 1 500 вместо 500).
+            _deleteKeys.Remove(r.Id);
+            await ReloadAsync().ConfigureAwait(true);
+            if (_tab == "registry")
+                _registry?.Reload();
+            var now = changed.Current;
+            var nowText = now is null
+                ? T("данные прихода получить не удалось", "кирүүнүн маалыматын алуу мүмкүн болгон жок", "the delivery details could not be loaded", "giriş bilgileri alınamadı", "kirim ma'lumotlarini olib bo'lmadi")
+                : $"{MoneyText.Som(now.Total)}, {now.ItemsCount} " + T("поз.", "позиция", "items", "kalem", "pozitsiya");
+            var again = T($"Приход {number} изменили на другом устройстве, пока вы его удаляли. Ничего не удалено.\n\nВы подтверждали: {MoneyText.Som(r.Total)}, {r.ItemsCount} поз.\nСейчас: {nowText}.\n\nСписок обновлён. Удалить приход в его нынешнем виде?",
+                $"{number} кирүүсүн сиз өчүрүп жатканда башка түзмөктө өзгөрттү. Эч нерсе өчүрүлгөн жок.\n\nСиз ырастаганыңыз: {MoneyText.Som(r.Total)}, {r.ItemsCount} позиция.\nАзыр: {nowText}.\n\nТизме жаңыртылды. Кирүүнү азыркы түрүндө өчүрөсүзбү?",
+                $"Delivery {number} was changed on another device while you were deleting it. Nothing was deleted.\n\nYou confirmed: {MoneyText.Som(r.Total)}, {r.ItemsCount} items.\nNow: {nowText}.\n\nThe list was refreshed. Delete the delivery as it is now?",
+                $"{number} girişi siz silerken başka bir cihazda değiştirildi. Hiçbir şey silinmedi.\n\nOnayladığınız: {MoneyText.Som(r.Total)}, {r.ItemsCount} kalem.\nŞimdi: {nowText}.\n\nListe güncellendi. Giriş şu anki haliyle silinsin mi?",
+                $"{number} kirimi siz o'chirayotganda boshqa qurilmada o'zgartirildi. Hech narsa o'chirilmadi.\n\nSiz tasdiqlagan: {MoneyText.Som(r.Total)}, {r.ItemsCount} pozitsiya.\nHozir: {nowText}.\n\nRo'yxat yangilandi. Kirim hozirgi holida o'chirilsinmi?");
+            if (changed.CurrentVersion <= 0
+                || await PosMessageBox.ShowModalAsync(this, again, T("Удаление прихода", "Кирүүнү өчүрүү", "Delete delivery", "Girişi sil", "Kirimni o'chirish"),
+                    MessageBoxButton.YesNo, MessageBoxImage.Warning,
+                    confirmText: T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"), cancelText: T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"),
+                    danger: true).ConfigureAwait(true) != MessageBoxResult.Yes)
+                return;
+            knownVersion = changed.CurrentVersion;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -1286,6 +1314,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
                 // 2026-11-05 (сервер ceba67c): 409 negative_stock / has_returns / debt_already_paid — понятные тексты на языке кассы, остальное — слова сервера.
                 T("Приход не удалён: ", "Кирүү өчүрүлгөн жок: ", "The delivery was not deleted: ", "Giriş silinmedi: ", "Kirim o'chirilmadi: ") + (ServerErrorCodes.Friendly(ex) ?? ex.Message),
                 T("Удаление прихода", "Кирүүнү өчүрүү", "Delete delivery", "Girişi sil", "Kirimni o'chirish"), MessageBoxButton.OK, MessageBoxImage.Warning).ConfigureAwait(true);
+            return;
         }
     }
 

@@ -189,7 +189,9 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
     /// <summary>2026-10-30 (холодный старт на 16 тыс.): первая загрузка каталога лентой изменений с начала (since пусто, limit=500) —
     /// 32 запроса вместо 160 страниц по 100. 429 — пауза сервера и повтор с ТОГО ЖЕ курсора (не с нуля). Лента не поддерживается, ошибка
     /// или отдала заметно меньше товаров, чем «версия каталога» (count), — null: тогда прежняя загрузка по страницам (загруженное уже в базе).
-    /// Карточки ленты могут быть сокращёнными (без упаковок, доп. штрихкодов) — их допишет страховочная полная загрузка (раз в час).</summary>
+    /// 2026-11-06 (Б-1): карточка ленты у сервера СОКРАЩЁННАЯ (9 полей: нет единицы, «весовой», PLU, штрихкода, вида, фото) — такой лентой пустую базу
+    /// заполнять нельзя (весовые становились штучными, штрихкоды не находились). Если в первой странице нет ни единиц/веса, ни штрихкодов — null:
+    /// первая загрузка идёт по страницам (полные карточки), лента остаётся для дельты поверх полной базы. Сервер добавит поля в ленту — снова быстрая загрузка лентой.</summary>
     private async Task<(List<JsonElement>? Items, string? Cursor)> TryFeedSnapshotAsync(CatalogVersionInfo? remoteVersion, int generation, CancellationToken ct)
     {
         if (_catalogApi is not ICatalogFeedApi feedApi || !ServerPriceContract.CatalogFeedEnabled)
@@ -225,6 +227,13 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                 if (p.Status != CatalogFeedStatus.Ok)
                 {
                     PosLogger.Log($"CATALOG: первая загрузка лентой не вышла ({p.Status} {p.Note}) — загрузка по страницам.", "CATALOG");
+                    return (null, null);
+                }
+
+                // 2026-11-06 (Б-1, И-1): проверка ДО ReportFullLoad — иначе сокращённые карточки первой страницы попали бы в базу через ColdStartPageHandler.
+                if (page == 1 && CatalogFullLoadMarks.IsShortFeedPage(p.Items))
+                {
+                    PosLogger.Log("CATALOG: лента без единиц/PLU/штрихкодов (сокращённая карточка) — первая загрузка по страницам с полными карточками.", "CATALOG");
                     return (null, null);
                 }
 
@@ -371,6 +380,9 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
     private readonly object _syncGate = new();
     private Task<CatalogSyncResult>? _inFlightSync;
     private DateTime _lastSuccessfulSyncUtc = DateTime.MinValue;
+    // 2026-11-06 (Б-1): время последней ПОЛНОЙ загрузки полными карточками — для страховочного интервала. Тёплый старт раньше записывал в _lastSuccessfulSyncUtc «сейчас»,
+    // и каждый перезапуск обнулял отсчёт (каталог больше 3000 не дожидался 8 часов). Теперь время берётся из catalog_meta (full_load_utc) и переживает перезапуск.
+    private DateTime _lastFullLoadUtc = DateTime.MinValue;
     private CatalogSyncResult? _lastSuccessfulResult;
     private int _accountGeneration;
 
@@ -388,6 +400,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             _inFlightSync = null;
             _lastSuccessfulResult = null;
             _lastSuccessfulSyncUtc = DateTime.MinValue;
+            _lastFullLoadUtc = DateTime.MinValue; // 2026-11-06 (Б-1): у нового аккаунта полной загрузки не было (метка в catalog_meta стирается вместе с базой)
         }
 
         _products = [];
@@ -555,6 +568,14 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             return null;
         if (!HasLocalCatalog && !await Task.Run(TryLoadFromDatabase, ct).ConfigureAwait(false))
             return null;
+        // 2026-11-06 (Б-1, И-2): самолечение. База, заполненная сокращённой лентой (is_weight нет почти ни у кого, метки полной загрузки нет), — один раз полная
+        // постраничная загрузка с полными карточками. Идёт в фоне: плитки и продажа работают с базой, остатки и неотправленное не трогаются (SyncReplaceAllWithDiff).
+        if (CatalogFullLoadMarks.NeedsSelfHeal(LocalProductRepository.Instance, out var healWhy))
+        {
+            PosLogger.Log($"CATALOG: самолечение каталога — {healWhy}; один раз полная загрузка полными карточками (фоном, продажа не блокируется).", "CATALOG");
+            return null;
+        }
+
         if (!feed.HasSavedCursor())
         {
             PosLogger.Log("CATALOG: тёплый старт невозможен — курсора ленты нет (первый запуск, смена аккаунта/магазина) — полная загрузка.", "CATALOG");
@@ -572,12 +593,19 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         if (tick.Ok)
         {
             var okResult = CatalogSyncResult.Ok(tick.Added, tick.Changed, tick.Deleted);
+            // 2026-11-06 (Б-1): отсчёт страховочной полной загрузки — от ПОСЛЕДНЕЙ настоящей (из базы), а не от «сейчас»; нет метки и нет last_sync_utc — MinValue (нужна полная).
+            var persistedFull = CatalogFullLoadMarks.LastFullLoadOrLegacy(LocalProductRepository.Instance) ?? DateTime.MinValue;
             lock (_syncGate)
             {
                 _lastSuccessfulSyncUtc = DateTime.UtcNow;
                 _lastSuccessfulResult = okResult;
+                _lastFullLoadUtc = persistedFull;
             }
 
+            // Тёплый старт показал, что лента отвечает: большому каталогу не нужно ждать 10 опросов, чтобы страховочный интервал стал 8 часами (иначе после
+            // перезапуска с давней меткой сразу пошли бы 155 страниц).
+            if (Volatile.Read(ref _feedOkStreak) < FeedOkStreakForSafetyReload)
+                Interlocked.Exchange(ref _feedOkStreak, FeedOkStreakForSafetyReload);
             _warmStartDone = true;
             _warmFailures = 0;
             SyncCenter.RecordSuccess("catalog");
@@ -662,7 +690,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         lock (_syncGate)
         {
             running = _inFlightSync is { IsCompleted: false } inFlight ? inFlight : null;
-            lastFull = _lastSuccessfulSyncUtc;
+            lastFull = _lastFullLoadUtc; // 2026-11-06 (Б-1): время настоящей полной загрузки (из базы), а не тёплого старта
         }
 
         if (running != null)
@@ -883,6 +911,8 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
 
             var syncTime = DateTime.UtcNow;
             LocalProductRepository.Instance.SetLastSyncTime(syncTime);
+            // 2026-11-06 (Б-1): метка «полная загрузка полными карточками выполнена» — по ней самолечение не повторяется, а перезапуск не обнуляет интервал.
+            CatalogFullLoadMarks.MarkFullLoad(LocalProductRepository.Instance, syncTime);
             CatalogCacheService.NoteSynced(syncTime); // 2026-10-30: «каталог свежий» и для окон (массовая загрузка)
 
             _auditDb.LogEvent("catalog", "refresh", new { count = newList.Count, added, changed, deleted });
@@ -914,6 +944,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             {
                 _lastSuccessfulSyncUtc = DateTime.UtcNow;
                 _lastSuccessfulResult = okResult;
+                _lastFullLoadUtc = syncTime;
             }
 
             SyncCenter.RecordSuccess("catalog");

@@ -168,17 +168,16 @@ public sealed class ServerCeba67cTests : IDisposable
         await api.LoginAsync("a@b.kg", "12345678");
         var svc = new SupplierApiService(api);
 
-        // известная версия 3 → 412 → перечитать (3 — сервер заглушка отдаёт то же) → повтор с НОВЫМ ключом → снова 412 → ошибка
+        // известная версия 3 → 412 → 2026-11-06 (Л5-13): касса НЕ повторяет удаление молча (в приход могли добавить строки на другом устройстве) — сообщает расхождение
         var act = async () => await svc.DeleteReceiptAsync("r1", "причина теста", "key-1", default, knownVersion: 3);
-        await act.Should().ThrowAsync<ApiException>();
+        await act.Should().ThrowAsync<ReceiptChangedException>();
         var deletes = server.LogEntries.Where(e => e.RequestMessage.Method == "DELETE").ToList();
-        deletes.Should().HaveCount(2);
+        deletes.Should().HaveCount(1);
         deletes[0].RequestMessage.Headers!["If-Match"].Single().Should().Be("\"3\"");
         deletes[0].RequestMessage.Headers!["Idempotency-Key"].Single().Should().Be("key-1");
         using var sent = JsonDocument.Parse(deletes[0].RequestMessage.Body!);
         sent.RootElement.GetProperty("version").GetInt32().Should().Be(3);
         sent.RootElement.GetProperty("reason").GetString().Should().Be("причина теста");
-        deletes[1].RequestMessage.Headers!["Idempotency-Key"].Single().Should().NotBe("key-1", "после 412 — новый ключ");
     }
 
     [Fact]

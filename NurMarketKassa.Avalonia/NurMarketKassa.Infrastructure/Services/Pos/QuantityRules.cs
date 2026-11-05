@@ -146,9 +146,17 @@ public static class QuantityRules
     /// как сумму строк (пример: 0,486 × 66 = 32,076 → 32,07). Подмена нужна тестам; по умолчанию — признак из capabilities (нет списка → прежнее правило).</summary>
     public static Func<bool> WeightLineFloorEnabled { get; set; } = () => NurMarketKassa.Services.Api.ServerCapabilities.Has(NurMarketKassa.Services.Api.ServerCapabilities.WeightLineTotalFloor);
 
-    /// <summary>Шаг весов (scale_barcode_amount_unit компании): «som» — 1 сом, иначе «tiyin» — 0,01.</summary>
-    public static Func<decimal> WeightStep { get; set; } = () =>
-        string.Equals(UserPreferences.Instance.EffectiveScaleAmountUnit, "som", StringComparison.OrdinalIgnoreCase) ? 1m : 0.01m;
+    /// <summary>Шаг весов (scale_barcode_amount_unit КОМПАНИИ с сервера): «som» — 1 сом, иначе «tiyin» — 0,01.
+    /// 2026-11-06 (аудит №5, Л5-02 / А5-01): берётся ТОЛЬКО серверная единица (<see cref="UserPreferences.ScaleBarcodeAmountUnit"/>), её же применяет сервер при расчёте line_total.
+    /// Местный выбор единицы суммы на кассе (ScaleBarcodeAmountUnitLocal) — другое понятие: он нужен только для разбора цифр этикетки и веса из суммы, на деньги чека не влияет.</summary>
+    public static Func<decimal> WeightStep { get; set; } = DefaultWeightStep;
+
+    /// <summary>2026-11-06: шаг по серверной единице суммы из настроек (локальный выбор кассы не учитывается). Вынесено отдельно, чтобы тесты могли восстановить правило по умолчанию.</summary>
+    internal static decimal DefaultWeightStep() => StepForServerUnit(UserPreferences.Instance.ScaleBarcodeAmountUnit);
+
+    /// <summary>2026-11-06: шаг округления по серверной единице суммы (неизвестное значение = «tiyin», как у <see cref="NurMarketKassa.Core.Application.WeightBarcodeParser.ResolveAmountUnit"/>).</summary>
+    public static decimal StepForServerUnit(string? serverUnit) =>
+        string.Equals(NurMarketKassa.Core.Application.WeightBarcodeParser.ResolveAmountUnit(null, serverUnit), NurMarketKassa.Core.Application.WeightBarcodeParser.UnitSom, StringComparison.Ordinal) ? 1m : 0.01m;
 
     /// <summary>Вниз до шага (положительные значения); шаг ≤ 0 — до копейки.</summary>
     public static decimal FloorToStep(decimal value, decimal step)

@@ -574,6 +574,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       _aiSink.report(HandleOutcome.errorKey('noShift'));
       return;
     }
+    // 2026-11-06 (аудит №5, М7-06): один товар по двум ценам — сервер ответит 400 duplicate_line (онлайн), а офлайн-чек ушёл бы в «Не принято»
+    final conflict = cart.priceConflictName;
+    if (conflict != null) {
+      final msg = l.payDuplicatePrice(conflict);
+      toast(context, msg, error: true);
+      _aiSink.report(HandleOutcome.error(msg));
+      return;
+    }
     final method = _method;
     final client = _client;
     final received = parseNum(_received.text);

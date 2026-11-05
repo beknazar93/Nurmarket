@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/session_store.dart' show Session;
 import '../../core/providers.dart';
 import '../../core/sync/account_switch.dart';
 import '../../core/sync/outbox_meta.dart';
+import '../../core/util/access.dart' show checkAccess;
+import '../../core/util/audit.dart';
 import '../../core/util/ui.dart';
+import '../admin/admin_repository.dart' show DeletionRow;
+import '../admin/admin_screens.dart' show adminRepoProvider;
 
 /// 2026-10-29 (владелец: «Ничего не должно остаться от старого аккаунта!!»): окно перед выходом и сменой аккаунта.
 /// Пока в очереди есть неотправленные продажи или операции, выйти нельзя: либо «Отправить сейчас» (ждёт пустую очередь), либо —
@@ -26,6 +31,38 @@ Future<bool> confirmQueueResolved(BuildContext context, WidgetRef ref, {String? 
     builder: (c) => _QueueGuardDialog(first: q, foreignOwner: foreignOwner),
   );
   return ok == true;
+}
+
+/// 2026-11-06 (аудит №5, М7-04): выход стирает с телефона набранный чек и отложенные чеки — раньше молча и без записи в «Удалено из чека»
+/// (обход права «удаление из чека», закрытого в М6-01). Теперь, если чек не пуст или есть отложенные: нужно право [Session.deleteLine],
+/// вопрос с числом позиций и чеков, и каждая строка пишется в журнал с причиной «Выход из аккаунта». true — выходить можно.
+Future<bool> confirmCartDiscarded(BuildContext context, WidgetRef ref) async {
+  final cart = ref.read(cartProvider);
+  final held = await ref.read(opsRepoProvider).held();
+  if (cart.isEmpty && held.isEmpty) return true;
+  if (!context.mounted) return false;
+  if (!checkAccess(context, ref, Session.deleteLine)) return false;
+  final l = context.l;
+  final ok = await confirmAsk(
+    context,
+    title: l.logoutCartTitle,
+    message: l.logoutCartAsk(cart.count, held.length),
+    ok: l.logout,
+  );
+  if (!ok || !context.mounted) return false;
+  final who = ref.read(sessionProvider)?.userName ?? '';
+  final admin = ref.read(adminRepoProvider);
+  final lines = [...ref.read(cartProvider).lines, for (final h in held) ...h.cart.lines]; // чек — после вопроса актуальный
+  for (final ln in lines) {
+    final sum = ln.qty * ln.price - ln.discount;
+    try {
+      await admin.logDeletion(DeletionRow(DateTime.now(), ln.name, ln.qty, sum, l.logout, who));
+    } catch (e) {
+      Audit.log('error', 'logout cart log: $e');
+    }
+    Audit.log('delete', '${ln.name} × ${qtyText(ln.qty)} · ${l.logout}', amount: sum);
+  }
+  return true;
 }
 
 class _QueueGuardDialog extends ConsumerStatefulWidget {

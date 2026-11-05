@@ -20,7 +20,9 @@ public enum LateAcceptState
     TooOld,
 }
 
-public enum LatePinStatus { Ok, Wrong, Locked, Error }
+// 2026-11-06 (аудит №5, Л5-06): Unavailable — проверить PIN НЕЛЬЗЯ из-за отсутствия связи/тайм-аута (единственный случай, когда закрытие смены с недостачей и ревизию
+// не блокируем); Error — сервер ответил отказом/ошибкой (4xx, «нет прав», 5xx, непонятный ответ) — это ОТКАЗ, обхода нет.
+public enum LatePinStatus { Ok, Wrong, Locked, Error, Unavailable }
 
 public sealed record LatePinResult(LatePinStatus Status, string? Token, string Message);
 
@@ -79,6 +81,15 @@ public sealed partial class SyncService
         }
     }
 
+    /// <summary>2026-11-06 (аудит №5, Л5-06): сбой именно связи (нет сети, тайм-аут), а не ответ сервера. 4xx/401/403/5xx сюда НЕ входят — это отказ, а не «нет связи».</summary>
+    public static bool IsConnectivityFailure(Exception ex) => ex switch
+    {
+        HttpRequestException or TimeoutException or System.Net.Sockets.SocketException => true,
+        OperationCanceledException => true, // тайм-аут запроса (отмену вызывающим перехватывает фильтр выше)
+        ApiException api => api.StatusCode is null or 408 or 504,
+        _ => ex.InnerException is not null && IsConnectivityFailure(ex.InnerException),
+    };
+
     /// <summary>Проверка PIN владельца на сервере. 3 неверных подряд — пауза 30 с. PIN нигде не пишется (ни в журнал, ни на диск).</summary>
     public async Task<LatePinResult> VerifyOwnerPinForLateAsync(string pin, CancellationToken ct = default)
     {
@@ -97,9 +108,10 @@ public sealed partial class SyncService
         {
             throw;
         }
-        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
+        catch (Exception ex) when (IsConnectivityFailure(ex))
         {
-            return new LatePinResult(LatePinStatus.Error, null, NoConnectionText());
+            // 2026-11-06 (аудит №5, Л5-06): только настоящий обрыв связи/тайм-аут = «PIN не проверен — нет связи». Остальные ошибки сервера — отказ (см. ниже).
+            return new LatePinResult(LatePinStatus.Unavailable, null, NoConnectionText());
         }
         catch (ApiException ex) when (ex.StatusCode == 429)
         {

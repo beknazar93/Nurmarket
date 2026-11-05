@@ -7293,4 +7293,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get payLinesMerged => 'Identical receipt lines were merged into one.';
+
+  @override
+  String get returnMaybeDoneTitle => 'The return may already be done';
+
+  @override
+  String returnMaybeDoneBody(String time, String sum) {
+    return 'This receipt already has a return at $time for $sum som from the earlier attempt. A new return was NOT sent, so the money is not paid out twice. Check the receipt\'s returns in Receipts; if you need one more return, open the receipt again.';
+  }
+
+  @override
+  String payDuplicatePrice(String name) {
+    return '“$name” is in the receipt at two prices (retail and wholesale). Keep one price or remove the extra line.';
+  }
+
+  @override
+  String get logoutCartTitle => 'Sign out with an unfinished receipt?';
+
+  @override
+  String logoutCartAsk(int lines, int held) {
+    return 'Items in the receipt: $lines, held receipts: $held. They will be lost on sign-out; every line is written to “Removed from receipt”.';
+  }
 }

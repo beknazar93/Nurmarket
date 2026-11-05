@@ -185,8 +185,8 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
         }
     }
 
-    /// <summary>Remote catalog image URL (API).</summary>
-    public string? ImageUrl { get; }
+    /// <summary>Remote catalog image URL (API). 2026-11-06 (Б-1, И-3): setter — лента изменений без ключа картинки не должна стирать фото из базы (CatalogFeedSync.KeepLocalForAbsentFields).</summary>
+    public string? ImageUrl { get; set; }
 
     /// <summary>
     /// Local file path or embedded asset name for UI binding (via <c>AssetPathToBitmapConverter</c>).
