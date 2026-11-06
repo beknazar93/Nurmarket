@@ -18,7 +18,14 @@ namespace NurMarketKassa.AvaloniaHost.Views;
 // На живых весах не проверено — см. ShtrikhPcImportWriter.
 public partial class ScalesPluWindow
 {
-    private static string ShtrikhPcSubtitle() => Tr.T(
+    private static string ShtrikhPcSubtitle() => ShtrikhPcSubtitleBase() + " " + Tr.T(
+        "Главный экран весов строится из сценария самообслуживания (Shared\\SelfScenario): касса пересоберёт его из выгруженных товаров. Товар без картинки — серая плитка с названием.",
+        "Таразанын башкы экраны өзүн-өзү тейлөө сценарийинен курулат (Shared\\SelfScenario): касса аны жүктөлгөн товарлардан кайра түзөт. Сүрөтсүз товар — аты бар боз плитка.",
+        "The scale's main screen is built from the self-service scenario (Shared\\SelfScenario): the till rebuilds it from the uploaded goods. A product without a picture is a grey tile with its name.",
+        "Tartının ana ekranı self-servis senaryosundan kurulur (Shared\\SelfScenario): kasa onu yüklenen ürünlerden yeniden kurar. Resimsiz ürün adlı gri karodur.",
+        "Tarozining bosh ekrani o‘z-o‘ziga xizmat ssenariysidan quriladi (Shared\\SelfScenario): kassa uni yuklangan tovarlardan qayta quradi. Rasmsiz tovar — nomli kulrang plitka.");
+
+    private static string ShtrikhPcSubtitleBase() => Tr.T(
         "Отмеченные товары касса запишет файлом в общую папку весов (Import\\PCScale.txt) и положит флаг-файл. Весы сами заберут их через «Обновление» минут или сразу — «Система и печать» → «Импорт данных». У каждого товара код на весах — колонка «Код в ШК» (по умолчанию PLU).",
         "Белгиленген товарларды касса таразанын жалпы папкасына файл менен жазып (Import\\PCScale.txt), флаг-файл коёт. Тараза аларды «Обновление» мүнөттөн кийин өзү алат же дароо — «Система и печать» → «Импорт данных». Таразадагы ар бир товардын коду — «ШКдагы код» тилкеси (демейки PLU).",
         "The till writes the ticked goods as a file into the scale's shared folder (Import\\PCScale.txt) and puts a flag file. The scale picks them up itself after “Update” minutes or right away — “System and printing” → “Import data”. Each product's code on the scale is the “Barcode code” column (PLU by default).",
@@ -93,26 +100,46 @@ public partial class ScalesPluWindow
         return await Task.Run(() => ShtrikhPcPictureConverter.ToBmp(bytes), ct).ConfigureAwait(false);
     }
 
+    /// <summary>«Главный экран: N товаров на M экранах (файл …). Чтобы увидеть изменения — «Конфигурация» → «Продолжение работы»…» — итог сценария главного экрана весов.</summary>
+    private static string ScenarioSummary(ShtrikhPcScenarioResult? r)
+    {
+        if (r is null || r.Status == ShtrikhPcScenarioStatus.Skipped)
+            return "";
+        if (r.Status == ShtrikhPcScenarioStatus.Failed)
+            return " ⚠ " + Tr.T($"Главный экран весов не обновлён (сценарий не записан: {r.Detail}).", $"Таразанын башкы экраны жаңыртылган жок (сценарий жазылган жок: {r.Detail}).",
+                $"The scale's main screen was not updated (the scenario was not written: {r.Detail}).", $"Tartının ana ekranı güncellenmedi (senaryo yazılamadı: {r.Detail}).", $"Tarozining bosh ekrani yangilanmadi (ssenariy yozilmadi: {r.Detail}).");
+        var backupRu = r.BackupPath is null ? "" : $" Прежний файл сохранён: {System.IO.Path.GetFileName(r.BackupPath)}.";
+        var backupKy = r.BackupPath is null ? "" : $" Мурунку файл сакталды: {System.IO.Path.GetFileName(r.BackupPath)}.";
+        var backupEn = r.BackupPath is null ? "" : $" The previous file was saved: {System.IO.Path.GetFileName(r.BackupPath)}.";
+        var backupTr = r.BackupPath is null ? "" : $" Önceki dosya kaydedildi: {System.IO.Path.GetFileName(r.BackupPath)}.";
+        var backupUz = r.BackupPath is null ? "" : $" Oldingi fayl saqlandi: {System.IO.Path.GetFileName(r.BackupPath)}.";
+        return " " + Tr.T($"Главный экран: {r.Products} товаров на {r.Screens} экранах (файл {r.Path}).{backupRu} Чтобы увидеть изменения: на весах «Система и печать» → «Конфигурация» → «Продолжение работы» (или перезапустите программу весов, если не обновилось).",
+            $"Башкы экран: {r.Screens} экранда {r.Products} товар (файл {r.Path}).{backupKy} Өзгөрүүнү көрүү үчүн: таразада «Система и печать» → «Конфигурация» → «Продолжение работы» (жаңыланбаса — таразанын программасын кайра иштетиңиз).",
+            $"Main screen: {r.Products} products on {r.Screens} screens (file {r.Path}).{backupEn} To see the change: on the scale “System and printing” → “Configuration” → “Continue work” (or restart the scale program if it did not update).",
+            $"Ana ekran: {r.Screens} ekranda {r.Products} ürün (dosya {r.Path}).{backupTr} Değişikliği görmek için: tartıda «Система и печать» → «Конфигурация» → «Продолжение работы» (güncellenmediyse tartı programını yeniden başlatın).",
+            $"Bosh ekran: {r.Screens} ta ekranda {r.Products} ta tovar (fayl {r.Path}).{backupUz} O‘zgarishni ko‘rish uchun: tarozida «Система и печать» → «Конфигурация» → «Продолжение работы» (yangilanmasa — tarozi dasturini qayta ishga tushiring).");
+    }
+
     /// <summary>«Картинки: M из K, без фото: L» — итог картинок выгрузки (для строки состояния и журнала).</summary>
     private static string PictureSummary(ShtrikhPcPictureStats? s)
     {
         if (s is null)
             return "";
-        var failedRu = s.Failed > 0 ? $", не получились: {s.Failed}" : "";
-        var failedKy = s.Failed > 0 ? $", болгон жок: {s.Failed}" : "";
-        var failedEn = s.Failed > 0 ? $", failed: {s.Failed}" : "";
-        var failedTr = s.Failed > 0 ? $", başarısız: {s.Failed}" : "";
-        var failedUz = s.Failed > 0 ? $", chiqmadi: {s.Failed}" : "";
         var lateRu = s.TimedOut > 0 ? $", не успели: {s.TimedOut} (догрузятся в следующий раз)" : "";
         var lateKy = s.TimedOut > 0 ? $", үлгүргөн жок: {s.TimedOut} (кийинки жолу жүктөлөт)" : "";
         var lateEn = s.TimedOut > 0 ? $", out of time: {s.TimedOut} (next time)" : "";
         var lateTr = s.TimedOut > 0 ? $", yetişmedi: {s.TimedOut} (sonraki sefer)" : "";
         var lateUz = s.TimedOut > 0 ? $", ulgurmadi: {s.TimedOut} (keyingi safar)" : "";
-        return " " + Tr.T($"Картинки: {s.WithPicture} из {s.Total}, без фото: {s.NoPhoto}{failedRu}{lateRu}.",
-            $"Сүрөттөр: {s.Total} ичинен {s.WithPicture}, сүрөтсүз: {s.NoPhoto}{failedKy}{lateKy}.",
-            $"Pictures: {s.WithPicture} of {s.Total}, no photo: {s.NoPhoto}{failedEn}{lateEn}.",
-            $"Resimler: {s.Total} içinden {s.WithPicture}, fotoğrafsız: {s.NoPhoto}{failedTr}{lateTr}.",
-            $"Rasmlar: {s.Total} dan {s.WithPicture}, rasmsiz: {s.NoPhoto}{failedUz}{lateUz}.");
+        var noTileRu = s.Placeholders == 0 && s.NoPhoto > 0 ? $", без фото и без плитки: {s.NoPhoto}" : "";
+        var noTileKy = s.Placeholders == 0 && s.NoPhoto > 0 ? $", сүрөтсүз жана плиткасыз: {s.NoPhoto}" : "";
+        var noTileEn = s.Placeholders == 0 && s.NoPhoto > 0 ? $", no photo and no tile: {s.NoPhoto}" : "";
+        var noTileTr = s.Placeholders == 0 && s.NoPhoto > 0 ? $", fotoğrafsız ve karosuz: {s.NoPhoto}" : "";
+        var noTileUz = s.Placeholders == 0 && s.NoPhoto > 0 ? $", rasmsiz va plitkasiz: {s.NoPhoto}" : "";
+        return " " + Tr.T($"Картинки: {s.WithPhoto} с фото, {s.Placeholders} заглушек, {s.Failed} не получились{noTileRu}{lateRu}.",
+            $"Сүрөттөр: {s.WithPhoto} сүрөт менен, {s.Placeholders} толтургуч, {s.Failed} болгон жок{noTileKy}{lateKy}.",
+            $"Pictures: {s.WithPhoto} with photo, {s.Placeholders} placeholders, {s.Failed} failed{noTileEn}{lateEn}.",
+            $"Resimler: {s.WithPhoto} fotoğraflı, {s.Placeholders} yer tutucu, {s.Failed} başarısız{noTileTr}{lateTr}.",
+            $"Rasmlar: {s.WithPhoto} foto bilan, {s.Placeholders} to‘ldirgich, {s.Failed} chiqmadi{noTileUz}{lateUz}.");
     }
 
     private async Task SendToShtrikhPcAsync(bool full = false)
@@ -156,14 +183,18 @@ public partial class ScalesPluWindow
         try
         {
             var (items, written, recordIds, problemCount) = BuildShtrikhPcItems(selectedIds, settings);
-            // Картинки товаров: на главном экране весов видны только товары с картинкой. Не больше ~2,5 минут на выгрузку, неизменившиеся не перекачиваются.
+            // Картинки товаров: плитки товаров на весах показывают картинку. Не больше ~2,5 минут на выгрузку, неизменившиеся не перекачиваются.
             var pictureProgress = new Progress<(int Done, int Total)>(p =>
             {
                 SetProgress(p.Done, p.Total);
                 StatusText.Text = Tr.T($"Картинки товаров: {p.Done} из {p.Total}…", $"Товар сүрөттөрү: {p.Total} ичинен {p.Done}…", $"Product pictures: {p.Done} of {p.Total}…", $"Ürün resimleri: {p.Done} / {p.Total}…", $"Tovar rasmlari: {p.Total} dan {p.Done}…");
             });
             var pictureStep = settings.SendPictures
-                ? ShtrikhPcPictures.CreateStep(LoadPictureBmpAsync, ShtrikhPcPictureState.Load(), TimeSpan.FromSeconds(150), TimeSpan.FromSeconds(25), pictureProgress)
+                ? ShtrikhPcPictures.CreateStep(LoadPictureBmpAsync, ShtrikhPcPictureState.Load(), TimeSpan.FromSeconds(150), TimeSpan.FromSeconds(25), pictureProgress,
+                    placeholder: settings.PlaceholderPictures
+                        ? new ShtrikhPcPlaceholder(item => ShtrikhPcPlaceholderRenderer.Render(item.Name, item.Code,
+                            settings.PlaceholderShowPrice ? ShtrikhPcImportWriter.FormatPrice(item.Price, settings.PriceDecimals, ".") : null), settings.PlaceholderShowPrice)
+                        : null)
                 : null;
             var result = await ShtrikhPcImportWriter.WriteAsync(items, settings, overwritePending: false, settings.MaxProductCode, CancellationToken.None, pictureStep).ConfigureAwait(true);
             if (result.Status == ShtrikhPcWriteStatus.PendingNotAccepted)
@@ -212,6 +243,12 @@ public partial class ScalesPluWindow
                         $"Tartı klasörüne yazıldı: {result.Written} (dosya {result.ImportPath}). Tartı ürünleri birkaç dakika içinde yükler (tartının «Обновление» ayarına göre, sizde 2) ya da hemen — «Система и печать» → «Импорт данных».",
                         $"Tarozi papkasiga yozildi: {result.Written} (fayl {result.ImportPath}). Tarozi tovarlarni bir necha daqiqada yuklaydi (tarozidagi «Обновление» sozlamasiga ko‘ra, sizda 2) yoki darhol — «Система и печать» → «Импорт данных».")
                     + PictureSummary(result.Pictures)
+                    + ScenarioSummary(result.Scenario)
+                    + (settings.QuickKeys && result.Written > 0 ? Tr.T($" Кнопки быстрого доступа: назначено {Math.Min(result.Written, settings.QuickKeyCount)} (применятся, если на весах в «Импорт» стоит галочка «Конфигурация»).",
+                        $" Тез жеткиликтүүлүк баскычтары: {Math.Min(result.Written, settings.QuickKeyCount)} дайындалды («Импорт» ичинде «Конфигурация» белгиси турса колдонулат).",
+                        $" Quick-access buttons: {Math.Min(result.Written, settings.QuickKeyCount)} assigned (applied if the scale's “Import” has the “Configuration” box ticked).",
+                        $" Hızlı erişim düğmeleri: {Math.Min(result.Written, settings.QuickKeyCount)} atandı (tartıda «Импорт»ta «Конфигурация» işaretliyse uygulanır).",
+                        $" Tez kirish tugmalari: {Math.Min(result.Written, settings.QuickKeyCount)} biriktirildi («Импорт» da «Конфигурация» belgisi turganda qo‘llanadi).") : "")
                     + (settings.ClearBase ? Tr.T(" В конце файла команда очистки базы: весы сначала сотрут свои товары.", " Файлдын аягында базаны тазалоо буйругу: тараза адегенде өзүнүн товарларын өчүрөт.", " The file ends with the clear-database command: the scale erases its goods first.", " Dosyanın sonunda veritabanı temizleme komutu var: tartı önce ürünlerini siler.", " Fayl oxirida bazani tozalash buyrug‘i bor: tarozi avval o‘z tovarlarini o‘chiradi.") : "")
                     + (_codeReplaceNote.Length > 0 ? _codeReplaceNote : "")
                     + (result.Warnings.Count > 0 ? " ⚠ " + string.Join(" · ", result.Warnings.Take(3)) + (result.Warnings.Count > 3 ? $" (+{result.Warnings.Count - 3})" : "") : "")

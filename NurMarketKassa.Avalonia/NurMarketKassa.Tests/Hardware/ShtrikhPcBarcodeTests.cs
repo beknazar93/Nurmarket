@@ -287,7 +287,8 @@ public sealed class ShtrikhPcBarcodeTests : IDisposable
             WeightBarcodeParser.CustomLayouts.Should().BeEmpty();
 
             ShtrikhPcSettings.Save(new ShtrikhPcSettings { BarcodeEnabled = true, CodeLength = 5 });
-            WeightBarcodeParser.CustomLayouts.Should().ContainSingle().Which.CodeLength.Should().Be(5);
+            WeightBarcodeParser.CustomLayouts.Should().HaveCount(2, "основная (27) и штучная/стоимостная (20)");
+            WeightBarcodeParser.CustomLayouts.Should().OnlyContain(l => l.CodeLength == 5);
         }
         finally
         {

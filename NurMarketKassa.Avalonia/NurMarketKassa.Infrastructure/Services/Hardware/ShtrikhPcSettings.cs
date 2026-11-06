@@ -53,6 +53,39 @@ public sealed class ShtrikhPcSettings
     /// <summary>Код ресурса «картинка» = смещение + код товара (по умолчанию 100000 + код): не пересекается с кодами прежней системы весов (6000+код) и кодами товаров.</summary>
     public int PictureOffset { get; set; } = 100_000;
 
+    /// <summary>Картинка-заглушка для товара без фото: плитка с названием (и кодом), рисуется кассой. Выключено — товар без фото остаётся без картинки.</summary>
+    public bool PlaceholderPictures { get; set; } = true;
+
+    /// <summary>Показывать цену на плитке-заглушке (внизу, рядом с кодом).</summary>
+    public bool PlaceholderShowPrice { get; set; }
+
+    /// <summary>Обновлять ГЛАВНЫЙ ЭКРАН весов: пересобирать сценарий самообслуживания (<c>SelfScenario\&lt;файл&gt;.ssc</c>) из выгруженных товаров. Главный экран РС-200 строится из сценария,
+    /// а не из всей базы: без этого после выгрузки с другими кодами экран пуст. Включено по умолчанию.</summary>
+    public bool UpdateScenario { get; set; } = true;
+
+    /// <summary>Файл сценария (на весах выбран параметром 952, у владельца — Semya.ssc). Другое имя — тогда его надо выбрать на весах: Конфигурация → Самообслуживание → «Файл сценария».</summary>
+    public string ScenarioFile { get; set; } = ShtrikhPcScenarioWriter.DefaultFileName;
+
+    /// <summary>Папка сценариев внутри папки обмена (параметр 951, по умолчанию SelfScenario).</summary>
+    public string ScenarioFolder { get; set; } = ShtrikhPcScenarioWriter.DefaultFolder;
+
+    /// <summary>На главный экран — только товары, у которых есть картинка (фото или плитка-заглушка). Выключено — все выгруженные.</summary>
+    public bool ScenarioOnlyWithPicture { get; set; }
+
+    /// <summary>Предел товаров в сценарии (по 29–30 на экран): защита от сотен экранов. По умолчанию 300 (около 11 экранов).</summary>
+    public int ScenarioMaxProducts { get; set; } = 300;
+
+    /// <summary>Назначить товары на кнопки быстрого доступа весов (параметры конфигурации 2001…2360, строки «&lt;N» в файле импорта). Главный экран весов — это кнопки быстрого
+    /// доступа (по 18 на экран): товар, не назначенный ни на одну кнопку, находится только поиском. Касса пишет эти строки всегда, но весы применяют их, только если в
+    /// «Конфигурация → База данных → Импорт» стоит галочка «Конфигурация» (параметр 814 = 1).</summary>
+    public bool QuickKeys { get; set; }
+
+    /// <summary>Сколько кнопок быстрого доступа заполнять (по умолчанию 54 = 3 виртуальных экрана по 18; на весах «Число экранов» — параметр 402, по умолчанию 3). Лишние кнопки очищаются (0).</summary>
+    public int QuickKeyCount { get; set; } = 54;
+
+    /// <summary>Номер параметра конфигурации кнопки быстрого доступа №1 (кнопка N = 2000 + N, до 2360).</summary>
+    public const int QuickKeyFirstParam = 2001;
+
     public string ImportFile { get; set; } = DefaultImportFile;
     public string FlagFile { get; set; } = DefaultFlagFile;
     public string ExportFile { get; set; } = DefaultExportFile;
@@ -88,6 +121,19 @@ public sealed class ShtrikhPcSettings
     /// <summary>«КС кода товара» — последняя цифра поля кода = младший разряд суммы остальных цифр.</summary>
     public bool CodeChecksum { get; set; }
 
+    /// <summary>2026-11-06 (фото этикетки «Алма» с весов владельца: 2000002007432 = префикс 20, код 00002, стоимость 7,43): на одних весах могут печататься этикетки двух видов —
+    /// весовые (префикс 27, «Код-Вес») и «штучные/стоимостные» (параметры весов 304 и 306: префикс 20, «Код-Стоимость»). Касса читает обе раскладки сразу.
+    /// Число знаков кода и КС у них общие (параметры 307 и 308).</summary>
+    public bool PieceBarcodeEnabled { get; set; } = true;
+
+    /// <summary>«Префикс штучного товара» (параметр 304; по умолчанию на весах 21, у владельца 20). Не должен совпадать с префиксом весового.</summary>
+    public int PiecePrefix { get; set; } = 20;
+
+    /// <summary>«Формат штучного товара» (параметр 306): здесь только форматы со стоимостью — «Код-Стоимость» (по умолчанию) или «Стоимость-Код».</summary>
+    public string PieceFormat { get; set; } = FormatCodeAmount;
+
+    public static readonly string[] PieceFormats = { FormatCodeAmount, FormatAmountCode };
+
     [JsonIgnore]
     public bool CodeFirst => BarcodeFormat is FormatCodeWeight or FormatCodeAmount;
     [JsonIgnore]
@@ -117,6 +163,10 @@ public sealed class ShtrikhPcSettings
         ExportFile = string.IsNullOrWhiteSpace(ExportFile) ? DefaultExportFile : ExportFile.Trim();
         ScaleNumber = Math.Clamp(ScaleNumber, 1, 999);
         PictureOffset = Math.Clamp(PictureOffset, 0, 900_000);
+        QuickKeyCount = Math.Clamp(QuickKeyCount, 1, 360);
+        ScenarioMaxProducts = Math.Clamp(ScenarioMaxProducts, 1, 3000);
+        ScenarioFile = ShtrikhPcScenarioWriter.SafeFileName(ScenarioFile);
+        ScenarioFolder = string.IsNullOrWhiteSpace(ScenarioFolder) || ScenarioFolder.IndexOfAny(new[] { '/', ':', '*', '?', '"', '<', '>', '|' }) >= 0 ? ShtrikhPcScenarioWriter.DefaultFolder : ScenarioFolder.Trim().Trim('\\');
         PriceDecimals = Math.Clamp(PriceDecimals, 0, 3);
         if (LineStyle is not (LineSpace or LineGlued or LineSemicolon))
             LineStyle = LineSpace;
@@ -127,6 +177,9 @@ public sealed class ShtrikhPcSettings
             CodeChecksum = false;
         if (!Formats.Contains(BarcodeFormat))
             BarcodeFormat = FormatCodeWeight;
+        PiecePrefix = Math.Clamp(PiecePrefix, 20, 29);
+        if (!PieceFormats.Contains(PieceFormat))
+            PieceFormat = FormatCodeAmount;
         return this;
     }
 
@@ -138,6 +191,24 @@ public sealed class ShtrikhPcSettings
         ByAmount ? WeightBarcodeValueKind.Amount : WeightBarcodeValueKind.Weight,
         CodeChecksum,
         PriceDecimals);
+
+    /// <summary>Раскладка «штучных/стоимостных» этикеток (префикс 20, «Код-Стоимость»): те же число знаков кода, КС и знаков цены, что у весовой.</summary>
+    public WeightBarcodeCustomLayout ToPieceLayout() => new(
+        PiecePrefix.ToString("00", System.Globalization.CultureInfo.InvariantCulture),
+        CodeLength,
+        PieceFormat == FormatCodeAmount,
+        WeightBarcodeValueKind.Amount,
+        CodeChecksum,
+        PriceDecimals);
+
+    /// <summary>Все раскладки, которые касса читает для весов РС-200: основная и (если включена и префикс другой) штучная.</summary>
+    public IReadOnlyList<WeightBarcodeCustomLayout> ToLayouts()
+    {
+        var list = new List<WeightBarcodeCustomLayout> { ToLayout() };
+        if (PieceBarcodeEnabled && PiecePrefix != BarcodePrefix)
+            list.Add(ToPieceLayout());
+        return list;
+    }
 
     /// <summary>Наибольший код товара, помещающийся в этикетку по текущей раскладке (не больше 999999 — предел поля «Код» БД весов).</summary>
     [JsonIgnore]
@@ -187,7 +258,7 @@ public sealed class ShtrikhPcSettings
     {
         var settings = Current;
         WeightBarcodeParser.CustomLayouts = settings.BarcodeEnabled
-            ? new[] { settings.ToLayout() }
+            ? settings.ToLayouts().ToArray()
             : Array.Empty<WeightBarcodeCustomLayout>();
     }
 }

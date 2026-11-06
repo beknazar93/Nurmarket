@@ -48,6 +48,8 @@
     <Compile Include="..\NurMarketKassa.Avalonia\Services\ScaleBarcodeRules.cs" Link="Linked\ScaleBarcodeRules.cs" />
     <!-- 2026-11-06: картинка товара → BMP 288×288 для весов РС-200 (Skia, без Avalonia) — файл приложения, тестируется ссылкой. -->
     <Compile Include="..\NurMarketKassa.Avalonia\Services\ShtrikhPcPictureConverter.cs" Link="Linked\ShtrikhPcPictureConverter.cs" />
+    <!-- 2026-11-06: плитка-заглушка для товара без фото (Skia, без Avalonia) — файл приложения, тестируется ссылкой. -->
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\ShtrikhPcPlaceholderRenderer.cs" Link="Linked\ShtrikhPcPlaceholderRenderer.cs" />
   </ItemGroup>
 
   <ItemGroup>

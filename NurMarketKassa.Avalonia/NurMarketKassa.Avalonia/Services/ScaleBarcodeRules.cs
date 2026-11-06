@@ -250,6 +250,10 @@ internal static class ScaleBarcodeRules
         var prefix = settings.BarcodePrefix.ToString("00", CultureInfo.InvariantCulture);
         if (settings.BarcodeEnabled && prefix is not ("20" or "25"))
             Apply(prefix, settings.ByAmount ? WeightBarcodeValueKind.Amount : WeightBarcodeValueKind.Weight);
+        // 2026-11-06: штучные/стоимостные этикетки тех же весов (префикс 20 «Код-Стоимость») — сумма; префиксы 20 и 25 касса не переспрашивает, остальные отмечаем явно.
+        var piece = settings.PiecePrefix.ToString("00", CultureInfo.InvariantCulture);
+        if (settings.BarcodeEnabled && settings.PieceBarcodeEnabled && settings.PiecePrefix != settings.BarcodePrefix && piece is not ("20" or "25"))
+            Apply(piece, WeightBarcodeValueKind.Amount);
         UserPreferences.Instance.SaveToDisk();
     }
 

@@ -29,7 +29,7 @@ public sealed class ShtrikhPcImportWriterTests : IDisposable
     /// <summary>Настройки с общей папкой весов; папка «Shared» уже есть (на весах она есть всегда), подпапку «Import» создаёт касса.</summary>
     private ShtrikhPcSettings Settings(Action<ShtrikhPcSettings>? tweak = null, bool createFolder = true)
     {
-        var s = new ShtrikhPcSettings { Folder = Path.Combine(_root, "Shared") };
+        var s = new ShtrikhPcSettings { Folder = Path.Combine(_root, "Shared"), QuickKeys = false }; // строки «<N» проверяются в ShtrikhPcQuickKeysTests
         if (createFolder)
             Directory.CreateDirectory(s.Folder);
         tweak?.Invoke(s);

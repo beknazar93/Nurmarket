@@ -42,10 +42,10 @@ public enum ShtrikhPcFolderCheck
     Failed,
 }
 
-public sealed record ShtrikhPcBuildResult(string Text, int Written, IReadOnlyList<string> Warnings);
+public sealed record ShtrikhPcBuildResult(string Text, int Written, IReadOnlyList<string> Warnings, int QuickKeys = 0, IReadOnlyList<ShtrikhPcItem>? Items = null);
 
 public sealed record ShtrikhPcWriteResult(ShtrikhPcWriteStatus Status, int Written, IReadOnlyList<string> Warnings, string ImportPath, string FlagPath, string? Detail,
-    ShtrikhPcPictureStats? Pictures = null);
+    ShtrikhPcPictureStats? Pictures = null, ShtrikhPcScenarioResult? Scenario = null);
 
 /// <summary>2026-11-06: писатель файла импорта для весов «ШТРИХ РС-200С2» (руководство администратора, п. 6.2.1 «Структура БД товаров», п. 8.1 «Импорт данных»).
 /// Файл — текст в Windows-1251, строки через CRLF: строка 1 «##@@&amp;&amp;», строка 2 «#» (не обработан; после обработки весы меняют её на «@»), далее строки
@@ -174,6 +174,18 @@ public static class ShtrikhPcImportWriter
         return head + string.Join(";", f);
     }
 
+    /// <summary>Строка конфигурации «&lt;N» (руководство, п. 6.3): номер параметра, «;», значение. Начало строки — как у «&lt;D». Применяется весами только при включённом импорте конфигурации.</summary>
+    public static string BuildConfigLine(int parameter, long value, ShtrikhPcSettings settings)
+    {
+        var head = settings.LineStyle switch
+        {
+            ShtrikhPcSettings.LineGlued => "<N",
+            ShtrikhPcSettings.LineSemicolon => "<N;",
+            _ => "<N ",
+        };
+        return head + parameter.ToString(CultureInfo.InvariantCulture) + ";" + value.ToString(CultureInfo.InvariantCulture);
+    }
+
     /// <summary>Собирает весь текст файла. Повторные коды и коды вне 1…<paramref name="maxCode"/> отбрасываются с предупреждением.</summary>
     public static ShtrikhPcBuildResult Build(IEnumerable<ShtrikhPcItem> items, ShtrikhPcSettings settings, long maxCode = MaxCode)
     {
@@ -182,6 +194,8 @@ public static class ShtrikhPcImportWriter
         var warnings = new List<string>();
         var lines = new List<string>();
         var resourceLines = new List<string>();
+        var writtenCodes = new List<long>();
+        var acceptedItems = new List<ShtrikhPcItem>();
         var seen = new HashSet<long>();
         var seenResources = new HashSet<long>();
         foreach (var item in items)
@@ -215,6 +229,8 @@ public static class ShtrikhPcImportWriter
                 continue;
             }
             lines.Add(BuildLine(item, settings, price));
+            writtenCodes.Add(item.Code);
+            acceptedItems.Add(item);
             if (item.PictureResource > 0 && !string.IsNullOrEmpty(item.PictureFile) && seenResources.Add(item.PictureResource))
                 resourceLines.Add(BuildResourceLine(item.PictureResource, item.PictureFile, settings));
         }
@@ -227,10 +243,19 @@ public static class ShtrikhPcImportWriter
             sb.Append(line).Append("\r\n");
         foreach (var line in lines)
             sb.Append(line).Append("\r\n");
+        // Кнопки быстрого доступа (главный экран весов): кнопка N = параметр 2000 + N, значение — код товара, 0 — пустая кнопка. Лишние кнопки очищаются,
+        // иначе после полной выгрузки они указывают на коды прежней системы (48002 …), которых в базе больше нет, и экран пуст.
+        var quickKeys = 0;
+        if (settings.QuickKeys && writtenCodes.Count > 0)
+        {
+            quickKeys = Math.Min(writtenCodes.Count, settings.QuickKeyCount);
+            for (var key = 0; key < settings.QuickKeyCount; key++)
+                sb.Append(BuildConfigLine(ShtrikhPcSettings.QuickKeyFirstParam + key, key < writtenCodes.Count ? writtenCodes[key] : 0, settings)).Append("\r\n");
+        }
         // Команды — строго в последних строках; весы выполняют их ДО загрузки данных (руководство, п. 8.1.1).
         if (settings.ClearBase)
             sb.Append(ClearCommand).Append("\r\n");
-        return new ShtrikhPcBuildResult(sb.ToString(), lines.Count, warnings);
+        return new ShtrikhPcBuildResult(sb.ToString(), lines.Count, warnings, quickKeys, acceptedItems);
     }
 
     // ------------------------------------------------------------------ пути и папка
@@ -423,7 +448,25 @@ public static class ShtrikhPcImportWriter
                 Directory.CreateDirectory(Path.GetDirectoryName(flagPath)!);
                 using var _ = new FileStream(flagPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete); // пустой флаг-файл
             }, ct).ConfigureAwait(false);
-            return new ShtrikhPcWriteResult(ShtrikhPcWriteStatus.Ok, build.Written, build.Warnings, importPath, flagPath, null, pictureStats);
+            // Главный экран весов — сценарий самообслуживания: пересобираем его из выгруженных товаров (только после удачной записи файла импорта).
+            ShtrikhPcScenarioResult? scenario = null;
+            if (settings.UpdateScenario && build.Items is { Count: > 0 } accepted)
+            {
+                var onScreen = settings.ScenarioOnlyWithPicture ? accepted.Where(i => i.PictureResource > 0) : accepted;
+                try
+                {
+                    scenario = await ShtrikhPcScenarioWriter.WriteAsync(onScreen.Select(i => i.Code).ToList(), settings, null, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Весы Штрих РС: сценарий главного экрана не записан ({ex.GetType().Name}: {ex.Message}).", "SCALES");
+                }
+            }
+            return new ShtrikhPcWriteResult(ShtrikhPcWriteStatus.Ok, build.Written, build.Warnings, importPath, flagPath, null, pictureStats, scenario);
         }
         catch (OperationCanceledException)
         {

@@ -13,6 +13,9 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Весы «Штрих РС-200»: главный экран: Главный экран весов теперь собирается автоматически из выгруженных товаров (сценарий самообслуживания); для товаров без фото рисуются картинки-заглушки.",
+        "Две раскладки этикеток: Касса читает две раскладки этикеток весов: префикс 27 «Код-Вес» и префикс 20 «Код-Стоимость».",
+        "Папка весов: Вход в папку весов с логином web-scale1\\kassa и «Полная выгрузка с очисткой»; в мастере подключения объяснено, где что настроить на весах.",
         "Суммы в программе владельца: Срочно: в таблицах «Продажи» и «Финансы» колонка «Сумма» (и «Выручка» в «Топе» и «Смены») показывала 0,00 — исправлено (ошибка появилась в 1.17.73).",
         "Оплата долга: После частичного возврата долговой чек больше не пропадает из «Непогашенных»; касса, запущенная без интернета, сама подгружает данные компании после возврата связи и принимает оплату долга.",
         "Ревизия: Штрихкод упаковки больше не считается за 1 штуку.",
@@ -198,6 +201,9 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "«Штрих РС-200» таразасы: башкы экран: Таразанын башкы экраны эми жүктөлгөн товарлардан автоматтык түрдө курулат (өзүн-өзү тейлөө сценарийи); сүрөтү жок товарларга толтургуч сүрөттөр тартылат.",
+        "Этикетканын эки түзүлүшү: Касса таразанын этикеткаларынын эки түзүлүшүн окуйт: 27 префикси «Код-Салмак» жана 20 префикси «Код-Сумма».",
+        "Тараза папкасы: Тараза папкасына web-scale1\\kassa логини менен кирүү жана «Тазалоо менен толук чыгаруу»; туташтыруу устасында таразада эмнени кайдан жөндөө керектиги түшүндүрүлөт.",
         "Ээсинин программасындагы суммалар: Шашылыш: «Сатуулар» жана «Финансы» таблицаларында «Сумма» мамычасы («Топ» жана «Смендер» бөлүмдөрүндөгү «Түшүм» да) 0,00 көрсөтүп жатты — оңдолду (ката 1.17.73 версиясында пайда болгон).",
         "Карызды төлөө: Жарым-жартылай кайтаруудан кийин карыз чеги «Төлөнө элек» тизмесинен жоголбойт; интернетсиз ишке киргизилген касса байланыш кайтканда компаниянын маалыматтарын өзү жүктөйт жана карыз төлөмүн кабыл алат.",
         "Ревизия: Таңгактын штрихкоду эми 1 даана деп саналбайт.",
@@ -381,6 +387,9 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "“Shtrikh RS-200” scales: main screen: The scale's main screen is now built automatically from the uploaded products (self-service scenario); placeholder pictures are drawn for products without a photo.",
+        "Two label layouts: The till reads two layouts of the scale's labels: prefix 27 “Code-Weight” and prefix 20 “Code-Amount”.",
+        "Scales folder: Signing in to the scales folder as web-scale1\\kassa and “Full upload with clearing”; the connection wizard explains what to set up on the scales and where.",
         "Totals in the owner program: Urgent: in the “Sales” and “Finance” tables the “Amount” column (and “Revenue” in “Top” and “Shifts”) showed 0.00 — fixed (the bug appeared in 1.17.73).",
         "Paying a debt: After a partial return a debt receipt no longer disappears from “Unpaid”; a till started without internet loads the company data by itself once the connection returns and accepts a debt payment.",
         "Stock count: A pack barcode is no longer counted as 1 piece.",
@@ -564,6 +573,9 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "«Shtrih RS-200» terazisi: ana ekran: Tartının ana ekranı artık yüklenen ürünlerden otomatik kurulur (self-servis senaryosu); fotoğrafsız ürünler için yer tutucu resimler çizilir.",
+        "İki etiket düzeni: Kasa terazi etiketlerinin iki düzenini okur: 27 öneki «Kod-Ağırlık» ve 20 öneki «Kod-Tutar».",
+        "Terazi klasörü: Terazi klasörüne web-scale1\\kassa kullanıcısıyla giriş ve «Temizlemeli tam yükleme»; bağlantı sihirbazı teraziden nelerin nerede ayarlanacağını açıklar.",
         "Sahip programında tutarlar: Acil: «Satışlar» ve «Finans» tablolarında «Tutar» sütunu («Top» ve «Vardiyalar»daki «Ciro» da) 0,00 gösteriyordu — düzeltildi (hata 1.17.73'te ortaya çıkmıştı).",
         "Borç ödemesi: Kısmi iadeden sonra borç fişi artık «Ödenmemiş» listesinden kaybolmaz; internetsiz başlatılan kasa bağlantı gelince şirket verilerini kendisi yükler ve borç ödemesini kabul eder.",
         "Sayım: Paket barkodu artık 1 adet sayılmaz.",
@@ -747,6 +759,9 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "«Shtrix RS-200» tarozisi: bosh ekran: Tarozining bosh ekrani endi yuklangan tovarlardan avtomatik quriladi (o'z-o'ziga xizmat ssenariysi); rasmsiz tovarlar uchun to'ldirgich rasmlar chiziladi.",
+        "Ikki yorliq tuzilishi: Kassa tarozi yorliqlarining ikki tuzilishini o'qiydi: 27 prefiks «Kod-Vazn» va 20 prefiks «Kod-Summa».",
+        "Taroziga papkasi: Tarozi papkasiga web-scale1\\kassa logini bilan kirish va «Tozalash bilan to'liq yuklash»; ulash ustasida tarozida nima va qayerda sozlanishi tushuntiriladi.",
         "Egasi dasturidagi summalar: Shoshilinch: «Sotuvlar» va «Moliya» jadvallarida «Summa» ustuni («Top» va «Smenalar»dagi «Tushum» ham) 0,00 ko'rsatayotgan edi — tuzatildi (xato 1.17.73 da paydo bo'lgan).",
         "Qarzni to'lash: Qisman qaytarishdan keyin qarz cheki «To'lanmagan» ro'yxatidan yo'qolmaydi; internetsiz ishga tushirilgan kassa aloqa qaytgach kompaniya ma'lumotlarini o'zi yuklaydi va qarz to'lovini qabul qiladi.",
         "Reviziya: O'ramning shtrix-kodi endi 1 dona deb hisoblanmaydi.",
@@ -935,6 +950,7 @@ public static class AppChangelog
     // 2026-11-05: 1.17.76 (добавка) — сверху всех Latest* пункты «Весы: единица суммы в штрихкоде» и «Внешние сервисы», сверху AndroidLatest* — «Внешние сервисы».
     // 2026-11-06: 1.17.77 (добавка) — первым пунктом всех Latest* и AndroidLatest* «Загрузка каталога» (срочный фикс Б-1).
     // 2026-11-06: 1.17.77 (добавка 3, тестовый канал) — после пункта «Загрузка каталога» в Latest*: приёмка без связи, «Неотправленное», защита входа, возврат долгового чека, окно оплаты, быстрее запуск, картинки/ИИ, наценка приёмки, программа владельца; в AndroidLatest* — первые шесть.
+    // 2026-11-06: 1.17.80 (тестовый, только весы «Штрих РС-200») — сверху всех Latest* 3 пункта (главный экран весов, две раскладки этикеток, папка весов); AndroidLatest* без изменений (на Android весов РС-200 нет).
     // 2026-11-06: 1.17.79 — сверху всех Latest* 10 пунктов (суммы в программе владельца, оплата долга, ревизия, прокат, смена, запуск и поиск, склад, весы РС-200, программа владельца, просроченный товар), сверху AndroidLatest* — 7 общих.
     // 2026-11-06: 1.17.78 — сверху всех Latest* 7 пунктов (этикетки размеров, весы Штрих РС-200, экран не «прыгает», Склад: код/штрихкод, возврат долгового чека, надёжность, PIN при запуске), сверху AndroidLatest* — 4 общих.
     // 2026-11-06: 1.17.77 — сверху всех Latest* и AndroidLatest* пункт «Исправлено по независимому аудиту» (аудит №5), в AndroidLatest* ещё «Android».
