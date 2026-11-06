@@ -75,9 +75,30 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// Пока ключ жив (до 10 минут или до выяснения), другой возврат по этому чеку (иное количество = иной ключ) не отправляем: сервер мог провести оба.</summary>
     private static (string SaleId, string Key)? _unresolvedReturn;
 
+    /// <summary>2026-11-06 (Б-2): снимок выбранного чека на момент загрузки (до отправки возврата) — после ошибки сервера чек сравнивается с ним (ReturnSnapshot).</summary>
+    private ReturnSnapshot? _saleSnapshot;
+
+    /// <summary>2026-11-06 (Б-2): сервер ответил ошибкой, а перечитать чек не удалось — мог провести. Возврат по этому чеку не даём, пока окно не прочитало чек заново (FillLinesFromSale).</summary>
+    private string? _returnUnknownSaleId;
+
+    /// <summary>2026-11-06 (Б-2): после возврата долгового чека сверить долг клиента с ожидаемым (пересчёт сервера) — по свежему чеку в RefreshCurrentSaleAsync.</summary>
+    private (string SaleId, ReturnSnapshot Before, bool Partial, decimal DebtReduced)? _pendingDebtCheck;
+
     /// <summary>true — по чеку есть неясный возврат, а этот (подпись <paramref name="signature"/>) — не его повтор; кассиру показан текст.</summary>
     private bool BlockedByUnresolvedReturn(string saleId, string signature)
     {
+        if (string.Equals(_returnUnknownSaleId, saleId, StringComparison.OrdinalIgnoreCase))
+        {
+            // 2026-11-06 (Б-2): сервер ответил ошибкой, чек перечитать не удалось — возврат мог пройти; повтор запрещён до обновления окна.
+            PosMessageBox.Show(this, Tr.T(
+                    "Прошлый возврат по этому чеку не выяснен: сервер ответил ошибкой, но мог его провести, а чек перечитать не удалось. Не оформляйте возврат повторно — закройте и откройте окно возврата, когда появится связь, и проверьте чек.",
+                    "Бул чек боюнча мурунку кайтаруу такталган жок: сервер ката менен жооп берди, бирок аны жүргүзгөн болушу мүмкүн, чекти кайра окуу мүмкүн болгон жок. Кайра тариздебеңиз — байланыш пайда болгондо кайтаруу терезесин жаап-ачып, чекти текшериңиз.",
+                    "The previous return for this receipt is unresolved: the server answered with an error but may have processed it, and the receipt could not be re-read. Do not repeat the return — close and reopen the return window when the connection is back, and check the receipt.",
+                    "Bu fişteki önceki iade belirsiz: sunucu hata ile yanıt verdi ama işlemiş olabilir, fiş yeniden okunamadı. İadeyi tekrarlamayın — bağlantı gelince iade penceresini kapatıp açın ve fişi kontrol edin.",
+                    "Bu chek bo'yicha oldingi qaytarish aniqlanmadi: server xato bilan javob berdi, lekin o'tkazgan bo'lishi mumkin, chekni qayta o'qib bo'lmadi. Qayta rasmiylashtirmang — aloqa tiklangach qaytarish oynasini yopib qayta oching va chekni tekshiring."),
+                Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return true;
+        }
         if (_unresolvedReturn is not { } u || !string.Equals(u.SaleId, saleId, StringComparison.OrdinalIgnoreCase)
             || !string.Equals(PendingReturn.PeekKey, u.Key, StringComparison.Ordinal) || PendingReturn.Matches(signature))
             return false;
@@ -948,6 +969,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     {
         Lines.Clear();
         _stockUnitsPerQty.Clear();
+        // 2026-11-06 (Б-2): снимок чека «до возврата»; чек прочитан заново — снимается и запрет повтора после неясного ответа.
+        _saleSnapshot = sale.ValueKind == JsonValueKind.Object ? ReturnSnapshot.From(sale) : null;
+        if (string.Equals(_returnUnknownSaleId, _currentSaleId, StringComparison.OrdinalIgnoreCase))
+            _returnUnknownSaleId = null;
         _currentSaleTotal = sale.ValueKind == JsonValueKind.Object
                             && sale.TryGetProperty("total", out var saleTotalEl)
                             && decimal.TryParse(saleTotalEl.ValueKind == JsonValueKind.String ? saleTotalEl.GetString() : saleTotalEl.GetRawText(),
@@ -1321,6 +1346,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         // 2026-10-16, ревью: сколько было к возврату по строкам до отправки — для сверки, если ответ не дойдёт.
         var refundableBefore = RefundableByLine(selected);
         var outcomeUnknown = false;
+        ApiException? debtLineRefusal = null; // 2026-11-06 (Б-2): сервер ответил «Долг нельзя указывать в строках оплаты», а возврат мог провести — выясняем по чеку
         IsBusy = true;
 
         try
@@ -1396,6 +1422,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // Частичный возврат баллы не трогает: сервер не делит начисление по позициям.
             var returnedEverything = selected.Count == Lines.Count(x => x.CanReturn)
                 && selected.All(l => l.Quantity >= l.MaxReturnQuantity - 1e-6);
+            if (debtSaleForDrawer)
+                NoteDebtCheck(saleId, partial: !returnedEverything, outcome.DebtReduced); // 2026-11-06 (Б-1/Б-2): долг клиента сверяется со свежим чеком в RefreshCurrentSaleAsync
             if (returnedEverything)
             {
                 try
@@ -1448,6 +1476,13 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             outcomeUnknown = PendingReturn.OnError(ex);
             PosMessageBox.Show(this, ex.Message, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+        catch (ApiException ex) when (OfflineRejection.IsDebtPaymentLineRefusal(ex))
+        {
+            // 2026-11-06 (живой тест Этапа 1, Б-2): сервер ceba67c на частичный возврат долгового чека отвечает 400 «Долг нельзя указывать в строках оплаты», но возврат проводит.
+            // Ошибку кассиру не показываем и ключ не трогаем: ниже касса перечитывает чек и говорит «возврат уже проведён» (повторять нельзя) либо «не проведён» (с текстом сервера).
+            PosLogger.Log($"Возврат по продаже {saleId}: сервер ответил «{ex.Message}» — проверяем по чеку, проведён ли возврат.", "WARNING");
+            debtLineRefusal = ex;
+        }
         catch (ApiException ex)
         {
             // 2026-10-16, ревью: 4xx (кроме 408/429) — ключ забыт; иначе исход неизвестен, ключ оставлен для повтора.
@@ -1481,11 +1516,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         }
 
         // 2026-10-16, ревью: ответ не дошёл — сервер мог провести возврат; сверяем по чеку (см. ReportReturnIfAppliedAsync).
-        if (outcomeUnknown)
+        if (outcomeUnknown || debtLineRefusal is not null)
             await ReportReturnIfAppliedAsync(saleId, refundableBefore, total,
                 reverseLoyalty: selected.Count == Lines.Count(x => x.CanReturn)
                                 && selected.All(l => l.Quantity >= l.MaxReturnQuantity - 1e-6),
-                returnedLines: selected, isDefect: isDefect).ConfigureAwait(true);
+                returnedLines: selected, isDefect: isDefect, serverRefusal: debtLineRefusal).ConfigureAwait(true);
         await RefreshCurrentSaleAsync(saleId).ConfigureAwait(true);
     }
 
@@ -1904,9 +1939,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // 2026-11-01 (живая регрессия, Р-5): оплаты долга наличными записаны на этой кассе (журнал событий смены) — их способ известен, «неизвестно» не пишем.
             if (money - prepaidMoney > 0.005m && !(localDebtCash is { } paidHereCash && paidHereCash >= money - prepaidMoney - 0.009m))
                 splitKnown = false;
-            cash = cashShareLeft + nonCashShareLeft > 0m
-                ? Math.Round(prepaidMoney * cashShareLeft / (cashShareLeft + nonCashShareLeft), 2, MidpointRounding.AwayFromZero)
-                : prepaidMoney;
+            // 2026-11-06: В2 Л4-16 — доля «наличные/безнал» — единая формула RefundSplit (общая с офлайн-планом возврата).
+            cash = RefundSplit.Split(prepaidMoney, cashShareLeft, nonCashShareLeft).Cash;
             cash += money - prepaidMoney;
             nonCash = money - cash;
         }
@@ -1920,8 +1954,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                     nonCash = 0m;
                     break;
                 case "mixed" or "split" when ledger is not null && ledger.CashLeft + ledger.NonCashLeft > 0m:
-                    cash = Math.Min(amount, Math.Round(amount * ledger.CashLeft / (ledger.CashLeft + ledger.NonCashLeft), 2, MidpointRounding.AwayFromZero));
-                    nonCash = amount - cash;
+                    (cash, nonCash) = RefundSplit.Split(amount, ledger.CashLeft, ledger.NonCashLeft); // 2026-11-06: В2 Л4-16 — единая формула
                     break;
                 case "mixed" or "split" or "":
                     // Касса не знает, как заплатили (чек до возвратов не видела) — одна сумма, как раньше.
@@ -2228,22 +2261,13 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// <summary>2026-10-16, ревью: сколько было к возврату по строкам чека (id строки → количество) перед отправкой.</summary>
     private static Dictionary<string, double> RefundableByLine(IEnumerable<ReturnSaleLineVm> lines) =>
         lines.DistinctBy(l => l.LineId, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(l => l.LineId, l => l.Quantity, StringComparer.OrdinalIgnoreCase);
+            // 2026-11-06 (Б-2): было l.Quantity — у копии строки возврата это количество К ВОЗВРАТУ (1 из 2), и «стало меньше, чем было» никогда не срабатывало; нужно, сколько было к возврату (2).
+            .ToDictionary(l => l.LineId, l => l.MaxReturnQuantity, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>2026-10-16, ревью: возврат (или обмен — ExchangeWindow) уже есть на сервере — чек отменён целиком или по
     /// какой-то из отправленных строк к возврату осталось меньше, чем было перед отправкой.</summary>
-    internal static bool LinesReturnedSince(JsonElement sale, IReadOnlyDictionary<string, double> refundableBefore)
-    {
-        if (sale.ValueKind != JsonValueKind.Object)
-            return false;
-        if (sale.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.String
-            && status.GetString()?.Trim().ToLowerInvariant() is "canceled" or "cancelled" or "returned" or "refunded")
-            return true;
-        return CartDisplayHelper.EnumerateSaleLineItems(sale).Any(item =>
-            CartDisplayHelper.TryRefundLineId(item) is { } lineId
-            && refundableBefore.TryGetValue(lineId, out var before) && before > 0
-            && (CartDisplayHelper.LineLooksFullyReturned(item) || CartDisplayHelper.RefundableQuantity(item) < before - 1e-6));
-    }
+    internal static bool LinesReturnedSince(JsonElement sale, IReadOnlyDictionary<string, double> refundableBefore) =>
+        ReturnProbe.LinesReturnedSince(sale, refundableBefore); // 2026-11-06: тело перенесено в Infrastructure (ReturnProbe) — там оно проверяется тестами
 
     /// <summary>2026-10-16, ревью: возврат кончился без ответа сервера (таймаут, обрыв, 5xx) — сервер мог его провести.
     /// Перечитываем чек (LinesReturnedSince). Прошёл — ключ забываем (следующий возврат того же состава — новая
@@ -2252,7 +2276,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     /// тем же ключом, и сервер вернёт прежний итог. Чек возврата здесь не печатается.</summary>
     /// <param name="returnedLines">2026-10-20 (К8): строки этого возврата — для остатка каталога (брак — нет).</param>
     private async Task ReportReturnIfAppliedAsync(string saleId, IReadOnlyDictionary<string, double> refundableBefore,
-        decimal estimate, bool reverseLoyalty, bool whole = false, IReadOnlyList<ReturnSaleLineVm>? returnedLines = null, bool isDefect = false)
+        decimal estimate, bool reverseLoyalty, bool whole = false, IReadOnlyList<ReturnSaleLineVm>? returnedLines = null, bool isDefect = false, ApiException? serverRefusal = null)
     {
         NurMarketKassa.Services.OfflineOperationsService.NoteUnknownOnlineReturn(saleId); // 2026-10-29 (ревью, В-5): онлайн-возврат без ответа — офлайн-возврат по чеку закрыт, пока исход не выяснен
         try
@@ -2261,7 +2285,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             // 2026-11-02 (аудит №2, К2-09): сервер сам знает исход по ключу идемпотентности (GET idempotency/{key}/): найден — наш возврат прошёл; не найден — не прошёл (даже если по чеку
             // «к возврату стало меньше» из-за возврата на другой кассе или на сайте). Сервер ключей не знает (старый) — прежняя сверка по чеку.
             IdempotencyRecord? record = null;
-            if (PendingReturn.PeekKey is { Length: > 0 } pendingKey && App.SalesApi is IPosQuickCheckoutApi lookupApi)
+            // 2026-11-06 (Б-2): сервер ответил ошибкой «Долг нельзя указывать в строках оплаты» — запись по ключу может хранить эту ошибку, хотя возврат проведён: верим только чеку.
+            if (serverRefusal is null && PendingReturn.PeekKey is { Length: > 0 } pendingKey && App.SalesApi is IPosQuickCheckoutApi lookupApi)
             {
                 try { record = await lookupApi.PosIdempotencyRecordAsync(pendingKey, cts.Token).ConfigureAwait(true); }
                 catch (Exception ex) when (ex is not OperationCanceledException) { record = null; }
@@ -2315,8 +2340,31 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                     Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            var sale = await App.SalesApi.PosSaleGetAsync(saleId, cts.Token).ConfigureAwait(true);
-            var linesReduced = LinesReturnedSince(sale, refundableBefore);
+            var snapshot = string.Equals(saleId, _currentSaleId, StringComparison.OrdinalIgnoreCase) ? _saleSnapshot : null; // 2026-11-06 (Б-2): чек «до возврата»
+            bool linesReduced;
+            if (serverRefusal is not null)
+            {
+                // 2026-11-06 (Б-2): сервер мог записать возврат с задержкой — чек перечитывается с нарастающей паузой (1+2+3+4+5 = 15 с), сравнивается со снимком ДО запроса.
+                // Окно занято (IsBusy), повторно не нажать. Перечитать не удалось — исход неизвестен (ниже catch: «не выдавайте деньги, не повторяйте» + запрет повтора).
+                IsBusy = true;
+                ReturnProbeResult probe;
+                try
+                {
+                    probe = await ReturnProbe.RunAsync(t => App.SalesApi.PosSaleGetAsync(saleId, t), snapshot, refundableBefore).ConfigureAwait(true);
+                }
+                finally
+                {
+                    IsBusy = false;
+                }
+                if (probe == ReturnProbeResult.Unknown)
+                    throw new HttpRequestException("чек после ошибки сервера не перечитан");
+                linesReduced = probe == ReturnProbeResult.Applied;
+            }
+            else
+            {
+                var sale = await App.SalesApi.PosSaleGetAsync(saleId, cts.Token).ConfigureAwait(true);
+                linesReduced = ReturnProbe.Applied(sale, snapshot, refundableBefore);
+            }
             if (record is { Found: true } && !(record.IsSuccess && linesReduced))
             {
                 // Запись найдена, но это не успех (операция ещё идёт, неизвестное состояние/код) либо успех, который чек не подтверждает — деньги не выдаём, как при таймауте.
@@ -2331,11 +2379,32 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 return;
             }
             if (!linesReduced)
+            {
+                if (serverRefusal is not null)
+                {
+                    // 2026-11-06 (Б-2): чек не изменился — возврат не проведён, это настоящий отказ: ключ забываем, кассиру — текст сервера.
+                    PendingReturn.OnError(serverRefusal);
+                    NurMarketKassa.Services.OfflineOperationsService.ClearUnknownOnlineReturn(saleId);
+                    PosLogger.Log($"Возврат по продаже {saleId}: после ответа «{serverRefusal.Message}» чек не изменился — возврат не проведён.", "WARNING");
+                    PosMessageBox.Show(this, ExceedsOrServerText(serverRefusal, false), Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Error);
+                }
                 return;
+            }
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Возврат по продаже {saleId}: ответ не дошёл, чек перечитать не удалось — ключ оставлен для повтора: {ex.Message}", "WARNING");
+            if (serverRefusal is not null)
+            {
+                _returnUnknownSaleId = saleId; // 2026-11-06 (Б-2): повтор запрещён, пока окно не прочитает чек заново (BlockedByUnresolvedReturn)
+                PosMessageBox.Show(this, Tr.T(
+                        $"Сервер ответил ошибкой («{serverRefusal.Message}»), но мог провести возврат. Деньги не выдавайте и не повторяйте возврат, пока не проверите чек в «Истории чеков».",
+                        $"Сервер ката менен жооп берди («{serverRefusal.Message}»), бирок кайтарууну жүргүзгөн болушу мүмкүн. «Чектердин тарыхында» чекти текшермейинче акча бербеңиз жана кайтарууну кайталабаңыз.",
+                        $"The server answered with an error (“{serverRefusal.Message}”) but may have processed the return. Do not pay out or repeat the return until you check the receipt in “Receipt history”.",
+                        $"Sunucu hata ile yanıt verdi («{serverRefusal.Message}») ancak iadeyi işlemiş olabilir. Fişi «Fiş geçmişi»nde kontrol edene kadar ödeme yapmayın ve iadeyi tekrarlamayın.",
+                        $"Server xato bilan javob berdi («{serverRefusal.Message}»), lekin qaytarishni o'tkazgan bo'lishi mumkin. Chekni «Cheklar tarixi»da tekshirmaguncha pul bermang va qaytarishni takrorlamang."),
+                    Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
             return;
         }
 
@@ -2347,7 +2416,9 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             (returnedLines ?? Array.Empty<ReturnSaleLineVm>()).Select(l => new SaleLedgerLine { LineId = l.LineId, Name = l.Title, Quantity = l.Quantity, Total = l.RefundSum }).ToList())
             .ConfigureAwait(true);
         var amount = outcome.Amount;
+        // 2026-11-06 (Б-2, п. 3): возврат, проведённый сервером после ошибки, попадает в журнал смены («Возвраты в счёт долга» при закрытии смены) — как и обычный.
         ShiftEventsStore.Record(ShiftEventsStore.KindReturn, PosApp.ActiveShiftId, ShiftEventsStore.OperationKey(saleId), (double)amount, outcome.Note);
+        NoteDebtCheck(saleId, partial: !whole && !reverseLoyalty, outcome.DebtReduced);
         if (!isDefect && returnedLines is { Count: > 0 })
             ReturnToStock(returnedLines);
         if (reverseLoyalty)
@@ -2361,14 +2432,23 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 PosLogger.Log($"Loyalty reversal after unanswered return failed: {ex.Message}", "WARNING");
             }
         }
-        PosLogger.Log($"Возврат по продаже {saleId}: ответ не дошёл, но по чеку сервер его провёл ({amount:0.00}) — записан в смену, ключ забыт.", "WARNING");
+        PosLogger.Log($"Возврат по продаже {saleId}: ответ {(serverRefusal is null ? "не дошёл" : $"сервера — ошибка «{serverRefusal.Message}»")}, но по чеку сервер его провёл ({amount:0.00}) — записан в смену, ключ забыт.", "WARNING");
+        if (serverRefusal is not null)
+            PosDataEvents.RaiseClientDebtChanged(null); // 2026-11-06 (Б-2): долг клиента изменился — окна долгов перечитывают его с сервера (не по локальному вычитанию)
         // 2026-10-20 (К2, К3): к выдаче — та же строка, что у обычного возврата (разбивка, долг).
-        PosMessageBox.Show(this, Tr.T(
+        PosMessageBox.Show(this, (serverRefusal is not null
+            ? Tr.T(
+                $"Возврат уже проведён на сервере (сервер ответил ошибкой «{serverRefusal.Message}», но чек изменился). Повторно не оформляйте. Деньги — только если ещё не выдали (не выдавайте дважды).",
+                $"Кайтаруу серверде мурунтан эле жүргүзүлгөн (сервер «{serverRefusal.Message}» деген ката менен жооп берди, бирок чек өзгөрдү). Кайра тариздебеңиз. Акчаны — эгер али бере элек болсоңуз гана (эки жолу бербеңиз).",
+                $"The return is already processed on the server (the server answered with an error “{serverRefusal.Message}”, but the receipt changed). Do not process it again. Pay out only if you have not done so yet (do not pay twice).",
+                $"İade sunucuda zaten işlendi (sunucu «{serverRefusal.Message}» hatasıyla yanıt verdi ama fiş değişti). Tekrar yapmayın. Parayı yalnızca henüz vermediyseniz verin (iki kez vermeyin).",
+                $"Qaytarish serverda allaqachon o'tkazilgan (server «{serverRefusal.Message}» xatosi bilan javob berdi, lekin chek o'zgardi). Qayta rasmiylashtirmang. Pulni faqat hali bermagan bo'lsangiz bering (ikki marta bermang).")
+            : Tr.T(
                 "Сервер уже провёл этот возврат — ответ не дошёл до кассы из-за связи. Повторно не оформляйте. Деньги — только если ещё не выдали (не выдавайте дважды).",
                 "Сервер бул кайтарууну мурунтан эле жүргүзгөн — байланыштан улам жооп кассага жеткен жок. Кайра тариздебеңиз. Акчаны — эгер али бере элек болсоңуз гана (эки жолу бербеңиз).",
                 "The server has already processed this return — its reply did not reach the till because of the connection. Do not process it again. Pay out only if you have not done so yet (do not pay twice).",
                 "Sunucu bu iadeyi zaten işledi — bağlantı nedeniyle yanıt kasaya ulaşmadı. Tekrar yapmayın. Parayı yalnızca henüz vermediyseniz verin (iki kez vermeyin).",
-                "Server bu qaytarishni allaqachon o'tkazgan — aloqa tufayli javob kassaga yetib kelmadi. Qayta rasmiylashtirmang. Pulni faqat hali bermagan bo'lsangiz bering (ikki marta bermang).")
+                "Server bu qaytarishni allaqachon o'tkazgan — aloqa tufayli javob kassaga yetib kelmadi. Qayta rasmiylashtirmang. Pulni faqat hali bermagan bo'lsangiz bering (ikki marta bermang)."))
             + "\n" + RefundToGiveText(outcome),
             Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Warning);
     }
@@ -2396,6 +2476,28 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         return result;
     }
 
+    /// <summary>Запомнить, что после возврата долгового чека надо сверить долг со свежим чеком (снимок «до» — из загруженного чека).</summary>
+    private void NoteDebtCheck(string saleId, bool partial, decimal debtReduced)
+    {
+        if (string.Equals(saleId, _currentSaleId, StringComparison.OrdinalIgnoreCase) && _saleSnapshot is { } before)
+            _pendingDebtCheck = (saleId, before, partial, debtReduced);
+    }
+
+    /// <summary>true — долг после возврата не сходится с ожидаемым: окна долгов перечитывают долг клиента с сервера, кассиру показывается предупреждение (вызывающий).</summary>
+    private bool CheckDebtRecalc(string saleId, JsonElement freshSale)
+    {
+        if (_pendingDebtCheck is not { } pending || !string.Equals(pending.SaleId, saleId, StringComparison.OrdinalIgnoreCase))
+            return false;
+        _pendingDebtCheck = null;
+        var after = ReturnSnapshot.From(freshSale);
+        if (!ReturnSnapshot.DebtRecalcSuspicious(pending.Before, after, pending.Partial, pending.DebtReduced))
+            return false;
+        PosLogger.Log($"Возврат по продаже {saleId}: сервер пересчитал долг иначе (чек {pending.Before.Status}/{pending.Before.ReturnStatus} → {after.Status}/{after.ReturnStatus}, "
+                      + $"долг по чеку {pending.Before.DebtRemaining:0.00} → {after.DebtRemaining:0.00}, касса уменьшила на {pending.DebtReduced:0.00}) — кассиру показано предупреждение, долги перечитываются.", "WARNING");
+        PosDataEvents.RaiseClientDebtChanged(null); // долг клиента перечитывается с сервера во всех открытых окнах долгов
+        return true;
+    }
+
     private async Task RefreshCurrentSaleAsync(string? expectedSaleId = null)
     {
         var saleId = expectedSaleId ?? _currentSaleId;
@@ -2408,11 +2510,16 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             var sale = await ServerAnswerWait.ForegroundAsync("pos/sales/get", t => App.SalesApi.PosSaleGetAsync(saleId, t)).ConfigureAwait(true);
             if (!string.Equals(_currentSaleId, saleId, StringComparison.OrdinalIgnoreCase))
                 return;
+            // 2026-11-06 (Б-1/Б-2): сервер пересчитал долг клиента иначе, чем ждала касса (частичный возврат стал «отменён», долг не уменьшился) — до перезаписи снимка.
+            var debtWarning = CheckDebtRecalc(saleId, sale);
             FillLinesFromSale(sale);
             UpdateReceiptChrome();
+            if (debtWarning)
+                PosMessageBox.Show(this, ReturnSnapshot.DebtRecalcWarningText, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
+            _saleSnapshot = null; // 2026-11-06 (Б-2): чек не перечитан — старый снимок «до возврата» устарел
             PosLogger.Log($"Return receipt refresh failed after operation: {ex}", "WARNING");
         }
 
@@ -2755,6 +2862,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         var refundableBefore = RefundableByLine(Lines.Where(l => l.CanReturn));
         var outcomeUnknown = false;
         var exceedsRefused = false; // 2026-11-01 (К-01): сервер отказал «больше положенного» — чек перечитываем, деньги не выдаём
+        ApiException? debtLineRefusal = null; // 2026-11-06 (Б-2): см. возврат по позициям
         IsBusy = true;
         try
         {
@@ -2871,6 +2979,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 PosAlertDialog.Show(this, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), wholeDoneText, PosAlertKind.Warning, null, info: true);
             await RefreshCurrentSaleAsync(saleId).ConfigureAwait(true);
         }
+        catch (ApiException ex) when (OfflineRejection.IsDebtPaymentLineRefusal(ex))
+        {
+            PosLogger.Log($"Возврат по продаже {saleId}: сервер ответил «{ex.Message}» — проверяем по чеку, проведён ли возврат.", "WARNING");
+            debtLineRefusal = ex; // 2026-11-06 (Б-2): см. возврат по позициям
+        }
         catch (ApiException ex)
         {
             // 2026-10-16, ревью: 4xx (кроме 408/429) — ключ забыт; иначе исход неизвестен, ключ оставлен для повтора.
@@ -2905,10 +3018,10 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         }
 
         // 2026-10-16, ревью: ответ не дошёл — сервер мог провести возврат; сверяем по чеку и показываем чек как на сервере.
-        if (outcomeUnknown)
+        if (outcomeUnknown || debtLineRefusal is not null)
         {
             await ReportReturnIfAppliedAsync(saleId, refundableBefore, estimatedWhole, reverseLoyalty: true,
-                whole: true, returnedLines: Lines.Where(l => l.CanReturn).ToList(), isDefect: reasonDialog.IsDefect).ConfigureAwait(true);
+                whole: true, returnedLines: Lines.Where(l => l.CanReturn).ToList(), isDefect: reasonDialog.IsDefect, serverRefusal: debtLineRefusal).ConfigureAwait(true);
             await RefreshCurrentSaleAsync(saleId).ConfigureAwait(true);
         }
         else if (exceedsRefused)

@@ -29,5 +29,18 @@
   <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
   <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
   <application android:label="NurCRM Kassa" android:icon="@drawable/icon" android:allowBackup="false"
-               android:usesCleartextTraffic="true" android:largeHeap="true" />
+               android:usesCleartextTraffic="true" android:largeHeap="true">
+    <!-- 2026-11-06: В4 А5-18 — подтип службы переднего плана specialUse (требование Google Play): зачем касса держит службу. -->
+    <service android:name="kg.nurmarket.kassa.KassaKeepAliveService" android:exported="false" android:foregroundServiceType="specialUse">
+      <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="point_of_sale_keep_alive" />
+    </service>
+    <service android:name="kg.nurmarket.kassa.OwnerKeepAliveService" android:exported="false" android:process=":owner" android:foregroundServiceType="specialUse">
+      <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="point_of_sale_keep_alive" />
+    </service>
+    <!-- 2026-11-06: В4 А5-05 — открыть документ/файл из кассы в чужой программе (AndroidLauncher.OpenFile): только копии из кэша. -->
+    <provider android:name="androidx.core.content.FileProvider" android:authorities="kg.nurmarket.kassa.fileprovider"
+              android:exported="false" android:grantUriPermissions="true">
+      <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/nur_file_paths" />
+    </provider>
+  </application>
 </manifest>

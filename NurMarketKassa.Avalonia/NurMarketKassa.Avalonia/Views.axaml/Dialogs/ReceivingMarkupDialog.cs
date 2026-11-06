@@ -35,6 +35,35 @@ public sealed class ReceivingMarkupDialog : Window
         return sp.GetService<IAuthApiService>() is { } auth && PermissionService.IsOwnerOrAdmin(auth.UserPayload);
     }
 
+    /// <summary>2026-11-06 (живой тест, Б-10): после обновления общая наценка приёмки один раз выключается (ReceivingMarkupSettingsStore.MigrateReset). Владельцу/администратору об этом
+    /// говорим на экране ОДИН раз (показ запоминается в файле настроек, то есть по компании): «Общая наценка приёмки была выключена при обновлении (раньше: 20 %)…» с кнопкой
+    /// «Открыть настройки наценки». Остальные роли уведомление не видят и не гасят. Вызывать при открытии приёмки.</summary>
+    internal static async Task ShowResetNoticeIfNeededAsync(Window owner)
+    {
+        try
+        {
+            if (!CanEditSettings() || ReceivingMarkupSettingsStore.TakeResetNotice() is not { } previous)
+                return;
+            var was = previous > 0 ? ReceivingMarkupSettings.PercentBoxText(previous) + " %" : "—";
+            var open = await NurMarketKassa.AvaloniaHost.Services.PosDialogs.ConfirmYesNoModalAsync(owner,
+                T($"Общая наценка приёмки была выключена при обновлении (раньше: {was}). Включите её в настройках, если нужна.",
+                    $"Кабыл алуунун жалпы кошумча % жаңыртуу учурунда өчүрүлдү (мурда: {was}). Керек болсо, жөндөөлөрдөн күйгүзүңүз.",
+                    $"The common receiving markup was turned off during the update (it was: {was}). Turn it on in the settings if you need it.",
+                    $"Mal kabulün ortak kâr oranı güncelleme sırasında kapatıldı (önceki: {was}). Gerekirse ayarlardan açın.",
+                    $"Qabulning umumiy ustamasi yangilanish paytida o'chirildi (avval: {was}). Kerak bo'lsa, sozlamalardan yoqing."),
+                T("Наценка приёмки", "Кабыл алуунун кошумча %", "Receiving markup", "Mal kabul kâr oranı", "Qabul ustamasi"),
+                T("Открыть настройки наценки", "Кошумча % жөндөөлөрүн ачуу", "Open markup settings", "Kâr oranı ayarlarını aç", "Ustama sozlamalarini ochish"),
+                T("Понятно", "Түшүнүктүү", "Got it", "Anladım", "Tushunarli")).ConfigureAwait(true);
+            PosLogger.Log("Наценка приёмки: владельцу показано уведомление о сбросе общей наценки при обновлении.", "INFO");
+            if (open)
+                await new ReceivingMarkupDialog().ShowDialog(owner).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Наценка приёмки: уведомление о сбросе не показано ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+        }
+    }
+
     public static string RoundingTitle(SaleRounding r) => r switch
     {
         SaleRounding.Half => T("до 0,5 сома", "0,5 сомго чейин", "to 0.5 som", "0,5 som'a", "0,5 so'mgacha"),
@@ -56,7 +85,7 @@ public sealed class ReceivingMarkupDialog : Window
             Content = T("Считать цену продажи сама, когда я ввожу закупку вручную", "Сатып алуу баасын кол менен киргизгенде сатуу баасы өзү эсептелсин",
                 "Calculate the sale price automatically when I enter the purchase price by hand", "Alış fiyatını elle girdiğimde satış fiyatı otomatik hesaplansın", "Xarid narxini qo'lda kiritganimda sotuv narxi o'zi hisoblansin"),
         };
-        _default = new TextBox { Text = s.DefaultPercent.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("ru-RU")), Width = 120, Height = 40, IsEnabled = _canEdit, HorizontalAlignment = HorizontalAlignment.Left };
+        _default = new TextBox { Text = ReceivingMarkupSettings.PercentBoxText(s.DefaultPercent), Watermark = T("выкл.", "өчүк", "off", "kapalı", "o'chiq"), Width = 120, Height = 40, IsEnabled = _canEdit, HorizontalAlignment = HorizontalAlignment.Left };
         _rounding = new ComboBox { Width = 330, MinHeight = 40, IsEnabled = _canEdit, HorizontalAlignment = HorizontalAlignment.Left };
         foreach (var r in new[] { SaleRounding.WholeUp, SaleRounding.Half, SaleRounding.Tenth, SaleRounding.None })
             _rounding.Items.Add(new ComboBoxItem { Content = RoundingTitle(r), Tag = r });
@@ -132,7 +161,11 @@ public sealed class ReceivingMarkupDialog : Window
 
     private void Save()
     {
-        if (CheckoutValidation.TryParseAmount(_default.Text, out var def) != CheckoutValidation.AmountParse.Ok || def > 1000)
+        // 2026-11-06: пустое поле = общей наценки нет (0), число включает её для строк без цены.
+        var defParse = CheckoutValidation.TryParseAmount(_default.Text, out var def);
+        if (defParse == CheckoutValidation.AmountParse.Empty)
+            def = 0;
+        else if (defParse != CheckoutValidation.AmountParse.Ok || def > 1000)
         {
             Fail(T("«Наценка по умолчанию» — число от 0 до 1000, например 30 или 12,5.", "«Демейки кошумча» — 0дөн 1000ге чейинки сан, мисалы 30 же 12,5.",
                 "“Default markup” is a number from 0 to 1000, for example 30 or 12.5.", "«Varsayılan kâr» 0 ile 1000 arasında bir sayıdır, örneğin 30 veya 12,5.", "«Standart ustama» — 0 dan 1000 gacha son, masalan 30 yoki 12,5."));

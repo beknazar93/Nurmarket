@@ -1,41 +1,37 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="using:NurMarketKassa.AvaloniaHost.Converters"
+        xmlns:dlg="using:NurMarketKassa.AvaloniaHost.Views.Dialogs"
         x:Class="NurMarketKassa.AvaloniaHost.Views.Dialogs.HotkeyGroupDialog"
         x:CompileBindings="False"
         Title="{DynamicResource hotkeyGroup.title}"
-        Width="880" Height="640"
+        Width="912" Height="640"
         WindowStartupLocation="CenterOwner"
         CanResize="True"
         SystemDecorations="None"
         TransparencyLevelHint="{DynamicResource DialogTransparencyHint}"
         Background="{DynamicResource DialogWindowBackground}">
 
-  <Border Margin="14" CornerRadius="{DynamicResource SettingsCardRadius}"
-          Background="{DynamicResource BrushDialogPanel}"
-          BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
-          BoxShadow="0 12 32 0 #33101828"
-          Padding="22,18">
-    <Grid RowDefinitions="Auto,Auto,*">
+  <!-- 2026-11-06: В6 (хвост модалок) — общая оболочка ModalShell вместо своей рамки: шапка с ✕ 44 px и «Закрыть» закреплены, тело прокручивается;
+       кнопка «Закрыть» — стандартная modal-cancel (была SecondaryButton). Esc и F-клавиши — прежний обработчик OnDialogKeyDown. -->
+  <dlg:ModalShell x:Name="Shell" Margin="16" ContentScroll="Disabled">
+    <dlg:ModalShell.Footer>
+      <Button IsCancel="True" Classes="modal-cancel" Content="{DynamicResource common.close}" Click="Close_Click"/>
+    </dlg:ModalShell.Footer>
+    <Grid RowDefinitions="Auto,*">
 
-      <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,6">
+      <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,12">
         <Border Grid.Column="0" CornerRadius="8" Padding="12,5" VerticalAlignment="Center"
                 Background="{DynamicResource BrushAccentSoft}">
           <TextBlock x:Name="GroupKeyText" FontSize="17" FontWeight="Bold"
                      Foreground="{DynamicResource BrushAccentStrong}"/>
         </Border>
-        <TextBlock Grid.Column="1" x:Name="TitleText" Margin="12,0,0,0"
-                   FontSize="19" FontWeight="Bold" VerticalAlignment="Center"
-                   Foreground="{DynamicResource BrushText}"/>
-        <Button IsCancel="True" Grid.Column="2" Classes="SecondaryButton"
-                Content="{DynamicResource common.close}" Click="Close_Click"/>
+        <TextBlock Grid.Column="1" x:Name="HintText" Margin="12,0,0,0" VerticalAlignment="Center"
+                   FontSize="13" TextWrapping="Wrap"
+                   Foreground="{DynamicResource BrushTextSoft}"/>
       </Grid>
 
-      <TextBlock Grid.Row="1" x:Name="HintText" Margin="0,0,0,12"
-                 FontSize="12" TextWrapping="Wrap"
-                 Foreground="{DynamicResource BrushTextSoft}"/>
-
-      <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <ItemsControl x:Name="ProductsPanel">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
@@ -102,5 +98,5 @@
         </ItemsControl>
       </ScrollViewer>
     </Grid>
-  </Border>
+  </dlg:ModalShell>
 </Window>

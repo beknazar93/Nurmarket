@@ -1,3 +1,4 @@
+using NurMarketKassa.AvaloniaHost.Services;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
@@ -160,14 +161,9 @@ public partial class TmScaleSettingsWindow : Window
             ShowResult(L("Журнала ещё нет — он появится после первой проверки связи или отправки: ", "Журнал азырынча жок — ал биринчи текшерүүдөн же жөнөтүүдөн кийин пайда болот: ", "There is no log yet — it appears after the first check or upload: ", "Henüz günlük yok — ilk kontrol veya gönderimden sonra oluşur: ", "Jurnal hali yo‘q — birinchi tekshiruv yoki yuborishdan keyin paydo bo‘ladi: ") + path, false);
             return;
         }
-        try
-        {
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            ShowResult(path + " — " + ex.Message, true);
-        }
+        // 2026-11-06: В4 А5-05 — общий запуск файла (на Android — Intent).
+        if (!PlatformLauncher.OpenFile(path))
+            ShowResult(path, true);
     }
 
     private async Task CheckAsync()

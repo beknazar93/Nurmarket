@@ -472,8 +472,17 @@ public partial class ClientsWindow
             }
             catch (Exception ex)
             {
-                Fail(T("Не записано: ", "Жазылган жок: ", "Not recorded: ", "Kaydedilmedi: ", "Yozilmadi: ") + ServerTelegramBotApi.DescribeFields(ex));
-                PosLogger.Log($"Долг без продажи: не записан ({ex.Message}).", "WARNING");
+                // 2026-11-06: В2 Л4-24/Л4-08 — таймаут или обрыв связи — НЕ отказ: запрос мог дойти. Ключ повтора (MoneyRequestKeys, на диске) остаётся,
+                // повторное нажатие с теми же суммой, сроком и комментарием уйдёт с тем же ключом и второй долг не запишет.
+                var lost = ex is OperationCanceledException or TimeoutException or HttpRequestException;
+                Fail(lost
+                    ? T("Ответ сервера не получен — долг мог записаться. Проверьте долг клиента; повторное нажатие с теми же суммой и сроком не запишет его второй раз.",
+                        "Серверден жооп алынган жок — карыз жазылып калышы мүмкүн. Кардардын карызын текшериңиз; ошол эле сумма жана мөөнөт менен кайра басуу аны экинчи жолу жазбайт.",
+                        "No answer from the server — the debt may have been recorded. Check the client's debt; pressing again with the same amount and date will not record it twice.",
+                        "Sunucudan yanıt alınamadı — borç kaydedilmiş olabilir. Müşterinin borcunu kontrol edin; aynı tutar ve tarihle tekrar basmak ikinci kez kaydetmez.",
+                        "Serverdan javob olmadi — qarz yozilgan bo'lishi mumkin. Mijoz qarzini tekshiring; shu summa va muddat bilan qayta bosish uni ikkinchi marta yozmaydi.")
+                    : T("Не записано: ", "Жазылган жок: ", "Not recorded: ", "Kaydedilmedi: ", "Yozilmadi: ") + ServerTelegramBotApi.DescribeFields(ex));
+                PosLogger.Log($"Долг без продажи: {(lost ? "ответ не получен" : "не записан")} ({ex.Message}).", "WARNING");
             }
             finally
             {

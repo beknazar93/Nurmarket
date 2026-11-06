@@ -27,7 +27,8 @@ public static class LanStockAdjuster
         {
             lock (Gate)
             {
-                var pending = UserPreferences.Instance.LanSyncEnabled
+                // 2026-11-06: В3 С-2 — программа владельца продаж соседей не вычитает (ApplyPeerSales для неё пропускается), значит и снимок ей поправлять не нужно.
+                var pending = UserPreferences.Instance.LanSyncEnabled && !AppMode.IsOwner
                     ? Pending(startedUtc)
                     : new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
                 if (pending.Count > 0)
@@ -96,6 +97,11 @@ public static class LanStockAdjuster
     /// <summary>2026-10-29: товары, которые соседи продали сверх известного серверу, — к ним лента каталога остаток не применяет (FeedStockGuard).</summary>
     public static IReadOnlyCollection<string> PendingProductIds()
     {
+        // 2026-11-06: В3 С-2 — у программы владельца остаток отставал (лента его «не применяла»): продажи соседней кассы на этом же ПК попадали в журнал LAN, а владелец их не вычитает
+        // (ApplyPeerSales для него пропускается) и снимков со своим временем не делает — товар оставался «занятым» до 4 суток, и защита (FeedStockGuard) не пускала серверный остаток.
+        // Владельцу защита от продаж соседей не нужна.
+        if (AppMode.IsOwner)
+            return Array.Empty<string>();
         try
         {
             lock (Gate)

@@ -99,6 +99,10 @@ internal static class AndroidBootstrap
         AndroidKeyClock.Install();
         // 2026-11-05 (аудит №4, А4-10): MulticastLock для поиска соседних касс по Wi-Fi.
         AndroidMulticast.Install();
+        // 2026-11-06: В4 А5-05 — ссылки и файлы из общего кода кассы (WhatsApp, Telegram, сайт, документы) открываются Intent'ом.
+        AndroidLauncher.Install();
+        // 2026-11-06: В4 А5-11 — удалить скачанные ранее APK обновлений, которые уже не новее установленной версии (по ~120 МБ).
+        _ = Task.Run(AndroidApkUpdateService.CleanupDownloads);
         // Звук (сигналы, голосовые подсказки) — через MediaPlayer Android.
         NurMarketKassa.AvaloniaHost.Portable.PortablePlatform.WavPlayer = AndroidSound.PlayWav;
         // Печать чека: USB host, Bluetooth, сеть (TCP 9100) — см. AndroidPrinterTransport.
@@ -109,7 +113,11 @@ internal static class AndroidBootstrap
         AndroidHardwareScanner.Install(Android.App.Application.Context);
         // 2026-10-05: встроенный принтер POS-терминала (Sunmi, iMin…) — выбирается сам, если принтер не настроен.
         // Только после чтения файла настроек (до него в UserPreferences значения по умолчанию).
-        UserPreferences.AfterLoadedFromDisk = () => AndroidBuiltInPrinter.ApplyDefaults(Android.App.Application.Context);
+        UserPreferences.AfterLoadedFromDisk = () =>
+        {
+            AndroidBuiltInPrinter.ApplyDefaults(Android.App.Application.Context);
+            AndroidLowRam.ApplyOnce(Android.App.Application.Context); // 2026-11-06: В4 А4-28
+        };
         AndroidPlatformHooks.FinishApplication = code =>
         {
             try { CurrentActivity?.FinishAffinity(); } catch { /* активность уже закрыта */ }

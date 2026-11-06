@@ -415,6 +415,8 @@ public partial class SideMenuView : UserControl
         ["MiTimesheet"] = "табель сотрудник сотрудники смены timesheet staff кызматкер personel xodim",
         ["MiXReport"] = "x-отчёт x отчет отчёт смены итоги смены касса x-report report shift totals отчёт смена rapor vardiya hisobot smena",
         ["MiIrregular"] = "некорректные ошибка ошибки очередь отправка чек чеки irregular failed error туура эмес чек hatalı fiş notogri chek",
+        // 2026-11-06: «Неотправленное» — очередь на сервер и ручная отправка.
+        ["MiOutbox"] = "неотправленное неотправленные не отправлено очередь отправить сервер приход накладная unsent outbox queue send sync жөнөтүлбөгөн кезек жөнөтүү gönderilmeyen kuyruk gönder yuborilmagan navbat yuborish",
         ["MiRemovals"] = "удалено удаление удалить из чека журнал removed deleted чектен алынган silinen fiş chekdan olib tashlangan",
         ["MiSalesFinance"] = "продажи финансы выручка отчёт отчет sales finance revenue report сатуу каржы отчёт satış satis finans rapor sotuv moliya hisobot",
         ["MiAbc"] = "abc авс анализ analysis анализ analiz tahlil отчёт report",

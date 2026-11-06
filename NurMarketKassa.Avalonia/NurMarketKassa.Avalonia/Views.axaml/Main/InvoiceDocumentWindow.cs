@@ -185,9 +185,13 @@ public sealed partial class InvoiceDocumentWindow : Window
             var result = new Dictionary<string, (double? Prev, bool Known)>(StringComparer.OrdinalIgnoreCase);
             try
             {
-                foreach (var id in _rows.Select(x => x.ProductId).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+                var ids = _rows.Select(x => x.ProductId).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                // 2026-11-06: В5 Л-3 (шаг 3) — история закупок всех строк одним запросом (раньше LoadLocalHistory на каждую строку накладной).
+                var history = PurchaseReceivingService.Instance.LoadLocalHistoryMany(ids);
+                foreach (var id in ids)
                 {
-                    var earlier = PurchaseReceivingService.Instance.LoadLocalHistory(id).Where(h => h.At < at.AddMinutes(-1) && !string.Equals(h.ReceiptId, _r.Id, StringComparison.OrdinalIgnoreCase)).OrderByDescending(h => h.At).ToList();
+                    var entries = history.TryGetValue(id, out var h0) ? h0 : new List<PurchaseReceivingService.HistoryEntry>();
+                    var earlier = entries.Where(h => h.At < at.AddMinutes(-1) && !string.Equals(h.ReceiptId, _r.Id, StringComparison.OrdinalIgnoreCase)).OrderByDescending(h => h.At).ToList();
                     result[id] = (earlier.Count > 0 ? earlier[0].PurchasePrice : null, true);
                 }
             }

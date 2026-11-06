@@ -1,0 +1,497 @@
+{
+ "name": "feat-07-bez-interneta",
+ "lang": "ru",
+ "voice": "none",
+ "music": false,
+ "fps": 30,
+ "logo": "C:\\Users\\User\\NurMarket-video\\assets\\logo.png",
+ "premix": "C:\\Users\\User\\NurMarket-video\\ad\\work-feat\\feat-07.wav",
+ "scenes": [
+  {
+   "id": "s1",
+   "template": "feat",
+   "duration": 4.5667,
+   "subs": [],
+   "transition": "none",
+   "intro": {
+    "num": "07 / 15",
+    "name": "Без интернета"
+   },
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    },
+    "router": {
+     "x": 1190
+    }
+   },
+   "actors": [
+    {
+     "id": "erlan",
+     "img": "char-erlan-angry",
+     "x": 460,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    },
+    {
+     "id": "ainura",
+     "img": "char-ainura-stand",
+     "x": 1130,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back"
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "erlan",
+     "text": "Интернета нет — это что, опять конец смены?",
+     "at": 1.3,
+     "dur": 3.257,
+     "dy": 0,
+     "w": 700
+    },
+    {
+     "who": "ainura",
+     "text": "Азыр.",
+     "at": 3.5,
+     "dur": 0.936,
+     "dy": 0,
+     "w": 300
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "template": "feat",
+   "duration": 4.2,
+   "subs": [
+    {
+     "text": "Провайдер упал — касса продаёт дальше.",
+     "at": 0.3,
+     "dur": 2.38
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "video": {
+      "name": "07-kassa-offline-badge",
+      "from": 0,
+      "to": 6.5,
+      "dir": "C:\\Users\\User\\NurMarket-video\\feat-frames\\07-kassa-offline-badge",
+      "meta": {
+       "w": 2592,
+       "h": 1758,
+       "n": 78,
+       "fps": 12
+      }
+     },
+     "rate": 1.4,
+     "crop": [
+      880,
+      0,
+      1712,
+      830
+     ],
+     "area": [
+      100,
+      36,
+      1720,
+      790
+     ],
+     "clicks": [
+      {
+       "at": 0.6,
+       "rect": [
+        903,
+        40,
+        208,
+        42
+       ],
+       "hold": 0.8
+      },
+      {
+       "at": 3.0,
+       "rect": [
+        903,
+        40,
+        208,
+        42
+       ],
+       "hold": 0.8
+      }
+     ],
+     "size": [
+      2592,
+      1758
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Провайдер упал. [[Касса — нет]]",
+     "at": 0.5,
+     "dur": 3.4
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s3",
+   "template": "feat",
+   "duration": 3.4,
+   "subs": [
+    {
+     "text": "И новое: «в долг» —",
+     "at": 0.3,
+     "dur": 1.257
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\07-kassa-offline-debt.png",
+     "crop": [
+      680,
+      0,
+      1912,
+      1430
+     ],
+     "area": [
+      100,
+      36,
+      1720,
+      790
+     ],
+     "clicks": [
+      {
+       "at": 0.7,
+       "rect": [
+        903,
+        40,
+        208,
+        42
+       ],
+       "hold": 0.7
+      },
+      {
+       "at": 1.6,
+       "rect": [
+        1055,
+        753,
+        390,
+        103
+       ],
+       "hold": 0.7
+      },
+      {
+       "at": 2.4,
+       "rect": [
+        1892,
+        634,
+        652,
+        98
+       ],
+       "hold": 0.7
+      }
+     ],
+     "size": [
+      2592,
+      1758
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "[[В долг]] — без интернета",
+     "at": 0.4,
+     "dur": 3.3
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s4",
+   "template": "feat",
+   "duration": 3.4667,
+   "subs": [
+    {
+     "text": "возврат и оплата долга — тоже без интернета.",
+     "at": 0.2,
+     "dur": 2.812
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\07-kassa-offline-return.png",
+     "crop": [
+      150,
+      8,
+      995,
+      842
+     ],
+     "area": [
+      120,
+      40,
+      880,
+      780
+     ],
+     "until": 2.0,
+     "clicks": [
+      {
+       "at": 0.5,
+       "rect": [
+        185,
+        62,
+        330,
+        34
+       ],
+       "hold": 0.8
+      }
+     ],
+     "size": [
+      1296,
+      879
+     ]
+    },
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\07-kassa-offline-debt-pay.png",
+     "crop": [
+      234,
+      75,
+      830,
+      730
+     ],
+     "area": [
+      1000,
+      40,
+      840,
+      780
+     ],
+     "from": 1.8,
+     "masks": [
+      {
+       "rect": [
+        335,
+        296,
+        175,
+        22
+       ],
+       "blur": 8
+      },
+      {
+       "rect": [
+        335,
+        335,
+        175,
+        22
+       ],
+       "blur": 8
+      },
+      {
+       "rect": [
+        335,
+        374,
+        175,
+        22
+       ],
+       "blur": 8
+      }
+     ],
+     "clicks": [
+      {
+       "at": 2.3,
+       "rect": [
+        260,
+        365,
+        780,
+        38
+       ],
+       "hold": 0.6
+      },
+      {
+       "at": 2.9,
+       "rect": [
+        875,
+        747,
+        162,
+        44
+       ],
+       "hold": 0.6
+      }
+     ],
+     "size": [
+      1296,
+      879
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Возврат и долг — [[тоже]]",
+     "at": 0.3,
+     "dur": 3.0
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s5",
+   "template": "feat",
+   "duration": 4.6,
+   "subs": [
+    {
+     "text": "Чеки копятся и уходят сами, когда связь вернётся.",
+     "at": 0.3,
+     "dur": 3.277
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "video": {
+      "name": "07-kassa-queue-flush",
+      "from": 0,
+      "to": 7.3,
+      "dir": "C:\\Users\\User\\NurMarket-video\\feat-frames\\07-kassa-queue-flush",
+      "meta": {
+       "w": 2592,
+       "h": 1758,
+       "n": 88,
+       "fps": 12
+      }
+     },
+     "rate": 1.5,
+     "crop": [
+      880,
+      0,
+      1712,
+      830
+     ],
+     "area": [
+      100,
+      36,
+      1720,
+      790
+     ],
+     "clicks": [
+      {
+       "at": 0.4,
+       "rect": [
+        903,
+        40,
+        208,
+        42
+       ],
+       "hold": 0.8
+      },
+      {
+       "at": 1.5,
+       "rect": [
+        903,
+        40,
+        208,
+        42
+       ],
+       "hold": 0.6
+      }
+     ],
+     "size": [
+      2592,
+      1758
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "[[14 → 0]]. Сами",
+     "at": 0.5,
+     "dur": 4.0
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s6",
+   "template": "feat",
+   "duration": 3.6667,
+   "subs": [],
+   "transition": "none",
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    }
+   },
+   "actors": [
+    {
+     "id": "erlan",
+     "img": "char-erlan-happy",
+     "x": 460,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    },
+    {
+     "id": "ainura",
+     "img": "char-ainura-happy",
+     "x": 1130,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back"
+    },
+    {
+     "id": "nurlan",
+     "img": "char-nurlan-stand",
+     "x": 1650,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "erlan",
+     "text": "И… всё?",
+     "at": 0.4,
+     "dur": 1.164,
+     "dy": 0,
+     "w": 340
+    },
+    {
+     "who": "nurlan",
+     "text": "Всё. Иди уже.",
+     "at": 1.2,
+     "dur": 2.446,
+     "dy": 0,
+     "w": 420
+    }
+   ]
+  },
+  {
+   "id": "s7",
+   "template": "feat",
+   "duration": 6.0333,
+   "subs": [],
+   "transition": "none",
+   "kind": "finale",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  }
+ ]
+}

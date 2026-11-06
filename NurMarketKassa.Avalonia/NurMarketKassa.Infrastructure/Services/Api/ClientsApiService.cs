@@ -18,15 +18,111 @@ public sealed class ClientsApiService : IClientsApiService
 
     public ClientsApiService(NurMarketApiClient client) => _client = client;
 
+    // 2026-11-06 (план «десктоп 10 из 10», В9, шаг 4 / Н-2): полный список клиентов качался из 10 мест без общего кэша (до 6000 клиентов при каждом
+    // открытии окна оплаты). Теперь запрос полного списка без поиска и без индикатора идёт через общий кэш на минуту, а одинаковые запросы «в полёте»
+    // сливаются в один. Сброс: свои POST/PATCH/DELETE на clients/, смена компании (CompanyInfoService.CompanyChanged), другой токен входа.
+    // Запрос с индикатором «загружено N» (окно «Клиенты», кнопка «Обновить») всегда свежий, а его результат кладётся в кэш. Поиск (search) не кэшируется.
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
+    private static long _invalidations;
+
+    static ClientsApiService()
+    {
+        CompanyInfoService.CompanyChanged += _ => InvalidateCache();
+    }
+
+    /// <summary>Сбросить общий кэш списка клиентов (запись клиента, смена компании, «Обновить»). Загрузка, начатая до сброса, в кэш не попадёт.</summary>
+    public static void InvalidateCache() => Interlocked.Increment(ref _invalidations);
+
+    private readonly object _cacheSync = new();
+    private List<JsonElement>? _cache;
+    private DateTime _cacheAtUtc;
+    private long _cacheGeneration;
+    private string? _cacheKey;
+    private Task<List<JsonElement>>? _inFlight;
+    private long _inFlightGeneration;
+    private string? _inFlightKey;
+
     public Task<List<JsonElement>> GetClientsAsync(string? search, CancellationToken ct = default) => GetClientsAsync(search, null, ct);
 
     /// <summary>2026-10-31: то же с индикатором «загружено N» — progress получает число клиентов, пришедших к этому моменту (с любого потока).</summary>
     public async Task<List<JsonElement>> GetClientsAsync(string? search, IProgress<int>? progress, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(search) && progress is null)
+            return await GetFullListCachedAsync(ct).ConfigureAwait(false);
+
+        var generation = Interlocked.Read(ref _invalidations);
+        var result = await FetchAndRememberAsync(search, progress, ct).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(search))
+            StoreCache(result, _client.AccessToken ?? "", generation);
+        return result;
+    }
+
+    private async Task<List<JsonElement>> FetchAndRememberAsync(string? search, IProgress<int>? progress, CancellationToken ct)
+    {
         var result = await GetClientsCoreAsync(search, progress, ct).ConfigureAwait(false);
         // 2026-10-29: список клиентов запоминается в кэше кассы — «в долг» и оплата долга без связи (OfflineClientCache).
         OfflineClientCache.RememberClients(result);
         return result;
+    }
+
+    private void StoreCache(List<JsonElement> list, string key, long generation)
+    {
+        lock (_cacheSync)
+        {
+            if (generation != Interlocked.Read(ref _invalidations))
+                return; // за время загрузки список изменили или сменилась компания — это уже не свежее
+            _cache = list;
+            _cacheAtUtc = DateTime.UtcNow;
+            _cacheGeneration = generation;
+            _cacheKey = key;
+        }
+    }
+
+    private async Task<List<JsonElement>> GetFullListCachedAsync(CancellationToken ct)
+    {
+        var key = _client.AccessToken ?? "";
+        Task<List<JsonElement>> task;
+        lock (_cacheSync)
+        {
+            var generation = Interlocked.Read(ref _invalidations);
+            if (_cache is { } cached && _cacheGeneration == generation && _cacheKey == key && DateTime.UtcNow - _cacheAtUtc < CacheTtl)
+                return new List<JsonElement>(cached);
+
+            if (_inFlight is { } running && _inFlightGeneration == generation && _inFlightKey == key)
+            {
+                task = running;
+            }
+            else
+            {
+                // Общая загрузка не зависит от отмены первого вызывающего (его отмена только перестаёт ждать): её результат нужен и остальным.
+                // Task.Run — чтобы загрузка не прошла синхронно внутри замка и не оставила в _inFlight уже завершённую задачу.
+                Task<List<JsonElement>>? self = null;
+                self = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var list = await FetchAndRememberAsync(null, null, CancellationToken.None).ConfigureAwait(false);
+                        StoreCache(list, key, generation);
+                        return list;
+                    }
+                    finally
+                    {
+                        lock (_cacheSync)
+                        {
+                            if (ReferenceEquals(_inFlight, self))
+                                _inFlight = null;
+                        }
+                    }
+                });
+                _inFlight = self;
+                _inFlightGeneration = generation;
+                _inFlightKey = key;
+                task = self;
+            }
+        }
+
+        var loaded = await task.WaitAsync(ct).ConfigureAwait(false);
+        return new List<JsonElement>(loaded);
     }
 
     private async Task<List<JsonElement>> GetClientsCoreAsync(string? search, IProgress<int>? progress, CancellationToken ct)
@@ -173,7 +269,7 @@ public sealed class ClientsApiService : IClientsApiService
         if (!string.IsNullOrWhiteSpace(address))
             body["address"] = address.Trim();
 
-        return _client.RequestAsync(HttpMethod.Post, "api/main/clients/", body, null, ct);
+        return WriteAsync(() => _client.RequestAsync(HttpMethod.Post, "api/main/clients/", body, null, ct));
     }
 
     public Task<JsonElement> UpdateClientAsync(
@@ -195,12 +291,19 @@ public sealed class ClientsApiService : IClientsApiService
         if (address is not null)
             body["address"] = address.Trim();
 
-        return _client.RequestAsync(HttpMethod.Patch, $"api/main/clients/{id}/", body, null, ct);
+        return WriteAsync(() => _client.RequestAsync(HttpMethod.Patch, $"api/main/clients/{id}/", body, null, ct));
     }
 
     public Task DeleteClientAsync(string id, CancellationToken ct = default) =>
-        _client.RequestAsync(HttpMethod.Delete, $"api/main/clients/{id}/", null, null, ct);
+        WriteAsync(() => _client.RequestAsync(HttpMethod.Delete, $"api/main/clients/{id}/", null, null, ct));
 
     public Task<JsonElement> ResolveQrAsync(string qrText, CancellationToken ct = default) =>
-        _client.RequestAsync(HttpMethod.Post, "api/main/clients/resolve-qr/", new Dictionary<string, string> { ["token"] = qrText.Trim() }, null, ct);
+        WriteAsync(() => _client.RequestAsync(HttpMethod.Post, "api/main/clients/resolve-qr/", new Dictionary<string, string> { ["token"] = qrText.Trim() }, null, ct));
+
+    // 2026-11-06 (шаг 4): запись на clients/ меняет список — общий кэш сбрасывается и при успехе, и при ошибке (таймаут мог записать клиента на сервере).
+    private static async Task<T> WriteAsync<T>(Func<Task<T>> request)
+    {
+        try { return await request().ConfigureAwait(false); }
+        finally { InvalidateCache(); }
+    }
 }

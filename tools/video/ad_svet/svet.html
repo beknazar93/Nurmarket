@@ -1,0 +1,43 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Свет погас</title>
+<style>
+/* 2026-10-29: сцена ролика «Свет погас». Всё считается из времени t (window.__render(t)), CSS-анимаций нет. */
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#191919;font-family:Montserrat,"Noto Sans",Arial,sans-serif}
+#sv{position:absolute;left:0;top:0;display:block}
+#ui{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+#assets{position:absolute;left:-99999px;top:0;width:4000px;height:2000px;visibility:hidden}
+#assets svg{position:absolute;left:0;top:0}
+.plate{position:absolute;left:50%;transform:translate(-50%,0);background:rgba(25,25,25,.94);color:#fff;font-weight:800;
+  border-radius:1.2vmin;overflow:hidden;display:flex;align-items:stretch;white-space:nowrap;box-shadow:0 .6vmin 2.4vmin rgba(0,0,0,.4)}
+.plate i{display:block;width:1.4vmin;background:#FFB208;flex:none}
+.plate b{font-weight:800;padding:1.6vmin 3.2vmin;letter-spacing:.01em}
+.plate b em{font-style:normal;color:#FFB208}
+#wipe{position:absolute;inset:0;background:#FFB208;will-change:transform;z-index:50}
+#subs{position:absolute;left:50%;transform:translateX(-50%);width:max-content;text-align:center;color:#fff;font-weight:700;line-height:1.28;
+  background:rgba(25,25,25,.82);padding:1.0vmin 2.4vmin;border-radius:1.5vmin;box-shadow:0 .4vmin 1.6vmin rgba(0,0,0,.35);
+  text-shadow:0 .2vmin .6vmin rgba(0,0,0,.6);opacity:0;z-index:40}
+#subs .who{color:#FFB208;font-weight:800;margin-right:.6em}
+.chip{position:absolute;background:#FFB208;color:#191919;font-weight:800;border-radius:1.2vmin;padding:.9vmin 1.8vmin;white-space:nowrap;
+  box-shadow:0 .5vmin 1.8vmin rgba(0,0,0,.45);transform-origin:0 100%}
+.panel{position:absolute;background:rgba(25,25,25,.92);border:.35vmin solid #FFB208;border-radius:1.4vmin;color:#fff;font-weight:700;
+  padding:1vmin 1.6vmin;box-shadow:0 .5vmin 2vmin rgba(0,0,0,.5)}
+.panel .row{display:flex;justify-content:space-between;gap:2.4vmin;white-space:nowrap;overflow:hidden}
+.panel .row span+span{color:#FFB208;font-weight:800}
+#end{position:absolute;inset:0;background:#191919;color:#fff;text-align:center;z-index:30}
+#end .t1,#end .t2,#end .sub{position:absolute;left:0;right:0;font-weight:800}
+#end .y{color:#FFB208}
+#end .links{position:absolute;left:50%;transform:translateX(-50%);background:#FFB208;color:#191919;font-weight:800;text-align:center;
+  border-radius:1.4vmin;white-space:nowrap}
+#end .qrs{position:absolute;display:flex;gap:2.6vmin}
+#end .qr{background:#fff;border-radius:1.2vmin;padding:1vmin;text-align:center;color:#191919;font-weight:700}
+#end .qr svg{display:block}
+</style></head>
+<body>
+<div id="assets"><!--ASSETS--></div>
+<svg id="sv" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="ui"></div>
+<script>window.TIMELINE=/*TIMELINE*/null;window.QR=/*QR*/null;</script>
+<script>
+/*JS*/
+</script>
+</body></html>

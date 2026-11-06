@@ -163,7 +163,7 @@ public static class SupplierResolve
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Поставщик из накладной: свежий список поставщиков не получен ({ex.Message}) — сверяю с имеющимся.", "WARNING");
+            SessionExpiryMonitor.LogFailure("invoice-supplier-resolve", ex, $"Поставщик из накладной: свежий список поставщиков не получен ({ex.Message}) — сверяю с имеющимся."); // 2026-11-06: потеря сессии — раз в 10 минут
         }
         // Точное совпадение (ИНН или название), которого в устаревшем списке не было, — поставщика только что создали в другом месте: берём его.
         if (Find(list, prefill.Name, prefill.Inn) is { Kind: MatchKind.Inn or MatchKind.Name } fresh && fresh.Supplier.Id != seenBefore)

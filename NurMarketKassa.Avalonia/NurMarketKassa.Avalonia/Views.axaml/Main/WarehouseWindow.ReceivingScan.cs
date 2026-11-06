@@ -124,7 +124,7 @@ public partial class WarehouseWindow
         static void ApplyRowClasses(DataGridRow row, ReceivingLineVm l)
         {
             SetRowClass(row, "rcv-below", l.IsBelowCost);
-            SetRowClass(row, "rcv-low", !l.IsBelowCost && l.IsLowMargin);
+            SetRowClass(row, "rcv-low", !l.IsBelowCost && (l.IsLowMargin || l.IsSalePriceMissing)); // 2026-11-06: нет цены продажи — жёлтая строка
         }
         void UnhookRow(DataGridRow row)
         {
@@ -150,19 +150,24 @@ public partial class WarehouseWindow
             "Avtomatik ustama: sotuv narxi xarid narxidan hisoblanadi; standart va kategoriya ustamasi, yaxlitlash."));
         // 2026-10-28: «Наценка для всех, %» над списком: ввод пересчитывает все строки в режиме «авто» на лету, запоминается при выходе из поля (Enter/уход).
         ReceivingMarkupLabel.Text = TR("Наценка для всех, %", "Баарына кошумча, %", "Markup for all, %", "Tümü için kâr, %", "Hammasi uchun ustama, %");
-        ReceivingMarkupBox.Text = ReceivingMarkupSettingsStore.Current.DefaultPercent.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"));
+        // 2026-11-06 (жалоба «Орук маркет»): общая наценка по умолчанию ВЫКЛЮЧЕНА — поле пустое. Число в поле = явное включение, пусто/0 = выключено.
+        ReceivingMarkupBox.Text = ReceivingMarkupSettings.PercentBoxText(ReceivingMarkupSettingsStore.Current.DefaultPercent);
+        ReceivingMarkupBox.Watermark = TR("выкл.", "өчүк", "off", "kapalı", "o'chiq");
         Avalonia.Automation.AutomationProperties.SetName(ReceivingMarkupBox, ReceivingMarkupLabel.Text);
         var markupTyping = false;
         void MarkupFieldCommit(bool persist)
         {
-            if (CheckoutValidation.TryParseAmount(ReceivingMarkupBox.Text, out var percent) == CheckoutValidation.AmountParse.Ok && percent <= 1000)
+            var typed = CheckoutValidation.TryParseAmount(ReceivingMarkupBox.Text, out var percent);
+            if (typed == CheckoutValidation.AmountParse.Empty)
+                percent = 0;
+            if ((typed is CheckoutValidation.AmountParse.Ok or CheckoutValidation.AmountParse.Empty) && percent <= 1000)
             {
                 markupTyping = true;
                 try { ReceivingMarkupSettingsStore.SetDefaultPercent(percent, persist); }
                 finally { markupTyping = false; }
             }
             else if (persist)
-                ReceivingMarkupBox.Text = ReceivingMarkupSettingsStore.Current.DefaultPercent.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"));
+                ReceivingMarkupBox.Text = ReceivingMarkupSettings.PercentBoxText(ReceivingMarkupSettingsStore.Current.DefaultPercent);
         }
         ReceivingMarkupBox.TextChanged += (_, _) => { if (!markupTyping && ReceivingMarkupBox.IsFocused) MarkupFieldCommit(false); };
         ReceivingMarkupBox.LostFocus += (_, _) => MarkupFieldCommit(true);
@@ -170,11 +175,14 @@ public partial class WarehouseWindow
         Action markupChanged = () => Dispatcher.UIThread.Post(() =>
         {
             var auto = ReceivingMarkupSettingsStore.Current.AutoEnabled;
-            ReceivingMarkupBox.IsEnabled = auto;
-            ToolTip.SetTip(ReceivingMarkupBox, auto ? null : TR("Автонаценка выключена в окне «Наценка…».", "Автоматтык кошумча «Кошумча %…» терезесинде өчүрүлгөн.",
-                "Automatic markup is turned off in the “Markup…” window.", "Otomatik kâr oranı «Kâr oranı…» penceresinde kapalı.", "Avtomatik ustama «Ustama…» oynasida o'chirilgan."));
+            // 2026-11-06: поле всегда доступно — число в нём включает общую наценку, пустое поле выключает.
+            ToolTip.SetTip(ReceivingMarkupBox, TR("Пусто — общая наценка выключена, цену продажи программа сама не ставит. Введите число, чтобы строки без цены считались по нему.",
+                "Бош — жалпы кошумча өчүк, сатуу баасын программа өзү койбойт. Баасы жок саптар эсептелиши үчүн санды киргизиңиз.",
+                "Empty — the common markup is off and the program does not set sale prices itself. Enter a number to price lines without a price.",
+                "Boş — ortak kâr kapalı, program satış fiyatını kendisi koymaz. Fiyatsız satırların hesaplanması için sayı girin.",
+                "Bo'sh — umumiy ustama o'chiq, dastur sotuv narxini o'zi qo'ymaydi. Narxsiz qatorlar hisoblanishi uchun son kiriting."));
             if (!ReceivingMarkupBox.IsFocused)
-                ReceivingMarkupBox.Text = ReceivingMarkupSettingsStore.Current.DefaultPercent.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"));
+                ReceivingMarkupBox.Text = ReceivingMarkupSettings.PercentBoxText(ReceivingMarkupSettingsStore.Current.DefaultPercent);
             if (auto)
                 ReceivingPricing.ApplyAutoToAll(_viewModel.ReceivingLines);
             RefreshReceivingSummary();
@@ -211,7 +219,11 @@ public partial class WarehouseWindow
             Dispatcher.UIThread.Post(() =>
             {
                 if (ReferenceEquals(WarehouseTabs.SelectedItem, ReceivingTabItem))
+                {
                     ReceivingScanBox.Focus();
+                    // 2026-11-06 (Б-10): владельцу — один раз «общая наценка выключена при обновлении».
+                    _ = ReceivingMarkupDialog.ShowResetNoticeIfNeededAsync(this);
+                }
             }, DispatcherPriority.Background);
         };
     }
@@ -605,6 +617,15 @@ public partial class WarehouseWindow
             TR("Цена ниже закупки", "Баа сатып алуудан төмөн", "Price below cost", "Fiyat alışın altında", "Narx xariddan past"), message,
             TR("Всё равно провести", "Баары бир өткөрүү", "Post anyway", "Yine de kaydet", "Baribir o'tkazish"),
             TR("Вернуться", "Артка", "Go back", "Geri dön", "Orqaga"), PosConfirmAccent.Danger);
+    }
+
+    /// <summary>2026-11-06 (жалоба «Орук маркет»): окно «У N позиций нет цены продажи». Применённые цены ставятся в строки таблицы приёмки; false — «Отмена».</summary>
+    private async Task<bool> ConfirmMissingSalePricesAsync(IReadOnlyList<ReceivingLineVm> lines)
+    {
+        ReceivingGrid.CommitEdit();
+        var proceed = await NurMarketKassa.AvaloniaHost.Views.Dialogs.MissingSalePriceDialog.AskAsync(this, lines).ConfigureAwait(true);
+        RefreshReceivingSummary();
+        return proceed;
     }
 
     private Task<bool> ConfirmSalePriceChangesAsync(IReadOnlyList<ReceivingLineVm> changed)

@@ -1,0 +1,304 @@
+{
+ "name": "feat-13-lyuboy-ekran",
+ "lang": "ru",
+ "voice": "none",
+ "music": false,
+ "fps": 30,
+ "feat": {
+  "num": 13,
+  "slug": "13-lyuboy-ekran",
+  "title": "Любой экран — касса",
+  "scenes": [
+   {
+    "type": "stage",
+    "dur": 5.0,
+    "actors": [
+     {
+      "id": "nurlan",
+      "who": "nurlan",
+      "x": 820,
+      "poses": [
+       [
+        0,
+        "happy"
+       ]
+      ]
+     },
+     {
+      "id": "ainura",
+      "who": "ainura",
+      "x": 1600,
+      "poses": [
+       [
+        0,
+        "stand"
+       ],
+       [
+        1.5,
+        "calc"
+       ]
+      ]
+     }
+    ],
+    "props": [
+     {
+      "id": "laptop",
+      "x": 1180,
+      "y": 880,
+      "s": 1.1,
+      "in": 0.2
+     },
+     {
+      "id": "laptop",
+      "x": 1380,
+      "y": 880,
+      "s": 0.9,
+      "in": 0.5
+     },
+     {
+      "id": "prop-phone-dark",
+      "x": 1000,
+      "y": 900,
+      "s": 0.6,
+      "in": 0.8
+     },
+     {
+      "id": "prop-calculator",
+      "x": 1500,
+      "y": 905,
+      "s": 0.6,
+      "in": 1.0
+     }
+    ],
+    "say": [
+     {
+      "who": "AI",
+      "actor": "ainura",
+      "at": 1.45,
+      "maxdur": 1.5,
+      "text": "Это всё к нам?"
+     },
+     {
+      "who": "NU",
+      "actor": "nurlan",
+      "at": 3.1,
+      "maxdur": 1.8,
+      "text": "Это всё — одна касса!"
+     }
+    ]
+   },
+   {
+    "type": "shots",
+    "dur": 9.0,
+    "titr": [
+     {
+      "at": 0.1,
+      "dur": 8.8,
+      "seq": [
+       "[[Windows]] · Android · Mac · Linux · телефон",
+       "Windows · [[Android]] · Mac · Linux · телефон",
+       "Windows · Android · [[Mac]] · Linux · телефон",
+       "Windows · Android · Mac · [[Linux]] · телефон",
+       "Windows · Android · Mac · Linux · [[телефон]]"
+      ],
+      "step": 1.8,
+      "text": ""
+     }
+    ],
+    "views": [
+     {
+      "src": "13-kassa-windows.png",
+      "at": 0,
+      "dur": 1.8,
+      "frame": "monitor",
+      "slide": 24
+     },
+     {
+      "src": "13-kassa-android.png",
+      "at": 1.8,
+      "dur": 1.8,
+      "frame": "tablet",
+      "slide": 24
+     },
+     {
+      "placeholder": "macOS",
+      "at": 3.6,
+      "dur": 1.8,
+      "frame": "laptop",
+      "slide": 24
+     },
+     {
+      "placeholder": "Linux",
+      "at": 5.4,
+      "dur": 1.8,
+      "frame": "monitor",
+      "slide": 24
+     },
+     {
+      "src": "13-mobile-home.png",
+      "at": 7.2,
+      "dur": 1.8,
+      "frame": "phone",
+      "area": [
+       600,
+       26,
+       720,
+       826
+      ],
+      "crop": [
+       0,
+       0,
+       1,
+       0.58
+      ],
+      "slide": 24
+     }
+    ],
+    "sfx": [
+     {
+      "n": "tick",
+      "at": 0.0,
+      "v": 0.7
+     },
+     {
+      "n": "tick",
+      "at": 1.8,
+      "v": 0.7
+     },
+     {
+      "n": "tick",
+      "at": 3.6,
+      "v": 0.7
+     },
+     {
+      "n": "tick",
+      "at": 5.4,
+      "v": 0.7
+     },
+     {
+      "n": "tick",
+      "at": 7.2,
+      "v": 0.7
+     }
+    ],
+    "say": [
+     {
+      "who": "N",
+      "at": 0.2,
+      "text": "Касса — это не коробка, а программа. Windows, Android-планшет, Mac, Linux, телефон."
+     }
+    ]
+   },
+   {
+    "type": "diagram",
+    "kind": "sync13",
+    "dur": 5.2,
+    "titr": [
+     {
+      "at": 0.3,
+      "dur": 4.6,
+      "text": "Данные — [[общие]]"
+     }
+    ],
+    "say": [
+     {
+      "who": "N",
+      "at": 0.2,
+      "text": "Продали на одном — остаток поменялся на всех."
+     }
+    ],
+    "sfx": [
+     {
+      "n": "pik",
+      "at": 1.1,
+      "v": 0.8
+     },
+     {
+      "n": "sent",
+      "at": 1.5,
+      "v": 0.7
+     }
+    ]
+   },
+   {
+    "type": "stage",
+    "dur": 3.8,
+    "actors": [
+     {
+      "id": "erlan",
+      "who": "erlan",
+      "x": 860,
+      "poses": [
+       [
+        0,
+        "stand"
+       ],
+       [
+        0.5,
+        "happy"
+       ]
+      ]
+     },
+     {
+      "id": "nurlan",
+      "who": "nurlan",
+      "x": 1500,
+      "flip": true,
+      "poses": [
+       [
+        0,
+        "happy"
+       ]
+      ]
+     }
+    ],
+    "props": [
+     {
+      "id": "laptop",
+      "x": 1120,
+      "y": 880,
+      "s": 1.5
+     }
+    ],
+    "say": [
+     {
+      "who": "ER",
+      "actor": "erlan",
+      "at": 0.3,
+      "maxdur": 1.6,
+      "text": "Я на яблоке!"
+     },
+     {
+      "who": "N",
+      "at": 1.9,
+      "text": "Любой экран — касса."
+     }
+    ]
+   },
+   {
+    "type": "final",
+    "dur": 4.0,
+    "say": [
+     {
+      "who": "N",
+      "at": 0.5,
+      "text": "Нур Си-Эр-Эм — касса, которая знает ваш магазин.",
+      "show": false,
+      "maxdur": 3.1
+     }
+    ]
+   }
+  ]
+ },
+ "premix": "C:/Users/User/NurMarket-video/ad/work/b/mix-13.wav",
+ "scenes": [
+  {
+   "id": "feat",
+   "html": "C:/Users/User/NurMarket-video/ad/work/b/feat-13.html",
+   "duration": 27.0,
+   "subs": false,
+   "lang": "ru",
+   "transition": "none"
+  }
+ ]
+}

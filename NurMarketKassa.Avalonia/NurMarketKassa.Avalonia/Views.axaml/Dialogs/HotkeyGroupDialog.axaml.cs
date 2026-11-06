@@ -34,7 +34,7 @@ public partial class HotkeyGroupDialog : Window
         AddHandler(KeyDownEvent, OnDialogKeyDown, RoutingStrategies.Tunnel);
 
         GroupKeyText.Text = groupKey;
-        TitleText.Text = Tr.T("Товары горячей клавиши", "Ыкчам баскычтын товарлары", "Hotkey products",
+        Shell.Title = Tr.T("Товары горячей клавиши", "Ыкчам баскычтын товарлары", "Hotkey products",
             "Kısayol ürünleri", "Tezkor tugmadagi mahsulotlar");
 
         ProductsPanel.ItemsSource = products;

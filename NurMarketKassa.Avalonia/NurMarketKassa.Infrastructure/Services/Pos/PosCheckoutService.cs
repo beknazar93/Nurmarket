@@ -1434,6 +1434,13 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                 "Karışık ödeme sunucu bağlantısı olmadan kullanılamaz. İnternet bağlantısı sağlandığında ödemeyi tekrarlayın.",
                 "Aralash to'lov server bilan aloqasiz mavjud emas. Internet paydo bo'lganda to'lovni takrorlang."));
 
+        // 2026-11-06: В2 А5-07 — часы устройства раньше даты сборки программы и поправки по серверу нет: время продажи было бы неверным (сервер: «старше 7 суток»).
+        if (ServerClock.OfflineSaleBlockedByDeviceDate(out var wrongDateText))
+        {
+            RestoreCartAfterFailedCheckout(cartJsonSnapshot);
+            return PosCheckoutResult.Failed(wrongDateText);
+        }
+
         var isAutonomous = _autonomous.IsCurrentSessionAutonomous;
         var entry = new OfflineSaleEntry
         {

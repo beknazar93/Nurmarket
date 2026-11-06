@@ -65,6 +65,8 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         ServerOutageMonitor.StateChanged += OnServerStateChanged;
         ServerOutageMonitor.QueueFlushed += OnServerQueueFlushed;
         SessionExpiryMonitor.Changed += OnSessionExpiryChanged; // 2026-10-30
+        RefreshExpiryWatcher.Current.Changed += OnLoginExpiryChanged; // 2026-11-06
+        RefreshLoginExpiry();
         InfoToastRequested += OnInfoToastRequested;
         SyncCenter.Changed += OnSyncCenterChanged;
         _dispatcher.Post(RefreshStatusToolTip);
@@ -105,6 +107,7 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         QueueText = FormatQueueText(QueuedCount);
         FailedText = FormatFailedText(QueuedCount, FailedCount);
         RefreshFromSession();
+        RefreshLoginExpiry();
         RefreshStatusToolTip();
     });
 
@@ -202,6 +205,9 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
     private void OnSessionExpiryChanged() => _dispatcher.Post(() =>
     {
         StatusLabel = FormatStatusLabel(IsOnline);
+        OnPropertyChanged(nameof(ShowOnlineDot)); // 2026-11-06 (В-9)
+        OnPropertyChanged(nameof(ShowWarnDot));
+        RefreshLoginExpiry();
         RefreshStatusToolTip();
     });
 
@@ -269,11 +275,12 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
             : "";
         if (SessionExpiryMonitor.IsExpired)
         {
-            StatusToolTip = Tr.T("Сессия истекла (вход с другого устройства или срок вышел). Выйдите и войдите снова — продажи, смена и корзины сохранены и отправятся сами.",
-                "Сессиянын мөөнөтү бүттү (башка түзмөктөн кирүү же убакыт бүттү). Чыгып, кайра кириңиз — сатуулар, смена жана себеттер сакталды, өзү жөнөтүлөт.",
-                "The session has expired (signed in elsewhere or timed out). Sign out and in again — sales, the shift and carts are saved and will be sent automatically.",
-                "Oturum süresi doldu (başka cihazdan giriş veya zaman aşımı). Çıkış yapıp tekrar girin — satışlar, vardiya ve sepetler kayıtlı, otomatik gönderilecek.",
-                "Sessiya muddati tugadi (boshqa qurilmadan kirish yoki vaqt tugadi). Chiqib, qaytadan kiring — sotuvlar, smena va savatlar saqlangan, o'zi yuboriladi.")
+            // 2026-11-06: срок входа — 7 суток от входа по паролю (ответ Умара); «вход с другого устройства» убран как неверная причина.
+            StatusToolTip = Tr.T("Срок входа истёк. Войдите заново — продажи, смена и корзины сохранены и отправятся сами.",
+                "Кирүүнүн мөөнөтү бүттү. Кайра кириңиз — сатуулар, смена жана себеттер сакталды, өзү жөнөтүлөт.",
+                "The sign-in has expired. Sign in again — sales, the shift and carts are saved and will be sent automatically.",
+                "Oturumun süresi doldu. Yeniden giriş yapın — satışlar, vardiya ve sepetler kayıtlı, otomatik gönderilecek.",
+                "Kirish muddati tugadi. Qaytadan kiring — sotuvlar, smena va savatlar saqlangan, o'zi yuboriladi.")
                 + queueLine;
             return;
         }
@@ -351,6 +358,11 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
                 $"Queued: {queued}", $"Sırada: {queued}", $"Navbatda: {queued}")
             : "";
 
+    /// <summary>2026-11-06 (В-9): зелёная точка «онлайн» — только при действующей сессии. Сессия потеряна — точка жёлтая, рядом одна надпись «🔑 Войдите снова».</summary>
+    public bool ShowOnlineDot => IsOnline && !SessionExpiryMonitor.IsExpired;
+
+    public bool ShowWarnDot => !ShowOnlineDot;
+
     public bool IsOnline
     {
         get => _isOnline;
@@ -359,6 +371,8 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
             if (!SetProperty(ref _isOnline, value))
                 return;
             StatusLabel = FormatStatusLabel(value);
+            OnPropertyChanged(nameof(ShowOnlineDot));
+            OnPropertyChanged(nameof(ShowWarnDot));
 
             // Этап 3 бэклога "Доработки": история обрывов связи должна попадать в "Логи и
             // ошибки" (пример из ТЗ: "в 12:37 не было связи с сервером"). Логируется только
@@ -376,6 +390,32 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         get => _statusLabel;
         private set => SetProperty(ref _statusLabel, value);
     }
+
+    // 2026-11-06: «🔑 Вход истекает через N ч — войдите заново» (≤ 24 ч до конца refresh-токена, RefreshExpiryWatcher). Пока сессия уже потеряна,
+    // показывается «🔑 Войдите снова» (StatusLabel), эту надпись прячем. Остаток неизвестен — пусто.
+    private string _loginExpiryText = "";
+    private bool _hasLoginExpiry;
+
+    public string LoginExpiryText
+    {
+        get => _loginExpiryText;
+        private set => SetProperty(ref _loginExpiryText, value ?? "");
+    }
+
+    public bool HasLoginExpiry
+    {
+        get => _hasLoginExpiry;
+        private set => SetProperty(ref _hasLoginExpiry, value);
+    }
+
+    private void RefreshLoginExpiry()
+    {
+        var text = SessionExpiryMonitor.IsExpired ? null : RefreshExpiryWatcher.Current.WarningText;
+        LoginExpiryText = text ?? "";
+        HasLoginExpiry = text is not null;
+    }
+
+    private void OnLoginExpiryChanged() => _dispatcher.Post(RefreshLoginExpiry);
 
     public string NetworkModeText
     {
@@ -590,6 +630,7 @@ public sealed class MainStatusViewModel : ViewModelBase, IDisposable
         ServerOutageMonitor.StateChanged -= OnServerStateChanged;
         ServerOutageMonitor.QueueFlushed -= OnServerQueueFlushed;
         SessionExpiryMonitor.Changed -= OnSessionExpiryChanged;
+        RefreshExpiryWatcher.Current.Changed -= OnLoginExpiryChanged;
         InfoToastRequested -= OnInfoToastRequested;
         SyncCenter.Changed -= OnSyncCenterChanged;
         _lifetimeCts.Cancel();

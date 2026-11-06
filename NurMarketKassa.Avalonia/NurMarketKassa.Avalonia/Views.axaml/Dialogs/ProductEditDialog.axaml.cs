@@ -2378,8 +2378,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     /// секунд) — этого достаточно в норме, и товар сразу получает настоящий id без риска
     /// рассинхронизации. Если сеть реально тормозит или недоступна — товар всё равно СРАЗУ
     /// пишется в локальную базу (сканируется и продаётся немедленно), а создание на сервере
-    /// продолжается в фоне (CreateOnServerInBackgroundAsync) и подменяет временный локальный id
-    /// на настоящий, когда получит ответ. Используется и для основного товара, и для каждого
+    /// продолжается в фоне (PendingProductQueue — очередь на диске, повторы до успеха, в том числе после перезапуска)
+    /// и подменяет временный локальный id на настоящий, когда сервер создаст товар. Используется и для основного товара, и для каждого
     /// товара-варианта из "доп. штрихкодов".</summary>
     private async Task CreateNewProductLocalFirstAsync(ProductEditRequest request)
     {
@@ -2389,6 +2389,12 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
         if (!_createKeys.TryGetValue(createSignature, out var createKey))
             _createKeys[createSignature] = createKey = Guid.NewGuid().ToString("N");
         request.IdempotencyKey = createKey;
+        // 2026-11-06: сервер уже объявлен недоступным — 4 секунды быстрой попытки не тратим, товар сразу в локальную базу и в очередь на диске.
+        if (ServerOutageMonitor.IsOutage)
+        {
+            QueueNewProductForServer(request, maybeSent: false);
+            return;
+        }
         try
         {
             using var cts = new CancellationTokenSource(FastCreateTimeout);
@@ -2396,93 +2402,27 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             var realId = ProductCatalogMapper.TryId(created) ?? Guid.NewGuid().ToString("N");
             LocalProductEditor.SaveLocally(request, realId);
         }
-        catch (Exception ex) when (ex is OperationCanceledException or HttpRequestException or ApiException { StatusCode: 408 or 502 or 503 or 504 })
+        catch (Exception ex) when (ex is OperationCanceledException or HttpRequestException or ApiException { StatusCode: 408 or 502 or 503 or 504 or (>= 520 and <= 524) })
         {
-            var tempId = LocalProductEditor.SaveLocally(request, null);
-            _ = CreateOnServerInBackgroundAsync(request, tempId);
+            // Таймаут / ответ шлюза — запрос мог дойти до сервера (очередь сначала ищет товар по штрихкоду и ждёт); обрыв соединения — не дошёл.
+            QueueNewProductForServer(request, maybeSent: ex is not HttpRequestException);
         }
     }
 
-    /// <summary>Продолжение создания товара на сервере после того, как диалог уже закрылся
-    /// локально (см. SaveAsync) — подменяет временный локальный id на настоящий серверный,
-    /// когда ответ наконец придёт. Работает уже без окна: используем только _catalogApi
-    /// (сервис из DI, не привязан к жизни окна) и статические сервисы каталога.</summary>
-    private async Task CreateOnServerInBackgroundAsync(ProductEditRequest request, string tempLocalId)
+    /// <summary>2026-11-06: товар в локальную базу под временным id и задача создания на сервере — в очередь на диске (PendingProductQueue). Очередь повторяет
+    /// с растущей паузой и сразу при возврате связи, переживает перезапуск; приход с временным id дождётся настоящего.</summary>
+    private static void QueueNewProductForServer(ProductEditRequest request, bool maybeSent)
     {
+        var tempId = LocalProductEditor.SaveLocally(request, null);
         try
         {
-            // 2026-11-01 (аудит 10 из 10, С-03): первый POST мог дойти до сервера (он отвечает и по 40–60 с) — прежде чем создавать
-            // второй раз, ищем товар на сервере по штрихкоду; не нашёлся — ждём ещё и ищем снова, и только потом создаём (с тем же
-            // ключом Idempotency-Key). Раньше повтор слался вслепую и заводил два товара с одним штрихкодом.
-            var found = await FindOwnCreatedOnServerAsync(request, waitFirst: false).ConfigureAwait(false);
-            if (found is null)
-                found = await FindOwnCreatedOnServerAsync(request, waitFirst: true).ConfigureAwait(false);
-            System.Text.Json.JsonElement created;
-            if (found is { } already)
-            {
-                PosLogger.Log($"Background product create: товар «{request.Name}» уже есть на сервере (первая попытка дошла) — второй не создаём.", "WAREHOUSE");
-                created = already;
-            }
-            else
-            {
-                try
-                {
-                    created = await _catalogApi.CreateProductAsync(request).ConfigureAwait(false);
-                }
-                catch (ApiException)
-                {
-                    // отказ второй попытки, а товар на сервере уже есть (создала первая) — берём его, иначе ошибка как раньше
-                    var late = await FindOwnCreatedOnServerAsync(request, waitFirst: false).ConfigureAwait(false);
-                    if (late is null)
-                        throw;
-                    created = late.Value;
-                }
-            }
-            var realId = ProductCatalogMapper.TryId(created);
-            if (string.IsNullOrEmpty(realId) || string.Equals(realId, tempLocalId, StringComparison.OrdinalIgnoreCase))
-                return;
-
-            LocalProductEditor.DeleteLocally(tempLocalId);
-            LocalProductEditor.SaveLocally(request, realId);
+            PendingProductQueue.Instance.Enqueue(request, tempId, maybeSent);
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
-            PosLogger.Log($"Background product create failed for temp id {tempLocalId}: {ex}", "WAREHOUSE");
-            CatalogCacheService.RaiseToast(
-                Tr.T(
-                    "Не удалось отправить новый товар на сервер — он сохранён только локально.",
-                    "Жаңы товарды серверге жөнөтүү мүмкүн болгон жок — ал ушул компьютерде гана сакталды.",
-                    "Could not send the new product to the server — it was saved locally only.",
-                    "Yeni ürün sunucuya gönderilemedi — yalnızca yerel olarak kaydedildi.",
-                    "Yangi mahsulotni serverga yuborib bo'lmadi — u faqat shu kompyuterda saqlandi."),
-                true);
-        }
-    }
-
-    /// <summary>2026-11-01 (аудит 10 из 10, С-03): ищет на сервере только что создаваемый товар по штрихкоду. waitFirst — сначала подождать 25 с
-    /// (первая, «потерянная» попытка могла ещё обрабатываться). Нашёлся с тем же названием — вернуть его; иначе (или поиск не удался) null.</summary>
-    private async Task<System.Text.Json.JsonElement?> FindOwnCreatedOnServerAsync(ProductEditRequest request, bool waitFirst)
-    {
-        var barcode = request.Barcode?.Trim();
-        if (string.IsNullOrEmpty(barcode))
-            return null;
-        try
-        {
-            if (waitFirst)
-                await Task.Delay(TimeSpan.FromSeconds(60)).ConfigureAwait(false); // 2026-11-01 (контрольный аудит, С-03): сервер отвечает и по 40–60 с — ждём дольше, прежде чем создавать второй раз
-            var found = await _catalogApi.FindWarehouseProductByBarcodeAsync(barcode).ConfigureAwait(false);
-            if (found is not { ValueKind: System.Text.Json.JsonValueKind.Object } product)
-                return null;
-            // Товар с таким штрихкодом, но другим названием — не наш (заведён раньше): не подменяем.
-            if (product.TryGetProperty("name", out var nameProp) && nameProp.ValueKind == System.Text.Json.JsonValueKind.String
-                && !string.Equals(nameProp.GetString()?.Trim(), request.Name?.Trim(), StringComparison.OrdinalIgnoreCase))
-                return null;
-            return product;
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Background product create: поиск товара по штрихкоду не удался ({ex.GetType().Name}).", "WAREHOUSE");
-            return null;
+            // Файл очереди не записался — товар остаётся только в этой кассе; кассир должен об этом знать.
+            PosLogger.Log($"PRODUCT save: товар {tempId} не поставлен в очередь отправки: {ex.Message}", "WAREHOUSE");
+            CatalogCacheService.RaiseToast(ex.Message, true);
         }
     }
 

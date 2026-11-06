@@ -125,6 +125,44 @@ public static class ServerClock
         }
     }
 
+    // ── 2026-11-06: В2 А5-07 (хвост) — офлайн-продажа при заведомо неверной дате устройства ──
+
+    private static readonly Lazy<DateTimeOffset?> BuildDate = new(() =>
+    {
+        try
+        {
+            var location = typeof(ServerClock).Assembly.Location;
+            if (string.IsNullOrEmpty(location) || !File.Exists(location))
+                return null; // Android: сборки внутри пакета — даты файла нет
+            var stamp = File.GetLastWriteTimeUtc(location);
+            return stamp.Year >= 2025 ? new DateTimeOffset(stamp, TimeSpan.Zero) : null; // 1980 и подобное — метка архива, не дата сборки
+        }
+        catch
+        {
+            return null;
+        }
+    });
+
+    /// <summary>Чистое правило: дата устройства раньше даты сборки программы (больше чем на сутки) и поправка к серверу не применена (меньше суток) — время продажи
+    /// было бы неверным («старше 7 суток» у сервера, чеки застряли бы). Дату сборки не знаем — не запрещаем.</summary>
+    internal static bool IsDeviceDateImpossible(DateTimeOffset deviceNow, DateTimeOffset? buildDate, TimeSpan skew) =>
+        buildDate is { } build && deviceNow < build - TimeSpan.FromDays(1) && skew.Duration() < IgnoreAbove;
+
+    /// <summary>Продажу без связи нельзя начинать: часы устройства раньше даты сборки программы, а поправки по серверу нет (замеров ещё не было).
+    /// <paramref name="message"/> — понятный кассиру текст на 5 языках.</summary>
+    public static bool OfflineSaleBlockedByDeviceDate(out string message)
+    {
+        message = "";
+        if (!IsDeviceDateImpossible(DateTimeOffset.Now, BuildDate.Value, Skew))
+            return false;
+        message = Tr.T("Дата и время на устройстве неверны (раньше даты сборки программы), а связи с сервером нет — продажа без связи сейчас невозможна. Исправьте дату и время в настройках устройства или подключитесь к интернету.",
+            "Түзмөктөгү күн жана убакыт туура эмес (программанын курулган күнүнөн мурун), сервер менен байланыш да жок — байланышсыз сатуу азыр мүмкүн эмес. Түзмөктүн жөндөөлөрүндө күндү жана убакытты оңдоңуз же интернетке туташыңыз.",
+            "The device date and time are wrong (earlier than the program build date) and there is no connection to the server — a sale without a connection is not possible now. Fix the date and time in the device settings or connect to the internet.",
+            "Cihazdaki tarih ve saat yanlış (programın derleme tarihinden önce) ve sunucu bağlantısı yok — şu anda bağlantısız satış yapılamaz. Cihaz ayarlarında tarih ve saati düzeltin veya internete bağlanın.",
+            "Qurilmadagi sana va vaqt noto'g'ri (dastur yig'ilgan sanadan oldin), serverga ulanish ham yo'q — hozir aloqasiz sotib bo'lmaydi. Qurilma sozlamalarida sana va vaqtni to'g'rilang yoki internetga ulaning.");
+        return true;
+    }
+
     /// <summary>Только для тестов: забыть замеры и поправку.</summary>
     internal static void ResetForTests()
     {

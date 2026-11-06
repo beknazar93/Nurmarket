@@ -142,11 +142,21 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
     public bool HasItems => !IsEmpty;
     public bool IsCardLayout => Settings.LayoutMode == CustomerDisplayLayoutMode.Cards;
     public bool IsTableLayout => !IsCardLayout;
-    public bool ShowRightAdvertisement => Settings.AdvertisementEnabled && HasItems &&
+    // 2026-11-06: В6 Д4-44 — без настроенной акции (нет ни своего названия, ни описания, ни картинки) блок «Специальное предложение» покупателю не показываем:
+    // раньше на втором мониторе висела заглушка со значком и словом «Market». В предпросмотре редактора блок виден всегда — владельцу нужно видеть, куда встанет акция.
+    internal const string LegacyAdvertisementTitle = "Специальное предложение";
+    private bool HasCustomAdvertisementTitle => !string.IsNullOrWhiteSpace(Settings.AdvertisementTitle) && Settings.AdvertisementTitle.Trim() != LegacyAdvertisementTitle;
+    public bool HasAdvertisementContent => _designPreview || HasCustomAdvertisementTitle || !string.IsNullOrWhiteSpace(Settings.AdvertisementDescription)
+        || (!string.IsNullOrWhiteSpace(Settings.AdvertisementImagePath) && File.Exists(Settings.AdvertisementImagePath));
+    /// <summary>Название акции: прежняя русская заглушка из старых настроек показывается на языке программы.</summary>
+    private string AdvertisementTitleText => !string.IsNullOrWhiteSpace(Settings.AdvertisementTitle) && !HasCustomAdvertisementTitle
+        ? Tr.T("Специальное предложение", "Атайын сунуш", "Special offer", "Özel teklif", "Maxsus taklif")
+        : Settings.AdvertisementTitle;
+    public bool ShowRightAdvertisement => Settings.AdvertisementEnabled && HasAdvertisementContent && HasItems &&
         Settings.AdvertisementPosition == CustomerDisplayAdvertisementPosition.Right;
-    public bool ShowBottomAdvertisement => Settings.AdvertisementEnabled && HasItems &&
+    public bool ShowBottomAdvertisement => Settings.AdvertisementEnabled && HasAdvertisementContent && HasItems &&
         Settings.AdvertisementPosition == CustomerDisplayAdvertisementPosition.Bottom;
-    public bool ShowEmptyAdvertisement => Settings.AdvertisementEnabled &&
+    public bool ShowEmptyAdvertisement => Settings.AdvertisementEnabled && HasAdvertisementContent &&
         Settings.AdvertisementPosition == CustomerDisplayAdvertisementPosition.EmptyScreen;
     public bool HasBackgroundImage => !string.IsNullOrWhiteSpace(Settings.BackgroundImagePath);
     public string InformationImagePath
@@ -239,7 +249,7 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
             ? ShowOwnerPlaceholders
                 ? Tr.T("Полезная информация", "Пайдалуу маалымат", "Useful information", "Yararlı bilgiler", "Foydali ma'lumot")
                 : GreetingTitle
-            : Settings.AdvertisementTitle;
+            : AdvertisementTitleText;
     /// <summary>2026-10-21 (пакет 6, п. 56): надпись в пустой рамке без картинки — в редакторе «место для QR/рекламы»,
     /// у покупателя — название магазина, как в шапке экрана.</summary>
     public string InformationPlaceholderText => _designPreview
@@ -368,7 +378,7 @@ public sealed class CustomerDisplayViewModel : INotifyPropertyChanged, IDisposab
     public bool IsPaymentFailed => _state.CurrentStatus == CustomerDisplayPaymentStatus.Failed;
     public bool HasPaymentStatus => _state.CurrentStatus != CustomerDisplayPaymentStatus.Idle;
     /// <summary>Есть что показать в блоке QR / рекламы (в «Классике» блок стоит всегда, как раньше).</summary>
-    public bool HasInformationContent => HasInformationImage || Settings.AdvertisementEnabled;
+    public bool HasInformationContent => HasInformationImage || (Settings.AdvertisementEnabled && HasAdvertisementContent);
     /// <summary>Блок QR / рекламы в новых видах: после «Оплата принята» QR уже не нужен — его место
     /// занимает сообщение об оплате и сдача (на небольшом заднем экране всё сразу не помещается).</summary>
     public bool ShowInformationCard => HasInformationContent && !IsPaymentSuccess;

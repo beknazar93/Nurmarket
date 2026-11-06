@@ -84,6 +84,13 @@ public sealed class FraudWindow : Window
 
     private static Control Line(CheckBox? check, string? before, TextBox? box, string? after)
     {
+        // 2026-11-06: В3 ДС-3 — у числового поля нет своей подписи (текст «до» и «после» лежат рядом отдельными надписями): диктор читал просто «0». Имя поля = эти надписи (или текст флажка).
+        if (box is not null)
+        {
+            var spoken = string.Join(" ", new[] { before, after, before is null && after is null ? check?.Content as string : null }.Where(s => !string.IsNullOrWhiteSpace(s))).Trim(' ', ':');
+            if (spoken.Length > 0 && string.IsNullOrEmpty(AutomationProperties.GetName(box)))
+                AutomationProperties.SetName(box, spoken);
+        }
         // 2026-11-05 (ревью волн 0–3, Н11): перенос строки вместо обрезки на ky/uz и масштабе 125 %.
         var row = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         if (check is not null)

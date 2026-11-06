@@ -52,7 +52,8 @@
           <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,Auto,Auto">
             <TextBlock Grid.ColumnSpan="3" Text="{DynamicResource common.shift}" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,0,8"/>
             <StackPanel Grid.Row="1" Grid.Column="0" Spacing="2">
-              <TextBlock Text="{DynamicResource shiftDetails.shiftNumberLabel}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+              <!-- 2026-11-06: В6 Д4-18 — подпись «Смена» (а не «Номер смены»): вместо кода показываем дату и время открытия, код — в подсказке. -->
+              <TextBlock x:Name="ShiftNumberLabel" Text="{DynamicResource common.shift}" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock x:Name="ShiftNumberText" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Text="—" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
             <StackPanel Grid.Row="1" Grid.Column="2" Spacing="2">
@@ -281,9 +282,16 @@
               BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1"
               CornerRadius="12" Padding="12">
         <StackPanel Spacing="6">
-          <TextBlock x:Name="ShiftProductsTitle" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
-          <TextBlock x:Name="ShiftProductsNote" FontSize="12" TextWrapping="Wrap" IsVisible="False"
-                     Foreground="{DynamicResource BrushTextSoft}"/>
+          <!-- 2026-11-06: В6 Д4-18 — абзац-пояснение («Итого по товарам…») спрятан за кнопкой «?» у заголовка: две «выручки» рядом сбивали. -->
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock x:Name="ShiftProductsTitle" Grid.Column="0" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushTextSoft}"/>
+            <ToggleButton x:Name="ShiftProductsNoteToggle" Grid.Column="1" Content="?" Width="40" Height="40" Padding="0" FontWeight="SemiBold"
+                          AutomationProperties.Name="?" Focusable="False"/>
+          </Grid>
+          <Border IsVisible="{Binding #ShiftProductsNoteToggle.IsChecked}">
+            <TextBlock x:Name="ShiftProductsNote" FontSize="12" TextWrapping="Wrap" IsVisible="False"
+                       Foreground="{DynamicResource BrushTextSoft}"/>
+          </Border>
           <ItemsControl x:Name="ShiftProductsList">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>

@@ -18,7 +18,12 @@ public sealed partial class BackgroundReceivingQueue
                 _subscribed = true;
                 // Связь вернулась — повторять сразу, не дожидаясь расписания ожидания связи.
                 ServerOutageMonitor.StateChanged += (_, _) => Wake();
-                ServerOutageMonitor.Recovered += Wake;
+                // 2026-11-06: офлайн-приход — связь вернулась: задачи, ждавшие по «нарастающей паузе» (нет ответа сервера), пробуем сразу, а не через 5 минут.
+                ServerOutageMonitor.Recovered += () =>
+                {
+                    ExpediteWaiting();
+                    Wake();
+                };
             }
             if (_worker is { IsCompleted: false } || _closed)
                 return;
@@ -74,6 +79,11 @@ public sealed partial class BackgroundReceivingQueue
         }
     }
 
+    /// <summary>2026-11-06 (жалоба «при приёмке очередь сбивается»): порядок очереди — порядок записи задач в список (FIFO: _jobs только дописывается и читается с диска в том же порядке),
+    /// а не сортировка по CreatedAt: часы ПК (перевод времени, ручная правка) могли поменять местами задачи, созданные в одну секунду или после правки часов.
+    /// Первая активная задача блокирует следующие, пока она в повторе (порядок не перескакивает).</summary>
+    public static ReceivingJob? OldestActive(IEnumerable<ReceivingJob> jobs, Func<ReceivingJob, bool> own) => jobs.FirstOrDefault(j => j.IsActive && own(j));
+
     /// <summary>Старейшая активная задача текущей компании; если она ждёт повтора — null и сколько ждать.</summary>
     private ReceivingJob? PickNextLocked(out TimeSpan? wait)
     {
@@ -81,7 +91,7 @@ public sealed partial class BackgroundReceivingQueue
         if (_closed)
             return null;
         var company = CurrentCompany;
-        var job = _jobs.Where(j => j.IsActive && SameCompany(j.CompanyId, company)).OrderBy(j => j.CreatedAt).FirstOrDefault();
+        var job = OldestActive(_jobs, j => SameCompany(j.CompanyId, company));
         if (job is null)
             return null;
         if (job.Status == ReceivingJobStatus.RetryWait && job.NextAttemptAt is { } at && at > DateTime.UtcNow)
@@ -90,6 +100,24 @@ public sealed partial class BackgroundReceivingQueue
             return null;
         }
         return job;
+    }
+
+    /// <summary>2026-11-06: связь вернулась — пауза повтора у задач, ждавших связь, снимается (повтор сразу).</summary>
+    internal void ExpediteWaiting()
+    {
+        var any = false;
+        lock (_sync)
+        {
+            foreach (var j in _jobs.Where(j => j.Status == ReceivingJobStatus.RetryWait && j.WaitingForServer && j.NextAttemptAt is not null))
+            {
+                j.NextAttemptAt = null;
+                any = true;
+            }
+            if (any)
+                Save();
+        }
+        if (any)
+            PosLogger.Log("Приход в фоне: связь с сервером вернулась — ждущие приходы отправляются сразу.", "STOCK");
     }
 
     private bool ServerReady()
@@ -141,12 +169,17 @@ public sealed partial class BackgroundReceivingQueue
         SyncOutcomesFromState(job);
         bool needReceive;
         lock (_sync)
-            needReceive = job.Lines.Any(l => l.Outcome is ReceivingLineOutcome.Pending or ReceivingLineOutcome.Unknown);
+            needReceive = job.Lines.Any(l => l.Outcome is ReceivingLineOutcome.Pending or ReceivingLineOutcome.Unknown) || NeedsPostSteps(job);
         if (needReceive)
             await ReceiveAsync(job, stop).ConfigureAwait(false);
         else
             await FinishAsync(job, stop).ConfigureAwait(false);
     }
+
+    /// <summary>2026-11-06: приход от поставщика создан, но шаги после него (PATCH цен/себестоимости, возврат цены) прервала сеть — нужно только их доделать.</summary>
+    private static bool NeedsPostSteps(ReceivingJob job) =>
+        job.Supplier is not null && job.State.PostStepsPending && job.State.ReceiptOutcome == ReceivingReceiptOutcome.Posted
+        && job.Lines.Any(l => l.Outcome == ReceivingLineOutcome.Posted);
 
     /// <summary>Строки, которые состояние задачи уже знает как принятые/отклонённые, а строка задачи ещё нет (перезапуск посреди попытки):
     /// заново их не отправляем — иначе без поставщика остаток прибавится дважды.</summary>
@@ -230,7 +263,9 @@ public sealed partial class BackgroundReceivingQueue
         lock (_sync)
         {
             vms = new List<ReceivingLineVm>();
-            foreach (var jl in job.Lines.Where(l => l.Outcome is ReceivingLineOutcome.Pending or ReceivingLineOutcome.Unknown))
+            // 2026-11-06: дозавершение — документ уже создан; в PostAsync идут и принятые строки, чтобы дописать недоделанные шаги (отправка документа пропускается).
+            var resumeSteps = NeedsPostSteps(job);
+            foreach (var jl in job.Lines.Where(l => l.Outcome is ReceivingLineOutcome.Pending or ReceivingLineOutcome.Unknown || (resumeSteps && l.Outcome == ReceivingLineOutcome.Posted)))
             {
                 var vm = jl.ToVm();
                 map[vm] = jl;
@@ -248,7 +283,9 @@ public sealed partial class BackgroundReceivingQueue
         };
         st.Interrupted = false;
         st.LastStatusCode = null;
-        st.Parallelism = job.Source == ReceivingJobSource.Bulk ? Math.Max(1, BulkPostParallel) : 1; // 2026-10-30: части мастера загрузки идут по несколько строк сразу
+        st.ReceivedAt = job.ReceivedAt; // 2026-11-06: время приёма — в пометку документа и локальную историю закупок
+        st.IdempotencyCheck = (key, token) => Api is { } apiClient ? IdempotencyJournal.CheckAsync(apiClient, key, token) : Task.FromResult(IdempotencyVerdict.Unknown);
+        st.Parallelism =job.Source == ReceivingJobSource.Bulk ? Math.Max(1, BulkPostParallel) : 1; // 2026-10-30: части мастера загрузки идут по несколько строк сразу
         // 2026-10-30 (скорость): общая запись для параллельных строк. Изменение состояния получает номер; запись, начатая ПОСЛЕ изменения, уже содержит его —
         // другим потокам, ждавшим замок, свою запись делать не нужно (каждый поток по-прежнему возвращается только когда его изменение на диске).
         long stateSeq = 0, savedSeq = 0;
@@ -381,11 +418,17 @@ public sealed partial class BackgroundReceivingQueue
                 job.ReceiptTotal = st.ReceiptTotal;
                 job.ReceiptAt = st.ReceiptAt;
             }
+            // 2026-11-06: время отправки — когда сервер впервые принял приход (документ или первая строка); рядом со временем приёма показывается в списке и журнале.
+            if (job.SentAt is null && (st.ReceiptOutcome == ReceivingReceiptOutcome.Posted || job.Lines.Any(l => l.Outcome == ReceivingLineOutcome.Posted)))
+            {
+                job.SentAt = DateTime.Now;
+                PosLogger.Log($"Приход в фоне: задача {job.Id} принята сервером — принят {job.ReceivedAt:dd.MM.yyyy HH:mm}, отправлен {job.SentAt:dd.MM.yyyy HH:mm}.", "STOCK");
+            }
             if (result is not null)
             {
                 job.Created += result.Created;
                 // Тексты отказов по строкам, которые ещё будут повторены, в итог не попадают (временные); замечания по принятым и итоговые отказы — да.
-                var retryLeft = job.Lines.Any(l => l.Outcome is ReceivingLineOutcome.Pending or ReceivingLineOutcome.Unknown);
+                var retryLeft = job.Lines.Any(l => l.Outcome is ReceivingLineOutcome.Pending or ReceivingLineOutcome.Unknown) || (job.Supplier is not null && st.PostStepsPending);
                 foreach (var e in result.Errors)
                     if (KeepError(job, e, retryLeft))
                         AddError(job, e);
@@ -417,7 +460,7 @@ public sealed partial class BackgroundReceivingQueue
     {
         bool retryable;
         lock (_sync)
-            retryable = job.Lines.Any(l => l.Outcome is ReceivingLineOutcome.Pending or ReceivingLineOutcome.Unknown);
+            retryable = job.Lines.Any(l => l.Outcome is ReceivingLineOutcome.Pending or ReceivingLineOutcome.Unknown) || NeedsPostSteps(job);
 
         if (!retryable)
         {
@@ -427,6 +470,8 @@ public sealed partial class BackgroundReceivingQueue
 
         // Повтор. 429 («слишком часто»), авария сервера и нет входа попыток не тратят: ждём, сколько просит сервер / пока вернётся связь.
         var code = st.LastStatusCode;
+        if (code is null && failure is not null and not ApiException && ServerOutageMonitor.IsServerFailure(failure))
+            code = 0; // 2026-11-06: исключение без ответа сервера (таймаут попытки, обрыв) — «нет ответа»
         if (code == 429)
         {
             var wait = ApiThrottleWait();
@@ -451,10 +496,14 @@ public sealed partial class BackgroundReceivingQueue
         }
 
         bool exhausted;
+        var noAnswer = IsNoAnswerStatus(code);
         lock (_sync)
         {
             job.Attempts++;
-            exhausted = job.Attempts > MaxRetries;
+            // 2026-11-06: офлайн-приход — «сервер не отвечает» (обрыв, таймаут, 502–504) приход не убивает: попыток не жалеем, пауза растёт до 5 мин, пока не появится связь.
+            exhausted = job.Attempts > MaxRetries && !noAnswer;
+            if (noAnswer && job.Attempts > MaxRetries)
+                job.Attempts = MaxRetries;
         }
         if (exhausted)
         {
@@ -474,10 +523,18 @@ public sealed partial class BackgroundReceivingQueue
         Update(job, j =>
         {
             j.Status = ReceivingJobStatus.RetryWait;
-            j.WaitingForServer = false;
+            j.WaitingForServer = noAnswer; // 2026-11-06: «ждёт связь с сервером» — вернётся связь, ExpediteWaiting снимет паузу
             j.NextAttemptAt = DateTime.UtcNow + delay;
         });
+        if (noAnswer)
+            PosLogger.Log($"Приход в фоне: задача {job.Id} — сервер не ответил, приход сохранён; следующая попытка через {delay.TotalSeconds:0} с или сразу при возвращении связи.", "STOCK");
     }
+
+    /// <summary>2026-11-06: 0 — сбой без ответа (обрыв, таймаут), 408, 502–504 и 520–524 (Cloudflare): сервер недоступен, а не отказал по существу.</summary>
+    internal static bool IsNoAnswerStatus(int? code) => code is 0 or 408 or 502 or 503 or 504 or (>= 520 and <= 524);
+
+    private static bool IsNoAnswerException(Exception ex) =>
+        ex is ApiException api ? IsNoAnswerStatus(api.StatusCode) : ServerOutageMonitor.IsServerFailure(ex);
 
     private static TimeSpan ApiThrottleWait()
     {
@@ -516,7 +573,7 @@ public sealed partial class BackgroundReceivingQueue
         {
             var posted = job.Lines.Where(l => l.Outcome == ReceivingLineOutcome.Posted).ToList();
             built = new PurchaseReceivingService.PostResult(posted.Select(l => l.ToVm()).ToList(), posted.Sum(l => l.LineTotal), job.Created,
-                job.Errors.ToList(), job.ReceiptId, job.ReceiptTotal, job.ReceiptAt, job.State.ReceiptKey);
+                job.Errors.ToList(), job.ReceiptId, job.ReceiptTotal, job.ReceiptAt, job.State.ReceiptKey, job.State.ServerNumber);
             supplier = job.Supplier?.ToSupplier();
         }
 
@@ -601,12 +658,17 @@ public sealed partial class BackgroundReceivingQueue
             {
                 job.LastError = failure is OperationCanceledException ? PurchaseReceivingService.NoAnswerText : ReceivingServerMessages.Humanize(failure.Message);
                 job.Attempts++;
+                // 2026-11-06: офлайн-приход — шаги после прихода (долг, оплата) при пропавшей связи не сдаются: ждём связь, пауза до 5 мин.
+                var noAnswer = IsNoAnswerException(failure);
+                if (noAnswer && job.Attempts > MaxRetries)
+                    job.Attempts = MaxRetries;
                 exhausted = job.Attempts > MaxRetries;
             }
             if (!exhausted)
             {
                 var delay = RetryDelays[Math.Min(job.Attempts - 1, RetryDelays.Length - 1)];
-                Update(job, j => { j.Status = ReceivingJobStatus.RetryWait; j.WaitingForServer = false; j.NextAttemptAt = DateTime.UtcNow + delay; });
+                var waitLink = IsNoAnswerException(failure);
+                Update(job, j => { j.Status = ReceivingJobStatus.RetryWait; j.WaitingForServer = waitLink; j.NextAttemptAt = DateTime.UtcNow + delay; });
                 return;
             }
             lock (_sync)
@@ -706,7 +768,8 @@ public sealed partial class BackgroundReceivingQueue
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Приход в фоне: остаток товара {line.ProductId} в каталоге не обновлён ({ex.Message}).", "WARNING");
+            // 2026-11-06 (Б-13): одна запись в 10 минут на причину (текст ошибки), а не по строке на каждый товар прихода.
+            PosLogger.LogThrottled("receiving-stock-" + ex.Message, $"Приход в фоне: остаток товара {line.ProductId} в каталоге не обновлён ({ex.Message}).", "WARNING");
         }
     }
 

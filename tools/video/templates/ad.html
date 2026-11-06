@@ -1,0 +1,216 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ad</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* 2026-10-29: шаблон рекламного ролика NurCRM: «боль» (иконка + крупный текст), бренд, экран/телефон/сплит, финал.
+     Каждая сцена начинается «протиранием» жёлтой плашкой слева направо (240 мс) и въездом 1,04 -> 1,0. */
+  #stage { position:absolute; inset:0; transform-origin:50% 50%; }
+  .ttl { position:absolute; font-weight:800; color:#fff; line-height:1.1; letter-spacing:-.01em; }
+  .ttl .y { color:var(--brand); }
+  .sub { position:absolute; font-weight:600; color:#d8d8d8; line-height:1.25; }
+  .cam { position:absolute; overflow:hidden; background:#fff; }
+  .cam img { position:absolute; display:block; max-width:none; transform-origin:0 0; }
+  .scr { box-shadow:0 calc(var(--u)*1.4) calc(var(--u)*6) rgba(0,0,0,.6); }
+  .ph { position:absolute; background:#0b0b0b; box-shadow:0 calc(var(--u)*1.4) calc(var(--u)*6) rgba(0,0,0,.65), inset 0 0 0 calc(var(--u)*.25) #3a3a3a; }
+  .ph .cam { border-radius:calc(var(--u)*3.4); }
+  #wipe { position:absolute; inset:0; background:var(--brand); z-index:50; will-change:transform; }
+  svg.pain { position:absolute; overflow:visible; }
+  .logo { position:absolute; border-radius:50%; }
+  .tag { position:absolute; font-weight:600; color:#bdbdbd; }
+  .qr { position:absolute; background:#fff; border-radius:calc(var(--u)*1.4); padding:calc(var(--u)*1.2); }
+  .qr img { display:block; width:100%; height:100%; }
+</style></head>
+<body><div id="root"><div class="bg-glow"></div><div id="stage"></div><div id="wipe"></div></div>
+<script src="nm.js"></script>
+<script>
+/* params (window.SCENE.params):
+   kind: "pain" | "brand" | "screen" | "phone" | "split" | "finale"
+   title: "Текст с [[жёлтым словом]]"   sub: необязательная вторая строка
+   pain:   icon: "wifi" | "barcode" | "book" | "shop"
+   screen/phone/split: shots: [{image, from:0..1, crop:[fx,fy,fw,fh] (портрет), focus:[{at:0..1, dur:сек, rect:[fx,fy,fw,fh]}]}]
+                       split: phone: [{image}], как shots
+   finale: slogan, line2, links, qr, cta, logo; brand: title, tag
+   nowipe: true — без жёлтого протирания. */
+window.__ready = window.__ready.then(async () => {
+  const { P, S, el, seg, ease, clamp, lerp, toURL } = NM;
+  const stage = document.getElementById('stage'), wipe = document.getElementById('wipe');
+  const W = innerWidth, H = innerHeight, u = Math.min(W, H) / 100, portrait = H > W, kind = P.kind || 'screen';
+  const mk = (cls, parent, txt) => el('div', cls, parent || stage, txt);
+  const html = (s) => String(s || '').replace(/\[\[(.+?)\]\]/g, '<span class="y">$1</span>');
+  const px = (v) => v + 'px';
+  const place = (d, x, y, w, h) => Object.assign(d.style, { left: px(x), top: px(y), width: w == null ? '' : px(w), height: h == null ? '' : px(h) });
+  const loadI = (src) => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(i); i.src = toURL(src); });
+
+  function title(text, x, y, w, size, opts) {
+    const d = mk('ttl'); d.innerHTML = html(text); place(d, x, y, w);
+    d.style.fontSize = px(size); if (opts && opts.align) d.style.textAlign = opts.align; return d;
+  }
+
+  // ---------- камера: показ части изображения в рамке ----------
+  async function camShot(sh, area, opts) {
+    const im = await loadI(sh.image);
+    const iw = im.naturalWidth || 1000, ih = im.naturalHeight || 1000;
+    const r0 = (portrait && sh.crop) ? sh.crop : [0, 0, 1, 1];
+    const ar = (iw * r0[2]) / (ih * r0[3]);
+    let cw = area.w, ch = cw / ar; if (ch > area.h) { ch = area.h; cw = ch * ar; }
+    const cam = mk('cam' + (opts && opts.phone ? '' : ' scr'), opts && opts.parent);
+    const x = area.x + (area.w - cw) / 2, y = area.y + (area.h - ch) / 2;
+    place(cam, x, y, cw, ch);
+    if (!(opts && opts.phone)) cam.style.borderRadius = px(1.2 * u);
+    const img = document.createElement('img'); img.src = im.src; cam.appendChild(img);
+    const focus = (sh.focus || []).map(f => ({ at: f.at * S.duration, dur: f.dur || 0.9, rect: f.rect }));
+    const stateAt = (t) => {
+      let prev = r0;
+      for (const f of focus) {
+        if (t < f.at) break;
+        const p = ease.inOut(clamp((t - f.at) / f.dur));
+        const cur = prev.map((v, i) => lerp(v, f.rect[i], p));
+        if (p < 1) return cur;
+        prev = f.rect;
+      }
+      return prev;
+    };
+    const apply = (t) => {
+      const r = stateAt(t);
+      const s = Math.min(cw / (r[2] * iw), ch / (r[3] * ih));
+      img.style.width = px(iw * s); img.style.height = px(ih * s);
+      const clampPos = (v, box, tot) => (tot <= box ? (box - tot) / 2 : Math.min(0, Math.max(box - tot, v)));
+      img.style.left = px(clampPos(cw / 2 - (r[0] + r[2] / 2) * iw * s, cw, iw * s)); img.style.top = px(clampPos(ch / 2 - (r[1] + r[3] / 2) * ih * s, ch, ih * s));
+    };
+    apply(0);
+    return { cam, apply, box: { x, y, w: cw, h: ch } };
+  }
+
+  const items = []; // { set(t) }
+  const shotsOf = (arr) => (arr || []).map((s, i, a) => Object.assign({ from: i === 0 ? 0 : (s.from != null ? s.from : i / a.length) }, s));
+
+  async function buildShots(arr, area, opts) {
+    const list = shotsOf(arr), made = [];
+    for (const sh of list) {
+      let holder = null;
+      if (opts && opts.phone) { holder = mk('ph'); }
+      const m = await camShot(sh, area, Object.assign({}, opts, { parent: holder || undefined }));
+      let outer = m.cam;
+      if (holder) {
+        const pad = 0.9 * u;
+        place(holder, m.box.x - pad, m.box.y - pad, m.box.w + 2 * pad, m.box.h + 2 * pad);
+        holder.style.borderRadius = px(4.4 * u);
+        place(m.cam, pad, pad, m.box.w, m.box.h);
+        outer = holder;
+      }
+      made.push({ outer, apply: m.apply, from: sh.from * S.duration });
+    }
+    items.push({ set(t) {
+      made.forEach((m, i) => {
+        const nextFrom = i + 1 < made.length ? made[i + 1].from : 1e9;
+        const fin = i === 0 ? 1 : seg(t, m.from, 0.3, ease.out);
+        const fout = i + 1 < made.length ? 1 - seg(t, nextFrom, 0.3, ease.out) : 1;
+        m.outer.style.opacity = Math.min(fin, fout);
+        m.apply(t);
+      });
+    } });
+    return made;
+  }
+
+  // ---------- иконки «боли» ----------
+  const ICONS = {
+    wifi: '<g fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><path d="M2.2 9a15 15 0 0 1 19.6 0"/><path d="M5.4 12.6a10.2 10.2 0 0 1 13.2 0"/><path d="M8.7 16a5.3 5.3 0 0 1 6.6 0"/></g><circle cx="12" cy="19.4" r="1.3" fill="#fff"/><path d="M3.4 3.4 20.6 20.6" stroke="#E5484D" stroke-width="2.2" stroke-linecap="round"/>',
+    barcode: '<g fill="#fff"><rect x="2" y="5" width="1.6" height="14"/><rect x="5" y="5" width="0.9" height="14"/><rect x="7.2" y="5" width="2.2" height="14"/><rect x="10.8" y="5" width="0.9" height="14"/><rect x="13" y="5" width="1.8" height="14"/><rect x="16.2" y="5" width="0.9" height="14"/><rect x="18.4" y="5" width="2" height="14"/></g><circle cx="19" cy="18" r="4.4" fill="#E5484D"/><path d="M17.2 16.2l3.6 3.6M20.8 16.2l-3.6 3.6" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>',
+    book: '<g fill="none" stroke="#fff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"><rect x="3.5" y="2.8" width="14" height="18.4" rx="1.6"/><path d="M7 7.5h7M7 11h7M7 14.5h4"/></g><path d="M15.5 21.2l1-4 6.2-6.2 3 3-6.2 6.2z" fill="#FFB208" stroke="#191919" stroke-width=".7" transform="translate(-2.2 -1.2) scale(.95)"/>',
+    shop: '<g fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"><path d="M3 9.5 4.6 4h14.8L21 9.5"/><path d="M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M4.5 12.5V20h15v-7.5"/><path d="M10 20v-5h4v5"/></g><circle cx="19.5" cy="4.5" r="2.2" fill="#FFB208"/>',
+  };
+
+  // ---------- сборка по видам ----------
+  if (kind === 'pain') {
+    const sz = (portrait ? 40 : 30) * u;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.innerHTML = ICONS[P.icon] || ICONS.shop;
+    svg.classList.add('pain'); stage.appendChild(svg);
+    Object.assign(svg.style, portrait ? { left: px(50 * u - sz / 2), top: px(46 * u), width: px(sz), height: px(sz) } : { left: px(18 * u), top: px(50 * u - sz / 2), width: px(sz), height: px(sz) });
+    const tx = portrait ? 6 * u : 62 * u, tw = portrait ? 88 * u : 108 * u;
+    const t = title(P.title, tx, portrait ? 86 * u : 50 * u - sz / 2, tw, (portrait ? 9.6 : 7.4) * u, { align: portrait ? 'center' : 'left' });
+    if (!portrait) { t.style.height = px(sz); t.style.display = 'flex'; t.style.alignItems = 'center'; t.innerHTML = '<div>' + html(P.title) + '</div>'; }
+    let s2 = null;
+    if (P.sub) { s2 = mk('sub'); s2.textContent = P.sub; place(s2, tx, portrait ? 112 * u : 38 * u + 25 * u, tw); s2.style.fontSize = px((portrait ? 4.4 : 3.4) * u); if (portrait) s2.style.textAlign = 'center'; }
+    items.push({ set(tt) {
+      const a = seg(tt, 0.3, 0.5, ease.back);
+      svg.style.opacity = clamp(a); svg.style.transform = `scale(${0.7 + 0.3 * a})`;
+      const b = seg(tt, 0.5, 0.45); t.style.opacity = b; t.style.transform = `translateY(${(1 - b) * 3 * u}px)`;
+      if (s2) s2.style.opacity = seg(tt, 0.9, 0.4);
+    } });
+  } else if (kind === 'brand') {
+    const sz = (portrait ? 34 : 24) * u;
+    const lg = document.createElement('img'); lg.className = 'logo'; lg.src = toURL(P.logo || S.logo); stage.appendChild(lg);
+    Object.assign(lg.style, { left: px(50 * W / 100 - sz / 2), top: px((portrait ? 50 : 26) * u), width: px(sz), height: px(sz) });
+    const t = title(P.title || 'NurCRM', 0, (portrait ? 50 : 26) * u + sz + 3 * u, W, (portrait ? 11 : 9) * u, { align: 'center' });
+    const tg = mk('tag'); tg.textContent = P.tag || ''; place(tg, 0, (portrait ? 50 : 26) * u + sz + 3 * u + (portrait ? 13 : 11) * u, W); tg.style.textAlign = 'center'; tg.style.fontSize = px((portrait ? 4.2 : 3.4) * u);
+    items.push({ set(tt) {
+      const a = seg(tt, 0.25, 0.6, ease.back);
+      lg.style.opacity = clamp(a * 1.4); lg.style.transform = `scale(${0.9 + 0.1 * Math.min(1, a)})`;
+      t.style.opacity = seg(tt, 0.5, 0.4); tg.style.opacity = seg(tt, 0.8, 0.4);
+    } });
+  } else if (kind === 'finale') {
+    const lg = document.createElement('img'); lg.className = 'logo'; lg.src = toURL(P.logo || S.logo); stage.appendChild(lg);
+    let t, l2, qr, lk;
+    if (!portrait) {
+      const sz = 15 * u;
+      Object.assign(lg.style, { left: px(8 * u), top: px(9 * u), width: px(sz), height: px(sz) });
+      t = title(P.slogan, 8 * u, 28 * u, 100 * u, 6.8 * u, { align: 'left' });
+      l2 = mk('sub'); l2.innerHTML = html(P.line2 || ''); place(l2, 8 * u, 58 * u, 92 * u); l2.style.fontSize = px(3 * u);
+      const qs = 34 * u;
+      qr = mk('qr'); const qi = document.createElement('img'); qi.src = toURL(P.qr); qr.appendChild(qi); place(qr, 134 * u, 16 * u, qs, qs);
+      lk = mk('tag'); lk.innerHTML = html(P.links || ''); place(lk, 114 * u, 16 * u + qs + 4 * u, 62 * u); lk.style.textAlign = 'center'; lk.style.fontSize = px(2.5 * u); lk.style.color = '#e6e6e6';
+    } else {
+      const sz = 24 * u, top0 = 14 * u;
+      Object.assign(lg.style, { left: px(W / 2 - sz / 2), top: px(top0), width: px(sz), height: px(sz) });
+      t = title(P.slogan, 4 * u, top0 + sz + 3 * u, W - 8 * u, 6.8 * u, { align: 'center' });
+      l2 = mk('sub'); l2.innerHTML = html(P.line2 || ''); place(l2, 8 * u, top0 + sz + 30 * u, W - 16 * u); l2.style.textAlign = 'center'; l2.style.fontSize = px(3.8 * u);
+      const qs = 30 * u;
+      qr = mk('qr'); const qi = document.createElement('img'); qi.src = toURL(P.qr); qr.appendChild(qi);
+      const qy = top0 + sz + 56 * u; place(qr, W / 2 - qs / 2, qy, qs, qs);
+      lk = mk('tag'); lk.innerHTML = html(P.links || ''); place(lk, 4 * u, qy + qs + 3 * u, W - 8 * u); lk.style.textAlign = 'center'; lk.style.fontSize = px(3.3 * u); lk.style.color = '#e6e6e6';
+    }
+    items.push({ set(tt) {
+      const a = seg(tt, 0.25, 0.7, ease.back); lg.style.opacity = clamp(a * 1.4); lg.style.transform = `scale(${0.96 + 0.04 * Math.min(1, a)})`;
+      const b = seg(tt, 0.55, 0.5); t.style.opacity = b; t.style.transform = `translateY(${(1 - b) * 2 * u}px)`;
+      l2.style.opacity = seg(tt, 1.1, 0.5); lk.style.opacity = seg(tt, 1.6, 0.5); qr.style.opacity = seg(tt, 1.8, 0.5);
+    } });
+  } else {
+    // screen | phone | split
+    const T = (portrait ? { x: 6 * u, y: 7 * u, w: 88 * u, s: 8.6 * u } : { x: 6 * u, y: 3.2 * u, w: 165 * u, s: 5.8 * u });
+    if (kind === 'screen') {
+      const t = title(P.title, T.x, T.y, T.w, T.s);
+      items.push({ set(tt) { const b = seg(tt, 0.3, 0.45); t.style.opacity = b; t.style.transform = `translateX(${(1 - b) * -4 * u}px)`; } });
+      const area = portrait ? { x: 2 * u, y: 40 * u, w: 96 * u, h: 112 * u } : { x: 8 * u, y: 17 * u, w: 162 * u, h: 68 * u };
+      await buildShots(P.shots, area, {});
+    } else if (kind === 'phone') {
+      const t = title(P.title, portrait ? T.x : 8 * u, portrait ? T.y : 30 * u, portrait ? T.w : 90 * u, portrait ? T.s : 7 * u);
+      let s2 = null;
+      if (P.sub) { s2 = mk('sub'); s2.textContent = P.sub; place(s2, 8 * u, 30 * u + 28 * u, 86 * u); s2.style.fontSize = px(3.3 * u); }
+      items.push({ set(tt) { const b = seg(tt, 0.3, 0.45); t.style.opacity = b; t.style.transform = `translateY(${(1 - b) * 2 * u}px)`; if (s2) s2.style.opacity = seg(tt, 0.8, 0.4); } });
+      const area = P.plain ? (portrait ? { x: 6 * u, y: 36 * u, w: 88 * u, h: 118 * u } : { x: 100 * u, y: 4 * u, w: 68 * u, h: 80 * u })
+        : (portrait ? { x: 14 * u, y: 36 * u, w: 72 * u, h: 118 * u } : { x: 118 * u, y: 4 * u, w: 40 * u, h: 80 * u });
+      await buildShots(P.shots, area, { phone: !P.plain });
+    } else { // split: телефон слева, экран кассы справа (в портрете — друг над другом)
+      const t = title(P.title, T.x, T.y, T.w, T.s);
+      items.push({ set(tt) { const b = seg(tt, 0.3, 0.45); t.style.opacity = b; t.style.transform = `translateX(${(1 - b) * -4 * u}px)`; } });
+      const ph = portrait ? { x: 10 * u, y: 40 * u, w: 36 * u, h: 80 * u } : { x: 8 * u, y: 18 * u, w: 32 * u, h: 66 * u };
+      const sc = portrait ? { x: 4 * u, y: 126 * u, w: 92 * u, h: 36 * u } : { x: 46 * u, y: 18 * u, w: 124 * u, h: 66 * u };
+      await buildShots(P.phone, ph, { phone: true });
+      await buildShots(P.shots, sc, {});
+    }
+  }
+
+  window.__render = (t) => {
+    // въезд 1,04 -> 1,0 (первые 0,6 с)
+    const e = seg(t, 0, 0.6, ease.out);
+    stage.style.transform = P.nozoom ? '' : `scale(${1.04 - 0.04 * e})`;
+    for (const it of items) it.set(t);
+    if (P.nowipe) { wipe.style.display = 'none'; return; }
+    // протирание жёлтой плашкой: 0..0,12 с въезжает слева, 0,12..0,30 уезжает вправо (240 мс суммарно)
+    let x;
+    if (t < 0.12) x = -100 + 100 * ease.out(t / 0.12); else if (t < 0.30) x = 100 * ease.inOut((t - 0.12) / 0.18); else x = 100;
+    wipe.style.transform = `translateX(${x}%)`; wipe.style.display = t >= 0.30 ? 'none' : 'block';
+  };
+});
+</script></body></html>

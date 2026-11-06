@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>NurCRM Video Pro</title>
+<!-- 2026-10-30: шаблон движка профессионального стиля (гид docs/Дизайн/Видео — профессиональный стиль (гид).md, эталон design/Video-Pro/preview.html).
+     Токены и CSS — копия эталона; логика сцен — pro.js; спецификацию подставляет make_pro.py (/*SPEC*/null). Все кадры считаются из времени t: window.__renderA(t). -->
+<style>
+/*FONTS*/
+:root{
+  --bg:#191919; --bg-2:#1F1F1F; --grid:rgba(255,255,255,.035);
+  --fg:#FFFFFF; --fg-2:rgba(255,255,255,.64); --fg-3:rgba(255,255,255,.40);
+  --accent:#FFB208; --glass:rgba(255,255,255,.06); --glass-line:rgba(255,255,255,.12);
+  --shadow:0 40px 120px rgba(0,0,0,.55), 0 8px 24px rgba(0,0,0,.35);
+  --font:"Montserrat","Noto Sans",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#0F0F0F;color:var(--fg);font-family:var(--font);font-weight:500}
+#stage{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;
+  background:linear-gradient(160deg,var(--bg-2),var(--bg) 55%,#151515)}
+#bg{position:absolute;inset:0;
+  background:
+    radial-gradient(1200px 700px at calc(72% + var(--dx,0%)) calc(22% + var(--dy,0%)), rgba(255,178,8,.07), transparent 60%),
+    radial-gradient(900px 600px at calc(18% - var(--dx,0%)) calc(85% - var(--dy,0%)), rgba(255,255,255,.04), transparent 60%)}
+#grid{position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:64px 64px;mask-image:radial-gradient(ellipse at center,#000 40%,transparent 95%);-webkit-mask-image:radial-gradient(ellipse at center,#000 40%,transparent 95%)}
+.scene{position:absolute;inset:0;display:none;will-change:transform}
+.abs{position:absolute}
+.acc{color:var(--accent)}
+.logo{display:flex;align-items:center;gap:28px}
+.logo svg{width:112px;height:112px;filter:drop-shadow(0 12px 40px rgba(255,178,8,.18))}
+.logo .word{font-size:96px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.logo .word span{color:var(--accent)}
+.logo.sm svg{width:84px;height:84px}.logo.sm .word{font-size:70px}
+/* заставка и финал */
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ep{font-size:26px;font-weight:600;color:var(--fg-2);letter-spacing:.18em;text-transform:uppercase;margin-top:34px}
+.ep b{color:var(--accent);font-weight:700}
+.slogan{font-size:72px;font-weight:700;letter-spacing:-.02em;line-height:1.1;max-width:1500px;text-align:center}
+.slogan span{color:var(--accent)}
+.tag{font-size:28px;color:var(--fg-2);font-weight:500;text-align:center}
+.url{padding:20px 44px;border-radius:16px;background:var(--accent);color:#191919;font-size:40px;font-weight:700;letter-spacing:.01em}
+.platforms{position:absolute;bottom:64px;left:0;right:0;text-align:center;font-size:20px;color:var(--fg-3);font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+/* заголовочный блок */
+.head{position:absolute;left:112px;top:92px;width:600px}
+.h-kicker{font-size:22px;font-weight:600;color:var(--accent);letter-spacing:.14em;text-transform:uppercase;margin:0 0 18px}
+.h-title{font-size:64px;font-weight:700;line-height:1.05;letter-spacing:-.02em;margin:0}
+.h-sub{font-size:26px;font-weight:500;color:var(--fg-2);margin:22px 0 0;line-height:1.4;max-width:560px}
+.big-th .h-title{font-size:92px;line-height:1.04;letter-spacing:-.025em}
+.big-th .h-sub{font-size:30px;max-width:900px}
+/* окно/устройство */
+.persp{position:absolute;perspective:2200px;perspective-origin:30% 40%}
+.dev{position:absolute;inset:0;background:#0E0E0E;box-shadow:var(--shadow),0 0 0 1px rgba(255,255,255,.08)}
+.dev.win{background:#F4F4F4;box-shadow:var(--shadow),inset 0 0 0 1px rgba(255,255,255,.08)}
+.scr{position:absolute;overflow:hidden;background:#F4F4F4}
+.scr img{position:absolute;inset:0;width:100%;height:100%;display:block}
+.dev .base{position:absolute;left:-7%;right:-7%;top:100%;height:15px;background:linear-gradient(#1A1A1A,#0E0E0E);border-radius:0 0 18px 18px;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.fbox{position:absolute;border:2px solid var(--accent);border-radius:12px;opacity:0}
+.anchor{position:absolute;width:2px;height:2px;margin:-1px 0 0 -1px}
+.dlabel{position:absolute;text-align:center;font-size:20px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-2);white-space:nowrap}
+/* выноски */
+.co .dot{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 6px rgba(255,178,8,.18);margin:-5px 0 0 -5px}
+.co .line{position:absolute;height:1px;background:linear-gradient(90deg,var(--accent),rgba(255,178,8,.2));transform-origin:0 50%}
+.card-g{position:absolute;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);background:rgba(25,25,25,.72);border:1px solid var(--glass-line);border-radius:16px;padding:18px 22px;box-shadow:0 16px 48px rgba(0,0,0,.4);min-width:300px}
+.card-g small{display:block;font-size:16px;font-weight:600;color:var(--fg-3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.card-g b{display:block;font-size:30px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.card-g b i{font-style:normal;color:var(--accent)}
+.card-g p{margin:6px 0 0;font-size:18px;color:var(--fg-2);line-height:1.35}
+.pill{position:absolute;padding:12px 22px;border-radius:999px;background:var(--glass);border:1px solid var(--glass-line);font-size:20px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-2);white-space:nowrap}
+/* цифра */
+.nwrap{position:absolute;inset:0;display:grid;grid-template-columns:1.05fr .95fr;align-items:center;padding:0 128px;gap:80px}
+.big{font-size:230px;font-weight:700;line-height:.95;letter-spacing:-.04em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.big .unit{font-size:72px;font-weight:600;color:var(--fg-2);letter-spacing:-.01em;margin-left:14px}
+.big .arr{font-size:120px;color:var(--fg-3);margin:0 18px;font-weight:600;letter-spacing:0}
+.lead{font-size:30px;color:var(--fg-2);line-height:1.4;margin:26px 0 0;max-width:720px}
+.lead b{color:var(--fg);font-weight:600}
+.facts{display:flex;gap:14px;margin-top:40px}
+.fact{padding:16px 22px;border-radius:14px;background:var(--glass);border:1px solid var(--glass-line)}
+.fact small{display:block;font-size:14px;color:var(--fg-3);font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.fact b{display:block;font-size:30px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+.chart{position:relative;height:420px;display:flex;align-items:flex-end;gap:28px;padding:0 0 46px;border-bottom:1px solid var(--glass-line)}
+.chart .col{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.chart .bv{width:100%;max-width:120px;border-radius:10px 10px 4px 4px;background:rgba(255,255,255,.14);height:0}
+.chart .col.hi .bv{background:var(--accent)}
+.chart .col span{position:absolute;bottom:-38px;font-size:18px;color:var(--fg-3);font-weight:600;white-space:nowrap}
+.chart .col.hi span{color:var(--accent)}
+.chart .col em{position:absolute;font-style:normal;font-size:20px;font-weight:700;color:var(--fg-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cap{margin-top:52px;font-size:18px;color:var(--fg-3);font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+/* карточки/список/сравнение */
+.cards{position:absolute;left:112px;right:112px;display:flex;gap:28px}
+.fcard{flex:1;padding:34px 36px;border-radius:20px;background:var(--glass);border:1px solid var(--glass-line);box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.fcard small{display:block;font-size:18px;font-weight:600;color:var(--fg-3);letter-spacing:.12em;text-transform:uppercase}
+.fcard b{display:block;font-size:44px;font-weight:700;line-height:1.1;margin-top:16px;letter-spacing:-.01em}
+.fcard b i{font-style:normal;color:var(--accent)}
+.fcard p{margin:14px 0 0;font-size:22px;color:var(--fg-2);line-height:1.4}
+.lrow{display:flex;align-items:center;gap:28px;padding:26px 34px;border-radius:18px;background:var(--glass);border:1px solid var(--glass-line);margin-bottom:16px}
+.lrow .n{font-size:22px;font-weight:700;color:var(--accent);letter-spacing:.1em}
+.lrow .t{font-size:34px;font-weight:600;letter-spacing:-.01em}
+.vs{position:absolute;top:50%}
+/* субтитры */
+#subs{position:absolute;left:50%;bottom:84px;transform:translateX(-50%);padding:16px 30px;border-radius:14px;font-size:34px;font-weight:500;line-height:1.3;white-space:pre;text-align:center;
+  background:rgba(25,25,25,.55);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08);opacity:0;z-index:50;color:#fff}
+#cover{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;z-index:60}
+</style></head>
+<body>
+<div id="stage"><div id="bg"></div><div id="grid"></div><div id="scenes"></div><div id="subs"></div><div id="cover"></div></div>
+<script>window.SPEC = /*SPEC*/null;</script>
+<script>/*JS*/</script>
+</body></html>

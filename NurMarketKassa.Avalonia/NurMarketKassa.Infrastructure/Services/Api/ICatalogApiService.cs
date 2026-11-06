@@ -5,6 +5,26 @@ using NurMarketKassa.Models.Pos;
 namespace NurMarketKassa.Services.Api;
 
 /// <summary>
+/// 2026-11-06 (Б-9): докачка полной загрузки каталога. Раньше обрыв на странице 151 из 155 (журнал 13:34) значил «в следующий раз с первой» — 340 запросов за час.
+/// Вызывающий задаёт <see cref="StartPage"/>/<see cref="PageSize"/> (из сохранённого хода), получает <see cref="PageDone"/> после КАЖДОЙ страницы (запись в базу и
+/// сохранение хода — его дело) и <see cref="FromStart"/> — шла ли загрузка с первой страницы (только тогда по её итогам можно удалять лишнее).
+/// </summary>
+public sealed class CatalogFullResume
+{
+    /// <summary>С какой страницы идти (1 — с начала).</summary>
+    public int StartPage { get; set; } = 1;
+
+    /// <summary>Размер страницы прошлой попытки (0 — как обычно). Нужен, чтобы номера страниц совпали; не совпали (сервер отдал меньше) — загрузка начинается с первой.</summary>
+    public int PageSize { get; set; }
+
+    /// <summary>Вызывается после каждой отданной страницы: (следующая страница, размер страницы, число принятых товаров). Ошибка внутри обрывает загрузку.</summary>
+    public Func<int, int, int, Task>? PageDone { get; set; }
+
+    /// <summary>Итог: true — загрузка прошла все страницы с первой (докачка не использовалась или от неё отказались).</summary>
+    public bool FromStart { get; set; } = true;
+}
+
+/// <summary>
 /// Доменный сервис каталога: товары, остатки, версии каталога и синхронизация.
 /// </summary>
 public interface ICatalogApiService
@@ -25,8 +45,9 @@ public interface ICatalogApiService
     Task<List<JsonElement>> ProductsCatalogAsync(int limit, int maxPages, CancellationToken ct = default);
 
     /// <summary>2026-11-02 (Н3-01, память): тот же полный каталог, но страницами — каждая отдаётся в <paramref name="onPage"/> и тут же забывается, весь
-    /// список JsonElement не копится. Реализация по умолчанию (стенды, чужие реализации) — старая загрузка целиком и одна «страница». Возвращает число товаров.</summary>
-    async Task<int> ProductsCatalogStreamAsync(int limit, int maxPages, Action<List<JsonElement>> onPage, CancellationToken ct = default)
+    /// список JsonElement не копится. Реализация по умолчанию (стенды, чужие реализации) — старая загрузка целиком и одна «страница». Возвращает число товаров.
+    /// 2026-11-06 (Б-9): <paramref name="resume"/> — докачка оборванной загрузки с середины (см. <see cref="CatalogFullResume"/>); null — с первой страницы.</summary>
+    async Task<int> ProductsCatalogStreamAsync(int limit, int maxPages, Action<List<JsonElement>> onPage, CancellationToken ct = default, CatalogFullResume? resume = null)
     {
         var all = await ProductsCatalogAsync(limit, maxPages, ct).ConfigureAwait(false);
         onPage(all);

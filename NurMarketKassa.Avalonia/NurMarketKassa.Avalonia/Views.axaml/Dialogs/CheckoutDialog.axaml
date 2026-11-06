@@ -20,7 +20,8 @@
          слева «Итог и состав» (крупный итог, строки, плашка «Сдача / Не хватает / В долг уйдёт», клиент F5, бонусы F6, чек F7, прокат ссылкой),
          справа «Способ оплаты» (4 плитки в ряд F1–F4, сумма, быстрые суммы, банк и QR, долг), внизу «Отмена Esc · причина · Оплатить Enter».
          Логика оплаты не менялась: те же привязки к CheckoutViewModel, имена элементов и клавиши (деньги — CanExecutePay, CashReceivedForApi — не тронуты).
-         Своей цифровой клавиатуры нет — правило владельца (только osk.exe по касанию поля). -->
+         Полной экранной клавиатуры своей нет — правило владельца (только osk.exe по касанию поля).
+         2026-11-06 (В9, Д4-16): есть цифровой блок 3×4 только для сумм (цифры, запятая, стереть) — в теме «Сенсорная», по решению владельца; это не клавиатура. -->
 
     <Window.Resources>
         <conv:PathToImageConverter x:Key="PathToImageConverter"/>
@@ -145,6 +146,29 @@
         </Style>
         <Style Selector="Button.pay-quick.last">
             <Setter Property="Margin" Value="0"/>
+        </Style>
+
+        <!-- 2026-11-06 (Д4-16): клавиша цифрового блока — высота не меньше 48, ширина не меньше 64 (UniformGrid делит ширину колонки на три). -->
+        <Style Selector="Button.pay-key">
+            <Setter Property="MinHeight" Value="48"/>
+            <Setter Property="MinWidth" Value="64"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.pay-key:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
         </Style>
 
         <!-- 2026-10-20, владелец (долг Д2): сроки долга «7 / 14 / 30 дней» — сегменты (обводка), выбранный — тёмно-синий,
@@ -810,6 +834,17 @@
 
                         <!-- Банк и QR для безналичной оплаты (безнал/смешанная). -->
                         <StackPanel IsVisible="{Binding IsBankSelectionVisible}" Spacing="6">
+                            <!-- 2026-11-06 (Д4-15, решение владельца): внутри «Безналичных» сегмент «Карта · QR». Картой через терминал банк и QR не нужны — прячутся;
+                                 выбор запоминается (по умолчанию — последний). Кнопки Focusable=False — Enter по-прежнему «Оплатить». -->
+                            <Grid ColumnDefinitions="*,8,*" AutomationProperties.Name="{Binding CardPayText}">
+                                <Button Grid.Column="0" Classes="due-seg" Classes.selected="{Binding IsCardPay}" Focusable="False" Content="{Binding CardPayText}"
+                                        Command="{Binding SetCardPayCommand}" CommandParameter="card"/>
+                                <Button Grid.Column="2" Classes="due-seg" Classes.selected="{Binding IsQrPay}" Focusable="False" Content="{Binding QrPayText}"
+                                        Command="{Binding SetCardPayCommand}" CommandParameter="qr"/>
+                            </Grid>
+                            <TextBlock Text="{Binding CardPayHint}" IsVisible="{Binding IsCardPay}"
+                                       Foreground="{DynamicResource BrushTextSoft}" FontSize="12" TextWrapping="Wrap"/>
+                            <StackPanel IsVisible="{Binding IsQrPay}" Spacing="6">
                             <TextBlock Text="{DynamicResource csh.checkout.selectBank}" Classes="pay-label" TextWrapping="NoWrap"/>
 
                             <ComboBox x:Name="BankComboBox"
@@ -856,6 +891,7 @@
                                        IsVisible="{Binding !HasQrCode}"
                                        Foreground="{DynamicResource BrushTextSoft}"
                                        FontSize="12" TextWrapping="Wrap"/>
+                            </StackPanel>
                         </StackPanel>
 
                         <!-- 2026-10-30 (редизайн): карточка «Текущий долг / После продажи» — когда в долг выбран клиент (данные клиента, что уже есть у кассы;
@@ -883,7 +919,7 @@
                                        ToolTip.Tip="{Binding DebtPaidNowLabel}"
                                        TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                             <Grid ColumnDefinitions="*,12,*">
-                                <TextBox Grid.Column="0" Text="{Binding DebtCashReceived}" Classes="pay-amount"/>
+                                <TextBox x:Name="DebtPaidBox" Grid.Column="0" Text="{Binding DebtCashReceived}" Classes="pay-amount"/>
                                 <TextBlock Grid.Column="2" Text="{Binding DebtRemainingText}" FontSize="13" FontWeight="SemiBold"
                                            MaxLines="2" TextTrimming="CharacterEllipsis" TextWrapping="Wrap"
                                            VerticalAlignment="Center" Foreground="{DynamicResource BrushDanger}"/>
@@ -906,9 +942,10 @@
                                            IsVisible="{Binding IsSinglePayment}" VerticalAlignment="Center"
                                            ToolTip.Tip="{Binding DebtDueLabel}"
                                            TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                                <!-- 2026-11-06 (Д4-13): короткая подпись «Рассрочка» в одну строку, полный текст — в подсказке. -->
                                 <CheckBox Grid.Column="1" MinHeight="44" IsChecked="{Binding IsInstallment, Mode=TwoWay}"
-                                          ToolTip.Tip="{Binding InstallmentCheckText}">
-                                    <TextBlock Text="{Binding InstallmentCheckText}" FontSize="13" TextWrapping="Wrap" MaxWidth="150"
+                                          ToolTip.Tip="{Binding InstallmentCheckHint}">
+                                    <TextBlock Text="{Binding InstallmentCheckText}" FontSize="13" TextWrapping="NoWrap"
                                                VerticalAlignment="Center"/>
                                 </CheckBox>
                             </Grid>
@@ -981,6 +1018,26 @@
                             </StackPanel>
                             <TextBlock Text="{Binding DebtDueHint}" IsVisible="{Binding IsInstallment}" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
+
+                        <!-- 2026-11-06 (Д4-16, решение владельца): цифровой блок 3×4 для сенсорной кассы (тема «Сенсорная», не Android). Это не экранная клавиатура:
+                             только цифры, запятая и стереть — вводит в поле суммы, где стоит курсор (наличные / внесено сейчас / наличная часть); кнопки Focusable=False. -->
+                        <UniformGrid x:Name="KeypadGrid" Columns="3" Rows="4" IsVisible="{Binding ShowKeypad}" Margin="-2,0">
+                            <Button Classes="pay-key" Focusable="False" Content="7" Tag="7" Click="Keypad_Click"/>
+                            <Button Classes="pay-key" Focusable="False" Content="8" Tag="8" Click="Keypad_Click"/>
+                            <Button Classes="pay-key" Focusable="False" Content="9" Tag="9" Click="Keypad_Click"/>
+                            <Button Classes="pay-key" Focusable="False" Content="4" Tag="4" Click="Keypad_Click"/>
+                            <Button Classes="pay-key" Focusable="False" Content="5" Tag="5" Click="Keypad_Click"/>
+                            <Button Classes="pay-key" Focusable="False" Content="6" Tag="6" Click="Keypad_Click"/>
+                            <Button Classes="pay-key" Focusable="False" Content="1" Tag="1" Click="Keypad_Click"/>
+                            <Button Classes="pay-key" Focusable="False" Content="2" Tag="2" Click="Keypad_Click"/>
+                            <Button Classes="pay-key" Focusable="False" Content="3" Tag="3" Click="Keypad_Click"/>
+                            <Button Classes="pay-key" Focusable="False" Content="," Tag="," Click="Keypad_Click"/>
+                            <Button Classes="pay-key" Focusable="False" Content="0" Tag="0" Click="Keypad_Click"/>
+                            <Button Classes="pay-key" Focusable="False" Tag="back" Click="Keypad_Click" AutomationProperties.Name="⌫">
+                                <PathIcon Data="M22,3H7C6.31,3 5.77,3.35 5.41,3.88L0,12L5.41,20.11C5.77,20.64 6.31,21 7,21H22A2,2 0 0,0 24,19V5A2,2 0 0,0 22,3M19,15.59L17.59,17L14,13.41L10.41,17L9,15.59L12.59,12L9,8.41L10.41,7L14,10.59L17.59,7L19,8.41L15.41,12L19,15.59Z"
+                                          Width="20" Height="20"/>
+                            </Button>
+                        </UniformGrid>
                     </StackPanel>
                     </Border>
 

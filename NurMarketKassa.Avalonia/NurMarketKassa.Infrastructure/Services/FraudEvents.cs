@@ -22,8 +22,10 @@ public static class FraudKinds
     /// <summary>PIN не введён или неверен — действие отменено.</summary>
     public const string PinDenied = "pin_denied";
     public const string Irregular = "irregular";
+    /// <summary>2026-11-06: В3 — кто-то выключил защиту (PIN старшего или журнал подозрительных операций). Subject — какую, Cashier — кто.</summary>
+    public const string ProtectionOff = "protection_off";
 
-    public static readonly string[] All = { Removal, RemovalMany, Return, ReturnNoReceipt, Discount, BelowCost, Shortage, PinOk, PinDenied, Irregular };
+    public static readonly string[] All = { Removal, RemovalMany, Return, ReturnNoReceipt, Discount, BelowCost, Shortage, PinOk, PinDenied, Irregular, ProtectionOff };
 
     /// <summary>Баллы подозрительности за одно событие. Подтверждённое PIN-ом (pin_ok) баллов не даёт: старший всё видел.</summary>
     public static int Weight(string kind) => kind switch
@@ -37,6 +39,7 @@ public static class FraudKinds
         Shortage => 4,
         PinDenied => 3,
         Irregular => 1,
+        ProtectionOff => 3,
         _ => 0,
     };
 }
@@ -295,6 +298,7 @@ public static class FraudText
         FraudKinds.PinOk => Tr.T("Действие подтверждено PIN", "Аракет PIN менен ырасталды", "Action confirmed by PIN", "İşlem PIN ile onaylandı", "Amal PIN bilan tasdiqlandi"),
         FraudKinds.PinDenied => Tr.T("PIN не принят — действие отменено", "PIN кабыл алынган жок — аракет токтотулду", "PIN rejected — action cancelled", "PIN kabul edilmedi — işlem iptal", "PIN qabul qilinmadi — amal bekor qilindi"),
         FraudKinds.Irregular => Tr.T("Некорректный чек", "Туура эмес чек", "Irregular receipt", "Düzensiz fiş", "Noto'g'ri chek"),
+        FraudKinds.ProtectionOff => Tr.T("Защита выключена", "Коргоо өчүрүлдү", "Protection switched off", "Koruma kapatıldı", "Himoya o'chirildi"),
         _ => kind,
     };
 
@@ -307,6 +311,14 @@ public static class FraudText
         nameof(GuardAction.OpenDrawer) => Tr.T("открытие ящика без продажи", "сатуусуз кутуну ачуу", "opening the drawer without a sale", "satışsız çekmece açma", "sotuvsiz tortmani ochish"),
         nameof(GuardAction.ShiftShortage) => Tr.T("закрытие смены с недостачей", "жетишпестик менен сменаны жабуу", "closing the shift with a shortage", "eksikle vardiya kapatma", "kamomad bilan smenani yopish"),
         _ => action ?? "",
+    };
+
+    /// <summary>Название защиты для события «выключена» (Subject: guard / fraud).</summary>
+    public static string ProtectionName(string? subject) => subject switch
+    {
+        FraudMonitor.ProtectionGuard => Tr.T("PIN старшего по действиям", "Аракеттер боюнча улуунун PIN коду", "senior PIN for actions", "işlemler için yetkili PIN'i", "amallar uchun katta xodim PIN kodi"),
+        FraudMonitor.ProtectionFraud => Tr.T("журнал подозрительных операций", "шектүү операциялар журналы", "suspicious operations log", "şüpheli işlem günlüğü", "shubhali amallar jurnali"),
+        _ => subject ?? "",
     };
 
     /// <summary>Одна строка о событии: кто, что, сколько.</summary>
@@ -338,6 +350,9 @@ public static class FraudText
                 return who + Tr.T($"{ActionName(e.Subject)} — старший ввёл PIN{tail}", $"{ActionName(e.Subject)} — улуу PIN киргизди{tail}",
                     $"{ActionName(e.Subject)} — senior entered the PIN{tail}", $"{ActionName(e.Subject)} — yetkili PIN girdi{tail}", $"{ActionName(e.Subject)} — katta PIN kiritdi{tail}");
             }
+            case FraudKinds.ProtectionOff:
+                return who + Tr.T($"выключил защиту: {ProtectionName(e.Subject)}", $"коргоону өчүрдү: {ProtectionName(e.Subject)}", $"switched off protection: {ProtectionName(e.Subject)}",
+                    $"korumayı kapattı: {ProtectionName(e.Subject)}", $"himoyani o'chirdi: {ProtectionName(e.Subject)}");
             case FraudKinds.PinDenied:
             {
                 var tail = e.Value > 0 ? $" ({e.Value:0.#} %)" : e.Amount > 0 ? " (" + sum + ")" : "";

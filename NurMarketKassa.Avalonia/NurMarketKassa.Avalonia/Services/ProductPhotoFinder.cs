@@ -240,7 +240,8 @@ public static class ProductPhotoFinder
 
     private static HttpClient CreateHttp()
     {
-        var http = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
+        // 2026-11-06 (аудит скорости, 25.2): общая фабрика внешних клиентов — автораспаковка и смена DNS через 15 мин вместо голого HttpClient.
+        var http = NurMarketKassa.Services.ExternalHttp.Create(TimeSpan.FromSeconds(12));
         // Open Food Facts просит указывать программу в User-Agent.
         http.DefaultRequestHeaders.UserAgent.ParseAdd("NurMarketKassa/1.17 (+https://nurcrm.kg)");
         // 2026-10-06, владелец (снимок: пустые варианты фото с lavka.yandex.ru): без Accept сайты отдают AVIF, который окно

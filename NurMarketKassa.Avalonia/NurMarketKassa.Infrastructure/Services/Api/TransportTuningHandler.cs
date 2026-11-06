@@ -33,8 +33,11 @@ internal sealed class TransportTuningHandler : DelegatingHandler
 
     // 2026-11-05 (ревью волн 0–3, п. 2): тяжёлые отчёты (analytics/…, выгрузки) считаются на сервере дольше 30 с — для них свой срок 90 с и конвейер БЕЗ предохранителя:
     // медленный отчёт не должен ни обрываться на 30-й секунде, ни открывать предохранитель, который остановил бы чтение каталога, клиентов и долгов.
-    // (Общий предел HttpClient.Timeout — 55 с — остаётся, он срабатывает раньше; здесь только снят лишний срез на 30 с.)
+    // 2026-11-06: В3 Р2 — предел HttpClient.Timeout (был 55 с и срабатывал раньше 90 с) теперь 100 с; остальным запросам 55 с держит DefaultRequestTimeout ниже.
     internal static readonly TimeSpan HeavyGetTimeout = TimeSpan.FromSeconds(90);
+
+    /// <summary>Срок ответа (до заголовков) для запросов вне конвейера GET: оплата, отправки, вход, профиль. Раньше его давал общий HttpClient.Timeout = 55 с.</summary>
+    internal static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(55);
     private static readonly ResiliencePipeline<HttpResponseMessage> HeavyGetPipeline =
         new ResiliencePipelineBuilder<HttpResponseMessage>().AddTimeout(HeavyGetTimeout).Build();
     private static readonly ResiliencePropertyKey<string> PathKey = new("nm.path");
@@ -202,7 +205,17 @@ internal sealed class TransportTuningHandler : DelegatingHandler
         }
         else
         {
-            response = await SendOnceViaTransportAsync(request, cancellationToken).ConfigureAwait(false);
+            // 2026-11-06: В3 Р2 — прежний срок 55 с для запросов вне конвейера GET теперь держим здесь (общий HttpClient.Timeout вырос до 100 с ради тяжёлых отчётов).
+            using var guard = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            guard.CancelAfter(DefaultRequestTimeout);
+            try
+            {
+                response = await SendOnceViaTransportAsync(request, guard.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TaskCanceledException($"Сервер не ответил за {DefaultRequestTimeout.TotalSeconds:0} с.", new TimeoutException(ex.Message, ex));
+            }
         }
 
         if (response.IsSuccessStatusCode)

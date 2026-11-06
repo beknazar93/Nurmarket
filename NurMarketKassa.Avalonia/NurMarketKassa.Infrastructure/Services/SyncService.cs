@@ -71,9 +71,9 @@ public sealed partial class SyncService : IDisposable
     /// <summary>Дожимает смены, закрытые на кассе, но не принятые сервером (см.
     /// PendingShiftCloseStore). Вызывается при каждом проходе синхронизации: как только сервер
     /// перестанет отклонять закрытие, смены закроются сами, без участия кассира.</summary>
-    private async Task FlushPendingShiftClosesAsync(CancellationToken ct)
+    private async Task FlushPendingShiftClosesAsync(CancellationToken ct, ISet<string>? onlyShiftIds = null)
     {
-        var pending = PendingShiftCloseStore.LoadAll();
+        var pending = PendingShiftCloseStore.LoadAll().Where(e => onlyShiftIds is null || onlyShiftIds.Contains(e.ShiftId)).ToList(); // 2026-11-06: onlyShiftIds — ручная отправка из «Неотправленного» (тот же путь)
         if (pending.Count == 0)
             return;
 
@@ -171,6 +171,7 @@ public sealed partial class SyncService : IDisposable
                 await SyncPendingAsync(ct, waitForGate: true).ConfigureAwait(false);
         };
         _loopTask = RunLoopAsync(_cts.Token);
+        Current = this; // 2026-11-06: «Неотправленное» отправляет записи тем же путём (SyncService.Outbox.cs)
     }
 
     private void OnQueueAppended()
@@ -1029,6 +1030,8 @@ public sealed partial class SyncService : IDisposable
             return;
 
         _disposed = true;
+        if (ReferenceEquals(Current, this))
+            Current = null;
         ServerOutageMonitor.Recovered -= OnServerRecovered;
         SessionExpiryMonitor.Changed -= OnSessionChanged;
         OfflinePendingSalesStore.Appended -= OnQueueAppended;

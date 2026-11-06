@@ -15,9 +15,10 @@ namespace NurMarketKassa.Services.Api;
 /// </summary>
 public abstract class ApiServiceBase
 {
+    // 2026-11-06 (ответ Умара: лимита устройств нет, refresh живёт 7 суток от входа по паролю): раньше «часто из‑за входа с другого ПК или телефона» вводило в заблуждение.
+    // Префикс «Сессия недействительна» ОСТАВЛЕН — по нему SessionExpiryMonitor узнаёт потерю входа (в том числе в старых текстах из кэша). Пользователь видит перевод (FriendlyError и окна).
     public const string AuthInvalidHintRu =
-        "Сессия недействительна (часто из‑за входа с другого ПК или телефона). " +
-        "Нажмите «Выйти» в кассе и войдите снова.";
+        "Сессия недействительна: срок входа истёк, войдите заново.";
 
     protected HttpClient Http { get; }
     protected ApiSession Session { get; }

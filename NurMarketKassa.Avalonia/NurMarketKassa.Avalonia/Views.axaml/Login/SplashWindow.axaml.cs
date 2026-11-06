@@ -29,9 +29,23 @@ public partial class SplashWindow : Window
         Closed += (_, _) => _slowTimer.Stop();
     }
 
+    private bool _slowPanelShown;
+
+    /// <summary>2026-11-06 (Л4-19): пока ждём PIN владельца (а не сервер), надпись «Сервер отвечает медленно» ложная — таймер останавливается, показанная надпись убирается.</summary>
+    public void SuspendSlowNotice()
+    {
+        _slowTimer.Stop();
+        if (!_slowPanelShown)
+            return;
+        _slowPanelShown = false;
+        SlowPanel.IsVisible = false;
+        Height -= 90;
+    }
+
     private void ShowSlowPanel()
     {
         _slowTimer.Stop();
+        _slowPanelShown = true;
         SlowText.Text = Tr.T(
             "Сервер NurCRM отвечает медленно. Касса откроется, как только он ответит.",
             "NurCRM сервери жай жооп берүүдө. Ал жооп бергенде касса ачылат.",

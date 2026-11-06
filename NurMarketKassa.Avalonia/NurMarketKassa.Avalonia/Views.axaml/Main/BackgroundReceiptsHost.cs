@@ -1,10 +1,11 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Core.Contracts;
 using NurMarketKassa.Services.Api;
 using NurMarketKassa.ViewModels.Main;
@@ -45,6 +46,9 @@ public static class BackgroundReceiptsHost
                 queue.Resume(api);
                 BulkReceivingFeeder.Instance.Resume(); // 2026-10-26 (ТЗ «Склад — массовое добавление», М1): догрузить незаконченные пачки
             }
+            // 2026-11-06: новые товары, заведённые без интернета, — очередь на диске продолжает создание на сервере (в том числе после перезапуска).
+            if (App.AppHost?.Services.GetService<ICatalogApiService>() is { } catalogApi)
+                PendingProductQueue.Instance.Resume(catalogApi);
         }
         catch (Exception ex)
         {
@@ -132,52 +136,137 @@ public static class BackgroundReceiptsHost
 
     // ------------------------------------------------------------------ выход из программы
 
-    /// <summary>desktop.ShutdownRequested: пока в очереди есть незавершённые приходы (любой компании) — один раз спросить
-    /// «Выйти» / «Подождать». Приходы не теряются при выходе: очередь на диске, они догрузятся при следующем запуске.
-    /// «Подождать» остаётся в программе и открывает список «Приходы в фоне» (окно удерживает программу, пока приходы идут).
-    /// Если вопрос задать не удалось — выход не задерживается.</summary>
+    /// <summary>Сколько неотправленного (приходы + новые товары) в очередях на диске, любой компании.</summary>
+    private static int UnsentCount() => BackgroundReceivingQueue.Instance.ActiveCountAll + PendingProductQueue.Instance.ActiveCountAll;
+
+    /// <summary>2026-11-06: есть ли что отправлять — окна проверяют ДО закрытия (см. <see cref="ConfirmUnsentBeforeExitAsync"/>).</summary>
+    internal static bool HasUnsent()
+    {
+        try
+        {
+            return UnsentCount() > 0;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Приходы в фоне: проверка неотправленного не удалась: {ex.Message}", "WARNING");
+            return false;
+        }
+    }
+
+    private static void ShutdownQueues()
+    {
+        try
+        {
+            BackgroundReceivingQueue.Instance.Shutdown();
+            PendingProductQueue.Instance.Shutdown();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Очереди уже остановлены — программа и так выходит; это не ошибка.
+        }
+    }
+
+    private static string QuestionText()
+    {
+        var receivings = BackgroundReceivingQueue.Instance.ActiveCountAll;
+        var products = PendingProductQueue.Instance.ActiveCountAll;
+        var parts = new List<string>();
+        // 2026-11-06: офлайн-приход — «Неотправленных приходов: N» (они сохранены на диске и уйдут при следующем запуске, когда будет интернет).
+        if (receivings > 0)
+            parts.Add(BackgroundReceivingQueue.UnsentText(receivings));
+        if (products > 0)
+            parts.Add(PendingProductQueue.UnsentText(products));
+        return string.Join(". ", parts) + T(" — они сохранены и будут отправлены при следующем запуске программы.",
+            " — алар сакталды жана программа кийинки жолу ачылганда жөнөтүлөт.",
+            " — they are saved and will be sent the next time the program starts.",
+            " — kaydedildi, program bir sonraki açılışta gönderilecek.",
+            " — ular saqlangan va dastur keyingi safar ochilganda yuboriladi.");
+    }
+
+    /// <summary>2026-11-06 (журнал клиента 04–05.11: «вопрос при выходе не задан: Cannot show a window with a closed owner» и «проверка при выходе не удалась: Cannot access a disposed object… IServiceProvider»):
+    /// вопрос «Выйти / Подождать» про неотправленные приходы и новые товары задаётся ДО закрытия окна — пока окно-владелец живо и контейнер служб не освобождён. Раньше его задавали из
+    /// ShutdownRequested, который приходит уже ПОСЛЕ закрытия главного окна (владелец закрыт) и в конце работы (контейнер освобождён). Служба сообщений из контейнера не используется.
+    /// true — можно закрывать (нечего отправлять или кассир выбрал «Выйти»); false — остаёмся в программе. Окна-владельцы вызывают её из своего закрытия и повторно закрываются при true.</summary>
+    internal static async Task<bool> ConfirmUnsentBeforeExitAsync(Window? owner)
+    {
+        try
+        {
+            if (_exitConfirmed || !HasUnsent())
+                return true;
+            // Выключение Windows / установщик: вопрос без срока держал бы выход — очереди на диске, догрузятся при следующем запуске.
+            if (NurMarketKassa.AvaloniaHost.Services.QuietShutdown.Requested || NurMarketKassa.AvaloniaHost.Services.QuietShutdown.IsWindowsShuttingDown())
+            {
+                ShutdownQueues();
+                return true;
+            }
+            if (_exitAsking)
+                return false;
+            _exitAsking = true;
+            try
+            {
+                // Владелец — живое окно (закрытое окно-владелец и роняло показ). Окон нет вовсе — открываем «Приходы в фоне» и спрашиваем в нём: молча выйти нельзя.
+                var live = owner is { IsVisible: true } ? owner : FindShellWindow() ?? Desktop?.Windows.LastOrDefault(w => w.IsVisible) ?? BackgroundReceiptsWindow.ShowOrActivate(null);
+                var exit = await PosConfirmDialog.ShowModalAsync(live,
+                    T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"),
+                    QuestionText(),
+                    T("Выйти", "Чыгуу", "Exit", "Çık", "Chiqish"),
+                    T("Подождать", "Күтүү", "Wait", "Bekle", "Kutish")).ConfigureAwait(true);
+                if (exit)
+                {
+                    _exitConfirmed = true;
+                    ShutdownQueues();
+                    return true;
+                }
+                // «Подождать»: окно списка показывает ход приходов (у новых товаров списка нет — их число видно в значке).
+                if (BackgroundReceivingQueue.Instance.ActiveCountAll > 0)
+                    BackgroundReceiptsWindow.ShowOrActivate(live is { IsVisible: true } ? live : null);
+                return false;
+            }
+            finally
+            {
+                _exitAsking = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Вопрос не задан — выходить без него нельзя: остаёмся в программе и показываем список, чтобы окно у кассира было.
+            PosLogger.Log($"Приходы в фоне: вопрос при выходе не задан: {ex.Message}", "WARNING");
+            try
+            {
+                BackgroundReceiptsWindow.ShowOrActivate(null);
+            }
+            catch (Exception windowEx)
+            {
+                PosLogger.Log($"Приходы в фоне: окно списка не открыто: {windowEx.Message}", "WARNING");
+            }
+            return false;
+        }
+    }
+
+    /// <summary>desktop.ShutdownRequested — страховка для выходов, где окно не спросило само (например, <c>desktop.Shutdown()</c> из другого места): пока в очередях есть неотправленное (любой компании),
+    /// завершение отменяется на время вопроса «Выйти» / «Подождать», затем программа закрывается повторно. Приходы и товары не теряются при выходе: очередь на диске,
+    /// они догрузятся при следующем запуске. Службы из контейнера здесь не берутся (к концу работы он освобождён).</summary>
     public static void OnShutdownRequested(IClassicDesktopStyleApplicationLifetime desktop, ShutdownRequestedEventArgs e)
     {
         try
         {
-            var queue = BackgroundReceivingQueue.Instance;
-            var left = queue.ActiveCountAll;
+            var left = UnsentCount();
             // 2026-11-05 (аудит №3, Р3-02): выключение Windows / установщик — вопрос «Выйти / Подождать» не задаём (очередь и так на диске).
-            if (left > 0 && (NurMarketKassa.AvaloniaHost.Services.QuietShutdown.Requested || NurMarketKassa.AvaloniaHost.Services.QuietShutdown.IsWindowsShuttingDown()))
+            if (left <= 0 || _exitConfirmed
+                || NurMarketKassa.AvaloniaHost.Services.QuietShutdown.Requested || NurMarketKassa.AvaloniaHost.Services.QuietShutdown.IsWindowsShuttingDown())
             {
-                queue.Shutdown();
-                return;
-            }
-            if (left <= 0 || _exitConfirmed || _exitAsking)
-            {
-                queue.Shutdown();
-                return;
-            }
-            // 2026-11-02 (живая проверка круга 3): при выходе владельца контейнер служб уже мог быть освобождён — GetService бросал
-            // «Cannot access a disposed object» (WARNING в журнале). Берём службу только когда нужен вопрос, и освобождённый контейнер
-            // — не ошибка: выходим, приходы на диске догрузятся при следующем запуске.
-            IUserPrompts? prompts;
-            try
-            {
-                prompts = App.AppHost?.Services.GetService<IUserPrompts>();
-            }
-            catch (ObjectDisposedException)
-            {
-                prompts = null;
-            }
-            if (prompts is null)
-            {
-                queue.Shutdown();
+                ShutdownQueues();
                 return;
             }
 
             e.Cancel = true;
-            _exitAsking = true;
-            _ = AskExitAsync(desktop, prompts, left);
+            if (_exitAsking)
+                return;
+            _ = AskExitAsync(desktop);
         }
         catch (ObjectDisposedException)
         {
-            // Очередь/контейнер уже освобождены — программа и так выходит; это не ошибка.
+            // Очередь уже освобождена — программа и так выходит; это не ошибка.
         }
         catch (Exception ex)
         {
@@ -185,42 +274,25 @@ public static class BackgroundReceiptsHost
         }
     }
 
-    private static async Task AskExitAsync(IClassicDesktopStyleApplicationLifetime desktop, IUserPrompts prompts, int left)
+    private static async Task AskExitAsync(IClassicDesktopStyleApplicationLifetime desktop)
     {
-        var exit = true;
         try
         {
-            exit = await prompts.ConfirmAsync(
-                T($"Есть приходы в фоне: {left} — они продолжатся при следующем запуске программы.",
-                    $"Фондо кирүүлөр бар: {left} — программа кийинки жолу ачылганда уланат.",
-                    $"There are background receivings: {left} — they will continue the next time the program starts.",
-                    $"Arka planda mal kabul var: {left} — program bir sonraki açılışta devam edecek.",
-                    $"Fonda kirimlar bor: {left} — dastur keyingi safar ochilganda davom etadi."),
-                T("Выйти", "Чыгуу", "Exit", "Çık", "Chiqish"),
-                T("Подождать", "Күтүү", "Wait", "Bekle", "Kutish")).ConfigureAwait(true);
+            // Главное окно к этому моменту могло уже закрыться — поднимаем его заново, если вход выполнен; нет окон совсем — вопрос зададим в «Приходы в фоне».
+            var owner = FindShellWindow();
+            if (owner is null && CanReturnToProgram())
+            {
+                await ReturnToProgramAsync().ConfigureAwait(true);
+                owner = FindShellWindow();
+            }
+            if (await ConfirmUnsentBeforeExitAsync(owner).ConfigureAwait(true))
+                desktop.Shutdown();
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Приходы в фоне: вопрос при выходе не задан: {ex.Message}", "WARNING");
         }
-        finally
-        {
-            _exitAsking = false;
-        }
-
-        if (exit)
-        {
-            _exitConfirmed = true;
-            BackgroundReceivingQueue.Instance.Shutdown();
-            desktop.Shutdown();
-            return;
-        }
-
-        // «Подождать»: окно списка держит программу открытой и показывает ход приходов.
-        // 2026-10-26 (приёмка, S-5): главное окно к этому моменту уже закрыто — в окне списка есть кнопка «Вернуться в программу».
-        BackgroundReceiptsWindow.ShowOrActivate(null);
     }
-
     private static bool _returning;
 
     private static IClassicDesktopStyleApplicationLifetime? Desktop =>

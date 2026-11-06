@@ -109,7 +109,21 @@ internal static class AndroidPermissions
         if (task.IsCompleted)
             return task.Result;
         if (Looper.MyLooper() == Looper.MainLooper)
-            return false;
+        {
+            // 2026-11-06: В4 А-9 — раньше в главном потоке сразу возвращалось false (окно Android открывалось, а печать отказывала «разрешите и повторите»).
+            // Главный поток блокировать нельзя (ответ приходит именно в нём), но можно крутить вложенный цикл сообщений (как у диалогов кассы):
+            // интерфейс живёт, ответ пользователя обрабатывается, и печать идёт дальше. Цикл выключен (android-no-nested-loop) — прежнее поведение.
+            if (!NurMarketKassa.AndroidNestedLoop.Enabled)
+                return false;
+            using var cts = new CancellationTokenSource(timeout);
+            _ = task.ContinueWith(_ =>
+            {
+                try { cts.Cancel(); }
+                catch (ObjectDisposedException) { /* цикл уже закончился по времени */ }
+            }, TaskScheduler.Default);
+            NurMarketKassa.AndroidNestedLoop.Run(cts.Token);
+            return task.IsCompletedSuccessfully && task.Result;
+        }
         try { return task.Wait(timeout) && task.Result; }
         catch { return false; }
     }

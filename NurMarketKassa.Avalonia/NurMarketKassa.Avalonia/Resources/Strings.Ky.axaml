@@ -12,6 +12,7 @@
   <x:String x:Key="csh.menu.staffTimesheet">Кызматкерлер табели</x:String>
   <x:String x:Key="csh.menu.return">Кайтаруу</x:String>
   <x:String x:Key="csh.menu.deferredReceipts">Туура эмес чектер</x:String>
+  <x:String x:Key="csh.menu.outbox">Жөнөтүлгөн жок</x:String>
   <x:String x:Key="csh.menu.salary">Эмгек акы</x:String>
   <x:String x:Key="csh.menu.cashOperation">Акча салуу / алуу</x:String>
   <x:String x:Key="csh.menu.finance">Каржы</x:String>

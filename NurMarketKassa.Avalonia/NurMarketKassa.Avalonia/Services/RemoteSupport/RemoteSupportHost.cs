@@ -76,7 +76,7 @@ public sealed class RemoteSupportHost : IAsyncDisposable
     public string Operator { get; private set; } = "";
     public bool ViewOnly => _viewOnly || _localViewOnly;
 
-    private readonly ClientWebSocket _ws = new();
+    private ClientWebSocket _ws = new(); // 2026-11-06 (Н-18): не readonly — после неудачного подключения сокет создаётся заново
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly SemaphoreSlim _ackSignal = new(0, int.MaxValue);
     private readonly CancellationTokenSource _cts = new();
@@ -146,6 +146,32 @@ public sealed class RemoteSupportHost : IAsyncDisposable
         StateChanged?.Invoke(s);
     }
 
+    /// <summary>2026-11-06 (аудит скорости, Н-18): первое подключение к серверу поддержки при сбое сети/DNS/502 повторяется до 2 раз с паузой 1 и 2 с
+    /// (всё в пределах общих 30 с на подключение: <paramref name="ct"/> отменяется таймером). Раньше один обрыв сразу заканчивал сеанс.
+    /// ClientWebSocket после неудачи использовать нельзя — для новой попытки создаётся новый. Связь, уже установленная и оборвавшаяся в сеансе, не повторяется.</summary>
+    private async Task ConnectWithRetryAsync(Uri relay, CancellationToken ct)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                await _ws.ConnectAsync(relay, ct).ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex) when (attempt < ConnectRetryDelaysMs.Length && !ct.IsCancellationRequested
+                                       && ex is WebSocketException or System.Net.Http.HttpRequestException or System.Net.Sockets.SocketException or IOException)
+            {
+                PosLogger.Log($"Удалённая помощь: подключение не вышло ({ex.GetType().Name}) — повтор {attempt + 1} из {ConnectRetryDelaysMs.Length} через {ConnectRetryDelaysMs[attempt] / 1000} с.", "WARNING");
+                try { _ws.Dispose(); } catch { /* уже закрыт */ }
+                _ws = new ClientWebSocket();
+                await Task.Delay(ConnectRetryDelaysMs[attempt], ct).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>Паузы перед повторами первого подключения, мс (2 повтора).</summary>
+    internal static readonly int[] ConnectRetryDelaysMs = { 1000, 2000 };
+
     /// <summary>Подключиться к ретранслятору и получить код. Завершается, когда сеанс (или ожидание) закончился.</summary>
     public async Task RunAsync(string company, string version)
     {
@@ -176,7 +202,7 @@ public sealed class RemoteSupportHost : IAsyncDisposable
             // 2026-10-11: без шифрования (ws://) — только сервер на этом же ПК (проверка); иначе экран и ввод шли бы открыто.
             if (relay.Scheme != "wss" && !(relay.Scheme == "ws" && relay.IsLoopback))
                 throw new InvalidOperationException("адрес сервера поддержки должен начинаться с wss://");
-            await _ws.ConnectAsync(relay, ct).ConfigureAwait(false);
+            await ConnectWithRetryAsync(relay, ct).ConfigureAwait(false);
             await SendJsonAsync(new
             {
                 type = "hello", role = "host", protocol = 1, app = "NurMarketKassa", version, company,

@@ -230,6 +230,7 @@
                 <Grid ColumnDefinitions="*,Auto">
                   <ComboBox x:Name="CashboxCombo" x:FieldModifier="public" Grid.Column="0" HorizontalAlignment="Stretch"/>
                   <Button x:Name="RefreshCashboxesButton" x:FieldModifier="public" Grid.Column="1" Content="↻"
+                          Width="40" Height="40" MinWidth="40" MinHeight="40" Padding="0" FontSize="18"
                           Margin="6,0,0,0" Click="RefreshCashboxes_Click" ToolTip.Tip="{DynamicResource posSettings.screen.refreshCashboxesTooltip}"/>
                 </Grid>
               </StackPanel>
@@ -263,7 +264,8 @@
         <StackPanel Spacing="0">
           <ToggleButton x:Name="LayoutGroupToggle" Classes="SettingsGroupHeader" IsChecked="False">
             <Grid ColumnDefinitions="Auto,*,Auto">
-              <TextBlock Text="&#xE71E;" FontFamily="Segoe MDL2 Assets" Width="20" TextAlignment="Center" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
+              <!-- 2026-11-06: В6 Д4-29 — значок группы «Масштаб и раскладка» по смыслу («Аа»), а не лупа (E71E). -->
+              <TextBlock Text="&#xE8D2;" FontFamily="Segoe MDL2 Assets" Width="20" TextAlignment="Center" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource BrushTextSoft}"/>
               <TextBlock Grid.Column="1" Text="{DynamicResource posSettings.screen.groupScaleLayout}"
                          FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" VerticalAlignment="Center"/>
               <TextBlock Grid.Column="2" Classes="SettingsGroupChevron" Text="&#x25BE;" IsVisible="{Binding #LayoutGroupToggle.IsChecked}"/>

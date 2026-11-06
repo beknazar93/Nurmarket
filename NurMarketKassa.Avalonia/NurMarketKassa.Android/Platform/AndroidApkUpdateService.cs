@@ -174,6 +174,8 @@ internal sealed class AndroidApkUpdateService : IAppUpdateService
                 var old = new Java.IO.File(dir, name);
                 if (old.Exists())
                     old.Delete();
+                // 2026-11-06: В4 А5-11 — старые APK прошлых обновлений (~120 МБ каждый) раньше копились: перед загрузкой удаляем все nurmarket-kassa-android-*.apk.
+                DeleteOldApks(dir);
             }
         }
         catch
@@ -219,6 +221,57 @@ internal sealed class AndroidApkUpdateService : IAppUpdateService
                 }
             }
             await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>2026-11-06: В4 А5-11 — удалить все скачанные ранее APK обновлений в папке загрузок программы (и недокачанные «.apk-1»).</summary>
+    private static void DeleteOldApks(Java.IO.File dir)
+    {
+        try
+        {
+            foreach (var file in dir.ListFiles() ?? Array.Empty<Java.IO.File>())
+            {
+                var fileName = file.Name ?? "";
+                if (fileName.StartsWith("nurmarket-kassa-android-", StringComparison.OrdinalIgnoreCase) && fileName.Contains(".apk", StringComparison.OrdinalIgnoreCase))
+                {
+                    var size = file.Length();
+                    if (file.Delete())
+                        PosLogger.Log($"Обновление Android: удалён старый файл {fileName} ({size / 1048576} МБ).", "INFO");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Обновление Android: чистка старых APK не удалась ({ex.Message}).", "WARNING");
+        }
+    }
+
+    /// <summary>2026-11-06: В4 А5-11 — при запуске: APK не новее установленной версии уже ни к чему (обновление применено) — удаляем.
+    /// Новее установленной (скачана, но ещё не поставлена) оставляем.</summary>
+    public static void CleanupDownloads()
+    {
+        try
+        {
+            var ctx = Android.App.Application.Context;
+            var dir = ctx.GetExternalFilesDir(Android.OS.Environment.DirectoryDownloads);
+            if (dir is null)
+                return;
+            var current = CurrentVersion();
+            foreach (var file in dir.ListFiles() ?? Array.Empty<Java.IO.File>())
+            {
+                var fileName = file.Name ?? "";
+                if (!fileName.StartsWith("nurmarket-kassa-android-", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var text = fileName["nurmarket-kassa-android-".Length..];
+                var end = text.IndexOf(".apk", StringComparison.OrdinalIgnoreCase);
+                var parsed = end > 0 && Version.TryParse(text[..end], out var v) ? v : null;
+                if (parsed is not null && parsed <= current)
+                    file.Delete();
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Обновление Android: чистка при запуске — {ex.Message}", "WARNING");
         }
     }
 

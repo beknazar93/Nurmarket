@@ -29,8 +29,12 @@ public static class SettingsCloudSync
 {
     public static Func<NurMarketApiClient?>? ApiProvider { get; set; }
 
+    /// <summary>2026-11-06: В4 А4-24 — вид кассы (раскладка, вид и масштаб каталога, фото) зависит от экрана: выбранный на 27-дюймовом мониторе
+    /// прилетал на Android-телефон и обратно. На Android эти ключи в облако не уходят и из облака не применяются — у аппарата свой вид.</summary>
+    private static readonly string[] AndroidLocalViewKeys = { "MainLayoutMode", "CatalogViewMode", "ShowCatalogPhotos", "CatalogTileScalePercent" };
+
     /// <summary>Личное: язык, тема, вид каталога, привычки кассира, скрытые разделы, ключи ИИ.</summary>
-    private static readonly string[] PersonalKeys =
+    private static readonly string[] PersonalKeysAll =
     {
         "Language", "DarkTheme", "AccentTheme", "MainLayoutMode", "CatalogViewMode", "ShowCatalogPhotos", "CatalogTileScalePercent",
         "SingleClickToCart", "ResetManualAddQtyAfterAdd", "DiscountModePercent", "ShowQuickProducts", "QuickCheckoutEnabled",
@@ -44,6 +48,9 @@ public static class SettingsCloudSync
         // 2026-10-19: id категории расходов «Зарплата» по компаниям (не создавать дубль на другом ПК/после перезапуска).
         "SalaryCategoryIds",
     };
+
+    /// <summary>Личные ключи этого устройства (на Android — без ключей вида кассы, см. <see cref="AndroidLocalViewKeys"/>).</summary>
+    private static readonly string[] PersonalKeys = PersonalKeysAll.Where(k => !(OperatingSystem.IsAndroid() && AndroidLocalViewKeys.Contains(k))).ToArray();
 
     /// <summary>Ключи ИИ — в личных настройках, но в отдельном поле "secrets" (бэкенд 05.10: «секреты передавать в secrets» —
     /// хранятся отдельно и отдаются только самому пользователю).</summary>

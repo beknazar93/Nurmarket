@@ -206,6 +206,14 @@ public sealed class SupplierEditDialog : Window
     {
         if (_saving || string.IsNullOrWhiteSpace(_name.Text) || string.IsNullOrWhiteSpace(_phone.Text))
             return;
+        // 2026-11-06 (баг 3 журнала клиента): сессия уже недействительна — запрос не шлём (раньше «Сохранить» нажимали ~170 раз, каждый раз тот же отказ и запись в журнал):
+        // сразу понятная ошибка и напоминание «Войдите снова» (не чаще раза в 2 минуты). Введённое в окне остаётся.
+        if (SessionExpiryMonitor.IsExpired)
+        {
+            ShowError(SessionLostText());
+            SessionExpiryMonitor.RemindIfDue(true);
+            return;
+        }
         if (SameName() is { } same)
         {
             ShowError(T($"Такой поставщик уже есть: {same.Name}. Откройте его в списке — второй не создаётся.", $"Мындай жеткирүүчү бар: {same.Name}. Аны тизмеден ачыңыз — экинчиси түзүлбөйт.",
@@ -267,10 +275,13 @@ public sealed class SupplierEditDialog : Window
             _saving = false;
             _cancel.IsEnabled = true;
             UpdateState();
-            ShowError(T("Не сохранено: ", "Сакталган жок: ", "Not saved: ", "Kaydedilmedi: ", "Saqlanmadi: ")
-                      + (ex is OperationCanceledException ? T("сервер не ответил", "сервер жооп берген жок", "the server didn't respond", "sunucu yanıt vermedi", "server javob bermadi")
-                          : ex is InvalidOperationException ? ex.Message : ServerTelegramBotApi.DescribeFields(ex)));
-            PosLogger.Log($"Поставщики: поставщик не сохранён ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+            ShowError(SessionExpiryMonitor.IsSessionLost(ex)
+                ? SessionLostText()
+                : T("Не сохранено: ", "Сакталган жок: ", "Not saved: ", "Kaydedilmedi: ", "Saqlanmadi: ")
+                  + (ex is OperationCanceledException ? T("сервер не ответил", "сервер жооп берген жок", "the server didn't respond", "sunucu yanıt vermedi", "server javob bermadi")
+                      : ex is InvalidOperationException ? ex.Message : ServerTelegramBotApi.DescribeFields(ex)));
+            SessionExpiryMonitor.LogFailure("supplier-save", ex, $"Поставщики: поставщик не сохранён ({ex.GetType().Name}: {ex.Message}).");
+            SessionExpiryMonitor.RemindOnSessionLost(ex);
         }
     }
 
@@ -290,10 +301,15 @@ public sealed class SupplierEditDialog : Window
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            PosLogger.Log($"Поставщики: повторная проверка перед созданием не удалась ({ex.Message}) — создаю с тем же ключом повтора.", "WARNING");
+            SessionExpiryMonitor.LogFailure("supplier-find-created", ex, $"Поставщики: повторная проверка перед созданием не удалась ({ex.Message}) — создаю с тем же ключом повтора.");
             return null;
         }
     }
+
+    /// <summary>2026-11-06: ошибка вместо отказа сервера, когда вход отозван (сессия недействительна).</summary>
+    private static string SessionLostText() =>
+        T("Сессия истекла — войдите снова.", "Сессиянын мөөнөтү бүттү — кайра кириңиз.", "Your session has expired — sign in again.", "Oturum süresi doldu — yeniden giriş yapın.",
+            "Sessiya muddati tugadi — qaytadan kiring.");
 
     private void ShowError(string text)
     {

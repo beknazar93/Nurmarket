@@ -126,12 +126,75 @@ namespace NurMarketKassa.ViewModels
             }
         }
 
+        // ------------------------------------------------------------------ 2026-11-06 (Д4-15): «Безналичные» = «Карта» (терминал) или «QR»
+        // Банк и QR нужны только для QR: при оплате картой через терминал кассиру не нужен ни выбор банка, ни картинка QR (и экрану покупателя QR не показывается).
+        // Банк на сервер не уходит (только для показа QR), поэтому «Оплатить» по-прежнему требует выбранный банк — он выбран сам при открытии окна.
+        // Выбор запоминается (UserPreferences.CheckoutCardPay): по умолчанию — последний выбранный, а у кого не выбирали — QR, как было.
+        private bool _cardPay = UserPreferences.Instance.CheckoutCardPay;
+
+        public bool IsCardPay
+        {
+            get => _cardPay;
+            set
+            {
+                if (_cardPay == value)
+                    return;
+                _cardPay = value;
+                UserPreferences.Instance.CheckoutCardPay = value;
+                _cardPayPrefDirty = true;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsQrPay));
+                OnPropertyChanged(nameof(QrCodePath));
+                OnPropertyChanged(nameof(HasQrCode));
+                RaiseMixedViewProps();
+                _customerDisplay?.SetSelectedBankQrPath(QrCodePath); // экран покупателя: картой — без QR
+                ErrorMessage = "";
+            }
+        }
+
+        private System.Windows.Input.ICommand? _setCardPayCommand;
+        /// <summary>"card" — карта (терминал), "qr" — QR с банком (кнопки сегмента «Карта · QR»).</summary>
+        public System.Windows.Input.ICommand SetCardPayCommand => _setCardPayCommand ??= new RelayCommand<string>(kind => IsCardPay = string.Equals(kind, "card", StringComparison.Ordinal));
+
+        public bool IsQrPay
+        {
+            get => !_cardPay;
+            set { if (value) IsCardPay = false; }
+        }
+
+        private bool _cardPayPrefDirty;
+
+        /// <summary>Записать выбор «Карта / QR» на диск, если он менялся (окно оплаты вызывает при закрытии).</summary>
+        public void FlushCardPayPreference()
+        {
+            if (!_cardPayPrefDirty)
+                return;
+            _cardPayPrefDirty = false;
+            UserPreferences.Instance.SaveToDisk();
+        }
+
+        public string CardPayText => Tr.T("Карта", "Карта", "Card", "Kart", "Karta");
+        public string QrPayText => Tr.T("QR", "QR", "QR", "QR", "QR");
+        public string CardPayHint => Tr.T("Оплата картой через терминал — банк и QR не нужны. Enter подтверждает оплату.",
+            "Терминал аркылуу карта менен төлөө — банк жана QR керек эмес. Enter төлөмдү ырастайт.",
+            "Card payment through the terminal — no bank or QR needed. Enter confirms the payment.",
+            "Terminal ile kart ödemesi — banka ve QR gerekmez. Enter ödemeyi onaylar.",
+            "Terminal orqali karta to'lovi — bank va QR kerak emas. Enter to'lovni tasdiqlaydi.");
+
+        // ------------------------------------------------------------------ 2026-11-06 (Д4-16): цифровой блок для сенсорных касс
+        // Показывается, когда включена тема «Сенсорная» (в программе нет отдельной настройки «Сенсорный экран»; тема «Сенсорная» — её признак) и не на Android
+        // (там своя клавиатура телефона). Это не экранная клавиатура: только цифры и запятая для сумм; полную клавиатуру по-прежнему вызывает osk.exe.
+        public bool ShowKeypad => !OperatingSystem.IsAndroid()
+            && string.Equals(UserPreferences.Instance.AccentTheme, "touch", StringComparison.OrdinalIgnoreCase)
+            && (IsCashMode || IsDebtMode || IsMixedMode);
+
         // ------------------------------------------------------------------ уведомления об изменении (подписка в конструкторе)
         private static readonly string[] RedesignDependencies =
         {
             nameof(BigTotalDisplay), nameof(ChangeAmountDisplay), nameof(DebtRemainingText), nameof(MixedRemainingText),
             nameof(PointsRedeemed), nameof(SelectedClientName), nameof(PaymentMethod), nameof(ClientLoyaltyBalanceDisplay),
         };
+        // (ShowKeypad зависит от способа оплаты — обновляется вместе с PaymentMethod, см. список ниже.)
 
         private static readonly string[] RedesignProperties =
         {
@@ -140,7 +203,7 @@ namespace NurMarketKassa.ViewModels
             nameof(ResultAmountDisplay), nameof(ResultFormula), nameof(HasResultFormula), nameof(ResultIsOk), nameof(ResultIsShort),
             nameof(ResultIsWarn), nameof(SelectedClientInitials), nameof(SelectedClientShortName), nameof(SelectedClientSubline),
             nameof(HasSelectedClientSubline), nameof(RedeemButtonText), nameof(CanRedeemPoints), nameof(ShowDebtCard), nameof(CurrentDebtDisplay),
-            nameof(DebtAfterSaleDisplay),
+            nameof(DebtAfterSaleDisplay), nameof(ShowKeypad),
         };
 
         private void RaiseRedesignDependents(object? sender, PropertyChangedEventArgs e)

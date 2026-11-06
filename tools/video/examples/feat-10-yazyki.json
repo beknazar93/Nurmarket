@@ -1,0 +1,431 @@
+{
+ "name": "feat-10-yazyki",
+ "lang": "ru",
+ "voice": "none",
+ "music": false,
+ "fps": 30,
+ "feat": {
+  "num": 10,
+  "slug": "10-yazyki",
+  "title": "На вашем языке",
+  "scenes": [
+   {
+    "type": "stage",
+    "dur": 5.0,
+    "counter": {
+     "x": 1470,
+     "y": 705,
+     "s": 0.85
+    },
+    "actors": [
+     {
+      "id": "bakyt",
+      "who": "bakyt",
+      "x": 520,
+      "poses": [
+       [
+        0,
+        "stand"
+       ]
+      ]
+     },
+     {
+      "id": "jyldyz",
+      "who": "jyldyz",
+      "x": 830,
+      "poses": [
+       [
+        0,
+        "stand"
+       ],
+       [
+        3.9,
+        "sad"
+       ]
+      ]
+     },
+     {
+      "id": "ainura",
+      "who": "ainura",
+      "x": 1480,
+      "z": "back",
+      "poses": [
+       [
+        0,
+        "stand"
+       ]
+      ]
+     }
+    ],
+    "say": [
+     {
+      "who": "BA",
+      "actor": "bakyt",
+      "at": 1.45,
+      "maxdur": 3.0,
+      "text": "Оп-ла-та… Мама, а почему не по-кыргызски?",
+      "tts": "Оп-ла-та... Мама, а почему не по-кыргызски?"
+     }
+    ]
+   },
+   {
+    "type": "shots",
+    "dur": 2.8,
+    "titr": [
+     {
+      "at": 0.3,
+      "dur": 2.2,
+      "text": "Одна [[кнопка]]"
+     }
+    ],
+    "views": [
+     {
+      "src": "10-kassa-lang-menu.png",
+      "at": 0,
+      "dur": 2.8,
+      "crop": [
+       0,
+       0.46,
+       0.5,
+       0.2
+      ],
+      "marks": [
+       {
+        "at": 1.0,
+        "kind": "click",
+        "rect": [
+         0.102,
+         0.549,
+         0.074,
+         0.045
+        ]
+       }
+      ]
+     }
+    ],
+    "say": [
+     {
+      "who": "N",
+      "at": 0.2,
+      "text": "Язык — одна кнопка."
+     }
+    ]
+   },
+   {
+    "type": "shots",
+    "dur": 7.5,
+    "titr": [
+     {
+      "at": 0.1,
+      "dur": 7.3,
+      "seq": [
+       "[[Русский]] · Кыргызча · Oʻzbek · Türkçe · English",
+       "Русский · [[Кыргызча]] · Oʻzbek · Türkçe · English",
+       "Русский · Кыргызча · [[Oʻzbek]] · Türkçe · English",
+       "Русский · Кыргызча · Oʻzbek · [[Türkçe]] · English",
+       "Русский · Кыргызча · Oʻzbek · Türkçe · [[English]]"
+      ],
+      "step": 1.5,
+      "text": ""
+     }
+    ],
+    "views": [
+     {
+      "src": "10-kassa-lang-ru.png",
+      "at": 0.0,
+      "dur": 1.5,
+      "crop": [
+       0,
+       0,
+       1,
+       1
+      ],
+      "slide": 24,
+      "marks": [
+       {
+        "at": 0.5,
+        "kind": "click",
+        "rect": [
+         0.65,
+         0.918,
+         0.337,
+         0.066
+        ]
+       }
+      ]
+     },
+     {
+      "src": "10-kassa-lang-ky.png",
+      "at": 1.5,
+      "dur": 1.5,
+      "crop": [
+       0,
+       0,
+       1,
+       1
+      ],
+      "slide": 24,
+      "marks": [
+       {
+        "at": 2.0,
+        "kind": "click",
+        "rect": [
+         0.65,
+         0.918,
+         0.337,
+         0.066
+        ]
+       }
+      ]
+     },
+     {
+      "src": "10-kassa-lang-uz.png",
+      "at": 3.0,
+      "dur": 1.5,
+      "crop": [
+       0,
+       0,
+       1,
+       1
+      ],
+      "slide": 24,
+      "marks": [
+       {
+        "at": 3.5,
+        "kind": "click",
+        "rect": [
+         0.65,
+         0.918,
+         0.337,
+         0.066
+        ]
+       }
+      ]
+     },
+     {
+      "src": "10-kassa-lang-tr.png",
+      "at": 4.5,
+      "dur": 1.5,
+      "crop": [
+       0,
+       0,
+       1,
+       1
+      ],
+      "slide": 24,
+      "marks": [
+       {
+        "at": 5.0,
+        "kind": "click",
+        "rect": [
+         0.65,
+         0.918,
+         0.337,
+         0.066
+        ]
+       }
+      ]
+     },
+     {
+      "src": "10-kassa-lang-en.png",
+      "at": 6.0,
+      "dur": 1.5,
+      "crop": [
+       0,
+       0,
+       1,
+       1
+      ],
+      "slide": 24,
+      "marks": [
+       {
+        "at": 6.5,
+        "kind": "click",
+        "rect": [
+         0.65,
+         0.918,
+         0.337,
+         0.066
+        ]
+       }
+      ]
+     }
+    ],
+    "sfx": [
+     {
+      "n": "tick",
+      "at": 1.5,
+      "v": 0.5
+     },
+     {
+      "n": "tick",
+      "at": 3.0,
+      "v": 0.5
+     },
+     {
+      "n": "tick",
+      "at": 4.5,
+      "v": 0.5
+     },
+     {
+      "n": "tick",
+      "at": 6.0,
+      "v": 0.5
+     }
+    ],
+    "say": [
+     {
+      "who": "N",
+      "at": 0.2,
+      "text": "Русский, кыргызский, узбекский, турецкий, английский — касса говорит на пяти языках."
+     }
+    ]
+   },
+   {
+    "type": "shots",
+    "dur": 3.4,
+    "titr": [
+     {
+      "at": 0.3,
+      "dur": 2.8,
+      "text": "И [[телефон]] тоже"
+     }
+    ],
+    "views": [
+     {
+      "src": "10-mobile-lang-ky.png",
+      "at": 0,
+      "dur": 3.4,
+      "frame": "phone",
+      "area": [
+       600,
+       26,
+       720,
+       826
+      ],
+      "crop": [
+       0,
+       0,
+       1,
+       0.56
+      ]
+     }
+    ],
+    "say": [
+     {
+      "who": "N",
+      "at": 0.2,
+      "text": "И телефон — вместе с кассой."
+     }
+    ]
+   },
+   {
+    "type": "stage",
+    "dur": 4.4,
+    "counter": {
+     "x": 1470,
+     "y": 705,
+     "s": 0.85
+    },
+    "actors": [
+     {
+      "id": "bakyt",
+      "who": "bakyt",
+      "x": 420,
+      "poses": [
+       [
+        0,
+        "stand"
+       ],
+       [
+        0.3,
+        "happy"
+       ]
+      ]
+     },
+     {
+      "id": "jyldyz",
+      "who": "jyldyz",
+      "x": 700,
+      "poses": [
+       [
+        0,
+        "happy"
+       ]
+      ]
+     },
+     {
+      "id": "ata",
+      "who": "ata",
+      "x": 960,
+      "poses": [
+       [
+        0,
+        "stand"
+       ],
+       [
+        1.0,
+        "happy"
+       ]
+      ]
+     },
+     {
+      "id": "ainura",
+      "who": "ainura",
+      "x": 1480,
+      "z": "back",
+      "poses": [
+       [
+        0,
+        "stand"
+       ],
+       [
+        0.5,
+        "happy"
+       ]
+      ]
+     }
+    ],
+    "say": [
+     {
+      "who": "BA",
+      "actor": "bakyt",
+      "at": 0.3,
+      "maxdur": 1.2,
+      "text": "Тө-лөм!",
+      "tts": "Тё-лём!"
+     },
+     {
+      "who": "N",
+      "at": 1.7,
+      "text": "Чтобы даже Бакыт прочитал, что написано."
+     }
+    ]
+   },
+   {
+    "type": "final",
+    "dur": 4.0,
+    "say": [
+     {
+      "who": "N",
+      "at": 0.5,
+      "text": "Нур Си-Эр-Эм — касса, которая знает ваш магазин.",
+      "show": false,
+      "maxdur": 3.1
+     }
+    ]
+   }
+  ]
+ },
+ "premix": "C:/Users/User/NurMarket-video/ad/work/b/mix-10.wav",
+ "scenes": [
+  {
+   "id": "feat",
+   "html": "C:/Users/User/NurMarket-video/ad/work/b/feat-10.html",
+   "duration": 27.1,
+   "subs": false,
+   "lang": "ru",
+   "transition": "none"
+  }
+ ]
+}

@@ -85,7 +85,7 @@
                     <!-- 2026-10-20, проверка фильтров: «Фильтр» в раскладке (было только в «Классике») — число включённых условий,
                          в подсказке что включено; «✕» сбрасывает. Кнопки не берут фокус (скан — окну кассы). -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" VerticalAlignment="Center">
-                        <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="36" Padding="10,0"
+                        <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="40" Padding="10,0"
                                 ToolTip.Tip="{Binding Catalog.ActiveFilterTip}" Click="OpenFilter_Click">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <PathIcon Data="{StaticResource IconFilter}" Width="14" Height="14"/>
@@ -97,7 +97,7 @@
                                 </Border>
                             </StackPanel>
                         </Button>
-                        <Button Classes="lx-chip" Focusable="False" Height="36" Width="36" Padding="0" Content="✕"
+                        <Button Classes="lx-chip" Focusable="False" Height="40" Width="40" Padding="0" Content="✕"
                                 IsVisible="{Binding Catalog.HasActiveFilter}" ToolTip.Tip="{Binding Catalog.ResetFilterTip}"
                                 AutomationProperties.Name="{Binding Catalog.ResetFilterTip}" Click="ResetFilter_Click"/>
                     </StackPanel>
@@ -203,12 +203,12 @@
             </Panel>
 
             <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,0">
-                <Button Classes="lx-btn" MinHeight="36" Command="{Binding Catalog.PreviousPageCommand}">
+                <Button Classes="lx-btn" MinHeight="40" Command="{Binding Catalog.PreviousPageCommand}">
                     <PathIcon Data="{StaticResource IconChevronLeft}" Width="16" Height="16"/>
                 </Button>
                 <TextBlock Grid.Column="1" Text="{Binding Catalog.PageStatusText}" Classes="lx-muted"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                <Button Grid.Column="2" Classes="lx-btn" MinHeight="36" Command="{Binding Catalog.NextPageCommand}">
+                <Button Grid.Column="2" Classes="lx-btn" MinHeight="40" Command="{Binding Catalog.NextPageCommand}">
                     <PathIcon Data="{StaticResource IconChevronRight}" Width="16" Height="16"/>
                 </Button>
             </Grid>
@@ -245,7 +245,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
-                    <Button Grid.Column="2" Classes="lx-ghost" Width="36" Padding="0" Margin="6,0,0,0"
+                    <Button Grid.Column="2" Classes="lx-ghost" Width="40" Padding="0" Margin="6,0,0,0"
                             Command="{Binding Basket.NewReceiptCommand}" ToolTip.Tip="{DynamicResource onecLayout.newReceiptButton}">
                         <PathIcon Data="{StaticResource IconPlus}" Width="14" Height="14"/>
                     </Button>
@@ -324,10 +324,11 @@
                                                             ToolTip.Tip="{DynamicResource csh.cart.discountTooltip}">
                                                         <PathIcon Data="{StaticResource IconPercent}" Width="14" Height="14"/>
                                                     </Button>
-                                                    <Button Classes="lx-ghost" Width="44" Height="44" MinHeight="0" Padding="0"
-                                                            Command="{Binding RemoveCommand}" CommandParameter="{Binding}"
+                                                    <!-- 2026-11-06: В6 Д4-04 — серый значок, отступ от «%», удаление двумя нажатиями («Удалить?» на 3 с), как в основном виде. -->
+                                                    <Button Classes="lx-ghost" Width="44" Height="44" MinHeight="0" Padding="0" Margin="12,0,0,0"
+                                                            Click="CartDelete_Click"
                                                             ToolTip.Tip="{DynamicResource csh.cart.removeTooltip}">
-                                                        <PathIcon Data="{StaticResource IconTrash}" Width="15" Height="15" Foreground="{DynamicResource BrushDanger}"/>
+                                                        <PathIcon Data="{StaticResource IconTrash}" Width="15" Height="15" Foreground="{DynamicResource BrushTextMuted}"/>
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>

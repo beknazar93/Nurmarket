@@ -48,6 +48,9 @@ public sealed class ReceivingPostState
     public string? SupplierDocNumber { get; set; }
     public DateTime? SupplierDocDate { get; set; }
     public string? DocNumber { get; set; }
+    /// <summary>2026-11-06 (живой тест, Б-3): номер прихода, который сервер вернул в ответе (number_display) — источник истины для списка, окна документа, печати и PDF.
+    /// DocNumber до отправки — только предварительный номер кассы.</summary>
+    public string? ServerNumber { get; set; }
 
     public Dictionary<string, StockPatchState> StockPatches { get; set; } = new();
     public Dictionary<string, double> CreatedSalePrice { get; set; } = new();
@@ -57,6 +60,23 @@ public sealed class ReceivingPostState
     public HashSet<string> VariantsDone { get; set; } = new();
     /// <summary>Ключ строки → posted | rejected | unknown | check. Строка без записи — ещё не обработана.</summary>
     public Dictionary<string, string> LineOutcome { get; set; } = new();
+
+    // 2026-11-06: офлайн-приход — шаги ПОСЛЕ создания документа выполняются независимо и помнят, что уже сделано (повтор после обрыва делает только недоделанное).
+    /// <summary>Ключи строк, у которых PATCH цены/себестоимости/названия закончен (успех или отказ сервера по существу — повторять нечего).</summary>
+    public HashSet<string> PriceStepDone { get; set; } = new();
+    /// <summary>Ключи строк, по которым строка локальной истории закупок уже записана (повтор её не задвоит).</summary>
+    public HashSet<string> HistoryDone { get; set; } = new();
+    /// <summary>true — приход создан, но шаги после него (PATCH цен, возврат цены) прервала сеть: очередь повторит только их.</summary>
+    public bool PostStepsPending { get; set; }
+    /// <summary>Пометка «принято … отправлено …» в комментарии документа: считается ОДИН раз при первой отправке и дальше не меняется
+    /// (тот же ключ повтора — то же тело запроса). null — ещё не считали, пусто — пометка не нужна.</summary>
+    public string? DelayNote { get; set; }
+
+    /// <summary>2026-11-06: сверка ключа прихода с журналом идемпотентности сервера (idempotency/{ключ}/). Задаёт очередь; null — сверки нет (только поиск прихода в списке).</summary>
+    [JsonIgnore] public Func<string, CancellationToken, Task<NurMarketKassa.Services.Api.IdempotencyVerdict>>? IdempotencyCheck { get; set; }
+
+    /// <summary>Время приёма (по часам ПК с поправкой ServerClock, учтённой один раз) — задаёт очередь перед каждой попыткой.</summary>
+    [JsonIgnore] public DateTime? ReceivedAt { get; set; }
 
     /// <summary>Ключ строки (JobLine.Key) по объекту строки приёмки. Задаёт очередь.</summary>
     [JsonIgnore] public Func<ReceivingLineVm, string> KeyOf { get; set; } = l => l.Barcode + "|" + l.ProductName;
@@ -108,7 +128,7 @@ public sealed class ReceivingPostState
         return key;
     }
 
-    internal void MarkPosted(string? id, double? total, DateTime? at)
+    internal void MarkPosted(string? id, double? total, DateTime? at, string? serverNumber = null)
     {
         lock (Gate)
         {
@@ -116,6 +136,11 @@ public sealed class ReceivingPostState
             ReceiptId = id;
             ReceiptTotal = total;
             ReceiptAt = at;
+            if (!string.IsNullOrWhiteSpace(serverNumber))
+            {
+                ServerNumber = serverNumber.Trim();
+                DocNumber = ServerNumber; // 2026-11-06: после отправки номер кассы заменяется серверным
+            }
         }
         RaiseChanged();
     }
@@ -202,6 +227,70 @@ public sealed class ReceivingPostState
         lock (Gate)
             LineOutcome[KeyOf(l)] = outcome;
         RaiseChanged();
+    }
+
+    internal bool IsPriceStepDone(ReceivingLineVm l)
+    {
+        lock (Gate)
+            return PriceStepDone.Contains(KeyOf(l));
+    }
+
+    internal void MarkPriceStepDone(ReceivingLineVm l)
+    {
+        lock (Gate)
+            PriceStepDone.Add(KeyOf(l));
+        RaiseChanged();
+    }
+
+    internal bool TryMarkHistory(ReceivingLineVm l)
+    {
+        bool added;
+        lock (Gate)
+            added = HistoryDone.Add(KeyOf(l));
+        if (added)
+            RaiseChanged();
+        return added;
+    }
+
+    internal void SetPostStepsPending(bool pending)
+    {
+        lock (Gate)
+        {
+            if (PostStepsPending == pending)
+                return;
+            PostStepsPending = pending;
+        }
+        RaiseChanged();
+    }
+
+    /// <summary>2026-11-06: пометка для комментария прихода. Считается один раз (первая отправка) и сохраняется на диск.</summary>
+    internal string? GetOrMakeDelayNote(DateTime now)
+    {
+        string? note;
+        bool created = false;
+        lock (Gate)
+        {
+            if (DelayNote is null)
+            {
+                var computed = ReceivedAt is { } r && now - r > TimeSpan.FromMinutes(2)
+                    ? "Принято " + r.ToString("dd.MM.yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture) + ", отправлено после восстановления связи "
+                      + now.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+                    : "";
+                // 2026-11-06 (Б-11): ПУСТУЮ пометку не запоминаем. Первая попытка сразу после приёма (связь ещё «есть», но запрос не прошёл) давала "" и закрепляла её навсегда —
+                // приход, дошедший через минуты, уходил без времени приёма (комментарий на сервере пустой). Непустая пометка по-прежнему считается один раз.
+                if (computed.Length > 0)
+                {
+                    DelayNote = computed;
+                    created = true;
+                }
+                note = computed;
+            }
+            else
+                note = DelayNote;
+        }
+        if (created)
+            RaiseChanged();
+        return note.Length > 0 ? note : null;
     }
 
     internal void MarkVariants(ReceivingLineVm l, bool done)

@@ -17,6 +17,9 @@ public static partial class SensitiveDataRedactor
         result = PlainSecret().Replace(result, match =>
             $"{match.Groups["prefix"].Value}{Mask}");
         result = BearerToken().Replace(result, "Bearer ***");
+        // 2026-11-06: В3 Б-4 — токен Telegram-бота («123456789:AAH…») и ключ Google/Gemini («AIza…») без подписи «token=» (в адресе запроса, тексте ошибки) тоже закрываем.
+        result = TelegramBotToken().Replace(result, Mask);
+        result = GoogleApiKey().Replace(result, Mask);
         result = EmailAddress().Replace(result, match => MaskEmail(match.Value));
         result = ConnectionStringSecret().Replace(result, match =>
             $"{match.Groups["key"].Value}={Mask}");
@@ -57,6 +60,14 @@ public static partial class SensitiveDataRedactor
 
     [GeneratedRegex("Bearer\\s+[A-Za-z0-9._~+/-]+=*", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex BearerToken();
+
+    /// <summary>Токен бота: номер бота (6–12 цифр), двоеточие, 30+ знаков секрета (после «bot» в адресе api.telegram.org/bot123…:AA…/ тоже). Время «12:34:56» и суммы не подходят — секрет длинный.</summary>
+    [GeneratedRegex("(?<!\\d)\\d{6,12}:[A-Za-z0-9_-]{30,}", RegexOptions.CultureInvariant)]
+    private static partial Regex TelegramBotToken();
+
+    /// <summary>Ключ Google API / Gemini: «AIza» и 35 знаков.</summary>
+    [GeneratedRegex("AIza[0-9A-Za-z_-]{35}", RegexOptions.CultureInvariant)]
+    private static partial Regex GoogleApiKey();
 
     [GeneratedRegex("[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex EmailAddress();

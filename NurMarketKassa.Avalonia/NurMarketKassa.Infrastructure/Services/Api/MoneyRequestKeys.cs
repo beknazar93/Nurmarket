@@ -9,7 +9,7 @@ namespace NurMarketKassa.Services.Api;
 /// Правило как в <see cref="PendingIdempotencyKey"/>: ключ строится по подписи (метод + путь + тело). Повтор ТОГО ЖЕ запроса после ответа, который не дошёл
 /// (таймаут, обрыв, 5xx, 408, 429, 409/423/425), уходит с ТЕМ ЖЕ ключом; успех или отказ по существу — ключ забывается. Пока такой же запрос ещё
 /// выполняется, второй такой же не отправляется (защита от повторного нажатия — и там, где сервер ключ ещё не принимает; заголовок для него безвреден).
-/// Ключ живёт в памяти процесса <see cref="Lifetime"/>; запросы с собственным ключом (оплата чека, возврат, обмен, PostWithIdempotencyKeyAsync) не затрагиваются.</summary>
+/// Ключ живёт <see cref="Lifetime"/> и (2026-11-06, В2 Л5-14) хранится на диске в <see cref="PendingMoneyKeys"/>: переживает перезапуск кассы; запросы с собственным ключом (оплата чека, возврат, обмен, PostWithIdempotencyKeyAsync) не затрагиваются.</summary>
 internal static class MoneyRequestKeys
 {
     internal static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(30);
@@ -34,6 +34,10 @@ internal static class MoneyRequestKeys
     // Не деньги / свои ключи: оплата чека (PosCheckoutService), вход, категории статей.
     private static readonly string[] ExcludedMarkers = { "checkout", "/auth/", "cashflow-categories", "pin/verify" };
 
+    /// <summary>2026-11-06: В2 Л4-08 — правило «денежный ли POST» остаётся по подстроке пути (инверсия «ключ всем POST» сломала бы быстрые безобидные запросы
+    /// защитой от повтора), но теперь оно закрыто с двух сторон: статическая проверка tools/qa/check-money-keys.ps1 (В1) ищет денежные POST без ключа в коде,
+    /// а Tests\Wave2\PendingMoneyKeysTests закрепляет реальные адреса кассы (деньги/склад — с ключом, остальное — без). Новый денежный адрес без «денежного» слова в пути
+    /// — добавить слово в <see cref="MoneyMarkers"/> или передать свой ключ (PostWithIdempotencyKeyAsync / idempotency_key в теле).</summary>
     internal static bool Applies(HttpMethod method, string relativePath)
     {
         if (method != HttpMethod.Post || string.IsNullOrWhiteSpace(relativePath))
@@ -73,7 +77,9 @@ internal static class MoneyRequestKeys
                 Entries.Remove(signature);
             if (!Entries.TryGetValue(signature, out e))
             {
-                e = new Entry { Key = Guid.NewGuid().ToString(), CreatedUtc = now };
+                // 2026-11-06: В2 Л5-14 — ключ берётся с диска (пережил перезапуск) или создаётся и сразу пишется на диск ДО отправки.
+                var diskKey = PendingMoneyKeys.GetOrCreate(signature, out var created);
+                e = new Entry { Key = diskKey, CreatedUtc = created };
                 Entries[signature] = e;
             }
 
@@ -88,7 +94,10 @@ internal static class MoneyRequestKeys
     internal static void OnSuccess(string signature)
     {
         lock (Sync)
+        {
             Entries.Remove(signature);
+            PendingMoneyKeys.Forget(signature);
+        }
     }
 
     /// <summary>Исход неизвестен — ключ остаётся для повтора; отказ по существу — ключ забывается.</summary>
@@ -101,9 +110,13 @@ internal static class MoneyRequestKeys
             if (PendingIdempotencyKey.IsOutcomeUnknown(ex))
                 e.InFlight = false;
             else
+            {
                 Entries.Remove(signature);
+                PendingMoneyKeys.Forget(signature);
+            }
         }
     }
+
 
     internal static ApiException StillRunning() => new(
         Tr.T("Эта операция уже выполняется: сервер ещё не ответил. Дождитесь ответа, повторно не нажимайте.",

@@ -1,0 +1,45 @@
+# 2026-11-05: проверка сборки и тестов на каждый push/pull request (без секретов, без публикации выпуска).
+# Тесты ходят только во временную папку (NURMARKET_DATA_ROOT) и не достают боевой сервер (DESKTOP_MARKET_API_URL -> порт-заглушка 127.0.0.1:9):
+# так же, как локально делает tools/qa/test-safe.ps1. Выпуск (vpk, GitHub Releases) отсюда НЕ делается — его собирает владелец вручную (AI_HANDOFF.md 4.3).
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      DESKTOP_MARKET_API_URL: http://127.0.0.1:9
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Кэш NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('NurMarketKassa.Avalonia/**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Сборка Windows-программы (касса + владелец)
+        working-directory: NurMarketKassa.Avalonia
+        run: dotnet build NurMarketKassa.Avalonia/NurMarketKassa.Avalonia.csproj -c Release -v q -m:1 -nodeReuse:false
+
+      # 2026-11-06: решение владельца — в CI только сборка, тесты запускаются локально через tools/qa/test-safe.ps1.

@@ -19,6 +19,16 @@ public enum SalePriceMode
     None,
     Auto,
     Manual,
+    /// <summary>2026-11-06: цена продажи известна (карточка товара или прошлая закупка) — общая наценка её не трогает, только явное «Как у всех» / «Применить ко всем».</summary>
+    Card,
+}
+
+/// <summary>2026-11-06: откуда подставлена цена закупки новой строки «Приём товара».</summary>
+public enum PurchaseDefaultSource
+{
+    None,
+    SupplierHistory,
+    Card,
 }
 
 /// <summary>Строка приёмки: сколько привезли и почём. Цена закупки и цена продажи обязательны —
@@ -216,7 +226,41 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         var before = PurchasePrice;
         SetPriceFromText(text, NurMarketKassa.Services.ReceivingPricing.PurchaseDecimals, v => PurchasePrice = v, nameof(PurchasePriceText), r => _purchaseRaw = r);
         if (Math.Abs(PurchasePrice - before) > 1e-9)
+        {
+            _purchaseManual = true; // 2026-11-06: цену закупки вписали руками — при смене поставщика её не подменяем
             ApplyAutoSale();
+        }
+    }
+
+    // ------------------------------------------------------------------ 2026-11-06: цена закупки по умолчанию (поставщик → карточка → 0)
+
+    private bool _purchaseManual;
+    private bool _saleFromHistory;
+
+    /// <summary>Откуда сейчас взята цена закупки строки (None — вписана вручную или не подставлялась).</summary>
+    public PurchaseDefaultSource PurchaseSource { get; private set; }
+
+    /// <summary>Цену закупки вписали руками (или она пришла из заказа) — подстановка по поставщику её не меняет.</summary>
+    public bool PurchaseIsManual => _purchaseManual;
+
+    /// <summary>Закрепить текущую цену закупки (пришла из заказа/прошлого прихода) — смена поставщика её не трогает.</summary>
+    public void LockPurchase() => _purchaseManual = true;
+
+    /// <summary>Подставить цену закупки по умолчанию. Вручную введённую (или закреплённую) цену не затирает. true — цена изменилась.</summary>
+    public bool TrySetDefaultPurchase(double price, PurchaseDefaultSource source)
+    {
+        if (_purchaseManual)
+            return false;
+        PurchaseSource = source;
+        if (Math.Abs(PurchasePrice - price) < 1e-9)
+        {
+            NotifyMode();
+            return false;
+        }
+        PurchasePrice = price; // свойство, не ввод: ручной признак не ставится
+        ApplyAutoSale();
+        NotifyMode();
+        return true;
     }
 
     /// <summary>Ввод цены продажи руками: пока значение отличается от прежнего, строка переходит в «вручную» (автопересчёт выключается).</summary>
@@ -279,7 +323,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     public SalePriceMode SaleMode => _saleMode;
 
     public bool HasSaleMode => _saleMode != SalePriceMode.None;
-    public bool CanReturnToAuto => _saleMode == SalePriceMode.Manual;
+    public bool CanReturnToAuto => _saleMode == SalePriceMode.Manual || (_saleMode == SalePriceMode.Card && PurchasePrice > 0 && NurMarketKassa.Services.ReceivingMarkupSettingsStore.Current.AutoEnabled);
 
     public string SaleModeText => _saleMode switch
     {
@@ -289,7 +333,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     };
 
     /// <summary>Подпись кнопки в колонке «Цена: авто»: «авто» (считается по общей наценке) или «Как у всех» (строка правилась руками — нажатие возвращает).</summary>
-    public string SaleButtonText => _saleMode == SalePriceMode.Manual
+    public string SaleButtonText => _saleMode is SalePriceMode.Manual or SalePriceMode.Card
         ? NurMarketKassa.Services.Tr.T("Как у всех", "Баарындай", "Like all", "Hepsi gibi", "Hammasi kabi")
         : SaleModeText;
 
@@ -302,6 +346,19 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
             if (_saleMode == SalePriceMode.Manual)
                 return NurMarketKassa.Services.Tr.T("Цена продажи задана вручную и не следует общей наценке. Нажмите «Как у всех» — снова считать по общему проценту.", "Сатуу баасы кол менен коюлган, жалпы кошумчага баш ийбейт. «Баарындай» басыңыз — кайра жалпы % боюнча эсептелет.",
                     "The sale price is set by hand and does not follow the common markup. Press “Like all” to calculate it from the common percent again.", "Satış fiyatı elle girildi ve ortak kâr oranını izlemiyor. «Hepsi gibi»ye basın — tekrar ortak orandan hesaplansın.", "Sotuv narxi qo'lda kiritilgan va umumiy ustamaga bo'ysunmaydi. «Hammasi kabi» ni bosing — yana umumiy foiz bo'yicha hisoblanadi.");
+            // 2026-11-06: цена известна (карточка / прошлая закупка) — общая наценка её не меняет, пока не нажмут «Как у всех».
+            if (_saleMode == SalePriceMode.Card)
+            {
+                var pct = NurMarketKassa.Services.ReceivingPricing.AutoMarkup(this, settings, out _) is { } cm ? cm.ToString("0.##", RuCulture) : "";
+                var origin = _saleFromHistory
+                    ? NurMarketKassa.Services.Tr.T("по прошлой закупке", "мурунку сатып алуу боюнча", "from the previous purchase", "önceki alıma göre", "oldingi xarid bo'yicha")
+                    : NurMarketKassa.Services.Tr.T("из карточки товара", "товардын карточкасынан", "from the product card", "ürün kartından", "mahsulot kartasidan");
+                return NurMarketKassa.Services.Tr.T($"Цена продажи {origin} и не меняется от общей наценки. Нажмите «Как у всех» — пересчитать по {pct} %.",
+                    $"Сатуу баасы {origin} алынган жана жалпы кошумчадан өзгөрбөйт. «Баарындай» басыңыз — {pct} % боюнча кайра эсептөө.",
+                    $"The sale price is {origin} and does not change with the common markup. Press “Like all” to recalculate it at {pct}%.",
+                    $"Satış fiyatı {origin} ve ortak kâr oranıyla değişmez. «Hepsi gibi»ye basın — {pct} % ile yeniden hesaplansın.",
+                    $"Sotuv narxi {origin} va umumiy ustama bilan o'zgarmaydi. «Hammasi kabi» ni bosing — {pct} % bo'yicha qayta hisoblanadi.");
+            }
             if (_saleMode != SalePriceMode.Auto || NurMarketKassa.Services.ReceivingPricing.AutoMarkup(this, settings, out var source) is not { } m)
                 return "";
             var from = source switch
@@ -347,7 +404,16 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         {
             if (_saleMode == SalePriceMode.Manual)
                 return NurMarketKassa.Services.Tr.T("вручную", "кол менен", "manual", "elle", "qo'lda");
-            if (_saleMode != SalePriceMode.Auto || NurMarketKassa.Services.ReceivingPricing.AutoMarkup(this, NurMarketKassa.Services.ReceivingMarkupSettingsStore.Current, out var source) is not { } m)
+            // 2026-11-06: «из карточки товара: 50» / «по прошлой закупке: 50» — цену не считали, она уже была известна.
+            if (_saleMode == SalePriceMode.Card)
+            {
+                var price = SalePrice.ToString("0.##", RuCulture);
+                return _saleFromHistory
+                    ? NurMarketKassa.Services.Tr.T($"по прошлой закупке: {price}", $"мурунку сатып алуу боюнча: {price}", $"from the previous purchase: {price}", $"önceki alıma göre: {price}", $"oldingi xarid bo'yicha: {price}")
+                    : NurMarketKassa.Services.Tr.T($"из карточки товара: {price}", $"товардын карточкасынан: {price}", $"from the product card: {price}", $"ürün kartından: {price}", $"mahsulot kartasidan: {price}");
+            }
+            // 2026-11-06: «авто (по общей наценке…)» — только когда цена продажи действительно получилась по наценке (закупка введена и цена равна расчётной).
+            if (_saleMode != SalePriceMode.Auto || !AutoPriceComputed || NurMarketKassa.Services.ReceivingPricing.AutoMarkup(this, NurMarketKassa.Services.ReceivingMarkupSettingsStore.Current, out var source) is not { } m)
                 return "";
             var p = m.ToString("0.##", RuCulture);
             return source == NurMarketKassa.Services.ReceivingPricing.MarkupSource.Category
@@ -456,11 +522,14 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     public bool IsModeBelow => IsBelowCost;
     public bool IsModeLow => IsLowOnly;
     public bool IsModeManual => !IsBelowCost && !IsLowOnly && _saleMode == SalePriceMode.Manual;
-    public bool IsModeAuto => !IsBelowCost && !IsLowOnly && _saleMode == SalePriceMode.Auto;
+    public bool IsModeAuto => !IsBelowCost && !IsLowOnly && (_saleMode == SalePriceMode.Auto || _saleMode == SalePriceMode.Card);
+
+    /// <summary>2026-11-06: цена продажи равна расчётной по общей наценке (а не оставлена прежней правилом «не снижать» или не посчитана из-за нулевой закупки).</summary>
+    private bool AutoPriceComputed => PurchasePrice > 0 && NurMarketKassa.Services.ReceivingPricing.AutoSalePrice(this, NurMarketKassa.Services.ReceivingMarkupSettingsStore.Current) is { } auto && Math.Abs(auto - SalePrice) < 0.005;
 
     /// <summary>Кнопка «Как у всех» — у «вручную», «мало» и «ниже закупки» (если автонаценка вообще включена для этой строки).</summary>
     public bool ShowReturnButton => _saleMode != SalePriceMode.None && NurMarketKassa.Services.ReceivingMarkupSettingsStore.Current.AutoEnabled
-                                    && (IsBelowCost || IsLowOnly || _saleMode == SalePriceMode.Manual);
+                                    && (IsBelowCost || IsLowOnly || _saleMode == SalePriceMode.Manual || (_saleMode == SalePriceMode.Card && PurchasePrice > 0));
 
     public string ReturnToAutoText => L("Как у всех", "Баарындай", "Like all", "Hepsi gibi", "Hammasi kabi");
 
@@ -480,7 +549,11 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                 var m = MarkupPercent is { } v ? (v >= 0 ? "+" : "−") + Math.Abs(v).ToString("0.#", RuCulture) + " %" : "";
                 return L("вручную", "кол менен", "manual", "elle", "qo'lda") + (m.Length > 0 ? " · " + m : "");
             }
-            if (_saleMode == SalePriceMode.Auto && NurMarketKassa.Services.ReceivingPricing.AutoMarkup(this, NurMarketKassa.Services.ReceivingMarkupSettingsStore.Current, out var source) is { } pct)
+            if (_saleMode == SalePriceMode.Card)
+                return _saleFromHistory
+                    ? L("по прошлой закупке", "мурунку сатып алуу боюнча", "previous purchase", "önceki alım", "oldingi xarid")
+                    : L("из карточки", "карточкадан", "from the card", "karttan", "kartadan");
+            if (_saleMode == SalePriceMode.Auto && AutoPriceComputed && NurMarketKassa.Services.ReceivingPricing.AutoMarkup(this, NurMarketKassa.Services.ReceivingMarkupSettingsStore.Current, out var source) is { } pct)
             {
                 var p = pct.ToString("0.##", RuCulture);
                 return source == NurMarketKassa.Services.ReceivingPricing.MarkupSource.Category
@@ -511,6 +584,9 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     /// <summary>Цена продажи ниже закупки — вся строка красным.</summary>
     public bool IsBelowCost => PurchasePrice > 0 && SalePrice > 0 && SalePrice < PurchasePrice;
 
+    /// <summary>2026-11-06: у строки с количеством нет цены продажи — строка подсвечивается, а перед отправкой прихода спрашиваем цену (программа сама её не ставит).</summary>
+    public bool IsSalePriceMissing => Quantity > 0 && SalePrice <= 0;
+
     /// <summary>Строка создана вручную (скан, список, «Новый товар») — цена продажи считается по наценке, если автонаценка включена в настройках.</summary>
     public void EnableAutoSale()
     {
@@ -521,11 +597,36 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         NotifyMode();
     }
 
+    /// <summary>2026-11-06 («Приём товара»): цена продажи по умолчанию. Товар со склада с известной ценой продажи (карточка, а если её нет — прошлая закупка
+    /// <paramref name="historySale"/>) оставляет её: общая «Наценка для всех» эту цену молча не меняет, только «Как у всех» / «Применить ко всем».
+    /// Новый товар и товар без известной цены считаются по общей наценке (режим «авто»), когда введена закупка.</summary>
+    public void EnableReceivingPricing(double historySale = 0)
+    {
+        if (!IsNew && OriginalSalePrice > 0)
+        {
+            _saleMode = SalePriceMode.Card;
+            _saleFromHistory = false;
+            NotifyMode();
+            return;
+        }
+        if (!IsNew && historySale > 0)
+        {
+            SalePrice = historySale;
+            _saleMode = SalePriceMode.Card;
+            _saleFromHistory = true;
+            NotifyMode();
+            return;
+        }
+        EnableAutoSale();
+    }
+
     /// <summary>Кнопка «Как у всех»: вернуть строке расчёт по общей наценке и сразу пересчитать.</summary>
     public void ReturnToAuto()
     {
         if (!NurMarketKassa.Services.ReceivingMarkupSettingsStore.Current.AutoEnabled)
             return;
+        if (_saleMode == SalePriceMode.Card && PurchasePrice <= 0)
+            return; // 2026-11-06: считать не от чего — прежняя известная цена остаётся и не помечается «авто»
         _saleMode = SalePriceMode.Auto;
         ApplyAutoSale(allowBelowCurrent: true); // 2026-11-05 (С-3): «Как у всех» — явная просьба, цена может быть и ниже прежней
         NotifyMode();
@@ -561,7 +662,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
 
     private void MarkSaleManual()
     {
-        if (_saleMode != SalePriceMode.Auto)
+        if (_saleMode is not (SalePriceMode.Auto or SalePriceMode.Card))
             return;
         _saleMode = SalePriceMode.Manual;
         NotifyMode();

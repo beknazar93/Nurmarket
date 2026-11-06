@@ -867,7 +867,8 @@ public sealed partial class SalesApiService : ISalesApiService
         }
 
         using var critical = ApiThrottle.BeginCritical(); // 2026-11-03 (Д3-02): возврат — деньги, быстрая полоса очереди
-        return await _client.RequestDataAsync<JsonElement>(
+        // 2026-11-06: В2 Н1-02 — через RequestAsync, как полный возврат: отказ сервера приходит ApiException с телом (цифры refund_exceeds_paid), а не сырым HttpRequestException.
+        return await _client.RequestAsync(
                 HttpMethod.Post,
                 $"api/main/pos/sales/{Uri.EscapeDataString(id)}/return/",
                 body,

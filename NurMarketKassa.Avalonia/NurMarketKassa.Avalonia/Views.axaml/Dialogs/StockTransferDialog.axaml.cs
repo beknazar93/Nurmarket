@@ -442,11 +442,8 @@ public partial class StockTransferDialog : Window
         if (FilesGrid.SelectedItem is not FileRow row || !File.Exists(row.FilePath))
             return;
 
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-        {
-            FileName = row.FilePath,
-            UseShellExecute = true,
-        });
+        // 2026-11-06: В4 А5-05 — общий запуск файла (Process.Start не работает на Android).
+        PlatformLauncher.OpenFile(row.FilePath);
     }
 
     private async void ExportCsv_Click(object? sender, RoutedEventArgs e) => await ExportAsync("csv");

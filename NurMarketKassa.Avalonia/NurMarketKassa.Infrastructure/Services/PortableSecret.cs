@@ -54,6 +54,12 @@ public static class PortableSecret
                 return _key;
             var dir = Path.Combine(NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa");
             Directory.CreateDirectory(dir);
+            // 2026-11-06: В3 А-15 — на Linux/Android папка с ключом доступна только владельцу (700), а не всем пользователям ПК. Сбой прав не мешает работе.
+            if (!OperatingSystem.IsWindows())
+            {
+                try { File.SetUnixFileMode(dir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); }
+                catch (Exception) { /* файловая система без прав Unix — ключ всё равно в файле с правами 600 */ }
+            }
             var path = Path.Combine(dir, ".secret-key");
             if (File.Exists(path) && File.ReadAllBytes(path) is { Length: 32 } existing)
                 return _key = existing;
@@ -88,8 +94,21 @@ public static class PortableSecret
                     }
                     System.Threading.Thread.Sleep(50);
                 }
-                // файл остался битым (не 32 байта) — перезаписываем, как раньше
+                // файл остался битым (не 32 байта) — перезаписываем, но СНАЧАЛА сохраняем его копию рядом: токены и ключи, зашифрованные прежним ключом, иначе пропали бы без возврата.
+                // 2026-11-06: В3 А-15 — раньше битый файл ключа затирался молча.
+                try
+                {
+                    var backup = path + ".bad-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+                    File.Copy(path, backup, overwrite: false);
+                    PosLogger.Log($"Ключ защиты данных повреждён (не 32 байта): создан новый, копия повреждённого файла — {Path.GetFileName(backup)}. Токены и ключи, записанные прежним ключом, потребуется ввести заново.", "ERROR");
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    PosLogger.Log($"Ключ защиты данных повреждён и будет создан заново; копия не сохранена ({ex.GetType().Name}).", "ERROR");
+                }
                 File.WriteAllBytes(path, key);
+                if (!OperatingSystem.IsWindows())
+                    File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
                 return _key = key;
             }
         }

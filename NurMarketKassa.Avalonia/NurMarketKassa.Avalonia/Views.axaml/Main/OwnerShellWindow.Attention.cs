@@ -4,6 +4,8 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 
 namespace NurMarketKassa.AvaloniaHost.Views;
@@ -37,6 +39,79 @@ public partial class OwnerShellWindow
     private bool _attnDebtsFailed;
     private readonly DateTime _attnCreatedUtc = DateTime.UtcNow;
 
+    // 2026-11-06 (Б-4): неотправленное — число из фонового чтения (RefreshUnsentAsync): свои очереди через OutboxService и очередь кассы этого ПК.
+    private int _attnUnsent;
+    private int _attnUnsentTill;
+    private bool _attnUnsentHooked;
+    private int _attnUnsentBusy;
+    private bool _attnUnsentAgain;
+
+    /// <summary>Подписка на «очередь изменилась» + опрос раз в 20 с (очередь кассы лежит в другой папке — событий от неё нет). Включается при первом показе блока.</summary>
+    private void HookUnsentWatch()
+    {
+        if (_attnUnsentHooked)
+            return;
+        _attnUnsentHooked = true;
+        void OnOutboxChanged() => Dispatcher.UIThread.Post(() => _ = RefreshUnsentAsync());
+        OutboxSetup.EnsureRegistered();
+        OutboxService.Default.Changed += OnOutboxChanged;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+        timer.Tick += (_, _) =>
+        {
+            _ = RefreshUnsentAsync();
+            // Пока блок пуст и данные сервера не пришли, подпись зависит от времени (см. конец RenderAttention) — перерисовать.
+            if (AttentionEmptyText.IsVisible)
+                RenderAttention();
+        };
+        timer.Start();
+        Closed += (_, _) =>
+        {
+            timer.Stop();
+            OutboxService.Default.Changed -= OnOutboxChanged;
+        };
+        _ = RefreshUnsentAsync();
+    }
+
+    /// <summary>2026-11-06 (Б-8): подпись «Сводки», когда сессия потеряна (сервер отвечает 401).</summary>
+    internal static string ExpiredHeaderText() => SessionExpiryMonitor.SummaryHeaderText ?? "";
+
+    private async Task RefreshUnsentAsync()
+    {
+        if (_loggingOut)
+            return;
+        if (Interlocked.Exchange(ref _attnUnsentBusy, 1) != 0)
+        {
+            _attnUnsentAgain = true;
+            return;
+        }
+        try
+        {
+            do
+            {
+                _attnUnsentAgain = false;
+                var access = OutboxSetup.CurrentAccess(); // роль берётся на UI-потоке
+                var (own, till) = await Task.Run(() => (OutboxService.Default.Snapshot(access).Count, SiblingTillQueue.CountUnsent())).ConfigureAwait(true);
+                if (_loggingOut)
+                    return;
+                if (own != _attnUnsent || till != _attnUnsentTill)
+                {
+                    _attnUnsent = own;
+                    _attnUnsentTill = till;
+                    RenderAttention();
+                }
+            }
+            while (_attnUnsentAgain);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Сводка: «Требует внимания» — неотправленное не прочитано ({ex.Message}).", "WARNING");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _attnUnsentBusy, 0);
+        }
+    }
+
     /// <summary>Сроки проката известны: сфера без проката, проверка прошла — или прошло 3 минуты (RentalDueNotifier
     /// на 403/404 молча перестаёт спрашивать, первый раз — через 20 с после запуска).</summary>
     private bool AttentionRentalsLoaded =>
@@ -67,6 +142,7 @@ public partial class OwnerShellWindow
             CatalogCacheService.CacheUpdated += OnAttentionCatalogUpdated;
             Closed += (_, _) => CatalogCacheService.CacheUpdated -= OnAttentionCatalogUpdated;
         }
+        HookUnsentWatch(); // 2026-11-06 (Б-4)
         AttentionList.Children.Clear();
         var urgent = new List<Control>();
         var waiting = new List<Control>();
@@ -121,21 +197,27 @@ public partial class OwnerShellWindow
                 sub, Tr.T("Долги", "Карыздар", "Debts", "Borçlar", "Qarzlar"), "debts"));
         }
 
-        // 2026-11-02 (аудит №2, В-16): ещё два пункта из уже существующих хранилищ этого компьютера — продажи, не ушедшие на сервер, и открытые
-        // «некорректные чеки». Без перехода: оба разбираются в кассе (Меню → «Некорректные чеки», очередь отправки).
+        // 2026-11-02 (аудит №2, В-16): ещё два пункта из уже существующих хранилищ этого компьютера — неотправленное на сервер и открытые
+        // «некорректные чеки». Без перехода: некорректные чеки разбираются в кассе (Меню → «Некорректные чеки»).
+        // 2026-11-06 (Б-4): «Не отправлено» считает ВСЁ неотправленное (OutboxService: чеки, возвраты, приходы в фоне, новые товары, смены, операции
+        // этой программы) и очередь кассы на этом же компьютере (SiblingTillQueue). Число приходит из фонового чтения (RefreshUnsentAsync) — UI не ждёт базу.
         try
         {
-            var unsent = OfflinePendingSalesStore.PendingCount;
+            var unsent = _attnUnsent + _attnUnsentTill;
             if (unsent > 0)
                 urgent.Add(AttentionRow(false,
                     Tr.T($"Не отправлено на сервер: {unsent}", $"Серверге жөнөтүлгөн жок: {unsent}", $"Not sent to the server: {unsent}",
                         $"Sunucuya gönderilmedi: {unsent}", $"Serverga yuborilmadi: {unsent}"),
-                    Tr.T("Продажи и операции, сделанные без связи, ждут отправки в кассе этого компьютера.",
-                        "Байланышсыз жасалган сатуулар жана операциялар ушул компьютердин кассасында жөнөтүлүүнү күтүп жатат.",
-                        "Sales and operations made offline are waiting to be sent in this computer's till.",
-                        "Bağlantısız yapılan satışlar ve işlemler bu bilgisayardaki kasada gönderilmeyi bekliyor.",
-                        "Aloqasiz qilingan sotuvlar va amallar shu kompyuterdagi kassada yuborilishini kutmoqda."),
-                    "", "offlinequeue"));
+                    Tr.T("Чеки, приходы, новые товары и операции, сделанные без связи, ждут отправки.",
+                        "Байланышсыз жасалган чектер, кирүүлөр, жаңы товарлар жана операциялар жөнөтүлүүнү күтүп жатат.",
+                        "Receipts, receivings, new products and operations made offline are waiting to be sent.",
+                        "Bağlantısız yapılan fişler, mal kabulleri, yeni ürünler ve işlemler gönderilmeyi bekliyor.",
+                        "Aloqasiz qilingan cheklar, kirimlar, yangi tovarlar va amallar yuborilishini kutmoqda.")
+                    + (_attnUnsentTill > 0
+                        ? "\n" + Tr.T($"Из них в кассе этого компьютера: {_attnUnsentTill}", $"Анын ичинде ушул компьютердин кассасында: {_attnUnsentTill}",
+                            $"Of them in this computer's till: {_attnUnsentTill}", $"Bunlardan bu bilgisayarın kasasında: {_attnUnsentTill}", $"Shundan shu kompyuter kassasida: {_attnUnsentTill}")
+                        : ""),
+                    Tr.T("Открыть", "Ачуу", "Open", "Aç", "Ochish"), "outbox")); // 2026-11-06: строка ведёт в «Неотправленное»
             var irregular = IrregularReceiptsStore.LoadAll().Count(e => e.ClosedAt is null);
             if (irregular > 0)
                 waiting.Add(AttentionRow(false,
@@ -179,10 +261,20 @@ public partial class OwnerShellWindow
             AttentionList.Children.Add(row);
         AttentionList.IsVisible = AttentionList.Children.Count > 0;
         AttentionEmptyText.IsVisible = AttentionList.Children.Count == 0;
-        AttentionEmptyText.Text = _attnStockLoaded && _attnDebtsLoaded && AttentionRentalsLoaded
+        // 2026-11-06 (Б-4): без связи блок не висит на «Загрузка…» — через 15 с (или сразу при известном обрыве связи) честно: данных сервера нет, показано своё.
+        var dataLoaded = _attnStockLoaded && _attnDebtsLoaded && AttentionRentalsLoaded;
+        var noLink = _offline || ServerOutageMonitor.IsOutage || OfflineModeHelper.SellLocally || SessionExpiryMonitor.IsExpired
+                     || DateTime.UtcNow - _attnCreatedUtc > TimeSpan.FromSeconds(15);
+        AttentionEmptyText.Text = dataLoaded
             ? Tr.T("Всё в порядке — срочных дел нет", "Баары жайында — шашылыш иш жок", "All good — nothing urgent",
                 "Her şey yolunda — acil bir şey yok", "Hammasi joyida — shoshilinch ish yo'q")
-            : Tr.T("Загрузка…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…");
+            : noLink
+                ? Tr.T("Нет данных с сервера — здесь только то, что хранится на этом компьютере.",
+                    "Серверден маалымат жок — бул жерде ушул компьютерде сакталгандар гана.",
+                    "No data from the server — only what is stored on this computer is shown.",
+                    "Sunucudan veri yok — yalnızca bu bilgisayarda saklananlar gösteriliyor.",
+                    "Serverdan ma'lumot yo'q — faqat shu kompyuterda saqlanganlar ko'rsatilgan.")
+                : Tr.T("Загрузка…", "Жүктөлүүдө…", "Loading…", "Yükleniyor…", "Yuklanmoqda…");
     }
 
     /// <summary>«№22 Арслан — Аренда бетономешалки» (и «ещё N», если прокатов несколько).</summary>

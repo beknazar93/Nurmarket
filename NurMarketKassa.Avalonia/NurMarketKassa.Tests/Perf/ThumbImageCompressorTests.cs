@@ -152,4 +152,41 @@ public sealed class ThumbImageCompressorTests : IDisposable
         File.ReadAllBytes(path).Should().Equal(9, 8, 7, 6);
         Directory.GetFiles(_dir, "*.tmp").Should().BeEmpty();
     }
+    // 2026-11-06 (Л5-23 / А5-12): PNG/GIF/BMP не умеют уменьшенную расшифровку — огромные не раскрываем вовсе; JPEG и WebP предела не имеют.
+    [Fact]
+    public void IsOversized_LargePng_True_SmallPng_False_Jpeg_False_Garbage_False()
+    {
+        var png = MakeImage(1200, 1000, SKEncodedImageFormat.Png);
+        var jpg = MakeImage(1200, 1000, SKEncodedImageFormat.Jpeg);
+        var webp = MakeImage(1200, 1000, SKEncodedImageFormat.Webp);
+
+        ThumbImageCompressor.IsOversized(png, 1_000_000).Should().BeTrue();    // 1,2 Мп > 1 Мп
+        ThumbImageCompressor.IsOversized(png, 2_000_000).Should().BeFalse();
+        ThumbImageCompressor.IsOversized(jpg, 1_000_000).Should().BeFalse();   // читается в уменьшенном виде
+        ThumbImageCompressor.IsOversized(webp, 1_000_000).Should().BeFalse();
+        ThumbImageCompressor.IsOversized(new byte[64], 1).Should().BeFalse();
+        ThumbImageCompressor.IsOversized(Array.Empty<byte>(), 1).Should().BeFalse();
+    }
+
+    [Fact]
+    public void MaxNonScalablePixels_IsSane() =>
+        ThumbImageCompressor.MaxNonScalablePixels.Should().BeInRange(16_000_000L, 50_000_000L);
+
+    [Fact]
+    public void Compress_LargePng_ProducesThumb()
+    {
+        var src = MakeImage(3000, 2000, SKEncodedImageFormat.Png);
+        var packed = ThumbImageCompressor.Compress(src, ThumbImageCompressor.ThumbMaxSide, 80, out _);
+        packed.Should().NotBeNull();
+        var (w, h, _) = Probe(packed!);
+        Math.Max(w, h).Should().Be(320);
+    }
+
+    [Fact]
+    public void Compress_ManyAtOnce_AllSucceed()
+    {
+        var src = MakeImage(1500, 1000, SKEncodedImageFormat.Png);
+        var results = Enumerable.Range(0, 8).AsParallel().Select(i => ThumbImageCompressor.Compress(src, 320, 80, out _)).ToList();
+        results.Should().OnlyContain(r => r != null);
+    }
 }

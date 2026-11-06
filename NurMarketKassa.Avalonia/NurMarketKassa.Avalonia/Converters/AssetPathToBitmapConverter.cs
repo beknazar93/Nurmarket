@@ -42,6 +42,8 @@ public sealed class AssetPathToBitmapConverter : IValueConverter
         {
             if (thumb)
                 TouchThumb(cacheKey);
+            else if (IsDiskFile(path))
+                TouchFull(cacheKey);
             return cached;
         }
 
@@ -69,11 +71,49 @@ public sealed class AssetPathToBitmapConverter : IValueConverter
             result = null;
         }
 
+        // 2026-11-06 (аудит №4/№5, Л4-13): «файла пока нет» не запоминаем навсегда — файл мог ещё скачиваться/появиться позже.
+        if (result is null && IsDiskFile(path) && !File.Exists(path))
+            return null;
+
         AddNativePressure(result);
         _cache[cacheKey] = result;
         if (thumb)
             TouchThumb(cacheKey);
+        else if (IsDiskFile(path))
+            TouchFull(cacheKey);
         return result;
+    }
+
+    private static bool IsDiskFile(string path) =>
+        !path.StartsWith("avares://", StringComparison.OrdinalIgnoreCase)
+        && !path.StartsWith("pack://", StringComparison.OrdinalIgnoreCase)
+        && Path.IsPathRooted(path);
+
+    // 2026-11-06 (Л4-13): полноразмерные картинки с диска (обои, фон, выбранные файлы) раньше жили в кэше до выхода без предела — каждая по десятки МБ.
+    // Теперь в кэше последние 16; вытесненная пересоздаётся при следующем показе (ту, что на экране, держит сам элемент). Значки приложения (avares://) — без предела.
+    private const int MaxFullImages = 16;
+    private static readonly LinkedList<string> FullOrder = new();
+    private static readonly Dictionary<string, LinkedListNode<string>> FullNodes = new(StringComparer.Ordinal);
+
+    private static void TouchFull(string key)
+    {
+        lock (ThumbGate)
+        {
+            if (FullNodes.TryGetValue(key, out var node))
+            {
+                FullOrder.Remove(node);
+                FullOrder.AddFirst(node);
+                return;
+            }
+
+            FullNodes[key] = FullOrder.AddFirst(key);
+            while (FullOrder.Count > MaxFullImages && FullOrder.Last is { } oldest)
+            {
+                FullOrder.RemoveLast();
+                FullNodes.Remove(oldest.Value);
+                _cache.TryRemove(oldest.Value, out _);
+            }
+        }
     }
 
     // 2026-10-20 (живой аудит кассы, К15: память кассы 496 → 1009 МБ за 75 минут): миниатюры товаров копились в кэше без
@@ -101,6 +141,22 @@ public sealed class AssetPathToBitmapConverter : IValueConverter
 
             ThumbNodes[key] = ThumbOrder.AddFirst(key);
             while (ThumbOrder.Count > MaxThumbs && ThumbOrder.Last is { } oldest)
+            {
+                ThumbOrder.RemoveLast();
+                ThumbNodes.Remove(oldest.Value);
+                _cache.TryRemove(oldest.Value, out _);
+            }
+        }
+    }
+
+    /// <summary>2026-11-06: В4 А4-18 — системе не хватает памяти: оставить в кэше только <paramref name="keep"/> последних миниатюр,
+    /// остальные забыть (показываемые плитки держат свои Bitmap сами; недостающие декодируются заново при прокрутке).</summary>
+    public static void TrimThumbs(int keep)
+    {
+        lock (ThumbGate)
+        {
+            keep = Math.Max(0, keep);
+            while (ThumbOrder.Count > keep && ThumbOrder.Last is { } oldest)
             {
                 ThumbOrder.RemoveLast();
                 ThumbNodes.Remove(oldest.Value);

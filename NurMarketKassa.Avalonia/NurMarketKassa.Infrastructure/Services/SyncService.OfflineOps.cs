@@ -8,13 +8,13 @@ namespace NurMarketKassa.Services;
 /// </summary>
 public sealed partial class SyncService
 {
-    private async Task ReplayOfflineOperationsAsync(CancellationToken ct)
+    private async Task ReplayOfflineOperationsAsync(CancellationToken ct, ISet<string>? only = null)
     {
         try
         {
-            if (!OfflineOperationsStore.HasPending)
+            if (!OfflineOperationsStore.HasPending || (only is not null && only.Count == 0))
                 return;
-            var outcome = await OfflineOperationsReplayer.RunAsync(new SalesOfflineOpsApi(_sales), ct).ConfigureAwait(false);
+            var outcome = await OfflineOperationsReplayer.RunAsync(new SalesOfflineOpsApi(_sales), ct, only).ConfigureAwait(false);
             if (outcome.Sent > 0)
             {
                 Interlocked.Add(ref _replayedCount, outcome.Sent);

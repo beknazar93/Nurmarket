@@ -1,0 +1,399 @@
+{
+ "name": "feat-01-telefon-vmesto-skanera",
+ "lang": "ru",
+ "voice": "none",
+ "music": false,
+ "fps": 30,
+ "logo": "C:\\Users\\User\\NurMarket-video\\assets\\logo.png",
+ "premix": "C:\\Users\\User\\NurMarket-video\\ad\\work-feat\\feat-01.wav",
+ "scenes": [
+  {
+   "id": "s1",
+   "template": "feat",
+   "duration": 5.3333,
+   "subs": [],
+   "transition": "none",
+   "intro": {
+    "num": "01 / 15",
+    "name": "Телефон вместо сканера"
+   },
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    }
+   },
+   "actors": [
+    {
+     "id": "ainura",
+     "img": "char-ainura-stand",
+     "x": 1120,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back",
+     "swaps": [
+      {
+       "at": 3.9,
+       "img": "char-ainura-scan"
+      }
+     ],
+     "shake": {
+      "at": 0.25,
+      "dur": 0.2,
+      "amp": 5
+     }
+    },
+    {
+     "id": "ata",
+     "img": "char-ata-stand",
+     "x": 430,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    },
+    {
+     "id": "nurlan",
+     "img": "char-nurlan-walk",
+     "x": 1680,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true,
+     "enter": {
+      "at": 2.1,
+      "dur": 0.7,
+      "dx": 420
+     },
+     "swaps": [
+      {
+       "at": 2.9,
+       "img": "char-nurlan-angry"
+      }
+     ],
+     "show": 2.0
+    }
+   ],
+   "titr": [
+    {
+     "text": "Сканер [[сломался]]",
+     "at": 2.9,
+     "dur": 2.0
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "ata",
+     "text": "Дочка, он у тебя умер?",
+     "at": 1.55,
+     "dur": 2.262,
+     "dy": 0,
+     "w": 600
+    },
+    {
+     "who": "nurlan",
+     "text": "Новый сканер — шесть тысяч!",
+     "at": 3.0,
+     "dur": 2.309,
+     "dy": 0,
+     "w": 520
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "template": "feat",
+   "duration": 7.5,
+   "subs": [
+    {
+     "text": "Сканер сломался?",
+     "at": 0.5,
+     "dur": 1.43
+    },
+    {
+     "text": "Не беги в магазин за новым.",
+     "at": 1.93,
+     "dur": 2.146
+    },
+    {
+     "text": "Телефон кассира подключается к кассе за пять секунд",
+     "at": 4.296,
+     "dur": 2.749
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "video": {
+      "name": "01-mobile-pair",
+      "from": 0,
+      "to": 8.5,
+      "dir": "C:\\Users\\User\\NurMarket-video\\feat-frames\\01-mobile-pair",
+      "meta": {
+       "w": 1080,
+       "h": 2340,
+       "n": 104,
+       "fps": 12
+      }
+     },
+     "frame": "phone",
+     "area": [
+      120,
+      30,
+      420,
+      800
+     ],
+     "rate": 1.3,
+     "size": [
+      1080,
+      2340
+     ]
+    },
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\01-kassa-phonelink-qr.png",
+     "crop": [
+      275,
+      119,
+      745,
+      378
+     ],
+     "area": [
+      620,
+      140,
+      1240,
+      640
+     ],
+     "masks": [
+      {
+       "rect": [
+        808,
+        208,
+        106,
+        26
+       ],
+       "blur": 8
+      }
+     ],
+     "clicks": [
+      {
+       "at": 1.3,
+       "rect": [
+        310,
+        222,
+        258,
+        255
+       ],
+       "hold": 0.8
+      }
+     ],
+     "size": [
+      1296,
+      879
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Подключение — [[5 секунд]]",
+     "at": 1.2,
+     "dur": 3.2
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s3",
+   "template": "feat",
+   "duration": 5.4333,
+   "subs": [
+    {
+     "text": "— и дальше «пик» делает он.",
+     "at": 0.55,
+     "dur": 2.394
+    },
+    {
+     "text": "По Wi-Fi, прямо в чек.",
+     "at": 2.944,
+     "dur": 2.031
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "video": {
+      "name": "01-mobile-scan",
+      "from": 0,
+      "to": 4.4,
+      "dir": "C:\\Users\\User\\NurMarket-video\\feat-frames\\01-mobile-scan",
+      "meta": {
+       "w": 1080,
+       "h": 2340,
+       "n": 54,
+       "fps": 12
+      }
+     },
+     "frame": "phone",
+     "area": [
+      120,
+      30,
+      420,
+      800
+     ],
+     "size": [
+      1080,
+      2340
+     ]
+    },
+    {
+     "video": {
+      "name": "01-kassa-line-added",
+      "from": 0,
+      "to": 4.0,
+      "dir": "C:\\Users\\User\\NurMarket-video\\feat-frames\\01-kassa-line-added",
+      "meta": {
+       "w": 2592,
+       "h": 1758,
+       "n": 48,
+       "fps": 12
+      }
+     },
+     "delay": 0.5,
+     "crop": [
+      1600,
+      100,
+      992,
+      760
+     ],
+     "area": [
+      680,
+      50,
+      1100,
+      780
+     ],
+     "clicks": [
+      {
+       "at": 2.0,
+       "rect": [
+        1685,
+        305,
+        875,
+        130
+       ],
+       "fill": true,
+       "hold": 0.6
+      }
+     ],
+     "size": [
+      2592,
+      1758
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Телефон [[=]] сканер",
+     "at": 0.5,
+     "dur": 3.6
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s4",
+   "template": "feat",
+   "duration": 3.4333,
+   "subs": [],
+   "transition": "none",
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    }
+   },
+   "actors": [
+    {
+     "id": "ainura",
+     "img": "char-ainura-scan",
+     "x": 1120,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back"
+    },
+    {
+     "id": "erlan",
+     "img": "char-erlan-stand",
+     "x": 430,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true,
+     "swaps": [
+      {
+       "at": 1.0,
+       "img": "char-erlan-happy"
+      }
+     ],
+     "hop": [
+      1.2
+     ]
+    },
+    {
+     "id": "jyldyz",
+     "img": "char-jyldyz-stand",
+     "x": 760,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    },
+    {
+     "id": "nurlan",
+     "img": "char-nurlan-angry",
+     "x": 1680,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true,
+     "swaps": [
+      {
+       "at": 2.0,
+       "img": "char-nurlan-happy"
+      }
+     ]
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "erlan",
+     "text": "А так можно было?",
+     "at": 0.9,
+     "dur": 1.503,
+     "dy": 0,
+     "w": 600
+    },
+    {
+     "who": "nurlan",
+     "text": "Кошелёк цел!",
+     "at": 2.1,
+     "dur": 1.33,
+     "dy": 0,
+     "w": 400
+    }
+   ]
+  },
+  {
+   "id": "s5",
+   "template": "feat",
+   "duration": 6.0333,
+   "subs": [],
+   "transition": "none",
+   "kind": "finale",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  }
+ ]
+}

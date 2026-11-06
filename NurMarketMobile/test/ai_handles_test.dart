@@ -338,11 +338,13 @@ void main() {
       expect(aiMatchByName(names.take(2), 'Асель', (x) => x), hasLength(2));
     });
 
-    test('цена прихода голосом: не ниже текущей и не ниже закупки + 20 %', () {
-      expect(aiReceivePrice(90, 100), 108);
-      expect(aiReceivePrice(80, 100), 100);
-      expect(aiReceivePrice(100, 0), 120);
-      expect(aiReceivePrice(33, 40), 40);
+    test('цена прихода голосом (2026-11-06): названная берётся; не названа — прежняя; у товара нет цены — null (переспросить), 30 → 36 не бывает', () {
+      expect(aiReceivePrice(null, 100), 100);
+      expect(aiReceivePrice(null, 40), 40);
+      expect(aiReceivePrice(null, 0), isNull, reason: 'товар без цены и закупка 30: молча 36 не ставим');
+      expect(aiReceivePrice(0, 0), isNull);
+      expect(aiReceivePrice(120, 100), 120);
+      expect(aiReceivePrice(25, 0), 25);
     });
   });
 
@@ -648,7 +650,7 @@ void main() {
       ],
     };
 
-    testWidgets('приход в долг: один документ с ключом, строка qty/закупка, цена по правилу ПК (≥ закупка + 20 %), диалога нет', (t) async {
+    testWidgets('приход в долг: один документ с ключом, строка qty/закупка, цена не названа — прежняя 100 остаётся, PATCH цены нет, диалога нет', (t) async {
       await receiveScreen(t);
       final (ask, out) = await drive(t, 'receive', args());
       expect(ask, isNull);
@@ -660,8 +662,46 @@ void main() {
       expect(body['payment_type'], 'debt');
       expect((body['items'] as List).single, {'product': 'p1', 'qty': 5.0, 'purchase_price': 90.0});
       expect(body['idempotency_key'], isNotEmpty);
-      expect(srv.patches.single, contains('"price":"108.00"'), reason: '90 × 1,2 = 108 выше текущих 100');
+      expect(srv.patches, isEmpty, reason: '2026-11-06: цену молча не меняем (раньше 90 × 1,2 = 108)');
       expect(find.byType(AlertDialog), findsNothing);
+    });
+
+    testWidgets('товар без цены, закупка 30, цена не названа → переспрашивает «Какая цена продажи?», приход не проведён (36 молча не ставится)', (t) async {
+      await _putProduct(db, 'p1', 'Мука', price: 0);
+      await open(t, '/admin/receive', {'/admin/receive': (_) => const AdminReceiveScreen()});
+      final r = await drive(t, 'receive', args(cost: 30));
+      expect(r.$1!.askKey, 'h.priceNeeded');
+      expect(srv.receiptPosts, isEmpty);
+      expect(srv.patches, isEmpty);
+    });
+
+    testWidgets('товар без цены, price: 0 = «без цены» → приход проведён, запрос цены не уходит', (t) async {
+      await _putProduct(db, 'p1', 'Мука', price: 0);
+      await open(t, '/admin/receive', {'/admin/receive': (_) => const AdminReceiveScreen()});
+      final (ask, out) = await drive(t, 'receive', {
+        'supplier': 'Асан Опт',
+        'pay': 'debt',
+        'lines': [
+          {'query': 'Мука', 'qty': 5, 'cost': 30, 'price': 0},
+        ],
+      });
+      expect(ask, isNull);
+      expect(out!.status, ToolStatus.ok);
+      expect(srv.receiptPosts.length, 1);
+      expect(srv.patches, isEmpty, reason: 'цена не ставится и не отправляется');
+    });
+
+    testWidgets('цена названа (120) → PATCH цены уходит один раз', (t) async {
+      await receiveScreen(t);
+      final (_, out) = await drive(t, 'receive', {
+        'supplier': 'Асан Опт',
+        'pay': 'debt',
+        'lines': [
+          {'query': 'Мука', 'qty': 5, 'cost': 90, 'price': 120},
+        ],
+      });
+      expect(out!.status, ToolStatus.ok);
+      expect(srv.patches.single, contains('"price":"120.00"'));
     });
 
     testWidgets('закупка не названа → берётся прежняя (80); цена не падает ниже текущей (100) — PATCH цены не нужен; оплата сразу → cash', (t) async {

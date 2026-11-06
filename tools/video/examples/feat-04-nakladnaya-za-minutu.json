@@ -1,0 +1,417 @@
+{
+ "name": "feat-04-nakladnaya-za-minutu",
+ "lang": "ru",
+ "voice": "none",
+ "music": false,
+ "fps": 30,
+ "logo": "C:\\Users\\User\\NurMarket-video\\assets\\logo.png",
+ "premix": "C:\\Users\\User\\NurMarket-video\\ad\\work-feat\\feat-04.wav",
+ "scenes": [
+  {
+   "id": "s1",
+   "template": "feat",
+   "duration": 3.7,
+   "subs": [],
+   "transition": "none",
+   "intro": {
+    "num": "04 / 15",
+    "name": "Накладная за минуту"
+   },
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    }
+   },
+   "actors": [
+    {
+     "id": "ainura",
+     "img": "char-ainura-stand",
+     "x": 1250,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back"
+    },
+    {
+     "id": "nurlan",
+     "img": "char-nurlan-stand",
+     "x": 470,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    },
+    {
+     "id": "bakyt",
+     "img": "char-bakyt-stand",
+     "x": 1700,
+     "feet": 1010,
+     "s": 1.05,
+     "bob": true,
+     "h": 430
+    }
+   ],
+   "items": [
+    {
+     "markup": "<div style=\"position:relative;width:250px;height:287px\"><div style=\"position:absolute;left:0px;bottom:0px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div><div style=\"position:absolute;left:7px;bottom:19px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div><div style=\"position:absolute;left:14px;bottom:38px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div><div style=\"position:absolute;left:0px;bottom:57px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div><div style=\"position:absolute;left:7px;bottom:76px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div><div style=\"position:absolute;left:14px;bottom:95px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div><div style=\"position:absolute;left:0px;bottom:114px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div><div style=\"position:absolute;left:7px;bottom:133px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div><div style=\"position:absolute;left:14px;bottom:152px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div><div style=\"position:absolute;left:0px;bottom:171px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div><div style=\"position:absolute;left:7px;bottom:190px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div><div style=\"position:absolute;left:14px;bottom:209px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div><div style=\"position:absolute;left:0px;bottom:228px;width:226px;height:30px;background:#fff;border:4px solid #191919;border-radius:3px\"></div></div>",
+     "x": 960,
+     "y": 313,
+     "layer": "counter",
+     "at": 0.3,
+     "path": [
+      {
+       "at": 0.25,
+       "x": 960,
+       "y": -300
+      },
+      {
+       "at": 0.6,
+       "x": 960,
+       "y": 313
+      }
+     ]
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "nurlan",
+     "text": "До ночи.",
+     "at": 1.7,
+     "dur": 1.099,
+     "dy": 0,
+     "w": 360
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "template": "feat",
+   "duration": 6.1333,
+   "subs": [
+    {
+     "text": "Накладная от поставщика — Excel, XML или ТОРГ-12 —",
+     "at": 0.4,
+     "dur": 3.521
+    },
+    {
+     "text": "загружается за минуту.",
+     "at": 3.921,
+     "dur": 1.76
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "video": {
+      "name": "04-kassa-receiving-xlsx",
+      "from": 0.7,
+      "to": 6.8,
+      "dir": "C:\\Users\\User\\NurMarket-video\\feat-frames\\04-kassa-receiving-xlsx",
+      "meta": {
+       "w": 1296,
+       "h": 880,
+       "n": 143,
+       "fps": 12
+      }
+     },
+     "crop": [
+      0,
+      0,
+      1296,
+      880
+     ],
+     "area": [
+      150,
+      30,
+      1620,
+      800
+     ],
+     "clicks": [
+      {
+       "at": 1.4,
+       "rect": [
+        90,
+        290,
+        1115,
+        440
+       ],
+       "hold": 0.9
+      },
+      {
+       "at": 3.0,
+       "rect": [
+        978,
+        774,
+        220,
+        45
+       ],
+       "hold": 0.5
+      },
+      {
+       "at": 4.4,
+       "rect": [
+        698,
+        415,
+        92,
+        365
+       ]
+      },
+      {
+       "at": 5.1,
+       "rect": [
+        908,
+        415,
+        145,
+        365
+       ],
+       "hold": 0.6
+      }
+     ],
+     "size": [
+      1296,
+      880
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Excel · XML · [[ТОРГ-12]]",
+     "at": 0.6,
+     "dur": 5.2
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s3",
+   "template": "feat",
+   "duration": 2.8,
+   "subs": [
+    {
+     "text": "Наценку ставите одну на всех.",
+     "at": 0.2,
+     "dur": 1.956
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\04-kassa-markup-all.png",
+     "crop": [
+      0,
+      0,
+      1296,
+      879
+     ],
+     "area": [
+      150,
+      30,
+      1620,
+      800
+     ],
+     "focus": [
+      {
+       "at": 0.3,
+       "dur": 0.7,
+       "rect": [
+        330,
+        140,
+        640,
+        610
+       ]
+      }
+     ],
+     "clicks": [
+      {
+       "at": 1.3,
+       "rect": [
+        370,
+        383,
+        117,
+        36
+       ],
+       "hold": 0.7
+      }
+     ],
+     "size": [
+      1296,
+      879
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Наценка — [[одной кнопкой]]",
+     "at": 0.3,
+     "dur": 2.3
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s4",
+   "template": "feat",
+   "duration": 4.0667,
+   "subs": [
+    {
+     "text": "А если цена вышла ниже закупки — касса не даст провести.",
+     "at": 0.2,
+     "dur": 3.388
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\04-kassa-below-cost.png",
+     "crop": [
+      20,
+      300,
+      1250,
+      490
+     ],
+     "area": [
+      100,
+      36,
+      1720,
+      790
+     ],
+     "clicks": [
+      {
+       "at": 0.8,
+       "rect": [
+        35,
+        712,
+        1228,
+        52
+       ],
+       "fill": true,
+       "hold": 0.8
+      },
+      {
+       "at": 1.7,
+       "rect": [
+        430,
+        404,
+        370,
+        75
+       ],
+       "hold": 0.8
+      },
+      {
+       "at": 2.8,
+       "rect": [
+        540,
+        507,
+        118,
+        47
+       ],
+       "hold": 0.6
+      }
+     ],
+     "size": [
+      1296,
+      879
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "В минус не [[продадите]]",
+     "at": 0.3,
+     "dur": 3.3
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s5",
+   "template": "feat",
+   "duration": 3.4,
+   "subs": [
+    {
+     "text": "Стопка бумаги теперь — домик для Бакыта.",
+     "at": 0.2,
+     "dur": 2.448
+    }
+   ],
+   "transition": "none",
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    }
+   },
+   "actors": [
+    {
+     "id": "ainura",
+     "img": "char-ainura-happy",
+     "x": 1250,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back"
+    },
+    {
+     "id": "nurlan",
+     "img": "char-nurlan-stand",
+     "x": 470,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    },
+    {
+     "id": "bakyt",
+     "img": "char-bakyt-happy",
+     "x": 1700,
+     "feet": 1010,
+     "s": 1.05,
+     "bob": true,
+     "hop": [
+      1.0
+     ],
+     "h": 430
+    }
+   ],
+   "items": [
+    {
+     "markup": "<div style=\"position:relative;width:260px;height:230px\"><div style=\"position:absolute;left:30px;bottom:0;width:200px;height:130px;background:#fff;border:5px solid #191919\"></div><div style=\"position:absolute;left:100px;bottom:0;width:60px;height:80px;background:#FFB208;border:5px solid #191919\"></div><div style=\"position:absolute;left:8px;bottom:125px;width:244px;height:96px;background:#191919;clip-path:polygon(50% 0,100% 100%,0 100%)\"></div><div style=\"position:absolute;left:26px;bottom:131px;width:208px;height:70px;background:#FFB208;clip-path:polygon(50% 0,100% 100%,0 100%)\"></div></div>",
+     "x": 1010,
+     "y": 372,
+     "layer": "counter",
+     "at": 0.1
+    },
+    {
+     "markup": "<div style=\"background:#191919;color:#FFB208;font:800 66px/1 Montserrat,sans-serif;padding:16px 30px;border-radius:16px;border:5px solid #FFB208;letter-spacing:.04em\">0:58</div>",
+     "x": 1480,
+     "y": 80,
+     "layer": "back"
+    }
+   ],
+   "titr": [
+    {
+     "text": "За [[минуту]]",
+     "at": 0.3,
+     "dur": 2.6
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s6",
+   "template": "feat",
+   "duration": 6.0333,
+   "subs": [],
+   "transition": "none",
+   "kind": "finale",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  }
+ ]
+}

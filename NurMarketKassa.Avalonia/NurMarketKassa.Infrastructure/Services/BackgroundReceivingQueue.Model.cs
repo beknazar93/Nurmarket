@@ -183,6 +183,19 @@ public sealed class ReceivingJob
     /// <summary>Подпись состава (поставщик + строки) — защита от двойного нажатия.</summary>
     public string Signature { get; set; } = "";
 
+    // 2026-11-06: офлайн-приход — время приёма и время отправки. Приход, принятый без интернета, остаётся «принятым в 14:32», а не «в 15:10, когда появилась связь».
+    /// <summary>Поправка часов «сервер − ПК» (секунды) В МОМЕНТ приёма: время приёма = CreatedAt + поправка, применяется один раз (как sold_at у офлайн-чека).</summary>
+    public double? ClockSkewSeconds { get; set; }
+    /// <summary>Когда сервер принял приход (первый успех). null — ещё не отправлен.</summary>
+    public DateTime? SentAt { get; set; }
+
+    /// <summary>Время приёма (местное): часы ПК в момент «Оприходовать» плюс запомненная поправка ServerClock. Перезапуск его не меняет.</summary>
+    [JsonIgnore]
+    public DateTime ReceivedAt => ServerClock.SoldAt(new DateTimeOffset(CreatedAt), ClockSkewSeconds, DateTimeOffset.MaxValue).LocalDateTime;
+
+    /// <summary>Приход отправлен заметно позже приёма (был без связи).</summary>
+    [JsonIgnore] public bool WasDelayed => SentAt is { } s && s - ReceivedAt > TimeSpan.FromMinutes(2);
+
     // 2026-10-26 (ТЗ «Склад — массовое добавление», М1): подача пачки частями. Все поля необязательные — старый queue.json читается как раньше.
     /// <summary>Общий номер пачки (BulkReceivingFeeder) и номер этой части в ней; у обычных приходов null.</summary>
     public string? BatchId { get; set; }
@@ -246,13 +259,13 @@ public sealed class ReceivingJob
             switch (Status)
             {
                 case ReceivingJobStatus.Queued:
-                    return Tr.T("в очереди", "кезекте", "queued", "sırada", "navbatda");
+                    return Tr.T("в очереди", "кезекте", "queued", "sırada", "navbatda") + ReceivedSuffix;
                 case ReceivingJobStatus.Sending:
                     return Tr.T("отправляется…", "жөнөтүлүүдө…", "sending…", "gönderiliyor…", "yuborilmoqda…");
                 case ReceivingJobStatus.Finishing:
                     return Tr.T("завершается…", "аякталууда…", "finishing…", "tamamlanıyor…", "yakunlanmoqda…");
                 case ReceivingJobStatus.RetryWait when WaitingForServer:
-                    return Tr.T("ждёт связь с сервером", "сервер менен байланышты күтүүдө", "waiting for the server connection", "sunucu bağlantısı bekleniyor", "server aloqasi kutilmoqda");
+                    return Tr.T("ждёт связь с сервером", "сервер менен байланышты күтүүдө", "waiting for the server connection", "sunucu bağlantısı bekleniyor", "server aloqasi kutilmoqda") + ReceivedSuffix;
                 case ReceivingJobStatus.RetryWait:
                     var left = NextAttemptAt is { } at ? Math.Max(0, (int)Math.Ceiling((at - DateTime.UtcNow).TotalSeconds)) : 0;
                     var n = Math.Min(Attempts + 1, BackgroundReceivingQueue.MaxRetries);
@@ -263,6 +276,15 @@ public sealed class ReceivingJob
                         $"{left} soniyadan keyin qayta urinish ({n}/{BackgroundReceivingQueue.MaxRetries}-urinish)");
                 case ReceivingJobStatus.Done:
                     var at2 = (FinishedAt ?? CreatedAt).ToString("HH:mm", CultureInfo.InvariantCulture);
+                    // 2026-11-06: офлайн-приход — оба времени: «принят 14:32 · отправлен 15:10».
+                    // 2026-11-06 (живой тест, В-3): «принят … · отправлен …» и когда задержка меньше 2 минут, но больше 30 секунд (в «Неотправленном» было «принят 13:47»,
+                    // а после досылки стояло только «оприходован 13:49»); обычная отправка за секунды — прежнее «оприходован».
+                    if (WasDelayed || (SentAt is { } sentAt && sentAt - ReceivedAt > TimeSpan.FromSeconds(30)))
+                    {
+                        var rcv = ReceivedAt.ToString("HH:mm", CultureInfo.InvariantCulture);
+                        var snt = SentAt!.Value.ToString("HH:mm", CultureInfo.InvariantCulture);
+                        return Tr.T($"принят {rcv} · отправлен {snt}", $"кабыл алынды {rcv} · жөнөтүлдү {snt}", $"received {rcv} · sent {snt}", $"kabul {rcv} · gönderildi {snt}", $"qabul qilindi {rcv} · yuborildi {snt}");
+                    }
                     return Tr.T($"оприходован {at2}", $"кабыл алынды {at2}", $"received {at2}", $"kabul edildi {at2}", $"qabul qilindi {at2}");
                 case ReceivingJobStatus.Partial:
                     return Tr.T($"частично: принято {PostedCount} из {LineCount}", $"жарым-жартылай: {PostedCount}/{LineCount} кабыл алынды",
@@ -272,6 +294,17 @@ public sealed class ReceivingJob
                 default:
                     return Tr.T("ошибка: ", "ката: ", "error: ", "hata: ", "xato: ") + (ReceivingServerMessages.Humanize(LastError) ?? "");
             }
+        }
+    }
+
+    /// <summary>2026-11-06: « · принят 14:32» у ещё не отправленного прихода (время приёма не пропадает, пока ждём связь).</summary>
+    [JsonIgnore]
+    private string ReceivedSuffix
+    {
+        get
+        {
+            var rcv = ReceivedAt.ToString("HH:mm", CultureInfo.InvariantCulture);
+            return Tr.T($" · принят {rcv}", $" · кабыл алынды {rcv}", $" · received {rcv}", $" · kabul {rcv}", $" · qabul qilindi {rcv}");
         }
     }
 

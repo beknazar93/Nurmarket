@@ -97,6 +97,57 @@ public class KassaLayoutBase : UserControl, ICatalogKeyboardSurface
     public bool ContainsFocus(Control? focused) =>
         _productLists.Any(list => CatalogKeyboardNavigation.IsWithin(focused, list));
 
+    // ------------------------------------------------------------------ подсветка добавленной строки чека
+
+    private System.Collections.ObjectModel.ObservableCollection<CartLineItemVm>? _hookedLines;
+
+    protected KassaLayoutBase()
+    {
+        DataContextChanged += (_, _) => HookLines();
+        AttachedToVisualTree += (_, _) => HookLines();
+        DetachedFromVisualTree += (_, _) => UnhookLines();
+    }
+
+    private void HookLines()
+    {
+        UnhookLines();
+        _hookedLines = Vm?.Basket?.Lines;
+        if (_hookedLines is not null)
+            _hookedLines.CollectionChanged += OnBasketLinesChanged;
+    }
+
+    private void UnhookLines()
+    {
+        if (_hookedLines is not null)
+            _hookedLines.CollectionChanged -= OnBasketLinesChanged;
+        _hookedLines = null;
+    }
+
+    private static readonly string[] CartRowClasses = { "cd-line", "mn-line", "pr-line", "tb-row" };
+
+    /// <summary>2026-11-06: В6 Д4-06 — только что добавленную строку чека (новая позиция сверху) подсвечиваем на 0,7 с цветом
+    /// BrushAccentSoft и прокручиваем к ней: при скане подряд видно, что товар пробился и какой. Как в основном виде
+    /// (BasketPanelView.OnLinesChanged). Фон строки в этих видах задан только стилем, поэтому местное значение потом просто снимаем.</summary>
+    private void OnBasketLinesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action != System.Collections.Specialized.NotifyCollectionChangedAction.Add || e.NewStartingIndex != 0
+            || e.NewItems is not { Count: > 0 } || e.NewItems[0] is not CartLineItemVm added)
+            return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            var row = this.GetVisualDescendants().OfType<Border>()
+                .FirstOrDefault(b => ReferenceEquals(b.DataContext, added) && CartRowClasses.Any(c => b.Classes.Contains(c)));
+            if (row is null)
+                return;
+            row.BringIntoView();
+            if (this.TryFindResource("BrushAccentSoft", ActualThemeVariant, out var res) && res is Avalonia.Media.IBrush brush)
+            {
+                row.Background = brush;
+                DispatcherTimer.RunOnce(() => row.ClearValue(Border.BackgroundProperty), TimeSpan.FromMilliseconds(700));
+            }
+        }, DispatcherPriority.Background);
+    }
+
     // ------------------------------------------------------------------ общие кнопки
 
     protected void PrintLastReceipt_Click(object? sender, RoutedEventArgs e) =>
@@ -116,6 +167,9 @@ public class KassaLayoutBase : UserControl, ICatalogKeyboardSurface
             && line.SetQuantityCommand?.CanExecute(line) == true)
             line.SetQuantityCommand.Execute(line);
     }
+
+    /// <summary>2026-11-06: В6 Д4-04 — удаление строки чека двумя нажатиями («Удалить?» на 3 с), как в основном виде.</summary>
+    protected void CartDelete_Click(object? sender, RoutedEventArgs e) => LayoutCartDelete.OnClick(sender);
 
     protected void PayCash_Click(object? sender, RoutedEventArgs e) => PayWith("cash");
 

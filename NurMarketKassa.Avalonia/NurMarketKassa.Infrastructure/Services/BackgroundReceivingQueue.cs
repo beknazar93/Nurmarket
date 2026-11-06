@@ -119,6 +119,24 @@ public sealed partial class BackgroundReceivingQueue
         "Arka plandaki mal kabul kuyruğu dosyası bozuk ve ayrı kaydedildi — arka planda mal kabul şu anda kullanılamıyor. Destekle iletişime geçin.",
         "Fondagi kirimlar navbati fayli buzilgan va alohida saqlandi — fonda qabul qilish hozir mavjud emas. Qo'llab-quvvatlashga murojaat qiling.");
 
+    // 2026-11-06: офлайн-приход — «Оприходовать» без интернета = «сохранить в очередь». Окна показывают этот текст вместо «выполняется в фоне».
+    /// <summary>Сейчас нет связи с сервером (авария/офлайн-режим/нет входа): приход, поставленный в очередь, уйдёт позже.</summary>
+    public static bool NoConnectionNow => ServerOutageMonitor.IsOutage || OfflineModeHelper.SellLocally;
+
+    /// <summary>Плашка после «Оприходовать»: без связи — «сохранён и будет отправлен», иначе — обычный текст окна.</summary>
+    public static string NoticeAfterEnqueue(string normalText) => NoConnectionNow ? SavedOfflineText : normalText;
+
+    public static string SavedOfflineText => Tr.T(
+        "Приход сохранён и будет отправлен, когда появится интернет",
+        "Кирүү сакталды жана интернет пайда болгондо жөнөтүлөт",
+        "The receiving is saved and will be sent when the internet is back",
+        "Mal kabul kaydedildi ve internet geldiğinde gönderilecek",
+        "Kirim saqlandi va internet paydo bo'lganda yuboriladi");
+
+    /// <summary>«Неотправленных приходов: N» (плашка, значок, вопрос при выходе).</summary>
+    public static string UnsentText(int n) => Tr.T($"Неотправленных приходов: {n}", $"Жөнөтүлбөгөн кирүүлөр: {n}", $"Unsent receivings: {n}",
+        $"Gönderilmemiş mal kabulleri: {n}", $"Yuborilmagan kirimlar: {n}");
+
     private static string SaveFailedText => Tr.T(
         "Не удалось записать приход в очередь на диск — строки остались в списке, повторите.",
         "Кирүүнү дисктеги кезекке жазуу мүмкүн болгон жок — саптар тизмеде калды, кайталаңыз.",
@@ -149,6 +167,8 @@ public sealed partial class BackgroundReceivingQueue
             CompanyId = CurrentCompany,
             Source = request.Source,
             CreatedAt = DateTime.Now,
+            // 2026-11-06: офлайн-приход — поправка часов запоминается СЕЙЧАС (время приёма не должно «поехать» от поправки, найденной позже). 0 — не пишем.
+            ClockSkewSeconds = ServerClock.Skew == TimeSpan.Zero ? null : ServerClock.Skew.TotalSeconds,
             Employee = request.Employee,
             Supplier = JobSupplier.From(request.Supplier),
             PaidNow = request.PaidNow,
@@ -191,7 +211,8 @@ public sealed partial class BackgroundReceivingQueue
             }
         }
 
-        PosLogger.Log($"Приход в фоне: принята задача {job.Id} ({job.Source}, строк {job.Lines.Count}, поставщик {job.Supplier?.Name ?? "—"}).", "STOCK");
+        PosLogger.Log($"Приход в фоне: принята задача {job.Id} ({job.Source}, строк {job.Lines.Count}, поставщик {job.Supplier?.Name ?? "—"}), время приёма {job.ReceivedAt:dd.MM.yyyy HH:mm:ss}"
+                      + (NoConnectionNow ? " — связи нет, приход сохранён на диск и уйдёт, когда она появится." : "."), "STOCK");
         RaiseChanged(job);
         EnsureWorker();
         Wake();
@@ -225,7 +246,7 @@ public sealed partial class BackgroundReceivingQueue
         lock (_sync)
         {
             var list = new List<ReceivingJob>();
-            foreach (var j in _jobs.OrderByDescending(x => x.CreatedAt))
+            foreach (var j in Enumerable.Reverse(_jobs)) // 2026-11-06: новые сверху = обратный порядок записи (не сортировка по часам ПК)
             {
                 var own = SameCompany(j.CompanyId, company);
                 if (!own && !allCompanies)
@@ -357,6 +378,39 @@ public sealed partial class BackgroundReceivingQueue
             Save();
         }
         RaiseChanged(job);
+        EnsureWorker();
+        Wake();
+        return true;
+    }
+
+    /// <summary>2026-11-06 («Неотправленное → Отправить сейчас»): снять паузу повтора у этого прихода и у всех, кто стоит в очереди РАНЬШЕ него (порядок FIFO не нарушаем), и разбудить воркер.
+    /// Отправляет по-прежнему тот же воркер, по одной задаче, с прежним ключом прихода — второй приход создать нельзя. Идущую попытку и завершённые задачи не трогает.
+    /// false — такой активной задачи нет.</summary>
+    public bool ForceNow(string id)
+    {
+        EnsureLoaded();
+        var any = false;
+        lock (_sync)
+        {
+            var company = CurrentCompany;
+            var target = _jobs.FirstOrDefault(j => j.Id == id && j.IsActive && SameCompany(j.CompanyId, company));
+            if (target is null)
+                return false;
+            foreach (var j in _jobs)
+            {
+                if (j.IsActive && SameCompany(j.CompanyId, company) && j.Status == ReceivingJobStatus.RetryWait && j.NextAttemptAt is not null)
+                {
+                    j.NextAttemptAt = null;
+                    any = true;
+                }
+                if (ReferenceEquals(j, target))
+                    break;
+            }
+            if (any)
+                Save();
+        }
+        if (any)
+            PosLogger.Log($"Приход в фоне: задача {id} отправляется по просьбе кассира («Неотправленное»), паузы повтора сняты.", "STOCK");
         EnsureWorker();
         Wake();
         return true;

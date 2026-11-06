@@ -12,7 +12,9 @@ namespace NurMarketKassa.Droid;
 /// неотправленные офлайн-чеки ждали нового запуска (~20 с). Пока касса открыта, она — служба переднего плана
 /// со значком в шторке («Касса работает»), как кассы и навигаторы: такую программу Android при нехватке памяти
 /// не выгружает. Касса и программа владельца — разные процессы, поэтому и служб две (у владельца — в ":owner").</summary>
-[Service(Exported = false, ForegroundServiceType = ForegroundService.TypeSpecialUse)]
+[Service(Name = "kg.nurmarket.kassa.KassaKeepAliveService", Exported = false, ForegroundServiceType = ForegroundService.TypeSpecialUse)]
+// 2026-11-06: В4 А5-18 — для Google Play у службы типа specialUse обязателен PROPERTY_SPECIAL_USE_FGS_SUBTYPE (что делает служба): он добавлен в
+// Properties/AndroidManifest.xml (атрибута для <property> в .NET for Android нет), поэтому у служб заданы постоянные Java-имена (Name).
 public class KassaKeepAliveService : Service
 {
     private const int NotificationId = 1017;
@@ -116,7 +118,7 @@ public class KassaKeepAliveService : Service
 }
 
 /// <summary>2026-10-05: та же служба для программы владельца — в её процессе ":owner".</summary>
-[Service(Exported = false, Process = ":owner", ForegroundServiceType = ForegroundService.TypeSpecialUse)]
+[Service(Name = "kg.nurmarket.kassa.OwnerKeepAliveService", Exported = false, Process = ":owner", ForegroundServiceType = ForegroundService.TypeSpecialUse)]
 public class OwnerKeepAliveService : KassaKeepAliveService
 {
     protected override bool IsOwnerProgram => true;

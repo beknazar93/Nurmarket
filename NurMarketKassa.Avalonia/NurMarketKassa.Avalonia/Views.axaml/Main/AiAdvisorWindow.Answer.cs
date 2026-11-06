@@ -181,9 +181,9 @@ public sealed partial class AiAdvisorWindow
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         timer.Tick += (_, _) =>
         {
-            if (body.Text != T("Думаю…", "Ойлонуп жатам…", "Thinking…", "Düşünüyorum…", "O'ylayapman…") || !content.Children.Contains(row))
+            if (body.Text != T("Думаю…", "Ойлонуп жатам…", "Thinking…", "Düşünüyorum…", "O'ylayapman…") || !content.Children.Contains(row) || _closed)
             {
-                timer.Stop();
+                timer.Stop(); // 2026-11-06 (Л4-26): и при закрытии окна
                 content.Children.Remove(row);
                 return;
             }

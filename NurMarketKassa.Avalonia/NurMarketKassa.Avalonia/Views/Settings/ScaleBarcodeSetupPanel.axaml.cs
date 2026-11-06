@@ -326,6 +326,11 @@ public partial class ScaleBarcodeSetupPanel : UserControl
                 ? L($"цифры {reading.ValueDigits} — сомы", $"{reading.ValueDigits} сандары — сом", $"digits {reading.ValueDigits} are som", $"{reading.ValueDigits} haneleri som", $"{reading.ValueDigits} raqamlari — so‘m")
                 : L($"цифры {reading.ValueDigits} — тыйыны", $"{reading.ValueDigits} сандары — тыйын", $"digits {reading.ValueDigits} are tiyin", $"{reading.ValueDigits} haneleri tiyin", $"{reading.ValueDigits} raqamlari — tiyin");
 
+        // 2026-11-06: В4 ДС-1 — у кнопок-вариантов мастера нет собственного текста (внутри StackPanel с блоками), и диктор/UIA называл их «StackPanel».
+        // Имя кнопки — вид и значение варианта.
+        Avalonia.Automation.AutomationProperties.SetName(WeightOptionButton, WeightOptionKind.Text + ": " + WeightOptionValue.Text + ". " + WeightOptionDetail.Text);
+        Avalonia.Automation.AutomationProperties.SetName(AmountOptionButton, AmountOptionKind.Text + ": " + AmountOptionValue.Text + ". " + AmountOptionDetail.Text);
+
         ShowUnitHint(reading);
 
         var now = L("← так касса читает сейчас", "← касса азыр ушундай окуйт", "← how the till reads it now", "← kasa şu an böyle okuyor", "← kassa hozir shunday o‘qiydi");

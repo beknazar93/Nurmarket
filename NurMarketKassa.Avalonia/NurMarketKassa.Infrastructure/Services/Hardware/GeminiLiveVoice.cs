@@ -225,9 +225,12 @@ public sealed class GeminiLiveVoice
                 var (connected, closeReason) = await SessionAsync(ct).ConfigureAwait(false);
                 if (ct.IsCancellationRequested)
                     break;
-                if (connected && _resumeHandle is not null && reconnects++ < 6)
+                if (connected && _resumeHandle is not null && reconnects < 6)
                 {
-                    PosLogger.Log($"Живой разговор ИИ: Google закрыл соединение ({closeReason ?? "плановое"}) — продолжаю тот же разговор.", "INFO");
+                    // 2026-11-06 (аудит скорости, Н-11): между переподключениями — пауза 1, 2, 4, 8 с (раньше 6 попыток подряд без паузы бились в лимит Google).
+                    var pause = ReconnectDelay(reconnects++);
+                    PosLogger.Log($"Живой разговор ИИ: Google закрыл соединение ({closeReason ?? "плановое"}) — продолжаю тот же разговор через {pause.TotalSeconds:0} с.", "INFO");
+                    await Task.Delay(pause, ct).ConfigureAwait(false);
                     continue;
                 }
                 reason = closeReason ?? "связь с Google прервалась";
@@ -258,6 +261,10 @@ public sealed class GeminiLiveVoice
             Ended?.Invoke(reason);
         }
     }
+
+    /// <summary>Пауза перед переподключением номер <paramref name="attempt"/> (с нуля): 1, 2, 4, 8, 8, 8 секунд.</summary>
+    internal static TimeSpan ReconnectDelay(int attempt) =>
+        TimeSpan.FromSeconds(Math.Min(8, 1 << Math.Clamp(attempt, 0, 3)));
 
     /// <summary>Одно соединение. Connected — сеанс был открыт (тогда после обрыва можно продолжить).</summary>
     private async Task<(bool Connected, string? Reason)> SessionAsync(CancellationToken ct)

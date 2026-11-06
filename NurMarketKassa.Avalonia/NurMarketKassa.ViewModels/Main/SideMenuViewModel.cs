@@ -56,7 +56,8 @@ public sealed class SideMenuViewModel : ViewModelBase
         Action? navigateSalary = null,
         Func<Task>? openCashOperation = null,
         Action? navigateReceiptHistory = null,
-        Action? navigatePurchases = null)
+        Action? navigatePurchases = null,
+        Action? navigateOutbox = null)
     {
         _session = session;
         _permissions = permissions;
@@ -69,6 +70,7 @@ public sealed class SideMenuViewModel : ViewModelBase
         NavigateMarketplaceCommand = new RelayCommand(() => { navigateMarketplace?.Invoke(); closeMenu(); });
         NavigateReturnCommand = new RelayCommand(() => { navigateReturn?.Invoke(); closeMenu(); });
         NavigateDeferredReceiptsCommand = new RelayCommand(() => { navigateDeferredReceipts?.Invoke(); closeMenu(); });
+        NavigateOutboxCommand = new RelayCommand(() => { navigateOutbox?.Invoke(); closeMenu(); }); // 2026-11-06: «Неотправленное»
         NavigateReceiptHistoryCommand = new RelayCommand(() => { navigateReceiptHistory?.Invoke(); closeMenu(); });
         NavigateFinanceCommand = new RelayCommand(() => { navigateFinance?.Invoke(); closeMenu(); });
         NavigateSalaryCommand = new RelayCommand(() => { navigateSalary?.Invoke(); closeMenu(); });
@@ -414,6 +416,7 @@ public sealed class SideMenuViewModel : ViewModelBase
     public ICommand NavigateMarketplaceCommand { get; }
     public ICommand NavigateReturnCommand { get; }
     public ICommand NavigateDeferredReceiptsCommand { get; }
+    public ICommand NavigateOutboxCommand { get; }
 
     /// <summary>«История чеков» (2026-09-27): чеки кассы и печать копии. Виден всегда — на любом
     /// тарифе и любому кассиру: повторная печать нужна у кассы каждый день, а раздел владельца

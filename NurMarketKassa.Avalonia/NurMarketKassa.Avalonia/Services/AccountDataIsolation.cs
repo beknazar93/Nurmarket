@@ -11,10 +11,11 @@ namespace NurMarketKassa.Services;
 
 /// <summary>Что осталось неотправленным от прежней компании (см. <see cref="AccountDataIsolation.SwitchTo"/>).</summary>
 public sealed record UnsentSummary(int Sales, decimal SalesTotal, int CashOperations, int DeferredCarts, int ReceivingJobs, int DebtOperations,
-    int UnknownCheckouts = 0, int BonusQueue = 0, int TelegramItems = 0)
+    int UnknownCheckouts = 0, int BonusQueue = 0, int TelegramItems = 0, int PendingProducts = 0)
 {
     // 2026-11-05 (Л4-03/Л4-05): оплата с неизвестным исходом, очередь бонусов и данные Telegram тоже считаются неотправленными.
-    public int Count => Sales + CashOperations + DeferredCarts + ReceivingJobs + DebtOperations + UnknownCheckouts + BonusQueue + TelegramItems;
+    // 2026-11-06: новые товары, заведённые без интернета и ещё не созданные на сервере (PendingProductQueue), — тоже.
+    public int Count => Sales + CashOperations + DeferredCarts + ReceivingJobs + DebtOperations + UnknownCheckouts + BonusQueue + TelegramItems + PendingProducts;
 }
 
 /// <summary>Решение пользователя, когда от прежней компании остались неотправленные данные.</summary>
@@ -85,71 +86,13 @@ public static class AccountDataIsolation
     /// <summary>Файл «неотправленное» записан (путь) — приложение может показать его пользователю.</summary>
     public static event Action<string>? UnsentExported;
 
-    /// <summary>Что принадлежит компании, а не этому компьютеру: удаляется при смене компании. Сессия (auth.dat) уже принадлежит
-    /// вошедшему и не трогается; модель голоса, WebView2 и общий справочник товаров (global-products.sqlite) — про терминал.
-    /// Настройки (user-settings.json) не удаляются, а сбрасываются (<see cref="CompanyScopedSettings"/>).</summary>
-    private static readonly string[] CompanyItems =
-    [
-        "data",                    // pos_local.db (+ -wal/-shm) и его бэкапы
-        "state.json",              // корзины/состояние экрана кассы
-        "state.json.bak",          // 2026-10-29: копия прошлой записи (AtomicFile), иначе чужие корзины «воскреснут» при порче
-        "cash_history.json",       // внесения и изъятия смены
-        "cash_history.json.bak",   // 2026-10-29: то же для истории касс
-        "exchange_cash_fix.json",  // 2026-10-06: поправки остатка смены после обмена (ошибка сервера)
-        "variant_barcodes.json",   // 2026-10-06: штрихкоды размеров одежды (скан этикетки размера)
-        "sale_sizes_cache.json",   // 2026-10-06: запомненные строки чеков для отчёта «Размеры и цвета»
-        "deferred_carts.json",     // отложенные чеки
-        "offline_pos_state.json",  // очередь непроведённых продаж
-        "offline_sales_pending.json",  // старый формат той же очереди: база импортирует его
-        "product_thumbs",          // миниатюры товаров
-        "BankQr",                  // QR банка — по нему покупатель платит именно этому магазину
-        "label-template.json",     // шаблон этикетки
-        "ai-chats.json",           // 2026-10-05: прошлые разговоры с ИИ-советником (данные магазина)
-        // 2026-10-29: остальное, что лежит в папке данных и принадлежит компании (список по содержимому живой папки кассы).
-        "debt-reminders.json", "debt-reminders.json.bak",     // напоминания о долге: расписание, исключённые клиенты, журнал
-        "background-receipts",                                // приходы в фоне
-        "advisor-morning.json", "cash_articles.json", "catalog_feed_cursor.json", "custom-themes.json",
-        "debt-payments", "pending_debt_prepayments.json", "promotion_rules.json", "purchases", "revision", "supplier-debts",
-        "rental-receipts.json", "upsell-sync.json", "client-docs", "funnel.json", "label-scales.json", "receiving-markup.json",
-        "salary_payouts.json", "startup-costs", "error-reports.json", "price-tag-template.json", "bonus-branch-rule.json",
-        "profit-pay", "barcode-print-settings.json", "phone-print-settings.json", "menu-badges-seen.txt",
-        "backups",                                            // копии общих настроек компании (settings-migration)
-        // 2026-10-29: возврат / оплата долга без связи и кэш клиентов для «в долг» — данные компании; неотправленные операции учтены в UnsentSummary.
-        "offline_operations.json", "offline_clients.json",
-        // 2026-10-31: кэш платных функций, включённых компании на сервере (ServerAddons), — принадлежит компании.
-        "server-addons.json", "server-addons.json.bak",
-        // 2026-11-03: память поиска фото пачками (какие товары компании уже проверены) — принадлежит компании.
-        "photo-search-progress.json", "photo-search-progress.json.bak",
-        // 2026-11-03 (аудит №3, Т3-04): кэш списка архивных товаров (10 минут) — принадлежит компании.
-        "archive-products-cache.json",
-        // 2026-11-05 (аудит №4, Л4-05): хранилища, которых не было в списке; три первых — «неотправленное» (см. ProbeUnsent).
-        "pending_unknown_checkout.json", "loyalty-queue.json", "loyalty-queue.json.bak", "server_prices.json",
-        "telegram-inquiries.json", "telegram-inquiries.json.bak", "telegram-customers.json", "telegram-customers.json.bak", "telegram-owner.json",
-        // 2026-11-05 (ревью волн 0–3, п. 6): хранилища волн 2-А/2-Б (список по Grep AppPaths в новых файлах) — иначе новая компания видела бы чужие данные.
-        "exchange_cash_fix.archived.json",                    // 2026-11-06 (Л5-03): архив старых поправок «Касса:» (ExchangeCashCorrections) — данные компании
-        "cycle-count.json",                                   // «Пересчёт дня»: порог PIN и история «когда считали товар» (товары прежней компании)
-        "bank-rules.json",                                    // правила сверки банковской выписки (поставщики, названия платежей)
-        "imported",                                           // копии файлов, выбранных в «Импорте» (QR банка, фон, реклама), — настройки с путями сбрасываются
-        "telegram-reminders.json", "telegram-chat-lang.json", // напоминания и язык чатов бота прежней компании
-        // старое место общих файлов (до переноса в %LOCALAPPDATA%): если остались после обновления, тоже уносим
-        "shop-alerts-state.json", "shop-automation.json",
-    ];
+    // 2026-11-06: В3 Л4-05 — списки «что принадлежит компании» перенесены в CompanyStoreRegistry (Infrastructure): там же виды Terminal / SharedByCompanyField и проверка
+    // «файл данных, которого нет в реестре». Л4-03: папка debt-payments больше не уносится — это общий журнал кассы и владельца с полем «компания» у записей.
+    private static string[] CompanyItems => NurMarketKassa.Services.CompanyStoreRegistry.CompanyItems;
 
-    /// <summary>Шаблоны имён в папке данных (флаги «бонусы импортированы» по компаниям, резервные копии настроек с ключами).</summary>
-    private static readonly string[] CompanyPatterns = ["loyalty-imported-*.flag", "user-settings.json.bak*", "telegram-updates-*.json", "bulk-journal-*.json",
-        // 2026-11-06 (аудит №5, Л5-03): запасные файлы отложенной записи (AtomicFile) — иначе при следующем запуске RecoverPending вернёт состояние прежней компании на место рабочего файла.
-        "*.pending", "*.pending.old"];
+    private static string[] CompanyPatterns => NurMarketKassa.Services.CompanyStoreRegistry.CompanyPatterns;
 
-    /// <summary>Журналы компании в %LOCALAPPDATA%\NurMarketKassa (возвраты, списания «в минус», удаления из чека).</summary>
-    private static readonly string[] LocalLogItems =
-    [
-        "loss-sales.json", "sale-returns.json", "sale-returns.json.bak", "cart-removals.jsonl",
-        // 2026-11-05 (ревью волн 0–3, п. 6): общие файлы кассы и владельца волн 2-А/2-Б (антифрод, привязки Telegram к чекам, оповещения и автоматика магазина, уведомления об аренде).
-        "antifraud-settings.json", "fraud-events.jsonl", "fraud-notified.json", "telegram-receipt-links.json",
-        "shop-alerts-state.json", "shop-automation.json", "rental-alerts.json",
-        // 2026-11-06 (аудит №5, Л5-11): порог PIN ревизии и история пересчётов теперь общий файл кассы и владельца (история — товары прежней компании).
-        "cycle-count.json", "cycle-count.json.bak",
-    ];
+    private static string[] LocalLogItems => NurMarketKassa.Services.CompanyStoreRegistry.CompanyLocalItems;
 
     /// <summary>Пользователь отказался менять компанию: повторный вызов для того же ключа в течение двух минут молча отказывает
     /// (вход ведёт несколько путей подряд — второй вопрос подряд не нужен).</summary>
@@ -238,11 +181,21 @@ public static class AccountDataIsolation
         var standMode = RootOverride is not null;
         var lan = standMode ? null : NurMarketKassa.Services.Lan.LanSyncService.Instance;
         var lanWasRunning = lan?.IsRunning ?? false;
+        IDisposable? syncPause = null;
+        var receivingStopped = false;
         try
         {
             lan?.Stop();
             if (!standMode)
+            {
+                // 2026-11-06: В3 Р8 — раньше останавливалась только локальная сеть, а SyncService и очередь приходов в фоне продолжали работать и писали в файлы и базу, которые
+                // как раз уносятся в карантин (или отправили бы чек прежней компании под токеном новой). Теперь на время переноса проход синхронизации занят нами, воркер приходов остановлен.
+                syncPause = (NurMarketKassa.AvaloniaHost.App.AppHost?.Services.GetService(typeof(NurMarketKassa.Services.SyncService)) as NurMarketKassa.Services.SyncService)?.PauseForAccountSwitch(TimeSpan.FromSeconds(3));
+                NurMarketKassa.Services.BackgroundReceivingQueue.Instance.Shutdown();
+                NurMarketKassa.Services.PendingProductQueue.Instance.Shutdown(); // 2026-11-06: очередь создания новых товаров тоже стоит на время переноса
+                receivingStopped = true;
                 PrepareForSwap();
+            }
             QuarantineCompanyFiles();   // 2026-11-05 (Л4-01/Л4-04): не стираем, а переносим в _previous\{время}; сбой — всё возвращается назад
             OfflineClientCache.ResetMemory(); // 2026-10-29: кэш клиентов прежней компании не должен остаться в памяти
             NurMarketKassa.Services.Api.ServerCapabilities.Reset(); // 2026-11-01: признаки сервера прежнего аккаунта (receipt_edit и др.) не должны жить в новом
@@ -258,6 +211,7 @@ public static class AccountDataIsolation
             if (!standMode)
             {
                 NurMarketKassa.Services.BackgroundReceivingQueue.Instance.DiscardAllForAccountSwitch();
+                NurMarketKassa.Services.PendingProductQueue.Instance.DiscardAllForAccountSwitch(); // 2026-11-06: задачи прежней компании не должны уйти под токеном новой
                 DatabaseService.Instance.ReopenAfterAccountSwitch();
                 NurMarketKassa.Services.Lan.LanJournal.ResetSchemaFlag();
                 AccountCatalogIsolation.ResetCatalogCachesAndReload();
@@ -271,12 +225,18 @@ public static class AccountDataIsolation
             // Очистить не удалось — работаем на том, что есть, но громко пишем в журнал:
             // молча смешивать данные двух компаний нельзя.
             PosLogger.Log($"Не удалось убрать данные аккаунта «{previous}» при смене на «{key}» (всё возвращено на место): {ex}", "ERROR");
+            if (receivingStopped)
+            {
+                NurMarketKassa.Services.BackgroundReceivingQueue.Instance.ResumeAfterAbortedSwitch(); // 2026-11-06: В3 Р8 — смена не состоялась, прежняя компания остаётся: приходы в фоне продолжаются
+                NurMarketKassa.Services.PendingProductQueue.Instance.ResumeAfterAbortedSwitch();
+            }
             try { SwitchFailedHandler?.Invoke(ex.Message); }
             catch (Exception ex2) { PosLogger.Log($"Смена аккаунта: сообщение о сбое не показано ({ex2.Message}).", "WARNING"); }
             return false;
         }
         finally
         {
+            syncPause?.Dispose(); // 2026-11-06: В3 Р8 — проход синхронизации свободен: в случае успеха он уже работает с новой компанией
             if (lanWasRunning)
                 lan!.Start();
         }
@@ -440,15 +400,17 @@ public static class AccountDataIsolation
                 var previous = Path.Combine(baseDir, PreviousFolderName);
                 if (!Directory.Exists(previous))
                     continue;
-                foreach (var dir in Directory.EnumerateDirectories(previous))
+                // 2026-11-06: В3 Л5-17 — кроме возраста, ещё и предел числа наборов (QuarantineRetention): каждая смена компании оставляла копию базы на 14 дней.
+                var sets = Directory.EnumerateDirectories(previous).Select(dir =>
                 {
                     var name = Path.GetFileName(dir);
                     var created = DateTime.TryParseExact(name, "yyyyMMdd-HHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
                         ? parsed
                         : Directory.GetCreationTime(dir);
-                    if (DateTime.Now - created > TimeSpan.FromDays(PreviousKeepDays))
-                        Directory.Delete(dir, recursive: true);
-                }
+                    return (Path: dir, Created: created);
+                }).ToList();
+                foreach (var dir in QuarantineRetention.SelectToDelete(sets, DateTime.Now, PreviousKeepDays))
+                    Directory.Delete(dir, recursive: true);
             }
             catch (Exception ex)
             {
@@ -485,7 +447,7 @@ public static class AccountDataIsolation
         var unknownCheckout = File.Exists(Path.Combine(Root, "pending_unknown_checkout.json")) ? 1 : 0;
         var bonus = CountJsonEntries(Path.Combine(Root, "loyalty-queue.json"));
         var telegram = CountJsonEntries(Path.Combine(Root, "telegram-inquiries.json")) + CountDictionaryEntries(Path.Combine(Root, "telegram-customers.json"));
-        return new UnsentSummary(sales, total, cash, carts, jobs, debts, unknownCheckout, bonus, telegram);
+        return new UnsentSummary(sales, total, cash, carts, jobs, debts, unknownCheckout, bonus, telegram, PendingProductQueue.Instance.UnsentCountAll);
     }
 
     private static bool IsUnsentSale(OfflineSaleEntry s) =>
@@ -496,6 +458,11 @@ public static class AccountDataIsolation
         try
         {
             using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(cartJson) ? "{}" : cartJson);
+            // 2026-11-06: В3 Л4-16 — сумма неотправленной продажи считалась как сумма строк без скидок строк и скидки на чек (в вопросе о смене компании цифра была завышена).
+            // Берём итог так же, как касса считает чек (CartTotalsCalculator.TotalDue); чек без строк или без разбора — прежняя сумма строк.
+            var totals = CartTotalsCalculator.Calculate(doc.RootElement);
+            if (totals.LineCount > 0)
+                return (decimal)totals.TotalDue;
             decimal sum = 0;
             foreach (var line in CartDisplayHelper.EnumerateSaleLineItems(doc.RootElement))
                 if (decimal.TryParse(CartDisplayHelper.LineTotal(line), NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
@@ -579,7 +546,7 @@ public static class AccountDataIsolation
             var files = new Dictionary<string, string>();
             foreach (var name in new[] { "deferred_carts.json", "cash_history.json", "pending_debt_prepayments.json", "offline_sales_pending.json",
                          "offline_operations.json", "pending_unknown_checkout.json", "loyalty-queue.json", "telegram-inquiries.json", "telegram-customers.json",
-                         Path.Combine("debt-payments", "debt-payments-unknown.json") })
+                         Path.Combine("debt-payments", "debt-payments-unknown.json"), "pending-products.json" /* 2026-11-06: новые товары, не дошедшие до сервера */ })
             {
                 var file = Path.Combine(Root, name);
                 if (File.Exists(file))

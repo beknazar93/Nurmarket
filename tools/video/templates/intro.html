@@ -1,0 +1,45 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>intro</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .center { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; padding:0 calc(var(--u)*8); }
+  html.portrait .center { align-items:flex-start; }
+  .tag { display:inline-block; align-self:flex-start; background:var(--brand); color:var(--ink); font-weight:800;
+         font-size:calc(var(--u)*2.6); padding:calc(var(--u)*.9) calc(var(--u)*2); border-radius:calc(var(--u)*5); margin-bottom:calc(var(--u)*3); }
+  .title { font-weight:800; line-height:1.08; font-size:calc(var(--u)*9); max-width:calc(100vw - var(--u)*16); }
+  html.portrait .title { font-size:calc(var(--u)*10); }
+  .bar { height:calc(var(--u)*1.2); background:var(--brand); border-radius:calc(var(--u)); margin:calc(var(--u)*3) 0; }
+  .sub { font-weight:600; font-size:calc(var(--u)*3.6); color:#d9d9d9; max-width:calc(100vw - var(--u)*16); line-height:1.3; }
+  .ring { position:absolute; border-radius:50%; border:calc(var(--u)*1.2) solid var(--brand); }
+</style></head>
+<body><div id="root"><div class="bg-glow"></div></div>
+<script src="nm.js"></script>
+<script>
+window.__ready = window.__ready.then(async () => {
+  const { P, S, el, seg, ease, pulse } = NM;
+  const root = document.getElementById('root');
+  // кольца-украшения
+  const r1 = el('div', 'ring', root), r2 = el('div', 'ring', root);
+  Object.assign(r1.style, { width: '46vmin', height: '46vmin', right: '-10vmin', top: '-8vmin', opacity: .9 });
+  Object.assign(r2.style, { width: '30vmin', height: '30vmin', right: '8vmin', bottom: '-12vmin', opacity: .35, borderColor: '#fff' });
+  const mark = el('div', 'brandmark', root); mark.style.left = mark.style.top = 'calc(var(--u)*4)';
+  const logo = P.logo || S.logo;
+  if (logo) { const im = el('img', null, mark); im.src = NM.toURL(logo); await new Promise(r => { im.onload = im.onerror = r; }); }
+  el('span', null, mark).innerHTML = 'Nur<b>Market</b>';
+  const c = el('div', 'center', root);
+  const tag = P.tag ? el('div', 'tag', c, P.tag) : null;
+  const title = el('div', 'title', c, P.title || '');
+  const bar = el('div', 'bar', c); bar.style.transformOrigin = 'left center'; bar.style.width = 'calc(var(--u)*22)';
+  const sub = P.subtitle ? el('div', 'sub', c, P.subtitle) : null;
+  window.__render = (t) => {
+    r1.style.transform = `scale(${0.6 + 0.4 * seg(t, 0, 1.2)}) rotate(${t * 6}deg)`;
+    r2.style.transform = `translateY(${(1 - seg(t, 0, 1.4)) * 20}vmin)`;
+    mark.style.opacity = seg(t, 0, 0.5); mark.style.transform = `translateY(${(1 - seg(t, 0, 0.5)) * -3}vmin)`;
+    if (tag) { const k = seg(t, 0.25, 0.5); tag.style.opacity = k; tag.style.transform = `translateY(${(1 - k) * 3}vmin)`; }
+    const k = seg(t, 0.4, 0.8, ease.out);
+    title.style.opacity = k; title.style.transform = `translateY(${(1 - k) * 6}vmin)`;
+    bar.style.transform = `scaleX(${seg(t, 0.9, 0.7, ease.inOut)})`;
+    if (sub) { const s = seg(t, 1.3, 0.7); sub.style.opacity = s; sub.style.transform = `translateY(${(1 - s) * 3}vmin)`; }
+  };
+});
+</script></body></html>

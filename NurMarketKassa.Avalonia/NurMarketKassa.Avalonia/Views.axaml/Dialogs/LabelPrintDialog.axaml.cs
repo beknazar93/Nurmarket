@@ -36,6 +36,10 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
     public bool HasBarcode => !string.IsNullOrWhiteSpace(Barcode);
     /// <summary>2026-10-26: штрих-код нужен, только если он включён в шаблоне (печать одного названия или одной цены).</summary>
     public bool CanPrint => HasBarcode || !_template.Barcode.Enabled;
+    /// <summary>2026-11-06: В6 Д4-24 — «Печать» неактивна, пока принтер не выбран (раньше о пустом принтере узнавали после нажатия). Где печать вообще не поддержана — кнопка активна: нажатие объясняет причину.</summary>
+    public bool CanPrintNow => CanPrint && (SelectedPrinter is not null || !LabelPrinterSelector.PrintingSupported);
+    /// <summary>2026-11-06: В6 Д4-24 — подсказка в пустом списке принтеров.</summary>
+    public string PrinterPlaceholder => Tr.T("Выберите принтер этикеток", "Этикетка принтерин тандаңыз", "Select a label printer", "Etiket yazıcısını seçin", "Yorliq printerini tanlang");
     private string? Sku => _product.Article;
     private string? Unit => _product.Unit;
     private string? StoreName => UserPreferences.Instance.StoreName;
@@ -64,6 +68,7 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
                 return;
             _selectedPrinter = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(CanPrintNow));
             // 2026-10-27 (приёмка 26.10): в настройки владельца попадал «Microsoft Print to PDF» — окно само подставляло первый принтер из списка.
             // Запоминаем только выбор кассира (не стартовую подстановку) и только реальный принтер этикеток, не PDF/XPS/OneNote/факс.
             if (value is not null && !_initializing && !value.IsVirtual
@@ -152,6 +157,7 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
     private void RefreshPreview()
     {
         OnPropertyChanged(nameof(CanPrint));
+        OnPropertyChanged(nameof(CanPrintNow));
         if (!CanPrint)
             return;
 

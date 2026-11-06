@@ -1047,8 +1047,10 @@ namespace NurMarketKassa.ViewModels
             }
         }
 
+        // 2026-11-06 (Д4-15): оплата картой через терминал — QR не показываем (ни в окне, ни на экране покупателя).
         public string? QrCodePath =>
-            !string.IsNullOrWhiteSpace(SelectedBank?.QrCodeImagePath)
+            !_cardPay
+            && !string.IsNullOrWhiteSpace(SelectedBank?.QrCodeImagePath)
             && File.Exists(SelectedBank.QrCodeImagePath)
                 ? SelectedBank.QrCodeImagePath
                 : null;
@@ -1637,7 +1639,10 @@ namespace NurMarketKassa.ViewModels
             UpdateCashState();
 
             if (IsDebtMode)
+            {
+                ApplyDefaultDebtDue(); // 2026-11-06 (Д4-13): срок по умолчанию — 14 дней
                 _ = EnsureClientsLoadedAsync();
+            }
 
             if (IsMixedMode && string.IsNullOrWhiteSpace(_mixedCashAmount) && string.IsNullOrWhiteSpace(_mixedNonCashAmount))
             {

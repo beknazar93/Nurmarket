@@ -239,9 +239,7 @@ public static class OfflineRefundPlanner
                 plan.DebtNeedsCheck = true;
             plan.DebtReduced = amount - money;
             var prepaid = money;
-            var cash = prepaidCap > 0m
-                ? Math.Round(prepaid * cashLeft / prepaidCap, 2, MidpointRounding.AwayFromZero)
-                : prepaid;
+            var cash = RefundSplit.Split(prepaid, cashLeft, nonCashLeft).Cash; // 2026-11-06: В2 Л4-16 — единая формула RefundSplit (общая с окном возврата)
             plan.Cash = cash;
             plan.NonCash = money - cash;
         }
@@ -253,8 +251,7 @@ public static class OfflineRefundPlanner
                     plan.Cash = amount;
                     break;
                 case "mixed" or "split" when cashLeft + nonCashLeft > 0m:
-                    plan.Cash = Math.Min(amount, Math.Round(amount * cashLeft / (cashLeft + nonCashLeft), 2, MidpointRounding.AwayFromZero));
-                    plan.NonCash = amount - plan.Cash;
+                    (plan.Cash, plan.NonCash) = RefundSplit.Split(amount, cashLeft, nonCashLeft); // 2026-11-06: В2 Л4-16 — единая формула RefundSplit
                     break;
                 case "mixed" or "split" or "":
                     plan.Cash = amount;

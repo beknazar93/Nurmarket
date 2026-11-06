@@ -100,7 +100,7 @@
                         <!-- 2026-10-20, проверка фильтров: «Фильтр» в раскладке (было только в «Классике») — число включённых условий,
                              в подсказке что включено; «✕» сбрасывает. Кнопки не берут фокус (скан — окну кассы). -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" VerticalAlignment="Center">
-                            <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="36" Padding="10,0"
+                            <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="40" Padding="10,0"
                                     ToolTip.Tip="{Binding Catalog.ActiveFilterTip}" Click="OpenFilter_Click"
                                     AutomationProperties.Name="{DynamicResource csh.catalog.filter}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -112,7 +112,7 @@
                                     </Border>
                                 </StackPanel>
                             </Button>
-                            <Button Classes="lx-chip" Focusable="False" Height="36" Width="36" Padding="0" Content="✕"
+                            <Button Classes="lx-chip" Focusable="False" Height="40" Width="40" Padding="0" Content="✕"
                                     IsVisible="{Binding Catalog.HasActiveFilter}" ToolTip.Tip="{Binding Catalog.ResetFilterTip}"
                                     AutomationProperties.Name="{Binding Catalog.ResetFilterTip}" Click="ResetFilter_Click"/>
                         </StackPanel>
@@ -194,7 +194,7 @@
                 <StackPanel Grid.Row="0" Spacing="2" Margin="0,0,0,12">
                     <TextBlock Text="{DynamicResource lx.currentSale}" FontSize="22" FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" Foreground="{DynamicResource BrushText}"/>
-                    <Button Classes="lx-ghost" HorizontalAlignment="Left" Margin="-10,0,0,0" MinHeight="30"
+                    <Button Classes="lx-ghost" HorizontalAlignment="Left" Margin="-10,0,0,0" MinHeight="40"
                             ToolTip.Tip="{DynamicResource onecLayout.receiptsLabel}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <PathIcon Data="{StaticResource IconReceipt}" Width="14" Height="14" Foreground="{DynamicResource BrushTextSoft}"/>
@@ -259,7 +259,7 @@
                                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                                     <!-- 2026-09-28: количество вводится с клавиатуры, как в «Классике» (раньше здесь был
                                                          только текст — точное количество в этом виде кассы ввести было нельзя). -->
-                                                    <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="44" Height="32" MinHeight="0"
+                                                    <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="44" Height="40" MinHeight="0"
                                                              Padding="4,0" FontSize="12" FontWeight="SemiBold" TextAlignment="Center" VerticalContentAlignment="Center"
                                                              VerticalAlignment="Center"
                                                              Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushInputBorder}"
@@ -281,27 +281,28 @@
                                             <TextBlock Grid.Column="1" Classes="lx-money" FontSize="15" VerticalAlignment="Top"
                                                        Text="{Binding LineTotal, Converter={x:Static conv:MoneyConverter.Instance}}"/>
                                             <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="4" Margin="0,8,0,0">
-                                                <Button Classes="lx-step" Width="36" Height="36" AutomationProperties.Name="{Binding DecreaseName}" Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"
+                                                <Button Classes="lx-step" Width="40" Height="40" AutomationProperties.Name="{Binding DecreaseName}" Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource csh.cart.decreaseTooltip}">
                                                     <PathIcon Data="{StaticResource IconMinus}"/>
                                                 </Button>
-                                                <Button Classes="lx-step" Width="36" Height="36" IsEnabled="{Binding CanIncrease}"
+                                                <Button Classes="lx-step" Width="40" Height="40" IsEnabled="{Binding CanIncrease}"
                                                         AutomationProperties.Name="{Binding IncreaseName}" Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource csh.cart.increaseTooltip}">
                                                     <PathIcon Data="{StaticResource IconPlus}"/>
                                                 </Button>
-                                                <Button Classes="lx-ghost" Width="36" Height="36" MinHeight="0" Padding="0" IsVisible="{Binding IsWeight}"
+                                                <Button Classes="lx-ghost" Width="40" Height="40" MinHeight="0" Padding="0" IsVisible="{Binding IsWeight}"
                                                         Command="{Binding WeighCommand}" CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource csh.cart.weighTooltip}">
                                                     <PathIcon Data="{StaticResource IconScale}" Width="14" Height="14"/>
                                                 </Button>
-                                                <Button Classes="lx-ghost" Width="36" Height="36" MinHeight="0" Padding="0"
+                                                <Button Classes="lx-ghost" Width="40" Height="40" MinHeight="0" Padding="0"
                                                         Command="{Binding DiscountCommand}" CommandParameter="{Binding}"
                                                         ToolTip.Tip="{DynamicResource csh.cart.discountTooltip}">
                                                     <PathIcon Data="{StaticResource IconPercent}" Width="13" Height="13"/>
                                                 </Button>
-                                                <Button Classes="lx-ghost" Width="36" Height="36" MinHeight="0" Padding="0"
-                                                        Command="{Binding RemoveCommand}" CommandParameter="{Binding}"
+                                                <!-- 2026-11-06: В6 Д4-04 — отступ от «%», удаление двумя нажатиями («Удалить?» на 3 с), как в основном виде. -->
+                                                <Button Classes="lx-ghost" Width="40" Height="40" MinHeight="0" Padding="0" Margin="12,0,0,0"
+                                                        Click="CartDelete_Click"
                                                         ToolTip.Tip="{DynamicResource csh.cart.removeTooltip}">
                                                     <PathIcon Data="{StaticResource IconClose}" Width="14" Height="14" Foreground="{DynamicResource BrushTextSoft}"/>
                                                 </Button>

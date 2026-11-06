@@ -692,6 +692,26 @@
                             </Border>
                         </Grid>
                     </Button>
+                    <!-- 2026-11-06: «Неотправленное» — всё, что не ушло на сервер, и ручная отправка (OutboxWindow) -->
+                    <Button Classes="sidebar-menu-item"
+                            Tag="outbox" Command="{Binding NavigateOutboxCommand}">
+                        <Grid ColumnDefinitions="24,12,*,Auto" HorizontalAlignment="Stretch">
+                            <Path Grid.Column="0"
+                                  Width="20" Height="20"
+                                  Stretch="Uniform"
+                                  VerticalAlignment="Center"
+                                  Fill="Transparent"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.6"
+                                  StrokeLineCap="Round"
+                                  StrokeJoin="Round"
+                                  Data="M20,11 A8,8 0 1 0 17.7,16.6 M20,4 V11 H13"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{DynamicResource csh.menu.outbox}"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                    </Button>
                     <Button Classes="sidebar-menu-item"
                             IsVisible="{Binding CanViewRestock}"
                             Tag="new:restock" Command="{Binding NavigateRestockCommand}">
@@ -1395,6 +1415,14 @@
                                     </StackPanel>
                                     <Border x:Name="IrregularCount" Classes="km-count danger"><TextBlock/></Border>
                                 </Panel>
+                            </Button>
+                        </Panel>
+                        <Panel Classes="km-cell">
+                            <Button x:Name="MiOutbox" Classes="km-tile km-act" Command="{Binding NavigateOutboxCommand}">
+                                <StackPanel Classes="km-tile-body">
+                                    <Border Classes="km-ic-chip"><Path Classes="km-ic big" Data="M20,11 A8,8 0 1 0 17.7,16.6 M20,4 V11 H13"/></Border>
+                                    <TextBlock Classes="km-tile-text" Text="{DynamicResource csh.menu.outbox}"/>
+                                </StackPanel>
                             </Button>
                         </Panel>
                         <Panel Classes="km-cell">

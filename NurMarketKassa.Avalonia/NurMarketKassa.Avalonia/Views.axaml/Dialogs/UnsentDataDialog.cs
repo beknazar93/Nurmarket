@@ -135,7 +135,10 @@ public sealed class UnsentDataDialog : Window
             parts.Add(T($"бонусов в очереди: {s.BonusQueue}", $"кезектеги бонустар: {s.BonusQueue}", $"bonuses in the queue: {s.BonusQueue}", $"kuyruktaki bonuslar: {s.BonusQueue}", $"navbatdagi bonuslar: {s.BonusQueue}"));
         if (s.TelegramItems > 0)
             parts.Add(T($"обращений и клиентов Telegram: {s.TelegramItems}", $"Telegram кайрылуулары жана кардарлары: {s.TelegramItems}", $"Telegram inquiries and customers: {s.TelegramItems}", $"Telegram talepleri ve müşterileri: {s.TelegramItems}", $"Telegram murojaatlari va mijozlari: {s.TelegramItems}"));
-        return T("Не отправлено на сервер: ", "Сервердик жөнөтүлө элек: ", "Not sent to the server: ", "Sunucuya gönderilmedi: ", "Serverga yuborilmagan: ") + string.Join("; ", parts) + ".";
+        if (s.PendingProducts > 0) // 2026-11-06: новые товары, заведённые без интернета
+            parts.Add(T($"новых товаров, не созданных на сервере: {s.PendingProducts}", $"серверде түзүлө элек жаңы товарлар: {s.PendingProducts}", $"new products not created on the server: {s.PendingProducts}",
+                $"sunucuda oluşturulmamış yeni ürünler: {s.PendingProducts}", $"serverda yaratilmagan yangi mahsulotlar: {s.PendingProducts}"));
+        return T("Не отправлено на сервер: ","Сервердик жөнөтүлө элек: ", "Not sent to the server: ", "Sunucuya gönderilmedi: ", "Serverga yuborilmagan: ") + string.Join("; ", parts) + ".";
     }
 
     /// <summary>Показывает окно из любого потока (смена компании приходит из сетевого потока) и ждёт выбор. «Вернуться» дополнительно
@@ -149,6 +152,8 @@ public sealed class UnsentDataDialog : Window
             return dialog._result;
         }
 
+        // 2026-11-06: В3 Л4-25 — проверено: в потоке окон (CheckAccess) окно показывается напрямую, без ожидания; ожидание GetResult() ниже выполняется ТОЛЬКО в фоновом потоке
+        // (смена компании пришла из сети, а AccountDataIsolation.SwitchTo — синхронный метод и обязан дождаться ответа пользователя), окно кассы оно не замораживает.
         var decision = Dispatcher.UIThread.CheckAccess()
             ? Show()
             : Dispatcher.UIThread.InvokeAsync(Show).GetAwaiter().GetResult();

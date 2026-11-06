@@ -131,7 +131,9 @@ internal static class MainViewModelRegistration
                 openCashOperation: () => bridge.Window?.OpenCashOperationDialogAsync() ?? Task.CompletedTask,
                 navigateReceiptHistory: Defer(() => bridge.Window?.NavigateReceiptHistory()),
                 // 2026-10-22 (закупки как в вебе): пункт «Закупки» меню ☰ (MainWindow.Purchases.cs).
-                navigatePurchases: Defer(() => bridge.Window?.NavigatePurchases()));
+                navigatePurchases: Defer(() => bridge.Window?.NavigatePurchases()),
+                // 2026-11-06: пункт «Неотправленное» меню ☰ (OutboxWindow).
+                navigateOutbox: Defer(() => bridge.Window?.NavigateOutbox()));
 
             main = new MainWindowViewModel(
                 toolbar, catalog, basket, sideMenu, session,

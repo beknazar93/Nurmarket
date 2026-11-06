@@ -1,0 +1,195 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>lesson-step</title>
+<link rel="stylesheet" href="../templates/base.css">
+<style>
+  /* 2026-10-30: сцена шага видеоурока мобилки — телефон по центру, титр шага слева внизу, список шагов справа, подсветка касаний и зум. */
+  #bgblur { position:absolute; left:-10%; top:-10%; width:120%; height:120%; filter:blur(70px) brightness(.32) saturate(1.2); }
+  #bgblur img { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); height:150%; opacity:0; }
+  #veil { position:absolute; inset:0; background:radial-gradient(90vmax 70vmax at 50% 40%, rgba(25,25,25,.55), rgba(25,25,25,.92)); }
+  #phone { position:absolute; background:#0c0c0e; box-shadow:0 0 0 2px #2c2c30, 0 30px 90px rgba(0,0,0,.6); }
+  #scr { position:absolute; overflow:hidden; background:#fff; }
+  #cam { position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform; }
+  #cam img { position:absolute; left:0; top:0; display:block; opacity:0; }
+  #ov { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  .hl { position:absolute; border:3px solid #FFB208; border-radius:10px; box-shadow:0 0 18px rgba(255,178,8,.6); }
+  .ring { position:absolute; border-radius:50%; background:rgba(255,178,8,.55); border:3px solid #FFB208; }
+  .fng { position:absolute; border-radius:50%; background:rgba(255,255,255,.88); border:3px solid #191919; box-shadow:0 4px 12px rgba(0,0,0,.45); }
+  #status { position:absolute; left:0; right:0; top:0; display:flex; justify-content:space-between; align-items:center; color:#161616; font-weight:700; opacity:.82; }
+  #gest { position:absolute; left:50%; transform:translateX(-50%); background:#1b1b1b; border-radius:8px; opacity:.55; }
+  #cut { position:absolute; left:50%; transform:translateX(-50%); background:#0c0c0e; border-radius:50%; }
+  .ex { position:absolute; left:50%; transform:translateX(-50%); background:#FFB208; color:#191919; font-weight:800; white-space:nowrap; border-radius:99px; letter-spacing:.02em; }
+  #brand { position:absolute; display:flex; align-items:center; gap:16px; font-weight:800; font-size:34px; }
+  #brand img { width:60px; height:60px; border-radius:50%; }
+  #brand b { color:#FFB208; }
+  #ltitle { position:absolute; font-weight:800; line-height:1.15; }
+  #ltitle small { display:block; color:#FFB208; font-weight:700; letter-spacing:.04em; margin-bottom:10px; }
+  #plate { position:absolute; background:rgba(25,25,25,.85); color:#fff; font-weight:600; border-radius:14px; overflow:hidden; display:flex; box-shadow:0 8px 28px rgba(0,0,0,.4); }
+  #plate i { width:10px; background:#FFB208; flex:none; }
+  #plate span { padding:16px 26px; line-height:1.25; }
+  #plate b { color:#FFB208; font-weight:800; }
+  #list { position:absolute; display:flex; flex-direction:column; gap:14px; }
+  .li { display:flex; align-items:center; gap:16px; font-weight:600; color:#fff; opacity:.42; line-height:1.2; }
+  .li .n { flex:none; width:40px; height:40px; border-radius:50%; border:2px solid rgba(255,255,255,.6); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:20px; }
+  .li.on { opacity:1; }
+  .li.on .n { background:#FFB208; border-color:#FFB208; color:#191919; }
+  .li.done { opacity:.7; }
+  .li.done .n { background:rgba(255,178,8,.25); border-color:#FFB208; }
+  #hint { position:absolute; background:#FFB208; color:#191919; font-weight:700; border-radius:16px; padding:22px 28px; line-height:1.3; box-shadow:0 10px 30px rgba(0,0,0,.45); }
+  #hint b { font-weight:800; display:block; margin-bottom:6px; }
+  #goal { position:absolute; left:0; right:0; text-align:center; font-weight:600; color:#fff; line-height:1.25; text-shadow:0 3px 18px rgba(0,0,0,.7); }
+  #goal small { display:block; font-weight:800; color:#FFB208; margin-bottom:18px; letter-spacing:.04em; }
+</style></head>
+<body><div id="root"><div class="bg-glow"></div><div id="bgblur"></div></div>
+<script src="../templates/nm.js"></script>
+<script>
+/* params сцены (window.SCENE.params):
+   lessonTitle, lessonNum ("Мобилка · 01"), stepNo, stepTotal, stepTitle, steps:[названия шагов], goal (текст цели: затемнение + фраза по центру),
+   hint {text, at, dur} (жёлтая карточка «Если не получилось», 3 с), example (подпись «Пример» над экраном, если кадр не настоящий),
+   shots: [{src, w (вес длительности), targets {имя:[x,y,w,h] в px кадра 1080x2340}, tap: имя, hl: имя|[имена], zoom: имя, zoomLevel, caption}] */
+window.__ready = window.__ready.then(async () => {
+  const { P, S, el, seg, ease, T, lerp, clamp } = NM;
+  const W = innerWidth, H = innerHeight, u = H / 1080;
+  const root = document.getElementById('root');
+  const shots = P.shots || [];
+  // ---- геометрия телефона
+  const PH = H * 0.845, bez = 13 * u, scrH = PH - 2 * bez, scrW = scrH * 1080 / 2340, PW = scrW + 2 * bez;
+  const px = (W - PW) / 2, py = H * 0.012;
+  const k = scrW / 1080;                       // пиксель кадра -> пиксель видео
+  const phone = el('div', null, root); phone.id = 'phone';
+  Object.assign(phone.style, { left: px + 'px', top: py + 'px', width: PW + 'px', height: PH + 'px', borderRadius: 54 * u + 'px' });
+  const scr = el('div', null, phone); scr.id = 'scr';
+  Object.assign(scr.style, { left: bez + 'px', top: bez + 'px', width: scrW + 'px', height: scrH + 'px', borderRadius: 42 * u + 'px' });
+  const cam = el('div', null, scr); cam.id = 'cam';
+  // ---- кадры
+  const imgs = [];
+  for (const s of shots) {
+    const im = el('img', null, cam);
+    im.src = NM.toURL(s.src);
+    await new Promise(r => { im.onload = im.onerror = r; });
+    try { await im.decode(); } catch (e) {}
+    Object.assign(im.style, { width: scrW + 'px', height: scrH + 'px' });
+    imgs.push(im);
+  }
+  // размытый фон по краям — из тех же кадров
+  const bg = document.getElementById('bgblur'), bgi = shots.map(s => { const i = el('img', null, bg); i.src = NM.toURL(s.src); return i; });
+  // ---- строка состояния и «острова»
+  const st = el('div', null, scr); st.id = 'status';
+  Object.assign(st.style, { height: 84 * k + 'px', padding: `0 ${40 * k}px`, fontSize: 30 * k + 'px' });
+  el('span', null, st, '09:41');
+  const ic = el('span', null, st, '5G  ▮▮▮  87%'); ic.style.fontSize = 26 * k + 'px';
+  const cut = el('div', null, scr); cut.id = 'cut';
+  Object.assign(cut.style, { width: 34 * k + 'px', height: 34 * k + 'px', top: 24 * k + 'px', background: '#0c0c0e' });
+  const gest = el('div', null, scr); gest.id = 'gest';
+  Object.assign(gest.style, { width: 360 * k + 'px', height: 10 * k + 'px', bottom: 14 * k + 'px' });
+  if (P.example) {
+    const ex = el('div', 'ex', scr, P.example);
+    Object.assign(ex.style, { top: 14 * k + 'px', fontSize: 28 * k + 'px', padding: `${7 * k}px ${26 * k}px`, zIndex: 9 }); cut.style.display = 'none';
+  }
+  const ov = el('div', null, scr); ov.id = 'ov';
+  // ---- расписание кадров
+  const dur = S.duration;
+  const wts = shots.map(s => +(s.w || 1)), wsum = wts.reduce((a, b) => a + b, 0) || 1;
+  const starts = []; let acc = 0.0;
+  const lead = 0.15, span = dur - lead - 0.25;
+  shots.forEach((s, i) => { starts.push(i === 0 ? 0 : lead + span * acc / wsum); acc += wts[i]; });
+  const ends = shots.map((s, i) => i + 1 < shots.length ? starts[i + 1] : dur);
+  const rect = (s, name) => { const r = (s.targets || {})[name]; return r ? { x: r[0], y: r[1], w: r[2], h: r[3] } : null; };
+  // состояние камеры в конце i-го кадра (цель зума или общий план)
+  const camTarget = (i) => {
+    if (i < 0 || !shots[i] || !shots[i].zoom) return { Z: 1, cx: 540, cy: 1170 };
+    const r = rect(shots[i], shots[i].zoom);
+    if (!r || r.w > 620) return { Z: 1, cx: 540, cy: 1170 };   // широкие цели (на всю ширину) не увеличиваем: края обрезались
+    return { Z: shots[i].zoomLevel || 1.6, cx: r.x + r.w / 2, cy: r.y + r.h / 2 };
+  };
+  const camAt = (t, i) => {
+    const a = camTarget(i - 1), b = camTarget(i);
+    const p = ease.inOut(clamp((t - starts[i] - 0.08) / 0.6));
+    const Z = Math.exp(lerp(Math.log(a.Z), Math.log(b.Z), p));
+    const cx = lerp(a.cx, b.cx, p), cy = lerp(a.cy, b.cy, p);
+    let tx = scrW / 2 - cx * k * Z, ty = scrH / 2 - cy * k * Z;
+    tx = clamp(tx, scrW - scrW * Z, 0); ty = clamp(ty, scrH - scrH * Z, 0);
+    return { Z, tx, ty };
+  };
+  // ---- подсветка и касания
+  const hls = [], taps = [];
+  shots.forEach((s, i) => {
+    const names = [].concat(s.hl || (s.tap ? [s.tap] : (s.zoom ? [s.zoom] : [])));
+    for (const n of names) {
+      const r = rect(s, n); if (!r) continue;
+      hls.push({ i, r, d: el('div', 'hl', ov) });
+    }
+    if (s.tap) {
+      const r = rect(s, s.tap);
+      if (r) taps.push({ i, r, tapAt: Math.max(starts[i] + 0.95, ends[i] - 0.6), ring: el('div', 'ring', ov), fng: el('div', 'fng', ov) });
+    }
+  });
+  // ---- панели вокруг телефона
+  const brand = el('div', null, root); brand.id = 'brand';
+  Object.assign(brand.style, { left: 56 * u + 'px', top: 44 * u + 'px', fontSize: 34 * u + 'px' });
+  if (S.logo) { const li = el('img', null, brand); li.src = NM.toURL(S.logo); li.style.width = li.style.height = 60 * u + 'px'; await new Promise(r => { li.onload = li.onerror = r; }); }
+  el('span', null, brand).innerHTML = 'Nur<b>CRM</b> Mobile';
+  const lt = el('div', null, root); lt.id = 'ltitle';
+  Object.assign(lt.style, { left: 56 * u + 'px', top: 150 * u + 'px', width: (px - 110 * u) + 'px', fontSize: 46 * u + 'px' });
+  el('small', null, lt, P.lessonNum || '').style.fontSize = 24 * u + 'px';
+  el('span', null, lt, P.lessonTitle || '');
+  let plate = null;
+  if (!P.goal) {
+    plate = el('div', null, root); plate.id = 'plate';
+    el('i', null, plate);
+    const sp = el('span', null, plate);
+    sp.innerHTML = `<b>Шаг ${P.stepNo} из ${P.stepTotal}</b> · ${P.stepTitle || ''}`;
+    Object.assign(plate.style, { left: 56 * u + 'px', bottom: 175 * u + 'px', maxWidth: (px - 100 * u) + 'px', fontSize: 30 * u + 'px' });
+  }
+  const list = el('div', null, root); list.id = 'list';
+  Object.assign(list.style, { left: (px + PW + 70 * u) + 'px', top: 300 * u + 'px', width: (W - px - PW - 130 * u) + 'px' });
+  const lis = (P.steps || []).map((tx, i) => {
+    const d = el('div', 'li', list); d.style.fontSize = 28 * u + 'px';
+    const n = el('span', 'n', d, String(i + 1)); n.style.width = n.style.height = 42 * u + 'px'; n.style.fontSize = 20 * u + 'px';
+    el('span', null, d, tx);
+    return d;
+  });
+  lis.forEach((d, i) => { const n = P.goal ? -1 : (P.stepNo - 1); d.className = 'li' + (i === n ? ' on' : (i < n ? ' done' : '')); });
+  let hint = null;
+  if (P.hint && !P.goal) {
+    hint = el('div', null, root); hint.id = 'hint';
+    hint.innerHTML = '<b>Если не получилось:</b>' + P.hint.text;
+    Object.assign(hint.style, { right: 56 * u + 'px', top: 44 * u + 'px', width: 430 * u + 'px', fontSize: 25 * u + 'px' });
+  }
+  let veil = null, goal = null;
+  if (P.goal) {
+    veil = el('div', null, root); veil.id = 'veil';
+    goal = el('div', null, root); goal.id = 'goal';
+    el('small', null, goal, P.goalKicker || '').style.fontSize = 30 * u + 'px';
+    el('span', null, goal, P.goal);
+    Object.assign(goal.style, { top: H * 0.36 + 'px', fontSize: 54 * u + 'px', padding: `0 ${200 * u}px` });
+  }
+  window.__render = (t) => {
+    // активный кадр
+    let a = 0; for (let i = 0; i < shots.length; i++) if (t >= starts[i]) a = i;
+    imgs.forEach((im, i) => { im.style.opacity = i === 0 ? 1 : clamp((t - starts[i]) / 0.18); });
+    bgi.forEach((im, i) => { im.style.opacity = i === a ? 1 : 0; });
+    const C = camAt(t, a);
+    cam.style.transform = `translate(${C.tx}px, ${C.ty}px) scale(${C.Z})`;
+    const map = (r) => ({ x: (r.x * k) * C.Z + C.tx, y: (r.y * k) * C.Z + C.ty, w: r.w * k * C.Z, h: r.h * k * C.Z });
+    for (const h of hls) {
+      const s0 = starts[h.i], e0 = ends[h.i];
+      const al = Math.min(seg(t, s0 + 0.25, 0.3), 1 - seg(t, e0 - 0.15, 0.2, ease.in));
+      const m = map(h.r), pad = 7 * u;
+      Object.assign(h.d.style, { left: m.x - pad + 'px', top: m.y - pad + 'px', width: m.w + 2 * pad + 'px', height: m.h + 2 * pad + 'px', opacity: al > 0.001 ? al : 0, display: al > 0.001 ? 'block' : 'none' });
+    }
+    for (const tp of taps) {
+      const m = map(tp.r), cx = m.x + m.w / 2, cy = m.y + m.h / 2;
+      const appr = clamp((t - (tp.tapAt - 0.55)) / 0.45), press = clamp((t - tp.tapAt) / 0.15);
+      const fs = 54 * u * (1 - 0.18 * Math.sin(Math.min(1, press) * Math.PI));
+      const ox = lerp(60 * u, 0, ease.out(appr)), oy = lerp(110 * u, 0, ease.out(appr));
+      const vis = (t >= tp.tapAt - 0.55 && t < tp.tapAt + 0.45) ? Math.min(1, appr * 3) * (1 - clamp((t - tp.tapAt - 0.2) / 0.25)) : 0;
+      Object.assign(tp.fng.style, { width: fs + 'px', height: fs + 'px', left: cx + ox - fs / 2 + 'px', top: cy + oy - fs / 2 + 'px', opacity: vis });
+      const rp = clamp((t - tp.tapAt) / 0.3), rs = (48 + 48 * ease.out(rp)) * u;   // жёлтый круг 48 px на 300 мс
+      Object.assign(tp.ring.style, { width: rs + 'px', height: rs + 'px', left: cx - rs / 2 + 'px', top: cy - rs / 2 + 'px', opacity: (rp <= 0 || rp >= 1) ? 0 : 1 - rp * 0.85 });
+    }
+    if (plate) { const p = seg(t, 0.15, 0.4); plate.style.opacity = p; plate.style.transform = `translateX(${(1 - p) * -40}px)`; }
+    if (hint) { const h = P.hint, at = T(h.at, 4), d = T(h.dur, 3); const p = Math.min(seg(t, at, 0.35), 1 - seg(t, at + d - 0.3, 0.3, ease.in)); hint.style.opacity = p; hint.style.transform = `translateY(${(1 - p) * -24}px)`; }
+    if (goal) { const p = seg(t, 0.2, 0.6); goal.style.opacity = p; goal.style.transform = `translateY(${(1 - p) * 30}px)`; }
+  };
+});
+</script></body></html>

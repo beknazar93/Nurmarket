@@ -29,7 +29,8 @@ namespace NurMarketKassa.Services;
 /// И ещё одно ограничение, которое надо понимать: без API банка касса НЕ УЗНАЕТ, что платёж
 /// прошёл. Кассир подтверждает оплату вручную, ровно как и сейчас со статическим QR. Этот
 /// код экономит покупателю ввод суммы, но не заменяет подтверждение.</summary>
-[SupportedOSPlatform("windows")]
+// 2026-11-06: В4 А4-09к — атрибут «только Windows» стоял на всём классе, хотя на Android и Linux динамический QR работает без System.Drawing
+// (читалка PlatformImageReader + QrPngWriter). Теперь он только на тех методах, что рисуют через System.Drawing.
 public static class DynamicPaymentQrService
 {
     /// <summary>Распознанные payload'ы статических QR: ключ — путь к картинке плюс отметка
@@ -93,6 +94,7 @@ public static class DynamicPaymentQrService
         }
     }
 
+    [SupportedOSPlatform("windows")]
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
     private static string? DecodeFileWindows(string imagePath)
     {
@@ -122,6 +124,7 @@ public static class DynamicPaymentQrService
     /// <summary>Переводит картинку в источник яркости для ZXing. Делаем через 24-битную копию:
     /// исходный PNG может быть с палитрой или альфа-каналом, и читать его байты «как есть»
     /// нельзя — разложение по каналам будет другим.</summary>
+    [SupportedOSPlatform("windows")]
     private static RGBLuminanceSource ToLuminanceSource(Bitmap source)
     {
         using var rgb = new Bitmap(source.Width, source.Height, PixelFormat.Format24bppRgb);
@@ -195,6 +198,7 @@ public static class DynamicPaymentQrService
     }
 
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    [SupportedOSPlatform("windows")]
     private static void RenderWindows(string payload, int sizePx, string target)
     {
         using var bitmap = BarcodeLabelService.RenderBarcode(

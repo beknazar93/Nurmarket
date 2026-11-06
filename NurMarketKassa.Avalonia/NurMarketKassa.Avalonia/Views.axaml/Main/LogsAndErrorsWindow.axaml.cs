@@ -159,6 +159,9 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
             button.MaxWidth = 240;
             footer.Children.Add(button);
         }
+        // 2026-11-06: В6 Д4-25 — в подвале окна кассы «Обновить» остаётся значком (подпись — в подсказке).
+        RefreshButton.Width = 52;
+        RefreshButton.MinWidth = 52;
         CloseButton.IsVisible = true;
         HeaderGrid.IsVisible = false;
         SubtitleText.IsVisible = false;
@@ -249,11 +252,8 @@ public partial class LogsAndErrorsWindow : Window, IOwnerSection
         try
         {
             Directory.CreateDirectory(LogDirectory);
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = LogDirectory,
-                UseShellExecute = true,
-            });
+            // 2026-11-06: В4 А5-05 — общий запуск (на Android папку журнала открыть нечем — ничего не делаем).
+            PlatformLauncher.OpenFile(LogDirectory);
         }
         catch (Exception ex)
         {

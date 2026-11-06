@@ -164,7 +164,8 @@ public static class CategoryAnalyticsExport
         doc.Heading1("3. " + L("Топ-10 товаров по выручке", "Түшүм боюнча топ-10 товар", "Top 10 products by revenue", "Ciroya göre en iyi 10 ürün", "Tushum bo'yicha top-10 mahsulot"));
         if (d.Top.Count > 0)
         {
-            doc.Image(AnalyticsChartRenderer.RenderBars(L("Топ-10 товаров", "Топ-10 товар", "Top 10 products", "En iyi 10 ürün", "Top-10 mahsulot"),
+            // 2026-11-06 (В13, заметка В4 АЛ-1): график рисует System.Drawing — на Linux/Android его нет; TryChart пропускает график, а не роняет выгрузку.
+            doc.TryChart(() => AnalyticsChartRenderer.RenderBars(L("Топ-10 товаров", "Топ-10 товар", "Top 10 products", "En iyi 10 ürün", "Top-10 mahsulot"),
                 d.Top.Select(t => (t.Name, t.Revenue)).ToList()), L("Топ-10 товаров", "Топ-10 товар", "Top 10 products", "En iyi 10 ürün", "Top-10 mahsulot"));
             doc.Table(
                 [new WColumn(L("Товар", "Товар", "Product", "Ürün", "Mahsulot"), 3), new WColumn(L("Кол-во", "Саны", "Qty", "Adet", "Soni"), 1, Numeric: true),

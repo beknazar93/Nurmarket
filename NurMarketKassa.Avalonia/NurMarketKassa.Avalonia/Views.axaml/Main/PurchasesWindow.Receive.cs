@@ -70,6 +70,8 @@ public sealed partial class PurchasesWindow
         public readonly TextBlock GoodsTitle = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
         public List<SupplierGoodsRow> GoodsRows = new();
         public HashSet<string> SupplierIds = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>2026-11-06: последняя закупка каждого товара у выбранного поставщика (приходы с сервера) — цена закупки строки по умолчанию.</summary>
+        public Dictionary<string, ReceivingDefaults.SupplierPrice> SupplierPrices = new(StringComparer.OrdinalIgnoreCase);
         public CancellationTokenSource? GoodsCts;
         public bool GoodsOpen;
         public bool GoodsLoading;
@@ -146,8 +148,9 @@ public sealed partial class PurchasesWindow
         s.Picker.SetSuppliers(_filterSupplier.All);
         s.Picker.Changed += sup =>
         {
-            ReceiveRefresh();
             _ = ReceiveLoadGoodsAsync(s, sup);
+            ReceiveReapplyPurchases(s); // 2026-11-06: цены закупки подтягиваются заново по истории нового поставщика (ручной ввод не трогаем)
+            ReceiveRefresh();
         };
         var supplierRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,190"), Margin = new Thickness(0, 0, 0, 10) };
         var supplierLabel = UiKit.Label(this, T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"));
@@ -203,18 +206,27 @@ public sealed partial class PurchasesWindow
         // 2026-10-28, владелец: одно общее поле «Наценка для всех, %» — цена продажи всех строк и следующих сканов = закупка × (1 + %); у ручной строки — «Как у всех».
         var markupLabel = new TextBlock { Text = T("Наценка для всех, %", "Баарына кошумча, %", "Markup for all, %", "Tümü için kâr, %", "Hammasi uchun ustama, %"), VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold, Margin = new Thickness(12, 0, 0, 0) };
         Use(markupLabel, TextBlock.ForegroundProperty, "BrushText");
-        var markupBox = UiKit.Input(this, "30", 44);
+        // 2026-11-06 (жалоба «Орук маркет», приход №48): общая наценка по умолчанию ВЫКЛЮЧЕНА — поле пустое (подсказка «выкл.»). Число = явное включение, пусто/0 = выключена.
+        var markupBox = UiKit.Input(this, T("выкл.", "өчүк", "off", "kapalı", "o'chiq"), 44);
         markupBox.Width = 84;
         markupBox.HorizontalContentAlignment = HorizontalAlignment.Right;
         markupBox.Margin = new Thickness(6, 0, 0, 0);
-        markupBox.Text = ReceivingMarkupSettingsStore.Current.DefaultPercent.ToString("0.##", Ru);
+        markupBox.Text = ReceivingMarkupSettings.PercentBoxText(ReceivingMarkupSettingsStore.Current.DefaultPercent);
+        ToolTip.SetTip(markupBox, T("Пусто — общая наценка выключена, цену продажи программа сама не ставит. Введите число, чтобы строки без цены считались по нему.",
+            "Бош — жалпы кошумча өчүк, сатуу баасын программа өзү койбойт. Баасы жок саптар эсептелиши үчүн санды киргизиңиз.",
+            "Empty — the common markup is off and the program does not set sale prices itself. Enter a number to price lines without a price.",
+            "Boş — ortak kâr kapalı, program satış fiyatını kendisi koymaz. Fiyatsız satırların hesaplanması için sayı girin.",
+            "Bo'sh — umumiy ustama o'chiq, dastur sotuv narxini o'zi qo'ymaydi. Narxsiz qatorlar hisoblanishi uchun son kiriting."));
         Avalonia.Automation.AutomationProperties.SetName(markupBox, markupLabel.Text);
         void MarkupCommit(bool persist)
         {
-            if (CheckoutValidation.TryParseAmount(markupBox.Text, out var percent) == CheckoutValidation.AmountParse.Ok && percent <= 1000)
+            var typed = CheckoutValidation.TryParseAmount(markupBox.Text, out var percent);
+            if (typed == CheckoutValidation.AmountParse.Empty)
+                percent = 0;
+            if ((typed is CheckoutValidation.AmountParse.Ok or CheckoutValidation.AmountParse.Empty) && percent <= 1000)
                 ReceivingMarkupSettingsStore.SetDefaultPercent(percent, persist);
             else if (persist)
-                markupBox.Text = ReceivingMarkupSettingsStore.Current.DefaultPercent.ToString("0.##", Ru);
+                markupBox.Text = ReceivingMarkupSettings.PercentBoxText(ReceivingMarkupSettingsStore.Current.DefaultPercent);
         }
         markupBox.TextChanged += (_, _) => { if (markupBox.IsFocused) MarkupCommit(false); };
         markupBox.LostFocus += (_, _) => MarkupCommit(true);
@@ -228,15 +240,31 @@ public sealed partial class PurchasesWindow
                 return;
             }
             var auto = ReceivingMarkupSettingsStore.Current.AutoEnabled;
-            markupBox.IsEnabled = auto;
             if (!markupBox.IsFocused)
-                markupBox.Text = ReceivingMarkupSettingsStore.Current.DefaultPercent.ToString("0.##", Ru);
+                markupBox.Text = ReceivingMarkupSettings.PercentBoxText(ReceivingMarkupSettingsStore.Current.DefaultPercent);
             if (auto)
                 ReceivingPricing.ApplyAutoToAll(s.Lines);
             ReceiveRefresh();
         });
         ReceivingMarkupSettingsStore.Changed += markupChanged;
-        var fastBox = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { s.FastNext, markupLabel, markupBox } };
+        // 2026-11-06 (Б-10): владельцу — один раз «общая наценка выключена при обновлении» (после того как окно приёма отрисовалось).
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = ReceivingMarkupDialog.ShowResetNoticeIfNeededAsync(this), Avalonia.Threading.DispatcherPriority.Background);
+        // 2026-11-06: общая наценка сама цену продажи существующего товара не меняет — только по этой кнопке (и «Как у всех» в самой строке).
+        var applyAll = UiKit.Ghost(this, T("Применить ко всем", "Баарына колдонуу", "Apply to all", "Tümüne uygula", "Hammasiga qo'llash"));
+        applyAll.Height = 44;
+        applyAll.Margin = new Thickness(6, 0, 0, 0);
+        Avalonia.Automation.AutomationProperties.SetName(applyAll, T("Применить общую наценку ко всем строкам", "Жалпы кошумчаны бардык саптарга колдонуу", "Apply the common markup to all lines", "Ortak kârı tüm satırlara uygula", "Umumiy ustamani barcha qatorlarga qo'llash"));
+        ToolTip.SetTip(applyAll, T("Пересчитать цену продажи всех строк по общей наценке (в том числе у товаров с ценой из карточки). Строки, где цену правили руками, не меняются.",
+            "Бардык саптардын сатуу баасын жалпы кошумча боюнча кайра эсептөө (карточкадагы баасы бар товарларда да). Баасы кол менен өзгөртүлгөн саптар өзгөрбөйт.",
+            "Recalculate the sale price of all lines by the common markup (including products with a card price). Lines whose price was edited by hand stay as they are.",
+            "Tüm satırların satış fiyatını ortak kâr oranıyla yeniden hesapla (kart fiyatı olan ürünler dahil). Fiyatı elle değiştirilen satırlar değişmez.",
+            "Barcha qatorlarning sotuv narxini umumiy ustama bo'yicha qayta hisoblash (kartadagi narxli mahsulotlar ham). Narxi qo'lda o'zgartirilgan qatorlar o'zgarmaydi."));
+        applyAll.Click += (_, _) =>
+        {
+            MarkupCommit(true);
+            ReceiveApplyMarkupToAll(s);
+        };
+        var fastBox = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Children = { s.FastNext, markupLabel, markupBox, applyAll } };
         Grid.SetColumn(fastBox, 1);
         tools.Children.Add(fastBox);
         var supplierGoods = s.SupplierGoods = UiKit.Ghost(this, ReceiveGoodsButtonText(s));
@@ -350,6 +378,7 @@ public sealed partial class PurchasesWindow
             s.Narrow = narrow;
             title.FontSize = narrow ? 17 : 20;
             supplierGoods.Content = ReceiveGoodsButtonText(s);
+            applyAll.Content = narrow ? T("Ко всем", "Баарына", "To all", "Tümüne", "Hammasiga") : T("Применить ко всем", "Баарына колдонуу", "Apply to all", "Tümüne uygula", "Hammasiga qo'llash");
             // 2026-10-24 (Б2): на узком окне (1024) подсказка поля скана короче — не обрезается.
             s.Scan.Watermark = narrow
                 ? T("Штрихкод или название", "Штрихкод же аталышы", "Barcode or name", "Barkod veya ad", "Shtrix-kod yoki nomi")
@@ -398,6 +427,8 @@ public sealed partial class PurchasesWindow
             var line = await LineForProductAsync(l.ProductId, l.Name, l.Unit, l.Qty, l.Price).ConfigureAwait(true);
             if (_receive != s)
                 return;
+            if (l.Price is > 0)
+                line?.LockPurchase(); // 2026-11-06: цена из заказа/прошлого прихода — смена поставщика её не подменяет
             if (line is not null && s.Lines.All(x => !string.Equals(x.ProductId, line.ProductId, StringComparison.OrdinalIgnoreCase)))
                 s.Lines.Add(line);
         }
@@ -489,11 +520,44 @@ public sealed partial class PurchasesWindow
         var looksLikeCode = code.Length >= 4 && code.All(char.IsLetterOrDigit) && code.Count(char.IsDigit) >= Math.Max(4, code.Length - 2);
         if (!looksLikeCode)
         {
-            if (ReceiveMatches(text, s.SupplierIds).FirstOrDefault() is { } byName)
+            // 2026-11-06 (Б-12): поиск по названию — память, затем локальная база кассы, затем умное сопоставление накладных («Мол.», «1л», латиница/кириллица).
+            // Без связи список памяти может быть пуст, а база нет: раньше здесь сразу писали «не найден — заведите новый» и кассир создавал дубль.
+            s.Scan.IsEnabled = false;
+            ReceivingNameSearch.Outcome outcome;
+            try
             {
-                ReceiveAddTile(byName, 1);
+                var snapshot = CatalogCacheService.Products.ToArray();
+                outcome = await Task.Run(() => ReceivingNameSearch.Find(text, snapshot, () => LocalProductRepository.Instance.LoadAllTiles(), s.SupplierIds, smart: true)).ConfigureAwait(true);
+            }
+            finally
+            {
+                s.Scan.IsEnabled = true;
+                s.Scan.Focus();
+            }
+            if (_receive != s)
+                return;
+            if (outcome.Tiles.Count > 0 && !outcome.UsedSmartMatch)
+            {
+                ReceiveAddTile(outcome.Tiles[0], 1);
                 s.Scan.Text = "";
             }
+            else if (outcome.Tiles.Count > 0)
+            {
+                // Умное сопоставление — это «похожие», а не точные: сами в приём не добавляем, показываем список подсказок под полем.
+                ReceiveSuggest(outcome.Tiles);
+                ReceiveMessage(T($"«{text}»: точного совпадения нет, ниже похожие товары склада — выберите нужный. Новый товар заводите, только если среди них его нет.",
+                    $"«{text}»: так дал келгени жок, төмөндө кампанын окшош товарлары — керектүүсүн тандаңыз. Жаңы товарды алардын арасында жок болсо гана түзүңүз.",
+                    $"“{text}”: no exact match; similar warehouse products are listed below — pick the right one. Create a new product only if it is not among them.",
+                    $"«{text}»: tam eşleşme yok, aşağıda depodaki benzer ürünler var — doğrusunu seçin. Yeni ürünü yalnızca aralarında yoksa oluşturun.",
+                    $"«{text}»: aniq moslik yo'q, pastda ombordagi o'xshash mahsulotlar — keraklisini tanlang. Yangi mahsulotni faqat ular orasida bo'lmasa yarating."), warning: true);
+            }
+            else if (!outcome.CatalogChecked)
+                // Каталога на этом ПК нет (или база не открылась) — «товара нет» утверждать нельзя, новый не предлагаем.
+                ReceiveMessage(T($"«{text}»: каталог товаров на этом ПК ещё не загружен, поэтому найти по названию нельзя. Отсканируйте штрихкод или дождитесь загрузки каталога — новый товар пока не заводите, чтобы не получить дубль.",
+                    $"«{text}»: бул ПКдеги товарлар каталогу али жүктөлө элек, ошондуктан ат боюнча издөө мүмкүн эмес. Штрихкодду сканерлеңиз же каталог жүктөлгөнчө күтүңүз — кайталанбашы үчүн жаңы товарды азырынча түзбөңүз.",
+                    $"“{text}”: the product catalog is not loaded on this PC yet, so a search by name is not possible. Scan the barcode or wait for the catalog — do not create a new product yet, to avoid a duplicate.",
+                    $"«{text}»: ürün kataloğu bu bilgisayara henüz yüklenmedi, bu yüzden ada göre arama yapılamıyor. Barkodu okutun veya kataloğun yüklenmesini bekleyin — kopya olmaması için henüz yeni ürün oluşturmayın.",
+                    $"«{text}»: mahsulotlar katalogi bu kompyuterga hali yuklanmagan, shuning uchun nom bo'yicha qidirib bo'lmaydi. Shtrix-kodni skanerlang yoki katalog yuklanishini kuting — takrorlanmasligi uchun yangi mahsulotni hozircha yaratmang."), warning: true);
             else
                 ReceiveMessage(T($"«{text}» не найден. Отсканируйте штрихкод — новый товар можно завести прямо здесь.", $"«{text}» табылган жок. Штрихкодду сканерлеңиз — жаңы товарды ушул жерде түзсө болот.",
                     $"“{text}” not found. Scan the barcode — a new product can be created right here.", $"«{text}» bulunamadı. Barkodu okutun — yeni ürün burada oluşturulabilir.",
@@ -556,27 +620,25 @@ public sealed partial class PurchasesWindow
         }
     }
 
-    /// <summary>2026-10-24 (Б2): при выбранном поставщике его товары идут в подсказках первыми.</summary>
+    /// <summary>2026-10-24 (Б2): при выбранном поставщике его товары идут в подсказках первыми.
+    /// 2026-11-06 (Б-12): список памяти, затем локальная база кассы (без связи память может быть пуста). Умное сопоставление накладных (сокращения, единицы) — только по Enter, см. ReceiveAddByCodeAsync (не на каждый символ).</summary>
     private static IEnumerable<CatalogProductTileVm> ReceiveMatches(string text, HashSet<string>? firstIds = null)
     {
-        var q = text.Trim();
-        if (q.Length < 2)
-            return Enumerable.Empty<CatalogProductTileVm>();
-        // 2026-10-29: единый поиск — слова в любом порядке, ё=е, «Asu»↔«Асу»↔«фыг».
-        return SearchMatch.Products(CatalogCacheService.Products, q)
-            .OrderBy(p => firstIds is { Count: > 0 } && firstIds.Contains(p.Id) ? 0 : 1)
-            .ThenBy(p => p.Title.StartsWith(q, StringComparison.CurrentCultureIgnoreCase) ? 0 : 1).ThenBy(p => p.Title, StringComparer.CurrentCultureIgnoreCase).Take(8);
+        // Подсказки на каждый символ: базу читаем только если её кэш уже готов (иначе UI-поток ждал бы его построения) — готовность запускается в фоне.
+        var repo = LocalProductRepository.Instance;
+        return ReceivingNameSearch.Find(text, CatalogCacheService.Products.ToArray(),
+            () => { if (repo.IsCacheReady) return repo.LoadAllTiles(); _ = repo.EnsureCacheReadyAsync(); return []; }, firstIds).Tiles;
     }
 
     /// <summary>Подсказки под полем: до 8 товаров по названию/штрихкоду (нажатие — в приём).</summary>
-    private void ReceiveSuggest()
+    private void ReceiveSuggest(IReadOnlyList<CatalogProductTileVm>? forced = null)
     {
         if (_receive is not { } s)
             return;
         s.Suggest.Children.Clear();
         var text = (s.Scan.Text ?? "").Trim();
         var digitsOnly = text.Length > 0 && text.All(char.IsDigit);
-        var matches = digitsOnly && text.Length >= 8 ? new List<CatalogProductTileVm>() : ReceiveMatches(text, s.SupplierIds).ToList();
+        var matches = forced?.ToList() ?? (digitsOnly && text.Length >= 8 ? new List<CatalogProductTileVm>() : ReceiveMatches(text, s.SupplierIds).ToList()); // 2026-11-06 (Б-12): forced — «похожие» из умного сопоставления
         foreach (var p in matches)
         {
             var name = new TextBlock { Text = p.Title, FontSize = 14, TextTrimming = TextTrimming.CharacterEllipsis };
@@ -633,23 +695,28 @@ public sealed partial class PurchasesWindow
         var shown = s.RowMap.TryGetValue(line, out var parts);
         var index = s.Lines.IndexOf(line);
         if (index < 0)
-            line.EnableAutoSale(); // 2026-10-28: новая строка вручную — цена продажи считается по наценке при вводе закупки
-        if (index > 0)
-            s.Lines.RemoveAt(index);
-        if (index != 0)
-            s.Lines.Insert(0, line);
+            ReceiveInitLine(s, line); // 2026-11-06: закупка по умолчанию (поставщик → карточка), продажа — из каталога; общая наценка только для товаров без известной цены (было EnableAutoSale: 2026-10-28)
+        // 2026-11-06 (жалоба владельца «при приёмке очередь и порядок сбиваются»): НОВАЯ строка встаёт наверх (как задумано), а повторный скан товара, который уже в списке,
+        // только прибавляет количество В ТОЙ ЖЕ строке — она не перескакивает наверх (раньше каждый повторный скан вырывал строку и порядок списка, а с ним и порядок
+        // строк в отправляемом приходе, менялся). Строка подсвечивается и прокручивается в поле зрения.
+        ReceivingListOrder.Place(s.Lines, line);
         if (shown)
         {
-            var at = s.Rows.Children.IndexOf(parts!.Box);
-            if (at > 0)
+            if (index < 0)
             {
-                s.Rows.Children.RemoveAt(at);
-                s.Rows.Children.Insert(0, parts.Box);
+                var at = s.Rows.Children.IndexOf(parts!.Box);
+                if (at > 0)
+                {
+                    s.Rows.Children.RemoveAt(at);
+                    s.Rows.Children.Insert(0, parts.Box);
+                }
+                s.Scroll.ScrollToHome();
             }
-            s.Scroll.ScrollToHome();
+            else
+                parts!.Box.BringIntoView();
             ReceiveRefresh();
         }
-        else if (s.RowMap.Count == 0 || s.RowMap.Count != s.Lines.Count - 1)
+        else if (index >= 0 || s.RowMap.Count == 0 || s.RowMap.Count != s.Lines.Count - 1)
             ReceiveRender(); // первая строка заменяет заглушку «Отсканируйте товары…» (или список разошёлся с таблицей — пересобираем)
         else
         {
@@ -667,6 +734,79 @@ public sealed partial class PurchasesWindow
             else
                 ReceiveFocusCell(s, line);
         }, Avalonia.Threading.DispatcherPriority.Background);
+    }
+
+    /// <summary>2026-11-06: цены новой строки «Приём товара». Закупка — последняя у выбранного поставщика (история закупок), иначе из карточки, иначе 0;
+    /// продажа — текущая из каталога (FromTile); наценка считается из двух цен. Общая «Наценка для всех» применяется только к товару без известной
+    /// цены продажи (а если цены нет в карточке, но есть в прошлой закупке — берётся она).</summary>
+    private void ReceiveInitLine(ReceiveState s, ReceivingLineVm line)
+    {
+        var history = ReceiveLocalHistory(line);
+        ReceivingDefaults.ApplyPurchase(line, ReceiveSupplierPrice(s, line, history));
+        line.EnableReceivingPricing(ReceivingDefaults.LastSalePrice(history));
+    }
+
+    private static List<PurchaseReceivingService.HistoryEntry> ReceiveLocalHistory(ReceivingLineVm line)
+    {
+        if (line.IsNew || string.IsNullOrWhiteSpace(line.ProductId))
+            return new List<PurchaseReceivingService.HistoryEntry>();
+        try
+        {
+            return PurchaseReceivingService.Instance.LoadLocalHistory(line.ProductId!);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Закупки: история закупок товара {line.ProductId} не прочитана ({ex.Message}).", "WARNING");
+            return new List<PurchaseReceivingService.HistoryEntry>();
+        }
+    }
+
+    private static ReceivingDefaults.SupplierPrice? ReceiveSupplierPrice(ReceiveState s, ReceivingLineVm line, IEnumerable<PurchaseReceivingService.HistoryEntry> history)
+    {
+        if (s.Picker.Selected is not { } supplier)
+            return null;
+        ReceivingDefaults.SupplierPrice? server = line.ProductId is { Length: > 0 } id && s.SupplierPrices.TryGetValue(id, out var sp) ? sp : null;
+        return ReceivingDefaults.Newest(ReceivingDefaults.FromHistory(history, supplier.Name), server);
+    }
+
+    /// <summary>2026-11-06: поставщика сменили (или его закупки дозагрузились) — пока цену закупки не правили руками, она берётся из истории этого поставщика.</summary>
+    private void ReceiveReapplyPurchases(ReceiveState s)
+    {
+        if (_receive != s)
+            return;
+        var changed = false;
+        foreach (var line in s.Lines.ToList())
+            if (!line.IsNew && !line.PurchaseIsManual)
+                changed |= ReceivingDefaults.ApplyPurchase(line, ReceiveSupplierPrice(s, line, ReceiveLocalHistory(line)));
+        if (changed)
+            ReceiveRefresh();
+    }
+
+    /// <summary>2026-11-06: «Применить ко всем» — явное применение общей наценки ко всем строкам (кроме тех, где цену правили руками).</summary>
+    private void ReceiveApplyMarkupToAll(ReceiveState s)
+    {
+        if (_receive != s)
+            return;
+        var settings = ReceivingMarkupSettingsStore.Current;
+        if (!settings.AutoEnabled)
+        {
+            // 2026-11-06: общая наценка включается числом в поле «Наценка для всех, %».
+            ReceiveMessage(T("Общая наценка выключена — введите число в поле «Наценка для всех, %».", "Жалпы кошумча өчүк — «Баарына кошумча, %» талаасына санды киргизиңиз.", "The common markup is off — enter a number in the “Markup for all, %” field.",
+                "Ortak kâr kapalı — «Tümü için kâr, %» alanına bir sayı girin.", "Umumiy ustama o'chiq — «Hammasi uchun ustama, %» maydoniga son kiriting."), warning: true);
+            return;
+        }
+        var changed = ReceivingPricing.ApplyCommonMarkupToAll(s.Lines, out var skipped);
+        var pct = settings.DefaultPercent.ToString("0.##", Ru);
+        var text = T($"Общая наценка {pct} % применена: цена продажи изменилась у {changed} {Tr.Plural(changed, "товара", "товаров", "товаров")}.",
+            $"Жалпы кошумча {pct} % колдонулду: {changed} товардын сатуу баасы өзгөрдү.",
+            $"The common markup {pct}% was applied: the sale price changed for {changed} {Tr.PluralEn(changed, "product", "products")}.",
+            $"Ortak kâr oranı {pct} % uygulandı: {changed} ürünün satış fiyatı değişti.",
+            $"Umumiy ustama {pct} % qo'llandi: {changed} ta mahsulotning sotuv narxi o'zgardi.");
+        if (skipped > 0)
+            text += " " + T($"Строк с ценой вручную пропущено: {skipped}.", $"Баасы кол менен коюлган саптар өткөрүлдү: {skipped}.", $"Lines with a hand-set price skipped: {skipped}.",
+                $"Fiyatı elle girilen satırlar atlandı: {skipped}.", $"Narxi qo'lda kiritilgan qatorlar o'tkazib yuborildi: {skipped}.");
+        ReceiveMessage(text, notice: true);
+        ReceiveRefresh();
     }
 
     private void ReceiveFocusCell(ReceiveState s, ReceivingLineVm line)
@@ -916,6 +1056,7 @@ public sealed partial class PurchasesWindow
     {
         s.GoodsCts?.Cancel();
         s.GoodsRows = new List<SupplierGoodsRow>();
+        s.SupplierPrices = new Dictionary<string, ReceivingDefaults.SupplierPrice>(StringComparer.OrdinalIgnoreCase);
         s.SupplierIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         s.GoodsList.ItemsSource = null;
         s.GoodsSearch.Text = "";
@@ -992,6 +1133,11 @@ public sealed partial class PurchasesWindow
         s.GoodsRows = rows;
         foreach (var row in rows)
             s.SupplierIds.Add(row.ProductId);
+        // 2026-11-06: закупки этого поставщика с сервера (в том числе сделанные на сайте) — цена закупки строк по умолчанию; уже добавленные строки пересчитываются.
+        foreach (var r in fromReceipts)
+            if (r.ProductId.Length > 0 && r.LastPurchasePrice > 0)
+                s.SupplierPrices.TryAdd(r.ProductId, new ReceivingDefaults.SupplierPrice(r.LastPurchasePrice, r.LastAt));
+        ReceiveReapplyPurchases(s);
         s.GoodsLoading = false;
         ReceiveGoodsButton(s);
         s.GoodsTitle.Text = rows.Count > 0
@@ -1033,8 +1179,6 @@ public sealed partial class PurchasesWindow
                     raced.Quantity += 1;
                     line = raced;
                 }
-                else if (row.Price > 0 && line.PurchasePrice <= 0)
-                    line.PurchasePrice = row.Price;
             }
             s.GoodsSearch.Text = "";
             ReceiveShowTop(s, line, true);
@@ -1365,10 +1509,13 @@ public sealed partial class PurchasesWindow
                 changeText.FontWeight = line.IsChangeUp || line.IsChangeDown ? FontWeight.SemiBold : FontWeight.Normal;
                 ToolTip.SetTip(changeText, line.PurchaseChangeHint);
                 profitText.Text = line.ProfitText;
-                lowText.Text = line.LowMarginText;
+                // 2026-11-06: нет цены продажи — красная пометка и подсветка строки (перед отправкой прихода спросим цену).
+                lowText.Text = line.LowMarginText.Length == 0 && line.IsSalePriceMissing
+                    ? T("нет цены продажи", "сатуу баасы жок", "no sale price", "satış fiyatı yok", "sotuv narxi yo'q")
+                    : line.LowMarginText;
                 autoText.Text = line.CanReturnToAuto ? line.SaleStatusText + " · " + line.SaleButtonText : line.SaleStatusText; // «вручную · Как у всех» (нажатие возвращает)
                 ToolTip.SetTip(autoText, line.HasSaleMode ? line.SaleModeHint : null);
-                g.Background = line.IsBelowCost ? this.FindResource("BrushDangerSoft") as IBrush : line.IsLowMargin ? this.FindResource("BrushWarningSoft") as IBrush : null; // цена ниже закупки — красная строка, маржа мало — жёлтая
+                g.Background = line.IsBelowCost ? this.FindResource("BrushDangerSoft") as IBrush : line.IsLowMargin || line.IsSalePriceMissing ? this.FindResource("BrushWarningSoft") as IBrush : null; // цена ниже закупки — красная строка, маржа мало — жёлтая
                 if (parts.Box is { } rowBox)
                     rowBox.Opacity = line.Quantity <= 0 ? 0.72 : 1;
             }
@@ -1574,7 +1721,7 @@ public sealed partial class PurchasesWindow
               // 2026-11-05 (функция 11): прибыль считается от себестоимости (закупка + доп. расходы), как её увидит склад после прихода
               + T("прибыль", "пайда", "profit", "kâr", "foyda") + " " + MoneyText.Som(active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.SalePrice)) - active.Sum(l => ReceivingPricing.LineTotal(l.Quantity, l.CostPrice))) + raisedText
               + (active.Any(l => l.LandedExtraPerUnit > 0) ? T(" · доп. расходы ", " · кошумча чыгым ", " · extra costs ", " · ek masraf ", " · qo'shimcha xarajat ") + MoneyText.Som(LandedCost.DistributedTotal(active)) : "")
-              + (s.Picker.Selected is null ? T(" — выберите поставщика (шаг 1).", " — жеткирүүчүнү тандаңыз (1-кадам).", " — choose a supplier (step 1).", " — tedarikçi seçin (1. adım).", " — yetkazib beruvchini tanlang (1-qadam).") : "");
+              + (s.Picker.Selected is null ? T(" — выберите поставщика (шаг 1) или оприходуйте без него.", " — жеткирүүчүнү тандаңыз (1-кадам) же жеткирүүчүсүз кабыл алыңыз.", " — choose a supplier (step 1) or post without one.", " — tedarikçi seçin (1. adım) veya tedarikçisiz kaydedin.", " — yetkazib beruvchini tanlang (1-qadam) yoki usiz kirim qiling.") : "");
         // 2026-10-24 (Б2): «Обновить цены продажи (N)» — пока есть строки с подорожанием и непоправленной продажей.
         var raisable = PurchaseReceivingService.CountRaisableSalePrices(active);
         s.Raise.IsVisible = raisable > 0;
@@ -1583,7 +1730,7 @@ public sealed partial class PurchasesWindow
             s.Raise.Content = T($"Обновить цены продажи ({raisable})", $"Сатуу баасын жаңыртуу ({raisable})", $"Update sale prices ({raisable})", $"Satış fiyatlarını güncelle ({raisable})", $"Sotuv narxlarini yangilash ({raisable})");
             Avalonia.Automation.AutomationProperties.SetName(s.Raise, s.Raise.Content as string);
         }
-        s.Post.IsEnabled = !s.Busy && s.Picker.Selected is not null && active.Count > 0;
+        s.Post.IsEnabled = !s.Busy && active.Count > 0; // 2026-11-06: без поставщика кнопка доступна — по нажатию спросим (выбрать / без поставщика / отмена)
     }
 
     // ------------------------------------------------------------------ оприходовать
@@ -1594,12 +1741,33 @@ public sealed partial class PurchasesWindow
     // завершено» как раньше, нет — плашка «Операция выполняется в фоне» и итог по JobFinished.
     private async Task ReceivePostAsync()
     {
-        if (_receive is not { } s || s.Busy || s.Picker.Selected is not { } supplierInfo)
+        if (_receive is not { } s || s.Busy)
             return;
         s.Busy = true;
         ReceiveFooter();
         try
         {
+            var supplierInfo = s.Picker.Selected;
+            var active = s.Lines.Count(l => l.Quantity > 0);
+            if (active == 0)
+                return;
+            // 2026-11-06: поставщик не выбран — вопрос «Выбрать поставщика / Оприходовать без поставщика / Отмена» (с поставщиком — как раньше, без вопроса).
+            var step = ReceivingSupplierRule.Resolve(supplierInfo is not null, null);
+            if (step == ReceivingSupplierRule.Step.Ask)
+            {
+                var ask = new PurchaseNoSupplierDialog(active);
+                await ask.ShowDialog(this).ConfigureAwait(true);
+                if (_receive != s)
+                    return;
+                step = ReceivingSupplierRule.Resolve(false, ask.Result);
+            }
+            if (step == ReceivingSupplierRule.Step.OpenSupplierPicker)
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (_receive == s) s.Picker.Open(); }, Avalonia.Threading.DispatcherPriority.Background);
+                return;
+            }
+            if (step == ReceivingSupplierRule.Step.Stop)
+                return;
             await ReceivePostCoreAsync(s, supplierInfo).ConfigureAwait(true);
         }
         finally
@@ -1610,18 +1778,29 @@ public sealed partial class PurchasesWindow
         }
     }
 
-    private async Task ReceivePostCoreAsync(ReceiveState s, SupplierInfo supplierInfo)
+    private async Task ReceivePostCoreAsync(ReceiveState s, SupplierInfo? supplierInfo)
     {
         var lines = s.Lines.Where(l => l.Quantity > 0).ToList();
         if (lines.Count == 0)
             return;
-        var problems = PurchaseReceivingService.Validate(lines);
+        // 2026-11-06 (жалоба «Орук маркет», приход №48): отсутствие цены продажи — не ошибка: ниже окно «У N позиций нет цены продажи» (цена/наценка или «Оставить без цены»).
+        var problems = PurchaseReceivingService.Validate(lines, requireSalePrice: false);
         problems.AddRange(PurchaseReceivingService.FractionalProblems(lines)); // 2026-10-31: «2,5 шт» у нового товара — выберите «кг» или целое
         if (problems.Count > 0)
         {
             ReceiveMessage(T("Нельзя оприходовать: ", "Кирешке алууга болбойт: ", "Can't post: ", "Kaydedilemez: ", "Kirim qilib bo'lmaydi: ") + string.Join("; ", problems.Take(4))
                            + (problems.Count > 4 ? T($" …и ещё {problems.Count - 4}", $" …жана дагы {problems.Count - 4}", $" …and {problems.Count - 4} more", $" …ve {problems.Count - 4} tane daha", $" …va yana {problems.Count - 4}") : ""), warning: true);
             return;
+        }
+        // 2026-11-06: у строк нет цены продажи — спрашиваем ДО отправки; программа сама («закупка + %») ничего не ставит. «Отмена» — вернуться к списку.
+        if (ReceivingPricing.MissingSalePrice(lines).Count > 0)
+        {
+            var proceed = await Dialogs.MissingSalePriceDialog.AskAsync(this, lines).ConfigureAwait(true);
+            if (_receive != s)
+                return;
+            ReceiveRefresh();
+            if (!proceed)
+                return;
         }
         // 2026-11-05 (функция 11): количество могли поправить после «Доп. расходы…» — доли пересчитываем и показываем превью «закупка → с расходами»; долг поставщику не меняется.
         if (s.LandedTotal > 0)
@@ -1638,28 +1817,37 @@ public sealed partial class PurchasesWindow
             && !await ReceiveConfirmPriceChangesAsync(changedPrices).ConfigureAwait(true))
             return;
         var total = Math.Round(lines.Sum(l => l.LineTotal), 2);
-        var dialog = new PurchasePaymentDialog(supplierInfo.Name, lines.Count, total);
-        await dialog.ShowDialog(this).ConfigureAwait(true);
-        if (dialog.Result is not { } pay || _receive != s)
-            return;
+        // 2026-11-06: без поставщика окна оплаты нет — долг поставщику невозможен (ReceivingSupplierRule.DebtAllowed), оплата не записывается, товары идут прямо на склад.
+        PurchasePayment? pay = null;
+        if (supplierInfo is not null)
+        {
+            var dialog = new PurchasePaymentDialog(supplierInfo.Name, lines.Count, total);
+            await dialog.ShowDialog(this).ConfigureAwait(true);
+            if (dialog.Result is not { } chosen || _receive != s)
+                return;
+            pay = chosen;
+        }
         var sinceConfirm = System.Diagnostics.Stopwatch.StartNew();
 
         // Оплата выбрана — всё нужное для финишера (смена, касса, срок долга) запоминаем в задаче сейчас: к концу фоновой работы смена могла смениться.
-        var supplier = new PurchaseReceivingService.Supplier(supplierInfo.Id, supplierInfo.Name, supplierInfo.Inn, supplierInfo.Phone);
+        var supplier = supplierInfo is null ? null : new PurchaseReceivingService.Supplier(supplierInfo.Id, supplierInfo.Name, supplierInfo.Inn, supplierInfo.Phone);
         var employee = PosApp.CurrentUserDisplayName ?? PosApp.CurrentUserId;
-        var paidNow = pay.Kind is PurchasePayKind.Cash or PurchasePayKind.Drawer;
+        var paidNow = pay is { Kind: PurchasePayKind.Cash or PurchasePayKind.Drawer };
         var shiftId = PosApp.ActiveShiftId;
         Dictionary<string, string>? fields = null;
-        if (pay.Kind == PurchasePayKind.Drawer)
+        if (pay is { Kind: PurchasePayKind.Drawer })
             fields = new Dictionary<string, string>
             {
                 ["cashbox_role"] = "pos_main",
                 ["cashbox"] = PosApp.PosCashboxId ?? "",
                 ["shift"] = shiftId ?? "",
             };
-        PosLogger.Log($"Закупки: приход от «{supplier.Name}» ({supplier.Id}), строк {lines.Count}, оплата {pay.Kind}" +
-                      (pay.Kind == PurchasePayKind.Partial ? $" — сразу {pay.PaidNow:0.00}{(pay.PartialFromDrawer ? " из ящика смены" : $" из кассы «{pay.CashboxName}»")}" : "") +
-                      (pay.Kind is PurchasePayKind.Debt or PurchasePayKind.Partial ? $", срок {pay.DueDays} дн." : "") + " — в очередь фоновых приходов.", "PAYMENT");
+        if (supplier is null || pay is null)
+            PosLogger.Log($"Закупки: приход без поставщика, строк {lines.Count} — остаток и цены пишутся в товары, долга и оплаты нет, в очередь фоновых приходов.", "STOCK");
+        else
+            PosLogger.Log($"Закупки: приход от «{supplier.Name}» ({supplier.Id}), строк {lines.Count}, оплата {pay.Kind}" +
+                          (pay.Kind == PurchasePayKind.Partial ? $" — сразу {pay.PaidNow:0.00}{(pay.PartialFromDrawer ? " из ящика смены" : $" из кассы «{pay.CashboxName}»")}" : "") +
+                          (pay.Kind is PurchasePayKind.Debt or PurchasePayKind.Partial ? $", срок {pay.DueDays} дн." : "") + " — в очередь фоновых приходов.", "PAYMENT");
 
         EnsureBackgroundSubscription();
         var postContent = s.Post.Content;
@@ -1667,8 +1855,8 @@ public sealed partial class PurchasesWindow
         string jobId;
         try
         {
-            jobId = BackgroundReceivingQueue.Instance.Enqueue(new ReceivingJobRequest(ReceivingJobSource.Purchases, lines, supplier, paidNow, employee, pay.DueDays, fields,
-                "purchases", PurchaseFinishPayload.From(pay, s.OrderId, shiftId), SupplierDocNumber: s.DocNumber.Text));
+            jobId = BackgroundReceivingQueue.Instance.Enqueue(new ReceivingJobRequest(ReceivingJobSource.Purchases, lines, supplier, paidNow, employee, pay?.DueDays ?? 30, fields,
+                "purchases", pay is null ? null : PurchaseFinishPayload.From(pay, s.OrderId, shiftId), SupplierDocNumber: supplier is null ? null : s.DocNumber.Text));
         }
         catch (Exception ex)
         {
@@ -1680,7 +1868,8 @@ public sealed partial class PurchasesWindow
             return;
         }
 
-        s.DocNumber.Text = ""; // 2026-10-30: номер накладной поставщика ушёл с приходом
+        if (supplier is not null)
+            s.DocNumber.Text = ""; // 2026-10-30: номер накладной поставщика ушёл с приходом
         s.LandedTotal = 0; // 2026-11-05 (функция 11): доп. расходы ушли с этим приходом (доли — в строках задачи)
         // Задача на диске — список очищаем сразу и готовимся к следующей накладной (заказ уже закрыт этой задачей — к новому приёму не привязываем).
         _bgWaiting.Add(jobId);
@@ -1724,14 +1913,19 @@ public sealed partial class PurchasesWindow
     }
 
     /// <summary>«Операция выполняется в фоне — можно продолжать работу» (плашка вместо долгого ожидания).</summary>
-    private static string BackgroundNoticeText => T("Операция выполняется в фоне — можно продолжать работу", "Операция фондо аткарылууда — иштей берсеңиз болот",
-        "The operation is running in the background — you can keep working", "İşlem arka planda yürütülüyor — çalışmaya devam edebilirsiniz",
-        "Amal fonda bajarilmoqda — ishni davom ettirishingiz mumkin");
+    // 2026-11-06: офлайн-приход — без связи вместо «выполняется в фоне» говорим главное: приход сохранён и уйдёт сам (+ счётчик неотправленных).
+    private static string BackgroundNoticeText => BackgroundReceivingQueue.NoConnectionNow
+        ? BackgroundReceivingQueue.SavedOfflineText + ". " + BackgroundReceivingQueue.UnsentText(BackgroundReceivingQueue.Instance.ActiveCount)
+        : T("Операция выполняется в фоне — можно продолжать работу", "Операция фондо аткарылууда — иштей берсеңиз болот",
+            "The operation is running in the background — you can keep working", "İşlem arka planda yürütülüyor — çalışmaya devam edebilirsiniz",
+            "Amal fonda bajarilmoqda — ishni davom ettirishingiz mumkin");
 
     /// <summary>Задача закончилась за 0,5 с: как раньше — «Оприходование завершено» (накладная, печать), не принятые строки возвращаются в список.</summary>
     private async Task ReceiveShowResultAsync(ReceiveState s, ReceivingJob job)
     {
         var posted = job.Lines.Where(l => l.Outcome == ReceivingLineOutcome.Posted).ToList();
+        string? noSupplierText = null;
+        var noSupplierWarning = false;
         if (job.Status != ReceivingJobStatus.Done && _receive == s)
         {
             // Отказ сервера / не отправлялись: строки снова в списке — поправить и повторить (как при ошибке раньше); «исход неизвестен» остаётся в очереди.
@@ -1742,14 +1936,16 @@ public sealed partial class PurchasesWindow
         if (posted.Count > 0)
         {
             var result = new PurchaseReceivingService.PostResult(posted.Select(l => l.ToVm()).ToList(), posted.Sum(l => l.LineTotal), job.Created, job.Errors,
-                job.ReceiptId, job.ReceiptTotal, job.ReceiptAt, job.State.ReceiptKey);
+                job.ReceiptId, job.ReceiptTotal, job.ReceiptAt, job.State.ReceiptKey, job.State.ServerNumber);
             var outcome = new PurchaseOutcome(result, job.Summary ?? PurchaseReceivingService.SummaryText(result), job.Errors.Count > 0 || job.Status != ReceivingJobStatus.Done, null);
             var supplier = s.Picker.Selected;
-            if (supplier is not null)
+            if (supplier is not null && job.Supplier is not null)
             {
                 var done = new PurchaseDoneDialog(supplier, outcome, posted.Select(l => new PurchaseDocs.DocLine(l.ProductName, l.Unit, l.Quantity, l.PurchasePrice)).ToList());
                 await done.ShowDialog(this).ConfigureAwait(true);
             }
+            else
+                noSupplierText = BackgroundResultText(job, out noSupplierWarning); // 2026-11-06: приход без поставщика — накладной нет, итог строкой
         }
         else if (_receive == s)
             ReceiveMessage(BackgroundResultText(job, out _), warning: true);
@@ -1761,6 +1957,8 @@ public sealed partial class PurchasesWindow
         {
             CloseSub();
             await ReloadAsync().ConfigureAwait(true);
+            if (noSupplierText is not null)
+                SetStatus(noSupplierText, noSupplierWarning);
         }
         else if (job.Errors.Count > 0)
             ReceiveMessage(string.Join("\n", job.Errors.Take(6)), warning: true);
@@ -1848,14 +2046,19 @@ public sealed partial class PurchasesWindow
     {
         var name = job.Supplier?.Name ?? "—";
         var posted = job.PostedCount;
+        var noSupplier = job.Supplier is null;
         var sum = MoneyText.Som(job.ReceiptTotal is > 0 and var t ? t : job.Lines.Where(l => l.Outcome == ReceivingLineOutcome.Posted).Sum(l => l.LineTotal));
         var extra = job.Summary is { Length: > 0 } sm ? string.Join("\n", sm.Split('\n').Skip(1)) : "";
         warning = job.Status != ReceivingJobStatus.Done || job.Errors.Count > 0;
         if (posted > 0)
             return (job.Status == ReceivingJobStatus.Done ? "✓ " : "⚠ ")
-                   + T($"Приход оприходован: {posted} поз. на {sum} (поставщик «{name}»)", $"Кирүү кабыл алынды: {posted} поз., {sum} (жеткирүүчү «{name}»)",
-                       $"Delivery posted: {posted} items, {sum} (supplier “{name}”)", $"Mal kabul edildi: {posted} kalem, {sum} (tedarikçi «{name}»)",
-                       $"Kirim qabul qilindi: {posted} poz., {sum} (yetkazib beruvchi «{name}»)")
+                   + (noSupplier
+                       ? T($"Приход оприходован без поставщика: {posted} поз. на {sum} (прямо на склад, без долга)", $"Кирүү жеткирүүчүсүз кабыл алынды: {posted} поз., {sum} (түздөн-түз кампага, карызсыз)",
+                           $"Delivery posted without a supplier: {posted} items, {sum} (straight to the warehouse, no debt)", $"Mal tedarikçisiz kaydedildi: {posted} kalem, {sum} (doğrudan depoya, borçsuz)",
+                           $"Kirim yetkazib beruvchisiz qabul qilindi: {posted} poz., {sum} (to'g'ridan-to'g'ri omborga, qarzsiz)")
+                       : T($"Приход оприходован: {posted} поз. на {sum} (поставщик «{name}»)", $"Кирүү кабыл алынды: {posted} поз., {sum} (жеткирүүчү «{name}»)",
+                           $"Delivery posted: {posted} items, {sum} (supplier “{name}”)", $"Mal kabul edildi: {posted} kalem, {sum} (tedarikçi «{name}»)",
+                           $"Kirim qabul qilindi: {posted} poz., {sum} (yetkazib beruvchi «{name}»)"))
                    + (job.Status == ReceivingJobStatus.Done ? "" : " — " + job.StatusText)
                    + (extra.Length > 0 ? "\n" + extra : "")
                    + (job.Errors.Count > 0 ? "\n" + string.Join("\n", job.Errors.Take(4)) : "");

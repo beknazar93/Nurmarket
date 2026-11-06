@@ -168,6 +168,7 @@ public static class AntiFraudSettingsStore
 
     public static void Update(Action<AntiFraudData> change)
     {
+        var switchedOff = new List<string>(); // 2026-11-06: В3 — какие защиты этим изменением выключены (пишется в журнал антифрода после записи файла)
         lock (Gate)
         {
             var data = Current;
@@ -177,8 +178,14 @@ public static class AntiFraudSettingsStore
                 PosLogger.Log("Антифрод: файл настроек сейчас не читается — изменение не записано, повторите позже.", "WARNING");
                 return;
             }
+            var guardWas = data.Guard.Enabled;
+            var fraudWas = data.Fraud.Enabled;
             change(data);
             data.Normalize();
+            if (guardWas && !data.Guard.Enabled)
+                switchedOff.Add(FraudMonitor.ProtectionGuard);
+            if (fraudWas && !data.Fraud.Enabled)
+                switchedOff.Add(FraudMonitor.ProtectionFraud);
             try
             {
                 Directory.CreateDirectory(Folder);
@@ -190,6 +197,8 @@ public static class AntiFraudSettingsStore
                 PosLogger.Log($"Антифрод: настройки не записаны ({ex.GetType().Name}: {ex.Message}).", "WARNING");
             }
         }
+        foreach (var protection in switchedOff)
+            FraudMonitor.OnProtectionOff(protection);
         try { Changed?.Invoke(); } catch { /* подписчик окна — не повод ломать запись */ }
     }
 

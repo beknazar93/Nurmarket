@@ -328,9 +328,13 @@ public partial class RestockSuggestionsWindow : Window, IOwnerSection
             var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             try
             {
+                // 2026-11-06: В5 Л-3 (шаг 3) — история закупок всех товаров одним запросом (раньше LoadLocalHistory на каждый: до 300 захватов замка записи базы).
+                var history = PurchaseReceivingService.Instance.LoadLocalHistoryMany(ids);
                 foreach (var id in ids)
                 {
-                    var last = PurchaseReceivingService.Instance.LoadLocalHistory(id).FirstOrDefault(h => !string.IsNullOrWhiteSpace(h.SupplierName));
+                    if (!history.TryGetValue(id, out var entries))
+                        continue;
+                    var last = entries.FirstOrDefault(h => !string.IsNullOrWhiteSpace(h.SupplierName));
                     if (last is not null)
                         found[id] = last.SupplierName!.Trim();
                 }

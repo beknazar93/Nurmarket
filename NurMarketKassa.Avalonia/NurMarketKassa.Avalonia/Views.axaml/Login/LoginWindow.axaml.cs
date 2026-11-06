@@ -443,6 +443,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
             if (!confirmed)
                 return;
 
+            // 2026-11-06: неотправленные приходы и новые товары — вопрос до закрытия, пока окно входа живо (журнал: «Cannot access a disposed object… IServiceProvider» при выходе с экрана входа).
+            if (!await NurMarketKassa.AvaloniaHost.Views.BackgroundReceiptsHost.ConfirmUnsentBeforeExitAsync(this))
+                return;
+
             ShutdownApplication();
         }
 

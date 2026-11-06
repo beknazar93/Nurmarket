@@ -56,7 +56,8 @@ class InvoiceFileArg {
 /// выдавал «Файл повреждён».
 Future<ParsedInvoice> _parseOffThread(Uint8List bytes, String name) => Isolate.run(() => InvoiceParser.parse(bytes, fileName: name));
 
-/// Цена продажи по правилу прихода: +30 % к закупке, вверх до 5 сом.
+/// Цена продажи по наценке: +30 % к закупке, вверх до 5 сом. 2026-11-06: применяется только если авто-наценка включена
+/// (по умолчанию выключена) или наценку ввели в строке; цену продажи молча не ставим.
 double invoiceAutoPrice(double cost, [double pct = 30]) => cost <= 0 ? 0 : ((cost * (1 + pct / 100) / 5).ceil() * 5).toDouble();
 
 /// 2026-10-27 (ревью М-5 / Ск-11): как принять строку накладной в упаковках. unset — кассир ещё не выбрал (приход не добавляется).
@@ -71,6 +72,9 @@ int? invoicePackSize(Product p, InvoiceLine l) {
   }
   return null;
 }
+
+/// 2026-11-06: ответ на вопрос «У N позиций нет цены продажи».
+enum _NoPriceChoice { enter, markup, leave }
 
 class _Row {
   final InvoiceLine src;
@@ -91,6 +95,9 @@ class _Row {
 
   /// Цена продажи вписана вручную (или взята со склада) — закупка её не пересчитывает.
   bool priceManual = false;
+
+  /// 2026-11-06: наценку в строке ввели руками — цена идёт за закупкой по ней, даже когда общая авто-наценка выключена.
+  bool useMarkup = false;
 
   /// Закупку правили руками — переключатель «с НДС» её не трогает.
   bool costEdited = false;
@@ -119,8 +126,9 @@ class _Row {
   double get costV => parseNum(cost.text) ?? 0;
   double get priceV => parseNum(price.text) ?? 0;
 
-  /// Строка готова к приходу.
-  bool get ready => !bad && !needsPackChoice && qtyV > 0 && costV > 0 && priceV > 0 && (product != null || name.text.trim().isNotEmpty);
+  /// Строка готова к приходу. 2026-11-06: цена продажи не обязательна — строку без цены можно «оставить без цены»
+  /// (вопрос перед отправкой), цену товара тогда не трогаем.
+  bool get ready => !bad && !needsPackChoice && qtyV > 0 && costV > 0 && (product != null || name.text.trim().isNotEmpty);
 
   void dispose() {
     for (final c in [name, qty, cost, markup, price, packCtl]) {
@@ -147,6 +155,10 @@ class _InvoiceImportScreenState extends ConsumerState<InvoiceImportScreen> {
   bool _curOk = false;
   bool _withVat = false;
   bool _genCodes = false;
+
+  /// 2026-11-06 (жалоба «Орук маркет»: цена «закупка + 20 %» ставилась молча 140 товарам): авто-наценка по умолчанию ВЫКЛ.
+  bool _autoMarkup = false;
+  static const _autoMarkupKey = 'invoice.autoMarkup';
 
   static final _date = DateFormat('dd.MM.yyyy');
 
@@ -235,15 +247,20 @@ class _InvoiceImportScreenState extends ConsumerState<InvoiceImportScreen> {
       if (r.src.retail > 0) {
         price = r.src.retail;
         r.priceManual = true;
-      } else if (p != null && p.price > 0 && p.price >= cost) {
-        price = p.price; // цена на складе не меняется, пока закупка её не обогнала
+      } else if (p != null && p.price > 0 && (p.price >= cost || !_autoMarkup)) {
+        // 2026-11-06: цена, которая у товара уже есть, не трогается (раньше при закупке выше цены её пересчитывало молча)
+        price = p.price;
         r.priceManual = true;
-      } else {
+      } else if (_autoMarkup) {
         price = invoiceAutoPrice(cost);
         r.priceManual = false;
+      } else {
+        price = 0; // авто-наценка выключена: цену не ставим, строка подсвечивается, перед отправкой — вопрос
+        r.priceManual = false;
       }
+      r.useMarkup = false;
       r.price.text = _num(price);
-      r.markup.text = cost > 0 && price > 0 ? _num((price - cost) / cost * 100, 1) : '30';
+      r.markup.text = cost > 0 && price > 0 ? _num((price - cost) / cost * 100, 1) : (_autoMarkup ? '30' : '');
     }
   }
 
@@ -256,6 +273,11 @@ class _InvoiceImportScreenState extends ConsumerState<InvoiceImportScreen> {
   Future<void> _prepare(ParsedInvoice inv, String name) async {
     final db = ref.read(databaseProvider);
     final api = ref.read(apiProvider);
+    try {
+      _autoMarkup = await db.getSetting(_autoMarkupKey) == '1';
+    } catch (_) {
+      // нет настройки — выключено
+    }
     GlobalProducts? catalog;
     try {
       catalog = ref.read(globalProductsProvider);
@@ -330,10 +352,13 @@ class _InvoiceImportScreenState extends ConsumerState<InvoiceImportScreen> {
     if (c.text != text) c.value = TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
   }
 
+  /// Цена идёт за закупкой по наценке: общая авто-наценка включена или наценку ввели в этой строке (и цену руками не писали).
+  bool _autoOf(_Row r) => !r.priceManual && (_autoMarkup || r.useMarkup);
+
   void _onCost(_Row r) {
     r.costEdited = true;
     final c = r.costV;
-    if (!r.priceManual) {
+    if (_autoOf(r)) {
       final pct = parseNum(r.markup.text) ?? 30;
       _setText(r.price, _num(invoiceAutoPrice(c, pct)));
     } else if (c > 0 && r.priceV > 0) {
@@ -344,6 +369,7 @@ class _InvoiceImportScreenState extends ConsumerState<InvoiceImportScreen> {
 
   void _onMarkup(_Row r) {
     r.priceManual = false;
+    r.useMarkup = true;
     final pct = parseNum(r.markup.text);
     if (pct != null && r.costV > 0) _setText(r.price, _num(invoiceAutoPrice(r.costV, pct)));
     setState(() {});
@@ -351,6 +377,7 @@ class _InvoiceImportScreenState extends ConsumerState<InvoiceImportScreen> {
 
   void _onPrice(_Row r) {
     r.priceManual = true;
+    r.useMarkup = false;
     if (r.costV > 0 && r.priceV > 0) _setText(r.markup, _num((r.priceV - r.costV) / r.costV * 100, 1));
     setState(() {});
   }
@@ -360,9 +387,25 @@ class _InvoiceImportScreenState extends ConsumerState<InvoiceImportScreen> {
       _withVat = v;
       for (final r in _rows.where((r) => !r.bad && !r.costEdited)) {
         _setText(r.cost, _num(r.baseCost(v), 4));
-        if (!r.priceManual) _setText(r.price, _num(invoiceAutoPrice(r.costV, parseNum(r.markup.text) ?? 30)));
+        if (_autoOf(r)) _setText(r.price, _num(invoiceAutoPrice(r.costV, parseNum(r.markup.text) ?? 30)));
       }
     });
+  }
+
+  /// 2026-11-06: переключатель авто-наценки. Пересчитываются только строки, где цену не вписывали руками и не брали со склада;
+  /// включённая наценка видна в строках до отправки, ещё раз подтверждается при «Добавить в приход».
+  Future<void> _setAutoMarkup(bool v) async {
+    setState(() {
+      _autoMarkup = v;
+      for (final r in _rows.where((r) => !r.bad && !r.priceManual && !r.useMarkup)) {
+        _initRow(r, resetPrice: true);
+      }
+    });
+    try {
+      await ref.read(databaseProvider).setSetting(_autoMarkupKey, v ? '1' : '0');
+    } catch (_) {
+      // настройка не сохранилась — на этот раз действует
+    }
   }
 
   /// 2026-10-27 (ревью М-5): «Пересчитать в штуки» — количество × штук в упаковке, закупка ÷ штук в упаковке.
@@ -533,6 +576,53 @@ class _InvoiceImportScreenState extends ConsumerState<InvoiceImportScreen> {
     if (ready.isEmpty || ready.any((r) => !r.ready)) {
       toast(context, l.invAddFix, error: true);
       return;
+    }
+    // 2026-11-06 (жалоба «Орук маркет»): цену продажи молча не ставим. Строки без цены — вопрос; цены по наценке — подтверждение.
+    final noPrice = ready.where((r) => r.priceV <= 0).toList();
+    if (noPrice.isNotEmpty) {
+      final pct = noPrice.map((r) => parseNum(r.markup.text)).whereType<double>().firstOrNull ?? 30;
+      final choice = await showDialog<_NoPriceChoice>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: Text(l.invNoPriceTitle(noPrice.length)),
+          content: Text(l.invNoPriceBody),
+          actions: [
+            TextButton(key: const ValueKey('noPriceLeave'), onPressed: () => Navigator.pop(c, _NoPriceChoice.leave), child: Text(l.invNoPriceLeave)),
+            TextButton(key: const ValueKey('noPriceMarkup'), onPressed: () => Navigator.pop(c, _NoPriceChoice.markup), child: Text(l.invNoPriceMarkup(pct.round()))),
+            FilledButton(key: const ValueKey('noPriceEnter'), onPressed: () => Navigator.pop(c, _NoPriceChoice.enter), child: Text(l.invNoPriceEnter)),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (choice == _NoPriceChoice.markup) {
+        // наценка ставится в строки и остаётся на экране: цену видно, подтверждается следующим нажатием
+        setState(() {
+          for (final r in noPrice.where((r) => r.costV > 0)) {
+            r.priceManual = false;
+            r.useMarkup = true;
+            if (r.markup.text.trim().isEmpty) r.markup.text = '${pct.round()}';
+            _setText(r.price, _num(invoiceAutoPrice(r.costV, parseNum(r.markup.text) ?? pct)));
+          }
+        });
+        return;
+      }
+      if (choice != _NoPriceChoice.leave) return; // «Ввести цену» или окно закрыто — остаёмся на экране
+    } else {
+      final auto = ready.where((r) => r.product != null && !r.priceManual && r.priceV > 0).toList();
+      if (auto.isNotEmpty) {
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: Text(l.invAutoConfirmTitle(auto.length)),
+            content: Text(l.invAutoConfirmBody),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+              FilledButton(key: const ValueKey('autoConfirmYes'), onPressed: () => Navigator.pop(c, true), child: Text(l.invAutoConfirmYes)),
+            ],
+          ),
+        );
+        if (ok != true || !mounted) return;
+      }
     }
     setState(() => _adding = true);
     try {
@@ -787,6 +877,14 @@ class _InvoiceImportScreenState extends ConsumerState<InvoiceImportScreen> {
         ),
       ),
       if (inv.hasVat) SwitchListTile(contentPadding: EdgeInsets.zero, value: _withVat, onChanged: _setVat, title: Text(l.invVat), subtitle: Text(l.invVatSub)),
+      SwitchListTile(
+        key: const ValueKey('autoMarkupSwitch'),
+        contentPadding: EdgeInsets.zero,
+        value: _autoMarkup,
+        onChanged: _setAutoMarkup,
+        title: Text(l.invAutoMarkup),
+        subtitle: Text(l.invAutoMarkupSub),
+      ),
       if (needCodes)
         SwitchListTile(
           contentPadding: EdgeInsets.zero,

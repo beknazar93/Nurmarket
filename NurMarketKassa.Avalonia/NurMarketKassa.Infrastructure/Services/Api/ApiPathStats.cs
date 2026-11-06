@@ -36,6 +36,7 @@ public static class ApiPathStats
             var key = method.Method + " " + NormalizePath(absolutePath);
             if (!Counters.ContainsKey(key) && Counters.Count >= MaxKeys)
                 key = OtherKey;
+            PerfSummary.RecordApi(key, elapsedMs); // 2026-11-06: В5 шаг 24 (18.2) — те же пути для суточной строки PERF (p50/p95)
             var cell = Counters.GetOrAdd(key, _ => new long[2]);
             Interlocked.Increment(ref cell[0]);
             Interlocked.Add(ref cell[1], (long)Math.Max(0, elapsedMs));

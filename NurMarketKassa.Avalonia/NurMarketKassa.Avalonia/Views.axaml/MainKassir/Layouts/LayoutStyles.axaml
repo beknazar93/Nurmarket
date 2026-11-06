@@ -158,7 +158,7 @@
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Padding" Value="10,0"/>
-        <Setter Property="MinHeight" Value="36"/>
+        <Setter Property="MinHeight" Value="40"/> <!-- 2026-11-06: В6 цель нажатия 40 (было 36) -->
     </Style>
     <Style Selector="Button.lx-ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
@@ -291,7 +291,7 @@
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Padding" Value="14,0"/>
-        <Setter Property="Height" Value="36"/>
+        <Setter Property="Height" Value="40"/> <!-- 2026-11-06: В6 цель нажатия 40 (было 36) -->
         <Setter Property="CornerRadius" Value="18"/>
     </Style>
     <Style Selector="Button.lx-chip:pointerover /template/ ContentPresenter#PART_ContentPresenter">

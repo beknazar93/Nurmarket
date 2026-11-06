@@ -224,7 +224,7 @@
                         <!-- 2026-10-20, проверка фильтров: «Фильтр» в раскладке (было только в «Классике») — число включённых условий,
                              в подсказке что включено; «✕» сбрасывает. Кнопки не берут фокус (скан — окну кассы). -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" VerticalAlignment="Center">
-                            <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="36" Padding="10,0"
+                            <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="40" Padding="10,0"
                                     ToolTip.Tip="{Binding Catalog.ActiveFilterTip}" Click="OpenFilter_Click">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <PathIcon Data="{StaticResource IconFilter}" Width="14" Height="14"/>
@@ -236,7 +236,7 @@
                                     </Border>
                                 </StackPanel>
                             </Button>
-                            <Button Classes="lx-chip" Focusable="False" Height="36" Width="36" Padding="0" Content="✕"
+                            <Button Classes="lx-chip" Focusable="False" Height="40" Width="40" Padding="0" Content="✕"
                                     IsVisible="{Binding Catalog.HasActiveFilter}" ToolTip.Tip="{Binding Catalog.ResetFilterTip}"
                                     AutomationProperties.Name="{Binding Catalog.ResetFilterTip}" Click="ResetFilter_Click"/>
                         </StackPanel>
@@ -341,12 +341,12 @@
             </Border>
 
             <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="20,8,20,12">
-                <Button Classes="lx-btn" MinHeight="36" Command="{Binding Catalog.PreviousPageCommand}">
+                <Button Classes="lx-btn" MinHeight="40" Command="{Binding Catalog.PreviousPageCommand}">
                     <PathIcon Data="{StaticResource IconChevronLeft}" Width="16" Height="16"/>
                 </Button>
                 <TextBlock Grid.Column="1" Text="{Binding Catalog.PageStatusText}" Classes="lx-muted"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                <Button Grid.Column="2" Classes="lx-btn" MinHeight="36" Command="{Binding Catalog.NextPageCommand}">
+                <Button Grid.Column="2" Classes="lx-btn" MinHeight="40" Command="{Binding Catalog.NextPageCommand}">
                     <PathIcon Data="{StaticResource IconChevronRight}" Width="16" Height="16"/>
                 </Button>
             </Grid>
@@ -372,11 +372,11 @@
                                        ToolTip.Tip="{DynamicResource lx.customerHint}" Foreground="{DynamicResource BrushTextSoft}"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" Margin="8,0,0,0" VerticalAlignment="Center">
-                            <Button Classes="lx-btn" Width="36" MinHeight="34" Padding="0" Command="{Binding SideMenu.NavigateClientsCommand}"
+                            <Button Classes="lx-btn" Width="40" MinHeight="40" Padding="0" Command="{Binding SideMenu.NavigateClientsCommand}"
                                     IsVisible="{Binding SideMenu.CanViewClients}" ToolTip.Tip="{DynamicResource lx.railClients}">
                                 <PathIcon Data="{StaticResource IconClients}" Width="16" Height="16"/>
                             </Button>
-                            <Button Classes="lx-btn" MinHeight="34" Padding="10,0" Command="{Binding Basket.OpenPayDebtCommand}"
+                            <Button Classes="lx-btn" MinHeight="40" Padding="10,0" Command="{Binding Basket.OpenPayDebtCommand}"
                                     ToolTip.Tip="{DynamicResource csh.cart.payDebt}">
                                 <TextBlock Text="{DynamicResource csh.cart.payDebt}" FontSize="12" TextTrimming="CharacterEllipsis" MaxWidth="110"/>
                             </Button>
@@ -452,7 +452,7 @@
                                                 </Button>
                                                 <!-- 2026-09-28: количество вводится с клавиатуры, как в «Классике» (раньше здесь был
                                                      только текст — точное количество в этом виде кассы ввести было нельзя). -->
-                                                <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="40" Height="36" MinHeight="0"
+                                                <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="40" Height="40" MinHeight="0"
                                                          Padding="4,0" FontSize="14" FontWeight="SemiBold" TextAlignment="Center" VerticalContentAlignment="Center"
                                                          VerticalAlignment="Center"
                                                          Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushInputBorder}"
@@ -475,23 +475,24 @@
                                                     <TextBlock Text="{Binding DiscountDisplayText}"/>
                                                 </Border>
                                                 <Border IsVisible="{Binding HasLoss}" Background="#7F1D1D" CornerRadius="6" Padding="8,3" VerticalAlignment="Center" ToolTip.Tip="{Binding LossTooltip}"><TextBlock Text="{Binding LossDisplayText}" Foreground="White" FontSize="12" FontWeight="Bold"/></Border>
-                                                <Button Classes="lx-ghost" MinHeight="36" Height="36" Padding="10,0" FontSize="12" FontWeight="Normal"
+                                                <Button Classes="lx-ghost" MinHeight="40" Height="40" Padding="10,0" FontSize="12" FontWeight="Normal"
                                                         IsVisible="{Binding IsWeight}" Command="{Binding WeighCommand}" CommandParameter="{Binding}">
                                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                                         <PathIcon Data="{StaticResource IconScale}" Width="12" Height="12"/>
                                                         <TextBlock Text="{DynamicResource lx.weigh}" VerticalAlignment="Center"/>
                                                     </StackPanel>
                                                 </Button>
-                                                <Button Classes="lx-ghost" MinHeight="36" Height="36" Padding="10,0" FontSize="12" FontWeight="Normal"
+                                                <Button Classes="lx-ghost" MinHeight="40" Height="40" Padding="10,0" FontSize="12" FontWeight="Normal"
                                                         Command="{Binding DiscountCommand}" CommandParameter="{Binding}">
                                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                                         <PathIcon Data="{StaticResource IconPercent}" Width="11" Height="11"/>
                                                         <TextBlock Text="{DynamicResource onecLayout.discountButton}" VerticalAlignment="Center"/>
                                                     </StackPanel>
                                                 </Button>
-                                                <Button Classes="lx-ghost" MinHeight="36" Height="36" Padding="10,0" FontSize="12" FontWeight="Normal"
-                                                        Foreground="{DynamicResource BrushDanger}"
-                                                        Command="{Binding RemoveCommand}" CommandParameter="{Binding}">
+                                                <!-- 2026-11-06: В6 Д4-04 — серый вместо красного, отступ от «Скидка», удаление двумя нажатиями («Удалить?» на 3 с), как в основном виде. -->
+                                                <Button Classes="lx-ghost" MinHeight="40" Height="40" Padding="10,0" Margin="12,0,0,0" FontSize="12" FontWeight="Normal"
+                                                        Foreground="{DynamicResource BrushTextSoft}"
+                                                        Click="CartDelete_Click">
                                                     <StackPanel Orientation="Horizontal" Spacing="4">
                                                         <PathIcon Data="{StaticResource IconTrash}" Width="12" Height="12"/>
                                                         <TextBlock Text="{DynamicResource common.delete}" VerticalAlignment="Center"/>

@@ -43,9 +43,16 @@ public static class SupportLogService
                 using var doc = JsonDocument.Parse(File.ReadAllText(path));
                 var root = doc.RootElement;
                 var token = root.TryGetProperty("token", out var t) ? t.GetString() : null;
+                // 2026-11-06: В3 Б-3 — токен бота поддержки теперь лежит зашифрованным (token_protected, DPAPI / PortableSecret). Открытый «token» читается как раньше
+                // и при первом чтении заменяется зашифрованным в самом файле (если файл доступен для записи).
+                var protectedToken = root.TryGetProperty("token_protected", out var tp) ? tp.GetString() : null;
                 var chat = root.TryGetProperty("chat_id", out var c)
                     ? (c.ValueKind == JsonValueKind.Number ? c.GetRawText() : c.GetString())
                     : null;
+                if (string.IsNullOrWhiteSpace(token) && !string.IsNullOrWhiteSpace(protectedToken))
+                    token = WindowsDpapiHelper.UnprotectFromBase64(protectedToken);
+                else if (!string.IsNullOrWhiteSpace(token) && !string.IsNullOrWhiteSpace(chat))
+                    TryProtectInFile(path, token.Trim(), chat.Trim());
                 if (!string.IsNullOrWhiteSpace(token) && !string.IsNullOrWhiteSpace(chat))
                     return new Config(token.Trim(), chat.Trim());
             }
@@ -55,6 +62,29 @@ public static class SupportLogService
             }
         }
         return null;
+    }
+
+    /// <summary>2026-11-06: В3 Б-3 — переписывает файл настроек бота: вместо открытого токена — token_protected. Сбой записи (файл в защищённой папке, только чтение) не мешает работе:
+    /// токен остаётся в файле открытым, как раньше.</summary>
+    internal static void TryProtectInFile(string path, string token, string chatId)
+    {
+        try
+        {
+            var protectedValue = WindowsDpapiHelper.ProtectToBase64(token);
+            if (string.IsNullOrEmpty(protectedValue))
+                return;
+            var json = JsonSerializer.Serialize(new Dictionary<string, string> { ["token_protected"] = protectedValue, ["chat_id"] = chatId }, new JsonSerializerOptions { WriteIndented = true });
+            // Не AtomicFile: он оставляет копию .bak с ПРЕЖНИМ (открытым) содержимым — здесь копия именно то, чего не должно быть.
+            var tmp = path + ".tmp";
+            File.WriteAllText(tmp, json);
+            File.Replace(tmp, path, null, ignoreMetadataErrors: true);
+            try { File.Delete(path + ".bak"); } catch (Exception) { /* копии нет или занята — не критично */ }
+            PosLogger.Log("Бот поддержки: токен в файле настроек зашифрован.", "INFO");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            PosLogger.Log($"Бот поддержки: токен в файле настроек не зашифрован ({ex.GetType().Name}).", "WARNING");
+        }
     }
 
     public static bool IsConfigured => LoadConfig() is not null;

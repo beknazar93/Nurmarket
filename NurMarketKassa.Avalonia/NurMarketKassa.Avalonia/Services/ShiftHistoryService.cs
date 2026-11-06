@@ -174,7 +174,7 @@ public static class ShiftHistoryService
         foreach (var n in names)
         {
             if (!row.TryGetProperty(n, out var p)) continue;
-            if (p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt)) return dt; // 2026-11-05 (аудит №4, Л4-23): не по культуре ПК
+            if (p.ValueKind == JsonValueKind.String && DateTime.TryParse(p.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt)) return dt; // 2026-11-05 (аудит №4, Л4-23): не по культуре ПК. 2026-11-06: В2 Л4-23 — RoundtripKind не нужен: со стилем None строка с «Z»/смещением и так переводится в местное время ПК (Kind=Local), как ждёт «Табель»; без смещения — Unspecified
         }
         return null;
     }

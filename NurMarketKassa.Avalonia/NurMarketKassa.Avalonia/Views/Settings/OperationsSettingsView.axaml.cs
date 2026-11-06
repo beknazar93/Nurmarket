@@ -318,7 +318,7 @@ public partial class OperationsSettingsView : UserControl
         // лишнего сохранения настроек.
         DynamicQrCheck.IsChecked = prefs.DynamicPaymentQrEnabled;
 
-        TelegramTokenBox.Text = prefs.TelegramBotToken ?? "";
+        ShowTelegramToken(prefs);
         TelegramSummaryCheck.IsChecked = prefs.TelegramShiftSummaryEnabled;
         TelegramCommandsCheck.IsChecked = prefs.TelegramCommandsEnabled;
         OwnerPhoneBox.Text = prefs.OwnerPhone ?? "";
@@ -326,8 +326,8 @@ public partial class OperationsSettingsView : UserControl
         // 2026-10-05, владелец: «строго соблюдай разделение тарифов». Бот на «Старте» — только купленный в
         // Маркетплейсе; ИИ (ключи Gemini, Groq, OpenRouter) — только «Стандарт».
         TelegramCard.IsVisible = TariffGate.CanUseTelegramBot;
-        AiKeysPanel.IsVisible = TariffGate.CanUseAi && CanSeeAiKeys;
-        AiKeysHiddenText.IsVisible = TariffGate.CanUseAi && !CanSeeAiKeys;
+        AiKeysPanel.IsVisible = TariffGate.CanUseAi && CanEditAiKeys;
+        AiKeysHiddenText.IsVisible = TariffGate.CanUseAi && !CanEditAiKeys;
         AiTariffLockText.IsVisible = !TariffGate.CanUseAi;
         AiTariffLockText.Text = TariffGate.AiLockedMessage;
         UpdateTelegramStatus();
@@ -394,6 +394,8 @@ public partial class OperationsSettingsView : UserControl
     {
         var prefs = UserPreferences.Instance;
         var token = (TelegramTokenBox.Text ?? "").Trim();
+        if (_telegramTokenHidden && token.Length == 0)
+            return; // 2026-11-06: В3 Л5-21 — токен скрыт (поле пустое с пометкой «задан»): пустое поле = «не менялось», а не «стереть»
         if (prefs.TelegramBotToken == token)
             return;
         // 2026-10-21 (бот, ВАЖНО 13): другой бот — прежний получатель и владелец недействительны, подтверждаются заново кодом.
@@ -501,7 +503,7 @@ public partial class OperationsSettingsView : UserControl
             window.Show();
 
         var prefs = UserPreferences.Instance;
-        TelegramTokenBox.Text = prefs.TelegramBotToken ?? "";
+        ShowTelegramToken(prefs);
         TelegramSummaryCheck.IsChecked = prefs.TelegramShiftSummaryEnabled;
         TelegramCommandsCheck.IsChecked = prefs.TelegramCommandsEnabled;
         UpdateTelegramStatus();
@@ -582,24 +584,45 @@ public partial class OperationsSettingsView : UserControl
     // ни глазом, ни через автоматизацию), «Показать» вставляет ключи в поля. Пустое скрытое поле = «не менялось».
     private bool _aiKeysRevealed;
 
+    /// <summary>Видеть и показывать ключи ИИ и токен бота: только владелец/админ по роли из профиля NurCRM.
+    /// 2026-11-06: В3 Л5-21 — автономный режим сюда больше НЕ входит: ключи, введённые при входе через NurCRM, лежат в тех же настройках, и вошедший автономно их видел.</summary>
     private static bool CanSeeAiKeys
     {
         get
         {
-            // 2026-11-05 (ревью волн 0–3, Л4-10): запуск с ключом --owner сам по себе ключи ИИ не открывает (кассир мог так их увидеть) — только роль из профиля или автономный режим.
+            // 2026-11-05 (ревью волн 0–3, Л4-10): запуск с ключом --owner сам по себе ключи ИИ не открывает (кассир мог так их увидеть) — только роль из профиля.
             if (App.AppHost?.Services is not { } sp)
                 return false;
             if (Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<NurMarketKassa.Core.Contracts.IAutonomousAuthService>(sp) is { IsCurrentSessionAutonomous: true })
-                return true;
+                return false;
             return Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<NurMarketKassa.Services.Api.IAuthApiService>(sp) is { } auth
                    && PermissionService.IsOwnerOrAdmin(auth.UserPayload);
         }
+    }
+
+    /// <summary>Вводить новые ключи ИИ: владелец/админ и автономный режим (владелец автономной кассы вводит свои ключи, но уже сохранённые не видит — их показывает только <see cref="CanSeeAiKeys"/>).</summary>
+    private static bool CanEditAiKeys =>
+        CanSeeAiKeys
+        || (App.AppHost?.Services is { } sp
+            && Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetService<NurMarketKassa.Core.Contracts.IAutonomousAuthService>(sp) is { IsCurrentSessionAutonomous: true });
+
+    // 2026-11-06: В3 Л5-21 — токен бота: тем, кто не вправе видеть ключи, поле показывается пустым с пометкой «токен задан» (как ключи ИИ); пустое поле при сохранении = «не менялось».
+    private bool _telegramTokenHidden;
+
+    private void ShowTelegramToken(UserPreferences prefs)
+    {
+        _telegramTokenHidden = !CanSeeAiKeys && !string.IsNullOrWhiteSpace(prefs.TelegramBotToken);
+        TelegramTokenBox.Text = _telegramTokenHidden ? "" : prefs.TelegramBotToken ?? "";
+        TelegramTokenBox.Watermark = _telegramTokenHidden
+            ? "•••••••• " + Tr.T("(токен задан)", "(токен коюлган)", "(token is set)", "(token ayarlı)", "(token kiritilgan)")
+            : "123456789:AA...";
     }
 
     private void RefreshAiKeyBoxes()
     {
         var prefs = UserPreferences.Instance;
         var canSee = CanSeeAiKeys;
+        var canEdit = CanEditAiKeys;
         if (!canSee)
             _aiKeysRevealed = false;
         static string State(string? key) => string.IsNullOrWhiteSpace(key)
@@ -611,11 +634,12 @@ public partial class OperationsSettingsView : UserControl
             $"AI keys: Gemini — {State(prefs.TelegramAiKey)}, Groq — {State(prefs.GroqApiKey)}, OpenRouter — {State(prefs.OpenRouterApiKey)}. Only the owner can view and change them.",
             $"YZ anahtarları: Gemini — {State(prefs.TelegramAiKey)}, Groq — {State(prefs.GroqApiKey)}, OpenRouter — {State(prefs.OpenRouterApiKey)}. Yalnızca sahibi görebilir ve değiştirebilir.",
             $"SI kalitlari: Gemini — {State(prefs.TelegramAiKey)}, Groq — {State(prefs.GroqApiKey)}, OpenRouter — {State(prefs.OpenRouterApiKey)}. Faqat egasi ko'ra va o'zgartira oladi.");
-        if (!canSee)
+        if (!canEdit)
         {
             TelegramAiKeyBox.Text = GroqKeyBox.Text = OpenRouterKeyBox.Text = "";
             return;
         }
+        AiKeysRevealButton.IsVisible = canSee; // 2026-11-06: В3 Л5-21 — «Показать ключи» только тем, кто вправе их видеть
 
         TelegramAiManyKeysButton.Content = Tr.T("Несколько ключей…", "Бир нече ачкыч…", "Several keys…", "Birden çok anahtar…", "Bir nechta kalit…");
         AiKeysRevealButton.Content = _aiKeysRevealed

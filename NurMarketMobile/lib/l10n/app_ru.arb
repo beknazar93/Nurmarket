@@ -3494,6 +3494,37 @@
   },
   "invCostMissing": "Укажите закупку",
   "invPriceMissing": "Укажите цену продажи",
+  "invAutoMarkup": "Авто-наценка к закупке",
+  "invAutoMarkupSub": "Выключено: цена продажи сама не ставится. Включите — цена = закупка + 30 % (вверх до 5 сом), видна в строке до отправки",
+  "invNoPriceTitle": "У {n} поз. нет цены продажи",
+  "@invNoPriceTitle": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "invNoPriceBody": "Введите цену или наценку. «Оставить без цены» — цена существующих товаров не изменится, новые товары будут созданы без цены.",
+  "invNoPriceEnter": "Ввести цену",
+  "invNoPriceMarkup": "Наценка +{pct} %",
+  "@invNoPriceMarkup": {
+    "placeholders": {
+      "pct": {
+        "type": "int"
+      }
+    }
+  },
+  "invNoPriceLeave": "Оставить без цены",
+  "invAutoConfirmTitle": "Цена по наценке: {n} поз.",
+  "@invAutoConfirmTitle": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "invAutoConfirmBody": "У этих товаров цена продажи будет поставлена по наценке — она видна в строке. Подтвердить?",
+  "invAutoConfirmYes": "Подтвердить",
   "invRemoveRow": "Убрать строку",
   "invAdd": "Добавить в приход · {n}",
   "@invAdd": {

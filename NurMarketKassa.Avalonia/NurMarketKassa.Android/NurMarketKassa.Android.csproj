@@ -113,6 +113,11 @@
     <PackageReference Include="MediatR" Version="12.4.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
+    <!-- 2026-11-06: В4 А5-04 (владелец: «убрать нативы QuestPDF из APK — да»). QuestPDF приходит из проекта Infrastructure; его родные библиотеки
+         (libQuestPdfSkia.so, libqpdf.so) — сборки под Linux glibc: Android (bionic) их не загружает, PDF на Android не создавался и раньше (кнопки PDF
+         теперь скрыты, см. PdfSupport). Версия та же, что в Infrastructure; исключаются только родные файлы (≈7,6 МБ в APK). PDF на Android вернётся
+         через SkiaSharp (волна В18) — тогда эта строка не понадобится. -->
+    <PackageReference Include="QuestPDF" Version="2024.12.3" ExcludeAssets="native" />
   </ItemGroup>
 
   <ItemGroup>

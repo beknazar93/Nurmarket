@@ -88,8 +88,12 @@
             <TextBlock Grid.Column="0" x:Name="TitleText" Text="{DynamicResource csh.menu.errorLogs}"
                        FontSize="26" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button x:Name="RefreshButton" Content="{DynamicResource common.refresh}" Classes="PrimaryActionButton"
-                        Margin="0,0,10,0" Click="Refresh_Click"/>
+                <!-- 2026-11-06: В6 Д4-25 — «Обновить» не главное действие: значок 40×40 с подсказкой, без жёлтой заливки. -->
+                <Button x:Name="RefreshButton" Classes="SecondaryActionButton" Width="40" Height="40" Padding="0"
+                        ToolTip.Tip="{DynamicResource common.refresh}" AutomationProperties.Name="{DynamicResource common.refresh}"
+                        Margin="0,0,10,0" Click="Refresh_Click">
+                    <PathIcon Data="{StaticResource IconRefresh}" Width="16" Height="16"/>
+                </Button>
                 <Button x:Name="OpenFolderButton" Content="{DynamicResource logs.openFolder}" Classes="SecondaryActionButton"
                         Margin="0,0,10,0" Click="OpenFolder_Click"/>
                 <!-- 2026-10-01: журнал с компанией и логином — в Telegram-бот поддержки (SupportLogService). -->

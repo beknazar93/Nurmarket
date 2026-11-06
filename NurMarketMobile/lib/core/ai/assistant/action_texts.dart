@@ -935,6 +935,14 @@ const _t = <String, List<String>>{
     'At what purchase price should "{name}" be received? Say the price.',
     '"{name}" hangi alış fiyatıyla kabul edilsin? Fiyatı söyleyin.',
   ],
+  // 2026-11-06 (жалоба «Орук маркет»): цену продажи молча не ставим — у товара её нет, переспрашиваем
+  'h.priceNeeded': [
+    'У «{name}» нет цены продажи. Какая цена продажи? Или скажите «без цены».',
+    '«{name}» товарынын сатуу баасы жок. Сатуу баасы канча? Же «баасыз» деп айтыңыз.',
+    "«{name}» ning sotuv narxi yo'q. Sotuv narxi qancha? Yoki «narxsiz» deng.",
+    '"{name}" has no selling price. What is the selling price? Or say "no price".',
+    '"{name}" için satış fiyatı yok. Satış fiyatı nedir? Ya da "fiyatsız" deyin.',
+  ],
   'h.unitBad': [
     'Единица измерения: шт, кг, л или упак. Какую поставить?',
     'Өлчөө бирдиги: шт, кг, л же упак. Кайсынысын коём?',

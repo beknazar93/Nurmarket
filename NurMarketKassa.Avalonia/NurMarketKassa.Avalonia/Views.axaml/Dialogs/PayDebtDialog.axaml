@@ -33,6 +33,11 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
 
+        <!-- 2026-11-06: В6 Д4-19 — сумма долга в списке клиентов обычная тёмная жирная; красная только у просроченных (старше 30 дней, как корзина «30+» в долгах владельца). -->
+        <Style Selector="TextBlock.debt-amount.overdue">
+            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+        </Style>
+
         <Style Selector="DataGrid">
             <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
@@ -136,9 +141,10 @@
                                             <Grid ColumnDefinitions="*,Auto">
                                                 <TextBlock Text="{ReflectionBinding DisplayName}" TextTrimming="CharacterEllipsis"
                                                            VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="{ReflectionBinding DebtText}" Classes="num"
+                                                <TextBlock Grid.Column="1" Text="{ReflectionBinding DebtText}" Classes="num debt-amount"
+                                                           Classes.overdue="{ReflectionBinding IsOverdue}"
                                                            Margin="12,0,0,0" FontWeight="SemiBold" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource BrushDanger}"/>
+                                                           Foreground="{DynamicResource BrushText}"/>
                                             </Grid>
                                         </Button>
                                     </DataTemplate>

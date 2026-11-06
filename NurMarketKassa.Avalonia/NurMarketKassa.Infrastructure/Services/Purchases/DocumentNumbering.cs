@@ -455,7 +455,9 @@ public sealed class DocNumberStore
         company.Reservations.Where(r => r.Series == series && r.Year == year && r.Draft && !ReferenceEquals(r, self)).Select(r => r.Seq).DefaultIfEmpty(0).Max() + 1;
 
     /// <summary>Приход проведён: закрепить номер резерва за документом (до тех пор, пока сервер не вернёт его в комментарии).</summary>
-    public void Bind(DocSeries series, string key, string? docId)
+    /// <param name="serverNumber">2026-11-06 (живой тест, Б-3): number_display из ответа сервера («ПР-2026-000078»). Сервер — источник истины: закрепляется ЕГО порядковый номер,
+    /// а не тот, что касса зарезервировала (раньше список показывал номер кассы 77, а окно документа — серверный 78).</param>
+    public void Bind(DocSeries series, string key, string? docId, string? serverNumber = null)
     {
         if (string.IsNullOrEmpty(docId))
             return;
@@ -463,15 +465,34 @@ public sealed class DocNumberStore
         {
             var company = Company();
             var r = company.Reservations.FirstOrDefault(x => x.Key == key && x.Series == series);
-            if (r is null || r.Draft)
+            var server = string.IsNullOrWhiteSpace(serverNumber) ? null : DocumentNumberingCore.ClaimWithPrefixFromText(Data().Settings, series, "№ " + serverNumber.Trim());
+            if (r is null && server is null)
+                return;
+            if (r is not null && r.Draft && server is null)
                 return; // черновик постоянного номера не получал — у документа будет номер по порядку
-            r.DocId = docId;
+            var year = server?.Year ?? r!.Year;
+            var seq = server?.Seq ?? r!.Seq;
+            var prefix = server?.Prefix ?? (r!.Prefix.Length > 0 ? r.Prefix : Data().Settings.Prefix(series));
+            if (r is not null)
+            {
+                r.DocId = docId;
+                if (server is not null)
+                {
+                    r.Year = year;
+                    r.Seq = seq;
+                    r.Prefix = prefix;
+                    r.Draft = false;
+                }
+            }
             var idx = Index(series);
-            idx.LocalClaims[docId] = r.Seq;
-            var prefix = r.Prefix.Length > 0 ? r.Prefix : Data().Settings.Prefix(series);
+            idx.LocalClaims[docId] = seq;
             idx.LocalClaimPrefixes[docId] = prefix;
-            if (!idx.Entries.Any(e => e.Id == docId))
-                idx.Entries.Add(new DocEntry(docId, _now(), r.Year, r.Seq, prefix));
+            var entry = new DocEntry(docId, _now(), year, seq, prefix);
+            var at = idx.Entries.FindIndex(e => e.Id == docId);
+            if (at < 0)
+                idx.Entries.Add(entry);
+            else if (server is not null)
+                idx.Entries[at] = idx.Entries[at] with { ClaimYear = year, Claim = seq, ClaimPrefix = prefix };
             Save();
         }
         Changed?.Invoke();

@@ -1,0 +1,4 @@
+Исходники сцен съёмки кадров уроков (стенд лежит вне репозитория: C:\Users\User\NurMarket-video\stands\ad-features).
+FeatLessons*.cs копируются в папку стенда; в FeatRun.cs регистрируется FeatLessons.Register(All); сборка стенда — build.ps1; запуск одной сцены:
+  OUT=C:/Users/User/NurMarket-video/lessons/shots/K-01 bash run1.sh ru light les-k01     (les-k01…les-k08, les-v01…les-v03; K-09 — runr.sh в стенде ad-rcv2, см. rcv2-les-k09.cs.txt)
+Сцена пишет PNG кадров и frames.json (прямоугольники элементов) в lessons/shots/<ID>; дальше — tools/video/lessons/make_lesson.py <ID>.

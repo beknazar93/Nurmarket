@@ -67,7 +67,10 @@ public partial class AbcAnalysisWindow : Window, IOwnerSection
             "Group A makes up the first 80% of the result, B the next 15%, C the remaining 5%.",
             "A grubu sonucun ilk %80'ini, B sonraki %15'ini, C kalan %5'ini verir.",
             "A guruhi natijaning dastlabki 80 % ini beradi, B — keyingi 15 % ini, C — qolgan 5 % ini.");
-        RefreshButton.Content = Tr.T("Обновить", "Жаңылоо", "Refresh", "Yenile", "Yangilash");
+        // 2026-11-06: В6 Д4-25 — кнопка-значок: надпись только в подсказке и для диктора.
+        var refreshLabel = Tr.T("Обновить", "Жаңылоо", "Refresh", "Yenile", "Yangilash");
+        ToolTip.SetTip(RefreshButton, refreshLabel);
+        Avalonia.Automation.AutomationProperties.SetName(RefreshButton, refreshLabel);
         CloseButton.Content = Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish");
         TodayButton.Content = Tr.T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun");
         WeekButton.Content = Tr.T("Неделя", "Жума", "Week", "Hafta", "Hafta");

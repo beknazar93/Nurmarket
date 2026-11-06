@@ -128,6 +128,17 @@ public static class OfflineRejection
         return ex.Message;
     }
 
+    /// <summary>2026-11-06 (живой тест Этапа 1, Б-1/Б-2): сервер ceba67c на ЧАСТИЧНЫЙ возврат долгового чека отвечает 400 «method: Долг нельзя указывать в строках оплаты.» —
+    /// сам собирает строки оплаты возврата из оплат чека, кассой они не передаются (тело возврата: idempotency_key, cashbox_role, items, reason). Возврат при этом
+    /// ПРОВОДИТСЯ (чек становится «Частичный возврат», повтор с тем же ключом проходит). Это не отказ по существу: исход надо выяснять, а не показывать как ошибку.</summary>
+    public static bool IsDebtPaymentLineRefusal(ApiException ex)
+    {
+        if (ex.StatusCode is not (400 or 422))
+            return false;
+        var text = RawText(ex);
+        return text.Contains("долг нельзя указывать в строках оплаты") || (text.Contains("method") && text.Contains("в строках оплаты"));
+    }
+
     /// <summary>Деловой отказ сервера (лимит долга, нечего возвращать, смена закрыта, клиент удалён) — окончательный: «Требует проверки». Обычное 409 без понятной причины
     /// («запрос с этим ключом ещё выполняется») — НЕ деловой отказ: повтор тем же ключом.</summary>
     public static bool IsBusinessConflict(ApiException ex)
@@ -182,13 +193,14 @@ public static class OfflineOperationsReplayer
         public Exception? Failure { get; set; }
     }
 
-    public static async Task<Outcome> RunAsync(IOfflineOpsApi api, CancellationToken ct)
+    /// <summary>2026-11-06: only — «Неотправленное → Отправить сейчас» отправляет только выбранные операции (тот же путь и ключ); null — все, как раньше.</summary>
+    public static async Task<Outcome> RunAsync(IOfflineOpsApi api, CancellationToken ct, ISet<string>? only = null)
     {
         var outcome = new Outcome();
         List<OfflineOperationEntry> ops;
         try
         {
-            ops = OfflineOperationsStore.LoadAll().Where(o => o.IsPendingLike).OrderBy(o => o.CreatedAt).ToList();
+            ops = OfflineOperationsStore.LoadAll().Where(o => o.IsPendingLike && (only is null || only.Contains(o.Id))).OrderBy(o => o.CreatedAt).ToList();
         }
         catch (Exception ex)
         {
@@ -379,6 +391,8 @@ public static class OfflineOperationsReplayer
 
         var firstAttempt = !op.RequestSent || op.Attempts <= 1;
         IReadOnlyList<PosRefundLineRequest>? lines = null;
+        Dictionary<string, double>? refundableBefore = null; // 2026-11-06: сколько можно было вернуть по строкам чека на сервере до запроса — для сверки, если сервер ответил ошибкой, а возврат провёл
+        ReturnSnapshot? beforeSnapshot = null;
         if (op.SentLines is { Count: > 0 } sent)
         {
             // Повтор: запрос с этим ключом мог дойти — шлём ТО ЖЕ тело, не пересчитывая по остатку на сервере (первая попытка могла его уже уменьшить).
@@ -394,6 +408,8 @@ public static class OfflineOperationsReplayer
             // Чек на сервере: id строк (sale_item_id) касса знает только оттуда; заодно — сверка «сколько ещё можно вернуть» (В-3): и для возврата по строкам, и для «всего чека».
             var sale = await api.GetSaleAsync(saleId!, ct).ConfigureAwait(false);
             CheckSaleAllowsRefund(sale, op);
+            refundableBefore = RefundableByLine(sale);
+            beforeSnapshot = ReturnSnapshot.From(sale); // 2026-11-06 (Б-1): чек до возврата — для сверки долга после
             if (!op.Whole)
             {
                 lines = MapLines(sale, op);
@@ -421,7 +437,19 @@ public static class OfflineOperationsReplayer
 
         if (op.Whole && !op.WholeSent)
             OfflineOperationsStore.Update(op.Id, o => o.WholeSent = true); // 2026-10-30: на диск ДО запроса
-        var response = await api.ReturnSaleAsync(saleId!, op.Whole ? null : lines, op.Id, op.Reason, ct).ConfigureAwait(false);
+        JsonElement response;
+        try
+        {
+            response = await api.ReturnSaleAsync(saleId!, op.Whole ? null : lines, op.Id, op.Reason, ct).ConfigureAwait(false);
+        }
+        catch (ApiException ex) when (OfflineRejection.IsDebtPaymentLineRefusal(ex))
+        {
+            // 2026-11-06 (живой тест Этапа 1, Б-1): сервер на частичный возврат долгового чека отвечает «Долг нельзя указывать в строках оплаты», но возврат проводит —
+            // раньше операция уходила в «Требует проверки» и ждала ручного «Повторить». Теперь: тот же запрос тем же ключом (сервер вернёт записанный итог), затем сверка по чеку.
+            if (await RecoverFromDebtLineRefusalAsync(api, op, saleId!, op.Whole ? null : lines, refundableBefore, ex, ct).ConfigureAwait(false) is not { } recovered)
+                throw;
+            response = recovered;
+        }
 
         OfflineOperationsStore.Update(op.Id, o =>
         {
@@ -455,6 +483,8 @@ public static class OfflineOperationsReplayer
 
         if (!string.IsNullOrWhiteSpace(op.ClientId) && op.DebtReduced > 0m)
             OfflineClientCache.ApplyConfirmed(op.ClientId, op.Id, -op.DebtReduced);
+        if (!op.Whole && !op.ReturnsAll && op.DebtReduced > 0m)
+            await WarnIfServerRecalculatedDebtAsync(api, op, saleId!, beforeSnapshot, ct).ConfigureAwait(false);
         if (op.ReturnsAll)
         {
             // Возвращён весь чек — бонусы за него отменяются (как при возврате со связью); сбой бонусов возврат не отменяет.
@@ -464,6 +494,77 @@ public static class OfflineOperationsReplayer
     }
 
     private static bool IsServerShift(string? shiftId) => Guid.TryParse(shiftId, out _);
+
+    /// <summary>2026-11-06 (живой тест Этапа 1, Б-1): частичный возврат долгового чека, отправленный без связи, сервер ceba67c записал как полный (чек №2061: canceled, долг 0 вместо 7).
+    /// Кодом кассы это не исправить; честно говорим кассиру (предупреждение в главном окне), перечитываем долг клиента с сервера (окна долгов), пишем в журнал. Сбой проверки возврат не отменяет.</summary>
+    private static async Task WarnIfServerRecalculatedDebtAsync(IOfflineOpsApi api, OfflineOperationEntry op, string saleId, ReturnSnapshot? before, CancellationToken ct)
+    {
+        try
+        {
+            var after = ReturnSnapshot.From(await api.GetSaleAsync(saleId, ct).ConfigureAwait(false));
+            if (!ReturnSnapshot.DebtRecalcSuspicious(before, after, partialReturn: true, op.DebtReduced))
+                return;
+            PosLogger.Log($"OFFLINE ops: возврат {op.Id}: сервер пересчитал долг иначе (чек {before?.Status}/{before?.ReturnStatus} → {after.Status}/{after.ReturnStatus}, "
+                          + $"долг по чеку {before?.DebtRemaining:0.00} → {after.DebtRemaining:0.00}, касса уменьшила на {op.DebtReduced:0.00}) — кассиру показано предупреждение, долги перечитываются.", "WARNING");
+            NurMarketKassa.Services.ShiftStateService.RaiseShiftNotice(ReturnSnapshot.DebtRecalcWarningText, true);
+            PosDataEvents.RaiseClientDebtChanged(string.IsNullOrWhiteSpace(op.ClientId) ? null : op.ClientId);
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or JsonException or IOException or OperationCanceledException)
+        {
+            PosLogger.Log($"OFFLINE ops: возврат {op.Id}: долг после возврата не сверен ({ex.Message}).", "WARNING");
+        }
+    }
+
+    /// <summary>2026-11-06 (Б-1): остаток «можно вернуть» по id строк чека на сервере (sale_item_id → сколько ещё можно вернуть).</summary>
+    private static Dictionary<string, double> RefundableByLine(JsonElement sale)
+    {
+        var map = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (var it in CartDisplayHelper.EnumerateSaleLineItems(sale))
+            if (CartDisplayHelper.TryRefundLineId(it) is { Length: > 0 } id)
+                map[id] = CartDisplayHelper.RefundableQuantity(it);
+        return map;
+    }
+
+    /// <summary>2026-11-06 (Б-1): сервер ответил «Долг нельзя указывать в строках оплаты» на возврат долгового чека. 1) Тот же запрос с тем же ключом: сервер, уже проведший возврат,
+    /// отдаёт записанный итог. 2) Не вышло — перечитываем чек: по строкам этого возврата «можно вернуть» стало меньше на отправленное количество (для «всего чека» — чек
+    /// возвращён целиком), значит возврат проведён, ответ ошибкой не считаем. null — не подтвердилось (операция идёт в «Требует проверки», как раньше).
+    /// Возврат повторно не проводится ни в одном из случаев: ключ тот же.</summary>
+    private static async Task<JsonElement?> RecoverFromDebtLineRefusalAsync(IOfflineOpsApi api, OfflineOperationEntry op, string saleId,
+        IReadOnlyList<PosRefundLineRequest>? lines, Dictionary<string, double>? refundableBefore, ApiException first, CancellationToken ct)
+    {
+        PosLogger.Log($"OFFLINE ops: возврат {op.Id}: сервер ответил «{first.Message}» — повтор тем же ключом, затем сверка по чеку {saleId}.", "WARNING");
+        try
+        {
+            var again = await api.ReturnSaleAsync(saleId, lines, op.Id, op.Reason, ct).ConfigureAwait(false);
+            PosLogger.Log($"OFFLINE ops: возврат {op.Id}: повтор тем же ключом принят сервером.", "OFFLINE");
+            return again;
+        }
+        catch (ApiException again) when (OfflineRejection.IsDebtPaymentLineRefusal(again))
+        {
+            // сервер отвечает тем же — сверяем по чеку ниже
+        }
+
+        try
+        {
+            var sale = await api.GetSaleAsync(saleId, ct).ConfigureAwait(false);
+            var done = lines is null
+                ? CartDisplayHelper.IsSaleFullyReturned(sale)
+                : refundableBefore is not null && lines.All(l =>
+                    refundableBefore.TryGetValue(l.LineId, out var before)
+                    && RefundableByLine(sale).TryGetValue(l.LineId, out var now)
+                    && now <= before - l.Quantity + 1e-6);
+            if (done)
+            {
+                PosLogger.Log($"OFFLINE ops: возврат {op.Id}: сервер ответил ошибкой, но по чеку {saleId} возврат проведён — считаем отправленным.", "WARNING");
+                return default(JsonElement);
+            }
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or JsonException or IOException)
+        {
+            PosLogger.Log($"OFFLINE ops: возврат {op.Id}: чек {saleId} для сверки не перечитан ({ex.Message}).", "WARNING");
+        }
+        return null;
+    }
 
     /// <summary>2026-10-29 (ревью, В-3): до отправки сверяем с чеком на сервере: чек не отменён, и «можно вернуть» не меньше, чем выдала касса. Иначе — «Требует проверки»,
     /// на сервер ничего не уходит (деньги покупателю уже выданы — решает человек).</summary>

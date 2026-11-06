@@ -98,11 +98,15 @@ public static class ProfitPayCalculator
             if (s.Scope == ProfitPayScope.Own)
             {
                 var sales = emp?.Sales ?? 0m;
-                var ratio = f.Revenue > 0 ? Math.Min(1m, Math.Max(0m, sales / f.Revenue)) : 0m;
+                // 2026-11-06: В2 Л4-15 — знаменатель = max(выручка, Σ продаж всех сотрудников): выручка сервера после возвратов, продажи сотрудников до них —
+                // иначе доли в сумме давали больше 100 % базы (больше, чем есть у магазина).
+                var salesAll = employees.Sum(x => Math.Max(0m, x.Sales));
+                var denom = Math.Max(f.Revenue, salesAll);
+                var ratio = f.Revenue > 0 ? Math.Min(1m, Math.Max(0m, sales / denom)) : 0m;
                 baseValue = shopBase * ratio;
                 line.Steps.Add(Tr.T("По своим продажам", "Өз сатуулары боюнча", "By own sales", "Kendi satışlarına göre", "O'z sotuvlari bo'yicha") + ": "
                     + Tr.T("продажи сотрудника", "кызматкердин сатуулары", "employee sales", "çalışanın satışları", "xodim sotuvlari") + " " + M(sales) + " / "
-                    + Tr.T("выручка магазина", "дүкөндүн түшүмү", "shop revenue", "mağaza cirosu", "do'kon tushumi") + " " + M(f.Revenue) + " = " + (ratio * 100m).ToString("0.##", Ru) + " %");
+                    + Tr.T("выручка магазина", "дүкөндүн түшүмү", "shop revenue", "mağaza cirosu", "do'kon tushumi") + " " + M(denom) + " = " + (ratio * 100m).ToString("0.##", Ru) + " %");
                 line.Steps.Add(baseName + " " + Tr.T("магазина", "дүкөндүн", "of the shop", "mağazanın", "do'konning") + " " + M(shopBase) + " × " + (ratio * 100m).ToString("0.##", Ru) + " % = " + M(baseValue));
                 if (f.Revenue <= 0)
                     line.Steps.Add(Tr.T("Выручки за период нет — доля 0.", "Мезгилде түшүм жок — үлүш 0.", "No revenue in the period — share 0.", "Dönemde ciro yok — pay 0.", "Davrda tushum yo'q — ulush 0."));
@@ -290,14 +294,27 @@ public static class ProfitPayCalculator
         return (amount, "", steps);
     }
 
+    /// <summary>2026-11-06: В2 Л4-15 — смена длиннее этого числа часов (забыли закрыть) в часы не идёт: иначе кассир «работает» 60 часов подряд и забирает пул.</summary>
+    public const double MaxShiftHours = 16;
+
+    /// <summary>Ключ табеля по id кассира сервера (как «Табель» с 02.11: однофамильцы не сливаются, переименование не делит).</summary>
+    public static string IdKey(string? cashierId) => "id:" + (cashierId ?? "").Trim();
+
     /// <summary>Часы по табелю внутри периода: берутся ЗАКРЫТЫЕ смены (как в «Табеле»), каждая обрезается по границам периода
     /// [from 00:00; to+1 день 00:00), поэтому смена через полночь на краю периода учитывается только своей частью внутри него.
-    /// Ключ — имя кассира без регистра и лишних пробелов.</summary>
-    public static Dictionary<string, decimal> HoursInPeriod(IEnumerable<ShiftHistoryEntry> shifts, DateTime from, DateTime to)
+    /// Ключ — имя кассира без регистра и лишних пробелов (смена без id кассира); у смены с id — <see cref="IdKey"/>, плюс запасной ключ по имени,
+    /// если у этого имени в периоде ровно один id (однофамильцам запасной ключ не даётся). Смены длиннее <see cref="MaxShiftHours"/> не считаются.</summary>
+    public static Dictionary<string, decimal> HoursInPeriod(IEnumerable<ShiftHistoryEntry> shifts, DateTime from, DateTime to) =>
+        HoursInPeriod(shifts, from, to, out _);
+
+    /// <summary>То же, skippedLong — сколько смен внутри периода пропущено как слишком длинные (показать владельцу).</summary>
+    public static Dictionary<string, decimal> HoursInPeriod(IEnumerable<ShiftHistoryEntry> shifts, DateTime from, DateTime to, out int skippedLong)
     {
         var start = from.Date;
         var end = to.Date.AddDays(1);
-        var result = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var raw = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
+        var idsOfName = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        skippedLong = 0;
         foreach (var s in shifts)
         {
             if (s.OpenedAt is not { } o || s.ClosedAt is not { } c || c <= o)
@@ -306,10 +323,27 @@ public static class ProfitPayCalculator
             var b = c < end ? c : end;
             if (b <= a)
                 continue;
-            var key = NameKey(s.Cashier);
+            if ((c - o).TotalHours > MaxShiftHours)
+            {
+                skippedLong++;
+                continue;
+            }
+            var name = NameKey(s.Cashier);
+            var id = (s.CashierId ?? "").Trim();
+            var key = id.Length > 0 ? IdKey(id) : name;
+            if (id.Length > 0)
+            {
+                if (!idsOfName.TryGetValue(name, out var ids))
+                    idsOfName[name] = ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                ids.Add(id);
+            }
             var hours = (decimal)(b - a).TotalHours;
-            result[key] = (result.TryGetValue(key, out var old) ? old : 0m) + hours;
+            raw[key] = (raw.TryGetValue(key, out var old) ? old : 0m) + hours;
         }
+        var result = new Dictionary<string, decimal>(raw, StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, ids) in idsOfName)
+            if (ids.Count == 1 && raw.TryGetValue(IdKey(ids.First()), out var byId))
+                result[name] = (result.TryGetValue(name, out var old) ? old : 0m) + byId;
         return result.ToDictionary(k => k.Key, k => Math.Round(k.Value, 2, MidpointRounding.AwayFromZero), StringComparer.OrdinalIgnoreCase);
     }
 

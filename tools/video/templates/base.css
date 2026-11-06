@@ -1,0 +1,35 @@
+/* 2026-10-29: общая тема видео-шаблонов NurMarket. Единица --u = 1% меньшей стороны кадра
+   (1080 px в обоих форматах: 1920x1080 и 1080x1920), поэтому размеры совпадают в ландшафте и портрете.
+   Шрифты Montserrat / Noto Sans подключает сборщик (build_video.py) через @font-face. */
+:root {
+  --brand: #FFB208;
+  --ink: #191919;
+  --paper: #F3F3F3;
+  --u: calc(min(100vw, 100vh) / 100);
+}
+html {
+  margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+  background: var(--ink);
+}
+body {
+  margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; position: relative;
+  background: transparent; color: #fff;
+  font-family: 'Montserrat', 'Noto Sans', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+#root { position: absolute; inset: 0; overflow: hidden; }
+.bg-glow {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(60vmax 40vmax at 85% 10%, rgba(255,178,8,.20), transparent 60%),
+    radial-gradient(50vmax 40vmax at 0% 100%, rgba(255,178,8,.10), transparent 60%),
+    var(--ink);
+}
+.abs { position: absolute; }
+.brandmark {
+  position: absolute; display: flex; align-items: center; gap: calc(var(--u)*1.6);
+  font-weight: 800; font-size: calc(var(--u)*3.4); letter-spacing: .02em;
+}
+.brandmark img { width: calc(var(--u)*5.6); height: calc(var(--u)*5.6); border-radius: 50%; }
+.brandmark b { color: var(--brand); font-weight: 800; }
+.yellow { color: var(--brand); }

@@ -80,7 +80,9 @@ public sealed class CustomerDisplaySettings
     public bool ShowLogoInEmptyState { get; set; } = true;
 
     public bool AdvertisementEnabled { get; set; }
-    public string AdvertisementTitle { get; set; } = "Специальное предложение";
+    // 2026-11-06: В6 Д4-44 — по умолчанию пусто (раньше русская заглушка «Специальное предложение» на втором мониторе у любой кассы); старое значение из user-settings.json
+    // CustomerDisplayViewModel трактует как «не задано» (константа LegacyAdvertisementTitle там же).
+    public string AdvertisementTitle { get; set; } = "";
     public string AdvertisementDescription { get; set; } = "";
     public string AdvertisementImagePath { get; set; } = "";
     public CustomerDisplayAdvertisementPosition AdvertisementPosition { get; set; } =

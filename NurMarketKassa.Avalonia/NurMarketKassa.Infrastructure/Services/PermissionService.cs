@@ -43,12 +43,12 @@ public sealed class PermissionService : IPermissionService
         if (permission == PosPermissions.ViewLabels)
             return IsLabelPrintAllowed(_authApi.UserPayload);
 
-        // 2026-11-01 (контрольный аудит, К2-06): «Изменение цены в кассе» (оптовая цена строки и чека) — как ярлыки: владелец/админ всегда, закрыто только когда сервер
-        // явно прислал false; поля нет (старый ответ сервера) — не блокируем.
+        // 2026-11-01 (контрольный аудит, К2-06): «Изменение цены в кассе» (оптовая цена строки и чека): владелец/админ всегда.
+        // 2026-11-06: В3 Л4-20 — остальным только при явном true (поля нет — закрыто).
         if (permission == PosPermissions.EditPrice)
             return IsPriceEditAllowed(_authApi.UserPayload);
 
-        // 2026-11-03 (аудит №3, Т3-03): «Склад: редактирование» — как ярлыки и цена: владелец/админ всегда, закрыто только при явном false; поля нет — не блокируем.
+        // 2026-11-03 (аудит №3, Т3-03): «Склад: редактирование» — владелец/админ всегда. 2026-11-06: В3 Л4-20 — остальным только при явном true (поля нет — закрыто).
         if (permission == PosPermissions.EditProducts)
             return IsProductEditAllowed(_authApi.UserPayload);
 
@@ -134,20 +134,22 @@ public sealed class PermissionService : IPermissionService
         return ReadExplicitFlag(payload, PosPermissions.ViewLabels, 0) != false;
     }
 
-    /// <summary>2026-11-01 (К2-06): право «Изменение цены в кассе» (can_view_market_edit_price): роль owner/admin — всегда; иначе нельзя только при явном false.</summary>
+    /// <summary>2026-11-01 (К2-06): право «Изменение цены в кассе» (can_view_market_edit_price): роль owner/admin — всегда.
+    /// 2026-11-06: В3 Л4-20 (решение владельца «строже») — остальным МОЖНО только при явном true; раньше закрывалось лишь явное false, а нет поля — разрешалось.</summary>
     public static bool IsPriceEditAllowed(JsonElement payload)
     {
         if (HasOwnerOrAdminRole(payload))
             return true;
-        return ReadExplicitFlag(payload, PosPermissions.EditPrice, 0) != false;
+        return ReadExplicitFlag(payload, PosPermissions.EditPrice, 0) == true;
     }
 
-    /// <summary>2026-11-03 (аудит №3, Т3-03): право «Склад: редактирование» (can_edit_products): роль owner/admin — всегда; иначе нельзя только при явном false.</summary>
+    /// <summary>2026-11-03 (аудит №3, Т3-03): право «Склад: редактирование» (can_edit_products): роль owner/admin — всегда.
+    /// 2026-11-06: В3 Л4-20 (решение владельца «строже») — остальным МОЖНО только при явном true; нет поля — нельзя.</summary>
     public static bool IsProductEditAllowed(JsonElement payload)
     {
         if (HasOwnerOrAdminRole(payload))
             return true;
-        return ReadExplicitFlag(payload, PosPermissions.EditProducts, 0) != false;
+        return ReadExplicitFlag(payload, PosPermissions.EditProducts, 0) == true;
     }
 
     private static bool? ReadExplicitFlag(JsonElement element, string name, int depth)

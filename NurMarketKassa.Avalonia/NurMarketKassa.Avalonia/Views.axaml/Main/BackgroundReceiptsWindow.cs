@@ -24,14 +24,14 @@ public sealed class BackgroundReceiptsWindow : Window
     private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
 
     /// <summary>Открыть окно или вывести уже открытое на передний план.</summary>
-    public static void ShowOrActivate(Window? owner)
+    public static Window ShowOrActivate(Window? owner)
     {
         if (_instance is { } open)
         {
             if (open.WindowState == WindowState.Minimized)
                 open.WindowState = WindowState.Normal;
             open.Activate();
-            return;
+            return open;
         }
 
         var window = new BackgroundReceiptsWindow();
@@ -40,6 +40,7 @@ public sealed class BackgroundReceiptsWindow : Window
             window.Show(owner);
         else
             window.Show();
+        return window; // 2026-11-06: окно возвращается — вопрос при выходе (BackgroundReceiptsHost) может стать его владельцем, когда других окон нет
     }
 
     private sealed class Row

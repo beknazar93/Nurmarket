@@ -1,0 +1,18 @@
+{
+ "name": "ad-svet-ru-9x16",
+ "lang": "ru",
+ "voice": "none",
+ "music": false,
+ "fps": 30,
+ "premix": "C:/Users/User/NurMarket-video/ad/work/ad-svet-short-ru.wav",
+ "scenes": [
+  {
+   "id": "svet",
+   "html": "C:/Users/User/NurMarket-video/ad/work/svet-scene.html",
+   "duration": 15,
+   "subs": false,
+   "lang": "ru",
+   "transition": "none"
+  }
+ ]
+}

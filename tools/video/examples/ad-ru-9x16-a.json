@@ -1,0 +1,117 @@
+{
+ "name": "ad-ru-9x16-a",
+ "lang": "ru",
+ "voice": "male",
+ "rate": "+10%",
+ "music": true,
+ "music_volume": 0.16,
+ "fps": 30,
+ "logo": "C:/Users/User/NurMarket-video/assets/logo.png",
+ "scenes": [
+  {
+   "id": "wifi",
+   "text": "Пропал интернет?",
+   "duration": 2.2,
+   "lead": 0.15,
+   "tail": 0.25,
+   "template": "ad",
+   "kind": "pain",
+   "icon": "wifi",
+   "title": "[[Интернет]] пропал?"
+  },
+  {
+   "id": "off",
+   "text": "Нур Си-Эр-Эм продаёт дальше. Чеки уйдут сами.",
+   "duration": 3.6,
+   "lead": 0.15,
+   "tail": 0.25,
+   "template": "ad",
+   "kind": "screen",
+   "title": "NurCRM [[продаёт дальше]]",
+   "shots": [
+    {
+     "image": "C:/Users/User/NurMarket-video/shots-kassa/ru/ad-main-offline__1440x850.png",
+     "crop": [
+      0.66,
+      0.08,
+      0.34,
+      0.88
+     ],
+     "focus": [
+      {
+       "at": 0.12,
+       "dur": 0.9,
+       "rect": [
+        0.62,
+        0.62,
+        0.38,
+        0.38
+       ]
+      }
+     ]
+    },
+    {
+     "image": "C:/Users/User/NurMarket-video/shots-kassa/ru/ad-main-online__1440x850.png",
+     "crop": [
+      0.66,
+      0.08,
+      0.34,
+      0.88
+     ],
+     "focus": [
+      {
+       "at": 0.62,
+       "dur": 0.9,
+       "rect": [
+        0.64,
+        0.74,
+        0.36,
+        0.26
+       ]
+      }
+     ],
+     "from": 0.52
+    }
+   ],
+   "subs": "NurCRM продаёт дальше. Чеки уйдут сами."
+  },
+  {
+   "id": "scan",
+   "text": "Телефон — вместо сканера. А цену поправите голосом.",
+   "duration": 4.0,
+   "lead": 0.15,
+   "tail": 0.25,
+   "template": "ad",
+   "kind": "phone",
+   "title": "Телефон вместо [[сканера]]",
+   "phone": [
+    {
+     "image": "C:/Users/User/NurMarket-video/assets/shots/mobile/mobile-scanner-for-kassa_ru.png"
+    }
+   ],
+   "shots": [
+    {
+     "image": "C:/Users/User/NurMarket-video/assets/shots/mobile/mobile-scanner-for-kassa_ru.png"
+    },
+    {
+     "image": "C:/Users/User/NurMarket-video/assets/shots/mobile/mobile-advisor-call_ru.png",
+     "from": 0.5
+    }
+   ]
+  },
+  {
+   "id": "fin",
+   "text": "Нур Си-Эр-Эм — касса, которая знает ваш магазин.",
+   "duration": 3.6,
+   "lead": 0.15,
+   "tail": 0.25,
+   "template": "ad",
+   "kind": "finale",
+   "qr": "C:/Users/User/NurMarket-video/assets/qr-app.svg",
+   "slogan": "NurCRM —<br>касса, которая знает<br>[[ваш магазин]]",
+   "line2": "Работает без интернета. Говорит на вашем языке. Считает вашу прибыль.",
+   "links": "Открыть: app.nurcrm.kg",
+   "subs": "NurCRM — касса, которая знает ваш магазин."
+  }
+ ]
+}

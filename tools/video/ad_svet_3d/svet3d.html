@@ -1,0 +1,47 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Свет погас 3D</title>
+<style>
+/* 2026-10-29: 3D-сцена ролика «Свет погас»: WebGL-холст + плоский слой титров. Всё считается из времени t (window.__render(t)). */
+/*FONTS*/
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#191919;font-family:Montserrat,"Noto Sans",Arial,sans-serif}
+#gl{position:absolute;left:0;top:0;display:block}
+#ui{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.plate{position:absolute;left:50%;transform:translate(-50%,0);background:rgba(25,25,25,.94);color:#fff;font-weight:800;border-radius:1.2vmin;overflow:hidden;display:flex;align-items:stretch;white-space:nowrap;box-shadow:0 .6vmin 2.4vmin rgba(0,0,0,.4)}
+.plate i{display:block;width:1.4vmin;background:#FFB208;flex:none}
+.plate b{font-weight:800;padding:1.5vmin 3.0vmin;letter-spacing:.01em}
+.plate b em{font-style:normal;color:#FFB208}
+#wipe{position:absolute;inset:0;background:#FFB208;will-change:transform;z-index:50}
+#flash{position:absolute;inset:0;background:#fff;z-index:45}
+#vig{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,0) 62%,rgba(0,0,0,.28) 100%);z-index:5}
+#subs{position:absolute;left:50%;transform:translateX(-50%);width:max-content;text-align:center;color:#fff;font-weight:700;line-height:1.28;background:rgba(25,25,25,.82);padding:1.0vmin 2.4vmin;border-radius:1.5vmin;box-shadow:0 .4vmin 1.6vmin rgba(0,0,0,.35);text-shadow:0 .2vmin .6vmin rgba(0,0,0,.6);opacity:0;z-index:40}
+#subs .who{color:#FFB208;font-weight:800;margin-right:.6em}
+.chip{position:absolute;background:#FFB208;color:#191919;font-weight:800;border-radius:1.2vmin;padding:.9vmin 1.8vmin;white-space:nowrap;box-shadow:0 .5vmin 1.8vmin rgba(0,0,0,.45);transform-origin:0 100%;z-index:20}
+.panel{position:absolute;background:rgba(25,25,25,.92);border:.35vmin solid #FFB208;border-radius:1.4vmin;color:#fff;font-weight:700;padding:1vmin 1.6vmin;box-shadow:0 .5vmin 2vmin rgba(0,0,0,.5);z-index:20}
+.panel .row{display:flex;justify-content:space-between;gap:2.4vmin;white-space:nowrap;overflow:hidden}
+.panel .row span+span{color:#FFB208;font-weight:800}
+#end{position:absolute;inset:0;background:#191919;color:#fff;text-align:center;z-index:30}
+#end .t1,#end .t2,#end .sub{position:absolute;left:0;right:0;font-weight:800}
+#end .y{color:#FFB208}
+#end .links{position:absolute;background:#FFB208;color:#191919;font-weight:800;text-align:center;border-radius:1.4vmin;white-space:nowrap}
+#end .qr{background:#fff;border-radius:1.2vmin;padding:1vmin;text-align:center;color:#191919;font-weight:700}
+#end .qr svg{display:block}
+</style></head>
+<body>
+<canvas id="gl"></canvas>
+<div id="ui"></div>
+<script>window.TIMELINE=/*TIMELINE*/null;window.QR=/*QR*/null;window.LOGO="/*LOGO*/";</script>
+<script>/*THREE*/</script>
+<script>
+window.__boot=function(){
+/*JS*/
+};
+(async function(){
+  try{
+    await Promise.all([400,600,700,800].map(w=>document.fonts.load(w+' 40px Montserrat','БЕРЕКЕ Аа Бб Үү Өө Ңң Ыы Ёё 0123 NurCRM ✓')));
+    await document.fonts.ready;
+    window.__boot();
+    window.__booted=true;
+  }catch(e){window.__bootError=String(e&&e.stack||e);console.error(window.__bootError);}
+})();
+</script>
+</body></html>

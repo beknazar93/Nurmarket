@@ -190,6 +190,9 @@ public partial class MainWindow : Window
         Closed += OnClosed;
         // 2026-10-30: сессия недействительна — одно окно «Сессия истекла. Войдите снова» (данные кассы остаются на месте).
         _sessionPrompt = NurMarketKassa.AvaloniaHost.Services.SessionExpiredPrompt.Attach(this, () => NavigateToLoginAsync());
+        // 2026-11-06: заранее — «Через N ч вход истечёт» (refresh-токен живёт 7 суток от входа по паролю); не при чеке с товарами и не во время оплаты.
+        _refreshExpiryPrompt = NurMarketKassa.AvaloniaHost.Services.RefreshExpiryPrompt.Attach(this, () => NavigateToLoginAsync(),
+            () => _viewModel.Basket.HasItems || _viewModel.Basket.IsBusy);
         Screens.Changed += OnCashierScreensChanged;
         _barcodeInputService.BarcodeScanned += OnBarcodeScanned;
         AddHandler(PointerPressedEvent, OnGlobalPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -453,14 +456,9 @@ public partial class MainWindow : Window
 
     private static void OpenPaymentSite()
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo("https://www.nurcrm.kg") { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Failed to open payment site: {ex}", "ERROR");
-        }
+        // 2026-11-06: В4 А5-05 — общий запуск ссылки (на Android — Intent).
+        if (!PlatformLauncher.OpenUrl("https://www.nurcrm.kg"))
+            PosLogger.Log("Failed to open payment site", "ERROR");
     }
 
     /// <summary>Фоновый мониторинг срока подписки компании во время активной работы кассы —
@@ -690,7 +688,11 @@ public partial class MainWindow : Window
     {
         try
         {
+            var wasOpen = _session.IsShiftOpen;
             await CloseShiftAsync().ConfigureAwait(true);
+            // 2026-11-06: смена закрыта, вход истекает в ближайшие сутки — лучшее время войти заново (продажи и корзины сохранятся).
+            if (wasOpen && !_session.IsShiftOpen)
+                await NurMarketKassa.AvaloniaHost.Services.RefreshExpiryPrompt.OfferAsync(this, () => NavigateToLoginAsync()).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -2191,28 +2193,30 @@ public partial class MainWindow : Window
 
     internal void NavigateDeferredReceipts() => ShowModuleWindow<IrregularReceiptsWindow>();
 
-    /// <summary>2026-10-30: красная/жёлтая плашка в шапке («Не отправлено: N · Отклонено: M», «В очереди: N») ведёт в «Некорректные чеки»
+    /// <summary>2026-11-06: единое окно «Неотправленное» (чеки, возвраты, приходы, новые товары, закрытия смен, внесения/изъятия) с ручной отправкой.</summary>
+    internal void NavigateOutbox()
+    {
+        _viewModel.CloseSideMenu();
+        NurMarketKassa.AvaloniaHost.Views.OutboxWindow.ShowOrActivate(this);
+    }
+
+    /// <summary>2026-10-30: красная/жёлтая плашка в шапке («Не отправлено: N · Отклонено: M», «В очереди: N») ведёт в «Некорректные чеки» (2026-11-06: теперь в «Неотправленное»; «Некорректные чеки» — кнопкой в нём)
     /// (там же кнопки «Отправить» и «Закрыть без отправки»); если чеки в порядке, а не дошли операции без связи (возврат, оплата долга) — в их окно.</summary>
     private void OnQueueBadge_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             return;
         e.Handled = true;
+        // 2026-11-06: плашка «Не отправлено / В очереди» открывает единое окно «Неотправленное» (там и чеки, и операции без связи, и приходы; «Некорректные чеки» — кнопкой в нём).
         try
         {
-            var salesOpen = OfflinePendingSalesStore.LoadAll().Any(s => !s.IsAutonomous
-                && !string.Equals(s.Status, OfflineSaleEntry.Synced, StringComparison.OrdinalIgnoreCase));
-            if (!salesOpen && OfflineOperationsStore.PendingCount + OfflineOperationsStore.FailedCount > 0)
-            {
-                _ = OfflineOperationsWindow.OpenAsync(this, OfflineOperationsWindow.Mode.Return);
-                return;
-            }
+            NavigateOutbox();
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Плашка очереди: очередь не прочитана, открываю «Некорректные чеки»: {ex.Message}", "WARNING");
+            PosLogger.Log($"Плашка очереди: «Неотправленное» не открылось, открываю «Некорректные чеки»: {ex.Message}", "WARNING");
+            NavigateDeferredReceipts();
         }
-        NavigateDeferredReceipts();
     }
 
     // 2026-10-27, аудит С-17: «Логи и ошибки» — только с правом «Настройки» (кнопку в меню ☰ для остальных прячет SideMenuViewModel).
@@ -2246,8 +2250,13 @@ public partial class MainWindow : Window
 
     /// <summary>Closes the app outright — no login-screen redirect. Reuses the same
     /// flag-based bypass the login window's own exit button relies on.</summary>
-    internal void ExitApplication()
+    internal void ExitApplication() => _ = ExitApplicationAsync();
+
+    /// <summary>2026-11-06: вопрос про неотправленные приходы и новые товары задаётся ДО закрытия окна (раньше — из ShutdownRequested после закрытия: «Cannot show a window with a closed owner»).</summary>
+    private async Task ExitApplicationAsync()
     {
+        if (!await BackgroundReceiptsHost.ConfirmUnsentBeforeExitAsync(this).ConfigureAwait(true))
+            return;
         App.ExitWithoutLoginRedirect = true;
         Close();
     }
@@ -2693,6 +2702,9 @@ public partial class MainWindow : Window
             // встречал экран входа с паролем. Теперь крестик = «Выйти на рабочий стол»: программа
             // закрывается, вход сохраняется (если была отмечена «Запомнить меня»). Выйти из
             // учётной записи можно отдельно — «Сменить кассира».
+            // 2026-11-06: вход истекает в ближайшие сутки — перед выходом предложить войти заново (согласился — выходим на экран входа вместо закрытия).
+            if (await NurMarketKassa.AvaloniaHost.Services.RefreshExpiryPrompt.OfferAsync(this, () => NavigateToLoginAsync()).ConfigureAwait(true))
+                return;
             ExitApplication();
         }
         catch (OperationCanceledException)
@@ -2760,10 +2772,12 @@ public partial class MainWindow : Window
     }
 
     private IDisposable? _sessionPrompt;
+    private IDisposable? _refreshExpiryPrompt;
 
     private void OnClosed(object? sender, EventArgs e)
     {
         _sessionPrompt?.Dispose();
+        _refreshExpiryPrompt?.Dispose();
         _applicationStateService.CancelPendingSave();
         // 2026-10-18, ревью этапа 6: таймер плашки «Продажа прошла» (40 мс) не должен пережить окно.
         SaleDoneBar.Dismiss();
@@ -4263,6 +4277,9 @@ public partial class MainWindow : Window
         ApplyShiftAgeUi();
         ShiftAgeCloseButton.Content = ServerShiftTexts.CloseShiftButton();
     }
+
+    /// <summary>2026-11-06: «Неотправленное» → «Войти» при недействительной сессии (тот же переход на экран входа, что у вопроса «Сессия истекла»).</summary>
+    internal Task SignInAgainAsync() => NavigateToLoginAsync();
 
     /// <param name="keepSavedLogin">2026-10-18, ревью безопасности: true — отказ по доступу «Интерфейс кассира»:
     /// сохранённый вход (auth.dat) НЕ стирается, чтобы после включения доступа на сайте войти снова (и без связи).</param>

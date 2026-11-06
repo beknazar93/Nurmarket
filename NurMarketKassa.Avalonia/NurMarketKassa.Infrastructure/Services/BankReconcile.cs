@@ -132,6 +132,10 @@ public static class BankStatementParser
 
         var lines = new List<BankLine>();
         var skipped = 0;
+        // 2026-11-06: В2 Р22 — «1.234» в колонке, где у остальных сумм копейки («100.50», «250.00»), — это 1234 сом, а не 1,234: смотрим на колонку целиком.
+        var centsAmount = ColumnHasCents(rows, headerAt + 1, amountCol);
+        var centsDebit = ColumnHasCents(rows, headerAt + 1, debitCol);
+        var centsCredit = ColumnHasCents(rows, headerAt + 1, creditCol);
         for (var i = headerAt + 1; i < rows.Count; i++)
         {
             var r = rows[i];
@@ -145,12 +149,12 @@ public static class BankStatementParser
             double? signed = null;
             if (debitCol >= 0 || creditCol >= 0)
             {
-                var debit = TryParseAmount(Cell(debitCol), out var dv) ? Math.Abs(dv) : 0;
-                var credit = TryParseAmount(Cell(creditCol), out var cv) ? Math.Abs(cv) : 0;
+                var debit = TryParseAmount(Cell(debitCol), out var dv, centsDebit) ? Math.Abs(dv) : 0;
+                var credit = TryParseAmount(Cell(creditCol), out var cv, centsCredit) ? Math.Abs(cv) : 0;
                 if (debit > 0 || credit > 0)
                     signed = credit - debit;
             }
-            else if (TryParseAmount(Cell(amountCol), out var a))
+            else if (TryParseAmount(Cell(amountCol), out var a, centsAmount))
             {
                 signed = a;
                 // Одна колонка суммы без знака + колонка направления («Приход/Расход», «Dr/Cr», «+/−»).
@@ -214,7 +218,33 @@ public static class BankStatementParser
     }
 
     /// <summary>«1 234,56», «1,234.56», «−1 234,56», «(500)», «500-», «12.5», «1234» → число. Пусто/текст → false.</summary>
-    public static bool TryParseAmount(string? text, out double value)
+    public static bool TryParseAmount(string? text, out double value) => TryParseAmount(text, out value, false);
+
+    /// <summary>2026-11-06: В2 Р22 — колонка суммы целиком: больше сумм с копейками (ровно 2 знака после разделителя), чем с тремя знаками → в этой колонке
+    /// «1.234» / «1,234» — тысячи, а не дробь. Пусто, ничьё или больше «тысячных» — false (прежнее правило разбора).</summary>
+    internal static bool ColumnHasCents(IReadOnlyList<string[]> rows, int firstRow, int column)
+    {
+        if (column < 0)
+            return false;
+        int cents = 0, thousands = 0;
+        for (var i = firstRow; i < rows.Count; i++)
+        {
+            if (column >= rows[i].Length)
+                continue;
+            var t = (rows[i][column] ?? "").Trim().TrimEnd('-', ')', '+');
+            t = new string(t.Where(ch => char.IsDigit(ch) || ch is ',' or '.').ToArray());
+            if (t.Length < 3)
+                continue;
+            if (t[^3] is ',' or '.' && t[^2..].All(char.IsDigit) && t[..^3].Any(char.IsDigit))
+                cents++;
+            else if (t.Length >= 5 && t[^4] is ',' or '.' && t[^3..].All(char.IsDigit) && t[..^4].Any(char.IsDigit) && t[..^4].Count(c => c is ',' or '.') == 0)
+                thousands++;
+        }
+        return cents > thousands;
+    }
+
+    /// <param name="columnHasCents">В колонке суммы у большинства значений копейки (см. <see cref="ColumnHasCents"/>): тогда «x.xxx» — тысячи.</param>
+    public static bool TryParseAmount(string? text, out double value, bool columnHasCents)
     {
         value = 0;
         var t = (text ?? "").Replace(' ', ' ').Replace(" ", "").Replace(" ", "").Replace('−', '-').Trim();
@@ -261,7 +291,8 @@ public static class BankStatementParser
             var digitsAfter = t.Length - at - 1;
             var before = t[..at];
             // «1.234.567» — только разряды; «1,234» (запятая, три цифры, слева 1–3 цифры не «0») — разряды; остальное — дробная часть.
-            var grouping = count > 1 || (sep == ',' && digitsAfter == 3 && before.Length is >= 1 and <= 3 && before != "0");
+            // 2026-11-06: В2 Р22 — в колонке с копейками «1.234» (точка, три цифры) — тоже разряды.
+            var grouping = count > 1 || ((sep == ',' || columnHasCents) && digitsAfter == 3 && before.Length is >= 1 and <= 3 && before != "0");
             normalized = grouping ? t.Replace(sep.ToString(), "") : t.Replace(sep, '.');
         }
         if (!double.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out value))

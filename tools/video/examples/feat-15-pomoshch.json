@@ -1,0 +1,397 @@
+{
+ "name": "feat-15-pomoshch",
+ "lang": "ru",
+ "voice": "none",
+ "music": false,
+ "fps": 30,
+ "feat": {
+  "num": 15,
+  "slug": "15-pomoshch",
+  "title": "Помощь за минуту",
+  "scenes": [
+   {
+    "type": "stage",
+    "dur": 4.2,
+    "counter": {
+     "x": 1470,
+     "y": 705,
+     "s": 0.85
+    },
+    "actors": [
+     {
+      "id": "apa",
+      "who": "apa",
+      "x": 1480,
+      "z": "back",
+      "poses": [
+       [
+        0,
+        "stand"
+       ],
+       [
+        1.2,
+        "sad"
+       ]
+      ]
+     },
+     {
+      "id": "jyldyz",
+      "who": "jyldyz",
+      "x": 400,
+      "poses": [
+       [
+        0,
+        "stand"
+       ]
+      ]
+     },
+     {
+      "id": "ata",
+      "who": "ata",
+      "x": 640,
+      "poses": [
+       [
+        0,
+        "stand"
+       ]
+      ]
+     },
+     {
+      "id": "erlan",
+      "who": "erlan",
+      "x": 880,
+      "poses": [
+       [
+        0,
+        "stand"
+       ]
+      ]
+     }
+    ],
+    "say": [
+     {
+      "who": "AP",
+      "actor": "apa",
+      "at": 1.45,
+      "maxdur": 2.2,
+      "text": "Где тут… возврат?",
+      "tts": "Где тут... возврат?"
+     }
+    ]
+   },
+   {
+    "type": "shots",
+    "dur": 4.8,
+    "titr": [
+     {
+      "at": 0.3,
+      "dur": 4.2,
+      "text": "Код — [[оператору]]"
+     }
+    ],
+    "chips": [
+     {
+      "text": "☎ Алло, Нур?",
+      "x": 960,
+      "y": 66,
+      "at": 0.2,
+      "dur": 1.6,
+      "size": 42
+     }
+    ],
+    "views": [
+     {
+      "src": "15-kassa-remote-code.png",
+      "at": 0,
+      "dur": 4.8,
+      "crop": [
+       0.275,
+       0.265,
+       0.45,
+       0.25
+      ],
+      "plates": [
+       {
+        "rect": [
+         0.365,
+         0.375,
+         0.27,
+         0.05
+        ],
+        "text": "••• ••• •••  PIN ••••"
+       }
+      ],
+      "marks": [
+       {
+        "at": 1.2,
+        "kind": "click",
+        "rect": [
+         0.286,
+         0.279,
+         0.428,
+         0.22
+        ]
+       }
+      ]
+     }
+    ],
+    "say": [
+     {
+      "who": "AP",
+      "at": 0.3,
+      "text": "Алло, Нур?",
+      "show": false
+     },
+     {
+      "who": "N",
+      "at": 1.9,
+      "text": "Назовите оператору код и пин."
+     }
+    ]
+   },
+   {
+    "type": "shots",
+    "dur": 4.2,
+    "titr": [
+     {
+      "at": 0.3,
+      "dur": 3.6,
+      "text": "Только с вашего [[разрешения]]"
+     }
+    ],
+    "views": [
+     {
+      "src": "15-kassa-remote-consent.png",
+      "at": 0,
+      "dur": 4.2,
+      "crop": [
+       0.3,
+       0.375,
+       0.4,
+       0.25
+      ],
+      "marks": [
+       {
+        "at": 1.4,
+        "kind": "click",
+        "rect": [
+         0.326,
+         0.533,
+         0.096,
+         0.046
+        ]
+       }
+      ]
+     }
+    ],
+    "say": [
+     {
+      "who": "N",
+      "at": 0.2,
+      "text": "Нажмите «Разрешить» — подключатся только с вашего согласия."
+     }
+    ]
+   },
+   {
+    "type": "shots",
+    "dur": 6.0,
+    "titr": [
+     {
+      "at": 0.3,
+      "dur": 5.2,
+      "text": "Показывает, где [[нажать]]"
+     }
+    ],
+    "views": [
+     {
+      "clip": "15-kassa-remote-session.mp4",
+      "from": 1.0,
+      "len": 6.0,
+      "at": 0,
+      "dur": 6.0,
+      "crop": [
+       0,
+       0,
+       1,
+       1
+      ],
+      "cursor": {
+       "label": "Айдар",
+       "at": 0.4,
+       "dur": 5.4,
+       "path": [
+        [
+         0,
+         0.5,
+         0.5
+        ],
+        [
+         1.0,
+         0.027,
+         0.04
+        ],
+        [
+         2.2,
+         0.027,
+         0.04
+        ],
+        [
+         3.2,
+         0.8,
+         0.29
+        ],
+        [
+         5.4,
+         0.8,
+         0.29
+        ]
+       ]
+      },
+      "marks": [
+       {
+        "at": 1.0,
+        "kind": "hold",
+        "dur": 1.6,
+        "rect": [
+         0.012,
+         0.015,
+         0.035,
+         0.047
+        ]
+       },
+       {
+        "at": 3.3,
+        "kind": "hold",
+        "dur": 2.4,
+        "rect": [
+         0.65,
+         0.265,
+         0.34,
+         0.065
+        ]
+       }
+      ]
+     }
+    ],
+    "say": [
+     {
+      "who": "N",
+      "at": 0.2,
+      "text": "Наш специалист показывает, где нажать. Без чужих программ."
+     }
+    ]
+   },
+   {
+    "type": "stage",
+    "dur": 4.6,
+    "counter": {
+     "x": 1470,
+     "y": 705,
+     "s": 0.85
+    },
+    "actors": [
+     {
+      "id": "apa",
+      "who": "apa",
+      "x": 1480,
+      "z": "back",
+      "poses": [
+       [
+        0,
+        "stand"
+       ],
+       [
+        0.3,
+        "happy"
+       ]
+      ]
+     },
+     {
+      "id": "jyldyz",
+      "who": "jyldyz",
+      "x": 400,
+      "poses": [
+       [
+        0,
+        "stand"
+       ],
+       [
+        0.8,
+        "happy"
+       ]
+      ]
+     },
+     {
+      "id": "ata",
+      "who": "ata",
+      "x": 640,
+      "poses": [
+       [
+        0,
+        "stand"
+       ],
+       [
+        1.0,
+        "happy"
+       ]
+      ]
+     },
+     {
+      "id": "erlan",
+      "who": "erlan",
+      "x": 880,
+      "poses": [
+       [
+        0,
+        "stand"
+       ],
+       [
+        1.2,
+        "happy"
+       ]
+      ]
+     }
+    ],
+    "say": [
+     {
+      "who": "AP",
+      "actor": "apa",
+      "at": 0.3,
+      "maxdur": 1.5,
+      "text": "А-а, вот оно!"
+     },
+     {
+      "who": "N",
+      "at": 2.2,
+      "text": "За минуту — даже Бүбү-апа.",
+      "tts": "За минуту — даже Бубу-апа."
+     }
+    ]
+   },
+   {
+    "type": "final",
+    "dur": 4.0,
+    "say": [
+     {
+      "who": "N",
+      "at": 0.5,
+      "text": "Нур Си-Эр-Эм — касса, которая знает ваш магазин.",
+      "show": false,
+      "maxdur": 3.1
+     }
+    ]
+   }
+  ]
+ },
+ "premix": "C:/Users/User/NurMarket-video/ad/work/b/mix-15.wav",
+ "scenes": [
+  {
+   "id": "feat",
+   "html": "C:/Users/User/NurMarket-video/ad/work/b/feat-15.html",
+   "duration": 27.8,
+   "subs": false,
+   "lang": "ru",
+   "transition": "none"
+  }
+ ]
+}

@@ -275,11 +275,11 @@ public sealed partial class CatalogApiService : ICatalogApiService
     /// <summary>2026-11-02 (Н3-01, память): то же, что <see cref="ProductsCatalogAsync"/>, но страницы отдаются в <paramref name="onPage"/> по одной и тут же
     /// забываются — весь каталог (15 тыс. JsonElement = десятки МБ документов в куче больших объектов) больше не копится в списке до конца загрузки.
     /// Копии филиалов отбрасываются на лету (их id спрашиваются до первой страницы). Возвращает число переданных товаров.</summary>
-    public async Task<int> ProductsCatalogStreamAsync(int limit, int maxPages, Action<List<JsonElement>> onPage, CancellationToken ct = default)
+    public async Task<int> ProductsCatalogStreamAsync(int limit, int maxPages, Action<List<JsonElement>> onPage, CancellationToken ct = default, CatalogFullResume? resume = null)
     {
         ArgumentNullException.ThrowIfNull(onPage);
         var skip = await LoadBranchCopyIdsAsync(ct).ConfigureAwait(false);
-        var (delivered, _, skipped) = await FetchCatalogPagesAsync(limit, maxPages, onPage, null, skip, ct).ConfigureAwait(false);
+        var (delivered, _, skipped) = await FetchCatalogPagesAsync(limit, maxPages, onPage, null, skip, ct, resume).ConfigureAwait(false);
         if (skipped > 0)
             PosLogger.Log($"CATALOG: копий товаров филиалов убрано из каталога основного склада: {skipped}.", "CATALOG");
         return delivered;
@@ -327,7 +327,7 @@ public sealed partial class CatalogApiService : ICatalogApiService
     /// сброс накопленного при переходе на запасной адрес (null — потоковый режим: после первой переданной страницы запасной адрес не пробуем).
     /// Возвращает (передано, достигнут лимит, отброшено по <paramref name="skipIds"/>).</summary>
     private async Task<(int Delivered, bool LimitHit, int Skipped)> FetchCatalogPagesAsync(
-        int limit, int maxPages, Action<List<JsonElement>> sink, Action? restart, HashSet<string>? skipIds, CancellationToken ct)
+        int limit, int maxPages, Action<List<JsonElement>> sink, Action? restart, HashSet<string>? skipIds, CancellationToken ct, CatalogFullResume? resume = null)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var paths = new[] { "api/main/products/list/", "api/main/products/" };
@@ -346,6 +346,19 @@ public sealed partial class CatalogApiService : ICatalogApiService
             var page = 1;
             var pagesRead = 0;
             var pageSize = CurrentCatalogPageSize();
+            // 2026-11-06 (Б-9): докачка — идём с сохранённой страницы тем же размером страницы, что в прошлый раз (номера страниц должны совпасть).
+            var resumed = false;
+            if (resume is { StartPage: > 1 } && path == paths[0])
+            {
+                page = resume.StartPage;
+                if (resume.PageSize > 0)
+                    pageSize = resume.PageSize;
+                resumed = true;
+                PosLogger.Log($"CATALOG full: продолжаю оборванную загрузку со страницы {page} (по {pageSize}), а не с первой.", "CATALOG");
+            }
+
+            if (resume is not null)
+                resume.FromStart = !resumed;
             var watch = System.Diagnostics.Stopwatch.StartNew();
             var lastProgress = TimeSpan.Zero;
 
@@ -369,6 +382,21 @@ public sealed partial class CatalogApiService : ICatalogApiService
                     var batch = NurMarketApiClient.UnwrapList(data);
                     if (batch.Count == 0)
                         break;
+                    // 2026-11-06 (Б-9): первая страница докачки пришла короче запрошенного, а следующая есть, — сервер теперь режет страницу иначе, номера страниц
+                    // прошлой попытки не совпадают с нынешними. Не гадаем: начинаем с первой (то, что уже записано, остаётся).
+                    if (resumed && pagesRead == 0 && batch.Count < requestedSize && HasNextLink(data))
+                    {
+                        PosLogger.Log($"CATALOG full: страница {page} пришла по {batch.Count} вместо {requestedSize} — размер страницы изменился, докачка невозможна, загрузка с первой страницы.", "CATALOG");
+                        resumed = false;
+                        resume!.FromStart = true;
+                        page = 1;
+                        pageSize = CurrentCatalogPageSize();
+                        seen.Clear();
+                        delivered = 0;
+                        skipped = 0;
+                        continue;
+                    }
+
                     pagesRead++;
 
                     // 2026-11-02 (Н3-01): сервер отдал меньше, чем просили, а следующая страница есть, — это его потолок на страницу. Запоминаем и дальше
@@ -431,6 +459,9 @@ public sealed partial class CatalogApiService : ICatalogApiService
 
                     hasNext = HasNextPage(data, batch.Count, pageSize);
                     page++;
+                    // 2026-11-06 (Б-9): страница отдана — вызывающий записывает накопленное в базу и сохраняет ход (следующая страница), чтобы обрыв не вернул нас к первой.
+                    if (hasNext && resume?.PageDone is { } pageDone)
+                        await pageDone(page, pageSize, delivered).ConfigureAwait(false);
                 }
 
                 // Запрос по этому пути отработал без исключения — значит это и есть рабочий
@@ -719,10 +750,19 @@ public sealed partial class CatalogApiService : ICatalogApiService
     }
 
     public Task<List<string>> GetCategoryNamesAsync(CancellationToken ct = default) =>
-        FetchReferenceNamesAsync("api/main/categories/", ct);
+        ObserveFault(FetchReferenceNamesAsync("api/main/categories/", ct));
 
     public Task<List<string>> GetBrandNamesAsync(CancellationToken ct = default) =>
-        FetchReferenceNamesAsync("api/main/brands/", ct);
+        ObserveFault(FetchReferenceNamesAsync("api/main/brands/", ct));
+
+    /// <summary>2026-11-06 (баг 3 журнала клиента): карточка товара запускает категории и бренды двумя задачами и ждёт их по очереди — если первая упала
+    /// (сессия недействительна, нет сети), вторая падала «ничьей» и уходила в TaskScheduler.UnobservedTaskException (ERROR «Unobserved task exception» в журнале).
+    /// Сбой читаем сразу (свойство Exception): тому, кто ждёт задачу, исключение приходит как прежде, а в журнал ничего лишнего не попадает.</summary>
+    private static Task<List<string>> ObserveFault(Task<List<string>> task)
+    {
+        _ = task.ContinueWith(t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        return task;
+    }
 
     public Task CreateCategoryAsync(string name, CancellationToken ct = default) =>
         _client.RequestAsync(HttpMethod.Post, "api/main/categories/",
@@ -1176,6 +1216,11 @@ public sealed partial class CatalogApiService : ICatalogApiService
                 var url = next.GetString();
                 return !string.IsNullOrWhiteSpace(url);
             }
+
+            // 2026-11-06 (Б-9): "next": null — сервер прямо говорит «страниц больше нет». Раньше полная последняя страница (каталог кратен размеру страницы)
+            // вела к лишнему запросу следующей, а DRF на страницу за концом отвечает 404.
+            if (next.ValueKind == JsonValueKind.Null)
+                return false;
         }
 
         return batchCount >= pageSize;

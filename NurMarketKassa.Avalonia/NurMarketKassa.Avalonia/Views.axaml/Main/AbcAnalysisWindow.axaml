@@ -30,7 +30,10 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
                 <Button x:Name="ExcelButton" Content="Excel" Classes="sec-outline" Click="ExportExcel_Click"/>
                 <Button x:Name="WordButton" Content="Word" Classes="sec-outline" Click="ExportWord_Click"/>
-                <Button x:Name="RefreshButton" Classes="sec-primary" Click="Refresh_Click"/>
+                <!-- 2026-11-06: В6 Д4-25 — «Обновить» не главное действие: значок 40×40 с подсказкой, без жёлтой заливки (жёлтое — только действие раздела). -->
+                <Button x:Name="RefreshButton" Classes="sec-outline" Width="40" Height="40" MinWidth="40" MinHeight="40" Padding="0" Click="Refresh_Click">
+                    <PathIcon Data="{StaticResource IconRefresh}" Width="18" Height="18"/>
+                </Button>
                 <Button IsCancel="True" x:Name="CloseButton" Classes="sec-outline" Click="Close_Click"/>
             </StackPanel>
         </Grid>

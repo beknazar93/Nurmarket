@@ -16,6 +16,11 @@ public static class FraudMonitor
 
     private static string NotifiedFile => Path.Combine(AntiFraudSettingsStore.Folder, "fraud-notified.json");
 
+    // 2026-11-06: В3 Л5-22 — замок на время «проверил, что не отправляли → отправил → отметил» общий для кассы и программы владельца на этом ПК (раньше lock был только внутри процесса:
+    // обе программы могли одновременно прочитать «не отправляли» и отправить одно сообщение дважды).
+    private static string SendLockPath => Path.Combine(AntiFraudSettingsStore.Folder, "fraud-send.lock");
+    private static readonly TimeSpan SendLockWait = TimeSpan.FromSeconds(20);
+
     // ───────── что сообщают окна кассы ─────────
 
     /// <summary>Возврат подтверждён кассиром и уходит на сервер.</summary>
@@ -150,6 +155,25 @@ public static class FraudMonitor
         }
     }
 
+    /// <summary>Значения <see cref="FraudEvent.Subject"/> события «защита выключена».</summary>
+    public const string ProtectionGuard = "guard";
+    public const string ProtectionFraud = "fraud";
+
+    /// <summary>2026-11-06: В3 (хвост, ФМ) — защиту (PIN старшего по действиям, журнал подозрительных операций) выключили: в журнал антифрода пишется, КТО и что выключил
+    /// (раньше выключатель менял файл настроек молча). В Telegram уходит, если мониторинг ещё включён (иначе — только запись в журнал).</summary>
+    public static void OnProtectionOff(string protection)
+    {
+        try
+        {
+            var e = NewEvent(FraudKinds.ProtectionOff, 0, subject: protection);
+            Report(e);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Антифрод: выключение защиты не записано ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+        }
+    }
+
     /// <summary>2026-11-05 (ревью волн 0–3, С13): смена с недостачей закрыта без PIN старшего, потому что нет связи с сервером — запись для владельца.</summary>
     public static void OnShortagePinSkipped(double shortage)
     {
@@ -203,6 +227,12 @@ public static class FraudMonitor
             var fresh = events.Where(e => FraudKinds.Weight(e.Kind) > 0 && !WasNotified(e.Id)).ToList();
             if (fresh.Count == 0)
                 return;
+            using var crossLock = await CrossProcessLock.TryAcquireAsync(SendLockPath, SendLockWait).ConfigureAwait(false);
+            if (crossLock is null)
+                return; // другая программа сейчас отправляет — событие осталось «не сообщённым» и уйдёт позже (FlushUnsentAsync)
+            fresh = fresh.Where(e => !WasNotified(e.Id)).ToList(); // пока ждали замок, другая программа могла уже отправить
+            if (fresh.Count == 0)
+                return;
             var error = await TelegramBotService.SendAsync(BuildMessage(fresh)).ConfigureAwait(false);
             if (error is null)
                 MarkNotified(fresh.Select(e => e.Id));
@@ -239,6 +269,12 @@ public static class FraudMonitor
                 return;
             var since = DateTimeOffset.Now.AddHours(-24);
             var list = FraudEventStore.ReadAll().Where(e => e.At >= since && FraudKinds.Weight(e.Kind) > 0 && !WasNotified(e.Id)).OrderBy(e => e.At).ToList();
+            if (list.Count == 0)
+                return;
+            using var crossLock = await CrossProcessLock.TryAcquireAsync(SendLockPath, SendLockWait).ConfigureAwait(false); // 2026-11-06: В3 Л5-22
+            if (crossLock is null)
+                return;
+            list = list.Where(e => !WasNotified(e.Id)).ToList();
             if (list.Count == 0)
                 return;
             var error = await TelegramBotService.SendAsync(BuildMessage(list)).ConfigureAwait(false);

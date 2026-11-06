@@ -749,7 +749,8 @@ public static class BonusAnalyticsExport
         var buckets = d.Buckets();
         if (buckets.Any(b => b.Revenue > 0))
         {
-            doc.Image(AnalyticsChartRenderer.RenderBars(L("Выручка по дням", "Күндөр боюнча түшүм", "Revenue by day", "Günlük ciro", "Kunlik tushum"),
+            // 2026-11-06 (В13, заметка В4 АЛ-1): график рисует System.Drawing — на Linux/Android его нет; TryChart пропускает график, а не роняет выгрузку.
+            doc.TryChart(() => AnalyticsChartRenderer.RenderBars(L("Выручка по дням", "Күндөр боюнча түшүм", "Revenue by day", "Günlük ciro", "Kunlik tushum"),
                 buckets.Select(b => (b.Label, b.Revenue)).ToList()), L("Выручка по дням", "Күндөр боюнча түшүм", "Revenue by day", "Günlük ciro", "Kunlik tushum"));
             doc.Table(
                 [new WColumn(L("Период", "Мезгил", "Period", "Dönem", "Davr"), 1.4), new WColumn(L("Выручка", "Түшүм", "Revenue", "Ciro", "Tushum"), 1.4, Numeric: true),

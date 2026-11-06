@@ -279,6 +279,42 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-30: сессия недействительна — одно окно «Сессия истекла. Войдите снова» (права и данные не сбрасываются).
         var sessionPrompt = NurMarketKassa.AvaloniaHost.Services.SessionExpiredPrompt.Attach(this, SignOutAsync);
         Closed += (_, _) => sessionPrompt.Dispose();
+        // 2026-11-06: заранее — «Вход истекает через N ч» в шапке и мягкое окно за 3 ч (refresh-токен живёт 7 суток от входа по паролю).
+        var refreshPrompt = NurMarketKassa.AvaloniaHost.Services.RefreshExpiryPrompt.Attach(this, SignOutAsync);
+        Closed += (_, _) => refreshPrompt.Dispose();
+        void ShowLoginExpiry() => Dispatcher.UIThread.Post(() =>
+        {
+            // 2026-11-06 (Б-8): сессия потеряна — в шапке «🔑 Войдите снова» (как в кассе), по нажатию — вопрос «Сессия истекла»; подпись «Сводки» тоже честная.
+            string? text;
+            if (SessionExpiryMonitor.IsExpired)
+            {
+                text = SessionExpiryMonitor.HeaderLabel;
+                UpdatedText.Text = ExpiredHeaderText();
+                UseBrush(LiveDot, Shape.FillProperty, "BrushWarning");
+            }
+            else
+                text = RefreshExpiryWatcher.Current.WarningText;
+            LoginExpiryText.Text = text ?? "";
+            LoginExpiryText.IsVisible = text is not null;
+        });
+        LoginExpiryText.Cursor = new Cursor(StandardCursorType.Hand);
+        LoginExpiryText.PointerPressed += (_, e) =>
+        {
+            if (!SessionExpiryMonitor.IsExpired)
+                return;
+            e.Handled = true;
+            _ = NurMarketKassa.AvaloniaHost.Services.SessionExpiredPrompt.AskAsync(this, SignOutAsync);
+        };
+        RefreshExpiryWatcher.Current.Changed += ShowLoginExpiry;
+        SessionExpiryMonitor.Changed += ShowLoginExpiry;
+        Tr.LanguageChanged += ShowLoginExpiry;
+        Closed += (_, _) =>
+        {
+            RefreshExpiryWatcher.Current.Changed -= ShowLoginExpiry;
+            SessionExpiryMonitor.Changed -= ShowLoginExpiry;
+            Tr.LanguageChanged -= ShowLoginExpiry;
+        };
+        ShowLoginExpiry();
         // 2026-11-05 (аудит №4, Л4-11): раз в минуту — закрыть спрятанные разделы, которые давно не открывали (память).
         var idleSectionsTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
         idleSectionsTimer.Tick += (_, _) => TrimIdleHiddenSections();
@@ -291,17 +327,39 @@ public partial class OwnerShellWindow : Window, IMainShell
         UseBrush(LiveDot, Shape.FillProperty, "BrushSuccess");
 
         // 2026-10-25, ТЗ «оприходование в фоне» (Q5): значок «в фоне: N» в шапке (скрыт, пока приходов в фоне нет); нажатие — окно «Приходы в фоне».
-        if (NurMarketKassa.AvaloniaHost.Views.Main.Controls.BackgroundReceiptsBadge.Create() is { } bgReceiptsBadge)
+        // 2026-11-06 (Б-6): значок — компактный и внутри строки «дата · Обновлено…» (WrapPanel переносит его строкой ниже), а не поверх заголовка; полный текст — в подсказке.
+        if (NurMarketKassa.AvaloniaHost.Views.Main.Controls.BackgroundReceiptsBadge.Create(compact: true) is { } bgReceiptsBadge)
         {
-            bgReceiptsBadge.HorizontalAlignment = HorizontalAlignment.Right;
-            bgReceiptsBadge.Margin = new Thickness(0, 6, 12, 0);
-            Grid.SetColumn(bgReceiptsBadge, 0);
-            HeaderGrid.Children.Add(bgReceiptsBadge);
+            bgReceiptsBadge.HorizontalAlignment = HorizontalAlignment.Left;
+            bgReceiptsBadge.Margin = new Thickness(12, 0, 0, 0);
+            TitleMetaPanel.Children.Add(bgReceiptsBadge);
         }
         // 2026-11-02 (аудит №2, В3-01): несохранённые правки разделов (редактор сайта, настройки, приёмка…) при выходе не теряются молча —
         // вопрос «Сохранить и выйти / Выйти без сохранения / Остаться».
         Closing += async (_, e) =>
         {
+            // 2026-11-06: неотправленные приходы и новые товары — вопрос «Выйти / Подождать» ДО закрытия, пока окно-владелец живо
+            // (раньше из ShutdownRequested после закрытия: «Cannot show a window with a closed owner»). Согласились — закрываем повторно.
+            if (!_exitConfirmed && !_loggingOut && !_closingAllSections && !_unsentChecked && !QuietShutdown.ShouldSkipPrompts(e) && BackgroundReceiptsHost.HasUnsent())
+            {
+                e.Cancel = true;
+                if (_exitAsking)
+                    return;
+                _exitAsking = true;
+                try
+                {
+                    if (await BackgroundReceiptsHost.ConfirmUnsentBeforeExitAsync(this).ConfigureAwait(true))
+                    {
+                        _unsentChecked = true;
+                        Close();
+                    }
+                }
+                finally
+                {
+                    _exitAsking = false;
+                }
+                return;
+            }
             if (_exitConfirmed || _loggingOut || _closingAllSections)
             {
                 CloseAllSections();
@@ -849,6 +907,9 @@ public partial class OwnerShellWindow : Window, IMainShell
             () => OpenSection("kb", () => App.GetRequiredService<KnowledgeBaseWindow>()));
         Add("support", "RemoteSupportIcon", Tr.T("Тех. поддержка", "Тех колдоо", "Support", "Destek", "Texnik yordam"), TariffGate.CanUseService,
             () => OpenSection("support", () => App.GetRequiredService<RemoteSupportWindow>()));
+        // 2026-11-06: «Неотправленное» — всё, что не ушло на сервер (приходы, новые товары, чеки и операции этого компьютера), с ручной отправкой.
+        Add("outbox", "RefreshIcon", Tr.T("Неотправленное", "Жөнөтүлбөгөндөр", "Unsent", "Gönderilmeyenler", "Yuborilmaganlar"), true,
+            () => OutboxWindow.ShowOrActivate(this));
         Add("logs", "ErrorLogIcon", Tr.T("Журнал ошибок", "Каталар журналы", "Error log", "Hata günlüğü", "Xatolar jurnali"), TariffGate.CanUseService,
             () => OpenSection("logs", () => App.GetRequiredService<LogsAndErrorsWindow>()));
 
@@ -1405,6 +1466,7 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private bool _exitConfirmed;
     private bool _exitAsking;
+    private bool _unsentChecked; // 2026-11-06: вопрос про неотправленные приходы и новые товары уже задан и принят
 
     /// <summary>Разделы с несохранённым (явный признак раздела или общий признак ввода — как в SectionBusy).</summary>
     private List<Section> DirtySections() => _sections
@@ -1630,6 +1692,9 @@ public partial class OwnerShellWindow : Window, IMainShell
                     ? Tr.T($"Сервер недоступен · данные на {at:HH:mm}", $"Сервер жеткиликсиз · маалымат {at:HH:mm} боюнча", $"Server unavailable · data as of {at:HH:mm}",
                         $"Sunucu kullanılamıyor · veriler {at:HH:mm} itibarıyla", $"Server mavjud emas · ma'lumotlar {at:HH:mm} holatiga ko'ra")
                     : Tr.T("Сервер недоступен", "Сервер жеткиликсиз", "The server is unavailable", "Sunucu kullanılamıyor", "Server mavjud emas");
+        // 2026-11-06 (Б-8): сервер отвечает 401 — это не «недоступен»: честная подпись «Войдите снова».
+        if (SessionExpiryMonitor.IsExpired)
+            UpdatedText.Text = ExpiredHeaderText();
         // 2026-10-18, ревью О1: каталог локальный — товары на исходе видны и без связи (иначе «Требует внимания» пустой).
         ApplyLowStock();
     }
@@ -1991,6 +2056,8 @@ public partial class OwnerShellWindow : Window, IMainShell
                 $"Server unavailable · from tills on the local network ({count} receipts)",
                 $"Sunucu kullanılamıyor · yerel ağdaki kasaların verilerine göre ({count} fiş)",
                 $"Server mavjud emas · mahalliy tarmoqdagi kassalar ma'lumotlari bo'yicha ({count} ta chek)");
+        if (SessionExpiryMonitor.IsExpired)
+            UpdatedText.Text = ExpiredHeaderText(); // 2026-11-06 (Б-8): сервер отвечает 401 — «Войдите снова», а не «Сервер недоступен»
         return true;
     }
 
@@ -3426,6 +3493,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         try
         {
             App.AuthApi.ClearSession();
+            RefreshExpiryWatcher.Current.Clear(); // 2026-11-06: вышли — срока входа нет
             await App.GetRequiredService<IAuthSessionManager>().ClearSessionAsync().ConfigureAwait(true);
             OfflineAuthSessionStore.Clear();
         }
@@ -3444,13 +3512,8 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private static void OpenUrl(string url)
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Owner app: failed to open {url}: {ex.Message}", "WARNING");
-        }
+        // 2026-11-06: В4 А5-05 — общий запуск ссылки (на Android — Intent).
+        if (!PlatformLauncher.OpenUrl(url))
+            PosLogger.Log($"Owner app: failed to open {url}", "WARNING");
     }
 }

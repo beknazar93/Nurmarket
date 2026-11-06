@@ -1,0 +1,36 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>outro</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0 calc(var(--u)*8); }
+  .logo { width:calc(var(--u)*13); height:calc(var(--u)*13); border-radius:50%; margin-bottom:calc(var(--u)*3); }
+  .h { font-weight:800; font-size:calc(var(--u)*7.6); line-height:1.12; max-width:calc(100vw - var(--u)*14); }
+  .btn { margin-top:calc(var(--u)*4.5); background:var(--brand); color:var(--ink); font-weight:800; font-size:calc(var(--u)*4.4);
+         padding:calc(var(--u)*2.2) calc(var(--u)*6); border-radius:calc(var(--u)*7); box-shadow:0 0 calc(var(--u)*4) rgba(255,178,8,.55); }
+  .url { margin-top:calc(var(--u)*3.2); font-weight:700; font-size:calc(var(--u)*3.6); color:#e6e6e6; }
+  .note { margin-top:calc(var(--u)*1.6); font-weight:500; font-size:calc(var(--u)*2.8); color:#bdbdbd; }
+</style></head>
+<body><div id="root"><div class="bg-glow"></div></div>
+<script src="nm.js"></script>
+<script>
+/* params: {title, cta, url?, note?, logo?} */
+window.__ready = window.__ready.then(async () => {
+  const { P, S, el, seg, ease } = NM, root = document.getElementById('root');
+  const c = el('div', 'center', root);
+  const logo = P.logo || S.logo;
+  let li = null;
+  if (logo) { li = el('img', 'logo', c); li.src = NM.toURL(logo); await new Promise(r => { li.onload = li.onerror = r; }); }
+  const h = el('div', 'h', c, P.title || '');
+  const b = P.cta ? el('div', 'btn', c, P.cta) : null;
+  const u = P.url ? el('div', 'url', c, P.url) : null;
+  const n = P.note ? el('div', 'note', c, P.note) : null;
+  window.__render = (t) => {
+    if (li) { const a = seg(t, 0, 0.7, ease.back); li.style.opacity = Math.min(1, a); li.style.transform = `scale(${a}) rotate(${(1 - a) * -90}deg)`; }
+    const a = seg(t, 0.3, 0.6); h.style.opacity = a; h.style.transform = `translateY(${(1 - a) * 5}vmin)`;
+    if (b) { const k = seg(t, 0.9, 0.6, ease.back), pul = 1 + 0.035 * Math.sin(Math.max(0, t - 1.5) * 5);
+      b.style.opacity = Math.min(1, k * 1.5); b.style.transform = `scale(${k * pul})`; }
+    if (u) { const k = seg(t, 1.4, 0.5); u.style.opacity = k; }
+    if (n) { const k = seg(t, 1.7, 0.5); n.style.opacity = k; }
+  };
+});
+</script></body></html>

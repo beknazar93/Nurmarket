@@ -8,7 +8,7 @@ namespace NurMarketKassa.Services;
 // шлёт чек тому, у кого в чеке выбран клиент с этим телефоном (TelegramReceiptDelivery). Согласие — явное (Старт + номер), отписка — команда /stop (бот) или блокировка бота.
 // Файл связей один на компьютер и общий для кассы и программы владельца (опрос бота ведёт любая из них): %LOCALAPPDATA%\NurMarketKassa\telegram-receipt-links.json.
 
-/// <summary>Одна привязка: телефон покупателя (последние 9 цифр) и его чат с ботом.</summary>
+/// <summary>Одна привязка: телефон покупателя (номер целиком с кодом страны; в файлах до 2026-11-06 — последние 9 цифр) и его чат с ботом.</summary>
 public sealed class TelegramReceiptLink
 {
     public string Phone { get; set; } = "";
@@ -37,6 +37,25 @@ public static class TelegramReceiptLinks
         var digits = new string((phone ?? "").Where(char.IsDigit).ToArray());
         return digits.Length > 9 ? digits[^9..] : digits;
     }
+
+    /// <summary>2026-11-06: В3 Л5-19 — ключ сравнения номеров ЦЕЛИКОМ с кодом страны (раньше — последние 9 цифр, и +996 555 123 456 совпадал с +998 555 123 456).
+    /// 9 цифр («555123456») и «0» + 9 цифр («0555123456») — местные номера Кыргызстана, к ним добавляется 996; номера с кодом страны («996…», «998…», «+7…») остаются как есть,
+    /// «00» в начале (международный выход) отбрасывается. Короче 9 цифр — как есть (для привязки не годится, см. <see cref="IsUsablePhone"/>).</summary>
+    public static string PhoneKey(string? phone)
+    {
+        var digits = new string((phone ?? "").Where(char.IsDigit).ToArray());
+        if (digits.StartsWith("00", StringComparison.Ordinal) && digits.Length > 11)
+            digits = digits[2..];
+        if (digits.Length == 9)
+            return "996" + digits;
+        if (digits.Length == 10 && digits[0] == '0')
+            return "996" + digits[1..];
+        return digits;
+    }
+
+    /// <summary>Привязка, сохранённая до 2026-11-06, хранит только последние 9 цифр: подходит только к номеру Кыргызстана (996…) с тем же хвостом.</summary>
+    internal static bool LegacyLinkMatches(string storedPhone, string key) =>
+        storedPhone.Length <= 9 && key.StartsWith("996", StringComparison.Ordinal) && key.EndsWith(storedPhone, StringComparison.Ordinal);
 
     /// <summary>Подходит ли номер для привязки/отправки (не меньше 9 цифр).</summary>
     public static bool IsUsablePhone(string? phone) => LastDigits(phone).Length >= 9;
@@ -87,8 +106,8 @@ public static class TelegramReceiptLinks
     /// <summary>Привязать телефон к чату (согласие получено). Тот же чат с другим номером — номер заменяется; тот же номер в другом чате — оба чата получают чек.</summary>
     public static void Link(string? phone, string chatId, string? name)
     {
-        var key = LastDigits(phone);
-        if (key.Length < 9 || string.IsNullOrWhiteSpace(chatId))
+        var key = PhoneKey(phone); // 2026-11-06: В3 Л5-19 — номер целиком, а не последние 9 цифр
+        if (LastDigits(phone).Length < 9 || string.IsNullOrWhiteSpace(chatId))
             return;
         lock (Gate)
         {
@@ -117,12 +136,12 @@ public static class TelegramReceiptLinks
     /// <summary>Чаты, куда слать чек этому телефону (согласие дано нынешнему боту); пусто — не привязан.</summary>
     public static IReadOnlyList<string> ChatsForPhone(string? phone)
     {
-        var key = LastDigits(phone);
-        if (key.Length < 9)
+        if (LastDigits(phone).Length < 9)
             return Array.Empty<string>();
+        var key = PhoneKey(phone); // 2026-11-06: В3 Л5-19 — сравнение номера целиком (старые привязки на 9 цифр — только для 996, см. LegacyLinkMatches)
         var bot = BotName();
         lock (Gate)
-            return Load().Where(l => l.Phone == key && (l.Bot is null || bot is null || string.Equals(l.Bot, bot, StringComparison.OrdinalIgnoreCase)))
+            return Load().Where(l => (l.Phone == key || LegacyLinkMatches(l.Phone, key)) && (l.Bot is null || bot is null || string.Equals(l.Bot, bot, StringComparison.OrdinalIgnoreCase)))
                 .Select(l => l.ChatId).Distinct().ToList();
     }
 

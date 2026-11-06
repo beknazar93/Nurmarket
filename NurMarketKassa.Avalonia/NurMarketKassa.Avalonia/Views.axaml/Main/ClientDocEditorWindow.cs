@@ -1942,36 +1942,16 @@ public sealed class ClientDocEditorWindow : Window
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
             return;
-        try
-        {
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Документ клиента: файл не открылся ({ex.Message}).", "WARNING");
-        }
+        // 2026-11-06: В4 А5-05 — общий запуск файла (на Android — Intent).
+        if (!PlatformLauncher.OpenFile(path))
+            PosLogger.Log("Документ клиента: файл не открылся.", "WARNING");
     }
 
     private static void RevealFile(string path)
     {
-        try
-        {
-            if (OperatingSystem.IsWindows())
-                Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = false });
-            else if (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux())
-            {
-                // 2026-10-29: macOS — Finder (open -R), Linux — папка с файлом (xdg-open).
-                var psi = new ProcessStartInfo(OperatingSystem.IsMacOS() ? "open" : "xdg-open") { UseShellExecute = false };
-                if (OperatingSystem.IsMacOS())
-                    psi.ArgumentList.Add("-R");
-                psi.ArgumentList.Add(OperatingSystem.IsMacOS() ? path : (Path.GetDirectoryName(path) ?? "."));
-                Process.Start(psi);
-            }
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Документ клиента: папка не открылась ({ex.Message}).", "WARNING");
-        }
+        // 2026-11-06: В4 А5-05 — общий запуск (Windows: проводник, macOS: Finder, Linux: папка; на Android — ничего).
+        if (!PlatformLauncher.Reveal(path) && !OperatingSystem.IsAndroid())
+            PosLogger.Log("Документ клиента: папка не открылась.", "WARNING");
     }
 
     // ───────────────────────────── мелочи вёрстки ─────────────────────────────

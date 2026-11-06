@@ -9038,6 +9038,66 @@ abstract class AppLocalizations {
   /// **'Укажите цену продажи'**
   String get invPriceMissing;
 
+  /// No description provided for @invAutoMarkup.
+  ///
+  /// In ru, this message translates to:
+  /// **'Авто-наценка к закупке'**
+  String get invAutoMarkup;
+
+  /// No description provided for @invAutoMarkupSub.
+  ///
+  /// In ru, this message translates to:
+  /// **'Выключено: цена продажи сама не ставится. Включите — цена = закупка + 30 % (вверх до 5 сом), видна в строке до отправки'**
+  String get invAutoMarkupSub;
+
+  /// No description provided for @invNoPriceTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'У {n} поз. нет цены продажи'**
+  String invNoPriceTitle(int n);
+
+  /// No description provided for @invNoPriceBody.
+  ///
+  /// In ru, this message translates to:
+  /// **'Введите цену или наценку. «Оставить без цены» — цена существующих товаров не изменится, новые товары будут созданы без цены.'**
+  String get invNoPriceBody;
+
+  /// No description provided for @invNoPriceEnter.
+  ///
+  /// In ru, this message translates to:
+  /// **'Ввести цену'**
+  String get invNoPriceEnter;
+
+  /// No description provided for @invNoPriceMarkup.
+  ///
+  /// In ru, this message translates to:
+  /// **'Наценка +{pct} %'**
+  String invNoPriceMarkup(int pct);
+
+  /// No description provided for @invNoPriceLeave.
+  ///
+  /// In ru, this message translates to:
+  /// **'Оставить без цены'**
+  String get invNoPriceLeave;
+
+  /// No description provided for @invAutoConfirmTitle.
+  ///
+  /// In ru, this message translates to:
+  /// **'Цена по наценке: {n} поз.'**
+  String invAutoConfirmTitle(int n);
+
+  /// No description provided for @invAutoConfirmBody.
+  ///
+  /// In ru, this message translates to:
+  /// **'У этих товаров цена продажи будет поставлена по наценке — она видна в строке. Подтвердить?'**
+  String get invAutoConfirmBody;
+
+  /// No description provided for @invAutoConfirmYes.
+  ///
+  /// In ru, this message translates to:
+  /// **'Подтвердить'**
+  String get invAutoConfirmYes;
+
   /// No description provided for @invRemoveRow.
   ///
   /// In ru, this message translates to:

@@ -28,6 +28,22 @@ public sealed class PurchasesSupplierPicker : Grid
     private List<SupplierInfo> _all = new();
     private SupplierInfo? _selected;
     private bool _loading;
+    private bool _fromMemory; // 2026-11-06 (Б-5): список взят из памяти кассы (нет связи) — в списке подсказка
+
+    private Action? _recoveredHook;
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (_recoveredHook is not null)
+        {
+            ServerOutageMonitor.Recovered -= _recoveredHook;
+            _recoveredHook = null;
+        }
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>2026-11-06 (Б-5): список поставщиков показан из памяти кассы, а не с сервера.</summary>
+    public bool FromMemory => _fromMemory;
 
     public bool AllowAll { get; init; }
 
@@ -99,6 +115,13 @@ public sealed class PurchasesSupplierPicker : Grid
         Avalonia.Automation.AutomationProperties.SetName(_button, T("Поставщик", "Жеткирүүчү", "Supplier", "Tedarikçi", "Yetkazib beruvchi"));
     }
 
+    /// <summary>2026-11-06: открыть список поставщиков (вопрос «Поставщик не выбран» → «Выбрать поставщика»); курсор — в поиск.</summary>
+    public void Open()
+    {
+        _button.Focus();
+        _flyout.ShowAt(_button);
+    }
+
     /// <summary>Скрыть «＋» (там, где новый поставщик не нужен).</summary>
     public bool ShowAdd
     {
@@ -116,12 +139,31 @@ public sealed class PurchasesSupplierPicker : Grid
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
             _all = await _svc.ListAsync(cts.Token).ConfigureAwait(true);
+            _fromMemory = false;
+            // 2026-11-06 (Б-5): удачный список запоминается в память кассы — без интернета (и при «предохранителе») окно возьмёт его.
+            PurchaseReceivingService.RememberSuppliers(_all);
             if (_selected is { } s)
                 _selected = _all.FirstOrDefault(x => x.Id == s.Id) ?? s;
         }
         catch (Exception ex)
         {
             PosLogger.Log($"Закупки: поставщики не загружены ({ex.Message}).", "WARNING");
+            // 2026-11-06 (живой тест, Б-5): при ЛЮБОМ отказе (нет интернета, «предохранитель», 401) берём список из памяти кассы. Пусто — только если памяти нет вовсе.
+            if (_all.Count == 0 && PurchaseReceivingService.CachedSuppliers() is { } cached)
+            {
+                _all = cached.Select(c => new SupplierInfo(c.Id, c.Name, c.Phone ?? "", "", "", c.Inn ?? "", "", "", "", "", null))
+                    .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+                _fromMemory = true;
+                // Связь вернулась — список обновляется сам (подсказка «обновится, когда появится интернет»).
+                if (_recoveredHook is null)
+                {
+                    _recoveredHook = () => Avalonia.Threading.Dispatcher.UIThread.Post(async () => { if (_fromMemory) await LoadAsync().ConfigureAwait(true); });
+                    ServerOutageMonitor.Recovered += _recoveredHook;
+                }
+                PosLogger.Log($"Закупки: поставщики взяты из памяти кассы ({_all.Count}).", "WARNING");
+                if (_selected is { } sel)
+                    _selected = _all.FirstOrDefault(x => x.Id == sel.Id) ?? sel;
+            }
         }
         finally
         {
@@ -179,6 +221,18 @@ public sealed class PurchasesSupplierPicker : Grid
     private void RenderList()
     {
         _list.Children.Clear();
+        if (_fromMemory)
+        {
+            var note = new TextBlock
+            {
+                Text = T("Список поставщиков из памяти кассы — обновится, когда появится интернет.", "Жеткирүүчүлөр тизмеси кассанын эс тутумунан — интернет пайда болгондо жаңырат.",
+                    "The supplier list is from the till's memory — it will refresh when the internet is back.", "Tedarikçi listesi kasanın belleğinden — internet gelince güncellenecek.",
+                    "Yetkazib beruvchilar ro'yxati kassa xotirasidan — internet paydo bo'lganda yangilanadi."),
+                FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(6, 2, 6, 6),
+            };
+            Use(note, TextBlock.ForegroundProperty, "BrushTextSoft");
+            _list.Children.Add(note);
+        }
         var q = (_search.Text ?? "").Trim();
         var digits = new string(q.Where(char.IsDigit).ToArray());
         if (AllowAll && q.Length == 0)

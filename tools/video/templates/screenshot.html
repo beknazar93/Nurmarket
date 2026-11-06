@@ -1,0 +1,121 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>screenshot</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  #cam { position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform; }
+  #shot { position:absolute; display:block; border-radius:calc(var(--u)*1); box-shadow:0 calc(var(--u)*1.2) calc(var(--u)*5) rgba(0,0,0,.55); }
+  #ov { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  .hl { position:absolute; border:calc(var(--u)*.55) solid var(--brand); border-radius:calc(var(--u)*1.2);
+        box-shadow:0 0 calc(var(--u)*2.5) rgba(255,178,8,.75); }
+  .hl.dim { box-shadow:0 0 0 200vmax rgba(10,10,10,.58), 0 0 calc(var(--u)*2.5) rgba(255,178,8,.75); }
+  .hl .lab { position:absolute; left:0; background:var(--brand); color:var(--ink); font-weight:800; white-space:nowrap;
+             font-size:calc(var(--u)*2.6); padding:calc(var(--u)*.7) calc(var(--u)*1.6); border-radius:calc(var(--u)*1); }
+  .hl .lab.top { bottom:calc(100% + var(--u)*1); } .hl .lab.bot { top:calc(100% + var(--u)*1); }
+  .cur { position:absolute; left:0; top:0; width:calc(var(--u)*4.6); height:calc(var(--u)*4.6); filter:drop-shadow(0 calc(var(--u)*.4) calc(var(--u)*.6) rgba(0,0,0,.5)); }
+  .rip { position:absolute; border-radius:50%; border:calc(var(--u)*.7) solid var(--brand); width:calc(var(--u)*6); height:calc(var(--u)*6); }
+  #cap { position:absolute; left:50%; transform:translateX(-50%); top:calc(var(--u)*3); max-width:calc(100vw - var(--u)*10); text-align:center;
+         font-weight:800; font-size:calc(var(--u)*4); color:#fff; }
+</style></head>
+<body><div id="root"><div class="bg-glow"></div><div id="cam"><img id="shot"></div><div id="ov"></div></div>
+<script src="nm.js"></script>
+<script>
+/* Параметры сцены (window.SCENE.params):
+   image  - путь к PNG; title - текст-плашка на всю сцену (необязательно);
+   portraitFocus - [x,y,w,h]: область, которую показывать как «общий план» в вертикальном видео;
+   steps  - список шагов, rect = [x, y, w, h] в пикселях ИСХОДНОГО скриншота:
+     {type:"zoom", at, dur, rect|"full"}                       камера приближает область (или "full" - отъезд)
+     {type:"highlight", at, dur, rect, label, dim:true}        рамка-подсветка (dim затемняет остальное)
+     {type:"cursor", at, dur, from:[x,y], to:[x,y], click:true, hold}  курсор едет в точку и «кликает»
+     {type:"title", at, dur, text, pos:"top|bottom"}           плашка-титр
+   at/dur - секунды от начала сцены, либо "40%" от длительности сцены. */
+window.__ready = window.__ready.then(async () => {
+  const { P, S, el, seg, ease, T, lerp, clamp, pulse } = NM;
+  const im = document.getElementById('shot');
+  const root = document.getElementById('root'), cam = document.getElementById('cam'), ov = document.getElementById('ov');
+  im.src = NM.toURL(P.image);
+  await new Promise(r => { im.onload = im.onerror = r; });
+  try { await im.decode(); } catch (e) {}
+  const W = innerWidth, H = innerHeight, nw = im.naturalWidth || 1920, nh = im.naturalHeight || 1080;
+  const portrait = H > W;
+  // размер скриншота в «стоп-кадре»: помещается в 92% x 76% кадра, оставляя место плашке
+  const k0 = Math.min(W * 0.92 / nw, H * (portrait ? 0.62 : 0.78) / nh);
+  const dw = nw * k0, dh = nh * k0, bx = (W - dw) / 2, by = (H - dh) / 2 + H * (portrait ? 0.0 : 0.03);
+  Object.assign(im.style, { left: bx + 'px', top: by + 'px', width: dw + 'px', height: dh + 'px' });
+  const steps = (P.steps || []).map(s => Object.assign({}, s, { at: T(s.at, 0), dur: T(s.dur, s.type === 'zoom' ? 0.9 : 2.2) }));
+  const full = { x: 0, y: 0, w: nw, h: nh };
+  const stateFor = (r) => {
+    if ((r === 'full' || !r) && portrait && P.portraitFocus) r = P.portraitFocus; // 2026-10-29: в вертикальном кадре «общий план» = эта область
+    if (r === 'full' || !r) return { cx: bx + dw / 2, cy: by + dh / 2, s: 1 };
+    const R = { x: r[0], y: r[1], w: r[2], h: r[3] };
+    const dwr = R.w * k0, dhr = R.h * k0;
+    const s = clamp(Math.min(W * 0.84 / dwr, H * (portrait ? 0.55 : 0.70) / dhr), 1, 4.5);
+    return { cx: bx + (R.x + R.w / 2) * k0, cy: by + (R.y + R.h / 2) * k0, s };
+  };
+  const zooms = steps.filter(s => s.type === 'zoom').sort((a, b) => a.at - b.at);
+  const camAt = (t) => {
+    let prev = stateFor('full');
+    for (const z of zooms) {
+      if (t < z.at) break;
+      const nxt = stateFor(z.rect), p = ease.inOut(clamp((t - z.at) / z.dur));
+      const cur = { cx: lerp(prev.cx, nxt.cx, p), cy: lerp(prev.cy, nxt.cy, p), s: Math.exp(lerp(Math.log(prev.s), Math.log(nxt.s), p)) };
+      if (p < 1) return cur;
+      prev = nxt;
+    }
+    return prev;
+  };
+  let C = camAt(0);
+  const scr = (px, py) => [(bx + px * k0 - 0) * C.s + (W / 2 - C.cx * C.s), (by + py * k0) * C.s + (H / 2 - C.cy * C.s)];
+  // ---- элементы шагов ----
+  const items = steps.map(s => {
+    if (s.type === 'highlight') {
+      const d = el('div', 'hl' + (s.dim === false ? '' : ' dim'), ov);
+      if (s.label) { var lab = el('div', 'lab top', d, s.label); }
+      return { s, d, lab };
+    }
+    if (s.type === 'cursor') {
+      const d = el('div', 'cur', ov);
+      d.innerHTML = '<svg viewBox="0 0 24 24"><path d="M3 2 L3 19 L8 14.5 L11.2 21.5 L14 20.2 L10.9 13.4 L17.5 13.2 Z" fill="#fff" stroke="#191919" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+      const rp = el('div', 'rip', ov);
+      return { s, d, rp };
+    }
+    if (s.type === 'title') return { s, t: NM.titr(s.text, { pos: s.pos }) };
+    return { s };
+  });
+  if (P.title) { var capTitr = NM.titr(P.title, { pos: P.titlePos || 'top' }); }
+  window.__render = (t) => {
+    C = camAt(t);
+    cam.style.transform = `translate(${W / 2 - C.cx * C.s}px, ${H / 2 - C.cy * C.s}px) scale(${C.s})`;
+    // растушёвка «входа» экрана
+    im.style.opacity = seg(t, 0, 0.5);
+    for (const it of items) {
+      const s = it.s;
+      if (s.type === 'highlight') {
+        const [x, y, w, h] = s.rect, [sx, sy] = scr(x, y), pad = 0.8 * W / 100;
+        const a = pulse(t, s.at, s.dur, 0.35, 0.4);
+        const sc = 1 + (1 - ease.back(clamp((t - s.at) / 0.45))) * 0.08;
+        Object.assign(it.d.style, { left: (sx - pad) + 'px', top: (sy - pad) + 'px', width: (w * k0 * C.s + 2 * pad) + 'px', height: (h * k0 * C.s + 2 * pad) + 'px',
+          opacity: a, transform: `scale(${sc})`, display: a > 0.001 ? 'block' : 'none' });
+        // «дыхание» рамки
+        it.d.style.outline = `${(0.4 + 0.4 * Math.abs(Math.sin((t - s.at) * 4))) * 1.0}vmin solid rgba(255,178,8,${0.35 * a})`;
+        it.d.style.outlineOffset = '0.6vmin';
+        if (it.lab) { it.lab.className = 'lab ' + (sy - pad > H * 0.14 ? 'top' : 'bot'); }
+      } else if (s.type === 'cursor') {
+        const f = s.from || [nw * 0.9, nh * 1.05], to = s.to || [nw / 2, nh / 2];
+        const p = ease.inOut(clamp((t - s.at) / s.dur)), hold = T(s.hold, 1.4);
+        const [cx, cy] = scr(lerp(f[0], to[0], p), lerp(f[1], to[1], p));
+        const vis = Math.min(seg(t, s.at - 0.0001, 0.25), 1 - seg(t, s.at + s.dur + hold, 0.3, ease.in));
+        const press = s.click === false ? 0 : clamp((t - (s.at + s.dur)) / 0.18);
+        const sz = 1 - 0.14 * Math.sin(Math.min(press, 1) * Math.PI);
+        Object.assign(it.d.style, { transform: `translate(${cx}px, ${cy}px) scale(${sz})`, opacity: t < s.at ? 0 : vis });
+        const rt = clamp((t - (s.at + s.dur + 0.05)) / 0.6);
+        const rs = 0.4 + 1.6 * ease.out(rt);
+        Object.assign(it.rp.style, { left: (cx - 3 * W / 100 * 0.0) + 'px', top: cy + 'px', marginLeft: '-3vmin', marginTop: '-3vmin',
+          transform: `scale(${rs})`, opacity: (s.click === false || rt <= 0 || rt >= 1) ? 0 : 1 - rt });
+      } else if (s.type === 'title') {
+        it.t.set(t, s.at, s.dur);
+      }
+    }
+    if (capTitr) capTitr.set(t, 0.3, S.duration - 0.6);
+  };
+});
+</script></body></html>

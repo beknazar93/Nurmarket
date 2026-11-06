@@ -305,8 +305,13 @@ public class ScannerActivity : Activity, ISurfaceHolderCallback, Camera.IPreview
             {
                 // Кадр камеры — «альбомный»; штрихкод, который держат вдоль телефона, в нём стоит вертикально.
                 // Сначала как есть, потом повёрнутый на 90° (линейным штрихкодам ориентация важна).
-                var result = _reader.Decode(new PlanarYUVLuminanceSource(data, width, height, 0, 0, width, height, false))
-                             ?? _reader.Decode(new PlanarYUVLuminanceSource(RotateLuma(data, width, height), height, width, 0, 0, height, width, false));
+                // 2026-11-06: В4 А4-16 — TryHarder (медленный разбор) только на каждом 3-м кадре, разбор — центра кадра (80 % по каждой стороне:
+                // рамка наведения в середине, края камеры штрихкод не несут), повёрнутая копия — в одном буфере на весь сеанс (раньше ≈0,9 МБ на кадр).
+                _reader.Options.TryHarder = _frameNumber++ % 3 == 0;
+                var cropX = width / 10;
+                var cropY = height / 10;
+                var result = _reader.Decode(new PlanarYUVLuminanceSource(data, width, height, cropX, cropY, width - 2 * cropX, height - 2 * cropY, false))
+                             ?? _reader.Decode(new PlanarYUVLuminanceSource(RotateLuma(data, width, height), height, width, cropY, cropX, height - 2 * cropY, width - 2 * cropX, false));
                 if (result is not null && !string.IsNullOrWhiteSpace(result.Text) && IsConfirmed(result.Text.Trim(), result.BarcodeFormat))
                     RunOnUiThread(() => Deliver(result.Text));
             }
@@ -363,10 +368,14 @@ public class ScannerActivity : Activity, ISurfaceHolderCallback, Camera.IPreview
         return _candidateHits >= LinearConfirmations;
     }
 
-    /// <summary>Яркость кадра NV21 (первые width×height байт), повёрнутая на 90° по часовой.</summary>
-    private static byte[] RotateLuma(byte[] data, int width, int height)
+    private int _frameNumber;
+    private byte[]? _rotatedBuffer;
+
+    /// <summary>Яркость кадра NV21 (первые width×height байт), повёрнутая на 90° по часовой.
+    /// 2026-11-06: В4 А4-16 — буфер один на экран камеры (кадры разбираются по одному, пока _busy), а не новый на каждый кадр.</summary>
+    private byte[] RotateLuma(byte[] data, int width, int height)
     {
-        var rotated = new byte[width * height];
+        var rotated = _rotatedBuffer is { } buffer && buffer.Length == width * height ? buffer : (_rotatedBuffer = new byte[width * height]);
         for (var y = 0; y < height; y++)
         {
             var row = y * width;

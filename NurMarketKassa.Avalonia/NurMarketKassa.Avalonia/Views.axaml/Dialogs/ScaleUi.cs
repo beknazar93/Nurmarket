@@ -124,12 +124,14 @@ internal static partial class ScaleUi
         // если они разные, кассир должен знать, что на деньги чека выбор кассы не влияет, а настройку сайта стоит поправить.
         var serverUnit = WeightBarcodeParser.ResolveAmountUnit(null, prefs.ScaleBarcodeAmountUnit);
         var differs = local && !string.Equals(serverUnit, unit, StringComparison.OrdinalIgnoreCase);
+        // 2026-11-06: В4 Н-2 — в предупреждении было техническое слово «tiyin»/«som» с сайта; теперь — «в тыйынах» / «в сомах» на языке интерфейса.
+        var serverWord = NurMarketKassa.AvaloniaHost.Services.ScaleBarcodeRules.UnitWord(serverUnit);
         var warn = differs
-            ? L($" Внимание: на сайте стоит «{serverUnit}» — по ней сервер округляет суммы весовых строк чека. Выбор кассы влияет только на чтение этикетки; для верных сумм исправьте единицу на сайте.",
-                $" Көңүл буруңуз: сайтта «{serverUnit}» коюлган — сервер чектеги таразалуу саптардын суммаларын ушуга жараша тегиздейт. Кассадагы тандоо этикетканы окууга гана таасир этет; суммалар туура болушу үчүн сайттагы бирдикти оңдоңуз.",
-                $" Note: the website has “{serverUnit}” — the server rounds weighed line totals by it. The till choice only affects reading the label; fix the unit on the website for correct totals.",
-                $" Dikkat: sitede «{serverUnit}» ayarlı — sunucu tartılı satır tutarlarını buna göre yuvarlar. Kasadaki seçim yalnızca etiketin okunmasını etkiler; doğru tutarlar için birimi sitede düzeltin.",
-                $" Diqqat: saytda «{serverUnit}» o‘rnatilgan — server tarozili qator summalarini shunga ko‘ra yaxlitlaydi. Kassadagi tanlov faqat yorliqni o‘qishga ta’sir qiladi; summalar to‘g‘ri bo‘lishi uchun saytdagi birlikni tuzating.")
+            ? L($" Внимание: на сайте стоит «{serverWord}» — по ней сервер округляет суммы весовых строк чека. Выбор кассы влияет только на чтение этикетки; для верных сумм исправьте единицу на сайте.",
+                $" Көңүл буруңуз: сайтта «{serverWord}» коюлган — сервер чектеги таразалуу саптардын суммаларын ушуга жараша тегиздейт. Кассадагы тандоо этикетканы окууга гана таасир этет; суммалар туура болушу үчүн сайттагы бирдикти оңдоңуз.",
+                $" Note: the website has “{serverWord}” — the server rounds weighed line totals by it. The till choice only affects reading the label; fix the unit on the website for correct totals.",
+                $" Dikkat: sitede «{serverWord}» ayarlı — sunucu tartılı satır tutarlarını buna göre yuvarlar. Kasadaki seçim yalnızca etiketin okunmasını etkiler; doğru tutarlar için birimi sitede düzeltin.",
+                $" Diqqat: saytda «{serverWord}» o‘rnatilgan — server tarozili qator summalarini shunga ko‘ra yaxlitlaydi. Kassadagi tanlov faqat yorliqni o‘qishga ta’sir qiladi; summalar to‘g‘ri bo‘lishi uchun saytdagi birlikni tuzating.")
             : "";
         return main + src + warn;
     }
@@ -172,6 +174,33 @@ internal static partial class ScaleUi
                 Add(L("Как на сайте", "Сайттагыдай", "Same as the website", "Site ile aynı", "Saytdagidek"), () => UserPreferences.Instance.SetLocalScaleAmountUnit(null));
         }
         Rebuild();
+
+        // 2026-11-06: В4 Н-1 — ряд кнопок не перерисовывался после смены языка и когда единицу меняли в другом месте (кнопка «Цифры в тыйынах» под
+        // предупреждением о нереальной сумме). Теперь: смена языка — сразу; смену единицы извне подхватывает проверка раз в 400 мс, пока ряд на экране.
+        string State() => (UserPreferences.Instance.ScaleBarcodeAmountUnitLocal ?? "") + "|" + WeightBarcodeParser.AmountUnit;
+        var shown = State();
+        var timer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+        timer.Tick += (_, _) =>
+        {
+            var now = State();
+            if (now == shown)
+                return;
+            shown = now;
+            Rebuild();
+        };
+        void OnLanguage() => Avalonia.Threading.Dispatcher.UIThread.Post(() => { shown = State(); Rebuild(); });
+        root.AttachedToVisualTree += (_, _) =>
+        {
+            Tr.LanguageChanged -= OnLanguage;
+            Tr.LanguageChanged += OnLanguage;
+            shown = State();
+            timer.Start();
+        };
+        root.DetachedFromVisualTree += (_, _) =>
+        {
+            Tr.LanguageChanged -= OnLanguage;
+            timer.Stop();
+        };
         return root;
     }
 

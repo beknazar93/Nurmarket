@@ -106,6 +106,11 @@ public sealed class AvaloniaKeyboardWedgeBarcodeService : IBarcodeInputService
             try { return provider(); }
             catch { return null; }
         }
+#if NURPORTABLE && !NURANDROID
+        // 2026-11-06: В4 А5-20 — Linux: метка нажатия из «сырого» события ввода (см. LinuxRawKeyClock).
+        if (OperatingSystem.IsLinux())
+            return LinuxRawKeyClock.TryGet();
+#endif
         if (!OperatingSystem.IsWindows())
             return null;
         try

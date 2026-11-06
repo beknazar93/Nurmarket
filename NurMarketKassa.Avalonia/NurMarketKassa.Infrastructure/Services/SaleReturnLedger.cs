@@ -113,6 +113,22 @@ public static class SaleReturnLedger
 
     private static readonly object Gate = new();
     private static Dictionary<string, SaleLedgerEntry>? _cache;
+    /// <summary>2026-11-06: В2 Л4-18 — отпечаток файла (время записи + длина), с которым прочитан кэш: запись другой программы (владелец) или стирание
+    /// файла (смена компании) меняют его, и кэш перечитывается, а не держит старые возвраты.</summary>
+    private static string? _cacheStamp;
+
+    private static string FileStamp()
+    {
+        try
+        {
+            var info = new FileInfo(FilePath);
+            return info.Exists ? info.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture) + ":" + info.Length.ToString(CultureInfo.InvariantCulture) : "none";
+        }
+        catch
+        {
+            return "?" + Guid.NewGuid().ToString("N"); // не прочитали отпечаток — не доверяем кэшу
+        }
+    }
 
     public static SaleLedgerEntry? Get(string? saleId)
     {
@@ -321,8 +337,10 @@ public static class SaleReturnLedger
     private static Dictionary<string, SaleLedgerEntry> Load(out bool readOk)
     {
         readOk = true;
-        if (_cache is not null)
+        var stamp = FileStamp(); // до чтения: запись, пришедшая во время чтения, увидится при следующем обращении
+        if (_cache is not null && string.Equals(stamp, _cacheStamp, StringComparison.Ordinal))
             return _cache;
+        _cache = null;
         var result = new Dictionary<string, SaleLedgerEntry>(StringComparer.OrdinalIgnoreCase);
         if (!TryRead(FilePath, result, out var mainError, out var mainBroken))
         {
@@ -349,7 +367,10 @@ public static class SaleReturnLedger
         }
 
         if (readOk)
+        {
             _cache = result;
+            _cacheStamp = stamp;
+        }
         return result;
     }
 

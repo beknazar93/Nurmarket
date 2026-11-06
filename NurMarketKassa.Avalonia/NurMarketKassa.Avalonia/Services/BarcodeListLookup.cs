@@ -14,7 +14,8 @@ public static class BarcodeListLookup
 {
     public sealed record Suggestion(string Barcode, string Name, int Rating);
 
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(12) };
+    // 2026-11-06 (аудит скорости, 25.2): общая фабрика внешних клиентов (автораспаковка, смена DNS).
+    private static readonly HttpClient Http = NurMarketKassa.Services.ExternalHttp.Create(TimeSpan.FromSeconds(12));
     private static readonly SemaphoreSlim Gate = new(2);
     private static readonly Dictionary<string, List<Suggestion>> Cache = new(StringComparer.OrdinalIgnoreCase);
 

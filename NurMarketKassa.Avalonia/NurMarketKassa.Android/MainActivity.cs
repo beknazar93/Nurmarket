@@ -49,6 +49,10 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
         // Android после запуска Avalonia). Теперь тёмное, как панели состояния и навигации.
         Window?.SetBackgroundDrawable(new Android.Graphics.Drawables.ColorDrawable(Android.Graphics.Color.Black));
         RequestHighestRefreshRate();
+        // 2026-11-06: В4 А4-20 — ориентация экрана по выбору кассира (авто / только альбомная / только книжная).
+        AndroidOrientation.Apply(this);
+        // 2026-11-06: В4 А5-10 — право на уведомления спрашиваем после входа, а не в OnStart (иначе окно прав перебивало вход и первый запрос Bluetooth).
+        AndroidPlatformHooks.AfterSignIn = () => RunOnUiThread(AskNotificationsOnce);
     }
 
     /// <summary>2026-10-05, владелец: «плавный интерфейс хотя бы 60 Гц, по возможности максимальная частота». Экран
@@ -172,7 +176,10 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
             NurMarketKassa.Services.ShiftService.ShiftStateChanged += OnShiftStateChanged;
             ApplyKeepScreenOn(NurMarketKassa.Services.ShiftService.IsShiftOpen);
         }
-        AskNotificationsOnce();
+        // 2026-11-06: В4 А5-10 — прежде спрашивали здесь, на экране входа. Теперь — после входа (AndroidPlatformHooks.AfterSignIn);
+        // если касса вернулась из фона уже после входа — спросим сразу.
+        if (AndroidDesktopLifetime.Instance?.IsSignedIn == true)
+            AskNotificationsOnce();
     }
 
     private void OnShiftStateChanged(bool open) => RunOnUiThread(() => ApplyKeepScreenOn(open));
@@ -229,6 +236,13 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
     public override void OnTrimMemory(TrimMemory level)
     {
         base.OnTrimMemory(level);
+        // 2026-11-06: В4 А4-18 — касса на экране, а памяти мало (RunningLow / RunningCritical) или уходит в фон: сбрасываем кэш картинок
+        // каталога (оставляем несколько последних плиток — они на экране); пересоздаются по мере прокрутки.
+        if (level >= TrimMemory.RunningLow)
+        {
+            try { NurMarketKassa.AvaloniaHost.Converters.AssetPathToBitmapConverter.TrimThumbs(level >= TrimMemory.RunningCritical ? 12 : 48); }
+            catch (Exception ex) { NurMarketKassa.Services.PosLogger.Log($"Android: кэш картинок не сброшен — {ex.Message}", "WARNING"); }
+        }
         // 2026-11-05 (аудит №4, А4-18): раньше уровни «касса на экране, памяти мало» (RunningLow/RunningCritical) пропускались,
         // а при уходе в фон шла блокирующая сборка с уплотнением на главном потоке — касса «замирала» при быстром возврате.
         // Теперь: на экране при нехватке — обычная сборка без уплотнения; в фоне — то же в фоновом потоке.

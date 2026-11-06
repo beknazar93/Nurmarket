@@ -1,0 +1,397 @@
+{
+ "name": "ad-ky-16x9",
+ "lang": "ky",
+ "voice": "none",
+ "rate": "+6%",
+ "music": true,
+ "music_volume": 0.16,
+ "fps": 30,
+ "logo": "C:/Users/User/NurMarket-video/assets/logo.png",
+ "scenes": [
+  {
+   "id": "shop",
+   "text": "Дүкөн ачык. Бирок…",
+   "duration": 2.4,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "pain",
+   "icon": "shop",
+   "title": "Дүкөн [[ачык]]",
+   "nowipe": true
+  },
+  {
+   "id": "wifi",
+   "text": "Интернет жок — касса токтоду.",
+   "duration": 2.4,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "pain",
+   "icon": "wifi",
+   "title": "[[Интернет]] жок"
+  },
+  {
+   "id": "bar",
+   "text": "Жаңы товар — баары кол менен.",
+   "duration": 2.0,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "pain",
+   "icon": "barcode",
+   "title": "Товар [[табылган жок]]"
+  },
+  {
+   "id": "book",
+   "text": "Кечинде дептер. Пайда кайда?",
+   "duration": 2.4,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "pain",
+   "icon": "book",
+   "title": "Канча [[пайда]]?"
+  },
+  {
+   "id": "brand",
+   "text": "Тааныш белем? Эми NurCRM менен.",
+   "duration": 2.8,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "brand",
+   "title": "NurCRM",
+   "tag": "Касса · склад · ээси"
+  },
+  {
+   "id": "off",
+   "text": "Интернет жок — касса сата берет. Чектер өзү кетет.",
+   "duration": 4.2,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "screen",
+   "title": "[[Интернетсиз]] — сатат",
+   "shots": [
+    {
+     "image": "C:/Users/User/NurMarket-video/shots-kassa/ky/ad-main-offline__1440x850.png",
+     "crop": [
+      0.66,
+      0.08,
+      0.34,
+      0.88
+     ],
+     "focus": [
+      {
+       "at": 0.12,
+       "dur": 0.9,
+       "rect": [
+        0.26,
+        0.0,
+        0.5,
+        0.12
+       ]
+      }
+     ]
+    },
+    {
+     "image": "C:/Users/User/NurMarket-video/shots-kassa/ky/ad-main-online__1440x850.png",
+     "crop": [
+      0.66,
+      0.08,
+      0.34,
+      0.88
+     ],
+     "focus": [
+      {
+       "at": 0.62,
+       "dur": 0.9,
+       "rect": [
+        0.64,
+        0.74,
+        0.36,
+        0.26
+       ]
+      }
+     ],
+     "from": 0.52
+    }
+   ]
+  },
+  {
+   "id": "scan",
+   "text": "Сканер керек эмес: телефон — сканер.",
+   "duration": 3.4,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "split",
+   "title": "Телефон = [[сканер]]",
+   "phone": [
+    {
+     "image": "C:/Users/User/NurMarket-video/assets/shots/mobile/mobile-scanner-for-kassa_ky.png"
+    }
+   ],
+   "shots": [
+    {
+     "image": "C:/Users/User/NurMarket-video/shots-kassa/ky/ad-main-online__1440x850.png",
+     "crop": [
+      0.66,
+      0.08,
+      0.34,
+      0.88
+     ]
+    }
+   ]
+  },
+  {
+   "id": "unk",
+   "text": "Жаңы штрих-код? Аталышы өзү чыгат.",
+   "duration": 3.6,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "phone",
+   "plain": true,
+   "title": "[[128 000]] товар ичинде",
+   "shots": [
+    {
+     "image": "C:/Users/User/NurMarket-video/shots-kassa/ky1/ad-product-new__1440x850.png",
+     "focus": [
+      {
+       "at": 0.35,
+       "dur": 0.9,
+       "rect": [
+        0.0,
+        0.3,
+        1.0,
+        0.45
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "inv",
+   "text": "Накладной бир мүнөттө. Баалар өзү эсептелет.",
+   "duration": 3.6,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "screen",
+   "title": "Накладная [[бир мүнөттө]]",
+   "shots": [
+    {
+     "image": "C:/Users/User/NurMarket-video/shots-kassa/ky1/ad-rcv-table_light_ky.png",
+     "crop": [
+      0.0,
+      0.46,
+      0.6,
+      0.5
+     ],
+     "focus": [
+      {
+       "at": 0.25,
+       "dur": 0.9,
+       "rect": [
+        0.0,
+        0.45,
+        0.6,
+        0.55
+       ]
+      },
+      {
+       "at": 0.6,
+       "dur": 0.9,
+       "rect": [
+        0.4,
+        0.45,
+        0.6,
+        0.55
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "adv",
+   "text": "Айтыңыз: «Адыгене — элүү бешке». Баасы оңдолот.",
+   "duration": 3.8,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "phone",
+   "title": "Айтыңыз — [[даяр]]",
+   "shots": [
+    {
+     "image": "C:/Users/User/NurMarket-video/assets/shots/mobile/mobile-advisor-call_ky.png"
+    }
+   ]
+  },
+  {
+   "id": "cam",
+   "text": "Штрих-код жок? Камера таанып берет.",
+   "duration": 2.8,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "phone",
+   "title": "Көрүнүшү боюнча [[таанийт]]",
+   "shots": [
+    {
+     "image": "C:/Users/User/NurMarket-video/assets/shots/mobile/mobile-smart-camera_ky.png"
+    }
+   ]
+  },
+  {
+   "id": "own",
+   "text": "Кечинде бир терезе: пайда, айлык, өзүн актоо.",
+   "duration": 4.8,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "screen",
+   "title": "[[Пайда]]. Айлык. Өзүн актоо.",
+   "shots": [
+    {
+     "image": "C:/Users/User/NurMarket-video/shots-kassa/ky1/ad-owner-brief__1920x1080.png",
+     "crop": [
+      0.17,
+      0.07,
+      0.55,
+      0.55
+     ],
+     "focus": [
+      {
+       "at": 0.1,
+       "dur": 0.8,
+       "rect": [
+        0.17,
+        0.0,
+        0.83,
+        0.5
+       ]
+      }
+     ]
+    },
+    {
+     "image": "C:/Users/User/NurMarket-rel1764/stands/salary-schemes/out/ui-ky-light/1-main.png",
+     "crop": [
+      0.0,
+      0.1,
+      0.65,
+      0.55
+     ],
+     "from": 0.38
+    },
+    {
+     "image": "C:/Users/User/NurMarket-test/stands/investments/shots/inv-1296x879-1dash_light_ru.png",
+     "crop": [
+      0.0,
+      0.38,
+      0.55,
+      0.4
+     ],
+     "from": 0.7
+    }
+   ]
+  },
+  {
+   "id": "lang",
+   "text": "Касса беш тилде сүйлөйт.",
+   "duration": 2.2,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "screen",
+   "title": "Кассада [[5 тил]]",
+   "shots": [
+    {
+     "image": "C:/Users/User/NurMarket-video/shots-kassa/ru/ad-main-online__1440x850.png",
+     "crop": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "image": "C:/Users/User/NurMarket-video/shots-kassa/ky/ad-main-online__1440x850.png",
+     "crop": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ],
+     "from": 0.5
+    }
+   ]
+  },
+  {
+   "id": "mp",
+   "text": "Керектүүсүнө гана төлөйсүз.",
+   "duration": 2.6,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "screen",
+   "title": "Керектүүгө [[гана]] төлөйсүз",
+   "shots": [
+    {
+     "image": "C:/Users/User/NurMarket-video/shots-kassa/ky/ad-mp-all__1440x850.png",
+     "crop": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ]
+    },
+    {
+     "image": "C:/Users/User/NurMarket-video/shots-kassa/ky/mp-themes__1440x850.png",
+     "crop": [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+     ],
+     "from": 0.5
+    }
+   ]
+  },
+  {
+   "id": "eve",
+   "text": "Ошол эле күн. Тынчыраак.",
+   "duration": 2.8,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "phone",
+   "title": "Күнүңүз — [[көзөмөлдө]]",
+   "shots": [
+    {
+     "image": "C:/Users/User/NurMarket-video/assets/shots/mobile/mobile-home-kpi_ky.png"
+    },
+    {
+     "image": "C:/Users/User/NurMarket-video/assets/shots/mobile/mobile-home-kpi-charts_ky.png",
+     "from": 0.55
+    }
+   ]
+  },
+  {
+   "id": "fin",
+   "text": "NurCRM — дүкөнүңүздү билген касса.",
+   "duration": 4.4,
+   "lead": 0.2,
+   "tail": 0.3,
+   "template": "ad",
+   "kind": "finale",
+   "qr": "C:/Users/User/NurMarket-video/assets/qr-app.svg",
+   "slogan": "NurCRM —<br>дүкөнүңүздү<br>[[билген касса]]",
+   "line2": "Интернетсиз иштейт. Сиздин тилде сүйлөйт. Пайдаңызды эсептейт.",
+   "links": "Ачуу: app.nurcrm.kg"
+  }
+ ]
+}

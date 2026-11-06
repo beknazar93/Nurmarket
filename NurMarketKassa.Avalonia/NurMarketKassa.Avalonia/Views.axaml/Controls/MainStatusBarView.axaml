@@ -16,14 +16,19 @@
             <Ellipse Width="8" Height="8"
                      VerticalAlignment="Center"
                      Fill="{DynamicResource BrushUiStatusOk}"
-                     IsVisible="{Binding IsOnline}"/>
+                     IsVisible="{Binding ShowOnlineDot}"/> <!-- 2026-11-06 (В-9): не зелёная при потерянной сессии -->
             <Ellipse Width="8" Height="8"
                      VerticalAlignment="Center"
                      Fill="{DynamicResource BrushUiStatusWarn}"
-                     IsVisible="{Binding !IsOnline}"/>
+                     IsVisible="{Binding ShowWarnDot}"/>
             <TextBlock Text="{Binding StatusLabel}"
                        FontSize="12"
                        Foreground="{DynamicResource BrushTextSoft}"/>
+            <!-- 2026-11-06: «🔑 Вход истекает через N ч — войдите заново» (≤ 24 ч до конца входа) -->
+            <TextBlock Text="{Binding LoginExpiryText}"
+                       IsVisible="{Binding HasLoginExpiry}"
+                       FontSize="12"
+                       Foreground="{DynamicResource BrushUiStatusWarn}"/>
         </StackPanel>
 
         <TextBlock Text="{Binding NetworkModeText}"

@@ -342,6 +342,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
             FullscreenCheck.IsChecked = prefs.Fullscreen;
             TrueFullscreenCheck.IsChecked = prefs.TrueFullscreen;
             LowPerformanceModeCheck.IsChecked = prefs.LowPerformanceMode;
+#if NURANDROID
+            AddAndroidOrientationRow(); // 2026-11-06: В4 А4-20 — ориентация экрана Android-кассы
+#endif
             AutostartCheck.IsChecked = prefs.Autostart || AutostartHelper.IsEnabled();
             AutoTouchKeyboardCheck.IsChecked = prefs.AutoShowTouchKeyboard;
             ShowCatalogPhotosCheck.IsChecked = prefs.ShowCatalogPhotos;
@@ -430,6 +433,23 @@ namespace NurMarketKassa.AvaloniaHost.Views
             GraphicReceiptEnabledCheck.IsChecked = prefs.GraphicReceiptEnabled;
             TextModeRadio.IsChecked = prefs.SelectedPrintMode == PrintMode.Text;
             GraphicModeRadio.IsChecked = prefs.SelectedPrintMode == PrintMode.Graphic;
+            // 2026-11-06: В4 АЛ-3 — графический чек рисует System.Drawing (только Windows): на Linux и Android режим выбрать можно было, а тест-печать падала.
+            // Теперь там режим «Графика» недоступен (с подсказкой), а сохранённый «Графика» превращается в «Текст».
+            if (!OperatingSystem.IsWindows())
+            {
+                GraphicModeRadio.IsEnabled = false;
+                _printView.TestGraphicPrintButton.IsEnabled = false;
+                ToolTip.SetTip(GraphicModeRadio, Tr.T("Графический чек доступен только в Windows — здесь печатается текстовый.",
+                    "Графикалык чек Windows'то гана бар — бул жерде тексттик басылат.",
+                    "The graphic receipt is available on Windows only — a text receipt is printed here.",
+                    "Grafik fiş yalnızca Windows'ta vardır — burada metin fişi basılır.",
+                    "Grafik chek faqat Windows'da mavjud — bu yerda matnli chek chop etiladi."));
+                if (GraphicModeRadio.IsChecked == true)
+                {
+                    GraphicModeRadio.IsChecked = false;
+                    TextModeRadio.IsChecked = true;
+                }
+            }
 
             SelectComboByTag(GraphicFontCombo, TestReceiptLineBuilder.FontFamily);
 
@@ -2133,7 +2153,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
                 ReceiptPdfPreviewService.GenerateGraphicReceiptPdf(tempPdfPath, settings, storeName);
 
-                Process.Start(new ProcessStartInfo(tempPdfPath) { UseShellExecute = true });
+                PlatformLauncher.OpenFile(tempPdfPath); // 2026-11-06: В4 А5-05 — общий запуск файла
                 StatusText.Text = Tr.T(
                     "Предпросмотр графического чека открыт в программе для просмотра PDF. Для физической печати нажмите «Печать в сам порт».",
                     "Графикалык чектин алдын ала көрүнүшү PDF көрүүчү программада ачылды. Кагазга басып чыгаруу үчүн порттун жанындагы «Текшерүү» баскычын басыңыз.",

@@ -40,21 +40,22 @@
             </StackPanel>
             <!-- 2026-10-20, живая проверка: «рядом две жёлтые кнопки» (эта и «Оплатить») — «Добавить» обводкой,
                  жёлтая на экране одна — «Оплатить». -->
+            <!-- 2026-11-06: В6 Д4-39 — «Добавить · цена» теперь с жёлтой заливкой (главное действие допродажи — деньги магазина); цена подставляется в коде (UpsellBannerView.axaml.cs). -->
             <Button x:Name="AcceptButton" Grid.Column="2" Margin="6,0,0,0" CornerRadius="10" FontWeight="Bold"
                     Focusable="False"
-                    MinHeight="36"
-                    Padding="12,4"
+                    MinHeight="40"
+                    Padding="14,4"
                     VerticalAlignment="Center"
-                    Background="{DynamicResource BrushPanel}"
-                    BorderBrush="{DynamicResource BrushText}"
+                    Background="{DynamicResource BrushAccent}"
+                    BorderBrush="{DynamicResource BrushAccent}"
                     BorderThickness="1.5"
-                    Foreground="{DynamicResource BrushText}"
+                    Foreground="{DynamicResource BrushAccentForeground}"
                     Command="{Binding AcceptUpsellCommand}"
                     Content="{DynamicResource csh.upsell.add}"/>
             <!-- 2026-11-05 (аудит №4, Д4-39): «Пропустить» — текстовая кнопка без заливки (отказ не должен выглядеть главным действием), «Добавить» — с жирной рамкой. -->
             <Button x:Name="SkipButton" Grid.Column="3" Margin="6,0,0,0" CornerRadius="10"
                     Focusable="False"
-                    MinHeight="36"
+                    MinHeight="40"
                     Padding="10,4"
                     VerticalAlignment="Center"
                     Background="Transparent"

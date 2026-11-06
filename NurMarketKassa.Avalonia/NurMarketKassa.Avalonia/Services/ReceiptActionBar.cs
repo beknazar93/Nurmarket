@@ -85,7 +85,9 @@ internal sealed class ReceiptActionBar : Border
         var list = new System.Collections.Generic.List<Button>();
         if (Print != null) list.Add(_print);
         list.Add(_qr);
-        list.Add(_pdf);
+        // 2026-11-06: В4 А5-04 — на Android PDF не создаётся (нативная библиотека QuestPDF под glibc не грузится): кнопки нет, чек уходит текстом.
+        if (!PdfSupport.IsAvailable)
+            list.Add(_pdf);
         list.Add(_send);
         if (_showReturn && Return != null) list.Add(_return);
         foreach (var b in list)
@@ -213,11 +215,15 @@ internal sealed class ReceiptActionBar : Border
             TelegramReceiptUi.ShowQr(OwnerWindow ?? TopLevel.GetTopLevel(this) as Window);
         };
         var file = Item(Tr.T("PDF и папка", "PDF жана папка", "PDF and folder", "PDF ve klasör", "PDF va papka"));
+        // 2026-11-06: В4 А5-04 — на Android пункт «PDF и папка» скрыт (PDF там пока не работает).
+        file.IsVisible = PdfSupport.IsAvailable;
         var copy = Item(Tr.T("Скопировать текст", "Текстти көчүрүү", "Copy text", "Metni kopyala", "Matnni nusxalash"));
         var note = new TextBlock
         {
             FontSize = 12, TextWrapping = TextWrapping.Wrap,
-            Text = Tr.T("WhatsApp и Telegram откроются с текстом чека; PDF сохраняется в «Документы\\NurMarket\\Чеки» — перетащите файл в чат.",
+            Text = !PdfSupport.IsAvailable
+                ? Tr.T("WhatsApp и Telegram откроются с текстом чека.", "WhatsApp жана Telegram чектин тексти менен ачылат.", "WhatsApp and Telegram open with the receipt text.", "WhatsApp ve Telegram fiş metniyle açılır.", "WhatsApp va Telegram chek matni bilan ochiladi.")
+                : Tr.T("WhatsApp и Telegram откроются с текстом чека; PDF сохраняется в «Документы\\NurMarket\\Чеки» — перетащите файл в чат.",
                 "WhatsApp жана Telegram чектин тексти менен ачылат; PDF «Документтер\\NurMarket\\Чеки» папкасына сакталат — файлды чатка сүйрөңүз.",
                 "WhatsApp and Telegram open with the receipt text; the PDF is saved to “Documents\\NurMarket\\Чеки” — drag the file into the chat.",
                 "WhatsApp ve Telegram fiş metniyle açılır; PDF «Belgeler\\NurMarket\\Чеки» klasörüne kaydedilir — dosyayı sohbete sürükleyin.",
@@ -314,40 +320,19 @@ internal static class ReceiptShare
     /// <summary>Показать файл в проводнике (Windows) или открыть папку (Linux); на Android — ничего.</summary>
     public static void Reveal(string path)
     {
-        try
-        {
-            if (OperatingSystem.IsWindows())
-                Process.Start(new ProcessStartInfo("explorer.exe", "/select,\"" + path + "\"") { UseShellExecute = true });
-            else if (OperatingSystem.IsMacOS())
-            {
-                // 2026-10-29: macOS — «open -R» показывает файл в Finder.
-                var psi = new ProcessStartInfo("open") { UseShellExecute = false };
-                psi.ArgumentList.Add("-R");
-                psi.ArgumentList.Add(path);
-                Process.Start(psi);
-            }
-            else if (OperatingSystem.IsLinux())
-                Process.Start(new ProcessStartInfo("xdg-open", "\"" + (Path.GetDirectoryName(path) ?? ".") + "\"") { UseShellExecute = false });
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Чек: папка с PDF не открылась: {ex.Message}", "WARNING");
-        }
+        // 2026-11-06: В4 А5-05 — общий PlatformLauncher вместо Process.Start (на Android Process.Start — исключение).
+        if (!PlatformLauncher.Reveal(path) && !OperatingSystem.IsAndroid())
+            PosLogger.Log("Чек: папка с PDF не открылась.", "WARNING");
     }
 
     /// <summary>Открыть ссылку (wa.me, tg://); false — не открылась.</summary>
     public static bool OpenUrl(string url)
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-            return true;
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Чек: ссылка не открылась: {ex.Message}", "WARNING");
-            return false;
-        }
+        // 2026-11-06: В4 А5-05 — на Android ссылка открывается Intent'ом (WhatsApp / Telegram / браузер).
+        var ok = PlatformLauncher.OpenUrl(url);
+        if (!ok)
+            PosLogger.Log("Чек: ссылка не открылась.", "WARNING");
+        return ok;
     }
 
     public static string PhoneDigits(string? phone)

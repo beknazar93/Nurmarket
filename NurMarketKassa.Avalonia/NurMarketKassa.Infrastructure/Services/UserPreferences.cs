@@ -211,6 +211,9 @@ public sealed class UserPreferences
     /// <summary>Начальное положение «Напечатать чек» в окне оплаты (см. <see cref="CheckoutPrintReceipt"/>).</summary>
     public bool CheckoutPrintReceiptDefault => ReceiptEnabled && (CheckoutPrintReceipt ?? true);
 
+    /// <summary>2026-11-06 (Д4-15): в окне оплаты «Безналичные» последний выбор «Карта» (терминал, без банка и QR) или «QR» (false — QR, как было). Запоминается между оплатами и перезапусками.</summary>
+    public bool CheckoutCardPay { get; set; }
+
     /// <summary>Денежный ящик подключается не к компьютеру, а к чековому принтеру (разъём "DK"),
     /// поэтому отдельного порта у него нет — импульс уходит в <see cref="ReceiptDevicePath"/>.
     /// Выключено по умолчанию: у кассы без ящика лишняя команда принтеру не нужна.</summary>
@@ -304,6 +307,10 @@ public sealed class UserPreferences
     /// плавности анимаций. Применяется при следующем запуске приложения.
     /// </summary>
     public bool LowPerformanceMode { get; set; }
+
+    /// <summary>2026-11-06 (Л4-19, решение владельца): просить PIN владельца при запуске программы владельца на ПК, где стоит касса. По умолчанию ВЫКЛ — владелец включает
+    /// в настройках программы владельца. Раньше PIN спрашивался всегда, а у многих PIN не задан — без него на этом ПК не войти без пароля.</summary>
+    public bool AskOwnerPinOnKassaPc { get; set; }
 
     /// <summary>Голосовое управление кассой (Vosk, офлайн, 2026-09-04) — кассир говорит
     /// ключевое слово "касса" и название товара с количеством, касса сама ищет и добавляет
@@ -1247,6 +1254,8 @@ public sealed class UserPreferences
             // 2026-09-29: нет в файле (кассир не трогал «Напечатать чек») — остаётся null, как раньше.
             if (fromFile.CheckoutPrintReceipt is not null)
                 p.CheckoutPrintReceipt = fromFile.CheckoutPrintReceipt.Value;
+            if (fromFile.CheckoutCardPay is not null)
+                p.CheckoutCardPay = fromFile.CheckoutCardPay.Value; // 2026-11-06 (Д4-15)
             if (fromFile.CashDrawerEnabled is not null)
                 p.CashDrawerEnabled = fromFile.CashDrawerEnabled.Value;
             if (fromFile.CashDrawerPin is 0 or 1)
@@ -1316,6 +1325,8 @@ public sealed class UserPreferences
                 p.TrueFullscreen = fromFile.TrueFullscreen.Value;
             if (fromFile.LowPerformanceMode is not null)
                 p.LowPerformanceMode = fromFile.LowPerformanceMode.Value;
+            if (fromFile.AskOwnerPinOnKassaPc is not null)
+                p.AskOwnerPinOnKassaPc = fromFile.AskOwnerPinOnKassaPc.Value; // 2026-11-06 (Л4-19)
             if (fromFile.VoiceControlEnabled is not null)
                 p.VoiceControlEnabled = fromFile.VoiceControlEnabled.Value;
             if (fromFile.LanguagePackUnlocked is not null)
@@ -1523,7 +1534,12 @@ public sealed class UserPreferences
 
             if (fromFile.ScaleLanPort is > 0 && !untouchedGuess)
                 p.ScaleLanPort = fromFile.ScaleLanPort.Value;
-            if (!string.IsNullOrWhiteSpace(fromFile.ScaleLanPassword) && !untouchedGuess)
+            // 2026-11-06: В3 Б-2 — пароль весов хранится зашифрованным (ScaleLanPasswordProtected); открытое поле ScaleLanPassword читается только из файлов старше этой правки
+            // (при следующем сохранении оно заменится зашифрованным).
+            var scalePasswordProtected = WindowsDpapiHelper.UnprotectFromBase64(fromFile.ScaleLanPasswordProtected);
+            if (!string.IsNullOrWhiteSpace(scalePasswordProtected))
+                p.ScaleLanPassword = scalePasswordProtected;
+            else if (!string.IsNullOrWhiteSpace(fromFile.ScaleLanPassword) && !untouchedGuess)
                 p.ScaleLanPassword = fromFile.ScaleLanPassword;
             if (fromFile.BankQrPaths != null)
                 p.BankQrPaths = fromFile.BankQrPaths;
@@ -1776,6 +1792,7 @@ public sealed class UserPreferences
                 ReceiptEscR = ReceiptEscR,
                 ReceiptEnabled = ReceiptEnabled,
                 CheckoutPrintReceipt = CheckoutPrintReceipt,
+                CheckoutCardPay = CheckoutCardPay,
                 CashDrawerEnabled = CashDrawerEnabled,
                 CashDrawerPin = CashDrawerPin,
                 ReceiptPaperWidthMm = ReceiptPaperWidthMm,
@@ -1783,6 +1800,7 @@ public sealed class UserPreferences
                 Fullscreen = Fullscreen,
                 TrueFullscreen = TrueFullscreen,
                 LowPerformanceMode = LowPerformanceMode,
+                AskOwnerPinOnKassaPc = AskOwnerPinOnKassaPc, // 2026-11-06 (Л4-19)
                 VoiceControlEnabled = VoiceControlEnabled,
                 VoiceControlUnlocked = VoiceControlUnlocked,
                 LanguagePackUnlocked = LanguagePackUnlocked,
@@ -1884,7 +1902,7 @@ public sealed class UserPreferences
                 LanDeviceId = LanDeviceId,
                 ShtrikhDirectLan = ShtrikhDirectLan,
                 ScaleLanPort = ScaleLanPort,
-                ScaleLanPassword = ScaleLanPassword,
+                ScaleLanPasswordProtected = string.IsNullOrEmpty(ScaleLanPassword) ? null : WindowsDpapiHelper.ProtectToBase64(ScaleLanPassword), // 2026-11-06: В3 Б-2 — не открытым текстом
                 BankQrPaths = BankQrPaths,
                 BankLogoPaths = BankLogoPaths,
                 CustomBankNames = CustomBankNames,
@@ -2121,6 +2139,7 @@ public sealed class UserPreferences
         public int? ReceiptEscR { get; set; }
         public bool? ReceiptEnabled { get; set; }
         public bool? CheckoutPrintReceipt { get; set; }
+        public bool? CheckoutCardPay { get; set; }
         public bool? CashDrawerEnabled { get; set; }
         public int? CashDrawerPin { get; set; }
         public int? ReceiptPaperWidthMm { get; set; }
@@ -2128,6 +2147,7 @@ public sealed class UserPreferences
         public bool? Fullscreen { get; set; }
         public bool? TrueFullscreen { get; set; }
         public bool? LowPerformanceMode { get; set; }
+        public bool? AskOwnerPinOnKassaPc { get; set; }
         public bool? VoiceControlEnabled { get; set; }
         public bool? VoiceControlUnlocked { get; set; }
         public bool? LanguagePackUnlocked { get; set; }
@@ -2232,6 +2252,8 @@ public sealed class UserPreferences
         public bool? ShtrikhDirectLan { get; set; }
         public int? ScaleLanPort { get; set; }
         public string? ScaleLanPassword { get; set; }
+        /// <summary>2026-11-06: В3 Б-2 — пароль весов, зашифрованный DPAPI / PortableSecret (ScaleLanPassword выше — только для чтения старых файлов).</summary>
+        public string? ScaleLanPasswordProtected { get; set; }
         public Dictionary<string, string>? BankQrPaths { get; set; }
         public List<string>? VisibleBankNames { get; set; }
         public Dictionary<string, string>? BankLogoPaths { get; set; }

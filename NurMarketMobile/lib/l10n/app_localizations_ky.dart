@@ -5167,6 +5167,45 @@ class AppLocalizationsKy extends AppLocalizations {
   String get invPriceMissing => 'Сатуу баасын көрсөтүңүз';
 
   @override
+  String get invAutoMarkup => 'Сатып алууга авто-үстөк';
+
+  @override
+  String get invAutoMarkupSub =>
+      'Өчүрүлгөн: сатуу баасы өзү коюлбайт. Күйгүзсөңүз — баа = сатып алуу + 30 % (5 сомго чейин жогору), жөнөтүүдөн мурун сапта көрүнөт';
+
+  @override
+  String invNoPriceTitle(int n) {
+    return '$n позицияда сатуу баасы жок';
+  }
+
+  @override
+  String get invNoPriceBody =>
+      'Баасын же үстөктү киргизиңиз. «Баасыз калтыруу» — бар товарлардын баасы өзгөрбөйт, жаңы товарлар баасыз түзүлөт.';
+
+  @override
+  String get invNoPriceEnter => 'Баасын киргизүү';
+
+  @override
+  String invNoPriceMarkup(int pct) {
+    return 'Үстөк +$pct %';
+  }
+
+  @override
+  String get invNoPriceLeave => 'Баасыз калтыруу';
+
+  @override
+  String invAutoConfirmTitle(int n) {
+    return 'Үстөк боюнча баа: $n поз.';
+  }
+
+  @override
+  String get invAutoConfirmBody =>
+      'Бул товарлардын сатуу баасы үстөк боюнча коюлат — ал сапта көрүнүп турат. Ырастайсызбы?';
+
+  @override
+  String get invAutoConfirmYes => 'Ырастоо';
+
+  @override
   String get invRemoveRow => 'Сапты алып салуу';
 
   @override

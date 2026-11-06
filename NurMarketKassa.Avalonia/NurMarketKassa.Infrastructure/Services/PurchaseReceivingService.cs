@@ -40,8 +40,9 @@ public sealed class PurchaseReceivingService
     /// <param name="ReceiptTotal">2026-10-20, этап П3: сумма прихода по ответу сервера (total_amount), если сервер её вернул.</param>
     /// <param name="ReceiptAt">2026-10-20, этап П3: время прихода по ответу сервера (created_at, местное), если вернул.</param>
     /// <param name="ReceiptKey">2026-10-20, этап П3: ключ идемпотентности прихода — метка долга, если сервер не вернул id.</param>
+    /// <param name="ReceiptNumber">2026-11-06 (живой тест, Б-3): серверный номер прихода (number_display из ответа POST) — единственный номер для показа, печати и PDF; null — сервер его не вернул (тогда номер кассы только предварительный).</param>
     public sealed record PostResult(IReadOnlyList<ReceivingLineVm> PostedLines, double TotalAmount, int Created, IReadOnlyList<string> Errors,
-        string? ReceiptId = null, double? ReceiptTotal = null, DateTime? ReceiptAt = null, string? ReceiptKey = null);
+        string? ReceiptId = null, double? ReceiptTotal = null, DateTime? ReceiptAt = null, string? ReceiptKey = null, string? ReceiptNumber = null);
 
     private bool _tableReady;
 
@@ -179,11 +180,32 @@ public sealed class PurchaseReceivingService
         {
             try
             {
+                // 2026-11-06: офлайн-приход — исход неизвестен: сперва спрашиваем журнал идемпотентности сервера по ключу прихода (idempotency/{ключ}/):
+                // in_progress — сервер ещё выполняет, ждём (НЕ шлём второй); done — приход уже создан, переходим к дозавершению; failed / не найден — повтор с тем же ключом.
+                var verdict = IdempotencyVerdict.Unknown;
+                if (st.IdempotencyCheck is { } check && st.ReceiptKey is { Length: > 0 } knownKey)
+                    verdict = await check(knownKey, ct).ConfigureAwait(false);
+                PosLogger.Log($"Приход из очереди: сверка по ключу {st.ReceiptKey} — {verdict}.", "STOCK");
+                if (verdict == IdempotencyVerdict.InProgress)
+                {
+                    st.LastStatusCode = 0; // как «нет ответа»: очередь подождёт и спросит снова, попытки не тратятся до отказа
+                    st.Interrupted = true;
+                    errors.Add(Tr.T("Сервер ещё проводит этот приход — подождём и сверим снова.", "Сервер бул кирүүнү дагы өткөрүп жатат — күтүп, кайра салыштырабыз.",
+                        "The server is still posting this delivery — we will wait and check again.", "Sunucu bu mal kabulünü hâlâ işliyor — bekleyip tekrar kontrol edeceğiz.",
+                        "Server bu kirimni hali o'tkazmoqda — kutib, qayta tekshiramiz."));
+                    return (false, null, null, null, null);
+                }
                 if (await FindPostedReceiptAsync(st, supplier, ready, ct).ConfigureAwait(false) is { } found)
                 {
                     PosLogger.Log($"Приход из очереди: приход {found.Id} уже есть на сервере — второй раз не отправляем.", "STOCK");
-                    st.MarkPosted(found.Id, found.Total, found.At);
+                    st.MarkPosted(found.Id, found.Total, found.At, found.Number);
                     return (true, found.Id, found.Total, found.At, null);
+                }
+                if (verdict == IdempotencyVerdict.Done)
+                {
+                    PosLogger.Log("Приход из очереди: журнал сервера говорит «проведён», но приход в списке не найден — второй раз не отправляем, шаги после прихода доделаем.", "STOCK");
+                    st.MarkPosted(null, null, null);
+                    return (true, null, null, null, null);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !st.IsStopping(ct))
@@ -207,7 +229,7 @@ public sealed class PurchaseReceivingService
             var id = Str(response, "id");
             double? total = Num(response, "total_amount") is > 0 and var serverTotal ? serverTotal : null;
             var at = SupplierApiService.Date(Str(response, "created_at") ?? "");
-            st.MarkPosted(id, total, at);
+            st.MarkPosted(id, total, at, Str(response, "number_display")); // 2026-11-06 (Б-3): серверный номер — источник истины
             // 2026-10-27 (Б-06 сервера): price_changed в ответе прихода (если сервер его присылает) — нужен, чтобы решить, возвращать ли цену.
             ServerPriceContract.Observe(response);
             return (true, id, total, at, ServerPriceContract.PriceChangedOf(response));
@@ -256,6 +278,10 @@ public sealed class PurchaseReceivingService
                 if (st.SupplierDocDate is { } dd)
                     body["document_date"] = dd.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             }
+            // 2026-11-06: офлайн-приход — сервер сам ставит дату документа (поля «время прихода» в POST suppliers/{id}/receipt/ нет, вопрос Умару), поэтому настоящее время
+            // приёма сохраняем в комментарии документа. Пометка считается один раз на ключ — повтор уходит с тем же телом.
+            if (st?.GetOrMakeDelayNote(DateTime.Now) is { } delayNote)
+                parts.Add(delayNote);
             if (parts.Count > 0)
                 body["comment"] = string.Join("; ", parts);
             PosLogger.Log($"Закупки: приходу присвоен номер {text}{(res.Draft ? " (временный, нет сверки с историей сервера)" : "")}.", "STOCK");
@@ -280,7 +306,7 @@ public sealed class PurchaseReceivingService
     /// <summary>Таймаут, обрыв, нет связи — один понятный текст вместо английского «The request was canceled due to the configured HttpClient.Timeout…».</summary>
     private static bool IsNoAnswer(Exception ex) => ex is OperationCanceledException or System.Net.Http.HttpRequestException or IOException or TimeoutException;
 
-    private async Task<(string? Id, double? Total, DateTime? At)?> FindPostedReceiptAsync(ReceivingPostState st, Supplier supplier,
+    private async Task<(string? Id, double? Total, DateTime? At, string? Number)?> FindPostedReceiptAsync(ReceivingPostState st, Supplier supplier,
         List<ReceivingLineVm> ready, CancellationToken ct)
     {
         string Sig(string? product, double qty, double price) =>
@@ -310,7 +336,7 @@ public sealed class PurchaseReceivingService
                     .Select(i => Sig(Str(i, "product_id") ?? Str(i, "product"), Num(i, "qty"), Num(i, "purchase_price")))
                     .OrderBy(x => x, StringComparer.Ordinal).ToList();
                 if (have.SequenceEqual(wanted, StringComparer.Ordinal))
-                    return (id, Num(receipt, "total_amount") is > 0 and var total ? total : null, at);
+                    return (id, Num(receipt, "total_amount") is > 0 and var total ? total : null, at, Str(receipt, "number_display"));
             }
             if (!data.TryGetProperty("next", out var next) || next.ValueKind != JsonValueKind.String)
                 break;
@@ -321,6 +347,98 @@ public sealed class PurchaseReceivingService
     // ------------------------------------------------------------------ поставщики
 
     public async Task<List<Supplier>> LoadSuppliersAsync(CancellationToken ct = default)
+    {
+        // 2026-11-06 (баг 3 журнала клиента): сессия уже объявлена недействительной — на сервер не ходим (раньше 11 запросов за 2 с, каждый с отказом и записью в журнал):
+        // берём сохранённый список, а без него — понятный отказ «Сессия недействительна»; в журнал — раз в 10 минут.
+        if (SessionExpiryMonitor.IsExpired)
+        {
+            SessionExpiryMonitor.LogOnce("suppliers-list", "Поставщики: сессия недействительна — запрос списка не отправляю, беру сохранённый (если есть).");
+            if (LoadSuppliersCache() is { Count: > 0 } offline)
+                return offline;
+            throw new ApiException(NurMarketApiClient.AuthInvalidHintRu, 401);
+        }
+        // 2026-11-06: офлайн-приход — список поставщиков запоминается на диск (по компании); без связи окно приёма берёт последний удачный, а не падает.
+        try
+        {
+            var fresh = await LoadSuppliersFromServerAsync(ct).ConfigureAwait(false);
+            SaveSuppliersCache(fresh);
+            return fresh;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            // 2026-11-06 (живой тест, Б-5): при ЛЮБОМ отказе (в том числе 4xx/401 и «предохранитель») берём сохранённый список, если он есть, — раньше 4xx пробрасывался даже при наличии кэша.
+            if (LoadSuppliersCache() is { Count: > 0 } cached)
+            {
+                PosLogger.Log($"Поставщики: сервер не ответил ({ex.GetType().Name}) — взят сохранённый список ({cached.Count}).", "WARNING");
+                return cached;
+            }
+            throw;
+        }
+    }
+
+    /// <summary>2026-11-06 (живой тест, Б-5): сохранённый список поставщиков этой компании (память кассы) для окон, у которых свой запрос списка («Закупки»); null — списка нет.</summary>
+    public static List<Supplier>? CachedSuppliers() => LoadSuppliersCache() is { Count: > 0 } list ? list : null;
+
+    /// <summary>2026-11-06 (Б-5): окно «Закупки» загрузило список поставщиков своим запросом — запоминаем его в память кассы, чтобы без интернета приём не оставался с пустым списком.</summary>
+    public static void RememberSuppliers(IEnumerable<SupplierInfo> suppliers) =>
+        SaveSuppliersCache(suppliers.Where(s => !string.IsNullOrWhiteSpace(s.Id) && !string.IsNullOrWhiteSpace(s.Name))
+            .Select(s => new Supplier(s.Id, s.Name, string.IsNullOrWhiteSpace(s.Inn) ? null : s.Inn, string.IsNullOrWhiteSpace(s.Phone) ? null : s.Phone)).ToList());
+
+    private static string SuppliersCachePath => Path.Combine(AppPaths.Roaming, AppMode.DataFolderName, "suppliers-cache.json");
+
+    private sealed class SuppliersCacheFile
+    {
+        public string CompanyId { get; set; } = "";
+        public List<Supplier> Items { get; set; } = new();
+    }
+
+    /// <summary>2026-11-06 (Б-5): настоящий id компании для файла памяти. LastCompany может быть ещё не загружен (раньше в файл писалось пусто) — тогда берём компанию из ключа данных
+    /// аккаунта («c:{id}», его ставит AccountDataIsolation), чтобы список чужой компании не показался после смены аккаунта.</summary>
+    private static string CurrentCompanyId()
+    {
+        var id = CompanyInfoService.LastCompany?.Id ?? "";
+        if (id.Length > 0)
+            return id;
+        var key = UserPreferences.Instance.LastDataAccountKey ?? "";
+        var at = key.LastIndexOf("c:", StringComparison.Ordinal);
+        return at >= 0 ? key[(at + 2)..].Trim() : "";
+    }
+
+    private static void SaveSuppliersCache(List<Supplier> list)
+    {
+        try
+        {
+            if (list.Count == 0)
+                return;
+            Directory.CreateDirectory(Path.GetDirectoryName(SuppliersCachePath)!);
+            AtomicFile.WriteAllTextWithRetry(SuppliersCachePath, JsonSerializer.Serialize(new SuppliersCacheFile { CompanyId = CurrentCompanyId(), Items = list }));
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Поставщики: список не сохранён на диск ({ex.Message}).", "WARNING");
+        }
+    }
+
+    private static List<Supplier>? LoadSuppliersCache()
+    {
+        try
+        {
+            if (!File.Exists(SuppliersCachePath))
+                return null;
+            var file = JsonSerializer.Deserialize<SuppliersCacheFile>(File.ReadAllText(SuppliersCachePath));
+            var company = CurrentCompanyId();
+            // Старые записи с пустой компанией (до этой правки) читаем для текущей компании; чужую — нет (при смене компании файл ещё и уносится в карантин: CompanyStoreRegistry).
+            if (file is null || (file.CompanyId.Length > 0 && company.Length > 0 && !string.Equals(file.CompanyId, company, StringComparison.OrdinalIgnoreCase)))
+                return null; // чужая компания — не показываем
+            return file.Items;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task<List<Supplier>> LoadSuppliersFromServerAsync(CancellationToken ct)
     {
         var data = await Api.ListSuppliersAsync(ct).ConfigureAwait(false);
         var rows = data.ValueKind == JsonValueKind.Array
@@ -410,6 +528,11 @@ public sealed class PurchaseReceivingService
         if (tile is not null)
             return FromTile(tile, quantity);
 
+        // 2026-11-06: офлайн-приход — связи нет: сервер не спрашиваем (раньше каждый скан ждал таймаут запроса до 55 с). Неизвестный штрихкод встаёт как новый товар,
+        // приход сохранится в очередь; если товар на самом деле есть на складе — сервер отклонит дубль штрихкода, и приход покажет «Требует внимания».
+        if (BackgroundReceivingQueue.NoConnectionNow)
+            return new ReceivingLineVm { Barcode = code, ProductName = "", Source = ReceivingSource.Unknown, Quantity = quantity };
+
         try
         {
             var product = await Api.FindWarehouseProductByBarcodeAsync(code, ct).ConfigureAwait(false);
@@ -495,8 +618,10 @@ public sealed class PurchaseReceivingService
     // ------------------------------------------------------------------ проведение
 
     /// <summary>Проверка перед проведением: названия у новых товаров, количество и обе цены.
-    /// Пустой список — можно проводить.</summary>
-    public static List<string> Validate(IReadOnlyList<ReceivingLineVm> lines)
+    /// Пустой список — можно проводить.
+    /// 2026-11-06: <paramref name="requireSalePrice"/> = false — экран сам спросит цены окном «У N позиций нет цены продажи» (ReceivingPricing.MissingSalePrice) и разрешит
+    /// «Оставить без цены»; тогда отсутствие цены продажи не ошибка (цена товара не трогается). По умолчанию true — как раньше (массовые загрузки, сканирование).</summary>
+    public static List<string> Validate(IReadOnlyList<ReceivingLineVm> lines, bool requireSalePrice = true)
     {
         var problems = new List<string>();
         var newBarcodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -557,13 +682,21 @@ public sealed class PurchaseReceivingService
             if (line.PurchasePrice <= 0)
                 problems.Add(Tr.T($"{name}: не указана цена закупки", $"{name}: сатып алуу баасы көрсөтүлгөн эмес",
                     $"{name}: purchase price missing", $"{name}: alış fiyatı belirtilmedi", $"{name}: xarid narxi ko'rsatilmagan"));
-            if (line.SalePrice <= 0)
+            if (requireSalePrice && line.SalePrice <= 0)
                 problems.Add(Tr.T($"{name}: не указана цена продажи", $"{name}: сатуу баасы көрсөтүлгөн эмес",
                     $"{name}: sale price missing", $"{name}: satış fiyatı belirtilmedi", $"{name}: sotuv narxi ko'rsatilmagan"));
         }
 
         return problems;
     }
+
+    /// <summary>2026-11-06 (жалоба «Орук маркет», приход №48): уходит ли цена продажи строки в товар при приходе БЕЗ поставщика (прямой PATCH товара). Только если цена есть (> 0) и она
+    /// новая (новый товар), изменена в этом приходе, либо закупка изменилась / есть доп. расходы / товар из общей базы (цена пишется вместе с закупкой, чтобы сервер не пересчитал её
+    /// от наценки сам). «Оставить без цены» (0) и нетронутая цена существующего товара в PATCH не попадают.</summary>
+    public static bool ShouldWriteSalePrice(ReceivingLineVm line) =>
+        line.SalePrice > 0 && (line.IsNew || line.Source == ReceivingSource.GlobalBase || line.LandedExtraPerUnit > 0
+                               || Math.Abs(line.SalePrice - line.OriginalSalePrice) > 0.004
+                               || Math.Abs(line.PurchasePrice - line.OriginalPurchasePrice) > 0.00005);
 
     /// <summary>2026-10-31: дробное количество у НОВОГО штучного товара («2,5 шт») — ошибка строки, как в карточке товара и массовом добавлении
     /// (UnitCatalog.QuantityProblem). В Validate не входит: массовое сканирование и загрузка из файла проверяют это сами. «кг» (весовой), «л», «м» — можно.</summary>
@@ -604,6 +737,31 @@ public sealed class PurchaseReceivingService
         var st = state;
         bool Soft(Exception ex) => ex is not OperationCanceledException || (st is not null && !st.IsStopping(ct));
         string Msg(Exception ex) => st is not null && IsNoAnswer(ex) ? NoAnswerText : ReceivingServerMessages.Describe(ex);
+
+        // 2026-11-06: товар, заведённый в кассе без интернета, ещё мог не дойти до сервера (PendingProductQueue) — в строке его временный id, которого на сервере нет.
+        // Создан — подставляем настоящий id; не создан (нет связи) — приход ждёт (исключение «нет ответа» → очередь приходов повторит); сервер отказал — строка пойдёт как новый товар.
+        if (PendingProductQueue.Instance.HasAny)
+            foreach (var line in lines.Where(l => !string.IsNullOrWhiteSpace(l.ProductId)))
+            {
+                var resolved = await PendingProductQueue.Instance.ResolveAsync(line.ProductId!, ct).ConfigureAwait(false);
+                switch (resolved.Kind)
+                {
+                    case PendingProductResolveKind.Resolved:
+                        line.ProductId = resolved.RealId;
+                        break;
+                    case PendingProductResolveKind.Waiting:
+                        throw new System.Net.Http.HttpRequestException(Tr.T(
+                            $"Новый товар «{line.ProductName}» ещё не создан на сервере — приход отправится, когда он будет создан.",
+                            $"Жаңы «{line.ProductName}» товары серверде али түзүлө элек — ал түзүлгөндө кирүү жөнөтүлөт.",
+                            $"The new product “{line.ProductName}” is not created on the server yet — the receiving will be sent once it is.",
+                            $"Yeni «{line.ProductName}» ürünü sunucuda henüz oluşturulmadı — oluşturulunca mal kabul gönderilecek.",
+                            $"Yangi «{line.ProductName}» mahsuloti serverda hali yaratilmagan — yaratilgach kirim yuboriladi."));
+                    case PendingProductResolveKind.Rejected:
+                        line.ProductId = null;
+                        line.Source = ReceivingSource.Unknown;
+                        break;
+                }
+            }
 
         // 1. Новые товары заводим на складе. Товар из общей базы — тем же запросом, что сайт
         //    (создаётся по его шаблону), неизвестный — обычной карточкой.
@@ -728,6 +886,7 @@ public sealed class PurchaseReceivingService
         double? receiptTotal = null;
         DateTime? receiptAt = null;
         string? receiptKey = null;
+        string? receiptNumber = null; // 2026-11-06 (Б-3): номер прихода из ответа сервера (number_display)
         // 2026-10-27 (Б-06 сервера, PRICE_SYNC): сказал ли сервер в ответе прихода, менялась ли цена продажи (null — поля нет, старый сервер).
         bool? receiptPriceChanged = null;
 
@@ -818,6 +977,7 @@ public sealed class PurchaseReceivingService
                     var response = await Api.CreateSupplierReceiptAsync(supplier.Id, body, ct).ConfigureAwait(false);
                     _pendingReceiptKey.OnSuccess();
                     receiptId = Str(response, "id");
+                    receiptNumber = Str(response, "number_display");
                     if (Num(response, "total_amount") is > 0 and var serverTotal)
                         receiptTotal = serverTotal;
                     receiptAt = SupplierApiService.Date(Str(response, "created_at") ?? "");
@@ -847,6 +1007,7 @@ public sealed class PurchaseReceivingService
                 receiptAt = sent.At;
                 receiptPriceChanged = sent.PriceChanged;
                 receiptKey = st.ReceiptKey;
+                receiptNumber = st.ServerNumber;
                 posted.AddRange(ready);
             }
 
@@ -855,7 +1016,7 @@ public sealed class PurchaseReceivingService
             if (!string.IsNullOrEmpty(receiptId))
             {
                 if (receiptKey is { Length: > 0 })
-                    DocumentNumbering.Store.Bind(DocSeries.Receipt, receiptKey, receiptId);
+                    DocumentNumbering.Store.Bind(DocSeries.Receipt, receiptKey, receiptId, receiptNumber); // 2026-11-06 (Б-3): закрепляется серверный номер, а не номер кассы
                 ReceiptMarkupLog.Record(receiptId, ready);
             }
 
@@ -897,6 +1058,8 @@ public sealed class PurchaseReceivingService
             {
                 if (st is { Interrupted: true })
                     break;
+                if (st is not null && st.IsPriceStepDone(line))
+                    continue; // 2026-11-06: офлайн-приход — этот PATCH прошёл при прошлой попытке, делаем только недоделанное
                 try
                 {
                     var fields = new Dictionary<string, object?>();
@@ -932,11 +1095,26 @@ public sealed class PurchaseReceivingService
                     }
                     AddNameAndUnit(line, fields);
                     if (fields.Count == 0)
+                    {
+                        st?.MarkPriceStepDone(line);
                         continue; // 2026-10-27 (Ск-7): цену не пишем, названия/единицы менять нечего — пустой PATCH не шлём
+                    }
                     ServerPriceContract.Observe(await Api.PatchProductFieldsAsync(line.ProductId!, fields, ct).ConfigureAwait(false));
+                    st?.MarkPriceStepDone(line);
                 }
                 catch (Exception ex) when (Soft(ex))
                 {
+                    // 2026-11-06: офлайн-приход — сеть/таймаут/5xx: шаг повторит очередь (приход уже создан, повторяется только PATCH); отказ сервера по существу (4xx) — не повторяем.
+                    if (st is not null)
+                    {
+                        if (IsQueueRetryable(ex))
+                        {
+                            st.NoteFailure(ex);
+                            st.Interrupted = true;
+                        }
+                        else
+                            st.MarkPriceStepDone(line);
+                    }
                     var why = Msg(ex);
                     errors.Add(Tr.T($"{line.ProductName}: товар принят, но цена продажи не обновилась — {why}",
                         $"{line.ProductName}: товар кабыл алынды, бирок сатуу баасы жаңырган жок — {why}",
@@ -974,6 +1152,13 @@ public sealed class PurchaseReceivingService
                     st.Interrupted = true;
                     errors.Add(NoAnswerText);
                 }
+            }
+            // 2026-11-06: офлайн-приход — документ создан, а шаги после него прервала сеть: очередь вернётся и сделает только их (PostStepsPending сохраняется на диск).
+            if (st is not null)
+            {
+                st.SetPostStepsPending(st.Interrupted);
+                if (st.Interrupted)
+                    PosLogger.Log($"Приход из очереди: приход {receiptId} создан, но шаги после него (цены/себестоимость) не завершены — повторим только их.", "STOCK");
             }
         }
         else
@@ -1024,11 +1209,16 @@ public sealed class PurchaseReceivingService
                     {
                         // 2026-11-05 (функция 11): без поставщика долга нет — в карточку сразу идёт себестоимость (CostPrice = закупка + доля расходов; без расходов = закупка).
                         ["purchase_price"] = Math.Round(line.CostPrice, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero), // 2026-11-01: PATCH товара принимает 4 знака (проверка бэкенда)
-                        ["price"] = line.SalePrice,
                     };
-                    // 2026-10-24 (Б0, ТЗ «Склад» 4.2): наценка вместе с закупкой и продажей, как карточка товара.
-                    if (ReceivingPricing.MarkupPercent(line.CostPrice, line.SalePrice) is { } markupPercent)
-                        fields["markup_percent"] = markupPercent;
+                    // 2026-11-06 (жалоба «Орук маркет»): цена продажи уходит в товар только если она есть, и только у строк, где она новая / изменена в этом приходе / нужна вместе с новой
+                    // закупкой (чтобы сервер не пересчитал её сам). «Оставить без цены» (0) и нетронутая цена существующего товара в PATCH не попадают.
+                    if (ShouldWriteSalePrice(line))
+                    {
+                        fields["price"] = line.SalePrice;
+                        // 2026-10-24 (Б0, ТЗ «Склад» 4.2): наценка вместе с закупкой и продажей, как карточка товара.
+                        if (ReceivingPricing.MarkupPercent(line.CostPrice, line.SalePrice) is { } markupPercent)
+                            fields["markup_percent"] = markupPercent;
+                    }
                     if (Math.Abs(stock - target) < 0.0005)
                         PosLogger.Log($"Приёмка: остаток товара {line.ProductId} уже {stock:0.###} — прошлая попытка дошла, количество повторно не прибавляем.", "CATALOG");
                     else
@@ -1132,19 +1322,19 @@ public sealed class PurchaseReceivingService
 
         // 4. История закупок товара — локально. С поставщиком она есть и на сервере (документ
         //    «Закупки»), но цену продажи на момент приёмки помнит только касса.
-        foreach (var line in posted)
+        // 2026-11-06: В5 Л-4 (шаг 3) — вся история прихода одной транзакцией (раньше — соединение и fsync на каждую строку: 50 строк ≈ 41–48 мс, на HDD до 2 с).
+        try
         {
-            try
-            {
-                AppendHistory(line, supplier?.Name, employee, receiptId);
-            }
-            catch (Exception ex)
-            {
-                PosLogger.Log($"Приёмка: строка истории закупок не записана: {ex.Message}", "WARNING");
-            }
+            // 2026-11-06: повтор дозавершения не задваивает историю — каждая строка пишется один раз (отметка в состоянии задачи).
+            var historyLines = st is null ? posted : posted.Where(st.TryMarkHistory).ToList();
+            AppendHistoryBatch(historyLines, supplier?.Name, employee, receiptId, st?.ReceivedAt);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Приёмка: история закупок не записана: {ex.Message}", "WARNING");
         }
 
-        return new PostResult(posted, posted.Sum(l => l.LineTotal), created, errors, receiptId, receiptTotal, receiptAt, receiptKey);
+        return new PostResult(posted, posted.Sum(l => l.LineTotal), created, errors, receiptId, receiptTotal, receiptAt, receiptKey, receiptNumber);
     }
 
     /// <summary>2026-10-30: строки прихода — по одной (degree ≤ 1, как раньше) или по несколько сразу. Строки с одним ключом (штрихкод / товар) идут друг за другом:
@@ -1314,64 +1504,150 @@ public sealed class PurchaseReceivingService
         _tableReady = true;
     }
 
-    private void AppendHistory(ReceivingLineVm line, string? supplierName, string? employee, string? receiptId)
+    private void AppendHistory(ReceivingLineVm line, string? supplierName, string? employee, string? receiptId) =>
+        AppendHistoryBatch(new[] { line }, supplierName, employee, receiptId);
+
+    /// <summary>2026-11-06: В5 Л-4 (шаг 3, п. 8; замер «Волна 1 — В5»): запись истории закупок всего прихода ОДНОЙ транзакцией, одной подготовленной командой.
+    /// Раньше на каждую строку — своё соединение, замок записи и отдельная фиксация при synchronous=FULL (fsync на строку): 50 строк ≈ 41–48 мс, на HDD до 2 с.
+    /// Время строк — общая отметка + по одному «тику» на строку, чтобы порядок «позже — новее» (ORDER BY at DESC) остался, как при записи по одной.
+    /// Ошибку записи истории вызывающий по-прежнему только журналирует; при сбое пачки строки пробуются по одной, чтобы одна плохая не потеряла остальные.</summary>
+    internal void AppendHistoryBatch(IReadOnlyList<ReceivingLineVm> lines, string? supplierName, string? employee, string? receiptId, DateTime? receivedAt = null)
     {
-        DatabaseService.Instance.WithConnection(connection =>
+        if (lines.Count == 0)
+            return;
+        var company = DatabaseService.Instance.CurrentCompany();
+        var stamp = receivedAt ?? DateTime.Now; // 2026-11-06: офлайн-приход — в истории закупок время ПРИЁМА, а не отправки
+        try
         {
-            EnsureTable(connection);
-            using var command = connection.CreateCommand();
-            command.CommandText = """
-                INSERT INTO ProductPurchaseHistory
-                    (company_id, product_id, product_name, barcode, quantity, unit, purchase_price,
-                     sale_price, supplier_name, receipt_id, employee, at)
-                VALUES ($company, $product, $name, $barcode, $qty, $unit, $purchase,
-                        $sale, $supplier, $receipt, $employee, $at);
-                """;
-            command.Parameters.AddWithValue("$company", (object?)DatabaseService.Instance.CurrentCompany() ?? DBNull.Value);
-            command.Parameters.AddWithValue("$product", line.ProductId);
-            command.Parameters.AddWithValue("$name", line.ProductName);
-            command.Parameters.AddWithValue("$barcode", line.Barcode);
-            command.Parameters.AddWithValue("$qty", line.Quantity);
-            command.Parameters.AddWithValue("$unit", line.Unit);
-            command.Parameters.AddWithValue("$purchase", line.PurchasePrice);
-            command.Parameters.AddWithValue("$sale", line.SalePrice);
-            command.Parameters.AddWithValue("$supplier", (object?)supplierName ?? DBNull.Value);
-            command.Parameters.AddWithValue("$receipt", (object?)receiptId ?? DBNull.Value);
-            command.Parameters.AddWithValue("$employee", (object?)employee ?? DBNull.Value);
-            command.Parameters.AddWithValue("$at", DateTime.Now.ToString("o", CultureInfo.InvariantCulture));
-            command.ExecuteNonQuery();
-        });
+            DatabaseService.Instance.WithConnection(connection =>
+            {
+                EnsureTable(connection);
+                using var transaction = connection.BeginTransaction();
+                using var command = connection.CreateCommand();
+                command.Transaction = transaction;
+                command.CommandText = """
+                    INSERT INTO ProductPurchaseHistory
+                        (company_id, product_id, product_name, barcode, quantity, unit, purchase_price,
+                         sale_price, supplier_name, receipt_id, employee, at)
+                    VALUES ($company, $product, $name, $barcode, $qty, $unit, $purchase,
+                            $sale, $supplier, $receipt, $employee, $at);
+                    """;
+                var pCompany = command.Parameters.Add("$company", Microsoft.Data.Sqlite.SqliteType.Text);
+                var pProduct = command.Parameters.Add("$product", Microsoft.Data.Sqlite.SqliteType.Text);
+                var pName = command.Parameters.Add("$name", Microsoft.Data.Sqlite.SqliteType.Text);
+                var pBarcode = command.Parameters.Add("$barcode", Microsoft.Data.Sqlite.SqliteType.Text);
+                var pQty = command.Parameters.Add("$qty", Microsoft.Data.Sqlite.SqliteType.Real);
+                var pUnit = command.Parameters.Add("$unit", Microsoft.Data.Sqlite.SqliteType.Text);
+                var pPurchase = command.Parameters.Add("$purchase", Microsoft.Data.Sqlite.SqliteType.Real);
+                var pSale = command.Parameters.Add("$sale", Microsoft.Data.Sqlite.SqliteType.Real);
+                var pSupplier = command.Parameters.Add("$supplier", Microsoft.Data.Sqlite.SqliteType.Text);
+                var pReceipt = command.Parameters.Add("$receipt", Microsoft.Data.Sqlite.SqliteType.Text);
+                var pEmployee = command.Parameters.Add("$employee", Microsoft.Data.Sqlite.SqliteType.Text);
+                var pAt = command.Parameters.Add("$at", Microsoft.Data.Sqlite.SqliteType.Text);
+                pCompany.Value = (object?)company ?? DBNull.Value;
+                pSupplier.Value = (object?)supplierName ?? DBNull.Value;
+                pReceipt.Value = (object?)receiptId ?? DBNull.Value;
+                pEmployee.Value = (object?)employee ?? DBNull.Value;
+                for (var i = 0; i < lines.Count; i++)
+                {
+                    var line = lines[i];
+                    pProduct.Value = (object?)line.ProductId ?? DBNull.Value; // как раньше: пустой код товара даст NOT NULL-ошибку этой строки
+                    pName.Value = (object?)line.ProductName ?? DBNull.Value;
+                    pBarcode.Value = (object?)line.Barcode ?? DBNull.Value;
+                    pQty.Value = line.Quantity;
+                    pUnit.Value = (object?)line.Unit ?? DBNull.Value;
+                    pPurchase.Value = line.PurchasePrice;
+                    pSale.Value = line.SalePrice;
+                    pAt.Value = stamp.AddTicks(i).ToString("o", CultureInfo.InvariantCulture);
+                    command.ExecuteNonQuery();
+                }
+                transaction.Commit();
+            });
+        }
+        catch (Exception ex) when (lines.Count > 1)
+        {
+            // Пачка откатилась целиком (например, у одной строки нет кода товара): пишем по одной, плохая строка не должна терять остальные.
+            PosLogger.Log($"Приёмка: пачка истории закупок не записана ({ex.Message}), пишу строки по одной.", "WARNING");
+            for (var i = 0; i < lines.Count; i++)
+            {
+                try
+                {
+                    AppendHistoryBatch(new[] { lines[i] }, supplierName, employee, receiptId, receivedAt);
+                }
+                catch (Exception lineEx)
+                {
+                    PosLogger.Log($"Приёмка: строка истории закупок не записана: {lineEx.Message}", "WARNING");
+                }
+            }
+        }
+    }
+
+    /// <summary>2026-11-06: В5 25.4 — таблица истории создаётся под замком ЗАПИСИ один раз, чтения после этого идут через WithReadConnection (без замка записи, не ждут запись продажи).</summary>
+    private void EnsureTableReady()
+    {
+        if (!_tableReady)
+            DatabaseService.Instance.WithConnection(EnsureTable);
     }
 
     public List<HistoryEntry> LoadLocalHistory(string productId)
     {
-        var list = new List<HistoryEntry>();
-        DatabaseService.Instance.WithConnection(connection =>
+        // 2026-11-06: В5 25.4 — чтение через WithReadConnection (раньше WithConnection брал замок ЗАПИСИ: окно «Пополнение» и накладная ждали продажу и наоборот).
+        var map = LoadLocalHistoryMany(new[] { productId });
+        return map.TryGetValue(productId, out var list) ? list : new List<HistoryEntry>();
+    }
+
+    /// <summary>2026-11-06: В5 Л-3 (шаг 3, п. 8): история закупок СРАЗУ для многих товаров — «Пополнение» (до 300 товаров) и накладная вызывали LoadLocalHistory на каждый товар:
+    /// соединение, два PRAGMA, замок записи на каждый (300 захватов, пока продажа ждёт). Здесь пачками по 500 кодов одним <c>IN (…)</c>, замок чтения берётся один раз.
+    /// Результат — словарь «код товара → записи, новые первыми» (как у <see cref="LoadLocalHistory"/>); товары без истории в словаре отсутствуют.</summary>
+    public Dictionary<string, List<HistoryEntry>> LoadLocalHistoryMany(IReadOnlyCollection<string> productIds)
+    {
+        var result = new Dictionary<string, List<HistoryEntry>>(StringComparer.Ordinal);
+        var ids = productIds.Where(id => !string.IsNullOrEmpty(id)).Distinct(StringComparer.Ordinal).ToList();
+        if (ids.Count == 0)
+            return result;
+        EnsureTableReady();
+        const int batchSize = 500;
+        var tillName = Tr.T("Касса", "Касса", "Till", "Kasa", "Kassa"); // 2026-11-06: В5 — один раз на вызов, а не на каждую строку
+        DatabaseService.Instance.WithReadConnection(connection =>
         {
-            EnsureTable(connection);
-            using var command = connection.CreateCommand();
-            command.CommandText = "SELECT at, quantity, unit, purchase_price, sale_price, supplier_name, employee, receipt_id "
-                + "FROM ProductPurchaseHistory WHERE product_id = $id"
-                + DatabaseService.Instance.OwnRowsClauseFor()
-                + " ORDER BY at DESC;";
-            command.Parameters.AddWithValue("$id", productId);
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
+            for (var offset = 0; offset < ids.Count; offset += batchSize)
             {
-                DateTime.TryParse(reader.GetString(0), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at);
-                list.Add(new HistoryEntry(
-                    at,
-                    reader.GetDouble(1),
-                    reader.IsDBNull(2) ? null : reader.GetString(2),
-                    reader.GetDouble(3),
-                    reader.IsDBNull(4) ? null : reader.GetDouble(4),
-                    reader.IsDBNull(5) ? null : reader.GetString(5),
-                    reader.IsDBNull(6) ? null : reader.GetString(6),
-                    Tr.T("Касса", "Касса", "Till", "Kasa", "Kassa"),
-                    reader.IsDBNull(7) ? null : reader.GetString(7)));
+                var batch = ids.Skip(offset).Take(batchSize).ToList();
+                using var command = connection.CreateCommand();
+                var names = new string[batch.Count];
+                for (var i = 0; i < batch.Count; i++)
+                {
+                    names[i] = "$p" + i;
+                    command.Parameters.AddWithValue(names[i], batch[i]);
+                }
+                command.CommandText = "SELECT product_id, at, quantity, unit, purchase_price, sale_price, supplier_name, employee, receipt_id "
+                    + "FROM ProductPurchaseHistory WHERE product_id IN (" + string.Join(",", names) + ")"
+                    + DatabaseService.Instance.OwnRowsClauseFor(command)
+                    + " ORDER BY at DESC;";
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                {
+                    // 2026-11-06: В5 — время записано как «o» (ToString("o")): точный разбор формата втрое быстрее общего TryParse, а на тысячах строк это основная часть чтения
+                    var atText = reader.GetString(1);
+                    if (!DateTime.TryParseExact(atText, "o", CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at))
+                        DateTime.TryParse(atText, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out at);
+                    var productId = reader.GetString(0);
+                    if (!result.TryGetValue(productId, out var list))
+                        result[productId] = list = new List<HistoryEntry>();
+                    list.Add(new HistoryEntry(
+                        at,
+                        reader.GetDouble(2),
+                        reader.IsDBNull(3) ? null : reader.GetString(3),
+                        reader.GetDouble(4),
+                        reader.IsDBNull(5) ? null : reader.GetDouble(5),
+                        reader.IsDBNull(6) ? null : reader.GetString(6),
+                        reader.IsDBNull(7) ? null : reader.GetString(7),
+                        tillName,
+                        reader.IsDBNull(8) ? null : reader.GetString(8)));
+                }
             }
         });
-        return list;
+        return result;
     }
 
     /// <summary>История закупок товара: приёмки этой кассы плюс приходы от поставщиков с сервера

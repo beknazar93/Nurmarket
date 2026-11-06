@@ -18,6 +18,8 @@ public sealed class ProfitPayData
     public bool SalaryLoaded { get; init; }
     public Dictionary<string, decimal> Hours { get; init; } = new(StringComparer.OrdinalIgnoreCase);
     public bool HoursLoaded { get; init; }
+    /// <summary>2026-11-06: В2 Л4-15 — сколько смен периода не вошло в часы как слишком длинные (забыли закрыть, &gt; 16 ч).</summary>
+    public int SkippedLongShifts { get; init; }
     public ProfitPayResult? Result { get; private set; }
     public List<ProfitPayExport.Row> Rows { get; private set; } = new();
 
@@ -44,15 +46,21 @@ public sealed class ProfitPayData
             emps.Add(new ProfitPayEmployee
             {
                 UserId = r.UserId, Name = r.Name, Sales = r.Sales,
-                Hours = Hours.TryGetValue(ProfitPayCalculator.NameKey(r.Name), out var h) ? h : null,
+                Hours = HoursFor(r.UserId, r.Name),
             });
         foreach (var s in Doc.Schemes.Values.Where(s => emps.All(e => !string.Equals(e.UserId, s.UserId, StringComparison.OrdinalIgnoreCase))))
             emps.Add(new ProfitPayEmployee
             {
                 UserId = s.UserId, Name = s.Name, Sales = 0,
-                Hours = Hours.TryGetValue(ProfitPayCalculator.NameKey(s.Name), out var h) ? h : null,
+                Hours = HoursFor(s.UserId, s.Name),
             });
         Result = ProfitPayCalculator.Compute(Doc.Shop, Doc.Schemes.Values.ToList(), f, emps);
+        if (SkippedLongShifts > 0)
+            Result.ShopSteps.Add(Tr.T($"Смен длиннее {ProfitPayCalculator.MaxShiftHours:0} ч в часы не взято: {SkippedLongShifts} (похоже, смену забыли закрыть — проверьте в «Табеле»).",
+                $"{ProfitPayCalculator.MaxShiftHours:0} сааттан узун смендер саатка кирген жок: {SkippedLongShifts} (смена жабылбай калган окшойт — «Табелден» текшериңиз).",
+                $"Shifts longer than {ProfitPayCalculator.MaxShiftHours:0} h are not counted in hours: {SkippedLongShifts} (the shift was probably left open — check the Timesheet).",
+                $"{ProfitPayCalculator.MaxShiftHours:0} saatten uzun vardiyalar saate eklenmedi: {SkippedLongShifts} (vardiya açık kalmış olabilir — Puantaj'ı kontrol edin).",
+                $"{ProfitPayCalculator.MaxShiftHours:0} soatdan uzun smenalar soatga qo'shilmadi: {SkippedLongShifts} (smena yopilmay qolgan ko'rinadi — «Tabel»ni tekshiring)."));
 
         Rows = new();
         foreach (var e in emps.OrderBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase))
@@ -69,10 +77,17 @@ public sealed class ProfitPayData
         }
     }
 
+    /// <summary>2026-11-06: В2 Л4-15 — часы сотрудника: сначала по id (user_id сервера = id кассира смены, как в «Табеле»), потом по имени.</summary>
+    private decimal? HoursFor(string userId, string name) =>
+        !string.IsNullOrWhiteSpace(userId) && Hours.TryGetValue(ProfitPayCalculator.IdKey(userId), out var byId) ? byId
+        : Hours.TryGetValue(ProfitPayCalculator.NameKey(name), out var byName) ? byName
+        : null;
+
+    /// <summary>2026-11-06: В2 Н1-04 — в тексте теперь и «от» (раньше пустые переводы ky/tr/uz в отдельном Tr.T); падеж ky/tr/uz уже в слове.</summary>
     public static string BaseTitle(ProfitPayBase b) => b switch
     {
-        ProfitPayBase.Margin => Tr.T("чистой маржи", "таза маржадан", "net margin", "net marjdan", "sof marjadan"),
-        ProfitPayBase.NetProfit => Tr.T("чистой прибыли", "таза пайдадан", "net profit", "net kârdan", "sof foydadan"),
+        ProfitPayBase.Margin => Tr.T("от чистой маржи", "таза маржадан", "of net margin", "net marjdan", "sof marjadan"),
+        ProfitPayBase.NetProfit => Tr.T("от чистой прибыли", "таза пайдадан", "of net profit", "net kârdan", "sof foydadan"),
         _ => "",
     };
 
@@ -89,7 +104,7 @@ public sealed class ProfitPayData
             ProfitPayScope.Shop => Tr.T("по результату магазина", "дүкөндүн жыйынтыгы боюнча", "by shop result", "mağaza sonucuna göre", "do'kon natijasi bo'yicha"),
             _ => Tr.T("общий пул", "жалпы пул", "shared pool", "ortak havuz", "umumiy pul"),
         };
-        return pct + " " + Tr.T("от ", "", "of ", "", "") + BaseTitle(rule.Base) + " (" + scope + ")";
+        return pct + " " + BaseTitle(rule.Base) + " (" + scope + ")";
     }
 
     public static async Task<ProfitPayData> LoadAsync(DateTime from, DateTime to, CancellationToken ct)
@@ -132,8 +147,8 @@ public sealed class ProfitPayData
         }
 
         var shifts = await shiftsTask.ConfigureAwait(true);
-        var hours = ProfitPayCalculator.HoursInPeriod(shifts, from, to);
-        var result = new ProfitPayData { From = from, To = to, Snapshot = snap, Doc = doc, Server = server, SalaryLoaded = salaryOk, Hours = hours, HoursLoaded = shifts.Count > 0 };
+        var hours = ProfitPayCalculator.HoursInPeriod(shifts, from, to, out var skippedLong);
+        var result = new ProfitPayData { From = from, To = to, Snapshot = snap, Doc = doc, Server = server, SalaryLoaded = salaryOk, Hours = hours, HoursLoaded = shifts.Count > 0, SkippedLongShifts = skippedLong };
         result.Recompute();
         return result;
     }

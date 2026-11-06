@@ -202,188 +202,119 @@ public sealed class LocalProductRepository
             """;
         command.ExecuteNonQuery();
 
-        // Существующие БД (созданные до появления поштучной продажи) не получат новую колонку
-        // от CREATE TABLE IF NOT EXISTS — добавляем её отдельно, если её ещё нет.
-        try
-        {
-            using var alter = connection.CreateCommand();
-            alter.CommandText = "ALTER TABLE Products ADD COLUMN piece_option_json TEXT;";
-            alter.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует — ожидаемо для БД, созданных этой версией схемы.
-        }
-
-        try
-        {
-            using var alterPlu = connection.CreateCommand();
-            alterPlu.CommandText = "ALTER TABLE Products ADD COLUMN plu INTEGER;";
-            alterPlu.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
-
-        try
-        {
-            using var alterHotkey = connection.CreateCommand();
-            alterHotkey.CommandText = "ALTER TABLE Products ADD COLUMN hotkey_group TEXT;";
-            alterHotkey.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
-
-        try
-        {
-            using var alterBundle = connection.CreateCommand();
-            alterBundle.CommandText = "ALTER TABLE Products ADD COLUMN is_bundle INTEGER NOT NULL DEFAULT 0;";
-            alterBundle.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
-
-        try
-        {
-            using var alterArticle = connection.CreateCommand();
-            alterArticle.CommandText = "ALTER TABLE Products ADD COLUMN article TEXT;";
-            alterArticle.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
-
-        try
-        {
-            using var alterBundleItems = connection.CreateCommand();
-            alterBundleItems.CommandText = "ALTER TABLE Products ADD COLUMN bundle_items_json TEXT;";
-            alterBundleItems.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
-
-        try
-        {
-            using var alterAltBarcodes = connection.CreateCommand();
-            alterAltBarcodes.CommandText = "ALTER TABLE Products ADD COLUMN alternate_barcodes TEXT;";
-            alterAltBarcodes.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
-
-        try
-        {
-            using var alterAltBarcodeVariants = connection.CreateCommand();
-            alterAltBarcodeVariants.CommandText = "ALTER TABLE Products ADD COLUMN alternate_barcode_variants TEXT;";
-            alterAltBarcodeVariants.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
-
-        try
-        {
-            // 2026-09-21: "Код товара" — отдельное от "article" поле сайта (см. CatalogProductTileVm.ProductCode).
-            using var alterProductCode = connection.CreateCommand();
-            alterProductCode.CommandText = "ALTER TABLE Products ADD COLUMN product_code TEXT;";
-            alterProductCode.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
-
-        try
-        {
-            // 2026-09-24: вид товара сайта (product/service/bundle). Нужен услугам: у них нет
-            // остатка, и касса не должна требовать его при продаже.
-            using var alterKind = connection.CreateCommand();
-            alterKind.CommandText = "ALTER TABLE Products ADD COLUMN kind TEXT;";
-            alterKind.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
-
-        try
-        {
-            // Дата, когда у товара впервые появился остаток > 0 (см. UpdateStock/SyncReplaceAllWithDiff) —
-            // используется как "дата поступления" для срока годности (AI-фичи 2026-09-03, п.5).
-            // Срок годности НЕ хранится отдельной колонкой — считается на лету из этой даты
-            // + таблица категорий по умолчанию (см. ExpiryEstimator), чтобы не дублировать логику
-            // категорийных сроков в нескольких местах записи стока.
-            using var alterIntake = connection.CreateCommand();
-            alterIntake.CommandText = "ALTER TABLE Products ADD COLUMN intake_date TEXT;";
-            alterIntake.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
-
-        try
-        {
-            // 2026-10-01: описание товара от продавца — кнопка «Подробнее» на плитке видна в любом
-            // виде магазина (ветаптека, аптека…), если описание есть; раньше оно в базу кассы не
-            // попадало и карточка каждый раз ходила за ним на сервер.
-            using var alterDescription = connection.CreateCommand();
-            alterDescription.CommandText = "ALTER TABLE Products ADD COLUMN description TEXT;";
-            alterDescription.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
-
-        try
-        {
-            // 2026-10-04: оптовая цена товара. Раньше она жила только в плитках, пришедших с сервера:
-            // каталог из базы (запуск кассы, перечитывание после каждой продажи) её терял, и опт в чеке
-            // («☐ Опт» у строки, тумблер «Оптовый») не появлялся вовсе.
-            using var alterWholesale = connection.CreateCommand();
-            alterWholesale.CommandText = "ALTER TABLE Products ADD COLUMN wholesale_price REAL NOT NULL DEFAULT 0;";
-            alterWholesale.ExecuteNonQuery();
-            // Колонка новая — версия каталога сбрасывается, чтобы ближайшая синхронизация была полной и
-            // записала оптовые цены (иначе при неизменном каталоге сервер «нечего обновлять»).
-            using var resetVersion = connection.CreateCommand();
-            resetVersion.CommandText = "DELETE FROM catalog_meta WHERE key = 'catalog_version';";
-            resetVersion.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
-
-        try
-        {
-            // 2026-11-01 (владелец «10 из 10», is_weight): признак товара is_weight с сервера — сервер округляет сумму ТАКИХ строк вниз, а единица «кг» (must_weigh)
-            // этого не определяет. Только добавление колонки (NULL = неизвестно → прежняя эвристика); идемпотентно. Версия каталога сбрасывается, чтобы ближайшая
-            // (полная) синхронизация записала признак.
-            using var alterIsWeight = connection.CreateCommand();
-            alterIsWeight.CommandText = "ALTER TABLE Products ADD COLUMN IsWeight INTEGER NULL;";
-            alterIsWeight.ExecuteNonQuery();
-            using var resetVersionIsWeight = connection.CreateCommand();
-            resetVersionIsWeight.CommandText = "DELETE FROM catalog_meta WHERE key = 'catalog_version';";
-            resetVersionIsWeight.ExecuteNonQuery();
-        }
-        catch (SqliteException)
-        {
-            // Колонка уже существует.
-        }
+        // 2026-11-06 (Б-13): добавление недостающих столбцов вынесено в EnsureProductColumns — оно же вызывается из DatabaseService.EnsureSchema,
+        // иначе новая база после смены компании создавалась без этих столбцов (там своя, сокращённая CREATE TABLE Products).
+        EnsureProductColumns(connection);
 
         MigrateLegacyDataIfNeeded(connection);
+    }
+
+    /// <summary>2026-11-06 (Б-13): столбцы таблицы Products, которых нет в «сокращённой» CREATE TABLE у DatabaseService (и у баз старых версий): (имя, определение,
+    /// сбрасывать ли версию каталога, чтобы ближайшая полная загрузка записала новое поле). Порядок и определения — как были в отдельных ALTER TABLE.</summary>
+    private static readonly (string Name, string Definition, bool ResetsCatalogVersion)[] ProductColumns =
+    {
+        ("piece_option_json", "TEXT", false),
+        ("plu", "INTEGER", false),
+        ("hotkey_group", "TEXT", false),
+        ("is_bundle", "INTEGER NOT NULL DEFAULT 0", false),
+        ("article", "TEXT", false),
+        ("bundle_items_json", "TEXT", false),
+        ("alternate_barcodes", "TEXT", false),
+        ("alternate_barcode_variants", "TEXT", false),
+        // 2026-09-21: "Код товара" — отдельное от "article" поле сайта (см. CatalogProductTileVm.ProductCode).
+        ("product_code", "TEXT", false),
+        // 2026-09-24: вид товара сайта (product/service/bundle). Нужен услугам: у них нет остатка, и касса не должна требовать его при продаже.
+        ("kind", "TEXT", false),
+        // Дата, когда у товара впервые появился остаток > 0 (UpdateStock/SyncReplaceAllWithDiff) — «дата поступления» для срока годности (AI-фичи 2026-09-03, п.5).
+        ("intake_date", "TEXT", false),
+        // 2026-10-01: описание товара от продавца — кнопка «Подробнее» на плитке.
+        ("description", "TEXT", false),
+        // 2026-10-04: оптовая цена товара. Колонка новая — версия каталога сбрасывается, чтобы ближайшая синхронизация была полной и записала оптовые цены.
+        ("wholesale_price", "REAL NOT NULL DEFAULT 0", true),
+        // 2026-11-01 (is_weight): признак сервера «сумма округляется вниз»; NULL = неизвестно → прежняя эвристика. Версия каталога сбрасывается по той же причине.
+        ("IsWeight", "INTEGER NULL", true),
+    };
+
+    /// <summary>2026-11-06 (Б-13): приводит таблицу Products к актуальным столбцам. Идемпотентно: смотрит PRAGMA table_info и добавляет ТОЛЬКО недостающие (ALTER TABLE ADD COLUMN),
+    /// данные не трогает. Вызывается и из <see cref="EnsureSchemaCore"/>, и из DatabaseService.EnsureSchema (любая открываемая или создаваемая база, в том числе новая после смены компании).
+    /// Возвращает, сколько столбцов добавлено.</summary>
+    internal static int EnsureProductColumns(SqliteConnection connection)
+    {
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var info = connection.CreateCommand())
+        {
+            info.CommandText = "PRAGMA table_info(Products);";
+            using var reader = info.ExecuteReader();
+            while (reader.Read())
+                existing.Add(reader.GetString(1));
+        }
+
+        if (existing.Count == 0)
+            return 0; // таблицы нет — создаёт вызывающий
+
+        var added = 0;
+        foreach (var (name, definition, resetsVersion) in ProductColumns)
+        {
+            if (existing.Contains(name))
+                continue;
+            try
+            {
+                using var alter = connection.CreateCommand();
+                alter.CommandText = $"ALTER TABLE Products ADD COLUMN {name} {definition};"; // имена и определения — константы выше, не ввод пользователя
+                alter.ExecuteNonQuery();
+                added++;
+                if (resetsVersion)
+                {
+                    using var resetVersion = connection.CreateCommand();
+                    resetVersion.CommandText = "DELETE FROM catalog_meta WHERE key = 'catalog_version';";
+                    try { resetVersion.ExecuteNonQuery(); }
+                    catch (SqliteException) { /* catalog_meta ещё нет — версии и так нет */ }
+                }
+            }
+            catch (SqliteException ex) when (ex.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
+            {
+                // Столбец успели добавить параллельно — ожидаемо.
+            }
+        }
+
+        if (added > 0)
+            PosLogger.Log($"Схема товаров: добавлено недостающих столбцов — {added}.", "INFO");
+        return added;
+    }
+
+    private static readonly object SelfHealGate = new();
+    private static string? _selfHealKey;
+
+    /// <summary>2026-11-06 (Б-13): самолечение при ошибке «no such column». Один раз на открытие базы (путь + номер переоткрытия) заново проверяет столбцы Products;
+    /// true — столбцы достроены (или проверены), вызывающему стоит повторить запрос ОДИН раз. Другая ошибка или лечение уже было — false.</summary>
+    public static bool TryHealMissingColumn(Exception? ex)
+    {
+        if (ex is not SqliteException || ex.Message.IndexOf("no such column", StringComparison.OrdinalIgnoreCase) < 0)
+            return false;
+
+        string key;
+        try { key = DatabaseService.Instance.DatabasePath + "|" + DatabaseService.Instance.SchemaGeneration; }
+        catch (Exception) { return false; }
+        lock (SelfHealGate)
+        {
+            if (_selfHealKey == key)
+                return false;
+            _selfHealKey = key;
+        }
+
+        try
+        {
+            using var connection = new SqliteConnection($"Data Source={DatabaseService.Instance.DatabasePath}");
+            connection.Open();
+            var added = EnsureProductColumns(connection);
+            PosLogger.Log($"Схема товаров: ошибка «{ex.Message}» — столбцы перепроверены, добавлено {added}; запрос повторяется.", "WARNING");
+            return true;
+        }
+        catch (Exception healEx) when (healEx is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Схема товаров: самолечение не удалось: {healEx.Message}", "WARNING");
+            return false;
+        }
     }
 
     public IReadOnlyList<CatalogProductTileVm> LoadAllTiles()
@@ -460,7 +391,9 @@ public sealed class LocalProductRepository
     private static bool PreferForBarcode(CatalogProductTileVm candidate, CatalogProductTileVm current) =>
         current.Quantity <= 0 && candidate.Quantity > 0;
 
-    private CatalogProductTileVm? LoadSingleTile(string column, string value)
+    private CatalogProductTileVm? LoadSingleTile(string column, string value) => LoadSingleTile(column, value, healed: false);
+
+    private CatalogProductTileVm? LoadSingleTile(string column, string value, bool healed)
     {
         try
         {
@@ -483,7 +416,10 @@ public sealed class LocalProductRepository
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Товар по {column} не прочитан: {ex.Message}", "WARNING");
+            // 2026-11-06 (Б-13): «no such column» — один раз пере-проверить схему и повторить; журнал — не чаще раза в 10 минут на причину (было ~500 строк за секунду).
+            if (!healed && TryHealMissingColumn(ex))
+                return LoadSingleTile(column, value, healed: true);
+            PosLogger.LogThrottled("product-by-" + column, $"Товар по {column} не прочитан: {ex.Message}", "WARNING");
             return null;
         }
     }
@@ -540,7 +476,9 @@ public sealed class LocalProductRepository
     /// <summary>Товары, отмеченные звёздочкой. Берутся запросом к базе, а не из in-memory
     /// кэша каталога: тот наполняется страницей, которую сейчас показывает каталог, и у
     /// вызывающего кода (панель чека) он может быть пуст вовсе.</summary>
-    public IReadOnlyList<CatalogProductTileVm> LoadFavoriteTiles(int limit = 12)
+    public IReadOnlyList<CatalogProductTileVm> LoadFavoriteTiles(int limit = 12) => LoadFavoriteTiles(limit, healed: false);
+
+    private IReadOnlyList<CatalogProductTileVm> LoadFavoriteTiles(int limit, bool healed)
     {
         var result = new List<CatalogProductTileVm>();
         try
@@ -569,7 +507,10 @@ public sealed class LocalProductRepository
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Избранные товары не прочитаны: {ex.Message}", "WARNING");
+            // 2026-11-06 (Б-13): самолечение схемы и журнал не чаще раза в 10 минут (см. LoadSingleTile).
+            if (!healed && TryHealMissingColumn(ex))
+                return LoadFavoriteTiles(limit, healed: true);
+            PosLogger.LogThrottled("favorites-read", $"Избранные товары не прочитаны: {ex.Message}", "WARNING");
         }
 
         return result;
@@ -712,6 +653,14 @@ public sealed class LocalProductRepository
     /// Пишутся только действительно изменившиеся записи (отпечаток, как в SyncReplaceAllWithDiff), кэш правится точечно, как после
     /// полной загрузки. Схема базы не меняется, версия каталога (catalog_version) не трогается — её двигает только полная загрузка.</summary>
     public FeedApplyResult ApplyFeedChanges(
+        IReadOnlyList<CatalogProductTileVm> upserts, IReadOnlyList<FeedFieldPatch> patches, IReadOnlyCollection<string> deletedIds)
+    {
+        // 2026-11-06 (Б-13): «no such column» — один раз достроить столбцы и повторить (самолечение базы без новых столбцов).
+        try { return ApplyFeedChangesCore(upserts, patches, deletedIds); }
+        catch (SqliteException ex) when (TryHealMissingColumn(ex)) { return ApplyFeedChangesCore(upserts, patches, deletedIds); }
+    }
+
+    private FeedApplyResult ApplyFeedChangesCore(
         IReadOnlyList<CatalogProductTileVm> upserts, IReadOnlyList<FeedFieldPatch> patches, IReadOnlyCollection<string> deletedIds)
     {
         var favoriteIds = GetFavoriteIds();
@@ -1159,6 +1108,13 @@ public sealed class LocalProductRepository
 
     public void UpdateStock(string id, double stock, bool mustWeigh)
     {
+        // 2026-11-06 (Б-13): «no such column: intake_date» — один раз достроить столбцы и повторить.
+        try { UpdateStockCore(id, stock, mustWeigh); }
+        catch (SqliteException ex) when (TryHealMissingColumn(ex)) { UpdateStockCore(id, stock, mustWeigh); }
+    }
+
+    private void UpdateStockCore(string id, double stock, bool mustWeigh)
+    {
         var kind = mustWeigh ? ProductUnitKind.Kilogram : ProductUnitKind.Piece;
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
@@ -1280,10 +1236,14 @@ public sealed class LocalProductRepository
     }
 
     /// <summary>Полная синхронизация с подсчётом добавленных / изменённых / удалённых.</summary>
-    public (int Added, int Changed, int Deleted) SyncReplaceAllWithDiff(IEnumerable<CatalogProductTileVm> products)
+    /// <param name="deleteMissing">2026-11-06 (Б-9): false — «дописать пачку»: товары, которых нет в <paramref name="products"/>, НЕ удаляются (докачка каталога по пачкам
+    /// страниц; лишнее удаляет <see cref="DeleteProductsNotIn"/> после последней пачки).</param>
+    public (int Added, int Changed, int Deleted) SyncReplaceAllWithDiff(IEnumerable<CatalogProductTileVm> products, bool deleteMissing = true)
     {
         var favoriteIds = GetFavoriteIds();
-        var existing = LoadAllRecords().ToDictionary(x => x.Id, x => Fingerprint(x), StringComparer.OrdinalIgnoreCase);
+        // 2026-11-06: В5 24.1 (шаг 18, п. 24) — для сравнения нужны только отпечатки: читаем строки потоком (без сортировки и без списка из 15 тыс. полных записей),
+        // см. LoadAllFingerprints.
+        var existing = LoadAllFingerprints();
         var incoming = new Dictionary<string, LocalProductRecord>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var vm in products)
@@ -1322,7 +1282,7 @@ public sealed class LocalProductRepository
             }
         }
 
-        var deletedIds = existing.Keys.Where(id => !incoming.ContainsKey(id)).ToList();
+        var deletedIds = deleteMissing ? existing.Keys.Where(id => !incoming.ContainsKey(id)).ToList() : [];
         var deleted = deletedIds.Count;
         if (added == 0 && changed == 0 && deleted == 0)
             return (0, 0, 0);
@@ -1364,6 +1324,45 @@ public sealed class LocalProductRepository
         if (!TryPatchCacheAfterSync(incoming, toUpsert, added, deletedIds))
             ResetCache();
         return (added, changed, deleted);
+    }
+
+    /// <summary>2026-11-06 (Б-9): после докачки каталога пачками — удалить из базы товары, которых сервер в полной загрузке не отдал (то, что раньше делал один
+    /// <see cref="SyncReplaceAllWithDiff"/> в конце). Возвращает число удалённых.</summary>
+    public int DeleteProductsNotIn(IReadOnlySet<string> keepIds)
+    {
+        var ids = new List<string>();
+        using (var read = OpenConnection())
+        using (var command = read.CreateCommand())
+        {
+            command.CommandText = "SELECT id FROM Products;";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var id = reader.GetString(0);
+                if (!keepIds.Contains(id))
+                    ids.Add(id);
+            }
+        }
+
+        if (ids.Count == 0)
+            return 0;
+        using var connection = OpenConnection();
+        using var transaction = connection.BeginTransaction();
+        using var deleteCmd = connection.CreateCommand();
+        deleteCmd.Transaction = transaction;
+        deleteCmd.CommandText = "DELETE FROM Products WHERE id = @id;";
+        var idParam = deleteCmd.CreateParameter();
+        idParam.ParameterName = "@id";
+        deleteCmd.Parameters.Add(idParam);
+        foreach (var id in ids)
+        {
+            idParam.Value = id;
+            deleteCmd.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+        ResetCache();
+        return ids.Count;
     }
 
     /// <summary>Сколько строк кэша правим точечно; больше — проще и не медленнее пересобрать целиком.</summary>
@@ -1516,6 +1515,30 @@ public sealed class LocalProductRepository
             r.Description ?? "",
             r.WholesalePrice.ToString("0.####", CultureInfo.InvariantCulture),
             r.ServerIsWeight is { } w ? (w ? "1" : "0") : "");
+
+    /// <summary>2026-11-06: В5 24.1 — «код товара → отпечаток» всего каталога. Читает строки потоком (запись → отпечаток → запись выбрасывается), без сортировки
+    /// (порядок для сравнения не нужен; прежний ORDER BY name шёл по индексу с обращением к таблице на каждую строку). Кэш плиток (RebuildCacheFromDatabase)
+    /// по-прежнему читает полные записи: описание и состав комплекта нужны карточке товара, печати и редактированию — убирать их из кэша без переделки карточки нельзя.</summary>
+    private static Dictionary<string, string> LoadAllFingerprints()
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
+                   image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group, is_bundle, article,
+                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight
+            FROM Products;
+            """;
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var record = ReadRecord(reader);
+            map[record.Id] = Fingerprint(record);
+        }
+
+        return map;
+    }
 
     public int CountProducts()
     {
@@ -1799,7 +1822,9 @@ public sealed class LocalProductRepository
         // остатка после продажи и синхронизация не ждут fsync на каждую транзакцию (было 4,4 мс на запись
         // при FULL). Продажи, очередь офлайн-чеков и прочее (DatabaseService) остаются с FULL: настройка
         // действует только на своё соединение.
-        pragmaCommand.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=3000; PRAGMA synchronous=NORMAL;";
+        // 2026-11-06: В5 25.3 — busy_timeout 5000 (было 3000): один срок ожидания для обоих «хозяев» pos_local.db (DatabaseService тоже 5000),
+        // иначе запись каталога и запись чека падали с «database is locked» в разное время.
+        pragmaCommand.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA synchronous=NORMAL;";
         pragmaCommand.ExecuteNonQuery();
 
         return connection;

@@ -440,6 +440,11 @@
                         <TextBlock Text="{Binding Toolbar.Status.StatusLabel}"
                                    FontSize="12"
                                    Foreground="{DynamicResource BrushTextSoft}"/>
+                        <!-- 2026-11-06: «🔑 Вход истекает через N ч — войдите заново» (≤ 24 ч до конца входа) -->
+                        <TextBlock Text="{Binding Toolbar.Status.LoginExpiryText}"
+                                   IsVisible="{Binding Toolbar.Status.HasLoginExpiry}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource BrushUiStatusWarn}"/>
                     </StackPanel>
 
                     <!-- 2026-10-30 (приёмка 1.17.65, «Важно» 2): сервер ответил 429 — нейтральная надпись, не красный офлайн. -->

@@ -75,7 +75,7 @@ internal static class PurchasePaymentService
         {
             ReceiptId = result.ReceiptId ?? "", SupplierId = supplier.Id, SupplierName = supplier.Name, Total = total, OrderId = orderId,
             PayKind = pay.Kind switch { PurchasePayKind.Cash => "cash", PurchasePayKind.Drawer => "drawer", PurchasePayKind.Partial => "partial", _ => "debt" },
-            CreatedAt = result.ReceiptAt ?? DateTime.Now,
+            CreatedAt = bg?.ReceivedAt ?? result.ReceiptAt ?? DateTime.Now,
         };
 
         switch (pay.Kind)
@@ -169,6 +169,9 @@ internal static class PurchasePaymentService
     /// Всегда Done: денежные замечания (смена сменилась, расход не записан) идут в Errors — кассир видит их в итоге, ничего не повторяется вслепую.</summary>
     public static async Task<FinisherResult> BackgroundFinisherAsync(ReceivingJob job, PurchaseReceivingService.PostResult result, CancellationToken ct)
     {
+        // 2026-11-06: приход без поставщика (товары прямо на склад) — оплаты и долга нет, делать после прихода нечего.
+        if (job.Supplier is null)
+            return new FinisherResult(true, null, null);
         PurchaseFinishPayload? p = null;
         try
         {
@@ -187,7 +190,7 @@ internal static class PurchasePaymentService
             });
         var supplier = job.Supplier.ToSupplier();
         var pay = new PurchasePayment(kind, p.PaidNow, p.DueDays, p.PartialFromDrawer, p.CashboxId, p.CashboxName);
-        var ctx = new PurchaseFinishContext(job.Id, p.ShiftId);
+        var ctx = new PurchaseFinishContext(job.Id, p.ShiftId) { ReceivedAt = job.WasDelayed ? job.ReceivedAt : null }; // 2026-11-06: офлайн-приход — локальные записи идут временем приёма
         ct.ThrowIfCancellationRequested();
         PosLogger.Log($"Закупки в фоне: задача {job.Id}, оплата {kind}, смена при постановке {p.ShiftId ?? "—"}, сейчас {PosApp.ActiveShiftId ?? "—"}.", "PAYMENT");
         var outcome = await FinishAsync(result, supplier, pay, p.OrderId, ctx).ConfigureAwait(true);
@@ -254,7 +257,7 @@ internal static class PurchasePaymentService
             var op = new CashOperationModel
             {
                 Id = opId,
-                CreatedAt = DateTime.Now,
+                CreatedAt = bg?.ReceivedAt ?? DateTime.Now,
                 Type = "Изъятие",
                 Kind = CashOperationKind.Withdrawal,
                 Amount = (decimal)paid,
@@ -415,6 +418,8 @@ internal sealed class PurchaseFinishContext
 
     public string JobId { get; }
     public string? ShiftId { get; }
+    /// <summary>2026-11-06: время приёма, если приход отправлялся позже (офлайн): запись в «Закупки» и изъятие из ящика получают его, а не время отправки.</summary>
+    public DateTime? ReceivedAt { get; init; }
     public List<string> Problems { get; } = new();
 
     public bool TryGetMark(string step, out PurchaseStepMark mark) => PurchaseFinishMarks.TryGet(JobId, step, out mark);

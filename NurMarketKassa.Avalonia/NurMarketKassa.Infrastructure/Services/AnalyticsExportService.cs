@@ -487,7 +487,7 @@ public static class AnalyticsExportService
         doc.Heading2(TitleStructure);
         // Пустой период — не пустая картинка на полстраницы, а одна строка «нет данных».
         if (structure.Count > 0)
-            doc.Image(AnalyticsChartRenderer.RenderPie(TitleStructure, structure), TitleStructure);
+            doc.TryChart(() => AnalyticsChartRenderer.RenderPie(TitleStructure, structure), TitleStructure);
         else
             doc.Note(ReportLabels.NoData);
 
@@ -495,7 +495,7 @@ public static class AnalyticsExportService
         doc.Heading1("2. " + TitleByDay);
         if (data.ByDay.Count > 0)
         {
-            doc.Image(AnalyticsChartRenderer.RenderBars(TitleByDay,
+            doc.TryChart(() => AnalyticsChartRenderer.RenderBars(TitleByDay,
                 data.ByDay.Select(d => (d.Day.ToString("dd.MM"), d.Revenue)).ToList()), TitleByDay);
         }
         else
@@ -507,7 +507,7 @@ public static class AnalyticsExportService
         doc.Heading1("3. " + SheetTop + TopOf(data));
         if (data.TopProducts.Count > 0)
         {
-            doc.Image(AnalyticsChartRenderer.RenderBars(TitleTop,
+            doc.TryChart(() => AnalyticsChartRenderer.RenderBars(TitleTop,
                 data.TopProducts.Take(10).Select(p => (p.Name, p.Sum)).ToList()), TitleTop);
         }
         doc.Table(
@@ -552,13 +552,13 @@ public static class AnalyticsExportService
                 (row, column) => column == 0 ? GroupTone(slice.Summary[row].Group) : ReportTone.None);
 
             var top = slice.Rows.Take(20).ToList();
-            doc.Image(AnalyticsChartRenderer.RenderPie(
+            doc.TryChart(() => AnalyticsChartRenderer.RenderPie(
                 $"ABC: {slice.Title} — {TitleGroupShare}",
                 slice.Summary.Select(g => ($"{LGroup} {g.Group} ({g.Count} {LItemsShort})", g.Sum)).ToList()), slice.Title);
-            doc.Image(AnalyticsChartRenderer.RenderParetoClassic(
+            doc.TryChart(() => AnalyticsChartRenderer.RenderParetoClassic(
                 $"{TitlePareto}: {slice.Title}",
                 top.Select(r => (r.Name, r.Share, r.Cumulative, r.Group)).ToList()), TitlePareto + ": " + slice.Title);
-            doc.Image(AnalyticsChartRenderer.RenderPareto(
+            doc.TryChart(() => AnalyticsChartRenderer.RenderPareto(
                 $"{TitleParetoColumns}: {slice.Title}",
                 top.Select(r => (r.Name, r.Sum, r.Cumulative)).ToList(),
                 SliceMeasure(slice)), TitleParetoColumns + ": " + slice.Title);

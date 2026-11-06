@@ -103,7 +103,9 @@ public static class ActionGuard
 
     /// <summary>Владелец/администратор (право «Настройки» или роль owner/admin в профиле, автономный режим) — сами старшие.
     /// 2026-11-05 (ревью волн 0–3, Л4-10): запуск с ключом --owner сам по себе старшим НЕ делает — кассир мог так обходить PIN старшего.</summary>
+    // 2026-11-06: В3 Л5-10 — раньше при отсутствии службы прав (null) результат «!= false» делал любого «старшим» (PIN не спрашивали). Теперь нет службы — не старший.
+    // Правила защиты по-прежнему лежат в локальном файле антифрода; хранение в общих настройках компании на сервере — ждёт Умара (ТЗ).
     internal static bool IsSenior() =>
-        (App.AppHost?.Services.GetService(typeof(IPermissionService)) as IPermissionService)?.HasPermission(PosPermissions.ViewSettings) != false
+        (App.AppHost?.Services.GetService(typeof(IPermissionService)) as IPermissionService)?.HasPermission(PosPermissions.ViewSettings) == true
         || NurMarketKassa.AvaloniaHost.Views.Dialogs.ReceivingMarkupDialog.CanEditSettings();
 }

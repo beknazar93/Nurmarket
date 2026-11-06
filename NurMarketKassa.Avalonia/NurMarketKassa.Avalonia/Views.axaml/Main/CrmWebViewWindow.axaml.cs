@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NurMarketKassa.AvaloniaHost.Services;
+using System;
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -119,13 +120,8 @@ public partial class CrmWebViewWindow : Window, IOwnerSection
 
     private void OpenInBrowser_Click(object? sender, RoutedEventArgs e)
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo(_webView?.Source is { Length: > 0 } current ? current : _homeUrl) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Failed to open nurcrm.kg in system browser: {ex}", "WARNING");
-        }
+        // 2026-11-06: В4 А5-05 — общий запуск ссылки.
+        if (!PlatformLauncher.OpenUrl(_webView?.Source is { Length: > 0 } current ? current : _homeUrl))
+            PosLogger.Log("Failed to open nurcrm.kg in system browser", "WARNING");
     }
 }

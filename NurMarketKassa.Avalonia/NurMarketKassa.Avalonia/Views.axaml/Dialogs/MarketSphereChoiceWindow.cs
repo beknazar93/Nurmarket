@@ -76,55 +76,71 @@ public sealed class MarketSphereChoiceWindow : Window
 
     public MarketSphereChoiceWindow()
     {
+        // 2026-11-06: В6 (хвост модалок) — окно на общей оболочке ModalShell (заголовок, подвал с «Позже»), плитки — настоящие кнопки (Tab, Enter/Пробел, цель ≥ 72 px),
+        // значки — векторные (PathIcon), а не цветные эмодзи, как в остальных окнах кассы.
         Title = Tr.T("Какой у вас магазин?", "Дүкөнүңүз кандай?", "What kind of store do you have?", "Mağazanız ne tür?", "Do'koningiz qanday?");
-        Width = 620;
+        Width = 672;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Use(this, BackgroundProperty, "BrushDialogPanel");
+        SystemDecorations = SystemDecorations.None;
+        this[!BackgroundProperty] = this.GetResourceObservable("DialogWindowBackground").ToBinding();
+        this[!TransparencyLevelHintProperty] = this.GetResourceObservable("DialogTransparencyHint").ToBinding();
         KeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
 
-        var root = new StackPanel { Margin = new Thickness(26, 22), Spacing = 12 };
-        var title = new TextBlock { Text = Title, FontSize = 22, FontWeight = FontWeight.Bold };
-        Use(title, TextBlock.ForegroundProperty, "BrushText");
-        root.Children.Add(title);
-        var hint = new TextBlock
-        {
-            Text = Tr.T("Касса настроится под ваш вид торговли. Поменять можно в любой момент: Настройки → Операции → «Сфера магазина».",
-                "Касса соода түрүңүзгө ылайыкташат. Каалаган убакта өзгөртсө болот: Жөндөөлөр → Операциялар → «Дүкөндүн тармагы».",
-                "The till will adapt to your kind of trade. You can change it any time: Settings → Operations → “Store type”.",
-                "Kasa ticaret türünüze göre ayarlanır. İstediğiniz zaman değiştirebilirsiniz: Ayarlar → İşlemler → «Mağaza türü».",
-                "Kassa savdo turingizga moslashadi. Istalgan vaqtda o'zgartirish mumkin: Sozlamalar → Operatsiyalar → «Do'kon turi»."),
-            FontSize = 13, TextWrapping = TextWrapping.Wrap,
-        };
-        Use(hint, TextBlock.ForegroundProperty, "BrushTextSoft");
-        root.Children.Add(hint);
-
-        root.Children.Add(Tile("🛒", Tr.T("Продукты", "Азык-түлүк", "Grocery", "Market (gıda)", "Oziq-ovqat"),
+        var root = new StackPanel { Spacing = 12 };
+        root.Children.Add(Tile("IconCart", Tr.T("Продукты", "Азык-түлүк", "Grocery", "Market (gıda)", "Oziq-ovqat"),
             Tr.T("Продуктовый магазин, супермаркет: весы и весовые товары, быстрые продажи.", "Азык-түлүк дүкөнү, супермаркет: таразалар жана салмактуу товарлар, тез сатуу.",
                 "Grocery store, supermarket: scales and weighed goods, fast sales.", "Market, süpermarket: teraziler ve tartılı ürünler, hızlı satış.",
                 "Oziq-ovqat do'koni, supermarket: tarozilar va tortiladigan mahsulotlar, tez sotuv."),
             MarketSpheres.Grocery));
-        root.Children.Add(Tile("👕", Tr.T("Одежда, обувь и похожие", "Кийим, бут кийим жана ушул сыяктуулар", "Clothing, shoes and similar", "Giyim, ayakkabı ve benzeri", "Kiyim, poyabzal va shunga o'xshash"),
+        root.Children.Add(Tile("IconTag", Tr.T("Одежда, обувь и похожие", "Кийим, бут кийим жана ушул сыяктуулар", "Clothing, shoes and similar", "Giyim, ayakkabı ve benzeri", "Kiyim, poyabzal va shunga o'xshash"),
             Tr.T("Размеры и цвета, этикетки размеров, обмен по закону, консультант, прокат.", "Өлчөмдөр жана түстөр, өлчөм этикеткалары, мыйзам боюнча алмаштыруу, консультант, прокат.",
                 "Sizes and colours, size labels, legal exchange, consultant, rentals.", "Beden ve renkler, beden etiketleri, yasal değişim, danışman, kiralama.",
                 "O'lcham va ranglar, o'lcham yorliqlari, qonun bo'yicha almashtirish, maslahatchi, prokat."),
             MarketSpheres.Clothing));
-        root.Children.Add(Tile("🛠", Tr.T("Услуги", "Кызматтар", "Services", "Hizmetler", "Xizmatlar"),
+        root.Children.Add(Tile("IconSettings", Tr.T("Услуги", "Кызматтар", "Services", "Hizmetler", "Xizmatlar"),
             Tr.T("Салон, ремонт, прокат: услуги без остатка на складе, прокат вещей.", "Салон, оңдоо, прокат: кампада калдыгы жок кызматтар, буюмдарды прокатка берүү.",
                 "Salon, repair, rentals: services without stock, item rentals.", "Salon, tamir, kiralama: stoksuz hizmetler, eşya kiralama.",
                 "Salon, ta'mirlash, prokat: omborda qoldiqsiz xizmatlar, buyumlarni prokatga berish."),
             MarketSpheres.Services));
-        Content = root;
+
+        var later = new Button { Content = Tr.T("Позже", "Кийинчерээк", "Later", "Sonra", "Keyinroq"), IsCancel = true, MinWidth = 120 };
+        later.Classes.Add("modal-cancel");
+        later.Click += (_, _) => Close();
+        var shell = new ModalShell
+        {
+            Margin = new Thickness(16),
+            Footer = later,
+            Content = root,
+        };
+        shell[!ModalShell.TitleProperty] = new Avalonia.Data.Binding { Source = this, Path = nameof(Title) };
+        shell.Subtitle = Tr.T("Касса настроится под ваш вид торговли. Поменять можно в любой момент: Настройки → Операции → «Сфера магазина».",
+            "Касса соода түрүңүзгө ылайыкташат. Каалаган убакта өзгөртсө болот: Жөндөөлөр → Операциялар → «Дүкөндүн тармагы».",
+            "The till will adapt to your kind of trade. You can change it any time: Settings → Operations → “Store type”.",
+            "Kasa ticaret türünüze göre ayarlanır. İstediğiniz zaman değiştirebilirsiniz: Ayarlar → İşlemler → «Mağaza türü».",
+            "Kassa savdo turingizga moslashadi. Istalgan vaqtda o'zgartirish mumkin: Sozlamalar → Operatsiyalar → «Do'kon turi».");
+        Content = shell;
     }
 
-    private Border Tile(string icon, string name, string description, string sphere)
+    /// <summary>Плитка вида магазина — кнопка на всю ширину: значок слева, название и описание справа.</summary>
+    private Button Tile(string iconKey, string name, string description, string sphere)
     {
-        var tile = new Border { CornerRadius = new CornerRadius(14), Padding = new Thickness(16, 14), BorderThickness = new Thickness(1), Cursor = new Cursor(StandardCursorType.Hand) };
-        Use(tile, Border.BackgroundProperty, "BrushPanel");
-        Use(tile, Border.BorderBrushProperty, "BrushBorder");
+        var tile = new Button
+        {
+            MinHeight = 72, Padding = new Thickness(16, 12), CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1),
+            HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Center, Cursor = new Cursor(StandardCursorType.Hand),
+        };
+        Use(tile, BackgroundProperty, "BrushPanel");
+        Use(tile, BorderBrushProperty, "BrushBorder");
+        Use(tile, ForegroundProperty, "BrushText");
         var g = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
-        g.Children.Add(new TextBlock { Text = icon, FontSize = 28, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) });
+        var icon = new PathIcon { Width = 28, Height = 28, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) };
+        if (this.TryFindResource(iconKey, ActualThemeVariant, out var geometry) && geometry is Geometry geo)
+            icon.Data = geo;
+        Use(icon, PathIcon.ForegroundProperty, "BrushTextSoft");
+        g.Children.Add(icon);
         var texts = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
         var n = new TextBlock { Text = name, FontSize = 16, FontWeight = FontWeight.Bold };
         Use(n, TextBlock.ForegroundProperty, "BrushText");
@@ -134,10 +150,11 @@ public sealed class MarketSphereChoiceWindow : Window
         texts.Children.Add(d);
         Grid.SetColumn(texts, 1);
         g.Children.Add(texts);
-        tile.Child = g;
-        tile.PointerEntered += (_, _) => Use(tile, Border.BorderBrushProperty, "BrushAccentStrong");
-        tile.PointerExited += (_, _) => Use(tile, Border.BorderBrushProperty, "BrushBorder");
-        tile.PointerPressed += (_, _) =>
+        tile.Content = g;
+        Avalonia.Automation.AutomationProperties.SetName(tile, name);
+        tile.PointerEntered += (_, _) => Use(tile, BorderBrushProperty, "BrushAccentStrong");
+        tile.PointerExited += (_, _) => Use(tile, BorderBrushProperty, "BrushBorder");
+        tile.Click += (_, _) =>
         {
             Chosen = sphere;
             Close();

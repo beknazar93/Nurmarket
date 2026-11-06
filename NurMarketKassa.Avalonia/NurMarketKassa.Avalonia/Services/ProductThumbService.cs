@@ -16,9 +16,11 @@ namespace NurMarketKassa.Services;
 /// больший размер — <see cref="GetFullPathAsync"/>.</summary>
 internal sealed class ProductThumbService
 {
-    private static readonly HttpClient PublicHttp = new() { Timeout = TimeSpan.FromSeconds(25) };
+    // 2026-11-06 (аудит скорости, 25.2): общая фабрика внешних клиентов (смена DNS через 15 мин, автораспаковка).
+    private static readonly HttpClient PublicHttp = ExternalHttp.Create(TimeSpan.FromSeconds(25));
     private const int ThumbQuality = 80;
     private const int FullQuality = 85;
+    private const long MaxDownloadBytes = 30L * 1024 * 1024;
     private const string FullFolder = "full";
     private static readonly string[] ThumbExtensions = { ".webp", ".jpg", ".png" };
 
@@ -42,12 +44,53 @@ internal sealed class ProductThumbService
         {
             PosLogger.Log($"Product thumbnail cache creation failed: {ex.GetType().Name}", "WARNING");
         }
+        StartMaintenanceOnce(_cacheDir);
     }
 
+    // 2026-11-06 (аудит скорости, шаг 21): кэш фото — в %LOCALAPPDATA% (это кэш, не данные: в резервную копию и в роуминг не нужен), с пределом ≈ 300 МБ.
+    // Раньше лежал в Roaming без предела. Старую папку один раз переносим, потом в фоне чистим самое старое.
     private static string CacheDirectory() => Path.Combine(
+        NurMarketKassa.Services.AppPaths.Local,
+        NurMarketKassa.Services.AppMode.DataFolderName,
+        "product_thumbs");
+
+    private static string LegacyCacheDirectory() => Path.Combine(
         NurMarketKassa.Services.AppPaths.Roaming,
         NurMarketKassa.Services.AppMode.DataFolderName,
         "product_thumbs");
+
+    private static int _maintenanceStarted;
+    private static int _writesSincePrune;
+    private const int PruneEveryWrites = 300;
+
+    private static void StartMaintenanceOnce(string cacheDir)
+    {
+        if (Interlocked.Exchange(ref _maintenanceStarted, 1) != 0)
+            return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(20)).ConfigureAwait(false); // не мешаем запуску кассы
+                var moved = FileCachePruner.MoveAll(LegacyCacheDirectory(), cacheDir);
+                var (deleted, freed) = FileCachePruner.PruneBySize(cacheDir, FileCachePruner.ThumbCacheLimitBytes);
+                if (moved > 0 || deleted > 0)
+                    PosLogger.Log($"Кэш фото: перенесено из старой папки {moved}, удалено {deleted} ({freed / 1024 / 1024} МБ).", "CATALOG");
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Кэш фото: обслуживание не удалось: {ex.GetType().Name}", "WARNING");
+            }
+        });
+    }
+
+    /// <summary>После каждой записи файла в кэш: раз в 300 записей — фоновая чистка до предела.</summary>
+    private static void NoteWrite(string cacheDir)
+    {
+        if (Interlocked.Increment(ref _writesSincePrune) % PruneEveryWrites != 0)
+            return;
+        _ = Task.Run(() => FileCachePruner.PruneBySize(cacheDir, FileCachePruner.ThumbCacheLimitBytes));
+    }
 
     public async Task SetThumbAsync(
         Dispatcher uiDispatcher,
@@ -157,12 +200,23 @@ internal sealed class ProductThumbService
             {
                 var local = Path.Combine(dir, key + ThumbImageCompressor.ThumbMarker.TrimEnd('.') + ExtOf(packed));
                 if (ThumbImageCompressor.TryWriteAtomic(local, packed))
+                {
+                    NoteWrite(dir);
                     return local;
+                }
+            }
+
+            // 2026-11-06 (Л5-23 / А5-12): огромный PNG/GIF/BMP (десятки Мп) не кладём — показ расшифровал бы его в памяти целиком (145 МБ и больше). Плитка без фото.
+            if (ThumbImageCompressor.IsOversized(bytes, ThumbImageCompressor.MaxNonScalablePixels))
+            {
+                PosLogger.Log($"Миниатюра товара: картинка слишком большая для слабого устройства ({bytes.Length / 1024} КБ) — пропущена.", "CATALOG");
+                return null;
             }
 
             // Не картинка или не расшифровалась: как раньше — кладём байты как есть (чтобы не качать заново при каждом показе плитки).
             var raw = Path.Combine(dir, key + legacyExt);
             await File.WriteAllBytesAsync(raw, bytes, ct).ConfigureAwait(false);
+            NoteWrite(dir);
             return raw;
         }
         catch
@@ -190,8 +244,11 @@ internal sealed class ProductThumbService
         if (!string.IsNullOrWhiteSpace(token) && IsOwnHost(uri, apiBaseUrl))
             req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-        using var resp = await PublicHttp.SendAsync(req, ct).ConfigureAwait(false);
+        using var resp = await PublicHttp.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
         if (!resp.IsSuccessStatusCode)
+            return null;
+        // 2026-11-06: ответ больше 30 МБ — не фото товара (чужой сайт отдал файл/страницу); не качаем целиком в память и в кэш.
+        if (resp.Content.Headers.ContentLength is > MaxDownloadBytes)
             return null;
 
         var bytes = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);

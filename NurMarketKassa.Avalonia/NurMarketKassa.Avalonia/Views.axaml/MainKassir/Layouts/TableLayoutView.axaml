@@ -120,7 +120,7 @@
                     <!-- 2026-10-20, проверка фильтров: «Фильтр» в раскладке (было только в «Классике») — число включённых условий,
                          в подсказке что включено; «✕» сбрасывает. Кнопки не берут фокус (скан — окну кассы). -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0" VerticalAlignment="Center">
-                        <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="36" Padding="10,0"
+                        <Button Classes="lx-chip" Classes.filter-on="{Binding Catalog.HasActiveFilter}" Focusable="False" Height="40" Padding="10,0"
                                 ToolTip.Tip="{Binding Catalog.ActiveFilterTip}" Click="OpenFilter_Click">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <PathIcon Data="{StaticResource IconFilter}" Width="14" Height="14"/>
@@ -132,7 +132,7 @@
                                 </Border>
                             </StackPanel>
                         </Button>
-                        <Button Classes="lx-chip" Focusable="False" Height="36" Width="36" Padding="0" Content="✕"
+                        <Button Classes="lx-chip" Focusable="False" Height="40" Width="40" Padding="0" Content="✕"
                                 IsVisible="{Binding Catalog.HasActiveFilter}" ToolTip.Tip="{Binding Catalog.ResetFilterTip}"
                                 AutomationProperties.Name="{Binding Catalog.ResetFilterTip}" Click="ResetFilter_Click"/>
                     </StackPanel>
@@ -235,7 +235,7 @@
                                                     </Button>
                                                     <!-- 2026-09-28: количество вводится с клавиатуры, как в «Классике» (раньше здесь был
                                                          только текст — точное количество в этом виде кассы ввести было нельзя). -->
-                                                    <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="48" Height="36" MinHeight="0"
+                                                    <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="48" Height="40" MinHeight="0"
                                                              Padding="4,0" FontSize="14" FontWeight="SemiBold" TextAlignment="Center" VerticalContentAlignment="Center"
                                                              VerticalAlignment="Center"
                                                              Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushInputBorder}"
@@ -267,11 +267,12 @@
                                                             ToolTip.Tip="{DynamicResource csh.cart.discountTooltip}">
                                                         <PathIcon Data="{StaticResource IconPercent}" Width="14" Height="14"/>
                                                     </Button>
-                                                    <Button Classes="lx-ghost" Width="40" Height="40" MinHeight="0" Padding="0"
-                                                            Command="{Binding RemoveCommand}" CommandParameter="{Binding}"
+                                                    <!-- 2026-11-06: В6 Д4-04 — серый значок, отступ от «%», удаление двумя нажатиями («Удалить?» на 3 с), как в основном виде. -->
+                                                    <Button Classes="lx-ghost" Width="40" Height="40" MinHeight="0" Padding="0" Margin="10,0,0,0"
+                                                            Click="CartDelete_Click"
                                                             ToolTip.Tip="{DynamicResource csh.cart.removeTooltip}">
                                                         <PathIcon Data="{StaticResource IconTrash}" Width="15" Height="15"
-                                                                  Foreground="{DynamicResource BrushDanger}"/>
+                                                                  Foreground="{DynamicResource BrushTextMuted}"/>
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>
@@ -329,17 +330,17 @@
                         <!-- Вкладки каталога -->
                         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Margin="0,0,0,10">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Button Classes="lx-chip" Height="36" Tag="0" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabAll}"
+                                <Button Classes="lx-chip" Height="40" Tag="0" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabAll}"
                                         Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=0}"/>
-                                <Button Classes="lx-chip" Height="36" Tag="1" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabWeighted}"
+                                <Button Classes="lx-chip" Height="40" Tag="1" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabWeighted}"
                                         Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=1}"/>
-                                <Button Classes="lx-chip" Height="36" Tag="2" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabPiece}"
+                                <Button Classes="lx-chip" Height="40" Tag="2" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabPiece}"
                                         Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=2}"/>
-                                <Button Classes="lx-chip" Height="36" Tag="3" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabPieceOption}"
+                                <Button Classes="lx-chip" Height="40" Tag="3" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabPieceOption}"
                                         Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=3}"/>
-                                <Button Classes="lx-chip" Height="36" Tag="4" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabBundle}"
+                                <Button Classes="lx-chip" Height="40" Tag="4" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabBundle}"
                                         Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=4}"/>
-                                <Button Classes="lx-chip" Height="36" Tag="5" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabServices}"
+                                <Button Classes="lx-chip" Height="40" Tag="5" Click="CatalogTab_Click" Content="{DynamicResource csh.catalog.tabServices}"
                                         Classes.active="{Binding Catalog.SelectedTabIndex, Converter={x:Static conv:IndexEqualsConverter.Instance}, ConverterParameter=5}"/>
                             </StackPanel>
                         </ScrollViewer>
@@ -376,12 +377,12 @@
 
                         <!-- Листание -->
                         <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,8,0,0">
-                            <Button Classes="lx-ghost" Width="36" Padding="0" Command="{Binding Catalog.PreviousPageCommand}">
+                            <Button Classes="lx-ghost" Width="40" Padding="0" Command="{Binding Catalog.PreviousPageCommand}">
                                 <PathIcon Data="{StaticResource IconChevronLeft}" Width="16" Height="16"/>
                             </Button>
                             <TextBlock Grid.Column="1" Text="{Binding Catalog.PageStatusText}" Classes="lx-muted"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            <Button Grid.Column="2" Classes="lx-ghost" Width="36" Padding="0" Command="{Binding Catalog.NextPageCommand}">
+                            <Button Grid.Column="2" Classes="lx-ghost" Width="40" Padding="0" Command="{Binding Catalog.NextPageCommand}">
                                 <PathIcon Data="{StaticResource IconChevronRight}" Width="16" Height="16"/>
                             </Button>
                         </Grid>

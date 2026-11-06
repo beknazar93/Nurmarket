@@ -802,7 +802,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Приёмка: список поставщиков не загружен: {ex.Message}", "WARNING");
+            SessionExpiryMonitor.LogFailure("receiving-suppliers", ex, $"Приёмка: список поставщиков не загружен: {ex.Message}"); // 2026-11-06: потеря сессии — раз в 10 минут
         }
     }
 
@@ -896,7 +896,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             }
 
             var weighedLine = PurchaseReceivingService.FromTile(weighedTile, weighedLabel.Quantity);
-            weighedLine.EnableAutoSale();
+            weighedLine.EnableReceivingPricing(); // 2026-11-06: цена существующего товара из карточки общей наценкой не меняется
             ReceivingLines.Insert(0, weighedLine);
             ReceivingLineAdded?.Invoke(weighedLine);
             return;
@@ -918,7 +918,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         }
 
         // 2026-10-24, ТЗ «Склад» Б1: новая строка встаёт сверху — у кладовщика перед глазами последний скан, а не конец длинной накладной.
-        line.EnableAutoSale(); // 2026-10-28: ручной скан — цена продажи считается по наценке при вводе закупки
+        line.EnableReceivingPricing(); // 2026-10-28: ручной скан; 2026-11-06: у товара с ценой в карточке общая наценка её не меняет (только «Как у всех» / «Применить ко всем»)
         ReceivingLines.Insert(0, line);
         ReceivingLineAdded?.Invoke(line);
     }
@@ -1000,6 +1000,10 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     /// <summary>2026-10-29 (спека Fable): подтверждение перед «Провести», если у строк цена продажи ниже закупки. Без обработчика — без вопроса. false — приёмка не проводится.</summary>
     public Func<IReadOnlyList<ReceivingLineVm>, Task<bool>>? ConfirmBelowCost { get; set; }
 
+    /// <summary>2026-11-06 (жалоба «Орук маркет»): у строк нет цены продажи — окно «У N позиций нет цены продажи» (цена/наценка, «Оставить без цены», «Отмена»). Задаёт окно приёмки.
+    /// false — приём не проводится. Без обработчика (другие окна) цена продажи, как раньше, обязательна: программа сама ничего не придумывает.</summary>
+    public Func<IReadOnlyList<ReceivingLineVm>, Task<bool>>? ConfirmMissingSalePrices { get; set; }
+
     /// <summary>2026-10-06 (О-70): строки приёмки проведены (для этикеток на принятые размеры).</summary>
     public event Action<IReadOnlyList<ReceivingLineVm>>? ReceivingPosted;
 
@@ -1018,7 +1022,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
         // 2026-10-24, ТЗ «Склад» Б1: сверху (возвращаем строку — окно ставит в неё курсор).
         var line = PurchaseReceivingService.FromTile(product, quantity);
-        line.EnableAutoSale(); // 2026-10-28: ручной выбор из списка — автонаценка
+        line.EnableReceivingPricing(); // 2026-10-28: ручной выбор из списка; 2026-11-06: цена из карточки остаётся
         ReceivingLines.Insert(0, line);
         return line;
     }
@@ -1201,12 +1205,15 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     /// с кнопкой «Понятно») — плашка под кнопкой «Оприходовать», гаснет через 6 с.</summary>
     public void ShowReceivingInfo(string text) => SetReceivingNotice(text, isError: false, hideAfterSeconds: 6);
 
-    private static string BackgroundNoticeText => Tr.T(
-        "Операция выполняется в фоне — можно продолжать работу",
-        "Операция фондо аткарылууда — иштей берсеңиз болот",
-        "The operation is running in the background — you can keep working",
-        "İşlem arka planda yürütülüyor — çalışmaya devam edebilirsiniz",
-        "Amal fonda bajarilmoqda — ishni davom ettirishingiz mumkin");
+    // 2026-11-06: офлайн-приход — без связи плашка говорит «сохранён и будет отправлен» + счётчик неотправленных.
+    private static string BackgroundNoticeText => BackgroundReceivingQueue.NoConnectionNow
+        ? BackgroundReceivingQueue.SavedOfflineText + ". " + BackgroundReceivingQueue.UnsentText(BackgroundReceivingQueue.Instance.ActiveCount)
+        : Tr.T(
+            "Операция выполняется в фоне — можно продолжать работу",
+            "Операция фондо аткарылууда — иштей берсеңиз болот",
+            "The operation is running in the background — you can keep working",
+            "İşlem arka planda yürütülüyor — çalışmaya devam edebilirsiniz",
+            "Amal fonda bajarilmoqda — ishni davom ettirishingiz mumkin");
 
     /// <summary>Провести приёмку: снимок строк уходит в очередь фоновых приходов (BackgroundReceivingQueue) — новые товары создаются,
     /// остаток прибавляется, цены пишутся, каждая строка уходит в историю закупок товара (см. PurchaseReceivingService.PostAsync).</summary>
@@ -1232,7 +1239,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     private async Task CommitReceivingCoreAsync()
     {
         var lines = ReceivingLines.ToList();
-        var problems = PurchaseReceivingService.Validate(lines);
+        var problems = PurchaseReceivingService.Validate(lines, requireSalePrice: ConfirmMissingSalePrices is null); // 2026-11-06: цену продажи спросит окно ниже
         problems.AddRange(PurchaseReceivingService.FractionalProblems(lines)); // 2026-10-31: «2,5 шт» у нового товара — выберите «кг» или целое
         if (problems.Count > 0)
         {
@@ -1246,6 +1253,11 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
                 + "\n\n" + string.Join("\n", shown));
             return;
         }
+
+        // 2026-11-06: нет цены продажи — спрашиваем ДО постановки в очередь: цена/наценка или «Оставить без цены» (цена товара не трогается). «Отмена» — вернуться.
+        if (ConfirmMissingSalePrices is { } askMissing && ReceivingPricing.MissingSalePrice(lines).Count > 0
+            && !await askMissing(lines).ConfigureAwait(true))
+            return;
 
         // 2026-10-29, спека Fable: цена продажи НИЖЕ закупки — «Провести» спрашивает подтверждение (маржа < 10 % — проводить можно без вопроса).
         if (ConfirmBelowCost is { } askBelow

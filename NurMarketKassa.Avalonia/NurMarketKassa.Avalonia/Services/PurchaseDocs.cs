@@ -158,13 +158,8 @@ public static class PurchaseDocs
 
     public static void OpenFile(string path)
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Закупки: файл не открылся ({ex.Message}).", "WARNING");
-        }
+        // 2026-11-06: В4 А5-05 — общий запуск (на Android Process.Start — исключение).
+        if (!PlatformLauncher.OpenFile(path))
+            PosLogger.Log("Закупки: файл не открылся.", "WARNING");
     }
 }

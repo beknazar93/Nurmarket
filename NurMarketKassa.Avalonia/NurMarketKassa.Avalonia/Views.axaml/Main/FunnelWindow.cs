@@ -800,8 +800,8 @@ public sealed class FunnelWindow : Window, IOwnerSection
         {
             if (TopLevel.GetTopLevel(this)?.Launcher is { } launcher)
                 await launcher.LaunchUriAsync(new Uri(url)).ConfigureAwait(true);
-            else if (OperatingSystem.IsWindows())
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+            else // 2026-11-06: В4 А5-05 — общий запуск ссылки (раньше только Windows)
+                PlatformLauncher.OpenUrl(url);
         }
         catch (Exception ex)
         {

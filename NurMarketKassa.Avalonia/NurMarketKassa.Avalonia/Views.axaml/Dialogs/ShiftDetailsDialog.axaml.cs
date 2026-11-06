@@ -349,9 +349,12 @@ public partial class ShiftDetailsDialog : Window
         // 2026-09-15, по просьбе пользователя ("номер смены исправь") — сырой GUID нечитаем на
         // экране (36 символов). Тот же приём, что уже проверен в FinanceWindow.ParseShiftRow:
         // первые 8 символов заглавными как короткий номер смены.
-        ShiftNumberText.Text = string.IsNullOrWhiteSpace(shift.ShiftNumber)
+        var shiftCode = string.IsNullOrWhiteSpace(shift.ShiftNumber)
             ? "—"
             : (shift.ShiftNumber.Length > 8 ? shift.ShiftNumber[..8].ToUpperInvariant() : shift.ShiftNumber.ToUpperInvariant());
+        // 2026-11-06: В6 Д4-18 — вместо технического кода (C31F8ECE) под подписью «Смена» — дата и время открытия; код остался в подсказке (по нему смену ищут на сервере и в печатном отчёте).
+        ShiftNumberText.Text = shift.OpenedAt is { } openedForTitle ? openedForTitle.ToString("dd.MM HH:mm") : shiftCode;
+        ToolTip.SetTip(ShiftNumberText, shiftCode == "—" ? null : Tr.T($"Код смены: {shiftCode}", $"Смена коду: {shiftCode}", $"Shift code: {shiftCode}", $"Vardiya kodu: {shiftCode}", $"Smena kodi: {shiftCode}"));
         OpenedAtText.Text = shift.OpenedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—";
         ClosedAtText.Text = shift.ClosedAt?.ToString("dd.MM.yyyy HH:mm") ?? "—";
         // 2026-10-23 (аудит, круг 8, В-7): после закрытия смены «Кассир: —». Если имени в смене нет, а смена своя (активная на этой кассе,
@@ -582,7 +585,8 @@ public partial class ShiftDetailsDialog : Window
         if (_report is { DebtPaymentsCash: > 0m } withDebtPayments)
             debtPaid = Math.Max(debtPaid, (double)withDebtPayments.DebtPaymentsCash!.Value);
 
-        ReturnsText.Text = returns > 0.005 ? Money(returns) : "—";
+        // 2026-11-06: В6 Д4-18 — возврат уменьшает выручку, поэтому со знаком «−» (обычным цветом: красный — только долг и недостача).
+        ReturnsText.Text = returns > 0.005 ? "−" + Money(returns) : "—";
         // 2026-10-22 (аудит 1.17.59, П-Д): сервер списывает при возврате больше, чем касса выдала (скидка на чек, ТЗ 19.9) —
         // та же строка-пояснение, что в окне закрытия смены (CloseShiftDialog, server_over в записи возврата).
         var serverOver = ShiftEventsStore.ListForShift(shiftId, ShiftEventsStore.KindReturn)

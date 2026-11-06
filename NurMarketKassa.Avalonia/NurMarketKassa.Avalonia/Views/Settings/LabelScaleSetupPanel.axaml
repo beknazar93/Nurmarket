@@ -87,7 +87,7 @@
                 <ControlTemplate TargetType="RadioButton">
                     <Border x:Name="pill" Background="{DynamicResource BrushPanelSoft}"
                             BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1.5"
-                            CornerRadius="8" Padding="14,8" MinHeight="38">
+                            CornerRadius="8" Padding="14,8" MinHeight="40"> <!-- 2026-11-06: В6 цель нажатия 40 (было 38) -->
                         <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center"
                                           TextElement.Foreground="{TemplateBinding Foreground}"/>
                     </Border>

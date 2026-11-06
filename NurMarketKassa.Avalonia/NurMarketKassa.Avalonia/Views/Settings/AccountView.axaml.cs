@@ -19,6 +19,7 @@ public partial class AccountView : UserControl
     public AccountView()
     {
         InitializeComponent();
+        AddOwnerPinCard(); // 2026-11-06 (Л4-19): опция «PIN владельца при запуске» — только в программе владельца
         RenderCompany(CompanyInfoService.LastCompany);
         _ = LoadAsync();
     }

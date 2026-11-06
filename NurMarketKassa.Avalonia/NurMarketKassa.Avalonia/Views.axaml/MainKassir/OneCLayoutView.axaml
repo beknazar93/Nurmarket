@@ -80,10 +80,10 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Height" Value="34"/>
+            <Setter Property="Height" Value="40"/>
             <Setter Property="CornerRadius" Value="7"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Padding" Value="12,0"/> <!-- 2026-11-06: В6 цель нажатия 40 (было 34) -->
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
         <Style Selector="Button.onec-tab">
@@ -98,6 +98,7 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="MinHeight" Value="40"/> <!-- 2026-11-06: В6 цель нажатия 40 -->
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
         <Style Selector="Button.onec-tab.active">
@@ -269,9 +270,10 @@
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
                                     <Button Classes="onec-action" Content="{DynamicResource onecLayout.lineDiscountButton}"
                                             Command="{Binding DiscountCommand}" CommandParameter="{Binding}"/>
-                                    <Button Classes="onec-step" Command="{Binding RemoveCommand}" CommandParameter="{Binding}"
+                                    <!-- 2026-11-06: В6 Д4-04 — серый значок, отступ от «Скидка», удаление двумя нажатиями («Удалить?» на 3 с), как в основном виде. -->
+                                    <Button Classes="onec-step" Click="CartDelete_Click" Margin="10,0,0,0"
                                             ToolTip.Tip="{DynamicResource common.delete}">
-                                        <PathIcon Width="14" Height="14" Foreground="{DynamicResource BrushDanger}"
+                                        <PathIcon Width="14" Height="14" Foreground="{DynamicResource BrushTextMuted}"
                                                   Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
                                     </Button>
                                 </StackPanel>
@@ -304,11 +306,11 @@
                                                Foreground="{DynamicResource BrushText}"/>
                                     <TextBlock Grid.Column="2" Text="{Binding UnitPriceDisplay}" FontSize="14" VerticalAlignment="Center"/>
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
-                                        <Button Content="−" Classes="onec-step" Width="36" Height="36" FontSize="12"
+                                        <Button Content="−" Classes="onec-step" Width="40" Height="40" FontSize="12"
                                                 AutomationProperties.Name="{Binding DecreaseName}" Command="{Binding DecreaseCommand}" CommandParameter="{Binding}"/>
                                         <!-- 2026-09-28: количество вводится с клавиатуры, как в «Классике» (раньше здесь был
                                              только текст — точное количество в этом виде кассы ввести было нельзя). -->
-                                        <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="46" Height="32" MinHeight="0"
+                                        <TextBox Text="{Binding QuantityInput, Mode=TwoWay}" MaxLength="5" MinWidth="46" Height="40" MinHeight="0"
                                                  Padding="4,0" FontSize="14" FontWeight="Normal" TextAlignment="Center" VerticalContentAlignment="Center"
                                                  VerticalAlignment="Center"
                                                  Background="{DynamicResource BrushInputAlt}" BorderBrush="{DynamicResource BrushInputBorder}"
@@ -318,7 +320,7 @@
                                                 <KeyBinding Gesture="Enter" Command="{Binding SetQuantityCommand}" CommandParameter="{Binding}"/>
                                             </TextBox.KeyBindings>
                                         </TextBox>
-                                        <Button Content="+" Classes="onec-step" Width="36" Height="36" FontSize="12"
+                                        <Button Content="+" Classes="onec-step" Width="40" Height="40" FontSize="12"
                                                 IsEnabled="{Binding CanIncrease}"
                                                 AutomationProperties.Name="{Binding IncreaseName}" Command="{Binding IncreaseCommand}" CommandParameter="{Binding}"/>
                                     </StackPanel>

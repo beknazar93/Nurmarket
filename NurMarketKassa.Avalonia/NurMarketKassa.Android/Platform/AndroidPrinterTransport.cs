@@ -171,7 +171,8 @@ internal sealed class AndroidPrinterTransport : IPlatformPrinterTransport
         socket.Close();
     }
 
-    private static readonly Dictionary<string, int> BluetoothMethod = new(StringComparer.OrdinalIgnoreCase);
+    // 2026-11-06: В4 А5-15 — Dictionary без блокировки, а пишут его две одновременные печати (чек и этикетка): ConcurrentDictionary.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> BluetoothMethod = new(StringComparer.OrdinalIgnoreCase);
 
     private static BluetoothSocket? CreateBluetoothSocket(BluetoothDevice device, int method)
     {
@@ -194,8 +195,17 @@ internal sealed class AndroidPrinterTransport : IPlatformPrinterTransport
         var key = device.Address ?? "";
         var first = BluetoothMethod.TryGetValue(key, out var known) ? known : 0;
         string? lastError = null;
+        // 2026-11-06: В4 А5-15 — общий предел на все три способа 12 с (раньше 3 × 8 = 24 с при отказе принтера, порт всё это время занят).
+        var deadline = DateTime.UtcNow.AddSeconds(12);
         for (var i = 0; i < 3; i++)
         {
+            var left = deadline - DateTime.UtcNow;
+            if (i > 0 && left < TimeSpan.FromSeconds(1))
+                break;
+            if (i > 0)
+                Thread.Sleep(300); // между способами — пауза, чтобы стек Bluetooth освободил прошлый сокет
+            if (left > TimeSpan.Zero && left < perAttempt)
+                perAttempt = left;
             var method = (first + i) % 3;
             BluetoothSocket? socket = null;
             try

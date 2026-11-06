@@ -132,8 +132,35 @@ public static class SaleDocumentHtmlBuilder
     /// <summary>2026-10-04, владелец (снимок): «Документ не открылся: … Указанному файлу не сопоставлено ни одно
     /// приложение» — на компьютере нет программы по умолчанию для .html. Тогда открываем браузером напрямую:
     /// Edge (есть в любой Windows 10/11), Chrome, Firefox.</summary>
+    /// <summary>2026-11-06: В4 А5-05 — открытие файла на Android (Intent через FileProvider): общий код не видит Android API,
+    /// обработчик подставляет проект Android при старте (AndroidLauncher.Install).</summary>
+    public static Func<string, bool>? PlatformOpenFile { get; set; }
+
     private static void OpenInBrowser(string path)
     {
+        // 2026-11-06: В4 А5-05 — не Windows: Android — Intent, Linux/macOS — xdg-open/open (Process.Start с UseShellExecute там ненадёжен).
+        if (!OperatingSystem.IsWindows())
+        {
+            try
+            {
+                if (OperatingSystem.IsAndroid())
+                {
+                    if (PlatformOpenFile?.Invoke(path) == true)
+                        return;
+                    throw new InvalidOperationException("нет программы для открытия .html");
+                }
+                var psi = new ProcessStartInfo(OperatingSystem.IsMacOS() ? "open" : "xdg-open") { UseShellExecute = false };
+                psi.ArgumentList.Add(path);
+                Process.Start(psi)?.Dispose();
+                return;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Документ: не открылся ({ex.Message}).", "PRINTER");
+                throw;
+            }
+        }
+
         try
         {
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });

@@ -1,0 +1,349 @@
+{
+ "name": "feat-05-kuda-uhodyat-dengi",
+ "lang": "ru",
+ "voice": "none",
+ "music": false,
+ "fps": 30,
+ "logo": "C:\\Users\\User\\NurMarket-video\\assets\\logo.png",
+ "premix": "C:\\Users\\User\\NurMarket-video\\ad\\work-feat\\feat-05.wav",
+ "scenes": [
+  {
+   "id": "s1",
+   "template": "feat",
+   "duration": 5.2,
+   "subs": [],
+   "transition": "none",
+   "intro": {
+    "num": "05 / 15",
+    "name": "Куда уходят деньги"
+   },
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    }
+   },
+   "actors": [
+    {
+     "id": "nurlan",
+     "img": "char-nurlan-stand",
+     "x": 560,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true,
+     "swaps": [
+      {
+       "at": 2.2,
+       "img": "char-nurlan-angry"
+      }
+     ]
+    },
+    {
+     "id": "ainura",
+     "img": "char-ainura-stand",
+     "x": 1250,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back"
+    }
+   ],
+   "items": [
+    {
+     "img": "prop-calculator",
+     "x": 1000,
+     "y": 540,
+     "s": 1.5,
+     "layer": "counter"
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "nurlan",
+     "text": "Было двадцать. Стало… шестнадцать?",
+     "at": 1.5,
+     "dur": 3.678,
+     "dy": 0,
+     "w": 600
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "template": "feat",
+   "duration": 5.0,
+   "subs": [
+    {
+     "text": "Деньги уходят тихо — по пачке, по бутылке.",
+     "at": 0.3,
+     "dur": 2.868
+    },
+    {
+     "text": "Ревизия сканером —",
+     "at": 3.388,
+     "dur": 1.158
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "video": {
+      "name": "05-kassa-revision-scan",
+      "from": 1.0,
+      "to": 10.6,
+      "dir": "C:\\Users\\User\\NurMarket-video\\feat-frames\\05-kassa-revision-scan",
+      "meta": {
+       "w": 1296,
+       "h": 880,
+       "n": 162,
+       "fps": 12
+      }
+     },
+     "rate": 2.2,
+     "crop": [
+      0,
+      90,
+      1296,
+      430
+     ],
+     "area": [
+      100,
+      60,
+      1720,
+      640
+     ],
+     "size": [
+      1296,
+      880
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Ревизия — [[сканером]]",
+     "at": 0.7,
+     "dur": 3.6
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s3",
+   "template": "feat",
+   "duration": 7.7333,
+   "subs": [
+    {
+     "text": "и касса показывает, сколько потеряно по закупке",
+     "at": 0.3,
+     "dur": 2.858
+    },
+    {
+     "text": "и на чём именно.",
+     "at": 3.378,
+     "dur": 1.424
+    },
+    {
+     "text": "Теперь вы знаете, куда смотреть.",
+     "at": 4.802,
+     "dur": 2.459
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\05-kassa-revision-finish.png",
+     "crop": [
+      165,
+      50,
+      970,
+      780
+     ],
+     "area": [
+      100,
+      20,
+      1720,
+      860
+     ],
+     "until": 1.6,
+     "size": [
+      1296,
+      879
+     ]
+    },
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\05-kassa-revision-finish.png",
+     "crop": [
+      185,
+      140,
+      890,
+      75
+     ],
+     "area": [
+      100,
+      330,
+      1720,
+      200
+     ],
+     "from": 1.5,
+     "until": 3.5,
+     "clicks": [
+      {
+       "at": 1.9,
+       "rect": [
+        190,
+        166,
+        545,
+        22
+       ],
+       "hold": 0.9
+      },
+      {
+       "at": 2.8,
+       "rect": [
+        739,
+        166,
+        320,
+        22
+       ],
+       "hold": 0.6
+      }
+     ],
+     "size": [
+      1296,
+      879
+     ]
+    },
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\05-kassa-revision-finish.png",
+     "crop": [
+      185,
+      300,
+      925,
+      250
+     ],
+     "area": [
+      100,
+      170,
+      1720,
+      470
+     ],
+     "from": 3.5,
+     "clicks": [
+      {
+       "at": 4.6,
+       "rect": [
+        190,
+        350,
+        915,
+        36
+       ],
+       "fill": true,
+       "hold": 0.6
+      },
+      {
+       "at": 5.3,
+       "rect": [
+        190,
+        386,
+        915,
+        36
+       ],
+       "fill": true,
+       "hold": 0.6
+      }
+     ],
+     "size": [
+      1296,
+      879
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "[[−12 400 сом]] по закупке",
+     "at": 0.4,
+     "dur": 3.0
+    },
+    {
+     "text": "[[Топ]] недостач",
+     "at": 3.7,
+     "dur": 2.8
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s4",
+   "template": "feat",
+   "duration": 3.2,
+   "subs": [],
+   "transition": "none",
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    }
+   },
+   "actors": [
+    {
+     "id": "nurlan",
+     "img": "char-nurlan-angry",
+     "x": 560,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    },
+    {
+     "id": "erlan",
+     "img": "char-erlan-stand",
+     "x": 1000,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true,
+     "swaps": [
+      {
+       "at": 1.4,
+       "img": "char-erlan-angry"
+      }
+     ]
+    },
+    {
+     "id": "ainura",
+     "img": "char-ainura-stand",
+     "x": 1250,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back"
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "erlan",
+     "text": "Я заплатил!",
+     "at": 1.0,
+     "dur": 1.347,
+     "dy": 0,
+     "w": 420
+    }
+   ]
+  },
+  {
+   "id": "s5",
+   "template": "feat",
+   "duration": 6.0333,
+   "subs": [],
+   "transition": "none",
+   "kind": "finale",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  }
+ ]
+}

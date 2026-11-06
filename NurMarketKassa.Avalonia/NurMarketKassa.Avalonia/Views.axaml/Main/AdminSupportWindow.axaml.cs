@@ -19,17 +19,10 @@ public partial class AdminSupportWindow : Window
 
     private void WhatsApp_Click(object? sender, RoutedEventArgs e)
     {
-        try
+        // 2026-11-06: В4 А5-05 — общий запуск ссылки (на Android — Intent, откроется приложение WhatsApp).
+        if (!PlatformLauncher.OpenUrl($"https://wa.me/{Phone}"))
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = $"https://wa.me/{Phone}",
-                UseShellExecute = true
-            });
-        }
-        catch (Exception ex)
-        {
-            PosMessageBox.Show(this, Tr.T($"Не удалось открыть WhatsApp: {ex.Message}", $"WhatsApp'ты ачуу мүмкүн болгон жок: {ex.Message}", $"Could not open WhatsApp: {ex.Message}", $"WhatsApp açılamadı: {ex.Message}", $"WhatsApp'ni ochib bo'lmadi: {ex.Message}"), Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
+            PosMessageBox.Show(this, Tr.T("Не удалось открыть WhatsApp.", "WhatsApp'ты ачуу мүмкүн болгон жок.", "Could not open WhatsApp.", "WhatsApp açılamadı.", "WhatsApp'ni ochib bo'lmadi."), Tr.T("Ошибка", "Ката", "Error", "Hata", "Xato"),
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -44,11 +37,8 @@ public partial class AdminSupportWindow : Window
 
     private void OpenUrl(string url)
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch
+        // 2026-11-06: В4 А5-05 — общий запуск ссылки.
+        if (!PlatformLauncher.OpenUrl(url))
         {
             PosMessageBox.Show(this, Tr.T("Не удалось открыть ссылку.", "Шилтемени ачуу мүмкүн болгон жок.", "Could not open the link.", "Bağlantı açılamadı.", "Havolani ochib bo'lmadi."), Tr.T("Поддержка", "Колдоо", "Support", "Destek", "Yordam"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);

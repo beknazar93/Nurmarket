@@ -168,9 +168,10 @@ void main() {
       expect(find.byType(ChoiceChip), findsNWidgets(2));
     });
 
-    testWidgets('правка закупки пересчитывает цену продажи и итог по строкам; расхождение подсвечивается', (t) async {
+    testWidgets('авто-наценка ВКЛ: правка закупки пересчитывает цену продажи и итог по строкам; расхождение подсвечивается', (t) async {
       phone(t, logical: const Size(412, 3000));
       final l = lx('ru');
+      await db.setSetting('invoice.autoMarkup', '1'); // 2026-11-06: по умолчанию выключена
       await open(t, _torg());
       // у «Сетевого фильтра» (новый): закупка 800 → цена +30 % до 5 = 1 040
       final fields = find.byType(TextField);
@@ -233,6 +234,7 @@ void main() {
           GoRoute(path: '/admin/invoice', builder: (_, _) => InvoiceImportScreen(forReceive: true, debugInvoice: _torg(), debugSuppliers: const [SupplierRef('s1', 'ООО ТехноСфера-М', '7725896321')])),
         ],
       );
+      await db.setSetting('invoice.autoMarkup', '1'); // 2026-11-06: по умолчанию выключена
       await t.pumpWidget(
         ProviderScope(
           overrides: [
@@ -276,6 +278,119 @@ void main() {
       expect(got!.onPosted, isNotNull);
       // накладная теперь «в приходе»
       expect(await InvoiceGuard.status(db, InvoiceGuard.keys(_torg())), 'pending');
+    });
+  });
+
+  group('цена продажи молча не ставится (жалоба «Орук маркет», 2026-11-06)', () {
+    // Открывает экран как из прихода и отдаёт то, что экран вернул (ReceiveHandoff).
+    Future<void> openForReceive(WidgetTester t, void Function(ReceiveHandoff?) onResult) async {
+      phone(t, logical: const Size(412, 3000));
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (c, _) => Scaffold(
+              body: TextButton(onPressed: () async => onResult(await c.push<ReceiveHandoff>('/admin/invoice')), child: const Text('open')),
+            ),
+          ),
+          GoRoute(path: '/admin/invoice', builder: (_, _) => InvoiceImportScreen(forReceive: true, debugInvoice: _torg(), debugSuppliers: const [SupplierRef('s1', 'ООО ТехноСфера-М', '7725896321')])),
+        ],
+      );
+      await t.pumpWidget(
+        ProviderScope(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            apiProvider.overrideWithValue(api),
+            globalProductsProvider.overrideWithValue(GlobalProducts(openFile: () async => throw StateError('нет'))),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            locale: const Locale('ru'),
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
+          ),
+        ),
+      );
+      await t.tap(find.text('open'));
+      await t.pump();
+      await _settle(t, 'ru');
+      await t.tap(find.byKey(const Key('curOk'))); // рубли: галочка «суммы проверил»
+      await t.pump();
+    }
+
+    testWidgets('по умолчанию авто-наценка выключена: у новых строк цены нет (1040 не появляется), у товара склада остаётся своя', (t) async {
+      phone(t, logical: const Size(412, 3000));
+      await open(t, _torg());
+      expect(t.widget<SwitchListTile>(find.byKey(const Key('autoMarkupSwitch'))).value, isFalse);
+      expect(find.widgetWithText(TextField, '1040'), findsNothing);
+      expect(find.widgetWithText(TextField, '14500'), findsOneWidget, reason: 'цена монитора на складе не тронута');
+      expect(find.text(lx('ru').invPriceMissing), findsNWidgets(3), reason: 'три новые строки подсвечены');
+    });
+
+    testWidgets('«Оставить без цены»: новые строки без цены, цена товара склада прежняя и не помечена изменённой — PATCH цены не уйдёт', (t) async {
+      ReceiveHandoff? got;
+      await openForReceive(t, (h) => got = h);
+      final l = lx('ru');
+      await t.tap(find.text(l.invAdd(4)));
+      await t.pumpAndSettle();
+      expect(find.text(l.invNoPriceTitle(3)), findsOneWidget);
+      await t.tap(find.byKey(const Key('noPriceLeave')));
+      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await t.pumpAndSettle();
+      expect(got, isNotNull);
+      final mon = got!.lines.firstWhere((x) => x.productId == 'mon');
+      expect(mon.price, 14500);
+      expect(mon.priceChanged, isFalse, reason: 'существующая цена не затирается');
+      final fresh = got!.lines.where((x) => x.isNew).toList();
+      expect(fresh.length, 3);
+      expect(fresh.every((x) => x.price == 0), isTrue, reason: 'цена не поставлена сама');
+    });
+
+    testWidgets('товар склада без цены + закупка 12 000: цена сама не ставится (приход отдаёт 0, priceChanged ложь)', (t) async {
+      await add('mon', 'Монитор 24" IPS Full HD', price: 0);
+      ReceiveHandoff? got;
+      await openForReceive(t, (h) => got = h);
+      final l = lx('ru');
+      await t.tap(find.text(l.invAdd(4)));
+      await t.pumpAndSettle();
+      expect(find.text(l.invNoPriceTitle(4)), findsOneWidget);
+      await t.tap(find.byKey(const Key('noPriceLeave')));
+      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await t.pumpAndSettle();
+      final mon = got!.lines.firstWhere((x) => x.productId == 'mon');
+      expect(mon.cost, 12000);
+      expect(mon.price, 0);
+      expect(mon.priceChanged, isFalse);
+    });
+
+    testWidgets('«Ввести цену» возвращает на экран; «Наценка +30 %» ставит цены в строки и уходит только после подтверждения', (t) async {
+      await add('mon', 'Монитор 24" IPS Full HD', price: 0);
+      ReceiveHandoff? got;
+      await openForReceive(t, (h) => got = h);
+      final l = lx('ru');
+      await t.tap(find.text(l.invAdd(4)));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('noPriceEnter')));
+      await t.pumpAndSettle();
+      expect(got, isNull);
+      expect(find.text(l.invNoPriceTitle(4)), findsNothing);
+      // наценка: цены встают в строки, на экране остаёмся
+      await t.tap(find.text(l.invAdd(4)));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('noPriceMarkup')));
+      await t.pumpAndSettle();
+      expect(got, isNull);
+      expect(find.widgetWithText(TextField, '1040'), findsOneWidget, reason: 'наценка видна в строке до отправки');
+      // следующее нажатие: цена существующего товара ставится по наценке — просим подтверждение
+      await t.tap(find.text(l.invAdd(4)));
+      await t.pumpAndSettle();
+      expect(find.text(l.invAutoConfirmTitle(1)), findsOneWidget);
+      await t.tap(find.byKey(const Key('autoConfirmYes')));
+      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await t.pumpAndSettle();
+      final mon = got!.lines.firstWhere((x) => x.productId == 'mon');
+      expect(mon.price, 15600, reason: '12 000 + 30 % = 15 600');
+      expect(mon.priceChanged, isTrue, reason: 'цену меняли в этом приходе — это видно и подтверждено');
     });
   });
 

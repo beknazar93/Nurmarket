@@ -93,6 +93,9 @@ public partial class OneCLayoutView : UserControl
             line.SetQuantityCommand.Execute(line);
     }
 
+    /// <summary>2026-11-06: В6 Д4-04 — удаление строки двумя нажатиями («Удалить?» на 3 с), как в основном виде.</summary>
+    private void CartDelete_Click(object? sender, RoutedEventArgs e) => Layouts.LayoutCartDelete.OnClick(sender);
+
     private static char? KeyToDigit(Key key) => key switch
     {
         >= Key.D0 and <= Key.D9 => (char)('0' + (key - Key.D0)),

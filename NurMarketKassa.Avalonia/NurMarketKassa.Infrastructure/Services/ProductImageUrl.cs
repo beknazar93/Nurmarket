@@ -140,7 +140,7 @@ public static class ProductImageUrl
         else if (raw.Contains(".gif", StringComparison.Ordinal))
             score += 70;
         else if (raw.Contains(".webp", StringComparison.Ordinal))
-            score -= 50;
+            score += 95; // 2026-11-06 (аудит скорости, шаг 21): штраф −50 убран — WebP с сайта легче JPEG, а в кэш всё равно пишется 320 px WebP
         else
             score += 40;
 

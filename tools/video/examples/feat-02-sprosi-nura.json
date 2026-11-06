@@ -1,0 +1,438 @@
+{
+ "name": "feat-02-sprosi-nura",
+ "lang": "ru",
+ "voice": "none",
+ "music": false,
+ "fps": 30,
+ "logo": "C:\\Users\\User\\NurMarket-video\\assets\\logo.png",
+ "premix": "C:\\Users\\User\\NurMarket-video\\ad\\work-feat\\feat-02.wav",
+ "scenes": [
+  {
+   "id": "s1",
+   "template": "feat",
+   "duration": 4.8667,
+   "subs": [],
+   "transition": "none",
+   "intro": {
+    "num": "02 / 15",
+    "name": "Спроси Нура"
+   },
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    },
+    "tint": 0.18
+   },
+   "actors": [
+    {
+     "id": "nurlan",
+     "img": "char-nurlan-stand",
+     "x": 1130,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back",
+     "swaps": [
+      {
+       "at": 3.0,
+       "img": "char-nurlan-angry"
+      }
+     ]
+    },
+    {
+     "id": "apa",
+     "img": "char-apa-stand",
+     "x": 470,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    }
+   ],
+   "items": [
+    {
+     "img": "prop-notebook",
+     "x": 1010,
+     "y": 540,
+     "s": 1.5,
+     "layer": "counter"
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "apa",
+     "text": "Сколько заработали за неделю?",
+     "at": 1.4,
+     "dur": 2.146,
+     "dy": 0,
+     "w": 560
+    },
+    {
+     "who": "nurlan",
+     "text": "…сейчас посчитаю",
+     "at": 3.3,
+     "dur": 1.564,
+     "dy": 0,
+     "w": 460
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "template": "feat",
+   "duration": 4.4333,
+   "subs": [
+    {
+     "text": "Вечером не тетрадка — спросите Нура.",
+     "at": 0.5,
+     "dur": 2.209
+    },
+    {
+     "text": "Сколько заработали,",
+     "at": 2.929,
+     "dur": 1.039
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\02-owner-advisor-week.png",
+     "crop": [
+      250,
+      140,
+      1750,
+      330
+     ],
+     "area": [
+      90,
+      150,
+      1740,
+      520
+     ],
+     "clicks": [
+      {
+       "at": 1.4,
+       "rect": [
+        895,
+        283,
+        160,
+        42
+       ]
+      },
+      {
+       "at": 2.4,
+       "rect": [
+        765,
+        416,
+        80,
+        40
+       ]
+      },
+      {
+       "at": 3.1,
+       "rect": [
+        1270,
+        416,
+        95,
+        40
+       ]
+      }
+     ],
+     "size": [
+      2200,
+      1758
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Спроси [[Нура]]",
+     "at": 0.7,
+     "dur": 3.6,
+     "bottom": 190
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s3",
+   "template": "feat",
+   "duration": 2.6,
+   "subs": [
+    {
+     "text": "что заканчивается,",
+     "at": 0.2,
+     "dur": 1.118
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\02-owner-advisor-lowstock.png",
+     "crop": [
+      250,
+      140,
+      1750,
+      330
+     ],
+     "area": [
+      90,
+      150,
+      1740,
+      520
+     ],
+     "clicks": [
+      {
+       "at": 0.9,
+       "rect": [
+        990,
+        283,
+        355,
+        42
+       ]
+      },
+      {
+       "at": 1.7,
+       "rect": [
+        317,
+        346,
+        375,
+        84
+       ]
+      }
+     ],
+     "size": [
+      2200,
+      1758
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Что [[заканчивается]]",
+     "at": 0.3,
+     "dur": 2.6,
+     "bottom": 190
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s4",
+   "template": "feat",
+   "duration": 5.3667,
+   "subs": [
+    {
+     "text": "какую цену поменять.",
+     "at": 0.4,
+     "dur": 1.564
+    },
+    {
+     "text": "Можно голосом — по-русски или по-кыргызски.",
+     "at": 1.964,
+     "dur": 2.948
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "video": {
+      "name": "02-mobile-advisor-call",
+      "from": 0,
+      "to": 4.9,
+      "dir": "C:\\Users\\User\\NurMarket-video\\feat-frames\\02-mobile-advisor-call",
+      "meta": {
+       "w": 1080,
+       "h": 2340,
+       "n": 59,
+       "fps": 12
+      }
+     },
+     "frame": "phone",
+     "area": [
+      740,
+      20,
+      440,
+      820
+     ],
+     "clicks": [
+      {
+       "at": 2.7,
+       "rect": [
+        51,
+        110,
+        980,
+        255
+       ],
+       "hold": 0.8
+      }
+     ],
+     "size": [
+      1080,
+      2340
+     ]
+    }
+   ],
+   "chips": [
+    {
+     "text": "«Поменяй цену<br>на хлеб на [[28]]»",
+     "x": 80,
+     "y": 300,
+     "size": 64,
+     "color": "#fff",
+     "at": 1.0
+    }
+   ],
+   "titr": [
+    {
+     "text": "Скажи — и [[готово]]",
+     "at": 0.8,
+     "dur": 3.6
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s5",
+   "template": "feat",
+   "duration": 4.0,
+   "subs": [
+    {
+     "text": "Ошиблись?",
+     "at": 0.2,
+     "dur": 1.019
+    },
+    {
+     "text": "Одна кнопка — и всё обратно.",
+     "at": 1.219,
+     "dur": 2.309
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\02-mobile-ai-undo.png",
+     "crop": [
+      0,
+      60,
+      1080,
+      1100
+     ],
+     "frame": "phone",
+     "area": [
+      740,
+      20,
+      440,
+      820
+     ],
+     "clicks": [
+      {
+       "at": 1.1,
+       "rect": [
+        50,
+        550,
+        980,
+        230
+       ],
+       "hold": 0.9
+      },
+      {
+       "at": 2.2,
+       "rect": [
+        50,
+        800,
+        980,
+        340
+       ],
+       "hold": 0.7
+      }
+     ],
+     "size": [
+      1080,
+      2340
+     ]
+    }
+   ],
+   "chips": [
+    {
+     "text": "«Нан»: цена 28 сом<br>(было [[30 сом]])<br>— отменено",
+     "x": 1260,
+     "y": 300,
+     "size": 54,
+     "color": "#fff",
+     "at": 1.2
+    }
+   ],
+   "titr": [
+    {
+     "text": "Любое действие — с [[отменой]]",
+     "at": 0.4,
+     "dur": 3.0
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s6",
+   "template": "feat",
+   "duration": 2.6333,
+   "subs": [],
+   "transition": "none",
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    },
+    "tint": 0.18
+   },
+   "actors": [
+    {
+     "id": "nurlan",
+     "img": "char-nurlan-happy",
+     "x": 1130,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back"
+    },
+    {
+     "id": "apa",
+     "img": "char-apa-happy",
+     "x": 470,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "apa",
+     "text": "Умный. Как я.",
+     "at": 0.3,
+     "dur": 2.502,
+     "dy": 0,
+     "w": 420
+    }
+   ]
+  },
+  {
+   "id": "s7",
+   "template": "feat",
+   "duration": 6.0333,
+   "subs": [],
+   "transition": "none",
+   "kind": "finale",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  }
+ ]
+}

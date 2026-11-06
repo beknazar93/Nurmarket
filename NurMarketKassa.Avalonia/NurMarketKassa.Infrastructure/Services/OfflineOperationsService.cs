@@ -165,8 +165,9 @@ public static class OfflineOperationsService
             var lines = ids.Count == 0 ? new() : SoldLineItemsStore.LinesBySale(ids);
             foreach (var e in recent)
             {
-                if (!lines.TryGetValue(e.SaleId, out var ls))
-                    continue;
+                // 2026-11-06 (В-4): чек, проданный без связи и уже досланный, есть только в журнале возвратов (строки — в e.Lines), а не в истории продаж —
+                // раньше он пропускался здесь и в окне «Возврат без связи» не показывался, хотя по номеру находился (FindSale). FromHistory сам берёт строки из журнала.
+                lines.TryGetValue(e.SaleId, out var ls);
                 if (OfflineRefundPlanner.FromHistory(e.SaleId, e, ls) is { } snap)
                 {
                     snap.ClientId = ResolveClientId(e);

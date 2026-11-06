@@ -21,9 +21,10 @@ namespace NurMarketKassa.Services;
 /// </summary>
 public sealed partial class NurMarketApiClient : IDisposable
 {
+    // 2026-11-06 (ответ Умара: лимита устройств нет, refresh живёт 7 суток от входа по паролю): раньше «часто из‑за входа с другого ПК или телефона» вводило в заблуждение.
+    // Префикс «Сессия недействительна» ОСТАВЛЕН — по нему SessionExpiryMonitor узнаёт потерю входа (в том числе в старых текстах из кэша). Пользователь видит перевод (FriendlyError и окна).
     public const string AuthInvalidHintRu =
-        "Сессия недействительна (часто из‑за входа с другого ПК или телефона). " +
-        "Нажмите «Выйти» в кассе и войдите снова.";
+        "Сессия недействительна: срок входа истёк, войдите заново.";
 
     private readonly HttpClient _http;
     private readonly JsonSerializerOptions _jsonWrite = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -72,7 +73,8 @@ public sealed partial class NurMarketApiClient : IDisposable
 
     public NurMarketApiClient(AppSettings settings)
     {
-        var baseUrl = settings.ApiBaseUrl.Trim().TrimEnd('/') + "/";
+        // 2026-11-06: В3 Л4-21 — и здесь адрес API принимается только по https (http — лишь для петли и частной сети: стенды, тесты), на случай настроек, собранных мимо AppSettings.Load.
+        var baseUrl = NurMarketKassa.Configuration.AppSettings.NormalizeApiUrl(settings.ApiBaseUrl).TrimEnd('/') + "/";
         // 2026-10-04, стресс-тест: сервер NurCRM умеет gzip (страница каталога 155 КБ → 18 КБ), а касса его не
         // просила — каждые 2 минуты качался полный каталог без сжатия. Accept-Encoding ставится сам.
         // 2026-10-29 (замер скорости): HTTP/2 с откатом на 1.1 и долгое хранение соединения (TransportTuningHandler + SocketsHttpHandler) —
@@ -97,11 +99,15 @@ public sealed partial class NurMarketApiClient : IDisposable
         _http = new HttpClient(handler)
         {
             BaseAddress = new Uri(baseUrl, UriKind.Absolute),
-            Timeout = TimeSpan.FromSeconds(55),
+            // 2026-11-06: В3 Р2 — общий предел 55 с обрывал тяжёлые отчёты (analytics/pnl считается 60–90 с), хотя конвейер GET (TransportTuningHandler) и вызывающие
+            // давали им до 90 с. Предел клиента теперь 100 с (больше HeavyGetTimeout); обычным запросам 55 с держит сам обработчик (TransportTuningHandler, DefaultRequestTimeout).
+            Timeout = TimeSpan.FromSeconds(100),
         };
         _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         // 2026-11-05 (аудит №4, п. 4): сервер видит, какая версия кассы пришла (поддержка, будущие проверки совместимости).
-        try { _http.DefaultRequestHeaders.TryAddWithoutValidation("X-NurMarket-Client", "kassa/" + AppVersionInfo.CurrentVersionLabel); }
+        // 2026-11-06: В3 А5-19 — сервер и поддержка отличают платформу: у Android и Linux после версии добавляется «(android)» / «(linux)»; у Windows заголовок прежний.
+        var platformTail = OperatingSystem.IsAndroid() ? " (android)" : OperatingSystem.IsLinux() ? " (linux)" : "";
+        try { _http.DefaultRequestHeaders.TryAddWithoutValidation("X-NurMarket-Client", "kassa/" + AppVersionInfo.CurrentVersionLabel + platformTail); }
         catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Заголовок X-NurMarket-Client не добавлен: {ex.GetType().Name}", "WARNING"); }
         UserPayload = default;
         // 2026-09-29: этим клиентом ServerOutageMonitor проверяет, ожил ли сервер после аварии.
@@ -367,77 +373,10 @@ public sealed partial class NurMarketApiClient : IDisposable
         }
     }
 
-    public async Task<bool> RefreshAccessAsync(CancellationToken ct = default)
-    {
-        // 2026-11-03 (С-04): замок входа и сам запрос — не дольше RefreshBudget (10 с); не успели — ApiException 408, сессия не сбрасывается.
-        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        budget.CancelAfter(RefreshBudget);
-        try
-        {
-            await _loginMutex.WaitAsync(budget.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-        {
-            throw RefreshSlowException();
-        }
-
-        try
-        {
-            if (string.IsNullOrEmpty(RefreshToken))
-                return false;
-            var body = new RefreshRequest { Refresh = RefreshToken };
-            using var content = new StringContent(JsonSerializer.Serialize(body, _jsonWrite), Encoding.UTF8, "application/json");
-            HttpResponseMessage resp;
-            try
-            {
-                resp = await _http.PostAsync("api/users/auth/refresh/", content, budget.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-            {
-                throw RefreshSlowException();
-            }
-
-            using var respGuard = resp;
-            ct = budget.Token;
-            if (!resp.IsSuccessStatusCode)
-            {
-                // 2026-09-29: сбой сервера (5xx, 408, 429) — это не «сессия истекла». Раньше здесь
-                // тоже был false, и автовход во время аварии NurCRM стирал сохранённую сессию:
-                // кассир не мог ни войти, ни работать, пока сервер лежит. Отказ по существу
-                // (400/401/403 — refresh-токен отозван) по-прежнему false.
-                if (ServerOutageMonitor.IsServerFailureStatus((int)resp.StatusCode))
-                    throw new ApiException($"HTTP {(int)resp.StatusCode}", (int)resp.StatusCode);
-                await ThrowIfForeignForbiddenAsync(resp, ct).ConfigureAwait(false); // 2026-11-03 (Д-1)
-                return false;
-            }
-            var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            // 200 со страницей HTML вместо JSON — тоже сбой сервера (ApiException 502), см. ParseSuccessBody.
-            var root = ParseSuccessBody(text, "api/users/auth/refresh/");
-            if (root.ValueKind == JsonValueKind.Object
-                && root.TryGetProperty("access", out var acc) && acc.ValueKind == JsonValueKind.String)
-            {
-                // 2026-10-04: refresh-токен, по которому обновили, — для SessionTokensRefreshed.
-                var usedRefresh = RefreshToken;
-                AccessToken = acc.GetString();
-                if (root.TryGetProperty("refresh", out var refr) && refr.ValueKind == JsonValueKind.String)
-                {
-                    var newRefresh = refr.GetString();
-                    if (!string.IsNullOrWhiteSpace(newRefresh))
-                        RefreshToken = newRefresh;
-                }
-
-                PersistTokensToSecureStore();
-                RaiseSessionTokensRefreshed(usedRefresh, AccessToken, RefreshToken);
-                return true;
-            }
-
-            return false;
-        }
-        finally
-        {
-            try { _loginMutex.Release(); } catch (ObjectDisposedException) { }
-        }
-    }
+    /// <summary>2026-11-06: обновление access-токена по refresh. Раньше здесь был свой замок (_loginMutex) и своя копия запроса, а обновление по 401 и «заранее» шло под другим замком
+    /// (_refreshSync): два обновления по ОДНОМУ refresh-токену могли идти параллельно. Когда сервер включит ротацию refresh (каждый ответ — новый refresh, старый недействителен), второе
+    /// получило бы 401 и объявило бы потерю входа ложно. Теперь все пути идут через один метод и один замок (<see cref="RefreshAccessUnlockedAsync"/>).</summary>
+    public Task<bool> RefreshAccessAsync(CancellationToken ct = default) => RefreshAccessUnlockedAsync(ct);
 
     public void ClearSession()
     {
@@ -1351,7 +1290,15 @@ public sealed partial class NurMarketApiClient : IDisposable
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized && string.IsNullOrEmpty(RefreshToken))
                 ExpireSession(relativePath); // 2026-10-30
 
-            resp.EnsureSuccessStatusCode();
+            if (!resp.IsSuccessStatusCode)
+            {
+                // 2026-11-06: В2 Н1-02 — раньше здесь был EnsureSuccessStatusCode: сырой HttpRequestException без тела ответа. Возврат по строкам терял цифры
+                // refund_exceeds_paid, а IsOutcomeUnknown принимал отказ по существу за обрыв связи (ключ оставался). Теперь, как в SendOnceAsync, — ApiException
+                // с кодом и Payload сервера.
+                var errText = await resp.Content.ReadAsStringAsync(linked.Token).ConfigureAwait(false);
+                var errMsg = resp.StatusCode == System.Net.HttpStatusCode.Unauthorized ? AuthInvalidHintRu : ApiErrorParser.Parse(resp, errText);
+                throw new ApiException(errMsg, (int)resp.StatusCode, TryParse(errText));
+            }
 
             // Потоковая десериализация (без лишних аллокаций)
             using var stream = await resp.Content.ReadAsStreamAsync(linked.Token).ConfigureAwait(false);
@@ -1604,6 +1551,9 @@ public sealed partial class NurMarketApiClient : IDisposable
 
     private async Task<bool> RefreshAccessUnlockedAsync(CancellationToken ct)
     {
+        // 2026-11-06: токены на момент вызова — пока ждём замок, обновление мог сделать другой поток (ротация refresh: второй POST по старому refresh дал бы 401).
+        var accessBefore = AccessToken;
+        var refreshBefore = RefreshToken;
         // 2026-11-03 (С-04, Сис-4): замок и запрос обновления токена — не дольше RefreshBudget (10 с), раньше висели до 55 с и держали места очереди.
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
         budget.CancelAfter(RefreshBudget);
@@ -1620,6 +1570,10 @@ public sealed partial class NurMarketApiClient : IDisposable
         {
             if (string.IsNullOrEmpty(RefreshToken))
                 return false;
+            // 2026-11-06: пока ждали замок, токены уже обновили (или вошли заново) — второй запрос не шлём, результат тот же.
+            if (!string.IsNullOrEmpty(AccessToken)
+                && (!string.Equals(AccessToken, accessBefore, StringComparison.Ordinal) || !string.Equals(RefreshToken, refreshBefore, StringComparison.Ordinal)))
+                return true;
             var body = new RefreshRequest { Refresh = RefreshToken };
             using var content = new StringContent(JsonSerializer.Serialize(body, _jsonWrite), Encoding.UTF8, "application/json");
             HttpResponseMessage resp;
@@ -1656,6 +1610,9 @@ public sealed partial class NurMarketApiClient : IDisposable
             {
                 // 2026-10-04: refresh-токен, по которому обновили, — для SessionTokensRefreshed.
                 var usedRefresh = RefreshToken;
+                // 2026-11-06: пока шёл запрос, вошли заново (другой refresh) — старый ответ новый вход не затирает.
+                if (!string.Equals(usedRefresh, body.Refresh, StringComparison.Ordinal))
+                    return true;
                 AccessToken = acc.GetString();
                 if (root.TryGetProperty("refresh", out var refr) && refr.ValueKind == JsonValueKind.String)
                 {

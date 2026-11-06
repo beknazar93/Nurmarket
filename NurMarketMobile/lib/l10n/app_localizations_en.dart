@@ -5268,6 +5268,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get invPriceMissing => 'Enter the selling price';
 
   @override
+  String get invAutoMarkup => 'Auto-markup on cost';
+
+  @override
+  String get invAutoMarkupSub =>
+      'Off: the selling price is never set by itself. On: price = cost + 30 % (rounded up to 5 som), shown in the row before sending';
+
+  @override
+  String invNoPriceTitle(int n) {
+    return '$n rows have no selling price';
+  }
+
+  @override
+  String get invNoPriceBody =>
+      'Enter a price or a markup. \"Leave without price\" keeps the price of existing items unchanged; new items are created without a price.';
+
+  @override
+  String get invNoPriceEnter => 'Enter a price';
+
+  @override
+  String invNoPriceMarkup(int pct) {
+    return 'Markup +$pct %';
+  }
+
+  @override
+  String get invNoPriceLeave => 'Leave without price';
+
+  @override
+  String invAutoConfirmTitle(int n) {
+    return 'Price by markup: $n rows';
+  }
+
+  @override
+  String get invAutoConfirmBody =>
+      'The selling price of these items will be set by markup — it is shown in the row. Confirm?';
+
+  @override
+  String get invAutoConfirmYes => 'Confirm';
+
+  @override
   String get invRemoveRow => 'Remove the row';
 
   @override

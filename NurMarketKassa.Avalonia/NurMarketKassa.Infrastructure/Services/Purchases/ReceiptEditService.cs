@@ -21,7 +21,8 @@ public interface IReceiptEditServer
     /// <summary>POST suppliers/{id}/receipt/ (body.idempotency_key). Возвращает id нового прихода и время.</summary>
     Task<(string? Id, DateTime? At)> PostReceiptAsync(string supplierId, IDictionary<string, object?> body, string key, CancellationToken ct);
 
-    Task RecordDebtAsync(string supplierId, string supplierName, string receiptId, double amount, DateTime at, CancellationToken ct);
+    /// <summary>2026-11-06: В2 Л4-22 — <paramref name="originalDue"/>: срок долга исходной накладной (если известен и ещё не прошёл) — долг по доприходу получает его, а не «30 дней от сегодня».</summary>
+    Task RecordDebtAsync(string supplierId, string supplierName, string receiptId, double amount, DateTime at, CancellationToken ct, DateTime? originalDue = null);
 
     // 2026-10-30 (приёмка 1.17.66, БЛОКЕР): перед повтором шага, ответ на который потерян, ищем уже проведённый документ (как PurchaseReceivingService.FindPostedReceiptAsync):
     // сервер может не смотреть idempotency_key в теле, и второй такой же POST провёл бы доприход/возврат дважды.
@@ -197,9 +198,11 @@ public sealed class ApiReceiptEditServer : IReceiptEditServer
         return max;
     }
 
-    public async Task RecordDebtAsync(string supplierId, string supplierName, string receiptId, double amount, DateTime at, CancellationToken ct)
+    public async Task RecordDebtAsync(string supplierId, string supplierName, string receiptId, double amount, DateTime at, CancellationToken ct, DateTime? originalDue = null)
     {
-        var req = new SupplierDebtRequest(supplierId, supplierName, SupplierDebtRecorder.MarkerForReceipt(receiptId), receiptId, Math.Round(amount, 2), at, at.Date.AddDays(30), 30, "receipt-edit");
+        // 2026-11-06: В2 Л4-22 — срок исходной накладной не теряется (раньше всегда +30 дней от даты дохода).
+        var (due, days) = ReceiptEditService.DebtDue(at, originalDue);
+        var req = new SupplierDebtRequest(supplierId, supplierName, SupplierDebtRecorder.MarkerForReceipt(receiptId), receiptId, Math.Round(amount, 2), at, due, days, "receipt-edit");
         var result = await SupplierDebtRecorder.RecordAsync(_api, req, ct).ConfigureAwait(false);
         if (!result.Recorded)
             throw new InvalidOperationException(result.Error ?? "долг не записан");
@@ -220,6 +223,23 @@ public sealed record EditResult(bool Ok, int Version, string? Error, bool Confli
 
 public sealed class ReceiptEditService
 {
+    /// <summary>2026-11-06: В2 Л4-22 — срок долга по доприходу: срок исходной накладной, если он ещё впереди (иначе обычные 30 дней от даты дохода).</summary>
+    internal static (DateTime Due, int Days) DebtDue(DateTime at, DateTime? originalDue) =>
+        originalDue is { } d && d.Date > at.Date ? (d.Date, (int)(d.Date - at.Date).TotalDays) : (at.Date.AddDays(30), 30);
+
+    /// <summary>Срок долга исходной накладной из журнала «Закупок» этого ПК (если приход проводили там и часть ушла в долг).</summary>
+    private static DateTime? OriginalDueDate(string receiptId)
+    {
+        try
+        {
+            return PurchasesStore.ReceiptNotes().TryGetValue(receiptId, out var note) && note.Debt > 0.004 ? note.DueDate : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private readonly IReceiptEditServer _server;
     private readonly ReceiptEditStore _store;
     private readonly Func<DateTime> _now;
@@ -946,7 +966,7 @@ public sealed class ReceiptEditService
         {
             try
             {
-                await _server.RecordDebtAsync(receipt.SupplierId, supplierName.Length > 0 ? supplierName : receipt.SupplierName, id, step.Items.Sum(i => ReceivingPricing.LineTotal(i.Qty, i.Price)), at ?? _now(), ct).ConfigureAwait(false);
+                await _server.RecordDebtAsync(receipt.SupplierId, supplierName.Length > 0 ? supplierName : receipt.SupplierName, id, step.Items.Sum(i => ReceivingPricing.LineTotal(i.Qty, i.Price)), at ?? _now(), ct, OriginalDueDate(receipt.Id)).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

@@ -36,7 +36,7 @@
             <Setter Property="Margin" Value="0,6,0,3"/>
         </Style>
         <Style Selector="TextBox.ce-input">
-            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="MinHeight" Value="44"/>
             <Setter Property="Padding" Value="10,0"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -60,7 +60,7 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="MinHeight" Value="40"/>
             <Setter Property="Padding" Value="12,4"/>
             <Setter Property="Margin" Value="0,0,6,6"/>
             <Setter Property="CornerRadius" Value="16"/>
@@ -115,7 +115,7 @@
                         <TextBlock x:Name="TitleText" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                         <TextBlock x:Name="SubtitleText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
                     </StackPanel>
-                    <Button Grid.Column="2" Classes="lx-ghost" Width="36" Padding="0" VerticalAlignment="Top" Click="Cancel_Click">
+                    <Button Grid.Column="2" Classes="lx-ghost" Width="44" Height="44" Padding="0" VerticalAlignment="Top" Click="Cancel_Click">
                         <PathIcon Data="{StaticResource IconClose}" Width="16" Height="16"/>
                     </Button>
                 </Grid>

@@ -193,7 +193,7 @@ public sealed class ShiftStateService : IShiftStateService
     /// <summary>2026-11-02 (К3-06): сообщение кассиру от сверки смены (текст, предупреждение ли). Подписчик — главное окно (тост / окно). Приходит с потока пула.</summary>
     public static event Action<string, bool>? ShiftNotice;
 
-    private static void RaiseShiftNotice(string text, bool warning)
+    internal static void RaiseShiftNotice(string text, bool warning) // 2026-11-06: internal — предупреждение о пересчёте долга сервером после возврата без связи (OfflineOperationsReplayer)
     {
         try { ShiftNotice?.Invoke(text, warning); }
         catch (Exception ex) { PosLogger.Log($"Смена: сообщение кассиру не показано: {ex.Message}", "SHIFT"); }

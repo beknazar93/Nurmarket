@@ -21,6 +21,39 @@ public static class ThumbImageCompressor
     /// <summary>Часть имени файла нового формата: <c>&lt;sha&gt;.t320.webp</c>. По ней конвертер отличает готовую миниатюру от старого оригинала.</summary>
     public const string ThumbMarker = ".t320.";
 
+    // 2026-11-06 (аудит №5, Л5-23 / А5-12): сжатий одновременно — не больше двух. Раньше на первой загрузке каталога на слабом терминале
+    // 12 плиток расшифровывали фото разом, и всплеск родной памяти убивал процесс (Low Memory Killer).
+    private static readonly SemaphoreSlim CompressGate = new(2, 2);
+
+    /// <summary>2026-11-06 (Л5-23 / А5-12): PNG, GIF и BMP не умеют уменьшенную расшифровку Skia (проверено: построчное чтение PNG тоже «не реализовано»),
+    /// и огромный файл раскрывается в память целиком — 6022 × 6022 px = ≈145 МБ. Выше этого числа пикселей такую картинку не расшифровываем вовсе:
+    /// на терминале с 2 ГБ памяти один такой файл убивал процесс. JPEG и WebP читаются в уменьшенном виде и предела не имеют.</summary>
+    public static long MaxNonScalablePixels => OperatingSystem.IsAndroid() ? 16_000_000L : 50_000_000L;
+
+    /// <summary>true — это не JPEG/WebP и в нём больше <paramref name="maxPixels"/> пикселей (по заголовку, без расшифровки). Не картинка или сбой — false.</summary>
+    public static bool IsOversized(byte[] source, long maxPixels)
+    {
+        if (source is null || source.Length < 16)
+            return false;
+        try
+        {
+            using var data = SKData.CreateCopy(source);
+            using var codec = SKCodec.Create(data);
+            return codec is not null && IsOversized(codec, maxPixels);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsOversized(SKCodec codec, long maxPixels)
+    {
+        if (codec.EncodedFormat is SKEncodedImageFormat.Jpeg or SKEncodedImageFormat.Webp)
+            return false;
+        return (long)codec.Info.Width * codec.Info.Height > maxPixels;
+    }
+
     /// <summary>Сжать картинку: не больше <paramref name="maxSide"/> по длинной стороне, пропорции и прозрачность сохраняются,
     /// маленькие картинки не увеличиваются. Возвращает null, если данные не картинка или файл повреждён (исключений наружу не бросает).
     /// <paramref name="extension"/> — расширение результата с точкой: .webp, .jpg или .png.</summary>
@@ -29,6 +62,20 @@ public static class ThumbImageCompressor
         extension = ".webp";
         if (source is null || source.Length < 16 || maxSide < 16)
             return null;
+        CompressGate.Wait();
+        try
+        {
+            return CompressCore(source, maxSide, quality, out extension);
+        }
+        finally
+        {
+            CompressGate.Release();
+        }
+    }
+
+    private static byte[]? CompressCore(byte[] source, int maxSide, int quality, out string extension)
+    {
+        extension = ".webp";
         try
         {
             using var data = SKData.CreateCopy(source);
@@ -39,6 +86,8 @@ public static class ThumbImageCompressor
             var height = codec.Info.Height;
             if (width <= 0 || height <= 0)
                 return null;
+            if (IsOversized(codec, MaxNonScalablePixels))
+                return null; // 2026-11-06 (Л5-23): огромный PNG/GIF/BMP целиком в память не берём
 
             using var decoded = DecodeScaled(codec, maxSide);
             if (decoded is null)

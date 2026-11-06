@@ -1,0 +1,337 @@
+{
+ "name": "feat-06-zarplata-ot-pribyli",
+ "lang": "ru",
+ "voice": "none",
+ "music": false,
+ "fps": 30,
+ "logo": "C:\\Users\\User\\NurMarket-video\\assets\\logo.png",
+ "premix": "C:\\Users\\User\\NurMarket-video\\ad\\work-feat\\feat-06.wav",
+ "scenes": [
+  {
+   "id": "s1",
+   "template": "feat",
+   "duration": 4.4,
+   "subs": [],
+   "transition": "none",
+   "intro": {
+    "num": "06 / 15",
+    "name": "Зарплата от прибыли"
+   },
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    }
+   },
+   "actors": [
+    {
+     "id": "ainura",
+     "img": "char-ainura-angry",
+     "x": 1130,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back"
+    },
+    {
+     "id": "nurlan",
+     "img": "char-nurlan-angry",
+     "x": 1600,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    },
+    {
+     "id": "ata",
+     "img": "char-ata-stand",
+     "x": 330,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    },
+    {
+     "id": "apa",
+     "img": "char-apa-stand",
+     "x": 620,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    }
+   ],
+   "titr": [
+    {
+     "text": "Спор о [[зарплате]]",
+     "at": 2.0,
+     "dur": 2.3
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "ainura",
+     "text": "Я продала на сто тысяч!",
+     "at": 1.5,
+     "dur": 1.957,
+     "dy": 0,
+     "w": 520
+    },
+    {
+     "who": "nurlan",
+     "text": "А закупка?!",
+     "at": 3.1,
+     "dur": 1.215,
+     "dy": 0,
+     "w": 360
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "template": "feat",
+   "duration": 8.4,
+   "subs": [
+    {
+     "text": "Спор о зарплате решает не голос громче, а экран.",
+     "at": 0.3,
+     "dur": 2.869
+    },
+    {
+     "text": "Зарплата от прибыли: выручка минус закупка минус расходы —",
+     "at": 3.389,
+     "dur": 3.315
+    },
+    {
+     "text": "и доля сотрудника.",
+     "at": 6.704,
+     "dur": 1.243
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\06-owner-salary-scheme.png",
+     "crop": [
+      40,
+      190,
+      2540,
+      800
+     ],
+     "area": [
+      60,
+      36,
+      1800,
+      790
+     ],
+     "clicks": [
+      {
+       "at": 3.6,
+       "rect": [
+        2260,
+        275,
+        260,
+        38
+       ]
+      },
+      {
+       "at": 4.4,
+       "rect": [
+        2260,
+        325,
+        260,
+        38
+       ]
+      },
+      {
+       "at": 5.2,
+       "rect": [
+        2260,
+        480,
+        260,
+        230
+       ],
+       "hold": 0.6
+      },
+      {
+       "at": 6.0,
+       "rect": [
+        40,
+        722,
+        2480,
+        44
+       ],
+       "fill": true,
+       "hold": 0.6
+      }
+     ],
+     "size": [
+      2592,
+      1758
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Выручка − закупка − [[расходы]]",
+     "at": 3.2,
+     "dur": 3.8,
+     "bottom": 190
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s3",
+   "template": "feat",
+   "duration": 3.6,
+   "subs": [
+    {
+     "text": "Все видят одно и то же — и все довольны.",
+     "at": 0.3,
+     "dur": 2.488
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\06-owner-salary-employee.png",
+     "crop": [
+      40,
+      985,
+      2420,
+      440
+     ],
+     "area": [
+      60,
+      140,
+      1800,
+      560
+     ],
+     "clicks": [
+      {
+       "at": 0.8,
+       "rect": [
+        60,
+        1020,
+        2420,
+        82
+       ],
+       "hold": 0.8
+      },
+      {
+       "at": 1.8,
+       "rect": [
+        70,
+        1205,
+        1460,
+        190
+       ],
+       "hold": 0.8
+      }
+     ],
+     "size": [
+      2592,
+      1758
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Честно — в [[цифрах]]",
+     "at": 0.3,
+     "dur": 3.0,
+     "bottom": 190
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s4",
+   "template": "feat",
+   "duration": 3.6333,
+   "subs": [
+    {
+     "text": "Кроме ата — он ждёт.",
+     "at": 0.3,
+     "dur": 1.575
+    }
+   ],
+   "transition": "none",
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    }
+   },
+   "actors": [
+    {
+     "id": "ainura",
+     "img": "char-ainura-happy",
+     "x": 1130,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back"
+    },
+    {
+     "id": "nurlan",
+     "img": "char-nurlan-happy",
+     "x": 1600,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true,
+     "hop": [
+      0.6
+     ]
+    },
+    {
+     "id": "ata",
+     "img": "char-ata-stand",
+     "x": 330,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true,
+     "swaps": [
+      {
+       "at": 1.4,
+       "img": "char-ata-angry"
+      }
+     ]
+    },
+    {
+     "id": "apa",
+     "img": "char-apa-stand",
+     "x": 620,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "ata",
+     "text": "Лепёшку пробейте!",
+     "at": 1.9,
+     "dur": 1.712,
+     "dy": 0,
+     "w": 440
+    }
+   ]
+  },
+  {
+   "id": "s5",
+   "template": "feat",
+   "duration": 6.0333,
+   "subs": [],
+   "transition": "none",
+   "kind": "finale",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  }
+ ]
+}

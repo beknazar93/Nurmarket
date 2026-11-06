@@ -30,11 +30,32 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         // 2026-10-29: «Обновить» (SyncCenter.ForceSyncAllAsync) и сигнал «в чеках компании что-то изменилось» (RemoteSalesPulse) — тоже сюда.
         SyncCenter.CatalogRefresher = ForceRefreshAsync;
         RemoteSalesPulse.Detected += OnRemoteSalesDetected;
+        // 2026-11-06 (Б-9): после возврата связи каталог не качается заново целиком (155 страниц, ~100 с) — достаточно ленты products/changes; см. CatalogFullLoadMarks.IsRecoveryFeedOnly.
+        ServerOutageMonitor.Recovered += OnServerRecoveredForCatalog;
         // 2026-10-30 (15 тыс. товаров): окна (Склад, массовая загрузка, ревизия, правка товара) обновляют каталог через этот объект — одна
         // полная загрузка на программу и лента вместо полной, когда она жива (см. SharedRefreshAsync).
         CatalogCacheService.SharedRefresh = SharedRefreshAsync;
         CatalogCacheService.RequestBackgroundFullReload = RequestBackgroundFullReload;
     }
+
+    private long _recoveredTicks;
+
+    /// <summary>2026-11-06 (Б-9): последний момент, когда связи не было (касса офлайн / авария сервера) или она только что вернулась. От него считается окно «только лента»
+    /// (<see cref="CatalogFullLoadMarks.RecoveryFeedOnlyWindow"/>): ни одна полная загрузка не стартует сразу после возврата связи.</summary>
+    private void NoteConnectionTrouble() => Interlocked.Exchange(ref _recoveredTicks, DateTime.UtcNow.Ticks);
+
+    private void OnServerRecoveredForCatalog()
+    {
+        NoteConnectionTrouble();
+        PosLogger.Log("CATALOG: связь с сервером вернулась — каталог догоняет лента изменений, полную загрузку не запускаем (если база и лента есть).", "CATALOG");
+        SyncCenter.FeedKick.Kick();
+    }
+
+    private DateTime? RecoveredUtc => Interlocked.Read(ref _recoveredTicks) is var t && t != 0 ? new DateTime(t, DateTimeKind.Utc) : null;
+
+    /// <summary>true — связь недавно вернулась, каталог в базе есть и лента поддерживается: полную загрузку не начинаем, достаточно ленты.</summary>
+    private bool RecoveryFeedOnly() =>
+        HasLocalCatalog && _feed is { Unsupported: false } && CatalogFullLoadMarks.IsRecoveryFeedOnly(RecoveredUtc, DateTime.UtcNow);
 
     /// <summary>2026-10-29: принудительное обновление каталога и остатков: лента изменений (если есть), затем полная загрузка.
     /// Полная загрузка идёт в фоне и UI не блокирует (запись плиток — через UiDispatcherHolder).</summary>
@@ -121,8 +142,21 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
     private async Task<CatalogSyncResult> SharedRefreshCoreAsync(CancellationToken ct)
     {
         if (OfflineModeHelper.SellLocally)
+        {
+            NoteConnectionTrouble();
             return CatalogSyncResult.Failed("Нет подключения — каталог из локальной базы.");
+        }
         EnsureFeedLoop();
+        // 2026-11-06 (Б-9): связь только что вернулась — лента (она одна-две страницы), а не 155 страниц полного каталога; лента отвечает — «здорова» для этого окна и без 5-минутного ожидания.
+        if (_feed is { } recFeed && RecoveryFeedOnly() && !IsFullSyncRunning())
+        {
+            var tick = await TickFeedAsync(recFeed, ct).ConfigureAwait(false);
+            if (!tick.NeedFullSync)
+            {
+                PosLogger.Log("CATALOG: обновление окна после возврата связи — прочитана лента изменений, полная загрузка не нужна.", "CATALOG");
+                return CatalogSyncResult.Ok(tick.Added, tick.Changed, tick.Deleted);
+            }
+        }
         if (_feed is { } feed && FeedHealthy && HasLocalCatalog && !IsFullSyncRunning())
         {
             var tick = await TickFeedAsync(feed, ct).ConfigureAwait(false);
@@ -141,7 +175,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             return CatalogSyncResult.Ok(0, 0, 0);
         }
 
-        return await StartFullSync(ct, knownVersion: null, ignoreFresh: true).ConfigureAwait(false);
+        return await StartFullSync(ct, knownVersion: null, ignoreFresh: true, reason: "обновление по просьбе окна, лента сейчас не помогает").ConfigureAwait(false);
     }
 
     /// <summary>2026-10-30 (холодный старт: чистая установка и вход в аккаунт с 16 тыс. товаров). Раньше касса ~3 минуты (155 страниц) показывала
@@ -300,7 +334,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
 
         if (AgeOf(last) < TimeSpan.FromMinutes(10))
             return null;
-        return StartFullSync(CancellationToken.None, knownVersion: null);
+        return StartFullSync(CancellationToken.None, knownVersion: null, reason: "сверка после «Обновить» на Складе, прошлая загрузка старше 10 минут");
     }
 
     /// <summary>2026-10-29: в чеках компании появилось изменение (чужая продажа, возврат, отмена) — остатки перечитываются полной загрузкой, но
@@ -322,7 +356,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         if (AgeOf(_lastSuccessfulSyncUtc) < SyncCenter.StockReloadMinSpacing)
             return;
         PosLogger.Log("SYNC: чужая продажа/возврат — перечитываю остатки каталога.", "SYNC");
-        _ = StartFullSync(CancellationToken.None, knownVersion: null);
+        _ = StartFullSync(CancellationToken.None, knownVersion: null, reason: "чужая продажа или возврат, лента сейчас не отвечает");
     }
 
     public bool TryLoadFromDatabase()
@@ -472,6 +506,8 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                     () => SyncCenter.FeedInterval(TimeSpan.FromSeconds(ServerPriceContract.FeedIntervalSeconds)),
                     SyncCenter.FeedKick, TimeSpan.FromSeconds(1)).ConfigureAwait(false);
                 var feed = _feed;
+                if (OfflineModeHelper.SellLocally || ServerOutageMonitor.IsOutage)
+                    NoteConnectionTrouble(); // 2026-11-06 (Б-9): окно «только лента» после возврата связи отсчитывается от последнего момента без связи
                 if (feed is null || !ServerPriceContract.CatalogFeedEnabled
                     || OfflineModeHelper.SellLocally || ServerOutageMonitor.IsOutage || IsFullSyncRunning())
                     continue;
@@ -485,23 +521,25 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                 {
                     Interlocked.Exchange(ref _lastFeedFullSyncTicks, DateTime.UtcNow.Ticks);
                     PosLogger.Log("CATALOG_FEED: лента принесла товар, которого нет в базе кассы, — полная загрузка.", "CATALOG_FEED");
-                    _ = StartFullSync(CancellationToken.None, knownVersion: null);
+                    _ = StartFullSync(CancellationToken.None, knownVersion: null, reason: "лента принесла товар, которого нет в базе кассы");
                 }
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 // Лента — помощь каталогу: цикл не должен умереть.
-                PosLogger.Log($"CATALOG_FEED: сбой цикла: {ex.GetType().Name}: {ex.Message}", "CATALOG_FEED");
+                // 2026-11-06 (Б-13): повторяющийся сбой цикла (опрос раз в несколько секунд) — одна запись в 10 минут на причину.
+                PosLogger.LogThrottled("feed-loop-" + ex.GetType().Name, $"CATALOG_FEED: сбой цикла: {ex.GetType().Name}: {ex.Message}", "CATALOG_FEED");
             }
         }
     }
 
     public Task<CatalogSyncResult> SyncCatalogFullAsync(CancellationToken cancellationToken = default) =>
-        StartFullSync(cancellationToken, knownVersion: null);
+        StartFullSync(cancellationToken, knownVersion: null, reason: "явная просьба экрана (обновить каталог)");
 
     /// <param name="ignoreFresh">2026-10-30: окно после правки товара (лента не отвечает) — без «свежей загрузки 15 с»: прежний статический путь
     /// окон этим окном не ограничивался.</param>
-    private Task<CatalogSyncResult> StartFullSync(CancellationToken cancellationToken, CatalogVersionInfo? knownVersion, bool ignoreFresh = false)
+    /// <param name="reason">2026-11-06 (Б-9): причина запуска — одной строкой в журнал (раньше «CATALOG full» через 2 минуты после старта шёл без объяснения).</param>
+    private Task<CatalogSyncResult> StartFullSync(CancellationToken cancellationToken, CatalogVersionInfo? knownVersion, bool ignoreFresh = false, string? reason = null)
     {
         lock (_syncGate)
         {
@@ -516,6 +554,8 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
 
             // 2026-10-30 (приёмка 1.17.66, «Важно» 8): первая загрузка запуска при наличии базы и курсора ленты — дельта, а не весь каталог. Явные обновления окон
             // после правки товара (ignoreFresh) и повторные загрузки идут как раньше.
+            // 2026-11-06 (Б-9): строка причины есть ВСЕГДА — полная загрузка без объяснения в журнале недопустима.
+            PosLogger.Log($"CATALOG: запуск загрузки каталога — {reason ?? "причина не указана вызывающим кодом"}.", "CATALOG");
             var task = !ignoreFresh && !_warmStartDone
                 ? WarmOrFullSyncAsync(cancellationToken, knownVersion)
                 : SyncCatalogFullCoreAsync(cancellationToken, knownVersion);
@@ -572,7 +612,8 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         // постраничная загрузка с полными карточками. Идёт в фоне: плитки и продажа работают с базой, остатки и неотправленное не трогаются (SyncReplaceAllWithDiff).
         if (CatalogFullLoadMarks.NeedsSelfHeal(LocalProductRepository.Instance, out var healWhy))
         {
-            PosLogger.Log($"CATALOG: самолечение каталога — {healWhy}; один раз полная загрузка полными карточками (фоном, продажа не блокируется).", "CATALOG");
+            PosLogger.Log($"CATALOG: самолечение каталога — {healWhy}; полная загрузка полными карточками (фоном, продажа не блокируется; не чаще раза в сутки, оборванная продолжится).", "CATALOG");
+            CatalogFullLoadMarks.MarkSelfHealAttempt(LocalProductRepository.Instance, DateTime.UtcNow);
             return null;
         }
 
@@ -662,7 +703,9 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             : TimeSpan.FromMinutes(15);
 
     private DateTime _lastVersionSkipLoggedUtc = DateTime.MinValue;
-    private static readonly TimeSpan SafetyFullReloadInterval = TimeSpan.FromHours(8);
+    private DateTime _lastRecoverySkipLoggedUtc = DateTime.MinValue;
+    // 2026-11-06 (Б-9): 8 часов → сутки (CatalogFullLoadMarks.SafetyFullReloadInterval): после ночи каждый первый запуск качал все 155 страниц, лента и так ведёт дельту.
+    private static readonly TimeSpan SafetyFullReloadInterval = CatalogFullLoadMarks.SafetyFullReloadInterval;
     private const int FeedOkStreakForSafetyReload = 10;
     private static readonly TimeSpan FeedQuietForSafetyReload = TimeSpan.FromMinutes(30);
 
@@ -682,7 +725,10 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
     public async Task<CatalogSyncResult> SyncCatalogIfChangedAsync(CancellationToken cancellationToken = default)
     {
         if (OfflineModeHelper.SellLocally)
+        {
+            NoteConnectionTrouble(); // 2026-11-06 (Б-9)
             return CatalogSyncResult.Failed("Нет подключения — каталог из локальной базы.");
+        }
 
         EnsureFeedLoop(); // 2026-10-27: лента изменений стартует вместе с первой фоновой синхронизацией
         Task<CatalogSyncResult>? running;
@@ -706,9 +752,24 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         if (HasLocalCatalog && ApiThrottle.CriticalInFlight)
             return CatalogSyncResult.Ok(0, 0, 0);
 
+        // 2026-11-06 (Б-9): связь только что вернулась (журнал 16:00: 155 страниц, 100 с, без строки причины) — каталог догоняет лента изменений; полная загрузка
+        // (в том числе «плановая» и по смене версии) подождёт окончания окна. Нет базы или ленты (первый запуск, лента не поддерживается) — прежний путь.
+        if (RecoveryFeedOnly())
+        {
+            if (AgeOf(_lastRecoverySkipLoggedUtc) >= TimeSpan.FromMinutes(5))
+            {
+                _lastRecoverySkipLoggedUtc = DateTime.UtcNow;
+                PosLogger.Log("CATALOG: связь недавно вернулась — полную загрузку каталога откладываем, изменения принесёт лента (products/changes).", "CATALOG");
+            }
+
+            SyncCenter.FeedKick.Kick();
+            return CatalogSyncResult.Ok(0, 0, 0);
+        }
+
         // Полной загрузки в этом запуске ещё не было (старт, смена аккаунта) или она была давно — всё.
-        if (AgeOf(lastFull) >= FullReloadInterval)
-            return await StartFullSync(cancellationToken, knownVersion: null).ConfigureAwait(false);
+        // 2026-11-06 (Б-9): причина пишется в журнал; кассир за открытым чеком — откладываем (до 6 ч сверх срока); отсчёт — от метки в базе (переживает перезапуск).
+        if (CatalogFullLoadMarks.IsSafetyReloadDue(lastFull, DateTime.UtcNow, FullReloadInterval, HasLocalCatalog && SyncCenter.OpenCheck, out var dueWhy))
+            return await StartFullSync(cancellationToken, knownVersion: null, reason: $"плановая полная сверка: {dueWhy}").ConfigureAwait(false);
 
         // 2026-10-29: лента изменений отвечает — изменения товаров уже в базе; запрос «версии» (раз в 2 мин) и полная загрузка по смене версии
         // (каждая правка цены/товара меняла версию и гоняла весь каталог) не нужны. Страховка — полная загрузка раз в 15–30 мин (выше).
@@ -752,7 +813,7 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
 
         PosLogger.Log($"CATALOG: версия изменилась ({local ?? "—"} → {remote?.Token ?? "нет ответа"}) — полная загрузка.", "CATALOG");
         // Версия уже получена — повторно её не спрашиваем (см. SyncCatalogFullCoreAsync).
-        return await StartFullSync(cancellationToken, remote).ConfigureAwait(false);
+        return await StartFullSync(cancellationToken, remote, reason: "версия каталога на сервере изменилась, лента не отвечает").ConfigureAwait(false);
     }
 
     /// <summary>2026-11-02 (аудит №2, Н3-01): после УСПЕШНОЙ полной загрузки — уплотнение кучи. Состояние самой загрузки (списки, плитки) к этому
@@ -814,6 +875,50 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             var apiBaseUrl = _settings.ApiBaseUrl;
             // 2026-11-02 (Н3-01): сразу нужного размера (known каталог) — без удвоений массива в куче больших объектов.
             var newList = new List<CatalogProductTileVm>(Math.Max(16, _products.Count + 64));
+
+            // 2026-11-06 (Б-9): база уже есть — загрузка идёт пачками по ~1000 товаров: каждая пачка сразу пишется в базу (короткая запись, замок SQLite не держится
+            // минуту), а после неё сохраняется «следующая страница». Обрыв (журнал 13:34, страница 151 из 155) не возвращает к первой странице: следующая загрузка
+            // продолжает с сохранённой. Пустая база (холодный старт) идёт прежним путём выше.
+            var chunked = onPage is null;
+            var repo = LocalProductRepository.Instance;
+            var chunk = new List<CatalogProductTileVm>();
+            var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            CatalogFullResume? resume = null;
+            int cAdded = 0, cChanged = 0, cDeleted = 0, cWeightFlag = 0, cStored = 0, resumedBase = 0;
+            async Task FlushChunkAsync()
+            {
+                if (chunk.Count == 0)
+                    return;
+                if (generation != Volatile.Read(ref _accountGeneration))
+                    throw new AccountChangedDuringLoadException();
+                cWeightFlag += chunk.Count(t => t.ServerIsWeight.HasValue);
+                await PrepareTilesForStoreAsync(chunk, snapshotStartedUtc, cancellationToken).ConfigureAwait(false);
+                var (a, c, _) = await Task.Run(() => repo.SyncReplaceAllWithDiff(chunk, deleteMissing: false), cancellationToken).ConfigureAwait(false);
+                cAdded += a;
+                cChanged += c;
+                cStored += chunk.Count;
+                chunk.Clear();
+            }
+
+            if (chunked)
+            {
+                var progress = CatalogFullLoadMarks.GetProgress(repo, DateTime.UtcNow);
+                var startPage = progress is { } pr ? CatalogFullLoadMarks.ResumePage(pr) : 1;
+                resumedBase = startPage > 1 && progress is { } pr2 ? pr2.Accepted : 0;
+                resume = new CatalogFullResume
+                {
+                    StartPage = startPage,
+                    PageSize = progress?.PageSize ?? 0,
+                    PageDone = async (nextPage, size, _) =>
+                    {
+                        if (chunk.Count < FullLoadChunkTiles)
+                            return;
+                        await FlushChunkAsync().ConfigureAwait(false);
+                        CatalogFullLoadMarks.SaveProgress(repo, new CatalogFullLoadMarks.Progress(nextPage, size, DateTime.UtcNow, resumedBase + seenIds.Count));
+                    },
+                };
+            }
+
             try
             {
                 // 2026-10-30 (холодный старт): сначала лента по 500 (32 запроса на 16 тыс. вместо 160 страниц по 100); не вышло или отдала не всё — по страницам.
@@ -830,11 +935,19 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                             foreach (var el in batch)
                             {
                                 var tile = ProductCatalogMapper.TryTile(el, apiBaseUrl);
-                                if (tile != null)
+                                if (tile == null)
+                                    continue;
+                                if (!chunked)
                                     newList.Add(tile);
+                                else
+                                {
+                                    chunk.Add(tile);
+                                    if (!string.IsNullOrEmpty(tile.Id))
+                                        seenIds.Add(tile.Id);
+                                }
                             }
                         },
-                        cancellationToken).ConfigureAwait(false);
+                        cancellationToken, resume).ConfigureAwait(false);
             }
             finally
             {
@@ -855,43 +968,40 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                 rawItems = null;
             }
 
-            // 2026-11-01 (приёмка Ф-5): диагностика — у скольких товаров полная загрузка принесла is_weight (NULL остаётся только у тех, где сервер поле не прислал).
-            PosLogger.Log($"CATALOG sync: is_weight прислан у {newList.Count(t => t.ServerIsWeight.HasValue)} из {newList.Count} товаров.", "CATALOG");
-
+            int added, changed, deleted, totalCount;
             // 2026-09-28: акции товаров (запомнены в TryTile) — на диск, для запуска без интернета.
             PromotionRules.SaveIfDirty();
 
-            await StockSyncService.OverlayAgentStockAsync(newList, cancellationToken).ConfigureAwait(false);
-
-            // Гарантируем StockInfo перед записью в SQLite (на случай отсутствия overlay).
-            foreach (var vm in newList)
+            if (chunked)
             {
-                if (string.IsNullOrWhiteSpace(vm.StockInfo))
-                    StockSyncService.ApplyQuantityToTile(vm, vm.Quantity, vm.MustWeigh);
+                // 2026-11-06 (Б-9): последняя пачка; лишнее из базы убираем только если загрузка прошла ВСЕ страницы с первой (после докачки список не полный —
+                // удаления тогда принесёт лента, которая и так ведёт дельту).
+                await FlushChunkAsync().ConfigureAwait(false);
+                if (resume!.FromStart)
+                    cDeleted = repo.DeleteProductsNotIn(seenIds);
+                else
+                    PosLogger.Log($"CATALOG full: докачка закончена (принято {seenIds.Count} с докачанной части) — удаления не сверяю, их приносит лента.", "CATALOG");
+                CatalogFullLoadMarks.ClearProgress(repo);
+                (added, changed, deleted) = (cAdded, cChanged, cDeleted);
+                totalCount = resume.FromStart ? seenIds.Count : repo.CountProducts();
+                PosLogger.Log($"CATALOG sync: is_weight прислан у {cWeightFlag} из {cStored} товаров.", "CATALOG");
             }
-
-            // Пока товары качались, сменился аккаунт — это каталог прежнего, в базу нового его не пишем.
-            if (generation != Volatile.Read(ref _accountGeneration))
+            else
             {
-                PosLogger.Log("CATALOG sync: аккаунт сменился во время загрузки — каталог прежнего аккаунта отброшен.", "CATALOG");
-                return CatalogSyncResult.Failed("Аккаунт сменился во время загрузки каталога.");
-            }
+                // 2026-11-01 (приёмка Ф-5): диагностика — у скольких товаров полная загрузка принесла is_weight (NULL остаётся только у тех, где сервер поле не прислал).
+                PosLogger.Log($"CATALOG sync: is_weight прислан у {newList.Count(t => t.ServerIsWeight.HasValue)} из {newList.Count} товаров.", "CATALOG");
 
-            // 2026-10-29: товар, остаток которого менялся на этом ПК за последние 90 с (своя продажа/возврат/ревизия), — остаток в снимке мог быть
-            // взят до того, как сервер учёл операцию: оставляем локальный (иначе «остаток откатывается» после продажи).
-            foreach (var vm in newList)
-            {
-                // 2026-11-01 (П-4): и всё, что менялось ПОСЛЕ начала загрузки (долгая загрузка 2–6 мин): страницы до продажи несут остаток без неё.
-                if (vm.Id is null || !(StockSyncService.WasLocallyTouched(vm.Id, FeedStockGuard.LocalTouchWindow) || StockSyncService.TouchedSince(vm.Id, snapshotStartedUtc)))
-                    continue;
-                if (LocalProductRepository.Instance.LoadTileCopy(vm.Id) is { } keep)
-                    StockSyncService.ApplyQuantityToTile(vm, keep.Quantity, vm.MustWeigh);
-                StockSyncService.ScheduleStockReread(vm.Id, FeedStockGuard.LocalTouchWindow + TimeSpan.FromSeconds(5)); // 2026-11-01 (С-4): оставили локальный — потом перечитаем с сервера
-            }
+                // Пока товары качались, сменился аккаунт — это каталог прежнего, в базу нового его не пишем.
+                if (generation != Volatile.Read(ref _accountGeneration))
+                {
+                    PosLogger.Log("CATALOG sync: аккаунт сменился во время загрузки — каталог прежнего аккаунта отброшен.", "CATALOG");
+                    return CatalogSyncResult.Failed("Аккаунт сменился во время загрузки каталога.");
+                }
 
-            // Продажи соседних касс, которых сервер ещё не знает, вычитаются из снимка до записи.
-            NurMarketKassa.Services.Lan.LanStockAdjuster.AdjustSnapshot(newList, snapshotStartedUtc);
-            var (added, changed, deleted) = LocalProductRepository.Instance.SyncReplaceAllWithDiff(newList);
+                await PrepareTilesForStoreAsync(newList, snapshotStartedUtc, cancellationToken).ConfigureAwait(false);
+                (added, changed, deleted) = LocalProductRepository.Instance.SyncReplaceAllWithDiff(newList);
+                totalCount = newList.Count;
+            }
 
             if (remoteVersion != null && !remoteVersion.IsEmpty)
                 LocalProductRepository.Instance.SetCatalogVersionToken(remoteVersion.Token);
@@ -915,14 +1025,14 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             CatalogFullLoadMarks.MarkFullLoad(LocalProductRepository.Instance, syncTime);
             CatalogCacheService.NoteSynced(syncTime); // 2026-10-30: «каталог свежий» и для окон (массовая загрузка)
 
-            _auditDb.LogEvent("catalog", "refresh", new { count = newList.Count, added, changed, deleted });
+            _auditDb.LogEvent("catalog", "refresh", new { count = totalCount, added, changed, deleted });
             PosLogger.Log(
-                $"CATALOG sync: added={added}, changed={changed}, deleted={deleted}, total={newList.Count}",
+                $"CATALOG sync: added={added}, changed={changed}, deleted={deleted}, total={totalCount}",
                 "CATALOG");
 
             // 2026-11-02 (Н3-01, память): каталог на экране — те же объекты плиток, что держит кэш базы (как после ленты), а не вторая копия 15 тыс. плиток
             // из newList (она жила рядом с кэшем до следующего изменения ленты). Базу не прочитать (пусто/сбой) — как раньше, список этой загрузки.
-            if (!TryLoadFromDatabase())
+            if (!TryLoadFromDatabase() && !chunked)
             {
                 _products = newList;
                 SyncInMemoryCatalog();
@@ -955,6 +1065,11 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         {
             throw;
         }
+        catch (AccountChangedDuringLoadException)
+        {
+            PosLogger.Log("CATALOG sync: аккаунт сменился во время загрузки — каталог прежнего аккаунта отброшен.", "CATALOG");
+            return CatalogSyncResult.Failed("Аккаунт сменился во время загрузки каталога.");
+        }
         catch (ApiException ex)
         {
             return CatalogSyncResult.Failed(ex.Message);
@@ -968,6 +1083,40 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
             PosLogger.Log($"CATALOG sync error: {ex}", "CATALOG");
             return CatalogSyncResult.Failed(ex.Message);
         }
+    }
+
+    /// <summary>2026-11-06 (Б-9): сколько товаров копится до записи пачки в базу при полной загрузке (около 10 страниц по 100).</summary>
+    private const int FullLoadChunkTiles = 1000;
+
+    private sealed class AccountChangedDuringLoadException : Exception;
+
+    /// <summary>Подготовка загруженных карточек к записи в базу (вынесено из SyncCatalogFullBodyAsync, чтобы то же самое делала каждая пачка докачки): остатки
+    /// агента, подпись остатка, защита остатков, изменённых на этом ПК, и вычет продаж соседних касс.</summary>
+    private static async Task PrepareTilesForStoreAsync(List<CatalogProductTileVm> list, DateTime snapshotStartedUtc, CancellationToken ct)
+    {
+        await StockSyncService.OverlayAgentStockAsync(list, ct).ConfigureAwait(false);
+
+        // Гарантируем StockInfo перед записью в SQLite (на случай отсутствия overlay).
+        foreach (var vm in list)
+        {
+            if (string.IsNullOrWhiteSpace(vm.StockInfo))
+                StockSyncService.ApplyQuantityToTile(vm, vm.Quantity, vm.MustWeigh);
+        }
+
+        // 2026-10-29: товар, остаток которого менялся на этом ПК за последние 90 с (своя продажа/возврат/ревизия), — остаток в снимке мог быть
+        // взят до того, как сервер учёл операцию: оставляем локальный (иначе «остаток откатывается» после продажи).
+        foreach (var vm in list)
+        {
+            // 2026-11-01 (П-4): и всё, что менялось ПОСЛЕ начала загрузки (долгая загрузка 2–6 мин): страницы до продажи несут остаток без неё.
+            if (vm.Id is null || !(StockSyncService.WasLocallyTouched(vm.Id, FeedStockGuard.LocalTouchWindow) || StockSyncService.TouchedSince(vm.Id, snapshotStartedUtc)))
+                continue;
+            if (LocalProductRepository.Instance.LoadTileCopy(vm.Id) is { } keep)
+                StockSyncService.ApplyQuantityToTile(vm, keep.Quantity, vm.MustWeigh);
+            StockSyncService.ScheduleStockReread(vm.Id, FeedStockGuard.LocalTouchWindow + TimeSpan.FromSeconds(5)); // 2026-11-01 (С-4): оставили локальный — потом перечитаем с сервера
+        }
+
+        // Продажи соседних касс, которых сервер ещё не знает, вычитаются из снимка до записи.
+        NurMarketKassa.Services.Lan.LanStockAdjuster.AdjustSnapshot(list, snapshotStartedUtc);
     }
 
     /// <summary>Общий список <see cref="CatalogCacheService.Products"/> читают экраны кассы и склада

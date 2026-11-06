@@ -45,8 +45,13 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         }
     }
 
-    private void OnSessionTokensRefreshed(string? usedRefresh, string? access, string? refresh) =>
+    private void OnSessionTokensRefreshed(string? usedRefresh, string? access, string? refresh)
+    {
+        // 2026-11-06: сервер выдал НОВЫЙ refresh-токен (ротация: вход продлевается при работе) — срок входа пересчитать по нему, даже если «Запомнить меня» выключено (auth.dat нет).
+        if (!string.IsNullOrWhiteSpace(refresh) && !string.Equals(refresh, usedRefresh, StringComparison.Ordinal))
+            RefreshExpiryWatcher.Current.RefreshTokenRotated(refresh);
         _ = PersistRefreshedTokensAsync(usedRefresh, access, refresh);
+    }
 
     /// <summary>2026-10-04, отчёт «офлайн и сбои сервера», раздел «Риски»: обновлённые посреди работы
     /// токены не попадали в auth.dat, откуда их берёт автовход (подробно — у
@@ -78,6 +83,7 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
                 Permissions = saved.Permissions,
                 // Обновление токена — успешный ответ сервера.
                 LastOnlineContactAt = DateTimeOffset.UtcNow,
+                PasswordLoginAt = saved.PasswordLoginAt, // 2026-11-06: refresh не продлевается — время входа по паролю то же
             };
             await _storage.SaveSessionAsync(updated).ConfigureAwait(false);
             PosLogger.Log("Обновлённые токены сохранены для автовхода (auth.dat).", "AUTH");
@@ -122,6 +128,7 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             var profile = await LoadAndApplyProfileAsync(serverBudget.Token).ConfigureAwait(false);
             serverBudget.CancelAfter(Timeout.InfiniteTimeSpan);
             var session = CreateSession(username, loginPayload, profile);
+            TrackRefreshExpiry(session); // 2026-11-06: вход по паролю — срок refresh-токена считается заново
 
             // Never keep a second token copy in the legacy session file.
             OfflineAuthSessionStore.Clear();
@@ -265,6 +272,7 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
                 var refreshedProfile = await LoadAndApplyProfileAsync(serverCt).ConfigureAwait(false);
                 var refreshed = CreateSession(saved.Login, default, refreshedProfile, saved);
                 await SaveSessionGatedAsync(refreshed).ConfigureAwait(false);
+                TrackRefreshExpiry(refreshed);
                 return AuthenticationResult.Success(refreshed, AuthenticationMode.Online);
             }
 
@@ -272,6 +280,7 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             var profile = await LoadAndApplyProfileAsync(serverCt).ConfigureAwait(false);
             var validated = CreateSession(saved.Login, default, profile, saved);
             await SaveSessionGatedAsync(validated).ConfigureAwait(false);
+            TrackRefreshExpiry(validated);
             return AuthenticationResult.Success(validated, AuthenticationMode.Online);
         }
         catch (ApiException ex) when (ex.StatusCode == 401)
@@ -287,6 +296,7 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
                 var profile = await LoadAndApplyProfileAsync(serverCt).ConfigureAwait(false);
                 var refreshed = CreateSession(saved.Login, default, profile, saved);
                 await SaveSessionGatedAsync(refreshed).ConfigureAwait(false);
+                TrackRefreshExpiry(refreshed);
                 return AuthenticationResult.Success(refreshed, AuthenticationMode.Online);
             }
             catch (Exception refreshError) when (IsNetworkFailure(refreshError, cancellationToken)
@@ -405,6 +415,14 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         await _storage.ClearSessionAsync(cancellationToken).ConfigureAwait(false);
         OfflineAuthSessionStore.Clear(); // remove the pre-auth.dat session format
         _api.ClearSession();
+        RefreshExpiryWatcher.Current.Clear(); // 2026-11-06: вышли — срока входа нет, надпись в шапке исчезает
+    }
+
+    /// <summary>2026-11-06: сообщить RefreshExpiryWatcher срок входа (exp из refresh-токена или 7 суток от входа по паролю). Токен в журнал не попадает.</summary>
+    private static void TrackRefreshExpiry(UserSession session)
+    {
+        try { RefreshExpiryWatcher.Current.Configure(session.RefreshToken, session.PasswordLoginAt); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Срок входа не определён: {ex.GetType().Name}", "AUTH"); }
     }
 
     private async Task<JsonElement> LoadAndApplyProfileAsync(CancellationToken cancellationToken)
@@ -447,6 +465,7 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
                     "Internetsiz oflayn ishlash 60 soat bilan cheklangan. Davom etish uchun internetga ulaning."));
 
         _api.RestoreOfflineSession(ToLegacySession(session));
+        TrackRefreshExpiry(session);
         return AuthenticationResult.Success(session, AuthenticationMode.Offline);
     }
 
@@ -458,8 +477,11 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         string message,
         CancellationToken cancellationToken)
     {
+        // 2026-11-06 (В-7): раньше сохранённый вход стирался молча — в журнале не было причины, на экране входа не было пояснения.
+        PosLogger.Log($"Автовход: сохранённый вход отброшен и стёрт — {message}", "AUTH");
         await _storage.ClearSessionAsync(cancellationToken).ConfigureAwait(false);
         _api.ClearSession();
+        RefreshExpiryWatcher.Current.Clear();
         return AuthenticationResult.Failed(AuthenticationFailure.SessionExpired, message);
     }
 
@@ -493,6 +515,7 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             Permissions = saved.Permissions,
             // Обновление токена — успешный ответ сервера.
             LastOnlineContactAt = DateTimeOffset.UtcNow,
+            PasswordLoginAt = saved.PasswordLoginAt,
         };
     }
 
@@ -544,6 +567,8 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
             // серверу (логин или онлайн-валидация в AutoLoginAsync) — значит связь только что
             // подтверждена, независимо от того, что там с ExpiresAt.
             LastOnlineContactAt = DateTimeOffset.UtcNow,
+            // 2026-11-06: вход по паролю (без прошлой сессии) — сейчас; автовход сохраняет прежнее время (старый файл — «неизвестно»).
+            PasswordLoginAt = fallback is null ? DateTimeOffset.UtcNow : fallback.PasswordLoginAt,
         };
     }
 

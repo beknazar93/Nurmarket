@@ -66,16 +66,62 @@ public sealed class GithubLicenseRegistryClient
     private const string FilePath = "licenses/standalone-keys.json";
     private const string Branch = "main";
 
-    private static readonly HttpClient Http = CreateClient();
+    // 2026-11-06 (аудит скорости, шаг 15 / Н-17, 25.2): клиент GitHub — из общей фабрики внешних клиентов (автораспаковка, смена DNS).
+    private static readonly HttpClient SharedHttp = CreateClient(Token);
 
-    private static HttpClient CreateClient()
+    private static HttpClient CreateClient(string? token)
     {
-        var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("NurMarketKassa-Kassa");
-        if (!string.IsNullOrWhiteSpace(Token))
-            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("token", Token);
+        var http = ExternalHttp.Create(TimeSpan.FromSeconds(20), "NurMarketKassa-Kassa");
+        if (!string.IsNullOrWhiteSpace(token))
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("token", token);
         http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         return http;
+    }
+
+    private readonly HttpClient _http;
+    private readonly string? _token;
+
+    /// <summary>Пауза перед перечитыванием реестра после неясного ответа (подменяется в тестах).</summary>
+    internal Func<TimeSpan, CancellationToken, Task> Delay { get; set; } = (t, ct) => Task.Delay(t, ct);
+
+    public GithubLicenseRegistryClient()
+    {
+        _http = SharedHttp;
+        _token = Token;
+    }
+
+    /// <summary>Для тестов: свой HTTP-клиент (поддельный GitHub) и токен.</summary>
+    internal GithubLicenseRegistryClient(HttpClient http, string? token)
+    {
+        _http = http;
+        _token = token;
+    }
+
+    /// <summary>Чем кончилась запись реестра: Saved — GitHub принял; Conflict — файл изменился между чтением и записью (409/422);
+    /// Failed — отказ (401/403/404…), запись точно не прошла; Unknown — срок или 5xx: запись могла пройти, а ответ потерялся.</summary>
+    internal enum SaveOutcome { Saved, Conflict, Failed, Unknown }
+
+    /// <summary>Что говорит реестр про ключ (по записи файла).</summary>
+    internal enum KeyState { NotFound, Free, UsedByThisPc, UsedByOther }
+
+    /// <summary>Метка этого ПК в реестре: первые 12 символов SHA-256 от ключа установки. Личных данных нет.</summary>
+    internal static string DeviceTag()
+    {
+        var hash = System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(DeviceIdentity.Key));
+        return Convert.ToHexString(hash)[..12].ToLowerInvariant();
+    }
+
+    internal static KeyState Classify(JsonObject registry, string key, string deviceTag)
+    {
+        if (!registry.TryGetPropertyValue(key, out var node) || node is not JsonObject entry)
+            return KeyState.NotFound;
+        var status = entry["status"]?.GetValue<string>();
+        if (!string.Equals(status, "used", StringComparison.OrdinalIgnoreCase))
+            return KeyState.Free;
+        var device = entry["device"]?.GetValue<string>();
+        return !string.IsNullOrEmpty(device) && string.Equals(device, deviceTag, StringComparison.Ordinal)
+            ? KeyState.UsedByThisPc
+            : KeyState.UsedByOther;
     }
 
     /// <summary>Пытается активировать ключ. true — ключ был в реестре, не использован, теперь
@@ -89,34 +135,57 @@ public sealed class GithubLicenseRegistryClient
 
         // Без токена запрос всё равно упрётся в 401/404 — лучше сказать это сразу и понятно,
         // чем показывать кассиру сетевую ошибку.
-        if (string.IsNullOrWhiteSpace(Token))
+        if (string.IsNullOrWhiteSpace(_token))
             return (false, "Активация автономного режима сейчас недоступна на этом компьютере. Обратитесь в поддержку.");
 
         try
         {
             var (registry, sha) = await LoadRegistryAsync(ct).ConfigureAwait(false);
 
-            if (registry.TryGetPropertyValue(key, out var existingNode) && existingNode is JsonObject existing)
+            var tag = DeviceTag();
+            switch (Classify(registry, key, tag))
             {
-                var status = existing["status"]?.GetValue<string>();
-                if (string.Equals(status, "used", StringComparison.OrdinalIgnoreCase))
+                case KeyState.NotFound:
+                    return (false, "Ключ не найден. Проверьте, что он введён без ошибок.");
+                case KeyState.UsedByOther:
                     return (false, "Этот ключ уже был использован для активации на другом устройстве.");
-            }
-            else
-            {
-                return (false, "Ключ не найден. Проверьте, что он введён без ошибок.");
+                case KeyState.UsedByThisPc:
+                    // 2026-11-06 (Н-17): ключ уже отмечен именно этим ПК (прошлая попытка прошла на GitHub, а ответ потерялся) — это успех, а не «ключ использован».
+                    return (true, null);
             }
 
+            var activationId = Guid.NewGuid().ToString("N");
             registry[key] = new JsonObject
             {
                 ["status"] = "used",
                 ["usedAtUtc"] = DateTime.UtcNow.ToString("O"),
+                ["device"] = tag,
+                ["activationId"] = activationId,
             };
 
-            var saved = await SaveRegistryAsync(registry, sha, $"Activate license key {MaskKey(key)}", ct).ConfigureAwait(false);
-            return saved
-                ? (true, null)
-                : (false, "Не удалось подтвердить активацию на сервере (возможно, кто-то активировал ключ одновременно). Попробуйте ещё раз.");
+            var outcome = await SaveRegistryAsync(registry, sha, $"Activate license key {MaskKey(key)}", ct).ConfigureAwait(false);
+            switch (outcome)
+            {
+                case SaveOutcome.Saved:
+                    return (true, null);
+                case SaveOutcome.Unknown:
+                    // 2026-11-06 (Н-17, деньги): запись мог принять GitHub, а ответ потерялся по сроку или 5xx. Повторная активация дала бы «ключ использован» —
+                    // купленный ключ «сгорал». Перечитываем реестр и смотрим, наша ли там запись.
+                    if (await VerifyOurWriteAsync(key, activationId, tag, ct).ConfigureAwait(false))
+                        return (true, null);
+                    return (false, Tr.T(
+                        "Не удалось подтвердить активацию: сервер не ответил вовремя. Повторите через минуту — ключ на этом компьютере не пропадёт.",
+                        "Активдештирүү ырасталган жок: сервер өз убагында жооп берген жок. Бир мүнөттөн кийин кайталаңыз — ключ бул компьютерде жоголбойт.",
+                        "Activation could not be confirmed: the server did not respond in time. Try again in a minute — the key will not be lost on this computer.",
+                        "Etkinleştirme doğrulanamadı: sunucu zamanında yanıt vermedi. Bir dakika sonra tekrar deneyin — anahtar bu bilgisayarda kaybolmaz.",
+                        "Faollashtirish tasdiqlanmadi: server o'z vaqtida javob bermadi. Bir daqiqadan keyin qayta urinib ko'ring — kalit bu kompyuterda yo'qolmaydi."));
+                default:
+                    return (false, "Не удалось подтвердить активацию на сервере (возможно, кто-то активировал ключ одновременно). Попробуйте ещё раз.");
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return (false, "Активация отменена.");
         }
         catch (TaskCanceledException)
         {
@@ -128,10 +197,38 @@ public sealed class GithubLicenseRegistryClient
         }
     }
 
+    /// <summary>Перечитать реестр (до 3 раз с паузой 2 с) и проверить, что запись с нашим <paramref name="activationId"/> на месте.</summary>
+    private async Task<bool> VerifyOurWriteAsync(string key, string activationId, string tag, CancellationToken ct)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                await Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
+                var (registry, _) = await LoadRegistryAsync(ct).ConfigureAwait(false);
+                if (registry.TryGetPropertyValue(key, out var node) && node is JsonObject entry
+                    && string.Equals(entry["activationId"]?.GetValue<string>(), activationId, StringComparison.Ordinal)
+                    && Classify(registry, key, tag) == KeyState.UsedByThisPc)
+                    return true;
+                // Реестр прочитан, но нашей записи нет — запись не прошла; повтор чтения ничего не изменит.
+                return false;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                return false;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or FormatException)
+            {
+                PosLogger.Log($"Реестр ключей: перечитать после неясного ответа не вышло (попытка {attempt + 1}): {ex.GetType().Name}", "WARNING");
+            }
+        }
+        return false;
+    }
+
     private async Task<(JsonObject Registry, string Sha)> LoadRegistryAsync(CancellationToken ct)
     {
         var url = $"https://api.github.com/repos/{Owner}/{Repo}/contents/{FilePath}?ref={Branch}";
-        using var resp = await Http.GetAsync(url, ct).ConfigureAwait(false);
+        using var resp = await _http.GetAsync(url, ct).ConfigureAwait(false);
 
         if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
             return (new JsonObject(), "");
@@ -146,7 +243,7 @@ public sealed class GithubLicenseRegistryClient
         return (registry, sha);
     }
 
-    private async Task<bool> SaveRegistryAsync(JsonObject registry, string previousSha, string message, CancellationToken ct)
+    private async Task<SaveOutcome> SaveRegistryAsync(JsonObject registry, string previousSha, string message, CancellationToken ct)
     {
         var json = registry.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
         var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
@@ -161,9 +258,27 @@ public sealed class GithubLicenseRegistryClient
             payload["sha"] = previousSha;
 
         var url = $"https://api.github.com/repos/{Owner}/{Repo}/contents/{FilePath}";
-        using var content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
-        using var resp = await Http.PutAsync(url, content, ct).ConfigureAwait(false);
-        return resp.IsSuccessStatusCode;
+        try
+        {
+            using var content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
+            using var resp = await _http.PutAsync(url, content, ct).ConfigureAwait(false);
+            if (resp.IsSuccessStatusCode)
+                return SaveOutcome.Saved;
+            var code = (int)resp.StatusCode;
+            if (code is 409 or 422)
+                return SaveOutcome.Conflict;
+            return code >= 500 || code == 408 ? SaveOutcome.Unknown : SaveOutcome.Failed;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is TaskCanceledException or HttpRequestException or IOException)
+        {
+            // Срок или обрыв после отправки: запись могла пройти.
+            PosLogger.Log($"Реестр ключей: ответ на запись не получен ({ex.GetType().Name}) — проверяю реестр.", "WARNING");
+            return SaveOutcome.Unknown;
+        }
     }
 
     private static string MaskKey(string key) =>

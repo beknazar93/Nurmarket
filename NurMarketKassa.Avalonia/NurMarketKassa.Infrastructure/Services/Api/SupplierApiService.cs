@@ -182,6 +182,12 @@ public sealed class SupplierApiService
     /// <summary>Все поставщики компании (GET clients/?type=suppliers — тот же запрос, что у приёмки), по названию.</summary>
     public async Task<List<SupplierInfo>> ListAsync(CancellationToken ct = default)
     {
+        // 2026-11-06 (баг 3 журнала клиента): сессия недействительна — запрос на сервер не шлём (тот же отказ, что и был бы), понятная ошибка вместо «пустого списка»; в журнал раз в 10 минут.
+        if (SessionExpiryMonitor.IsExpired)
+        {
+            SessionExpiryMonitor.LogOnce("suppliers-list", "Поставщики: сессия недействительна — запрос списка не отправляю.");
+            throw new ApiException(NurMarketApiClient.AuthInvalidHintRu, 401);
+        }
         var data = await Catalog.ListSuppliersAsync(ct).ConfigureAwait(false);
         return Rows(data).Select(ParseSupplier).Where(s => s is not null).Select(s => s!)
             .OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
@@ -653,7 +659,9 @@ public sealed class SupplierApiService
             var id = Str(x, "id");
             if (id.Length == 0 || Date(Str(x, "created_at")) is not { } at)
                 continue;
-            var text = Str(x, "number") + " " + Str(x, "comment") + " " + Str(x, "note") + " " + Str(x, "description");
+            // 2026-11-06 (живой тест, Б-3): серверный number_display — первым: он главнее номера, который касса записала в комментарий при отправке (они расходились на единицу).
+            var serverNo = Str(x, "number_display");
+            var text = (serverNo.Length > 0 ? "№ " + serverNo + " " : "") + Str(x, "number") + " " + Str(x, "comment") + " " + Str(x, "note") + " " + Str(x, "description");
             // 2026-10-30: префикс из номера хранится с документом (смена префикса не перенумеровывает старые).
             var claim = DocumentNumberingCore.ClaimWithPrefixFromText(settings, series, text);
             docs.Add(new DocEntry(id, at, claim?.Year ?? 0, claim?.Seq ?? 0, claim?.Prefix ?? ""));

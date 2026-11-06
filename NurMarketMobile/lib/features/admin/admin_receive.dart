@@ -76,6 +76,10 @@ class ReceiveLine {
     this.weight = false,
   });
   double get markup => cost > 0 ? (price - cost) / cost * 100 : 0;
+
+  /// 2026-11-06 (жалоба «Орук маркет»: цена «закупка + 20 %» ставилась молча): цену существующего товара отправляем на сервер
+  /// и в базу телефона, только если её изменили в этом приходе и она задана. Пустую (0) цену и прежнюю не трогаем.
+  bool get priceChanged => !isNew && price > 0 && (price - oldPrice).abs() > 0.004;
 }
 
 /// 2026-10-27: строки и поставщик из «Загрузить накладную» — передаются в обычный экран прихода (проведение — прежним путём).
@@ -95,12 +99,10 @@ class ReceiveHandoff {
 /// Количество — до 3 знаков (граммы).
 double roundQty(double v) => (v * 1000).round() / 1000;
 
-/// 2026-10-26 (голос-управление, В3б): цена продажи, когда голосом её не назвали, — правило ПК (KeepCurrentPriceIfLower):
-/// не ниже текущей и не ниже закупки + 20 % (минимальная наценка), вверх до целого сома.
-double aiReceivePrice(double cost, double oldPrice) {
-  final floor = ((cost * 1.2 * 100).round() / 100).ceilToDouble();
-  return oldPrice >= floor ? oldPrice : floor;
-}
+/// 2026-11-06 (жалоба «Орук маркет»): цену продажи голосом молча не ставим (раньше: не ниже закупки + 20 %, товару без цены
+/// 30 → 36). Названа ([named] > 0) — берём её; не названа — прежняя цена товара остаётся как есть; у товара нет цены и её
+/// не назвали — null (ассистент переспрашивает «Какая цена продажи?»).
+double? aiReceivePrice(double? named, double oldPrice) => named != null && named > 0 ? named : (oldPrice > 0 ? oldPrice : null);
 
 /// 13.10, макеты ПР2, ПР4–ПР6: приёмка на телефоне администратора — тем же путём, что касса (PurchaseReceivingService):
 /// с поставщиком — документ прихода POST api/main/suppliers/{id}/receipt/ (остаток прибавляет сервер), изменённая цена
@@ -426,7 +428,7 @@ class AdminReceiveRepository {
       await db.setSetting(pendingReceiptKeySetting, '');
       posted = ready.length;
       done.addAll(ready);
-      for (final l in ready.where((l) => !l.isNew && (l.price - l.oldPrice).abs() > 0.004)) {
+      for (final l in ready.where((l) => l.priceChanged)) {
         try {
           await api.patch('api/main/products/${l.productId}/', body: {'price': l.price.toStringAsFixed(2)});
         } on ApiException catch (e) {
@@ -451,7 +453,8 @@ class AdminReceiveRepository {
             }
           }
           final target = setStock ? roundQty(l.qty) : roundQty(pre + l.qty);
-          final body = <String, Object>{'purchase_price': purchaseText(l.cost), 'price': l.price.toStringAsFixed(2)};
+          // 2026-11-06: цену шлём, только если её изменили в этом приходе (раньше уходила всегда — затирала цену и «молча» ставила 0)
+          final body = <String, Object>{'purchase_price': purchaseText(l.cost), if (l.priceChanged) 'price': l.price.toStringAsFixed(2)};
           if ((stock - target).abs() >= 0.0005) {
             body['quantity'] = target;
             if (!setStock) {
@@ -495,7 +498,7 @@ class AdminReceiveRepository {
       } else {
         await db.adjustStock(l.productId, l.qty);
       }
-      await db.customStatement('UPDATE products SET price = ? WHERE id = ?', [l.price, l.productId]);
+      if (l.priceChanged) await db.customStatement('UPDATE products SET price = ? WHERE id = ?', [l.price, l.productId]);
     }
     return (posted, errors);
   }
@@ -617,7 +620,11 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
       }
       final cost = m['cost'] is num ? (m['cost'] as num).toDouble() : (parseNum('${m['cost'] ?? ''}') ?? oldCost);
       if (cost <= 0) return HandleOutcome.clarifyKey('h.costNeeded', {'name': p.name});
-      final price = m['price'] is num ? (m['price'] as num).toDouble() : (parseNum('${m['price'] ?? ''}') ?? aiReceivePrice(cost, p.price));
+      // 2026-11-06: цену молча не ставим. Не названа и у товара есть цена — остаётся прежней; нет цены нигде — переспрашиваем.
+      // price: 0 в просьбе = «оставить без цены» (цену товара не трогаем, запрос цены не уходит).
+      final named = m['price'] is num ? (m['price'] as num).toDouble() : parseNum('${m['price'] ?? ''}');
+      final price = aiReceivePrice(named, p.price) ?? (named == 0 ? 0.0 : null);
+      if (price == null) return HandleOutcome.clarifyKey('h.priceNeeded', {'name': p.name});
       lines.add(
         ReceiveLine(
           productId: p.id,
@@ -983,7 +990,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
     final l = context.l;
     // 13.10, макет ПР6: итог перед проведением — позиции, штуки, новые товары, изменённые цены, сумма закупки.
     final qty = _lines.fold(0.0, (s, x) => s + x.qty);
-    final priceChanges = _lines.where((x) => !x.isNew && (x.price - x.oldPrice).abs() > 0.004).length;
+    final priceChanges = _lines.where((x) => x.priceChanged).length;
     // 2026-10-26 (голос-управление, В3б): от ИИ диалога «Провести?» нет — просьба в звонке и есть одобрение
     final confirm = !ask
         ? true

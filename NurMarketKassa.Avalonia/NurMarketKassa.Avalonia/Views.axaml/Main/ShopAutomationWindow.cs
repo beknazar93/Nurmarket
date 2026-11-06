@@ -78,6 +78,13 @@ public sealed class ShopAutomationWindow : Window
 
     private Control Line(CheckBox? check, string? before = null, TextBox? box = null, string? after = null)
     {
+        // 2026-11-06: В3 ДС-3 — у числового поля нет своей подписи (текст «до» и «после» лежат рядом отдельными надписями): диктор читал просто «0». Имя поля = эти надписи (или текст флажка).
+        if (box is not null)
+        {
+            var spoken = string.Join(" ", new[] { before, after, before is null && after is null ? check?.Content as string : null }.Where(s => !string.IsNullOrWhiteSpace(s))).Trim(' ', ':');
+            if (spoken.Length > 0 && string.IsNullOrEmpty(AutomationProperties.GetName(box)))
+                AutomationProperties.SetName(box, spoken);
+        }
         // 2026-11-05 (ревью волн 0–3, Н11): перенос строки вместо обрезки на ky/uz и масштабе 125 %.
         var row = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         if (check is not null)
@@ -99,6 +106,8 @@ public sealed class ShopAutomationWindow : Window
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         row.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, FontSize = 13 });
+        if (string.IsNullOrEmpty(AutomationProperties.GetName(control)))
+            AutomationProperties.SetName(control, label); // 2026-11-06: В3 ДС-3 — подпись поля для диктора
         row.Children.Add(control);
         return row;
     }

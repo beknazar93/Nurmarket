@@ -22,6 +22,11 @@ public sealed class UserSession
     /// "не проверяем" (см. OnlineOfflineAuthenticationService.IsWithinOfflineGracePeriod), чтобы
     /// обновление кассы не обрывало уже идущую офлайн-работу задним числом.</summary>
     public DateTimeOffset? LastOnlineContactAt { get; init; }
+
+    /// <summary>2026-11-06: когда вошли ПО ПАРОЛЮ (refresh-токен сервера живёт 7 суток от этого входа и не продлевается).
+    /// Нужен, если refresh-токен не JWT или без срока: касса предупреждает «Вход истекает через N ч» (RefreshExpiryWatcher).
+    /// Null у файлов, сохранённых до этого поля — «неизвестно»; читаются как раньше.</summary>
+    public DateTimeOffset? PasswordLoginAt { get; init; }
 }
 
 public interface IAuthSessionManager

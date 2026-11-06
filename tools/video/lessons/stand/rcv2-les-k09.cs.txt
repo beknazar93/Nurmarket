@@ -1,0 +1,44 @@
+// 2026-10-30: сцена K-09 для стенда ad-rcv2 (вставить в switch метода FeatRun рядом с case "rcv-unknown"); запуск: runr.sh Ru light les-k09
+            case "les-k09":
+                {
+                    // 2026-10-30: кадры урока K-09 (приёмка сканером): PNG окна 1x + frames.json с прямоугольниками (см. tools/video/lessons)
+                    var meta = new System.Text.Json.Nodes.JsonObject();
+                    void Snap(string nm, params (string K, Control? C)[] rs)
+                    {
+                        Pump(8, 25);
+                        var wd = (int)win.Bounds.Width; var ht = (int)win.Bounds.Height;
+                        var rtb = new RenderTargetBitmap(new PixelSize(wd, ht)); rtb.Render(win); rtb.Save(Path.Combine(OutDir, nm + ".png"));
+                        var rj = new System.Text.Json.Nodes.JsonObject();
+                        foreach (var (k, c) in rs) { if (c == null) { Console.WriteLine("  нет " + k); continue; } var a = c.TranslatePoint(new Point(0, 0), win)!.Value; var b = c.TranslatePoint(new Point(c.Bounds.Width, c.Bounds.Height), win)!.Value; rj[k] = new System.Text.Json.Nodes.JsonArray(Math.Round(a.X, 1), Math.Round(a.Y, 1), Math.Round(b.X - a.X, 1), Math.Round(b.Y - a.Y, 1)); }
+                        meta[nm] = new System.Text.Json.Nodes.JsonObject { ["w"] = wd, ["h"] = ht, ["scale"] = 1, ["rects"] = rj };
+                        Console.WriteLine("PNG " + nm + " rects=" + rj.Count);
+                    }
+                    Control? Hdr(string part) => win.GetVisualDescendants().OfType<DataGridColumnHeader>().FirstOrDefault(h => h.GetVisualDescendants().OfType<TextBlock>().Any(t => (t.Text ?? "").Contains(part)));
+                    Control? Txt(string part) => win.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault(t => t.IsVisible && t.Bounds.Width > 0 && (t.Text ?? "").Contains(part));
+                    Control? Bt(string part) => win.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.IsVisible && (b.Content?.ToString() ?? "").Contains(part));
+                    Click(win, ScanBox);
+                    Snap("01-empty", ("scan", ScanBox), ("grid", Grid), ("markup", F<Button>("ReceivingMarkupButton")), ("markupall", Txt("Наценка")));
+                    // скан: код набирается в поле
+                    foreach (var ch in AdBc(3)) { KeyChar(win, ch); Pump(1, 0); }
+                    Pump(6, 25);
+                    Snap("02-scan-typed", ("scan", ScanBox));
+                    PressEnter(win); Pump(10, 25); Wait(() => Focus() == "cell:" + ColQty && Top?.ProductId == "id3", 3000); Pump(10, 25);
+                    Snap("03-line-qty", ("line", Grid), ("qty", Hdr("Прини")), ("name", Hdr("Название")));
+                    Type("24", 40); Pump(6, 20);
+                    Snap("04-qty-typed", ("qty", Hdr("Прини")));
+                    PressEnter(win); Pump(8, 8);
+                    Snap("05-purchase-cell", ("purchase", Hdr("Закупка")), ("grid", Grid));
+                    Top!.PurchasePriceText = "185"; Pump(10, 25); ReceivingGridSelect(0);
+                    Snap("06-purchase-changed", ("changed", Hdr("Закупка изменилась")), ("how", Hdr("Как посчитана")), ("sale", Hdr("Цена продажи")), ("purchase", Hdr("Закупка")), ("grid", Grid));
+                    // вторая строка: цена продажи ниже закупки
+                    Click(win, ScanBox); ScanKeysFast(AdBc(4)); Wait(() => Focus() == "cell:" + ColQty && Top?.ProductId == "id4", 3000);
+                    Type("60", 40); PressEnter(win); Pump(8, 8); PressEnter(win); Pump(8, 8);
+                    Top!.PurchasePriceText = "17"; Top!.SalePriceText = "15"; Pump(10, 25); ReceivingGridSelect(0);
+                    Snap("07-below-cost", ("grid", Grid), ("sale", Hdr("Цена продажи")));
+                    var prov = F<Button>("ReceivingCommitButton");
+                    Snap("08-finish", ("finish", prov), ("grid", Grid));
+                    File.WriteAllText(Path.Combine(OutDir, "frames.json"), meta.ToJsonString(new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+                    foreach (var b in win.GetVisualDescendants().OfType<Button>().Where(b => b.IsVisible)) Console.WriteLine("BTN " + b.Name + " " + b.Content);
+                    foreach (var h in win.GetVisualDescendants().OfType<DataGridColumnHeader>()) Console.WriteLine("HDR " + string.Join("|", h.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text)));
+                    break;
+                }

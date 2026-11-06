@@ -5,6 +5,7 @@
 ### Русский
 
 **Что исправлено по сравнению с 1.18.18** (аудит №5)
+- **Приёмка: цена продажи молча не ставится.** Цена «закупка + 20 %» больше не появляется сама: авто-наценка по умолчанию выключена, цена существующего товара уходит на сервер только если её изменили в этом приходе, строку без цены можно оставить без цены (вопрос перед отправкой). Голосовой помощник цену молча не придумывает, а спрашивает.
 - **Бумажный чек сходится с ИТОГО при новом правиле сервера:** весовые строки печатаются вниз до шага весов (0,343 кг × 66 = 22,63, а не 22,64), два взвешивания одного товара — одной строкой, как на сервере; строка «Округление» только когда нужна. Так же на встроенном принтере Sunmi. Повторная печать из «Чеков» больше не показывает ложную «скидку −0,01».
 - **«Выйти из аккаунта» не стирает чек молча:** с набранным чеком или отложенными нужно право «удаление из чека», вопрос «позиций / отложено», и каждая строка попадает в «Удалено из чека».
 - **Повтор возврата через 10+ минут** не выдаёт деньги второй раз: если на сервере уже есть возврат после прошлой попытки, новый не отправляется, показывается «Возврат мог уже пройти». Сверка идёт по часам сервера.
@@ -16,6 +17,7 @@
 ### Кыргызча
 
 **1.18.18 менен салыштырганда эмне оңдолду** (5-аудит)
+- **Кабыл алуу: сатуу баасы унчукпай коюлбайт.** «Сатып алуу + 20 %» баасы өзү пайда болбойт: авто-наценка демейки боюнча өчүк, учурдагы товардын баасы бул кирешеде өзгөртүлсө гана серверге кетет, баасы жок сапты баасыз калтырса болот (жөнөтүүдөн мурун суроо). Үн жардамчысы баасын өзү ойлоп таппайт, сурайт.
 - **Кагаз чек сервердин жаңы эрежеси менен ЖАЛПЫга дал келет:** салмактуу саптар тараза кадамына чейин төмөн басылат (0,343 кг × 66 = 22,63, 22,64 эмес), бир товардын эки таразасы сервердегидей бир сап; «Тегеректөө» сабы керек болгондо гана. Орнотулган Sunmi принтеринде да ушундай. «Чектерден» кайра басканда жасалма «−0,01 арзандатуу» көрүнбөйт.
 - **«Аккаунттан чыгуу» чекти унчукпай өчүрбөйт:** терилген чек же кечиктирилген чектер болсо «чектен өчүрүү» укугу керек, «позиция / кечиктирилген» суроосу берилет, ар бир сап «Чектен өчүрүлдү» журналына жазылат.
 - **10+ мүнөттөн кийин кайтарууну кайталоо** акчаны экинчи жолу бербейт: өткөн аракеттен кийинки кайтаруу серверде бар болсо, жаңысы жөнөтүлбөйт, «Кайтаруу өтүп кетиши мүмкүн» көрүнөт. Салыштыруу сервердин саты боюнча.
@@ -27,6 +29,7 @@
 ### English
 
 **What is fixed since 1.18.18** (audit #5)
+- **Receiving: the selling price is not set silently.** The “purchase + 20 %” price no longer appears by itself: auto-markup is off by default, the price of an existing product goes to the server only if it was changed in this receipt, a line without a price can be left without one (a question before sending). The voice assistant does not invent a price, it asks.
 - **The paper receipt adds up to the TOTAL under the new server rule:** weighed lines print rounded down to the scale step (0.343 kg × 66 = 22.63, not 22.64), two weighings of one product are one line like on the server; the “Rounding” line appears only when needed. The same on the built-in Sunmi printer. Printing again from Receipts no longer shows a false “discount −0.01”.
 - **“Sign out” does not erase the receipt silently:** with a receipt in progress or held receipts it needs the “delete from receipt” right, asks “items / held”, and every line goes to “Removed from receipt”.
 - **Repeating a return after 10+ minutes** does not pay out twice: if the server already has a return after the earlier attempt, a new one is not sent and “The return may already be done” is shown. The check uses the server clock.
@@ -38,6 +41,7 @@
 ### Türkçe
 
 **1.18.18'e göre düzeltilenler** (5. denetim)
+- **Mal kabulü: satış fiyatı sessizce ayarlanmaz.** «Alış + %20» fiyatı artık kendiliğinden çıkmaz: otomatik kâr oranı varsayılan olarak kapalıdır, mevcut ürünün fiyatı yalnızca bu kabulde değiştirildiyse sunucuya gider, fiyatsız satır fiyatsız bırakılabilir (göndermeden önce soru). Sesli yardımcı fiyat uydurmaz, sorar.
 - **Kağıt fiş yeni sunucu kuralıyla TOPLAM ile tutar:** tartılı satırlar terazi adımına kadar aşağı basılır (0,343 kg × 66 = 22,63, 22,64 değil), aynı ürünün iki tartımı sunucudaki gibi tek satır; «Yuvarlama» satırı yalnız gerektiğinde. Dahili Sunmi yazıcıda da aynı. «Fişler»den tekrar yazdırınca sahte «−0,01 indirim» görünmez.
 - **«Çıkış» fişi sessizce silmez:** doluyken veya bekleyen fişler varken «fişten silme» yetkisi, «kalem / bekleyen» sorusu gerekir; her satır «Fişten silindi» günlüğüne yazılır.
 - **10+ dakika sonra iadeyi tekrarlamak** parayı ikinci kez vermez: önceki denemeden sonra sunucuda iade varsa yenisi gönderilmez, «İade zaten yapılmış olabilir» gösterilir. Karşılaştırma sunucu saatiyle yapılır.
@@ -49,6 +53,7 @@
 ### O'zbekcha
 
 **1.18.18 dan keyin tuzatilganlar** (5-audit)
+- **Qabul: sotuv narxi jimgina qo'yilmaydi.** «Xarid + 20 %» narxi o'zi paydo bo'lmaydi: avtoustama odatda o'chiq, mavjud tovar narxi faqat shu kirimda o'zgartirilsa serverga ketadi, narxsiz qatorni narxsiz qoldirish mumkin (yuborishdan oldin savol). Ovozli yordamchi narxni o'zi to'qimaydi, so'raydi.
 - **Qog'oz chek serverning yangi qoidasi bilan JAMI ga to'g'ri keladi:** tarozi qatorlari tarozi qadamigacha pastga chop etiladi (0,343 kg × 66 = 22,63, 22,64 emas), bir tovarning ikki tortilishi serverdagidek bitta qator; «Yaxlitlash» qatori faqat kerak bo'lganda. O'rnatilgan Sunmi printerida ham shunday. «Cheklar»dan qayta chop etganda yolg'on «−0,01 chegirma» ko'rinmaydi.
 - **«Akkauntdan chiqish» chekni jimgina o'chirmaydi:** terilgan chek yoki kechiktirilgan cheklar bo'lsa «chekdan o'chirish» huquqi, «pozitsiya / kechiktirilgan» savoli kerak, har bir qator «Chekdan o'chirildi» jurnaliga yoziladi.
 - **10+ daqiqadan keyin qaytarishni takrorlash** pulni ikkinchi marta bermaydi: oldingi urinishdan keyin serverda qaytarish bo'lsa, yangisi yuborilmaydi, «Qaytarish allaqachon o'tgan bo'lishi mumkin» ko'rsatiladi. Solishtirish server soati bo'yicha.

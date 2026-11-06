@@ -114,8 +114,14 @@ public partial class CheckoutDialog : Window
             _printPrefTimer?.Stop();
             _offlineTimer?.Stop();
             _viewModel.FlushPrintReceiptPreference();
+            _viewModel.FlushCardPayPreference(); // 2026-11-06 (Д4-15)
         };
         Deactivated += (_, _) => _heldFunctionKeys.Clear();
+        AddHandler(GotFocusEvent, (_, e) =>
+        {
+            if (e.Source is TextBox box && Array.IndexOf(AmountBoxes, box) >= 0)
+                _lastAmountBox = box;
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(KeyUpEvent, (_, e) => _heldFunctionKeys.Remove(e.Key), RoutingStrategies.Tunnel, handledEventsToo: true);
         Opened += (_, _) => StartOfflineWatch();
         // 2026-10-23 (ТЗ компактной оплаты): высота окна теперь по содержимому, поэтому после её смены (другой способ оплаты, клиент,
@@ -235,7 +241,51 @@ public partial class CheckoutDialog : Window
         if (e.Key != Key.Enter)
             return;
         e.Handled = true;
+        // 2026-11-06 (план «десктоп 10 из 10», А-6): на Android «Готово» экранной клавиатуры приходит как Enter и сразу проводило оплату — кассир не успевал
+        // увидеть сдачу. Теперь «Готово» только убирает курсор (клавиатура прячется), оплата — кнопкой «Оплатить». На компьютере Enter = «Оплатить», как было.
+        if (OperatingSystem.IsAndroid())
+        {
+            FocusManager?.ClearFocus();
+            return;
+        }
         Pay();
+    }
+
+    // ------------------------------------------------------------------ 2026-11-06 (Д4-16): цифровой блок
+    // Правка текста — в CheckoutKeypad (чистая функция, под тестами); здесь только поле, куда вводим: где стоит курсор, иначе по способу оплаты.
+    private TextBox? _lastAmountBox;
+
+    private TextBox[] AmountBoxes => [CashReceivedBox, DebtPaidBox, MixedCashBox, MixedNonCashBox];
+
+    private TextBox? KeypadTarget()
+    {
+        var boxes = AmountBoxes;
+        if (FocusManager?.GetFocusedElement() is TextBox focused && Array.IndexOf(boxes, focused) >= 0 && focused.IsEffectivelyVisible)
+            return focused;
+        if (_lastAmountBox is { IsEffectivelyVisible: true } last)
+            return last;
+        return _viewModel.IsCashMode ? CashReceivedBox
+            : _viewModel.IsDebtMode ? DebtPaidBox
+            : _viewModel.IsMixedMode ? MixedCashBox
+            : null;
+    }
+
+    private void Keypad_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string key } || KeypadTarget() is not { } box)
+            return;
+        if (!box.IsFocused)
+        {
+            box.Focus();
+            box.SelectAll(); // поле только что получило фокус: первое нажатие заменяет предложенную сумму, как при открытии окна
+        }
+        _lastAmountBox = box;
+        var (text, caret) = CheckoutKeypad.Apply(box.Text ?? "", box.SelectionStart, box.SelectionEnd, key);
+        if (text == (box.Text ?? ""))
+            return;
+        box.Text = text;
+        box.CaretIndex = caret;
+        box.SelectionStart = box.SelectionEnd = caret;
     }
 
     private void Pay()
@@ -324,6 +374,13 @@ public partial class CheckoutDialog : Window
 
             // 2026-10-20, живая проверка: в «Смешанной» Enter в полях сумм ничего не делал (поле съедало
             // клавишу). Как в наличных: суммы сходятся — Enter оплачивает (проверки те же, что у кнопки).
+            // 2026-11-06 (А-6): на Android «Готово» в этих полях не оплачивает (сумма сходится сразу после ввода наличной части) — клавиатура прячется.
+            case Key.Enter when (ReferenceEquals(focused, MixedCashBox) || ReferenceEquals(focused, MixedNonCashBox))
+                                && _viewModel.IsMixedMode && OperatingSystem.IsAndroid():
+                e.Handled = true;
+                FocusManager?.ClearFocus();
+                break;
+
             case Key.Enter when (ReferenceEquals(focused, MixedCashBox) || ReferenceEquals(focused, MixedNonCashBox))
                                 && _viewModel.IsMixedMode && _viewModel.MixedAmountsMatch:
                 e.Handled = true;
@@ -612,6 +669,12 @@ public partial class CheckoutDialog : Window
     /// <summary>Высота окна, которую ещё не успели измерить (до показа): по ней первый раз ставится низ окна, после показа место уточняется.</summary>
     private const double GuessWindowHeight = 460;
 
+    /// <summary>2026-11-06 (Д4-14): постоянная высота окна оплаты — по самому высокому способу («В долг»: ≈ 640 в одной колонке, ≈ 560 в двух), а не по содержимому:
+    /// раньше высота прыгала (486 / 416 / 526 / 641) вместе с кнопкой «Оплатить», и рука промахивалась. Ниже доступной высоты (моноблок 1024×600) — вся доступная высота;
+    /// выше (рассрочка с таблицей) окно по-прежнему растёт до потолка, дальше прокрутка.</summary>
+    private const double FixedPanelHeightOneCol = 640;
+    private const double FixedPanelHeightTwoCol = 560;
+
     private Window? _dockOwner;
     private bool _redockQueued;
     /// <summary>2026-10-27: режим «прижимать к низу» из payment_dialog_position.json (читается при открытии окна).</summary>
@@ -723,7 +786,8 @@ public partial class CheckoutDialog : Window
 
             // Потолок высоты: доступная область минус отступы сверху и снизу; от него считаются плотность (compact/tiny) и прокрутка тела.
             var maxHeight = area.Height / scaling - 2 * DockMargin;
-            var height = Bounds.Height > 0 ? Bounds.Height : Math.Min(GuessWindowHeight, maxHeight);
+            var fixedHeight = Math.Min(maxHeight, twoCol ? FixedPanelHeightTwoCol : FixedPanelHeightOneCol);
+            var height = Bounds.Height > 0 ? Bounds.Height : Math.Min(Math.Max(GuessWindowHeight, fixedHeight), maxHeight);
 
             var x = origin.X + (int)Math.Round(left * scaling);
             x = Math.Clamp(x, area.X, Math.Max(area.X, area.Right - (int)Math.Round(width * scaling)));
@@ -746,7 +810,7 @@ public partial class CheckoutDialog : Window
             SizeToContent = SizeToContent.Height;
             WindowStartupLocation = WindowStartupLocation.Manual;
             MinWidth = 0;
-            MinHeight = 0;
+            MinHeight = fixedHeight; // 2026-11-06 (Д4-14): постоянная высота
             MaxWidth = width;
             MaxHeight = maxHeight;
             if (double.IsNaN(Width) || Math.Abs(Width - width) > 0.5)
@@ -798,6 +862,8 @@ public partial class CheckoutDialog : Window
             }
             Classes.Set("compact", availH.Value < CompactPanelHeight);
             Classes.Set("tiny", availH.Value < TinyPanelHeight);
+            var wideFit = availW.Value >= TwoColWindowWidth + 40 && availH.Value < TinyPanelHeight;
+            MinHeight = Math.Min(availH.Value, wideFit ? FixedPanelHeightTwoCol : FixedPanelHeightOneCol); // 2026-11-06 (Д4-14): постоянная высота и не прилипшего окна
             if (availW.Value >= TwoColWindowWidth + 40 && availH.Value < TinyPanelHeight)
             {
                 var width = Math.Min(availW.Value, 800);

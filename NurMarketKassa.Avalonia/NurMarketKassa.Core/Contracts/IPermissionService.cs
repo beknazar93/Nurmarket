@@ -15,7 +15,7 @@ public static class PosPermissions
     public const string EditPrice = "can_view_market_edit_price";
 
     /// <summary>2026-11-03 (аудит №3, Т3-03): «Склад: редактирование» (can_edit_products) — удаление, архив, списание, правка карточки, цен и остатка. Владелец/админ — всегда;
-    /// закрыто только когда сервер явно прислал false (PermissionService.IsProductEditAllowed).</summary>
+    /// остальным — только при явном true (2026-11-06, В3 Л4-20; PermissionService.IsProductEditAllowed).</summary>
     public const string EditProducts = "can_edit_products";
     public const string DeleteCartItem = "can_view_market_delete_cart_item";
     public const string ViewProcurement = "can_view_market_procurement";

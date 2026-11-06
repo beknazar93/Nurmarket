@@ -296,6 +296,52 @@ public sealed class PurchasePaymentDialog : Window
     private void Use(AvaloniaObject target, AvaloniaProperty property, string key) => target.Bind(property, (target is Control own ? own : this).GetResourceObservable(key));
 }
 
+/// <summary>2026-11-06: «Оприходовать» без выбранного поставщика — вопрос с тремя кнопками: выбрать поставщика, оприходовать без поставщика, отмена.
+/// Без поставщика товары пишутся прямо на склад: накладной сервера, долга и записи об оплате не будет — об этом сказано в тексте.</summary>
+public sealed class PurchaseNoSupplierDialog : Window
+{
+    private static string T(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
+
+    /// <summary>Ответ кассира; закрытие окна крестиком / Esc — «Отмена».</summary>
+    public NoSupplierChoice Result { get; private set; } = NoSupplierChoice.Cancel;
+
+    public PurchaseNoSupplierDialog(int lines)
+    {
+        Title = T("Поставщик не выбран", "Жеткирүүчү тандалган жок", "No supplier selected", "Tedarikçi seçilmedi", "Yetkazib beruvchi tanlanmagan");
+        SectionCards.AsModal(this, 560);
+        var text = new TextBlock
+        {
+            FontSize = 14, TextWrapping = TextWrapping.Wrap,
+            Text = T($"Вы не выбрали поставщика ({lines} {Tr.Plural(lines, "позиция", "позиции", "позиций")}). Выберите его — тогда приход пойдёт накладной, а оплату или долг можно оформить. ",
+                    $"Жеткирүүчү тандалган жок ({lines} позиция). Аны тандаңыз — ошондо кирүү накладной менен өтөт, төлөмдү же карызды жасоого болот. ",
+                    $"No supplier is selected ({lines} {Tr.PluralEn(lines, "item", "items")}). Choose one — then the delivery is posted as an invoice and you can record the payment or debt. ",
+                    $"Tedarikçi seçilmedi ({lines} kalem). Seçerseniz giriş fatura olarak işlenir, ödeme veya borç kaydedilebilir. ",
+                    $"Yetkazib beruvchi tanlanmagan ({lines} ta pozitsiya). Uni tanlang — kirim nakladnoy bilan o'tadi, to'lov yoki qarzni rasmiylashtirish mumkin. ")
+                + T("Без поставщика товары сразу ложатся на склад: накладной, долга и записи об оплате не будет.",
+                    "Жеткирүүчүсүз товарлар түздөн-түз кампага жазылат: накладной, карыз жана төлөм жазуусу болбойт.",
+                    "Without a supplier the goods go straight to the warehouse: no invoice, no debt and no payment record.",
+                    "Tedarikçisiz ürünler doğrudan depoya girer: fatura, borç ve ödeme kaydı olmaz.",
+                    "Yetkazib beruvchisiz tovarlar to'g'ridan-to'g'ri omborga tushadi: nakladnoy, qarz va to'lov yozuvi bo'lmaydi."),
+        };
+        text.Bind(TextBlock.ForegroundProperty, text.GetResourceObservable("BrushText"));
+        var cancel = SectionCards.Cancel(T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+        cancel.Click += (_, _) => Close();
+        var without = SectionCards.Secondary(T("Оприходовать без поставщика", "Жеткирүүчүсүз кабыл алуу", "Post without a supplier", "Tedarikçisiz kaydet", "Yetkazib beruvchisiz kirim qilish"));
+        without.Click += (_, _) =>
+        {
+            Result = NoSupplierChoice.WithoutSupplier;
+            Close();
+        };
+        var choose = SectionCards.Primary(T("Выбрать поставщика", "Жеткирүүчүнү тандоо", "Choose a supplier", "Tedarikçi seç", "Yetkazib beruvchini tanlash"), isDefault: true);
+        choose.Click += (_, _) =>
+        {
+            Result = NoSupplierChoice.ChooseSupplier;
+            Close();
+        };
+        Content = SectionCards.Shell(Title, null, text, SectionCards.Buttons(cancel, without, choose));
+    }
+}
+
 /// <summary>«Оприходование завершено» сайта: что принято, как оплачено (долг/касса), предупреждения; «Скачать накладную» (PDF, жёлтая),
 /// «Печать», «Закрыть».</summary>
 public sealed class PurchaseDoneDialog : Window
@@ -337,16 +383,20 @@ public sealed class PurchaseDoneDialog : Window
 
         // 2026-10-30 (нумерация закупок): номер документа, присвоенный при отправке прихода (ПР-2026-000123 или временный ПР-2026-ч5 без связи).
         var reserved = outcome.Result.ReceiptKey is { Length: > 0 } rk ? DocumentNumbering.Store.FindReservation(DocSeries.Receipt, rk) : null;
-        var number = reserved is not null ? DocumentNumbering.Store.Format(reserved)
-            : outcome.Result.ReceiptId is { Length: >= 8 } id ? DocumentNumbering.ReceiptText(id) : DateTime.Now.ToString("yyMMdd-HHmm", CultureInfo.InvariantCulture);
-        if (reserved is not null)
+        // 2026-11-06 (живой тест, Б-3): серверный номер (number_display из ответа) главнее номера кассы; номер кассы без ответа сервера — «предварительный».
+        var serverNumber = outcome.Result.ReceiptNumber is { Length: > 0 } sn ? sn : null;
+        var number = serverNumber ?? (reserved is not null ? DocumentNumbering.Store.Format(reserved)
+            : outcome.Result.ReceiptId is { Length: >= 8 } id ? DocumentNumbering.ReceiptText(id) : DateTime.Now.ToString("yyMMdd-HHmm", CultureInfo.InvariantCulture));
+        if (reserved is not null || serverNumber is not null)
         {
             var numberText = new TextBlock
             {
                 FontSize = 14, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap,
                 Text = T("Номер прихода: ", "Кирүүнүн номери: ", "Delivery number: ", "Giriş numarası: ", "Kirim raqami: ") + number
-                       + (reserved.Draft ? T(" (временный — станет постоянным после сверки с сервером)", " (убактылуу — сервер менен тактоодон кийин туруктуу болот)", " (temporary — becomes permanent after syncing with the server)",
-                           " (geçici — sunucuyla eşitlenince kalıcı olur)", " (vaqtincha — server bilan solishtirilgach doimiy bo'ladi)") : ""),
+                       + (serverNumber is not null ? "" : reserved!.Draft ? T(" (временный — станет постоянным после сверки с сервером)", " (убактылуу — сервер менен тактоодон кийин туруктуу болот)", " (temporary — becomes permanent after syncing with the server)",
+                           " (geçici — sunucuyla eşitlenince kalıcı olur)", " (vaqtincha — server bilan solishtirilgach doimiy bo'ladi)")
+                           : T(" (предварительный — окончательный номер даёт сервер)", " (алдын ала — акыркы номерди сервер берет)", " (preliminary — the server gives the final number)",
+                               " (ön numara — kesin numarayı sunucu verir)", " (dastlabki — yakuniy raqamni server beradi)")),
             };
             Use(numberText, TextBlock.ForegroundProperty, "BrushText");
             panel.Children.Add(numberText);
@@ -407,7 +457,7 @@ public sealed class PurchaseReceiptDialog : Window
     public PurchaseReceiptDialog(SupplierReceipt r, PurchaseReceiptNote? note, bool debtRecorded, SupplierInfo? supplier, PurchaseReceiptContext? context = null)
     {
         // 2026-10-30 (нумерация закупок): в заголовке — номер документа (ПР-2026-000123; пока история не сверена — короткий код).
-        var docNumber = DocumentNumbering.ReceiptText(r.Id);
+        var docNumber = DocumentNumbering.ReceiptText(r); // 2026-11-06 (Б-3): серверный номер, тот же что в списке и окне документа
         Title = T($"Приход {docNumber} · Позиции", $"Кирүү {docNumber} · Позициялар", $"Delivery {docNumber} · Items", $"Giriş {docNumber} · Kalemler", $"Kirim {docNumber} · Pozitsiyalar");
         SectionCards.AsModal(this, 760);
         var panel = new StackPanel { Spacing = 8 };

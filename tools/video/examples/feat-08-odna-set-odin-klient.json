@@ -1,0 +1,467 @@
+{
+ "name": "feat-08-odna-set-odin-klient",
+ "lang": "ru",
+ "voice": "none",
+ "music": false,
+ "fps": 30,
+ "logo": "C:\\Users\\User\\NurMarket-video\\assets\\logo.png",
+ "premix": "C:\\Users\\User\\NurMarket-video\\ad\\work-feat\\feat-08.wav",
+ "scenes": [
+  {
+   "id": "s1",
+   "template": "feat",
+   "duration": 4.4,
+   "subs": [],
+   "transition": "none",
+   "intro": {
+    "num": "08 / 15",
+    "name": "Одна сеть — один клиент"
+   },
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    },
+    "sign": "НУР-2"
+   },
+   "actors": [
+    {
+     "id": "apa",
+     "img": "char-apa-angry",
+     "x": 460,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true
+    },
+    {
+     "id": "ainura",
+     "img": "char-ainura-stand",
+     "x": 1130,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back"
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "apa",
+     "text": "У меня были бонусы!",
+     "at": 1.4,
+     "dur": 1.719,
+     "dy": 0,
+     "w": 560
+    },
+    {
+     "who": "ainura",
+     "text": "Проверим.",
+     "at": 3.1,
+     "dur": 1.056,
+     "dy": 0,
+     "w": 360
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "template": "feat",
+   "duration": 5.0667,
+   "subs": [
+    {
+     "text": "Два магазина — одна сеть.",
+     "at": 0.3,
+     "dur": 2.297
+    },
+    {
+     "text": "Бонусы копятся здесь,",
+     "at": 2.597,
+     "dur": 2.0
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\08-kassa-bonus-accrue.png",
+     "crop": [
+      0,
+      0,
+      2592,
+      1420
+     ],
+     "area": [
+      100,
+      36,
+      1720,
+      790
+     ],
+     "focus": [
+      {
+       "at": 1.4,
+       "dur": 0.8,
+       "rect": [
+        1010,
+        380,
+        1570,
+        960
+       ]
+      }
+     ],
+     "clicks": [
+      {
+       "at": 0.6,
+       "rect": [
+        140,
+        36,
+        300,
+        55
+       ],
+       "hold": 0.7
+      },
+      {
+       "at": 2.4,
+       "rect": [
+        1891,
+        818,
+        648,
+        128
+       ],
+       "hold": 0.9
+      }
+     ],
+     "size": [
+      2592,
+      1758
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Магазин 1: [[копим]]",
+     "at": 0.5,
+     "dur": 3.4
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s3",
+   "template": "feat",
+   "duration": 3.0,
+   "subs": [
+    {
+     "text": "а тратятся — в другом.",
+     "at": 0.2,
+     "dur": 1.488
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\08-kassa-bonus-pay.png",
+     "crop": [
+      0,
+      0,
+      2592,
+      1420
+     ],
+     "area": [
+      100,
+      36,
+      1720,
+      790
+     ],
+     "focus": [
+      {
+       "at": 0.3,
+       "dur": 0.8,
+       "rect": [
+        1010,
+        380,
+        1570,
+        960
+       ]
+      }
+     ],
+     "clicks": [
+      {
+       "at": 0.4,
+       "rect": [
+        140,
+        36,
+        300,
+        55
+       ],
+       "hold": 0.6
+      },
+      {
+       "at": 1.4,
+       "rect": [
+        2330,
+        823,
+        180,
+        78
+       ],
+       "hold": 0.6
+      },
+      {
+       "at": 2.0,
+       "rect": [
+        1295,
+        583,
+        340,
+        65
+       ],
+       "hold": 0.6
+      }
+     ],
+     "size": [
+      2592,
+      1758
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Магазин 2: [[тратим]]",
+     "at": 0.3,
+     "dur": 2.6
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s4",
+   "template": "feat",
+   "duration": 3.2,
+   "subs": [
+    {
+     "text": "Клиент один, отчёт один,",
+     "at": 0.2,
+     "dur": 1.874
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\08-owner-bonus-analytics.png",
+     "crop": [
+      30,
+      232,
+      2540,
+      620
+     ],
+     "area": [
+      90,
+      90,
+      1740,
+      600
+     ],
+     "clicks": [
+      {
+       "at": 0.7,
+       "rect": [
+        52,
+        258,
+        606,
+        160
+       ]
+      },
+      {
+       "at": 1.4,
+       "rect": [
+        679,
+        258,
+        615,
+        160
+       ]
+      },
+      {
+       "at": 2.1,
+       "rect": [
+        1930,
+        258,
+        600,
+        160
+       ]
+      }
+     ],
+     "size": [
+      2592,
+      1758
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Одна сеть — [[один клиент]]",
+     "at": 0.3,
+     "dur": 2.8,
+     "bottom": 190
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s5",
+   "template": "feat",
+   "duration": 5.2,
+   "subs": [
+    {
+     "text": "Остатки общие.",
+     "at": 0.2,
+     "dur": 1.441
+    },
+    {
+     "text": "Касса помнит каждого — даже Бүбү-апу.",
+     "at": 1.641,
+     "dur": 3.099
+    }
+   ],
+   "transition": "none",
+   "panels": [
+    {
+     "image": "C:\\Users\\User\\NurMarket-video\\shots-features\\08-owner-branches.png",
+     "crop": [
+      0,
+      500,
+      2592,
+      1000
+     ],
+     "area": [
+      90,
+      60,
+      1740,
+      700
+     ],
+     "clicks": [
+      {
+       "at": 0.8,
+       "rect": [
+        75,
+        775,
+        650,
+        60
+       ],
+       "hold": 0.8
+      },
+      {
+       "at": 1.8,
+       "rect": [
+        75,
+        1050,
+        650,
+        60
+       ],
+       "hold": 0.8
+      },
+      {
+       "at": 2.8,
+       "rect": [
+        75,
+        1330,
+        650,
+        60
+       ],
+       "hold": 0.8
+      }
+     ],
+     "size": [
+      2592,
+      1758
+     ]
+    }
+   ],
+   "titr": [
+    {
+     "text": "Филиалы — [[общие остатки]]",
+     "at": 0.4,
+     "dur": 3.8,
+     "bottom": 190
+    }
+   ],
+   "kind": "shot",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  },
+  {
+   "id": "s6",
+   "template": "feat",
+   "duration": 3.0,
+   "subs": [],
+   "transition": "none",
+   "store": {
+    "counter": {
+     "x": 640,
+     "y": 300,
+     "s": 1.0
+    },
+    "sign": "НУР-2"
+   },
+   "actors": [
+    {
+     "id": "apa",
+     "img": "char-apa-happy",
+     "x": 460,
+     "feet": 1010,
+     "s": 0.95,
+     "bob": true,
+     "hop": [
+      0.4
+     ]
+    },
+    {
+     "id": "ainura",
+     "img": "char-ainura-stand",
+     "x": 1130,
+     "feet": 790,
+     "s": 0.9,
+     "bob": true,
+     "layer": "back"
+    }
+   ],
+   "items": [
+    {
+     "img": "prop-bag",
+     "x": 560,
+     "y": 760,
+     "s": 1.0,
+     "layer": "front"
+    }
+   ],
+   "kind": "hook",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets",
+   "bubbles": [
+    {
+     "who": "apa",
+     "text": "Умница касса!",
+     "at": 0.3,
+     "dur": 1.524,
+     "dy": 0,
+     "w": 460
+    },
+    {
+     "who": "ainura",
+     "text": "Это не я…",
+     "at": 1.8,
+     "dur": 1.109,
+     "dy": 0,
+     "w": 360
+    }
+   ]
+  },
+  {
+   "id": "s7",
+   "template": "feat",
+   "duration": 6.0333,
+   "subs": [],
+   "transition": "none",
+   "kind": "finale",
+   "assets": "C:\\Users\\User\\NurMarket-video\\feat-assets"
+  }
+ ]
+}

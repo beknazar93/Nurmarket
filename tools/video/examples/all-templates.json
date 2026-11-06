@@ -1,0 +1,20 @@
+{
+  "name": "all-templates",
+  "lang": "ky",
+  "voice": "none",
+  "music": true,
+  "scenes": [
+    { "template": "intro", "tag": "Жаңы", "title": "Бонус аналитикасы", "subtitle": "Кардарларга канча бонус карызсыз", "duration": 3,
+      "text": "Бонустардын жаңы аналитикасы: ү, ө, ң тамгалары менен." },
+    { "template": "titlecard", "kicker": "1-кадам", "title": "Эмнени көрөсүз", "bullets": ["Бонустардын калдыгы", "Эң жакшы күн", "Excel жана Word экспорту"], "duration": 5,
+      "text": "Бонустардын калдыгы, эң жакшы күн жана экспорт.", "transition": "slide" },
+    { "template": "slides", "images": ["C:/Users/User/NurMarket-video/assets/kassa-bonus.png", "C:/Users/User/NurMarket-rel1764/stands/bonus-analytics/shots/bonus-1296x879-full_dark_ky.png"],
+      "title": "Жарык жана караңгы тема", "duration": 4, "text": "Эки тема.", "transition": "wipe" },
+    { "template": "screenshot", "image": "C:/Users/User/NurMarket-video/assets/kassa-bonus.png", "duration": 5, "transition": "zoom",
+      "text": "Бул жерди басыңыз.",
+      "steps": [ { "type": "cursor", "at": "10%", "dur": "25%", "to": [1220, 41] },
+                 { "type": "title", "at": "40%", "dur": "50%", "text": "Экспорт — Excel", "pos": "bottom" } ] },
+    { "template": "outro", "title": "Бонус аналитикасы кассада", "cta": "Жаңыртыңыз", "url": "nurmarket.kg", "note": "NurMarket Kassa", "duration": 4,
+      "text": "Рахмат!" }
+  ]
+}

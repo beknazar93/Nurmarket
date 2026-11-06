@@ -45,6 +45,12 @@ public static class ShopAlertsRunner
     {
         try
         {
+            // 2026-11-06 (Б-8): не поверх окна «Сессия истекла» и не при потерянной сессии — две модалки сразу; подсказка (флажок ещё не стоит) придёт через 2 минуты.
+            if (SessionExpiryMonitor.IsExpired || NurMarketKassa.AvaloniaHost.Services.SessionExpiredPrompt.IsShowing)
+            {
+                DispatcherTimer.RunOnce(() => _ = ExpiryHintOnceAsync(), TimeSpan.FromMinutes(2));
+                return;
+            }
             var data = ShopAutomationSettings.Current;
             if (data.ExpiryHintShown)
                 return;
@@ -52,7 +58,8 @@ public static class ShopAlertsRunner
             if (data.ExpiryMode != ExpiryModes.Warn)
                 return; // владелец уже сам выбрал режим
             var owner = NurMarketKassa.AvaloniaHost.Views.Dialogs.PosDialogHost.ResolveOwner(null);
-            var settings = await PosDialogs.ConfirmYesNoModalAsync(owner,
+            // 2026-11-06 (Б-8): общий механизм — фоновый анонс ждёт, пока открыто окно «Сессия истекла» / «Вход скоро истечёт», и сам не мешает им (они ждут его закрытия).
+            var settings = await ModalAnnouncements.ShowWhenFreeAsync(() => PosDialogs.ConfirmYesNoModalAsync(owner,
                 Tr.T("Теперь касса предупреждает, если продаётся просроченный товар (по сроку годности из карточки): «Продать всё равно?». Если срок в карточках не заполнен или устарел, окно может мешать. Можно выключить или запретить продажу без вашего PIN.",
                     "Эми касса мөөнөтү өткөн товар сатылганда эскертет (карточкадагы жарактуулук мөөнөтү боюнча): «Баары бир сатасызбы?». Карточкаларда мөөнөт толтурулбаса же эскирсе, терезе тоскоол болушу мүмкүн. Өчүрсө же сиздин PIN кодусуз сатууну тыюуга болот.",
                     "The till now warns when an expired product is sold (by the expiry date in the product card): “Sell anyway?”. If dates in cards are empty or outdated, the window may get in the way. You can turn it off or forbid selling without your PIN.",
@@ -60,7 +67,7 @@ public static class ShopAlertsRunner
                     "Kassa endi muddati o'tgan mahsulot sotilganda ogohlantiradi (kartochkadagi yaroqlilik muddati bo'yicha): «Baribir sotilsinmi?». Kartochkalarda muddat bo'sh yoki eskirgan bo'lsa, oyna xalaqit berishi mumkin. Uni o'chirish yoki PIN kodingizsiz sotishni taqiqlash mumkin."),
                 Tr.T("Просрочка при продаже", "Сатууда мөөнөтү өткөн", "Expired products at sale", "Satışta süresi geçmiş ürün", "Sotuvda muddati o'tgan mahsulot"),
                 confirmText: Tr.T("Настроить", "Жөндөө", "Settings", "Ayarla", "Sozlash"),
-                cancelText: Tr.T("Оставить как есть", "Ушундай калтыруу", "Keep as is", "Olduğu gibi bırak", "Shunday qoldirish")).ConfigureAwait(true);
+                cancelText: Tr.T("Оставить как есть", "Ушундай калтыруу", "Keep as is", "Olduğu gibi bırak", "Shunday qoldirish")), "Просрочка при продаже").ConfigureAwait(true);
             if (settings)
                 await NurMarketKassa.AvaloniaHost.Views.ShopAutomationWindow.ShowAsync(owner).ConfigureAwait(true);
         }
@@ -129,7 +136,8 @@ public static class ShopAlertsRunner
             if (rules.ClassAOut && now.Hour >= 10 && !ShopAlerts.WasSentToday("class-a", now))
                 await StepAsync("A-группа", () => ClassAStepAsync(now, ct)).ConfigureAwait(true);
 
-            if (rules.EveningSummary && now.Hour >= rules.EveningHour && !ShopAlerts.WasSentToday("evening", now))
+            // 2026-11-06: В3 Н8 — вечерний итог только в своё окно (час итога … +3 часа), как «выручка к часу»: раньше программа владельца, запущенная в 23:00, отправляла итог в тихие часы.
+            if (rules.EveningSummary && now.Hour >= rules.EveningHour && now.Hour < Math.Min(24, rules.EveningHour + 3) && !ShopAlerts.WasSentToday("evening", now))
                 await StepAsync("вечерний итог", () => ReportStepAsync("evening", "today", now, ct)).ConfigureAwait(true);
 
             if (rules.WeeklyReport && now.DayOfWeek == DayOfWeek.Monday && now.Hour >= 9 && !quiet && !ShopAlerts.WasSentToday("weekly", now))
@@ -266,10 +274,8 @@ public static class ShopAlertsRunner
         var stock = await OwnerShopFacts.StockRowsAsync(ct).ConfigureAwait(true);
         ShopAlerts.TryMarkSentToday("class-a", now);
         var gone = OwnerShopFacts.SoldOut(stock, 1000).Where(r => classA.Contains(r.Name)).Select(r => r.Name).Distinct().ToList();
-        if (gone.Count == 0)
-            return;
-        // Каждый товар — не чаще раза в сутки (пока не появится снова, повтор завтра не нужен): ключ с названием.
-        var fresh = gone.Where(n => ShopAlerts.TryMarkEvent("class-a|" + n, now)).ToList();
+        // 2026-11-06: В3 Н9 — раньше ключ жил сутки и закончившийся товар приходил каждый день; теперь «сообщили, пока остаток не вернулся» (ShopAlerts.NewlyOutOfStock; вызывается и при пустом списке — вернувшиеся товары забываются).
+        var fresh = ShopAlerts.NewlyOutOfStock(gone, listIsComplete: stock.Count > 0);
         if (fresh.Count > 0)
             await ShopAlerts.NotifyAsync(Tr.T("Закончился товар A-группы", "A тобундагы товар түгөндү", "A-group product ran out", "A grubu ürün tükendi", "A guruhidagi mahsulot tugadi"),
                 string.Join("\n", fresh.Take(10).Select(n => "• " + n)) + (fresh.Count > 10 ? "\n…" : ""), now).ConfigureAwait(true);
@@ -278,8 +284,10 @@ public static class ShopAlertsRunner
     private static async Task ReportStepAsync(string key, string period, DateTime now, CancellationToken ct)
     {
         var text = await TelegramReportBuilder.BuildRevenueAsync(period, ct).ConfigureAwait(true);
-        ShopAlerts.TryMarkSentToday(key, now);
         var error = await TelegramBotService.SendAsync(text, ct).ConfigureAwait(true);
+        // 2026-11-06: В3 Н8 — отметка «отправлено» ставится ПОСЛЕ успешной отправки (раньше до неё: при сбое Telegram итог терялся на весь день). Неудача повторится на следующем такте в пределах окна.
+        if (error is null)
+            ShopAlerts.TryMarkSentToday(key, now);
         PosLogger.Log(error is null ? $"Оповещения магазина: отчёт «{key}» отправлен." : $"Оповещения магазина: отчёт «{key}» не ушёл ({error}).", error is null ? "TELEGRAM" : "WARNING");
     }
 

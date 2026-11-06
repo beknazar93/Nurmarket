@@ -22,6 +22,9 @@ public static class CrashReportService
     /// </summary>
     public static string? UploadEndpoint { get; set; }
 
+    /// <summary>Сколько последних отчётов хранить на диске.</summary>
+    internal const int MaxReports = 50;
+
     /// <summary>Пишет один отчёт об ошибке на диск. Не бросает исключений сама.</summary>
     public static string? WriteReport(Exception exception, string context)
     {
@@ -41,6 +44,8 @@ public static class CrashReportService
                 .AppendLine(SensitiveDataRedactor.Redact(exception.ToString()));
 
             File.WriteAllText(path, report.ToString());
+            // 2026-11-06 (В13, диск без предела): при серии падений (цикл «упало — запустилось — упало») папка росла бесконечно — оставляем последние 50 отчётов.
+            FileCachePruner.PruneByCount(ReportsDirectory, "crash_*.txt", MaxReports);
             return path;
         }
         catch (Exception writeEx)
@@ -87,14 +92,15 @@ public static class CrashReportService
         if (files.Length == 0)
             return;
 
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        // 2026-11-06 (аудит скорости, 25.2): общая фабрика внешних клиентов вместо голого HttpClient; клиент освобождается в конце отправки.
+        using var client = ExternalHttp.Create(TimeSpan.FromSeconds(15));
         foreach (var file in files)
         {
             try
             {
                 var text = await File.ReadAllTextAsync(file, ct).ConfigureAwait(false);
                 using var content = new StringContent(text);
-                var response = await client.PostAsync(UploadEndpoint, content, ct).ConfigureAwait(false);
+                using var response = await client.PostAsync(UploadEndpoint, content, ct).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                     File.Delete(file);
             }

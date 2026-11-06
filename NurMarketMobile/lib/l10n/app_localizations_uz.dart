@@ -5185,6 +5185,45 @@ class AppLocalizationsUz extends AppLocalizations {
   String get invPriceMissing => 'Sotuv narxini kiriting';
 
   @override
+  String get invAutoMarkup => 'Xarid narxiga avto-ustama';
+
+  @override
+  String get invAutoMarkupSub =>
+      'O\'chiq: sotuv narxi o\'zi qo\'yilmaydi. Yoqilsa — narx = xarid + 30 % (5 so\'mgacha yuqoriga), yuborishdan oldin qatorda ko\'rinadi';
+
+  @override
+  String invNoPriceTitle(int n) {
+    return '$n ta qatorda sotuv narxi yo\'q';
+  }
+
+  @override
+  String get invNoPriceBody =>
+      'Narx yoki ustama kiriting. «Narxsiz qoldirish» — mavjud tovarlar narxi o\'zgarmaydi, yangi tovarlar narxsiz yaratiladi.';
+
+  @override
+  String get invNoPriceEnter => 'Narx kiritish';
+
+  @override
+  String invNoPriceMarkup(int pct) {
+    return 'Ustama +$pct %';
+  }
+
+  @override
+  String get invNoPriceLeave => 'Narxsiz qoldirish';
+
+  @override
+  String invAutoConfirmTitle(int n) {
+    return 'Ustama bo\'yicha narx: $n ta';
+  }
+
+  @override
+  String get invAutoConfirmBody =>
+      'Bu tovarlarning sotuv narxi ustama bo\'yicha qo\'yiladi — u qatorda ko\'rinadi. Tasdiqlaysizmi?';
+
+  @override
+  String get invAutoConfirmYes => 'Tasdiqlash';
+
+  @override
   String get invRemoveRow => 'Satrni olib tashlash';
 
   @override

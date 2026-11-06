@@ -1135,8 +1135,11 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
         if (query.Length > 0)
             source = source.Where(c => SearchMatch.Matches(query, c.DisplayName)); // 2026-10-29: единый поиск
         // 2026-10-21 (пакет 6, п. 13 аудита кассы): должники — первыми (больший долг выше), остальные — по алфавиту.
+        // 2026-11-06: В6 Д4-19 — среди должников сначала самые давние долги (дата старейшего долга из сводки), при равенстве — больший долг; без даты — после датированных.
         if (_debtByClient.Count > 0)
-            source = source.OrderByDescending(c => _debtByClient.TryGetValue(c.Id, out var d) ? d : 0);
+            source = source.OrderByDescending(c => _debtByClient.ContainsKey(c.Id))
+                .ThenBy(c => _oldestDebtByClient.TryGetValue(c.Id, out var at) ? at : DateTimeOffset.MaxValue)
+                .ThenByDescending(c => _debtByClient.TryGetValue(c.Id, out var d) ? d : 0);
 
         foreach (var client in source.Take(30))
             ClientSearchResults.Add(new DebtClientOption
@@ -1146,6 +1149,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                 // 2026-10-23 (аудит, круг 8, В-3): сводка сервера (clients/debtors/) — это долг по чекам, без «долга без продажи»; так и подписано.
                 DebtText = _debtByClient.TryGetValue(client.Id, out var debt)
                     ? Tr.T("по чекам: ", "чектер боюнча: ", "by receipts: ", "fişlere göre: ", "cheklar bo'yicha: ") + MoneyText.Som(debt) : "",
+                IsOverdue = _oldestDebtByClient.TryGetValue(client.Id, out var oldestAt) && DateTimeOffset.UtcNow - oldestAt > TimeSpan.FromDays(30),
             });
         OnPropertyChanged(nameof(HasClientSearchResults));
     }
@@ -1154,7 +1158,12 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
     public sealed class DebtClientOption : ClientOption
     {
         public string DebtText { get; init; } = "";
+        /// <summary>2026-11-06: В6 Д4-19 — старейший долг клиента старше 30 дней: только такая сумма красная.</summary>
+        public bool IsOverdue { get; init; }
     }
+
+    /// <summary>2026-11-06: В6 Д4-19 — id клиента → дата старейшего долга (OldestDebtAt сводки сервера): сортировка «старые долги сверху» и красная сумма просроченных.</summary>
+    private Dictionary<string, DateTimeOffset> _oldestDebtByClient = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>id клиента → долг по сводке сервера (GET clients/debtors/); пусто — сводки нет, список как раньше.</summary>
     private Dictionary<string, double> _debtByClient = new(StringComparer.OrdinalIgnoreCase);
@@ -1171,6 +1180,15 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             _debtByClient = debtors.Where(d => d.DebtTotal > 0.005 && !string.IsNullOrWhiteSpace(d.ClientId))
                 .GroupBy(d => d.ClientId, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.Sum(d => d.DebtTotal), StringComparer.OrdinalIgnoreCase);
+            var oldest = new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+            foreach (var d in debtors)
+            {
+                if (d.DebtTotal > 0.005 && !string.IsNullOrWhiteSpace(d.ClientId)
+                    && DateTimeOffset.TryParse(d.OldestDebtAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var at)
+                    && (!oldest.TryGetValue(d.ClientId, out var prev) || at < prev))
+                    oldest[d.ClientId] = at;
+            }
+            _oldestDebtByClient = oldest;
             ApplyClientFilter();
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

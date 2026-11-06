@@ -37,6 +37,27 @@ public static class PosLogger
         catch { /* отчёты об ошибках не должны ломать программу */ }
     }
 
+    private static readonly Dictionary<string, DateTime> ThrottleLast = new(StringComparer.Ordinal);
+
+    /// <summary>2026-11-06 (Б-13): строка журнала не чаще одной за <paramref name="interval"/> (по умолчанию 10 минут) на причину <paramref name="reasonKey"/> —
+    /// повторяющийся сбой (опрос раз в несколько секунд) раньше заливал журнал сотнями одинаковых строк. true — строка записана.</summary>
+    public static bool LogThrottled(string reasonKey, string message, string category = "INFO", TimeSpan? interval = null)
+    {
+        var window = interval ?? TimeSpan.FromMinutes(10);
+        var now = DateTime.UtcNow;
+        lock (ThrottleLast)
+        {
+            if (ThrottleLast.TryGetValue(reasonKey, out var last) && now - last < window && now >= last)
+                return false;
+            if (ThrottleLast.Count > 500)
+                ThrottleLast.Clear();
+            ThrottleLast[reasonKey] = now;
+        }
+
+        Log(message, category);
+        return true;
+    }
+
     /// <summary>2026-10-05: каждая строка журнала (уровень, раздел, текст без секретов) — для ErrorReportService.</summary>
     public static Action<LogLevel, string, string>? Observer { get; set; }
 

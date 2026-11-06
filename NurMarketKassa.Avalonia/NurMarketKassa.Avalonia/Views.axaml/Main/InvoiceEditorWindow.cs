@@ -683,7 +683,9 @@ public sealed class InvoiceEditorWindow : Window
         }
         catch (Exception ex)
         {
-            PosLogger.Log($"Закупка по накладной: список поставщиков не загружен: {ex.Message}", "WARNING");
+            // 2026-11-06 (баг 3 журнала клиента): потеря сессии — запись раз в 10 минут (раньше 26 одинаковых), владельцу — напоминание «Войдите снова» (не чаще раза в 2 минуты).
+            SessionExpiryMonitor.LogFailure("invoice-suppliers", ex, $"Закупка по накладной: список поставщиков не загружен: {ex.Message}");
+            SessionExpiryMonitor.RemindOnSessionLost(ex);
             _supplierStatus.Text = T("Список поставщиков не загрузился: ", "Жеткирүүчүлөрдүн тизмеси жүктөлгөн жок: ", "The supplier list didn't load: ",
                 "Tedarikçi listesi yüklenemedi: ", "Yetkazib beruvchilar ro'yxati yuklanmadi: ") + ServerOutageMonitor.FriendlyError(ex)
                 + T(" — нажмите «Обновить список».", " — «Тизмени жаңыртуу» баскычын басыңыз.", " — press “Refresh list”.", " — «Listeyi yenile»ye basın.", " — «Ro'yxatni yangilash»ni bosing.");
@@ -1393,7 +1395,11 @@ public sealed class InvoiceEditorWindow : Window
                     $"{n}-qator: server xarid narxini {ReceivingPricing.PurchaseDecimals} raqam bilan saqlaydi — {Num(purchase, "0.####")} {Num(stored, "0.####")} gacha yaxlitlandi" + (paper.Length > 0 ? $" (qator summasi {paper})" : "") + ", tekshirib, qayta o'tkazing"));
             }
         }
-        if (!TryNum(row.Price, out var price) || price <= 0)
+        // 2026-11-06 (жалоба «Орук маркет»): пустая цена продажи — не ошибка и не повод ставить «закупка + 20 %»: ниже окно «У N позиций нет цены продажи» (цена или «Оставить без цены»).
+        // Ошибка — только если в поле не число / отрицательное.
+        if (string.IsNullOrWhiteSpace(row.Price) || (TryNum(row.Price, out var zero) && zero == 0))
+            line.SalePrice = 0;
+        else if (!TryNum(row.Price, out var price) || price < 0)
             problems.Add(T($"строка {n}: цена продажи", $"{n}-сап: сатуу баасы", $"line {n}: sale price", $"{n}. satır: satış fiyatı", $"{n}-qator: sotuv narxi"));
         else
             line.SalePrice = Math.Round(price, 2);
@@ -1454,7 +1460,7 @@ public sealed class InvoiceEditorWindow : Window
                 $"«{name}» — {nums} qatorlarda: umumiy miqdor bilan bitta qator qoldiring"));
         }
         if (problems.Count == 0)
-            problems.AddRange(PurchaseReceivingService.Validate(lines));
+            problems.AddRange(PurchaseReceivingService.Validate(lines, requireSalePrice: false)); // 2026-11-06: цену продажи спросит окно ниже
         if (problems.Count > 0)
         {
             RebuildRows();
@@ -1465,6 +1471,18 @@ public sealed class InvoiceEditorWindow : Window
             ShowError(T("Закупку нельзя провести: ", "Сатып алууну өткөрүүгө болбойт: ", "The purchase can't be posted: ", "Alım işlenemiyor: ", "Xaridni o'tkazib bo'lmaydi: ")
                       + string.Join("; ", shown));
             return;
+        }
+
+        // 2026-11-06: нет цены продажи — окно «У N позиций нет цены продажи» (цена/наценка или «Оставить без цены»); введённые цены возвращаются в строки накладной.
+        if (ReceivingPricing.MissingSalePrice(lines).Count > 0)
+        {
+            var proceed = await NurMarketKassa.AvaloniaHost.Views.Dialogs.MissingSalePriceDialog.AskAsync(this, lines).ConfigureAwait(true);
+            foreach (var r in _draft.Rows)
+                if (r.Line.SalePrice > 0 && !(TryNum(r.Price, out var typedPrice) && typedPrice > 0))
+                    r.Price = Num(r.Line.SalePrice, "0.##");
+            RebuildRows();
+            if (!proceed)
+                return;
         }
 
         // 2026-10-31: итог накладной (прочитанный ИИ в документе) не сходится с суммой строк больше чем на 1 сом — молча не проводим:
@@ -1567,9 +1585,12 @@ public sealed class InvoiceEditorWindow : Window
         {
             // Не успела за 0,5 с: окно закрывается, остальное (остатки, долг, штрихкоды карточки) — по событию завершения задачи.
             PosLogger.Log($"Закупка по накладной: задача {jobId} выполняется в фоне.", "STOCK");
-            Close(T("Операция выполняется в фоне — можно продолжать работу", "Операция фондо аткарылууда — иштей берсеңиз болот",
-                "The operation is running in the background — you can keep working", "İşlem arka planda yürütülüyor — çalışmaya devam edebilirsiniz",
-                "Amal fonda bajarilmoqda — ishni davom ettirishingiz mumkin"));
+            // 2026-11-06: офлайн-приход — без связи окно закрывается с понятным текстом «сохранён и будет отправлен».
+            Close(BackgroundReceivingQueue.NoConnectionNow
+                ? BackgroundReceivingQueue.SavedOfflineText + ". " + BackgroundReceivingQueue.UnsentText(BackgroundReceivingQueue.Instance.ActiveCount)
+                : T("Операция выполняется в фоне — можно продолжать работу", "Операция фондо аткарылууда — иштей берсеңиз болот",
+                    "The operation is running in the background — you can keep working", "İşlem arka planda yürütülüyor — çalışmaya devam edebilirsiniz",
+                    "Amal fonda bajarilmoqda — ishni davom ettirishingiz mumkin"));
             return;
         }
 

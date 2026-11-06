@@ -5153,6 +5153,45 @@ class AppLocalizationsTr extends AppLocalizations {
   String get invPriceMissing => 'Satış fiyatını girin';
 
   @override
+  String get invAutoMarkup => 'Alışa otomatik kâr payı';
+
+  @override
+  String get invAutoMarkupSub =>
+      'Kapalı: satış fiyatı kendiliğinden atanmaz. Açık: fiyat = alış + %30 (5 som\'a yukarı yuvarlanır), göndermeden önce satırda görünür';
+
+  @override
+  String invNoPriceTitle(int n) {
+    return '$n satırda satış fiyatı yok';
+  }
+
+  @override
+  String get invNoPriceBody =>
+      'Fiyat veya kâr payı girin. \"Fiyatsız bırak\" — mevcut ürünlerin fiyatı değişmez, yeni ürünler fiyatsız oluşturulur.';
+
+  @override
+  String get invNoPriceEnter => 'Fiyat gir';
+
+  @override
+  String invNoPriceMarkup(int pct) {
+    return 'Kâr payı +%$pct';
+  }
+
+  @override
+  String get invNoPriceLeave => 'Fiyatsız bırak';
+
+  @override
+  String invAutoConfirmTitle(int n) {
+    return 'Kâr payına göre fiyat: $n satır';
+  }
+
+  @override
+  String get invAutoConfirmBody =>
+      'Bu ürünlerin satış fiyatı kâr payına göre atanacak — satırda görünüyor. Onaylıyor musunuz?';
+
+  @override
+  String get invAutoConfirmYes => 'Onayla';
+
+  @override
   String get invRemoveRow => 'Satırı kaldır';
 
   @override

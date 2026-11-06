@@ -219,13 +219,13 @@
                     Объявляем первым, чтобы оно было самым нижним слоем.
                     Stretch="UniformToFill" заполнит весь Border, обрезая лишнее. -->
                     <Image x:Name="LightHeroImage"
-                           Source="avares://NurMarketKassa.Avalonia/Assets/left-banner.png"
+                           Source="avares://NurMarketKassa.Avalonia/Assets/left-banner.webp"
                            Stretch="UniformToFill"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center" />
 
                     <Image x:Name="DarkHeroImage"
-                           Source="avares://NurMarketKassa.Avalonia/Assets/login-hero-dark.png"
+                           Source="avares://NurMarketKassa.Avalonia/Assets/login-hero-dark.webp"
                            Stretch="UniformToFill"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"

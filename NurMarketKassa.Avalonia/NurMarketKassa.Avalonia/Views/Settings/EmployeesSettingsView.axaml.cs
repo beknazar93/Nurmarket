@@ -808,7 +808,7 @@ public partial class EmployeesSettingsView : UserControl
         {
             Content = Tr.T("Удалить", "Өчүрүү", "Delete", "Sil", "O'chirish"),
             Classes = { "sec-outline", "danger" },
-            MinHeight = 32,
+            MinHeight = 40, // 2026-11-06: В6 цель нажатия 40 (было 32)
             FontSize = 12.5,
             VerticalAlignment = VerticalAlignment.Center,
             // 2026-10-18, аудит: роль «Владелец» удалять нельзя — кнопки нет.
@@ -820,7 +820,7 @@ public partial class EmployeesSettingsView : UserControl
         {
             Content = Tr.T("Изменить", "Өзгөртүү", "Rename", "Düzenle", "O'zgartirish"),
             Classes = { "sec-outline" },
-            MinHeight = 32,
+            MinHeight = 40, // 2026-11-06: В6 цель нажатия 40 (было 32)
             FontSize = 12.5,
             Margin = new Avalonia.Thickness(0, 0, 8, 0),
             VerticalAlignment = VerticalAlignment.Center,

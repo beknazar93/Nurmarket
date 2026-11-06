@@ -72,16 +72,13 @@ public static class UnsavedInputTracker
         return false;
     }
 
-    private static readonly string[] SaveWords =
+    // 2026-11-06: В3 Л5-18 — список слов «сохранить / применить…» вынесен в NurMarketKassa.Services.UnsavedInputRules (Infrastructure; там же проверка тестом) и исправлен:
+    // «колдон» совпадало с «колдонуучу» («пользователь» по-кыргызски) — кнопка «Колдонуучу кошуу» снимала признак несохранённого.
+    private static bool ChangesTextWithoutTyping(KeyEventArgs e)
     {
-        "сохран", "сакта", "save", "kaydet", "saqla",
-        "опубликов", "жарыяла", "publish", "yayınla", "e'lon",
-        "примен", "колдон", "apply", "uygula", "qo'lla",
-        // 2026-11-05 (аудит №4, Л4-11): ещё завершающие действия — после них ввод ушёл на сервер, «несохранённого» нет.
-        // 2026-11-05 (ревью волн 0–3, С1): «Создать резервную копию», «Отправить в WhatsApp», «Записать» стирали признак несохранённого у всех полей окна —
-        // слова "созда/отправ/запис/send/create…" убраны. Завершающую кнопку с другим словом можно отметить явно: UnsavedInputTracker.SetCommits(button, true).
-        "провест", "приня", "оприход", "submit",
-    };
+        var ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        return (ctrl && e.Key is Key.V or Key.X or Key.Z or Key.Y) || (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && e.Key == Key.Insert);
+    }
 
     /// <summary>Явная отметка: эта кнопка завершает ввод (после неё «несохранённого» нет), каким бы ни был её текст.</summary>
     public static readonly AttachedProperty<bool> CommitsProperty =
@@ -109,6 +106,10 @@ public static class UnsavedInputTracker
         {
             if (e.Key is Key.Back or Key.Delete && FindEditable(e.Source) is { } box && !IsIgnored(e.Source))
                 state.Remember(box, box.Text ?? "");
+            // 2026-11-06: В3 Л5-18 — вставка (Ctrl+V, Shift+Insert), вырезание (Ctrl+X) и отмена/возврат (Ctrl+Z/Y) меняют текст без события TextInput: поле раньше не считалось изменённым.
+            // Событие идёт туннелем ДО изменения, поэтому здесь ещё исходное значение.
+            else if (ChangesTextWithoutTyping(e) && FindEditable(e.Source) is { } edited && !IsIgnored(e.Source))
+                state.Remember(edited, edited.Text ?? "");
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         window.AddHandler(Button.ClickEvent, (_, e) =>
         {
@@ -163,7 +164,7 @@ public static class UnsavedInputTracker
         };
         if (b.GetValue(CommitsProperty))
             return true;
-        text = (text ?? Avalonia.Automation.AutomationProperties.GetName(b) ?? "").ToLowerInvariant();
-        return text.Length > 0 && SaveWords.Any(text.Contains);
+        text = text ?? Avalonia.Automation.AutomationProperties.GetName(b) ?? "";
+        return NurMarketKassa.Services.UnsavedInputRules.IsSaveText(text);
     }
 }

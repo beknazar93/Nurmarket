@@ -80,6 +80,7 @@ public sealed class DatabaseService
     {
         _legacyImportDone = true;
         SqliteConnection.ClearAllPools();
+        Volatile.Write(ref _walState, 0); // 2026-11-06: В5 25.4 — режим журнала хранится в файле базы, под ним теперь другой файл
         lock (_initLock)
         {
             _initialized = false;
@@ -350,12 +351,19 @@ public sealed class DatabaseService
                 """;
             command.ExecuteNonQuery();
 
+            // 2026-11-06 (Б-13): Products выше создаётся сокращённой — без piece_option_json, intake_date и др. Раньше недостающие столбцы добавлял только
+            // LocalProductRepository.EnsureSchema, который после смены компании никто не вызывал: новая база читалась с ошибкой «no such column» (~500 строк в журнале каждые 30 с).
+            // Теперь любая открываемая или создаваемая база приводится к актуальной схеме здесь же (идемпотентно, данные не трогаются).
+            try { LocalProductRepository.EnsureProductColumns(connection); }
+            catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"Схема товаров: столбцы не достроены: {ex.Message}", "WARNING"); }
+
             AddSoldLineItemsCompanyColumn(connection);
             AddWriteOffsCompanyColumn(connection);
             AddWriteOffsUnitCostColumn(connection);
             AddSoldLineItemsSaleIdColumn(connection);
             AddCompanyHistoryIndexes(connection);
             EnsureSoldLineItemsSaleIndex(connection);
+            EnsurePerfIndexes(connection); // 2026-11-06: В5 шаг 30 (ОК владельца на схему)
             MigrateLegacyCatalogDb(connection);
             MigrateLegacyOfflineDb(connection);
             if (!_legacyImportDone)
@@ -405,12 +413,90 @@ public sealed class DatabaseService
         }
     }
 
+    /// <summary>2026-11-06: В5 шаг 30 (аудит скорости 05.11.2026, И-1, И-2, И-3; «да» владельца на схему базы) — версия схемы, записываемая в <c>PRAGMA user_version</c>
+    /// файла pos_local.db. 0 — базы до этой правки (индексов ещё нет), 1 — индексы избранного, списаний и штрихкода построены. Следующие миграции повышают число.
+    /// Версия живёт в самом файле базы, поэтому подмена базы при смене аккаунта и откат из резервной копии подхватываются сами:
+    /// старая копия (версия 0) просто достроит индексы при открытии.</summary>
+    internal const int PerfIndexesSchemaVersion = 1;
+
+    /// <summary>Индексы шага 30: имя и DDL. Все — <c>CREATE INDEX IF NOT EXISTS</c> (повторный запуск ничего не ломает и данные не трогает).
+    /// <list type="bullet">
+    /// <item>И-1 — частичный индекс избранного (4 КБ): избранное обновляется на каждом обновлении каталога, раньше обходило все 15 тыс. строк (15 мс → 0,014 мс).</item>
+    /// <item>И-2 — два индекса списаний (нужны ОБА: с одним по дате запрос «по товару» становится медленнее): последние 200 — 52 мс → 0,67 мс.</item>
+    /// <item>И-3 — штрихкод без учёта регистра: неизвестный код с буквами не перебирает таблицу (3–4 мс → 0,011 мс).</item>
+    /// </list>
+    /// Откат: <c>DROP INDEX имя;</c> и <c>PRAGMA user_version = 0;</c>.</summary>
+    internal static readonly (string Name, string Ddl)[] PerfIndexes =
+    {
+        ("idx_products_favorite_name", "CREATE INDEX IF NOT EXISTS idx_products_favorite_name ON Products(name COLLATE NOCASE) WHERE is_favorite = 1;"),
+        ("idx_writeoff_company_created", "CREATE INDEX IF NOT EXISTS idx_writeoff_company_created ON WriteOffHistory(company_id, created_at);"),
+        ("idx_writeoff_company_name", "CREATE INDEX IF NOT EXISTS idx_writeoff_company_name ON WriteOffHistory(company_id, product_name COLLATE NOCASE, created_at);"),
+        ("idx_products_barcode_nocase", "CREATE INDEX IF NOT EXISTS idx_products_barcode_nocase ON Products(barcode COLLATE NOCASE);"),
+    };
+
+    /// <summary>Миграция схемы шага 30. Строится СИНХРОННО в EnsureSchema (по тем же причинам, что и <see cref="EnsureSoldLineItemsSaleIndex"/>: другие писатели
+    /// той же базы не знают про наш замок), быстро (на 15 тыс. товаров, 20 тыс. списаний — десятки миллисекунд), без потери данных.
+    /// Ошибка одного индекса — WARNING и запуск идёт дальше (без индекса всё работает, просто медленнее); версия схемы повышается ТОЛЬКО если построены все индексы,
+    /// иначе следующий запуск повторит.</summary>
+    internal static void EnsurePerfIndexes(SqliteConnection connection)
+    {
+        try
+        {
+            if (ReadUserVersion(connection) >= PerfIndexesSchemaVersion)
+                return;
+
+            var allOk = true;
+            foreach (var (name, ddl) in PerfIndexes)
+            {
+                try
+                {
+                    using var check = connection.CreateCommand();
+                    check.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = $n;";
+                    check.Parameters.AddWithValue("$n", name);
+                    if (check.ExecuteScalar() is not null)
+                        continue;
+
+                    var started = DateTime.UtcNow;
+                    using var create = connection.CreateCommand();
+                    create.CommandTimeout = 120;
+                    create.CommandText = ddl;
+                    create.ExecuteNonQuery();
+                    PosLogger.Log($"Индекс {name} создан за {(DateTime.UtcNow - started).TotalMilliseconds:F0} мс.", "INFO");
+                }
+                catch (Exception ex)
+                {
+                    allOk = false;
+                    PosLogger.Log($"Индекс {name} не создан: {ex.Message}", "WARNING");
+                }
+            }
+
+            if (allOk)
+            {
+                using var stamp = connection.CreateCommand();
+                stamp.CommandText = $"PRAGMA user_version = {PerfIndexesSchemaVersion};"; // число-константа, не ввод пользователя
+                stamp.ExecuteNonQuery();
+            }
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Миграция индексов (шаг 30) не выполнена: {ex.Message}", "WARNING");
+        }
+    }
+
+    internal static int ReadUserVersion(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA user_version;";
+        return Convert.ToInt32(command.ExecuteScalar() ?? 0, CultureInfo.InvariantCulture);
+    }
+
     /// <summary>Открывает соединение, отдаёт его действию и закрывает. Нужен службам, которые
     /// живут рядом с базой, но своей копией строки подключения обзаводиться не должны — например
     /// журналу перемещений (StockTransferService).</summary>
     public void WithConnection(Action<SqliteConnection> action)
     {
         ArgumentNullException.ThrowIfNull(action);
+        using var slow = PerfSummary.MeasureSqlite(OperationName(action)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         _dbLock.EnterWriteLock();
         try
         {
@@ -423,11 +509,74 @@ public sealed class DatabaseService
         }
     }
 
+    /// <summary>2026-11-06: В5 25.4 — то же, что <see cref="WithConnection"/>, но ТОЛЬКО ДЛЯ ЧТЕНИЯ (SELECT): замок записи класса не берётся. Журнал закупок, отчёты и справочники
+    /// больше не ждут запись продажи и не выстраиваются в очередь друг за другом (раньше любое чтение через WithConnection брало замок ЗАПИСИ: 300 чтений подряд —
+    /// 300 захватов, пока продажа ждёт). База pos_local.db в режиме WAL (его включает LocalProductRepository): читатель видит целый снимок и не мешает писателю.
+    /// Если WAL почему-то выключен, чтение берёт общий замок чтения — как остальные Load* этого класса. Писать и создавать таблицы внутри нельзя — для этого WithConnection.</summary>
+    public void WithReadConnection(Action<SqliteConnection> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        using var slow = PerfSummary.MeasureSqlite(OperationName(action));
+        using var connection = OpenConnection();
+        var locked = !IsWalMode(connection);
+        if (locked)
+            _dbLock.EnterReadLock();
+        try
+        {
+            action(connection);
+        }
+        finally
+        {
+            if (locked)
+                _dbLock.ExitReadLock();
+        }
+    }
+
+    /// <summary>0 — ещё не проверяли, 1 — WAL, 2 — не WAL. Сбрасывается при подмене базы (<see cref="ReopenAfterAccountSwitch"/>): режим хранится в файле.</summary>
+    private int _walState;
+
+    private bool IsWalMode(SqliteConnection connection)
+    {
+        var state = Volatile.Read(ref _walState);
+        if (state != 0)
+            return state == 1;
+        using var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA journal_mode;";
+        var wal = string.Equals(Convert.ToString(command.ExecuteScalar(), CultureInfo.InvariantCulture), "wal", StringComparison.OrdinalIgnoreCase);
+        Volatile.Write(ref _walState, wal ? 1 : 2);
+        return wal;
+    }
+
+    /// <summary>Имя операции для журнала медленных запросов: метод, из которого вызвано действие (без текста запроса и параметров).</summary>
+    private static string OperationName(Action<SqliteConnection> action)
+    {
+        var name = action.Method.DeclaringType?.DeclaringType?.Name ?? action.Method.DeclaringType?.Name ?? "?";
+        var method = action.Method.Name;
+        // лямбда: «<LoadLocalHistory>b__12_0» -> «LoadLocalHistory»
+        if (method.StartsWith('<') && method.IndexOf('>') is var end and > 1)
+            method = method[1..end];
+        return name + "." + method;
+    }
+
     /// <summary>Компания текущей сессии — для таблиц, которые ведут свои службы.</summary>
     public string? CurrentCompany() => CurrentCompanyId();
 
     /// <summary>Условие «только строки текущей компании» для чужих таблиц. Префикс — псевдоним
     /// таблицы в запросе, если он есть.</summary>
+    /// <summary>2026-11-06: В5 Б-5 — то же условие, но компания уходит ПАРАМЕТРОМ <c>$ownCompany</c> этой команды (не литералом в тексте запроса).
+    /// Вариант без команды ниже оставлен для чужих служб (StockTransferService), которые В5 не правит.</summary>
+    public string OwnRowsClauseFor(SqliteCommand command, string? alias = null)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        var company = CurrentCompanyId();
+        if (company is null)
+            return "";
+        if (!command.Parameters.Contains("$ownCompany"))
+            command.Parameters.AddWithValue("$ownCompany", company);
+        var prefix = string.IsNullOrWhiteSpace(alias) ? "" : alias + ".";
+        return " AND " + prefix + "company_id = $ownCompany";
+    }
+
     public string OwnRowsClauseFor(string? alias = null)
     {
         var company = CurrentCompanyId();
@@ -842,6 +991,7 @@ public sealed class DatabaseService
 
     public List<OfflineSaleEntry> LoadAllOfflineSales()
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadAllOfflineSales)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         _dbLock.EnterReadLock();
         try
         {
@@ -893,11 +1043,74 @@ public sealed class DatabaseService
         }
     }
 
+    /// <summary>2026-11-06: В5 24.2 (аудит скорости, п. 24) — число записей очереди с нужными статусами БЕЗ разбора JSON (SELECT COUNT(*) по индексу sync_status).
+    /// Раньше «сколько выгруженных» считали полным чтением и разбором json_data всех продаж за всё время работы кассы.</summary>
+    public int CountOfflineSalesByStatus(IReadOnlyCollection<string> statuses)
+    {
+        if (statuses.Count == 0)
+            return 0;
+
+        using var slow = PerfSummary.MeasureSqlite(nameof(CountOfflineSalesByStatus));
+        _dbLock.EnterReadLock();
+        try
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            var names = new List<string>(statuses.Count);
+            var i = 0;
+            foreach (var status in statuses)
+            {
+                var name = "$s" + i++;
+                names.Add(name);
+                command.Parameters.AddWithValue(name, status);
+            }
+
+            command.CommandText = $"SELECT COUNT(*) FROM OfflineSales WHERE sync_status IN ({string.Join(", ", names)});";
+            return Convert.ToInt32(command.ExecuteScalar() ?? 0, CultureInfo.InvariantCulture);
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+    }
+
+    /// <summary>2026-11-06: В5 24.2 — все записи очереди, КРОМЕ выгруженных (<paramref name="excludedStatus"/>): JSON уже доставленных продаж не разбирается.
+    /// На базе с тысячами выгруженных чеков и единицами ждущих читает единицы, а не всё. Порядок — как у <see cref="LoadAllOfflineSales"/>.</summary>
+    public List<OfflineSaleEntry> LoadOfflineSalesExceptStatus(string excludedStatus)
+    {
+        using var slow = PerfSummary.MeasureSqlite(nameof(LoadOfflineSalesExceptStatus));
+        _dbLock.EnterReadLock();
+        try
+        {
+            var list = new List<OfflineSaleEntry>();
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            // «статус < X OR статус > X» (= «не X» для NOT NULL колонки) идёт по индексу статуса двумя диапазонами и пропускает все выгруженные строки;
+            // «+created_at» не даёт планировщику вместо этого обходить всю таблицу по индексу даты (замер на 5000 выгруженных: 5 мс → 0,08 мс в SQLite).
+            command.CommandText = "SELECT json_data FROM OfflineSales WHERE (sync_status < $excluded OR sync_status > $excluded) ORDER BY +created_at ASC;";
+            command.Parameters.AddWithValue("$excluded", excludedStatus);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var entry = JsonSerializer.Deserialize<OfflineSaleEntry>(reader.GetString(0), JsonOpts);
+                if (entry != null)
+                    list.Add(entry);
+            }
+
+            return list;
+        }
+        finally
+        {
+            _dbLock.ExitReadLock();
+        }
+    }
+
     /// <summary>Только строки с нужным статусом — колонка sync_status уже проиндексирована
     /// (idx_offline_sales_status). Разбирать JSON выгруженных продаж, чтобы посчитать ждущие,
     /// смысла нет: их в очереди обычно единицы, а всего строк — за всё время работы кассы.</summary>
     public List<OfflineSaleEntry> LoadOfflineSalesByStatus(IReadOnlyCollection<string> statuses)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadOfflineSalesByStatus)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         var list = new List<OfflineSaleEntry>();
         if (statuses.Count == 0)
             return list;
@@ -936,6 +1149,7 @@ public sealed class DatabaseService
 
     public void SaveAllOfflineSales(IReadOnlyList<OfflineSaleEntry> items)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(SaveAllOfflineSales)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         _dbLock.EnterWriteLock();
         try
         {
@@ -979,6 +1193,7 @@ public sealed class DatabaseService
 
     public void AppendOfflineSale(OfflineSaleEntry entry)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(AppendOfflineSale)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         _dbLock.EnterWriteLock();
         try
         {
@@ -1059,6 +1274,7 @@ public sealed class DatabaseService
 
     public List<IrregularReceiptEntry> LoadAllIrregularReceipts()
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadAllIrregularReceipts)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         _dbLock.EnterReadLock();
         try
         {
@@ -1181,7 +1397,7 @@ public sealed class DatabaseService
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT quantity, reason, created_at FROM WriteOffHistory WHERE product_name = $name COLLATE NOCASE"
-                + OwnRowsClause() + " ORDER BY created_at DESC;";
+                + OwnRowsClause(command) + " ORDER BY created_at DESC;";
             var pName = command.CreateParameter();
             pName.ParameterName = "$name";
             pName.Value = productName;
@@ -1217,6 +1433,7 @@ public sealed class DatabaseService
     public List<(string ProductName, double Quantity, string Kind, string Note, DateTime At)> LoadStockMovements(
         DateTime from, DateTime to, int limit = 500)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadStockMovements)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         _dbLock.EnterReadLock();
         try
         {
@@ -1226,7 +1443,7 @@ public sealed class DatabaseService
             using (var sales = connection.CreateCommand())
             {
                 sales.CommandText = "SELECT product_name, quantity, sold_at, source FROM SoldLineItems "
-                    + "WHERE sold_at >= $from AND sold_at <= $to" + OwnRowsClause()
+                    + "WHERE sold_at >= $from AND sold_at <= $to" + OwnRowsClause(sales)
                     + " ORDER BY sold_at DESC LIMIT $limit;";
                 sales.Parameters.AddWithValue("$from", from.ToString("o", CultureInfo.InvariantCulture));
                 sales.Parameters.AddWithValue("$to", to.ToString("o", CultureInfo.InvariantCulture));
@@ -1245,7 +1462,7 @@ public sealed class DatabaseService
             using (var writeOffs = connection.CreateCommand())
             {
                 writeOffs.CommandText = "SELECT product_name, quantity, reason, cashier_name, created_at FROM WriteOffHistory "
-                    + "WHERE created_at >= $from AND created_at <= $to" + OwnRowsClause()
+                    + "WHERE created_at >= $from AND created_at <= $to" + OwnRowsClause(writeOffs)
                     + " ORDER BY created_at DESC LIMIT $limit;";
                 writeOffs.Parameters.AddWithValue("$from", from.ToString("o", CultureInfo.InvariantCulture));
                 writeOffs.Parameters.AddWithValue("$to", to.ToString("o", CultureInfo.InvariantCulture));
@@ -1275,6 +1492,7 @@ public sealed class DatabaseService
     public List<(string ProductId, string ProductName, double Quantity, string Reason, string? CashierName, DateTime CreatedAt, double? UnitCost)>
         LoadWriteOffReport(int limit)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadWriteOffReport)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         _dbLock.EnterReadLock();
         try
         {
@@ -1282,7 +1500,7 @@ public sealed class DatabaseService
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT product_id, product_name, quantity, reason, cashier_name, created_at, unit_cost FROM WriteOffHistory WHERE 1=1"
-                + OwnRowsClause() + " ORDER BY created_at DESC LIMIT $limit;";
+                + OwnRowsClause(command) + " ORDER BY created_at DESC LIMIT $limit;";
             command.Parameters.AddWithValue("$limit", limit);
             using var reader = command.ExecuteReader();
             while (reader.Read())
@@ -1309,6 +1527,7 @@ public sealed class DatabaseService
 
     public List<(string ProductName, double Quantity, string Reason, string? CashierName, DateTime CreatedAt)> LoadWriteOffHistory(int limit = 200)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadWriteOffHistory)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         _dbLock.EnterReadLock();
         try
         {
@@ -1316,7 +1535,7 @@ public sealed class DatabaseService
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT product_name, quantity, reason, cashier_name, created_at FROM WriteOffHistory WHERE 1=1"
-                + OwnRowsClause() + " ORDER BY created_at DESC LIMIT $limit;";
+                + OwnRowsClause(command) + " ORDER BY created_at DESC LIMIT $limit;";
             command.Parameters.AddWithValue("$limit", limit);
             using var reader = command.ExecuteReader();
             while (reader.Read())
@@ -1704,6 +1923,7 @@ public sealed class DatabaseService
     /// <summary>Строки продаж по номерам продаж — товары чеков для подробного отчёта смены.</summary>
     public Dictionary<string, List<(string ProductName, double Quantity, double UnitPrice)>> LoadSoldLinesBySaleIds(IReadOnlyCollection<string> saleIds)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadSoldLinesBySaleIds)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         var result = new Dictionary<string, List<(string, double, double)>>(StringComparer.OrdinalIgnoreCase);
         if (saleIds.Count == 0)
             return result;
@@ -1712,17 +1932,30 @@ public sealed class DatabaseService
         try
         {
             using var connection = OpenConnection();
-            foreach (var saleId in saleIds)
+            // 2026-11-06: В5 К-1 (шаг 3, п. 8) — пачками по 500 номеров одним запросом вместо запроса на каждый чек. «+company_id»
+            // (OwnRowsClause со skipIndex) не даёт планировщику взять индекс по компании и перебрать всю историю (300 тыс. строк: 2505 мс → ~2 мс).
+            // Порядок строк внутри чека сохраняется: ORDER BY rowid, как и при чтении по одному (rowid — порядок записи).
+            var distinct = saleIds.Where(s => !string.IsNullOrEmpty(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            for (var offset = 0; offset < distinct.Count; offset += SaleIdBatchSize)
             {
+                var batch = distinct.Skip(offset).Take(SaleIdBatchSize).ToList();
                 using var command = connection.CreateCommand();
-                command.CommandText = "SELECT product_name, quantity, unit_price FROM SoldLineItems WHERE sale_id = $id" + OwnRowsClause() + ";";
-                command.Parameters.AddWithValue("$id", saleId);
+                var names = new string[batch.Count];
+                for (var i = 0; i < batch.Count; i++)
+                {
+                    names[i] = "$s" + i;
+                    command.Parameters.AddWithValue(names[i], batch[i]);
+                }
+                command.CommandText = "SELECT sale_id, product_name, quantity, unit_price FROM SoldLineItems WHERE sale_id IN (" + string.Join(",", names) + ")"
+                    + OwnRowsClause(command, skipIndex: true) + " ORDER BY rowid;";
                 using var reader = command.ExecuteReader();
-                var lines = new List<(string, double, double)>();
                 while (reader.Read())
-                    lines.Add((reader.GetString(0), reader.GetDouble(1), reader.GetDouble(2)));
-                if (lines.Count > 0)
-                    result[saleId] = lines;
+                {
+                    var saleId = reader.GetString(0);
+                    if (!result.TryGetValue(saleId, out var lines))
+                        result[saleId] = lines = new List<(string, double, double)>();
+                    lines.Add((reader.GetString(1), reader.GetDouble(2), reader.GetDouble(3)));
+                }
             }
         }
         catch (Exception ex)
@@ -2137,6 +2370,9 @@ public sealed class DatabaseService
         return string.IsNullOrWhiteSpace(id) ? null : id;
     }
 
+    /// <summary>2026-11-06: В5 К-1 — сколько номеров чеков в одном запросе IN (…) (лимит SQLite на параметры — 32 766).</summary>
+    private const int SaleIdBatchSize = 500;
+
     /// <summary>Условие «только строки текущей компании» для запросов истории продаж.
     ///
     /// Строки без владельца (company_id IS NULL) — это записи, сделанные до разделения данных
@@ -2145,11 +2381,20 @@ public sealed class DatabaseService
     /// не идут — но и не удаляются, данные остаются на месте.
     ///
     /// Пока компания неизвестна (нет связи с сервером на старте), ничего не фильтруем: иначе
-    /// касса без интернета показывала бы пустые отчёты вместо своих.</summary>
-    private static string OwnRowsClause()
+    /// касса без интернета показывала бы пустые отчёты вместо своих.
+    ///
+    /// 2026-11-06: В5 Б-5 — компания передаётся ПАРАМЕТРОМ <c>$ownCompany</c> команды, а не вставляется в текст запроса литералом
+    /// (раньше идентификатор компании с сервера подставлялся в SQL строкой; экранирование кавычки было единственной защитой).
+    /// <paramref name="skipIndex"/> — знак «+» перед колонкой запрещает планировщику взять индекс (company_id, product_name):
+    /// в запросах по номеру чека он перебирал бы всю историю компании (300 тыс. строк: 2505 мс вместо 2 мс), см. аудит скорости 05.11.2026.</summary>
+    private static string OwnRowsClause(SqliteCommand command, bool skipIndex = false)
     {
         var company = CurrentCompanyId();
-        return company is null ? "" : " AND company_id = '" + company.Replace("'", "''") + "'";
+        if (company is null)
+            return "";
+        if (!command.Parameters.Contains("$ownCompany"))
+            command.Parameters.AddWithValue("$ownCompany", company);
+        return skipIndex ? " AND +company_id = $ownCompany" : " AND company_id = $ownCompany";
     }
 
     /// <summary>Номер продажи в строках истории. По нему история двух касс одного аккаунта
@@ -2267,7 +2512,7 @@ public sealed class DatabaseService
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT MAX(sold_at) FROM SoldLineItems WHERE (sale_id IS NULL OR sale_id = '')"
-                + OwnRowsClause() + ";";
+                + OwnRowsClause(command) + ";";
             var raw = command.ExecuteScalar() as string;
             return DateTime.TryParse(raw, null, System.Globalization.DateTimeStyles.RoundtripKind, out var value)
                 ? value.ToUniversalTime()
@@ -2292,6 +2537,7 @@ public sealed class DatabaseService
     public List<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)>
         LoadSoldLineItemsForProduct(string productName)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadSoldLineItemsForProduct)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         var result = new List<(string, string, double, double, DateTime)>();
         if (string.IsNullOrWhiteSpace(productName))
             return result;
@@ -2307,7 +2553,7 @@ public sealed class DatabaseService
             // вызывающий код.
             command.CommandText =
                 "SELECT product_id, product_name, quantity, unit_price, sold_at FROM SoldLineItems "
-                + "WHERE product_name = $name COLLATE NOCASE" + OwnRowsClause() + ";";
+                + "WHERE product_name = $name COLLATE NOCASE" + OwnRowsClause(command) + ";";
             var pName = command.CreateParameter();
             pName.ParameterName = "$name";
             pName.Value = productName;
@@ -2345,6 +2591,7 @@ public sealed class DatabaseService
     /// <summary>Номера продаж локальной истории, проданных в промежутке [sinceUtc, untilUtc).</summary>
     public HashSet<string> LoadKnownSaleIdsBetween(DateTime sinceUtc, DateTime untilUtc)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadKnownSaleIdsBetween)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         _dbLock.EnterReadLock();
         try
@@ -2352,7 +2599,7 @@ public sealed class DatabaseService
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT DISTINCT sale_id FROM SoldLineItems WHERE sale_id IS NOT NULL AND sale_id <> '' "
-                + "AND sold_at >= $since AND sold_at < $until" + OwnRowsClause() + ";";
+                + "AND sold_at >= $since AND sold_at < $until" + OwnRowsClause(command) + ";";
             command.Parameters.AddWithValue("$since", sinceUtc.ToString("O"));
             command.Parameters.AddWithValue("$until", untilUtc.ToString("O"));
             using var reader = command.ExecuteReader();
@@ -2375,6 +2622,7 @@ public sealed class DatabaseService
     /// чтобы «История чеков» показала свежие чеки сразу, не дожидаясь сервера. Старые первыми не гарантированы; порядок строк — как записаны.</summary>
     public List<(string SaleId, DateTime SoldAtUtc, string ProductName, double Quantity, double UnitPrice)> LoadLocalSoldLinesBetween(DateTime sinceUtc, DateTime untilUtc)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadLocalSoldLinesBetween)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         var result = new List<(string, DateTime, string, double, double)>();
         _dbLock.EnterReadLock();
         try
@@ -2382,7 +2630,7 @@ public sealed class DatabaseService
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT sale_id, sold_at, product_name, quantity, unit_price FROM SoldLineItems WHERE source = 'local' "
-                + "AND sale_id IS NOT NULL AND sale_id <> '' AND sold_at >= $since AND sold_at < $until" + OwnRowsClause() + " ORDER BY rowid;";
+                + "AND sale_id IS NOT NULL AND sale_id <> '' AND sold_at >= $since AND sold_at < $until" + OwnRowsClause(command) + " ORDER BY rowid;";
             command.Parameters.AddWithValue("$since", sinceUtc.ToString("O"));
             command.Parameters.AddWithValue("$until", untilUtc.ToString("O"));
             using var reader = command.ExecuteReader();
@@ -2422,7 +2670,7 @@ public sealed class DatabaseService
             {
                 using var command = connection.CreateCommand();
                 command.Transaction = transaction;
-                command.CommandText = "DELETE FROM SoldLineItems WHERE sale_id = $id" + OwnRowsClause() + ";";
+                command.CommandText = "DELETE FROM SoldLineItems WHERE sale_id = $id" + OwnRowsClause(command) + ";";
                 command.Parameters.AddWithValue("$id", saleId);
                 removed += command.ExecuteNonQuery();
             }
@@ -2438,14 +2686,19 @@ public sealed class DatabaseService
 
     public HashSet<string> LoadKnownSaleIds()
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadKnownSaleIds)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         _dbLock.EnterReadLock();
         try
         {
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
+            // 2026-11-06: В5 К-2 (шаг 3) — «+company_id»: без него планировщик брал индекс (company_id, product_name) и строил DISTINCT по всей истории
+            // (300 тыс. строк: ~3 с под замком чтения каждые 30 минут). Результат тот же, замер на копии — в «Волна 1 — В5 замеры».
+            // LoadKnownSaleIdsBetween вместо полного списка НЕ берём: офлайн-чек пишется с временем продажи (до трёх суток назад), а сервер ставит created_at при
+            // выгрузке — окно по дате пропустило бы такой чек и задвоило бы его строки в истории.
             command.CommandText = "SELECT DISTINCT sale_id FROM SoldLineItems WHERE sale_id IS NOT NULL AND sale_id <> ''"
-                + OwnRowsClause() + ";";
+                + OwnRowsClause(command, skipIndex: true) + ";";
             using var reader = command.ExecuteReader();
             while (reader.Read())
                 result.Add(reader.GetString(0));
@@ -2464,6 +2717,7 @@ public sealed class DatabaseService
 
     public void AppendSoldLineItems(IEnumerable<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines, string source, string? saleId = null)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(AppendSoldLineItems)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         _dbLock.EnterWriteLock();
         try
         {
@@ -2514,6 +2768,7 @@ public sealed class DatabaseService
     public List<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)>
         LoadSoldLineItemsWithPriceSince(DateTime sinceUtc, DateTime? untilUtc = null)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadSoldLineItemsWithPriceSince)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         _dbLock.EnterReadLock();
         try
         {
@@ -2521,8 +2776,8 @@ public sealed class DatabaseService
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
             command.CommandText = untilUtc is null
-                ? "SELECT product_id, product_name, quantity, unit_price, sold_at FROM SoldLineItems WHERE sold_at >= $since" + OwnRowsClause() + ";"
-                : "SELECT product_id, product_name, quantity, unit_price, sold_at FROM SoldLineItems WHERE sold_at >= $since AND sold_at < $until" + OwnRowsClause() + ";";
+                ? "SELECT product_id, product_name, quantity, unit_price, sold_at FROM SoldLineItems WHERE sold_at >= $since" + OwnRowsClause(command) + ";"
+                : "SELECT product_id, product_name, quantity, unit_price, sold_at FROM SoldLineItems WHERE sold_at >= $since AND sold_at < $until" + OwnRowsClause(command) + ";";
             command.Parameters.AddWithValue("$since", sinceUtc.ToString("O"));
             if (untilUtc is { } until)
                 command.Parameters.AddWithValue("$until", until.ToString("O"));
@@ -2561,7 +2816,7 @@ public sealed class DatabaseService
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT sale_id, product_id FROM SoldLineItems WHERE sold_at >= $since AND sale_id IS NOT NULL AND sale_id <> '' AND quantity > 0"
-                + OwnRowsClause() + ";";
+                + OwnRowsClause(command) + ";";
             command.Parameters.AddWithValue("$since", sinceUtc.ToString("O"));
             using var reader = command.ExecuteReader();
             while (reader.Read())
@@ -2647,7 +2902,7 @@ public sealed class DatabaseService
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT id, event, product_id, COALESCE(price, 0), trigger_product_id, COALESCE(score, 0), cart_key, sale_id, created_at "
-                + "FROM UpsellEvents WHERE id > $after" + OwnRowsClause() + " ORDER BY id LIMIT $limit;";
+                + "FROM UpsellEvents WHERE id > $after" + OwnRowsClause(command) + " ORDER BY id LIMIT $limit;";
             command.Parameters.AddWithValue("$after", afterId);
             command.Parameters.AddWithValue("$limit", limit);
             using var reader = command.ExecuteReader();
@@ -2678,8 +2933,8 @@ public sealed class DatabaseService
         try
         {
             using var connection = OpenConnection();
-            var own = OwnRowsClause();
             using var command = connection.CreateCommand();
+            var own = OwnRowsClause(command); // 2026-11-06: В5 Б-5 — компания параметром, не литералом
             command.CommandText = "SELECT SUM(CASE WHEN event = 'shown' THEN 1 ELSE 0 END), SUM(CASE WHEN event = 'accepted' THEN 1 ELSE 0 END), "
                 + "SUM(CASE WHEN event = 'skipped' THEN 1 ELSE 0 END) FROM UpsellEvents WHERE created_at >= $from AND created_at < $to" + own + ";";
             command.Parameters.AddWithValue("$from", sinceUtc.ToString("O"));
@@ -2697,7 +2952,7 @@ public sealed class DatabaseService
 
             using var revenue = connection.CreateCommand();
             revenue.CommandText = "SELECT COALESCE(SUM(s.quantity * s.unit_price), 0) FROM (SELECT DISTINCT sale_id, product_id FROM UpsellEvents "
-                + "WHERE event = 'accepted' AND sale_id IS NOT NULL AND sale_id <> '' AND created_at >= $from AND created_at < $to" + own + ") e "
+                + "WHERE event = 'accepted' AND sale_id IS NOT NULL AND sale_id <> '' AND created_at >= $from AND created_at < $to" + OwnRowsClause(revenue) + ") e "
                 + "JOIN SoldLineItems s ON s.sale_id = e.sale_id AND s.product_id = e.product_id;";
             revenue.Parameters.AddWithValue("$from", sinceUtc.ToString("O"));
             revenue.Parameters.AddWithValue("$to", untilUtc.ToString("O"));
@@ -2717,13 +2972,14 @@ public sealed class DatabaseService
 
     public List<(string ProductId, string ProductName, double Quantity, DateTime SoldAt)> LoadSoldLineItemsSince(DateTime sinceUtc)
     {
+        using var slowSql = PerfSummary.MeasureSqlite(nameof(LoadSoldLineItemsSince)); // 2026-11-06: В5 18.3 — запрос дольше 200 мс виден в журнале
         _dbLock.EnterReadLock();
         try
         {
             var list = new List<(string, string, double, DateTime)>();
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT product_id, product_name, quantity, sold_at FROM SoldLineItems WHERE sold_at >= $since" + OwnRowsClause() + ";";
+            command.CommandText = "SELECT product_id, product_name, quantity, sold_at FROM SoldLineItems WHERE sold_at >= $since" + OwnRowsClause(command) + ";";
             command.Parameters.AddWithValue("$since", sinceUtc.ToString("O"));
             using var reader = command.ExecuteReader();
             while (reader.Read())
@@ -2750,7 +3006,7 @@ public sealed class DatabaseService
         {
             using var connection = OpenConnection();
             using var command = connection.CreateCommand();
-            command.CommandText = "SELECT MIN(sold_at) FROM SoldLineItems WHERE 1=1" + OwnRowsClause() + ";";
+            command.CommandText = "SELECT MIN(sold_at) FROM SoldLineItems WHERE 1=1" + OwnRowsClause(command) + ";";
             var raw = command.ExecuteScalar() as string;
             return !string.IsNullOrEmpty(raw)
                 && DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)

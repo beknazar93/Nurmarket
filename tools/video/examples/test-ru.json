@@ -1,0 +1,83 @@
+{
+  "name": "test-ru",
+  "lang": "ru",
+  "voice": "female",
+  "music": true,
+  "scenes": [
+    {
+      "id": "intro",
+      "template": "intro",
+      "tag": "Новое в кассе",
+      "title": "Аналитика бонусов",
+      "subtitle": "Сколько бонусов вы должны клиентам",
+      "duration": 3.4,
+      "text": "Новая аналитика бонусов."
+    },
+    {
+      "id": "shot",
+      "template": "screenshot",
+      "image": "C:/Users/User/NurMarket-video/assets/kassa-bonus.png",
+      "title": "Бонусы клиентов",
+      "duration": 6.6,
+      "text": "Вверху видно остаток бонусов клиентов, а ниже — лучший день месяца.",
+      "steps": [
+        {
+          "type": "cursor",
+          "at": "8%",
+          "dur": "14%",
+          "from": [
+            1100,
+            520
+          ],
+          "to": [
+            180,
+            175
+          ],
+          "click": true
+        },
+        {
+          "type": "highlight",
+          "at": "24%",
+          "dur": "30%",
+          "rect": [
+            24,
+            130,
+            306,
+            92
+          ],
+          "label": "Долг по бонусам"
+        },
+        {
+          "type": "zoom",
+          "at": "56%",
+          "dur": "14%",
+          "rect": [
+            24,
+            520,
+            1240,
+            150
+          ]
+        },
+        {
+          "type": "highlight",
+          "at": "66%",
+          "dur": "30%",
+          "rect": [
+            257,
+            541,
+            916,
+            24
+          ],
+          "label": "Лучший день",
+          "dim": true
+        }
+      ],
+      "portraitFocus": [
+        0,
+        60,
+        1296,
+        420
+      ]
+    }
+  ]
+}

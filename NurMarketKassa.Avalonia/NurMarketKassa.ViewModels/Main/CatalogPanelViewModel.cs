@@ -712,7 +712,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
                 await _dispatcher.InvokeAsync(() =>
                 {
                     PublishProducts(localProducts);
-                    IsOfflineBannerVisible = !isTrueAutonomous;
+                    IsOfflineBannerVisible = !isTrueAutonomous && !SessionExpiryMonitor.IsExpired; // 2026-11-06 (В-9): сессия потеряна — одна плашка «Войдите снова» в строке состояния
                     StatusText = localProducts.Count == 0
                         ? Tr.T("Каталог пуст. Добавьте товар в Складе.", "Каталог бош. «Кампа» бөлүмүндө товар кошуңуз.",
                             "The catalog is empty. Add products in the “Warehouse” section.", "Katalog boş. Depo bölümünden ürün ekleyin.",
@@ -749,7 +749,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
             {
                 await _dispatcher.InvokeAsync(() =>
                 {
-                    IsOfflineBannerVisible = true;
+                    IsOfflineBannerVisible = !SessionExpiryMonitor.IsExpired; // 2026-11-06 (В-9)
                     StatusText = localProducts.Count > 0
                         ? Tr.T($"Работа в автономном режиме (из локальной БД). Товаров: {localProducts.Count}.",
                             $"Офлайн режимде иштөө (локалдык базадан). Товарлар: {localProducts.Count}.",

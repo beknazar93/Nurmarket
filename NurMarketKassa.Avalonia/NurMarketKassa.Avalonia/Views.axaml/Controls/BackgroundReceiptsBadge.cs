@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using NurMarketKassa.AvaloniaHost.Views;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Main.Controls;
 
@@ -21,11 +22,16 @@ public sealed class BackgroundReceiptsBadge : StackPanel
     private bool _refreshPending;
     private bool _subscribed;
 
-    /// <summary>Создать значок (окна ставят его рядом с кнопкой/в строку состояния).</summary>
-    public static Control? Create() => new BackgroundReceiptsBadge();
+    /// <summary>2026-11-06 (Б-6): компактный вид — без связи на значке только «↑ N», полный текст «Неотправленных приходов: N · …» в подсказке.
+    /// Шапка программы владельца: длинный значок налезал на «Сводку» и дату при масштабе Windows 125/150 %.</summary>
+    private readonly bool _compact;
 
-    public BackgroundReceiptsBadge()
+    /// <summary>Создать значок (окна ставят его рядом с кнопкой/в строку состояния).</summary>
+    public static Control? Create(bool compact = false) => new BackgroundReceiptsBadge(compact);
+
+    public BackgroundReceiptsBadge(bool compact = false)
     {
+        _compact = compact;
         Orientation = Orientation.Horizontal;
         Spacing = 6;
         VerticalAlignment = VerticalAlignment.Center;
@@ -62,6 +68,8 @@ public sealed class BackgroundReceiptsBadge : StackPanel
             return;
         _subscribed = true;
         BackgroundReceivingQueue.Instance.JobChanged += OnJobChanged;
+        PendingProductQueue.Instance.Changed += OnProductsChanged; // 2026-11-06: новые товары, заведённые без интернета, — тот же значок
+        ServerOutageMonitor.StateChanged += OnLinkChanged; // 2026-11-06: подпись «Неотправленных приходов» меняется вместе со связью
         Tr.LanguageChanged += OnLanguageChanged;
         ApplyTexts();
         Refresh();
@@ -73,10 +81,16 @@ public sealed class BackgroundReceiptsBadge : StackPanel
             return;
         _subscribed = false;
         BackgroundReceivingQueue.Instance.JobChanged -= OnJobChanged;
+        PendingProductQueue.Instance.Changed -= OnProductsChanged;
+        ServerOutageMonitor.StateChanged -= OnLinkChanged;
         Tr.LanguageChanged -= OnLanguageChanged;
     }
 
     private void OnJobChanged(ReceivingJob _) => Dispatcher.UIThread.Post(Schedule);
+
+    private void OnProductsChanged() => Dispatcher.UIThread.Post(Schedule);
+
+    private void OnLinkChanged(ServerLinkState from, ServerLinkState to) => Dispatcher.UIThread.Post(Schedule);
 
     private void OnLanguageChanged() => Dispatcher.UIThread.Post(() => { ApplyTexts(); Refresh(); });
 
@@ -95,18 +109,20 @@ public sealed class BackgroundReceiptsBadge : StackPanel
     }
 
     private void ApplyTexts() =>
-        ToolTip.SetTip(this, Tr.T("Приходы в фоне — нажмите, чтобы открыть список", "Фондогу кирүүлөр — тизмени ачуу үчүн басыңыз",
-            "Background receivings — click to open the list", "Arka plandaki mal kabulleri — listeyi açmak için tıklayın", "Fondagi kirimlar — ro'yxatni ochish uchun bosing"));
+        ToolTip.SetTip(this, Tr.T("Неотправленное (приходы в фоне и др.) — нажмите, чтобы открыть список", "Жөнөтүлбөгөндөр (фондогу кирүүлөр ж.б.) — тизмени ачуу үчүн басыңыз",
+            "Unsent (background receivings and more) — click to open the list", "Gönderilmeyenler (arka plandaki mal kabulleri vb.) — listeyi açmak için tıklayın", "Yuborilmaganlar (fondagi kirimlar va boshqalar) — ro'yxatni ochish uchun bosing"));
 
     /// <summary>Перечитать счётчики. Вызывать с UI-потока.</summary>
     public void Refresh()
     {
-        int n, k;
+        int n, k, p, pk;
         try
         {
             var queue = BackgroundReceivingQueue.Instance;
             n = queue.ActiveCount;
             k = queue.FailedCount;
+            p = PendingProductQueue.Instance.ActiveCount; // 2026-11-06: новые товары, ещё не созданные на сервере
+            pk = PendingProductQueue.Instance.FailedCount;
         }
         catch (Exception ex)
         {
@@ -114,11 +130,24 @@ public sealed class BackgroundReceiptsBadge : StackPanel
             return;
         }
 
-        _activeText.Text = Tr.T($"в фоне: {n}", $"фондо: {n}", $"in background: {n}", $"arka planda: {n}", $"fonda: {n}");
-        _failedText.Text = Tr.T($"ошибка: {k}", $"ката: {k}", $"error: {k}", $"hata: {k}", $"xato: {k}");
-        _active.IsVisible = n > 0;
-        _failed.IsVisible = k > 0;
-        IsVisible = n > 0 || k > 0;
+        // 2026-11-06: офлайн-приход — пока нет связи, значок честно говорит «Неотправленных приходов: N».
+        var total = n + p;
+        var failedTotal = k + pk;
+        var offlineText = string.Join(" · ", new[] { n > 0 ? BackgroundReceivingQueue.UnsentText(n) : null, p > 0 ? PendingProductQueue.UnsentText(p) : null }.Where(s => s is not null));
+        var noLink = BackgroundReceivingQueue.NoConnectionNow;
+        _activeText.Text = noLink
+            ? (_compact ? "↑ " + total : offlineText)
+            : Tr.T($"в фоне: {total}", $"фондо: {total}", $"in background: {total}", $"arka planda: {total}", $"fonda: {total}");
+        _failedText.Text = Tr.T($"ошибка: {failedTotal}", $"ката: {failedTotal}", $"error: {failedTotal}", $"hata: {failedTotal}", $"xato: {failedTotal}");
+        if (_compact)
+        {
+            ApplyTexts();
+            if (noLink && offlineText.Length > 0)
+                ToolTip.SetTip(this, offlineText + "\n" + ToolTip.GetTip(this));
+        }
+        _active.IsVisible = total > 0;
+        _failed.IsVisible = failedTotal > 0;
+        IsVisible = total > 0 || failedTotal > 0;
     }
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -126,6 +155,7 @@ public sealed class BackgroundReceiptsBadge : StackPanel
         if (e.InitialPressMouseButton != MouseButton.Left)
             return;
         e.Handled = true;
-        BackgroundReceiptsWindow.ShowOrActivate(TopLevel.GetTopLevel(this) as Window);
+        // 2026-11-06: значок открывает единое окно «Неотправленное» (приходы в фоне, новые товары и всё остальное, что не ушло на сервер); «Приходы в фоне» — кнопкой там.
+        OutboxWindow.ShowOrActivate(TopLevel.GetTopLevel(this) as Window);
     }
 }

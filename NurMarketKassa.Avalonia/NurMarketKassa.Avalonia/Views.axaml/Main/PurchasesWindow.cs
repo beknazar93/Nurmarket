@@ -652,7 +652,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         // 2026-10-29: единый поиск — слова в любом порядке, ё=е, «Asu»↔«Асу»↔«фыг»; ищет по поставщику, кассиру, названиям и кодам товаров.
         // 2026-10-30: плюс номер документа (ПР-2026-123, 123, 000123) и номер накладной поставщика.
         var byText = SearchMatch.Filter(_receipts, Query, r => SearchMatch.Key(r.SupplierName, r.CreatedBy, string.Join(" ", r.Lines.Select(l => l.ProductName + " " + l.Code)),
-            DocumentNumbering.SearchKey(DocSeries.Receipt, r.Id), DocumentNumbering.ShortCode(r.Id), r.SupplierDocNumber)).ToHashSet();
+            DocumentNumbering.SearchKey(DocSeries.Receipt, r.Id), DocumentNumbering.ShortCode(r.Id), r.SupplierDocNumber, r.NumberDisplay)).ToHashSet(); // 2026-11-06: + серверный номер
         return _receipts.Where(r => byText.Contains(r) || (Query.Length > 0 && DocumentNumbering.MatchesQuery(DocSeries.Receipt, r.Id, Query)));
     }
 
@@ -898,7 +898,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
     {
         var g = DataGrid();
         // 2026-10-30 (нумерация закупок): первая колонка — номер документа (ПР-2026-000123; пока история не сверена — прежний короткий код) и дата.
-        var number = DocumentNumbering.ReceiptText(r.Id);
+        var number = DocumentNumbering.ReceiptText(r); // 2026-11-06 (Б-3): серверный number_display, как в окне документа (раньше — номер кассы, расходился на единицу)
         Put(g, 0, Two(number, (r.CreatedAt?.ToString("dd.MM.yyyy HH:mm", Ru) ?? "—")));
         Put(g, 1, Two(r.SupplierName.Length > 0 ? r.SupplierName : "—",
             T("принял: ", "кабыл алды: ", "by: ", "kabul: ", "qabul qildi: ") + (r.CreatedBy.Length > 0 ? r.CreatedBy : "—")

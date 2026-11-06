@@ -166,6 +166,8 @@ public sealed class WindowLayerHost : Panel
         _windows.Remove(window);
         _lastFocus.Remove(window);
         _suppressedButtons.Remove(window);
+        if (ReferenceEquals(_shiftedLayer, layer))
+            _shiftedLayer = null;
         Children.Remove(layer);
         layer.Detach();
         UpdateInteractivity();
@@ -270,17 +272,20 @@ public sealed class WindowLayerHost : Panel
                     {
                         foreach (var (button, isDefault, isCancel) in saved)
                         {
-                            if (isDefault)
+                            // 2026-11-06: В4 А5-16 — возвращаем только то, что сейчас снято: если код окна, пока оно было внизу, сам поставил кнопке
+                            // своё значение (true), старый снимок его не затирает.
+                            if (isDefault && !button.IsDefault)
                                 button.SetCurrentValue(Button.IsDefaultProperty, true);
-                            if (isCancel)
+                            if (isCancel && !button.IsCancel)
                                 button.SetCurrentValue(Button.IsCancelProperty, true);
                         }
                     }
                     continue;
                 }
-                if (_suppressedButtons.ContainsKey(w))
-                    continue;
-                var list = new List<(Button, bool, bool)>();
+                // 2026-11-06: В4 А5-16 — нижнее окно обходим при каждой смене верхнего (раньше один раз): кнопки, ставшие IsDefault/IsCancel
+                // позже (вкладка, пересобранный подвал), тоже снимаются — Enter/Esc с клавиатуры не нажимают кнопку окна под верхним.
+                if (!_suppressedButtons.TryGetValue(w, out var list))
+                    _suppressedButtons[w] = list = new List<(Button, bool, bool)>();
                 foreach (var button in w.GetVisualDescendants().OfType<Button>())
                 {
                     if (!button.IsDefault && !button.IsCancel)
@@ -291,7 +296,6 @@ public sealed class WindowLayerHost : Panel
                     if (button.IsCancel)
                         button.SetCurrentValue(Button.IsCancelProperty, false);
                 }
-                _suppressedButtons[w] = list;
             }
         }
         catch (Exception ex)
@@ -315,9 +319,16 @@ public sealed class WindowLayerHost : Panel
             if (NurMarketKassa.Services.UserPreferences.Instance.LowPerformanceMode)
                 topModal = -1;
             var wanted = new List<Layer>();
-            for (var i = 0; i < topModal && i < _windows.Count; i++)
+            // 2026-11-06: В4 шаг 20 — на Android размывается ОДИН слой: непосредственно под верхней модалкой (раньше — все слои ниже неё, каждый со своим
+            // BlurEffect: при диалоге поверх диалога поверх кассы — два-три дорогих прохода на каждый кадр анимации). Слои глубже закрыты затемнением.
+            for (var i = Math.Min(topModal, _windows.Count) - 1; i >= 0; i--)
+            {
                 if (_layers.TryGetValue(_windows[i], out var l) && l.IsVisible)
+                {
                     wanted.Add(l);
+                    break;
+                }
+            }
             foreach (var old in _blurLayers.Where(l => !wanted.Contains(l)).ToList())
             {
                 old.Effect = null;
@@ -652,6 +663,43 @@ public sealed class WindowLayerHost : Panel
     {
         if (e.NewState == Avalonia.Controls.Platform.InputPaneState.Open)
             ScheduleBringFocusedIntoView();
+        else
+            ResetKeyboardShift();
+    }
+
+    // 2026-11-06: В4 А4-04 — BringIntoView работает только внутри прокрутки; окно без прокрутки (оплата, «Получено», «Безнал»), выше видимой части,
+    // держалось только на AdjustResize и обрезалось снизу вместе с полем. Если после BringIntoView поле всё равно ниже видимой части вида, слой
+    // верхнего окна сдвигается вверх ровно на нужную высоту, но не больше, чем окно торчит за нижний край (заголовок остаётся на экране сколько можно).
+    private Layer? _shiftedLayer;
+
+    private void ShiftTopAboveKeyboard(TextBox box, Window top)
+    {
+        if (!_layers.TryGetValue(top, out var layer) || layer.IsFill)
+            return;
+        var fieldBottom = box.TranslatePoint(new Point(0, box.Bounds.Height + 16), this);
+        var windowBottom = top.TranslatePoint(new Point(0, top.Bounds.Height), this);
+        if (fieldBottom is null || windowBottom is null)
+            return;
+        var current = layer.RenderTransform is TranslateTransform t ? t.Y : 0; // уже применённый сдвиг (≤ 0): измеренные точки его включают
+        var fieldY = fieldBottom.Value.Y - current;
+        var windowY = windowBottom.Value.Y - current;
+        var shift = Math.Clamp(fieldY - Bounds.Height, 0, Math.Max(0, windowY - Bounds.Height));
+        if (shift < 1)
+        {
+            if (current != 0)
+                ResetKeyboardShift();
+            return;
+        }
+        layer.Transitions = null;
+        layer.RenderTransform = new TranslateTransform(0, -shift);
+        _shiftedLayer = layer;
+    }
+
+    private void ResetKeyboardShift()
+    {
+        if (_shiftedLayer is { } layer)
+            layer.RenderTransform = null;
+        _shiftedLayer = null;
     }
 
     private void OnFieldGotFocus(object? sender, GotFocusEventArgs e)
@@ -674,6 +722,8 @@ public sealed class WindowLayerHost : Panel
                     {
                         // Поле плюс запас 16 точек со всех сторон — чтобы рядом было видно подпись и кнопку.
                         box.BringIntoView(new Rect(-16, -16, box.Bounds.Width + 32, box.Bounds.Height + 32));
+                        if (_inputPane?.State == Avalonia.Controls.Platform.InputPaneState.Open)
+                            ShiftTopAboveKeyboard(box, top);
                     }
                 }
                 catch (Exception ex)
@@ -724,8 +774,14 @@ public sealed class WindowLayerHost : Panel
             if (top.GetVisualDescendants().OfType<NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalShell>().FirstOrDefault() is { } shell)
                 return shell.TryCloseFromUser();
             // Окно без ModalShell: порядок как у Button.OnClick (Click, затем Command, если Click не перехватил) — А-2.
+            // 2026-11-06: В4 А-3 — «Отмена» искалась по всему дереву окна и бралась первая (в окнах с вкладками — кнопка «Отмена» не того блока).
+            // Теперь из видимых и доступных берётся нижняя на экране (подвал окна), а при равенстве — первая по порядку.
             var cancel = top.GetVisualDescendants().OfType<Button>()
-                .FirstOrDefault(b => b.IsCancel && b.IsEffectivelyVisible && b.IsEffectivelyEnabled);
+                .Where(b => b.IsCancel && b.IsEffectivelyVisible && b.IsEffectivelyEnabled && b.Bounds.Width > 0 && b.Bounds.Height > 0)
+                .Select(b => (Button: b, Y: b.TranslatePoint(new Point(0, b.Bounds.Height), top)?.Y ?? double.MinValue))
+                .OrderByDescending(x => x.Y)
+                .Select(x => x.Button)
+                .FirstOrDefault();
             if (cancel is null)
                 return false;
             NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalShell.PressButton(cancel);

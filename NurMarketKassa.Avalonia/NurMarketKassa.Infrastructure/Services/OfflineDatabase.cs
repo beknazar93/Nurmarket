@@ -11,6 +11,12 @@ public static class OfflineDatabase
 
     public static List<OfflineSaleEntry> LoadAll() => Db.LoadAllOfflineSales();
 
+    /// <summary>2026-11-06: В5 24.2 — все записи очереди, кроме выгруженных (JSON доставленных продаж не разбирается).</summary>
+    public static List<OfflineSaleEntry> LoadAllExceptStatus(string excludedStatus) => Db.LoadOfflineSalesExceptStatus(excludedStatus);
+
+    /// <summary>2026-11-06: В5 24.2 — число записей с нужными статусами одним COUNT, без разбора JSON.</summary>
+    public static int CountByStatus(IReadOnlyCollection<string> statuses) => Db.CountOfflineSalesByStatus(statuses);
+
     public static OfflineSaleEntry? TryGetById(string id) => Db.TryGetOfflineSaleById(id);
 
     public static List<OfflineSaleEntry> LoadByStatus(IReadOnlyCollection<string> statuses) =>

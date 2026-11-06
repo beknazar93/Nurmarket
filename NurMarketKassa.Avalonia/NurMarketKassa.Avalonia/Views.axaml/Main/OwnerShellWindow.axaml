@@ -972,7 +972,7 @@
                 <StackPanel Grid.Column="0" x:Name="TitlePanel" VerticalAlignment="Center" Margin="0,6,12,0" Spacing="2">
                     <TextBlock x:Name="DashboardTitle" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource BrushText}"
                                TextTrimming="CharacterEllipsis"/>
-                    <WrapPanel Orientation="Horizontal">
+                    <WrapPanel x:Name="TitleMetaPanel" Orientation="Horizontal">
                         <TextBlock x:Name="DateText" FontSize="13" Margin="0,0,12,0" Foreground="{DynamicResource BrushTextSoft}"
                                    TextTrimming="CharacterEllipsis"/>
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -981,6 +981,10 @@
                             <TextBlock x:Name="UpdatedText" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
+                        <!-- 2026-11-06: «🔑 Вход истекает через N ч — войдите заново» (≤ 24 ч до конца входа, RefreshExpiryWatcher); скрыта, пока срок неизвестен или далёк -->
+                        <TextBlock x:Name="LoginExpiryText" IsVisible="False" FontSize="13" Margin="12,0,0,0"
+                                   Foreground="{DynamicResource BrushUiStatusWarn}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"/>
                     </WrapPanel>
                 </StackPanel>
 

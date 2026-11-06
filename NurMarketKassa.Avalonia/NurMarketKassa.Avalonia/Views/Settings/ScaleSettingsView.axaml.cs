@@ -268,7 +268,7 @@ public partial class ScaleSettingsView : UserControl
     {
         Content = text,
         Classes = { "sec-outline" },
-        MinHeight = 38,
+        MinHeight = 40, // 2026-11-06: В6 цель нажатия 40 (было 38)
         Padding = new Thickness(14, 0),
         MinWidth = 110,
         HorizontalContentAlignment = HorizontalAlignment.Center,

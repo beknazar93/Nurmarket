@@ -60,6 +60,18 @@ namespace NurMarketKassa.ViewModels
             }
         }
 
+        /// <summary>2026-11-06 (план «десктоп 10 из 10», Д4-13, решение владельца «на все ок»): срок «В долг» по умолчанию — 14 дней: при выборе способа
+        /// «В долг» дата сразу стоит (+14 дней от сегодня), кассиру не нужно жать лишний раз и красной причины «Укажите срок» до действия нет. Срок можно сменить
+        /// («7 / 30 дней», календарь) или очистить; уже выбранный срок и рассрочка не перезаписываются.</summary>
+        internal const int DefaultDebtDueDays = 14;
+
+        private void ApplyDefaultDebtDue()
+        {
+            if (_isInstallment || _debtDueDate is not null)
+                return;
+            DebtDueDate = DateTime.Today.Date.AddDays(DefaultDebtDueDays);
+        }
+
         /// <summary>«Через N дней» — параметр строкой ("7", "14", "30"). 2026-10-20, владелец (долг Д1): ровно +N дней от
         /// сегодняшней даты (DateTime.Today.Date), подпись — «Срок: 30 дн., до 19.11.2026» при продаже 20.10.</summary>
         public ICommand SetDebtDueDaysCommand => _setDebtDueDaysCommand ??= new RelayCommand<string>(days =>
@@ -212,7 +224,9 @@ namespace NurMarketKassa.ViewModels
         public string DebtDue7Text => Tr.T("7 дней", "7 күн", "7 days", "7 gün", "7 kun");
         public string DebtDue14Text => Tr.T("14 дней", "14 күн", "14 days", "14 gün", "14 kun");
         public string DebtDue30Text => Tr.T("30 дней", "30 күн", "30 days", "30 gün", "30 kun");
-        public string InstallmentCheckText => Tr.T("Рассрочка (несколько платежей)", "Бөлүп төлөө (бир нече төлөм)", "Instalments (several payments)",
+        /// <summary>2026-11-06 (Д4-13): короткая подпись галочки — «Рассрочка (несколько платежей)» переносилась на две строки; полный текст — в подсказке.</summary>
+        public string InstallmentCheckText => Tr.T("Рассрочка", "Бөлүп төлөө", "Instalments", "Taksit", "Bo'lib to'lash");
+        public string InstallmentCheckHint => Tr.T("Рассрочка (несколько платежей)", "Бөлүп төлөө (бир нече төлөм)", "Instalments (several payments)",
             "Taksit (birden fazla ödeme)", "Bo'lib to'lash (bir nechta to'lov)");
         public string InstallmentByDaysText => Tr.T("По дням", "Күн боюнча", "By days", "Günlük", "Kunlar bo'yicha");
         public string InstallmentByMonthsText => Tr.T("По месяцам", "Ай боюнча", "By months", "Aylık", "Oylar bo'yicha");

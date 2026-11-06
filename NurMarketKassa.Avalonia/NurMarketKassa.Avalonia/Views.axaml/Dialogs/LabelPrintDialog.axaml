@@ -50,7 +50,7 @@
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button IsCancel="True" Content="{DynamicResource common.close}" Classes="modal-cancel" Click="CloseButton_Click"/>
                 <Button Content="{DynamicResource labelPrint.printButton}" Classes="modal-primary" Click="PrintButton_Click"
-                        IsEnabled="{Binding CanPrint}" IsVisible="{Binding !IsBusy}"/>
+                        IsEnabled="{Binding CanPrintNow}" IsVisible="{Binding !IsBusy}"/>
                 <Button Content="{DynamicResource labelPrint.printing}" Classes="modal-primary" IsVisible="{Binding IsBusy}" IsEnabled="False"/>
             </StackPanel>
         </dialogs:ModalShell.Footer>
@@ -75,7 +75,7 @@
             <Grid ColumnDefinitions="*,12,160">
                 <StackPanel Grid.Column="0" Spacing="4">
                     <TextBlock Classes="field-label" Text="{DynamicResource common.printer}"/>
-                    <ComboBox ItemsSource="{Binding Printers}"
+                    <ComboBox ItemsSource="{Binding Printers}" PlaceholderText="{Binding PrinterPlaceholder}"
                               SelectedItem="{Binding SelectedPrinter, Mode=TwoWay}"
                               HorizontalAlignment="Stretch"/>
                 </StackPanel>

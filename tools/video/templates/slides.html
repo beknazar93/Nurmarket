@@ -1,0 +1,33 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>slides</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  .sl { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+  .sl img { max-width:92vw; max-height:78vh; border-radius:calc(var(--u)*1); box-shadow:0 calc(var(--u)*1.2) calc(var(--u)*5) rgba(0,0,0,.55); }
+  html.portrait .sl img { max-height:62vh; }
+</style></head>
+<body><div id="root"><div class="bg-glow"></div></div>
+<script src="nm.js"></script>
+<script>
+/* params: {images:[png...], title?, durations?:[сек...]} Слайды сменяются кроссфейдом, мягкий наезд (Ken Burns). */
+window.__ready = window.__ready.then(async () => {
+  const { P, S, el, seg, ease, clamp } = NM, root = document.getElementById('root');
+  const imgs = P.images || [], n = Math.max(imgs.length, 1);
+  const durs = P.durations && P.durations.length === n ? P.durations : Array(n).fill(S.duration / n);
+  const starts = []; durs.reduce((a, d) => (starts.push(a), a + d), 0);
+  const sl = [];
+  for (const src of imgs) { const d = el('div', 'sl', root); const im = el('img', null, d); im.src = NM.toURL(src); await new Promise(r => { im.onload = im.onerror = r; }); sl.push(d); }
+  const ti = P.title ? NM.titr(P.title, { pos: P.titlePos || 'top' }) : null;
+  window.__render = (t) => {
+    sl.forEach((d, i) => {
+      const a = starts[i], b = a + durs[i], f = 0.45;
+      const fin = i ? seg(t, a - f / 2, f, ease.lin) : 1;
+      const fout = i < n - 1 ? 1 - seg(t, b - f / 2, f, ease.lin) : 1;
+      d.style.opacity = clamp(Math.min(fin, fout));
+      const p = clamp((t - a) / durs[i]);
+      d.firstChild.style.transform = `scale(${1 + 0.05 * p})`;
+    });
+    if (ti) ti.set(t, 0.3, S.duration - 0.6);
+  };
+});
+</script></body></html>

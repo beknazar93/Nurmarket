@@ -33,6 +33,10 @@ public static class RongtaSetupService
     /// Резерв — фиксированные Program Files/Program Files x86 кандидаты.</summary>
     public static string? TryFindInstalledExePath()
     {
+        // 2026-11-06: В4 Н-2 — реестр Windows есть только в Windows; на Linux/Android обращение к Registry.LocalMachine бросало
+        // PlatformNotSupportedException (окно весов Rongta не открывалось). RLS1000 — программа только для Windows.
+        if (!OperatingSystem.IsWindows())
+            return null;
         foreach (var hive in new[] { Registry.LocalMachine, Registry.CurrentUser })
         {
             foreach (var subKeyPath in UninstallSubKeys)
@@ -120,7 +124,7 @@ public static class RongtaSetupService
     /// установке самой кассы.</summary>
     public static async Task<bool> InstallSilentlyAsync(string installerExePath, CancellationToken ct = default)
     {
-        if (!File.Exists(installerExePath))
+        if (!OperatingSystem.IsWindows() || !File.Exists(installerExePath)) // 2026-11-06: В4 Н-2 — установщик .exe только для Windows
             return false;
 
         try

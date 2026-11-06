@@ -208,7 +208,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 ExpensesBreakdownText.Text = breakdown;
             if (ProfitAfterExpensesText != null)
             {
-                var net = grossProfit - expenses;
+                // 2026-11-06: В2 Л4-14 — чистая прибыль одна на все экраны: есть operating_profit сервера (analytics/pnl) — берём его (как «Прибыль и деньги»,
+                // «Инвестиции», «Зарплата от прибыли»), иначе валовая − расходы; правило живёт в NetProfitCalculator.
+                var net = NetProfitCalculator.Net(_serverExpenses?.OperatingProfit, grossProfit, expenses);
                 ProfitAfterExpensesText.Text = $"{net:N2} {Som}";
                 MarkLoss(ProfitAfterExpensesText, net < 0);
             }

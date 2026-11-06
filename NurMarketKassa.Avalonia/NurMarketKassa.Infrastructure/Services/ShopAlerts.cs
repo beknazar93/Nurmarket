@@ -15,6 +15,8 @@ public static class ShopAlerts
         /// <summary>ключ → день (yyyy-MM-dd), когда уже отправляли.</summary>
         public Dictionary<string, string> Sent { get; set; } = new();
         public List<PendingAlert> Pending { get; set; } = new();
+        /// <summary>2026-11-06: В3 Н9 — товары группы A, о которых уже сообщили «закончился» и которые с тех пор не появлялись на складе (пока остаток не вернётся, повтора нет).</summary>
+        public List<string> OutOfStock { get; set; } = new();
     }
 
     public sealed class PendingAlert
@@ -38,6 +40,21 @@ public static class ShopAlerts
     private static string FilePath => Path.Combine(Folder, "shop-alerts-state.json");
 
     private static DateTime _stateStamp;
+
+    // 2026-11-06: В3 Л5-22 — отметки «уже отправляли» и очередь до утра — общий файл кассы и владельца; замок внутри процесса не мешал двум программам одновременно
+    // прочитать «не отправляли». Правка состояния идёт под межпроцессным замком (файл рядом) с повторным чтением файла.
+    private static string LockPath => Path.Combine(Folder, "shop-alerts.lock");
+
+    private static T Locked<T>(Func<T> action)
+    {
+        lock (Gate)
+        {
+            using var cross = CrossProcessLock.TryAcquire(LockPath, TimeSpan.FromSeconds(5)); // не дождались — работаем как раньше (редкий повтор лучше потери оповещения)
+            _state = null; // другая программа могла изменить файл — читаем заново, а не из кеша
+            _stateStamp = default;
+            return action();
+        }
+    }
 
     // ───────────── чистые правила ─────────────
 
@@ -98,22 +115,43 @@ public static class ShopAlerts
     }
 
     /// <summary>true — этот ключ сегодня ещё не отмечен (и отмечает его). Старые отметки (старше 3 суток) вычищаются.</summary>
-    public static bool TryMarkSentToday(string key, DateTime now)
+    public static bool TryMarkSentToday(string key, DateTime now) => Locked(() =>
     {
-        lock (Gate)
+        var s = Read();
+        var today = now.ToString("yyyy-MM-dd");
+        if (s.Sent.TryGetValue(key, out var day) && day == today)
+            return false;
+        s.Sent[key] = today;
+        var limit = now.Date.AddDays(-3).ToString("yyyy-MM-dd");
+        foreach (var old in s.Sent.Where(kv => string.CompareOrdinal(kv.Value, limit) < 0).Select(kv => kv.Key).ToList())
+            s.Sent.Remove(old);
+        Write(s);
+        return true;
+    });
+
+    /// <summary>2026-11-06: В3 Н9 — какие из закончившихся сейчас товаров группы A ещё НЕ сообщали. Раньше ключ «class-a|имя» жил сутки, и тот же товар приходил в оповещениях каждый день,
+    /// пока его не завезут. Теперь помним «сообщали, пока не появился»: возвращаются только товары, которых нет в памяти; из памяти уходят те, что больше не в списке «закончились»
+    /// (остаток вернулся) — при следующем окончании сообщим снова. Новые отмечаются сразу.</summary>
+    /// <param name="currentlyOut">Названия закончившихся сейчас товаров группы A.</param>
+    /// <param name="listIsComplete">false — список остатков не получен целиком (память не трогаем, чтобы сбой не «забыл» товары).</param>
+    public static List<string> NewlyOutOfStock(IReadOnlyCollection<string> currentlyOut, bool listIsComplete = true) => Locked(() =>
+    {
+        var s = Read();
+        var known = new HashSet<string>(s.OutOfStock, StringComparer.CurrentCultureIgnoreCase);
+        var fresh = currentlyOut.Where(n => !known.Contains(n)).Distinct(StringComparer.CurrentCultureIgnoreCase).ToList();
+        if (listIsComplete)
         {
-            var s = Read();
-            var today = now.ToString("yyyy-MM-dd");
-            if (s.Sent.TryGetValue(key, out var day) && day == today)
-                return false;
-            s.Sent[key] = today;
-            var limit = now.Date.AddDays(-3).ToString("yyyy-MM-dd");
-            foreach (var old in s.Sent.Where(kv => string.CompareOrdinal(kv.Value, limit) < 0).Select(kv => kv.Key).ToList())
-                s.Sent.Remove(old);
+            var stillOut = new HashSet<string>(currentlyOut, StringComparer.CurrentCultureIgnoreCase);
+            s.OutOfStock = s.OutOfStock.Where(stillOut.Contains).Concat(fresh).Take(500).ToList();
             Write(s);
-            return true;
         }
-    }
+        else if (fresh.Count > 0)
+        {
+            s.OutOfStock = s.OutOfStock.Concat(fresh).Take(500).ToList();
+            Write(s);
+        }
+        return fresh;
+    });
 
     /// <summary>Отметка «уже отправляли» без проверки времени — для событий с уникальным ключом (чек, смена).</summary>
     public static bool TryMarkEvent(string key, DateTime now) => TryMarkSentToday(key, now);
@@ -151,17 +189,15 @@ public static class ShopAlerts
         }
     }
 
-    private static void EnqueuePending(string title, string details, DateTime at)
+    private static void EnqueuePending(string title, string details, DateTime at) => Locked(() =>
     {
-        lock (Gate)
-        {
-            var s = Read();
-            s.Pending.Add(new PendingAlert { Title = title, Details = details, At = at });
-            if (s.Pending.Count > 50)
-                s.Pending.RemoveRange(0, s.Pending.Count - 50);
-            Write(s);
-        }
-    }
+        var s = Read();
+        s.Pending.Add(new PendingAlert { Title = title, Details = details, At = at });
+        if (s.Pending.Count > 50)
+            s.Pending.RemoveRange(0, s.Pending.Count - 50);
+        Write(s);
+        return true;
+    });
 
     /// <summary>Отправить накопленные за тихие часы оповещения одним сообщением (когда тихие часы кончились).</summary>
     public static async Task FlushPendingAsync(DateTime? now = null)
@@ -170,28 +206,29 @@ public static class ShopAlerts
         var at = now ?? DateTime.Now;
         if (!rules.Enabled || !TelegramBotService.IsConfigured || InQuietHours(rules, at))
             return;
-        List<PendingAlert> list;
-        lock (Gate)
+        // 2026-11-06: В3 Л5-22 — очередь забирается под межпроцессным замком: вторая программа, пришедшая за ней же, увидит пустую очередь и не отправит те же сообщения второй раз.
+        var list = Locked(() =>
         {
             var s = Read();
             if (s.Pending.Count == 0)
-                return;
-            list = s.Pending.ToList();
+                return new List<PendingAlert>();
+            var taken = s.Pending.ToList();
             s.Pending.Clear();
             Write(s);
-        }
+            return taken;
+        });
+        if (list.Count == 0)
+            return;
         // 2026-11-05 (С10): если Telegram недоступен — ночные сообщения возвращаются в очередь, а не пропадают.
-        void PutBack()
+        void PutBack() => Locked(() =>
         {
-            lock (Gate)
-            {
-                var s = Read();
-                s.Pending.InsertRange(0, list);
-                if (s.Pending.Count > 50)
-                    s.Pending.RemoveRange(0, s.Pending.Count - 50);
-                Write(s);
-            }
-        }
+            var s = Read();
+            s.Pending.InsertRange(0, list);
+            if (s.Pending.Count > 50)
+                s.Pending.RemoveRange(0, s.Pending.Count - 50);
+            Write(s);
+            return true;
+        });
         var title = Tr.T($"Оповещения за ночь: {list.Count}", $"Түнкү эскертүүлөр: {list.Count}", $"Overnight alerts: {list.Count}", $"Gece uyarıları: {list.Count}", $"Tungi ogohlantirishlar: {list.Count}");
         var body = string.Join("\n\n", list.Select(p => $"{p.At:dd.MM HH:mm} · {p.Title}\n{p.Details}"));
         string? error;

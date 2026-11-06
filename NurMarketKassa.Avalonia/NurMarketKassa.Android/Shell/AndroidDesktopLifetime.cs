@@ -48,6 +48,9 @@ public sealed class AndroidDesktopLifetime : IClassicDesktopStyleApplicationLife
 
     public static AndroidDesktopLifetime? Instance { get; private set; }
 
+    /// <summary>2026-11-06: В4 А5-10 — главное окно после входа уже показано (не заставка и не окно входа).</summary>
+    public bool IsSignedIn { get; private set; }
+
     public WindowLayerHost Host { get; private set; } = null!;
 
     public Avalonia.Controls.Control? MainView
@@ -68,6 +71,14 @@ public sealed class AndroidDesktopLifetime : IClassicDesktopStyleApplicationLife
             _mainWindow = value;
             if (value is not null)
                 Host.Relayout(value);
+            // 2026-11-06: В4 А5-10 — кассовое окно или окно владельца стало главным = вход выполнен.
+            if (value?.GetType().Name is "MainWindow" or "OwnerShellWindow")
+            {
+                IsSignedIn = true;
+                AndroidPlatformHooks.AfterSignIn?.Invoke();
+            }
+            else if (value?.GetType().Name is "LoginWindow")
+                IsSignedIn = false;
         }
     }
 
@@ -142,4 +153,7 @@ public static class AndroidPlatformHooks
 
     /// <summary>Увести программу в фон (кнопка «Свернуть» окна кассы).</summary>
     public static Action? MoveToBackground { get; set; }
+
+    /// <summary>2026-11-06: В4 А5-10 — вход выполнен (главное окно кассы или владельца показано): после этого спрашиваем права на уведомления.</summary>
+    public static Action? AfterSignIn { get; set; }
 }

@@ -34,6 +34,12 @@ public class AuthViewModel : ViewModelBase
     private string _localPassword = "";
     private string _localDisplayName = "";
 
+    /// <summary>2026-11-06 (В-7): почему сохранённый вход отброшен при запуске («Срок входа истёк — введите пароль»). Ставит запуск (App), забирает первое созданное окно входа — оно показывает строку и очищает.</summary>
+    public static string? StartupNotice { get; set; }
+
+    /// <summary>2026-11-06 (Л4-19): логин из отброшенного автовхода (отказ в PIN владельца) — окно входа подставляет его в поле Email, чтобы вводить только пароль. Забирается один раз.</summary>
+    public static string? StartupLogin { get; set; }
+
     public AuthViewModel(
         IOnlineOfflineAuthenticationService authentication,
         IAutonomousAuthService autonomous,
@@ -42,6 +48,16 @@ public class AuthViewModel : ViewModelBase
         _authentication = authentication;
         _autonomous = autonomous;
         _appSession = appSession;
+        if (!string.IsNullOrWhiteSpace(StartupNotice))
+        {
+            _errorMessage = StartupNotice!;
+            StartupNotice = null;
+        }
+        if (!string.IsNullOrWhiteSpace(StartupLogin))
+        {
+            _username = StartupLogin!.Trim();
+            StartupLogin = null;
+        }
         LoginCommand = new AsyncRelayCommand(LoginAsync, () => !IsLoading);
         AutoLoginCommand = new AsyncRelayCommand(AutoLoginAsync, () => !IsLoading);
         LogoutCommand = new AsyncRelayCommand(LogoutAsync, () => !IsLoading);

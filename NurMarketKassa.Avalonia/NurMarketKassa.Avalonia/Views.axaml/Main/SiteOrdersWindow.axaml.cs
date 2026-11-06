@@ -1216,23 +1216,19 @@ public partial class SiteOrdersWindow : Window, IOwnerSection, IOwnerSectionExce
 
     internal static void OpenUrl(string url)
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Не открылась ссылка {url}: {ex.Message}", "WARNING");
-        }
+        // 2026-11-06: В4 А5-05 — общий запуск ссылки (на Android — Intent).
+        if (!PlatformLauncher.OpenUrl(url))
+            PosLogger.Log($"Не открылась ссылка {url}", "WARNING");
     }
 
     /// <summary>401 — вход в NurCRM больше не действует (а не «нет права»).</summary>
+    // 2026-11-06: срок входа в NurCRM — 7 суток от входа по паролю (ответ Умара), а не «вошли с другого устройства»; совет «Выйти» убран — окно «Войти» покажет приложение.
     internal static string SessionEndedText => Tr.T(
-        "Сессия NurCRM закончилась: выйдите из учётной записи (Настройки → Аккаунт → «Выйти») и войдите снова.",
-        "NurCRM сессиясы бүттү: каттоо эсебинен чыгыңыз (Жөндөөлөр → Аккаунт → «Чыгуу») жана кайра кириңиз.",
-        "Your NurCRM session has ended: sign out (Settings → Account → “Sign out”) and sign in again.",
-        "NurCRM oturumunuz sona erdi: hesaptan çıkış yapın (Ayarlar → Hesap → «Çıkış») ve tekrar giriş yapın.",
-        "NurCRM seansi tugadi: hisobdan chiqing (Sozlamalar → Akkaunt → «Chiqish») va qayta kiring.");
+        "Срок входа в NurCRM истёк. Войдите заново.",
+        "NurCRM кирүүсүнүн мөөнөтү бүттү. Кайра кириңиз.",
+        "Your NurCRM sign-in has expired. Please sign in again.",
+        "NurCRM oturumunuzun süresi doldu. Lütfen yeniden giriş yapın.",
+        "NurCRM kirish muddati tugadi. Qaytadan kiring.");
 
     /// <summary>Нет связи (а не отказ сервера): сеть, тайм-аут, 5xx.</summary>
     internal static bool IsNoConnection(Exception ex) =>

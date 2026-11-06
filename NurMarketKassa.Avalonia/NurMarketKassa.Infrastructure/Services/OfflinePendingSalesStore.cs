@@ -71,8 +71,12 @@ public static class OfflinePendingSalesStore
     /// <summary>2026-11-01 (Н-02): то же число, но допускает значение старше изменений очереди на <paramref name="maxAgeMs"/> мс — для UI-потока и частых вызовов.</summary>
     public static int PendingCountCached(int maxAgeMs) => SalesPendingCount(maxAgeMs) + SafeOpsCount(() => OfflineOperationsStore.PendingCount);
 
-    public static int SyncedCount => LoadAll().Count(s =>
-        string.Equals(s.Status, OfflineSaleEntry.Synced, StringComparison.OrdinalIgnoreCase));
+    // 2026-11-06: В5 24.2 — считаем в SQL (COUNT по индексу статуса), а не разбором JSON всех продаж за всё время работы кассы.
+    public static int SyncedCount => OfflineDatabase.CountByStatus([OfflineSaleEntry.Synced]);
+
+    /// <summary>2026-11-06: В5 24.2 — очередь без доставленных на сервер продаж (JSON выгруженных не разбирается). Для вызывающих, которым нужны только
+    /// ждущие, отклонённые и «в отправке»: вместо <see cref="LoadAll"/> с последующим отсевом по статусу.</summary>
+    public static List<OfflineSaleEntry> LoadAllUnsynced() => OfflineDatabase.LoadAllExceptStatus(OfflineSaleEntry.Synced);
 
     // 2026-10-29 (аварийный аудит кассы, п. 8): считается и показывается в шапке («Отклонено: M»), поэтому выборка по статусу, а не вся таблица.
     public static int FailedCount => OfflineDatabase.LoadByStatus([OfflineSaleEntry.Failed]).Count(s => !s.IsAutonomous) + SafeOpsCount(() => OfflineOperationsStore.FailedCount);

@@ -149,14 +149,9 @@ public partial class TelegramBotSetupWindow : Window
 
     private void ServerAiGetKey_Click(object? sender, RoutedEventArgs e)
     {
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://aistudio.google.com/apikey") { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Бот: страница ключа Gemini не открылась: {ex.Message}", "TELEGRAM");
-        }
+        // 2026-11-06: В4 А5-05 — общий запуск ссылки.
+        if (!PlatformLauncher.OpenUrl("https://aistudio.google.com/apikey"))
+            PosLogger.Log("Бот: страница ключа Gemini не открылась", "TELEGRAM");
     }
 
     private async Task RefreshServerStatusAsync()
@@ -715,13 +710,8 @@ public partial class TelegramBotSetupWindow : Window
 
     private static void OpenUrl(string url)
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch (Exception ex)
-        {
-            PosLogger.Log($"Не удалось открыть ссылку {url}: {ex.Message}", "WARNING");
-        }
+        // 2026-11-06: В4 А5-05 — общий запуск ссылки.
+        if (!PlatformLauncher.OpenUrl(url))
+            PosLogger.Log($"Не удалось открыть ссылку {url}", "WARNING");
     }
 }

@@ -614,8 +614,40 @@ public partial class App : Application
 
             if (!result.IsSuccess || result.Session is null)
             {
+                // 2026-11-06 (В-7): сохранённый вход отброшен из-за срока — на экране входа объясняем, почему просят пароль (раньше молча).
+                if (!result.IsSuccess && result.Failure == AuthenticationFailure.SessionExpired
+                    && !string.Equals(result.ErrorMessage, "Сохранённая сессия отсутствует.", StringComparison.Ordinal))
+                    NurMarketKassa.ViewModels.AuthViewModel.StartupNotice = Tr.T("Срок входа истёк — введите пароль", "Кирүүнүн мөөнөтү бүттү — сырсөздү киргизиңиз",
+                        "Your sign-in has expired — enter your password", "Oturum süresi doldu — şifrenizi girin", "Kirish muddati tugadi — parolni kiriting");
                 ShowLoginWindow(desktop, splash);
                 return;
+            }
+
+            // 2026-11-06 (аудит №4, Л4-19): программа владельца на ПК с кассой после автовхода просит PIN владельца — иначе кассир открывал бы финансы по ярлыку.
+            // Режим без связи (вход из кэша) проверить PIN не может — тоже обычный вход с паролем.
+            // 2026-11-06 (Л4-19, решение владельца): защита — ОПЦИЯ «Просить PIN владельца при запуске на ПК с кассой», по умолчанию выключена (у большинства PIN не задан).
+            if (OwnerStartupGate.ShouldAskPin(NurMarketKassa.Services.AppMode.IsOwner, OwnerStartupGate.KassaInstalledHere(), UserPreferences.Instance.AskOwnerPinOnKassaPc))
+            {
+                PosLogger.Log("Программа владельца на ПК с кассой: после автовхода запрошен PIN владельца.", "SECURITY");
+                splash.SuspendSlowNotice(); // 2026-11-06 (Л4-19): ждём PIN, а не сервер — надпись «Сервер отвечает медленно» под окном PIN ложная
+                var pinOk = false;
+                try
+                {
+                    pinOk = result.Mode != AuthenticationMode.Offline && await ExpiredSaleGuard.AskOwnerPinAsync().ConfigureAwait(true);
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    PosLogger.Log($"PIN владельца при запуске не проверен ({ex.GetType().Name}: {ex.Message}) — обычный вход.", "WARNING");
+                }
+                if (!pinOk)
+                {
+                    PosLogger.Log("PIN владельца при запуске не принят — показан экран входа с паролем.", "SECURITY");
+                    NurMarketKassa.ViewModels.AuthViewModel.StartupLogin = result.Session.Login; // 2026-11-06 (Л4-19): после «Отмена» Email на экране входа уже подставлен
+                    NurMarketKassa.ViewModels.AuthViewModel.StartupNotice = Tr.T("На этом ПК стоит касса — войдите с паролем владельца", "Бул ПКда касса бар — ээсинин сырсөзү менен кириңиз",
+                        "A till is installed on this PC — sign in with the owner password", "Bu bilgisayarda kasa var — sahip şifresiyle girin", "Bu kompyuterda kassa bor — egasi paroli bilan kiring");
+                    ShowLoginWindow(desktop, splash);
+                    return;
+                }
             }
 
             ApplyAuthenticatedSession(appSession, result);
@@ -778,7 +810,11 @@ public partial class App : Application
         services.AddSingleton<IDispatcher, AvaloniaDispatcher>();
         services.AddSingleton<ProductThumbService>();
         services.AddSingleton<ISettingsImagePicker, AvaloniaSettingsImagePicker>();
-        services.AddSingleton<IOperatingSystemKeyboardService, WindowsOperatingSystemKeyboardService>();
+        // 2026-11-06: В4 АЛ-5 — osk.exe есть только в Windows; на Linux и Android — пустая служба.
+        if (OperatingSystem.IsWindows())
+            services.AddSingleton<IOperatingSystemKeyboardService, WindowsOperatingSystemKeyboardService>();
+        else
+            services.AddSingleton<IOperatingSystemKeyboardService, NullOperatingSystemKeyboardService>();
         services.AddSingleton<IAppSession, AvaloniaAppSession>();
         services.AddSingleton<IWindowService, AvaloniaWindowService>();
         services.AddSingleton<IDialogService, AvaloniaDialogService>();

@@ -1032,7 +1032,7 @@ public sealed class DebtsView : UserControl
             Content = expanded ? T("▴ Скрыть чеки", "▴ Чектерди жашыруу", "▴ Hide receipts", "▴ Fişleri gizle", "▴ Cheklarni yashirish")
                 : T($"▾ Чеки в долг ({d.Sales.Count})", $"▾ Карыз чектер ({d.Sales.Count})", $"▾ Receipts on credit ({d.Sales.Count})",
                     $"▾ Veresiye fişler ({d.Sales.Count})", $"▾ Qarzga cheklar ({d.Sales.Count})"),
-            Height = 28, MinHeight = 28, Padding = new Thickness(10, 0), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), FontSize = 12,
+            Height = 40, MinHeight = 40, Padding = new Thickness(12, 0), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1), FontSize = 12, // 2026-11-06: В6 цель нажатия 40 (было 28)
             HorizontalAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 6, 0, 0),
             Focusable = false,
         };
@@ -1056,14 +1056,21 @@ public sealed class DebtsView : UserControl
         };
         // 2026-10-21 (пакет 4, п. 93; аудит: «много красного»): сумма карточки — цветом текста; красная — только у просроченного
         // долга (старше 30 дней, как красный чип «больше 30 дней» сверху). Расчёт суммы не менялся.
-        Use(sum, TextBlock.ForegroundProperty, AgeDays(d.Oldest) > 30 ? "BrushDanger" : "BrushText");
-        right.Children.Add(sum);
+        // 2026-11-06: В6 Д4-42 — цвет суммы = цвет её корзины (до 7 дней — зелёная точка, 8–30 — оранжевая, больше 30 — красная, как чипы сверху); сама сумма — цветом текста.
+        Use(sum, TextBlock.ForegroundProperty, "BrushText");
+        var ageDays = AgeDays(d.Oldest);
+        var ageDot = new Avalonia.Controls.Shapes.Ellipse { Width = 10, Height = 10, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        Use(ageDot, Avalonia.Controls.Shapes.Shape.FillProperty, ageDays > 30 ? "BrushDanger" : ageDays > 7 ? "BrushWarning" : "BrushSuccess");
+        var sumRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        sumRow.Children.Add(ageDot);
+        sumRow.Children.Add(sum);
+        right.Children.Add(sumRow);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, HorizontalAlignment = HorizontalAlignment.Right };
         if (ClientQrCode.NationalDigits(d.Phone) is { } national)
         {
             var wa = UiKit.Ghost(this, T("Напомнить в WhatsApp", "WhatsApp'та эскертүү", "Remind on WhatsApp", "WhatsApp'tan hatırlat", "WhatsApp'da eslatish"));
-            wa.Height = 32;
-            wa.MinHeight = 32; // 2026-10-18, доводка О4: у sec-outline MinHeight 40 — иначе высота 32 не действует
+            wa.Height = 40; // 2026-11-06: В6 цель нажатия 40 (было 32)
+            wa.MinHeight = 40;
             wa.FontSize = 12.5;
             wa.Click += (_, e) =>
             {
@@ -1098,10 +1105,12 @@ public sealed class DebtsView : UserControl
         if (AppMode.IsOwner && d.ClientId.Length > 0)
         {
             var pay = UiKit.Ghost(this, T("Принять оплату", "Төлөм кабыл алуу", "Accept payment", "Ödeme al", "To'lov qabul qilish"));
+            // 2026-11-06: В6 Д4-42 — «Принять оплату» залита тёмным (стиль active у sec-chip), а не обводкой наравне с WhatsApp; жёлтой не делаем — по решению 01.11 жёлтая на экране одна.
             pay.Classes.Remove("sec-outline");
-            pay.Classes.Add("nur-secondary");
-            pay.Height = 36;
-            pay.MinHeight = 36;
+            pay.Classes.Add("sec-chip");
+            UiKit.SetActive(pay, true);
+            pay.Height = 40;
+            pay.MinHeight = 40;
             pay.MinWidth = 0;
             pay.FontSize = 13;
             pay.FontWeight = FontWeight.Bold;

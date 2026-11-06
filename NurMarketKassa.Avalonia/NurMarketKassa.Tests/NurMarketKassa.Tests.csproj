@@ -30,6 +30,8 @@
   <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
     <Compile Include="..\NurMarketKassa.Avalonia\Services\ThumbImageCompressor.cs" Link="Linked\ThumbImageCompressor.cs" />
+    <!-- 2026-11-06 (В13, А5-13): чтение картинки QR банка (Skia, предел 40 Мп по заголовку) — файл приложения без Avalonia, тестируется ссылкой. -->
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\PortableImageReader.cs" Link="Linked\PortableImageReader.cs" />
     <!-- 2026-11-05: поправки ящика (сервер ceba67c, debt_return_drawer_cash) — файл приложения, зависит только от Infrastructure; тесты используют его напрямую. -->
     <Compile Include="..\NurMarketKassa.Avalonia\Services\ExchangeCashCorrections.cs" Link="Linked\ExchangeCashCorrections.cs" />
   </ItemGroup>

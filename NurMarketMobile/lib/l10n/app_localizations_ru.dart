@@ -5289,6 +5289,45 @@ class AppLocalizationsRu extends AppLocalizations {
   String get invPriceMissing => 'Укажите цену продажи';
 
   @override
+  String get invAutoMarkup => 'Авто-наценка к закупке';
+
+  @override
+  String get invAutoMarkupSub =>
+      'Выключено: цена продажи сама не ставится. Включите — цена = закупка + 30 % (вверх до 5 сом), видна в строке до отправки';
+
+  @override
+  String invNoPriceTitle(int n) {
+    return 'У $n поз. нет цены продажи';
+  }
+
+  @override
+  String get invNoPriceBody =>
+      'Введите цену или наценку. «Оставить без цены» — цена существующих товаров не изменится, новые товары будут созданы без цены.';
+
+  @override
+  String get invNoPriceEnter => 'Ввести цену';
+
+  @override
+  String invNoPriceMarkup(int pct) {
+    return 'Наценка +$pct %';
+  }
+
+  @override
+  String get invNoPriceLeave => 'Оставить без цены';
+
+  @override
+  String invAutoConfirmTitle(int n) {
+    return 'Цена по наценке: $n поз.';
+  }
+
+  @override
+  String get invAutoConfirmBody =>
+      'У этих товаров цена продажи будет поставлена по наценке — она видна в строке. Подтвердить?';
+
+  @override
+  String get invAutoConfirmYes => 'Подтвердить';
+
+  @override
   String get invRemoveRow => 'Убрать строку';
 
   @override

@@ -397,7 +397,7 @@ public sealed partial class AiAdvisorWindow
         foreach (var candidate in items)
         {
             var image = new Image { Width = 96, Height = 96, Stretch = Stretch.UniformToFill };
-            _ = LoadPreviewAsync(image, candidate.ImageUrl);
+            _ = LoadPreviewAsync(image, candidate.ImageUrl, LifetimeToken); // 2026-11-06 (Л4-26): не живёт дольше окна
             var caption = new TextBlock { Text = candidate.Product.Title, FontSize = 12.5, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, MaxLines = 2, TextTrimming = TextTrimming.CharacterEllipsis };
             Use(caption, TextBlock.ForegroundProperty, "BrushText");
             var sourceText = (candidate.Doubtful ? "⚠ " + T("проверьте", "текшериңиз", "check", "kontrol edin", "tekshiring") + " · " : "") + candidate.Source;

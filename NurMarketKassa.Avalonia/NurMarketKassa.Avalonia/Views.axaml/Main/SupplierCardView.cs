@@ -304,7 +304,9 @@ public sealed class SupplierCardView : UserControl
     // — перечитывание сделки (остаток взноса мог измениться на сайте).
 
     private bool _paying;
-    private readonly Dictionary<string, string> _payKeys = new(StringComparer.Ordinal);
+    // 2026-11-06: В2 Л4-24 / Л5-14 — ключ оплаты взноса теперь на диске (PendingMoneyKeys, подпись «supplier-pay|сделка|взнос|остаток»): после обрыва связи и
+    // перезапуска кассы повтор уходит с тем же ключом. Раньше словарь в памяти терялся, а обрыв связи (HttpRequestException) показывался как отказ сервера.
+    private static string PayKeySignature(string keyId) => "supplier-pay|" + keyId;
 
     private async Task PayInstallmentAsync(SupplierDeal deal, SupplierInstallment installment, Button button)
     {
@@ -357,20 +359,22 @@ public sealed class SupplierCardView : UserControl
                 return;
 
             var keyId = $"{deal.Id}|{current.Id}|{current.Remaining.ToString("0.00", CultureInfo.InvariantCulture)}";
-            if (!_payKeys.TryGetValue(keyId, out var key))
-                _payKeys[keyId] = key = Guid.NewGuid().ToString();
+            var key = PendingMoneyKeys.GetOrCreate(PayKeySignature(keyId));
             var cashflowsBefore = fresh?.Cashflows.Count ?? deal.Cashflows.Count;
             try
             {
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
                 await _svc.PayInstallmentAsync(_info.Id, deal.Id, current.Id, key,
                     $"Оплата долга поставщику ({T("из программы владельца", "ээсинин программасынан", "from the owner app", "sahip uygulamasından", "egasi dasturidan")})", cts.Token).ConfigureAwait(true);
-                _payKeys.Remove(keyId);
+                PendingMoneyKeys.Forget(PayKeySignature(keyId));
                 PosLogger.Log($"PAYMENT: оплата взноса поставщику {_info.Id}: сделка {deal.Id}, взнос {current.Id}, {current.Remaining:0.00} сом — сервер принял.", "PAYMENT");
             }
             catch (Exception ex)
             {
-                var timedOut = ex is OperationCanceledException or TimeoutException;
+                // 2026-11-06: В2 Л4-24 — «ответ не получен» = исход неизвестен (таймаут, обрыв связи, 5xx): ключ остаётся для повтора; отказ по существу (4xx) — ключ забывается.
+                var timedOut = ex is OperationCanceledException or TimeoutException || PendingIdempotencyKey.IsOutcomeUnknown(ex);
+                if (!timedOut)
+                    PendingMoneyKeys.Forget(PayKeySignature(keyId));
                 PosLogger.Log($"PAYMENT: оплата взноса поставщику {_info.Id}: сделка {deal.Id}, взнос {current.Id} — {(timedOut ? "ответ не получен" : "отказ")} ({ex.GetType().Name}: {ex.Message}).", "PAYMENT");
                 PosDialogs.Warning(owner, timedOut
                     ? T("Ответ сервера не получен — оплата могла пройти. Карточка перечитана: проверьте остаток. Повторное нажатие не проведёт оплату второй раз.",
@@ -490,21 +494,22 @@ public sealed class SupplierCardView : UserControl
             foreach (var (deal, inst) in queue)
             {
                 var keyId = $"{deal.Id}|{inst.Id}|{inst.Remaining.ToString("0.00", CultureInfo.InvariantCulture)}";
-                if (!_payKeys.TryGetValue(keyId, out var key))
-                    _payKeys[keyId] = key = Guid.NewGuid().ToString();
+                var key = PendingMoneyKeys.GetOrCreate(PayKeySignature(keyId));
                 try
                 {
                     using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
                     await _svc.PayInstallmentAsync(_info.Id, deal.Id, inst.Id, key,
                         $"Оплата долга поставщику ({T("из программы владельца, весь долг", "ээсинин программасынан, бардык карыз", "from the owner app, whole debt", "sahip uygulamasından, tüm borç", "egasi dasturidan, butun qarz")})", cts.Token).ConfigureAwait(true);
-                    _payKeys.Remove(keyId);
+                    PendingMoneyKeys.Forget(PayKeySignature(keyId));
                     done++;
                     paidSum += inst.Remaining;
                     PosLogger.Log($"PAYMENT: весь долг поставщику {_info.Id}: сделка {deal.Id}, взнос {inst.Id}, {inst.Remaining:0.00} сом — сервер принял ({done} из {queue.Count}).", "PAYMENT");
                 }
                 catch (Exception ex)
                 {
-                    timedOut = ex is OperationCanceledException or TimeoutException;
+                    timedOut = ex is OperationCanceledException or TimeoutException || PendingIdempotencyKey.IsOutcomeUnknown(ex); // 2026-11-06: В2 Л4-24 — обрыв связи не «отказ»
+                    if (!timedOut)
+                        PendingMoneyKeys.Forget(PayKeySignature(keyId));
                     failure = timedOut ? "" : ServerTelegramBotApi.DescribeFields(ex);
                     PosLogger.Log($"PAYMENT: весь долг поставщику {_info.Id}: сделка {deal.Id}, взнос {inst.Id} — {(timedOut ? "ответ не получен" : "отказ")} ({ex.GetType().Name}: {ex.Message}).", "PAYMENT");
                     break;

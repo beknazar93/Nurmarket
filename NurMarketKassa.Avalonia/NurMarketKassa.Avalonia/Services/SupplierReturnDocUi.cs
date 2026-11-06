@@ -34,6 +34,9 @@ internal static class SupplierReturnDocUi
                      (Format.Excel, "Excel"),
                  })
         {
+            // 2026-11-06: В4 А5-04 — на Android PDF не создаётся (библиотека QuestPDF там не грузится): кнопки PDF нет, остаются Word и Excel.
+            if (format == Format.Pdf && !PdfSupport.IsAvailable)
+                continue;
             var button = Small(text);
             button.Margin = new Thickness(0, 0, 8, 6);
             button.Click += async (_, _) =>
@@ -200,7 +203,8 @@ internal static class SupplierReturnDocUi
 
         if (OperatingSystem.IsAndroid())
         {
-            await SaveAsync(host, data, Format.Pdf, say).ConfigureAwait(true);
+            // 2026-11-06: В4 А5-04 — на Android «Печать» (нет принтера A4) сохраняет Word вместо PDF: PDF там не создаётся.
+            await SaveAsync(host, data, PdfSupport.IsAvailable ? Format.Pdf : Format.Word, say).ConfigureAwait(true);
             return;
         }
         var path = Path.Combine(Folder(), SupplierReturnDocuments.FileName(data, "pdf"));

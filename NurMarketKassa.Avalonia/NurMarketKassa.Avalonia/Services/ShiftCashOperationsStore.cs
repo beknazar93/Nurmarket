@@ -124,6 +124,16 @@ public static class ShiftCashOperationsStore
             .ToList();
     }
 
+    /// <summary>2026-11-06: все внесения/изъятия всех смен, ещё не записанные на сервер (окно «Неотправленное»; только чтение).</summary>
+    public static IReadOnlyList<(string Id, DateTime At, string Type, decimal Amount, string Comment, string? ShiftId, string UserId)> PendingAll() =>
+        LoadStored()
+            .Where(x => string.IsNullOrEmpty(x.ServerFlowId)
+                        && !string.IsNullOrEmpty(x.Id)
+                        && CashOperationModel.ResolveKind(x.Type) is CashOperationKind.Deposit or CashOperationKind.Withdrawal)
+            .OrderBy(x => x.CreatedAt)
+            .Select(x => (x.Id!, x.CreatedAt, x.Type ?? "", x.Amount, x.Comment, x.ShiftId, x.UserId))
+            .ToList();
+
     /// <summary>Внесения и изъятия смены, которые ещё не записаны на сервер.</summary>
     /// <remarks>2026-10-22 (статьи изъятия): и статья операции (ключ, русское название, комментарий отдельно) — на сервер
     /// уходит её category и название «Изъятие: Аренда — …» (ShiftCashFlowSync).</remarks>

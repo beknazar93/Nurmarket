@@ -10,6 +10,45 @@ public partial class UpsellBannerView : UserControl
     {
         InitializeComponent();
         SizeChanged += (_, e) => ApplyNarrow(e.NewSize.Width < NarrowWidth);
+        DataContextChanged += (_, _) => HookPrice();
+        AttachedToVisualTree += (_, _) => { Tr.LanguageChanged -= OnLanguageChanged; Tr.LanguageChanged += OnLanguageChanged; UpdateAcceptText(); };
+        DetachedFromVisualTree += (_, _) => { UnhookPrice(); Tr.LanguageChanged -= OnLanguageChanged; };
+    }
+
+    private void OnLanguageChanged() => Avalonia.Threading.Dispatcher.UIThread.Post(UpdateAcceptText);
+
+    // 2026-11-06: В6 Д4-39 — на кнопке «Добавить» показываем цену товара («Добавить · 28 сом»). Цену берём из UpsellProductText («Товар — 28 сом»),
+    // а не из отдельного свойства: BasketPanelViewModel принадлежит другой волне.
+    private System.ComponentModel.INotifyPropertyChanged? _priceSource;
+
+    private void HookPrice()
+    {
+        UnhookPrice();
+        _priceSource = DataContext as System.ComponentModel.INotifyPropertyChanged;
+        if (_priceSource is not null)
+            _priceSource.PropertyChanged += OnPriceSourceChanged;
+        UpdateAcceptText();
+    }
+
+    private void UnhookPrice()
+    {
+        if (_priceSource is not null)
+            _priceSource.PropertyChanged -= OnPriceSourceChanged;
+        _priceSource = null;
+    }
+
+    private void OnPriceSourceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == "UpsellProductText")
+            Avalonia.Threading.Dispatcher.UIThread.Post(UpdateAcceptText);
+    }
+
+    private void UpdateAcceptText()
+    {
+        var label = this.TryFindResource("csh.upsell.add", ActualThemeVariant, out var res) && res is string s ? s : "+";
+        var text = (DataContext as NurMarketKassa.ViewModels.Main.BasketPanelViewModel)?.UpsellProductText ?? "";
+        var cut = text.LastIndexOf(" — ", System.StringComparison.Ordinal);
+        AcceptButton.Content = cut >= 0 && cut + 3 < text.Length ? label + " · " + text[(cut + 3)..] : label;
     }
 
     // 2026-10-20, живая проверка: в «1С» подсказка стоит в узкой правой колонке, и кнопки «Добавить»/«Пропустить»

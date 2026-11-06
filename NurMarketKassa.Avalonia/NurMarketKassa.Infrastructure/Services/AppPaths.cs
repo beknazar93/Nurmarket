@@ -37,8 +37,39 @@ public static class AppPaths
         }
     }
 
-    /// <summary>Адрес API из DESKTOP_MARKET_API_URL (хост, строчными) или null, если задан боевой/не задан.</summary>
-    public static string? NonProductionHost => NonProductionHostOf(Environment.GetEnvironmentVariable("DESKTOP_MARKET_API_URL"));
+    /// <summary>Адрес API из DESKTOP_MARKET_API_URL или, если переменной нет, из ApiBaseUrl файла appsettings.json рядом с программой (хост, строчными);
+    /// null — задан боевой или не задан вовсе.
+    /// 2026-11-06: В3 Л5-16 — раньше стенд узнавался только по переменной окружения: ApiBaseUrl из appsettings.json (не боевой адрес) писал в боевую папку данных кассы.</summary>
+    public static string? NonProductionHost => NonProductionHostOf(EffectiveApiUrl);
+
+    /// <summary>Итоговый адрес API для выбора папки данных: переменная DESKTOP_MARKET_API_URL важнее файла appsettings.json (так же, как в AppSettings.Load).</summary>
+    internal static string? EffectiveApiUrl =>
+        Environment.GetEnvironmentVariable("DESKTOP_MARKET_API_URL") is { } env && !string.IsNullOrWhiteSpace(env) ? env : FileApiUrl.Value;
+
+    // Читается один раз и без журнала: PosLogger сам берёт папку из AppPaths, журнал здесь дал бы рекурсию.
+    private static readonly Lazy<string?> FileApiUrl = new(ReadApiUrlFromAppSettings);
+
+    private static string? ReadApiUrlFromAppSettings()
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+            if (!File.Exists(path))
+                return null;
+            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path),
+                new System.Text.Json.JsonDocumentOptions { CommentHandling = System.Text.Json.JsonCommentHandling.Skip, AllowTrailingCommas = true });
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+                return null;
+            foreach (var property in doc.RootElement.EnumerateObject())
+                if (string.Equals(property.Name, "ApiBaseUrl", StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == System.Text.Json.JsonValueKind.String)
+                    return property.Value.GetString();
+        }
+        catch (Exception)
+        {
+            // файл не читается — как будто адреса в нём нет (боевой по умолчанию)
+        }
+        return null;
+    }
 
     /// <summary>Чистая функция для <see cref="NonProductionHost"/> (проверяется тестами без правки переменных окружения).</summary>
     public static string? NonProductionHostOf(string? apiUrl)

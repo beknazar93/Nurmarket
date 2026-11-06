@@ -85,7 +85,12 @@ public partial class MonitorSettingsView : UserControl
             FileTypeFilter = [adMediaFilter],
         });
         if (files.Count > 0)
-            ViewModel.Settings.AdvertisementImagePath = await NurMarketKassa.AvaloniaHost.Services.ImportFileBridge.PermanentPathAsync(files[0]).ConfigureAwait(true) ?? ""; // 2026-11-05 (А4-06): Android — копия в папку данных
+        {
+            // 2026-11-05 (А4-06): Android — копия в папку данных. 2026-11-06: В4 А5-14 — не вышло (слишком большой/сбой) — прежний выбор не сбрасываем; прежняя копия удаляется.
+            var picked = await NurMarketKassa.AvaloniaHost.Services.ImportFileBridge.PermanentPathAsync(files[0], ViewModel.Settings.AdvertisementImagePath).ConfigureAwait(true);
+            if (picked is not null)
+                ViewModel.Settings.AdvertisementImagePath = picked;
+        }
     }
 
     private async void PickBackground_Click(object? sender, RoutedEventArgs e)
@@ -99,6 +104,11 @@ public partial class MonitorSettingsView : UserControl
             FileTypeFilter = [FilePickerFileTypes.ImageAll],
         });
         if (files.Count > 0)
-            ViewModel.Settings.BackgroundImagePath = await NurMarketKassa.AvaloniaHost.Services.ImportFileBridge.PermanentPathAsync(files[0]).ConfigureAwait(true) ?? ""; // 2026-11-05 (А4-06)
+        {
+            // 2026-11-05 (А4-06). 2026-11-06: В4 А5-14 — при сбое прежняя картинка остаётся, прежняя копия удаляется.
+            var picked = await NurMarketKassa.AvaloniaHost.Services.ImportFileBridge.PermanentPathAsync(files[0], ViewModel.Settings.BackgroundImagePath).ConfigureAwait(true);
+            if (picked is not null)
+                ViewModel.Settings.BackgroundImagePath = picked;
+        }
     }
 }

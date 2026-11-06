@@ -108,6 +108,9 @@ public static class ReceivingPricing
             source = MarkupSource.Category;
             return byCategory;
         }
+        // 2026-11-06: общая наценка 0 / не задана — считать нечем (раньше «авто» при 0 % ставило цену = закупке, а по умолчанию была 30 %).
+        if (settings.DefaultPercent <= 0)
+            return null;
         source = MarkupSource.Default;
         return settings.DefaultPercent;
     }
@@ -136,9 +139,70 @@ public static class ReceivingPricing
     {
         var n = 0;
         foreach (var l in lines.ToList())
+        {
+            // 2026-11-06: общую наценку только что включили (ввели число) — строки без цены продажи получают расчёт, который сразу виден в строке; цена из карточки не меняется.
+            if (l.SaleMode == SalePriceMode.None && l.SalePrice <= 0 && l.PurchasePrice > 0)
+            {
+                l.EnableAutoSale();
+                if (l.SalePrice > 0)
+                    n++;
+                continue;
+            }
             if (l.ApplyAutoSale())
                 n++;
+        }
         return n;
+    }
+
+    /// <summary>2026-11-06: строки, у которых нет цены продажи (количество есть, цена продажи 0) — их показываем кассиру ПЕРЕД отправкой прихода (окно «У N позиций нет цены продажи»);
+    /// молча ставить им «закупка + %» нельзя.</summary>
+    public static List<ReceivingLineVm> MissingSalePrice(IEnumerable<ReceivingLineVm> lines) =>
+        lines.Where(l => l.Quantity > 0 && l.SalePrice <= 0).ToList();
+
+    /// <summary>2026-11-06: цена продажи из того, что кассир ввёл в окне «нет цены продажи»: сначала цена, иначе наценка % от закупки (если закупка есть). null — не введено/не посчитать.</summary>
+    public static double? ResolveTypedSale(double purchase, string? priceText, string? markupText)
+    {
+        if (CheckoutValidation.TryParseAmount(priceText, out var price, 2) == CheckoutValidation.AmountParse.Ok && price > 0)
+            return price;
+        if (purchase > 0 && CheckoutValidation.TryParseAmount(markupText, out var markup, 2) == CheckoutValidation.AmountParse.Ok && markup >= 0 && markup <= 1000
+            && !string.IsNullOrWhiteSpace(markupText))
+        {
+            var sale = SaleFromMarkup(purchase, markup);
+            return sale > 0 ? sale : null;
+        }
+        return null;
+    }
+
+    /// <summary>2026-11-06: кнопка «Применить ко всем» — общая наценка ЯВНО применяется к строкам в режиме «авто» и «из карточки» (цена существующего товара
+    /// меняется только здесь, по нажатию). Строки, где цену правили руками, не трогаются (их возвращает «Как у всех» в самой строке). Возвращает, у скольких строк
+    /// цена изменилась, и сколько ручных пропущено.</summary>
+    public static int ApplyCommonMarkupToAll(IEnumerable<ReceivingLineVm> lines, out int skippedManual)
+    {
+        var changed = 0;
+        skippedManual = 0;
+        foreach (var l in lines.ToList())
+        {
+            if (l.SaleMode == SalePriceMode.Manual)
+            {
+                skippedManual++;
+                continue;
+            }
+            // 2026-11-06: строка без цены продажи — явное «Применить ко всем» ставит ей цену по общей наценке (пользователь это видит в строке до отправки).
+            if (l.SaleMode == SalePriceMode.None && l.SalePrice <= 0 && l.PurchasePrice > 0)
+            {
+                l.EnableAutoSale();
+                if (l.SalePrice > 0)
+                    changed++;
+                continue;
+            }
+            if (l.SaleMode is not (SalePriceMode.Auto or SalePriceMode.Card) || l.PurchasePrice <= 0)
+                continue;
+            var before = l.SalePrice;
+            l.ReturnToAuto();
+            if (Math.Abs(l.SalePrice - before) > 1e-9)
+                changed++;
+        }
+        return changed;
     }
 
     /// <summary>Автоматическая цена продажи строки по её закупке; null — закупки нет или считать нечем.</summary>
