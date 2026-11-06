@@ -277,6 +277,7 @@ public partial class ReceiptHistoryWindow : Window
     {
         _loadCts?.Cancel();
         _detailCts?.Cancel();
+        _searchPause?.Dispose();
         if (_sync != null)
             _sync.StateChanged -= OnSyncStateChanged;
         base.OnClosed(e);
@@ -312,7 +313,11 @@ public partial class ReceiptHistoryWindow : Window
         await LoadAsync().ConfigureAwait(true);
     }
 
-    private void SearchBox_TextChanged(object? sender, TextChangedEventArgs e) => ApplyFilter();
+    // 2026-11-06 (В11, шаг 7, п. 26.3): история чеков (до 2000) фильтруется после паузы 200 мс с последней буквы, а не на каждую.
+    private NurMarketKassa.AvaloniaHost.Services.SearchPause? _searchPause;
+
+    private void SearchBox_TextChanged(object? sender, TextChangedEventArgs e) =>
+        (_searchPause ??= new NurMarketKassa.AvaloniaHost.Services.SearchPause(() => ApplyFilter(), 200)).Trigger();
 
     // ── Список ──
 

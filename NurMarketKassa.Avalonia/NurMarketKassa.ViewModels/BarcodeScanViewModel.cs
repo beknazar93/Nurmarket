@@ -106,11 +106,7 @@ public sealed class BarcodeScanViewModel : ViewModelBase
             if (product == null)
             {
                 ScanErrorMessage = isWeighedBarcode
-                    ? Tr.T($"Товар с кодом {lookupCode} не найден в каталоге.",
-                        $"{lookupCode} коддуу товар каталогдон табылган жок.",
-                        $"Product with code {lookupCode} was not found in the catalog.",
-                        $"Kodu {lookupCode} olan ürün katalogda bulunamadı.",
-                        $"{lookupCode} kodli mahsulot katalogda topilmadi.")
+                    ? ScanMessages.WeightPluNotFound(lookupCode) // 2026-11-06 (весы РС-200): «Весовой товар с PLU N не найден. Проверьте PLU товара в NurCRM»
                     : Tr.T("У вас нет такого товара в базе.", "Базада мындай товар жок.",
                         "This product is not in your database.", "Bu ürün veritabanınızda yok.",
                         "Bazangizda bunday mahsulot yo'q.");

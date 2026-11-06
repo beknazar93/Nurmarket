@@ -442,16 +442,21 @@ public sealed class SupplierApiService
                 kind = PlannerStatus.Soon;
             else if (status.Contains("low"))
                 kind = PlannerStatus.Low;
-            else if (perDay <= 0)
+            // 2026-11-06 (В12, ЖП Н-5): «Нет продаж» — только если не продавалось и за 30 дней. Раньше средняя за выбранный период 0 (например, период 7 дней) давала
+            // «Нет продаж» у товара с продажами «0 / 11». Если за период 0, а за 30 дней продавалось — оцениваем запас по средней за 30 дней.
+            else if (PlannerStatusRules.HasNoSales(perDay, S("last_30_days")))
                 kind = PlannerStatus.NoSales;
             else if (status == "ok")
                 kind = PlannerStatus.Enough;
             else if (stock <= 0)
                 kind = PlannerStatus.Critical;
             else
-                kind = daysLeft is { } dl && dl <= settings.SafetyDays ? PlannerStatus.Critical
-                    : daysLeft <= settings.CoverDays ? PlannerStatus.Soon
-                    : daysLeft < settings.CoverDays + settings.SafetyDays ? PlannerStatus.Low : PlannerStatus.Enough;
+            {
+                double? left = daysLeft ?? Math.Max(0, stock) / PlannerStatusRules.EffectivePerDay(perDay, S("last_30_days"));
+                kind = left is { } dl && dl <= settings.SafetyDays ? PlannerStatus.Critical
+                    : left <= settings.CoverDays ? PlannerStatus.Soon
+                    : left < settings.CoverDays + settings.SafetyDays ? PlannerStatus.Low : PlannerStatus.Enough;
+            }
             double? trend = sales.ValueKind == JsonValueKind.Object && Has(sales, "trend_percent") ? Math.Round(Num(sales, "trend_percent")) : null;
             var newSales = trend is null && period > 0;
             DateTime? lastAt = last.ValueKind == JsonValueKind.Object ? Date(Str(last, "date")) : null;

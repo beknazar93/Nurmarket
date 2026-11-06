@@ -21,6 +21,12 @@ public sealed class LabelScaleProfile
     /// <summary>Пароль администратора (Штрих-ПРИНТ).</summary>
     public string? Password { get; set; }
 
+    /// <summary>2026-11-06: весы РС-200 — логин Windows весов для сетевой папки (папка обмена лежит в <see cref="Ip"/>).</summary>
+    public string? PcLogin { get; set; }
+
+    /// <summary>2026-11-06: весы РС-200 — пароль Windows весов, только зашифрованный (WindowsDpapiHelper); файл label-scales.json изолируется по компании.</summary>
+    public string? PcPasswordProtected { get; set; }
+
     /// <summary>Штрих-ПРИНТ: true — напрямую по сети, false — через сервер NurCRM.</summary>
     public bool ShtrikhDirect { get; set; }
 
@@ -67,6 +73,8 @@ public sealed class LabelScaleProfile
         Ip = Ip,
         Port = Port,
         Password = Password,
+        PcLogin = PcLogin,
+        PcPasswordProtected = PcPasswordProtected,
         ShtrikhDirect = ShtrikhDirect,
         RongtaSource = RongtaSource,
         RongtaServerPort = RongtaServerPort,
@@ -190,6 +198,8 @@ public static class LabelScaleStore
                 // 2026-11-06: у весов РС-200 в поле Ip хранится путь общей папки обмена (ShtrikhPcSettings.Folder)
                 var pc = ShtrikhPcSettings.Current;
                 pc.Folder = profile.Ip ?? "";
+                pc.Login = profile.PcLogin ?? "";
+                pc.Password = WindowsDpapiHelper.UnprotectFromBase64(profile.PcPasswordProtected);
                 ShtrikhPcSettings.Save(pc);
                 break;
             case "shtrikh":
@@ -231,7 +241,10 @@ public static class LabelScaleStore
                 profile.RongtaServerPort = prefs.RongtaServerPort;
                 break;
             case "shtrikhpc":
-                profile.Ip = ShtrikhPcSettings.Current.Folder;
+                var pcNow = ShtrikhPcSettings.Current;
+                profile.Ip = pcNow.Folder;
+                profile.PcLogin = pcNow.Login;
+                profile.PcPasswordProtected = string.IsNullOrEmpty(pcNow.Password) ? null : WindowsDpapiHelper.ProtectToBase64(pcNow.Password);
                 profile.Port = 0;
                 break;
             case "shtrikh":

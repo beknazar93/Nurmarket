@@ -42,6 +42,16 @@ public static class ServerClock
     /// <summary>Время сервера по часам ПК с поправкой.</summary>
     public static DateTimeOffset Now => DateTimeOffset.Now + Skew;
 
+    /// <summary>2026-11-06 (В11, Л4-06 хвост): «сегодня» для отчётов по серверному времени — дата ПК плюс поправка. Раньше «Сегодня» в Продажах, Отчётах и Сводке брали
+    /// <c>DateTime.Today</c> по часам ПК: при ушедших часах (поправка известна из заголовка Date) отчёт «за сегодня» показывал чужой день. Поправка нулевая — то же, что DateTime.Today.</summary>
+    public static DateTime Today => TodayFor(DateTime.Now, Skew);
+
+    /// <summary>2026-11-06: местное «сейчас» по серверным часам (ПК плюс поправка).</summary>
+    public static DateTime LocalNow => DateTime.Now + Skew;
+
+    /// <summary>Чистая часть <see cref="Today"/> для проверки: календарный день момента <paramref name="pcNow"/>, сдвинутого на <paramref name="skew"/>.</summary>
+    internal static DateTime TodayFor(DateTime pcNow, TimeSpan skew) => (pcNow + skew).Date;
+
     /// <summary>Поправка применима только для отметок времени «сейчас/недавно» (офлайн-чек создан по часам ПК → прибавляем поправку).</summary>
     public static DateTimeOffset Correct(DateTimeOffset pcTime) => pcTime + Skew;
 

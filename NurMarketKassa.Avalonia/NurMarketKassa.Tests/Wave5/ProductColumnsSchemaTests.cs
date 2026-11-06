@@ -14,6 +14,7 @@ public sealed class ProductColumnsSchemaTests
     {
         "piece_option_json", "plu", "hotkey_group", "is_bundle", "article", "bundle_items_json", "alternate_barcodes",
         "alternate_barcode_variants", "product_code", "kind", "intake_date", "description", "wholesale_price", "IsWeight",
+        "discount_percent", "markup_percent", "country", "weight_kg", "min_quantity", // 2026-11-06 (В12, Б-5, Б-8)
     };
 
     private static HashSet<string> Columns(SqliteConnection connection)

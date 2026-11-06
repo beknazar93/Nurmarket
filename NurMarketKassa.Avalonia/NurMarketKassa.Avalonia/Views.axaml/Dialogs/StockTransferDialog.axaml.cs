@@ -41,6 +41,7 @@ public partial class StockTransferDialog : Window
             if (_serverBusy && !_slowReleased)
                 e.Cancel = true;
         };
+        Closed += (_, _) => _suggestPause?.Dispose(); // 2026-11-06 (В11): таймер паузы поиска не переживает окно
     }
 
     private sealed class ItemRow
@@ -123,6 +124,9 @@ public partial class StockTransferDialog : Window
                 QuantityText = i.Quantity.ToString("0.###") + (string.IsNullOrWhiteSpace(i.Unit) ? "" : " " + i.Unit),
             })
             .ToList();
+
+        // 2026-11-06 (В11, макет MStock.html): итог партии и что станет после кнопки — внизу карточки.
+        SummaryText.Text = TransferSummaryText.Build(items.Count, items.Sum(i => i.Quantity), _transfer.Status);
 
         WeightBox.Text = _transfer.TotalWeight > 0
             ? _transfer.TotalWeight.ToString("0.###", CultureInfo.InvariantCulture)
@@ -232,7 +236,13 @@ public partial class StockTransferDialog : Window
     /// совпадает почти всё, и список подсказок только мешает. Сканер в это поле пишет быстро и
     /// заканчивает переводом строки — подсказки при этом мелькнут и уступят место обычному
     /// добавлению по Enter.</summary>
-    private void ItemSearch_TextChanged(object? sender, TextChangedEventArgs e)
+    private void ItemSearch_TextChanged(object? sender, TextChangedEventArgs e) =>
+        // 2026-11-06 (В11, шаг 7): подсказки ищутся по каталогу (до 15 000 товаров) после паузы 200 мс с последней буквы, а не на каждую.
+        (_suggestPause ??= new SearchPause(UpdateSuggestions, 200)).Trigger();
+
+    private SearchPause? _suggestPause;
+
+    private void UpdateSuggestions()
     {
         var query = ItemSearchBox.Text?.Trim() ?? "";
         if (query.Length < 2)
@@ -358,7 +368,7 @@ public partial class StockTransferDialog : Window
                 : byTitle.FirstOrDefault(p => string.Equals(p.Title?.Trim(), query, System.StringComparison.CurrentCultureIgnoreCase));
             if (product is null && byTitle.Count > 1)
             {
-                ItemSearch_TextChanged(ItemSearchBox, null!);
+                UpdateSuggestions();
                 ShowWarning(Tr.T($"Найдено товаров: {byTitle.Count}. Выберите нужный из списка под полем поиска.", $"Табылган товарлар: {byTitle.Count}. Издөө талаасынын астындагы тизмеден тандаңыз.",
                     $"Products found: {byTitle.Count}. Pick the right one from the list under the search box.", $"Bulunan ürün: {byTitle.Count}. Arama kutusunun altındaki listeden seçin.", $"Topilgan mahsulotlar: {byTitle.Count}. Qidiruv maydoni ostidagi ro'yxatdan tanlang."));
                 return;

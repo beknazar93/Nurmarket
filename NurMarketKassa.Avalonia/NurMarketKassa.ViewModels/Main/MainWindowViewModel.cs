@@ -150,6 +150,20 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         set => SetProperty(ref _isSideMenuOpen, value);
     }
 
+    private int _catalogWarmupStarted;
+
+    /// <summary>2026-11-06 (шаг 14): запускает загрузку каталога (из локальной базы, затем сверка с сервером) один раз; вызывается до сверки смены, чтобы они шли параллельно.
+    /// <see cref="InitializeAsync"/> второй раз каталог не запускает.</summary>
+    public void StartCatalogWarmup()
+    {
+        // 2026-11-06 (аудит Этапа 2, Н-9): флаг «запускали» ставим только если каталог правда запущен; занят (IsLoading) — пусть следующая попытка (InitializeAsync) запустит.
+        if (Volatile.Read(ref _catalogWarmupStarted) != 0 || !Catalog.RefreshCatalogCommand.CanExecute(null))
+            return;
+        if (Interlocked.Exchange(ref _catalogWarmupStarted, 1) != 0)
+            return;
+        Catalog.RefreshCatalogCommand.Execute(null);
+    }
+
     public Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         Toolbar.RefreshUserTitle();
@@ -159,8 +173,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
         if (_session.IsShiftOpen)
             Toolbar.NotifyShiftStateChanged();
 
-        if (Catalog.RefreshCatalogCommand.CanExecute(null))
-            Catalog.RefreshCatalogCommand.Execute(null);
+        StartCatalogWarmup();
 
         _ = CheckForUpdateInBackgroundAsync();
         return Task.CompletedTask;

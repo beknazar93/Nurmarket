@@ -49,6 +49,18 @@ public static class MoneyText
     /// <summary>«1 234,50 сом» — с валютой на языке интерфейса.</summary>
     public static string Som(decimal value) => Amount(value) + " " + Currency;
 
+    /// <summary>2026-11-06 (Б2-3): сумма из ячейки таблицы (decimal / double / float / int / long) — «1 234,50 сом»; не число — как было (текст), null — пусто.
+    /// Один разбор для колонок «Сумма» (CurrencyAmountConverter), чтобы вид не расходился между серверным, офлайн-, долговым и смешанным чеком.</summary>
+    public static string SomOf(object? value) => value switch
+    {
+        decimal m => Som(m),
+        double d => Som(d),
+        float f => Som((double)f),
+        int i => Som((decimal)i),
+        long l => Som((decimal)l),
+        _ => value?.ToString() ?? "",
+    };
+
     /// <summary>2026-10-20: цена из данных («3500.00 сом», «20.00») — «3 500,00 сом» для показа; не число — как было.
     /// Сами данные (PriceLine и т.п.) не меняются.</summary>
     public static string SomFromText(string? text)

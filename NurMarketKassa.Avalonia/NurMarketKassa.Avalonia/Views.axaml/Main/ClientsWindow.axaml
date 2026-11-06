@@ -239,8 +239,16 @@
                     </Grid>
                 </Border>
 
-                <ScrollViewer Grid.Row="1" x:Name="ClientsScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                    <ItemsControl x:Name="ClientsList" ItemsSource="{Binding FilteredClients}" Margin="0,0,12,0">
+                <!-- 2026-11-06 (В11, шаг 9): прокрутка — внутри шаблона самого списка (ItemsPresenter → VirtualizingStackPanel). Раньше ItemsControl лежал во внешнем
+                     ScrollViewer: панель получала бесконечную высоту и создавала строки ВСЕХ клиентов (6000 клиентов — 6000 кнопок с вложенными Grid); теперь — только видимые. -->
+                <ItemsControl Grid.Row="1" x:Name="ClientsList" ItemsSource="{Binding FilteredClients}">
+                        <ItemsControl.Template>
+                            <ControlTemplate>
+                                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                    <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" Margin="0,0,12,0"/>
+                                </ScrollViewer>
+                            </ControlTemplate>
+                        </ItemsControl.Template>
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <VirtualizingStackPanel/>
@@ -277,7 +285,6 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
 
                 <!-- Пустое состояние: что значит и что сделать. -->
                 <StackPanel Grid.Row="1" x:Name="EmptyBox" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"

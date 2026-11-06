@@ -13,6 +13,16 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Суммы в программе владельца: Срочно: в таблицах «Продажи» и «Финансы» колонка «Сумма» (и «Выручка» в «Топе» и «Смены») показывала 0,00 — исправлено (ошибка появилась в 1.17.73).",
+        "Оплата долга: После частичного возврата долговой чек больше не пропадает из «Непогашенных»; касса, запущенная без интернета, сама подгружает данные компании после возврата связи и принимает оплату долга.",
+        "Ревизия: Штрихкод упаковки больше не считается за 1 штуку.",
+        "Прокат: Отмена проката привязана к своему чеку; при отмене кассир видит, что вернуть клиенту.",
+        "Смена: Закрытая смена не «открывается» заново после быстрого закрытия на медленном сервере.",
+        "Быстрее запуск и поиск: Каталог грузится параллельно со сменой, ожидание данных компании — 2 с, на медленном сервере окно открывается по сохранённой смене; поиск товара по номеру быстрее.",
+        "Склад: «Списать просроченное» со списком и галочками; «Пересчёт дня» без нелепых счётчиков; «Прибыль» накладной с учётом расходов; плашка скидки и «Заканчивается» по минимальному остатку; колонка «Код / штрихкод» заполнена; возврат поставщику округляется до копейки.",
+        "Весы «Штрих РС-200»: Картинки товаров на весы (BMP), «Полная выгрузка с очисткой», вход в папку весов с логином web-scale1\\kassa, разбор этикеток (префикс 27, Код-Вес, 5 знаков), сообщения «Штрихкод прочитан неверно» и «Весовой товар с PLU … не найден».",
+        "Программа владельца: «Сегодня» считается по часам сервера, есть плашка «Показать неделю» и кнопка «?», «Клиенты» открываются быстрее; закрытые разделы освобождают память.",
+        "Просроченный товар: Enter в окне «Товар просрочен» убирает товар.",
         "Этикетки размеров: Кнопка «Создать QR» и формат QR на этикетках размеров; перед печатью этикеток размеров касса просит подтверждение и предупреждает про чековый принтер.",
         "Весы «Штрих РС-200»: Поддержка весов Штрих РС-200: обмен файлами через общую папку, мастер подключения, штрихкод «Код-Вес» и «Код-Стоимость».",
         "Экран не «прыгает»: Левая панель владельца и вкладки больше не «прыгают» при нажатии, плитки каталога не растут при клавиатурном фокусе.",
@@ -188,6 +198,16 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Ээсинин программасындагы суммалар: Шашылыш: «Сатуулар» жана «Финансы» таблицаларында «Сумма» мамычасы («Топ» жана «Смендер» бөлүмдөрүндөгү «Түшүм» да) 0,00 көрсөтүп жатты — оңдолду (ката 1.17.73 версиясында пайда болгон).",
+        "Карызды төлөө: Жарым-жартылай кайтаруудан кийин карыз чеги «Төлөнө элек» тизмесинен жоголбойт; интернетсиз ишке киргизилген касса байланыш кайтканда компаниянын маалыматтарын өзү жүктөйт жана карыз төлөмүн кабыл алат.",
+        "Ревизия: Таңгактын штрихкоду эми 1 даана деп саналбайт.",
+        "Прокат: Прокатты жокко чыгаруу өз чегине байланган; жокко чыгарууда кассир кардарга эмнени кайтарууну көрөт.",
+        "Смена: Жай серверде тез жабылгандан кийин жабылган смена кайра «ачылып» калбайт.",
+        "Ылдамыраак иштетүү жана издөө: Каталог смена менен параллель жүктөлөт, компаниянын маалыматтарын күтүү — 2 с, жай серверде терезе сакталган смена боюнча ачылат; товарды номери боюнча издөө тезирээк.",
+        "Кампа: «Мөөнөтү өткөндү эсептен чыгаруу» тизме жана белгилер менен; «Күндүн кайра эсеби» акылга сыйбаган эсептегичсиз; накладнойдун «Пайдасы» чыгымдарды эске алуу менен; арзандатуу плашкасы жана минималдуу калдык боюнча «Бүтүп баратат»; «Код / штрихкод» мамычасы толтурулган; жеткирүүчүгө кайтаруу тыйынга чейин тегеректелет.",
+        "«Штрих РС-200» таразасы: Товар сүрөттөрү таразага (BMP), «Тазалоо менен толук чыгаруу», тараза папкасына web-scale1\\kassa логини менен кирүү, этикеткаларды талдоо (27 префикси, Код-Салмак, 5 белги), «Штрихкод туура эмес окулду» жана «PLU … салмактуу товар табылган жок» билдирүүлөрү.",
+        "Ээсинин программасы: «Бүгүн» сервердин сааты боюнча эсептелет, «Жумалыкты көрсөтүү» плашкасы жана «?» баскычы бар, «Кардарлар» тезирээк ачылат; жабылган бөлүмдөр эс тутумду бошотот.",
+        "Мөөнөтү өткөн товар: «Товардун мөөнөтү бүткөн» терезесинде Enter товарды алып салат.",
         "Өлчөм этикеткалары: Өлчөм этикеткаларында «QR түзүү» баскычы жана QR форматы; өлчөм этикеткаларын басардан мурун касса ырастоо сурайт жана чек принтери тууралуу эскертет.",
         "«Штрих РС-200» таразасы: Штрих РС-200 таразасын колдоо: жалпы папка аркылуу файл алмашуу, туташтыруу устасы, «Код-Салмак» жана «Код-Сумма» штрихкоду.",
         "Экран «секирбейт»: Ээсинин сол панели жана өтмөктөр басканда «секирбейт», каталог плиткалары баскычтоп фокусунда чоңойбойт.",
@@ -361,6 +381,16 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Totals in the owner program: Urgent: in the “Sales” and “Finance” tables the “Amount” column (and “Revenue” in “Top” and “Shifts”) showed 0.00 — fixed (the bug appeared in 1.17.73).",
+        "Paying a debt: After a partial return a debt receipt no longer disappears from “Unpaid”; a till started without internet loads the company data by itself once the connection returns and accepts a debt payment.",
+        "Stock count: A pack barcode is no longer counted as 1 piece.",
+        "Rental: Cancelling a rental is tied to its own receipt; when cancelling, the cashier sees what to give back to the customer.",
+        "Shift: A closed shift no longer “reopens” after a quick close on a slow server.",
+        "Faster start and search: The catalog loads in parallel with the shift, waiting for company data is 2 s, and on a slow server the window opens on the saved shift; searching a product by number is faster.",
+        "Warehouse: “Write off expired” with a list and checkboxes; “Day recount” without absurd counters; an invoice's “Profit” that includes costs; a discount badge and “Running out” by the minimum stock; the “Code / barcode” column is filled in; a supplier return is rounded to the kopeck.",
+        "“Shtrikh RS-200” scales: Product pictures on the scales (BMP), “Full upload with clearing”, signing in to the scales folder as web-scale1\\kassa, label parsing (prefix 27, Code-Weight, 5 digits), the messages “Barcode read incorrectly” and “Weighed product with PLU … not found”.",
+        "Owner program: “Today” is calculated by the server clock, there is a “Show the week” badge and a “?” button, “Clients” opens faster; closed sections free their memory.",
+        "Expired product: Enter in the “Product is expired” window removes the product.",
         "Size labels: A “Create QR” button and a QR format on size labels; before printing size labels the till asks for confirmation and warns about the receipt printer.",
         "“Shtrikh RS-200” scales: Support for Shtrikh RS-200 scales: file exchange through a shared folder, a connection wizard, “Code-Weight” and “Code-Amount” barcodes.",
         "The screen no longer jumps: The owner's left panel and the tabs no longer “jump” when clicked, and catalog tiles no longer grow on keyboard focus.",
@@ -534,6 +564,16 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Sahip programında tutarlar: Acil: «Satışlar» ve «Finans» tablolarında «Tutar» sütunu («Top» ve «Vardiyalar»daki «Ciro» da) 0,00 gösteriyordu — düzeltildi (hata 1.17.73'te ortaya çıkmıştı).",
+        "Borç ödemesi: Kısmi iadeden sonra borç fişi artık «Ödenmemiş» listesinden kaybolmaz; internetsiz başlatılan kasa bağlantı gelince şirket verilerini kendisi yükler ve borç ödemesini kabul eder.",
+        "Sayım: Paket barkodu artık 1 adet sayılmaz.",
+        "Kiralama: Kiralama iptali kendi fişine bağlıdır; iptalde kasiyer müşteriye neyin iade edileceğini görür.",
+        "Vardiya: Yavaş sunucuda hızlı kapatılan vardiya artık yeniden «açılmaz».",
+        "Daha hızlı açılış ve arama: Katalog vardiyayla paralel yüklenir, şirket verisi beklemesi 2 sn'dir, yavaş sunucuda pencere kayıtlı vardiyayla açılır; ürünü numarayla arama daha hızlıdır.",
+        "Depo: Liste ve onay kutulu «Süresi geçenleri sil»; saçma sayaçsız «Günün sayımı»; masrafları içeren irsaliye «Kârı»; indirim şeridi ve asgari stoka göre «Bitiyor»; «Kod / barkod» sütunu dolu; tedarikçiye iade kuruşa yuvarlanır.",
+        "«Shtrih RS-200» terazisi: Ürün resimleri teraziye (BMP), «Temizlemeli tam yükleme», terazi klasörüne web-scale1\\kassa kullanıcısıyla giriş, etiket ayrıştırma (27 öneki, Kod-Ağırlık, 5 hane), «Barkod yanlış okundu» ve «PLU … tartılı ürün bulunamadı» mesajları.",
+        "Sahip programı: «Bugün» sunucu saatine göre hesaplanır, «Haftayı göster» şeridi ve «?» düğmesi var, «Müşteriler» daha hızlı açılır; kapatılan bölümler belleği boşaltır.",
+        "Süresi geçmiş ürün: «Ürünün tarihi geçmiş» penceresinde Enter ürünü kaldırır.",
         "Beden etiketleri: Beden etiketlerinde «QR oluştur» düğmesi ve QR biçimi; beden etiketlerini basmadan önce kasa onay ister ve fiş yazıcısı konusunda uyarır.",
         "«Shtrih RS-200» terazisi: Shtrih RS-200 terazi desteği: ortak klasör üzerinden dosya alışverişi, bağlantı sihirbazı, «Kod-Ağırlık» ve «Kod-Tutar» barkodu.",
         "Ekran artık «zıplamaz»: Sahibin sol paneli ve sekmeler tıklanınca artık «zıplamaz», katalog kutucukları klavye odağında büyümez.",
@@ -707,6 +747,16 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Egasi dasturidagi summalar: Shoshilinch: «Sotuvlar» va «Moliya» jadvallarida «Summa» ustuni («Top» va «Smenalar»dagi «Tushum» ham) 0,00 ko'rsatayotgan edi — tuzatildi (xato 1.17.73 da paydo bo'lgan).",
+        "Qarzni to'lash: Qisman qaytarishdan keyin qarz cheki «To'lanmagan» ro'yxatidan yo'qolmaydi; internetsiz ishga tushirilgan kassa aloqa qaytgach kompaniya ma'lumotlarini o'zi yuklaydi va qarz to'lovini qabul qiladi.",
+        "Reviziya: O'ramning shtrix-kodi endi 1 dona deb hisoblanmaydi.",
+        "Ijara: Ijarani bekor qilish o'z chekiga bog'langan; bekor qilishda kassir mijozga nima qaytarilishini ko'radi.",
+        "Smena: Sekin serverda tez yopilgan smena qayta «ochilib» qolmaydi.",
+        "Tezroq ishga tushish va qidiruv: Katalog smena bilan parallel yuklanadi, kompaniya ma'lumotini kutish — 2 s, sekin serverda oyna saqlangan smena bo'yicha ochiladi; tovarni raqami bo'yicha qidirish tezroq.",
+        "Ombor: Ro'yxat va belgilar bilan «Muddati o'tganni hisobdan chiqarish»; bema'ni hisoblagichlarsiz «Kun qayta hisobi»; xarajatlarni hisobga olgan yuk xatining «Foydasi»; chegirma belgisi va minimal qoldiq bo'yicha «Tugayapti»; «Kod / shtrix-kod» ustuni to'ldirilgan; yetkazib beruvchiga qaytarish tiyingacha yaxlitlanadi.",
+        "«Shtrix RS-200» tarozisi: Tovar rasmlari tarozida (BMP), «Tozalash bilan to'liq yuklash», taroziga papkaga web-scale1\\kassa logini bilan kirish, yorliqlarni tahlil qilish (27 prefiks, Kod-Vazn, 5 raqam), «Shtrix-kod noto'g'ri o'qildi» va «PLU … tarozi tovari topilmadi» xabarlari.",
+        "Egasi dasturi: «Bugun» server soati bo'yicha hisoblanadi, «Haftani ko'rsatish» belgisi va «?» tugmasi bor, «Mijozlar» tezroq ochiladi; yopilgan bo'limlar xotirani bo'shatadi.",
+        "Muddati o'tgan tovar: «Tovarning muddati o'tgan» oynasida Enter tovarni olib tashlaydi.",
         "O'lcham yorliqlari: O'lcham yorliqlarida «QR yaratish» tugmasi va QR formati; o'lcham yorliqlarini chop etishdan oldin kassa tasdiq so'raydi va chek printeri haqida ogohlantiradi.",
         "«Shtrix RS-200» tarozisi: Shtrix RS-200 tarozisini qo'llab-quvvatlash: umumiy papka orqali fayl almashish, ulash ustasi, «Kod-Vazn» va «Kod-Summa» shtrix-kodi.",
         "Ekran «sakramaydi»: Egasining chap paneli va ichki oynalar bosilganda «sakramaydi», katalog plitkalari klaviatura fokusida kattalashmaydi.",
@@ -885,6 +935,7 @@ public static class AppChangelog
     // 2026-11-05: 1.17.76 (добавка) — сверху всех Latest* пункты «Весы: единица суммы в штрихкоде» и «Внешние сервисы», сверху AndroidLatest* — «Внешние сервисы».
     // 2026-11-06: 1.17.77 (добавка) — первым пунктом всех Latest* и AndroidLatest* «Загрузка каталога» (срочный фикс Б-1).
     // 2026-11-06: 1.17.77 (добавка 3, тестовый канал) — после пункта «Загрузка каталога» в Latest*: приёмка без связи, «Неотправленное», защита входа, возврат долгового чека, окно оплаты, быстрее запуск, картинки/ИИ, наценка приёмки, программа владельца; в AndroidLatest* — первые шесть.
+    // 2026-11-06: 1.17.79 — сверху всех Latest* 10 пунктов (суммы в программе владельца, оплата долга, ревизия, прокат, смена, запуск и поиск, склад, весы РС-200, программа владельца, просроченный товар), сверху AndroidLatest* — 7 общих.
     // 2026-11-06: 1.17.78 — сверху всех Latest* 7 пунктов (этикетки размеров, весы Штрих РС-200, экран не «прыгает», Склад: код/штрихкод, возврат долгового чека, надёжность, PIN при запуске), сверху AndroidLatest* — 4 общих.
     // 2026-11-06: 1.17.77 — сверху всех Latest* и AndroidLatest* пункт «Исправлено по независимому аудиту» (аудит №5), в AndroidLatest* ещё «Android».
     // 2026-11-05: 1.17.76 — сверху всех Latest* (Windows) добавлено 10 пунктов (безопасные данные, защита денег и время сервера, антифрод и PIN старшего, чек в Telegram, просрочка, закупки и цены, «Пересчёт дня» и сверка выписки, память владельца, дизайн, скорость), сверху всех AndroidLatest* — 5 (Android, деньги, просрочка, дизайн, скорость).
@@ -932,6 +983,13 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Суммы в программе владельца: Срочно: в таблицах «Продажи» и «Финансы» колонка «Сумма» (и «Выручка» в «Топе» и «Смены») показывала 0,00 — исправлено (ошибка появилась в 1.17.73).",
+        "Оплата долга: После частичного возврата долговой чек больше не пропадает из «Непогашенных»; касса, запущенная без интернета, сама подгружает данные компании после возврата связи и принимает оплату долга.",
+        "Ревизия: Штрихкод упаковки больше не считается за 1 штуку.",
+        "Прокат: Отмена проката привязана к своему чеку; при отмене кассир видит, что вернуть клиенту.",
+        "Смена: Закрытая смена не «открывается» заново после быстрого закрытия на медленном сервере.",
+        "Быстрее запуск и поиск: Каталог грузится параллельно со сменой, ожидание данных компании — 2 с, на медленном сервере окно открывается по сохранённой смене; поиск товара по номеру быстрее.",
+        "Просроченный товар: Enter в окне «Товар просрочен» убирает товар.",
         "Экран не «прыгает»: Левая панель владельца и вкладки больше не «прыгают» при нажатии, плитки каталога не растут при клавиатурном фокусе.",
         "Склад: код и штрихкод: Колонка «Код / штрихкод» в Складе; карточки дочитываются, новый товар из ленты появляется сразу, скан неизвестного кода не затирает данные, правка товара отправляет только изменённые поля.",
         "Возврат долгового чека: Сообщение «Возврат уже проведён», предупреждение «Сервер пересчитал долг клиента иначе» и учёт такого возврата при закрытии смены.",
@@ -1053,6 +1111,13 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Ээсинин программасындагы суммалар: Шашылыш: «Сатуулар» жана «Финансы» таблицаларында «Сумма» мамычасы («Топ» жана «Смендер» бөлүмдөрүндөгү «Түшүм» да) 0,00 көрсөтүп жатты — оңдолду (ката 1.17.73 версиясында пайда болгон).",
+        "Карызды төлөө: Жарым-жартылай кайтаруудан кийин карыз чеги «Төлөнө элек» тизмесинен жоголбойт; интернетсиз ишке киргизилген касса байланыш кайтканда компаниянын маалыматтарын өзү жүктөйт жана карыз төлөмүн кабыл алат.",
+        "Ревизия: Таңгактын штрихкоду эми 1 даана деп саналбайт.",
+        "Прокат: Прокатты жокко чыгаруу өз чегине байланган; жокко чыгарууда кассир кардарга эмнени кайтарууну көрөт.",
+        "Смена: Жай серверде тез жабылгандан кийин жабылган смена кайра «ачылып» калбайт.",
+        "Ылдамыраак иштетүү жана издөө: Каталог смена менен параллель жүктөлөт, компаниянын маалыматтарын күтүү — 2 с, жай серверде терезе сакталган смена боюнча ачылат; товарды номери боюнча издөө тезирээк.",
+        "Мөөнөтү өткөн товар: «Товардун мөөнөтү бүткөн» терезесинде Enter товарды алып салат.",
         "Экран «секирбейт»: Ээсинин сол панели жана өтмөктөр басканда «секирбейт», каталог плиткалары баскычтоп фокусунда чоңойбойт.",
         "Кампа: код жана штрихкод: Кампада «Код / штрихкод» мамычасы; карточкалар толукталат, лентадагы жаңы товар дароо чыгат, белгисиз кодду сканерлөө маалыматты өчүрбөйт, товарды оңдоодо өзгөргөн талаалар гана жөнөтүлөт.",
         "Карыз чегин кайтаруу: «Кайтаруу өткөрүлгөн» билдирүүсү, «Сервер кардардын карызын башкача кайра эсептеди» эскертүүсү жана мындай кайтарууну сменаны жабууда эсепке алуу.",
@@ -1172,6 +1237,13 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Totals in the owner program: Urgent: in the “Sales” and “Finance” tables the “Amount” column (and “Revenue” in “Top” and “Shifts”) showed 0.00 — fixed (the bug appeared in 1.17.73).",
+        "Paying a debt: After a partial return a debt receipt no longer disappears from “Unpaid”; a till started without internet loads the company data by itself once the connection returns and accepts a debt payment.",
+        "Stock count: A pack barcode is no longer counted as 1 piece.",
+        "Rental: Cancelling a rental is tied to its own receipt; when cancelling, the cashier sees what to give back to the customer.",
+        "Shift: A closed shift no longer “reopens” after a quick close on a slow server.",
+        "Faster start and search: The catalog loads in parallel with the shift, waiting for company data is 2 s, and on a slow server the window opens on the saved shift; searching a product by number is faster.",
+        "Expired product: Enter in the “Product is expired” window removes the product.",
         "The screen no longer jumps: The owner's left panel and the tabs no longer “jump” when clicked, and catalog tiles no longer grow on keyboard focus.",
         "Warehouse: code and barcode: A “Code / barcode” column in the Warehouse; cards are read in full, a new product from the feed appears at once, scanning an unknown code does not overwrite data, editing a product sends only the changed fields.",
         "Returning a debt receipt: A “Return already done” message, a “The server recalculated the client's debt differently” warning, and such a return counted when the shift is closed.",
@@ -1291,6 +1363,13 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Sahip programında tutarlar: Acil: «Satışlar» ve «Finans» tablolarında «Tutar» sütunu («Top» ve «Vardiyalar»daki «Ciro» da) 0,00 gösteriyordu — düzeltildi (hata 1.17.73'te ortaya çıkmıştı).",
+        "Borç ödemesi: Kısmi iadeden sonra borç fişi artık «Ödenmemiş» listesinden kaybolmaz; internetsiz başlatılan kasa bağlantı gelince şirket verilerini kendisi yükler ve borç ödemesini kabul eder.",
+        "Sayım: Paket barkodu artık 1 adet sayılmaz.",
+        "Kiralama: Kiralama iptali kendi fişine bağlıdır; iptalde kasiyer müşteriye neyin iade edileceğini görür.",
+        "Vardiya: Yavaş sunucuda hızlı kapatılan vardiya artık yeniden «açılmaz».",
+        "Daha hızlı açılış ve arama: Katalog vardiyayla paralel yüklenir, şirket verisi beklemesi 2 sn'dir, yavaş sunucuda pencere kayıtlı vardiyayla açılır; ürünü numarayla arama daha hızlıdır.",
+        "Süresi geçmiş ürün: «Ürünün tarihi geçmiş» penceresinde Enter ürünü kaldırır.",
         "Ekran artık «zıplamaz»: Sahibin sol paneli ve sekmeler tıklanınca artık «zıplamaz», katalog kutucukları klavye odağında büyümez.",
         "Depo: kod ve barkod: Depoda «Kod / barkod» sütunu; kartlar eksiksiz okunur, akıştaki yeni ürün hemen görünür, bilinmeyen kodun taranması verileri ezmez, ürün düzenlemede yalnızca değişen alanlar gönderilir.",
         "Borç fişinin iadesi: «İade zaten yapıldı» mesajı, «Sunucu müşteri borcunu farklı hesapladı» uyarısı ve böyle bir iadenin vardiya kapanışında hesaba katılması.",
@@ -1410,6 +1489,13 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Egasi dasturidagi summalar: Shoshilinch: «Sotuvlar» va «Moliya» jadvallarida «Summa» ustuni («Top» va «Smenalar»dagi «Tushum» ham) 0,00 ko'rsatayotgan edi — tuzatildi (xato 1.17.73 da paydo bo'lgan).",
+        "Qarzni to'lash: Qisman qaytarishdan keyin qarz cheki «To'lanmagan» ro'yxatidan yo'qolmaydi; internetsiz ishga tushirilgan kassa aloqa qaytgach kompaniya ma'lumotlarini o'zi yuklaydi va qarz to'lovini qabul qiladi.",
+        "Reviziya: O'ramning shtrix-kodi endi 1 dona deb hisoblanmaydi.",
+        "Ijara: Ijarani bekor qilish o'z chekiga bog'langan; bekor qilishda kassir mijozga nima qaytarilishini ko'radi.",
+        "Smena: Sekin serverda tez yopilgan smena qayta «ochilib» qolmaydi.",
+        "Tezroq ishga tushish va qidiruv: Katalog smena bilan parallel yuklanadi, kompaniya ma'lumotini kutish — 2 s, sekin serverda oyna saqlangan smena bo'yicha ochiladi; tovarni raqami bo'yicha qidirish tezroq.",
+        "Muddati o'tgan tovar: «Tovarning muddati o'tgan» oynasida Enter tovarni olib tashlaydi.",
         "Ekran «sakramaydi»: Egasining chap paneli va ichki oynalar bosilganda «sakramaydi», katalog plitkalari klaviatura fokusida kattalashmaydi.",
         "Ombor: kod va shtrix-kod: Omborda «Kod / shtrix-kod» ustuni; kartochkalar to'liq o'qiladi, lentadagi yangi tovar darhol chiqadi, noma'lum kodni skanerlash ma'lumotni o'chirmaydi, tovarni tahrirlashda faqat o'zgargan maydonlar yuboriladi.",
         "Qarz chekini qaytarish: «Qaytarish allaqachon o'tkazilgan» xabari, «Server mijoz qarzini boshqacha qayta hisobladi» ogohlantirishi va bunday qaytarishni smenani yopishda hisobga olish.",

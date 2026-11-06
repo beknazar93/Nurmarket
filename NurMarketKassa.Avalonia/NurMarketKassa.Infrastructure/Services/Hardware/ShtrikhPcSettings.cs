@@ -25,8 +25,33 @@ public sealed class ShtrikhPcSettings
     public const string FormatAmountCode = "amount-code";
     public const string FormatWeightCode = "weight-code";
 
+    /// <summary>2026-11-06: пример заполнения по весам магазина владельца (Умар, проверено на месте 06.11): IP 192.168.0.200 постоянный, папка Shared под пользователем Windows «scale»,
+    /// на весах префикс 27, «Код-Вес», 5 цифр кода. Только подсказка «как заполнить», не навязанные значения.</summary>
+    public const string ExampleFolder = @"\\192.168.0.200\Shared";
+    public const string ExampleLogin = @"web-scale1\kassa";
+
+    /// <summary>Источник файла импорта: касса собирает сама (сейчас) либо скачивает готовый PCScale.txt с сервера NurCRM. Точка расширения: серверный формат
+    /// (GET /api/main/products/scale-export/?format=shtrih_pc200) Умар добавит позже — скачивание не реализовано, пока нет его документа.</summary>
+    public const string SourceKassa = "kassa";
+    public const string SourceServer = "server";
+
     /// <summary>Общая папка обмена весов: \\192.168.0.x\Shared (сетевая), локальная или флешка. Пусто — не задана.</summary>
     public string Folder { get; set; } = "";
+
+    /// <summary>Логин Windows весов для сетевой папки (например «scale» или «web-scale1\scale»). Пусто — под текущим пользователем кассы.</summary>
+    public string Login { get; set; } = "";
+
+    /// <summary>Пароль Windows весов — НЕ в JSON настроек: живёт в <see cref="UserPreferences.ShtrikhPcPassword"/> (в файле — только зашифрованный).</summary>
+    [JsonIgnore]
+    public string Password { get; set; } = "";
+
+    public string FileSource { get; set; } = SourceKassa;
+
+    /// <summary>Отправлять картинки товаров (на главном экране весов видны только товары с картинкой). Выключено — товары уйдут без картинок.</summary>
+    public bool SendPictures { get; set; } = true;
+
+    /// <summary>Код ресурса «картинка» = смещение + код товара (по умолчанию 100000 + код): не пересекается с кодами прежней системы весов (6000+код) и кодами товаров.</summary>
+    public int PictureOffset { get; set; } = 100_000;
 
     public string ImportFile { get; set; } = DefaultImportFile;
     public string FlagFile { get; set; } = DefaultFlagFile;
@@ -44,7 +69,7 @@ public sealed class ShtrikhPcSettings
     public string LineStyle { get; set; } = LineSpace;
 
     /// <summary>Десятичный разделитель цены в файле: «,» (русская Windows весов) или «.». Из руководства не следует — переключается.</summary>
-    public string DecimalSeparator { get; set; } = ",";
+    public string DecimalSeparator { get; set; } = "."; // 2026-11-06: как в файле Умара (650.00)
 
     // ---- штрихкод (раскладка «Штрих-код» на весах, п. 7.6) ----
 
@@ -52,10 +77,10 @@ public sealed class ShtrikhPcSettings
     public bool BarcodeEnabled { get; set; }
 
     /// <summary>«Префикс весового товара» (по умолчанию на весах 20; рекомендуется 20..29). Штучный 21 и корзина 22 кассой не читаются.</summary>
-    public int BarcodePrefix { get; set; } = 20;
+    public int BarcodePrefix { get; set; } = 27; // 2026-11-06: на весах владельца (параметр 303); на заводе 20
 
     /// <summary>«Число знаков кода товара» (по умолчанию 4; на код и значение остаётся 10 знаков). 1…6.</summary>
-    public int CodeLength { get; set; } = 4;
+    public int CodeLength { get; set; } = 5; // 2026-11-06: на весах владельца (параметр 307); на заводе 4
 
     /// <summary>«Формат весового товара»: Код-Вес / Код-Стоимость / Вес-Код / Стоимость-Код.</summary>
     public string BarcodeFormat { get; set; } = FormatCodeWeight;
@@ -83,14 +108,19 @@ public sealed class ShtrikhPcSettings
     public ShtrikhPcSettings Normalize()
     {
         Folder = (Folder ?? "").Trim();
+        Login = (Login ?? "").Trim();
+        Password ??= "";
+        if (FileSource != SourceServer)
+            FileSource = SourceKassa;
         ImportFile = string.IsNullOrWhiteSpace(ImportFile) ? DefaultImportFile : ImportFile.Trim();
         FlagFile = string.IsNullOrWhiteSpace(FlagFile) ? DefaultFlagFile : FlagFile.Trim();
         ExportFile = string.IsNullOrWhiteSpace(ExportFile) ? DefaultExportFile : ExportFile.Trim();
         ScaleNumber = Math.Clamp(ScaleNumber, 1, 999);
+        PictureOffset = Math.Clamp(PictureOffset, 0, 900_000);
         PriceDecimals = Math.Clamp(PriceDecimals, 0, 3);
         if (LineStyle is not (LineSpace or LineGlued or LineSemicolon))
             LineStyle = LineSpace;
-        DecimalSeparator = DecimalSeparator == "." ? "." : ",";
+        DecimalSeparator = DecimalSeparator == "," ? "," : ".";
         BarcodePrefix = Math.Clamp(BarcodePrefix, 20, 29);
         CodeLength = Math.Clamp(CodeLength, 1, 6);
         if (CodeChecksum && CodeLength < 2)
@@ -134,12 +164,21 @@ public sealed class ShtrikhPcSettings
     public string ToJson() => JsonSerializer.Serialize(Normalize(), Json);
 
     /// <summary>Текущие настройки этой кассы.</summary>
-    public static ShtrikhPcSettings Current => Parse(UserPreferences.Instance.ShtrikhPcConfig);
+    public static ShtrikhPcSettings Current
+    {
+        get
+        {
+            var s = Parse(UserPreferences.Instance.ShtrikhPcConfig);
+            s.Password = UserPreferences.Instance.ShtrikhPcPassword ?? "";
+            return s;
+        }
+    }
 
     /// <summary>Записывает настройки в память (на диск — <c>UserPreferences.Instance.SaveToDisk()</c> вызывающим) и сразу применяет раскладку к парсеру.</summary>
     public static void Save(ShtrikhPcSettings settings)
     {
         UserPreferences.Instance.ShtrikhPcConfig = settings.ToJson();
+        UserPreferences.Instance.ShtrikhPcPassword = string.IsNullOrEmpty(settings.Password) ? null : settings.Password;
         ApplyToParser();
     }
 

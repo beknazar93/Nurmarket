@@ -352,6 +352,8 @@ internal static partial class ScaleUi
         return result;
     }
 
+    private static string PcHost(string folder) => ShtrikhPcShare.IsUnc(folder) ? ShtrikhPcShare.Host(folder) : folder;
+
     /// <summary>Понятный текст по итогу проверки папки весов РС-200 (и записи файла).</summary>
     public static string PcFolderCheckText(ShtrikhPcFolderCheck status, string detail, string folder) => status switch
     {
@@ -370,11 +372,26 @@ internal static partial class ScaleUi
             $"The folder “{folder}” does not answer{(detail == "timeout" ? " (3 s)" : "")}: the scale is off or on another network, the address is wrong, or the Shared folder is not shared. Check ping from the till computer and open it in Explorer.",
             $"«{folder}» klasörü yanıt vermiyor{(detail == "timeout" ? " (3 sn)" : "")}: tartı kapalı ya da başka ağda, adres yanlış veya Shared klasörü paylaşıma açık değil. Kasa bilgisayarından ping'i kontrol edin ve Gezgin'de açın.",
             $"«{folder}» papkasi javob bermaydi{(detail == "timeout" ? " (3 s)" : "")}: tarozi o‘chiq yoki boshqa tarmoqda, manzil noto‘g‘ri yoki Shared papkasi ulashilmagan. Kassa kompyuteridan ping ni tekshiring va Provodnikda oching."),
-        ShtrikhPcFolderCheck.NoAccess => L($"Нет прав записи в «{folder}». На весах: Проводник → папка Shared → Свойства → Доступ → открыть общий доступ с полным доступом для пользователя кассы; если Windows просит имя и пароль — введите имя и пароль Windows весов (один раз откройте папку в Проводнике и поставьте «Запомнить»).",
-            $"«{folder}» папкасына жазууга укук жок. Таразада: Проводник → Shared папкасы → Свойства → Доступ → кассанын колдонуучусуна толук жеткиликтүүлүк менен жалпы жеткиликтүүлүк ачыңыз; Windows ат менен сырсөз сураса — таразанын Windows атын жана сырсөзүн киргизиңиз (папканы Проводникте бир ирет ачып «Запомнить» коюңуз).",
-            $"No write permission to “{folder}”. On the scale: Explorer → folder Shared → Properties → Sharing → share it with full access for the till's user; if Windows asks for a name and password, enter the scale's Windows name and password (open the folder once in Explorer and tick “Remember”).",
-            $"«{folder}» klasörüne yazma izni yok. Tartıda: Gezgin → Shared klasörü → Özellikler → Paylaşım → kasanın kullanıcısına tam erişimle paylaşıma açın; Windows ad ve şifre isterse tartının Windows adını ve şifresini girin (klasörü Gezgin'de bir kez açıp «Hatırla»yı işaretleyin).",
-            $"«{folder}» papkasiga yozish huquqi yo‘q. Tarozida: Provodnik → Shared papkasi → Свойства → Доступ → kassa foydalanuvchisiga to‘liq ruxsat bilan ulashing; Windows ism va parol so‘rasa — tarozining Windows ismi va parolini kiriting (papkani Provodnikda bir marta ochib «Запомнить» ni belgilang)."),
+        ShtrikhPcFolderCheck.NoConnection => L($"Нет связи с весами {PcHost(folder)}: проверьте кабель и IP (весы включены, адрес верный, с компьютера кассы проходит ping).",
+            $"{PcHost(folder)} таразасы менен байланыш жок: кабелди жана IP'ни текшериңиз (тараза күйүк, дарек туура, кассанын компьютеринен ping өтөт).",
+            $"No connection to the scale {PcHost(folder)}: check the cable and IP (the scale is on, the address is right, ping from the till computer works).",
+            $"{PcHost(folder)} tartısıyla bağlantı yok: kabloyu ve IP'yi kontrol edin (tartı açık, adres doğru, kasa bilgisayarından ping geçiyor).",
+            $"{PcHost(folder)} tarozisi bilan aloqa yo‘q: kabel va IP ni tekshiring (tarozi yoqilgan, manzil to‘g‘ri, kassa kompyuteridan ping o‘tadi)."),
+        ShtrikhPcFolderCheck.BadCredentials => L("Неверный логин или пароль Windows весов. Укажите логин в виде web-scale1\\kassa (с именем компьютера весов); пароль — пользователя Windows на весах.",
+            "Таразанын Windows логини же сырсөзү туура эмес. Логинди web-scale1\\kassa түрүндө жазыңыз (таразанын компьютер аты менен); сырсөз — таразадагы Windows колдонуучусунуку.",
+            "Wrong Windows login or password of the scale. Enter the login as web-scale1\\kassa (with the scale computer name); the password is that of the Windows user on the scale.",
+            "Tartının Windows kullanıcı adı veya şifresi yanlış. Kullanıcı adını web-scale1\\kassa biçiminde girin (tartının bilgisayar adıyla); şifre tartıdaki Windows kullanıcısının şifresi.",
+            "Tarozining Windows logini yoki paroli noto‘g‘ri. Loginni web-scale1\\kassa ko‘rinishida kiriting (tarozi kompyuteri nomi bilan); parol — tarozidagi Windows foydalanuvchisiniki."),
+        ShtrikhPcFolderCheck.NoAccess => L("Нет прав на запись в папку Shared — дайте папке доступ на запись для «Все» (на весах: Проводник → Shared → Свойства → Доступ) или укажите логин и пароль Windows весов.",
+            "Shared папкасына жазууга укук жок — папкага «Все» үчүн жазуу мүмкүнчүлүгүн бериңиз (таразада: Проводник → Shared → Свойства → Доступ) же таразанын Windows логинин жана сырсөзүн жазыңыз.",
+            "No write permission to the Shared folder — give the folder write access for “Everyone” (on the scale: Explorer → Shared → Properties → Sharing) or enter the scale's Windows login and password.",
+            "Shared klasörüne yazma izni yok — klasöre «Herkes» için yazma erişimi verin (tartıda: Gezgin → Shared → Özellikler → Paylaşım) veya tartının Windows kullanıcı adı ve şifresini girin.",
+            "Shared papkasiga yozish huquqi yo‘q — papkaga «Все» uchun yozish ruxsatini bering (tarozida: Provodnik → Shared → Свойства → Доступ) yoki tarozining Windows login va parolini kiriting."),
+        ShtrikhPcFolderCheck.Unsupported => L("Сетевая папка доступна только в Windows; укажите локальную/смонтированную папку или сохраните файл на флешку («Сохранить файл»).",
+            "Тармак папкасы Windows'то гана жеткиликтүү; жергиликтүү/туташтырылган папканы көрсөтүңүз же файлды флешкеге сактаңыз («Файлды сактоо»).",
+            "A network folder is available only on Windows; give a local/mounted folder or save the file to a USB stick (“Save file”).",
+            "Ağ klasörü yalnızca Windows'ta kullanılabilir; yerel/bağlanmış bir klasör belirtin veya dosyayı USB belleğe kaydedin («Dosyayı kaydet»).",
+            "Tarmoq papkasi faqat Windows'da mavjud; mahalliy/ulangan papkani ko‘rsating yoki faylni fleshkaga saqlang («Faylni saqlash»)."),
         _ => L("Не удалось записать в папку весов: ", "Таразанын папкасына жазуу мүмкүн болгон жок: ", "Could not write to the scale folder: ", "Tartı klasörüne yazılamadı: ", "Tarozi papkasiga yozib bo‘lmadi: ") + detail,
     };
 

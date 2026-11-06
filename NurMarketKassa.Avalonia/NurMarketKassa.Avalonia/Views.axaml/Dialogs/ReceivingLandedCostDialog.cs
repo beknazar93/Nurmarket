@@ -76,11 +76,11 @@ public sealed class ReceivingLandedCostDialog : Window
         var footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Right, Children = { cancel, _apply } };
 
         Content = SectionCards.Shell(Title,
-            T("Доставка и грузчики попадают в себестоимость товара, а долг поставщику остаётся по накладной. Расходы внесите отдельным расходом.",
-                "Жеткирүү жана жүк ташуучулар товардын өздүк баасына кошулат, ал эми жеткирүүчүгө карыз накладная боюнча калат. Чыгымдарды өзүнчө чыгым катары киргизиңиз.",
-                "Delivery and loaders go into the product cost; the supplier debt stays as per the invoice. Record the costs as a separate expense.",
-                "Nakliye ve hamal masrafı ürün maliyetine eklenir; tedarikçi borcu faturadaki gibi kalır. Masrafı ayrı gider olarak kaydedin.",
-                "Yetkazib berish va yuk tashuvchilar mahsulot tannarxiga qo'shiladi, yetkazib beruvchiga qarz esa nakladnoy bo'yicha qoladi. Xarajatlarni alohida xarajat sifatida kiriting."),
+            T("Доставка и грузчики попадают в себестоимость товара, а долг поставщику остаётся по накладной. Расходы внесите отдельным расходом. В карточку товара запишется себестоимость (закупка + доля расходов), а не цена накладной.",
+                "Жеткирүү жана жүк ташуучулар товардын өздүк баасына кошулат, ал эми жеткирүүчүгө карыз накладная боюнча калат. Чыгымдарды өзүнчө чыгым катары киргизиңиз. Товар карточкасына өздүк баа (сатып алуу + чыгым үлүшү) жазылат, накладнойдогу баа эмес.",
+                "Delivery and loaders go into the product cost; the supplier debt stays as per the invoice. Record the costs as a separate expense. The product card gets the cost (purchase + share of costs), not the invoice price.",
+                "Nakliye ve hamal masrafı ürün maliyetine eklenir; tedarikçi borcu faturadaki gibi kalır. Masrafı ayrı gider olarak kaydedin. Ürün kartına fatura fiyatı değil maliyet (alış + masraf payı) yazılır.",
+                "Yetkazib berish va yuk tashuvchilar mahsulot tannarxiga qo'shiladi, yetkazib beruvchiga qarz esa nakladnoy bo'yicha qoladi. Xarajatlarni alohida xarajat sifatida kiriting. Mahsulot kartasiga nakladnoy narxi emas, tannarx (xarid + xarajat ulushi) yoziladi."),
             root, footer);
         Rebuild();
     }

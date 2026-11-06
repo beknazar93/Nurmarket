@@ -38,6 +38,16 @@
     <Compile Include="..\NurMarketKassa.Avalonia\Services\OwnerRailTopSlot.cs" Link="Linked\OwnerRailTopSlot.cs" />
     <!-- 2026-11-06, А-8: подпись состава меню владельца (пересборка колонки только при изменении набора пунктов) — чистая логика, ссылкой. -->
     <Compile Include="..\NurMarketKassa.Avalonia\Services\OwnerNavSignature.cs" Link="Linked\OwnerNavSignature.cs" />
+    <!-- 2026-11-06 (В11, программа владельца): чистая логика без Avalonia — список одним событием, высота столбца графика, итог перемещения, уплотнение кучи и учёт закрытых разделов. -->
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\BulkObservableCollection.cs" Link="Linked\BulkObservableCollection.cs" />
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\ChartBarHeight.cs" Link="Linked\ChartBarHeight.cs" />
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\TransferSummaryText.cs" Link="Linked\TransferSummaryText.cs" />
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\OwnerMemoryTrim.cs" Link="Linked\OwnerMemoryTrim.cs" />
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\ClosedObjectWatch.cs" Link="Linked\ClosedObjectWatch.cs" />
+    <!-- 2026-11-06 (аудит Этапа 2, С-3): правила префиксов весовых штрихкодов и подтверждение раскладки РС-200 — чистая логика без окон. -->
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\ScaleBarcodeRules.cs" Link="Linked\ScaleBarcodeRules.cs" />
+    <!-- 2026-11-06: картинка товара → BMP 288×288 для весов РС-200 (Skia, без Avalonia) — файл приложения, тестируется ссылкой. -->
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\ShtrikhPcPictureConverter.cs" Link="Linked\ShtrikhPcPictureConverter.cs" />
   </ItemGroup>
 
   <ItemGroup>

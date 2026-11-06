@@ -294,4 +294,82 @@ public sealed class ShtrikhPcBarcodeTests : IDisposable
             UserPreferences.Instance.ShtrikhPcConfig = before;
         }
     }
+
+    [Fact]
+    public void Defaults_MatchTheOwnersScale_Prefix27_CodeWeight_FiveDigits()
+    {
+        // Config.txt весов владельца: 303 = 27 (префикс), 305 = 0 (код-вес), 307 = 5 (цифр кода), КС выкл
+        var layout = new ShtrikhPcSettings().Normalize().ToLayout();
+
+        layout.Prefix.Should().Be("27");
+        layout.CodeLength.Should().Be(5);
+        layout.CodeFirst.Should().BeTrue();
+        layout.Kind.Should().Be(WeightBarcodeValueKind.Weight);
+        layout.CodeChecksum.Should().BeFalse();
+        new ShtrikhPcSettings().Normalize().MaxProductCode.Should().Be(99999);
+    }
+
+    [Fact]
+    public void OwnersLabel_27_Plu123_1250Grams_IsReadAsPlu123AndOnePointTwoFiveKg()
+    {
+        // Этикетка 27 + PLU(5) + вес в граммах(5) + контрольная. В ТЗ Умара пример записан как 2700123012508, но у EAN-13 для этих цифр контрольная цифра 5
+        // (веса 1/3 по первым 12 цифрам даёт сумму 45), поэтому верный код — 2700123012505; код с «8» касса отвергает как «прочитан неверно».
+        var layout = new ShtrikhPcSettings().Normalize().ToLayout();
+        var good = layout.BuildBarcode(123, 1250)!;
+        good.Should().Be("2700123012505");
+        WeightBarcodeParser.CustomLayouts = new[] { layout };
+
+        WeightBarcodeParser.TryParse(good, out var parsed).Should().BeTrue();
+
+        long.Parse(parsed.ProductCode).Should().Be(123);
+        parsed.Kind.Should().Be(WeightBarcodeValueKind.Weight);
+        parsed.Value.Should().BeApproximately(1.250, 1e-9);
+        WeightBarcodeParser.IsCustomLabelWithBadCheckDigit(good).Should().BeFalse();
+    }
+
+    [Fact]
+    public void LabelFromTz_2700123012508_HasWrongEan13CheckDigit_IsRejected()
+    {
+        WeightBarcodeParser.CustomLayouts = new[] { new ShtrikhPcSettings().Normalize().ToLayout() };
+
+        WeightBarcodeParser.TryParse("2700123012508", out _).Should().BeFalse();
+        WeightBarcodeParser.IsCustomLabelWithBadCheckDigit("2700123012508").Should().BeTrue();
+        // чужой префикс и не-весовой код «неверным чтением» не считаются
+        WeightBarcodeParser.IsCustomLabelWithBadCheckDigit("2000123012508").Should().BeFalse();
+        WeightBarcodeParser.IsCustomLabelWithBadCheckDigit("4870001234560").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Prefix27_WithAutoMode_IsWeight_NotAmount_WhenLayoutIsActive()
+    {
+        // в режиме компании «авто» префикс 27 читался бы как СУММА; раскладка РС-200 задаёт вес
+        WeightBarcodeParser.Mode = "auto";
+        WeightBarcodeParser.CustomLayouts = new[] { new ShtrikhPcSettings().Normalize().ToLayout() };
+
+        WeightBarcodeParser.TryParse("2700123012505", out var parsed).Should().BeTrue();
+
+        parsed.Kind.Should().Be(WeightBarcodeValueKind.Weight);
+    }
+
+    [Fact]
+    public void Password_IsNotInSettingsJson_ButIsKeptInPreferences()
+    {
+        var beforeConfig = UserPreferences.Instance.ShtrikhPcConfig;
+        var beforePassword = UserPreferences.Instance.ShtrikhPcPassword;
+        try
+        {
+            var s = new ShtrikhPcSettings { Folder = @"\\192.168.0.200\Shared", Login = "scale", Password = "секрет-123" };
+            ShtrikhPcSettings.Save(s);
+
+            UserPreferences.Instance.ShtrikhPcConfig.Should().NotContain("секрет-123").And.Contain("scale");
+            UserPreferences.Instance.ShtrikhPcPassword.Should().Be("секрет-123");
+            ShtrikhPcSettings.Current.Password.Should().Be("секрет-123");
+            ShtrikhPcSettings.Current.Login.Should().Be("scale");
+        }
+        finally
+        {
+            UserPreferences.Instance.ShtrikhPcConfig = beforeConfig;
+            UserPreferences.Instance.ShtrikhPcPassword = beforePassword;
+        }
+    }
 }

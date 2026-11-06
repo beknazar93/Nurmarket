@@ -25,7 +25,8 @@ Views.axaml\Dialogs\PayDebtDialog.OneSum.cs;1
 Views.axaml\Dialogs\PaymentDockPlacement.cs;3
 Views.axaml\Dialogs\ProductEditDialog.axaml.cs;8
 Views.axaml\Dialogs\QrCropDialog.axaml.cs;1
-Views.axaml\Dialogs\ReturnSaleDialog.axaml.cs;11
+Views.axaml\Dialogs\ReturnSaleDialog.Sales.cs;2
+Views.axaml\Dialogs\ReturnSaleDialog.Submit.cs;1
 Views.axaml\Dialogs\RongtaScaleSettingsWindow.axaml.cs;2
 Views.axaml\Dialogs\SalaryPayoutDialog.cs;2
 Views.axaml\Dialogs\ShtrikhLabelCanvas.cs;2

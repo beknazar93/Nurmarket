@@ -224,7 +224,10 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
         </Style>
         <Style Selector="Button.PrimaryButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+            <!-- 2026-11-06 (В12, Д4-10): неактивная кнопка — без заливки (раньше серая заливка была заметнее активной): только тонкая обводка и приглушённый текст -->
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
         </Style>
 
@@ -256,6 +259,12 @@
         <Style Selector="Button.SecondaryButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Opacity" Value="0.7"/>
+        </Style>
+        <!-- 2026-11-06 (В12, Д4-22): редкие действия приёмки («Убрать», «Наценка…», «Очистить», «Этикетки») — тихие кнопки без рамки: главными остаются поле скана, «Из списка» и «Новый товар». -->
+        <Style Selector="Button.SecondaryButton.tool-quiet">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="FontWeight" Value="Normal"/>
         </Style>
         <!-- 2026-10-19, О9: пункт раскрывающегося списка (причина списания, подсказки приёмки) — без рамки, наведение мягким фоном. -->
         <Style Selector="Button.list-item">
@@ -1188,7 +1197,7 @@
                             <!-- Поле принимает и скан (сканер дописывает перевод строки, срабатывает
                                  Enter), и набор названия руками — тогда под полем появляются
                                  подсказки, см. ReceivingScan_TextChanged. -->
-                            <TextBox x:Name="ReceivingScanBox" Width="240"
+                            <TextBox x:Name="ReceivingScanBox" Width="340" MinHeight="44" FontSize="15"
                                      Watermark="{DynamicResource warehouse.receivingScanHint}"
                                      TextChanged="ReceivingScan_TextChanged"
                                      KeyDown="ReceivingScan_KeyDown"/>
@@ -1204,7 +1213,7 @@
                             <Button Classes="SecondaryButton"
                                     Content="{DynamicResource warehouse.transferPickFromList}"
                                     Click="ReceivingPickFromList_Click"/>
-                            <Button Classes="SecondaryButton"
+                            <Button Classes="SecondaryButton tool-quiet"
                                     Content="{DynamicResource warehouse.transferRemoveItem}"
                                     Click="ReceivingRemove_Click"/>
                             <!-- Товар без скана: пустая строка, название/штрихкод/цены вписываются в
@@ -1213,10 +1222,10 @@
                                     Content="{DynamicResource warehouse.receivingAddNew}"
                                     Click="ReceivingAddNew_Click"/>
                             <!-- 2026-10-29: «Наценка…» (правила автонаценки) и «Очистить список» — в верхнем ряду; внизу остаётся итоговая панель (спека Fable). -->
-                            <Button Classes="SecondaryButton" x:Name="ReceivingMarkupButton" Click="ReceivingMarkup_Click"/>
-                            <Button Classes="SecondaryButton" x:Name="ReceivingClearButton" Click="ReceivingClear_Click"/>
+                            <Button Classes="SecondaryButton tool-quiet" x:Name="ReceivingMarkupButton" Click="ReceivingMarkup_Click"/>
+                            <Button Classes="SecondaryButton tool-quiet" x:Name="ReceivingClearButton" Click="ReceivingClear_Click"/>
                             <!-- 2026-11-01 (П-4, из веба): «Этикетки на приход» — массовая печать с отмеченными товарами накладной, копии = количество. -->
-                            <Button Classes="SecondaryButton" x:Name="ReceivingLabelsButton" Click="ReceivingLabels_Click"/>
+                            <Button Classes="SecondaryButton tool-quiet" x:Name="ReceivingLabelsButton" Click="ReceivingLabels_Click"/>
                         </WrapPanel>
 
                         <Border Grid.Row="2" x:Name="ReceivingSuggestionsBox" IsVisible="False"

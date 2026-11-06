@@ -174,6 +174,9 @@ public partial class MainWindow : Window
         _shiftNoticeTarget = this;
         ShiftStateService.ShiftNotice -= OnShiftNotice;
         ShiftStateService.ShiftNotice += OnShiftNotice;
+        // 2026-11-06 (аудит Этапа 2, Н-2): касса открылась на данных прежней компании, а поздний ответ сервера — другая компания: просим перезапустить, пока не смешались продажи.
+        CompanyInfoService.OtherCompanyDetected -= OnOtherCompanyDetected;
+        CompanyInfoService.OtherCompanyDetected += OnOtherCompanyDetected;
         // 2026-10-29 (скорость синхронизации): режим окна и «есть товары в чеке» — для адаптивного опроса ленты (3 с / 8 с / 30–60 с).
         NurMarketKassa.AvaloniaHost.Services.SyncActivityWatcher.Attach(this, _viewModel.Basket, () => _viewModel.Basket.HasItems);
         // 2026-10-20 (живой аудит кассы, К1–К3, К6): как заплатили — для суммы возврата и «Истории чеков» после возврата.
@@ -276,6 +279,20 @@ public partial class MainWindow : Window
             var created = await dlg.ShowDialog<NurMarketKassa.Services.Api.RentalDto?>(this).ConfigureAwait(true);
             return created is null ? null : (created, dlg.RentTotal);
         };
+        // 2026-11-06 (аудит №5, Л4-09): оплату чека с прокатом отменили — кассир может отменить неоплаченный прокат (возврат без штрафа: вещи на склад, залог клиенту).
+        _viewModel.Basket.CancelUnpaidRental ??= async rentalId =>
+        {
+            try
+            {
+                var done = await App.GetRequiredService<NurMarketKassa.Services.Api.RentalsApi>().ReturnAsync(rentalId, "ok", 0).ConfigureAwait(true);
+                return done is not null;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Прокат: отмена неоплаченного не удалась ({NurMarketKassa.Services.Api.RentalsApi.Describe(ex)}).", "WARNING");
+                return false;
+            }
+        };
         _viewModel.SideMenu.RefreshEntitlements();
 
         progress?.Report(Tr.T("Загрузка кассы...", "Касса жүктөлүүдө...", "Loading the till…", "Kasa yükleniyor...", "Kassa yuklanmoqda..."));
@@ -322,7 +339,9 @@ public partial class MainWindow : Window
         }
 
         progress?.Report(Tr.T("Обновление смены...", "Смена жаңыртылууда...", "Updating the shift…", "Vardiya güncelleniyor...", "Smena yangilanmoqda..."));
-        await RefreshShiftStateAsync(cancellationToken).ConfigureAwait(true);
+        // 2026-11-06 (шаг 14): каталог из локальной базы не зависит от смены — его тёплый старт идёт параллельно со сверкой смены (раньше после неё: −0,4…1 с на запуске).
+        _viewModel.StartCatalogWarmup();
+        await RefreshShiftStateAtStartupAsync(cancellationToken).ConfigureAwait(true);
         StartPhoneSalePrint(); // 2026-10-27, К-П1: печать чеков телефона на этой кассе (по умолчанию выключено)
 
         progress?.Report(Tr.T("Подготовка рабочего места...", "Жумуш орду даярдалууда...", "Preparing the workstation…", "Çalışma alanı hazırlanıyor...", "Ish joyi tayyorlanmoqda..."));
@@ -481,6 +500,10 @@ public partial class MainWindow : Window
 
             if (ct.IsCancellationRequested)
                 break;
+
+            // 2026-11-06 (Б2-1): страховка — компания так и не загрузилась (старт без связи, сбой запроса): перезапрашиваем на каждом такте (не чаще раза в 10 с, один запрос).
+            if (CompanyInfoService.LastCompany is null)
+                _ = CompanyInfoService.EnsureLoadedAsync(App.AuthApi, TimeSpan.FromSeconds(10));
 
             SubscriptionStatus? status;
             try
@@ -1502,6 +1525,10 @@ public partial class MainWindow : Window
     /// </summary>
     private DispatcherTimer? _balanceRefreshTimer;
 
+    /// <summary>2026-11-06 (Б2-4, живой тест Этапа 2): сколько повторов остатка смены осталось после продажи. Медленный сервер не успевал ответить за 8 с, и «Касса: N» ждала
+    /// следующего тихого запроса (до ~4 мин, когда окно без ввода). Теперь после неудачи — ещё до двух попыток с паузой 20 с (запрос тихий, лишней нагрузки нет).</summary>
+    private int _balanceRetriesLeft;
+
     /// <summary>2026-10-23 (аудит, круг 7): после возврата «Касса: N сом» обновлялась через 20–30 с — запомненный список смен
     /// «после продажи» снят до возврата. Сбрасываем его (как после оплаты долга) и обновляем баланс сразу.</summary>
     private void OnReturnFinished()
@@ -1540,6 +1567,8 @@ public partial class MainWindow : Window
         }
 
         _balanceRefreshTimer.Stop();
+        _balanceRefreshTimer.Interval = TimeSpan.FromSeconds(2); // новая продажа — снова быстрый первый запрос и свежие повторы
+        _balanceRetriesLeft = 2;
         _balanceRefreshTimer.Start();
     }
 
@@ -1693,6 +1722,14 @@ public partial class MainWindow : Window
         catch (Exception ex) when (!_windowCts.IsCancellationRequested)
         {
             PosLogger.Log($"Остаток смены после оплаты не обновлён: {ex.Message}", "DEBUG");
+            // 2026-11-06 (Б2-4): сервер не ответил за 8 с — не ждём следующего тихого запроса, пробуем ещё раз через 20 с (не больше двух раз за продажу).
+            if (afterSale && _balanceRefreshTimer is { } retryTimer && _balanceRetriesLeft > 0)
+            {
+                _balanceRetriesLeft--;
+                retryTimer.Stop();
+                retryTimer.Interval = TimeSpan.FromSeconds(20);
+                retryTimer.Start();
+            }
             // 2026-10-04: без связи — прежний остаток + чеки офлайн-очереди (см. EffectiveShiftCashBalance).
             UpdateShiftBalanceUi();
         }
@@ -1819,6 +1856,17 @@ public partial class MainWindow : Window
                 w._prompts.ShowWarning(text);
             else
                 MainStatusViewModel.TryShowInfoToast(text);
+        });
+
+    private static void OnOtherCompanyDetected(string? _) =>
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_shiftNoticeTarget is { } w)
+                w._prompts.ShowWarning(Tr.T("Сервер сообщил, что этот аккаунт относится к другой компании, а на кассе ещё данные прежней. Не продавайте: закройте кассу и откройте снова — данные заменятся.",
+                    "Сервер бул аккаунт башка компанияга таандык экенин билдирди, ал эми кассада мурунку компаниянын маалыматтары. Сатпаңыз: кассаны жаап, кайра ачыңыз — маалыматтар алмашат.",
+                    "The server says this account belongs to another company, but the till still holds the previous company's data. Do not sell: close the till and open it again — the data will be replaced.",
+                    "Sunucu bu hesabın başka bir şirkete ait olduğunu bildirdi, ancak kasada hâlâ önceki şirketin verileri var. Satış yapmayın: kasayı kapatıp yeniden açın — veriler değiştirilecek.",
+                    "Server bu akkaunt boshqa kompaniyaga tegishli ekanini bildirdi, kassada esa hali oldingi kompaniya ma'lumotlari. Sotmang: kassani yopib qayta oching — ma'lumotlar almashtiriladi."));
         });
 
     private static void OnOfflineShiftHandedToServer(string text) =>
@@ -3320,6 +3368,61 @@ public partial class MainWindow : Window
         });
     }
 
+    /// <summary>2026-11-06 (шаг 32, 20.3): сколько запуск кассы ждёт сверку смены с сервером, если у этого кассира на ПК уже сохранена открытая смена (дальше окно открывается по ней, а сверка доделывается фоном).</summary>
+    private static readonly TimeSpan StartupShiftWait = TimeSpan.FromSeconds(2);
+
+    /// <summary>2026-11-06 (шаг 32, 20.3): сверка смены на запуске. Сервер ответил быстро — всё как раньше. Медленный сервер (список касс, смены и остаток — до 6 с каждый): если на этом ПК сохранена
+    /// открытая смена ЭТОГО кассира (не старше суток, не стоит в очереди закрытия), окно открывается по сохранённому состоянию через <see cref="StartupShiftWait"/>, а ТА ЖЕ сверка (она не прерывается)
+    /// сама исправляет экран, когда сервер ответит. Нет сохранённой смены этого кассира — ждём сервер полностью, как раньше. Продажа без связи со сменой и так идёт по сохранённому состоянию, а оплата перед
+    /// отправкой проверяет смену на сервере (EnsureShiftBeforePayment) — новых денежных путей нет.</summary>
+    private async Task RefreshShiftStateAtStartupAsync(CancellationToken cancellationToken)
+    {
+        var localFirst = !App.GetRequiredService<IAutonomousAuthService>().IsCurrentSessionAutonomous
+                         && !ServerOutageMonitor.IsOutage
+                         && StartupShiftLocalState.CanShow(OfflinePosStateStore.TryLoad(), PosApp.CurrentUserId, DateTimeOffset.Now);
+        if (!localFirst)
+        {
+            await RefreshShiftStateAsync(cancellationToken).ConfigureAwait(true);
+            return;
+        }
+
+        // Сохранённая смена возвращается ДО сверки: сверка запоминает смену в начале и не применит свой итог, если смена изменится в её ходе (К2-02).
+        if (string.IsNullOrEmpty(PosApp.ActiveShiftId))
+            OfflinePosStateStore.RestoreToApp();
+        var refresh = RefreshShiftStateAsync(cancellationToken);
+        var first = await Task.WhenAny(refresh, Task.Delay(StartupShiftWait, cancellationToken)).ConfigureAwait(true);
+        if (ReferenceEquals(first, refresh))
+        {
+            await refresh.ConfigureAwait(true);
+            return;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        PosLogger.Log($"Смена: сервер отвечает медленно (> {StartupShiftWait.TotalSeconds:0} с) — окно открыто по сохранённой смене, сверка с сервером идёт в фоне.", "SHIFT");
+        NurMarketKassa.App.SyncToSession(_session);
+        _shiftCashBalance = OfflinePosStateStore.ReadShiftCashBalance();
+        _viewModel.Toolbar.RefreshUserTitle();
+        _viewModel.Toolbar.Status.RefreshFromSession();
+        UpdateShiftBalanceUi();
+        _viewModel.Toolbar.NotifyShiftStateChanged();
+        _ = ObserveStartupShiftRefreshAsync(refresh);
+    }
+
+    private static async Task ObserveStartupShiftRefreshAsync(Task refresh)
+    {
+        try
+        {
+            await refresh.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Смена: фоновая сверка на запуске не удалась: {ex.GetType().Name}: {ex.Message}", "SHIFT");
+        }
+    }
+
     private async Task RefreshShiftStateAsync(CancellationToken cancellationToken, TimeSpan? balanceTimeout = null)
     {
         using var critical = ApiThrottle.BeginCritical(); // 2026-10-30: сверка смены (запуск, «Оплатить») — критичный запрос, при 429 выходит первым после паузы
@@ -3377,6 +3480,9 @@ public partial class MainWindow : Window
                 // остаётся на своей кассе без запроса списка. Раньше этот запрос (до 6 с) и остаток смены
                 // ниже (до 6 с) шли и в аварии: запуск кассы и «Оплатить» без открытой смены ждали сеть
                 // до 12 с на каждый раз.
+                // 2026-11-06 (шаг 11): список открытых смен запрашивается сразу, параллельно со списком касс; ShiftStateService.RefreshAsync заберёт этот же запрос.
+                if (!ServerOutageMonitor.IsOutage)
+                    ShiftStateService.PrefetchOpenShifts(App.ShiftApi, cancellationToken);
                 if (!ServerOutageMonitor.IsOutage)
                 try
                 {
@@ -3554,7 +3660,7 @@ public partial class MainWindow : Window
             _viewModel.Toolbar.NotifyShiftStateChanged();
 
             if (_session.IsShiftOpen)
-                _viewModel.Catalog.StatusText = Tr.T("Смена открыта", "Смена ачык", "Shift open", "Vardiya açık", "Smena ochiq");
+                _viewModel.Catalog.SetRoutineStatus(Tr.T("Смена открыта", "Смена ачык", "Shift open", "Vardiya açık", "Smena ochiq")); // 2026-11-06 (Д4-07): служебная строка
 
             // Остались внесения/изъятия, не дошедшие до сервера в прошлый раз (касса была без
             // сети или её закрыли раньше) — дошлём в фоне.

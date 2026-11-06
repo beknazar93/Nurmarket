@@ -225,3 +225,22 @@ public static class SupplierReturnDocuments
         return Pick(l, "Приход товара № ", "Товардын кириши № ", "Delivery No. ", "Mal girişi No: ", "Tovar kirimi № ") + (d.ReceiptNumber.Length > 0 ? d.ReceiptNumber : "____");
     }
 }
+
+/// <summary>2026-11-06 (В12, ЖП Н-11): сумма строки возврата поставщику. Окно возврата округляло «банковским» способом (0,125 → 0,12), а приход сервер записал как 0,13
+/// (от нуля) — на поставщике оставался долг 0,01. Теперь сумма строки считается так же, как у прихода: до копейки от нуля, в decimal (без шума double).
+/// Что запишет сервер в сам возврат — решает сервер (мы шлём количество и цену); при доле копейки окно предупреждает.</summary>
+public static class SupplierReturnMath
+{
+    public static double LineTotal(double qty, double price) =>
+        (double)Math.Round((decimal)Math.Max(0, qty) * (decimal)price, 2, MidpointRounding.AwayFromZero);
+
+    public static double Total(IEnumerable<(double Qty, double Price)> lines) =>
+        (double)lines.Sum(l => (decimal)LineTotal(l.Qty, l.Price));
+
+    /// <summary>Сумма строки лежит ровно на половине копейки (0,125): здесь округление сервера и кассы может разойтись.</summary>
+    public static bool IsHalfKopeck(double qty, double price)
+    {
+        var raw = (decimal)Math.Max(0, qty) * (decimal)price * 100m;
+        return raw != decimal.Truncate(raw) && raw - decimal.Truncate(raw) == 0.5m;
+    }
+}

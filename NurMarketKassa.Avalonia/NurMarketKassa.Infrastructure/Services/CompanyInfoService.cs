@@ -26,6 +26,10 @@ public static class CompanyInfoService
     /// каким бы путём вход ни произошёл.</summary>
     public static event Action<string?>? CompanyChanged;
 
+    /// <summary>2026-11-06 (аудит Этапа 2, Н-2): поздний ответ сервера (после быстрого открытия кассы на данных прежней компании) вернул ДРУГУЮ компанию. Данные на ходу не меняем,
+    /// но кассир должен узнать: подписчик (главное окно) просит перезапустить кассу, пока продажи идут в чужую компанию. Приходит с потока пула.</summary>
+    public static event Action<string?>? OtherCompanyDetected;
+
     /// <summary>
     /// Возвращает null, если статус подписки не удалось определить (нет связи с сервером,
     /// офлайн-режим, поле не пришло от API) — в этом случае вызывающий код НЕ должен
@@ -40,6 +44,9 @@ public static class CompanyInfoService
         // Сеет парсер весовых штрих-кодов последними сохранёнными (или дефолтными) настройками
         // сразу, даже до сетевого запроса — офлайн-старт не должен оставлять парсер незаданным.
         SyncWeightBarcodeParserSettings();
+
+        // 2026-11-06 (Б2-1): запомнить api и подписаться на возврат связи — касса, начатая без интернета, не должна оставаться без компании до перезапуска.
+        InstallRecoveryHook(authApi);
 
         if (string.IsNullOrEmpty(authApi.AccessToken))
             return null;
@@ -63,7 +70,19 @@ public static class CompanyInfoService
             {
                 try
                 {
-                    company = await ServerAnswerWait.ForegroundAsync("company", t => authApi.GetCompanyAsync(t), ct).ConfigureAwait(false);
+                    // 2026-11-06 (шаг 32, 20.2): на запуске окно кассира ждёт компанию не 8 с, а StartupCompanyWait (≈2 с); не успели — открываемся с сохранённой подпиской, а ТОТ ЖЕ запрос
+                    // (он не отменяется) дозагружает компанию фоном. Блокировка/окончание подписки по свежему ответу узнаются на секунды позже, но монитор подписки их всё равно поймает.
+                    var call = ServerAnswerWait.ForegroundAsync("company", t => authApi.GetCompanyAsync(t), ct);
+                    var first = await Task.WhenAny(call, Task.Delay(StartupCompanyWait, ct)).ConfigureAwait(false);
+                    if (!ReferenceEquals(first, call))
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        PosLogger.Log($"Сервер не отдал данные компании за {StartupCompanyWait.TotalSeconds:0.#} с — открываемся с сохранённой подпиской, компания дозагрузится фоном.", "API");
+                        _ = ApplyInBackgroundAsync(call, authApi);
+                        return GetCachedSubscriptionStatus();
+                    }
+
+                    company = await call.ConfigureAwait(false);
                 }
                 catch (ServerNotAnsweringException)
                 {
@@ -87,22 +106,21 @@ public static class CompanyInfoService
         }
     }
 
-    /// <summary>2026-11-03 (С-03): компания не пришла за срок запуска — догружаем фоном (обычный срок HttpClient) и применяем так же, как при обычной загрузке.</summary>
-    private static async Task RefreshInBackgroundAsync(IAuthApiService authApi)
+    /// <summary>2026-11-06 (шаг 32, 20.2): сколько запуск кассы ждёт компанию с сервера, когда на этом ПК уже есть данные известной компании (раньше — 8 с).</summary>
+    internal static TimeSpan StartupCompanyWait { get; set; } = TimeSpan.FromSeconds(2);
+
+    /// <summary>2026-11-06 (20.2): запрос компании запущен при запуске и не уложился в <see cref="StartupCompanyWait"/> — ждём его же (повторного запроса нет) и применяем фоном.</summary>
+    private static async Task ApplyInBackgroundAsync(Task<CompanyDto?> call, IAuthApiService authApi)
     {
         try
         {
-            var company = await authApi.GetCompanyAsync(CancellationToken.None).ConfigureAwait(false);
-            // 2026-11-03 (ревью Н-5): фоновая догрузка пришла минуту спустя; если компания сервера не та, чьи данные лежат на ПК (LastDataAccountKey), применение вызвало бы
-            // AccountDataIsolation.SwitchTo из потока пула посреди работы кассира (стирание файлов и переоткрытие базы). Данные на ходу не меняем — смена случится при следующем запуске/входе.
-            var knownKey = UserPreferences.Instance.LastDataAccountKey ?? "";
-            if (company is not null && knownKey.Length > 0 && !string.Equals(knownKey, AppPaths.CompanyKey(company.Id), StringComparison.OrdinalIgnoreCase)) // 2026-11-05: ключ с префиксом стенда
-            {
-                PosLogger.Log($"Компания с сервера ({company.Id}) отличается от данных на этом ПК ({knownKey}) — фоновая догрузка не применена, чтобы не менять данные посреди работы. Перезапустите кассу.", "WARNING");
-                return;
-            }
-            ApplyLoadedCompany(company, authApi);
-            PosLogger.Log("Компания дозагружена фоном после медленного ответа сервера.", "API");
+            var company = await call.ConfigureAwait(false);
+            ApplyBackgroundCompany(company, authApi);
+        }
+        catch (ServerNotAnsweringException)
+        {
+            // Общий срок 8 с вышел — как раньше: догружаем обычным запросом без срока.
+            await RefreshInBackgroundAsync(authApi).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -110,9 +128,46 @@ public static class CompanyInfoService
         }
     }
 
+    /// <summary>2026-11-03 (С-03): компания не пришла за срок запуска — догружаем фоном (обычный срок HttpClient) и применяем так же, как при обычной загрузке.</summary>
+    private static async Task RefreshInBackgroundAsync(IAuthApiService authApi)
+    {
+        try
+        {
+            var company = await authApi.GetCompanyAsync(CancellationToken.None).ConfigureAwait(false);
+            ApplyBackgroundCompany(company, authApi);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Компания не дозагружена фоном: {ex.Message}", "API");
+        }
+    }
+
+    /// <summary>2026-11-06 (Б2-1): true — компания применена; false — отличается от данных на ПК и не применена (кассиру показано предупреждение).</summary>
+    internal static bool ApplyBackgroundCompany(CompanyDto? company, IAuthApiService authApi)
+    {
+        {
+            // 2026-11-03 (ревью Н-5): фоновая догрузка пришла минуту спустя; если компания сервера не та, чьи данные лежат на ПК (LastDataAccountKey), применение вызвало бы
+            // AccountDataIsolation.SwitchTo из потока пула посреди работы кассира (стирание файлов и переоткрытие базы). Данные на ходу не меняем — смена случится при следующем запуске/входе.
+            var knownKey = UserPreferences.Instance.LastDataAccountKey ?? "";
+            if (company is not null && knownKey.Length > 0 && !string.Equals(knownKey, AppPaths.CompanyKey(company.Id), StringComparison.OrdinalIgnoreCase)) // 2026-11-05: ключ с префиксом стенда
+            {
+                PosLogger.Log($"Компания с сервера ({company.Id}) отличается от данных на этом ПК ({knownKey}) — фоновая догрузка не применена, чтобы не менять данные посреди работы. Перезапустите кассу.", "WARNING");
+                try { OtherCompanyDetected?.Invoke(company.Id); }
+                catch (Exception ex) { PosLogger.Log($"Компания: сообщение о смене не показано: {ex.Message}", "WARNING"); }
+                return false;
+            }
+            ApplyLoadedCompany(company, authApi);
+            PosLogger.Log("Компания дозагружена фоном после медленного ответа сервера.", "API");
+            return true;
+        }
+    }
+
     private static SubscriptionStatus? ApplyLoadedCompany(CompanyDto? company, IAuthApiService authApi)
     {
         {
+            // 2026-11-06 (Б2-1): только для тестов — без запуска таймеров и сетевых задач, которые тянет полная загрузка компании.
+            if (ApplyLoadedOverride is { } over)
+                return over(company, authApi);
             LastLoadedAtUtc = DateTime.UtcNow;
             var previousId = LastCompany?.Id;
             var previousFeatures = string.Join(",", LastCompany?.Features ?? new List<string>());
@@ -149,6 +204,131 @@ public static class CompanyInfoService
             // 2026-11-03 (С-03): настройки весов — фоном, вход их не ждёт (раньше второй запрос до 55 с держал заставку).
             _ = RefreshScaleSettingsAsync(authApi, CancellationToken.None);
             return ComputeSubscriptionStatus(company);
+        }
+    }
+
+    // ── 2026-11-06 (Б2-1, живой тест Этапа 2): компания не дозагружалась после старта без связи ──────────────────────────────────────────
+    // Раньше при запуске в аварии RefreshAsync сразу отдавал сохранённую подписку и больше компанию не просил: ни при возврате связи, ни по F5. LastCompany оставался null,
+    // и «Оплата долга» отвечала «Не удалось определить компанию» до перезапуска кассы. Теперь: возврат связи и любое обращение, где нужна компания, перезапрашивают её.
+
+    /// <summary>Чем кончилась попытка получить компанию (<see cref="EnsureLoadedAsync"/>).</summary>
+    public enum CompanyEnsureOutcome
+    {
+        /// <summary>Компания известна (была или только что загружена).</summary>
+        Loaded,
+        /// <summary>Сервер недоступен, не ответил за срок или не вернул компанию.</summary>
+        Unavailable,
+        /// <summary>Сервер вернул ДРУГУЮ компанию, чем данные на этом ПК: на ходу не применяется, нужен перезапуск.</summary>
+        OtherCompany,
+        /// <summary>Нет входа (токена) — спрашивать сервер нечем.</summary>
+        NotSignedIn,
+    }
+
+    /// <summary>Срок одного запроса компании при догрузке (<see cref="EnsureLoadedAsync"/>).</summary>
+    internal static TimeSpan EnsureTimeout { get; set; } = TimeSpan.FromSeconds(12);
+
+    /// <summary>Только для тестов: подменяет применение загруженной компании (полная загрузка запускает таймеры и сетевые задачи).</summary>
+    internal static Func<CompanyDto?, IAuthApiService, SubscriptionStatus?>? ApplyLoadedOverride { get; set; }
+
+    private static readonly object EnsureSync = new();
+    private static Task<CompanyEnsureOutcome>? _ensureTask;
+    private static DateTime _ensureFinishedAtUtc;
+    private static CompanyEnsureOutcome _ensureLastOutcome;
+    private static IAuthApiService? _recoveryAuthApi;
+    private static int _recoveryHooked;
+
+    /// <summary>Идентификатор компании для денежных журналов: загруженная с сервера, а при её отсутствии (касса начата без связи) — компания, чьи данные лежат на этом ПК
+    /// (LastDataAccountKey = «c:{id}», его ведёт AccountDataIsolation после входа). Другой сервер/стенд (префикс ключа) или ключ не компании — null: компании не смешиваем.
+    /// Если потом сервер вернёт другую компанию, ApplyBackgroundCompany её не применит и подаст OtherCompanyDetected, а <see cref="EnsureLoadedAsync"/> вернёт OtherCompany.</summary>
+    public static string? KnownCompanyId =>
+        LastCompany?.Id is { Length: > 0 } id ? id : CompanyIdFromDataKey(UserPreferences.Instance.LastDataAccountKey);
+
+    internal static string? CompanyIdFromDataKey(string? key)
+    {
+        var prefix = AppPaths.ServerKeyPrefix + "c:";
+        if (string.IsNullOrWhiteSpace(key) || !key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return null;
+        var id = key[prefix.Length..].Trim();
+        return id.Length > 0 ? id : null;
+    }
+
+    /// <summary>Гарантирует, что компания загружена: уже есть — сразу; иначе ОДИН запрос одновременно (параллельные вызовы ждут тот же), со сроком
+    /// <see cref="EnsureTimeout"/>, и не чаще раза в <paramref name="minInterval"/> после предыдущей попытки (возвращается её итог). Применяется так же, как фоновая догрузка:
+    /// чужая компания (не та, чьи данные на ПК) НЕ применяется. Исключений не бросает.</summary>
+    public static Task<CompanyEnsureOutcome> EnsureLoadedAsync(IAuthApiService authApi, TimeSpan minInterval)
+    {
+        if (LastCompany is not null)
+            return Task.FromResult(CompanyEnsureOutcome.Loaded);
+        if (string.IsNullOrEmpty(authApi.AccessToken))
+            return Task.FromResult(CompanyEnsureOutcome.NotSignedIn);
+        // Авария объявлена — запрос повис бы до срока; возврат связи сам перезапустит загрузку (OnLinkStateChanged). Такой быстрый отказ срок «не чаще раза в 10 с» не заводит.
+        if (ServerOutageMonitor.IsOutage)
+            return Task.FromResult(CompanyEnsureOutcome.Unavailable);
+        lock (EnsureSync)
+        {
+            if (_ensureTask is { IsCompleted: false } running)
+                return running;
+            if (_ensureFinishedAtUtc != default && _ensureLastOutcome != CompanyEnsureOutcome.Loaded && DateTime.UtcNow - _ensureFinishedAtUtc < minInterval)
+                return Task.FromResult(_ensureLastOutcome);
+            _ensureTask = EnsureCoreAsync(authApi);
+            return _ensureTask;
+        }
+    }
+
+    private static async Task<CompanyEnsureOutcome> EnsureCoreAsync(IAuthApiService authApi)
+    {
+        var outcome = CompanyEnsureOutcome.Unavailable;
+        try
+        {
+            using var cts = new CancellationTokenSource(EnsureTimeout);
+            var company = await authApi.GetCompanyAsync(cts.Token).ConfigureAwait(false);
+            if (company is null || string.IsNullOrWhiteSpace(company.Id))
+                return outcome;
+            if (!ApplyBackgroundCompany(company, authApi))
+                return outcome = CompanyEnsureOutcome.OtherCompany;
+            return outcome = LastCompany is not null ? CompanyEnsureOutcome.Loaded : CompanyEnsureOutcome.Unavailable;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Компания не догружена по требованию: {ex.Message}", "API");
+            return outcome;
+        }
+        finally
+        {
+            lock (EnsureSync)
+            {
+                _ensureFinishedAtUtc = DateTime.UtcNow;
+                _ensureLastOutcome = outcome;
+            }
+        }
+    }
+
+    /// <summary>Запоминает api и один раз подписывается на возврат связи: компания не загружена — перезапрашиваем (не чаще раза в 10 с).</summary>
+    internal static void InstallRecoveryHook(IAuthApiService authApi)
+    {
+        _recoveryAuthApi = authApi;
+        if (Interlocked.Exchange(ref _recoveryHooked, 1) == 0)
+            ServerOutageMonitor.StateChanged += OnLinkStateChanged;
+    }
+
+    private static void OnLinkStateChanged(ServerLinkState from, ServerLinkState to)
+    {
+        if (to != ServerLinkState.Online || LastCompany is not null || _recoveryAuthApi is not { } api)
+            return;
+        PosLogger.Log("Связь вернулась, а компания не загружена — запрашиваем её.", "API");
+        _ = EnsureLoadedAsync(api, TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>Только для тестов: забыть api, итог и срок прошлой попытки.</summary>
+    internal static void ResetEnsureForTests()
+    {
+        _recoveryAuthApi = null;
+        ApplyLoadedOverride = null;
+        lock (EnsureSync)
+        {
+            _ensureTask = null;
+            _ensureFinishedAtUtc = default;
+            _ensureLastOutcome = CompanyEnsureOutcome.Unavailable;
         }
     }
 

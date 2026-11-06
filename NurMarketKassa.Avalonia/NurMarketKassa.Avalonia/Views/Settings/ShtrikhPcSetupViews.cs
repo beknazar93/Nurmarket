@@ -23,11 +23,14 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
     private readonly TextBox _import = new() { Classes = { "ModernTextBox" }, Height = 36, Watermark = ShtrikhPcSettings.DefaultImportFile };
     private readonly TextBox _flag = new() { Classes = { "ModernTextBox" }, Height = 36, Watermark = ShtrikhPcSettings.DefaultFlagFile };
     private readonly TextBox _export = new() { Classes = { "ModernTextBox" }, Height = 36, Watermark = ShtrikhPcSettings.DefaultExportFile };
+    private readonly TextBox _login = new() { Classes = { "ModernTextBox" }, Height = 36, Watermark = "web-scale1\\kassa" };
+    private readonly TextBox _password = new() { Classes = { "ModernTextBox" }, Height = 36, PasswordChar = '●' };
     private readonly TextBox _number = new() { Classes = { "ModernTextBox" }, Height = 36, Width = 100, Watermark = "1" };
     private readonly ComboBox _decimals = new() { Height = 36, Width = 100, ItemsSource = new[] { "0", "1", "2", "3" } };
     private readonly ComboBox _lineStyle = new() { Height = 36, MinWidth = 220 };
     private readonly ComboBox _separator = new() { Height = 36, MinWidth = 220 };
-    private readonly CheckBox _clear = new();
+    private readonly CheckBox _sendPictures = new();
+    private readonly TextBox _pictureOffset = new() { Classes = { "ModernTextBox" }, Height = 36, Width = 140, Watermark = "100000" };
     private bool _loading;
 
     /// <summary>2026-11-06 (живой прогон 3, P3-63): «Очистить базу» и «Файлы обмена и дополнительно» — отдельный блок. Родитель ставит его ПОСЛЕ
@@ -54,6 +57,49 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
             "Tartının ağ klasörü \\\\tartı-IP\\Shared (IP — tartıda ipconfig komutu) veya yerel klasör/USB bellek. Tartı dosyayı «Обновление» dakika sonra kendisi alır ya da tartıdaki «Импорт данных» düğmesiyle.",
             "Tarozining tarmoq papkasi \\\\tarozi-IP\\Shared (IP — tarozida ipconfig buyrug‘i) yoki mahalliy papka/fleshka. Tarozi faylni «Обновление» daqiqadan keyin o‘zi oladi yoki tarozidagi «Импорт данных» tugmasi bilan.")));
 
+        var credsRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,12,*") };
+        var loginBox = new StackPanel();
+        loginBox.Children.Add(Label(Tr.T("Логин Windows весов", "Таразанын Windows логини", "Scale Windows login", "Tartı Windows kullanıcı adı", "Tarozi Windows logini")));
+        loginBox.Children.Add(_login);
+        var passwordBox = new StackPanel();
+        passwordBox.Children.Add(Label(Tr.T("Пароль", "Сырсөз", "Password", "Şifre", "Parol")));
+        passwordBox.Children.Add(_password);
+        Grid.SetColumn(passwordBox, 2);
+        credsRow.Children.Add(loginBox);
+        credsRow.Children.Add(passwordBox);
+        Children.Add(credsRow);
+
+        Children.Add(Hint(Tr.T("Если папка Shared на весах закрыта паролем — впишите логин и пароль пользователя Windows весов (в виде ИМЯ_КОМПЬЮТЕРА\\пользователь, например web-scale1\\kassa — без имени компьютера Windows ищет пользователя на кассе и пишет «неверный пароль»). Пароль хранится зашифрованно и в журнал не пишется. Если на весах открыть папке «Все» с правом записи — логин и пароль не нужны. Сетевая папка работает только в Windows.",
+            "Таразадагы Shared папкасы сырсөз менен жабык болсо — таразадагы Windows колдонуучусунун логинин жана сырсөзүн жазыңыз (КОМПЬЮТЕР_АТЫ\\колдонуучу түрүндө, мисалы web-scale1\\kassa — компьютердин атысыз Windows колдонуучуну кассадан издеп «сырсөз туура эмес» деп жазат). Сырсөз шифрленип сакталат жана журналга жазылбайт. Таразада папкага «Все» үчүн жазуу укугун ачсаңыз — логин жана сырсөз керек эмес. Тармак папкасы Windows'то гана иштейт.",
+            "If the Shared folder on the scale is password-protected, enter the login and password of the Windows user on the scale (as COMPUTER_NAME\\user, e.g. web-scale1\\kassa — without the computer name Windows looks for the user on the till and says “wrong password”). The password is stored encrypted and never written to the log. If you open the folder to “Everyone” with write access on the scale, no login or password is needed. A network folder works on Windows only.",
+            "Tartıdaki Shared klasörü şifreliyse tartıdaki Windows kullanıcısının adını ve şifresini girin (BİLGİSAYAR_ADI\\kullanıcı biçiminde, örn. web-scale1\\kassa — bilgisayar adı olmadan Windows kullanıcıyı kasada arar ve «şifre yanlış» der). Şifre şifreli saklanır ve günlüğe yazılmaz. Tartıda klasörü «Herkes» için yazma izniyle açarsanız ad ve şifre gerekmez. Ağ klasörü yalnızca Windows'ta çalışır.",
+            "Tarozidagi Shared papkasi parol bilan yopiq bo‘lsa — tarozidagi Windows foydalanuvchisining login va parolini yozing (KOMPYUTER_NOMI\\foydalanuvchi ko‘rinishida, masalan web-scale1\\kassa — kompyuter nomisiz Windows foydalanuvchini kassada qidiradi va «parol noto‘g‘ri» deydi). Parol shifrlangan holda saqlanadi va jurnalga yozilmaydi. Tarozida papkani «Все» uchun yozish huquqi bilan ochsangiz — login va parol kerak emas. Tarmoq papkasi faqat Windows'da ishlaydi.")));
+
+        // Пример заполнения по весам магазина владельца (Умар, 06.11.2026) — подсказка, а не навязанные значения.
+        var example = new Button { Content = Tr.T("Заполнить примером: весы магазина (IP 192.168.0.200)", "Мисал менен толтуруу: дүкөндүн таразасы (IP 192.168.0.200)", "Fill in the example: the shop's scale (IP 192.168.0.200)", "Örnekle doldur: mağaza tartısı (IP 192.168.0.200)", "Namuna bilan to‘ldirish: do‘kon tarozisi (IP 192.168.0.200)"), Classes = { "ScaleSecondary" }, HorizontalAlignment = HorizontalAlignment.Left };
+        example.Click += (_, _) =>
+        {
+            var s = ShtrikhPcSettings.Current;
+            s.Folder = ShtrikhPcSettings.ExampleFolder;
+            s.Login = ShtrikhPcSettings.ExampleLogin;
+            s.PriceDecimals = 2;
+            s.DecimalSeparator = ".";
+            s.BarcodePrefix = 27;
+            s.CodeLength = 5;
+            s.BarcodeFormat = ShtrikhPcSettings.FormatCodeWeight;
+            s.CodeChecksum = false;
+            ScaleBarcodeRules.ApplyShtrikhPc(s);
+            UserPreferences.Instance.SaveToDisk();
+            Load();
+            Changed?.Invoke();
+        };
+        Children.Add(example);
+        Children.Add(Hint(Tr.T("Пример: папка \\\\192.168.0.200\\Shared, логин web-scale1\\kassa (пароль впишите сами), префикс 27, «Код-Вес», 5 знаков кода, цена с точкой и 2 знаками — так настроены весы владельца. Пароль подставляется только вами.",
+            "Мисал: \\\\192.168.0.200\\Shared папкасы, web-scale1\\kassa логини (сырсөздү өзүңүз жазыңыз), 27 префикси, «Код-Салмак», коддун 5 белгиси, баа чекит жана 2 белги менен — ээсинин таразалары ушундай жөндөлгөн. Сырсөздү өзүңүз жазасыз.",
+            "Example: folder \\\\192.168.0.200\\Shared, login web-scale1\\kassa (enter the password yourself), prefix 27, “Code-Weight”, 5 code digits, price with a dot and 2 decimals — this is how the owner's scale is set up. The password is entered only by you.",
+            "Örnek: klasör \\\\192.168.0.200\\Shared, kullanıcı web-scale1\\kassa (şifreyi kendiniz girin), önek 27, «Kod-Ağırlık», 5 kod hanesi, fiyat noktalı ve 2 ondalıklı — sahibinin tartısı böyle ayarlı. Şifreyi yalnızca siz girersiniz.",
+            "Namuna: \\\\192.168.0.200\\Shared papkasi, login web-scale1\\kassa (parolni o‘zingiz yozing), prefiks 27, «Kod-Vazn», kodning 5 raqami, narx nuqta va 2 xona bilan — egasining tarozisi shunday sozlangan. Parolni faqat siz kiritasiz.")));
+
         var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,16,Auto") };
         var decimalsBox = new StackPanel();
         decimalsBox.Children.Add(Label(Tr.T("Знаков в цене", "Баадагы белгилер", "Price decimals", "Fiyat ondalığı", "Narxdagi xonalar")));
@@ -71,13 +117,13 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
             "Tartının «Общие параметры» sekmesindeki «Число десятичных знаков цены и стоимости» (varsayılan 2) — dosyada fiyat bu kadar hane ile yazılır.",
             "Tarozining «Общие параметры» varag‘idagi «Число десятичных знаков цены и стоимости» (standart 2) — faylda narx shuncha xona bilan yoziladi.")));
 
-        _clear.Content = Tr.T("Очистить базу товаров весов перед загрузкой", "Жүктөөдөн мурун таразанын товар базасын тазалоо", "Clear the scale's goods database before loading", "Yüklemeden önce tartının ürün veritabanını temizle", "Yuklashdan oldin tarozining tovar bazasini tozalash");
-        AdvancedPart.Children.Add(_clear);
-        AdvancedPart.Children.Add(Hint(Tr.T("В конец файла добавляется команда «$$$CLR»: весы сначала сотрут все свои товары, потом загрузят присланные. По умолчанию выключено — присланные товары добавляются и обновляются по коду.",
-            "Файлдын аягына «$$$CLR» буйругу кошулат: тараза адегенде өзүнүн бардык товарларын өчүрүп, анан жиберилгендерин жүктөйт. Демейки өчүк — жиберилген товарлар код боюнча кошулат жана жаңыланат.",
-            "The command “$$$CLR” is added at the end of the file: the scale first erases all its goods, then loads the sent ones. Off by default — the sent goods are added and updated by code.",
-            "Dosyanın sonuna «$$$CLR» komutu eklenir: tartı önce tüm ürünlerini siler, sonra gönderilenleri yükler. Varsayılan kapalı — gönderilen ürünler koda göre eklenir ve güncellenir.",
-            "Fayl oxiriga «$$$CLR» buyrug‘i qo‘shiladi: tarozi avval barcha tovarlarini o‘chiradi, keyin yuborilganlarni yuklaydi. Standart o‘chiq — yuborilgan tovarlar kod bo‘yicha qo‘shiladi va yangilanadi.")));
+        _sendPictures.Content = Tr.T("Отправлять картинки товаров на весы", "Товарлардын сүрөттөрүн таразага жөнөтүү", "Send product pictures to the scale", "Ürün resimlerini tartıya gönder", "Tovar rasmlarini taroziga yuborish");
+        Children.Add(_sendPictures);
+        Children.Add(Hint(Tr.T("На главном экране весов видны только товары с картинкой; без картинки товар находится лишь поиском. Касса переведёт фото товара в BMP 288×288 и положит в папку Pictures на весах (уже записанные, неизменившиеся не перекачиваются). Очистка базы весов — отдельная кнопка «Полная выгрузка (с очисткой)» в окне «Весы».",
+            "Таразанын башкы экранында сүрөтү бар товарлар гана көрүнөт; сүрөтсүз товар издөө аркылуу гана табылат. Касса товардын сүрөтүн BMP 288×288 кылып, таразадагы Pictures папкасына салат (жазылып калган, өзгөрбөгөндөрү кайра жүктөлбөйт). Таразанын базасын тазалоо — «Весы» терезесиндеги өзүнчө «Толук жүктөө (тазалоо менен)» баскычы.",
+            "On the scale's main screen only products with a picture are visible; a product without one can only be found by search. The till converts the product photo to BMP 288×288 and puts it into the Pictures folder on the scale (already written, unchanged pictures are not re-sent). Clearing the scale database is a separate “Full upload (with clearing)” button in the “Scales” window.",
+            "Tartının ana ekranında yalnızca resmi olan ürünler görünür; resimsiz ürün sadece aramayla bulunur. Kasa ürün fotoğrafını BMP 288×288'e çevirip tartıdaki Pictures klasörüne koyar (yazılmış, değişmemiş resimler yeniden gönderilmez). Tartı veritabanını temizleme — «Tartı» penceresinde ayrı «Tam yükleme (temizlemeyle)» düğmesi.",
+            "Tarozining bosh ekranida faqat rasmli tovarlar ko‘rinadi; rasmsiz tovar faqat qidiruv orqali topiladi. Kassa tovar fotosini BMP 288×288 ga o‘tkazib, tarozidagi Pictures papkasiga qo‘yadi (yozilgan, o‘zgarmagan rasmlar qayta yuborilmaydi). Tarozi bazasini tozalash — «Tarozi» oynasida alohida «To‘liq yuklash (tozalash bilan)» tugmasi.")));
 
         // Файлы обмена и «Дополнительно» — под выключателем: по умолчанию значения из руководства, менять нужно редко.
         var advanced = new Expander
@@ -117,6 +163,13 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
             "The exact shape of the “<D…” line and the price separator are not fully described in the manual. If the scale accepted the file but there are no goods or the prices are wrong — switch these two items and send again.",
             "«<D…» satırının tam biçimi ve fiyat ayıracı kılavuzda tam anlatılmamış. Tartı dosyayı kabul etti ama ürün yok ya da fiyatlar yanlışsa — bu iki öğeyi değiştirip tekrar gönderin.",
             "«<D…» qatorining aniq shakli va narx ajratgichi qo‘llanmada to‘liq tavsiflanmagan. Tarozi faylni qabul qilsa-yu, tovar yo‘q yoki narxlar noto‘g‘ri bo‘lsa — shu ikki bandni almashtirib, qayta yuboring.")));
+        inner.Children.Add(Label(Tr.T("Код ресурса картинки = число + код товара", "Сүрөт ресурсунун коду = сан + товар коду", "Picture resource code = number + item code", "Resim kaynak kodu = sayı + ürün kodu", "Rasm resursi kodi = son + tovar kodi")));
+        inner.Children.Add(_pictureOffset);
+        inner.Children.Add(Hint(Tr.T("По умолчанию 100000: картинка товара с кодом 123 получает код ресурса 100123. Число не должно пересекаться с кодами ресурсов, уже лежащими на весах (у прежней системы — код + 6000).",
+            "Демейки 100000: 123 коддуу товардун сүрөтү 100123 ресурс кодун алат. Сан таразада турган ресурс коддору менен дал келбеши керек (мурунку системада — код + 6000).",
+            "Default 100000: the picture of the product with code 123 gets resource code 100123. The number must not overlap with resource codes already on the scale (the previous system used code + 6000).",
+            "Varsayılan 100000: 123 kodlu ürünün resmi 100123 kaynak kodunu alır. Sayı tartıda zaten bulunan kaynak kodlarıyla çakışmamalı (önceki sistem kod + 6000 kullanıyordu).",
+            "Standart 100000: 123 kodli tovar rasmi 100123 resurs kodini oladi. Son tarozida mavjud resurs kodlari bilan to‘qnashmasligi kerak (oldingi tizimda — kod + 6000).")));
         var reset = new Button { Content = Tr.T("Вернуть значения из руководства", "Нускамадагы маанилерди кайтаруу", "Restore the manual's defaults", "Kılavuzdaki değerleri geri yükle", "Qo‘llanmadagi qiymatlarni qaytarish"), Classes = { "ScaleSecondary" }, HorizontalAlignment = HorizontalAlignment.Left };
         reset.Click += (_, _) =>
         {
@@ -125,7 +178,8 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
             s.FlagFile = ShtrikhPcSettings.DefaultFlagFile;
             s.ExportFile = ShtrikhPcSettings.DefaultExportFile;
             s.LineStyle = ShtrikhPcSettings.LineSpace;
-            s.DecimalSeparator = ",";
+            s.DecimalSeparator = "."; // как в настоящем файле весов (650.00)
+            s.PictureOffset = 100_000;
             Store(s);
             Load();
         };
@@ -133,12 +187,12 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
         advanced.Content = inner;
         AdvancedPart.Children.Add(advanced);
 
-        foreach (var box in new[] { _folder, _import, _flag, _export, _number })
+        foreach (var box in new[] { _folder, _login, _password, _import, _flag, _export, _number, _pictureOffset })
             box.LostFocus += (_, _) => Save();
         _decimals.SelectionChanged += (_, _) => Save();
         _lineStyle.SelectionChanged += (_, _) => Save();
         _separator.SelectionChanged += (_, _) => Save();
-        _clear.IsCheckedChanged += (_, _) => Save();
+        _sendPictures.IsCheckedChanged += (_, _) => Save();
     }
 
     /// <summary>Заполняет поля из настроек. Ничего не сохраняет.</summary>
@@ -149,12 +203,15 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
         {
             var s = ShtrikhPcSettings.Current;
             _folder.Text = s.Folder;
+            _login.Text = s.Login;
+            _password.Text = s.Password;
             _import.Text = s.ImportFile;
             _flag.Text = s.FlagFile;
             _export.Text = s.ExportFile;
             _number.Text = s.ScaleNumber.ToString(CultureInfo.InvariantCulture);
             _decimals.SelectedIndex = s.PriceDecimals;
-            _clear.IsChecked = s.ClearBase;
+            _sendPictures.IsChecked = s.SendPictures;
+            _pictureOffset.Text = s.PictureOffset.ToString(CultureInfo.InvariantCulture);
             _lineStyle.SelectedIndex = s.LineStyle switch { ShtrikhPcSettings.LineGlued => 1, ShtrikhPcSettings.LineSemicolon => 2, _ => 0 };
             _separator.SelectedIndex = s.DecimalSeparator == "." ? 1 : 0;
         }
@@ -171,12 +228,15 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
             return;
         var s = ShtrikhPcSettings.Current;
         s.Folder = (_folder.Text ?? "").Trim();
+        s.Login = (_login.Text ?? "").Trim();
+        s.Password = _password.Text ?? "";
         s.ImportFile = (_import.Text ?? "").Trim();
         s.FlagFile = (_flag.Text ?? "").Trim();
         s.ExportFile = (_export.Text ?? "").Trim();
         s.ScaleNumber = int.TryParse((_number.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : 1;
         s.PriceDecimals = Math.Clamp(_decimals.SelectedIndex, 0, 3);
-        s.ClearBase = _clear.IsChecked == true;
+        s.SendPictures = _sendPictures.IsChecked == true;
+        s.PictureOffset = int.TryParse((_pictureOffset.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var off) ? off : 100_000;
         s.LineStyle = _lineStyle.SelectedIndex switch { 1 => ShtrikhPcSettings.LineGlued, 2 => ShtrikhPcSettings.LineSemicolon, _ => ShtrikhPcSettings.LineSpace };
         s.DecimalSeparator = _separator.SelectedIndex == 1 ? "." : ",";
         Store(s);
@@ -279,6 +339,17 @@ internal sealed class ShtrikhPcBarcodeCard : Border
         });
         root.Children.Add(_example);
         root.Children.Add(_warn);
+        root.Children.Add(new TextBlock
+        {
+            Text = Tr.T("Сверка с весами: на весах (командная строка) выполните  findstr \"303 304 305 306 307 308 817\" C:\\PC-200\\Config.txt  — 303 префикс весового товара (у владельца 27), 305 формат весового (0 = Код-Вес, 1 = Код-Стоимость), 307 число цифр кода (5), 308 КС кода (0 = выкл), 304 и 306 — то же для штучного, 817 — импорт товаров (1 = включён). Те же значения должны стоять здесь.",
+                "Таразалар менен салыштыруу: таразада (буйрук сабы) аткарыңыз  findstr \"303 304 305 306 307 308 817\" C:\\PC-200\\Config.txt  — 303 салмактуу товар префикси (ээсинде 27), 305 салмактуунун форматы (0 = Код-Салмак, 1 = Код-Баа), 307 коддун цифраларынын саны (5), 308 коддун КС (0 = өчүк), 304 жана 306 — штучныйга ошол эле, 817 — товарларды импорттоо (1 = күйүк). Ушул эле маанилер бул жерде да турушу керек.",
+                "Check against the scale: on the scale (command line) run  findstr \"303 304 305 306 307 308 817\" C:\\PC-200\\Config.txt  — 303 weighed-item prefix (the owner has 27), 305 weighed format (0 = Code-Weight, 1 = Code-Cost), 307 number of code digits (5), 308 code check digit (0 = off), 304 and 306 — the same for piece goods, 817 — goods import (1 = on). The same values must be set here.",
+                "Tartıyla karşılaştırma: tartıda (komut satırı)  findstr \"303 304 305 306 307 308 817\" C:\\PC-200\\Config.txt  çalıştırın — 303 tartılı ürün öneki (sahibinde 27), 305 tartılı biçim (0 = Kod-Ağırlık, 1 = Kod-Tutar), 307 kod hane sayısı (5), 308 kod KS (0 = kapalı), 304 ve 306 — adetli için aynısı, 817 — ürün içe aktarma (1 = açık). Aynı değerler burada da olmalı.",
+                "Tarozi bilan solishtirish: tarozida (buyruq qatori)  findstr \"303 304 305 306 307 308 817\" C:\\PC-200\\Config.txt  ni bajaring — 303 vaznli tovar prefiksi (egasida 27), 305 vaznli format (0 = Kod-Vazn, 1 = Kod-Narx), 307 kod raqamlari soni (5), 308 kod KS (0 = o‘chiq), 304 va 306 — donali uchun xuddi shu, 817 — tovarlarni import qilish (1 = yoqilgan). Xuddi shu qiymatlar bu yerda ham bo‘lishi kerak."),
+            Classes = { "SettingsCardBody" },
+            FontSize = 12,
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        });
         Child = root;
 
         _enabled.IsCheckedChanged += (_, _) => Save();

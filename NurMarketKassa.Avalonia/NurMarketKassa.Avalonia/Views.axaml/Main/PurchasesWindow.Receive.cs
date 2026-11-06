@@ -1504,7 +1504,8 @@ public sealed partial class PurchasesWindow
                 Put(markup, ReceiveMarkup(line));
                 Put(sale, ReceiveMoney(line.SalePrice));
                 sum.Text = MoneyText.Som(line.LineTotal);
-                changeText.Text = line.PurchaseChangeText + (line.PurchaseWasText.Length > 0 ? "\n" + line.PurchaseWasText : ""); // 2026-10-29 (спека Fable): «↑ дороже на 5 сом (+3 %)» + «было 145,00»
+                changeText.Text = line.PurchaseChangeText + (line.PurchaseWasText.Length > 0 ? "\n" + line.PurchaseWasText : "") // 2026-10-29 (спека Fable): «↑ дороже на 5 сом (+3 %)» + «было 145,00»
+                    + (line.LandedCostText.Length > 0 ? "\n" + line.LandedCostText : ""); // 2026-11-06 (В12, ЖП Н-6): «с расходами 2,125»
                 Use(changeText, TextBlock.ForegroundProperty, line.IsChangeUp ? "BrushDanger" : line.IsChangeDown ? "BrushSuccess" : "BrushTextSoft");
                 changeText.FontWeight = line.IsChangeUp || line.IsChangeDown ? FontWeight.SemiBold : FontWeight.Normal;
                 ToolTip.SetTip(changeText, line.PurchaseChangeHint);

@@ -165,6 +165,10 @@ public sealed class UserPreferences
     /// см. <see cref="NurMarketKassa.Services.Hardware.ShtrikhPcSettings"/>. null — по умолчанию из руководства.</summary>
     public string? ShtrikhPcConfig { get; set; }
 
+    /// <summary>2026-11-06: пароль Windows весов РС-200 для сетевой папки. В памяти — открытым, в user-settings.json — только зашифрованный (ShtrikhPcPasswordProtected),
+    /// в журнал и отчёты не попадает.</summary>
+    public string? ShtrikhPcPassword { get; set; }
+
     /// <summary>Формат ШК весов Dahua (один из 15, DahuaTmBarcodeFormat.Variants) — только для
     /// примера и сверки в окне настроек: на весы касса его не отправляет. null — рекомендуемый.</summary>
     public string? TmScaleDahuaBarcode { get; set; }
@@ -1603,6 +1607,7 @@ public sealed class UserPreferences
                 p.TmScaleBarcodePrefix = fromFile.TmScaleBarcodePrefix.Value;
             if (!string.IsNullOrWhiteSpace(fromFile.ShtrikhPcConfig))
                 p.ShtrikhPcConfig = fromFile.ShtrikhPcConfig; // 2026-11-06: весы Штрих РС-200
+            p.ShtrikhPcPassword = WindowsDpapiHelper.UnprotectFromBase64(fromFile.ShtrikhPcPasswordProtected);
             if (!string.IsNullOrWhiteSpace(fromFile.TmScaleDahuaBarcode))
                 p.TmScaleDahuaBarcode = fromFile.TmScaleDahuaBarcode;
             if (!string.IsNullOrWhiteSpace(fromFile.TmScaleSendMode))
@@ -1937,6 +1942,7 @@ public sealed class UserPreferences
                 TmScaleBarcodePrefix = TmScaleBarcodePrefix,
                 TmScaleDahuaBarcode = TmScaleDahuaBarcode,
                 ShtrikhPcConfig = ShtrikhPcConfig,
+                ShtrikhPcPasswordProtected = string.IsNullOrEmpty(ShtrikhPcPassword) ? null : WindowsDpapiHelper.ProtectToBase64(ShtrikhPcPassword),
                 TmScaleSendMode = TmScaleSendMode,
                 TmScaleShelfLifeDays = TmScaleShelfLifeDays,
                 RongtaLanBarcodePrefix = RongtaLanBarcodePrefix,
@@ -2288,6 +2294,8 @@ public sealed class UserPreferences
         public int? TmScaleBarcodePrefix { get; set; }
         public string? TmScaleDahuaBarcode { get; set; }
         public string? ShtrikhPcConfig { get; set; }
+        /// <summary>2026-11-06: пароль Windows весов РС-200 — только зашифрованный (DPAPI / PortableSecret).</summary>
+        public string? ShtrikhPcPasswordProtected { get; set; }
         public string? TmScaleSendMode { get; set; }
         public int? TmScaleShelfLifeDays { get; set; }
         public int? RongtaLanBarcodePrefix { get; set; }

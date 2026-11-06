@@ -715,6 +715,8 @@ public sealed class SupplierReturnDialog : Window
         row.Children.Add(info);
         var qty = new TextBox { Width = 110, MinHeight = 44, Watermark = "0", IsEnabled = max > 0, HorizontalContentAlignment = HorizontalAlignment.Right };
         qty.TextChanged += (_, _) => UpdateTotal();
+        // 2026-11-06 (В12, ДС-3): имя поля количества — товар (иначе диктор читает просто «0»).
+        Avalonia.Automation.AutomationProperties.SetName(qty, T("Количество к возврату: ", "Кайтарылуучу саны: ", "Quantity to return: ", "İade adedi: ", "Qaytariladigan miqdor: ") + (name.Length > 0 ? name : "—"));
         Grid.SetColumn(qty, 1);
         row.Children.Add(qty);
         _lines.Children.Add(row);
@@ -726,8 +728,15 @@ public sealed class SupplierReturnDialog : Window
 
     private void UpdateTotal()
     {
-        var total = _rows.Sum(r => Math.Max(0, ParseQty(r.Qty.Text)) * r.Price);
+        // 2026-11-06 (В12, ЖП Н-11): сумма строки — до копейки от нуля, как у прихода (раньше 0,125 × 1 показывалось и считалось по-разному → долг 0,01).
+        var total = SupplierReturnMath.Total(_rows.Select(r => (ParseQty(r.Qty.Text), r.Price)));
         _total.Text = T("Сумма возврата: ", "Кайтаруунун суммасы: ", "Return amount: ", "İade tutarı: ", "Qaytarish summasi: ") + SupplierReturnsWindow.Money(total);
+        if (_rows.Any(r => SupplierReturnMath.IsHalfKopeck(ParseQty(r.Qty.Text), r.Price)))
+            _total.Text += T(" · в сумме доли копейки: сервер может округлить иначе — после возврата проверьте долг поставщика",
+                " · суммада тыйындын бөлүгү бар: сервер башкача тегеректеши мүмкүн — кайтаруудан кийин жеткирүүчүнүн карызын текшериңиз",
+                " · the amount has a fraction of a tyiyn: the server may round it differently — check the supplier debt after the return",
+                " · tutarda kuruşun kesri var: sunucu farklı yuvarlayabilir — iadeden sonra tedarikçi borcunu kontrol edin",
+                " · summada tiyinning bo'lagi bor: server boshqacha yaxlitlashi mumkin — qaytarishdan keyin yetkazib beruvchi qarzini tekshiring");
     }
 
     private async Task SaveAsync()
@@ -811,7 +820,7 @@ public sealed class SupplierReturnDialog : Window
     private void ShowSaved(string supplierId, string? newId, int lineCount)
     {
         _saved = true;
-        var lines = _rows.Where(r => ParseQty(r.Qty.Text) > 0).Select(r => new SupplierReturnLine(r.Name, ParseQty(r.Qty.Text), r.Unit, r.Price, Math.Round(ParseQty(r.Qty.Text) * r.Price, 2))).ToList();
+        var lines = _rows.Where(r => ParseQty(r.Qty.Text) > 0).Select(r => new SupplierReturnLine(r.Name, ParseQty(r.Qty.Text), r.Unit, r.Price, SupplierReturnMath.LineTotal(ParseQty(r.Qty.Text), r.Price))).ToList();
         _savedInfo = new SupplierReturnInfo(newId ?? "", supplierId, _suppliers.FirstOrDefault(x => x.Id == supplierId).Name ?? "",
             _byReceipt && _receipt.SelectedIndex >= 0 && _receipt.SelectedIndex < _receipts.Count ? _receipts[_receipt.SelectedIndex].Id : "",
             DateTime.Now, _reason, _compensation, lines.Sum(l => l.Total), "", (_comment.Text ?? "").Trim(), lines);
@@ -819,6 +828,9 @@ public sealed class SupplierReturnDialog : Window
         _save.IsEnabled = true;
         _save.Content = T("Распечатать накладную возврата", "Кайтаруу накладнойун басып чыгаруу", "Print the return waybill", "İade irsaliyesini yazdır", "Qaytarish yuk xatini chop etish");
         _cancel.Content = T("Готово", "Даяр", "Done", "Tamam", "Tayyor");
+        // 2026-11-06 (В12, ДС-3): имена кнопок после «Возврат оформлен» — для экранного диктора.
+        Avalonia.Automation.AutomationProperties.SetName(_save, _save.Content as string);
+        Avalonia.Automation.AutomationProperties.SetName(_cancel, _cancel.Content as string);
         _total.Text = T($"Возврат оформлен ({lineCount} поз.). Накладную можно распечатать.", $"Кайтаруу тариздалды ({lineCount} поз.). Накладнойду басып чыгарса болот.",
             $"The return is registered ({lineCount} items). You can print the waybill.", $"İade kaydedildi ({lineCount} kalem). İrsaliye yazdırılabilir.", $"Qaytarish rasmiylashtirildi ({lineCount} ta). Yuk xatini chop etish mumkin.");
     }

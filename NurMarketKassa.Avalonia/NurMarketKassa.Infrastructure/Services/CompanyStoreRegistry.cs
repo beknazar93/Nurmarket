@@ -57,6 +57,7 @@ public static class CompanyStoreRegistry
         // а унесённая запись «исход неизвестен» после возврата в ту компанию не защищала от второго списания).
         "pending_debt_prepayments.json", "promotion_rules.json", "purchases", "revision", "supplier-debts",
         "rental-receipts.json", "upsell-sync.json", "client-docs", "funnel.json", "label-scales.json", "receiving-markup.json",
+        "shtrikhpc-pictures.json",                             // 2026-11-06: что уже записано в папки весов РС-200 (картинки товаров компании)
         "salary_payouts.json", "startup-costs", "error-reports.json", "price-tag-template.json", "bonus-branch-rule.json",
         "profit-pay", "barcode-print-settings.json", "phone-print-settings.json", "menu-badges-seen.txt",
         "backups",                                            // копии общих настроек компании (settings-migration)

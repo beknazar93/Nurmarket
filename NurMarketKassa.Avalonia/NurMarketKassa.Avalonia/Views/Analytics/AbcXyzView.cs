@@ -113,13 +113,20 @@ public sealed class AbcXyzView : UserControl
         if (_result is not { } r)
             return;
         var known = r.Items.Count(i => i.Xyz is not null);
+        // 2026-11-06 (В12, Н10 «Ревью волн 0–3 — функции магазина»): буквы A/B/C здесь считаются по продажам, записанным НА ЭТОЙ кассе, а вкладки ABC в «Аналитике» — по серверу;
+        // классы могут не совпасть. Серверный срез по неделям недоступен, поэтому подписываем источник (раньше он нигде не был виден).
+        var source = "\n" + T("Источник: продажи, записанные на этой кассе (не весь магазин). Вкладка ABC в «Аналитике» считает по серверу — классы могут отличаться.",
+            "Булак: ушул кассада жазылган сатуулар (бүтүн дүкөн эмес). «Аналитикадагы» ABC өтмөгү серверден эсептейт — класстар айырмаланышы мүмкүн.",
+            "Source: sales recorded on this till (not the whole shop). The ABC tab in “Analytics” counts from the server — classes may differ.",
+            "Kaynak: bu kasada kayıtlı satışlar (tüm mağaza değil). «Analiz»deki ABC sekmesi sunucudan hesaplar — sınıflar farklı olabilir.",
+            "Manba: shu kassada yozilgan sotuvlar (butun do'kon emas). «Analitika»dagi ABC yorlig'i serverdan hisoblaydi — sinflar farq qilishi mumkin.");
         _note.Text = r.Items.Count == 0
             ? T("Продаж за последние 12 недель нет — считать нечего.", "Акыркы 12 жумада сатуу жок — эсептей турган эч нерсе жок.", "No sales in the last 12 weeks — nothing to calculate.", "Son 12 haftada satış yok — hesaplanacak bir şey yok.", "Oxirgi 12 haftada sotuv yo'q — hisoblaydigan narsa yo'q.")
             : T($"Продажи за 12 недель: {r.Items.Count} товаров, у {known} достаточно истории (4 недели и больше). A — 80 % выручки, B — 15 %, C — 5 %. X — спрос ровный (разброс по неделям до 25 %), Y — до 50 %, Z — случайный. Нажмите клетку — увидите товары.",
                 $"12 жумалык сатуу: {r.Items.Count} товар, {known} товарда тарых жетиштүү (4 жума жана андан көп). A — түшүмдүн 80 %, B — 15 %, C — 5 %. X — суроо туруктуу (жумалар боюнча 25 % чейин), Y — 50 % чейин, Z — кокус. Клетканы басыңыз.",
                 $"Sales over 12 weeks: {r.Items.Count} products, {known} have enough history (4+ weeks). A — 80 % of revenue, B — 15 %, C — 5 %. X — steady demand (weekly spread up to 25 %), Y — up to 50 %, Z — random. Click a cell to see the products.",
                 $"12 haftalık satış: {r.Items.Count} ürün, {known} ürünün geçmişi yeterli (4+ hafta). A — cironun %80'i, B — %15, C — %5. X — düzenli talep (haftalık sapma %25'e kadar), Y — %50'ye kadar, Z — rastgele. Ürünleri görmek için hücreye tıklayın.",
-                $"12 haftalik sotuv: {r.Items.Count} mahsulot, {known} tasida tarix yetarli (4+ hafta). A — tushumning 80 %, B — 15 %, C — 5 %. X — talab barqaror (haftalar bo'yicha 25 % gacha), Y — 50 % gacha, Z — tasodifiy. Mahsulotlarni ko'rish uchun katakni bosing.");
+                $"12 haftalik sotuv: {r.Items.Count} mahsulot, {known} tasida tarix yetarli (4+ hafta). A — tushumning 80 %, B — 15 %, C — 5 %. X — talab barqaror (haftalar bo'yicha 25 % gacha), Y — 50 % gacha, Z — tasodifiy. Mahsulotlarni ko'rish uchun katakni bosing.") + source;
 
         _matrix.Children.Clear();
         _matrix.RowDefinitions.Clear();

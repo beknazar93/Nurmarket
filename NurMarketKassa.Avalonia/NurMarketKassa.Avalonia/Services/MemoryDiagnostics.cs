@@ -59,6 +59,13 @@ public static class MemoryDiagnostics
             var (photos, photoBytes) = ProductPhotoFinder.RecentImagesStats();
             PosLogger.Log($"ПАМЯТЬ: {Snapshot()}; окон {windows}; кэш картинок поиска фото {photos} шт. / {Mb(photoBytes)} МБ.", "INFO");
 
+            // 2026-11-06 (В11, ПМ-1): закрытые разделы, что остались в памяти после ≥3 сборок второго поколения и ≥10 минут, — это утечка окна; называем раздел.
+            // Сам этот вызов сборку не запускает: ждём обычных сборок (их много — gen2 каждые несколько минут).
+            var survivors = ClosedObjectWatch.Instance.FindSurvivors(DateTime.UtcNow, GC.CollectionCount(2), TimeSpan.FromMinutes(10), 3);
+            if (survivors.Count > 0)
+                PosLogger.Log("ПАМЯТЬ: закрытые разделы всё ещё в памяти (их кто-то держит): "
+                    + string.Join(", ", survivors.Select(s => $"«{s.Name}» {s.Age.TotalMinutes:0} мин")) + ".", "WARNING");
+
             using var process = Process.GetCurrentProcess();
             if ((process.PrivateMemorySize64 > OverBytes || GC.GetTotalMemory(false) > OverBytes) && DateTime.UtcNow - _lastHeavyUtc > TimeSpan.FromHours(1))
             {

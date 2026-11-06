@@ -30,19 +30,101 @@ public static class AtomicFile
         if (!string.IsNullOrEmpty(directory))
             Directory.CreateDirectory(directory);
 
-        var tmp = path + ".tmp";
-        using (var stream = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
-        using (var writer = new StreamWriter(stream, Utf8NoBom))
+        // 2026-11-06 (В11, шаг 22): имя временного файла уникальное — касса и программа владельца пишут один файл из двух процессов, а с общим «path.tmp»
+        // (FileShare.None) один процесс получал «файл занят» от другого, а при гонке Replace подменял чужой недописанный файл.
+        var tmp = UniqueTmpPath(path);
+        try
         {
-            writer.Write(text);
-            writer.Flush();
-            stream.Flush(true); // на диск, а не в кэш системы
-        }
+            using (var stream = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(stream, Utf8NoBom))
+            {
+                writer.Write(text);
+                writer.Flush();
+                stream.Flush(true); // на диск, а не в кэш системы
+            }
 
-        if (File.Exists(path))
-            File.Replace(tmp, path, path + ".bak", ignoreMetadataErrors: true);
-        else
-            File.Move(tmp, path);
+            if (File.Exists(path))
+                File.Replace(tmp, path, path + ".bak", ignoreMetadataErrors: true);
+            else
+                File.Move(tmp, path);
+        }
+        catch
+        {
+            try { File.Delete(tmp); } catch (Exception) { /* временный файл уже убран или занят — уберёт чистка старых *.tmp */ }
+            throw;
+        }
+    }
+
+    /// <summary>2026-11-06 (В11, шаг 22): уникальное имя временного файла рядом с рабочим (<c>файл.&lt;8 знаков&gt;.tmp</c>).</summary>
+    internal static string UniqueTmpPath(string path) => path + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
+
+    private static readonly object UpdateGate = new();
+
+    /// <summary>2026-11-06 (В11, шаг 22): «прочитать — изменить — записать» общего JSON под замком: внутри процесса — lock, между процессами (касса и программа владельца
+    /// на одном ПК) — именованный Mutex <c>Local\NurMarketAtomic-&lt;хэш пути&gt;</c>. Раньше замок был только внутри процесса, и при одновременной записи из двух
+    /// программ побеждала последняя (чужое изменение терялось). <paramref name="transform"/> получает текст файла (null — файла нет) и возвращает новый текст;
+    /// null — менять нечего (запись не делается). Возвращает записанный текст (или null). Замок ждём не дольше 10 с: не получили — работаем без него (запись важнее зависания),
+    /// в журнал WARNING. Исключения чтения/записи пробрасываются вызывающему.</summary>
+    public static string? Update(string path, Func<string?, string?> transform, Func<string, bool>? isValid = null)
+    {
+        lock (UpdateGate)
+        {
+            using var gate = AcquireCrossProcess(path);
+            var current = ReadAllText(path, isValid);
+            var next = transform(current);
+            if (next is null)
+                return null;
+            WriteAllTextWithRetry(path, next);
+            return next;
+        }
+    }
+
+    /// <summary>Имя межпроцессного замка файла: от полного пути без учёта регистра (Windows), чтобы обе программы получили одно имя.</summary>
+    internal static string CrossProcessGateName(string path)
+    {
+        string full;
+        try { full = Path.GetFullPath(path); }
+        catch (Exception) { full = path; }
+        var hash = System.Security.Cryptography.SHA1.HashData(Encoding.UTF8.GetBytes(full.ToLowerInvariant()));
+        return @"Local\NurMarketAtomic-" + Convert.ToHexString(hash, 0, 8);
+    }
+
+    private sealed class CrossProcessLock(Mutex? mutex) : IDisposable
+    {
+        public void Dispose()
+        {
+            if (mutex is null)
+                return;
+            try { mutex.ReleaseMutex(); } catch (Exception) { /* не владеем — ничего не делаем */ }
+            mutex.Dispose();
+        }
+    }
+
+    private static IDisposable AcquireCrossProcess(string path)
+    {
+        Mutex? mutex = null;
+        try
+        {
+            mutex = new Mutex(false, CrossProcessGateName(path));
+            try
+            {
+                if (mutex.WaitOne(TimeSpan.FromSeconds(10)))
+                    return new CrossProcessLock(mutex);
+            }
+            catch (AbandonedMutexException)
+            {
+                return new CrossProcessLock(mutex); // прошлый владелец упал — замок теперь наш
+            }
+            PosLogger.Log($"Файл {Path.GetFileName(path)}: замок другой программы не освободился за 10 с — пишем без него.", "WARNING");
+            mutex.Dispose();
+            return new CrossProcessLock(null);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Именованные замки недоступны (Android, ограничения системы) — остаётся замок внутри процесса.
+            try { mutex?.Dispose(); } catch (Exception) { /* уже освобождён */ }
+            return new CrossProcessLock(null);
+        }
     }
 
     /// <summary>2026-11-01 (контрольный аудит, Н2-01/Н-07): то же, что <see cref="WriteAllText"/>, но с короткими повторами, если файл на миг занят (антивирус, индексатор,

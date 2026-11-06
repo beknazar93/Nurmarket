@@ -107,6 +107,10 @@ public interface ISalesApiService
     /// <summary>GET /api/main/pos/sales/?status=debt(&client=) — непогашенные продажи «в долг».</summary>
     Task<List<JsonElement>> PosDebtSalesAsync(string? clientId, CancellationToken ct = default);
 
+    /// <summary>2026-11-06 (Б2-2): долги клиента для «Оплаты долга» — <c>status=debt</c> ПЛЮС чеки клиента в других статусах (<see cref="DebtSaleListRules.ExtraStatuses"/>, например
+    /// partially_returned) с положительным остатком долга: долговой чек после частичного возврата не должен исчезать из «Непогашенных».</summary>
+    Task<List<JsonElement>> PosDebtSalesWithReturnedAsync(string clientId, CancellationToken ct = default);
+
     /// <summary>POST /api/main/clients/{clientId}/deals/{dealId}/pay/ — погасить продажу «в долг».
     /// 2026-09-15: адрес, installment_id и форма тела подтверждены живым захватом DevTools на
     /// реальной успешной оплате (status 200). installmentId нужно получить заранее через

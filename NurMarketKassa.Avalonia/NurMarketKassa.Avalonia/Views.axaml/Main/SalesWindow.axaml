@@ -128,8 +128,12 @@
                 <Button Content="Word" Classes="sec-outline"
                         Margin="6,0,0,0" Click="ExportWord_Click"
                         ToolTip.Tip="{DynamicResource loc.owner.sales.wordTip}"/>
-                <Button Content="{DynamicResource common.refresh}" Classes="sec-primary"
-                        Margin="10,0,0,0" Click="Refresh_Click" />
+                <!-- 2026-11-06 (В11, Д4-25): «Обновить» — не главное действие раздела: значок 40×40 с подсказкой, без жёлтой заливки (жёлтое — только действие раздела). -->
+                <Button x:Name="RefreshButton" Classes="sec-outline" Width="40" Height="40" MinWidth="40" MinHeight="40" Padding="0"
+                        Margin="10,0,0,0" Click="Refresh_Click"
+                        ToolTip.Tip="{DynamicResource common.refresh}" AutomationProperties.Name="{DynamicResource common.refresh}">
+                    <PathIcon Data="{StaticResource IconRefresh}" Width="18" Height="18"/>
+                </Button>
                 <Button x:Name="BackButton" Content="{DynamicResource common.back}" Classes="sec-outline"
                         Margin="10,0,0,0" Click="Back_Click" />
             </StackPanel>
@@ -138,7 +142,8 @@
         <!-- 1: KPI-карточки. 2026-10-18, этап О3 (правило аудита 3): плитки по ширине (KpiTileGrid — 8 плиток на узком разделе
              встают 4 + 4), подпись переносится, сумма уменьшается целиком, а не обрезается («1 311,00 с», «Оплачено бону…»);
              суммы — цветом текста: жёлтый по светлому не читался, «Возвраты» и «Скидки» — не убыток, не красные. -->
-        <!-- 2026-10-18, доводка О4: второй ряд (средний чек, чеки, скидки, бонусы) — компактные плитки (compact). -->
+        <!-- 2026-10-18, доводка О4: второй ряд (средний чек, чеки, скидки, бонусы) — компактные плитки (compact).
+             2026-11-06 (В11, Д4-26): все 8 плиток одного размера (22/600) — в одном ряду два размера читались «сломанным» рядом; KpiTileGrid делит 8 плиток 4 + 4. -->
         <ctl:KpiTileGrid Grid.Row="2" x:Name="KpiTiles" MinTileWidth="170" Spacing="8" Margin="0,0,0,16">
             <Border Classes="sec-kpi">
                 <StackPanel Spacing="4">
@@ -168,25 +173,25 @@
                     <TextBlock x:Name="NonCashBreakdownText" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" IsVisible="False" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
-            <Border Classes="sec-kpi compact">
+            <Border Classes="sec-kpi">
                 <StackPanel Spacing="4">
                     <TextBlock Classes="sec-kpi-label" Text="{DynamicResource sales.avgReceipt}" />
                     <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="AvgReceiptText" Classes="sec-kpi-value" /></Viewbox>
                 </StackPanel>
             </Border>
-            <Border Classes="sec-kpi compact">
+            <Border Classes="sec-kpi">
                 <StackPanel Spacing="4">
                     <TextBlock x:Name="ReceiptsLabel" Classes="sec-kpi-label" Text="{DynamicResource sales.receiptsCount}" />
                     <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="ReceiptCountText" Classes="sec-kpi-value" /></Viewbox>
                 </StackPanel>
             </Border>
-            <Border Classes="sec-kpi compact">
+            <Border Classes="sec-kpi">
                 <StackPanel Spacing="4">
                     <TextBlock Classes="sec-kpi-label" Text="{DynamicResource sales.discounts}" />
                     <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="DiscountsText" Classes="sec-kpi-value" /></Viewbox>
                 </StackPanel>
             </Border>
-            <Border Classes="sec-kpi compact">
+            <Border Classes="sec-kpi">
                 <StackPanel Spacing="4">
                     <TextBlock Classes="sec-kpi-label" Text="{DynamicResource sales.paidWithPoints}" />
                     <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="PointsRedeemedText" Classes="sec-kpi-value" /></Viewbox>

@@ -26,6 +26,7 @@ public partial class SaleDoneBar : UserControl
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
 
     private readonly DispatcherTimer _timer;
+    private readonly Avalonia.Media.ScaleTransform _scale = new(1, 1);
     private TimeSpan _elapsed;
     private TimeSpan _shownTotal;
     private DateTime _lastTickUtc;
@@ -41,8 +42,11 @@ public partial class SaleDoneBar : UserControl
     public SaleDoneBar()
     {
         InitializeComponent();
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
+        // 2026-11-06 (В11, шаг 7, п. 26.4): полоса времени — масштаб (ScaleTransform), а не ширина: изменение Width пересчитывало раскладку плашки 25 раз в секунду
+        // 3–10 с после каждой продажи; масштаб меняет только отрисовку. Шаг таймера 40 → 100 мс (10 перерисовок в секунду, полоса убывает на 3 с — незаметно).
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _timer.Tick += OnTick;
+        TimeFill.RenderTransform = _scale;
         // Наведение мыши останавливает время (касание пальцем — нет: палец «входит» только на время нажатия).
         PointerEntered += (_, e) => _hovered = e.Pointer.Type == PointerType.Mouse;
         PointerExited += (_, _) => _hovered = false;
@@ -83,8 +87,7 @@ public partial class SaleDoneBar : UserControl
         _shownTotal = TimeSpan.Zero;
         _lastTickUtc = DateTime.UtcNow;
         _hovered = false;
-        TimeFill.Width = double.NaN;
-        TimeFill.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+        _scale.ScaleX = 1;
         IsVisible = true;
         _timer.Start();
     }
@@ -118,8 +121,7 @@ public partial class SaleDoneBar : UserControl
             return;
         }
 
-        TimeFill.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
-        TimeFill.Width = Math.Max(0, TimeTrack.Bounds.Width * left);
+        _scale.ScaleX = Math.Max(0, left);
     }
 
     private async void PrintCopyButton_Click(object? sender, RoutedEventArgs e)

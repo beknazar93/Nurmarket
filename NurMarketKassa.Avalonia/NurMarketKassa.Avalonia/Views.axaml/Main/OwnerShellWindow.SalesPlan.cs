@@ -34,7 +34,7 @@ public partial class OwnerShellWindow
         if (_salesPlanUnsupported || _salesPlanEditing || (!force && DateTime.UtcNow - _salesPlanAt < TimeSpan.FromMinutes(5)))
             return;
         _salesPlanAt = DateTime.UtcNow;
-        var monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        var monthStart = new DateTime(ServerClock.Today.Year, ServerClock.Today.Month, 1);
         var month = monthStart.ToString("yyyy-MM", CultureInfo.InvariantCulture);
         try
         {
@@ -42,11 +42,11 @@ public partial class OwnerShellWindow
             var data = await api.RequestAsync(HttpMethod.Get, SalesTargetsPath, null,
                 new Dictionary<string, string> { ["month"] = month }, _cts.Token, TimeSpan.FromSeconds(15)).ConfigureAwait(true); // 2026-11-03 (С-22): токен окна вместо CancellationToken.None — закрытие окна отменяет запрос
             var target = ReadTarget(data);
-            var report = await App.SalesApi.MarketSalesReportAsync(monthStart, DateTime.Today, _cts.Token).ConfigureAwait(true);
+            var report = await App.SalesApi.MarketSalesReportAsync(monthStart, ServerClock.Today, _cts.Token).ConfigureAwait(true);
             var sold = report.ValueKind == JsonValueKind.Object && report.TryGetProperty("cards", out var cards) ? Num(cards, "revenue") : 0;
             double? upsell = null;
             if (App.AppHost?.Services.GetService(typeof(RecommendationsApi)) is RecommendationsApi rec)
-                upsell = (await rec.GetStatsAsync(monthStart, DateTime.Today).ConfigureAwait(true))?.Revenue;
+                upsell = (await rec.GetStatsAsync(monthStart, ServerClock.Today).ConfigureAwait(true))?.Revenue;
             RenderSalesPlan(monthStart, target, sold, upsell);
         }
         catch (ApiException ex) when (ex.StatusCode == 404)
@@ -96,7 +96,7 @@ public partial class OwnerShellWindow
         }
 
         var daysInMonth = DateTime.DaysInMonth(monthStart.Year, monthStart.Month);
-        var dayNo = DateTime.Today.Day;
+        var dayNo = ServerClock.Today.Day;
         var daysLeft = daysInMonth - dayNo + 1;
         // 2026-10-19, этап О10 (аудит: «План 100 %» при реальных 392 %): число — настоящий процент выполнения,
         // полоса заполняется не больше чем до конца (Maximum = 100).

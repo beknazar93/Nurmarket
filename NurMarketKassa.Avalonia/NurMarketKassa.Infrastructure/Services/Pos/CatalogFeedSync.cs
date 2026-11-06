@@ -515,6 +515,8 @@ public sealed class CatalogFeedSync
             tile.Country = local.Country;
         if (!item.TryGetProperty("weight_kg", out _))
             tile.WeightKg = local.WeightKg;
+        if (!item.TryGetProperty("minimum_quantity", out _))
+            tile.MinQuantity = local.MinQuantity; // 2026-11-06 (В12, Б-8)
         if (!item.TryGetProperty("category", out _))
             tile.Category = local.Category;
         if (!item.TryGetProperty("brand", out _))

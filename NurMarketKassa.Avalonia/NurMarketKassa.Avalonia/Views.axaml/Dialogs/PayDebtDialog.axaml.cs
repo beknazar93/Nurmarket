@@ -545,6 +545,24 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(TotalOwedText));
             // 2026-09-28: сумма «Погасить одной суммой» — весь долг по умолчанию.
             OnDebtSalesReloaded();
+            // 2026-11-06 (Б2-2): сводка сервера (clients/debtors — «по чекам: 40») спорит со списком — говорим честно, а не показываем «Итого 0,00» молча.
+            // Сводка устаревает после оплаты в этом окне (_debtSummaryStale) — тогда не сверяем.
+            if (!_debtSummaryStale && _debtByClient.TryGetValue(clientId, out var serverTotal) && !DebtSales.Any(r => r.RemainingUnknown))
+            {
+                var saleTotal = DebtSales.Where(r => !r.IsNoSale).Sum(r => r.Amount);
+                var allTotal = DebtSales.Sum(r => r.Amount);
+                if (DebtSaleListRules.SummaryMismatch(serverTotal, saleTotal, allTotal))
+                {
+                    var serverText = MoneyText.Som(serverTotal);
+                    var rowsText = MoneyText.Som(saleTotal);
+                    WarningMessage = _summaryWarning = Tr.T(
+                        $"Сервер считает остаток {serverText}; по чекам {rowsText} — проверьте долг клиента на сайте NurCRM.",
+                        $"Сервер калдыкты {serverText} деп эсептейт; чектер боюнча {rowsText} — кардардын карызын NurCRM сайтынан текшериңиз.",
+                        $"The server counts the balance as {serverText}; by receipts {rowsText} — check the client's debt on the NurCRM site.",
+                        $"Sunucu bakiyeyi {serverText} olarak hesaplıyor; fişlere göre {rowsText} — müşterinin borcunu NurCRM sitesinde kontrol edin.",
+                        $"Server qoldiqni {serverText} deb hisoblaydi; cheklar bo'yicha {rowsText} — mijoz qarzini NurCRM saytida tekshiring.");
+                }
+            }
             // 2026-10-18, ревью: введённая «одной суммой» сумма не затирается полным долгом; больше нового остатка — до него.
             if (keepInput && CashAmountInput.TryParse(enteredAll, out var typedAllDec) && (double)typedAllDec is var typedAll && typedAll > 0)
             {
@@ -596,7 +614,8 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
     /// полностью погашенные — с Amount 0 (окно кассы кладёт их в «Историю»).</summary>
     internal static async Task<List<DebtSaleRow>> LoadDebtRowsAsync(ISalesApiService salesApi, string clientId, CancellationToken ct)
     {
-        var rows = await LoadDebtRowsAsync(salesApi, clientId, await salesApi.PosDebtSalesAsync(clientId, ct).ConfigureAwait(true), ct).ConfigureAwait(true);
+        // 2026-11-06 (Б2-2): и долговые чеки после частичного возврата (partially_returned) с остатком долга — раньше они пропадали из «Непогашенных».
+        var rows = await LoadDebtRowsAsync(salesApi, clientId, await salesApi.PosDebtSalesWithReturnedAsync(clientId, ct).ConfigureAwait(true), ct).ConfigureAwait(true);
         // 2026-10-21 (ревью денег, A2): и «Долг без продажи» — окна оплаты видели только pos/sales/?status=debt и писали «Долгов
         // нет», а «одной суммой» сервер мог погасить сначала этот долг (план в подтверждении был неверным).
         var noSale = await LoadNoSaleDebtRowsAsync(clientId, rows, ct).ConfigureAwait(true);
@@ -1168,6 +1187,12 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
     /// <summary>id клиента → долг по сводке сервера (GET clients/debtors/); пусто — сводки нет, список как раньше.</summary>
     private Dictionary<string, double> _debtByClient = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>2026-11-06 (Б2-2): в этом окне уже шла оплата — сводка сервера (_debtByClient) устарела и со списком не сверяется.</summary>
+    private bool _debtSummaryStale;
+
+    /// <summary>Текст предупреждения «Сервер считает остаток X; по чекам Y» (чтобы снять именно его, а не чужое предупреждение к оплате).</summary>
+    private string _summaryWarning = "";
+
     private async Task LoadDebtorsAsync(CancellationToken ct)
     {
         try
@@ -1189,6 +1214,7 @@ public partial class PayDebtDialog : Window, INotifyPropertyChanged
                     oldest[d.ClientId] = at;
             }
             _oldestDebtByClient = oldest;
+            _debtSummaryStale = false; // 2026-11-06 (Б2-2): сводка свежая
             ApplyClientFilter();
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

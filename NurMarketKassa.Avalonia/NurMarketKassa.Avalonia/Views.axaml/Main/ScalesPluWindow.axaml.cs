@@ -470,6 +470,7 @@ public partial class ScalesPluWindow : Window
         WebPluButton.IsVisible = KassaNumbering;
         KeysButton.IsVisible = KassaNumbering && !IsShtrikhPc; // 2026-11-06: кнопки экрана РС-200 настраиваются на самих весах
         ApplyDirectLanVisibility();
+        UpdateShtrikhPcExtras(); // 2026-11-06: «Полная выгрузка (с очисткой)» вместо «Листа кнопок» у весов РС-200
         UpdateHeader();
         SendButton.Content = isAi ? Tr.T("Сохранить файл для весов", "Файлды тараза үчүн сактоо", "Save file for the scale", "Tartı için dosyayı kaydet", "Tarozi uchun faylni saqlash")
             : IsShtrikhPc ? Tr.T("Отправить в весы", "Таразага жөнөтүү", "Send to the scale", "Tartıya gönder", "Taroziga yuborish")

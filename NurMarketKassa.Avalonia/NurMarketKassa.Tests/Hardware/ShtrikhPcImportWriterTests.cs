@@ -61,19 +61,54 @@ public sealed class ShtrikhPcImportWriterTests : IDisposable
         var fields = line["<D ".Length..].Split(';');
         fields.Should().HaveCount(ShtrikhPcImportWriter.FieldCount);
         fields[0].Should().Be("69312");       // 1 код
-        fields[1].Should().Be("");            // 2 штрих-код — только для поиска
+        fields[1].Should().Be("0");           // 2 штрих-код — только для поиска; нет штрихкода — «0»
         fields[2].Should().Be("Лук репчатый"); // 3 наименование
         fields[3].Should().Be("0");           // 4 тип: весовой
-        fields[4].Should().Be("55,50");       // 5 цена, 2 знака, запятая
+        fields[4].Should().Be("55.50");       // 5 цена, 2 знака, точка (как в файле Умара: 650.00)
         fields[5..9].Should().OnlyContain(f => f == "0");     // 6–9 группы-владельцы
         fields[11].Should().Be("14");         // 12 срок годности
-        fields[12].Should().Be("");           // 13 дата реализации
+        fields[9..11].Should().OnlyContain(f => f == " ");    // 10–11 резерв — одиночный пробел
+        fields[12].Should().Be(" ");          // 13 дата реализации
         fields[13].Should().Be("0");          // 14 формат этикетки по умолчанию
         fields[14].Should().Be("0");          // 15 блокировка
         fields[15].Should().Be("0");          // 16 разрешение менять цену
-        fields[21].Should().Be("");           // 22 сертификат
+        fields[16..21].Should().OnlyContain(f => f == " ");   // 17–21 резерв
+        fields[21].Should().Be(" ");          // 22 сертификат
         fields[22..25].Should().OnlyContain(f => f == "0");   // 23–25 масса тары
         fields[25..34].Should().OnlyContain(f => f == "0");   // 26–34 коды ресурсов
+    }
+
+    [Fact]
+    public void Build_Line_IsExactlyAsInUmarsFile()
+    {
+        // Пример из ТЗ Умара (проверено на месте): с пробелом после «<D», цена с точкой и 2 знаками, резервные поля — пробел, поле 2 — «0».
+        var line = DataLines(ShtrikhPcImportWriter.Build(new[] { Item(123, "Говядина мякоть", 650m) }, Settings()).Text).Single();
+
+        line.Should().Be("<D 123;0;Говядина мякоть;0;650.00;0;0;0;0; ; ;0; ;0;0;0; ; ; ; ; ; ;0;0;0;0;0;0;0;0;0;0;0;0");
+    }
+
+    [Fact]
+    public void Build_ProductBarcode_GoesToSecondField_OnlyWhen13Digits()
+    {
+        var withBarcode = new ShtrikhPcItem(5, "Сыр", 10m, false, 0, "4870001234567");
+        var junk = new ShtrikhPcItem(6, "Сыр2", 10m, false, 0, "123");
+
+        var lines = DataLines(ShtrikhPcImportWriter.Build(new[] { withBarcode, junk }, Settings()).Text);
+
+        lines[0].Split(';')[1].Should().Be("4870001234567");
+        lines[1].Split(';')[1].Should().Be("0");
+    }
+
+    [Fact]
+    public void Build_PluAboveFiveDigitCode_IsDroppedWithWarning()
+    {
+        // число цифр кода 5 → PLU не больше 99999 (а не 999999)
+        var settings = Settings();
+        var build = ShtrikhPcImportWriter.Build(new[] { Item(99999, "Последний"), Item(100000, "Слишком большой") }, settings, settings.MaxProductCode);
+
+        settings.MaxProductCode.Should().Be(99999);
+        build.Written.Should().Be(1);
+        build.Warnings.Should().ContainSingle().Which.Should().Contain("Слишком большой");
     }
 
     [Fact]
@@ -333,6 +368,7 @@ public sealed class ShtrikhPcImportWriterTests : IDisposable
         back.BarcodeFormat.Should().Be(ShtrikhPcSettings.FormatCodeWeight);
         back.LineStyle.Should().Be(ShtrikhPcSettings.LineSpace);
         back.ClearBase.Should().BeTrue();
+        new ShtrikhPcSettings().Normalize().DecimalSeparator.Should().Be(".");
         back.ImportFile.Should().Be(@"Import\PCScale.txt");
         back.FlagFile.Should().Be(@"Import\PCScale.flz");
         back.ExportFile.Should().Be(@"Export\Export.txt");

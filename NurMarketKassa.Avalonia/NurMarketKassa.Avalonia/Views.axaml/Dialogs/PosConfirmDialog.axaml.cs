@@ -40,7 +40,8 @@ public partial class PosConfirmDialog : Window
         string message,
         string? confirmText = null,
         string? cancelText = null,
-        PosConfirmAccent accent = PosConfirmAccent.Primary)
+        PosConfirmAccent accent = PosConfirmAccent.Primary,
+        bool enterCancels = false)
     {
         InitializeComponent();
         _scanGuard = ScannerEnterGuard.Attach(this);
@@ -56,6 +57,14 @@ public partial class PosConfirmDialog : Window
         // 2026-10-16: опасное действие — красная главная кнопка (класс danger оболочки, тот же #DC2626).
         if (accent == PosConfirmAccent.Danger)
             ConfirmButton.Classes.Add("danger");
+
+        // 2026-11-06 (аудит №5, Н16): окно «Товар просрочен» и ему подобные — Enter с клавиатуры = безопасная кнопка («Убрать»), а не «Продать всё равно».
+        // Подтвердить можно мышью, касанием или Tab + Пробел/Enter на самой кнопке.
+        if (enterCancels)
+        {
+            ConfirmButton.IsDefault = false;
+            CancelButton.IsDefault = true;
+        }
     }
 
     public static bool Show(
@@ -64,8 +73,9 @@ public partial class PosConfirmDialog : Window
         string message,
         string? confirmText = null,
         string? cancelText = null,
-        PosConfirmAccent accent = PosConfirmAccent.Primary) =>
-        PosDialogHost.Show(new PosConfirmDialog(title, message, confirmText, cancelText, accent), owner) == true;
+        PosConfirmAccent accent = PosConfirmAccent.Primary,
+        bool enterCancels = false) =>
+        PosDialogHost.Show(new PosConfirmDialog(title, message, confirmText, cancelText, accent, enterCancels), owner) == true;
 
     /// <summary>2026-10-04, Android-касса: то же из async-кода (в Windows — прежний синхронный Show).</summary>
     public static async Task<bool> ShowModalAsync(
@@ -74,8 +84,9 @@ public partial class PosConfirmDialog : Window
         string message,
         string? confirmText = null,
         string? cancelText = null,
-        PosConfirmAccent accent = PosConfirmAccent.Primary) =>
-        await PosDialogHost.ShowModalAsync(new PosConfirmDialog(title, message, confirmText, cancelText, accent), owner).ConfigureAwait(true) == true;
+        PosConfirmAccent accent = PosConfirmAccent.Primary,
+        bool enterCancels = false) =>
+        await PosDialogHost.ShowModalAsync(new PosConfirmDialog(title, message, confirmText, cancelText, accent, enterCancels), owner).ConfigureAwait(true) == true;
 
     /// <summary>2026-10-20, живая проверка: окно «Товар не найден» открывается прямо во время сканирования, и
     /// следующий скан уходил в него — цифры пропадали, а Enter сканера нажимал главную кнопку «Добавить на склад».

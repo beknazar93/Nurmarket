@@ -41,6 +41,17 @@ public sealed record PlannerRow(
     public bool IsCritical => Status is PlannerStatus.Critical or PlannerStatus.OutOfStock;
 }
 
+/// <summary>2026-11-06 (В12, ЖП Н-5): когда товару ставить «Нет продаж». Живая приёмка: у товара «продано 0 / 11» (7 / 30 дней) стоял статус «Нет продаж» — средняя за выбранный
+/// период (7 дней) была 0. Теперь «нет продаж» — только если не продавалось и за 30 дней.</summary>
+public static class PlannerStatusRules
+{
+    public static bool HasNoSales(double perDayInPeriod, double sold30) => perDayInPeriod <= 0 && sold30 <= 0;
+
+    /// <summary>Средняя в день для оценки запаса: за период, а если там 0 — за 30 дней. 0 — продаж нет совсем.</summary>
+    public static double EffectivePerDay(double perDayInPeriod, double sold30) =>
+        perDayInPeriod > 0 ? perDayInPeriod : sold30 > 0 ? sold30 / 30.0 : 0;
+}
+
 public static class PurchasePlanner
 {
     /// <summary>Строки рекомендуемого заказа по товарам поставщика. <paramref name="historyStartUtc"/> — с какого момента на ПК есть
@@ -105,16 +116,21 @@ public static class PurchasePlanner
             if (o.PackRules && v2 is not null && recommended > 0)
                 recommended = PlannerV2Math.ApplyRule(recommended, v2.Rules.GetValueOrDefault(p.Id), p.IsWeighted);
 
+            // 2026-11-06 (В12, ЖП Н-5): «Нет продаж» — только если не продавалось и за 30 дней; при нуле за выбранный период, но продажах за 30 дней запас оцениваем по средней за 30 дней
+            // (число «Рекомендуется» и колонка «хватит на» не меняются — меняется только статус).
+            var sold30Status = Sum(from30);
+            var statusPerDay = PlannerStatusRules.EffectivePerDay(perDay, sold30Status);
+            var statusDays = daysLeft ?? (statusPerDay > 0 ? Math.Max(0, p.Stock) / statusPerDay : (double?)null);
             PlannerStatus status;
-            if (perDay <= 0)
+            if (PlannerStatusRules.HasNoSales(perDay, sold30Status))
                 status = p.Stock <= 0 && lastPurchases.ContainsKey(p.Id) ? PlannerStatus.OutOfStock : PlannerStatus.NoSales;
             else if (p.Stock <= 0)
                 status = PlannerStatus.OutOfStock;
-            else if (daysLeft <= safetyEff)
+            else if (statusDays <= safetyEff)
                 status = PlannerStatus.Critical;
-            else if (daysLeft <= cover + lead)
+            else if (statusDays <= cover + lead)
                 status = PlannerStatus.Soon;
-            else if (daysLeft < horizon)
+            else if (statusDays < horizon)
                 status = PlannerStatus.Low;
             else
                 status = PlannerStatus.Enough;

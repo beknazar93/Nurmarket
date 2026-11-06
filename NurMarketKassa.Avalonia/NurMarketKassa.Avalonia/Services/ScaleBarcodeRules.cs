@@ -145,9 +145,10 @@ internal static class ScaleBarcodeRules
 
     // ------------------------------------------------------------------ весы Штрих РС-200 (пресет раскладки)
 
-    /// <summary>2026-11-06: пресет «Штрих РС-200» (руководство администратора, п. 7.6): префикс 20, число знаков кода 4, «Код-Вес», без КС — как на весах по
-    /// умолчанию (кроме формата: «Код-Вес» вместо «Код-Стоимость», потому что у владельца в весы цены не загружены). Включает раскладку в парсере кассы
-    /// для префикса и, если это не 20/25 (их касса не переспрашивает), сохраняет правило «вес/сумма» этого префикса. Возвращает true, если что-то изменилось.</summary>
+    /// <summary>2026-11-06: пресет «Штрих РС-200» (руководство администратора, п. 7.6): значения из <see cref="ShtrikhPcSettings"/> (по умолчанию — как на весах владельца:
+    /// префикс 27, 5 знаков кода, «Код-Вес», без КС; на заводе у весов 20 и 4). Включает раскладку в парсере кассы для префикса и, если это не 20/25 (их касса не переспрашивает),
+    /// сохраняет правило «вес/сумма» этого префикса. 2026-11-06 (аудит Этапа 2, С-3): молча НЕ вызывать — только через <see cref="OfferShtrikhPcPresetAsync"/> (после подтверждения кассира).
+    /// Возвращает true, если что-то изменилось.</summary>
     public static bool EnsureShtrikhPcPreset()
     {
         var settings = ShtrikhPcSettings.Current;
@@ -157,6 +158,89 @@ internal static class ScaleBarcodeRules
         ApplyShtrikhPc(settings);
         PosLogger.Log($"Весы Штрих РС-200: касса читает этикетки по раскладке РС-200 (префикс {settings.BarcodePrefix}, код {settings.CodeLength} зн., {settings.BarcodeFormat})", "SCALES");
         return true;
+    }
+
+    /// <summary>2026-11-06 (аудит Этапа 2, С-3): выбор марки «Штрих РС-200» раньше молча переписывал правило префикса (27 → «вес») и ставил свою раскладку — этикетки ДРУГИХ весов
+    /// на том же префиксе начинали читаться неверно (деньги). Теперь раскладку включаем только после вопроса кассиру. false — раскладка уже включена, либо кассир отказался
+    /// (марка выбрана, раскладка и правило префикса остаются прежними). <paramref name="confirm"/> получает текст вопроса и отвечает «Применить» (true) / «Не менять» (false).</summary>
+    public static async Task<bool> OfferShtrikhPcPresetAsync(Func<string, Task<bool>> confirm)
+    {
+        var settings = ShtrikhPcSettings.Current;
+        if (settings.BarcodeEnabled)
+            return false;
+        var prefix = settings.BarcodePrefix.ToString("00", CultureInfo.InvariantCulture);
+        var kind = settings.ByAmount ? WeightBarcodeValueKind.Amount : WeightBarcodeValueKind.Weight;
+        var existing = AmountSet().Contains(prefix) ? WeightBarcodeValueKind.Amount : WeightSet().Contains(prefix) ? WeightBarcodeValueKind.Weight : (WeightBarcodeValueKind?)null;
+        var format = ShtrikhPcSettings.FormatTitle(settings.BarcodeFormat);
+        var replace = existing is { } e && e != kind
+            ? Tr.T($" Сейчас для префикса {prefix} на кассе задано правило «{(e == WeightBarcodeValueKind.Amount ? "сумма" : "вес")}» — оно будет заменено.",
+                $" Азыр кассада {prefix} префикси үчүн «{(e == WeightBarcodeValueKind.Amount ? "сумма" : "салмак")}» эрежеси бар — ал алмаштырылат.",
+                $" The till currently has the rule “{(e == WeightBarcodeValueKind.Amount ? "amount" : "weight")}” for prefix {prefix} — it will be replaced.",
+                $" Kasada şu an {prefix} öneki için «{(e == WeightBarcodeValueKind.Amount ? "tutar" : "ağırlık")}» kuralı var — değiştirilecek.",
+                $" Hozir kassada {prefix} prefiksi uchun «{(e == WeightBarcodeValueKind.Amount ? "summa" : "vazn")}» qoidasi bor — u almashtiriladi.")
+            : "";
+        var question = Tr.T($"Применить раскладку штрихкода для Штрих РС-200: префикс {prefix}, {format}, {settings.CodeLength} зн. кода? Этикетки других весов с префиксом {prefix} на этой кассе будут читаться по этой раскладке.{replace}",
+            $"Штрих РС-200 үчүн штрихкод калыбы колдонулсунбу: префикс {prefix}, {format}, коддун {settings.CodeLength} белгиси? Бул кассада {prefix} префикси бар башка таразалардын этикеткалары ушул калып боюнча окулат.{replace}",
+            $"Apply the barcode layout for Shtrikh RS-200: prefix {prefix}, {format}, {settings.CodeLength} code digits? Labels of other scales with prefix {prefix} on this till will be read by this layout.{replace}",
+            $"Shtrih RS-200 için barkod düzeni uygulansın mı: önek {prefix}, {format}, {settings.CodeLength} kod hanesi? Bu kasada {prefix} önekli diğer tartıların etiketleri bu düzene göre okunur.{replace}",
+            $"Shtrix RS-200 uchun shtrix-kod joylashuvi qo'llansinmi: prefiks {prefix}, {format}, kodning {settings.CodeLength} raqami? Bu kassada {prefix} prefiksli boshqa tarozilarning yorliqlari shu joylashuv bo'yicha o'qiladi.{replace}");
+        if (!await confirm(question).ConfigureAwait(true))
+        {
+            PosLogger.Log("Весы Штрих РС-200: кассир не стал применять раскладку штрихкода — разбор этикеток не менялся.", "SCALES");
+            return false;
+        }
+        return EnsureShtrikhPcPreset();
+    }
+
+    /// <summary>2026-11-06 (Б2-Н, живой тест Этапа 2): удалили последние весы «Штрих РС-200» — в настройках оставались папка обмена и логин с паролем (данные удалённых весов),
+    /// включённая раскладка РС-200 и правило префикса (27), которое включил пресет. Папка, логин и пароль сбрасываются всегда; раскладку и правило префикса возвращаем только после вопроса
+    /// кассиру («Вернуть раскладку штрихкода к прежней?»), потому что префикс могли использовать и другие весы. Правило префикса 20/25 не трогаем (его пресет не писал).
+    /// Возвращает true, если раскладка выключена (кассир согласился).</summary>
+    public static async Task<bool> OfferShtrikhPcResetAsync(Func<string, Task<bool>> confirm)
+    {
+        var settings = ShtrikhPcSettings.Current;
+        var hadLayout = settings.BarcodeEnabled;
+        var prefix = settings.BarcodePrefix.ToString("00", CultureInfo.InvariantCulture);
+        var connectionLeft = settings.Folder.Length > 0 || settings.Login.Length > 0 || settings.Password.Length > 0;
+        if (!hadLayout && !connectionLeft)
+            return false;
+
+        var revert = false;
+        if (hadLayout)
+        {
+            var kept = prefix is not ("20" or "25") && IsExplicit(prefix);
+            var rule = kept
+                ? Tr.T($" Правило кассы для префикса {prefix} снимется — дальше решит режим компании.", $" {prefix} префикси үчүн кассанын эрежеси алынат — андан ары компаниянын режими чечет.",
+                    $" The till rule for prefix {prefix} will be removed — the company mode will decide.", $" {prefix} öneki için kasa kuralı kaldırılır — bundan sonra şirket modu belirler.",
+                    $" {prefix} prefiksi uchun kassa qoidasi olib tashlanadi — keyin kompaniya rejimi hal qiladi.")
+                : "";
+            var question = Tr.T($"Весы «Штрих РС-200» удалены. Вернуть раскладку штрихкода к прежней? Касса перестанет читать этикетки по раскладке РС-200 (префикс {prefix}).{rule}",
+                $"«Штрих РС-200» таразасы өчүрүлдү. Штрихкод калыбы мурункуга кайтарылсынбы? Касса РС-200 калыбы боюнча этикеткаларды окубай калат (префикс {prefix}).{rule}",
+                $"The Shtrikh RS-200 scale was removed. Return the barcode layout to the previous one? The till will stop reading labels by the RS-200 layout (prefix {prefix}).{rule}",
+                $"Shtrih RS-200 tartısı silindi. Barkod düzeni eskisine döndürülsün mü? Kasa etiketleri artık RS-200 düzenine göre okumayacak (önek {prefix}).{rule}",
+                $"Shtrix RS-200 tarozisi o'chirildi. Shtrix-kod joylashuvi avvalgisiga qaytarilsinmi? Kassa yorliqlarni RS-200 joylashuvi bo'yicha o'qimaydi (prefiks {prefix}).{rule}");
+            revert = await confirm(question).ConfigureAwait(true);
+        }
+
+        settings.Folder = "";
+        settings.Login = "";
+        settings.Password = "";
+        if (revert)
+        {
+            settings.BarcodeEnabled = false;
+            if (prefix is not ("20" or "25"))
+            {
+                var amount = AmountSet();
+                var weight = WeightSet();
+                amount.Remove(prefix);
+                weight.Remove(prefix);
+                Store(amount, weight);
+            }
+        }
+        ShtrikhPcSettings.Save(settings);
+        UserPreferences.Instance.SaveToDisk();
+        PosLogger.Log($"Весы Штрих РС-200 удалены: папка обмена и вход сброшены{(revert ? $", раскладка выключена, правило префикса {prefix} снято" : hadLayout ? ", раскладка оставлена по выбору кассира" : "")}.", "SCALES");
+        return revert;
     }
 
     /// <summary>Сохраняет настройки РС-200 и применяет раскладку (парсер, правило префикса, файл настроек).</summary>

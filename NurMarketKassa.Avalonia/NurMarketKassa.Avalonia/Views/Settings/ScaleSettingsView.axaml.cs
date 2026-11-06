@@ -234,7 +234,21 @@ public partial class ScaleSettingsView : UserControl
                     accent: PosConfirmAccent.Danger), owner).ConfigureAwait(true) == true;
                 if (!ok)
                     return;
+                var wasShtrikhPc = profile.Brand == "shtrikhpc";
                 LabelScaleStore.Delete(profile.Id);
+                // 2026-11-06 (Б2-Н, живой тест Этапа 2): удалили последние РС-200 — папку обмена и логин сбрасываем, раскладку штрихкода и правило префикса — по вопросу кассиру.
+                if (wasShtrikhPc && !LabelScaleStore.All.Any(s => s.Brand == "shtrikhpc"))
+                {
+                    try
+                    {
+                        await ScaleBarcodeRules.OfferShtrikhPcResetAsync(question => PosDialogs.ConfirmYesNoModalAsync(owner, question, null,
+                            Tr.T("Вернуть", "Кайтаруу", "Return", "Geri döndür", "Qaytarish"), Tr.T("Оставить", "Калтыруу", "Keep", "Bırak", "Qoldirish"))).ConfigureAwait(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        PosLogger.Log($"Весы Штрих РС-200: сброс настроек после удаления не выполнен ({ex.Message}).", "SCALES");
+                    }
+                }
                 BuildScaleList();
             };
             buttons.Children.Add(delete);

@@ -35,7 +35,7 @@ public partial class SalaryWindow : Window, IOwnerSection, IOwnerSectionRefresh,
     public SalaryWindow()
     {
         InitializeComponent();
-        var today = DateTime.Today;
+        var today = ServerClock.Today;
         _from = new DateTime(today.Year, today.Month, 1);
         _to = today;
         EscapeKey.Attach(this);
@@ -143,6 +143,10 @@ public partial class SalaryWindow : Window, IOwnerSection, IOwnerSectionRefresh,
         SubtitleText.Margin = new Avalonia.Thickness(0, 0, 16, 0);
         if (SubtitleText.Parent is Control subtitlePanel)
             subtitlePanel.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+        // 2026-11-06 (В11, Д4-30): абзац «Расчёт делает сервер…» мелким серым — кнопкой «?» слева от кнопок раздела (текст тот же, читается при открытии).
+        SubtitleText.IsVisible = false;
+        if (ProfitPayButton.Parent is Panel actionsPanel)
+            actionsPanel.Children.Insert(0, NurMarketKassa.AvaloniaHost.Views.Controls.HintButton.Create(() => SubtitleText.Text));
         RootGrid.Margin = OwnerSectionLayout.Margin;
     }
 
@@ -152,14 +156,14 @@ public partial class SalaryWindow : Window, IOwnerSection, IOwnerSectionRefresh,
 
     private async void ThisMonth_Click(object? sender, RoutedEventArgs e)
     {
-        var today = DateTime.Today;
+        var today = ServerClock.Today;
         _chosenPreset = ThisMonthButton;
         await SetPeriodAsync(PeriodRange.MonthFrom(today), today);
     }
 
     private async void LastMonth_Click(object? sender, RoutedEventArgs e)
     {
-        var firstThisMonth = PeriodRange.MonthFrom(DateTime.Today);
+        var firstThisMonth = PeriodRange.MonthFrom(ServerClock.Today);
         _chosenPreset = LastMonthButton;
         await SetPeriodAsync(firstThisMonth.AddMonths(-1), firstThisMonth.AddDays(-1));
     }
@@ -167,7 +171,7 @@ public partial class SalaryWindow : Window, IOwnerSection, IOwnerSectionRefresh,
     private async void Last7_Click(object? sender, RoutedEventArgs e)
     {
         _chosenPreset = Last7Button;
-        await SetPeriodAsync(PeriodRange.WeekFrom(DateTime.Today), DateTime.Today);
+        await SetPeriodAsync(PeriodRange.WeekFrom(ServerClock.Today), ServerClock.Today);
     }
 
     private async void Period_Changed(object? sender, SelectionChangedEventArgs e)
@@ -204,7 +208,7 @@ public partial class SalaryWindow : Window, IOwnerSection, IOwnerSectionRefresh,
         PeriodText.Text = Tr.T("период", "мезгил", "period", "dönem", "davr") + $": {days} " + Tr.T("дн.", "күн", "days", "gün", "kun")
             + " · " + PeriodRange.Label(_from, _to);
 
-        var today = DateTime.Today;
+        var today = ServerClock.Today;
         var firstThisMonth = PeriodRange.MonthFrom(today);
         var presets = new (Button Button, DateTime From, DateTime To)[]
         {

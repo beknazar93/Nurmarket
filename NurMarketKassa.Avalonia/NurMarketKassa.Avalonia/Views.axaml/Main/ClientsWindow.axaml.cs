@@ -45,7 +45,11 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
     private bool _isCardBusy;
     private string _cardErrorMessage = "";
 
-    public ObservableCollection<ClientRow> FilteredClients { get; } = new();
+    // 2026-11-06 (В11, шаг 7, п. 26.2): список заменяется одним событием (ReplaceAll), а не Clear + Add на каждую строку.
+    public NurMarketKassa.AvaloniaHost.Services.BulkObservableCollection<ClientRow> FilteredClients { get; } = new();
+
+    // 2026-11-06 (В11, шаг 7, п. 26.2): фильтр списка — после паузы 220 мс с последней буквы поиска, а не на каждую букву.
+    private NurMarketKassa.AvaloniaHost.Services.SearchPause? _searchPause;
 
     /// <summary>Parameterless ctor required by Avalonia XAML runtime loader / designer.</summary>
     public ClientsWindow() : this(ResolveService<IClientsApiService>())
@@ -151,7 +155,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
                 return;
             _searchText = value;
             OnPropertyChanged();
-            ApplyFilter();
+            (_searchPause ??= new NurMarketKassa.AvaloniaHost.Services.SearchPause(ApplyFilter)).Trigger();
         }
     }
 
@@ -390,6 +394,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
     protected override void OnClosed(EventArgs e)
     {
         _loadCts?.Cancel();
+        _searchPause?.Dispose();
         base.OnClosed(e);
     }
 
@@ -493,7 +498,8 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
             UpdateFilterButtons();
             ApplyDebtsToRows();
             ApplyFilter();
-            ClientsScroll?.ScrollToHome();
+            // 2026-11-06 (В11, шаг 9): прокрутка теперь внутри шаблона списка — ищем её в визуальном дереве.
+            Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(ClientsList).OfType<ScrollViewer>().FirstOrDefault()?.ScrollToHome();
             return null;
         }
         catch (ApiException ex)
@@ -657,7 +663,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
 
     private void ApplyFilter()
     {
-        FilteredClients.Clear();
+        _searchPause?.Cancel(); // применяем сейчас — ожидающий отсчёт паузы не нужен (иначе фильтр сработает второй раз)
         var query = _searchText?.Trim() ?? "";
         // 2026-10-19, этап О8: телефон ищется и по цифрам («555123» находит «+996 555 123 456»), как в «Долгах клиентов».
         var digits = new string(query.Where(char.IsDigit).ToArray());
@@ -675,8 +681,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
             _ => source.OrderByDescending(c => c.IsNew).ThenByDescending(c => c.CreatedAt),
         };
 
-        foreach (var row in source)
-            FilteredClients.Add(row);
+        FilteredClients.ReplaceAll(source.ToList());
         UpdateKpis();
         UpdateEmptyState();
     }

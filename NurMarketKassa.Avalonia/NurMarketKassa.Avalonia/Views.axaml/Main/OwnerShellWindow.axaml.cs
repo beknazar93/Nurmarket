@@ -73,8 +73,9 @@ public partial class OwnerShellWindow : Window, IMainShell
     private readonly CancellationTokenSource _cts = new();
     private string _period = "today";
     // 2026-09-30, «в сводке сделай спец. дату тоже»: свои даты (_period = "custom").
-    private DateTime _customFrom = DateTime.Today;
-    private DateTime _customTo = DateTime.Today;
+    // 2026-11-06 (В11, Л4-06 хвост): «Сегодня» и периоды «Сводки» — по серверным часам (ServerClock.Today), а не по часам ПК.
+    private DateTime _customFrom = ServerClock.Today;
+    private DateTime _customTo = ServerClock.Today;
     private bool _refreshing;
     // 2026-11-03 (С-13, аудит «зависание при медленном сервере»): токен текущей загрузки «Сводки» и признак «начать заново» — смена периода и «Обновить» отменяют идущую
     // загрузку, а не ждут её до 55 с (раньше новый запрос просто не стартовал, цифры нового периода приходили после старой загрузки).
@@ -130,7 +131,8 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// <summary>Касса держит замок «одна копия» (Program.cs) — по нему и узнаём, что она запущена.</summary>
     private static bool IsKassaRunning()
     {
-        if (!Mutex.TryOpenExisting(@"Global\NurMarketKassa-SingleInstance", out var mutex))
+        // 2026-11-06 (В11, шаг 22, Н-13): имя замка — Local\, как в Program.cs.
+        if (!Mutex.TryOpenExisting(@"Local\NurMarketKassa-SingleInstance", out var mutex))
             return false;
         mutex.Dispose();
         return true;
@@ -208,7 +210,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-23 (аудит, круг 8, В-6): туннельный обработчик, handledEventsToo — видит и клавиши, которые поле уже обработало.
         AddHandler(KeyDownEvent, (_, _) => _lastKeyInputUtc = DateTime.UtcNow, RoutingStrategies.Tunnel, handledEventsToo: true);
         _timer = new DispatcherTimer { Interval = RefreshInterval };
-        _timer.Tick += async (_, _) => await RefreshWhenShownAsync().ConfigureAwait(true);
+        _timer.Tick += async (_, _) => await RefreshWhenShownAsync(byTimer: true).ConfigureAwait(true);
         // 2026-10-04, п. 7: окно снова активно, а «Сводка» давно не обновлялась (пока окно было свёрнуто
         // или владелец работал в другой программе) — обновить сразу, не дожидаясь таймера.
         Activated += async (_, _) =>
@@ -620,11 +622,11 @@ public partial class OwnerShellWindow : Window, IMainShell
         DashboardTitle.Text = Tr.T("Сводка", "Жыйынтык", "Overview", "Özet", "Umumiy ko'rinish");
         SectionLoadingText.Text = Tr.T("Открываем раздел…", "Бөлүм ачылууда…", "Opening…", "Bölüm açılıyor…", "Bo'lim ochilmoqda…");
         var culture = UiCulture;
-        var today = DateTime.Today.ToString("dddd, d MMMM yyyy", culture);
+        var today = ServerClock.Today.ToString("dddd, d MMMM yyyy", culture);
         DateText.Text = today.Length > 0 ? char.ToUpper(today[0], culture) + today[1..] : today;
         // 2026-10-18, этап О1: на узкой шапке (1024×768) — без дня недели (FitHeaderTools).
         _dateFull = DateText.Text;
-        _dateShort = DateTime.Today.ToString("d MMMM yyyy", culture);
+        _dateShort = ServerClock.Today.ToString("d MMMM yyyy", culture);
         FitHeaderTools();
         TodayButton.Content = Tr.T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun");
         WeekButton.Content = Tr.T("Неделя", "Жума", "Week", "Hafta", "Hafta");
@@ -1067,7 +1069,14 @@ public partial class OwnerShellWindow : Window, IMainShell
         PrepareEmbeddedWindow(window);
         UnsavedInputTracker.Attach(window); // 2026-10-20: «есть несохранённое» — см. SectionBusy
         var section = new Section { Key = key, Window = window };
-        window.Closed += (_, _) => OnSectionClosed(section);
+        window.Closed += (_, _) =>
+        {
+            OnSectionClosed(section);
+            // 2026-11-06 (В11, ПМ-1): закрытый раздел берём на учёт по слабой ссылке (MemoryDiagnostics назовёт тот, что остался в памяти после сборок) и
+            // через 20 с уплотняем кучу — иначе дыры в куче больших объектов держат частную память процесса после закрытия раздела.
+            ClosedObjectWatch.Instance.Track(window, key, DateTime.UtcNow, GC.CollectionCount(2));
+            ScheduleMemoryTrim();
+        };
         _sections.Add(section);
         PosLogger.Log($"Owner app: раздел «{TitleFor(section)}» открыт.", "UI");
         MemoryDiagnostics.LogAround($"раздел {TitleFor(section)} открыт"); // 2026-11-05 (Р3-01): память до/после открытия раздела — в журнал
@@ -1281,6 +1290,28 @@ public partial class OwnerShellWindow : Window, IMainShell
     }
 
     /// <summary>Раздел закрылся сам (своя кнопка «закрыть», Esc) — возвращаемся к сводке.</summary>
+    private DispatcherTimer? _memoryTrimTimer;
+
+    /// <summary>2026-11-06 (В11, ПМ-1): одна сборка с уплотнением кучи через OwnerMemoryTrim.SettleDelay после последнего закрытия раздела (несколько закрытий подряд сливаются в одну).</summary>
+    private void ScheduleMemoryTrim()
+    {
+        if (_cts.IsCancellationRequested)
+            return;
+        if (_memoryTrimTimer is null)
+        {
+            _memoryTrimTimer = new DispatcherTimer { Interval = OwnerMemoryTrim.SettleDelay };
+            _memoryTrimTimer.Tick += (_, _) =>
+            {
+                _memoryTrimTimer?.Stop();
+                var lastKey = _lastKeyInputUtc;
+                _ = Task.Run(() => OwnerMemoryTrim.TrimNow(lastKey));
+            };
+            Closed += (_, _) => _memoryTrimTimer?.Stop();
+        }
+        _memoryTrimTimer.Stop();
+        _memoryTrimTimer.Start();
+    }
+
     private void OnSectionClosed(Section section)
     {
         if (!_sections.Remove(section) || _closingAllSections || !ReferenceEquals(_activeSection, section))
@@ -1661,7 +1692,7 @@ public partial class OwnerShellWindow : Window, IMainShell
 
     private (DateTime From, DateTime To) CurrentRange()
     {
-        var today = DateTime.Today;
+        var today = ServerClock.Today;
         return _period switch
         {
             // 2026-10-20: аудит владельца — «Неделя» была с понедельника (20 447 при 97 242 за 7 дней в других окнах).
@@ -1727,11 +1758,23 @@ public partial class OwnerShellWindow : Window, IMainShell
         _ => Tr.T("к вчера", "кечээге карата", "vs yesterday", "düne göre", "kechaga nisbatan"),
     };
 
+    /// <summary>2026-11-06 (В11, шаг 10): убрать из списков «Сводки» серые заглушки строк (Border.skel), показанные до первого ответа сервера.</summary>
+    private void RemoveSkeletons()
+    {
+        foreach (var list in new[] { RecentList, TopList, AttentionList })
+        {
+            for (var i = list.Children.Count - 1; i >= 0; i--)
+                if (list.Children[i].Classes.Contains("skel"))
+                    list.Children.RemoveAt(i);
+        }
+    }
+
     /// <summary>Сервер недоступен: последние полученные данные (плюс продажи касс по локальной
     /// сети) с пометкой, на какое время они. 2026-09-29: вынесено из RefreshAsync; в аварии
     /// сервера (ServerOutageMonitor) — «Сервер не отвечает · данные на HH:mm» вместо «Нет связи».</summary>
     private void ShowOverviewStale()
     {
+        RemoveSkeletons(); // 2026-11-06 (В11, шаг 10): данных не будет — серые заглушки строк не оставляем
         UseBrush(LiveDot, Shape.FillProperty, "BrushWarning");
         _offline = true;
         if (!ApplyLanSales(online: false))
@@ -1754,12 +1797,14 @@ public partial class OwnerShellWindow : Window, IMainShell
         IsVisible && IsActive && WindowState != WindowState.Minimized && OverviewScroll.IsVisible;
 
     /// <summary>Обновление по таймеру и при возврате в окно — только когда «Сводку» видно (см. RefreshInterval).</summary>
-    private Task RefreshWhenShownAsync()
+    /// <param name="byTimer">2026-11-06 (В11, шаг 5): вызов от таймера — пока пульс продаж жив, интервал растягивается до страховочного (OverviewIntervalNow); сигнал продаж и
+    /// возврат в окно (byTimer = false) обновляют по прежним правилам — новый чек появляется в «Сводке» сразу.</param>
+    private Task RefreshWhenShownAsync(bool byTimer = false)
     {
         // 2026-11-02 (живая проверка круга 3): в простое программа владельца делала ~19 запросов в минуту (касса — ~5,6). «Сводка» (несколько
         // запросов за раз) обновлялась каждые 30 с даже при простое, а видимая-но-неактивная — тоже каждые 30 с. Теперь тихо: см. OverviewIntervalNow.
         if (IsOverviewShown)
-            return DateTime.UtcNow - _lastRefreshStartedUtc >= OverviewIntervalNow(inactive: false) - TimeSpan.FromSeconds(5) ? RefreshAsync() : Task.CompletedTask;
+            return DateTime.UtcNow - _lastRefreshStartedUtc >= OverviewIntervalNow(inactive: false, byTimer) - TimeSpan.FromSeconds(5) ? RefreshAsync() : Task.CompletedTask;
         // 2026-10-22 (аудит 1.17.59, П-З): окно владельца видно, но не активно (владелец работает в кассе рядом) — сводка
         // раньше стояла («Обновлено в 07:10» в 07:45, «Чеки 0» при прошедших возвратах). Теперь обновляется и так, но реже —
         // раз в 5 минут, одним запросом сводки, без пересборки окна; не во время ввода текста.
@@ -1767,7 +1812,7 @@ public partial class OwnerShellWindow : Window, IMainShell
         // обновление пропускалось бы до следующего тика), а «не во время ввода» — только если печатали менее 15 с назад
         // (раньше любое поле с фокусом, даже пустое «Найти раздел», останавливало обновление насовсем).
         var visibleInactive = IsVisible && WindowState != WindowState.Minimized && OverviewScroll.IsVisible && !IsActive;
-        if (visibleInactive && DateTime.UtcNow - _lastRefreshStartedUtc >= OverviewIntervalNow(inactive: true) - TimeSpan.FromSeconds(5)
+        if (visibleInactive && DateTime.UtcNow - _lastRefreshStartedUtc >= OverviewIntervalNow(inactive: true, byTimer) - TimeSpan.FromSeconds(5)
             && !(TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox
                  && DateTime.UtcNow - _lastKeyInputUtc < TypingQuietPeriod))
             return RefreshAsync();
@@ -1777,14 +1822,17 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// <summary>2026-11-02: как часто обновлять «Сводку» по таймеру. Работаю в окне — <see cref="RefreshInterval"/> (30 с); окно не в фокусе или нет ввода
     /// дольше <see cref="SyncCenter.IdleAfter"/> — 60 с; нет ввода дольше <see cref="SyncCenter.DeepIdleAfter"/> — 5 минут. Возврат в окно (Activated) и сигнал
     /// продаж обновляют сразу, поэтому видимые цифры не устаревают.</summary>
-    private static TimeSpan OverviewIntervalNow(bool inactive)
+    private static TimeSpan OverviewIntervalNow(bool inactive, bool byTimer = false)
     {
         var idle = SyncCenter.InputIdle();
         if (idle >= SyncCenter.DeepIdleAfter)
             return TimeSpan.FromMinutes(5);
+        // 2026-11-06 (В11, шаг 5): пульс продаж жив — «Сводку» обновляет его сигнал (OnSalesChangedForAbc) и возврат в окно, таймер — лишь страховка раз в 2 минуты
+        // (было 30–60 с: те же 3 запроса сводки по таймеру при каждой «ничего не изменилось»). Пульс не отвечает — как раньше.
+        var pulseAlive = byTimer && SyncCenter.SalesPulseAlive;
         if (idle >= SyncCenter.IdleAfter || inactive)
-            return TimeSpan.FromSeconds(60);
-        return RefreshInterval;
+            return SyncCenter.OverviewIntervalFor(TimeSpan.FromSeconds(60), pulseAlive);
+        return SyncCenter.OverviewIntervalFor(RefreshInterval, pulseAlive);
     }
 
     // 2026-11-05 (аудит №3, В4-01): строка ожидания сервера в шапке «Сводки» + «Отменить ожидание» (отменяет идущую загрузку, прежние цифры остаются).
@@ -1879,7 +1927,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             var compareKey = $"{_period}:{prevFrom:yyyyMMdd}:{prevTo:yyyyMMdd}";
             // График: для «сегодня» и «недели» — последние 7 дней, для месяца — дни месяца (они уже
             // есть в отчёте за период).
-            var (chartFrom, chartTo) = !ChartIsPeriod ? (DateTime.Today.AddDays(-6), DateTime.Today) : (from, to);
+            var (chartFrom, chartTo) = !ChartIsPeriod ? (ServerClock.Today.AddDays(-6), ServerClock.Today) : (from, to);
 
             var reportTask = App.SalesApi.MarketSalesReportAsync(from, to, ct);
             // 2026-10-06, ТЗ ч.12, п. 3.7: для сравнения нужны только карточки — итоги периода (summary), не весь отчёт.
@@ -2010,7 +2058,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     private string RangeKey(DateTime from, DateTime to) => $"{_period}:{from:yyyyMMdd}:{to:yyyyMMdd}";
 
     private (DateTime From, DateTime To) ChartRange(DateTime from, DateTime to) =>
-        !ChartIsPeriod ? (DateTime.Today.AddDays(-6), DateTime.Today) : (from, to);
+        !ChartIsPeriod ? (ServerClock.Today.AddDays(-6), ServerClock.Today) : (from, to);
 
     private void OnLanPeerData() => Dispatcher.UIThread.Post(() =>
     {
@@ -2293,7 +2341,7 @@ public partial class OwnerShellWindow : Window, IMainShell
     {
         var (from, to) = CurrentRange();
         return from.Date == to.Date
-            ? from.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) + (from.Date == DateTime.Today ? " (сегодня)" : "")
+            ? from.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) + (from.Date == ServerClock.Today ? " (сегодня)" : "")
             : $"{from:dd.MM}–{to:dd.MM.yyyy}";
     }
 
@@ -2440,7 +2488,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             ChartBars.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
             var day = days[i];
             var value = values[i];
-            var isToday = day == DateTime.Today;
+            var isToday = day == ServerClock.Today;
             var isOutlier = capped && outlier[i];
 
             var column = new StackPanel { VerticalAlignment = VerticalAlignment.Bottom };
@@ -2463,7 +2511,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             // Выбросов несколько (51,4 и 15,1) — они различаются хотя бы немного: верхние 12 % высоты — по их размеру.
             var height = value <= 0 ? 2
                 : isOutlier ? barArea * (0.88 + 0.12 * value / max)
-                : Math.Max(4, (capped ? barArea * 0.8 : barArea) * value / scaleMax);
+                : ChartBarHeight.For(value, scaleMax, capped ? barArea * 0.8 : barArea); // 2026-11-06 (Д4-41): столбец дня с продажами не уже 8 px (был минимум 4)
             var bar = new Border
             {
                 Height = height,
@@ -2511,7 +2559,7 @@ public partial class OwnerShellWindow : Window, IMainShell
             ChartBars.Children.Add(label);
         }
 
-        if (BarChartRenderer.SeriesLegend(this, bestDays.Count > 0, worstDays.Count > 0, days.Contains(DateTime.Today),
+        if (BarChartRenderer.SeriesLegend(this, bestDays.Count > 0, worstDays.Count > 0, days.Contains(ServerClock.Today),
                 Tr.T("Лучший день", "Эң мыкты күн", "Best day", "En iyi gün", "Eng yaxshi kun"),
                 Tr.T("Самый слабый день", "Эң начар күн", "Weakest day", "En zayıf gün", "Eng sust kun"),
                 Tr.T("Сегодня", "Бүгүн", "Today", "Bugün", "Bugun")) is { } legend)
@@ -2871,7 +2919,7 @@ public partial class OwnerShellWindow : Window, IMainShell
 
             var created = Str(sale, "created_at");
             var time = DateTimeOffset.TryParse(created, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dto)
-                ? dto.LocalDateTime.ToString(dto.LocalDateTime.Date == DateTime.Today ? "HH:mm" : "dd.MM", CultureInfo.InvariantCulture)
+                ? dto.LocalDateTime.ToString(dto.LocalDateTime.Date == ServerClock.Today ? "HH:mm" : "dd.MM", CultureInfo.InvariantCulture)
                 : "";
             var timeText = new TextBlock { Text = time, FontSize = 13, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 0, 0), Classes = { "num" } };
             UseBrush(timeText, TextBlock.ForegroundProperty, "BrushTextSoft");
@@ -3359,8 +3407,8 @@ public partial class OwnerShellWindow : Window, IMainShell
     private readonly DispatcherTimer _abcDebounce;
     private AbcSectionView? _abcView;
     private CancellationTokenSource? _abcCts;
-    private DateTime _abcFrom = DateTime.Today;
-    private DateTime _abcTo = DateTime.Today;
+    private DateTime _abcFrom = ServerClock.Today;
+    private DateTime _abcTo = ServerClock.Today;
 
     /// <summary>Продажи изменились, пока сводка была скрыта разделом, — пересчитать при возврате.</summary>
     private bool _abcStale;

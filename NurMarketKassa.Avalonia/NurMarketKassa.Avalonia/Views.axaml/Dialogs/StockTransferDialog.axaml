@@ -282,6 +282,10 @@
                   Content="{DynamicResource warehouse.transferCancel}" Click="CancelTransfer_Click"/>
         </StackPanel>
 
+        <!-- 2026-11-06 (В11, макет MStock.html): итог партии и что станет с документом после кнопки слева. -->
+        <TextBlock x:Name="SummaryText" Grid.Column="1" Margin="16,0" FontSize="13" VerticalAlignment="Center" TextWrapping="Wrap"
+                   Foreground="{DynamicResource BrushTextSoft}"/>
+
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
           <Button Classes="SecondaryButton" Content="Excel" Click="ExportExcel_Click"/>
           <Button Classes="SecondaryButton" Content="Word" Click="ExportWord_Click"/>

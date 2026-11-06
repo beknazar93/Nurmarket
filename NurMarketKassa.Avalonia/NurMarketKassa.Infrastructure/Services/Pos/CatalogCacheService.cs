@@ -20,6 +20,53 @@ public static class CatalogCacheService
 
     public static List<CatalogProductTileVm> Products { get; } = [];
 
+    // 2026-11-06 (шаг 17, ядро): поиск плитки по id был FirstOrDefault по всему списку — на ревизии и продаже 15 000 × число строк. Индекс id → позиция строится лениво
+    // и проверяется при каждом обращении (плитка на своём месте и с тем же id), поэтому правки списка в любом месте (Add, замена по индексу, Clear + AddRange) его не ломают:
+    // устаревший индекс перестраивается, а промах без явных признаков устаревания проверяется прежним линейным поиском — результат всегда тот же, что у FirstOrDefault.
+    private static readonly object IdIndexGate = new();
+    private static Dictionary<string, int>? _idIndex;
+    private static int _idIndexCount = -1;
+
+    /// <summary>Плитка каталога по id (без учёта регистра) — то же, что <c>Products.FirstOrDefault(p => p.Id == id)</c>, но без прохода по всему списку.</summary>
+    public static CatalogProductTileVm? FindProductById(string? id)
+    {
+        if (string.IsNullOrEmpty(id))
+            return null;
+        lock (IdIndexGate)
+        {
+            var list = Products;
+            var stale = _idIndex is null || _idIndexCount != list.Count;
+            if (!stale && _idIndex!.TryGetValue(id, out var at))
+            {
+                if (at < list.Count && string.Equals(list[at].Id, id, StringComparison.OrdinalIgnoreCase))
+                    return list[at];
+                stale = true; // плитку заменили или убрали — индекс устарел
+            }
+
+            if (stale)
+            {
+                RebuildIdIndex(list);
+                return _idIndex!.TryGetValue(id, out var fresh) ? list[fresh] : null;
+            }
+
+            // Индекс свежий по числу плиток и id в нём нет: на всякий случай (замена плитки на плитку с другим id при том же числе) — прежний линейный поиск.
+            var found = list.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (found is not null)
+                RebuildIdIndex(list);
+            return found;
+        }
+    }
+
+    private static void RebuildIdIndex(List<CatalogProductTileVm> list)
+    {
+        var map = new Dictionary<string, int>(list.Count, StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < list.Count; i++)
+            if (!string.IsNullOrEmpty(list[i].Id))
+                map.TryAdd(list[i].Id, i); // при одинаковых id — первая, как у FirstOrDefault
+        _idIndex = map;
+        _idIndexCount = list.Count;
+    }
+
     public static DateTime? LastSyncTime { get; private set; }
 
     public static string? LocalCatalogVersionToken => Repository.GetCatalogVersionToken();

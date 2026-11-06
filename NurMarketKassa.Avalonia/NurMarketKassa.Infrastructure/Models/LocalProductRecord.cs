@@ -46,4 +46,12 @@ public sealed class LocalProductRecord
     /// <summary>Код товара (поле "code" в NurCRM) — отдельное от Article поле; весы Rongta в
     /// раскладке "по коду" кодируют именно его. См. CatalogProductTileVm.ProductCode.</summary>
     public string? ProductCode { get; set; }
+
+    // 2026-11-06 (В12, Б-5, Б-8): поля карточки, которых не было в базе (плашка скидки в Складе и скидка на ценнике A4 пропадали после перезапуска; «Минимальный остаток»
+    // не использовался). Пустые столбцы добавляются безопасно (LocalProductRepository.EnsureProductColumns, версия каталога не сбрасывается) и заполняются при ближайшей загрузке.
+    public double DiscountPercent { get; set; }
+    public double MarkupPercent { get; set; }
+    public string? Country { get; set; }
+    public double? WeightKg { get; set; }
+    public double? MinQuantity { get; set; }
 }

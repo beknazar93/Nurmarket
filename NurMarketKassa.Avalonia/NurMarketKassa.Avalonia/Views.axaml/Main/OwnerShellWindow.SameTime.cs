@@ -19,19 +19,19 @@ public partial class OwnerShellWindow
     /// <summary>Доля вчерашней выручки и вчерашних чеков, набранная к этому часу; null — сравнивать с целым днём.</summary>
     private (double Revenue, double Checks)? YesterdayShareNow()
     {
-        if (_period != "today" || _yesterdaySales is not { Count: > 0 } list || _yesterdayLoadedFor != DateTime.Today.AddDays(-1))
+        if (_period != "today" || _yesterdaySales is not { Count: > 0 } list || _yesterdayLoadedFor != ServerClock.Today.AddDays(-1))
             return null;
         var total = list.Sum(x => x.Total);
         if (total <= 0)
             return null;
-        var now = DateTime.Now.TimeOfDay;
+        var now = ServerClock.LocalNow.TimeOfDay;
         return (list.Where(x => x.At <= now).Sum(x => x.Total) / total, (double)list.Count(x => x.At <= now) / list.Count);
     }
 
     /// <summary>Вчерашние чеки (время и сумма) — один раз в день; ошибки не мешают «Сводке».</summary>
     private async Task EnsureYesterdaySalesAsync(CancellationToken ct)
     {
-        var day = DateTime.Today.AddDays(-1);
+        var day = ServerClock.Today.AddDays(-1);
         if (_period != "today" || _yesterdayLoadedFor == day || _yesterdayLoading)
             return;
         _yesterdayLoading = true;

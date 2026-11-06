@@ -778,13 +778,15 @@ public partial class WarehouseWindow
         if (s is null)
             return;
         var t = s.GetTotals();
+        // 2026-11-06 (В12, ЖП Н-3): в «Пересчёте дня» счётчики — по выбранным позициям (25), а не по всей ревизии (15 459). Деньги (ниже) остаются по всей ревизии.
+        (int Total, int Counted, int NotCounted, int WithDifference) shown = _cycleIds is { Count: > 0 } cycle ? s.GetSubsetCounts(cycle) : (t.Total, t.Counted, t.NotCounted, t.WithDifference);
         var som = RevT("сом", "сом", "som", "TL", "so'm");
         var pcs = RevT("шт", "дана", "pcs", "adet", "dona");
         var text = RevT(
-            $"Посчитано {ReportFormat.Integer(t.Counted)} из {ReportFormat.Integer(t.Total)}", $"Саналды {ReportFormat.Integer(t.Counted)} / {ReportFormat.Integer(t.Total)}",
-            $"Counted {ReportFormat.Integer(t.Counted)} of {ReportFormat.Integer(t.Total)}", $"Sayılan {ReportFormat.Integer(t.Counted)} / {ReportFormat.Integer(t.Total)}", $"Sanaldi {ReportFormat.Integer(t.Counted)} / {ReportFormat.Integer(t.Total)}");
-        text += "  ·  " + RevT($"с расхождением {ReportFormat.Integer(t.WithDifference)}", $"айырмасы бар {ReportFormat.Integer(t.WithDifference)}",
-            $"with differences {ReportFormat.Integer(t.WithDifference)}", $"farklı {ReportFormat.Integer(t.WithDifference)}", $"farqli {ReportFormat.Integer(t.WithDifference)}");
+            $"Посчитано {ReportFormat.Integer(shown.Counted)} из {ReportFormat.Integer(shown.Total)}", $"Саналды {ReportFormat.Integer(shown.Counted)} / {ReportFormat.Integer(shown.Total)}",
+            $"Counted {ReportFormat.Integer(shown.Counted)} of {ReportFormat.Integer(shown.Total)}", $"Sayılan {ReportFormat.Integer(shown.Counted)} / {ReportFormat.Integer(shown.Total)}", $"Sanaldi {ReportFormat.Integer(shown.Counted)} / {ReportFormat.Integer(shown.Total)}");
+        text += "  ·  " + RevT($"с расхождением {ReportFormat.Integer(shown.WithDifference)}", $"айырмасы бар {ReportFormat.Integer(shown.WithDifference)}",
+            $"with differences {ReportFormat.Integer(shown.WithDifference)}", $"farklı {ReportFormat.Integer(shown.WithDifference)}", $"farqli {ReportFormat.Integer(shown.WithDifference)}");
         // 2026-10-29: владельцу/администратору деньги по расхождению — отдельными строками ниже (по закупке и по продаже), кассиру — как раньше, по продаже.
         var money = RevisionRowView.ShowMoney;
         _revMoneyPanel.Children.Clear();
@@ -813,10 +815,10 @@ public partial class WarehouseWindow
             text += "  ·  " + RevT($"по размерам (не входят): {t.ReadOnly}", $"өлчөмдөр боюнча (кирбейт): {t.ReadOnly}", $"by sizes (not included): {t.ReadOnly}", $"bedenlere göre (dahil değil): {t.ReadOnly}", $"o'lchamlar bo'yicha (kirmaydi): {t.ReadOnly}");
         _revTotalsText.Text = text;
 
-        _revPills[0].Content = RevT("Все", "Баары", "All", "Tümü", "Hammasi") + " " + ReportFormat.Integer(t.Total);
-        _revPills[1].Content = RevT("Посчитанные", "Саналгандар", "Counted", "Sayılanlar", "Sanalganlar") + " " + ReportFormat.Integer(t.Counted);
-        _revPills[2].Content = RevT("Не посчитанные", "Саналбагандар", "Not counted", "Sayılmayanlar", "Sanalmaganlar") + " " + ReportFormat.Integer(t.NotCounted);
-        _revPills[3].Content = RevT("С расхождением", "Айырмасы бар", "With differences", "Farklı olanlar", "Farqlilar") + " " + ReportFormat.Integer(t.WithDifference);
+        _revPills[0].Content = RevT("Все", "Баары", "All", "Tümü", "Hammasi") + " " + ReportFormat.Integer(shown.Total);
+        _revPills[1].Content = RevT("Посчитанные", "Саналгандар", "Counted", "Sayılanlar", "Sanalganlar") + " " + ReportFormat.Integer(shown.Counted);
+        _revPills[2].Content = RevT("Не посчитанные", "Саналбагандар", "Not counted", "Sayılmayanlar", "Sanalmaganlar") + " " + ReportFormat.Integer(shown.NotCounted);
+        _revPills[3].Content = RevT("С расхождением", "Айырмасы бар", "With differences", "Farklı olanlar", "Farqlilar") + " " + ReportFormat.Integer(shown.WithDifference);
         _revFinishButton.IsEnabled = t.Counted > 0 || s.IsPostingStarted;
         _revDiscardButton.IsEnabled = !s.IsPostingStarted;
     }
@@ -1580,7 +1582,7 @@ public partial class WarehouseWindow
         foreach (var line in parts.SelectMany(a => a.Lines))
         {
             var card = CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, line.ProductId, StringComparison.OrdinalIgnoreCase));
-            rows.Add(new RevisionExportRow(line.Name, card?.Barcode, line.Before, line.Fact,
+            rows.Add(new RevisionExportRow(line.Name, card?.BarcodeDisplay, line.Before, line.Fact,
                 card is null ? 0 : LocalCartService.ParsePrice(card.PriceLine), buy ? card?.PurchasePrice : null, whenUtc.ToLocalTime(), line.Fact));
         }
 

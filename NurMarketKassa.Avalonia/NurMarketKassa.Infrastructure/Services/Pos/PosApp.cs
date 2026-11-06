@@ -30,7 +30,21 @@ public static class PosApp
     /// TryReassignCashboxAsync / CashShiftService.TryReassignCashboxAsync), гарантируя, что
     /// повторный подбор пройдёт по списку до первой ещё не отвергнутой кассы, а не зациклится.</summary>
     public static HashSet<string> RejectedCashboxIds { get; } = new(StringComparer.OrdinalIgnoreCase);
-    public static string? ActiveShiftId { get; set; }
+    // 2026-11-06 (аудит Этапа 2, С-1): «эпоха» смены — растёт при каждой смене ActiveShiftId (открытие/закрытие/подмена); по ней отбрасывается заранее запрошенный
+    // список открытых смен, если смена за это время менялась (иначе закрытая смена «воскресала» из старого списка).
+    private static string? _activeShiftId;
+    private static int _shiftEpoch;
+    public static string? ActiveShiftId
+    {
+        get => Volatile.Read(ref _activeShiftId);
+        set
+        {
+            if (!string.Equals(Volatile.Read(ref _activeShiftId), value, StringComparison.Ordinal))
+                Interlocked.Increment(ref _shiftEpoch);
+            Volatile.Write(ref _activeShiftId, value);
+        }
+    }
+    public static int ShiftEpoch => Volatile.Read(ref _shiftEpoch);
     public static bool IsOfflineBootstrap { get; set; }
     public static string? OfflineBootstrapMessage { get; set; }
 }

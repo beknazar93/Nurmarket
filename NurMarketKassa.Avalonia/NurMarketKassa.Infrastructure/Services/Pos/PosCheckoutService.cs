@@ -2393,8 +2393,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                 if (string.IsNullOrEmpty(productId))
                     continue;
 
-                var tile = CatalogCacheService.Products.FirstOrDefault(p =>
-                    string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+                var tile = CatalogCacheService.FindProductById(productId); // 2026-11-06 (шаг 17, ядро): по индексу, а не проходом по всему каталогу на каждую строку чека
                 if (tile == null)
                     continue;
 
@@ -2432,8 +2431,7 @@ public sealed partial class PosCheckoutService : IPosCheckoutService
                         if (string.IsNullOrEmpty(component.ProductId))
                             continue;
 
-                        var componentTile = CatalogCacheService.Products.FirstOrDefault(p =>
-                            string.Equals(p.Id, component.ProductId, StringComparison.OrdinalIgnoreCase));
+                        var componentTile = CatalogCacheService.FindProductById(component.ProductId); // 2026-11-06 (шаг 17)
                         if (componentTile == null)
                             continue;
 

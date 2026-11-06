@@ -34,8 +34,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private readonly ObservableCollection<SaleItem> _sales = new();
         private readonly ObservableCollection<RefundItem> _refunds = new();
         private readonly CollectionViewSource _salesViewSource = new();
-        private DateTime _historyFrom = DateTime.Today;
-        private DateTime _historyTo = DateTime.Today;
+        // 2026-11-06 (В11, Л4-06 хвост): «Сегодня» в отчётах — по серверным часам (ServerClock.Today), а не по часам ПК.
+        private DateTime _historyFrom = ServerClock.Today;
+        private DateTime _historyTo = ServerClock.Today;
         private string _searchFilter = "";
         private bool _isLoading;
         private string _errorMessage;
@@ -1596,7 +1597,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _quickDatePill = rb;
 
             DateTime from, to;
-            DateTime today = DateTime.Today;
+            DateTime today = ServerClock.Today;
             switch (tag)
             {
                 case "Yesterday": from = to = today.AddDays(-1); break;

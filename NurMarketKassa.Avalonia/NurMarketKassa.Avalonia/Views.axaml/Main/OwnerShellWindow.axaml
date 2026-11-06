@@ -731,6 +731,12 @@
             <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
+        <!-- 2026-11-06 (В11, шаг 10): заглушка строки списка, пока «Сводка» ждёт первый ответ сервера — карточки сразу нужной высоты, ничего не сдвигается
+             при появлении данных. Убирается первым же заполнением списка (Children.Clear) или RemoveSkeletons(). Цвет — из темы. -->
+        <Style Selector="Border.skel">
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Background" Value="{DynamicResource BrushInputAlt}"/>
+        </Style>
         <Style Selector="TextBlock.empty">
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
@@ -1176,7 +1182,11 @@
                         <Border Grid.Column="2" Classes="card" x:Name="AttentionCard">
                             <StackPanel Spacing="12">
                                 <TextBlock x:Name="AttentionTitle" Classes="cardTitle"/>
-                                <StackPanel x:Name="AttentionList" Spacing="8"/>
+                                <StackPanel x:Name="AttentionList" Spacing="8">
+                                    <Border Classes="skel" Height="40"/>
+                                    <Border Classes="skel" Height="40"/>
+                                    <Border Classes="skel" Height="40"/>
+                                </StackPanel>
                                 <TextBlock x:Name="AttentionEmptyText" FontSize="14" TextWrapping="Wrap" IsVisible="False"
                                            Foreground="{DynamicResource BrushTextSoft}"/>
                             </StackPanel>
@@ -1198,7 +1208,13 @@
                                     </Button>
                                 </Grid>
                                 <Panel>
-                                    <StackPanel x:Name="RecentList"/>
+                                    <StackPanel x:Name="RecentList">
+                                        <Border Classes="skel" Height="44" Margin="0,3"/>
+                                        <Border Classes="skel" Height="44" Margin="0,3"/>
+                                        <Border Classes="skel" Height="44" Margin="0,3"/>
+                                        <Border Classes="skel" Height="44" Margin="0,3"/>
+                                        <Border Classes="skel" Height="44" Margin="0,3"/>
+                                    </StackPanel>
                                     <TextBlock x:Name="RecentEmptyText" Classes="empty" IsVisible="False"/>
                                 </Panel>
                             </DockPanel>
@@ -1234,7 +1250,13 @@
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Top" x:Name="TopTitle" Classes="cardTitle" Margin="0,0,0,12"/>
                                 <Panel>
-                                    <StackPanel x:Name="TopList" Spacing="12"/>
+                                    <StackPanel x:Name="TopList" Spacing="12">
+                                        <Border Classes="skel" Height="32"/>
+                                        <Border Classes="skel" Height="32"/>
+                                        <Border Classes="skel" Height="32"/>
+                                        <Border Classes="skel" Height="32"/>
+                                        <Border Classes="skel" Height="32"/>
+                                    </StackPanel>
                                     <TextBlock x:Name="TopEmptyText" Classes="empty" IsVisible="False"/>
                                 </Panel>
                             </DockPanel>

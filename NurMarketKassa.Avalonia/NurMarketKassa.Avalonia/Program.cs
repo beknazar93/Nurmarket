@@ -52,8 +52,10 @@ internal static class Program
         }
 
         // У программы владельца своё имя: на одном компьютере с кассой они не должны мешать друг другу.
+        // 2026-11-06 (В11, шаг 22, Н-13): Local\ вместо Global\ — замок на сеанс Windows: второй пользователь ПК (быстрое переключение) не блокирует чужую кассу,
+        // обычному пользователю не нужно право на глобальные объекты.
         _singleInstanceMutex = new Mutex(initiallyOwned: true,
-            @"Global\NurMarketKassa-SingleInstance" + NurMarketKassa.Services.AppMode.InstanceSuffix, out var createdNew);
+            @"Local\NurMarketKassa-SingleInstance" + NurMarketKassa.Services.AppMode.InstanceSuffix, out var createdNew);
         // 2026-11-05 (аудит №3, Р3-02): «--close-quiet» — просьба к работающей программе закрыться БЕЗ вопросов («Смена не закрыта»,
         // «Сохранить и выйти?»); смена остаётся открытой. Для установщика/скрипта обновления вместо CloseMainWindow. Если никто не работает — просто выходим.
         var closeQuiet = Array.Exists(args, a => string.Equals(a, "--close-quiet", StringComparison.OrdinalIgnoreCase));
@@ -120,7 +122,7 @@ internal static class Program
 
     /// <summary>Имя общесистемного сигнала «покажись». Отдельно от мьютекса: мьютекс отвечает
     /// на вопрос «кто-то уже работает?», а это — способ попросить того, кто работает, показаться.</summary>
-    private static string ShowRequestEventName => @"Global\NurMarketKassa-ShowRequest" + NurMarketKassa.Services.AppMode.InstanceSuffix;
+    private static string ShowRequestEventName => @"Local\NurMarketKassa-ShowRequest" + NurMarketKassa.Services.AppMode.InstanceSuffix;
 
     /// <summary>Просит уже работающую кассу показать окно. false — сигнал передать не удалось
     /// (старая версия без слушателя, либо запрет на именованные объекты), тогда вызывающий
@@ -128,7 +130,7 @@ internal static class Program
     private static bool TrySignalExistingInstance() => TrySignalEvent(ShowRequestEventName);
 
     /// <summary>2026-11-05 (Р3-02): имя сигнала «закройся тихо» (см. --close-quiet).</summary>
-    private static string QuietCloseEventName => @"Global\NurMarketKassa-QuietClose" + NurMarketKassa.Services.AppMode.InstanceSuffix;
+    private static string QuietCloseEventName => @"Local\NurMarketKassa-QuietClose" + NurMarketKassa.Services.AppMode.InstanceSuffix;
 
     private static bool TrySignalEvent(string name)
     {

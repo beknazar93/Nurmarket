@@ -2,9 +2,11 @@ using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Platform.Storage;
+using Microsoft.Extensions.DependencyInjection;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.AvaloniaHost.Views.Settings;
+using NurMarketKassa.Configuration;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Hardware;
 
@@ -37,14 +39,83 @@ public partial class ScalesPluWindow
         {
             if (!byId.TryGetValue(id, out var product) || problems.ContainsKey(id) || !codes.TryGetValue(id, out var code) || !numbers.TryGetValue(id, out var plu))
                 continue;
-            items.Add(new ShtrikhPcItem(code, product.Title, (decimal)LocalCartService.ParsePrice(product.PriceLine), IsPiece: !product.IsWeighted));
+            items.Add(new ShtrikhPcItem(code, product.Title, (decimal)LocalCartService.ParsePrice(product.PriceLine), IsPiece: !product.IsWeighted, Barcode: product.Barcode,
+                PictureSource: settings.SendPictures && !string.IsNullOrWhiteSpace(product.ImageUrl) ? product.ImageUrl : null));
             ids.Add(id);
             written[id] = new ScaleSentPlu { Plu = plu, Code = code.ToString(CultureInfo.InvariantCulture), Name = product.Title };
         }
         return (items, written, ids, problems.Count);
     }
 
-    private async Task SendToShtrikhPcAsync()
+    /// <summary>Кнопка «Полная выгрузка (с очисткой)…» стоит на месте «Листа кнопок» (у РС-200 кнопки экрана настраиваются на самих весах).</summary>
+    private Button? _pcFullButton;
+
+    /// <summary>Показывает/прячет то, что есть только у РС-200 (вызывается из ApplyBrandVisibility).</summary>
+    private void UpdateShtrikhPcExtras()
+    {
+        if (_pcFullButton is null && KeySheetButton.Parent is Grid grid)
+        {
+            _pcFullButton = new Button
+            {
+                Classes = { "SecondaryActionButton" },
+                Height = 44,
+                Margin = new Avalonia.Thickness(0, 0, 10, 0),
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                Content = Tr.T("Полная выгрузка (с очисткой)…", "Толук жүктөө (тазалоо менен)…", "Full upload (with clearing)…", "Tam yükleme (temizlemeyle)…", "To‘liq yuklash (tozalash bilan)…"),
+            };
+            Grid.SetColumn(_pcFullButton, Grid.GetColumn(KeySheetButton));
+            _pcFullButton.Click += async (_, _) => await SendToShtrikhPcAsync(full: true).ConfigureAwait(true);
+            grid.Children.Add(_pcFullButton);
+        }
+        if (_pcFullButton is not null)
+            _pcFullButton.IsVisible = IsShtrikhPc;
+        KeySheetButton.IsVisible = !IsShtrikhPc;
+    }
+
+    /// <summary>Картинка товара для весов: из кэша миниатюр кассы, иначе скачивание по ссылке товара; затем BMP 288×288. null — фото не получилось.</summary>
+    private static async Task<byte[]?> LoadPictureBmpAsync(ShtrikhPcItem item, CancellationToken ct)
+    {
+        var url = item.PictureSource;
+        if (string.IsNullOrWhiteSpace(url))
+            return null;
+        byte[]? bytes = null;
+        var cached = ProductThumbService.TryGetCachedPath(url);
+        if (cached is not null)
+            bytes = await File.ReadAllBytesAsync(cached, ct).ConfigureAwait(false);
+        else if (App.AppHost?.Services is { } services)
+        {
+            var authApi = services.GetRequiredService<NurMarketKassa.Services.Api.IAuthApiService>();
+            var apiBaseUrl = services.GetRequiredService<AppSettings>().ApiBaseUrl;
+            bytes = await ProductThumbService.DownloadOriginalAsync(authApi, apiBaseUrl, url, ct).ConfigureAwait(false);
+        }
+        if (bytes is null)
+            return null;
+        return await Task.Run(() => ShtrikhPcPictureConverter.ToBmp(bytes), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>«Картинки: M из K, без фото: L» — итог картинок выгрузки (для строки состояния и журнала).</summary>
+    private static string PictureSummary(ShtrikhPcPictureStats? s)
+    {
+        if (s is null)
+            return "";
+        var failedRu = s.Failed > 0 ? $", не получились: {s.Failed}" : "";
+        var failedKy = s.Failed > 0 ? $", болгон жок: {s.Failed}" : "";
+        var failedEn = s.Failed > 0 ? $", failed: {s.Failed}" : "";
+        var failedTr = s.Failed > 0 ? $", başarısız: {s.Failed}" : "";
+        var failedUz = s.Failed > 0 ? $", chiqmadi: {s.Failed}" : "";
+        var lateRu = s.TimedOut > 0 ? $", не успели: {s.TimedOut} (догрузятся в следующий раз)" : "";
+        var lateKy = s.TimedOut > 0 ? $", үлгүргөн жок: {s.TimedOut} (кийинки жолу жүктөлөт)" : "";
+        var lateEn = s.TimedOut > 0 ? $", out of time: {s.TimedOut} (next time)" : "";
+        var lateTr = s.TimedOut > 0 ? $", yetişmedi: {s.TimedOut} (sonraki sefer)" : "";
+        var lateUz = s.TimedOut > 0 ? $", ulgurmadi: {s.TimedOut} (keyingi safar)" : "";
+        return " " + Tr.T($"Картинки: {s.WithPicture} из {s.Total}, без фото: {s.NoPhoto}{failedRu}{lateRu}.",
+            $"Сүрөттөр: {s.Total} ичинен {s.WithPicture}, сүрөтсүз: {s.NoPhoto}{failedKy}{lateKy}.",
+            $"Pictures: {s.WithPicture} of {s.Total}, no photo: {s.NoPhoto}{failedEn}{lateEn}.",
+            $"Resimler: {s.Total} içinden {s.WithPicture}, fotoğrafsız: {s.NoPhoto}{failedTr}{lateTr}.",
+            $"Rasmlar: {s.Total} dan {s.WithPicture}, rasmsiz: {s.NoPhoto}{failedUz}{lateUz}.");
+    }
+
+    private async Task SendToShtrikhPcAsync(bool full = false)
     {
         var selectedIds = _allRows.Where(r => r.IsSelected).Select(r => r.Id).ToList();
         if (selectedIds.Count == 0)
@@ -59,6 +130,25 @@ public partial class ScalesPluWindow
             StatusText.Text = ScaleUi.PcFolderCheckText(ShtrikhPcFolderCheck.NoFolder, "", "");
             return;
         }
+        if (full)
+        {
+            // Полная выгрузка: $$$CLR + только товары кассы. Обычная выгрузка очистку не добавляет.
+            var count = selectedIds.Count;
+            var ok = await PosDialogHost.ShowAsync(new PosConfirmDialog(
+                Tr.T("Полная выгрузка с очисткой базы весов", "Таразанын базасын тазалап толук жүктөө", "Full upload with clearing the scale database", "Tartı veritabanını temizleyerek tam yükleme", "Tarozi bazasini tozalab to‘liq yuklash"),
+                Tr.T($"Будет очищена база товаров на весах ($$$CLR) и записаны заново только товары кассы (отмечено: {count}). Товары и картинки, которых нет в кассе, пропадут с весов. Тестовые товары удалятся.",
+                     $"Таразадагы товарлар базасы тазаланат ($$$CLR) жана кассанын гана товарлары кайра жазылат (белгиленген: {count}). Кассада жок товарлар жана сүрөттөр таразадан жоголот. Сынак товарлар өчөт.",
+                     $"The goods database on the scale will be cleared ($$$CLR) and only the till's goods will be written again (ticked: {count}). Goods and pictures that are not in the till will disappear from the scale. Test goods will be deleted.",
+                     $"Tartıdaki ürün veritabanı temizlenecek ($$$CLR) ve yalnızca kasanın ürünleri yeniden yazılacak (işaretli: {count}). Kasada olmayan ürünler ve resimler tartıdan silinecek. Test ürünleri silinecek.",
+                     $"Tarozidagi tovarlar bazasi tozalanadi ($$$CLR) va faqat kassa tovarlari qaytadan yoziladi (belgilangan: {count}). Kassada yo‘q tovarlar va rasmlar tarozidan yo‘qoladi. Sinov tovarlari o‘chadi."),
+                confirmText: Tr.T("Очистить и выгрузить", "Тазалап жүктөө", "Clear and upload", "Temizle ve yükle", "Tozalab yuklash"),
+                accent: PosConfirmAccent.Danger), this).ConfigureAwait(true) == true;
+            if (!ok)
+                return;
+        }
+        settings.ClearBase = full;
+        // 2026-11-06: точка расширения — готовый PCScale.txt с сервера NurCRM (GET /api/main/products/scale-export/?format=shtrih_pc200, Умар добавит позже).
+        // Пока скачивание не реализовано: касса всегда собирает файл сама (ShtrikhPcSettings.FileSource в окне не выбирается).
 
         SendButton.IsEnabled = false;
         StatusText.Text = Tr.T("Запись файла в папку весов…", "Файлды таразанын папкасына жазуу…", "Writing the file to the scale folder…", "Dosya tartı klasörüne yazılıyor…", "Fayl tarozi papkasiga yozilmoqda…");
@@ -66,7 +156,16 @@ public partial class ScalesPluWindow
         try
         {
             var (items, written, recordIds, problemCount) = BuildShtrikhPcItems(selectedIds, settings);
-            var result = await ShtrikhPcImportWriter.WriteAsync(items, settings, overwritePending: false, settings.MaxProductCode).ConfigureAwait(true);
+            // Картинки товаров: на главном экране весов видны только товары с картинкой. Не больше ~2,5 минут на выгрузку, неизменившиеся не перекачиваются.
+            var pictureProgress = new Progress<(int Done, int Total)>(p =>
+            {
+                SetProgress(p.Done, p.Total);
+                StatusText.Text = Tr.T($"Картинки товаров: {p.Done} из {p.Total}…", $"Товар сүрөттөрү: {p.Total} ичинен {p.Done}…", $"Product pictures: {p.Done} of {p.Total}…", $"Ürün resimleri: {p.Done} / {p.Total}…", $"Tovar rasmlari: {p.Total} dan {p.Done}…");
+            });
+            var pictureStep = settings.SendPictures
+                ? ShtrikhPcPictures.CreateStep(LoadPictureBmpAsync, ShtrikhPcPictureState.Load(), TimeSpan.FromSeconds(150), TimeSpan.FromSeconds(25), pictureProgress)
+                : null;
+            var result = await ShtrikhPcImportWriter.WriteAsync(items, settings, overwritePending: false, settings.MaxProductCode, CancellationToken.None, pictureStep).ConfigureAwait(true);
             if (result.Status == ShtrikhPcWriteStatus.PendingNotAccepted)
             {
                 // Прежний файл весы ещё не приняли: без подтверждения не затираем.
@@ -90,7 +189,7 @@ public partial class ScalesPluWindow
                         row.SetStatus(NotSentText(), RowState.Warning);
                     return;
                 }
-                result = await ShtrikhPcImportWriter.WriteAsync(items, settings, overwritePending: true, settings.MaxProductCode).ConfigureAwait(true);
+                result = await ShtrikhPcImportWriter.WriteAsync(items, settings, overwritePending: true, settings.MaxProductCode, CancellationToken.None, pictureStep).ConfigureAwait(true);
             }
 
             var rowsById = _allRows.ToDictionary(r => r.Id);
@@ -102,14 +201,17 @@ public partial class ScalesPluWindow
                         row.SetStatus(SentText() + " · " + Tr.T("код ", "код ", "code ", "kod ", "kod ") + written[id].Code, RowState.Ok);
                 }
                 RememberSent(written, Array.Empty<int>());
-                PosLogger.Log($"Весы Штрих РС: записано {result.Written} товаров в {result.ImportPath}", "SCALES");
+                PosLogger.Log($"Весы Штрих РС: записано {result.Written} товаров в {result.ImportPath}" + (full ? " (полная выгрузка с очисткой)" : ""), "SCALES");
+                if (result.Pictures is { } ps)
+                    PosLogger.Log($"Весы Штрих РС: картинки: с картинкой {ps.WithPicture} из {ps.Total} (записано {ps.Written}, не менялись {ps.Unchanged}), без фото {ps.NoPhoto}, не получились {ps.Failed}, не успели {ps.TimedOut}", "SCALES");
                 foreach (var warning in result.Warnings)
                     PosLogger.Log($"Весы Штрих РС: {warning}", "SCALES");
-                StatusText.Text = Tr.T($"Записано в папку весов: {result.Written} (файл {result.ImportPath}). Весы заберут его сами через «Обновление» минут или сразу — «Система и печать» → «Импорт данных».",
-                        $"Таразанын папкасына жазылды: {result.Written} (файл {result.ImportPath}). Тараза аны «Обновление» мүнөттөн кийин өзү алат же дароо — «Система и печать» → «Импорт данных».",
-                        $"Written to the scale folder: {result.Written} (file {result.ImportPath}). The scale picks it up itself after “Update” minutes or right away — “System and printing” → “Import data”.",
-                        $"Tartı klasörüne yazıldı: {result.Written} (dosya {result.ImportPath}). Tartı onu «Обновление» dakika sonra kendisi alır ya da hemen — «Система и печать» → «Импорт данных».",
-                        $"Tarozi papkasiga yozildi: {result.Written} (fayl {result.ImportPath}). Tarozi uni «Обновление» daqiqadan keyin o‘zi oladi yoki darhol — «Система и печать» → «Импорт данных».")
+                StatusText.Text = Tr.T($"Записано в папку весов: {result.Written} (файл {result.ImportPath}). Весы загрузят товары в течение нескольких минут (по настройке весов «Обновление», у вас 2) или сразу — «Система и печать» → «Импорт данных».",
+                        $"Таразанын папкасына жазылды: {result.Written} (файл {result.ImportPath}). Тараза товарларды бир нече мүнөттө жүктөйт (таразадагы «Обновление» жөндөөсү боюнча, сизде 2) же дароо — «Система и печать» → «Импорт данных».",
+                        $"Written to the scale folder: {result.Written} (file {result.ImportPath}). The scale will load the goods within a few minutes (per the scale's “Update” setting, yours is 2) or right away — “System and printing” → “Import data”.",
+                        $"Tartı klasörüne yazıldı: {result.Written} (dosya {result.ImportPath}). Tartı ürünleri birkaç dakika içinde yükler (tartının «Обновление» ayarına göre, sizde 2) ya da hemen — «Система и печать» → «Импорт данных».",
+                        $"Tarozi papkasiga yozildi: {result.Written} (fayl {result.ImportPath}). Tarozi tovarlarni bir necha daqiqada yuklaydi (tarozidagi «Обновление» sozlamasiga ko‘ra, sizda 2) yoki darhol — «Система и печать» → «Импорт данных».")
+                    + PictureSummary(result.Pictures)
                     + (settings.ClearBase ? Tr.T(" В конце файла команда очистки базы: весы сначала сотрут свои товары.", " Файлдын аягында базаны тазалоо буйругу: тараза адегенде өзүнүн товарларын өчүрөт.", " The file ends with the clear-database command: the scale erases its goods first.", " Dosyanın sonunda veritabanı temizleme komutu var: tartı önce ürünlerini siler.", " Fayl oxirida bazani tozalash buyrug‘i bor: tarozi avval o‘z tovarlarini o‘chiradi.") : "")
                     + (_codeReplaceNote.Length > 0 ? _codeReplaceNote : "")
                     + (result.Warnings.Count > 0 ? " ⚠ " + string.Join(" · ", result.Warnings.Take(3)) + (result.Warnings.Count > 3 ? $" (+{result.Warnings.Count - 3})" : "") : "")
@@ -124,6 +226,9 @@ public partial class ScalesPluWindow
                 ShtrikhPcWriteStatus.NoFolder => ScaleUi.PcFolderCheckText(ShtrikhPcFolderCheck.NoFolder, "", ""),
                 ShtrikhPcWriteStatus.FolderUnavailable => ScaleUi.PcFolderCheckText(ShtrikhPcFolderCheck.NotFound, result.Detail ?? "", settings.Folder),
                 ShtrikhPcWriteStatus.NoAccess => ScaleUi.PcFolderCheckText(ShtrikhPcFolderCheck.NoAccess, result.Detail ?? "", settings.Folder),
+                ShtrikhPcWriteStatus.NoConnection => ScaleUi.PcFolderCheckText(ShtrikhPcFolderCheck.NoConnection, result.Detail ?? "", settings.Folder),
+                ShtrikhPcWriteStatus.BadCredentials => ScaleUi.PcFolderCheckText(ShtrikhPcFolderCheck.BadCredentials, result.Detail ?? "", settings.Folder),
+                ShtrikhPcWriteStatus.Unsupported => ScaleUi.PcFolderCheckText(ShtrikhPcFolderCheck.Unsupported, result.Detail ?? "", settings.Folder),
                 ShtrikhPcWriteStatus.NothingToWrite => Tr.T("Нечего записывать — исправьте строки с ⚠ (код товара) или выберите товары.", "Жазууга эч нерсе жок — ⚠ белгиси бар саптарды (товар коду) оңдоңуз же товарларды тандаңыз.", "Nothing to write — fix the rows marked ⚠ (item code) or choose goods.", "Yazılacak bir şey yok — ⚠ işaretli satırları (ürün kodu) düzeltin veya ürün seçin.", "Yozish uchun hech narsa yo‘q — ⚠ belgili qatorlarni (tovar kodi) tuzating yoki tovarlarni tanlang.")
                     + (result.Warnings.Count > 0 ? " " + string.Join(" · ", result.Warnings.Take(3)) : ""),
                 _ => Tr.T("Не удалось записать файл в папку весов: ", "Файлды таразанын папкасына жазуу мүмкүн болгон жок: ", "Could not write the file to the scale folder: ", "Dosya tartı klasörüne yazılamadı: ", "Faylni tarozi papkasiga yozib bo‘lmadi: ") + result.Detail,

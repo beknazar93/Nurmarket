@@ -130,7 +130,8 @@ internal static class DebtPaymentRunner
 
     private static string StoreKey(string companyId, string clientId) => companyId + "|" + clientId;
 
-    private static string? CurrentCompany => CompanyInfoService.LastCompany?.Id is { Length: > 0 } id ? id : null;
+    // 2026-11-06 (Б2-1): компания с сервера, а при старте кассы без связи — сохранённая (ключ данных этого ПК); подробности — CompanyInfoService.KnownCompanyId.
+    private static string? CurrentCompany => CompanyInfoService.KnownCompanyId;
 
     /// <summary>2026-10-18, шестой круг ревью: повреждённый (переименованный) файл — признак в поле; диск проверяется при каждой
     /// операции и при перечитывании (CheckCorruptOnDisk), не в геттерах. ERROR в журнал — один раз.</summary>
@@ -537,6 +538,16 @@ internal static class DebtPaymentRunner
     public static async Task<DebtPayAttempt> PayNewAsync(ClientDebtsApiService api, string key, string clientId, string? clientName,
         string? saleId, string? saleLabel, double amount, string method, string? shiftId)
     {
+        // 2026-11-06 (Б2-1): компания с сервера не загружена (касса начата без связи) — пробуем загрузить её сами ДО очереди (один запрос, срок 12 с, не чаще раза в 2 с);
+        // не вышло и сохранённой компании нет — понятный отказ «нет связи», а не «не удалось определить компанию».
+        if (CompanyInfoService.LastCompany is null && App.AuthApi is { } auth)
+        {
+            var ensured = await CompanyInfoService.EnsureLoadedAsync(auth, TimeSpan.FromSeconds(2)).ConfigureAwait(true);
+            if (ensured == CompanyInfoService.CompanyEnsureOutcome.OtherCompany)
+                return NotSent(OtherCompanyText, false);
+            if (ensured == CompanyInfoService.CompanyEnsureOutcome.Unavailable && CurrentCompany is null)
+                return NotSent(NoConnectionText, false);
+        }
         await Queue.WaitAsync().ConfigureAwait(true);
         try
         {
@@ -1205,6 +1216,22 @@ internal static class DebtPaymentRunner
         "Couldn't determine the company — the payment was not made. Check the sign-in and connection, then try again.",
         "Şirket belirlenemedi — ödeme yapılmadı. Girişi ve bağlantıyı kontrol edip tekrar deneyin.",
         "Kompaniyani aniqlab bo'lmadi — to'lov o'tmadi. Kirish va aloqani tekshirib, qayta urining.");
+
+    /// <summary>2026-11-06 (Б2-1): компании нет, загрузить её не вышло — связи нет.</summary>
+    public static string NoConnectionText => T(
+        "Нет связи с сервером — повторите, когда появится интернет. Оплата не проведена.",
+        "Сервер менен байланыш жок — интернет пайда болгондо кайталаңыз. Төлөм өткөн жок.",
+        "No connection to the server — try again when the internet is back. The payment was not made.",
+        "Sunucu ile bağlantı yok — internet geldiğinde tekrar deneyin. Ödeme yapılmadı.",
+        "Server bilan aloqa yo'q — internet paydo bo'lganda qayta urining. To'lov o'tmadi.");
+
+    /// <summary>2026-11-06 (Б2-1): сервер вернул другую компанию, чем данные на этом ПК — платить нельзя, пока касса не перезапущена.</summary>
+    public static string OtherCompanyText => T(
+        "Сервер вернул другую компанию, чем данные на этом компьютере — оплата не проведена. Перезапустите кассу.",
+        "Сервер бул компьютердеги маалыматтардан башка компанияны кайтарды — төлөм өткөн жок. Кассаны кайра иштетиңиз.",
+        "The server returned a different company than the data on this computer — the payment was not made. Restart the till.",
+        "Sunucu bu bilgisayardaki verilerden farklı bir şirket döndürdü — ödeme yapılmadı. Kasayı yeniden başlatın.",
+        "Server bu kompyuterdagi ma'lumotlardan boshqa kompaniyani qaytardi — to'lov o'tmadi. Kassani qayta ishga tushiring.");
 
     public static string BusyText => T(
         "Оплата этого клиента уже идёт (в другом окне) — дождитесь её ответа.",

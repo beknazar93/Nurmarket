@@ -57,8 +57,12 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Padding" Value="18,10"/>
         </Style>
-        <Style Selector="Button.PrimaryButton:disabled">
-            <Setter Property="Opacity" Value="0.6"/>
+        <!-- 2026-11-06 (В12, Д4-10): неактивная «Добавить/Сохранить» — без жёлтой заливки (раньше только прозрачность 0,6, и кнопка оставалась заметной): обводка и приглушённый текст -->
+        <Style Selector="Button.PrimaryButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}"/>
         </Style>
         <!-- 2026-10-18, этап 5: второстепенные кнопки — обводкой, как modal-secondary в остальных модалках. -->
         <Style Selector="Button.SecondaryButton">

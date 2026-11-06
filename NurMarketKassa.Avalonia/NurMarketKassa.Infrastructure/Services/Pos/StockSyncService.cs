@@ -99,7 +99,7 @@ public static class StockSyncService
                 ? $"{quantity.ToString("0.###", qtyCulture)} {UnitCatalog.Display(vm.Unit)}" // 2026-11-01 (Д-5): единица по языку интерфейса
                 // 2026-11-01 (расследование, П-5): штучный товар с дробным остатком (поштучная продажа из упаковки: 49,875) — без округления до «50».
                 : $"{(Math.Abs(quantity - Math.Round(quantity)) < 0.0005 ? quantity.ToString("F0", qtyCulture) : quantity.ToString("0.###", qtyCulture))} {Tr.T("шт.", "даана", "pcs", "adet", "dona")}";
-        vm.IsLowStock = quantity < LowStockThreshold;
+        vm.IsLowStock = CatalogProductTileVm.IsLow(quantity, vm.MinQuantity); // 2026-11-06 (В12, Б-8): «Минимальный остаток» карточки, иначе общий порог 10
     }
 
     public static async Task OverlayAgentStockAsync(
@@ -202,8 +202,7 @@ public static class StockSyncService
             var productId = CartDisplayHelper.TryProductId(line);
             if (string.IsNullOrEmpty(productId))
                 continue;
-            var tile = CatalogCacheService.Products.FirstOrDefault(p =>
-                string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+            var tile = CatalogCacheService.FindProductById(productId); // 2026-11-06 (шаг 17): по индексу, а не проходом по всему каталогу
             if (tile is null)
                 PosLogger.Log($"STOCK: проданный товар {productId} не найден в каталоге кассы — плитка не уменьшена (остаток придёт из ленты/сверки).", "STOCK"); // 2026-11-01 (расследование, п. 6)
             var qty = CartDisplayHelper.LineQuantityInStockUnits(line, tile);
@@ -263,8 +262,7 @@ public static class StockSyncService
                 var detail = await PosApp.CatalogApi.ProductsDetailAsync(productId, ct).ConfigureAwait(false);
                 if (detail is not { } el)
                     continue;
-                var tile = CatalogCacheService.Products.FirstOrDefault(p =>
-                    string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+                var tile = CatalogCacheService.FindProductById(productId); // 2026-11-06 (шаг 17)
                 var mustWeigh = tile?.MustWeigh ?? CartDisplayHelper.ProductMustWeigh(el);
                 var qty = ResolveStockQuantity(el, mustWeigh);
                 if (qty < min - 1e-6)
@@ -381,7 +379,7 @@ public static class StockSyncService
             var detail = await PosApp.CatalogApi.ProductsDetailAsync(productId, CancellationToken.None).ConfigureAwait(false);
             if (detail is not { } el)
                 return false;
-            var tile = CatalogCacheService.Products.FirstOrDefault(p => string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+            var tile = CatalogCacheService.FindProductById(productId); // 2026-11-06 (шаг 17)
             if (tile is null)
                 return false;
             if (TouchedSince(productId, startedUtc) || FeedStockGuard.IsHeldByLocalActivity(productId))
@@ -450,8 +448,7 @@ public static class StockSyncService
             // 2026-09-13: конвертация в единицы остатка каталога (см. CartDisplayHelper.
             // LineQuantityInStockUnits) — раньше здесь бралось сырое количество ШТУК строки и
             // напрямую вычиталось из остатка в УПАКОВКАХ для поштучной продажи из упаковки.
-            var tile = CatalogCacheService.Products.FirstOrDefault(p =>
-                string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+            var tile = CatalogCacheService.FindProductById(productId); // 2026-11-06 (шаг 17)
             double? expectedMax;
             if (alreadyDecremented is not null)
             {

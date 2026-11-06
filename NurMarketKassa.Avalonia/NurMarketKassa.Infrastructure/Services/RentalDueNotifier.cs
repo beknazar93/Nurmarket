@@ -51,7 +51,7 @@ public static class RentalDueNotifier
             return DueKind.Overdue;
         if (r.DateTo is not { } to)
             return DueKind.None;
-        var d = today ?? DateTime.Today;
+        var d = today ?? ServerClock.Today; // 2026-11-06 (В11, Л4-06 хвост): «сегодня» по серверным часам, а не по часам ПК
         if (to.Date < d)
             return DueKind.Overdue;
         if (to.Date == d)
@@ -164,7 +164,7 @@ public static class RentalDueNotifier
 
     /// <summary>Ключ события: «просрочен» повторяется раз в день, остальное — один раз.</summary>
     private static string Key(RentalDto r, DueKind kind) =>
-        kind == DueKind.Overdue ? $"{r.Id}:overdue:{DateTime.Today:yyyy-MM-dd}" : $"{r.Id}:{kind}:{r.DateTo:yyyy-MM-dd}";
+        kind == DueKind.Overdue ? $"{r.Id}:overdue:{ServerClock.Today:yyyy-MM-dd}" : $"{r.Id}:{kind}:{r.DateTo:yyyy-MM-dd}";
 
     private static async Task SendTelegramAsync(Summary summary, CancellationToken ct)
     {
@@ -200,9 +200,9 @@ public static class RentalDueNotifier
                 return;
             }
             foreach (var (r, k) in fresh)
-                sent[Key(r, k)] = DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                sent[Key(r, k)] = ServerClock.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             // Старше двух недель — не нужно.
-            var cutoff = DateTime.Today.AddDays(-14).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var cutoff = ServerClock.Today.AddDays(-14).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             foreach (var old in sent.Where(p => string.CompareOrdinal(p.Value, cutoff) < 0).Select(p => p.Key).ToList())
                 sent.Remove(old);
             WriteSent(sent);
@@ -245,7 +245,7 @@ public static class RentalDueNotifier
     private static string Line(RentalDto r, DueKind kind)
     {
         var items = string.Join(", ", r.Items.Select(i => i.Label));
-        var days = r.DateTo is { } to ? Math.Max(1, (DateTime.Today - to.Date).Days) : 1;
+        var days = r.DateTo is { } to ? Math.Max(1, (ServerClock.Today - to.Date).Days) : 1;
         var when = kind == DueKind.Overdue
             ? Tr.T($"просрочен на {days} дн.", $"{days} күн кечикти", $"{days} d overdue", $"{days} gün gecikti", $"{days} kun kechikdi")
             : Tr.T($"до {r.DateTo:dd.MM}", $"{r.DateTo:dd.MM} чейин", $"by {r.DateTo:dd.MM}", $"{r.DateTo:dd.MM} tarihine kadar", $"{r.DateTo:dd.MM} gacha");

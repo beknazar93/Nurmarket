@@ -1124,6 +1124,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 ShowQuantityWarning(QuantityTooLargeMessage());
                 return;
             }
+            var before = SnapshotQuantities();
             if (string.IsNullOrWhiteSpace(lineNameOverride))
                 _cart.AddItem(product, qty);
             else
@@ -1133,7 +1134,7 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             // (в том числе штучный после весового или после упаковки) молча добавится с чужим
             // количеством вместо ожидаемой 1 штуки.
             ManualQuantity = "1";
-            CartMessage = Tr.T("Товар добавлен.", "Товар кошулду.", "Product added.", "Ürün eklendi.", "Mahsulot qo'shildi.");
+            AfterProductAdded(before);
         }
         catch (Exception ex)
         {
@@ -1156,9 +1157,10 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         try
         {
             EnsureCartInitialized();
+            var before = SnapshotQuantities();
             _cart.AddItem(product, quantity, unitPriceOverride, salePackageId);
             SyncLinesAndTotals();
-            CartMessage = Tr.T("Товар добавлен.", "Товар кошулду.", "Product added.", "Ürün eklendi.", "Mahsulot qo'shildi.");
+            AfterProductAdded(before);
         }
         catch (Exception ex)
         {
@@ -1177,15 +1179,78 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         try
         {
             EnsureCartInitialized();
+            var before = SnapshotQuantities();
             _cart.AddVariantItem(product, quantity, unitPrice, variantId, label, size, color);
             SyncLinesAndTotals();
-            CartMessage = Tr.T("Товар добавлен.", "Товар кошулду.", "Product added.", "Ürün eklendi.", "Mahsulot qo'shildi.");
+            AfterProductAdded(before);
         }
         catch (Exception ex)
         {
             PosLogger.Log($"CART add (variant) failed: {ex}", "CART");
             _prompts.ShowError(Tr.T("Не удалось добавить товар в чек.", "Товарды чекке кошуу мүмкүн болгон жок.", "Could not add the product to the receipt.", "Ürün fişe eklenemedi.", "Mahsulotni chekka qo'shib bo'lmadi."));
         }
+    }
+
+    // ── 2026-11-06 (Д4-06, VM): отклик на добавление — какая строка добавлена и сколько стало (вид подсвечивает её на 600 мс, «×2» мигает при повторном скане) ──────────
+    // Строку статуса «Товар добавлен.» вид (волна В7) убирает, поставив AddFlashUiReady = true; пока этого нет, надпись остаётся, как раньше.
+
+    /// <summary>Вид показывает подсветку добавленной строки и сам поставит true; тогда надпись «Товар добавлен.» не пишется.</summary>
+    public bool AddFlashUiReady { get; set; }
+
+    /// <summary>Id строки чека, которую только что добавили или у которой выросло количество.</summary>
+    public string? LastAddedItemId { get; private set; }
+
+    /// <summary>Это повторный скан того же товара (строка уже была, количество выросло) — «×N» мигает.</summary>
+    public bool LastAddedWasRepeat { get; private set; }
+
+    /// <summary>Количество в добавленной строке после добавления.</summary>
+    public double LastAddedQuantity { get; private set; }
+
+    /// <summary>Растёт при каждом добавлении (в том числе повторном скане той же строки) — вид по нему запускает подсветку.</summary>
+    public int AddFlashVersion { get; private set; }
+
+    private Dictionary<string, double> SnapshotQuantities()
+    {
+        var map = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (var item in _cart.Items)
+            if (!string.IsNullOrEmpty(item.Id))
+                map[item.Id!] = item.Quantity;
+        return map;
+    }
+
+    private void AfterProductAdded(Dictionary<string, double> before)
+    {
+        string? addedId = null;
+        var repeat = false;
+        var qty = 0.0;
+        foreach (var item in _cart.Items)
+        {
+            if (string.IsNullOrEmpty(item.Id))
+                continue;
+            if (!before.TryGetValue(item.Id!, out var old))
+            {
+                addedId = item.Id;
+                repeat = false;
+                qty = item.Quantity;
+            }
+            else if (Math.Abs(old - item.Quantity) > 1e-9)
+            {
+                addedId = item.Id;
+                repeat = true;
+                qty = item.Quantity;
+                break;
+            }
+        }
+        LastAddedItemId = addedId;
+        LastAddedWasRepeat = repeat;
+        LastAddedQuantity = qty;
+        AddFlashVersion++;
+        OnPropertyChanged(nameof(LastAddedItemId));
+        OnPropertyChanged(nameof(LastAddedWasRepeat));
+        OnPropertyChanged(nameof(LastAddedQuantity));
+        OnPropertyChanged(nameof(AddFlashVersion));
+        if (!AddFlashUiReady)
+            CartMessage = Tr.T("Товар добавлен.", "Товар кошулду.", "Product added.", "Ürün eklendi.", "Mahsulot qo'shildi.");
     }
 
     public void CreateNewReceipt()
@@ -1543,10 +1608,8 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 var weighedProduct = LocalCartService.FindByEmbeddedCode(weighted.ProductCode);
                 if (weighedProduct is null)
                 {
-                    await RunOnUiThreadAsync(() =>
-                        _prompts.ShowWarning(Tr.T(
-                            $"Товар с кодом {weighted.ProductCode} не найден в каталоге.",
-                            $"{weighted.ProductCode} коддуу товар каталогдон табылган жок.", $"Product with code {weighted.ProductCode} was not found in the catalog.", $"Kodu {weighted.ProductCode} olan ürün katalogda bulunamadı.", $"{weighted.ProductCode} kodli mahsulot katalogda topilmadi."))).ConfigureAwait(false);
+                    // 2026-11-06 (весы РС-200, ТЗ Умара): для весовой этикетки — «Весовой товар с PLU N не найден. Проверьте PLU товара в NurCRM».
+                    await RunOnUiThreadAsync(() => _prompts.ShowWarning(ScanMessages.WeightPluNotFound(weighted.ProductCode))).ConfigureAwait(false);
                     return;
                 }
 
@@ -1565,6 +1628,15 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                     if (weighted.Kind == WeightBarcodeValueKind.Amount && weighted.Value > 0)
                         ReceiptSnapshotCartEditor.MarkLabelAmountLine(_cart, weighedProduct.Id, weighted.Value);
                 }
+                return;
+            }
+
+            // 2026-11-06 (весы РС-200, ТЗ Умара): этикетка весов с неверной контрольной цифрой — сканер считал её с ошибкой. Не идём в серверный поиск и не предлагаем «Добавить на склад»:
+            // предупреждение «отсканируйте ещё раз», кассир остаётся в поле сканирования.
+            if (WeightBarcodeParser.IsCustomLabelWithBadCheckDigit(barcode))
+            {
+                PosLogger.Log("[DEBUG] Barcode looks like a scale label with a bad EAN-13 check digit — rescan requested.", "CART");
+                await RunOnUiThreadAsync(() => _prompts.ShowWarning(ScanMessages.BadScan)).ConfigureAwait(false);
                 return;
             }
 
@@ -2054,6 +2126,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                     ClearCheckoutDisplay(push: true); // 2026-10-27 (В-2)
                     _customerDisplay.SetPaymentStatus(CustomerDisplayPaymentStatus.Idle);
                 }).ConfigureAwait(false);
+                // 2026-11-06 (аудит №5, Л4-09): прокат из чека уже оформлен на сервере (вещи списаны, залог принят), а оплату отменили — предлагаем отменить прокат, а не оставлять его висеть.
+                // 2026-11-06 (аудит Этапа 2, С-2): прокат привязан к чеку — спрашиваем только про тот чек, который оплачивали.
+                await OfferCancelUnpaidRentalAsync(paidSessionId).ConfigureAwait(false);
                 return;
             }
 
@@ -2358,9 +2433,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
                 CartMessage = result.SavedOffline
                     ? result.InfoMessage ?? Tr.T("Оплата сохранена локально.", "Төлөм локалдык түрдө сакталды.", "Payment saved locally.", "Ödeme yerel olarak kaydedildi.", "To'lov shu kompyuterda saqlandi.")
                     : result.InfoMessage ?? Tr.T("Оплата выполнена. Новый чек открыт.", "Төлөм аткарылды. Жаңы чек ачылды.", "Payment completed. A new receipt has been opened.", "Ödeme tamamlandı. Yeni fiş açıldı.", "To'lov amalga oshirildi. Yangi chek ochildi.");
-                if (_rentalAwaitingPayment is { } rentalNo)
+                if (!string.IsNullOrEmpty(paidSessionId) && _rentalsAwaitingPayment.Remove(paidSessionId, out var paidRental))
                 {
-                    _rentalAwaitingPayment = null;
+                    var rentalNo = paidRental.Number;
                     CartMessage = Tr.T($"Прокат №{rentalNo} оплачен. Он закроется, когда клиент вернёт вещь: «Прокат» → номер с чека → «Принять возврат».",
                         $"Прокат №{rentalNo} төлөндү. Кардар буюмду кайтарганда жабылат: «Прокат» → чектеги номер → «Кайтарууну кабыл алуу».",
                         $"Rental #{rentalNo} paid. It closes when the client returns the item: “Rentals” → number from the receipt → “Take back”.",
@@ -3022,7 +3097,9 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             return;
 
         // 2026-10-22 (модалки, пакет 1): «Очистить чек» — красная, рядом «Отмена» (было «Продолжить»).
-        if (!await _prompts.ConfirmAsync(Tr.T("Очистить текущий чек? Все товары будут убраны из чека.", "Учурдагы чекти тазалайсызбы? Бардык товарлар чектен алынат.",
+        // 2026-11-06 (Д4-40, решение владельца): если вид показывает «Вернуть» (ClearUndoUiReady), вопроса нет — чек можно вернуть 5 секунд. Без «Вернуть» вопрос остаётся.
+        if (!ClearUndoUiReady
+            && !await _prompts.ConfirmAsync(Tr.T("Очистить текущий чек? Все товары будут убраны из чека.", "Учурдагы чекти тазалайсызбы? Бардык товарлар чектен алынат.",
                     "Clear the current receipt? All items will be removed.", "Mevcut fiş temizlensin mi? Tüm ürünler fişten çıkarılacak.",
                     "Joriy chekni tozalaysizmi? Barcha mahsulotlar chekdan olib tashlanadi."),
                 Tr.T("Очистить чек", "Чекти тазалоо", "Clear receipt", "Fişi temizle", "Chekni tozalash"),
@@ -3048,16 +3125,98 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
 
         // 2026-10-17, этап 4: кто подтвердил кодом — снимаем сразу, до следующего вопроса о коде.
         var confirmedBy = _lastAccessCodeOwner;
+        string? undoJson = null;
         await _dispatcher.InvokeAsync(() =>
         {
+            // 2026-11-06 (Д4-40): снимок чека до очистки — для «Вернуть».
+            undoJson = OpenReceiptSnapshot.Capture(_cart).CartJson;
             // 2026-10-17, этап 4: каждая строка очищенного чека — в журнал «Удалено из чека» (одно действие — один BatchId).
             LogCartRemovals(CurrentCartItems(), CartRemovalLogStore.KindClear, confirmedBy: confirmedBy);
             ClearReceipt();
         }).ConfigureAwait(false);
+        // 2026-11-06 (Д4-40): плашка «Чек очищен · Вернуть» вместо вопроса.
+        if (ClearUndoUiReady && !string.IsNullOrWhiteSpace(undoJson))
+        {
+            await _dispatcher.InvokeAsync(() => OfferClearUndo(undoJson!)).ConfigureAwait(false);
+            return;
+        }
         // 2026-10-23 (аудит П-9): вместо окна «Сообщение» — лёгкая плашка под шапкой; окно — только если плашка недоступна.
         var clearedText = Tr.T("Корзина очищена.", "Себет тазаланды.", "Cart cleared.", "Sepet temizlendi.", "Savat tozalandi.");
         if (!MainStatusViewModel.TryShowInfoToast(clearedText))
             _prompts.ShowToast(clearedText);
+    }
+
+    // ── 2026-11-06 (Д4-40, решение владельца): «Очистить чек» без вопроса + «Вернуть» на 5 секунд ─────────────────────────────────────────────
+    // Вид (BasketPanelView, волна В7) привязывает плашку к IsClearUndoVisible / ClearUndoText / UndoClearCommand и ставит ClearUndoUiReady = true. Пока вид этого не умеет,
+    // вопрос «Очистить текущий чек?» остаётся: стереть чек одним нажатием без возврата нельзя.
+
+    /// <summary>Вид показывает плашку «Чек очищен · Вернуть» и сам поставит true. true — «Очистить чек» не задаёт вопрос.</summary>
+    public bool ClearUndoUiReady { get; set; }
+
+    /// <summary>Сколько после очистки доступно «Вернуть» (в тестах можно сократить).</summary>
+    public static TimeSpan ClearUndoWindow { get; set; } = TimeSpan.FromSeconds(5);
+
+    private string? _clearUndoJson;
+    private string? _clearUndoSessionId;
+    private int _clearUndoVersion;
+    private bool _isClearUndoVisible;
+    private ICommand? _undoClearCommand;
+
+    public bool IsClearUndoVisible
+    {
+        get => _isClearUndoVisible;
+        private set => SetProperty(ref _isClearUndoVisible, value);
+    }
+
+    public string ClearUndoText => Tr.T("Чек очищен", "Чек тазаланды", "Receipt cleared", "Fiş temizlendi", "Chek tozalandi");
+
+    public string UndoClearText => Tr.T("Вернуть", "Кайтаруу", "Undo", "Geri al", "Qaytarish");
+
+    public ICommand UndoClearCommand => _undoClearCommand ??= new RelayCommand(UndoClear);
+
+    private void OfferClearUndo(string cartJson)
+    {
+        _clearUndoJson = cartJson;
+        _clearUndoSessionId = _activeSessionId;
+        var version = Interlocked.Increment(ref _clearUndoVersion);
+        IsClearUndoVisible = true;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(ClearUndoWindow).ConfigureAwait(false);
+            _dispatcher.Post(() =>
+            {
+                if (version != Volatile.Read(ref _clearUndoVersion))
+                    return;
+                _clearUndoJson = null;
+                IsClearUndoVisible = false;
+            });
+        });
+    }
+
+    private void UndoClear()
+    {
+        var json = _clearUndoJson;
+        var sessionId = _clearUndoSessionId;
+        Interlocked.Increment(ref _clearUndoVersion);
+        _clearUndoJson = null;
+        IsClearUndoVisible = false;
+        if (string.IsNullOrWhiteSpace(json))
+            return;
+        // Вернуть можно только в тот же пустой чек: если кассир уже начал новый или перешёл на другую вкладку — не затираем его товары.
+        if (!string.Equals(sessionId, _activeSessionId, StringComparison.Ordinal) || _cart.LineCount > 0 || IsBusy)
+        {
+            CartMessage = Tr.T("Чек уже не вернуть: в нём новые товары или открыта другая вкладка.", "Чекти кайтаруу мүмкүн эмес: ага жаңы товарлар кошулду же башка өтмөк ачык.",
+                "The receipt cannot be restored: new items were added or another tab is open.", "Fiş geri getirilemez: yeni ürünler eklendi veya başka bir sekme açık.",
+                "Chekni qaytarib bo'lmaydi: unga yangi mahsulotlar qo'shilgan yoki boshqa varaq ochiq.");
+            return;
+        }
+
+        ApplyCartJson(json);
+        PersistActiveSessionSnapshot();
+        SyncLinesAndTotals();
+        RaiseCartCommands();
+        PosLogger.Log("CART: очистка чека отменена кассиром («Вернуть» в течение 5 с).", "CART");
+        CartMessage = Tr.T("Чек возвращён.", "Чек кайтарылды.", "Receipt restored.", "Fiş geri getirildi.", "Chek qaytarildi.");
     }
 
     private async Task RemoveLineAsync(CartLineItemVm? line)
@@ -3647,8 +3806,13 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             ActiveReceiptTitle = active.BaseName;
     }
 
-    private void ApplySessionToCart(OpenReceiptSession session) =>
+    private void ApplySessionToCart(OpenReceiptSession session)
+    {
         ApplyCartJson(session.CartJson);
+        // 2026-11-06 (аудит Этапа 2, С-2): прокат этого чека отменили, пока была открыта другая вкладка — строку «Прокат №N» убираем сейчас.
+        if (_cancelledRentalLines.Remove(session.Id, out var prefix))
+            RemoveRentalLine(prefix);
+    }
 
     /// <summary>После успешной оплаты доп. вкладки ("Чек 2", "Чек 3"...) она свою роль
     /// выполнила — оставлять пустую вкладку висеть было неудобно. Возвращаемся на ТУ вкладку,
@@ -4289,14 +4453,152 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
             $"Rental #{r.Number} created. The number is on the receipt — use it to close the rental on return.",
             $"Kiralama №{r.Number} oluşturuldu. Numara fişte — iadede bununla kapatın.",
             $"Prokat №{r.Number} rasmiylashtirildi. Raqami chekda — qaytarishda shu raqam bilan yopasiz.");
-        _rentalAwaitingPayment = r.Number;
+        // 2026-11-06 (Л4-09): для «Отменить прокат», если оплату отменят. Аудит Этапа 2, С-2: привязка к ЧЕКУ (вкладке), а не ко всей кассе.
+        if (!string.IsNullOrEmpty(_activeSessionId))
+            _rentalsAwaitingPayment[_activeSessionId] = r;
         if (Lines.Count > 0 && PayCommand.CanExecute(null))
             PayCommand.Execute(null);
     }
 
     /// <summary>2026-10-02, владелец: «почему прокат не закрывается после оплаты». Оплата — это деньги за
     /// аренду; прокат закрывается при возврате вещи. После оплаты касса говорит это прямо.</summary>
-    private int? _rentalAwaitingPayment;
+    // 2026-11-06 (аудит Этапа 2, С-2): прокат, оформленный из чека и ещё не оплаченный, — по ИД чека (вкладки). Раньше было одно поле на всю кассу:
+    // отмена оплаты ДРУГОГО чека предлагала отменить прокат, а строка «Прокат №N» оставалась в исходной вкладке и её можно было оплатить.
+    private readonly Dictionary<string, RentalDto> _rentalsAwaitingPayment = new(StringComparer.Ordinal);
+    // Прокат отменён, а чек, где осталась его строка, в тот момент не был активным: строка убирается, когда чек снова откроют.
+    private readonly Dictionary<string, string> _cancelledRentalLines = new(StringComparer.Ordinal);
+
+    /// <summary>Забыть привязки проката к чекам, которых больше нет (закрыли вкладку, оплатили и т. п.).</summary>
+    private void PruneRentalBindings()
+    {
+        foreach (var id in _rentalsAwaitingPayment.Keys.Where(id => _sessions.All(s => s.Id != id)).ToList())
+            _rentalsAwaitingPayment.Remove(id);
+        foreach (var id in _cancelledRentalLines.Keys.Where(id => _sessions.All(s => s.Id != id)).ToList())
+            _cancelledRentalLines.Remove(id);
+    }
+
+    private void RemoveRentalLine(string prefix)
+    {
+        foreach (var item in _cart.Items.Where(i => i.Name.StartsWith(prefix, StringComparison.Ordinal) && !string.IsNullOrEmpty(i.Id)).ToList())
+            _cart.RemoveItem(item.Id!);
+    }
+
+    /// <summary>2026-11-06 (аудит №5, Л4-09): закрывает на сервере прокат (по id), оформленный из чека, но не оплаченный: вещи возвращаются на склад, залог возвращается
+    /// (то же, что «Принять возврат» без штрафа). true — прокат закрыт. Задаёт главное окно; пусто — вопрос об отмене проката не задаётся.</summary>
+    public Func<string, Task<bool>>? CancelUnpaidRental { get; set; }
+
+    /// <summary>2026-11-06 (Л4-09): оплату чека с прокатом отменили. Спрашиваем: «Отменить прокат №N» (вещи вернутся, залог вернётся) или «Оставить» (чек с прокатом ждёт оплаты).
+    /// Прокат не отменяется сам: решает кассир. Отменили — строка «Прокат №N…» убирается из чека.</summary>
+    internal async Task OfferCancelUnpaidRentalAsync(string? sessionId)
+    {
+        if (string.IsNullOrEmpty(sessionId) || CancelUnpaidRental is not { } cancelRental)
+            return;
+        // Всё про чеки и корзину читаем в потоке интерфейса. Спрашиваем только в чеке, где прокат оформлен и его строка ещё стоит; иначе (чек очистили, строку убрали) привязка просто забывается.
+        RentalDto? found = null;
+        await _dispatcher.InvokeAsync(() =>
+        {
+            PruneRentalBindings();
+            if (!_rentalsAwaitingPayment.TryGetValue(sessionId, out var r) || !string.Equals(sessionId, _activeSessionId, StringComparison.Ordinal))
+                return;
+            var prefix = $"Прокат №{r.Number}:";
+            if (_cart.Items.Any(i => i.Name.StartsWith(prefix, StringComparison.Ordinal)))
+                found = r;
+            else
+                _rentalsAwaitingPayment.Remove(sessionId);
+        }).ConfigureAwait(false);
+        if (found is not { } rental)
+            return;
+        var number = rental.Number;
+        var rentalId = rental.Id;
+        var linePrefix = $"Прокат №{number}:";
+        // 2026-11-06 (Б2-Л, живой тест Этапа 2): при залоге 0 и без документа в вопросе не пишем «залог принят» и «залог вернёте сами».
+        var hasDeposit = rental.IsDocumentDeposit || rental.DepositAmount > 0;
+        var cancel = await _prompts.ConfirmAsync(
+            !hasDeposit
+                ? Tr.T($"Прокат №{number} оформлен, но не оплачен: вещи списаны со склада. Отменить прокат? Вещи вернутся на склад.",
+                    $"Прокат №{number} түзүлдү, бирок төлөнгөн жок: буюмдар складдан чыгарылды. Прокат жокко чыгарылсынбы? Буюмдар складга кайтат.",
+                    $"Rental #{number} was created but not paid: the items are written off the stock. Cancel the rental? The items return to stock.",
+                    $"Kiralama №{number} oluşturuldu ama ödenmedi: ürünler stoktan düşüldü. Kiralama iptal edilsin mi? Ürünler stoğa döner.",
+                    $"Prokat №{number} rasmiylashtirildi, lekin to'lanmadi: buyumlar ombordan chiqarildi. Prokat bekor qilinsinmi? Buyumlar omborga qaytadi.")
+                : Tr.T($"Прокат №{number} оформлен, но не оплачен: вещи списаны со склада, залог принят. Отменить прокат? Вещи вернутся на склад, а залог вы вернёте клиенту сами.",
+                $"Прокат №{number} түзүлдү, бирок төлөнгөн жок: буюмдар складдан чыгарылды, күрөө алынды. Прокат жокко чыгарылсынбы? Буюмдар складга кайтат, күрөөнү кардарга өзүңүз кайтарасыз.",
+                $"Rental #{number} was created but not paid: the items are written off the stock and the deposit is taken. Cancel the rental? The items return to stock and you give the deposit back to the client yourself.",
+                $"Kiralama №{number} oluşturuldu ama ödenmedi: ürünler stoktan düşüldü, depozito alındı. Kiralama iptal edilsin mi? Ürünler stoğa döner, depozitoyu müşteriye siz iade edersiniz.",
+                $"Prokat №{number} rasmiylashtirildi, lekin to'lanmadi: buyumlar ombordan chiqarildi, garov olindi. Prokat bekor qilinsinmi? Buyumlar omborga qaytadi, garovni mijozga o'zingiz qaytarasiz."),
+            Tr.T("Отменить прокат", "Прокатты жокко чыгаруу", "Cancel rental", "Kiralamayı iptal et", "Prokatni bekor qilish"),
+            Tr.T("Оставить", "Калтыруу", "Keep", "Bırak", "Qoldirish"),
+            danger: true).ConfigureAwait(false);
+        if (!cancel)
+        {
+            CartMessage = Tr.T($"Прокат №{number} ждёт оплаты — нажмите «Оплатить».", $"Прокат №{number} төлөмдү күтүп турат — «Төлөө» баскычын басыңыз.",
+                $"Rental #{number} is waiting for payment — press “Pay”.", $"Kiralama №{number} ödeme bekliyor — «Öde»ye basın.", $"Prokat №{number} to'lovni kutmoqda — «To'lash»ni bosing.");
+            return;
+        }
+
+        var closed = false;
+        try
+        {
+            closed = await cancelRental(rentalId).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Прокат №{number}: отмена не вышла ({ex.GetType().Name}: {ex.Message}).", "RENTAL");
+        }
+
+        if (!closed)
+        {
+            _prompts.ShowError(Tr.T($"Не удалось отменить прокат №{number}. Он остаётся в программе: закройте его вручную — «Прокат» → номер → «Принять возврат».",
+                $"Прокат №{number} жокко чыгарылган жок. Ал программада калды: кол менен жабыңыз — «Прокат» → номер → «Кайтарууну кабыл алуу».",
+                $"Could not cancel rental #{number}. It is still open: close it by hand — “Rentals” → number → “Take back”.",
+                $"Kiralama №{number} iptal edilemedi. Açık kaldı: elle kapatın — «Kiralama» → numara → «İadeyi al».",
+                $"Prokat №{number} bekor qilinmadi. U ochiq qoldi: qo'lda yoping — «Prokat» → raqam → «Qaytarishni qabul qilish»."));
+            return;
+        }
+
+        // 2026-11-06 (С-2): остаток размеров в кеше растёт сразу (вещи вернулись на склад) — как при «Принять возврат» в окне проката.
+        foreach (var item in rental.Items)
+        {
+            if (item.ProductId is not { Length: > 0 } pid)
+                continue;
+            if (item.VariantId is { Length: > 0 } vid)
+                ProductVariantCache.Adjust(pid, vid, item.Qty);
+            ProductVariantCache.MarkStale(pid);
+        }
+        // 2026-11-06 (С-2): залог кассир отдаёт сам — называем, что именно (деньги или документ), как в окне «Прокат».
+        var depositText = rental.IsDocumentDeposit
+            ? Tr.T("документ" + (string.IsNullOrWhiteSpace(rental.DepositDocument) ? "" : $" ({rental.DepositDocument.Trim()})"),
+                "документ" + (string.IsNullOrWhiteSpace(rental.DepositDocument) ? "" : $" ({rental.DepositDocument.Trim()})"),
+                "document" + (string.IsNullOrWhiteSpace(rental.DepositDocument) ? "" : $" ({rental.DepositDocument.Trim()})"),
+                "belge" + (string.IsNullOrWhiteSpace(rental.DepositDocument) ? "" : $" ({rental.DepositDocument.Trim()})"),
+                "hujjat" + (string.IsNullOrWhiteSpace(rental.DepositDocument) ? "" : $" ({rental.DepositDocument.Trim()})"))
+            : rental.DepositAmount > 0
+                ? Tr.T($"{rental.DepositAmount:0.##} сом", $"{rental.DepositAmount:0.##} сом", $"{rental.DepositAmount:0.##} som", $"{rental.DepositAmount:0.##} som", $"{rental.DepositAmount:0.##} so'm")
+                : Tr.T("деньги/документ", "акча/документ", "money/document", "para/belge", "pul/hujjat");
+        var doneText = !hasDeposit
+            ? Tr.T($"Прокат №{number} отменён. Примите вещи.", $"Прокат №{number} жокко чыгарылды. Буюмдарды кабыл алыңыз.",
+                $"Rental #{number} cancelled. Take the items back.", $"Kiralama №{number} iptal edildi. Ürünleri teslim alın.", $"Prokat №{number} bekor qilindi. Buyumlarni qabul qiling.")
+            : Tr.T($"Прокат №{number} отменён. Верните клиенту залог ({depositText}) и примите вещи.",
+            $"Прокат №{number} жокко чыгарылды. Кардарга күрөөнү ({depositText}) кайтарыңыз жана буюмдарды кабыл алыңыз.",
+            $"Rental #{number} cancelled. Give the client the deposit back ({depositText}) and take the items back.",
+            $"Kiralama №{number} iptal edildi. Müşteriye depozitoyu ({depositText}) iade edin ve ürünleri teslim alın.",
+            $"Prokat №{number} bekor qilindi. Mijozga garovni ({depositText}) qaytaring va buyumlarni qabul qiling.");
+        PosLogger.Log($"Прокат №{number}: оплату отменили — прокат закрыт кассиром без штрафа (вещи на склад, залог клиенту).", "RENTAL");
+        await _dispatcher.InvokeAsync(() =>
+        {
+            // Строка «Прокат №N: …» (стоимость проката) больше не нужна; остальные строки чека остаются как были.
+            // 2026-11-06 (С-2): убираем её из ТОГО чека, где прокат оформлен; если кассир успел уйти на другую вкладку — строка уйдёт при возврате на ту вкладку.
+            _rentalsAwaitingPayment.Remove(sessionId);
+            if (string.Equals(sessionId, _activeSessionId, StringComparison.Ordinal))
+            {
+                RemoveRentalLine(linePrefix);
+                SyncLinesAndTotals();
+            }
+            else
+                _cancelledRentalLines[sessionId] = linePrefix;
+            CartMessage = doneText;
+            _prompts.ShowWarning(doneText); // деньги/документ клиенту — не терять за исчезающей строкой состояния
+        }).ConfigureAwait(false);
+    }
 
     public string UpsellProductText => _upsell is null
         ? ""

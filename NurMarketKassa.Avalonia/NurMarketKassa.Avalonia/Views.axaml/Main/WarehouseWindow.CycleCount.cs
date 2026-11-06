@@ -33,6 +33,7 @@ public partial class WarehouseWindow
 
     private void CycleCountRefreshButton()
     {
+        RevisionScheduleTotals(); // 2026-11-06 (ЖП Н-3): счётчики фильтров зависят от выбранных позиций
         if (_cycleButton is null)
             return;
         _cycleButton.Content = _cycleIds is null
@@ -195,7 +196,26 @@ public partial class WarehouseWindow
             }
             if (status == LatePinStatus.Unavailable)
             {
-                // PIN проверить нельзя из-за отсутствия связи — ревизию не блокируем (без связи её иначе не провести), но говорим прямо и пишем в журнал.
+                // 2026-11-06 (В12, Л5-06 хвост): PIN проверить нельзя из-за отсутствия связи. Раньше ревизия молча проходила; теперь кассир выбирает: провести (событие
+                // антифрода + предупреждение владельцу) или оставить ревизию открытой («ждёт PIN») и провести, когда связь появится — черновик ревизии при этом не теряется.
+                var shortage = diffRows.Where(r => r.Difference < 0).Sum(r => -r.Difference * (r.PurchasePrice > 0 ? r.PurchasePrice : r.SalePrice));
+                var goOn = await PosDialogs.ConfirmYesNoModalAsync(this,
+                    RevT($"Нет связи с сервером, PIN владельца проверить нельзя (недостача {shortage:0.##} сом). Провести ревизию сейчас? Запись о проведении без PIN попадёт в «Подозрительные операции» и владельцу в Telegram. Либо оставьте ревизию открытой и проведите, когда появится связь.",
+                        $"Сервер менен байланыш жок, ээсинин PIN кодун текшерүүгө болбойт (жетишпестик {shortage:0.##} сом). Ревизияны азыр өткөрөсүзбү? PIN сыз өткөргөнү тууралуу жазуу «Шектүү операцияларга» жана ээсине Telegram аркылуу түшөт. Же ревизияны ачык калтырып, байланыш пайда болгондо өткөрүңүз.",
+                        $"There is no connection, so the owner PIN cannot be checked (shortage {shortage:0.##} som). Post the stocktake now? A record of posting without the PIN goes to “Suspicious operations” and to the owner in Telegram. Or leave the stocktake open and post it when the connection is back.",
+                        $"Bağlantı yok, sahip PIN'i doğrulanamıyor (eksik {shortage:0.##} som). Sayım şimdi işlensin mi? PIN'siz işlendiğine dair kayıt «Şüpheli işlemler»e ve sahibe Telegram ile gider. Ya da sayımı açık bırakıp bağlantı gelince işleyin.",
+                        $"Server bilan aloqa yo'q, egasining PIN kodini tekshirib bo'lmaydi (kamomad {shortage:0.##} so'm). Inventarizatsiya hozir o'tkazilsinmi? PIN siz o'tkazilgani haqidagi yozuv «Shubhali amallar»ga va egasiga Telegram orqali tushadi. Yoki inventarizatsiyani ochiq qoldirib, aloqa paydo bo'lganda o'tkazing."),
+                    RevT("PIN не проверен", "PIN текшерилген жок", "PIN not checked", "PIN doğrulanmadı", "PIN tekshirilmadi"),
+                    confirmText: RevT("Провести без PIN", "PIN сыз өткөрүү", "Post without PIN", "PIN'siz işle", "PIN siz o'tkazish"),
+                    cancelText: RevT("Оставить открытой", "Ачык калтыруу", "Leave open", "Açık bırak", "Ochiq qoldirish"), danger: true, enterCancels: true).ConfigureAwait(true);
+                if (!goOn)
+                {
+                    PosLogger.Log("Склад: ревизия — PIN владельца не проверен (нет связи), кассир оставил ревизию открытой («ждёт PIN»).", "SECURITY");
+                    RevisionWarn(RevT("Ревизия не проведена: ждёт проверки PIN владельца. Проведите её, когда появится связь.", "Ревизия өткөрүлгөн жок: ээсинин PIN кодун текшерүүнү күтүүдө. Байланыш пайда болгондо өткөрүңүз.",
+                        "The stocktake was not posted: it waits for the owner PIN check. Post it when the connection is back.", "Sayım işlenmedi: sahip PIN doğrulamasını bekliyor. Bağlantı gelince işleyin.", "Inventarizatsiya o'tkazilmadi: egasining PIN tekshiruvini kutmoqda. Aloqa paydo bo'lganda o'tkazing."));
+                    return false;
+                }
+                FraudMonitor.OnRevisionPinSkipped(shortage);
                 PosLogger.Log("Склад: ревизия — PIN владельца проверить не удалось (нет связи), ревизия продолжена с предупреждением.", "SECURITY");
                 RevisionWarn(RevT("PIN владельца проверить не удалось (нет связи). Ревизия продолжается — владельцу стоит проверить акт.",
                     "Ээсинин PIN кодун текшерүү мүмкүн болгон жок (байланыш жок). Ревизия улантылат — ээси актты текшергени оң.",

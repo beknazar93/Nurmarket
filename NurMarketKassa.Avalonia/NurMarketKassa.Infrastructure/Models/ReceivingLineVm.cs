@@ -144,7 +144,25 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
 
     /// <summary>2026-11-05 (функция 11): доля доп. расходов прихода (доставка, грузчики) на ЕДИНИЦУ товара. В документ прихода и в долг поставщику
     /// НЕ входит (там накладная <see cref="PurchasePrice"/>); себестоимость <see cref="CostPrice"/> уходит в карточку товара отдельным PATCH после прихода.</summary>
-    public double LandedExtraPerUnit { get; set; }
+    public double LandedExtraPerUnit
+    {
+        get => _landedExtraPerUnit;
+        set
+        {
+            if (_landedExtraPerUnit == value)
+                return;
+            _landedExtraPerUnit = value;
+            // 2026-11-06 (Б2-5, живой тест Этапа 2): после «Доп. расходы → Применить» строка не показывала «с расходами …» и считала прибыль без расходов,
+            // пока её не правили — доля расходов менялась молча. Теперь строка узнаёт об этом сразу (таблица слушает PropertyChanged).
+            OnPropertyChanged(nameof(LandedExtraPerUnit));
+            OnPropertyChanged(nameof(CostPrice));
+            OnPropertyChanged(nameof(LandedCostText));
+            OnPropertyChanged(nameof(ProfitText));
+            OnPropertyChanged(nameof(LowMarginText));
+        }
+    }
+
+    private double _landedExtraPerUnit;
 
     /// <summary>Себестоимость единицы: накладная закупка + доля доп. расходов (до 4 знаков).</summary>
     public double CostPrice => Math.Round(PurchasePrice + Math.Max(LandedExtraPerUnit, 0), 4, MidpointRounding.AwayFromZero);
@@ -382,7 +400,9 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         {
             if (PurchasePrice <= 0 || SalePrice <= 0)
                 return "";
-            var profit = (decimal)SalePrice - (decimal)PurchasePrice;
+            // 2026-11-06 (В12, ЖП Н-6): с доп. расходами прибыль строки — от себестоимости (закупка + доля расходов), как итог под списком; раньше строка показывала «прибыль 0,88»,
+            // а итог «−1,13».
+            var profit = (decimal)SalePrice - (decimal)(LandedExtraPerUnit > 0 ? CostPrice : PurchasePrice);
             var x = Math.Abs(profit).ToString("0.##", RuCulture);
             var unit = string.IsNullOrWhiteSpace(Unit) ? "шт" : Unit.Trim();
             return profit >= 0
@@ -390,6 +410,12 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                 : NurMarketKassa.Services.Tr.T($"убыток {x} сом с {unit}.", $"{unit} үчүн чыгым {x} сом", $"loss {x} som per {unit}", $"{unit} başına zarar {x} som", $"{unit} uchun zarar {x} so'm");
         }
     }
+
+    /// <summary>2026-11-06 (В12, ЖП Н-6): «с расходами 2,125» — закупка с долей доп. расходов под полем «Закупка»; пусто, если расходов на строке нет.</summary>
+    public string LandedCostText => LandedExtraPerUnit > 0
+        ? NurMarketKassa.Services.Tr.T($"с расходами {CostPrice.ToString("0.00##", RuCulture)}", $"чыгым менен {CostPrice.ToString("0.00##", RuCulture)}", $"with costs {CostPrice.ToString("0.00##", RuCulture)}",
+            $"masrafla {CostPrice.ToString("0.00##", RuCulture)}", $"xarajat bilan {CostPrice.ToString("0.00##", RuCulture)}")
+        : "";
 
     private static readonly System.Globalization.CultureInfo RuCulture = System.Globalization.CultureInfo.GetCultureInfo("ru-RU");
 

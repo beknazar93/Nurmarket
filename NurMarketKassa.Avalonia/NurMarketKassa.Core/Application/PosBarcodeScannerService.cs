@@ -91,6 +91,9 @@ public sealed class PosBarcodeScannerService : IPosBarcodeScanner
         }
     }
 
+    /// <summary>2026-11-06: выбор текста по языку интерфейса (ru, ky, en, tr, uz). Core не ссылается на Tr из Infrastructure; хост может подставить Tr.T. По умолчанию — русский.</summary>
+    public static Func<string, string, string, string, string, string> Localizer { get; set; } = static (ru, _, _, _, _) => ru;
+
     private async Task<bool> ScanEmbeddedWeightAsync(
         Domain.WeightBarcodeParseResult weighted,
         CancellationToken cancellationToken)
@@ -98,8 +101,14 @@ public sealed class PosBarcodeScannerService : IPosBarcodeScanner
         var product = _catalog.FindByEmbeddedCode(weighted.ProductCode);
         if (product == null)
         {
+            // 2026-11-06 (весы РС-200): текст весового PLU на 5 языках; Core не знает Tr — язык подставляет Localizer (по умолчанию русский).
             await PublishWarningAsync(
-                $"Товар с кодом {weighted.ProductCode} не найден в каталоге.",
+                Localizer(
+                    $"Весовой товар с PLU {weighted.ProductCode} не найден. Проверьте PLU товара в NurCRM.",
+                    $"PLU {weighted.ProductCode} болгон салмактуу товар табылган жок. NurCRM'де товардын PLU кодун текшериңиз.",
+                    $"Weighed product with PLU {weighted.ProductCode} was not found. Check the product's PLU in NurCRM.",
+                    $"PLU {weighted.ProductCode} olan tartılı ürün bulunamadı. Ürünün PLU kodunu NurCRM'de kontrol edin.",
+                    $"PLU {weighted.ProductCode} bo'lgan tarozi mahsuloti topilmadi. Mahsulotning PLU kodini NurCRM'da tekshiring."),
                 cancellationToken,
                 showToast: true).ConfigureAwait(false);
             return false;

@@ -229,6 +229,12 @@ public partial class PayDebtDialog
     {
         var wasPaying = _paying;
         _paying = paying;
+        if (paying)
+        {
+            _debtSummaryStale = true; // 2026-11-06 (Б2-2): после оплаты сводка сервера, загруженная при открытии окна, устарела
+            if (_summaryWarning.Length > 0 && WarningMessage == _summaryWarning)
+                WarningMessage = ""; // и наше предупреждение о расхождении с ней — тоже
+        }
         _payingTimer?.Stop();
         _payingTimer = null;
         if (!paying)

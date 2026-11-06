@@ -149,6 +149,14 @@ public sealed partial class NurMarketApiClient : IDisposable
         });
     }
 
+    /// <summary>2026-11-06 (В11, 25.1): корень адреса API (с «/» в конце) — для сборки адресов вызывающим, что шлёт запросы через <see cref="SendRawAsync"/>.</summary>
+    internal Uri BaseAddress => _http.BaseAddress!;
+
+    /// <summary>2026-11-06 (В11, 25.1): отправка готового запроса ОБЩЕЙ цепочкой обработчиков этого клиента (Bearer и обновление токена, HTTP/2 и общий пул соединений,
+    /// щит 429, срок ожидания, поправка часов ServerClock, «Сервер медлит»). Для запросов со своими заголовками (Idempotency-Key у ClientDebtsApiService), которые
+    /// раньше шли через отдельный HttpClient с собственным пулом и без этих обработчиков. Очередь мест (_httpSlots) и разбор ответа остаются за вызывающим.</summary>
+    internal Task<HttpResponseMessage> SendRawAsync(HttpRequestMessage request, CancellationToken ct) => _http.SendAsync(request, ct);
+
     internal void ApplyBearerAuthorization(HttpRequestMessage request)
     {
         if (string.IsNullOrEmpty(AccessToken))

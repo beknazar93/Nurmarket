@@ -42,8 +42,6 @@ public sealed class ClientDebtsApiService : IDisposable
 {
     private readonly NurMarketApiClient _api;
     private readonly AppSettings _settings;
-    private readonly object _httpSync = new();
-    private HttpClient? _http;
 
     public ClientDebtsApiService(NurMarketApiClient api, AppSettings settings)
     {
@@ -266,31 +264,9 @@ public sealed class ClientDebtsApiService : IDisposable
 
     // ── Транспорт с заголовком Idempotency-Key ───────────────────────────────────────
 
-    /// <summary>NurMarketApiClient.RequestAsync не умеет добавлять свои заголовки, а менять его
-    /// ради одного адреса не хочется (файл общий для всех задач). Поэтому здесь свой HttpClient
-    /// поверх того же JwtBearerRefreshHandler: тот же Bearer-токен, то же обновление при 401 и
-    /// тот же branch=…, что и у остальных запросов кассы.</summary>
-    private HttpClient Http
-    {
-        get
-        {
-            lock (_httpSync)
-            {
-                if (_http != null)
-                    return _http;
-                // 2026-10-04, стресс-тест: сервер NurCRM умеет gzip (страница каталога 155 КБ → 18 КБ), а касса его не
-                // просила — каждые 2 минуты качался полный каталог без сжатия. Accept-Encoding ставится сам.
-                var handler = new JwtBearerRefreshHandler(_api) { InnerHandler = new HttpClientHandler { AutomaticDecompression = System.Net.DecompressionMethods.All } };
-                _http = new HttpClient(handler)
-                {
-                    BaseAddress = new Uri(_settings.ApiBaseUrl.Trim().TrimEnd('/') + "/", UriKind.Absolute),
-                    Timeout = TimeSpan.FromSeconds(55),
-                };
-                _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                return _http;
-            }
-        }
-    }
+    // 2026-11-06 (В11, 25.1): запросы с Idempotency-Key идут общей цепочкой обработчиков NurMarketApiClient (NurMarketApiClient.SendRawAsync): общий пул соединений
+    // (HTTP/2, срок жизни соединения), щит 429, срок ожидания 55 с, поправка часов, «Сервер медлит». Раньше здесь был СВОЙ HttpClient с обычным HttpClientHandler:
+    // отдельный пул соединений (лишние TLS-рукопожатия, +дескрипторы), без щита 429 и без учёта нагрузки. Заголовок Idempotency-Key по-прежнему ставит этот класс.
 
     private async Task<JsonElement> SendWithIdempotencyKeyAsync(
         HttpMethod method,
@@ -315,7 +291,7 @@ public sealed class ClientDebtsApiService : IDisposable
         // 2026-11-03 (С-02, Сис-5): + отмена при объявлении аварии, как у RequestAsync — раньше запись долга висела до 55 с при уже объявленной аварии.
         using var outageLinked = CancellationTokenSource.CreateLinkedTokenSource(ct, _api.OutageCancelToken);
         ct = outageLinked.Token;
-        using var resp = await Http.SendAsync(req, ct).ConfigureAwait(false);
+        using var resp = await _api.SendRawAsync(req, ct).ConfigureAwait(false);
         var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
 
         if ((int)resp.StatusCode == 429)
@@ -349,7 +325,7 @@ public sealed class ClientDebtsApiService : IDisposable
         var path = relativePath.TrimStart('/');
         var branch = _api.ActiveBranchId;
         var rel = string.IsNullOrEmpty(branch) ? path : path + "?branch=" + Uri.EscapeDataString(branch);
-        return new Uri(Http.BaseAddress!, rel);
+        return new Uri(_api.BaseAddress, rel);
     }
 
     private static JsonElement? TryParse(string? text)
@@ -393,12 +369,8 @@ public sealed class ClientDebtsApiService : IDisposable
         };
     }
 
+    /// <summary>2026-11-06 (В11, 25.1): своего HttpClient больше нет — освобождать нечего (общий клиент живёт в NurMarketApiClient). Интерфейс IDisposable оставлен для совместимости.</summary>
     public void Dispose()
     {
-        lock (_httpSync)
-        {
-            _http?.Dispose();
-            _http = null;
-        }
     }
 }

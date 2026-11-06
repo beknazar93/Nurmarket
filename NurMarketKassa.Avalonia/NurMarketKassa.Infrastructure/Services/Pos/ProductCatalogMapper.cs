@@ -121,6 +121,9 @@ namespace NurMarketKassa.Services
                 vm.Country = countryEl.GetString();
             if (JsonProps.TryGet(p, props, "weight_kg", out var wkgEl) && TryGetDouble(wkgEl, out double wkgVal))
                 vm.WeightKg = wkgVal;
+            // 2026-11-06 (В12, Б-8): «Минимальный остаток» карточки — порог «заканчивается» этого товара (если сервер отдаёт поле в списке; иначе общий порог 10).
+            if (JsonProps.TryGet(p, props, "minimum_quantity", out var mqEl) && TryGetDouble(mqEl, out double mqVal) && mqVal > 0)
+                vm.MinQuantity = mqVal;
             if (JsonProps.TryGet(p, props, "alternate_barcodes", out var altArr) && altArr.ValueKind == JsonValueKind.Array)
             {
                 var codes = new System.Collections.Generic.List<string>();

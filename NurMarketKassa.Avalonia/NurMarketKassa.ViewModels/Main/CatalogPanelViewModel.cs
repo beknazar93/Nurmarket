@@ -100,7 +100,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
             foreach (var tile in _allProducts)
                 ProductUnitNormalizer.ApplyToTile(tile);
             ApplyFilter();
-            StatusText = Tr.T($"Товаров: {_allProducts.Count}", $"Товарлар: {_allProducts.Count}", $"Products: {_allProducts.Count}", $"Ürün: {_allProducts.Count}", $"Mahsulotlar: {_allProducts.Count}");
+            SetRoutineStatus(Tr.T($"Товаров: {_allProducts.Count}", $"Товарлар: {_allProducts.Count}", $"Products: {_allProducts.Count}", $"Ürün: {_allProducts.Count}", $"Mahsulotlar: {_allProducts.Count}"));
             OnPropertyChanged(nameof(PageStatusText));
             OnPropertyChanged(nameof(HotkeyGroupFilterLabel));
         });
@@ -209,10 +209,70 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         {
             if (cts.IsCancellationRequested)
                 return;
-            ResetCurrentPage();
+            // 2026-11-06 (шаг 8, скорость): на большом каталоге отбор (15 000 товаров: Where + сортировка) считается в фоне, на экран результат ложится на UI-потоке.
+            ApplyFilterInBackground(resetPage: true);
+        });
+    }
+
+    /// <summary>2026-11-06 (шаг 8): с каталога такого размера отбор по тексту считаем не на UI-потоке (на слабом ПК 15 000 товаров — десятки миллисекунд зависания окна на каждое слово).
+    /// Меньше — как раньше, сразу (никакой разницы кассиру и тестам).</summary>
+    public const int BackgroundFilterThreshold = 2000;
+
+    // Поколение отбора: любой более новый отбор (в том числе обычный ApplyFilter на UI) делает готовый фоновый результат устаревшим — он не показывается.
+    private int _filterGeneration;
+
+    private void ApplyFilterInBackground(bool resetPage)
+    {
+        var all = _allProducts;
+        if (all.Count < BackgroundFilterThreshold)
+        {
+            if (resetPage)
+                ResetCurrentPage();
             ApplyFilter();
             StateChanged?.Invoke(this, EventArgs.Empty);
-        });
+            return;
+        }
+
+        var generation = Interlocked.Increment(ref _filterGeneration);
+        var query = _searchText;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                return ComputeFiltered(all, query);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"CATALOG filter in background failed: {ex.GetType().Name}: {ex.Message}", "CATALOG");
+                return null;
+            }
+        }).ContinueWith(t =>
+        {
+            if (t.Result is not { } filtered)
+            {
+                // Фоновый отбор не удался — считаем так же, как раньше, на UI-потоке.
+                _dispatcher.Post(() =>
+                {
+                    if (generation != Volatile.Read(ref _filterGeneration))
+                        return;
+                    if (resetPage)
+                        ResetCurrentPage();
+                    ApplyFilter();
+                    StateChanged?.Invoke(this, EventArgs.Empty);
+                });
+                return;
+            }
+
+            _dispatcher.Post(() =>
+            {
+                if (generation != Volatile.Read(ref _filterGeneration) || !ReferenceEquals(all, _allProducts))
+                    return; // за это время ввели ещё букву, сменили вкладку или каталог обновился — актуальный отбор покажет тот запрос
+                if (resetPage)
+                    ResetCurrentPage();
+                PublishFiltered(filtered);
+                StateChanged?.Invoke(this, EventArgs.Empty);
+            });
+        }, TaskScheduler.Default);
     }
 
     public bool IsLoading
@@ -238,7 +298,45 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
     public string StatusText
     {
         get => _statusText;
-        set => SetProperty(ref _statusText, value ?? "");
+        set
+        {
+            _statusIsRoutine = false; // 2026-11-06 (Д4-07): обычная запись — предупреждение/ошибка/ход загрузки; служебные строки пишет SetRoutineStatus
+            SetProperty(ref _statusText, value ?? "");
+            RaiseStatusSplit();
+        }
+    }
+
+    // ── 2026-11-06 (Д4-07, хвост): служебные строки («Каталог обновлён. Товаров: N.», «Товаров: N», «Смена открыта») не должны занимать место над каталогом ──────────────────
+    // Вид (CatalogPanelView, волна В7) показывает VisibleStatusText (пусто у служебных строк) и кладёт ServiceStatusText в подсказку значка «Онлайн». Сам StatusText не меняется.
+
+    private bool _statusIsRoutine;
+
+    /// <summary>Служебная строка: всё в порядке, ничего делать не нужно (счётчик товаров, «Каталог обновлён», «Смена открыта»).</summary>
+    public bool IsStatusRoutine => _statusIsRoutine;
+
+    /// <summary>Текст строки статуса, который нужно показать на экране: пусто для служебных строк.</summary>
+    public string VisibleStatusText => _statusIsRoutine ? "" : _statusText;
+
+    public bool HasVisibleStatus => VisibleStatusText.Length > 0;
+
+    /// <summary>Служебная строка для подсказки значка «Онлайн».</summary>
+    public string ServiceStatusText => _statusIsRoutine ? _statusText : "";
+
+    /// <summary>Записывает служебную строку (см. <see cref="IsStatusRoutine"/>).</summary>
+    public void SetRoutineStatus(string text)
+    {
+        _statusText = text ?? "";
+        _statusIsRoutine = _statusText.Length > 0;
+        OnPropertyChanged(nameof(StatusText));
+        RaiseStatusSplit();
+    }
+
+    private void RaiseStatusSplit()
+    {
+        OnPropertyChanged(nameof(IsStatusRoutine));
+        OnPropertyChanged(nameof(VisibleStatusText));
+        OnPropertyChanged(nameof(HasVisibleStatus));
+        OnPropertyChanged(nameof(ServiceStatusText));
     }
 
     public string ProductCountText
@@ -823,9 +921,11 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
                 if (syncResult.Success)
                 {
                     IsOfflineBannerVisible = false;
-                    StatusText = products.Count > 0
-                        ? Tr.T($"Каталог обновлён. Товаров: {products.Count}.", $"Каталог жаңыртылды. Товарлар: {products.Count}.", $"Catalog updated. Products: {products.Count}.", $"Katalog güncellendi. Ürün: {products.Count}.", $"Katalog yangilandi. Mahsulotlar: {products.Count}.")
-                        : Tr.T("Каталог пуст. Добавьте товар в свой каталог.", "Каталог бош. Каталогуңузга товар кошуңуз.", "The catalog is empty. Add products to your catalog.", "Katalog boş. Kataloğunuza ürün ekleyin.", "Katalog bo'sh. Katalogingizga mahsulot qo'shing.");
+                    // 2026-11-06 (Д4-07): «Каталог обновлён» — служебная строка (в подсказку значка «Онлайн»), «Каталог пуст» — обычная (её видно).
+                    if (products.Count > 0)
+                        SetRoutineStatus(Tr.T($"Каталог обновлён. Товаров: {products.Count}.", $"Каталог жаңыртылды. Товарлар: {products.Count}.", $"Catalog updated. Products: {products.Count}.", $"Katalog güncellendi. Ürün: {products.Count}.", $"Katalog yangilandi. Mahsulotlar: {products.Count}."));
+                    else
+                        StatusText = Tr.T("Каталог пуст. Добавьте товар в свой каталог.", "Каталог бош. Каталогуңузга товар кошуңуз.", "The catalog is empty. Add products to your catalog.", "Katalog boş. Kataloğunuza ürün ekleyin.", "Katalog bo'sh. Katalogingizga mahsulot qo'shing.");
                 }
                 else
                 {
@@ -983,7 +1083,14 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
 
     private void ApplyFilter()
     {
-        var query = _searchText.Trim();
+        Interlocked.Increment(ref _filterGeneration); // 2026-11-06 (шаг 8): готовые фоновые результаты прежнего отбора больше не показываем
+        PublishFiltered(ComputeFiltered(_allProducts, _searchText));
+    }
+
+    /// <summary>Отбор и порядок плиток по тексту поиска, вкладке и фильтрам. Ничего не меняет в окне — можно считать в фоне (2026-11-06, шаг 8).</summary>
+    private List<CatalogProductTileVm> ComputeFiltered(List<CatalogProductTileVm> allProducts, string searchText)
+    {
+        var query = searchText.Trim();
         // Активный поиск (2+ символа) ищет по всему каталогу независимо от выбранной вкладки
         // (Весовые/Штучные/...) — кассиру не нужно гадать, в какой вкладке искать товар.
         var isActiveSearch = query.Length >= 2;
@@ -994,7 +1101,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         var variantProductId = query.Length >= 4 && MarketSpheres.IsClothing ? VariantBarcodeIndex.ProductIdFor(query) : null;
         // 2026-10-29: единый поиск SearchMatch — слова в любом порядке, ё=е; если как набрано ничего нет — «Asu»↔«Асу»↔«фыг» (раскладка/транслит).
         var sq = SearchMatch.Prepare(query);
-        List<CatalogProductTileVm> Build(bool fuzzy) => _allProducts
+        List<CatalogProductTileVm> Build(bool fuzzy) => allProducts
             .Where(p => isActiveSearch || MatchesTab(p))
             .Where(p => MatchesSearch(p, query, sq, fuzzy)
                         || (variantProductId != null && string.Equals(p.Id, variantProductId, StringComparison.OrdinalIgnoreCase)))
@@ -1010,7 +1117,11 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         var filtered = Build(false);
         if (filtered.Count == 0 && isActiveSearch && !sq.IsEmpty)
             filtered = Build(true);
+        return filtered;
+    }
 
+    private void PublishFiltered(List<CatalogProductTileVm> filtered)
+    {
         _filteredProductCount = filtered.Count;
         OnPropertyChanged(nameof(ShowPager));
         TotalPages = Math.Max(1, (int)Math.Ceiling(_filteredProductCount / (double)PageSize));

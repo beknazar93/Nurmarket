@@ -288,7 +288,7 @@ public partial class LabelScaleSetupPanel : UserControl
 
     // ------------------------------------------------------------------ марка и способ
 
-    private void BrandTile_Click(object? sender, RoutedEventArgs e)
+    private async void BrandTile_Click(object? sender, RoutedEventArgs e)
     {
         var brand = sender == BrandRongtaTile ? ScaleUi.BrandRongta
             : sender == BrandTmTile ? ScaleUi.BrandTm
@@ -304,8 +304,20 @@ public partial class LabelScaleSetupPanel : UserControl
         if (brand == ScaleUi.BrandTm)
             ScaleBarcodeRules.EnsureTmAmountRule();
         // 2026-11-06: у РС-200 свой разбор этикеток (префикс, число знаков кода, «Код-Вес»…) — включается вместе с выбором марки.
+        // 2026-11-06 (аудит Этапа 2, С-3): раскладку РС-200 (префикс 27 и др.) молча не применяем — она меняет чтение этикеток ДРУГИХ весов с тем же префиксом; сначала вопрос.
         if (brand == ScaleUi.BrandShtrikhPc)
-            ScaleBarcodeRules.EnsureShtrikhPcPreset();
+        {
+            try
+            {
+                var owner = TopLevel.GetTopLevel(this) as Window;
+                await ScaleBarcodeRules.OfferShtrikhPcPresetAsync(question => PosDialogs.ConfirmYesNoModalAsync(owner, question, null,
+                    Tr.T("Применить", "Колдонуу", "Apply", "Uygula", "Qo'llash"), Tr.T("Не менять", "Өзгөртпөө", "Keep as is", "Değiştirme", "O'zgartirmaslik"))).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Весы Штрих РС-200: вопрос о раскладке не показан ({ex.Message}) — раскладка не менялась.", "SCALES");
+            }
+        }
         ApplyBrand();
         SetupChanged?.Invoke();
     }

@@ -53,16 +53,17 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// <summary>Период, который сейчас ПОКАЗАН на странице (может быть уже загруженного окна —
         /// см. _lastFetchFrom). Нужен показателям, которые считаются не из списка продаж:
         /// например, расходы из денежного ящика.</summary>
-        private DateTime _displayFrom = DateTime.Today;
-        private DateTime _displayTo = DateTime.Today;
+        // 2026-11-06 (В11, Л4-06 хвост): «Сегодня» в отчётах — по серверным часам (ServerClock.Today), а не по часам ПК.
+        private DateTime _displayFrom = ServerClock.Today;
+        private DateTime _displayTo = ServerClock.Today;
         private int _summaryPeriod; // 0=день, 1=неделя, 2=месяц — см. UpdateSummaryPanel/RefreshSummaryPanelAsync
         private CancellationTokenSource? _summaryCts;
         private bool _shiftsShowOpen = true;
         private ObservableCollection<CashSessionEntry> _cashSessions;
         private readonly CollectionViewSource _salesViewSource = new();
         private readonly CollectionViewSource _historyViewSource = new();
-        private DateTime _historyFrom = DateTime.Today;
-        private DateTime _historyTo = DateTime.Today;
+        private DateTime _historyFrom = ServerClock.Today;
+        private DateTime _historyTo = ServerClock.Today;
         private bool _isLoading;
         private string _errorMessage; 
         private CancellationTokenSource _loadCts;
@@ -260,6 +261,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _summaryCts?.Cancel();
             _summaryCts?.Dispose();
             _summaryCts = null;
+            _allProductsPause?.Dispose();
             _abcCts?.Cancel();
             _seasonalityCts?.Cancel();
             _insightsCts?.Cancel();
@@ -331,6 +333,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
             HeaderTitleText.IsVisible = false;
             ExitButton.IsVisible = false;
             RefreshButton.Margin = new Thickness(0);
+            // 2026-11-06 (В11, Д4-30): абзац «как считается прибыль» под плитками — кнопкой «?» в шапке раздела (текст тот же, читается при открытии окошка).
+            ProfitHowText.IsVisible = false;
+            var hint = NurMarketKassa.AvaloniaHost.Views.Controls.HintButton.Create(() => ProfitHowText.Text);
+            hint.Margin = new Thickness(0, 0, 6, 0);
+            HeaderActions.Children.Insert(0, hint);
             DailySummaryCard.IsVisible = false;
             ClockBadge.IsVisible = false;
             _clockTimer?.Stop();
@@ -497,7 +504,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 _seasonalityView.Show(report);
                 _seasonalityLoaded = true;
                 // 2026-10-20, аудит владельца: столбики по месяцам — итоги сервера (как «Сводка» за месяц), не история кассы.
-                var today = DateTime.Today;
+                var today = ServerClock.Today;
                 var months = await FetchServerMonthTotalsAsync(today, cts.Token).ConfigureAwait(true);
                 if (!cts.IsCancellationRequested && months != null)
                     _seasonalityView.ShowServerMonths(months, today, report.FirstSale);
@@ -1107,7 +1114,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
             }
         }
 
-        private void AllProductsSearchBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyAllProductsFilter();
+        // 2026-11-06 (В11, шаг 7, п. 26.3): «Все товары» (до 15 000 строк) фильтруются после паузы 200 мс с последней буквы, а не на каждую.
+        private NurMarketKassa.AvaloniaHost.Services.SearchPause _allProductsPause;
+
+        private void AllProductsSearchBox_TextChanged(object sender, TextChangedEventArgs e) =>
+            (_allProductsPause ??= new NurMarketKassa.AvaloniaHost.Services.SearchPause(ApplyAllProductsFilter, 200)).Trigger();
 
         private void ApplyAllProductsFilter()
         {
@@ -1356,7 +1367,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     {
                         if (!IsVisible) { _staleWhileHidden = true; return; } // 2026-11-05 (Л4-12): спрятали, пока ждали
                         await LoadDataAsync(_historyFrom, _historyTo,
-                        forceRefresh: _historyTo.Date >= DateTime.Today && (_mergedSales != null || (_historyTo.Date - _historyFrom.Date).Days < 7));
+                        forceRefresh: _historyTo.Date >= ServerClock.Today && (_mergedSales != null || (_historyTo.Date - _historyFrom.Date).Days < 7));
                     });
                 }
                 catch (System.OperationCanceledException)
@@ -1651,7 +1662,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
                 async Task<List<SaleLineFact>> OneDayAsync(DateTime day)
                 {
-                    if (day < DateTime.Today && _dayProductFacts.TryGetValue(day, out var cached))
+                    if (day < ServerClock.Today && _dayProductFacts.TryGetValue(day, out var cached))
                         return cached;
                     await gate.WaitAsync(token).ConfigureAwait(false);
                     try
@@ -1659,7 +1670,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                         var facts = await FetchServerProductFactsAsync(day, day, day, token).ConfigureAwait(false);
                         if (facts == null)
                             return new List<SaleLineFact>();
-                        if (day < DateTime.Today)
+                        if (day < ServerClock.Today)
                             _dayProductFacts[day] = facts;
                         return facts;
                     }
@@ -2277,8 +2288,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 foreach (var s in sales) _sales.Add(s);
             }
 
-            _refunds.Clear();
-            foreach (var r in refunds) _refunds.Add(r);
+            // 2026-11-06 (В11, шаг 7, п. 26.3): возвраты — тоже одной перерисовкой (каждое Add слал полный Reset представления, O(N²)).
+            using (RefundsView.DeferRefresh())
+            {
+                _refunds.Clear();
+                foreach (var r in refunds) _refunds.Add(r);
+            }
         }
 
         /// <summary>Сводка периода с сервера (возвраты, прибыль — как на сайте); null — нет связи.</summary>
@@ -2488,7 +2503,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             DailySummaryCard.IsVisible = true;
 
-            var to = DateTime.Today;
+            var to = ServerClock.Today;
             var from = _summaryPeriod switch
             {
                 // 2026-10-20, проверка фильтров: общие правила периода — «Месяц» с 1-го числа (было 30 дней).
@@ -2647,8 +2662,36 @@ namespace NurMarketKassa.AvaloniaHost.Views
             DailySummaryText.Text = sb.ToString();
         }
 
+        /// <summary>2026-11-06 (В11, Д4-27): за период без продаж — одна плашка вверху («За сегодня продаж нет · Показать неделю»), пустые графики ниже сворачиваются
+        /// до строки (см. Update*Chart). Пока список чеков ещё грузится, плашки нет — «нет продаж» пока не известно.</summary>
+        private void UpdateEmptyPeriodBar(List<SaleItem> sales)
+        {
+            var show = sales.Count == 0 && !_listPending;
+            EmptyPeriodBar.IsVisible = show;
+            if (!show)
+                return;
+            var single = _historyFrom.Date == _historyTo.Date;
+            EmptyPeriodText.Text = single && _historyFrom.Date == ServerClock.Today
+                ? Tr.T("За сегодня продаж нет", "Бүгүн сатуу жок", "No sales today", "Bugün satış yok", "Bugun sotuv yo'q")
+                : single
+                    ? Tr.T("За выбранный день продаж нет", "Тандалган күнү сатуу жок", "No sales for the selected day", "Seçilen gün için satış yok", "Tanlangan kunda sotuv yo'q")
+                    : Tr.T("За выбранный период продаж нет", "Тандалган мезгилде сатуу жок", "No sales for the selected period", "Seçilen dönemde satış yok", "Tanlangan davrda sotuv yo'q");
+            EmptyPeriodWeekButton.Content = Tr.T("Показать неделю", "Жумасын көрсөтүү", "Show the week", "Haftayı göster", "Haftani ko'rsatish");
+            EmptyPeriodWeekButton.IsVisible = single;
+        }
+
+        private void EmptyPeriodWeek_Click(object sender, RoutedEventArgs e)
+        {
+            var week = (CustomDatePill.Parent as Panel)?.Children.OfType<RadioButton>().FirstOrDefault(r => "Week".Equals(r.Tag));
+            if (week is null)
+                return;
+            week.IsChecked = true;
+            QuickDate_Click(week, new RoutedEventArgs());
+        }
+
         private void UpdateCharts(List<SaleItem> sales)
         {
+            UpdateEmptyPeriodBar(sales);
             // 2026-09-29, стресс-тест: список обрезан (см. _salesListTruncated) — оплаты и выручка по
             // дням берутся из сводки сервера (как плитки), иначе графики молча показывали бы только
             // последние 50 000 чеков. По часам и число продаж по дням сервер не отдаёт — они по
@@ -2803,6 +2846,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             PaymentSplitBar.ColumnDefinitions.Clear();
             PaymentSplitBar.Children.Clear();
             PaymentLegend.Children.Clear();
+            PaymentSplitBar.IsVisible = true;
 
             decimal total = sales.Sum(s => s.TotalAmount);
             var byMethod = sales
@@ -2815,8 +2859,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             if (total <= 0 || byMethod.Count == 0)
             {
-                PaymentSplitBar.ColumnDefinitions.Add(new ColumnDefinition(1, GridUnitType.Star));
-                PaymentSplitBar.Children.Add(new Border { Background = Brushes.LightGray, CornerRadius = new CornerRadius(6) });
+                // 2026-11-06 (В11, Д4-27): серая полоса-заглушка убрана — остаётся одна строка «Нет данных».
+                PaymentSplitBar.IsVisible = false;
                 PaymentLegend.Children.Add(new TextBlock
                 {
                     Text = Tr.T("Нет данных за выбранный период", "Тандалган мезгил боюнча маалымат жок", "No data for the selected period", "Seçilen dönem için veri yok", "Tanlangan davr uchun ma'lumot yo'q"),
@@ -2881,6 +2925,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
 
             HourlyRevenueBars.Children.Clear();
             HourlyRevenueLegend.Children.Clear();
+            HourlyRevenueBars.Height = sales.Count == 0 ? double.NaN : 120; // 2026-11-06 (В11, Д4-27): пустой график — одна строка, а не рамка 120 px
 
             if (sales.Count == 0)
             {
@@ -2955,6 +3000,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 .OrderBy(x => x.Date)
                 .ToList();
 
+            DailyRevenueBars.Height = byDay.Count == 0 ? double.NaN : 150; // 2026-11-06 (В11, Д4-27): пустой график — одна строка, а не рамка 150 px
             if (byDay.Count == 0)
             {
                 DailyRevenueBars.Children.Add(new TextBlock
@@ -2978,7 +3024,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             foreach (var day in byDay)
             {
                 var dayIndex = byDay.IndexOf(day);
-                var isToday = day.Date == DateTime.Today;
+                var isToday = day.Date == ServerClock.Today;
                 hasToday |= isToday;
                 var barHeight = Math.Max(3, (double)(day.Total / maxVal) * maxBarHeight);
 
@@ -3267,7 +3313,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             _quickDatePill = rb;
 
             DateTime from, to;
-            DateTime today = DateTime.Today;
+            DateTime today = ServerClock.Today;
             switch (tag)
             {
                 case "Yesterday": from = to = today.AddDays(-1); break;

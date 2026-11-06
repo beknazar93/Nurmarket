@@ -385,9 +385,10 @@ public partial class WarehouseWindow
                 T($"наценка {(sale - purchase).ToString("N0", RuCulture)} {som}", $"үстөк {(sale - purchase).ToString("N0", RuCulture)} {som}", $"markup {(sale - purchase).ToString("N0", RuCulture)} {som}",
                     $"kâr payı {(sale - purchase).ToString("N0", RuCulture)} {som}", $"ustama {(sale - purchase).ToString("N0", RuCulture)} {som}"), null, null),
             Card(T("Заканчивается", "Түгөнүп баратат", "Running low", "Tükenmek üzere", "Tugab bormoqda"), low.ToString("N0", RuCulture),
-                T($"меньше {CatalogProductTileVm.LowStockQuantityThreshold:0} — нажмите, чтобы показать", $"{CatalogProductTileVm.LowStockQuantityThreshold:0} кем — көрсөтүү үчүн басыңыз",
-                    $"under {CatalogProductTileVm.LowStockQuantityThreshold:0} — click to show", $"{CatalogProductTileVm.LowStockQuantityThreshold:0} altı — göstermek için tıklayın",
-                    $"{CatalogProductTileVm.LowStockQuantityThreshold:0} dan kam — ko'rsatish uchun bosing"),
+                // 2026-11-06 (Б2-Т, живой тест Этапа 2): правило — «Минимальный остаток» карточки, а без него общий порог; подпись раньше называла только порог.
+                T($"ниже минимального остатка (без него — меньше {CatalogProductTileVm.LowStockQuantityThreshold:0}) — нажмите, чтобы показать", $"минималдуу калдыктан төмөн (жок болсо — {CatalogProductTileVm.LowStockQuantityThreshold:0} кем) — көрсөтүү үчүн басыңыз",
+                    $"below the minimum stock (without it — under {CatalogProductTileVm.LowStockQuantityThreshold:0}) — click to show", $"asgari stokun altı (yoksa — {CatalogProductTileVm.LowStockQuantityThreshold:0} altı) — göstermek için tıklayın",
+                    $"minimal qoldiqdan kam (u bo'lmasa — {CatalogProductTileVm.LowStockQuantityThreshold:0} dan kam) — ko'rsatish uchun bosing"),
                 low > 0 ? "BrushWarning" : null, "low"),
             Card(T("Нет в наличии", "Калдыкта жок", "Out of stock", "Stokta yok", "Mavjud emas"), outOfStock.ToString("N0", RuCulture),
                 T("остаток 0 — нажмите, чтобы показать", "калдык 0 — көрсөтүү үчүн басыңыз", "stock 0 — click to show", "stok 0 — göstermek için tıklayın", "qoldiq 0 — ko'rsatish uchun bosing"),

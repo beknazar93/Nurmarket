@@ -301,10 +301,31 @@ public static class SyncCenter
 
     public static string LastSyncWhat => _lastWhat;
 
+    private static long _lastSalesPulseOkTicks;
+
+    /// <summary>2026-11-06 (В11, шаг 5): пульс продаж (RemoteSalesPulse) отвечал недавно — «Сводка» владельца узнаёт о новых чеках по его сигналу, а таймер остаётся страховкой.</summary>
+    public static bool SalesPulseAlive => IsSalesPulseAlive(Interlocked.Read(ref _lastSalesPulseOkTicks), DateTime.UtcNow, SalesPulseAliveWithin);
+
+    /// <summary>Пульс считается живым, если последний удачный ответ был не позже этого срока (самый редкий такт — 60 с, при сбоях ×4 — тогда пульс уже не «жив»).</summary>
+    public static readonly TimeSpan SalesPulseAliveWithin = TimeSpan.FromSeconds(90);
+
+    /// <summary>Страховочное обновление «Сводки», пока пульс продаж жив: сигнал продаж и возврат в окно обновляют её сразу, таймер нужен лишь на случай событий, которых пульс не видит.</summary>
+    public static readonly TimeSpan OverviewSafetyWhilePulseAlive = TimeSpan.FromMinutes(2);
+
+    /// <summary>Чистая часть <see cref="SalesPulseAlive"/> для проверки: 0 — удачных ответов ещё не было.</summary>
+    public static bool IsSalesPulseAlive(long lastOkTicksUtc, DateTime nowUtc, TimeSpan within) =>
+        lastOkTicksUtc != 0 && nowUtc - new DateTime(lastOkTicksUtc, DateTimeKind.Utc) <= within;
+
+    /// <summary>Интервал обновления «Сводки» по таймеру: обычный <paramref name="normal"/>, но не чаще <see cref="OverviewSafetyWhilePulseAlive"/>, пока пульс продаж жив.</summary>
+    public static TimeSpan OverviewIntervalFor(TimeSpan normal, bool pulseAlive) =>
+        pulseAlive && normal < OverviewSafetyWhilePulseAlive ? OverviewSafetyWhilePulseAlive : normal;
+
     /// <summary>Отметить удачный обмен (что: catalog, feed, settings, queue, sales, shift).</summary>
     public static void RecordSuccess(string what)
     {
         Interlocked.Exchange(ref _lastOkTicks, DateTime.UtcNow.Ticks);
+        if (what == "sales")
+            Interlocked.Exchange(ref _lastSalesPulseOkTicks, DateTime.UtcNow.Ticks);
         _lastWhat = what;
         try { Changed?.Invoke(); }
         catch (Exception ex) { PosLogger.Log($"SYNC: обработчик события не отработал: {ex.Message}", "WARNING"); }

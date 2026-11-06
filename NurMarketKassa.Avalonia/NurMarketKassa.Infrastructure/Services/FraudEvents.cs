@@ -24,8 +24,10 @@ public static class FraudKinds
     public const string Irregular = "irregular";
     /// <summary>2026-11-06: В3 — кто-то выключил защиту (PIN старшего или журнал подозрительных операций). Subject — какую, Cashier — кто.</summary>
     public const string ProtectionOff = "protection_off";
+    /// <summary>2026-11-06: В12 (Л5-06, хвост) — ревизия с крупным расхождением проведена без проверки PIN владельца (нет связи с сервером). Amount — недостача.</summary>
+    public const string RevisionNoPin = "revision_no_pin";
 
-    public static readonly string[] All = { Removal, RemovalMany, Return, ReturnNoReceipt, Discount, BelowCost, Shortage, PinOk, PinDenied, Irregular, ProtectionOff };
+    public static readonly string[] All = { Removal, RemovalMany, Return, ReturnNoReceipt, Discount, BelowCost, Shortage, PinOk, PinDenied, Irregular, ProtectionOff, RevisionNoPin };
 
     /// <summary>Баллы подозрительности за одно событие. Подтверждённое PIN-ом (pin_ok) баллов не даёт: старший всё видел.</summary>
     public static int Weight(string kind) => kind switch
@@ -40,6 +42,7 @@ public static class FraudKinds
         PinDenied => 3,
         Irregular => 1,
         ProtectionOff => 3,
+        RevisionNoPin => 3,
         _ => 0,
     };
 }
@@ -299,6 +302,7 @@ public static class FraudText
         FraudKinds.PinDenied => Tr.T("PIN не принят — действие отменено", "PIN кабыл алынган жок — аракет токтотулду", "PIN rejected — action cancelled", "PIN kabul edilmedi — işlem iptal", "PIN qabul qilinmadi — amal bekor qilindi"),
         FraudKinds.Irregular => Tr.T("Некорректный чек", "Туура эмес чек", "Irregular receipt", "Düzensiz fiş", "Noto'g'ri chek"),
         FraudKinds.ProtectionOff => Tr.T("Защита выключена", "Коргоо өчүрүлдү", "Protection switched off", "Koruma kapatıldı", "Himoya o'chirildi"),
+        FraudKinds.RevisionNoPin => Tr.T("Ревизия без проверки PIN (нет связи)", "PIN текшерилбей ревизия (байланыш жок)", "Stocktake without a PIN check (offline)", "PIN doğrulanmadan sayım (bağlantı yok)", "PIN tekshirilmagan inventarizatsiya (aloqa yo'q)"),
         _ => kind,
     };
 

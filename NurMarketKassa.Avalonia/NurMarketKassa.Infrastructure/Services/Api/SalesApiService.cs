@@ -634,14 +634,36 @@ public sealed partial class SalesApiService : ISalesApiService
         return result;
     }
 
-    public async Task<List<JsonElement>> PosDebtSalesAsync(string? clientId, CancellationToken ct = default)
+    public Task<List<JsonElement>> PosDebtSalesAsync(string? clientId, CancellationToken ct = default) => PosSalesByStatusAsync("debt", clientId, ct);
+
+    /// <summary>2026-11-06 (Б2-2): см. <see cref="ISalesApiService.PosDebtSalesWithReturnedAsync"/>. Дополнительный запрос отвергнут сервером (4xx — фильтр статуса не принят) —
+    /// в журнал и дальше только «debt», как раньше; обрыв связи/таймаут/5xx — исключением (список неполный, показывать его как полный нельзя).</summary>
+    public async Task<List<JsonElement>> PosDebtSalesWithReturnedAsync(string clientId, CancellationToken ct = default)
+    {
+        var debt = await PosSalesByStatusAsync("debt", clientId, ct).ConfigureAwait(false);
+        var others = new List<JsonElement>();
+        foreach (var status in DebtSaleListRules.ExtraStatuses)
+        {
+            try
+            {
+                others.AddRange(await PosSalesByStatusAsync(status, clientId, ct).ConfigureAwait(false));
+            }
+            catch (ApiException ex) when (ex.StatusCode is >= 400 and < 500 and not 401 and not 403 and not 408 and not 429)
+            {
+                PosLogger.Log($"Оплата долга: чеки со статусом {status} не получены ({ex.StatusCode}) — показаны только долговые.", "WARNING");
+            }
+        }
+        return DebtSaleListRules.Merge(debt, others);
+    }
+
+    private async Task<List<JsonElement>> PosSalesByStatusAsync(string status, string? clientId, CancellationToken ct)
     {
         var result = new List<JsonElement>();
         for (var page = 1; page <= 20; page++)
         {
             var query = new Dictionary<string, string>
             {
-                ["status"] = "debt",
+                ["status"] = status,
                 ["page"] = page.ToString(CultureInfo.InvariantCulture),
             };
             if (!string.IsNullOrWhiteSpace(clientId))

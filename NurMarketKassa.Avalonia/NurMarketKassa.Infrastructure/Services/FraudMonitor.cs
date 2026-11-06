@@ -182,6 +182,22 @@ public static class FraudMonitor
         Report(e);
     }
 
+    /// <summary>2026-11-06: В12 (Л5-06, хвост) — ревизия с недостачей выше порога проведена без PIN владельца, потому что нет связи с сервером: запись в журнал антифрода
+    /// (и в Telegram, если включён) — владелец увидит и проверит акт. Если связь есть и PIN отвергнут, сюда не попадаем — ревизия не проводится.</summary>
+    public static void OnRevisionPinSkipped(double shortage)
+    {
+        try
+        {
+            var e = NewEvent(FraudKinds.RevisionNoPin, shortage);
+            e.Note = "PIN владельца не проверен — нет связи; проверить акт ревизии";
+            Report(e);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Антифрод: ревизия без PIN не записана ({ex.GetType().Name}: {ex.Message}).", "WARNING");
+        }
+    }
+
     // ───────── журнал и Telegram ─────────
 
     internal static void Report(FraudEvent e)

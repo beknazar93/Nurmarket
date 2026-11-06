@@ -179,9 +179,9 @@ public static class PosDialogs
     /// <summary>2026-10-04, Android-касса: то же из async-кода (в Windows — прежний синхронный ConfirmYesNo).
     /// 2026-10-22 (модалки, пакет 0): те же глаголы и danger, что у <see cref="ConfirmYesNo"/>.</summary>
     public static Task<bool> ConfirmYesNoModalAsync(Window? owner, string message, string? title = null,
-        string? confirmText = null, string? cancelText = null, bool danger = false) =>
+        string? confirmText = null, string? cancelText = null, bool danger = false, bool enterCancels = false) =>
         PosConfirmDialog.ShowModalAsync(owner, title ?? Tr.T("Подтверждение", "Ырастоо", "Confirmation", "Onay", "Tasdiqlash"), message,
-            confirmText, cancelText, danger ? PosConfirmAccent.Danger : PosConfirmAccent.Primary);
+            confirmText, cancelText, danger ? PosConfirmAccent.Danger : PosConfirmAccent.Primary, enterCancels); // 2026-11-06 (Н16): enterCancels — Enter = «Отмена»
 
     public static void Info(Window? owner, string message, string? title = null) =>
         PosAlertDialog.Show(owner, title ?? Tr.T("Сообщение", "Билдирүү", "Message", "Mesaj", "Xabar"), message, PosAlertKind.Info);

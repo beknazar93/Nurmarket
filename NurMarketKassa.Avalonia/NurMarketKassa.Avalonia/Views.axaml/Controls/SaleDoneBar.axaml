@@ -76,7 +76,8 @@
 
             <!-- Полоса времени до автозакрытия: убывает слева направо. -->
             <Border x:Name="TimeTrack" Grid.Row="2" Grid.Column="1" Background="{DynamicResource BrushBorder}">
-                <Border x:Name="TimeFill" HorizontalAlignment="Left" Background="{DynamicResource BrushUiStatusOk}"/>
+                <!-- 2026-11-06 (В11, шаг 7, п. 26.4): полоса на всю ширину, убывает масштабом слева (SaleDoneBar.axaml.cs); ширину не меняем — раскладка не пересчитывается. -->
+                <Border x:Name="TimeFill" HorizontalAlignment="Stretch" RenderTransformOrigin="0%,50%" Background="{DynamicResource BrushUiStatusOk}"/>
             </Border>
         </Grid>
     </Border>

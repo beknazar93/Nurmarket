@@ -57,7 +57,8 @@ public static class ExpiredSaleGuard
             var sell = await PosDialogs.ConfirmYesNoModalAsync(owner, text,
                 Tr.T("Товар просрочен", "Товардын мөөнөтү өткөн", "Product expired", "Ürünün süresi geçmiş", "Mahsulot muddati o'tgan"),
                 confirmText: needPin ? Tr.T("Ввести PIN", "PIN киргизүү", "Enter PIN", "PIN gir", "PIN kiritish") : Tr.T("Продать всё равно", "Баары бир сатуу", "Sell anyway", "Yine de sat", "Baribir sotish"),
-                cancelText: Tr.T("Убрать", "Алып салуу", "Remove", "Kaldır", "Olib tashlash"), danger: true).ConfigureAwait(true);
+                cancelText: Tr.T("Убрать", "Алып салуу", "Remove", "Kaldır", "Olib tashlash"), danger: true,
+                enterCancels: true).ConfigureAwait(true); // 2026-11-06 (Н16): Enter = «Убрать», продать — только мышью/касанием
             if (!sell)
             {
                 PosLogger.Log($"Просрочка: «{title}» (срок {mark.Date:dd.MM.yyyy}) не добавлен в чек — кассир убрал.", "INFO");

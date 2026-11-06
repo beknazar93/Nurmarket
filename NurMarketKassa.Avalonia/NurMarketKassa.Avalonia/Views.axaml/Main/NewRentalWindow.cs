@@ -296,26 +296,37 @@ public sealed class NewRentalWindow : Window
         return tile;
     }
 
+    // 2026-11-06 (В11, шаг 7): один таймер паузы на всё окно (раньше на каждую букву создавался новый DispatcherTimer), остановка при закрытии;
+    // номер запроса — поздний ответ на старый текст не затирает список нового (запросы к серверу могут приходить не по порядку).
+    private int _clientSearchSeq;
+
     private void ScheduleClientSearch()
     {
-        _clientTimer?.Stop();
-        _clientTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
-        _clientTimer.Tick += async (_, _) =>
+        if (_clientTimer is null)
         {
-            _clientTimer?.Stop();
-            await SearchClientsAsync().ConfigureAwait(true);
-        };
+            _clientTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+            _clientTimer.Tick += async (_, _) =>
+            {
+                _clientTimer?.Stop();
+                await SearchClientsAsync().ConfigureAwait(true);
+            };
+            Closed += (_, _) => _clientTimer?.Stop();
+        }
+        _clientTimer.Stop();
         _clientTimer.Start();
     }
 
     private async Task SearchClientsAsync()
     {
         var text = _clientSearch.Text?.Trim() ?? "";
+        var seq = ++_clientSearchSeq;
         _clientResults.Children.Clear();
         _clientDropdown.IsVisible = true;
         try
         {
             var rows = await App.GetRequiredService<IClientsApiService>().GetClientsAsync(text.Length == 0 ? null : text).ConfigureAwait(true);
+            if (seq != _clientSearchSeq)
+                return;
             _clientResults.Children.Clear();
             foreach (var r in rows.Take(100))
             {

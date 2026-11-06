@@ -134,6 +134,14 @@ public static class WeightBarcodeParser
         return zero;
     }
 
+    /// <summary>2026-11-06: код выглядит как весовая этикетка РС-200 (13 цифр, префикс своей раскладки), но контрольная цифра EAN-13 не сходится — этикетку считали с
+    /// ошибкой. Касса может сказать «Штрихкод прочитан неверно, отсканируйте ещё раз» вместо «товар не найден».</summary>
+    public static bool IsCustomLabelWithBadCheckDigit(string barcode)
+    {
+        var code = (barcode ?? "").Trim();
+        return code.Length == 13 && code[0] == '2' && code.All(char.IsDigit) && FindCustomLayout(code[..2]) is not null && !HasValidEan13CheckDigit(code);
+    }
+
     /// <summary>2026-11-06: разбор по указанной раскладке без включения её в парсер — для примера и сверки в настройках весов РС-200.</summary>
     public static bool TryParseWithLayout(string barcode, WeightBarcodeCustomLayout layout, out WeightBarcodeParseResult result)
     {

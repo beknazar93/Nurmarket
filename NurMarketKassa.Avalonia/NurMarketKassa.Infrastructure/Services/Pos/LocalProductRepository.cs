@@ -233,6 +233,13 @@ public sealed class LocalProductRepository
         ("wholesale_price", "REAL NOT NULL DEFAULT 0", true),
         // 2026-11-01 (is_weight): признак сервера «сумма округляется вниз»; NULL = неизвестно → прежняя эвристика. Версия каталога сбрасывается по той же причине.
         ("IsWeight", "INTEGER NULL", true),
+        // 2026-11-06 (В12, Б-5, Б-8): скидка, наценка, страна, вес и «Минимальный остаток» карточки. Пустые столбцы без значения по умолчанию, версию каталога НЕ сбрасываем
+        // (по решению владельца — чтобы не вызвать полную перезагрузку каталога у клиентов): заполнятся при ближайшей загрузке; отпечаток записи (Fingerprint) их уже учитывает.
+        ("discount_percent", "REAL", false),
+        ("markup_percent", "REAL", false),
+        ("country", "TEXT", false),
+        ("weight_kg", "REAL", false),
+        ("min_quantity", "REAL", false),
     };
 
     /// <summary>2026-11-06 (Б-13): приводит таблицу Products к актуальным столбцам. Идемпотентно: смотрит PRAGMA table_info и добавляет ТОЛЬКО недостающие (ALTER TABLE ADD COLUMN),
@@ -431,7 +438,8 @@ public sealed class LocalProductRepository
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
                    is_bundle, article, bundle_items_json, alternate_barcodes,
-                   alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight
+                   alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight,
+                   discount_percent, markup_percent, country, weight_kg, min_quantity
             FROM Products WHERE {column} = $value{(ignoreCase ? " COLLATE NOCASE" : "")} LIMIT 1;
             """;
         var parameter = command.CreateParameter();
@@ -489,7 +497,8 @@ public sealed class LocalProductRepository
                 SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                        image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
                        is_bundle, article, bundle_items_json, alternate_barcodes,
-                       alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight
+                       alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight,
+                   discount_percent, markup_percent, country, weight_kg, min_quantity
                 FROM Products WHERE is_favorite = 1 ORDER BY name COLLATE NOCASE LIMIT $limit;
                 """;
             var parameter = command.CreateParameter();
@@ -831,7 +840,8 @@ public sealed class LocalProductRepository
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group,
                    is_bundle, article, bundle_items_json, alternate_barcodes,
-                   alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight
+                   alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight,
+                   discount_percent, markup_percent, country, weight_kg, min_quantity
             FROM Products WHERE id = $value LIMIT 1;
             """;
         var parameter = command.CreateParameter();
@@ -1580,7 +1590,13 @@ public sealed class LocalProductRepository
             r.Kind ?? "",
             r.Description ?? "",
             r.WholesalePrice.ToString("0.####", CultureInfo.InvariantCulture),
-            r.ServerIsWeight is { } w ? (w ? "1" : "0") : "");
+            r.ServerIsWeight is { } w ? (w ? "1" : "0") : "",
+            // 2026-11-06 (В12, Б-5, Б-8): скидка/наценка/страна/вес/мин. остаток — смена одной скидки на сервере теперь считается изменением записи
+            r.DiscountPercent.ToString("0.####", CultureInfo.InvariantCulture),
+            r.MarkupPercent.ToString("0.####", CultureInfo.InvariantCulture),
+            r.Country ?? "",
+            r.WeightKg?.ToString("0.####", CultureInfo.InvariantCulture) ?? "",
+            r.MinQuantity?.ToString("0.####", CultureInfo.InvariantCulture) ?? "");
 
     /// <summary>2026-11-06: В5 24.1 — «код товара → отпечаток» всего каталога. Читает строки потоком (запись → отпечаток → запись выбрасывается), без сортировки
     /// (порядок для сравнения не нужен; прежний ORDER BY name шёл по индексу с обращением к таблице на каждую строку). Кэш плиток (RebuildCacheFromDatabase)
@@ -1593,7 +1609,8 @@ public sealed class LocalProductRepository
         command.CommandText = """
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group, is_bundle, article,
-                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight
+                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight,
+                   discount_percent, markup_percent, country, weight_kg, min_quantity
             FROM Products;
             """;
         using var reader = command.ExecuteReader();
@@ -1904,7 +1921,8 @@ public sealed class LocalProductRepository
         command.CommandText = """
             SELECT id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                    image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group, is_bundle, article,
-                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight
+                   bundle_items_json, alternate_barcodes, alternate_barcode_variants, product_code, kind, description, wholesale_price, IsWeight,
+                   discount_percent, markup_percent, country, weight_kg, min_quantity
             FROM Products
             ORDER BY name COLLATE NOCASE;
             """;
@@ -1937,7 +1955,12 @@ public sealed class LocalProductRepository
                 Kind = reader.IsDBNull(21) ? null : reader.GetString(21),
                 Description = reader.IsDBNull(22) ? null : reader.GetString(22),
                 WholesalePrice = reader.IsDBNull(23) ? 0 : reader.GetDouble(23),
-                ServerIsWeight = reader.FieldCount > 24 && !reader.IsDBNull(24) ? reader.GetInt64(24) == 1 : null
+                ServerIsWeight = reader.FieldCount > 24 && !reader.IsDBNull(24) ? reader.GetInt64(24) == 1 : null,
+                DiscountPercent = reader.FieldCount > 25 && !reader.IsDBNull(25) ? reader.GetDouble(25) : 0,
+                MarkupPercent = reader.FieldCount > 26 && !reader.IsDBNull(26) ? reader.GetDouble(26) : 0,
+                Country = reader.FieldCount > 27 && !reader.IsDBNull(27) ? reader.GetString(27) : null,
+                WeightKg = reader.FieldCount > 28 && !reader.IsDBNull(28) ? reader.GetDouble(28) : null,
+                MinQuantity = reader.FieldCount > 29 && !reader.IsDBNull(29) ? reader.GetDouble(29) : null,
             });
         }
 
@@ -1959,12 +1982,14 @@ public sealed class LocalProductRepository
                 id, name, price, barcode, stock, unit, is_favorite, must_weigh,
                 image_url, category, brand, purchase_price, piece_option_json, plu, hotkey_group, is_bundle, article,
                 bundle_items_json, alternate_barcodes, alternate_barcode_variants,
-                intake_date, product_code, kind, description, wholesale_price, IsWeight
+                intake_date, product_code, kind, description, wholesale_price, IsWeight,
+                discount_percent, markup_percent, country, weight_kg, min_quantity
             ) VALUES (
                 @id, @name, @price, @barcode, @stock, @unit, @is_favorite, @must_weigh,
                 @image_url, @category, @brand, @purchase_price, @piece_option_json, @plu, @hotkey_group, @is_bundle, @article,
                 @bundle_items_json, @alternate_barcodes, @alternate_barcode_variants,
-                @intake_date, @product_code, @kind, @description, @wholesale_price, @IsWeight
+                @intake_date, @product_code, @kind, @description, @wholesale_price, @IsWeight,
+                @discount_percent, @markup_percent, @country, @weight_kg, @min_quantity
             )
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
@@ -1992,6 +2017,12 @@ public sealed class LocalProductRepository
                 wholesale_price = excluded.wholesale_price,
                 -- 2026-11-01 (is_weight): запись без признака (лента/остаток) прежнее значение не затирает
                 IsWeight = COALESCE(excluded.IsWeight, Products.IsWeight),
+                -- 2026-11-06 (В12, Б-5, Б-8): скидка/наценка/страна/вес/мин. остаток — запись без значения (NULL) прежнее не затирает
+                discount_percent = COALESCE(excluded.discount_percent, Products.discount_percent),
+                markup_percent = COALESCE(excluded.markup_percent, Products.markup_percent),
+                country = COALESCE(excluded.country, Products.country),
+                weight_kg = COALESCE(excluded.weight_kg, Products.weight_kg),
+                min_quantity = COALESCE(excluded.min_quantity, Products.min_quantity),
                 intake_date = CASE
                     WHEN Products.intake_date IS NULL AND excluded.stock > 0 THEN @today
                     ELSE Products.intake_date
@@ -2022,6 +2053,11 @@ public sealed class LocalProductRepository
         command.Parameters.AddWithValue("@description", DBNull.Value);
         command.Parameters.AddWithValue("@wholesale_price", 0d);
         command.Parameters.AddWithValue("@IsWeight", DBNull.Value);
+        command.Parameters.AddWithValue("@discount_percent", DBNull.Value);
+        command.Parameters.AddWithValue("@markup_percent", DBNull.Value);
+        command.Parameters.AddWithValue("@country", DBNull.Value);
+        command.Parameters.AddWithValue("@weight_kg", DBNull.Value);
+        command.Parameters.AddWithValue("@min_quantity", DBNull.Value);
         command.Parameters.AddWithValue("@intake_date", DBNull.Value);
         command.Parameters.AddWithValue("@today", DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         return command;
@@ -2054,6 +2090,11 @@ public sealed class LocalProductRepository
         command.Parameters["@description"].Value = string.IsNullOrWhiteSpace(record.Description) ? DBNull.Value : record.Description;
         command.Parameters["@wholesale_price"].Value = record.WholesalePrice;
         command.Parameters["@IsWeight"].Value = record.ServerIsWeight is { } serverWeight ? (serverWeight ? 1 : 0) : DBNull.Value;
+        command.Parameters["@discount_percent"].Value = record.DiscountPercent;
+        command.Parameters["@markup_percent"].Value = record.MarkupPercent;
+        command.Parameters["@country"].Value = string.IsNullOrWhiteSpace(record.Country) ? DBNull.Value : record.Country;
+        command.Parameters["@weight_kg"].Value = (object?)record.WeightKg ?? DBNull.Value;
+        command.Parameters["@min_quantity"].Value = (object?)record.MinQuantity ?? DBNull.Value;
         // Только для ветки INSERT (совсем новый товар) — для уже существующих строк
         // реальное решение принимает CASE в ON CONFLICT DO UPDATE (см. CreateUpsertCommand).
         command.Parameters["@intake_date"].Value = record.Stock > 0
@@ -2093,6 +2134,11 @@ public sealed class LocalProductRepository
             Description = reader.FieldCount > 22 && !reader.IsDBNull(22) ? reader.GetString(22) : null,
             WholesalePrice = reader.FieldCount > 23 && !reader.IsDBNull(23) ? reader.GetDouble(23) : 0,
             ServerIsWeight = reader.FieldCount > 24 && !reader.IsDBNull(24) ? reader.GetInt64(24) == 1 : null,
+            DiscountPercent = reader.FieldCount > 25 && !reader.IsDBNull(25) ? reader.GetDouble(25) : 0,
+            MarkupPercent = reader.FieldCount > 26 && !reader.IsDBNull(26) ? reader.GetDouble(26) : 0,
+            Country = reader.FieldCount > 27 && !reader.IsDBNull(27) ? reader.GetString(27) : null,
+            WeightKg = reader.FieldCount > 28 && !reader.IsDBNull(28) ? reader.GetDouble(28) : null,
+            MinQuantity = reader.FieldCount > 29 && !reader.IsDBNull(29) ? reader.GetDouble(29) : null,
         };
 
     private static Product ToProduct(LocalProductRecord record) =>
@@ -2126,6 +2172,11 @@ public sealed class LocalProductRepository
             PurchasePrice = record.PurchasePrice,
             WholesalePrice = record.WholesalePrice,
             ServerIsWeight = record.ServerIsWeight,
+            DiscountPercent = record.DiscountPercent, // 2026-11-06 (В12, Б-5): скидка/наценка/страна/вес больше не пропадают у плиток из базы
+            MarkupPercent = record.MarkupPercent,
+            Country = record.Country,
+            WeightKg = record.WeightKg,
+            MinQuantity = record.MinQuantity,
             PieceOption = DeserializePieceOption(record.PieceOptionJson),
             Plu = record.Plu,
             HotkeyGroup = record.HotkeyGroup,
@@ -2203,6 +2254,11 @@ public sealed class LocalProductRepository
             PurchasePrice = vm.PurchasePrice,
             WholesalePrice = vm.WholesalePrice,
             ServerIsWeight = vm.ServerIsWeight,
+            DiscountPercent = vm.DiscountPercent,
+            MarkupPercent = vm.MarkupPercent,
+            Country = vm.Country,
+            WeightKg = vm.WeightKg,
+            MinQuantity = vm.MinQuantity,
             PieceOptionJson = vm.PieceOption is null ? null : JsonSerializer.Serialize(vm.PieceOption),
             Plu = vm.Plu,
             HotkeyGroup = vm.HotkeyGroup,

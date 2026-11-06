@@ -100,25 +100,16 @@ public sealed class CurrencyAmountConverter : IValueConverter
 {
     public static readonly CurrencyAmountConverter Instance = new();
 
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        double amount;
-        switch (value)
-        {
-            case double d: amount = d; break;
-            case decimal m: amount = (double)m; break;
-            case float f: amount = f; break;
-            case int i: amount = i; break;
-            case long l: amount = l; break;
-            default: return value?.ToString() ?? "";
-        }
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        // MoneyText.SomOf: «1 234,50 сом» — тот же вид, что в чеке и у владельца (разряды неразрывным пробелом, без «-0,00»), валюта — на языке интерфейса.
+        NurMarketKassa.Services.MoneyText.SomOf(value);
 
-        // MoneyText.Som: «1 234,50 сом» — тот же вид, что в чеке и у владельца (разряды неразрывным пробелом, без «-0,00»), валюта — на языке интерфейса.
-        return NurMarketKassa.Services.MoneyText.Som(amount);
-    }
-
+    // 2026-11-06 (Б2-3, живой тест Этапа 2): колонки DataGrid в Avalonia 11.2.5 привязаны двусторонне (TwoWay). Раньше здесь был
+    // throw — текст ячейки «ломал» обратное преобразование, и привязка записывала в TotalAmount/Revenue ноль: колонка «Сумма»
+    // в «Продажах и финансах» (и «Выручка» в «Сменах»/«Топе») показывала 0,00 у всех строк, а сама строка модели обнулялась.
+    // Проверено отдельным опытом (Avalonia.Headless, DataGrid): с throw — «0,00 сом» и модель 0, с DoNothing — «150,00 сом».
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        throw new NotSupportedException();
+        Avalonia.Data.BindingOperations.DoNothing;
 }
 
 /// <summary>true, когда число равно параметру — подсветка выбранной вкладки каталога

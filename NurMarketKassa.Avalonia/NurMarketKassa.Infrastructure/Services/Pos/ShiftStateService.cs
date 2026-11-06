@@ -4,6 +4,24 @@ using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.Services;
 
+/// <summary>2026-11-06 (шаг 32, 20.3): когда запуск кассы может открыть окно по сохранённой смене, не дожидаясь медленного сервера.</summary>
+public static class StartupShiftLocalState
+{
+    /// <summary>Сохранённая открытая смена серверная (не «offline-…»), принадлежит ЭТОМУ кассиру, записана не раньше суток назад и не стоит в очереди закрытия.</summary>
+    public static bool CanShow(OfflinePosState? state, string? currentUserId, DateTimeOffset now)
+    {
+        if (state is null || string.IsNullOrWhiteSpace(state.ActiveShiftId) || string.IsNullOrWhiteSpace(currentUserId))
+            return false;
+        if (state.ActiveShiftId.StartsWith("offline-", StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (!string.Equals(state.CashierId, currentUserId, StringComparison.OrdinalIgnoreCase))
+            return false; // чужая смена или файл старого вида без владельца
+        if (now - state.SavedAt > TimeSpan.FromHours(24) || state.SavedAt - now > TimeSpan.FromMinutes(5))
+            return false;
+        return PendingShiftCloseStore.TryGet(state.ActiveShiftId) is null;
+    }
+}
+
 public sealed class ShiftStateService : IShiftStateService
 {
     private readonly IShiftApiService _shiftApi;
@@ -61,12 +79,15 @@ public sealed class ShiftStateService : IShiftStateService
             // сервера), при 429 — до трёх попыток с паузой Retry-After; каждой попытке 6 с + оставшаяся пауза. Не вышло — ниже последнее известное состояние.
             using var critical = ApiThrottle.BeginCritical();
             var shiftAtStart = PosApp.ActiveShiftId; // 2026-11-01 (К2-02): смена на момент начала сверки — после await присваиваем, только если она не менялась
-            var list = await ApiThrottle.RunWithRetryAsync(async () =>
-            {
-                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                timeoutCts.CancelAfter(TimeSpan.FromSeconds(6) + ApiThrottle.RemainingBlock);
-                return await _shiftApi.ConstructionShiftsListAsync(openOnly: true, ct: timeoutCts.Token).ConfigureAwait(false);
-            }, 3, null, cancellationToken).ConfigureAwait(false);
+            // 2026-11-06 (шаг 11): список открытых смен мог быть запрошен заранее, параллельно со списком касс (PrefetchOpenShifts) — берём тот же запрос, а не шлём второй.
+            var list = TakePrefetchedOpenShifts(_shiftApi) is { } prefetched
+                ? await prefetched.ConfigureAwait(false)
+                : await ApiThrottle.RunWithRetryAsync(async () =>
+                {
+                    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    timeoutCts.CancelAfter(TimeSpan.FromSeconds(6) + ApiThrottle.RemainingBlock);
+                    return await _shiftApi.ConstructionShiftsListAsync(openOnly: true, ct: timeoutCts.Token).ConfigureAwait(false);
+                }, 3, null, cancellationToken).ConfigureAwait(false);
             var openId = ShiftHelper.PickOpenShiftId(list, PosApp.PosCashboxId, PosApp.CurrentUserId);
             if (string.IsNullOrEmpty(openId)
                 && ShiftHelper.FindCashierShiftOnOtherCashbox(list, PosApp.CurrentUserId) is { } own
@@ -185,6 +206,54 @@ public sealed class ShiftStateService : IShiftStateService
             ActiveShiftId = PosApp.ActiveShiftId,
             CashBalance = balance,
         });
+    }
+
+    // ── 2026-11-06 (шаг 11): запрос «открытые смены» уходит одновременно с запросом списка касс (раньше — после него, один за другим: +0,3…0,6 с на запуске и на каждом «Оплатить» без смены) ──
+    private static readonly object PrefetchGate = new();
+    private static Task<JsonElement>? _prefetchedOpenShifts;
+    private static IShiftApiService? _prefetchedFor;
+    private static DateTime _prefetchedAtUtc;
+    private static int _prefetchedEpoch; // 2026-11-06 (аудит Этапа 2, С-1): PosApp.ShiftEpoch на момент запуска предзапроса
+
+    /// <summary>Заранее запускает запрос открытых смен (тот же, что делает <see cref="RefreshAsync"/>: 6 с + пауза сервера, до трёх попыток при 429). Результат заберёт ближайший <see cref="RefreshAsync"/>
+    /// (не позже чем через 20 с); не заберёт — запрос просто завершится и будет забыт, ошибки не выбрасываются.</summary>
+    public static void PrefetchOpenShifts(IShiftApiService shiftApi, CancellationToken cancellationToken)
+    {
+        lock (PrefetchGate)
+        {
+            if (_prefetchedOpenShifts is { IsCompleted: false } && DateTime.UtcNow - _prefetchedAtUtc < TimeSpan.FromSeconds(20))
+                return;
+            var epoch = PosApp.ShiftEpoch;
+            var task = Task.Run(async () =>
+            {
+                using var critical = ApiThrottle.BeginCritical();
+                return await ApiThrottle.RunWithRetryAsync(async () =>
+                {
+                    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    timeoutCts.CancelAfter(TimeSpan.FromSeconds(6) + ApiThrottle.RemainingBlock);
+                    return await shiftApi.ConstructionShiftsListAsync(openOnly: true, ct: timeoutCts.Token).ConfigureAwait(false);
+                }, 3, null, cancellationToken).ConfigureAwait(false);
+            }, CancellationToken.None);
+            _ = task.ContinueWith(static t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default); // ошибку увидит тот, кто заберёт задачу; иначе — не «необработанная»
+            _prefetchedOpenShifts = task;
+            _prefetchedFor = shiftApi;
+            _prefetchedAtUtc = DateTime.UtcNow;
+            _prefetchedEpoch = epoch;
+        }
+    }
+
+    private static Task<JsonElement>? TakePrefetchedOpenShifts(IShiftApiService shiftApi)
+    {
+        lock (PrefetchGate)
+        {
+            var task = _prefetchedOpenShifts;
+            // 2026-11-06 (С-1): список запрошен ДО того, как смена на кассе могла измениться (закрыли Z, открыли новую) — такой список «из прошлого» не берём, спросим сервер заново.
+            var fresh = task is not null && ReferenceEquals(_prefetchedFor, shiftApi) && DateTime.UtcNow - _prefetchedAtUtc < TimeSpan.FromSeconds(20)
+                && _prefetchedEpoch == PosApp.ShiftEpoch;
+            _prefetchedOpenShifts = null;
+            _prefetchedFor = null;
+            return fresh ? task : null;
+        }
     }
 
     private static readonly Dictionary<string, DateTime> QueuedCloseAttempts = new(StringComparer.OrdinalIgnoreCase);

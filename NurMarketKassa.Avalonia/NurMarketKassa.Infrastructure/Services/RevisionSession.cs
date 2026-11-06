@@ -109,8 +109,13 @@ public sealed class RevisionRow : INotifyPropertyChanged
     {
         ProductId = tile.Id;
         Name = tile.Title ?? "";
-        Barcode = tile.Barcode?.Trim() ?? "";
-        Article = tile.Article?.Trim() ?? "";
+        // 2026-11-06 (В12, Б-7): штрихкод и артикул — как в списке Склада (основной → первый дополнительный; артикул → код товара → PLU), а не «сырые» поля плитки:
+        // у плитки с пустым основным штрихкодом ревизия и её Excel показывали пустое место.
+        Barcode = tile.BarcodeDisplay;
+        // 2026-11-06 (аудит Этапа 2, В-1): в индекс сканирования идёт только основной штрихкод; «первый дополнительный» из BarcodeDisplay может быть
+        // кодом упаковки ×12 и без этого считался бы как 1 шт (ложная недостача). Доп. коды индексируются со своим множителем.
+        IndexBarcode = tile.Barcode?.Trim() ?? "";
+        Article = tile.CodeDisplay;
         Category = tile.Category?.Trim() ?? "";
         Unit = tile.Unit?.Trim() ?? "";
         IsWeighted = tile.IsWeighted;
@@ -127,6 +132,8 @@ public sealed class RevisionRow : INotifyPropertyChanged
     public string ProductId { get; }
     public string Name { get; }
     public string Barcode { get; }
+    /// <summary>Основной штрихкод товара (пусто, если его нет) — только для индекса сканирования.</summary>
+    internal string IndexBarcode { get; }
     public string Article { get; }
     public string Category { get; }
     public string Unit { get; }
@@ -362,9 +369,9 @@ public sealed class RevisionSession
         _byId[row.ProductId] = row;
 
         // Дубль штрихкода — как в ProductCodeLookup: товар с остатком важнее.
-        if (row.Barcode.Length > 0
-            && (!_byBarcode.TryGetValue(row.Barcode, out var old) || (old.Row.Expected <= 0 && row.Expected > 0)))
-            _byBarcode[row.Barcode] = (row, 1);
+        if (row.IndexBarcode.Length > 0
+            && (!_byBarcode.TryGetValue(row.IndexBarcode, out var old) || (old.Row.Expected <= 0 && row.Expected > 0)))
+            _byBarcode[row.IndexBarcode] = (row, 1);
 
         if (!string.IsNullOrWhiteSpace(tile.AlternateBarcodesRaw))
         {
@@ -748,6 +755,28 @@ public sealed class RevisionSession
         lock (_gate)
             return _rows.Select(r => r.Category).Where(c => c.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(c => c, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+    /// <summary>2026-11-06 (В12, ЖП Н-3): счётчики «Всего / Посчитано / Не посчитано / С расхождением» только по выбранным позициям («Пересчёт дня»: 25 из 15 459).
+    /// Деньги и акт это не меняет — они по-прежнему считаются по всей ревизии (<see cref="GetTotals"/>).</summary>
+    public (int Total, int Counted, int NotCounted, int WithDifference) GetSubsetCounts(IReadOnlySet<string> ids)
+    {
+        int total = 0, counted = 0, withDiff = 0;
+        lock (_gate)
+        {
+            foreach (var r in _rows)
+            {
+                if (!ids.Contains(r.ProductId))
+                    continue;
+                total++;
+                if (!r.IsCounted)
+                    continue;
+                counted++;
+                if (r.HasDifference)
+                    withDiff++;
+            }
+        }
+        return (total, counted, total - counted, withDiff);
     }
 
     /// <summary>Итоги для подвала и окна «Завершить ревизию». Один проход, миллисекунды на 15 000.</summary>

@@ -255,6 +255,20 @@ internal sealed class ProductThumbService
         return bytes.Length == 0 ? null : bytes;
     }
 
+    /// <summary>2026-11-06: байты фото товара для других нужд (картинки товаров для весов РС-200): та же загрузка с ограничением размера и токеном только своему серверу,
+    /// без записи в кэш миниатюр. null — не скачалось.</summary>
+    internal static async Task<byte[]?> DownloadOriginalAsync(IAuthApiService authApi, string apiBaseUrl, string imageUrl, CancellationToken ct)
+    {
+        try
+        {
+            return await DownloadBytesAsync(authApi, apiBaseUrl, imageUrl, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>true — адрес картинки на том же хосте, что и API NurCRM (тогда Bearer-токен можно отправлять).</summary>
     internal static bool IsOwnHost(Uri imageUri, string apiBaseUrl)
     {

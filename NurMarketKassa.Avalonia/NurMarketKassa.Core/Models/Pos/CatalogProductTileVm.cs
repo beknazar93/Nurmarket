@@ -49,6 +49,11 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
 {
     public const double LowStockQuantityThreshold = 10.0;
 
+    /// <summary>2026-11-06 (В12, Б-8): «заканчивается». Если у товара задан «Минимальный остаток» (карточка, minimum_quantity) — остаток не выше него; иначе общий порог 10
+    /// (остаток меньше 10). Раньше поле «Минимальный остаток» писалось на сервер, но нигде не использовалось: товар с минимумом 50 при остатке 20 не помечался.</summary>
+    public static bool IsLow(double quantity, double? minQuantity) =>
+        minQuantity is > 0 ? quantity <= minQuantity.Value : quantity < LowStockQuantityThreshold;
+
     private string? _barcode;
     private string? _stockInfo;
     private bool _isFavorite;
@@ -272,7 +277,7 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
             _quantity = value;
             OnPropertyChanged(nameof(Quantity));
             OnPropertyChanged(nameof(StockForeground));
-            var low = value < LowStockQuantityThreshold;
+            var low = IsLow(value, _minQuantity);
             if (_isLowStock != low)
             {
                 _isLowStock = low;
@@ -294,6 +299,28 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     }
 
     public double PurchasePrice { get; set; }
+
+    private double? _minQuantity;
+
+    /// <summary>2026-11-06 (В12, Б-8): «Минимальный остаток» из карточки (minimum_quantity). null или 0 — не задан, действует общий порог 10 (<see cref="IsLow"/>).</summary>
+    public double? MinQuantity
+    {
+        get => _minQuantity;
+        set
+        {
+            if (_minQuantity == value)
+                return;
+            _minQuantity = value;
+            OnPropertyChanged(nameof(MinQuantity));
+            OnPropertyChanged(nameof(StockForeground));
+            var low = IsLow(_quantity, value);
+            if (_isLowStock != low)
+            {
+                _isLowStock = low;
+                OnPropertyChanged(nameof(IsLowStock));
+            }
+        }
+    }
 
     /// <summary>Остаток вместе с единицей измерения: «93 шт», «12,5 кг». Отдельная колонка
     /// «Ед. изм.» из таблицы склада убрана — она повторяла одно и то же слово во всех строках и
@@ -433,7 +460,7 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     /// Hosts bind via HexToBrushConverter → SolidColorBrush.
     /// </summary>
     public string StockForeground =>
-        Quantity < LowStockQuantityThreshold ? "#DC2626" : "#64748B";
+        IsLow(Quantity, _minQuantity) ? "#DC2626" : "#64748B"; // 2026-11-06 (Б-8): с учётом «Минимального остатка» карточки
 
     /// <summary>Hex-фон плашки типа товара. 2026-09-08: у "Комплект" свой цвет (фиолетовый),
     /// чтобы отличаться и от весового (зелёный), и от штучного (оранжевый) — см.

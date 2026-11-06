@@ -60,6 +60,7 @@ public static class LocalProductEditor
             Plu = request.Plu ?? (request.IsWeight ? fromServer?.Plu : null),
             Country = request.Country,
             WeightKg = request.WeightKg,
+            MinQuantity = request.MinimumQuantity is > 0 ? request.MinimumQuantity : fromServer?.MinQuantity, // 2026-11-06 (В12, Б-8)
             Article = request.Article,
             IsBundle = string.Equals(request.Kind, "bundle", StringComparison.OrdinalIgnoreCase),
             BundleItems = string.Equals(request.Kind, "bundle", StringComparison.OrdinalIgnoreCase)
