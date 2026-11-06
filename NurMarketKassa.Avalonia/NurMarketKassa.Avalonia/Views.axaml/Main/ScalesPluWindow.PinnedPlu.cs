@@ -36,7 +36,8 @@ public partial class ScalesPluWindow
 {
     /// <summary>Номера ячеек раздаёт касса: прямая отправка на ШТРИХ-ПРИНТ и TM-30F. Сервер NurCRM,
     /// Rongta и AI-весы нумеруют сами (там колонка PLU — номер из карточки товара).</summary>
-    private bool KassaNumbering => (_brand == BrandShtrikh && ShtrikhDirect) || IsDahuaWire;
+    // 2026-11-06: и весы Штрих РС-200 — код товара в файле импорта = закреплённый «Код в ШК» (ScalesPluWindow.ShtrikhPc.cs)
+    private bool KassaNumbering => (_brand == BrandShtrikh && ShtrikhDirect) || IsDahuaWire || IsShtrikhPc;
 
     /// <summary>Галочка «Постоянный PLU за товаром» снята — номер ячейки = PLU из карточки товара
     /// (у товара без PLU в карточке — закреплённый номер).</summary>
@@ -46,7 +47,7 @@ public partial class ScalesPluWindow
     /// двухбайтовое поле номера ПЛУ протокола.</summary>
     private int _shtrikhTableSize;
 
-    private int MaxPlu => IsDahuaWire ? DahuaTmProtocol.MaxPluNumber : (_shtrikhTableSize > 0 ? _shtrikhTableSize : 65535);
+    private int MaxPlu => IsShtrikhPc ? (int)ShtrikhPcImportWriter.MaxCode : IsDahuaWire ? DahuaTmProtocol.MaxPluNumber : (_shtrikhTableSize > 0 ? _shtrikhTableSize : 65535);
 
     private int PluStart =>
         int.TryParse((PluStartBox.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var start) && start > 0 ? start : 1;
@@ -872,7 +873,8 @@ public partial class ScalesPluWindow
         try
         {
             var profile = LabelScaleStore.Active;
-            if (!KassaNumbering || profile.PluPinnedFrom is not null || _allRows.Count == 0)
+            // 2026-11-06: у РС-200 прежней нумерации на весах нет — окно «Номера закреплены» новым весам не нужно
+            if (!KassaNumbering || IsShtrikhPc || profile.PluPinnedFrom is not null || _allRows.Count == 0)
                 return;
             if (profile.PluNumbers.Count > 0)
             {

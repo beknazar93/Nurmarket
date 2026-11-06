@@ -1447,6 +1447,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         // форма показывала их пустыми, а «Сохранить» отправлял пустые значения и СТИРАЛ их на
         // сервере. Офлайн или ошибка — открываем как раньше, из кэша.
         var toEdit = product;
+        var fromCache = true; // 2026-11-06 (класс Б, Б-3): свежую карточку не прочитали — форма наполнена данными из памяти кассы
         try
         {
             // 2026-11-03 (С-06, аудит «зависание при медленном сервере»): свежая карточка — не дольше 8 с (раньше до 55 с, клики терялись); через 3 с — «Ждём ответ сервера…».
@@ -1458,6 +1459,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             {
                 fresh.ProductImagePath = product.ProductImagePath;
                 toEdit = fresh;
+                fromCache = false;
             }
         }
         catch (ServerNotAnsweringException)
@@ -1469,6 +1471,17 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         catch (Exception ex)
         {
             PosLogger.Log($"Product detail fetch before edit failed: {ex.GetType().Name}: {ex.Message}", "WARNING");
+        }
+
+        if (fromCache && !OfflineModeHelper.UseLocalOperations)
+        {
+            // 2026-11-06 (класс Б, Б-3): сервер не отдал карточку (5xx/429/нет товара) — форма из памяти кассы; на сервер уйдут только поля, которые вы измените (см. ProductEditRequest.UnchangedKeys).
+            PosLogger.Log($"Product edit: свежая карточка {product.Id} не прочитана — форма открыта из памяти кассы, неизменённые поля на сервер не отправляются.", "WARNING");
+            prompts?.ShowToast(Tr.T("Карточка открыта из памяти кассы — сервер не ответил. Сохранятся только поля, которые вы измените.",
+                "Карточка кассанын эсинен ачылды — сервер жооп берген жок. Сиз өзгөрткөн талаалар гана сакталат.",
+                "The card was opened from the till's memory — the server did not answer. Only the fields you change will be saved.",
+                "Kart kasanın belleğinden açıldı — sunucu yanıt vermedi. Yalnızca değiştirdiğiniz alanlar kaydedilir.",
+                "Karta kassa xotirasidan ochildi — server javob bermadi. Faqat siz o'zgartirgan maydonlar saqlanadi."), isWarning: true);
         }
 
         var dialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ProductEditDialog(catalogApi, toEdit) { StartOnReceiptsTab = onReceipts };

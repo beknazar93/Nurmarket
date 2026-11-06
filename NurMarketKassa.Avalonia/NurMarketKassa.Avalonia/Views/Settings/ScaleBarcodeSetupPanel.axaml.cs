@@ -33,9 +33,15 @@ public partial class ScaleBarcodeSetupPanel : UserControl
     private bool _showAllPrefixes;
     private ScaleLabelReading? _reading;
 
+    /// <summary>2026-11-06: пресет раскладки этикетки весов «Штрих РС-200» (виден, когда выбраны эти весы или раскладка включена).</summary>
+    private readonly ShtrikhPcBarcodeCard _pcCard = new();
+
     public ScaleBarcodeSetupPanel()
     {
         InitializeComponent();
+        _pcCard.Changed += () => { Refresh(); RulesChanged?.Invoke(); };
+        if (Content is Panel root)
+            root.Children.Add(_pcCard);
         // 2026-11-05: выбор единицы суммы (тыйын / сом) на этой кассе — общий блок для всех марок весов.
         UnitBox.Children.Add(ScaleUi.AmountUnitPicker(this, OnUnitChanged, "ScaleSecondary"));
     }
@@ -77,6 +83,7 @@ public partial class ScaleBarcodeSetupPanel : UserControl
     /// <summary>Перерисовывает список правил, пример и пояснение (язык, режим компании, правила).</summary>
     public void Refresh()
     {
+        _pcCard.Reload();
         WizardCard.IsVisible = !RulesOnly;
         CompanyCard.IsVisible = !RulesOnly;
         OpenWizardButton.IsVisible = RulesOnly;

@@ -152,9 +152,9 @@
 
   <!-- Поле в фокусе внутри модалки: заметная рамка 2 px (у «NurMarket» — тёмно-синяя; жёлтая по
        белому — 1,4:1, её не видно). BrushFocusRing задаёт AccentThemeService. -->
+  <!-- 2026-11-06, А-10: толщину рамки в фокусе не меняем (было 1,5 → 2: текст в поле дёргался на 0,5 px), заметность даёт цвет кольца. -->
   <Style Selector="dlg|ModalShell TextBox:focus /template/ Border#PART_BorderElement">
     <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}" />
-    <Setter Property="BorderThickness" Value="2" />
   </Style>
 
   <!-- ✕ в шапке: квадрат с обводкой, не забирает фокус у поля ввода. 2026-10-17, этап 3: 44×44 (правило
@@ -312,12 +312,9 @@
     <Setter Property="Background" Value="{DynamicResource BrushText}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushDialogPanel}" />
     <Setter Property="BorderBrush" Value="{DynamicResource BrushText}" />
-    <Setter Property="FontWeight" Value="Bold" />
   </Style>
-  <Style Selector="RadioButton.modal-seg:focus-visible">
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}" />
-    <Setter Property="BorderThickness" Value="2" />
-  </Style>
+  <!-- 2026-11-06, А-6: рамка фокуса с клавиатуры — через FocusAdorner (рисуется поверх, раскладку не двигает); раньше :focus-visible
+       менял BorderThickness 1 → 2, и содержимое сегмента съезжало. См. общий стиль FocusAdorner у сегментов ниже. -->
 
   <!-- 2026-10-17, этап 3: чип модалки (быстрая причина, товар из чека) — 44 px, скруглённый, с обводкой. -->
   <Style Selector="Button.modal-chip">
@@ -536,11 +533,6 @@
   <Style Selector="RadioButton.sec-seg:checked, ToggleButton.sec-seg:checked">
     <Setter Property="Background" Value="{DynamicResource BrushText}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushPanel}" />
-    <Setter Property="FontWeight" Value="Bold" />
-  </Style>
-  <Style Selector="RadioButton.sec-seg:focus-visible, ToggleButton.sec-seg:focus-visible">
-    <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}" />
-    <Setter Property="BorderThickness" Value="2" />
   </Style>
   <Style Selector="Button.sec-seg">
     <Setter Property="MinHeight" Value="44" />
@@ -566,7 +558,6 @@
   <Style Selector="Button.sec-seg.active">
     <Setter Property="Background" Value="{DynamicResource BrushText}" />
     <Setter Property="Foreground" Value="{DynamicResource BrushPanel}" />
-    <Setter Property="FontWeight" Value="Bold" />
   </Style>
   <Style Selector="Button.sec-seg.active /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource BrushText}" />
@@ -709,6 +700,15 @@
        2026-10-18, ревью: кроме ГЛАВНЫХ (жёлтая/синяя/красная заливка): бледно-жёлтая «Оплатить» (CanPay = false) почти не
        отличалась от включённой, особенно в тёмной теме. Выключенная главная — нейтральный мягкий фон и приглушённый текст
        (BrushTextMuted — BrushTextSoft у «Классической» давал 3,9:1), без прозрачности: от 7,8:1. main-primary и cart-accent — так же в своих файлах. -->
+  <!-- 2026-11-06, А-11: у главных кнопок рамка 1 px есть всегда (прозрачная), а выключенная только красит её: раньше :disabled добавлял
+       BorderThickness 0 → 1 внутрь кнопки — надпись сдвигалась на 1 px, у кнопок без фиксированной высоты кнопка росла на 2 px. -->
+  <Style Selector="Button.modal-primary /template/ ContentPresenter#PART_ContentPresenter, Button.nur-primary /template/ ContentPresenter#PART_ContentPresenter, Button.sec-primary /template/ ContentPresenter#PART_ContentPresenter, Button.btn-primary /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.modal-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.nur-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.sec-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.btn-primary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.modal-primary:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.nur-primary:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.sec-primary:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.btn-primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="Transparent" />
+  </Style>
   <Style Selector="Button.modal-primary:disabled, Button.nur-primary:disabled, Button.sec-primary:disabled, Button.btn-primary:disabled">
     <Setter Property="Opacity" Value="1" />
   </Style>
@@ -758,10 +758,15 @@
       </Transitions>
     </Setter>
   </Style>
-  <!-- Фокус у сегментов — их собственная рамка 2 px (:focus-visible выше), без второй рамки Fluent.
+  <!-- Фокус у сегментов — рамка 2 px рисуется FocusAdorner (2026-11-06, А-6: раньше менялась BorderThickness в :focus-visible), без второй рамки Fluent.
        2026-10-18, ревью: и у modal-seg (у него FocusAdorner снимался только в базовом стиле — Fluent-рамка всё равно была). -->
   <Style Selector="RadioButton.modal-seg, RadioButton.sec-seg, ToggleButton.sec-seg">
-    <Setter Property="FocusAdorner" Value="{x:Null}" />
+    <Setter Property="FocusAdorner">
+      <FocusAdornerTemplate>
+        <Border BorderThickness="2" BorderBrush="{DynamicResource BrushFocusRing}"
+                CornerRadius="{DynamicResource SettingsButtonRadius}" />
+      </FocusAdornerTemplate>
+    </Setter>
   </Style>
   <Style Selector="RadioButton.modal-seg:pressed, RadioButton.sec-seg:pressed, ToggleButton.sec-seg:pressed">
     <Setter Property="RenderTransform" Value="scale(0.97)" />

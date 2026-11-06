@@ -50,7 +50,6 @@
             <Setter Property="Background" Value="{DynamicResource BrushText}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
         </Style>
         <Style Selector="Button.period.active /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushText}"/>
@@ -100,6 +99,8 @@
             <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
             <Setter Property="BorderThickness" Value="2"/>
+            <!-- 2026-11-06, А-7: рамка 1 → 2 съедает 1 px отступа с каждой стороны — внешний размер строки не меняется, строки ниже не едут. -->
+            <Setter Property="Padding" Value="11,9"/>
         </Style>
         <Style Selector="TextBlock.soft">
             <Setter Property="FontSize" Value="12"/>

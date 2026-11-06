@@ -1188,6 +1188,10 @@ public sealed partial class CatalogApiService : ICatalogApiService
         if (!r.SendPrice) body.Remove("price");
         if (!r.SendPurchasePrice) body.Remove("purchase_price");
         if (!r.SendMarkupPercent) body.Remove("markup_percent");
+        // 2026-11-06 (класс Б, Б-3): поля, которые кассир не менял, PATCH не шлёт (см. ProductEditRequest.UnchangedKeys).
+        if (r.UnchangedKeys is { Count: > 0 } unchanged)
+            foreach (var key in unchanged)
+                body.Remove(key);
 
         return body;
     }

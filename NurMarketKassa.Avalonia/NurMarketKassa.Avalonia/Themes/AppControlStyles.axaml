@@ -51,6 +51,14 @@
   <Style Selector="Button:pressed">
     <Setter Property="RenderTransform" Value="scale(0.98)"/>
   </Style>
+  <!-- 2026-11-06, А-12: кнопки в плотных рядах (вкладки чеков и настроек, чипы категорий, плитки каталога, строки таблиц) при наведении
+       не растут на 1,2 % и не наползают на соседей; нажатие (0,98) оставлено — оно нужно для отклика и идёт позже наведения. -->
+  <Style Selector="Button.receipt-tab:pointerover, Button.new-receipt-tab:pointerover, Button.SettingsTab:pointerover, Button.header-menu:pointerover, Button.header-more:pointerover, Button.header-secondary:pointerover, Button.header-tool:pointerover, Button.top-tool:pointerover, Button.main-ghost:pointerover, Button.lx-chip:pointerover, Button.lx-tile:pointerover, Button.lx-btn:pointerover, Button.mn-tab:pointerover, Button.pr-tab:pointerover, Button.onec-tab:pointerover, Button.row-act:pointerover, Button.row-more:pointerover, Button.foot-pay:pointerover, Button.pay-quick:pointerover, Button.PrimaryButton:pointerover, Button.HamburgerMenuItem:pointerover, Button.catalog-pager:pointerover, Button.kbItem:pointerover">
+    <Setter Property="RenderTransform" Value="scale(1)"/>
+  </Style>
+  <Style Selector="Button.receipt-tab:pressed, Button.new-receipt-tab:pressed, Button.SettingsTab:pressed, Button.header-menu:pressed, Button.header-more:pressed, Button.header-secondary:pressed, Button.header-tool:pressed, Button.top-tool:pressed, Button.main-ghost:pressed, Button.lx-chip:pressed, Button.lx-tile:pressed, Button.lx-btn:pressed, Button.mn-tab:pressed, Button.pr-tab:pressed, Button.onec-tab:pressed, Button.row-act:pressed, Button.row-more:pressed, Button.foot-pay:pressed, Button.pay-quick:pressed, Button.PrimaryButton:pressed, Button.HamburgerMenuItem:pressed, Button.catalog-pager:pressed, Button.kbItem:pressed">
+    <Setter Property="RenderTransform" Value="scale(0.98)"/>
+  </Style>
 
   <!-- 2026-10-27, жалоба «в тёмной теме у кнопок не видно надписей»: значок PathIcon внутри кнопки НЕ наследует цвет кнопки —
        Fluent красит его в цвет темы (в тёмной белый). Белый значок «карточки» на жёлтой «Оплатить» (#FFB208) — 1,8:1, то же у кнопок

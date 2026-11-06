@@ -89,7 +89,6 @@
             <Setter Property="Background" Value="{DynamicResource BrushText}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
         </Style>
         <!-- 2026-10-19, О9: подпись перед группой переключателей («Единица продажи», «Наличие»). -->
         <Style Selector="TextBlock.seg-label">
@@ -151,7 +150,6 @@
         <Style Selector="TabItem:selected">
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
             <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
         </Style>
 
         <!-- Единый стиль полей ввода TextBox / ComboBox -->
@@ -885,17 +883,20 @@
                                 <!-- Код и штрихкод — одна колонка в две строки. По отдельности они занимали
                                      две трети ширины таблицы, хотя читают их редко: код сверху, штрихкод под
                                      ним мельче. Освободившееся место ушло названию товара. -->
-                                <DataGridTemplateColumn Width="160" SortMemberPath="Article">
+                                <DataGridTemplateColumn Width="160" SortMemberPath="CodeDisplay">
                                     <DataGridTemplateColumn.Header>
                                         <TextBlock Text="{DynamicResource warehouse.colCodeBarcode}" TextAlignment="Left"/>
                                     </DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel VerticalAlignment="Center" Spacing="1">
-                                                <TextBlock Text="{ReflectionBinding Article}"
+                                                <!-- 2026-11-06 (жалоба клиента «код и штрихкод не показывает»): CodeDisplay — артикул, нет его — код товара/PLU;
+                                                     BarcodeDisplay — штрихкод, нет его — первый дополнительный. Пустую строку не держим (ниже штрихкод поднимается). -->
+                                                <TextBlock Text="{ReflectionBinding CodeDisplay}"
                                                            FontSize="13" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource BrushTextMuted}"/>
-                                                <TextBlock Text="{ReflectionBinding Barcode}"
+                                                           Foreground="{DynamicResource BrushTextMuted}"
+                                                           IsVisible="{ReflectionBinding CodeDisplay, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                                <TextBlock Text="{ReflectionBinding BarcodeDisplay}"
                                                            FontSize="12"
                                                            Foreground="{DynamicResource BrushTextSoft}"
                                                            TextTrimming="CharacterEllipsis"/>

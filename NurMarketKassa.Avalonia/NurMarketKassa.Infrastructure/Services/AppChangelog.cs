@@ -13,6 +13,13 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Этикетки размеров: Кнопка «Создать QR» и формат QR на этикетках размеров; перед печатью этикеток размеров касса просит подтверждение и предупреждает про чековый принтер.",
+        "Весы «Штрих РС-200»: Поддержка весов Штрих РС-200: обмен файлами через общую папку, мастер подключения, штрихкод «Код-Вес» и «Код-Стоимость».",
+        "Экран не «прыгает»: Левая панель владельца и вкладки больше не «прыгают» при нажатии, плитки каталога не растут при клавиатурном фокусе.",
+        "Склад: код и штрихкод: Колонка «Код / штрихкод» в Складе; карточки дочитываются, новый товар из ленты появляется сразу, скан неизвестного кода не затирает данные, правка товара отправляет только изменённые поля.",
+        "Возврат долгового чека: Сообщение «Возврат уже проведён», предупреждение «Сервер пересчитал долг клиента иначе» и учёт такого возврата при закрытии смены.",
+        "Надёжность: Новая база после смены компании больше не теряет столбцы; поиск по названию в приёмке работает без связи; фоновые окна не накладываются на «Сессия истекла»; после возврата связи каталог не перекачивается целиком.",
+        "PIN владельца при запуске: Теперь это настройка и по умолчанию выключена.",
         "Загрузка каталога: Исправлена загрузка каталога при чистой установке и смене аккаунта: весовые товары, штрихкоды и PLU больше не теряются (касса сама перезагрузит неполный каталог один раз).",
         "Приёмка без связи: Приходы и новые товары сохраняются на кассе и уходят сами, когда связь вернётся; время приёма берётся с момента приёмки; номера приходов и поставщики видны и без связи.",
         "Окно «Неотправленное»: Всё, что ждёт отправки на сервер (приходы, новые товары, продажи, деньги), видно в одном окне, и его можно отправить вручную.",
@@ -181,6 +188,13 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Өлчөм этикеткалары: Өлчөм этикеткаларында «QR түзүү» баскычы жана QR форматы; өлчөм этикеткаларын басардан мурун касса ырастоо сурайт жана чек принтери тууралуу эскертет.",
+        "«Штрих РС-200» таразасы: Штрих РС-200 таразасын колдоо: жалпы папка аркылуу файл алмашуу, туташтыруу устасы, «Код-Салмак» жана «Код-Сумма» штрихкоду.",
+        "Экран «секирбейт»: Ээсинин сол панели жана өтмөктөр басканда «секирбейт», каталог плиткалары баскычтоп фокусунда чоңойбойт.",
+        "Кампа: код жана штрихкод: Кампада «Код / штрихкод» мамычасы; карточкалар толукталат, лентадагы жаңы товар дароо чыгат, белгисиз кодду сканерлөө маалыматты өчүрбөйт, товарды оңдоодо өзгөргөн талаалар гана жөнөтүлөт.",
+        "Карыз чегин кайтаруу: «Кайтаруу өткөрүлгөн» билдирүүсү, «Сервер кардардын карызын башкача кайра эсептеди» эскертүүсү жана мындай кайтарууну сменаны жабууда эсепке алуу.",
+        "Ишенимдүүлүк: Компанияны алмаштыргандан кийинки жаңы база мамычаларды жоготпойт; кабыл алууда аталыш боюнча издөө байланышсыз да иштейт; фон терезелери «Сессия бүттү» терезесин жаппайт; байланыш кайтканда каталог толугу менен кайра жүктөлбөйт.",
+        "Ишке киргизүүдө ээсинин PIN-коду: Эми бул жөндөө жана демейки боюнча өчүк.",
         "Каталогду жүктөө: Таза орнотууда жана аккаунтту алмаштырууда каталогду жүктөө оңдолду: салмактуу товарлар, штрихкоддор жана PLU жоголбойт (касса толук эмес каталогду бир жолу өзү кайра жүктөйт).",
         "Байланышсыз кабыл алуу: Киреше жана жаңы товарлар кассада сакталат жана байланыш кайтканда өзү кетет; кабыл алуу убактысы кабыл алган учурдан алынат; кирешелердин номерлери жана жеткирүүчүлөр байланышсыз да көрүнөт.",
         "«Жөнөтүлбөгөн» терезеси: Серверге жөнөтүүнү күтүп жаткандардын баары (киреше, жаңы товарлар, сатуулар, акча) бир терезеде көрүнөт жана аны кол менен жөнөтсө болот.",
@@ -347,6 +361,13 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Size labels: A “Create QR” button and a QR format on size labels; before printing size labels the till asks for confirmation and warns about the receipt printer.",
+        "“Shtrikh RS-200” scales: Support for Shtrikh RS-200 scales: file exchange through a shared folder, a connection wizard, “Code-Weight” and “Code-Amount” barcodes.",
+        "The screen no longer jumps: The owner's left panel and the tabs no longer “jump” when clicked, and catalog tiles no longer grow on keyboard focus.",
+        "Warehouse: code and barcode: A “Code / barcode” column in the Warehouse; cards are read in full, a new product from the feed appears at once, scanning an unknown code does not overwrite data, editing a product sends only the changed fields.",
+        "Returning a debt receipt: A “Return already done” message, a “The server recalculated the client's debt differently” warning, and such a return counted when the shift is closed.",
+        "Reliability: A new database after switching company no longer loses columns; name search in receiving works offline; background windows no longer stack on “Session expired”; after the connection returns the catalog is not downloaded in full again.",
+        "Owner PIN at start: This is now a setting, off by default.",
         "Catalog loading: Fixed catalog loading on a clean install and when switching accounts: weighed products, barcodes and PLU are no longer lost (the till reloads an incomplete catalog once by itself).",
         "Receiving without a connection: Goods receipts and new products are saved on the till and go out by themselves when the connection returns; the receiving time is the moment of receiving; receipt numbers and suppliers are available offline.",
         "The “Unsent” window: Everything waiting to be sent to the server (receipts, new products, sales, money) is visible in one window and can be sent by hand.",
@@ -513,6 +534,13 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Beden etiketleri: Beden etiketlerinde «QR oluştur» düğmesi ve QR biçimi; beden etiketlerini basmadan önce kasa onay ister ve fiş yazıcısı konusunda uyarır.",
+        "«Shtrih RS-200» terazisi: Shtrih RS-200 terazi desteği: ortak klasör üzerinden dosya alışverişi, bağlantı sihirbazı, «Kod-Ağırlık» ve «Kod-Tutar» barkodu.",
+        "Ekran artık «zıplamaz»: Sahibin sol paneli ve sekmeler tıklanınca artık «zıplamaz», katalog kutucukları klavye odağında büyümez.",
+        "Depo: kod ve barkod: Depoda «Kod / barkod» sütunu; kartlar eksiksiz okunur, akıştaki yeni ürün hemen görünür, bilinmeyen kodun taranması verileri ezmez, ürün düzenlemede yalnızca değişen alanlar gönderilir.",
+        "Borç fişinin iadesi: «İade zaten yapıldı» mesajı, «Sunucu müşteri borcunu farklı hesapladı» uyarısı ve böyle bir iadenin vardiya kapanışında hesaba katılması.",
+        "Güvenilirlik: Şirket değiştirdikten sonraki yeni veritabanı artık sütun kaybetmez; mal kabulünde ada göre arama bağlantısız da çalışır; arka plan pencereleri «Oturum doldu» penceresinin üstüne binmez; bağlantı gelince katalog baştan indirilmez.",
+        "Açılışta sahip PIN'i: Artık bir ayardır ve varsayılan olarak kapalıdır.",
         "Katalog yükleme: Temiz kurulumda ve hesap değiştirirken katalog yükleme düzeltildi: tartılı ürünler, barkodlar ve PLU artık kaybolmaz (kasa eksik kataloğu bir kez kendisi yeniden yükler).",
         "Bağlantısız mal kabulü: Mal kabulleri ve yeni ürünler kasada saklanır ve bağlantı gelince kendiliğinden gider; kabul zamanı kabul anından alınır; kabul numaraları ve tedarikçiler bağlantısız da görünür.",
         "«Gönderilmeyenler» penceresi: Sunucuya gönderilmeyi bekleyen her şey (mal kabulleri, yeni ürünler, satışlar, para) tek pencerede görünür ve elle gönderilebilir.",
@@ -679,6 +707,13 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "O'lcham yorliqlari: O'lcham yorliqlarida «QR yaratish» tugmasi va QR formati; o'lcham yorliqlarini chop etishdan oldin kassa tasdiq so'raydi va chek printeri haqida ogohlantiradi.",
+        "«Shtrix RS-200» tarozisi: Shtrix RS-200 tarozisini qo'llab-quvvatlash: umumiy papka orqali fayl almashish, ulash ustasi, «Kod-Vazn» va «Kod-Summa» shtrix-kodi.",
+        "Ekran «sakramaydi»: Egasining chap paneli va ichki oynalar bosilganda «sakramaydi», katalog plitkalari klaviatura fokusida kattalashmaydi.",
+        "Ombor: kod va shtrix-kod: Omborda «Kod / shtrix-kod» ustuni; kartochkalar to'liq o'qiladi, lentadagi yangi tovar darhol chiqadi, noma'lum kodni skanerlash ma'lumotni o'chirmaydi, tovarni tahrirlashda faqat o'zgargan maydonlar yuboriladi.",
+        "Qarz chekini qaytarish: «Qaytarish allaqachon o'tkazilgan» xabari, «Server mijoz qarzini boshqacha qayta hisobladi» ogohlantirishi va bunday qaytarishni smenani yopishda hisobga olish.",
+        "Ishonchlilik: Kompaniyani almashtirgandan keyingi yangi baza ustunlarni yo'qotmaydi; qabulda nom bo'yicha qidiruv aloqasiz ham ishlaydi; fon oynalari «Sessiya tugadi» oynasi ustiga chiqmaydi; aloqa qaytgach katalog butunlay qayta yuklanmaydi.",
+        "Ishga tushirishda egasining PIN-kodi: Endi bu sozlama bo'lib, odatda o'chiq.",
         "Katalogni yuklash: Toza o'rnatishda va akkauntni almashtirishda katalogni yuklash tuzatildi: tarozi tovarlar, shtrix-kodlar va PLU endi yo'qolmaydi (kassa to'liq bo'lmagan katalogni bir marta o'zi qayta yuklaydi).",
         "Ulanishsiz qabul: Kirimlar va yangi tovarlar kassada saqlanadi va aloqa qaytganda o'zi ketadi; qabul vaqti qabul qilingan paytdan olinadi; kirim raqamlari va yetkazib beruvchilar aloqasiz ham ko'rinadi.",
         "«Yuborilmaganlar» oynasi: Serverga yuborilishini kutayotgan hamma narsa (kirimlar, yangi tovarlar, sotuvlar, pul) bitta oynada ko'rinadi va uni qo'lda yuborish mumkin.",
@@ -850,6 +885,7 @@ public static class AppChangelog
     // 2026-11-05: 1.17.76 (добавка) — сверху всех Latest* пункты «Весы: единица суммы в штрихкоде» и «Внешние сервисы», сверху AndroidLatest* — «Внешние сервисы».
     // 2026-11-06: 1.17.77 (добавка) — первым пунктом всех Latest* и AndroidLatest* «Загрузка каталога» (срочный фикс Б-1).
     // 2026-11-06: 1.17.77 (добавка 3, тестовый канал) — после пункта «Загрузка каталога» в Latest*: приёмка без связи, «Неотправленное», защита входа, возврат долгового чека, окно оплаты, быстрее запуск, картинки/ИИ, наценка приёмки, программа владельца; в AndroidLatest* — первые шесть.
+    // 2026-11-06: 1.17.78 — сверху всех Latest* 7 пунктов (этикетки размеров, весы Штрих РС-200, экран не «прыгает», Склад: код/штрихкод, возврат долгового чека, надёжность, PIN при запуске), сверху AndroidLatest* — 4 общих.
     // 2026-11-06: 1.17.77 — сверху всех Latest* и AndroidLatest* пункт «Исправлено по независимому аудиту» (аудит №5), в AndroidLatest* ещё «Android».
     // 2026-11-05: 1.17.76 — сверху всех Latest* (Windows) добавлено 10 пунктов (безопасные данные, защита денег и время сервера, антифрод и PIN старшего, чек в Telegram, просрочка, закупки и цены, «Пересчёт дня» и сверка выписки, память владельца, дизайн, скорость), сверху всех AndroidLatest* — 5 (Android, деньги, просрочка, дизайн, скорость).
     // 2026-11-05: 1.17.75 — сверху всех Latest* (Windows) добавлен пункт «Склад и печать стали аккуратнее» (аудит №3, добивка: Т3-06, Т3-08, Т3-10…Т3-12, Т3-15, С2-26, С2-28, С2-29, С2-31, С2-34, С2-39, С2-43, Н-7, Н-8, Д-6, Д-9).
@@ -896,6 +932,10 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Экран не «прыгает»: Левая панель владельца и вкладки больше не «прыгают» при нажатии, плитки каталога не растут при клавиатурном фокусе.",
+        "Склад: код и штрихкод: Колонка «Код / штрихкод» в Складе; карточки дочитываются, новый товар из ленты появляется сразу, скан неизвестного кода не затирает данные, правка товара отправляет только изменённые поля.",
+        "Возврат долгового чека: Сообщение «Возврат уже проведён», предупреждение «Сервер пересчитал долг клиента иначе» и учёт такого возврата при закрытии смены.",
+        "Надёжность: Новая база после смены компании больше не теряет столбцы; поиск по названию в приёмке работает без связи; фоновые окна не накладываются на «Сессия истекла»; после возврата связи каталог не перекачивается целиком.",
         "Загрузка каталога: Исправлена загрузка каталога при чистой установке и смене аккаунта: весовые товары, штрихкоды и PLU больше не теряются (касса сама перезагрузит неполный каталог один раз).",
         "Приёмка без связи: Приходы и новые товары сохраняются на кассе и уходят сами, когда связь вернётся; время приёма берётся с момента приёмки; номера приходов и поставщики видны и без связи.",
         "Окно «Неотправленное»: Всё, что ждёт отправки на сервер (приходы, новые товары, продажи, деньги), видно в одном окне, и его можно отправить вручную.",
@@ -1013,6 +1053,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Экран «секирбейт»: Ээсинин сол панели жана өтмөктөр басканда «секирбейт», каталог плиткалары баскычтоп фокусунда чоңойбойт.",
+        "Кампа: код жана штрихкод: Кампада «Код / штрихкод» мамычасы; карточкалар толукталат, лентадагы жаңы товар дароо чыгат, белгисиз кодду сканерлөө маалыматты өчүрбөйт, товарды оңдоодо өзгөргөн талаалар гана жөнөтүлөт.",
+        "Карыз чегин кайтаруу: «Кайтаруу өткөрүлгөн» билдирүүсү, «Сервер кардардын карызын башкача кайра эсептеди» эскертүүсү жана мындай кайтарууну сменаны жабууда эсепке алуу.",
+        "Ишенимдүүлүк: Компанияны алмаштыргандан кийинки жаңы база мамычаларды жоготпойт; кабыл алууда аталыш боюнча издөө байланышсыз да иштейт; фон терезелери «Сессия бүттү» терезесин жаппайт; байланыш кайтканда каталог толугу менен кайра жүктөлбөйт.",
         "Каталогду жүктөө: Таза орнотууда жана аккаунтту алмаштырууда каталогду жүктөө оңдолду: салмактуу товарлар, штрихкоддор жана PLU жоголбойт (касса толук эмес каталогду бир жолу өзү кайра жүктөйт).",
         "Байланышсыз кабыл алуу: Киреше жана жаңы товарлар кассада сакталат жана байланыш кайтканда өзү кетет; кабыл алуу убактысы кабыл алган учурдан алынат; кирешелердин номерлери жана жеткирүүчүлөр байланышсыз да көрүнөт.",
         "«Жөнөтүлбөгөн» терезеси: Серверге жөнөтүүнү күтүп жаткандардын баары (киреше, жаңы товарлар, сатуулар, акча) бир терезеде көрүнөт жана аны кол менен жөнөтсө болот.",
@@ -1128,6 +1172,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "The screen no longer jumps: The owner's left panel and the tabs no longer “jump” when clicked, and catalog tiles no longer grow on keyboard focus.",
+        "Warehouse: code and barcode: A “Code / barcode” column in the Warehouse; cards are read in full, a new product from the feed appears at once, scanning an unknown code does not overwrite data, editing a product sends only the changed fields.",
+        "Returning a debt receipt: A “Return already done” message, a “The server recalculated the client's debt differently” warning, and such a return counted when the shift is closed.",
+        "Reliability: A new database after switching company no longer loses columns; name search in receiving works offline; background windows no longer stack on “Session expired”; after the connection returns the catalog is not downloaded in full again.",
         "Catalog loading: Fixed catalog loading on a clean install and when switching accounts: weighed products, barcodes and PLU are no longer lost (the till reloads an incomplete catalog once by itself).",
         "Receiving without a connection: Goods receipts and new products are saved on the till and go out by themselves when the connection returns; the receiving time is the moment of receiving; receipt numbers and suppliers are available offline.",
         "The “Unsent” window: Everything waiting to be sent to the server (receipts, new products, sales, money) is visible in one window and can be sent by hand.",
@@ -1243,6 +1291,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Ekran artık «zıplamaz»: Sahibin sol paneli ve sekmeler tıklanınca artık «zıplamaz», katalog kutucukları klavye odağında büyümez.",
+        "Depo: kod ve barkod: Depoda «Kod / barkod» sütunu; kartlar eksiksiz okunur, akıştaki yeni ürün hemen görünür, bilinmeyen kodun taranması verileri ezmez, ürün düzenlemede yalnızca değişen alanlar gönderilir.",
+        "Borç fişinin iadesi: «İade zaten yapıldı» mesajı, «Sunucu müşteri borcunu farklı hesapladı» uyarısı ve böyle bir iadenin vardiya kapanışında hesaba katılması.",
+        "Güvenilirlik: Şirket değiştirdikten sonraki yeni veritabanı artık sütun kaybetmez; mal kabulünde ada göre arama bağlantısız da çalışır; arka plan pencereleri «Oturum doldu» penceresinin üstüne binmez; bağlantı gelince katalog baştan indirilmez.",
         "Katalog yükleme: Temiz kurulumda ve hesap değiştirirken katalog yükleme düzeltildi: tartılı ürünler, barkodlar ve PLU artık kaybolmaz (kasa eksik kataloğu bir kez kendisi yeniden yükler).",
         "Bağlantısız mal kabulü: Mal kabulleri ve yeni ürünler kasada saklanır ve bağlantı gelince kendiliğinden gider; kabul zamanı kabul anından alınır; kabul numaraları ve tedarikçiler bağlantısız da görünür.",
         "«Gönderilmeyenler» penceresi: Sunucuya gönderilmeyi bekleyen her şey (mal kabulleri, yeni ürünler, satışlar, para) tek pencerede görünür ve elle gönderilebilir.",
@@ -1358,6 +1410,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Ekran «sakramaydi»: Egasining chap paneli va ichki oynalar bosilganda «sakramaydi», katalog plitkalari klaviatura fokusida kattalashmaydi.",
+        "Ombor: kod va shtrix-kod: Omborda «Kod / shtrix-kod» ustuni; kartochkalar to'liq o'qiladi, lentadagi yangi tovar darhol chiqadi, noma'lum kodni skanerlash ma'lumotni o'chirmaydi, tovarni tahrirlashda faqat o'zgargan maydonlar yuboriladi.",
+        "Qarz chekini qaytarish: «Qaytarish allaqachon o'tkazilgan» xabari, «Server mijoz qarzini boshqacha qayta hisobladi» ogohlantirishi va bunday qaytarishni smenani yopishda hisobga olish.",
+        "Ishonchlilik: Kompaniyani almashtirgandan keyingi yangi baza ustunlarni yo'qotmaydi; qabulda nom bo'yicha qidiruv aloqasiz ham ishlaydi; fon oynalari «Sessiya tugadi» oynasi ustiga chiqmaydi; aloqa qaytgach katalog butunlay qayta yuklanmaydi.",
         "Katalogni yuklash: Toza o'rnatishda va akkauntni almashtirishda katalogni yuklash tuzatildi: tarozi tovarlar, shtrix-kodlar va PLU endi yo'qolmaydi (kassa to'liq bo'lmagan katalogni bir marta o'zi qayta yuklaydi).",
         "Ulanishsiz qabul: Kirimlar va yangi tovarlar kassada saqlanadi va aloqa qaytganda o'zi ketadi; qabul vaqti qabul qilingan paytdan olinadi; kirim raqamlari va yetkazib beruvchilar aloqasiz ham ko'rinadi.",
         "«Yuborilmaganlar» oynasi: Serverga yuborilishini kutayotgan hamma narsa (kirimlar, yangi tovarlar, sotuvlar, pul) bitta oynada ko'rinadi va uni qo'lda yuborish mumkin.",

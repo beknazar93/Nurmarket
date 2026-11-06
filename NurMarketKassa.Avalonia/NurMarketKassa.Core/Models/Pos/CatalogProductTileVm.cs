@@ -137,17 +137,22 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     // 2026-10-29 (аудит поиска): ключ для единого поиска (SearchMatch) — название, штрихкод, код, артикул, категория, бренд в нормальном виде.
     // Считается один раз и пересчитывается, только если одно из полей заменили (проверка по ссылкам строк) — на 15 000 товаров поиск <100 мс.
     private string? _searchKey;
-    private string? _skBarcode, _skArticle, _skCode, _skCategory, _skBrand;
+    private string? _skBarcode, _skArticle, _skCode, _skCategory, _skBrand, _skAlternate;
+    private int? _skPlu;
 
     public string SearchKey
     {
         get
         {
             if (_searchKey is null || !ReferenceEquals(_skBarcode, _barcode) || !ReferenceEquals(_skArticle, Article)
-                || !ReferenceEquals(_skCode, ProductCode) || !ReferenceEquals(_skCategory, Category) || !ReferenceEquals(_skBrand, Brand))
+                || !ReferenceEquals(_skCode, ProductCode) || !ReferenceEquals(_skCategory, Category) || !ReferenceEquals(_skBrand, Brand)
+                || !ReferenceEquals(_skAlternate, AlternateBarcodesRaw) || _skPlu != Plu)
             {
                 _skBarcode = _barcode; _skArticle = Article; _skCode = ProductCode; _skCategory = Category; _skBrand = Brand;
-                _searchKey = NurMarketKassa.Core.Application.SearchMatch.Key(Title, Id, _barcode, Article, ProductCode, Category, Brand);
+                _skAlternate = AlternateBarcodesRaw; _skPlu = Plu;
+                // 2026-11-06 (класс Б, Б-9): в ключ добавлены PLU весового товара и доп. штрихкоды — раньше «12» не находило товар по PLU, а доп. код находился только точным совпадением.
+                _searchKey = NurMarketKassa.Core.Application.SearchMatch.Key(Title, Id, _barcode, Article, ProductCode, Category, Brand,
+                    Plu is > 0 ? Plu.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : null, AlternateBarcodesRaw);
             }
             return _searchKey;
         }
@@ -219,6 +224,7 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
                 return;
             _barcode = value;
             OnPropertyChanged(nameof(Barcode));
+            OnPropertyChanged(nameof(BarcodeDisplay)); // 2026-11-06: колонка «Код / штрихкод» склада
         }
     }
 
@@ -342,6 +348,31 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     /// найти товар по такому штрих-коду было невозможно, если у товара также был Артикул
     /// (см. LocalCartService.FindByEmbeddedCode, которая теперь проверяет оба поля).</summary>
     public string? ProductCode { get; set; }
+
+    /// <summary>2026-11-06 (жалоба клиента «Код / штрихкод не показывает»): верхняя строка колонки «Код / штрихкод» в Складе — артикул, нет его — код товара, нет и его — PLU.</summary>
+    public string CodeDisplay =>
+        !string.IsNullOrWhiteSpace(Article) ? Article!.Trim()
+        : !string.IsNullOrWhiteSpace(ProductCode) ? ProductCode!.Trim()
+        : Plu is > 0 ? Plu.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
+
+    /// <summary>Нижняя строка колонки — штрихкод; нет основного — первый дополнительный.</summary>
+    public string BarcodeDisplay
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Barcode))
+                return Barcode!.Trim();
+            var alt = AlternateBarcodesRaw?.Split(new[] { '\n', '\r', ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return alt is { Length: > 0 } ? alt[0] : "";
+        }
+    }
+
+    /// <summary>Коды (артикул, код, PLU, доп. штрихкоды) дописаны после показа строки — обновить колонку.</summary>
+    public void RaiseCodesChanged()
+    {
+        OnPropertyChanged(nameof(CodeDisplay));
+        OnPropertyChanged(nameof(BarcodeDisplay));
+    }
 
     /// <summary>Поштучная продажа из упаковки — первая запись поля "packages", если она есть.</summary>
     public ProductPackageOption? PieceOption { get; set; }

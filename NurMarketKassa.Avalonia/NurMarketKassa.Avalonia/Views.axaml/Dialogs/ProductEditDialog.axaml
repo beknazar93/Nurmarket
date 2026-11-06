@@ -30,9 +30,9 @@
         </Style>
         <!-- 2026-10-18, этап 5: рамка поля в фокусе — общая из PosDialogStyles (BrushFocusRing 2 px); своя жёлтая
              (BrushAccent) у темы «NurMarket» на белом поле не видна (1,4:1). -->
+        <!-- 2026-11-06, А-10: толщину рамки в фокусе не меняем (было 1,5 → 2: текст в поле дёргался на 0,5 px), заметность даёт цвет кольца фокуса. -->
         <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
             <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
-            <Setter Property="BorderThickness" Value="2"/>
         </Style>
         <Style Selector="ComboBox">
             <Setter Property="CornerRadius" Value="8"/>

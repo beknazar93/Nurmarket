@@ -145,7 +145,7 @@ public partial class ScaleSettingsView : UserControl
             VerticalAlignment = VerticalAlignment.Top,
             Child = new TextBlock
             {
-                Text = profile.Brand switch { "rongta" => "R", "tm" => "TM", "ai" => "AI", _ => "Ш" },
+                Text = profile.Brand switch { "rongta" => "R", "tm" => "TM", "ai" => "AI", "shtrikhpc" => "РС", _ => "Ш" },
                 FontWeight = FontWeight.Bold,
                 Foreground = Brush("BrushText", Brushes.Black),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -166,7 +166,13 @@ public partial class ScaleSettingsView : UserControl
         texts.Children.Add(Line(profile.Categories.Count == 0
             ? L("Товары: все весовые (или отмеченные вручную)", "Товарлар: бардык салмактуулар (же кол менен белгиленгендер)", "Goods: all weighed (or ticked by hand)", "Ürünler: tüm tartılılar (veya elle işaretlenenler)", "Tovarlar: barcha vaznlilar (yoki qo‘lda belgilanganlar)")
             : L("Категории: ", "Категориялар: ", "Categories: ", "Kategoriler: ", "Kategoriyalar: ") + string.Join(", ", profile.Categories), "BrushTextSoft"));
-        if (profile.Brand != ScaleUi.BrandAi)
+        // 2026-11-06: у РС-200 вместо IP — путь общей папки, подсказка про адрес сети ей не нужна
+        if (profile.Brand == ScaleUi.BrandShtrikhPc)
+        {
+            if (isActive)
+                texts.Children.Add(Line(ScaleUi.LastCheckText(profile.Brand), "BrushTextSoft"));
+        }
+        else if (profile.Brand != ScaleUi.BrandAi)
         {
             var (level, ipText) = ScaleUi.CheckScaleIp(profile.Ip);
             if (level is ScaleIpLevel.Warning or ScaleIpLevel.Error)
@@ -281,6 +287,11 @@ public partial class ScaleSettingsView : UserControl
     {
         if (p.Brand == ScaleUi.BrandAi)
             return L("файл для программы весов", "тараза программасы үчүн файл", "file for the scale's software", "tartı programı için dosya", "tarozi dasturi uchun fayl");
+        if (p.Brand == ScaleUi.BrandShtrikhPc)
+            return (string.IsNullOrWhiteSpace(p.Ip)
+                       ? L("папка обмена не задана", "алмашуу папкасы коюлган эмес", "exchange folder not set", "alışveriş klasörü ayarlanmamış", "almashuv papkasi belgilanmagan")
+                       : p.Ip) + " · "
+                   + L("файлом через общую папку весов", "таразанын жалпы папкасы аркылуу файл менен", "as a file via the scale's shared folder", "tartının paylaşımlı klasörü üzerinden dosyayla", "tarozining umumiy papkasi orqali fayl bilan");
         var address = string.IsNullOrWhiteSpace(p.Ip)
             ? L("адрес не задан", "дарек коюлган эмес", "address not set", "adres girilmemiş", "manzil kiritilmagan")
             // 2026-09-30: Rongta «напрямую» работает через порт 4001, а не 5001 из профиля.

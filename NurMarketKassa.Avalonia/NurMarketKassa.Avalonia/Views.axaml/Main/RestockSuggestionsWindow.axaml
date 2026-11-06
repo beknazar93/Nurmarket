@@ -110,7 +110,6 @@
         </Style>
         <Style Selector="TabItem:selected">
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
         </Style>
 
         <!-- 2026-09-08: раньше неактивная кнопка была совсем без фона/рамки — выглядела как
@@ -134,9 +133,7 @@
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
-        <Style Selector="Button.PeriodToggle.Active">
-            <Setter Property="FontWeight" Value="Bold"/>
-        </Style>
+        <!-- 2026-11-06, А-1…А-5: вес шрифта выбранного пункта не меняем — иначе пункт шире соседей и ряд/вкладки «ездят» (выбор виден по цвету/заливке). (Button.PeriodToggle.Active) -->
         <Style Selector="Button.PeriodToggle.Active /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushText}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>

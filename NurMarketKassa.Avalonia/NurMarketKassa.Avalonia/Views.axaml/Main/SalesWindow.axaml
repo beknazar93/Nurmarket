@@ -34,7 +34,6 @@
         </Style>
         <Style Selector="TabControl.ownerTabs TabItem:selected">
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
         </Style>
         <Style Selector="TextBox">
             <Setter Property="Background" Value="#00FFFFFF" />

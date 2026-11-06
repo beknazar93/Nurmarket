@@ -31,9 +31,10 @@
         <Style Selector="Button.ReadOption">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-            <Setter Property="BorderThickness" Value="1.5"/>
+            <!-- 2026-11-06, А-9: рамка 2 px у всех состояний (отступ меньше на 0,5), у выбранного вариант не растёт. -->
+            <Setter Property="BorderThickness" Value="2"/>
             <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Padding" Value="15.5,11.5"/>
             <Setter Property="Margin" Value="0,0,10,10"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -51,7 +52,6 @@
         <Style Selector="Button.ReadOption.chosen">
             <Setter Property="Background" Value="{DynamicResource BrushSuccessSoft}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushSuccess}"/>
-            <Setter Property="BorderThickness" Value="2"/>
         </Style>
         <Style Selector="TextBlock.optKind">
             <Setter Property="FontSize" Value="13"/>
@@ -103,7 +103,6 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
         </Style>
         <Style Selector="RadioButton.RulePill:checked">
-            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
         </Style>
 

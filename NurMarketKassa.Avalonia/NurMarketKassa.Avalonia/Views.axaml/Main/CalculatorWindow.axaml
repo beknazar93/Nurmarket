@@ -84,9 +84,7 @@
         </Style>
         <!-- 2026-10-19, этап О9 (аудит 19.10, проблема 1): «выбрано» — тёмно-синим, как во всей программе (вкладка и способ
              расчёта были жёлтыми, чипы налога и округления — бледно-жёлтыми); чипы — обводкой, выбранный тёмно-синий. -->
-        <Style Selector="Button.seg.active">
-            <Setter Property="FontWeight" Value="Bold"/>
-        </Style>
+        <!-- 2026-11-06, А-1…А-5: вес шрифта выбранного пункта не меняем — иначе пункт шире соседей и ряд/вкладки «ездят» (выбор виден по цвету/заливке). (Button.seg.active) -->
         <Style Selector="Button.seg.active /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushText}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>

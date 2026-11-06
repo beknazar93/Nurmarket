@@ -161,6 +161,10 @@ public sealed class UserPreferences
     /// <summary>«Префикс штрихкода» товара (F/FF в формате ШК весов). 20 — вес в режиме «авто» кассы.</summary>
     public int TmScaleBarcodePrefix { get; set; } = 20;
 
+    /// <summary>2026-11-06: настройки весов «Штрих РС-200» одной строкой JSON (общая папка обмена, имена файлов, знаков в цене, раскладка штрихкода) —
+    /// см. <see cref="NurMarketKassa.Services.Hardware.ShtrikhPcSettings"/>. null — по умолчанию из руководства.</summary>
+    public string? ShtrikhPcConfig { get; set; }
+
     /// <summary>Формат ШК весов Dahua (один из 15, DahuaTmBarcodeFormat.Variants) — только для
     /// примера и сверки в окне настроек: на весы касса его не отправляет. null — рекомендуемый.</summary>
     public string? TmScaleDahuaBarcode { get; set; }
@@ -1597,6 +1601,8 @@ public sealed class UserPreferences
                 p.TmScalePricePoint = fromFile.TmScalePricePoint.Value;
             if (fromFile.TmScaleBarcodePrefix is >= 0 and <= 99)
                 p.TmScaleBarcodePrefix = fromFile.TmScaleBarcodePrefix.Value;
+            if (!string.IsNullOrWhiteSpace(fromFile.ShtrikhPcConfig))
+                p.ShtrikhPcConfig = fromFile.ShtrikhPcConfig; // 2026-11-06: весы Штрих РС-200
             if (!string.IsNullOrWhiteSpace(fromFile.TmScaleDahuaBarcode))
                 p.TmScaleDahuaBarcode = fromFile.TmScaleDahuaBarcode;
             if (!string.IsNullOrWhiteSpace(fromFile.TmScaleSendMode))
@@ -1930,6 +1936,7 @@ public sealed class UserPreferences
                 TmScalePricePoint = TmScalePricePoint,
                 TmScaleBarcodePrefix = TmScaleBarcodePrefix,
                 TmScaleDahuaBarcode = TmScaleDahuaBarcode,
+                ShtrikhPcConfig = ShtrikhPcConfig,
                 TmScaleSendMode = TmScaleSendMode,
                 TmScaleShelfLifeDays = TmScaleShelfLifeDays,
                 RongtaLanBarcodePrefix = RongtaLanBarcodePrefix,
@@ -2280,6 +2287,7 @@ public sealed class UserPreferences
         public int? TmScalePricePoint { get; set; }
         public int? TmScaleBarcodePrefix { get; set; }
         public string? TmScaleDahuaBarcode { get; set; }
+        public string? ShtrikhPcConfig { get; set; }
         public string? TmScaleSendMode { get; set; }
         public int? TmScaleShelfLifeDays { get; set; }
         public int? RongtaLanBarcodePrefix { get; set; }

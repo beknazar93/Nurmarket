@@ -274,10 +274,7 @@
         <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentStrong}"/>
     </Style>
-    <!-- Наведение на мягкие кнопки — рамка толще, нажатие — чуть прозрачнее. -->
-    <Style Selector="Button.lx-soft-success:pointerover, Button.lx-soft-warning:pointerover, Button.lx-soft-danger:pointerover, Button.lx-soft-accent:pointerover">
-        <Setter Property="BorderThickness" Value="2"/>
-    </Style>
+    <!-- 2026-11-06, А-13: стиль наведения «рамка толще» (BorderThickness 1 → 2 двигал бы соседей) удалён — мягкие кнопки сейчас нигде не используются. Нажатие — чуть прозрачнее. -->
     <Style Selector="Button.lx-soft-success:pressed, Button.lx-soft-warning:pressed, Button.lx-soft-danger:pressed, Button.lx-soft-accent:pressed">
         <Setter Property="Opacity" Value="0.8"/>
     </Style>
@@ -394,17 +391,18 @@
         <Setter Property="MinHeight" Value="0"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="CornerRadius" Value="{DynamicResource SettingsCardRadius}"/>
-        <Setter Property="FocusAdorner" Value="{x:Null}"/>
+        <!-- 2026-11-06, А-2: рамка фокуса — FocusAdorner поверх плитки (раньше :focus-visible ставил BorderThickness 0 → 2, плитка росла на 4×4 px). -->
+        <Setter Property="FocusAdorner">
+            <FocusAdornerTemplate>
+                <Border BorderThickness="2" BorderBrush="{DynamicResource BrushFocusRing}" CornerRadius="{DynamicResource SettingsCardRadius}"/>
+            </FocusAdornerTemplate>
+        </Setter>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
     </Style>
     <Style Selector="ListBox.lx-tiles ListBoxItem:pointerover /template/ ContentPresenter, ListBox.lx-tiles ListBoxItem:selected /template/ ContentPresenter, ListBox.lx-tiles ListBoxItem:selected:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="Transparent"/>
     </Style>
     <!-- 2026-11-01 (контрольный аудит, Д2-01): рамка фокуса — BrushFocusRing (≥ 3:1, считает AccentThemeService); BrushAccentStrong был 2,3:1. -->
-    <Style Selector="ListBox.lx-tiles ListBoxItem:focus-visible">
-        <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
-        <Setter Property="BorderThickness" Value="2"/>
-    </Style>
 
     <Style Selector="ScrollViewer.lx-scroll">
         <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>

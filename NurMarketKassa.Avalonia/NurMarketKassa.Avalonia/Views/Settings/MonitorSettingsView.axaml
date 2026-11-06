@@ -7,8 +7,9 @@
     <Style Selector="RadioButton.LayoutOption">
       <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Padding" Value="16"/>
+      <!-- 2026-11-06, А-9: рамка 2 px у всех состояний (отступ 15 вместо 16 + рамка 1 — внешний размер тот же), у выбранного карточка не растёт. -->
+      <Setter Property="BorderThickness" Value="2"/>
+      <Setter Property="Padding" Value="15"/>
       <Setter Property="MinHeight" Value="92"/>
       <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
       <Setter Property="Cursor" Value="Hand"/>
@@ -18,7 +19,6 @@
     <Style Selector="RadioButton.LayoutOption:checked">
       <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
-      <Setter Property="BorderThickness" Value="2"/>
     </Style>
   </UserControl.Styles>
 

@@ -48,6 +48,14 @@ public sealed class VariantEditorWindow : Window
     private ModalShell _shell = null!;
     private bool _saving;
     private bool _printing;
+    // 2026-11-06 (просьба клиента магазина одежды): «Создать QR» помечает строки «этикетка в формате QR» (строка → код, который
+    // получил метку; правка кода руками метку снимает), «Формат кода» выбирает, что печатать: как в шаблоне / штрихкод / QR.
+    private readonly Dictionary<Row, string> _qrMarked = new();
+    private readonly ComboBox _codeMode = new()
+    {
+        MinWidth = 190, MinHeight = 44, VerticalContentAlignment = VerticalAlignment.Center, VerticalAlignment = VerticalAlignment.Top,
+        Margin = new Thickness(0, 0, 10, 6),
+    };
 
     private sealed class Row
     {
@@ -83,6 +91,14 @@ public sealed class VariantEditorWindow : Window
             $"Each size/color has its own stock. Empty price — product price ({basePrice:0.##} som); lower — the till shows a discount. At the till (Clothing mode) a size/color picker opens.",
             $"Her beden/renk kendi stokuyla. Fiyat boş — ürün fiyatı ({basePrice:0.##} som); daha düşük — kasa indirim gösterir. Kasada (Giyim) beden/renk seçimi açılır.",
             $"Har bir o'lcham/rang — o'z qoldig'i bilan. Narx bo'sh — mahsulot narxi ({basePrice:0.##} so'm); pastroq — kassa chegirma ko'rsatadi. Kassada (Kiyim) o'lcham/rang tanlovi ochiladi.")));
+
+        // 2026-11-06: как печатать штрихкоды и QR для размеров — путь по окнам, 1–2 строки.
+        top.Children.Add(Soft(Tr.T(
+            "Как напечатать этикетки размеров: Склад → товар → «Размеры и цвета» → «Создать штрихкоды» или «Создать QR» → «Сохранить» → «Этикетки». Что печатать — штрихкод или QR — выбирает «Формат кода».",
+            "Өлчөмдөрдүн этикеткаларын басуу: Кампа → товар → «Өлчөмдөр жана түстөр» → «Штрихкоддорду түзүү» же «QR түзүү» → «Сактоо» → «Этикеткалар». Эмнени басуу — штрихкод же QR — «Код форматы» менен тандалат.",
+            "To print size labels: Warehouse → product → “Sizes and colors” → “Create barcodes” or “Create QR” → Save → “Labels”. “Code format” chooses a barcode or a QR.",
+            "Beden etiketlerini yazdırmak için: Depo → ürün → «Bedenler ve renkler» → «Barkod oluştur» veya «QR oluştur» → Kaydet → «Etiketler». Barkod mu QR mı olacağını «Kod biçimi» seçer.",
+            "O'lcham yorliqlarini chop etish: Ombor → mahsulot → «O'lchamlar va ranglar» → «Shtrix-kodlar yaratish» yoki «QR yaratish» → «Saqlash» → «Yorliqlar». Shtrix-kod yoki QR — «Kod formati» orqali tanlanadi.")));
 
         // Быстро заполнить: размеры × цвета.
         // 2026-10-22 (модалки, пакет 3): ряд переносится (длинные надписи ky/tr/uz не обрезаются), кнопка — обводкой 44 px.
@@ -145,7 +161,28 @@ public sealed class VariantEditorWindow : Window
             "Own barcodes for sizes without one — for labels", "Barkodu olmayan bedenlere etiket için barkod", "Shtrix-kodi yo'q o'lchamlarga — yorliq uchun shtrix-kodlar"));
         makeCodes.Click += (_, _) => GenerateBarcodes();
         tools.Children.Add(makeCodes);
-        var labels = SectionCards.Secondary(Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar"));
+        // 2026-11-06: «Создать QR» — размерам без кода тот же внутренний код (уникальный, не весовой), помеченный «этикетка QR».
+        var makeQr = SectionCards.Secondary(Tr.T("Создать QR", "QR түзүү", "Create QR", "QR oluştur", "QR yaratish"));
+        makeQr.Margin = new Thickness(0, 0, 10, 6);
+        ToolTip.SetTip(makeQr, Tr.T("Размерам без кода — свой код для QR-этикетки", "Коду жок өлчөмдөргө — QR-этикетка үчүн өз коду",
+            "Own code for sizes without one — for a QR label", "Kodu olmayan bedenlere QR etiketi için kendi kodu", "Kodi yo'q o'lchamlarga — QR-yorliq uchun o'z kodi"));
+        makeQr.Click += (_, _) => GenerateBarcodes(qr: true);
+        tools.Children.Add(makeQr);
+        foreach (var name in new[]
+                 {
+                     Tr.T("Формат кода: как в шаблоне", "Код форматы: шаблондогудай", "Code format: as in template", "Kod biçimi: şablondaki gibi", "Kod formati: shablondagidek"),
+                     Tr.T("Формат кода: штрихкод", "Код форматы: штрихкод", "Code format: barcode", "Kod biçimi: barkod", "Kod formati: shtrix-kod"),
+                     Tr.T("Формат кода: QR", "Код форматы: QR", "Code format: QR", "Kod biçimi: QR", "Kod formati: QR"),
+                 })
+            _codeMode.Items.Add(name);
+        _codeMode.SelectedIndex = 0;
+        ToolTip.SetTip(_codeMode, Tr.T("Что печатать на этикетке размера. QR печатается с кодом размера, касса найдёт именно этот размер.",
+            "Өлчөм этикеткасына эмнени басуу. QR өлчөмдүн коду менен басылат, касса так ушул өлчөмдү табат.",
+            "What to print on the size label. The QR carries the size code; the till finds exactly this size.",
+            "Beden etiketine ne basılacak. QR beden koduyla basılır, kasa tam bu bedeni bulur.",
+            "O'lcham yorlig'iga nima chop etiladi. QR o'lcham kodi bilan chop etiladi, kassa aynan shu o'lchamni topadi."));
+        tools.Children.Add(_codeMode);
+        var labels =SectionCards.Secondary(Tr.T("Этикетки", "Этикеткалар", "Labels", "Etiketler", "Yorliqlar"));
         labels.Margin = new Thickness(0, 0, 10, 6);
         labels.Click += async (_, _) => await PrintLabelsAsync().ConfigureAwait(true);
         tools.Children.Add(labels);
@@ -714,7 +751,8 @@ public sealed class VariantEditorWindow : Window
     /// <summary>2026-10-06 (О-23): внутренний EAN-13 на «29» (диапазон 20–29 — для своих штрихкодов магазина) без
     /// повторов: ни с товарами каталога, ни с известными кассе размерами, ни со строками этого окна. В сфере «Одежда»
     /// касса не читает такие коды как весовые (Р-08), а знакомый размер находит раньше весового разбора.</summary>
-    private void GenerateBarcodes()
+    /// <param name="qr">2026-11-06: «Создать QR» — те же уникальные коды, но строки помечаются «этикетка QR» (печатаются QR при формате «Как в шаблоне»).</param>
+    private void GenerateBarcodes(bool qr = false)
     {
         var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         try
@@ -737,21 +775,71 @@ public sealed class VariantEditorWindow : Window
                 taken.Add(r.Barcode.Text.Trim());
 
         var made = 0;
+        // 2026-11-06 (P3-51): строка без размера и цвета кода не получает — это не «код уже есть», а «сначала введите размер».
+        var sizedRows = 0;
+        var emptyRows = 0;
         foreach (var row in _items)
         {
-            if (!string.IsNullOrWhiteSpace(row.Barcode.Text) || (string.IsNullOrWhiteSpace(row.Size.Text) && string.IsNullOrWhiteSpace(row.Color.Text)))
+            var noSize = string.IsNullOrWhiteSpace(row.Size.Text) && string.IsNullOrWhiteSpace(row.Color.Text);
+            if (!noSize)
+                sizedRows++;
+            if (!string.IsNullOrWhiteSpace(row.Barcode.Text))
                 continue;
+            if (noSize)
+            {
+                emptyRows++;
+                continue;
+            }
             // 2026-11-05 (аудит №3, С2-39): общий генератор кассы (первая цифра не 0 и не 2). Прежние коды на «29…» кассой разбирались как весовая этикетка.
             var code = NurMarketKassa.Services.BarcodeGenerator.Generate(taken, c => VariantBarcodeIndex.Contains(c));
             taken.Add(code);
             row.Barcode.Text = code;
+            if (qr)
+                MarkQr(row, code);
             made++;
         }
+        if (qr)
+        {
+            _status.Text = made == 0
+                ? SizeCodeHints.NothingCreated(true, sizedRows)
+                : Tr.T($"Создано кодов для QR: {made}. Нажмите «Сохранить», потом «Этикетки».", $"QR үчүн түзүлгөн коддор: {made}. «Сактоо», анан «Этикеткалар» басыңыз.", $"Codes created for QR: {made}. Press Save, then Labels.",
+                    $"QR için oluşturulan kod: {made}. Kaydet'e, sonra Etiketler'e basın.", $"QR uchun yaratilgan kodlar: {made}. «Saqlash», so'ng «Yorliqlar»ni bosing.") + SizeCodeHints.SkippedNote(emptyRows);
+            PosLogger.Log($"Размеры товара {_productId}: создано кодов для QR {made}.", "CATALOG");
+            return;
+        }
         _status.Text = made == 0
-            ? Tr.T("Штрихкоды есть у всех размеров.", "Бардык өлчөмдөрдө штрихкод бар.", "All sizes already have barcodes.", "Tüm bedenlerin barkodu var.", "Barcha o'lchamlarda shtrix-kod bor.")
+            ? SizeCodeHints.NothingCreated(false, sizedRows)
             : Tr.T($"Создано штрихкодов: {made}. Нажмите «Сохранить».", $"Түзүлгөн штрихкоддор: {made}. «Сактоо» басыңыз.", $"Barcodes created: {made}. Press Save.",
-                $"Oluşturulan barkod: {made}. Kaydet'e basın.", $"Yaratilgan shtrix-kodlar: {made}. «Saqlash»ni bosing.");
+                $"Oluşturulan barkod: {made}. Kaydet'e basın.", $"Yaratilgan shtrix-kodlar: {made}. «Saqlash»ni bosing.") + SizeCodeHints.SkippedNote(emptyRows);
         PosLogger.Log($"Размеры товара {_productId}: создано штрихкодов {made}.", "CATALOG");
+    }
+
+    /// <summary>2026-11-06: строка помечена «этикетка QR» (значок «QR» в поле кода); метка действует, пока код в поле тот же.</summary>
+    private void MarkQr(Row row, string code)
+    {
+        _qrMarked[row] = code;
+        var tag = new TextBlock { Text = "QR", FontSize = 11.5, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        Use(tag, TextBlock.ForegroundProperty, "BrushTextSoft");
+        row.Barcode.InnerRightContent = tag;
+        ToolTip.SetTip(row.Barcode, Tr.T("Этикетка этого размера печатается QR-кодом", "Бул өлчөмдүн этикеткасы QR менен басылат", "This size's label is printed as a QR code", "Bu bedenin etiketi QR olarak basılır", "Bu o'lcham yorlig'i QR sifatida chop etiladi"));
+        row.Barcode.TextChanged += (_, _) =>
+        {
+            if (_qrMarked.TryGetValue(row, out var marked) && !string.Equals(marked, row.Barcode.Text?.Trim(), StringComparison.Ordinal))
+            {
+                _qrMarked.Remove(row);
+                row.Barcode.InnerRightContent = null;
+                ToolTip.SetTip(row.Barcode, null);
+            }
+        };
+    }
+
+    /// <summary>2026-11-06: что печатать для строки: выбор в «Формат кода» сильнее; «Как в шаблоне» + метка «QR» — QR.</summary>
+    private LabelCodeMode CodeModeFor(Row row)
+    {
+        var picked = (LabelCodeMode)Math.Clamp(_codeMode.SelectedIndex, 0, 2);
+        return picked == LabelCodeMode.AsTemplate && _qrMarked.TryGetValue(row, out var marked) && string.Equals(marked, row.Barcode.Text?.Trim(), StringComparison.Ordinal)
+            ? LabelCodeMode.Qr
+            : picked;
     }
 
     /// <summary>2026-10-06 (О-25): этикетки размеров — сначала сохраняет правки (чтобы штрихкоды знали сервер и касса),
@@ -823,6 +911,17 @@ public sealed class VariantEditorWindow : Window
         }
 
         var template = LabelTemplateStore.Load();
+        // 2026-11-06: QR на этой этикетке должен быть читаемым — иначе печатать не начинаем (цифры кода напечатать нечем, этикетка выйдет пустой).
+        foreach (var r in rows)
+        {
+            if (CodeModeFor(r) != LabelCodeMode.Qr)
+                continue;
+            if (LabelCodeModes.QrSizeProblem(template, r.Barcode.Text!.Trim()) is { } qrProblem)
+            {
+                _status.Text = qrProblem;
+                return;
+            }
+        }
         // 2026-11-02 (С3-06): после сбоя печати остаток задания помнится; следующее «Этикетки» предлагает допечатать только его,
         // а не всё заново (иначе уже напечатанные этикетки дублируются).
         var savedCodes = rows.Select(r => r.Barcode.Text!.Trim()).ToHashSet(StringComparer.Ordinal);
@@ -867,6 +966,7 @@ public sealed class VariantEditorWindow : Window
                     Variant = string.Join(", ", new[] { row.Size.Text?.Trim(), row.Color.Text?.Trim() }.Where(x => !string.IsNullOrWhiteSpace(x))),
                     PriceText = price.ToString("0.00", CultureInfo.GetCultureInfo("ru-RU")) + " сом", // 2026-11-05 (С2-43): «85,00 сом», как во всей программе
                     Remaining = copies,
+                    Mode = CodeModeFor(row),
                 });
             }
             _labelPlanTotal = jobs.Sum(j => j.Remaining);
@@ -875,6 +975,14 @@ public sealed class VariantEditorWindow : Window
                 return;
         }
 
+        // 2026-11-06 (P3-52): раньше «Этикетки» → «По одной на размер» печатали сразу, и этикетка ушла на чековый POS-80.
+        // Теперь перед отправкой всегда спрашиваем: сколько, какие размеры, на какой принтер — «Печать» / «Предпросмотр» / «Отмена».
+        if (!await ConfirmLabelPrintAsync(jobs, printer, template).ConfigureAwait(true))
+        {
+            _status.Text = Tr.T("Печать отменена, на принтер ничего не отправлено.", "Басуу жокко чыгарылды, принтерге эч нерсе жөнөтүлгөн жок.",
+                "Printing cancelled, nothing was sent to the printer.", "Yazdırma iptal edildi, yazıcıya bir şey gönderilmedi.", "Chop etish bekor qilindi, printerga hech narsa yuborilmadi.");
+            return;
+        }
         // Печать идёт до первого сбоя; на сбое останавливаемся (раньше цикл шёл дальше, и повтор печатал всё заново).
         var printedNow = 0;
         var last = LabelPrintResult.Success;
@@ -883,7 +991,7 @@ public sealed class VariantEditorWindow : Window
             while (job.Remaining > 0)
             {
                 var batch = Math.Min(job.Remaining, 99);
-                var request = new LabelPrintRequest(_productTitle, job.Barcode, job.PriceText, batch, printer, template,
+                var request = new LabelPrintRequest(_productTitle, job.Barcode, job.PriceText, batch, printer, LabelCodeModes.Apply(template, job.Mode),
                     StoreName: UserPreferences.Instance.StoreName, VariantText: job.Variant);
                 BarcodeLabelService.ClearPartial(printer); // 2026-11-02 (С3-16): «N из M» хранится по принтеру
                 var result = await Task.Run(() => BarcodeLabelService.Print(request)).ConfigureAwait(true);
@@ -937,11 +1045,90 @@ public sealed class VariantEditorWindow : Window
         public string Variant = "";
         public string PriceText = "";
         public int Remaining;
+        /// <summary>2026-11-06: что печатать на этикетке этого размера (штрихкод/QR/как в шаблоне).</summary>
+        public LabelCodeMode Mode;
     }
 
     private List<LabelJob>? _labelRest;
     private int _labelPlanTotal;
     private int _labelPlanPrinted;
+
+    private enum LabelAsk { Cancel, Print, Preview }
+
+    /// <summary>2026-11-06 (P3-52): подтверждение перед отправкой этикеток размеров на принтер. «Предпросмотр» показывает этикетки и возвращает в вопрос.
+    /// Чековый принтер (тот же порт, что у чеков, или POS-80 в имени) — красное предупреждение и «Всё равно печатать» без Enter.</summary>
+    private async Task<bool> ConfirmLabelPrintAsync(List<LabelJob> jobs, string printer, LabelTemplate template)
+    {
+        var active = jobs.Where(j => j.Remaining > 0).ToList();
+        var count = active.Sum(j => j.Remaining);
+        var variants = active.Select(j => j.Variant).Where(v => v.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var sizes = string.Join("; ", variants.Take(12)) + (variants.Count > 12 ? "…" : "");
+        var name = LabelPrinterSelector.DisplayName(printer);
+        var receipt = LabelPrinterSelector.LooksLikeReceiptPrinter(printer);
+        PosLogger.Log($"Размеры товара {_productId}: подтверждение печати {count} этикеток → «{name}»{(receipt ? " (похож на чековый принтер)" : "")}.", "CATALOG");
+        while (true)
+        {
+            var pick = LabelAsk.Cancel;
+            var dlg = new Window { Title = Tr.T("Печать этикеток", "Этикеткаларды басуу", "Print labels", "Etiket yazdır", "Yorliqlarni chop etish") };
+            SectionCards.AsModal(dlg, 512);
+            var body = new StackPanel { Spacing = 10 };
+            body.Children.Add(new TextBlock { Text = LabelPrinterSelector.PrintConfirmQuestion(count, sizes, name), FontSize = 14.5, TextWrapping = TextWrapping.Wrap });
+            if (receipt)
+            {
+                var warn = new TextBlock { Text = LabelPrinterSelector.ReceiptPrinterWarning, FontSize = 13.5, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
+                Use(warn, TextBlock.ForegroundProperty, "BrushDanger");
+                body.Children.Add(warn);
+            }
+            var print = receipt
+                ? SectionCards.Danger(Tr.T("Всё равно печатать", "Баары бир басуу", "Print anyway", "Yine de yazdır", "Baribir chop etish"))
+                : SectionCards.Primary(Tr.T("Печать", "Басуу", "Print", "Yazdır", "Chop etish"), isDefault: true);
+            print.Click += (_, _) => { pick = LabelAsk.Print; dlg.Close(); };
+            var preview = SectionCards.Secondary(Tr.T("Предпросмотр", "Алдын ала көрүү", "Preview", "Önizleme", "Oldindan ko'rish"));
+            preview.Click += (_, _) => { pick = LabelAsk.Preview; dlg.Close(); };
+            var cancel = SectionCards.Cancel(Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"));
+            cancel.Click += (_, _) => dlg.Close();
+            dlg.Content = SectionCards.Shell(Tr.T("Печать этикеток", "Этикеткаларды басуу", "Print labels", "Etiket yazdır", "Yorliqlarni chop etish"),
+                _productTitle, body, SectionCards.Buttons(cancel, preview, print));
+            await dlg.ShowDialog(this).ConfigureAwait(true);
+            if (pick == LabelAsk.Print)
+                return true;
+            if (pick == LabelAsk.Cancel)
+                return false;
+            await ShowLabelPreviewAsync(active, template).ConfigureAwait(true);
+        }
+    }
+
+    private async Task ShowLabelPreviewAsync(List<LabelJob> active, LabelTemplate template)
+    {
+        var dlg = new Window { Title = Tr.T("Предпросмотр этикеток", "Этикеткаларды алдын ала көрүү", "Label preview", "Etiket önizleme", "Yorliq oldindan ko'rish") };
+        SectionCards.AsModal(dlg, 512);
+        var list = new StackPanel { Spacing = 12 };
+        foreach (var job in active.Take(6))
+        {
+            try
+            {
+                var bmp = LabelSceneRenderer.LabelPreview(_productTitle, job.Barcode, job.PriceText, LabelCodeModes.Apply(template, job.Mode),
+                    storeName: UserPreferences.Instance.StoreName, variantText: job.Variant);
+                list.Children.Add(new Border
+                {
+                    BorderBrush = Brushes.Gray, BorderThickness = new Thickness(1), Background = Brushes.White, HorizontalAlignment = HorizontalAlignment.Left,
+                    Child = new Image { Source = bmp, Stretch = Stretch.Uniform, Width = Math.Min(bmp.Size.Width * 2, 440) },
+                });
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Размеры товара {_productId}: предпросмотр этикетки не построен ({ex.GetType().Name}).", "CATALOG");
+                list.Children.Add(Soft(Tr.T("Предпросмотр этой этикетки недоступен.", "Бул этикетканы алдын ала көрүү мүмкүн эмес.", "Preview of this label is unavailable.", "Bu etiketin önizlemesi yok.", "Bu yorliqning oldindan ko'rinishi mavjud emas.")));
+            }
+        }
+        if (active.Count > 6)
+            list.Children.Add(Soft(Tr.T($"Показаны первые 6 из {active.Count}.", $"{active.Count} ичинен биринчи 6 көрсөтүлдү.", $"First 6 of {active.Count} shown.", $"{active.Count} etiketten ilk 6 gösteriliyor.", $"{active.Count} tadan dastlabki 6 tasi ko'rsatilgan.")));
+        var close = SectionCards.Cancel(Tr.T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
+        close.Click += (_, _) => dlg.Close();
+        dlg.Content = SectionCards.Shell(Tr.T("Предпросмотр этикеток", "Этикеткаларды алдын ала көрүү", "Label preview", "Etiket önizleme", "Yorliq oldindan ko'rish"),
+            _productTitle, new ScrollViewer { MaxHeight = 420, Content = list }, SectionCards.Buttons(close));
+        await dlg.ShowDialog(this).ConfigureAwait(true);
+    }
 
     /// <summary>true — по остатку каждого размера, false — по одной на размер, null — отмена.</summary>
     private async Task<bool?> AskLabelCountAsync(int byStock, int perSize)

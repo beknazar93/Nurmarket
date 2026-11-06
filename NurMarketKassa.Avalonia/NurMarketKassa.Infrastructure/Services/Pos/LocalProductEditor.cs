@@ -19,15 +19,29 @@ public static class LocalProductEditor
 
     /// <summary>Возвращает id сохранённого товара (новый — сгенерированный локально GUID,
     /// существующий — тот же, что был).</summary>
-    public static string SaveLocally(ProductEditRequest request, string? existingId)
+    /// <param name="serverCard">2026-11-06 (класс Б, Б-4): ответ сервера на создание товара — из него берутся поля, которых нет в запросе (код товара, фото, признак is_weight).
+    /// null — офлайн или временный товар.</param>
+    public static string SaveLocally(ProductEditRequest request, string? existingId, System.Text.Json.JsonElement? serverCard = null)
     {
         var id = existingId ?? Guid.NewGuid().ToString("N");
         var priceLine = request.Price is { } price
             ? $"{price.ToString("0.00", CultureInfo.InvariantCulture)} сом"
             : "—";
 
+        // 2026-11-06 (класс Б, Б-4): плитка строилась только из запроса и теряла единицу («м»/«л» → «шт»), вид (услуга → товар с остатком), код товара и фото.
+        // Теперь: единица и вид — из запроса; код, фото и признак is_weight — из записи в базе или ответа сервера.
+        var previous = existingId is null ? null : LocalProductRepository.Instance.LoadTileCopy(existingId);
+        var fromServer = serverCard is { ValueKind: System.Text.Json.JsonValueKind.Object } card
+            ? ProductCatalogMapper.TryTile(card, PosApp.Settings?.ApiBaseUrl ?? "")
+            : null;
+
         var tile = new CatalogProductTileVm(id, request.Name, priceLine, request.IsWeight)
         {
+            Unit = string.IsNullOrWhiteSpace(request.Unit) ? "шт" : request.Unit,
+            Kind = string.IsNullOrWhiteSpace(request.Kind) ? previous?.Kind : request.Kind,
+            ProductCode = previous?.ProductCode ?? fromServer?.ProductCode,
+            ImageUrl = previous?.ImageUrl ?? fromServer?.ImageUrl,
+            ServerIsWeight = fromServer?.ServerIsWeight ?? (previous is not null && previous.MustWeigh == request.IsWeight ? previous.ServerIsWeight : null),
             Category = request.CategoryName,
             Brand = request.BrandName,
             Barcode = request.Barcode,
@@ -43,7 +57,7 @@ public static class LocalProductEditor
             DiscountPercent = request.DiscountPercent ?? 0,
             Description = request.Description,
             HotkeyGroup = request.HotkeyGroup,
-            Plu = request.Plu,
+            Plu = request.Plu ?? (request.IsWeight ? fromServer?.Plu : null),
             Country = request.Country,
             WeightKg = request.WeightKg,
             Article = request.Article,

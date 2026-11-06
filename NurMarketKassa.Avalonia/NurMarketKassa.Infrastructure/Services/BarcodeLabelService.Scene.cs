@@ -109,6 +109,10 @@ public static partial class BarcodeLabelService
                 digitsFontSize, 0));
     }
 
+    /// <summary>2026-11-06: сколько модулей в стороне QR для этого кода (0 — закодировать нельзя); для проверки «QR слишком мелкий».</summary>
+    internal static int EncodeQrModulesForCheck(string? rawCode) =>
+        EncodeModules(PlanBarcode(rawCode, LabelBarcodeFormat.QrCode))?.Width ?? 0;
+
     /// <summary>QR-код по центру блока (порт DrawQrBlock при масштабе 1).</summary>
     internal static void AddQrScene(List<LabelSceneItem> items, float rx, float ry, float rw, float rh, string? rawCode, int quietModules)
     {

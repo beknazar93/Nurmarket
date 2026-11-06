@@ -148,6 +148,7 @@ public static class LabelScaleStore
         "tm" => 4001,
         "rongta" => 5001,
         "ai" => 0,
+        "shtrikhpc" => 0, // 2026-11-06: РС-200 — общая папка, порта нет
         _ => 1111,
     };
 
@@ -184,6 +185,12 @@ public static class LabelScaleStore
                 prefs.RongtaDataSource = profile.RongtaSource is "server" or "lan" ? profile.RongtaSource : "site";
                 if (profile.RongtaServerPort is > 0 and <= 65535)
                     prefs.RongtaServerPort = profile.RongtaServerPort;
+                break;
+            case "shtrikhpc":
+                // 2026-11-06: у весов РС-200 в поле Ip хранится путь общей папки обмена (ShtrikhPcSettings.Folder)
+                var pc = ShtrikhPcSettings.Current;
+                pc.Folder = profile.Ip ?? "";
+                ShtrikhPcSettings.Save(pc);
                 break;
             case "shtrikh":
                 prefs.ScaleNetworkIp = profile.Ip;
@@ -223,6 +230,10 @@ public static class LabelScaleStore
                 profile.RongtaSource = prefs.RongtaDataSource is "server" or "lan" ? prefs.RongtaDataSource : "site";
                 profile.RongtaServerPort = prefs.RongtaServerPort;
                 break;
+            case "shtrikhpc":
+                profile.Ip = ShtrikhPcSettings.Current.Folder;
+                profile.Port = 0;
+                break;
             case "shtrikh":
                 profile.Ip = prefs.ScaleNetworkIp ?? "";
                 profile.Port = prefs.ScaleLanPort;
@@ -259,7 +270,7 @@ public static class LabelScaleStore
             .Select(kv => (kv.Value.Code!, kv.Key)));
     }
 
-    private static string NormalizeBrand(string? brand) => brand is "rongta" or "tm" or "ai" ? brand : "shtrikh";
+    private static string NormalizeBrand(string? brand) => brand is "rongta" or "tm" or "ai" or "shtrikhpc" ? brand : "shtrikh";
 
     // ------------------------------------------------------------------ файл
 

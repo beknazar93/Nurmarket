@@ -50,6 +50,11 @@ public sealed class PendingProductJob
     public bool LocalApplied { get; set; }
     public DateTime? FinishedAt { get; set; }
 
+    /// <summary>2026-11-06 (живой прогон 3, P3-54): ответ сервера на создание товара (код товара, фото, is_weight). Только в памяти: на диск не пишется;
+    /// после перезапуска его нет — тогда коды дочитывает ProductCodeBackfill.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public JsonElement? ServerCard { get; set; }
+
     [System.Text.Json.Serialization.JsonIgnore]
     public bool IsActive => Status is PendingProductStatus.Queued or PendingProductStatus.RetryWait;
 
@@ -754,6 +759,7 @@ public sealed class PendingProductQueue
         }
 
         string realId;
+        JsonElement? serverCard = null;
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(stop);
@@ -785,6 +791,7 @@ public sealed class PendingProductQueue
             realId = ProductCatalogMapper.TryId(created) ?? "";
             if (string.IsNullOrEmpty(realId))
                 throw new InvalidOperationException("сервер не вернул номер созданного товара");
+            serverCard = created.Clone();
         }
         catch (OperationCanceledException) when (stop.IsCancellationRequested)
         {
@@ -800,6 +807,7 @@ public sealed class PendingProductQueue
         {
             job.Status = PendingProductStatus.Sent;
             job.RealId = realId;
+            job.ServerCard = serverCard;
             job.FinishedAt = DateTime.Now;
             job.NextAttemptAt = null;
             job.WaitingForServer = false;
@@ -816,8 +824,16 @@ public sealed class PendingProductQueue
     {
         try
         {
+            // 2026-11-06 (класс Б, Б-14): «избранное» хранится по id — при подмене временного id настоящим переносим отметку (иначе товар выпадал из избранных).
+            var wasFavorite = false;
             if (!string.Equals(job.RealId, job.TempId, StringComparison.OrdinalIgnoreCase))
             {
+                if (DeleteLocalOverride is null)
+                {
+                    try { wasFavorite = LocalProductRepository.Instance.GetFavoriteIds().Contains(job.TempId); }
+                    catch (Exception ex) when (ex is not OutOfMemoryException) { /* не удалось прочитать — отметку не переносим */ }
+                }
+
                 if (DeleteLocalOverride is { } del)
                     del(job.TempId);
                 else
@@ -826,7 +842,15 @@ public sealed class PendingProductQueue
             if (SaveLocalOverride is { } save)
                 save(job.Request, job.RealId!);
             else
-                LocalProductEditor.SaveLocally(job.Request, job.RealId);
+            {
+                // 2026-11-06 (P3-54): код товара, который присвоил сервер, и фото берём из ответа на создание — раньше плитка писалась только из запроса,
+                // и в колонке «Код / штрихкод» Склада у нового товара был лишь штрихкод. Ответа нет (перезапуск после создания) — читаем карточку фоном.
+                LocalProductEditor.SaveLocally(job.Request, job.RealId, job.ServerCard);
+                if (job.ServerCard is null && job.RealId is { Length: > 0 } fillId && LocalProductRepository.Instance.LoadTileCopy(fillId) is { } fresh)
+                    ProductCodeBackfill.ScheduleForRows([fresh], force: true);
+                if (wasFavorite && job.RealId is { Length: > 0 } realFavorite)
+                    CatalogCacheService.SetFavorite(realFavorite, true);
+            }
             lock (_sync)
             {
                 job.LocalApplied = true;

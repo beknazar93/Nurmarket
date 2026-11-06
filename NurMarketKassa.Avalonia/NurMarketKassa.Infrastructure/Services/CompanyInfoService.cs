@@ -237,6 +237,8 @@ public static class CompanyInfoService
         NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes = UserPreferences.ParseAmountPrefixes(prefs.ScaleAmountPrefixes);
         // 2026-09-28: и обратное правило «в штрихкоде вес» (мастер «Настроить по этикетке»).
         NurMarketKassa.Core.Application.WeightBarcodeParser.WeightPrefixes = UserPreferences.ParseAmountPrefixes(prefs.ScaleWeightPrefixes);
+        // 2026-11-06: раскладка этикетки весов Штрих РС-200 (если включена в Настройки → Весы) — для её префикса важнее режима компании.
+        NurMarketKassa.Services.Hardware.ShtrikhPcSettings.ApplyToParser();
     }
 
     private static SubscriptionStatus? ComputeSubscriptionStatus(CompanyDto? company) =>

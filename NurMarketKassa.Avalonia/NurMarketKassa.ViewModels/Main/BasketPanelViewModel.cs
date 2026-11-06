@@ -1702,26 +1702,18 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         {
             using var cts = new CancellationTokenSource(ServerBarcodeLookupTimeout);
             var results = await PosApp.CatalogApi.ProductsSearchAsync(barcode, limit: 5, cts.Token).ConfigureAwait(true);
-            var dto = results.FirstOrDefault(d => string.Equals(d.Barcode?.Trim(), barcode, StringComparison.OrdinalIgnoreCase));
-            if (dto == null)
+            // 2026-11-06 (класс Б, Б-2): запись найденного на сервере товара — общая с ProductCodeLookup (полная карточка, слияние «только пустые поля»,
+            // поиск среди доп. штрихкодов); раньше плитка из ответа поиска перезаписывала полную запись пустыми PLU, артикулом, фасовкой и закупкой.
+            var resolved = await ProductCodeLookup.ResolveServerResultsAsync(PosApp.CatalogApi, results, [barcode], PosApp.Settings?.ApiBaseUrl ?? "").ConfigureAwait(true);
+            if (resolved.Tile == null)
             {
+                if (resolved.Unavailable)
+                    return new(null, true);
                 _serverBarcodeMissCache[barcode] = DateTime.UtcNow;
                 return new(null, false);
             }
 
-            var tile = ProductCatalogMapper.TryTile(dto, PosApp.Settings?.ApiBaseUrl ?? "");
-            if (tile == null)
-            {
-                return new(null, true);
-            }
-
-            LocalProductRepository.Instance.UpsertFromTiles([tile]);
-            var existingIndex = CatalogCacheService.Products.FindIndex(p => p.Id == tile.Id);
-            if (existingIndex >= 0)
-                CatalogCacheService.Products[existingIndex] = tile;
-            else
-                CatalogCacheService.Products.Add(tile);
-            CatalogCacheService.NotifyCatalogChanged();
+            var tile = resolved.Tile;
 
             PosLogger.Log($"[DEBUG] Barcode '{barcode}' missing from local cache but found on server: productId={tile.Id}.", "CART");
             return new(tile, false);

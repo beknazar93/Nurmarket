@@ -261,6 +261,8 @@ public sealed class CatalogFeedSync
         }
 
         LogStatsIfDue();
+        if (ok)
+            ProductCodeBackfill.ScheduleFromStorage(); // 2026-11-06 (класс Б, Б-7): медленное самолечение товаров без кодов на уровне хранилища (раз в 30 с, ≤ 20 карточек)
         return new TickResult(added, changed, deleted, needFull, notes, ok);
     }
 
@@ -395,6 +397,8 @@ public sealed class CatalogFeedSync
         var tiles = new List<CatalogProductTileVm>();
         var patches = new List<LocalProductRepository.FeedFieldPatch>();
         List<string>? archivedIds = null;
+        List<CatalogProductTileVm>? newWithoutCodes = null;
+        List<string>? newShortIds = null;
         foreach (var item in page.Items)
         {
             var id = ProductCatalogMapper.TryId(item);
@@ -419,6 +423,10 @@ public sealed class CatalogFeedSync
                 // остаются локальными, а не затираются пустыми до следующей полной загрузки (пропадали поштучная продажа, доп. штрихкоды, PLU весов).
                 if (local is not null)
                     KeepLocalForAbsentFields(item, tile, local);
+                else if (NewProductCardBackfill.IsShortFeedCard(item))
+                    (newShortIds ??= new List<string>()).Add(tile.Id); // 2026-11-06 (класс Б, Б-1): новый товар в сокращённой карточке — полную (единица, вид, фасовка, категория, PLU) дочитаем с сервера
+                else if (ProductCodeBackfill.NeedsCodes(tile))
+                    (newWithoutCodes ??= new List<CatalogProductTileVm>()).Add(tile); // 2026-11-06: новый товар из сокращённой ленты — штрихкод/код дочитаем с сервера
                 // Остаток из ленты нельзя — оставляем локальный (его уже уменьшили свои/соседние продажи).
                 if (!stockOk && local is not null)
                     StockSyncService.ApplyQuantityToTile(tile, local.Quantity, tile.MustWeigh);
@@ -437,6 +445,11 @@ public sealed class CatalogFeedSync
 
         PromotionRules.SaveIfDirty();
         var result = repo.ApplyFeedChanges(tiles, patches, archivedIds is null ? page.DeletedIds : page.DeletedIds.Concat(archivedIds).ToList());
+        // 2026-11-06 (жалоба «Код / штрихкод пустой»): товар, которого в базе не было, лента принесла без штрихкода/артикула/кода — полную карточку читаем в фоне и дописываем пустое.
+        if (newWithoutCodes is { Count: > 0 })
+            ProductCodeBackfill.ScheduleForRows(newWithoutCodes);
+        if (newShortIds is { Count: > 0 } && result.Added > 0)
+            NewProductCardBackfill.Enqueue(newShortIds);
         return new ApplyOutcome(result.Added, result.Changed, result.Deleted, result.MissingIds.Count > 0);
     }
 

@@ -97,9 +97,7 @@
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
-        <Style Selector="Button.kbItem.active TextBlock">
-            <Setter Property="FontWeight" Value="SemiBold"/>
-        </Style>
+        <!-- 2026-11-06, А-1…А-5: вес шрифта выбранного пункта не меняем — иначе пункт шире соседей и ряд/вкладки «ездят» (выбор виден по цвету/заливке). (Button.kbItem.active TextBlock) -->
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="340,*">

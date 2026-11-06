@@ -177,7 +177,7 @@
         <Style Selector="Button.km-tile:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="BorderThickness" Value="1.5"/>
+            <!-- 2026-11-06, А-10: толщину рамки при наведении не меняем (было 1 → 1,5: текст внутри съезжал на 0,5 px). -->
         </Style>
         <Style Selector="Button.km-tile:pressed /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
@@ -201,7 +201,7 @@
         <Style Selector="Button.km-switch:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="BorderThickness" Value="1.5"/>
+            <!-- 2026-11-06, А-10: толщину рамки при наведении не меняем (было 1 → 1,5). -->
         </Style>
         <Style Selector="Button.km-switch:pressed /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>

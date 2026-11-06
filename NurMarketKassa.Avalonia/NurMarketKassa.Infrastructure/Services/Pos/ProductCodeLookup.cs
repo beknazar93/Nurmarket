@@ -1,5 +1,7 @@
+using System.Text.Json;
 using NurMarketKassa.Core.Application;
 using NurMarketKassa.Core.Domain;
+using NurMarketKassa.Models;
 using NurMarketKassa.Models.Pos;
 using NurMarketKassa.Services.Api;
 
@@ -165,27 +167,16 @@ public static class ProductCodeLookup
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(ServerTimeout);
             var results = await PosApp.CatalogApi.ProductsSearchAsync(code, limit: 5, cts.Token).ConfigureAwait(true);
-            var dto = results.FirstOrDefault(d => forms.Contains(d.Barcode?.Trim() ?? "", StringComparer.OrdinalIgnoreCase));
-            if (dto is null && BarcodeForms.Alternate(code) is { } alternate)
+            // 2026-11-06 (класс Б, Б-2): разбор ответа сервера и запись в базу — общие с кассой (ResolveServerResultsAsync): не затирает полную запись пустыми полями.
+            var resolved = await ResolveServerResultsAsync(PosApp.CatalogApi, results, forms, PosApp.Settings?.ApiBaseUrl ?? "", ct).ConfigureAwait(true);
+            if (resolved.Tile is null && !resolved.Unavailable && BarcodeForms.Alternate(code) is { } alternate)
             {
                 results = await PosApp.CatalogApi.ProductsSearchAsync(alternate, limit: 5, cts.Token).ConfigureAwait(true);
-                dto = results.FirstOrDefault(d => forms.Contains(d.Barcode?.Trim() ?? "", StringComparer.OrdinalIgnoreCase));
+                resolved = await ResolveServerResultsAsync(PosApp.CatalogApi, results, forms, PosApp.Settings?.ApiBaseUrl ?? "", ct).ConfigureAwait(true);
             }
 
-            if (dto is null)
-                return new Result(null, false);
-
-            var tile = ProductCatalogMapper.TryTile(dto, PosApp.Settings?.ApiBaseUrl ?? "");
-            if (tile is null)
-                return new Result(null, true);
-
-            LocalProductRepository.Instance.UpsertFromTiles([tile]);
-            var index = CatalogCacheService.Products.FindIndex(p => p.Id == tile.Id);
-            if (index >= 0)
-                CatalogCacheService.Products[index] = tile;
-            else
-                CatalogCacheService.Products.Add(tile);
-            CatalogCacheService.NotifyCatalogChanged();
+            if (resolved.Tile is not { } tile)
+                return new Result(null, resolved.Unavailable);
             PosLogger.Log($"Поиск по коду: '{code}' нет на этом компьютере, найден на сервере — товар {tile.Id}.", "CATALOG");
             return new Result(new Hit(tile, HitKind.Server), false);
         }
@@ -199,6 +190,124 @@ public static class ProductCodeLookup
             PosLogger.Log($"Поиск по коду '{code}' на сервере не удался: {ex.GetType().Name}: {ex.Message}", "WARNING");
             return new Result(null, true);
         }
+    }
+
+    /// <summary>Tile — найденный на сервере и записанный в базу товар; Unavailable — ответ нельзя разобрать (товар есть, плитку не собрать), «не найден» говорить рано.</summary>
+    public sealed record ServerResolve(CatalogProductTileVm? Tile, bool Unavailable);
+
+    private const int MaxAlternateCardChecks = 2;
+    private static readonly TimeSpan CardTimeout = TimeSpan.FromSeconds(3);
+
+    /// <summary>2026-11-06 (класс Б, Б-2): ответ серверного поиска по коду (<see cref="ProductDto"/>: только название, цена, штрихкод, категория, бренд, фото, единица, остаток)
+    /// раньше писался в базу как плитка и ПЕРЕЗАПИСЫВАЛ полную запись пустыми PLU, артикулом, фасовкой, видом и закупкой=0. Теперь:
+    /// 1) совпадение по основному штрихкоду — читаем полную карточку (products/{id}/); не прочитали — сливаем присланное с локальной записью, пустым локальное не затирается;
+    /// 2) основного совпадения нет — до двух (<see cref="MaxAlternateCardChecks"/>) найденных карточек читаем целиком и ищем код среди доп. штрихкодов
+    /// (раньше скан ДОП. штрихкода товара, которого нет в базе кассы, предлагал создать дубль). Остаток существующего товара остаётся локальным (его ведёт лента и продажи этого ПК).</summary>
+    public static async Task<ServerResolve> ResolveServerResultsAsync(ICatalogApiService api, IReadOnlyList<ProductDto> results,
+        IReadOnlyCollection<string> forms, string apiBaseUrl, CancellationToken ct = default)
+    {
+        var dto = results.FirstOrDefault(d => forms.Contains(d.Barcode?.Trim() ?? "", StringComparer.OrdinalIgnoreCase));
+        if (dto is null)
+        {
+            foreach (var candidate in results.Where(d => !string.IsNullOrEmpty(d.Id)).Take(MaxAlternateCardChecks))
+            {
+                if (await ReadCardAsync(api, candidate.Id!, ct).ConfigureAwait(true) is not { } card
+                    || ProductCatalogMapper.TryTile(card, apiBaseUrl) is not { } byAlternate
+                    || !forms.Any(f => HasAlternateBarcode(byAlternate, f)))
+                    continue;
+                return new ServerResolve(StoreServerTile(byAlternate, card, null), false);
+            }
+
+            return new ServerResolve(null, false);
+        }
+
+        var thin = ProductCatalogMapper.TryTile(dto, apiBaseUrl);
+        if (thin is null)
+            return new ServerResolve(null, true);
+        var full = await ReadCardAsync(api, thin.Id, ct).ConfigureAwait(true);
+        if (full is { } fullCard && ProductCatalogMapper.TryTile(fullCard, apiBaseUrl) is { } fullTile && string.Equals(fullTile.Id, thin.Id, StringComparison.OrdinalIgnoreCase))
+            return new ServerResolve(StoreServerTile(fullTile, fullCard, null), false);
+        return new ServerResolve(StoreServerTile(thin, null, dto), false);
+    }
+
+    /// <summary>Полная карточка товара за короткий срок; нет связи/ответа — null (вызывающий обходится присланным).</summary>
+    private static async Task<JsonElement?> ReadCardAsync(ICatalogApiService api, string id, CancellationToken ct)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(CardTimeout);
+            var card = await api.ProductsDetailAsync(id, cts.Token).ConfigureAwait(true);
+            return card is { ValueKind: JsonValueKind.Object } ? card : null;
+        }
+        catch (Exception ex) when (ex is OperationCanceledException && !ct.IsCancellationRequested
+                                   || ex is System.Net.Http.HttpRequestException or ApiException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Записать найденный на сервере товар в базу и в каталог памяти, не затирая локальную запись пустым. <paramref name="card"/> — полная карточка (иначе <paramref name="dto"/>
+    /// из поиска: из него известны только название, цена, штрихкод, категория, бренд, фото, единица и остаток).</summary>
+    private static CatalogProductTileVm StoreServerTile(CatalogProductTileVm tile, JsonElement? card, ProductDto? dto)
+    {
+        var repo = LocalProductRepository.Instance;
+        var local = repo.LoadTileCopy(tile.Id);
+        if (local is not null)
+        {
+            if (card is { } json)
+                CatalogFeedSync.KeepLocalForAbsentFields(json, tile, local);
+            else
+                MergeSearchHitWithLocal(tile, local, dto);
+            StockSyncService.ApplyQuantityToTile(tile, local.Quantity, tile.MustWeigh);
+        }
+
+        repo.UpsertFromTiles([tile]);
+        var index = CatalogCacheService.Products.FindIndex(p => p.Id == tile.Id);
+        if (index >= 0)
+            CatalogCacheService.Products[index] = tile;
+        else
+            CatalogCacheService.Products.Add(tile);
+        CatalogCacheService.NotifyCatalogChanged();
+        if (local is null && card is null)
+            NewProductCardBackfill.Enqueue([tile.Id]); // полную карточку нового товара дочитаем фоном (единица, вид, фасовка, PLU)
+        return tile;
+    }
+
+    /// <summary>Из поиска пришли только название, цена, штрихкод, категория, бренд, фото, единица и остаток — всё остальное берём из локальной записи.</summary>
+    private static void MergeSearchHitWithLocal(CatalogProductTileVm tile, CatalogProductTileVm local, ProductDto? dto)
+    {
+        var hasUnit = dto is not null && (!string.IsNullOrWhiteSpace(dto.Unit) || dto.ResolvesMustWeigh());
+        if (!hasUnit)
+        {
+            tile.MustWeigh = local.MustWeigh;
+            tile.Unit = local.Unit;
+        }
+
+        if (string.IsNullOrWhiteSpace(tile.Category))
+            tile.Category = local.Category;
+        if (string.IsNullOrWhiteSpace(tile.Brand))
+            tile.Brand = local.Brand;
+        if (string.IsNullOrWhiteSpace(tile.ImageUrl))
+            tile.ImageUrl = local.ImageUrl;
+        tile.Plu = local.Plu;
+        tile.Article = local.Article;
+        tile.ProductCode = local.ProductCode;
+        tile.AlternateBarcodesRaw = local.AlternateBarcodesRaw;
+        tile.AlternateBarcodeVariants = local.AlternateBarcodeVariants;
+        tile.PieceOption = local.PieceOption;
+        tile.Kind = local.Kind;
+        tile.IsBundle = local.IsBundle;
+        tile.BundleItems = local.BundleItems;
+        tile.Description = local.Description;
+        tile.PurchasePrice = local.PurchasePrice;
+        tile.MarkupPercent = local.MarkupPercent;
+        tile.WholesalePrice = local.WholesalePrice;
+        tile.DiscountPercent = local.DiscountPercent;
+        tile.Country = local.Country;
+        tile.WeightKg = local.WeightKg;
+        tile.HotkeyGroup = local.HotkeyGroup;
+        tile.ServerIsWeight = local.ServerIsWeight;
     }
 
     /// <summary>Записи одного кода: как пришёл; UPC-A 12 ↔ EAN-13 с нулём; GTIN-14 с нулём впереди → EAN-13;

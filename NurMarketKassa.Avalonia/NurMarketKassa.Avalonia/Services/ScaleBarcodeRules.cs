@@ -52,6 +52,9 @@ internal static class ScaleBarcodeRules
     /// <summary>Как касса прочтёт префикс сейчас (правило кассы важнее режима компании).</summary>
     public static WeightBarcodeValueKind Effective(string prefix)
     {
+        // 2026-11-06: у префикса своя раскладка (весы Штрих РС-200) — вес или стоимость задаёт она
+        if (WeightBarcodeParser.FindCustomLayout(prefix) is { } custom)
+            return custom.Kind;
         if (WeightBarcodeParser.AmountPrefixes.Contains(prefix))
             return WeightBarcodeValueKind.Amount;
         if (WeightBarcodeParser.WeightPrefixes.Contains(prefix))
@@ -61,7 +64,7 @@ internal static class ScaleBarcodeRules
 
     /// <summary>Для префикса задано своё правило кассы (а не режим компании).</summary>
     public static bool IsExplicit(string prefix) =>
-        WeightBarcodeParser.AmountPrefixes.Contains(prefix) || WeightBarcodeParser.WeightPrefixes.Contains(prefix);
+        WeightBarcodeParser.FindCustomLayout(prefix) is not null || WeightBarcodeParser.AmountPrefixes.Contains(prefix) || WeightBarcodeParser.WeightPrefixes.Contains(prefix);
 
     /// <summary>1.17.27: для префиксов кроме 20 и 25 без правила касса при первом скане этикетки сама
     /// спрашивает «сумма или вес» (BasketPanelViewModel.ConfirmWeightBarcodeKindAsync).</summary>
@@ -138,6 +141,58 @@ internal static class ScaleBarcodeRules
             return null;
         ApplyAndSave(prefix, WeightBarcodeValueKind.Amount);
         return prefix;
+    }
+
+    // ------------------------------------------------------------------ весы Штрих РС-200 (пресет раскладки)
+
+    /// <summary>2026-11-06: пресет «Штрих РС-200» (руководство администратора, п. 7.6): префикс 20, число знаков кода 4, «Код-Вес», без КС — как на весах по
+    /// умолчанию (кроме формата: «Код-Вес» вместо «Код-Стоимость», потому что у владельца в весы цены не загружены). Включает раскладку в парсере кассы
+    /// для префикса и, если это не 20/25 (их касса не переспрашивает), сохраняет правило «вес/сумма» этого префикса. Возвращает true, если что-то изменилось.</summary>
+    public static bool EnsureShtrikhPcPreset()
+    {
+        var settings = ShtrikhPcSettings.Current;
+        if (settings.BarcodeEnabled)
+            return false;
+        settings.BarcodeEnabled = true;
+        ApplyShtrikhPc(settings);
+        PosLogger.Log($"Весы Штрих РС-200: касса читает этикетки по раскладке РС-200 (префикс {settings.BarcodePrefix}, код {settings.CodeLength} зн., {settings.BarcodeFormat})", "SCALES");
+        return true;
+    }
+
+    /// <summary>Сохраняет настройки РС-200 и применяет раскладку (парсер, правило префикса, файл настроек).</summary>
+    public static void ApplyShtrikhPc(ShtrikhPcSettings settings)
+    {
+        ShtrikhPcSettings.Save(settings);
+        var prefix = settings.BarcodePrefix.ToString("00", CultureInfo.InvariantCulture);
+        if (settings.BarcodeEnabled && prefix is not ("20" or "25"))
+            Apply(prefix, settings.ByAmount ? WeightBarcodeValueKind.Amount : WeightBarcodeValueKind.Weight);
+        UserPreferences.Instance.SaveToDisk();
+    }
+
+    /// <summary>Пример этикетки по раскладке РС-200: товар с кодом <paramref name="code"/>, вес 0,144 кг (как на фото весов владельца), цена за кг — для «Стоимость».
+    /// Возвращает штрихкод и как его прочтёт касса; null — код не помещается в выбранное число знаков.</summary>
+    public static (string Barcode, string Reading)? ShtrikhPcExample(ShtrikhPcSettings settings, long code, decimal pricePerKg)
+    {
+        var layout = settings.ToLayout();
+        const int grams = 144;
+        var value = layout.Kind == WeightBarcodeValueKind.Weight
+            ? grams
+            : (long)Math.Round(pricePerKg * grams / 1000m * (decimal)Math.Pow(10, Math.Clamp(layout.AmountDecimals, 0, 3)), MidpointRounding.AwayFromZero);
+        var barcode = layout.BuildBarcode(code, value);
+        if (barcode is null)
+            return null;
+        if (!WeightBarcodeParser.TryParseWithLayout(barcode, layout, out var parsed))
+        {
+            return (barcode, Tr.T("касса не разберёт: значение 0 — в этикетке нет суммы (цены в весы не загружены)",
+                "касса окубайт: маани 0 — этикеткада сумма жок (баалар таразага жүктөлгөн эмес)",
+                "the till cannot read it: value 0 — the label has no amount (prices are not loaded into the scale)",
+                "kasa okuyamaz: değer 0 — etikette tutar yok (fiyatlar tartıya yüklenmemiş)",
+                "kassa o‘qiy olmaydi: qiymat 0 — yorliqda summa yo‘q (narxlar taroziga yuklanmagan)"));
+        }
+        var what = parsed.Kind == WeightBarcodeValueKind.Weight
+            ? Kg(parsed.Value)
+            : Money(parsed.Value) + " " + Som();
+        return (barcode, Tr.T("код товара ", "товар коду ", "item code ", "ürün kodu ", "tovar kodi ") + parsed.ProductCode.TrimStart('0') + " · " + what);
     }
 
     // ------------------------------------------------------------------ прочтение этикетки

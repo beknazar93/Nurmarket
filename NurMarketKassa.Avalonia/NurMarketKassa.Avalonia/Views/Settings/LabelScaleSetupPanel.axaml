@@ -21,8 +21,8 @@
             <Setter Property="Template">
                 <ControlTemplate TargetType="RadioButton">
                     <Border x:Name="tile" Background="{DynamicResource BrushPanelSoft}"
-                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1.5"
-                            CornerRadius="10" Padding="12,10" MinHeight="64">
+                            BorderBrush="{DynamicResource BrushBorder}" BorderThickness="2"
+                            CornerRadius="10" Padding="11.5,9.5" MinHeight="64"> <!-- 2026-11-06, А-9: рамка 2 px всегда (1,5 + отступ 12,10 → 2 + 11,5/9,5), плитка не растёт при выборе -->
                         <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center"/>
                     </Border>
                 </ControlTemplate>
@@ -34,7 +34,6 @@
         <Style Selector="RadioButton.BrandTile:checked /template/ Border#tile">
             <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
-            <Setter Property="BorderThickness" Value="2"/>
         </Style>
         <Style Selector="RadioButton.BrandTile TextBlock.tileCheck">
             <Setter Property="IsVisible" Value="False"/>
@@ -101,9 +100,7 @@
             <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
         </Style>
-        <Style Selector="RadioButton.RoutePill:checked">
-            <Setter Property="FontWeight" Value="SemiBold"/>
-        </Style>
+        <!-- 2026-11-06, А-1…А-5: вес шрифта выбранного пункта не меняем — иначе пункт шире соседей и ряд/вкладки «ездят» (выбор виден по цвету/заливке). (RadioButton.RoutePill:checked) -->
 
         <!-- Кнопки: главная (акцент) и обычная (контур) -->
         <Style Selector="Button.ScalePrimary">

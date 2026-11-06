@@ -225,9 +225,9 @@
             <Setter Property="Background" Value="{DynamicResource BrushPanel}"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
+        <!-- 2026-11-06, А-10: толщину рамки в фокусе не меняем (было 1,5 → 2: текст в поле дёргался на 0,5 px), заметность даёт цвет кольца фокуса. -->
         <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
             <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
-            <Setter Property="BorderThickness" Value="2"/>
         </Style>
 
         <!-- 2026-10-30 (редизайн): «Ровно N» — первая и акцентная из быстрых сумм. -->

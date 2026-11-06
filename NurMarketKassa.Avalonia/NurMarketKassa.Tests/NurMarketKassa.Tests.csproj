@@ -34,6 +34,10 @@
     <Compile Include="..\NurMarketKassa.Avalonia\Services\PortableImageReader.cs" Link="Linked\PortableImageReader.cs" />
     <!-- 2026-11-05: поправки ящика (сервер ceba67c, debt_return_drawer_cash) — файл приложения, зависит только от Infrastructure; тесты используют его напрямую. -->
     <Compile Include="..\NurMarketKassa.Avalonia\Services\ExchangeCashCorrections.cs" Link="Linked\ExchangeCashCorrections.cs" />
+    <!-- 2026-11-06: раскладка верха колонки меню владельца (кнопка «»» не должна менять высоту) — чистая логика без Avalonia, ссылкой. -->
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\OwnerRailTopSlot.cs" Link="Linked\OwnerRailTopSlot.cs" />
+    <!-- 2026-11-06, А-8: подпись состава меню владельца (пересборка колонки только при изменении набора пунктов) — чистая логика, ссылкой. -->
+    <Compile Include="..\NurMarketKassa.Avalonia\Services\OwnerNavSignature.cs" Link="Linked\OwnerNavSignature.cs" />
   </ItemGroup>
 
   <ItemGroup>

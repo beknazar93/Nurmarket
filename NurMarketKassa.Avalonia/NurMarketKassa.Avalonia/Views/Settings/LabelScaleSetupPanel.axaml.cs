@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Services;
@@ -24,6 +25,11 @@ public partial class LabelScaleSetupPanel : UserControl
     private string _brand = ScaleUi.BrandShtrikh;
     private bool _loading;
 
+    // 2026-11-06: весы «Штрих РС-200» — плитка, поля папки обмена и кнопка инструкции создаются кодом (разметку панели не трогаем).
+    private RadioButton _brandPcTile = null!;
+    private ShtrikhPcFieldsView _pcFields = null!;
+    private Button _pcGuideButton = null!;
+
     /// <summary>Поля хоть раз заполнены из настроек. До этого SaveFields ничего не пишет — иначе
     /// пустые поля ещё не открытой панели затёрли бы сохранённые адреса.</summary>
     private bool _hasLoaded;
@@ -31,6 +37,43 @@ public partial class LabelScaleSetupPanel : UserControl
     public LabelScaleSetupPanel()
     {
         InitializeComponent();
+        AddShtrikhPcParts();
+    }
+
+    /// <summary>2026-11-06: плитка марки «Штрих РС-200», её поля подключения и кнопка «Инструкция подключения».</summary>
+    private void AddShtrikhPcParts()
+    {
+        _brandPcTile = new RadioButton { Classes = { "BrandTile" }, GroupName = "LabelScaleBrand" };
+        _brandPcTile.Click += BrandTile_Click;
+        var tileGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+        tileGrid.Children.Add(new Border { Classes = { "tileBadge" }, Child = new TextBlock { Classes = { "tileBadgeText" }, Text = "РС" } });
+        var tileTexts = new StackPanel { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Spacing = 2 };
+        tileTexts.Children.Add(new TextBlock { Classes = { "tileTitle" }, Text = ScaleUi.BrandTitle(ScaleUi.BrandShtrikhPc) });
+        tileTexts.Children.Add(new TextBlock { Classes = { "tileSub" }, Text = L("Сенсорные весы, обмен файлом через папку", "Сенсордук тараза, папка аркылуу файл алмашуу", "Touch scale, file exchange via a folder", "Dokunmatik tartı, klasörle dosya alışverişi", "Sensorli tarozi, papka orqali fayl almashuv") });
+        Grid.SetColumn(tileTexts, 1);
+        tileGrid.Children.Add(tileTexts);
+        var tick = new TextBlock { Classes = { "tileCheck" }, Text = "✓" };
+        Grid.SetColumn(tick, 2);
+        tileGrid.Children.Add(tick);
+        _brandPcTile.Content = tileGrid;
+        if (BrandShtrikhTile.Parent is Panel tiles)
+            tiles.Children.Add(_brandPcTile);
+
+        _pcFields = new ShtrikhPcFieldsView();
+        _pcFields.Changed += () => { UpdateStatus(); SetupChanged?.Invoke(); };
+        if (ShtrikhFields.Parent is Panel fields)
+            fields.Children.Insert(fields.Children.IndexOf(ShtrikhFields) + 1, _pcFields);
+        // 2026-11-06 (P3-63): «Очистить базу» и список файлов обмена — после кнопок и результата проверки связи, а не перед ними.
+        if (StatusBorder.Parent is Panel statusHost)
+            statusHost.Children.Insert(statusHost.Children.IndexOf(StatusBorder) + 1, _pcFields.AdvancedPart);
+
+        _pcGuideButton = new Button { Classes = { "ScaleSecondary" }, Content = L("Инструкция подключения", "Туташтыруу нускамасы", "Connection guide", "Bağlantı kılavuzu", "Ulanish yo‘riqnomasi") };
+        _pcGuideButton.Click += async (_, _) =>
+        {
+            if (TopLevel.GetTopLevel(this) is Window owner)
+                await new ScaleGuideWindow(ScaleUi.BrandShtrikhPc).ShowDialog(owner).ConfigureAwait(true);
+        };
+        ButtonsRow.Children.Insert(ButtonsRow.Children.IndexOf(DeviceSettingsButton) + 1, _pcGuideButton);
     }
 
     private static string L(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
@@ -54,6 +97,8 @@ public partial class LabelScaleSetupPanel : UserControl
             BrandRongtaTile.IsChecked = _brand == ScaleUi.BrandRongta;
             BrandTmTile.IsChecked = _brand == ScaleUi.BrandTm;
             BrandAiTile.IsChecked = _brand == ScaleUi.BrandAi;
+            _brandPcTile.IsChecked = _brand == ScaleUi.BrandShtrikhPc;
+            _pcFields.Load();
 
             ShtrikhIpBox.Text = prefs.ScaleNetworkIp ?? "";
             ShtrikhPortBox.Text = prefs.ScaleLanPort.ToString(CultureInfo.InvariantCulture);
@@ -87,6 +132,8 @@ public partial class LabelScaleSetupPanel : UserControl
         RongtaFields.IsVisible = _brand == ScaleUi.BrandRongta;
         TmFields.IsVisible = _brand == ScaleUi.BrandTm;
         AiFields.IsVisible = _brand == ScaleUi.BrandAi;
+        _pcFields.IsVisible = _brand == ScaleUi.BrandShtrikhPc;
+        _pcFields.AdvancedPart.IsVisible = _brand == ScaleUi.BrandShtrikhPc;
 
         ConnectionTitle.Text = _brand == ScaleUi.BrandAi
             ? ScaleUi.LabelBrandTitle(_brand)
@@ -94,8 +141,11 @@ public partial class LabelScaleSetupPanel : UserControl
 
         var hasNetwork = _brand != ScaleUi.BrandAi;
         CheckButton.IsVisible = hasNetwork;
-        FindButton.IsVisible = hasNetwork;
-        DeviceSettingsButton.IsVisible = hasNetwork;
+        // 2026-11-06: у РС-200 нет поиска по сети и окна настроек весов — вместо них инструкция подключения
+        var isPc = _brand == ScaleUi.BrandShtrikhPc;
+        FindButton.IsVisible = hasNetwork && !isPc;
+        DeviceSettingsButton.IsVisible = hasNetwork && !isPc;
+        _pcGuideButton.IsVisible = isPc;
         SendButton.IsVisible = !IsDialogMode;
         SendButton.Content = _brand == ScaleUi.BrandAi
             ? L("Подготовить файл", "Файл даярдоо", "Prepare the file", "Dosyayı hazırla", "Faylni tayyorlash")
@@ -142,6 +192,7 @@ public partial class LabelScaleSetupPanel : UserControl
         ScaleUi.BrandRongta => RongtaIpBox,
         ScaleUi.BrandTm => TmIpBox,
         ScaleUi.BrandAi => null,
+        ScaleUi.BrandShtrikhPc => null, // 2026-11-06: вместо IP — папка обмена
         _ => ShtrikhIpBox,
     };
 
@@ -227,6 +278,7 @@ public partial class LabelScaleSetupPanel : UserControl
             prefs.TmScalePort = tmPort;
 
         prefs.SaveToDisk();
+        _pcFields.Save(); // 2026-11-06: папка обмена весов РС-200
         UpdateStatus();
         SetupChanged?.Invoke();
     }
@@ -241,6 +293,7 @@ public partial class LabelScaleSetupPanel : UserControl
         var brand = sender == BrandRongtaTile ? ScaleUi.BrandRongta
             : sender == BrandTmTile ? ScaleUi.BrandTm
             : sender == BrandAiTile ? ScaleUi.BrandAi
+            : sender == _brandPcTile ? ScaleUi.BrandShtrikhPc
             : ScaleUi.BrandShtrikh;
         SaveFields();
         _brand = brand;
@@ -250,6 +303,9 @@ public partial class LabelScaleSetupPanel : UserControl
         // сразу получает правило «сумма» (Настройки → Весы → «Штрих-код: вес / сумма»).
         if (brand == ScaleUi.BrandTm)
             ScaleBarcodeRules.EnsureTmAmountRule();
+        // 2026-11-06: у РС-200 свой разбор этикеток (префикс, число знаков кода, «Код-Вес»…) — включается вместе с выбором марки.
+        if (brand == ScaleUi.BrandShtrikhPc)
+            ScaleBarcodeRules.EnsureShtrikhPcPreset();
         ApplyBrand();
         SetupChanged?.Invoke();
     }
@@ -278,6 +334,8 @@ public partial class LabelScaleSetupPanel : UserControl
             CheckButton.IsEnabled = true;
             UpdateStatus();
             SetupChanged?.Invoke();
+            // 2026-11-06 (P3-63): результат проверки всегда прокручивается в видимую часть окна (не остаётся за подвалом).
+            Dispatcher.UIThread.Post(() => StatusBorder.BringIntoView(), DispatcherPriority.Loaded);
         }
     }
 

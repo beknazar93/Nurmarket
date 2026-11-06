@@ -758,6 +758,72 @@ public sealed class LocalProductRepository
         return new FeedApplyResult(added, changed, toDelete.Count, missing);
     }
 
+    /// <summary>2026-11-06 (жалоба клиента «колонка Код / штрихкод пустая», база, заполненная сокращённой лентой): дописать в запись товара ТОЛЬКО пустые штрихкод,
+    /// артикул, код, PLU и доп. штрихкоды значениями из полной карточки (<paramref name="fresh"/>). Непустое в базе не трогается, пустым не затирается.
+    /// true — запись изменена (и кэш поправлен).</summary>
+    public bool FillMissingCodes(CatalogProductTileVm fresh)
+    {
+        if (fresh is null || string.IsNullOrWhiteSpace(fresh.Id))
+            return false;
+        try { return FillMissingCodesCore(fresh); }
+        catch (SqliteException ex) when (TryHealMissingColumn(ex)) { return FillMissingCodesCore(fresh); }
+    }
+
+    private bool FillMissingCodesCore(CatalogProductTileVm fresh)
+    {
+        using var connection = OpenConnection();
+        if (QuerySingleRecord(connection, fresh.Id) is not { } record)
+            return false;
+
+        var changed = false;
+        if (string.IsNullOrWhiteSpace(record.Barcode) && !string.IsNullOrWhiteSpace(fresh.Barcode))
+        {
+            record.Barcode = fresh.Barcode;
+            changed = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(record.Article) && !string.IsNullOrWhiteSpace(fresh.Article))
+        {
+            record.Article = fresh.Article;
+            changed = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(record.ProductCode) && !string.IsNullOrWhiteSpace(fresh.ProductCode))
+        {
+            record.ProductCode = fresh.ProductCode;
+            changed = true;
+        }
+
+        if (record.Plu is null or <= 0 && fresh.Plu is > 0)
+        {
+            record.Plu = fresh.Plu;
+            changed = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(record.AlternateBarcodesRaw) && !string.IsNullOrWhiteSpace(fresh.AlternateBarcodesRaw))
+        {
+            record.AlternateBarcodesRaw = fresh.AlternateBarcodesRaw;
+            if (fresh.AlternateBarcodeVariants is { Count: > 0 })
+                record.AlternateBarcodeVariantsJson = JsonSerializer.Serialize(fresh.AlternateBarcodeVariants);
+            changed = true;
+        }
+
+        if (!changed)
+            return false;
+
+        using (var transaction = connection.BeginTransaction())
+        {
+            using var upsertCommand = CreateUpsertCommand(connection, transaction);
+            ExecuteUpsert(upsertCommand, record);
+            transaction.Commit();
+        }
+
+        var incoming = new Dictionary<string, LocalProductRecord>(StringComparer.OrdinalIgnoreCase) { [record.Id] = record };
+        if (!TryPatchCacheAfterSync(incoming, new[] { record.Id }, 0, Array.Empty<string>()))
+            ResetCache();
+        return true;
+    }
+
     private static LocalProductRecord? QuerySingleRecord(SqliteConnection connection, string id)
     {
         using var command = connection.CreateCommand();

@@ -164,6 +164,36 @@ public static class LabelPrinterSelector
     public static bool IsSameAsReceiptPrinter(string? labelPrinterPath, string? receiptPrinterPath = null) =>
         SamePrinter(labelPrinterPath, receiptPrinterPath ?? UserPreferences.Instance.ReceiptDevicePath);
 
+    // 2026-11-06 (живой прогон 3, P3-52): этикетка размера ушла на чековый POS-80. Перед печатью проверяем, не чековый ли это принтер
+    // (тот же порт, что у чеков, или «POS-80/58», «receipt», «чек» в имени) и предупреждаем.
+    private static readonly string[] ReceiptNameMarkers = ["pos-80", "pos80", "pos 80", "pos-58", "pos58", "pos 58", "receipt", "чек"];
+
+    public static bool NameLooksLikeReceiptPrinter(string? printerName) =>
+        !string.IsNullOrWhiteSpace(printerName) && ReceiptNameMarkers.Any(m => printerName.Contains(m, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Выбранный «принтер этикеток» похож на чековый: тот же порт, что у чеков, или чековое имя.</summary>
+    public static bool LooksLikeReceiptPrinter(string? labelPrinterPath, string? receiptPrinterPath = null) =>
+        IsSameAsReceiptPrinter(labelPrinterPath, receiptPrinterPath) || NameLooksLikeReceiptPrinter(DisplayName(labelPrinterPath));
+
+    public static string ReceiptPrinterWarning => Tr.T(
+        "Выбран чековый принтер. Выберите принтер этикеток в настройках (Настройки → Печать → «Принтер этикеток и штрихкодов»).",
+        "Чек принтери тандалган. Этикетка принтерин жөндөөлөрдөн тандаңыз (Жөндөөлөр → Басып чыгаруу → «Этикетка жана штрих-код принтери»).",
+        "A receipt printer is selected. Choose the label printer in settings (Settings → Printing → “Label and barcode printer”).",
+        "Fiş yazıcısı seçili. Etiket yazıcısını ayarlardan seçin (Ayarlar → Yazdırma → «Etiket ve barkod yazıcısı»).",
+        "Chek printeri tanlangan. Yorliq printerini sozlamalardan tanlang (Sozlamalar → Chop etish → «Yorliq va shtrix-kod printeri»).");
+
+    /// <summary>«Напечатать N этикеток (размеры …) на принтер «имя»?» — вопрос перед отправкой этикеток размеров на принтер.</summary>
+    public static string PrintConfirmQuestion(int labels, string sizes, string printerName)
+    {
+        var s = string.IsNullOrWhiteSpace(sizes) ? "" : sizes.Trim();
+        return Tr.T(
+            s.Length > 0 ? $"Напечатать {labels} этикеток (размеры {s}) на принтер «{printerName}»?" : $"Напечатать {labels} этикеток на принтер «{printerName}»?",
+            s.Length > 0 ? $"«{printerName}» принтерине {labels} этикетка (өлчөмдөр {s}) басылсынбы?" : $"«{printerName}» принтерине {labels} этикетка басылсынбы?",
+            s.Length > 0 ? $"Print {labels} labels (sizes {s}) on printer “{printerName}”?" : $"Print {labels} labels on printer “{printerName}”?",
+            s.Length > 0 ? $"«{printerName}» yazıcısında {labels} etiket (bedenler {s}) yazdırılsın mı?" : $"«{printerName}» yazıcısında {labels} etiket yazdırılsın mı?",
+            s.Length > 0 ? $"«{printerName}» printerida {labels} ta yorliq (o'lchamlar {s}) chop etilsinmi?" : $"«{printerName}» printerida {labels} ta yorliq chop etilsinmi?");
+    }
+
     /// <summary>Как подключён принтер — короткая подпись для настроек.</summary>
     public static string DescribeKind(string? devicePath)
     {

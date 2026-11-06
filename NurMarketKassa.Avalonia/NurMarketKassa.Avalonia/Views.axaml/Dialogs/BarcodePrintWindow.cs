@@ -94,6 +94,8 @@ public sealed class BarcodePrintWindow : Window
     private readonly NumericUpDown _barHeightBox;
     private readonly TextBlock _barHeightHint;
     private readonly ComboBox _thicknessCombo;
+    // 2026-11-06 (просьба клиента магазина одежды): «Формат кода» для этикеток РАЗМЕРОВ — как в шаблоне / штрихкод / QR. Только на время печати, в шаблон не пишется.
+    private readonly ComboBox _codeModeCombo = new() { MinWidth = 160 };
     private readonly Image _previewImage;
     private readonly TextBlock _previewCaption;
     private readonly TextBlock _selectionText;
@@ -327,6 +329,14 @@ public sealed class BarcodePrintWindow : Window
             _thicknessCombo.Items.Add(s);
         _thicknessCombo.Items.Add("4 " + T("(очень толстый)", "(өтө жоон)", "(extra thick)", "(çok kalın)", "(juda qalin)")); // 2026-11-01 (П-1)
         _thicknessCombo.SelectedIndex = Math.Clamp(_template.BarcodeModuleDots, 0, 4);
+        foreach (var s in new[] { T("Как в шаблоне", "Шаблондогудай", "As in template", "Şablondaki gibi", "Shablondagidek"), T("Штрихкод", "Штрихкод", "Barcode", "Barkod", "Shtrix-kod"), "QR" })
+            _codeModeCombo.Items.Add(s);
+        _codeModeCombo.SelectedIndex = 0;
+        ToolTip.SetTip(_codeModeCombo, T("Для этикеток размеров (одежда): печатать штрихкод или QR с кодом размера. Остальные товары — как в шаблоне.",
+            "Өлчөм этикеткалары үчүн (кийим): штрихкод же өлчөмдүн коду менен QR басуу. Башка товарлар — шаблондогудай.",
+            "For size labels (clothing): print a barcode or a QR with the size code. Other products stay as in the template.",
+            "Beden etiketleri için (giyim): barkod veya beden koduyla QR basın. Diğer ürünler şablondaki gibi kalır.",
+            "O'lcham yorliqlari uchun (kiyim): shtrix-kod yoki o'lcham kodi bilan QR chop etish. Boshqa mahsulotlar — shablondagidek."));
 
         var editorButton = Ghost(T("Редактор этикетки…", "Этикетка редактору…", "Label editor…", "Etiket düzenleyici…", "Yorliq muharriri…"));
         editorButton.Click += async (_, _) => await OpenEditorAsync().ConfigureAwait(true);
@@ -350,6 +360,7 @@ public sealed class BarcodePrintWindow : Window
         rowA.Children.Add(Inline(T("Высота штрих-кода, мм", "Штрих-код бийиктиги, мм", "Barcode height, mm", "Barkod yüksekliği, mm", "Shtrix-kod balandligi, mm"),
             new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { _barHeightBox, _barDotsHint } }));
         rowA.Children.Add(Inline(T("Толщина штриха", "Сызык калыңдыгы", "Bar thickness", "Çizgi kalınlığı", "Chiziq qalinligi"), _thicknessCombo));
+        rowA.Children.Add(Inline(T("Формат кода (размеры)", "Код форматы (өлчөмдөр)", "Code format (sizes)", "Kod biçimi (bedenler)", "Kod formati (o'lchamlar)"), _codeModeCombo));
 
         var rowB = new WrapPanel { Orientation = Orientation.Horizontal };
         var showCaption = new TextBlock { Text = T("Отображать на этикетке:", "Этикеткада көрсөтүү:", "Show on the label:", "Etikette göster:", "Yorliqda ko'rsatish:"), FontSize = 12.5, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
@@ -520,6 +531,16 @@ public sealed class BarcodePrintWindow : Window
                 return;
             _template.BarcodeModuleDots = _thicknessCombo.SelectedIndex; // 0 — авто, 1…4 — точек на модуль
             TemplateChanged();
+        };
+
+        _codeModeCombo.SelectionChanged += (_, _) =>
+        {
+            if (_init || _codeModeCombo.SelectedIndex < 0)
+                return;
+            SchedulePreview();
+            // 2026-11-06: QR на этой этикетке слишком мелкий — предупреждаем сразу, а не при печати.
+            if (CodeMode == LabelCodeMode.Qr && LabelCodeModes.QrSizeProblem(_template, "4870145004807") is { } qrProblem)
+                SetStatus(qrProblem);
         };
 
         _liveTimer.Tick += (_, _) => _ = RefreshLiveStatusAsync();
@@ -1442,15 +1463,21 @@ public sealed class BarcodePrintWindow : Window
             sample ??= _found.FirstOrDefault(BarcodePrintCatalog.HasBarcode) ?? _found.FirstOrDefault();
             var name = sample?.Title ?? T("Образец товара", "Товардын үлгүсү", "Sample product", "Örnek ürün", "Mahsulot namunasi");
             var code = "4870145004807";
+            var previewTemplate = _template;
             if (sample != null)
             {
                 var ch = BarcodePrintCatalog.Choices(sample);
                 if (ch.Count > 0)
-                    code = ch[Math.Clamp(GetSel(sample.Id).BarcodeIndex, 0, ch.Count - 1)].Code;
+                {
+                    var picked = ch[Math.Clamp(GetSel(sample.Id).BarcodeIndex, 0, ch.Count - 1)];
+                    code = picked.Code;
+                    if (picked.IsSize && CodeMode != LabelCodeMode.AsTemplate)
+                        previewTemplate = LabelCodeModes.Apply(_template, CodeMode); // 2026-11-06: размер — в выбранном формате кода
+                }
             }
             var price = sample != null ? BarcodePrintCatalog.LabelPrice(sample) : "85,00 сом";
             // 2026-10-29: Android/Linux — System.Drawing недоступен, картинку рисует Avalonia (LabelSceneRenderer).
-            var next = LabelSceneRenderer.LabelPreview(name, code, price, _template, sample?.Article, sample?.Unit, UserPreferences.Instance.StoreName);
+            var next = LabelSceneRenderer.LabelPreview(name, code, price, previewTemplate, sample?.Article, sample?.Unit, UserPreferences.Instance.StoreName);
             _previewImage.Source = next;
             _previewBitmap?.Dispose();
             _previewBitmap = next;
@@ -1635,6 +1662,12 @@ public sealed class BarcodePrintWindow : Window
         await PrintLabelsAsync(checkedItems, test: false).ConfigureAwait(true);
     }
 
+    /// <summary>2026-11-06: выбранный «Формат кода» для этикеток размеров.</summary>
+    private LabelCodeMode CodeMode => (LabelCodeMode)Math.Clamp(_codeModeCombo.SelectedIndex, 0, 2);
+
+    /// <summary>2026-11-06: код принадлежит размеру одежды (справочник размеров кассы), а не основному/доп. штрихкоду товара.</summary>
+    private static bool IsSizeCode(string? code) => !string.IsNullOrWhiteSpace(code) && VariantBarcodeIndex.Contains(code);
+
     private async Task PrintLabelsAsync(IReadOnlyList<BarcodePrintItem> items, bool test)
     {
         if (!BarcodePrintAccess.IsAllowed()) // 2026-11-01 (П-10): вызов кода напрямую — понятное сообщение
@@ -1673,10 +1706,23 @@ public sealed class BarcodePrintWindow : Window
             if (!bigOk)
                 return;
         }
+        // 2026-11-06: QR для размеров должен быть читаемым на этой этикетке — иначе не печатаем (этикетка вышла бы без кода).
+        if (!test && CodeMode == LabelCodeMode.Qr)
+        {
+            foreach (var it in items)
+            {
+                if (IsSizeCode(it.Barcode) && LabelCodeModes.QrSizeProblem(_template, it.Barcode) is { } qrProblem)
+                {
+                    SetStatus(qrProblem);
+                    return;
+                }
+            }
+        }
         if (!_shell.TryBeginBusy())
             return;
         SaveState();
         var template = _template.Clone();
+        var sizeTemplate = LabelCodeModes.Apply(template, CodeMode); // 2026-11-06: для этикеток размеров
         var store = UserPreferences.Instance.StoreName;
         var print = ThermalPrintOverride ?? BarcodeLabelService.Print;
         _printCts = new CancellationTokenSource();
@@ -1712,7 +1758,7 @@ public sealed class BarcodePrintWindow : Window
                         break;
                     }
                     var request = new LabelPrintRequest(it.Product.Title, it.Barcode ?? "", BarcodePrintCatalog.LabelPrice(it), it.Copies, printer.DevicePath,
-                        template, it.Product.Article, it.Product.Unit, store, it.VariantText, Guid.NewGuid().ToString("N"));
+                        IsSizeCode(it.Barcode) ? sizeTemplate : template, it.Product.Article, it.Product.Unit, store, it.VariantText, Guid.NewGuid().ToString("N"));
                     last = print(request);
                     if (last == LabelPrintResult.PartiallySent && BarcodeLabelService.PartialOfJob(request.JobId) is { } part)
                     {
@@ -1774,7 +1820,7 @@ public sealed class BarcodePrintWindow : Window
             partialNote = " " + T("Выбор снят с напечатанных — повторное «Печать» допечатает остальные.", "Басылгандардан тандоо алынды — кайра «Басуу» калгандарын басат.",
                 "Printed products were deselected — pressing Print again prints only the rest.", "Yazdırılanların seçimi kaldırıldı — tekrar «Yazdır» kalanları yazdırır.", "Chop etilganlardan tanlov olib tashlandi — qayta «Chop etish» qolganlarini chop etadi.");
         }
-        var problems = test ? 0 : items.Count(i => BarcodeLabelService.DescribeBarcodeProblem(i.Barcode, template) is not null);
+        var problems = test ? 0 : items.Count(i => BarcodeLabelService.DescribeBarcodeProblem(i.Barcode, IsSizeCode(i.Barcode) ? sizeTemplate : template) is not null);
         var problemNote = problems == 0 ? "" : " " + T(
             $"Замечания по штрихкоду у {problems} товаров (неверный EAN — напечатан как Code 128, кириллица, слишком длинный или плотный код).",
             $"{problems} товардын штрих-кодунда эскертүү бар (туура эмес EAN — Code 128 катары басылды, кирилл, өтө узун же тыгыз код).",

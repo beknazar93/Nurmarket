@@ -61,6 +61,9 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     // 2026-11-01 (контрольный аудит, С2-03): исходные скидка, опт, описание, страна и вес/габариты — на сервер уходят только изменённые.
     private string _origDiscount = "", _origWholesale = "", _origDescription = "", _origCountry = "", _origDimensions = "";
     private string _hotkeyGroup = "Без горячей клавиши";
+    // 2026-11-06 (класс Б, Б-3): значения названия/кода/штрихкода/категории/бренда/единицы/«весовой»/PLU/клавиши/вида при открытии — на сервер уходят только изменённые.
+    private string _origName = "", _origCode = "", _origBarcode = "", _origCategory = "", _origBrand = "", _origUnit = "", _origHotkey = "", _origPlu = "", _origKind = "product";
+    private bool _origIsWeight;
     private string _description = "";
     private string _plu = "";
     private bool _enablePieceSale;
@@ -232,6 +235,8 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             _origDescription = _description;
             _origCountry = _country;
             _origDimensions = DimensionsSignature();
+            _origName = _name; _origCode = _code; _origBarcode = _barcode; _origCategory = _category; _origBrand = _brand;
+            _origUnit = _unit; _origIsWeight = _isWeight; _origHotkey = _hotkeyGroup; _origPlu = _plu; _origKind = _kind;
         }
 
         GenerateBarcodeCommand = new RelayCommand(GenerateBarcode);
@@ -2197,8 +2202,34 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                 }
             }
 
+            // 2026-11-06 (класс Б, Б-3): у существующего товара на сервер идут только изменённые кассиром поля. Карточка могла открыться из памяти кассы
+            // (сервер не ответил) — «шт»/не весовой/без штрихкода из сокращённой записи затёрли бы настоящие значения.
+            HashSet<string>? unchangedKeys = null;
+            if (_existing is not null)
+            {
+                var unchangedSet = new HashSet<string>();
+                unchangedKeys = unchangedSet;
+                void Same(bool same, params string[] keys)
+                {
+                    if (same)
+                        foreach (var key in keys)
+                            unchangedSet.Add(key);
+                }
+                Same(string.Equals(_name.Trim(), _origName.Trim(), StringComparison.Ordinal), "name");
+                Same(string.Equals(_code.Trim(), _origCode.Trim(), StringComparison.Ordinal), "article");
+                Same(string.Equals(_barcode.Trim(), _origBarcode.Trim(), StringComparison.Ordinal), "barcode");
+                Same(string.Equals(_category.Trim(), _origCategory.Trim(), StringComparison.Ordinal), "category_name");
+                Same(string.Equals(_brand.Trim(), _origBrand.Trim(), StringComparison.Ordinal), "brand_name");
+                Same(string.Equals(_hotkeyGroup, _origHotkey, StringComparison.Ordinal), "hotkey_group");
+                Same(string.Equals(_kind, _origKind, StringComparison.Ordinal), "kind");
+                // Единица, «весовой» и PLU связаны (PLU есть только у весового) — уходят вместе или не уходят вовсе.
+                Same(string.Equals(_unit, _origUnit, StringComparison.Ordinal) && _isWeight == _origIsWeight
+                    && string.Equals(_plu.Trim(), _origPlu.Trim(), StringComparison.Ordinal), "unit", "is_weight", "plu");
+            }
+
             var request = new ProductEditRequest
             {
+                UnchangedKeys = unchangedKeys,
                 Name = _name,
                 Article = _code,
                 Barcode = _barcode,
@@ -2400,7 +2431,7 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             using var cts = new CancellationTokenSource(FastCreateTimeout);
             var created = await _catalogApi.CreateProductAsync(request, cts.Token).ConfigureAwait(true);
             var realId = ProductCatalogMapper.TryId(created) ?? Guid.NewGuid().ToString("N");
-            LocalProductEditor.SaveLocally(request, realId);
+            LocalProductEditor.SaveLocally(request, realId, created); // 2026-11-06 (Б-4): код товара, фото и is_weight — из ответа сервера
         }
         catch (Exception ex) when (ex is OperationCanceledException or HttpRequestException or ApiException { StatusCode: 408 or 502 or 503 or 504 or (>= 520 and <= 524) })
         {

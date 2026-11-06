@@ -189,7 +189,9 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-05: на «Старте» подключили (или истёк тестовый доступ) пакет «Стандарта» — меню сразу по тарифу.
         // 2026-10-30 (стресс-тест 1.17.68): обработчики статических событий снимаются при закрытии окна — иначе каждое созданное окно программы
         // владельца оставалось в памяти навсегда (~6 МБ на окно; стенд: 30 открытий — +175 МБ, 35 из 35 окон живы).
-        Action rebuildNavigation = () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(); _ = RefreshDebtsCardAsync(force: true); });
+        // 2026-11-06, А-8: меню пересобирается только если реально изменился состав пунктов (OwnerNavSignature), а не от каждого события
+        // прав/тарифа/«Разделов меню» — иначе левая колонка «мигала» и значки прыгали, хотя набор пунктов тот же.
+        Action rebuildNavigation = () => Avalonia.Threading.Dispatcher.UIThread.Post(() => { BuildNavigation(onlyIfChanged: true); _ = RefreshDebtsCardAsync(force: true); });
         TariffGate.PacksChanged += rebuildNavigation;
         SectionVisibility.Changed += rebuildNavigation;
         Closed += (_, _) =>
@@ -691,26 +693,39 @@ public partial class OwnerShellWindow : Window, IMainShell
     /// <summary>Разделы по группам, с иконками. Проверки — те же, что у меню кассы
     /// (SideMenuViewModel / MainWindow.Navigate*): права роли и тариф «Старт» (на нём доступны
     /// склад и настройки, как на сайте). Недоступные разделы не показываются — как в кассе.</summary>
-    private void BuildNavigation()
+    /// <summary>2026-11-06, А-8: подпись состава меню после последней сборки (OwnerNavSignature); null — меню ещё не строилось.</summary>
+    private string? _navSignature;
+
+    /// <param name="onlyIfChanged">События прав/тарифа/«Разделов меню»: сначала «сухой» проход — собирается только подпись состава
+    /// (какие пункты видны); меню пересоздаётся, лишь если подпись изменилась. Язык, вид меню, телефон — вызывают без параметра (всегда).</param>
+    private void BuildNavigation(bool onlyIfChanged = false)
     {
-        // 2026-10-18: поиск и пункты — в колонку выбранного вида меню (OwnerShellWindow.MenuStyle.cs).
-        EnsureMenuStyleParts();
-        _oldGroupHeaders.Clear();
-        NavPanel.Children.Clear();
-        RailPanel.Children.Clear();
-        _navButtons.Clear();
-        // 2026-10-06, редизайн меню: пункты и группы — для поиска раздела (OwnerShellWindow.NavSearch.cs).
-        // 2026-10-18, этап О2: группы — кнопками тёмной колонки, пункты выбранной группы — в колонке пунктов (OwnerShellWindow.Nav.cs).
-        _navEntries.Clear();
-        _navGroups.Clear();
-        _siteOrdersBadge = null;
-        _rentalsBadge = null;
+        var dry = onlyIfChanged && _navSignature != null;
+        var signature = new OwnerNavSignature();
+        // 2026-11-06, А-8: при «сухом» проходе колонку не трогаем — только считаем подпись состава (см. Add ниже).
+        var navScroll = dry ? null : SaveNavScroll();
+        if (!dry)
+        {
+            // 2026-10-18: поиск и пункты — в колонку выбранного вида меню (OwnerShellWindow.MenuStyle.cs).
+            EnsureMenuStyleParts();
+            _oldGroupHeaders.Clear();
+            NavPanel.Children.Clear();
+            RailPanel.Children.Clear();
+            _navButtons.Clear();
+            // 2026-10-06, редизайн меню: пункты и группы — для поиска раздела (OwnerShellWindow.NavSearch.cs).
+            // 2026-10-18, этап О2: группы — кнопками тёмной колонки, пункты выбранной группы — в колонке пунктов (OwnerShellWindow.Nav.cs).
+            _navEntries.Clear();
+            _navGroups.Clear();
+            _siteOrdersBadge = null;
+            _rentalsBadge = null;
+        }
         var pendingGroup = (string?)null;
         var pendingGroupKey = (string?)null;
         var currentGroupKey = (string?)null;
 
         // 2026-10-04: на телефоне меню открывается на весь экран — всегда с колонкой пунктов (OwnerShellWindow.Phone.cs).
-        ApplySidebarLayout();
+        if (!dry)
+            ApplySidebarLayout();
 
         void Group(string groupKey, string title)
         {
@@ -730,10 +745,15 @@ public partial class OwnerShellWindow : Window, IMainShell
             {
                 // Группа появляется только с первым видимым пунктом — группа, где всё скрыто правами, тарифом или «Разделами
                 // меню», в тёмной колонке не показывается.
-                AddNavGroup(pendingGroupKey!, pendingGroup);
+                signature.Group(pendingGroupKey!, pendingGroup);
+                if (!dry)
+                    AddNavGroup(pendingGroupKey!, pendingGroup);
                 currentGroupKey = pendingGroupKey;
                 pendingGroup = null;
             }
+            signature.Item(key, text);
+            if (dry)
+                return;
 
             // 2026-09-29: у «Заказов с сайта» — число новых заказов; 2026-10-02: у «Проката» — сколько вернуть сегодня/завтра и просрочено.
             // 2026-10-18: в старом виде — пункт со значком (iconKey), как в выпуске 1.17.58.
@@ -919,6 +939,14 @@ public partial class OwnerShellWindow : Window, IMainShell
         Add("exit", "ExitIcon", Tr.T("Выйти на рабочий стол", "Иш столуна чыгуу", "Exit to desktop", "Masaüstüne çık", "Ish stoliga chiqish"), true,
             ExitToDesktop);
 
+        if (dry)
+        {
+            // Состав меню не изменился — колонка остаётся как есть (прокрутка, наведение, фокус, плотность не сбрасываются).
+            if (OwnerNavSignature.NeedsRebuild(_navSignature, signature.ToString()))
+                BuildNavigation();
+            return;
+        }
+        _navSignature = signature.ToString();
         UpdateNavHighlight();
         UpdateSiteOrdersBadge();
         UpdateRentalAlert();
@@ -929,6 +957,27 @@ public partial class OwnerShellWindow : Window, IMainShell
         // 2026-10-18, ревью О2: плотность тёмной колонки по высоте окна (подсказки у групп — в режиме «только значки»).
         _railDensity = null;
         ApplyRailDensity();
+        RestoreNavScroll(navScroll);
+    }
+
+    /// <summary>2026-11-06, А-8: полная пересборка меню не должна сбрасывать прокрутку колонок (тёмной, пунктов, старого вида).</summary>
+    private (ScrollViewer View, Vector Offset)[]? SaveNavScroll()
+    {
+        var railScroll = RailPanel.FindAncestorOfType<ScrollViewer>();
+        var views = new[] { railScroll, NavItemsScroll, OldNavScroll };
+        return views.Where(v => v != null && v.Offset.Y > 0).Select(v => (v!, v!.Offset)).ToArray();
+    }
+
+    private void RestoreNavScroll((ScrollViewer View, Vector Offset)[]? saved)
+    {
+        if (saved == null || saved.Length == 0)
+            return;
+        // Размеры содержимого известны только после разметки.
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            foreach (var (view, offset) in saved)
+                view.Offset = offset;
+        }, Avalonia.Threading.DispatcherPriority.Loaded);
     }
 
     // ------------------------------------------------------------------ свёрнутое меню

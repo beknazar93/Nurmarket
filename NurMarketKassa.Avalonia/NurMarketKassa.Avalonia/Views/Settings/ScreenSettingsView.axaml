@@ -36,7 +36,6 @@
       <Setter Property="Background" Value="{DynamicResource BrushText}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
       <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
 
     <!-- 2026-10-19, этап О7: обводкой, без серой заливки. -->

@@ -21,6 +21,8 @@ internal static partial class ScaleUi
     public const string BrandRongta = "rongta";
     public const string BrandAi = "ai";
     public const string BrandTm = "tm";
+    /// <summary>2026-11-06: весы «Штрих РС-200С2» — обмен файлами через общую папку весов (не сеть по протоколу).</summary>
+    public const string BrandShtrikhPc = "shtrikhpc";
 
     public static string L(string ru, string ky, string en, string tr, string uz) => Tr.T(ru, ky, en, tr, uz);
 
@@ -296,6 +298,7 @@ internal static partial class ScaleUi
         BrandRongta => "Rongta",
         BrandTm => "TM-30F (Dahua)", // 2026-09-28: это весы Dahua (TM-A/TM-F), не JHScale
         BrandAi => L("AI весы", "AI тараза", "AI scales", "AI tartı", "AI tarozi"),
+        BrandShtrikhPc => L("Штрих РС-200", "Штрих РС-200", "Shtrih RS-200", "Shtrih RS-200", "Shtrix RS-200"),
         _ => L("Штрих-М", "Штрих-М", "Shtrih-M", "Shtrih-M", "Shtrix-M"),
     };
 
@@ -311,6 +314,8 @@ internal static partial class ScaleUi
             case BrandTm:
                 prefs.TmScaleIp = ip;
                 break;
+            case BrandShtrikhPc:
+                break; // 2026-11-06: у РС-200 нет IP — только папка обмена (ShtrikhPcSettings.Folder)
             default:
                 // Штрих-М: тот же адрес, что в Настройки → Весы → «Сетевые весы» и ScaleConnectionDialog.
                 prefs.ScaleNetworkIp = ip;
@@ -329,6 +334,8 @@ internal static partial class ScaleUi
             BrandRongta => !string.IsNullOrWhiteSpace(prefs.RongtaScaleIp) ? prefs.RongtaScaleIp!
                 : prefs.ScaleBrand == BrandRongta ? prefs.ScaleNetworkIp ?? "" : "",
             BrandTm => prefs.TmScaleIp ?? "",
+            // 2026-11-06: у весов РС-200 вместо IP — папка обмена (она же показывается в строке адреса и сверяется при «Проверить связь»)
+            BrandShtrikhPc => NurMarketKassa.Services.Hardware.ShtrikhPcSettings.Current.Folder,
             _ => prefs.ScaleNetworkIp ?? "",
         };
     }
@@ -343,6 +350,8 @@ internal static partial class ScaleUi
             BrandRongta => new RongtaScaleSettingsWindow(),
             BrandTm => new TmScaleSettingsWindow(),
             BrandAi => null!,
+            // 2026-11-06: у РС-200 своего окна настроек нет — вместо него пошаговая инструкция (вход в конфигурацию весов, общий доступ)
+            BrandShtrikhPc => new ScaleGuideWindow(BrandShtrikhPc),
             _ => new ShtrikhScaleSettingsWindow(),
         };
         if (window is null)

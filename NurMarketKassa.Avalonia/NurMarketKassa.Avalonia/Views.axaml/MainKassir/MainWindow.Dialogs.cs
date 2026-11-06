@@ -463,6 +463,24 @@ public partial class MainWindow
                 $"«{code}» shtrix-kod emas, nomi bo'yicha qidiramiz. Ro'yxatda bo'lmasa, yozilishini tekshiring.");
             return;
         }
+        // 2026-11-06: этикетка весов «Штрих РС-200» с нулевым значением — не «неизвестный штрих-код», а «в этикетке нет суммы»: цены в весы не загружены.
+        // Предлагать создание товара с кодом 2000… здесь бессмысленно.
+        if (NurMarketKassa.Core.Application.WeightBarcodeParser.IsCustomLabelWithZeroValue(code, out var zeroCode, out var zeroKind))
+        {
+            var codeText = zeroCode.TrimStart('0');
+            _prompts.ShowWarning(zeroKind == NurMarketKassa.Core.Domain.WeightBarcodeValueKind.Amount
+                ? Tr.T($"В этикетке нет суммы (товар с кодом {codeText}): в весы не загружены цены. Загрузите цены в весы («Отправить в весы») или выберите формат «Код-Вес» на весах и в Настройки → Весы → «Штрих-код этикеток».",
+                       $"Этикеткада сумма жок ({codeText} коддуу товар): баалар таразага жүктөлгөн эмес. Баасын таразага жүктөңүз («Таразага жөнөтүү») же таразада жана Жөндөөлөр → Таразалар → «Этикетка штрих-коду» ичинде «Код-Салмак» форматын тандаңыз.",
+                       $"The label has no amount (item code {codeText}): prices are not loaded into the scale. Load the prices into the scale (“Send to scale”) or choose the “Code-Weight” format on the scale and in Settings → Scales → “Label barcode”.",
+                       $"Etikette tutar yok (ürün kodu {codeText}): fiyatlar tartıya yüklenmemiş. Fiyatları tartıya yükleyin («Tartıya gönder») veya tartıda ve Ayarlar → Tartılar → «Etiket barkodu» içinde «Kod-Ağırlık» biçimini seçin.",
+                       $"Yorliqda summa yo‘q ({codeText} kodli tovar): narxlar taroziga yuklanmagan. Narxlarni taroziga yuklang («Taroziga yuborish») yoki tarozida va Sozlamalar → Tarozilar → «Yorliq shtrix-kodi» da «Kod-Vazn» formatini tanlang.")
+                : Tr.T($"Вес на этикетке равен нулю (товар с кодом {codeText}) — положите товар на весы и напечатайте этикетку заново.",
+                       $"Этикеткадагы салмак нөл ({codeText} коддуу товар) — товарды таразага коюп, этикетканы кайра басыңыз.",
+                       $"The weight on the label is zero (item code {codeText}) — put the product on the scale and print the label again.",
+                       $"Etiketteki ağırlık sıfır (ürün kodu {codeText}) — ürünü tartıya koyup etiketi yeniden yazdırın.",
+                       $"Yorliqdagi vazn nol ({codeText} kodli tovar) — tovarni taroziga qo‘yib, yorliqni qayta chop eting."));
+            return;
+        }
         var notFound = new PosConfirmDialog(
             Tr.T("Товар не найден", "Товар табылган жок", "Product not found", "Ürün bulunamadı", "Mahsulot topilmadi"),
             Tr.T($"Штрих-код {code} не найден в каталоге. Добавить новый товар на склад?",

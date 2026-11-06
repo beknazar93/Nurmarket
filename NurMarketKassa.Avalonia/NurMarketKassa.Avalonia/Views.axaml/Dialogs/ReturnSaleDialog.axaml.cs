@@ -2436,7 +2436,8 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         if (serverRefusal is not null)
             PosDataEvents.RaiseClientDebtChanged(null); // 2026-11-06 (Б-2): долг клиента изменился — окна долгов перечитывают его с сервера (не по локальному вычитанию)
         // 2026-10-20 (К2, К3): к выдаче — та же строка, что у обычного возврата (разбивка, долг).
-        PosMessageBox.Show(this, (serverRefusal is not null
+        // 2026-11-06 (живой прогон 3, P3-53): возврат уже проведён — это не ошибка кассы; окно info (кнопка «Закрыть», без «Отложить ошибку»).
+        PosAlertDialog.Show(this, Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), (serverRefusal is not null
             ? Tr.T(
                 $"Возврат уже проведён на сервере (сервер ответил ошибкой «{serverRefusal.Message}», но чек изменился). Повторно не оформляйте. Деньги — только если ещё не выдали (не выдавайте дважды).",
                 $"Кайтаруу серверде мурунтан эле жүргүзүлгөн (сервер «{serverRefusal.Message}» деген ката менен жооп берди, бирок чек өзгөрдү). Кайра тариздебеңиз. Акчаны — эгер али бере элек болсоңуз гана (эки жолу бербеңиз).",
@@ -2450,7 +2451,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
                 "Sunucu bu iadeyi zaten işledi — bağlantı nedeniyle yanıt kasaya ulaşmadı. Tekrar yapmayın. Parayı yalnızca henüz vermediyseniz verin (iki kez vermeyin).",
                 "Server bu qaytarishni allaqachon o'tkazgan — aloqa tufayli javob kassaga yetib kelmadi. Qayta rasmiylashtirmang. Pulni faqat hali bermagan bo'lsangiz bering (ikki marta bermang)."))
             + "\n" + RefundToGiveText(outcome),
-            Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            PosAlertKind.Warning, null, info: true);
     }
 
     /// <summary>Строки чека возврата пропорционально приводятся к сумме сервера (см.

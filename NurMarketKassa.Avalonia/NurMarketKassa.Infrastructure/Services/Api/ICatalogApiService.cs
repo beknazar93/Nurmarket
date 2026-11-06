@@ -228,6 +228,10 @@ public sealed class ProductEditRequest
     /// <summary>2026-11-01 (аудит 10 из 10, С-03): ключ повтора создания товара — уходит заголовком Idempotency-Key (не в тело). Тот же
     /// ключ при повторной попытке (фоновое создание после таймаута), чтобы сервер, поддерживающий заголовок, не завёл второй товар.</summary>
     public string? IdempotencyKey { get; set; }
+    /// <summary>2026-11-06 (класс Б, Б-3): ключи тела запроса (name, unit, is_weight, plu, kind, article, barcode, category_name, brand_name, hotkey_group), которые кассир при правке
+    /// существующего товара НЕ менял — PATCH их не шлёт. Раньше они уходили всегда «как открыли»: карточка, открытая из памяти кассы (сервер не ответил), с «шт»/не весовой/без штрихкода
+    /// затирала на сервере настоящие значения. null — шлём всё (создание товара, массовые загрузки).</summary>
+    public HashSet<string>? UnchangedKeys { get; set; }
     public bool SendPrice { get; set; } = true;
     public bool SendPurchasePrice { get; set; } = true;
     public bool SendMarkupPercent { get; set; } = true;

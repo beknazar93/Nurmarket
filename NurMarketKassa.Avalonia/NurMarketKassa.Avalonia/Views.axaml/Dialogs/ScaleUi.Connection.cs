@@ -34,6 +34,7 @@ internal static partial class ScaleUi
         BrandRongta => BrandRongta,
         BrandAi => BrandAi,
         BrandTm => BrandTm,
+        BrandShtrikhPc => BrandShtrikhPc, // 2026-11-06: весы Штрих РС-200 (обмен файлами)
         _ => BrandShtrikh,
     };
 
@@ -44,6 +45,7 @@ internal static partial class ScaleUi
         BrandRongta => "Rongta",
         BrandTm => "TM-30F (Dahua)",
         BrandAi => L("AI весы", "AI тараза", "AI scales", "AI tartı", "AI tarozi"),
+        BrandShtrikhPc => L("Штрих РС-200 (Штрих-М)", "Штрих РС-200 (Штрих-М)", "Shtrih RS-200 (Shtrih-M)", "Shtrih RS-200 (Shtrih-M)", "Shtrix RS-200 (Shtrix-M)"),
         _ => L("Штрих-ПРИНТ (Штрих-М)", "Штрих-ПРИНТ (Штрих-М)", "Shtrih-PRINT (Shtrih-M)", "Shtrih-PRINT (Shtrih-M)", "Shtrix-PRINT (Shtrix-M)"),
     };
 
@@ -57,6 +59,7 @@ internal static partial class ScaleUi
             BrandRongta => prefs.RongtaDirectLan ? DahuaTmProtocol.DefaultPort : prefs.RongtaScalePort,
             BrandTm => prefs.TmScalePort,
             BrandAi => 0,
+            BrandShtrikhPc => 0, // 2026-11-06: у РС-200 нет сетевого порта — общая папка
             _ => prefs.ScaleLanPort,
         };
     }
@@ -73,6 +76,7 @@ internal static partial class ScaleUi
                 : L("через сайт и программу RLS1000", "сайт жана RLS1000 программасы аркылуу", "via the website and RLS1000", "site ve RLS1000 programı üzerinden", "sayt va RLS1000 dasturi orqali"),
             BrandTm => L("напрямую по сети", "тармак аркылуу түз", "directly over the network", "doğrudan ağ üzerinden", "to‘g‘ridan-to‘g‘ri tarmoq orqali"),
             BrandAi => L("файл для программы весов", "тараза программасы үчүн файл", "file for the scale's software", "tartı programı için dosya", "tarozi dasturi uchun fayl"),
+            BrandShtrikhPc => L("файлом через общую папку весов", "таразанын жалпы папкасы аркылуу файл менен", "as a file via the scale's shared folder", "tartının paylaşımlı klasörü üzerinden dosyayla", "tarozining umumiy papkasi orqali fayl bilan"),
             _ => prefs.ShtrikhDirectLan
                 ? L("напрямую по сети", "тармак аркылуу түз", "directly over the network", "doğrudan ağ üzerinden", "to‘g‘ridan-to‘g‘ri tarmoq orqali")
                 : L("через сервер NurCRM", "NurCRM сервери аркылуу", "via the NurCRM server", "NurCRM sunucusu üzerinden", "NurCRM serveri orqali"),
@@ -85,6 +89,14 @@ internal static partial class ScaleUi
         brand = NormalizeBrand(brand);
         if (brand == BrandAi)
             return RouteText(brand);
+        if (brand == BrandShtrikhPc)
+        {
+            // 2026-11-06: вместо «IP:порт» — путь общей папки обмена
+            var folder = IpOf(brand).Trim();
+            return (folder.Length == 0
+                       ? L("папка обмена не задана", "алмашуу папкасы коюлган эмес", "exchange folder not set", "alışveriş klasörü ayarlanmamış", "almashuv papkasi belgilanmagan")
+                       : folder) + " · " + RouteText(brand);
+        }
         var ip = IpOf(brand).Trim();
         var address = ip.Length == 0
             ? L("адрес не задан", "дарек коюлган эмес", "address not set", "adres girilmemiş", "manzil kiritilmagan")
@@ -284,6 +296,9 @@ internal static partial class ScaleUi
                 "AI tarozilarning kassa bilan aloqasi yo‘q: kassa faqat ularning dasturi uchun fayl tayyorlaydi."));
         }
 
+        if (brand == BrandShtrikhPc)
+            return await CheckShtrikhPcAsync(ct).ConfigureAwait(true);
+
         if (!IPAddress.TryParse(ip, out _) || ip.Count(c => c == '.') != 3)
         {
             return (false, L("Введите IP-адрес весов, например 192.168.1.50.", "Таразанын IP-дарегин киргизиңиз, мисалы 192.168.1.50.", "Enter the scale IP address, e.g. 192.168.1.50.", "Tartı IP adresini girin, ör. 192.168.1.50.", "Tarozi IP manzilini kiriting, masalan 192.168.1.50."));
@@ -316,6 +331,52 @@ internal static partial class ScaleUi
         $"Nobody answers at {ip}: check the address on the scale, the cable and that the scale is on.",
         $"{ip} adresinde yanıt veren yok: tartıdaki adresi, kabloyu ve tartının açık olduğunu kontrol edin.",
         $"{ip} manzilida hech kim javob bermayapti: tarozidagi manzilni, kabelni va tarozi yoqilganini tekshiring.");
+
+    /// <summary>2026-11-06: «Проверить связь» с весами РС-200 — общая папка отвечает (не дольше 3 с) и в неё можно писать: создаётся и удаляется
+    /// тестовый файл рядом с файлом импорта. Протокола у этих весов нет, файлы забирает их программа pcscale.exe.</summary>
+    private static async Task<(bool, string)> CheckShtrikhPcAsync(CancellationToken ct)
+    {
+        var settings = ShtrikhPcSettings.Current;
+        (bool Ok, string Message) result;
+        try
+        {
+            var (status, detail) = await ShtrikhPcImportWriter.CheckFolderAsync(settings, ct).ConfigureAwait(true);
+            result = (status == ShtrikhPcFolderCheck.Ok, PcFolderCheckText(status, detail, settings.Folder));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            PosLogger.Log($"Весы Штрих РС: проверка папки {settings.Folder}: {ex.Message}", "SCALES");
+            result = (false, ex.Message);
+        }
+        LastChecks[BrandShtrikhPc] = new ScaleCheckState(DateTime.Now, result.Ok, settings.Folder, result.Message);
+        return result;
+    }
+
+    /// <summary>Понятный текст по итогу проверки папки весов РС-200 (и записи файла).</summary>
+    public static string PcFolderCheckText(ShtrikhPcFolderCheck status, string detail, string folder) => status switch
+    {
+        ShtrikhPcFolderCheck.Ok => L("папка весов доступна для записи — можно отправлять товары.",
+            "таразанын папкасына жазууга болот — товарларды жөнөтсө болот.",
+            "the scale folder is writable — you can send goods.",
+            "tartı klasörüne yazılabiliyor — ürünler gönderilebilir.",
+            "tarozi papkasiga yozish mumkin — tovarlarni yuborish mumkin."),
+        ShtrikhPcFolderCheck.NoFolder => L("Не задан путь к общей папке весов. Впишите его, например \\\\192.168.0.10\\Shared, или путь к флешке.",
+            "Таразанын жалпы папкасынын жолу коюлган эмес. Аны жазыңыз, мисалы \\\\192.168.0.10\\Shared, же флешкенин жолун.",
+            "The path to the scale's shared folder is not set. Enter it, e.g. \\\\192.168.0.10\\Shared, or a USB stick path.",
+            "Tartının paylaşımlı klasör yolu ayarlanmamış. Yazın, ör. \\\\192.168.0.10\\Shared veya USB bellek yolu.",
+            "Tarozining umumiy papkasi yo‘li belgilanmagan. Uni yozing, masalan \\\\192.168.0.10\\Shared, yoki fleshka yo‘lini."),
+        ShtrikhPcFolderCheck.NotFound => L($"Папка «{folder}» не отвечает{(detail == "timeout" ? " (3 с)" : "")}: весы выключены или не в той сети, адрес неверный либо папка Shared не открыта для общего доступа. Проверьте ping с компьютера кассы и откройте её в Проводнике.",
+            $"«{folder}» папкасы жооп бербейт{(detail == "timeout" ? " (3 с)" : "")}: тараза өчүк же башка тармакта, дарек туура эмес же Shared папкасы жалпы жеткиликтүүлүккө ачык эмес. Кассанын компьютеринен ping текшерип, аны Проводникте ачыңыз.",
+            $"The folder “{folder}” does not answer{(detail == "timeout" ? " (3 s)" : "")}: the scale is off or on another network, the address is wrong, or the Shared folder is not shared. Check ping from the till computer and open it in Explorer.",
+            $"«{folder}» klasörü yanıt vermiyor{(detail == "timeout" ? " (3 sn)" : "")}: tartı kapalı ya da başka ağda, adres yanlış veya Shared klasörü paylaşıma açık değil. Kasa bilgisayarından ping'i kontrol edin ve Gezgin'de açın.",
+            $"«{folder}» papkasi javob bermaydi{(detail == "timeout" ? " (3 s)" : "")}: tarozi o‘chiq yoki boshqa tarmoqda, manzil noto‘g‘ri yoki Shared papkasi ulashilmagan. Kassa kompyuteridan ping ni tekshiring va Provodnikda oching."),
+        ShtrikhPcFolderCheck.NoAccess => L($"Нет прав записи в «{folder}». На весах: Проводник → папка Shared → Свойства → Доступ → открыть общий доступ с полным доступом для пользователя кассы; если Windows просит имя и пароль — введите имя и пароль Windows весов (один раз откройте папку в Проводнике и поставьте «Запомнить»).",
+            $"«{folder}» папкасына жазууга укук жок. Таразада: Проводник → Shared папкасы → Свойства → Доступ → кассанын колдонуучусуна толук жеткиликтүүлүк менен жалпы жеткиликтүүлүк ачыңыз; Windows ат менен сырсөз сураса — таразанын Windows атын жана сырсөзүн киргизиңиз (папканы Проводникте бир ирет ачып «Запомнить» коюңуз).",
+            $"No write permission to “{folder}”. On the scale: Explorer → folder Shared → Properties → Sharing → share it with full access for the till's user; if Windows asks for a name and password, enter the scale's Windows name and password (open the folder once in Explorer and tick “Remember”).",
+            $"«{folder}» klasörüne yazma izni yok. Tartıda: Gezgin → Shared klasörü → Özellikler → Paylaşım → kasanın kullanıcısına tam erişimle paylaşıma açın; Windows ad ve şifre isterse tartının Windows adını ve şifresini girin (klasörü Gezgin'de bir kez açıp «Hatırla»yı işaretleyin).",
+            $"«{folder}» papkasiga yozish huquqi yo‘q. Tarozida: Provodnik → Shared papkasi → Свойства → Доступ → kassa foydalanuvchisiga to‘liq ruxsat bilan ulashing; Windows ism va parol so‘rasa — tarozining Windows ismi va parolini kiriting (papkani Provodnikda bir marta ochib «Запомнить» ni belgilang)."),
+        _ => L("Не удалось записать в папку весов: ", "Таразанын папкасына жазуу мүмкүн болгон жок: ", "Could not write to the scale folder: ", "Tartı klasörüne yazılamadı: ", "Tarozi papkasiga yozib bo‘lmadi: ") + detail,
+    };
 
     private static async Task<(bool, string)> CheckShtrikhAsync(string ip, int port, string? password, CancellationToken ct)
     {

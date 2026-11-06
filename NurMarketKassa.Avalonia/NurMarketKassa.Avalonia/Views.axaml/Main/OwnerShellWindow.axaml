@@ -111,13 +111,43 @@
         <!-- 2026-11-02 (аудит №2, Д2-08): у кнопок меню владельца не было своей рамки фокуса — по Tab/стрелкам на тёмной колонке и в верхних вкладках
              не было видно, где курсор (рамка Fluent сливалась). Тёмная колонка — светлая рамка цвета OwnerRailHoverFg (контраст к колонке считает
              ApplyRailBrushes), остальные кнопки — BrushFocusRing (≥ 3:1). Только состояние :focus-visible (с клавиатуры), мышь рамку не показывает. -->
-        <Style Selector="Button.railGroup:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.railMini:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="BorderBrush" Value="{DynamicResource OwnerRailHoverFg}"/>
-            <Setter Property="BorderThickness" Value="2"/>
+        <!-- 2026-11-06, А-6: рамка фокуса с клавиатуры — FocusAdorner (рисуется поверх кнопки, как у кнопок диалогов), а не
+             BorderThickness 0 → 2 в :focus-visible: тот менял размер/содержимое кнопки при каждом шаге Tab/стрелками
+             (railGroup 80 px с автовысотой росла на 4 px, ownerTab расширялась). -->
+        <Style Selector="Button.railGroup">
+            <Setter Property="FocusAdorner">
+                <FocusAdornerTemplate>
+                    <Border BorderThickness="2" BorderBrush="{DynamicResource OwnerRailHoverFg}" CornerRadius="14"/>
+                </FocusAdornerTemplate>
+            </Setter>
         </Style>
-        <Style Selector="Button.nav:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.navOld:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.ownerTab:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.seg:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.link:focus-visible /template/ ContentPresenter#PART_ContentPresenter, Button.navCollapse:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
-            <Setter Property="BorderThickness" Value="2"/>
+        <Style Selector="Button.railMini">
+            <Setter Property="FocusAdorner">
+                <FocusAdornerTemplate>
+                    <Border BorderThickness="2" BorderBrush="{DynamicResource OwnerRailHoverFg}" CornerRadius="8"/>
+                </FocusAdornerTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.nav, Button.navOld">
+            <Setter Property="FocusAdorner">
+                <FocusAdornerTemplate>
+                    <Border BorderThickness="2" BorderBrush="{DynamicResource BrushFocusRing}" CornerRadius="10"/>
+                </FocusAdornerTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.ownerTab">
+            <Setter Property="FocusAdorner">
+                <FocusAdornerTemplate>
+                    <Border BorderThickness="2" BorderBrush="{DynamicResource BrushFocusRing}" CornerRadius="8,8,0,0"/>
+                </FocusAdornerTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.seg, Button.link, Button.navCollapse">
+            <Setter Property="FocusAdorner">
+                <FocusAdornerTemplate>
+                    <Border BorderThickness="2" BorderBrush="{DynamicResource BrushFocusRing}" CornerRadius="8"/>
+                </FocusAdornerTemplate>
+            </Setter>
         </Style>
         <Style Selector="Button.railGroup">
             <Setter Property="Width" Value="80"/>
@@ -327,9 +357,7 @@
             <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
         </Style>
-        <Style Selector="Button.ownerTab.active">
-            <Setter Property="FontWeight" Value="Bold"/>
-        </Style>
+        <!-- 2026-11-06, А-1…А-5: вес шрифта выбранного пункта не меняем — иначе пункт шире соседей и ряд/вкладки «ездят» (выбор виден по цвету/заливке). (Button.ownerTab.active) -->
         <Style Selector="Button.ownerTab.active /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
@@ -379,9 +407,7 @@
             <Setter Property="Background" Value="{DynamicResource BrushText}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
         </Style>
-        <Style Selector="Button.navOld.active">
-            <Setter Property="FontWeight" Value="SemiBold"/>
-        </Style>
+        <!-- 2026-11-06, А-1…А-5: вес шрифта выбранного пункта не меняем — иначе пункт шире соседей и ряд/вкладки «ездят» (выбор виден по цвету/заливке). (Button.navOld.active) -->
         <Style Selector="Button.navOld Path.navIcon">
             <Setter Property="Width" Value="18"/>
             <Setter Property="Height" Value="18"/>
@@ -564,9 +590,7 @@
             <Setter Property="Background" Value="{DynamicResource BrushText}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
         </Style>
-        <Style Selector="Button.seg.active">
-            <Setter Property="FontWeight" Value="Bold"/>
-        </Style>
+        <!-- 2026-11-06, А-1…А-5: вес шрифта выбранного пункта не меняем — иначе пункт шире соседей и ряд/вкладки «ездят» (выбор виден по цвету/заливке). (Button.seg.active) -->
         <!-- 2026-10-18, этап О1: «Спросить Нур Советника» — одна главная (жёлтая) кнопка сводки.
              2026-10-19, этап О10 (аудит: «единственная синяя/жёлтая кнопка сводки — не главное действие»): обычная обводка,
              как sec-outline разделов; цвет — текста темы (в светлой и тёмной), заливка — только при наведении. -->
@@ -729,7 +753,6 @@
         </Style>
         <Style Selector="Border#AbcCard TabItem:selected">
             <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
-            <Setter Property="FontWeight" Value="Bold"/>
         </Style>
     </Window.Styles>
 

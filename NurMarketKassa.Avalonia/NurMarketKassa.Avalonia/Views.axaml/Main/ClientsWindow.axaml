@@ -115,9 +115,13 @@
         <Style Selector="Button.client-row:pressed /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource BrushPanelPressed}"/>
         </Style>
-        <Style Selector="Button.client-row:focus-visible /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushText}"/>
-            <Setter Property="BorderThickness" Value="2"/>
+        <!-- 2026-11-06, А-6: рамка фокуса — FocusAdorner (поверх строки), а не BorderThickness 0,0,0,1 → 2: та росла на 3 px и сдвигала строки ниже. -->
+        <Style Selector="Button.client-row">
+            <Setter Property="FocusAdorner">
+                <FocusAdornerTemplate>
+                    <Border BorderThickness="2" BorderBrush="{DynamicResource BrushText}"/>
+                </FocusAdornerTemplate>
+            </Setter>
         </Style>
         <!-- Только что добавленный клиент — подсвечен, пока не обновили список. -->
         <Style Selector="Button.client-row.fresh /template/ ContentPresenter#PART_ContentPresenter">

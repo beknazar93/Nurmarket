@@ -21,9 +21,9 @@
             <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
         </Style>
         <!-- 2026-10-23 (ТЗ компактной оплаты, П-2): поле в фокусе — заметная рамка 2 px, как было внутри ModalShell. -->
+        <!-- 2026-11-06, А-10: толщину рамки в фокусе не меняем (было 1,5 → 2: текст в поле дёргался на 0,5 px), заметность даёт цвет кольца фокуса. -->
         <Style Selector="Border.PickerCard TextBox:focus /template/ Border#PART_BorderElement">
             <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
-            <Setter Property="BorderThickness" Value="2"/>
         </Style>
     </Window.Styles>
 

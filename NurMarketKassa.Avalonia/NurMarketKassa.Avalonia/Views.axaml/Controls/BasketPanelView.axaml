@@ -217,6 +217,14 @@
             <Setter Property="Background" Value="{DynamicResource BrushAccentPressed}"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentForeground}"/>
         </Style>
+        <!-- 2026-11-06, А-11: рамка 1 px у «Оплатить» есть всегда (прозрачная), :disabled только красит её — надпись не сдвигается. -->
+        <Style Selector="Button.cart-accent /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.cart-accent:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.cart-accent:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
         <!-- 2026-10-18, ревью отклика кнопок: выключенная главная — нейтральный мягкий фон и приглушённый текст без
              прозрачности (бледно-жёлтая почти не отличалась от включённой). -->
         <Style Selector="Button.cart-accent:disabled /template/ ContentPresenter#PART_ContentPresenter">

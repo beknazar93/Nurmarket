@@ -87,7 +87,14 @@ public partial class OwnerShellWindow
         if (!_phoneLayout)
             RootGrid.ColumnDefinitions[0].Width = new GridLength(open ? NavRailWidth + NavItemsWidth : NavRailWidth);
         // 2026-10-19, «Вкладки»: вместо «»» — 🔍 поиска раздела (колонку пунктов сворачивать/разворачивать не нужно).
-        ExpandNavButton.IsVisible = !open && !_phoneLayout && !TabsMenu;
+        // 2026-11-06, жалоба клиента («слева кнопки перемещаются после нажатия»): место под «»» занято всегда, а не только пока колонка
+        // пунктов свёрнута — иначе нажатие на группу (колонка раскрылась) убирало кнопку, высота верха менялась на ~44, плотность меню
+        // пересчитывалась и значки прыгали. Когда колонка раскрыта, кнопка лишь прозрачна, не нажимается и не берёт фокус.
+        var expandShown = OwnerRailTopSlot.ButtonShown(open, _phoneLayout, TabsMenu);
+        ExpandNavButton.IsVisible = OwnerRailTopSlot.ReservesSpace(_phoneLayout, TabsMenu);
+        ExpandNavButton.Opacity = expandShown ? 1 : 0;
+        ExpandNavButton.IsHitTestVisible = expandShown;
+        ExpandNavButton.IsTabStop = expandShown;
         RailSearchButton.IsVisible = TabsMenu && !_phoneLayout;
         ApplyPhoneColumns();
         // 2026-11-01: «»» вверху колонки появляется/исчезает — высота верхней части меняется, плотность пересчитать.

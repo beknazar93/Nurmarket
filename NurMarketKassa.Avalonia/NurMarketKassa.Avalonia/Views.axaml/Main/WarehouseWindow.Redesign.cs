@@ -41,9 +41,14 @@ public partial class WarehouseWindow
         _viewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(WarehouseViewModel.PagedProducts))
+            {
                 LoadPageThumbnails();
+                // 2026-11-06 (жалоба клиента «колонка Код / штрихкод пустая»): у видимых строк без единого кода читаем полную карточку (в базе их нет после сокращённой ленты).
+                NurMarketKassa.Services.ProductCodeBackfill.ScheduleForRows(_viewModel.PagedProducts.ToList());
+            }
         };
         LoadPageThumbnails();
+        NurMarketKassa.Services.ProductCodeBackfill.ScheduleForRows(_viewModel.PagedProducts.ToList());
         // 2026-10-06: склад, открытый в те доли секунды, пока каталог дозагружается после запуска, оставался пустым («Товаров 0»)
         // до «Обновить». Каталог загрузился, а склад пуст — перестроить список.
         // Отписка при закрытии окна: в кассе окно склада создаётся заново при каждом открытии.

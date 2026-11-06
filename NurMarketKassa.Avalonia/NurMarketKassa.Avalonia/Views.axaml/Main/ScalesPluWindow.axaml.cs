@@ -30,6 +30,9 @@ public partial class ScalesPluWindow : Window
     private const string BrandShtrikh = "shtrikh";
     private const string BrandRongta = "rongta";
 
+    /// <summary>2026-11-06: весы «Штрих РС-200С2» — касса кладёт файл импорта и флаг-файл в общую папку весов (ScalesPluWindow.ShtrikhPc.cs).</summary>
+    private const string BrandShtrikhPc = "shtrikhpc";
+
     /// <summary>Весы с распознаванием товара («AI весы»). Прямая заливка по сети пока не
     /// сделана: у этих весов нет единого протокола, как у ШТРИХ-ПРИНТ, — каждая модель
     /// идёт со своей программой, и загружать список нужно через неё. Поэтому здесь касса
@@ -54,6 +57,8 @@ public partial class ScalesPluWindow : Window
     private bool IsTm => _brand == BrandTm;
 
     private bool IsRongta => _brand == BrandRongta;
+
+    private bool IsShtrikhPc => _brand == BrandShtrikhPc;
 
     /// <summary>2026-09-30: Rongta «напрямую по сети» — касса сама пишет PLU протоколом Dahua (TCP
     /// 4001, имена — RongtaNameCodec), без RLS1000. Проверено на весах владельца по этикеткам.</summary>
@@ -211,6 +216,7 @@ public partial class ScalesPluWindow : Window
             BrandRongta => "R",
             BrandTm => "TM",
             BrandAi => "AI",
+            BrandShtrikhPc => "РС",
             _ => "Ш",
         };
         BrandNameText.Text = ScaleUi.LabelBrandTitle(_brand);
@@ -218,7 +224,7 @@ public partial class ScalesPluWindow : Window
         CheckConnectionButton.IsVisible = !IsFileBrand;
 
         // Адрес с опечаткой / из чужой сети — видно сразу, до отправки (владелец ввёл 192.169.0.150).
-        var (ipLevel, ipText) = IsFileBrand ? (ScaleIpLevel.None, "") : ScaleUi.CheckScaleIp(ScaleUi.IpOf(_brand));
+        var (ipLevel, ipText) = IsFileBrand || IsShtrikhPc ? (ScaleIpLevel.None, "") : ScaleUi.CheckScaleIp(ScaleUi.IpOf(_brand));
         var state = ScaleUi.LastCheckOf(_brand);
         if (IsFileBrand)
         {
@@ -245,7 +251,7 @@ public partial class ScalesPluWindow : Window
     /// Колонки DataGrid не попадают в поля по x:Name — ищем по Tag.</summary>
     private void ApplyDirectLanVisibility()
     {
-        var direct = (_brand == BrandShtrikh && ShtrikhDirect) || IsDahuaWire;
+        var direct = (_brand == BrandShtrikh && ShtrikhDirect) || IsDahuaWire || IsShtrikhPc; // 2026-11-06: у РС-200 «Код в ШК» — код товара в файле импорта
         var barcodeColumn = ProductsGrid.Columns.FirstOrDefault(c => Equals(c.Tag, "BarcodeCode"));
         if (barcodeColumn is not null)
             barcodeColumn.IsVisible = direct;
@@ -280,6 +286,11 @@ public partial class ScalesPluWindow : Window
             return;
 
         var row = rows.FirstOrDefault(r => r.IsSelected) ?? rows.FirstOrDefault();
+        if (IsShtrikhPc)
+        {
+            UpdateShtrikhPcBarcodeExample(row);
+            return;
+        }
         if (IsTm)
         {
             UpdateTmBarcodeExample(row);
@@ -329,6 +340,13 @@ public partial class ScalesPluWindow : Window
     /// первого отмеченного товара — там формат ШК весов читается, правится и записывается.</summary>
     private async void BarcodeSettings_Click(object? sender, RoutedEventArgs e)
     {
+        if (IsShtrikhPc)
+        {
+            await ShowShtrikhPcBarcodeSettingsAsync().ConfigureAwait(true);
+            UpdateBarcodeExample();
+            return;
+        }
+
         if (IsRongtaLan)
         {
             // 2026-09-30: Rongta напрямую — «Настройки весов Rongta» на вкладке «Штрих-код».
@@ -450,18 +468,22 @@ public partial class ScalesPluWindow : Window
         // NurCRM нумерует сам, галочка там ничего не меняла).
         SequentialPluCheck.IsVisible = KassaNumbering;
         WebPluButton.IsVisible = KassaNumbering;
-        KeysButton.IsVisible = KassaNumbering;
+        KeysButton.IsVisible = KassaNumbering && !IsShtrikhPc; // 2026-11-06: кнопки экрана РС-200 настраиваются на самих весах
         ApplyDirectLanVisibility();
         UpdateHeader();
-        SendButton.Content = isAi ? Tr.T("Сохранить файл для весов", "Файлды тараза үчүн сактоо", "Save file for the scale", "Tartı için dosyayı kaydet", "Tarozi uchun faylni saqlash") : _sendButtonDefaultText;
+        SendButton.Content = isAi ? Tr.T("Сохранить файл для весов", "Файлды тараза үчүн сактоо", "Save file for the scale", "Tartı için dosyayı kaydet", "Tarozi uchun faylni saqlash")
+            : IsShtrikhPc ? Tr.T("Отправить в весы", "Таразага жөнөтүү", "Send to the scale", "Tartıya gönder", "Taroziga yuborish")
+            : _sendButtonDefaultText;
         // У AI-весов главная кнопка уже сохраняет файл — вторая такая же не нужна.
         SaveFileButton.IsVisible = !isAi;
-        SaveFileButton.Content = IsTm
+        SaveFileButton.Content = IsTm || IsShtrikhPc
             ? Tr.T("Сохранить файл ▾", "Файлды сактоо ▾", "Save file ▾", "Dosyayı kaydet ▾", "Faylni saqlash ▾")
             : Tr.T("Сохранить CSV", "CSV сактоо", "Save CSV", "CSV kaydet", "CSV saqlash");
 
         SubtitleText.Text = _brand switch
         {
+            // 2026-11-06: РС-200 — обмен файлом через общую папку весов
+            BrandShtrikhPc => ShtrikhPcSubtitle(),
             // 2026-09-29: номера PLU закреплены за товарами (ScalesPluWindow.PinnedPlu.cs) — «подряд» больше нет.
             BrandTm => Tr.T(
                 "Отмеченные товары уйдут прямо на весы по сети. У каждого товара постоянный номер PLU (колонка PLU) — отправки его не меняют; в штрих-код этикетки весы напечатают «Код в ШК». Запасной путь — файл для «Русского масштаба» («Сохранить файл»).",
@@ -508,6 +530,12 @@ public partial class ScalesPluWindow : Window
     /// <summary>«Сохранить файл…»: CSV для любых весов; у TM-30F — выбор CSV или DIGI_TOP2000.</summary>
     private void SaveFile_Click(object? sender, RoutedEventArgs e)
     {
+        if (IsShtrikhPc)
+        {
+            ShowShtrikhPcSaveMenu();
+            return;
+        }
+
         if (!IsTm)
         {
             ExportCsv_Click(sender, e);
@@ -830,6 +858,13 @@ public partial class ScalesPluWindow : Window
             {
                 SendButton.IsEnabled = true;
             }
+        }
+
+        // 2026-11-06: весы Штрих РС-200 — файл импорта и флаг-файл в общую папку весов
+        if (IsShtrikhPc)
+        {
+            await SendToShtrikhPcAsync().ConfigureAwait(true);
+            return;
         }
 
         if (IsDahuaWire)

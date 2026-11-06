@@ -121,9 +121,13 @@ public partial class OwnerShellWindow
         TabsTitleText.Text = _activeSection != null ? TitleFor(_activeSection) : "";
 
         static string BadgeText(Border? b) => b is { IsVisible: true, Child: TextBlock t } ? t.Text + (Equals(b.Tag, "urgent") ? "!" : "") : "";
-        var key = string.Join("|", entries.Select(x => x.Key + ":" + x.Title + ":" + BadgeText(TabBadgeOf(x.Key)))) + "#" + activeKey + "#" + single;
+        // 2026-11-06, А-8: активная вкладка в ключ перестройки НЕ входит — при смене вкладки кнопки остаются теми же объектами и меняется только
+        // класс active (раньше все вкладки пересоздавались: терялись наведение, фокус клавиатуры и анимация, кнопка «мигала»).
+        var key = string.Join("|", entries.Select(x => x.Key + ":" + x.Title + ":" + BadgeText(TabBadgeOf(x.Key)))) + "#" + single;
         if (key == _tabsKey)
         {
+            foreach (var item in _tabs)
+                item.Tab.Classes.Set("active", item.Key == activeKey);
             QueueFitTabs();
             return;
         }

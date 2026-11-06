@@ -115,8 +115,14 @@
             <Setter Property="Margin" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="12"/>
-            <!-- Курсор рисует рамка ниже; стандартная пунктирная рамка фокуса Fluent легла бы второй. -->
-            <Setter Property="FocusAdorner" Value="{x:Null}"/>
+            <!-- Курсор рисует рамка ниже; стандартная пунктирная рамка фокуса Fluent легла бы второй.
+                 2026-11-06, А-2: рамка — сам FocusAdorner (рисуется поверх плитки, размер не меняет). Раньше :focus-visible ставил
+                 плитке BorderThickness 0 → 2 — каждая плитка с курсором вырастала на 4×4 px, ряд «дышал», соседи съезжали. -->
+            <Setter Property="FocusAdorner">
+                <FocusAdornerTemplate>
+                    <Border BorderThickness="2" BorderBrush="{DynamicResource BrushFocusRing}" CornerRadius="12"/>
+                </FocusAdornerTemplate>
+            </Setter>
         </Style>
         <Style Selector="ListBox.catalog-nav ListBoxItem:selected /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
@@ -128,10 +134,6 @@
              добавляет Num + (действие «Добавить товар в чек» в Настройки → Клавиши), Enter всегда
              оплачивает (CatalogPanelView.HasKeyboardCursor, MainWindow.OnPlainHotkeyTunnel). -->
         <!-- 2026-11-01 (контрольный аудит, Д2-01): рамка фокуса — BrushFocusRing (≥ 3:1), а не BrushAccentStrong (2,3:1). -->
-        <Style Selector="ListBox.catalog-nav ListBoxItem:focus-visible">
-            <Setter Property="BorderBrush" Value="{DynamicResource BrushFocusRing}"/>
-            <Setter Property="BorderThickness" Value="2"/>
-        </Style>
 
         <!-- Редизайн 2026-09-28. Наведение на плитку — рамка цвета темы вокруг самой карточки;
              серую подложку Fluent (и фон main-ghost) под плиткой не показываем: у скруглённых тем
