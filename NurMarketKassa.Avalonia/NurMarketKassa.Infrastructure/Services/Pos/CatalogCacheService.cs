@@ -194,6 +194,49 @@ public static class CatalogCacheService
     /// Ставит AvaloniaCatalogCacheService; возвращает задачу загрузки или null, если полная загрузка сейчас не нужна или запрещена.</summary>
     public static Func<Task<CatalogSyncResult>?>? RequestBackgroundFullReload { get; set; }
 
+    /// <summary>2026-11-07: точечное обновление (см. <see cref="CatalogPointRefresh"/>) через хост программы: читает карточки товаров по id и применяет под замком ленты, обновляет
+    /// плитки и сообщает экранам. Ставит AvaloniaCatalogCacheService. null (стенды, старые хосты) — <see cref="RefreshProductsAsync"/> делает то же сам.</summary>
+    public static Func<IReadOnlyList<string>, CancellationToken, Task<CatalogSyncResult>>? SharedRefreshProducts { get; set; }
+
+    /// <summary>2026-11-07, жалоба владельца «при каждом изменении товара весь склад загружается заново»: обновить в каталоге кассы только эти товары (правка, создание, цена, остаток, возврат из архива).
+    /// Берётся карточка товара с сервера и применяется к базе и памяти; ПОЛНАЯ ЗАГРУЗКА КАТАЛОГА ЗДЕСЬ НЕ ЗАПУСКАЕТСЯ НИКОГДА, ни при нездоровой ленте, ни при паузе 429.
+    /// Карточку не прочитали (нет связи, сервер медлит) — тихо оставляем как есть: правка уже на сервере, лента догонит. Не бросает (кроме отмены).</summary>
+    public static async Task<CatalogSyncResult> RefreshProductsAsync(IEnumerable<string?> ids, CancellationToken cancellationToken = default)
+    {
+        var list = ids.Where(i => !string.IsNullOrWhiteSpace(i)).Select(i => i!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (list.Count == 0)
+            return CatalogSyncResult.Ok(0, 0, 0);
+        // Без связи (или в аварии сервера) читать нечего: локальные правки уже в базе.
+        if (OfflineModeHelper.SellLocally)
+            return CatalogSyncResult.Failed("Нет подключения — каталог из локальной базы.");
+
+        try
+        {
+            if (SharedRefreshProducts is { } shared)
+                return await shared(list, cancellationToken).ConfigureAwait(false);
+
+            var outcome = await CatalogPointRefresh.ApplyByIdsAsync(PosApp.CatalogApi, list, PosApp.Settings?.ApiBaseUrl ?? "", FeedStockGuard.Create(), cancellationToken).ConfigureAwait(false);
+            if (outcome.Applied)
+            {
+                LoadFromDatabase();
+                NotifyCatalogChanged();
+            }
+
+            return outcome.Fetched == 0
+                ? CatalogSyncResult.Failed("Карточка товара не получена — останется как была, обновит лента изменений.")
+                : CatalogSyncResult.Ok(outcome.Added, outcome.Changed, outcome.Deleted);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"CATALOG: точечное обновление товаров не удалось ({ex.GetType().Name}: {ex.Message}) — каталог не перекачиваем, донесёт лента.", "CATALOG");
+            return CatalogSyncResult.Failed(ex.Message);
+        }
+    }
+
     /// <summary>2026-10-30: каталог сверен с сервером (лентой или полной загрузкой) — для «каталог старше 10 минут» массовой загрузки.</summary>
     public static void NoteSynced(DateTime utc)
     {

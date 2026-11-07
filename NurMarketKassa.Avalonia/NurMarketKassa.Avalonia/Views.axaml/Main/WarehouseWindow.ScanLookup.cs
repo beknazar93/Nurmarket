@@ -143,7 +143,8 @@ public partial class WarehouseWindow
             return null;
 
         SuccessToast.Show(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
-        await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
+        // 2026-11-07 («при каждом изменении товара весь склад загружается заново»): новый товар — только он, не весь каталог.
+        await CatalogCacheService.RefreshProductsAsync([dialog.SavedProductId]).ConfigureAwait(true);
         await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
         RefreshWarehouseTotals();
         return ProductCodeLookup.FindLocal(code)?.Product;

@@ -218,6 +218,36 @@ public partial class PurchasesWindow
         var purchase = ReceiveCellBox(ReceiveMoney(line.PurchasePrice), Lbl("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"));
         var markup = ReceiveCellBox(ReceiveMarkup(line), Lbl("Наценка %", "Кошумча %", "Markup %", "Kâr %", "Ustama %"));
         var sale = ReceiveCellBox(ReceiveMoney(line.SalePrice), Lbl("Цена продажи", "Сатуу баасы", "Selling price", "Satış fiyatı", "Sotuv narxi"));
+        // 2026-11-07 («Принять упаковками»): под «Принимаем» — ссылка «упаковками»; в режиме упаковок поле «Принимаем» — число упаковок, под ним «шт в упак.» и «= 120 шт»,
+        // а «Цена закупки» — цена ЗА УПАКОВКУ (под ней «за упак. · 33,3333 за шт»). В строке, проведении, очереди и накладной всё равно штуки и цена за штуку (ReceivingLineVm.PackMode).
+        // Товар с поштучной продажей из упаковки (PieceOption) склад ведёт упаковками — режим ему не предлагаем (умножение раздуло бы остаток), только подсказка.
+        var cardPack = ReceivingPacks.PieceOptionSize(line);
+        var pieces = ReceiveCellBox(ReceiveNum(line.PiecesPerPack), Lbl("Штук в упаковке", "Таңгактагы даана", "Pieces per pack", "Koli başına adet", "Qadoqdagi dona"));
+        pieces.Height = 36;
+        pieces.MinHeight = 36;
+        pieces.FontSize = 13;
+        pieces.Margin = new Thickness(0, 4, 10, 0);
+        pieces.Watermark = T("шт в упак.", "даана/таңгак", "pcs/pack", "adet/koli", "dona/qadoq");
+        pieces.IsVisible = false;
+        var packNote = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 2, 10, 0), IsVisible = false };
+        var packToggle = new TextBlock { FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 2, 10, 0), Cursor = new Cursor(StandardCursorType.Hand) };
+        Use(packToggle, TextBlock.ForegroundProperty, "BrushAccent");
+        if (cardPack > 0)
+        {
+            packToggle.Text = T($"упак. = {Q(cardPack)} шт", $"таңгак = {Q(cardPack)} даана", $"pack = {Q(cardPack)} pcs", $"koli = {Q(cardPack)} adet", $"qadoq = {Q(cardPack)} dona");
+            packToggle.Cursor = new Cursor(StandardCursorType.Arrow);
+            packToggle.FontWeight = FontWeight.Normal;
+            Use(packToggle, TextBlock.ForegroundProperty, "BrushTextSoft");
+            ToolTip.SetTip(packToggle, T($"Склад ведёт этот товар упаковками (в упаковке {Q(cardPack)} шт): «Принимаем» и цена закупки — за упаковку.",
+                $"Кампа бул товарды таңгак менен жүргүзөт (таңгакта {Q(cardPack)} даана): «Кабыл алабыз» жана баасы — таңгак үчүн.",
+                $"The warehouse keeps this product in packs ({Q(cardPack)} pcs each): “Receiving” and the purchase price are per pack.",
+                $"Depo bu ürünü koli ile tutar (kolide {Q(cardPack)} adet): «Alınıyor» ve alış fiyatı koli başınadır.",
+                $"Ombor bu mahsulotni qadoq bilan yuritadi (qadoqda {Q(cardPack)} dona): «Qabul qilinadi» va xarid narxi qadoq uchun."));
+        }
+        var packPriceNote = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right, IsVisible = false };
+        Use(packPriceNote, TextBlock.ForegroundProperty, "BrushTextSoft");
+        var packLossText = new TextBlock { FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right, IsVisible = false };
+        Use(packLossText, TextBlock.ForegroundProperty, "BrushDanger");
         parts.Qty = qty;
         parts.Purchase = purchase;
         parts.Markup = markup;
@@ -231,7 +261,7 @@ public partial class PurchasesWindow
         Use(profitText, TextBlock.ForegroundProperty, "BrushTextSoft");
         var lowText = new TextBlock { FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
         Use(lowText, TextBlock.ForegroundProperty, "BrushDanger");
-        var purchaseSub = new StackPanel { Margin = new Thickness(0, -2, 10, 0), HorizontalAlignment = HorizontalAlignment.Stretch, Children = { changeText } };
+        var purchaseSub = new StackPanel { Margin = new Thickness(0, -2, 10, 0), HorizontalAlignment = HorizontalAlignment.Stretch, Children = { packPriceNote, packLossText, changeText } };
         var autoText = new TextBlock { FontSize = 12, FontWeight = FontWeight.SemiBold, Cursor = new Cursor(StandardCursorType.Hand), TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right };
         Use(autoText, TextBlock.ForegroundProperty, "BrushAccent");
         autoText.PointerPressed += (_, _) =>
@@ -257,8 +287,31 @@ public partial class PurchasesWindow
                     if ((force || !b.IsFocused) && b.Text != t)
                         b.Text = t;
                 }
-                Put(qty, ReceiveNum(line.Quantity));
-                Put(purchase, ReceiveMoney(line.PurchasePrice));
+                var pack = line.PackMode; // 2026-11-07: в режиме упаковок поля «Принимаем» и «Цена закупки» показывают упаковки и цену за упаковку
+                qty.Watermark = pack ? T("упак.", "таңгак", "packs", "koli", "qadoq") : "0";
+                Put(qty, ReceiveNum(pack ? line.PackCount : line.Quantity));
+                Put(pieces, ReceiveNum(line.PiecesPerPack));
+                pieces.IsVisible = pack;
+                packNote.IsVisible = pack && line.PackNote.Length > 0;
+                packNote.Text = line.PackNote;
+                Use(packNote, TextBlock.ForegroundProperty, line.PackNeedsSize ? "BrushDanger" : "BrushTextSoft");
+                if (cardPack <= 0)
+                {
+                    packToggle.Text = line.PackLinkText; // 2026-11-07: «упаковками ▾» / «упак. → штуки ▾» / «упак. + поштучно ▾» — нажатие открывает выбор способа
+                    ToolTip.SetTip(packToggle, line.PackSale
+                        ? T("Упаковка с поштучной продажей: на склад идут УПАКОВКИ, новый товар заводится с упаковкой (штук в упаковке). Закупка и цена продажи — за упаковку.", "Даана менен сатылуучу таңгак: кампага ТАҢГАКТАР барат, жаңы товар таңгак менен түзүлөт. Сатып алуу жана сатуу баасы — таңгак үчүн.",
+                            "Pack with single-piece sale: the warehouse gets PACKS, the new product is created with a pack (pieces per pack). Purchase and sale price — per pack.", "Adetli satışlı koli: depoya KOLİLER gider, yeni ürün koli ile oluşturulur. Alış ve satış fiyatı — koli başına.", "Donalab sotiladigan qadoq: omborga QADOQLAR boradi, yangi mahsulot qadoq bilan yaratiladi. Xarid va sotuv narxi — qadoq uchun.")
+                        : pack
+                            ? T("Упаковками → на склад штуки: вводите упаковки, штук в упаковке и цену за упаковку — на склад уйдут штуки и цена за штуку. Нажмите, чтобы выбрать другой способ.", "Таңгак менен → кампага даана: таңгакты, таңгактагы даананы жана таңгактын баасын киргизиңиз — кампага даана жана даанасынын баасы барат. Башкасын тандоо үчүн басыңыз.",
+                                "By packs → pieces to stock: enter packs, pieces per pack and the price per pack — the warehouse gets pieces and the price per piece. Press to choose another way.", "Kolilerle → depoya adet: koli sayısını, koli başına adedi ve koli fiyatını girin — depoya adet ve adet fiyatı gider. Başka yol için basın.", "Qadoq bilan → omborga dona: qadoq sonini, qadoqdagi donani va qadoq narxini kiriting — omborga dona va dona narxi boradi. Boshqa usulni tanlash uchun bosing.")
+                            : T("Способ приёмки: в штуках, упаковками (на склад штуки) или упаковка с поштучной продажей (новый товар). Нажмите, чтобы выбрать.", "Кабыл алуу ыкмасы: даана менен, таңгак менен (кампага даана) же даана менен сатылуучу таңгак (жаңы товар). Тандоо үчүн басыңыз.",
+                                "How to receive: in pieces, by packs (pieces to stock) or a pack with single-piece sale (new product). Press to choose.", "Kabul yolu: adetle, kolilerle (depoya adet) veya adetli satışlı koli (yeni ürün). Seçmek için basın.", "Qabul usuli: donalab, qadoq bilan (omborga dona) yoki donalab sotiladigan qadoq (yangi mahsulot). Tanlash uchun bosing."));
+                }
+                packPriceNote.IsVisible = pack;
+                packPriceNote.Text = line.PackPriceNote;
+                packLossText.IsVisible = pack && line.PackLossText.Length > 0;
+                packLossText.Text = line.PackLossText;
+                Put(purchase, ReceiveMoney(pack ? line.PackPrice : line.PurchasePrice));
                 Put(markup, ReceiveMarkup(line));
                 Put(sale, ReceiveMoney(line.SalePrice));
                 sum.Text = MoneyText.Som(line.LineTotal);
@@ -294,7 +347,13 @@ public partial class PurchasesWindow
         {
             if (parts.Syncing || !ReceiveReadCell(qty, out var v))
                 return;
-            line.Quantity = v;
+            if (line.PackMode)
+            {
+                line.SetPackCount(v); // 2026-11-07: число упаковок — штуки считает строка (упаковки × штук в упаковке)
+                v = line.Quantity;
+            }
+            else
+                line.Quantity = v;
             // 2026-10-31 («Не округляй»): сервер принимает не больше 3 знаков после запятой. «12,3456» остаётся как набрано, строка красная
             // (ReceivingLineVm.PriceProblemText), провести нельзя, пока не исправят (в «Склад → Приёмка» то же через ReceivingLineVm.QuantityText).
             var roundedHint = RoundedQuantityHint;
@@ -310,8 +369,38 @@ public partial class PurchasesWindow
         {
             if (parts.Syncing)
                 return;
-            line.SetPurchaseText(purchase.Text);
+            if (line.PackMode)
+                line.SetPackPriceText(purchase.Text); // 2026-11-07: в режиме упаковок поле — цена за упаковку, цену за штуку считает строка
+            else
+                line.SetPurchaseText(purchase.Text);
             ReceiveRefresh();
+        };
+        pieces.TextChanged += (_, _) =>
+        {
+            if (parts.Syncing || !ReceiveReadCell(pieces, out var perPack))
+                return;
+            line.SetPiecesPerPack(perPack);
+            var roundedHint = RoundedQuantityHint;
+            if (ReceivingLineVm.QuantityTooPrecise(line.Quantity))
+                ReceiveMessage(roundedHint, warning: true);
+            else if (s.Message.Text == roundedHint)
+                ReceiveMessage(null);
+            ReceiveRefresh();
+        };
+        packToggle.PointerPressed += (_, _) =>
+        {
+            if (cardPack > 0)
+                return; // склад ведёт товар упаковками — переключать нечего (подсказка на надписи)
+            // 2026-11-07: вместо переключателя «упаковками ↔ в штуках» — меню из трёх способов (в штуках, упаковками → штуки, упаковка с поштучной продажей; общий код со «Склад → Приёмка»).
+            ReceivingPackMenu.Show(packToggle, line, () =>
+            {
+                Sync(true);
+                ReceiveRefresh();
+                if (line.PackMode && line.PiecesPerPack <= 0)
+                    pieces.Focus();
+                else
+                    qty.Focus();
+            });
         };
         markup.TextChanged += (_, _) =>
         {
@@ -330,7 +419,7 @@ public partial class PurchasesWindow
             line.SetSaleText(sale.Text);
             ReceiveRefresh();
         };
-        foreach (var cell in new[] { qty, purchase, markup, sale })
+        foreach (var cell in new[] { qty, pieces, purchase, markup, sale })
             cell.LostFocus += (_, _) => { line.CommitText(); Sync(false); }; // 2026-10-28: сырой набранный текст → нормальный показ («100,60»)
 
         // Enter и Tab: «Название» → «Количество» → «Закупка» → «Цена продажи» → поле скана (наценку Enter пропускает, её правят мышью или Shift+Tab).
@@ -356,14 +445,15 @@ public partial class PurchasesWindow
         if (parts.Name is { } nm)
             Chain(nm, () => qty);
         Chain(markup, () => sale);
-        Chain(qty, () => purchase);
+        Chain(qty, () => line.PackMode ? pieces : purchase);
+        Chain(pieces, () => purchase);
         Chain(purchase, () => sale);
         Chain(sale, () => null);
 
         // 2026-10-30 (баг владельца): подписи под «Закупкой» («без изменений» + «было 35,00») и «Продажей» («прибыль …») разной высоты сдвигали поля по вертикали
         // (поля центрировались вместе с подписями). Теперь все четыре поля прижаты к верху строки (одинаковая линия 40 px), подписи — под полем и ряд не двигают;
         // «На складе», «Сумма закупки», название и «✕» — по центру этой же линии (OnFieldLine). Деньги и расчёт не менялись — только разметка.
-        var qtyBox = new StackPanel { VerticalAlignment = VerticalAlignment.Top, Children = { qty } };
+        var qtyBox = new StackPanel { VerticalAlignment = VerticalAlignment.Top, Children = { qty, pieces, packNote, packToggle } };
         Grid.SetColumn(qtyBox, 3);
         g.Children.Add(qtyBox);
         var purchaseBox = new StackPanel { VerticalAlignment = VerticalAlignment.Top, Children = { purchase, purchaseSub } };
@@ -554,6 +644,17 @@ public partial class PurchasesWindow
                            + (problems.Count > 4 ? T($" …и ещё {problems.Count - 4}", $" …жана дагы {problems.Count - 4}", $" …and {problems.Count - 4} more", $" …ve {problems.Count - 4} tane daha", $" …va yana {problems.Count - 4}") : ""), warning: true);
             return;
         }
+        // 2026-11-07: «упаковка с поштучной продажей» меняет единицу остатка нового товара — явное подтверждение (как в «Склад → Приёмка»).
+        if (lines.Where(l => l.PackSale).ToList() is { Count: > 0 } packSaleLines)
+        {
+            var goOn = await PosConfirmDialog.ShowModalAsync(this,
+                T("Поштучная продажа из упаковки", "Таңгактан даана менен сатуу", "Single pieces from a pack", "Koliden tek tek satış", "Qadoqdan donalab sotish"),
+                ReceivingPacks.PackSaleConfirmMessage(packSaleLines),
+                T("Продолжить", "Улантуу", "Continue", "Devam", "Davom etish"),
+                T("Вернуться", "Артка", "Go back", "Geri dön", "Orqaga"), PosConfirmAccent.Primary).ConfigureAwait(true);
+            if (_receive != s || !goOn)
+                return;
+        }
         // 2026-11-06: у строк нет цены продажи — спрашиваем ДО отправки; программа сама («закупка + %») ничего не ставит. «Отмена» — вернуться к списку.
         if (ReceivingPricing.MissingSalePrice(lines).Count > 0)
         {
@@ -635,6 +736,8 @@ public partial class PurchasesWindow
         s.LandedTotal = 0; // 2026-11-05 (функция 11): доп. расходы ушли с этим приходом (доли — в строках задачи)
         // Задача на диске — список очищаем сразу и готовимся к следующей накладной (заказ уже закрыт этой задачей — к новому приёму не привязываем).
         _bgWaiting.Add(jobId);
+        foreach (var line in lines)
+            ReceivingPackSizes.Remember(line); // 2026-11-07: «штук в упаковке» запоминается локально — в следующий раз подставится (в карточку товара на сервере не пишется)
         foreach (var line in lines)
             s.Lines.Remove(line);
         if (s.OrderId is not null)

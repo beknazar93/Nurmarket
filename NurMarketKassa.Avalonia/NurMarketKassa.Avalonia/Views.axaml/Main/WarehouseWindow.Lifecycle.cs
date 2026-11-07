@@ -113,7 +113,12 @@ public partial class WarehouseWindow
         {
             // 2026-10-30 (15 тыс. товаров): сначала лента изменений (секунды; общий путь программы — без второй параллельной полной загрузки),
             // таблица перестраивается сразу; полная сверка всего каталога (155 страниц, ~3 мин) — в фоне, если её не было 10 мин, с «Загружено N из M».
-            var result = await CatalogCacheService.SyncCatalogFullAsync().ConfigureAwait(true);
+            // 2026-11-07 («при каждом изменении товара весь склад загружается заново»): «Обновить» — сначала быстрый путь (лента + последние изменённые, секунды), как кнопка в кассе;
+            // нельзя (нет связи/ленты, идёт полная загрузка) — прежний общий путь (лента, а полная загрузка — если ленты нет).
+            CatalogSyncResult? quick = null;
+            try { quick = await (App.AppHost?.Services.GetService<ICatalogCacheService>()?.QuickRefreshAsync() ?? Task.FromResult<CatalogSyncResult?>(null)).ConfigureAwait(true); }
+            catch (Exception qex) when (qex is not OperationCanceledException and not OutOfMemoryException) { PosLogger.Log($"Склад: быстрое обновление не вышло ({qex.Message}).", "CATALOG"); }
+            var result = quick ?? await CatalogCacheService.SyncCatalogFullAsync().ConfigureAwait(true);
             if (result.Success)
                 CatalogCacheService.NotifyCatalogChanged();
             else

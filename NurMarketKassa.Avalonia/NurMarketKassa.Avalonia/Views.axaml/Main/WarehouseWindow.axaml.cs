@@ -311,6 +311,9 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         }
         if (e.Column is null || e.Column.IsReadOnly || e.Row?.DataContext is not NurMarketKassa.Models.ReceivingLineVm line)
             return;
+        // 2026-11-07: нажатие на подпись-ссылку «упак. ▾» открывает меню способа приёмки, а не правку ячейки (правка заменила бы ячейку и закрыла меню).
+        if (e.PointerPressedEventArgs.Source is Avalonia.Controls.Control { Tag: "rcv-packlink" })
+            return;
 
         var column = e.Column;
         Dispatcher.UIThread.Post(() =>

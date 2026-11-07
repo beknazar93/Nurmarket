@@ -694,6 +694,22 @@ public sealed class PurchaseReceivingService
             // 2026-10-31 («Не округляй»): больше 3 знаков после запятой не округляем молча — строку не проводим, пока не исправят.
             if (ReceivingLineVm.QuantityTooPrecise(line.Quantity))
                 problems.Add($"{name}: {ReceivingLineVm.QuantityPrecisionText}");
+            // 2026-11-07 («Принять упаковками»): режим включён, а сколько штук в упаковке — не указано: штуки и цену за штуку считать нечем, строку не проводим.
+            if (line.PackNeedsSize)
+                problems.Add($"{name}: {line.PackNote}");
+            // 2026-11-07 («поштучная продажа» в приёмке): упаковку заводят только у НОВОГО товара, штук в упаковке — целое от 2 (как в карточке товара), цена продажи упаковки обязательна
+            // (цена штуки = она ÷ штук). Строка, ставшая не-новой (товар нашёлся по штрихкоду), не проводится: у товара с остатком смена единицы остатка искажает склад.
+            if (line.PackSale)
+            {
+                if (!line.CanPackSale)
+                    problems.Add($"{name}: {ReceivingLineVm.PackSaleBlockedText}");
+                else if (!line.PackNeedsSize && (line.PiecesPerPack < 2 || Math.Abs(line.PiecesPerPack - Math.Round(line.PiecesPerPack)) > 1e-9))
+                    problems.Add(Tr.T($"{name}: «Штук в упаковке» — целое число от 2", $"{name}: «Таңгактагы штук саны» — 2ден баштап бүтүн сан",
+                        $"{name}: “Pieces in a pack” must be a whole number, 2 or more", $"{name}: «Paketteki adet» 2 veya daha büyük bir tam sayı olmalı", $"{name}: «Qadoqdagi dona soni» 2 dan boshlab butun son bo'lishi kerak"));
+                if (line.SalePrice <= 0)
+                    problems.Add(Tr.T($"{name}: укажите цену продажи упаковки (цена штуки = она ÷ штук в упаковке)", $"{name}: таңгактын сатуу баасын жазыңыз (даананын баасы = ал ÷ таңгактагы даана)",
+                        $"{name}: enter the sale price of the pack (the piece price = it ÷ pieces in a pack)", $"{name}: koli satış fiyatını girin (adet fiyatı = o ÷ koli başına adet)", $"{name}: qadoq sotuv narxini kiriting (dona narxi = u ÷ qadoqdagi dona)"));
+            }
             if (line.Quantity <= 0)
                 problems.Add(Tr.T($"{name}: не указано количество", $"{name}: саны көрсөтүлгөн эмес",
                     $"{name}: quantity missing", $"{name}: miktar belirtilmedi", $"{name}: miqdor ko'rsatilmagan"));
@@ -715,6 +731,10 @@ public sealed class PurchaseReceivingService
 
         return problems;
     }
+
+    /// <summary>2026-11-07: цена ШТУКИ упаковки с поштучной продажей = цена продажи упаковки ÷ штук в упаковке, до копеек (как кнопка «Авто» в карточке товара).</summary>
+    public static double PackPieceSalePrice(ReceivingLineVm line) =>
+        line.PackSaleSize >= 2 ? (double)Math.Round((decimal)line.SalePrice / (decimal)line.PackSaleSize, 2, MidpointRounding.AwayFromZero) : 0;
 
     /// <summary>2026-11-06 (жалоба «Орук маркет», приход №48): уходит ли цена продажи строки в товар при приходе БЕЗ поставщика (прямой PATCH товара). Только если цена есть (> 0) и она
     /// новая (новый товар), изменена в этом приходе, либо закупка изменилась / есть доп. расходы / товар из общей базы (цена пишется вместе с закупкой, чтобы сервер не пересчитал её
@@ -865,6 +885,11 @@ public sealed class PurchaseReceivingService
                         // 2026-10-24 (Б0): наценка вместе с ценами, как карточка товара, — иначе на сервере остаётся 0, а следующая правка закупки
                         // из карточки/другой приёмки пересчитает цену продажи от неё.
                         MarkupPercent = ReceivingPricing.MarkupPercent(line.PurchasePrice, line.SalePrice),
+                        // 2026-11-07 («поштучная продажа» в приёмке): новый товар создаётся сразу с упаковкой (как «Поштучная продажа из упаковки» в карточке товара: packages_input,
+                        // цена штуки = цена упаковки ÷ штук, до копеек); остаток приходит в УПАКОВКАХ (qty прихода — число упаковок, закупка — цена упаковки).
+                        EnablePieceSale = line.PackSaleSize >= 2,
+                        PackageQuantity = line.PackSaleSize >= 2 ? line.PackSaleSize : null,
+                        PackagePiecePrice = line.PackSaleSize >= 2 ? PackPieceSalePrice(line) : null,
                     }, ct).ConfigureAwait(false);
                 }
 

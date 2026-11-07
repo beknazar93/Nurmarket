@@ -24,6 +24,7 @@ public partial class WarehouseWindow
         // (обработчик ConfirmSalePriceChangesAsync был написан в пакете Б1, но к модели не подключён).
         _viewModel.ConfirmSalePriceChanges ??= ConfirmSalePriceChangesAsync;
         _viewModel.ConfirmBelowCost ??= ConfirmBelowCostAsync; // 2026-10-29 (спека Fable)
+        _viewModel.ConfirmPackSale ??= ConfirmPackSaleAsync; // 2026-11-07: «упаковка с поштучной продажей» — подтверждение перед проведением
         _viewModel.ConfirmMissingSalePrices ??= ConfirmMissingSalePricesAsync; // 2026-11-06: «У N позиций нет цены продажи»
         BackgroundReceivingQueue.Instance.JobFinished += OnReceivingQueueJobFinished;
         BackgroundReceivingQueue.Instance.CatalogRefreshed += OnReceivingQueueCatalogRefreshed;

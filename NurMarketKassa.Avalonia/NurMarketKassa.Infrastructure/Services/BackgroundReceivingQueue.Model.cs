@@ -80,6 +80,8 @@ public sealed class JobLine
     public double OriginalMarkupPercent { get; set; }
     public string? CategoryName { get; set; }
     public bool IsWeight { get; set; }
+    /// <summary>2026-11-07 («поштучная продажа» в приёмке): штук в упаковке, которую заведут в карточку НОВОГО товара (0 — обычная строка). Quantity/PurchasePrice/SalePrice такой строки — УПАКОВКИ и цены упаковки.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public double PackSaleSize { get; set; } // 0 в файл не пишется — обычные задачи остаются как были
     public Dictionary<string, double>? VariantQuantities { get; set; }
     public Dictionary<string, string>? VariantLabels { get; set; }
     public string Outcome { get; set; } = ReceivingLineOutcome.Pending;
@@ -111,6 +113,7 @@ public sealed class JobLine
         OriginalMarkupPercent = l.OriginalMarkupPercent,
         CategoryName = l.CategoryName,
         IsWeight = l.IsWeight,
+        PackSaleSize = l.PackSaleSize,
         VariantQuantities = l.VariantQuantities is { Count: > 0 } vq ? new Dictionary<string, double>(vq) : null,
         VariantLabels = l.VariantLabels is { Count: > 0 } vl ? new Dictionary<string, string>(vl) : null,
     };
@@ -139,6 +142,8 @@ public sealed class JobLine
         vm.PurchasePrice = PurchasePrice;
         vm.LandedExtraPerUnit = LandedExtraPerUnit;
         vm.SalePrice = SalePrice;
+        if (PackSaleSize >= 2)
+            vm.SetPackSale(true, PackSaleSize); // 2026-11-07: строка снова «упаковка с поштучной продажей» (возврат в приёмку, повтор задачи); числа уже в упаковках — не пересчитываются
         return vm;
     }
 }

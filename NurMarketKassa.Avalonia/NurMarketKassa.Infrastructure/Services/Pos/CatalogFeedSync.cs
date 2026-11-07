@@ -26,7 +26,9 @@ public sealed class CatalogFeedSync
 {
     /// <param name="Ok">2026-10-29: сервер ответил на опрос (304, пустая страница или изменения) — лента жива. Раньше «жива» считалась только при 304 или
     /// изменениях, а пустая страница (первый опрос после изменений: ETag ещё не привязан к новому курсору) её не подтверждала.</param>
-    public sealed record TickResult(int Added, int Changed, int Deleted, bool NeedFullSync, string Note, bool Ok = false)
+    /// <param name="MissingIds">2026-11-07: код каждого «неизвестного» товара (пришла короткая запись без названия, а в базе кассы такого нет). Их карточки читаются по id
+    /// (<see cref="CatalogPointRefresh"/>) — полная загрузка каталога нужна, только если таких много или причина другая (курсор забыт, 410).</param>
+    public sealed record TickResult(int Added, int Changed, int Deleted, bool NeedFullSync, string Note, bool Ok = false, IReadOnlyList<string>? MissingIds = null)
     {
         public bool Applied => Added + Changed + Deleted > 0;
         public static TickResult None(string note) => new(0, 0, 0, false, note);
@@ -144,6 +146,7 @@ public sealed class CatalogFeedSync
         EnsureLoaded();
         int added = 0, changed = 0, deleted = 0;
         var needFull = false;
+        List<string>? missing = null; // 2026-11-07: см. TickResult.MissingIds
         var pages = 0;
         var notes = "";
         var ok = false;
@@ -206,6 +209,8 @@ public sealed class CatalogFeedSync
                     changed += r.Changed;
                     deleted += r.Deleted;
                     needFull |= r.NeedFullSync;
+                    if (r.MissingIds is { Count: > 0 })
+                        (missing ??= []).AddRange(r.MissingIds);
                     // 2026-11-07: повторы из запаса курсора (ничего не изменилось в базе) в журнал не пишем — иначе после каждого изменения шли бы лишние строки.
                     if (lookback <= TimeSpan.Zero || r.Added + r.Changed + r.Deleted > 0 || r.NeedFullSync)
                         PosLogger.Log(
@@ -273,7 +278,7 @@ public sealed class CatalogFeedSync
         LogStatsIfDue();
         if (ok)
             ProductCodeBackfill.ScheduleFromStorage(); // 2026-11-06 (класс Б, Б-7): медленное самолечение товаров без кодов на уровне хранилища (раз в 30 с, ≤ 20 карточек)
-        return new TickResult(added, changed, deleted, needFull, notes, ok);
+        return new TickResult(added, changed, deleted, needFull, notes, ok, missing);
     }
 
     /// <summary>2026-11-07 (Б-П2): запас назад для курсора ленты (настройка server_prices.json, feed_lookback_sec; 0 — выключен).</summary>
@@ -462,7 +467,7 @@ public sealed class CatalogFeedSync
 
     // ---------------------------------------------------------------- применение страницы
 
-    public sealed record ApplyOutcome(int Added, int Changed, int Deleted, bool NeedFullSync);
+    public sealed record ApplyOutcome(int Added, int Changed, int Deleted, bool NeedFullSync, IReadOnlyList<string>? MissingIds = null);
 
     private static readonly string[] NameKeys = ["name", "title", "display_name", "label"];
 
@@ -544,7 +549,7 @@ public sealed class CatalogFeedSync
             ProductCodeBackfill.ScheduleForRows(newWithoutCodes);
         if (newShortIds is { Count: > 0 } && result.Added > 0)
             NewProductCardBackfill.Enqueue(newShortIds);
-        return new ApplyOutcome(result.Added, result.Changed, result.Deleted, result.MissingIds.Count > 0);
+        return new ApplyOutcome(result.Added, result.Changed, result.Deleted, result.MissingIds.Count > 0, result.MissingIds.Count > 0 ? result.MissingIds : null);
     }
 
     /// <summary>2026-10-27 (ревью, К-11): поля, которых в присланной карточке нет вовсе (ключа нет — не «пустой список»), берём из локальной записи.

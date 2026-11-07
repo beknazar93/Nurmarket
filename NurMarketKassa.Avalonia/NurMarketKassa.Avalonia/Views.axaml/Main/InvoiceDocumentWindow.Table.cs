@@ -34,15 +34,17 @@ public sealed partial class InvoiceDocumentWindow
             new("bar", "118", T("Штрихкод", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod"), false, Wide: true),
             new("name", "*", T("Наименование", "Аталышы", "Name", "Ad", "Nomi"), false),
             new("unit", "44", T("Ед.", "Бирд.", "Unit", "Birim", "Birl."), false, Wide: true),
-            new("qty", _edit ? "200" : "88", /* 2026-11-01: в режиме правки в ячейке «−» [число] «+» «🗑» */ T("Кол-во", "Саны", "Qty", "Adet", "Soni")),
+            new("qty", _edit ? "184" : "88", /* 2026-11-01: в режиме правки в ячейке «−» [число] «+» «🗑» */ T("Кол-во", "Саны", "Qty", "Adet", "Soni")),
             new("buy", "112", T("Цена покупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), Money: true),
             new("sum", "104", T("Сумма", "Сумма", "Amount", "Tutar", "Summa"), Money: true),
             new("mk", _edit ? "92" : "84", T("Наценка %", "Үстөк %", "Markup %", "Kâr marjı %", "Ustama %"), Money: true),
             new("sale", _edit ? "104" : "104", T("Цена реализации", "Сатуу баасы", "Sale price", "Satış fiyatı", "Sotish narxi"), Money: true),
             new("pf", "96", T("Прибыль с шт.", "Даанасынан пайда", "Profit/unit", "Birim kâr", "Dona foydasi"), Money: true, Wide: true),
-            new("note", _compact ? "128" : "170", T("Примечание", "Эскертүү", "Note", "Not", "Izoh"), false),
+            new("note", _compact || _edit ? "120" : "170", T("Примечание", "Эскертүү", "Note", "Not", "Izoh"), false),
         };
-        return all.Where(c => (_showMoney || !c.Money) && (!_compact || !c.Wide)).ToList();
+        // 2026-11-07: в режиме правки колонка «Кол-во» широкая («−» число «+» корзина), и «Наименование» ужималось до нескольких пикселей (название буквами столбиком, строка раздувалась) —
+        // в правке колонку «Прибыль с шт.» не показываем (итоговая прибыль — плиткой внизу), «Кол-во» и «Примечание» уже: на «Наименование» остаётся ~190 px при окне 1272.
+        return all.Where(c => (_showMoney || !c.Money) && (!_compact || !c.Wide) && !(_edit && c.Id == "pf")).ToList();
     }
 
     private string GridDefs() => "4," + string.Join(",", Columns().Select(c => c.Width));

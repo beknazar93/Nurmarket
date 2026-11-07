@@ -190,8 +190,14 @@ public partial class WarehouseWindow
 
     /// <summary>2026-10-30 (15 тыс. товаров): после «Обновить» таблица уже показана по ленте изменений, а полная сверка каталога идёт в фоне —
     /// рядом с поиском «Сверка с сервером: загружено N из M» (раньше — «Загружаю товары с сервера… 178 с» с неработающим окном).</summary>
+    // 2026-11-07: частые нажатия «Обновить» не копят подписок — полная сверка одна на программу (StartFullSync возвращает уже идущую), и следит за ней один обработчик.
+    private bool _bgReloadTracking;
+
     private async Task TrackBackgroundFullReloadAsync(Task<CatalogSyncResult> fullReload)
     {
+        if (_bgReloadTracking)
+            return;
+        _bgReloadTracking = true;
         void OnProgress(int loaded, int? total) => Dispatcher.UIThread.Post(() =>
         {
             if (fullReload.IsCompleted)
@@ -224,6 +230,7 @@ public partial class WarehouseWindow
         finally
         {
             CatalogApiService.FullLoadProgress -= OnProgress;
+            _bgReloadTracking = false;
             ProductCountLoading.IsVisible = false;
             ProductCountLabel.IsVisible = true;
         }

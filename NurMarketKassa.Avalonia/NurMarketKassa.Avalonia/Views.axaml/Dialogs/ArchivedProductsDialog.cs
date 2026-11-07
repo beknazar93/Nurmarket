@@ -38,6 +38,9 @@ internal sealed class ArchivedProductsDialog : Window
     /// <summary>true — хотя бы один товар вернули из архива (вызывающий обновляет каталог).</summary>
     public bool Restored { get; private set; }
 
+    /// <summary>2026-11-07: код возвращённых из архива товаров — склад обновляет в каталоге только их (CatalogCacheService.RefreshProductsAsync), а не весь каталог.</summary>
+    public List<string> RestoredIds { get; } = [];
+
     public ArchivedProductsDialog(ICatalogApiService api, bool canRestore = true)
     {
         _api = api;
@@ -307,6 +310,7 @@ internal sealed class ArchivedProductsDialog : Window
             PosLogger.Log($"AUDIT: товар «{name}» ({id}) возвращён из архива.", "INFO");
             RemovedProductMemory.Forget(id); // 2026-11-06: товар снова в каталоге — запись об удалённом больше не нужна
             Restored = true;
+            RestoredIds.Add(id);
             if (button.Parent is Grid row)
                 _list.Children.Remove(row);
             _found.RemoveAll(i => Text(i, "id") == id); // 2026-11-03 (Т3-04): список и кэш без вернувшегося товара

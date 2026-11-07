@@ -13,6 +13,11 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Упаковки в приёмке: В приёмке (Закупки и Склад → Приёмка) товар можно принимать упаковками; для нового товара есть поштучная продажа.",
+        "Точечное обновление товара: После изменения товар обновляется точечно, склад не перекачивается целиком.",
+        "Склад → Приёмка: В приёмке появились штрихкод и дополнительные колонки.",
+        "Накладная: В режиме правки накладной есть колонка «Наименование».",
+        "Весы Rongta: Цена на этикетке Rongta учитывает настройку «Price point».",
         "Цена продажи в приёмке: Цена продажи при приёмке больше не меняется сама: закупка 40, продажа 60 — остаётся 60. Если сервер пересчитал цену по наценке, касса возвращает введённую вами цену и наценку и сообщает об этом.",
         "Весы «Штрих РС-200»: Главный экран весов собирается автоматически (сценарий самообслуживания), для товаров без фото рисуются картинки-заглушки, есть полные настройки весов в окне с вкладками.",
         "Цены выше 9999,99 на весах: Для весов (Штрих-ПРИНТ, Rongta, Штрих РС-200) цена выше 9999,99 даёт понятное предупреждение вместо неверной цены на этикетке; для Rongta — предупреждение и рекомендуемая структура штрихкода без ограничения суммы; выгрузка, которую весы ещё не приняли, не перезаписывается.",
@@ -210,6 +215,11 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Кабыл алуудагы таңгактар: Кабыл алууда (Сатып алуулар жана Кампа → Кабыл алуу) товарды таңгак менен кабыл алса болот; жаңы товар үчүн даана сатуу бар.",
+        "Товарды чекит жаңыртуу: Өзгөртүүдөн кийин товар чекит жаңыртылат, кампа толугу менен кайра жүктөлбөйт.",
+        "Кампа → Кабыл алуу: Кабыл алууда штрихкод жана кошумча мамычалар пайда болду.",
+        "Накладной: Накладнойду оңдоо режиминде «Аталышы» мамычасы бар.",
+        "Rongta таразасы: Rongta этикеткасындагы баа «Price point» жөндөөсүн эске алат.",
         "Кабыл алуудагы сатуу баасы: Кабыл алууда сатуу баасы эми өзү өзгөрбөйт: сатып алуу 40, сатуу 60 — 60 бойдон калат. Сервер баасын кошумча баа боюнча кайра эсептесе, касса сиз киргизген баа менен кошумча бааны кайтарып, бул тууралуу кабарлайт.",
         "«Штрих РС-200» таразасы: Таразанын башкы экраны автоматтык түрдө курулат (өзүн-өзү тейлөө сценарийи), сүрөтү жок товарларга толтургуч сүрөттөр тартылат, табулуу терезеде таразанын толук жөндөөлөрү бар.",
         "Таразадагы 9999,99дан жогору баалар: Тараза үчүн (Штрих-ПРИНТ, Rongta, Штрих РС-200) 9999,99дан жогору баа этикеткада туура эмес баанын ордуна түшүнүктүү эскертүү берет; Rongta үчүн эскертүү жана суммага чектөөсүз штрихкоддун сунушталган түзүлүшү; таразага али кабыл алынбаган чыгаруу кайра жазылбайт.",
@@ -405,6 +415,11 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Packs in receiving: In receiving (Purchases and Warehouse → Receiving) goods can be received by the pack; a new product can be sold by the piece.",
+        "Targeted product refresh: After a change only that product is refreshed; the warehouse is no longer downloaded in full.",
+        "Warehouse → Receiving: Receiving now has a barcode and extra columns.",
+        "Invoice: A “Name” column is available when editing an invoice.",
+        "Rongta scales: The price on a Rongta label takes the “Price point” setting into account.",
         "Selling price in receiving: The selling price no longer changes by itself when receiving goods: purchase 40, sale 60 stays 60. If the server recalculated the price by markup, the till restores the price and markup you entered and tells you.",
         "“Shtrikh RS-200” scales: The scale's main screen is built automatically (self-service scenario), placeholder pictures are drawn for products without a photo, and there are full scale settings in a tabbed window.",
         "Prices above 9999.99 on scales: For scales (Shtrikh-PRINT, Rongta, Shtrikh RS-200) a price above 9999.99 gives a clear warning instead of a wrong price on the label; for Rongta there is a warning and a recommended barcode structure without the amount limit; an upload the scales have not accepted yet is not overwritten.",
@@ -600,6 +615,11 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Mal kabulünde paketler: Mal kabulünde (Satın alma ve Depo → Mal kabulü) ürün paketle kabul edilebilir; yeni ürün için adetle satış vardır.",
+        "Ürünün tek tek yenilenmesi: Değişiklikten sonra yalnızca o ürün yenilenir; depo baştan indirilmez.",
+        "Depo → Mal kabulü: Mal kabulüne barkod ve ek sütunlar eklendi.",
+        "Fatura: Fatura düzenleme modunda «Ad» sütunu vardır.",
+        "Rongta terazisi: Rongta etiketindeki fiyat «Price point» ayarını dikkate alır.",
         "Mal kabulünde satış fiyatı: Mal kabulünde satış fiyatı artık kendiliğinden değişmez: alış 40, satış 60 ise 60 kalır. Sunucu fiyatı kâr oranına göre yeniden hesaplarsa kasa girdiğiniz fiyatı ve kâr oranını geri yükler ve bunu bildirir.",
         "«Shtrih RS-200» terazisi: Tartının ana ekranı otomatik kurulur (self-servis senaryosu), fotoğrafsız ürünler için yer tutucu resimler çizilir, sekmeli pencerede tam terazi ayarları vardır.",
         "Terazilerde 9999,99 üstü fiyatlar: Teraziler (Shtrih-PRINT, Rongta, Shtrih RS-200) için 9999,99 üstü fiyat, etikette yanlış fiyat yerine anlaşılır bir uyarı verir; Rongta için uyarı ve tutar sınırı olmayan önerilen barkod yapısı vardır; terazinin henüz kabul etmediği yükleme üzerine yazılmaz.",
@@ -795,6 +815,11 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Qabuldagi o'ramlar: Qabulda (Xaridlar va Ombor → Qabul) tovarni o'ram bilan qabul qilish mumkin; yangi tovar uchun donalab sotuv bor.",
+        "Tovarni nuqtali yangilash: O'zgarishdan keyin faqat shu tovar yangilanadi; ombor butunlay qayta yuklanmaydi.",
+        "Ombor → Qabul: Qabulda shtrix-kod va qo'shimcha ustunlar paydo bo'ldi.",
+        "Yuk xati: Yuk xatini tahrirlash rejimida «Nomi» ustuni bor.",
+        "Rongta tarozisi: Rongta yorlig'idagi narx «Price point» sozlamasini hisobga oladi.",
         "Qabuldagi sotuv narxi: Qabulda sotuv narxi endi o'zi o'zgarmaydi: xarid 40, sotuv 60 — 60 bo'lib qoladi. Server narxni ustama bo'yicha qayta hisoblasa, kassa siz kiritgan narx va ustamani qaytaradi va bu haqda xabar beradi.",
         "«Shtrix RS-200» tarozisi: Tarozining bosh ekrani avtomatik quriladi (o'z-o'ziga xizmat ssenariysi), rasmsiz tovarlar uchun to'ldirgich rasmlar chiziladi, ichki oynali oynada tarozining to'liq sozlamalari bor.",
         "Tarozilarda 9999,99 dan yuqori narxlar: Tarozilar (Shtrix-PRINT, Rongta, Shtrix RS-200) uchun 9999,99 dan yuqori narx yorliqda noto'g'ri narx o'rniga tushunarli ogohlantirish beradi; Rongta uchun ogohlantirish va summa cheklovisiz shtrix-kodning tavsiya etilgan tuzilishi bor; tarozi hali qabul qilmagan yuklash ustiga yozilmaydi.",
@@ -995,6 +1020,7 @@ public static class AppChangelog
     // 2026-11-05: 1.17.76 (добавка) — сверху всех Latest* пункты «Весы: единица суммы в штрихкоде» и «Внешние сервисы», сверху AndroidLatest* — «Внешние сервисы».
     // 2026-11-06: 1.17.77 (добавка) — первым пунктом всех Latest* и AndroidLatest* «Загрузка каталога» (срочный фикс Б-1).
     // 2026-11-06: 1.17.77 (добавка 3, тестовый канал) — после пункта «Загрузка каталога» в Latest*: приёмка без связи, «Неотправленное», защита входа, возврат долгового чека, окно оплаты, быстрее запуск, картинки/ИИ, наценка приёмки, программа владельца; в AndroidLatest* — первые шесть.
+    // 2026-11-07: 1.17.82 (тестовый) — сверху всех Latest* 5 пунктов (упаковки в приёмке, точечное обновление товара, Склад → Приёмка, колонка «Наименование» в накладной, цена Rongta), сверху AndroidLatest* — 4 общих.
     // 2026-11-07: 1.17.81 — сверху всех Latest* 11 пунктов (цена приёмки, весы РС-200, цены выше 9999,99, главная касса, удаление товара, «№», Маркетплейс, печать и PDF, этикетки размеров, память, запуск), сверху AndroidLatest* — 8 общих.
     // 2026-11-06: 1.17.79 — сверху всех Latest* 10 пунктов (суммы в программе владельца, оплата долга, ревизия, прокат, смена, запуск и поиск, склад, весы РС-200, программа владельца, просроченный товар), сверху AndroidLatest* — 7 общих.
     // 2026-11-06: 1.17.78 — сверху всех Latest* 7 пунктов (этикетки размеров, весы Штрих РС-200, экран не «прыгает», Склад: код/штрихкод, возврат долгового чека, надёжность, PIN при запуске), сверху AndroidLatest* — 4 общих.
@@ -1044,6 +1070,10 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Упаковки в приёмке: В приёмке (Закупки и Склад → Приёмка) товар можно принимать упаковками; для нового товара есть поштучная продажа.",
+        "Точечное обновление товара: После изменения товар обновляется точечно, склад не перекачивается целиком.",
+        "Склад → Приёмка: В приёмке появились штрихкод и дополнительные колонки.",
+        "Накладная: В режиме правки накладной есть колонка «Наименование».",
         "Цена продажи в приёмке: Цена продажи при приёмке больше не меняется сама: закупка 40, продажа 60 — остаётся 60. Если сервер пересчитал цену по наценке, касса возвращает введённую вами цену и наценку и сообщает об этом.",
         "Новый вид главной кассы: Пилюля смены и компактная шапка, кнопка «Вернуть» после очистки чека, подсветка добавленной строки, на узком окне каталог открывается автосписком.",
         "Удаление товара: Удаление товара — одним окном с последствиями, архив — одним вопросом; аналитика прошлых периодов не теряет удалённый товар.",
@@ -1181,6 +1211,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Кабыл алуудагы таңгактар: Кабыл алууда (Сатып алуулар жана Кампа → Кабыл алуу) товарды таңгак менен кабыл алса болот; жаңы товар үчүн даана сатуу бар.",
+        "Товарды чекит жаңыртуу: Өзгөртүүдөн кийин товар чекит жаңыртылат, кампа толугу менен кайра жүктөлбөйт.",
+        "Кампа → Кабыл алуу: Кабыл алууда штрихкод жана кошумча мамычалар пайда болду.",
+        "Накладной: Накладнойду оңдоо режиминде «Аталышы» мамычасы бар.",
         "Кабыл алуудагы сатуу баасы: Кабыл алууда сатуу баасы эми өзү өзгөрбөйт: сатып алуу 40, сатуу 60 — 60 бойдон калат. Сервер баасын кошумча баа боюнча кайра эсептесе, касса сиз киргизген баа менен кошумча бааны кайтарып, бул тууралуу кабарлайт.",
         "Башкы касса жаңы көрүнүшү: Смена пилюлясы жана ыкчам баш, чек тазаланган соң «Кайтаруу» баскычы, кошулган сапты белгилөө, тар терезеде каталог автотизме болуп ачылат.",
         "Товарды өчүрүү: Товарды өчүрүү — кесепеттери менен бир терезеде, архив — бир суроо менен; өткөн мезгилдердин аналитикасы өчүрүлгөн товарды жоготпойт.",
@@ -1316,6 +1350,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Packs in receiving: In receiving (Purchases and Warehouse → Receiving) goods can be received by the pack; a new product can be sold by the piece.",
+        "Targeted product refresh: After a change only that product is refreshed; the warehouse is no longer downloaded in full.",
+        "Warehouse → Receiving: Receiving now has a barcode and extra columns.",
+        "Invoice: A “Name” column is available when editing an invoice.",
         "Selling price in receiving: The selling price no longer changes by itself when receiving goods: purchase 40, sale 60 stays 60. If the server recalculated the price by markup, the till restores the price and markup you entered and tells you.",
         "New look of the main till screen: A shift pill and a compact header, a “Restore” button after clearing the receipt, a highlight on the added line, and on a narrow window the catalog opens as an automatic list.",
         "Deleting a product: Deleting a product is one window with the consequences, the archive is one question; analytics of past periods no longer loses a deleted product.",
@@ -1451,6 +1489,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Mal kabulünde paketler: Mal kabulünde (Satın alma ve Depo → Mal kabulü) ürün paketle kabul edilebilir; yeni ürün için adetle satış vardır.",
+        "Ürünün tek tek yenilenmesi: Değişiklikten sonra yalnızca o ürün yenilenir; depo baştan indirilmez.",
+        "Depo → Mal kabulü: Mal kabulüne barkod ve ek sütunlar eklendi.",
+        "Fatura: Fatura düzenleme modunda «Ad» sütunu vardır.",
         "Mal kabulünde satış fiyatı: Mal kabulünde satış fiyatı artık kendiliğinden değişmez: alış 40, satış 60 ise 60 kalır. Sunucu fiyatı kâr oranına göre yeniden hesaplarsa kasa girdiğiniz fiyatı ve kâr oranını geri yükler ve bunu bildirir.",
         "Ana kasa ekranının yeni görünümü: Vardiya hapı ve kompakt başlık, fiş temizlendikten sonra «Geri al» düğmesi, eklenen satırın vurgulanması, dar pencerede katalog otomatik liste olarak açılır.",
         "Ürün silme: Ürün silme sonuçlarıyla birlikte tek pencere, arşiv tek soru; geçmiş dönem analitiği silinen ürünü artık kaybetmez.",
@@ -1586,6 +1628,10 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Qabuldagi o'ramlar: Qabulda (Xaridlar va Ombor → Qabul) tovarni o'ram bilan qabul qilish mumkin; yangi tovar uchun donalab sotuv bor.",
+        "Tovarni nuqtali yangilash: O'zgarishdan keyin faqat shu tovar yangilanadi; ombor butunlay qayta yuklanmaydi.",
+        "Ombor → Qabul: Qabulda shtrix-kod va qo'shimcha ustunlar paydo bo'ldi.",
+        "Yuk xati: Yuk xatini tahrirlash rejimida «Nomi» ustuni bor.",
         "Qabuldagi sotuv narxi: Qabulda sotuv narxi endi o'zi o'zgarmaydi: xarid 40, sotuv 60 — 60 bo'lib qoladi. Server narxni ustama bo'yicha qayta hisoblasa, kassa siz kiritgan narx va ustamani qaytaradi va bu haqda xabar beradi.",
         "Asosiy kassa yangi ko'rinishi: Smena tabletkasi va ixcham sarlavha, chek tozalangandan keyin «Qaytarish» tugmasi, qo'shilgan qatorni ajratib ko'rsatish, tor oynada katalog avtoro'yxat bo'lib ochiladi.",
         "Tovarni o'chirish: Tovarni o'chirish — oqibatlari bilan bitta oyna, arxiv — bitta savol; o'tgan davrlar analitikasi o'chirilgan tovarni yo'qotmaydi.",

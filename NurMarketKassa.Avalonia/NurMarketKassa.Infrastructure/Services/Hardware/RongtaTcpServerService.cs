@@ -110,12 +110,13 @@ public static class RongtaTcpServerService
         foreach (var product in products)
         {
             // 2026-11-06: цена выше предела поля — не загружаем и не обрезаем молча.
-            if (!ScalePriceLimits.Fits((decimal)product.PriceSom, ScalePriceLimits.RongtaRlsMaxUnits, 2))
+            var pricePoint = Math.Clamp(UserPreferences.Instance.RongtaPricePoint, 0, 3); // 2026-11-07: «Price point» весов из настройки
+            if (!ScalePriceLimits.Fits((decimal)product.PriceSom, ScalePriceLimits.RongtaRlsMaxUnits, pricePoint))
             {
-                skipped.Add($"«{product.Name}»: " + ScalePriceLimits.DoesNotFitText((decimal)product.PriceSom, ScalePriceLimits.RongtaRlsMaxUnits, 2));
+                skipped.Add($"«{product.Name}»: " + ScalePriceLimits.DoesNotFitText((decimal)product.PriceSom, ScalePriceLimits.RongtaRlsMaxUnits, pricePoint));
                 continue;
             }
-            var packet = RongtaTcpProtocol.BuildPluRecord(product.Plu, product.Name, product.PriceSom);
+            var packet = RongtaTcpProtocol.BuildPluRecord(product.Plu, product.Name, product.PriceSom, '4', pricePoint);
             await WriteAsync(stream, packet, ct).ConfigureAwait(false);
             sent++;
         }

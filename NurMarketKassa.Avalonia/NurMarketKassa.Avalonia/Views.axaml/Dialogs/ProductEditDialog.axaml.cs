@@ -123,6 +123,9 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
     public bool Saved { get; private set; }
     /// <summary>2026-11-03 (ревью Н-2): запись карточки ещё идёт на сервере (ждали дольше 8 с) — итог придёт плашкой.</summary>
     public bool SavePending { get; private set; }
+    /// <summary>2026-11-07 («при каждом изменении товара весь склад загружается заново»): код сохранённого товара на сервере (правка — его id, создание — id из ответа сервера) —
+    /// по нему окно обновляет в каталоге только этот товар (CatalogCacheService.RefreshProductsAsync), а не весь каталог. null — товар записан только локально (нет связи / в очереди).</summary>
+    public string? SavedProductId { get; private set; }
 
     /// <summary>2026-09-07, по просьбе пользователя: при добавлении товара по неизвестному
     /// штрихкоду со сканера форма показывает только название/штрихкод/остаток/цены — остальное

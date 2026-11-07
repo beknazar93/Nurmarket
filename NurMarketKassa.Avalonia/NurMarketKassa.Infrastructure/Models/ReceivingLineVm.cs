@@ -121,8 +121,11 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                 if (!_inTextSet) _quantityRaw = null;
                 OnPropertyChanged(nameof(LineTotal));
                 OnPropertyChanged(nameof(QuantityText));
+                OnPropertyChanged(nameof(QtyInputText)); // 2026-11-07: таблица Склада читает «Принимаем» через QtyInputText (упаковки или штуки)
                 OnPropertyChanged(nameof(PriceProblemText)); // 2026-10-31: пояснение «больше 3 знаков» зависит от самого количества
                 OnPropertyChanged(nameof(LowMarginText));
+                if (_packMode && !_inPackCalc)
+                    SyncPackFromQuantity(); // 2026-11-07: штуки поменяли снаружи (повторный скан +1, «Обнулить») — число упаковок следует за ними
             }
         }
     }
@@ -155,7 +158,10 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                 if (!_inTextSet) _purchaseRaw = null;
                 OnPropertyChanged(nameof(LineTotal));
                 OnPropertyChanged(nameof(PurchasePriceText));
+                OnPropertyChanged(nameof(PurchaseInputText)); // 2026-11-07: «Закупка» таблицы Склада — за упаковку или за штуку
                 NotifyPricing();
+                if (_packMode && !_inPackCalc)
+                    SyncPackPriceFromPurchase(); // 2026-11-07: цену за штуку поставили снаружи (поставщик, заказ) — цена упаковки следует за ней
             }
         }
     }
@@ -244,6 +250,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     public void CommitText()
     {
         _quantityRaw = _purchaseRaw = _saleRaw = _markupRaw = null;
+        _packCountRaw = _piecesRaw = _packPriceRaw = null; // 2026-11-07: то же для полей упаковок
         if (_priceProblem is not null)
         {
             _priceProblem = null;
@@ -254,6 +261,9 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         OnPropertyChanged(nameof(PurchasePriceText));
         OnPropertyChanged(nameof(SalePriceText));
         OnPropertyChanged(nameof(MarkupText));
+        OnPropertyChanged(nameof(QtyInputText));
+        OnPropertyChanged(nameof(PiecesInputText));
+        OnPropertyChanged(nameof(PurchaseInputText));
     }
 
     /// <summary>Ввод закупки руками: значение; с автонаценкой (строка в режиме «авто») цена продажи пересчитывается.</summary>
@@ -266,6 +276,436 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
             _purchaseManual = true; // 2026-11-06: цену закупки вписали руками — при смене поставщика её не подменяем
             ApplyAutoSale();
         }
+    }
+
+    // ------------------------------------------------------------------ 2026-11-07: «Принять упаковками»
+    // Главные значения строки остаются прежними и ВСЕГДА в штуках: Quantity = штуки, PurchasePrice = цена ЗА ШТУКУ (до 4 знаков) — их читают проведение, очередь
+    // «Неотправленное», накладная, итоги, этикетки, цена продажи и наценка. Режим упаковок только ВВОДИТ их иначе: упаковок × штук в упаковке → Quantity,
+    // цена упаковки ÷ штук в упаковке → PurchasePrice (расчёты — ReceivingPacks). Выключили режим — штуки и цена за штуку остаются как были.
+
+    private bool _packMode, _packPriceTyped, _inPackCalc;
+    private double _packCount, _piecesPerPack, _packPrice;
+    // 2026-11-07: вариант «упаковка с поштучной продажей» (_packSale при _packMode): на склад идут УПАКОВКИ (Quantity = упаковки, PurchasePrice = цена упаковки, SalePrice = цена упаковки),
+    // а в карточку НОВОГО товара при создании пишется упаковка (packages_input: штук в упаковке, цена штуки = цена продажи упаковки ÷ штук — как «Поштучная продажа» в карточке товара).
+    private bool _packSale;
+    private string? _packCountRaw, _piecesRaw, _packPriceRaw; // сырой набранный текст полей таблицы Склада (как _quantityRaw)
+
+    /// <summary>Строка принимается упаковками (поля «упаковок», «шт в упаковке», «цена за упаковку»).</summary>
+    public bool PackMode => _packMode;
+
+    /// <summary>Сколько упаковок.</summary>
+    public double PackCount => _packCount;
+
+    /// <summary>Сколько штук в одной упаковке (0 — не задано).</summary>
+    public double PiecesPerPack => _piecesPerPack;
+
+    /// <summary>Цена закупки ЗА УПАКОВКУ, как её ввели.</summary>
+    public double PackPrice => _packPrice;
+
+    /// <summary>Режим включён, а сколько штук в упаковке не знаем — строку нельзя проводить (PurchaseReceivingService.Validate).</summary>
+    public bool PackNeedsSize => _packMode && _piecesPerPack <= 0;
+
+    // Пока размер упаковки не задан, число упаковок считается штуками (множитель 1): строка остаётся «активной» (Quantity > 0), и проверка перед проведением скажет, чего не хватает.
+    // В варианте «поштучная продажа» склад ведёт упаковки: множителя нет (упаковки = Quantity).
+    private double PackFactor => _packSale ? 1 : _piecesPerPack > 0 ? _piecesPerPack : 1;
+
+    /// <summary>Строка принимается упаковкой с поштучной продажей (на склад — упаковки, в карточку нового товара — упаковка с N штук).</summary>
+    public bool PackSale => _packMode && _packSale;
+
+    /// <summary>Сколько штук в упаковке, которую заведут в карточку нового товара (0 — строка не в этом варианте). Читают очередь приходов и создание товара.</summary>
+    public double PackSaleSize => PackSale ? _piecesPerPack : 0;
+
+    /// <summary>Вариант «поштучная продажа» разрешён только для НОВОГО товара (создаётся при проведении, остатка нет): у существующего товара остаток в штуках — смена единицы
+    /// остатка на «упаковки» исказила бы склад. Весовой товар и строка с размерами — тоже нет (в карточке поштучная продажа только у штучного товара без размеров).</summary>
+    public bool CanPackSale => Source == ReceivingSource.Unknown && !IsWeight && VariantQuantities is not { Count: > 0 };
+
+    /// <summary>Почему «поштучная продажа» недоступна (показывается у пункта меню).</summary>
+    public static string PackSaleBlockedText => NurMarketKassa.Services.Tr.T(
+        "Только для НОВОГО товара: у товара с остатком смена единицы остатка («упаковки») исказит склад. Поштучную продажу включите в карточке товара.",
+        "Жаңы товар үчүн гана: калдыгы бар товарда калдык бирдигин («таңгак») алмаштыруу кампаны бузат. Даана менен сатууну товардын картасынан иштетиңиз.",
+        "Only for a NEW product: for a product with stock, changing the stock unit (“packs”) would distort the warehouse. Enable piece sale in the product card.",
+        "Yalnızca YENİ ürün için: stoklu üründe stok birimini («koli») değiştirmek depoyu bozar. Adetli satışı ürün kartında açın.",
+        "Faqat YANGI mahsulot uchun: qoldig'i bor mahsulotda qoldiq birligini («qadoq») almashtirish omborni buzadi. Donalab sotishni mahsulot kartasida yoqing.");
+
+    private double PackPriceOfPurchase() => _packSale ? PurchasePrice : _piecesPerPack > 0 ? NurMarketKassa.Services.ReceivingPacks.PackPriceFromPiece(PurchasePrice, _piecesPerPack) : 0;
+
+    /// <summary>Включить/выключить режим. <paramref name="suggestedPiecesPerPack"/> — размер упаковки из памяти кассы (ReceivingPackSizes), если свой ещё не вводили.
+    /// При включении число штук, оставшееся от сканирования («1»), становится ОДНОЙ упаковкой; любое другое число штук остаётся и пересчитывается в упаковки.
+    /// Цена за штуку при включении не меняется: цена упаковки = цена за штуку × штук в упаковке.</summary>
+    public void SetPackMode(bool on, double suggestedPiecesPerPack = 0)
+    {
+        if (_packSale)
+            LeavePackSale(); // из «поштучной продажи» — сначала обратно в штуки (количество и цены пересчитываются), затем обычная логика
+        if (on == _packMode)
+            return;
+        if (!on)
+        {
+            _packMode = false;
+            NotifyPack();
+            return;
+        }
+        if (_piecesPerPack <= 0 && suggestedPiecesPerPack > 0 && suggestedPiecesPerPack < 1e9)
+            _piecesPerPack = suggestedPiecesPerPack;
+        _packMode = true;
+        _packPriceTyped = false;
+        if (_piecesPerPack > 0 && Quantity == 1)
+        {
+            _packCount = 1;
+            RecalcQuantity();
+        }
+        else
+            _packCount = NurMarketKassa.Services.ReceivingPacks.PacksFromPieces(Quantity, PackFactor);
+        _packPrice = PackPriceOfPurchase();
+        _packCountRaw = _piecesRaw = _packPriceRaw = null;
+        NotifyPack();
+    }
+
+    /// <summary>Включить/выключить вариант «упаковка с поштучной продажей». Включить можно только у НОВОГО товара (<see cref="CanPackSale"/>) — иначе false, ничего не меняется.
+    /// Из обычного ввода «упаковками» (в штуки) переход пересчитывает: упаковки → Quantity, цена упаковки → закупка, цена продажи штуки × штук → цена продажи упаковки; из «штук» — числа остаются
+    /// как введены (вводят уже упаковки и цену за упаковку). Выключение — обратно в штуки (упаковки × штук, цены ÷ штук).</summary>
+    public bool SetPackSale(bool on, double suggestedPiecesPerPack = 0)
+    {
+        if (on == PackSale)
+            return true;
+        if (!on)
+        {
+            LeavePackSale();
+            return true;
+        }
+        if (!CanPackSale)
+            return false;
+        var wasPieces = _packMode;
+        var packs = wasPieces ? _packCount : Quantity;
+        var packPrice = wasPieces ? _packPrice : PurchasePrice;
+        var per = _piecesPerPack;
+        var sale = SalePrice;
+        if (!wasPieces && per <= 0 && suggestedPiecesPerPack > 0 && suggestedPiecesPerPack < 1e9)
+            per = suggestedPiecesPerPack;
+        _piecesPerPack = per;
+        _packMode = true;
+        _packSale = true;
+        _packPriceTyped = false;
+        _packCountRaw = _piecesRaw = _packPriceRaw = null;
+        _inPackCalc = true;
+        try
+        {
+            Quantity = packs;
+            if (wasPieces)
+            {
+                if (packPrice > 0 && per > 0)
+                    PurchasePrice = packPrice;
+                if (per > 0 && sale > 0)
+                    SalePrice = Math.Round(sale * per, 2, MidpointRounding.AwayFromZero); // цена продажи ШТУКИ → цена продажи УПАКОВКИ
+            }
+        }
+        finally
+        {
+            _inPackCalc = false;
+        }
+        _packCount = Quantity;
+        _packPrice = PurchasePrice;
+        if (wasPieces)
+            ApplyAutoSale();
+        NotifyPack();
+        return true;
+    }
+
+    /// <summary>Выйти из «поштучной продажи» в обычные штуки: упаковки × штук в упаковке, цена закупки и продажи упаковки ÷ штук. Размер упаковки неизвестен — числа остаются.</summary>
+    private void LeavePackSale()
+    {
+        if (!_packSale)
+            return;
+        var per = _piecesPerPack;
+        _packSale = false;
+        _packMode = false;
+        _packCountRaw = _piecesRaw = _packPriceRaw = null;
+        if (per > 0)
+        {
+            var sale = SalePrice;
+            Quantity = NurMarketKassa.Services.ReceivingPacks.Pieces(Quantity, per);
+            PurchasePrice = NurMarketKassa.Services.ReceivingPacks.PiecePrice(PurchasePrice, per);
+            if (sale > 0)
+                SalePrice = Math.Round(sale / per, 2, MidpointRounding.AwayFromZero);
+            ApplyAutoSale();
+        }
+        NotifyPack();
+    }
+
+    /// <summary>Ввод «упаковок»: штуки пересчитываются.</summary>
+    public void SetPackCount(double packs)
+    {
+        _packCount = packs > 0 ? packs : 0;
+        RecalcQuantity();
+        NotifyPack();
+    }
+
+    /// <summary>Ввод «штук в упаковке»: штуки пересчитываются; цена за штуку — если цену упаковки вводили, от неё, иначе остаётся, а цена упаковки следует за ней.</summary>
+    public void SetPiecesPerPack(double perPack)
+    {
+        _piecesPerPack = perPack > 0 && perPack < 1e9 ? perPack : 0;
+        RecalcQuantity();
+        var before = PurchasePrice;
+        if (_packPriceTyped)
+            RecalcPurchase();
+        else
+            _packPrice = PackPriceOfPurchase();
+        if (Math.Abs(PurchasePrice - before) > 1e-9)
+            ApplyAutoSale();
+        NotifyPack();
+    }
+
+    /// <summary>Ввод «цены за упаковку» (текстом, как остальные цены: запятая/точка, до 4 знаков): цена за штуку = упаковка ÷ штук в упаковке; с автонаценкой цена продажи пересчитывается.</summary>
+    public void SetPackPriceText(string? text)
+    {
+        var before = PurchasePrice;
+        SetPriceFromText(text, NurMarketKassa.Services.ReceivingPricing.PurchaseDecimals, v =>
+        {
+            _packPrice = v;
+            _packPriceTyped = true;
+            _purchaseManual = true; // цену вписали руками — при смене поставщика её не подменяем
+            RecalcPurchase();
+        }, nameof(PackPrice), r => _packPriceRaw = r);
+        if (Math.Abs(PurchasePrice - before) > 1e-9)
+            ApplyAutoSale();
+        NotifyPack();
+    }
+
+    private void RecalcQuantity()
+    {
+        _inPackCalc = true;
+        try
+        {
+            Quantity = NurMarketKassa.Services.ReceivingPacks.Pieces(_packCount, PackFactor);
+        }
+        finally
+        {
+            _inPackCalc = false;
+        }
+    }
+
+    private void RecalcPurchase()
+    {
+        if (_packSale)
+        {
+            // поштучная продажа: склад ведёт упаковки — закупка и есть цена упаковки, делить не на что
+            _inPackCalc = true;
+            try
+            {
+                PurchasePrice = _packPrice;
+            }
+            finally
+            {
+                _inPackCalc = false;
+            }
+            return;
+        }
+        if (_piecesPerPack <= 0)
+            return; // размера упаковки нет — цену за штуку считать нечем, прежняя остаётся (строку не проведут, пока размер не введён)
+        _inPackCalc = true;
+        try
+        {
+            PurchasePrice = NurMarketKassa.Services.ReceivingPacks.PiecePrice(_packPrice, _piecesPerPack);
+        }
+        finally
+        {
+            _inPackCalc = false;
+        }
+    }
+
+    private void SyncPackFromQuantity()
+    {
+        _packCount = NurMarketKassa.Services.ReceivingPacks.PacksFromPieces(Quantity, PackFactor);
+        NotifyPack();
+    }
+
+    private void SyncPackPriceFromPurchase()
+    {
+        _packPriceTyped = false;
+        _packPrice = PackPriceOfPurchase();
+        NotifyPack();
+    }
+
+    /// <summary>Подпись под числом упаковок: «5 × 24 = 120 шт.» (или «укажите, сколько штук в упаковке»).</summary>
+    public string PackNote
+    {
+        get
+        {
+            if (!_packMode)
+                return "";
+            if (_piecesPerPack <= 0)
+                return NurMarketKassa.Services.Tr.T("укажите, сколько штук в упаковке", "таңгакта канча дана экенин жазыңыз", "enter how many pieces are in a pack", "kolide kaç adet olduğunu girin", "qadoqda nechta dona borligini kiriting");
+            static string N(double v) => v.ToString("0.#########", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',');
+            if (_packSale)
+                return Quantity > 0 ? N(_packCount) + " × " + N(_piecesPerPack) + " = " + N(NurMarketKassa.Services.ReceivingPacks.Pieces(_packCount, _piecesPerPack)) + " " + NurMarketKassa.Services.UnitCatalog.Display(Unit) : ""; // остаток — в упаковках, штуки лишь для показа
+            return Quantity > 0 ? N(_packCount) + " × " + N(_piecesPerPack) + " = " + N(Quantity) + " " + NurMarketKassa.Services.UnitCatalog.Display(Unit) : ""; // «5 × 24 = 120 шт.»
+        }
+    }
+
+    /// <summary>Короткая подпись под числом упаковок в узкой ячейке таблицы Склада: «× 24 = 120 шт.» (поштучная продажа: «по 24 шт»); нет размера — «укажите, сколько штук в упаковке».</summary>
+    public string PackShortNote
+    {
+        get
+        {
+            if (!_packMode)
+                return "";
+            if (_piecesPerPack <= 0)
+                return PackNote;
+            static string N(double v) => v.ToString("0.#########", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',');
+            var unit = NurMarketKassa.Services.UnitCatalog.Display(Unit);
+            if (_packSale)
+                return NurMarketKassa.Services.Tr.T($"по {N(_piecesPerPack)} {unit}", $"ар бири {N(_piecesPerPack)} {unit}", $"{N(_piecesPerPack)} {unit} each", $"her biri {N(_piecesPerPack)} {unit}", $"har biri {N(_piecesPerPack)} {unit}");
+            return Quantity > 0 ? "× " + N(_piecesPerPack) + " = " + N(Quantity) + " " + unit : "";
+        }
+    }
+
+    private double? _cardPackSize;
+
+    /// <summary>У товара в каталоге уже есть «поштучная продажа из упаковки» — штук в упаковке (0 — нет). Склад ведёт такой товар упаковками: «Принимаем» и закупка у него и так за упаковку,
+    /// режим «упаковками» не предлагается, только подсказка «упак. = N шт». Читается из каталога один раз на строку.</summary>
+    public double CardPackSize => string.IsNullOrEmpty(_productId) ? 0 : _cardPackSize ??= NurMarketKassa.Services.ReceivingPacks.PieceOptionSize(this);
+
+    /// <summary>Подпись-ссылка нажимается (у товара с упаковкой в карточке — это просто подсказка).</summary>
+    public bool PackLinkClickable => CardPackSize <= 0;
+
+    /// <summary>Подпись-ссылка под «Принимаем» в таблице Склада: какой способ приёмки включён (нажатие открывает выбор).</summary>
+    public string PackLinkText => CardPackSize > 0
+        ? NurMarketKassa.Services.Tr.T($"упак. = {CardPackSize:0.###} шт", $"таңгак = {CardPackSize:0.###} даана", $"pack = {CardPackSize:0.###} pcs", $"koli = {CardPackSize:0.###} adet", $"qadoq = {CardPackSize:0.###} dona")
+        : _packSale
+        ? NurMarketKassa.Services.Tr.T("упак. + поштучно ▾", "таңгак + даана ▾", "pack + pieces ▾", "koli + adet ▾", "qadoq + dona ▾")
+        : _packMode
+            ? NurMarketKassa.Services.Tr.T("упак. → штуки ▾", "таңгак → даана ▾", "packs → pcs ▾", "koli → adet ▾", "qadoq → dona ▾")
+            : NurMarketKassa.Services.Tr.T("упаковками ▾", "таңгак менен ▾", "by packs ▾", "kolilerle ▾", "qadoq bilan ▾");
+
+    /// <summary>Короткая подпись-ссылка для узкой ячейки таблицы Склада (колонка «Принимаем» 96 px): «упак. ▾» / «упак.→шт ▾» / «упак.+шт ▾». Подробно — <see cref="PackLinkHint"/>.</summary>
+    public string PackLinkShort => CardPackSize > 0
+        ? PackLinkText
+        : _packSale
+            ? NurMarketKassa.Services.Tr.T("упак.+шт ▾", "таңгак+дн ▾", "pack+pcs ▾", "koli+adt ▾", "qadoq+dn ▾")
+            : _packMode
+                ? NurMarketKassa.Services.Tr.T("упак.→шт ▾", "таңгак→дн ▾", "packs→pcs ▾", "koli→adt ▾", "qadoq→dn ▾")
+                : NurMarketKassa.Services.Tr.T("упак. ▾", "таңгак ▾", "packs ▾", "koli ▾", "qadoq ▾");
+
+    /// <summary>Подсказка к подписи-ссылке: что включено и что будет на складе.</summary>
+    public string PackLinkHint => CardPackSize > 0
+        ? NurMarketKassa.Services.Tr.T($"Склад ведёт этот товар упаковками (в упаковке {CardPackSize:0.###} шт): «Принимаем» и закупка — за упаковку.", $"Кампа бул товарды таңгак менен жүргүзөт (таңгакта {CardPackSize:0.###} даана): «Кабыл алабыз» жана баасы — таңгак үчүн.",
+            $"The warehouse keeps this product in packs ({CardPackSize:0.###} pcs each): “Receiving” and the purchase price are per pack.", $"Depo bu ürünü koli ile tutar (kolide {CardPackSize:0.###} adet): «Alınıyor» ve alış fiyatı koli başınadır.", $"Ombor bu mahsulotni qadoq bilan yuritadi (qadoqda {CardPackSize:0.###} dona): «Qabul qilinadi» va xarid narxi qadoq uchun.")
+        : _packSale
+            ? NurMarketKassa.Services.Tr.T("Упаковка с поштучной продажей: на склад идут УПАКОВКИ, новый товар заводится с упаковкой. Закупка и цена продажи — за упаковку. Нажмите, чтобы сменить способ.",
+                "Даана менен сатылуучу таңгак: кампага ТАҢГАКТАР барат, жаңы товар таңгак менен түзүлөт. Сатып алуу жана сатуу баасы — таңгак үчүн. Ыкманы өзгөртүү үчүн басыңыз.",
+                "Pack with single-piece sale: the warehouse gets PACKS, the new product is created with a pack. Purchase and sale price — per pack. Press to change.",
+                "Adetli satışlı koli: depoya KOLİLER gider, yeni ürün koli ile oluşturulur. Alış ve satış fiyatı — koli başına. Değiştirmek için basın.",
+                "Donalab sotiladigan qadoq: omborga QADOQLAR boradi, yangi mahsulot qadoq bilan yaratiladi. Xarid va sotuv narxi — qadoq uchun. O'zgartirish uchun bosing.")
+            : _packMode
+                ? NurMarketKassa.Services.Tr.T("Упаковками → на склад штуки: вводите упаковки, штук в упаковке и цену за упаковку — на склад уйдут штуки и цена за штуку. Нажмите, чтобы сменить способ.",
+                    "Таңгак менен → кампага даана: таңгакты, таңгактагы даананы жана таңгактын баасын киргизиңиз — кампага даана жана даанасынын баасы барат. Ыкманы өзгөртүү үчүн басыңыз.",
+                    "By packs → pieces to stock: enter packs, pieces per pack and the price per pack — the warehouse gets pieces and the price per piece. Press to change.",
+                    "Kolilerle → depoya adet: koli sayısını, koli başına adedi ve koli fiyatını girin — depoya adet ve adet fiyatı gider. Değiştirmek için basın.",
+                    "Qadoq bilan → omborga dona: qadoq sonini, qadoqdagi donani va qadoq narxini kiriting — omborga dona va dona narxi boradi. O'zgartirish uchun bosing.")
+                : NurMarketKassa.Services.Tr.T("Способ приёмки: в штуках (как сейчас), упаковками (на склад штуки) или упаковка с поштучной продажей (новый товар). Нажмите, чтобы выбрать.",
+                    "Кабыл алуу ыкмасы: даана менен (азыркыдай), таңгак менен (кампага даана) же даана менен сатылуучу таңгак (жаңы товар). Тандоо үчүн басыңыз.",
+                    "How to receive: in pieces (as now), by packs (pieces to stock) or a pack with single-piece sale (new product). Press to choose.",
+                    "Kabul yolu: adetle (şimdiki gibi), kolilerle (depoya adet) veya adetli satışlı koli (yeni ürün). Seçmek için basın.",
+                    "Qabul usuli: donalab (hozirgidek), qadoq bilan (omborga dona) yoki donalab sotiladigan qadoq (yangi mahsulot). Tanlash uchun bosing.");
+
+    /// <summary>Красная короткая пометка под суммой: «вместо 99 999,90» — упаковка не делится ровно (подробно — <see cref="PackLossText"/>).</summary>
+    public string PackLossShort
+    {
+        get
+        {
+            if (!_packMode || _packSale || !NurMarketKassa.Services.ReceivingPacks.HasRoundingLoss(_packCount, _piecesPerPack, _packPrice))
+                return "";
+            var exact = NurMarketKassa.Services.MoneyText.Amount(NurMarketKassa.Services.ReceivingPacks.PackTotal(_packCount, _packPrice));
+            return NurMarketKassa.Services.Tr.T($"вместо {exact}", $"{exact} ордуна", $"instead of {exact}", $"{exact} yerine", $"{exact} o'rniga");
+        }
+    }
+
+    /// <summary>Ввод «Принимаем» в таблице Склада: в режиме упаковок — число упаковок, иначе количество (штуки). Хранит набранный текст до выхода из ячейки.</summary>
+    public string QtyInputText
+    {
+        get => !_packMode ? QuantityText : _packCountRaw ?? _packCount.ToString("0.#########", System.Globalization.CultureInfo.InvariantCulture);
+        set
+        {
+            if (!_packMode)
+            {
+                QuantityText = value;
+                return;
+            }
+            _packCountRaw = (value ?? "").Trim();
+            if (_packCountRaw.Length == 0)
+                SetPackCount(0);
+            else if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(_packCountRaw, out var v) && v >= 0)
+                SetPackCount(v);
+            OnPropertyChanged(nameof(QtyInputText));
+        }
+    }
+
+    /// <summary>Ввод «шт в упак.» в таблице Склада (пусто — не задано).</summary>
+    public string PiecesInputText
+    {
+        get => _piecesRaw ?? (_piecesPerPack > 0 ? _piecesPerPack.ToString("0.#########", System.Globalization.CultureInfo.InvariantCulture) : "");
+        set
+        {
+            _piecesRaw = (value ?? "").Trim();
+            if (_piecesRaw.Length == 0)
+                SetPiecesPerPack(0);
+            else if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(_piecesRaw, out var v) && v >= 0)
+                SetPiecesPerPack(v);
+            OnPropertyChanged(nameof(PiecesInputText));
+        }
+    }
+
+    /// <summary>Ввод «Закупка» в таблице Склада: в режиме упаковок — цена за упаковку, иначе цена за штуку.</summary>
+    public string PurchaseInputText
+    {
+        get => !_packMode ? PurchasePriceText : _packPriceRaw ?? FormatPrice(_packPrice);
+        set
+        {
+            if (_packMode)
+                SetPackPriceText(value);
+            else
+                PurchasePriceText = value;
+            OnPropertyChanged(nameof(PurchaseInputText));
+        }
+    }
+
+    /// <summary>Подпись под ценой упаковки: «за упак. · 33,3333 за шт» — сколько уйдёт на склад и в сервер ценой за штуку.</summary>
+    public string PackPriceNote
+    {
+        get
+        {
+            if (!_packMode)
+                return "";
+            if (_piecesPerPack <= 0 || PurchasePrice <= 0)
+                return NurMarketKassa.Services.Tr.T("цена за упаковку", "таңгактын баасы", "price per pack", "koli fiyatı", "qadoq narxi");
+            var piece = (_packSale ? NurMarketKassa.Services.ReceivingPacks.PiecePrice(PurchasePrice, _piecesPerPack) : PurchasePrice).ToString("0.00##", RuCulture); // 2026-11-07: «поштучная продажа» — цена за штуку считается для показа
+            return NurMarketKassa.Services.Tr.T($"за упак. · {piece} за шт", $"таңгак үчүн · даанасы {piece}", $"per pack · {piece} per piece", $"koli başına · adedi {piece}", $"qadoq uchun · donasi {piece}");
+        }
+    }
+
+    /// <summary>Красная пометка: упаковка не делится ровно, цена за штуку округлена до 4 знаков и сумма строки стала отличаться от «упаковки × цена упаковки» (пусто, если всё сходится).</summary>
+    public string PackLossText => _packMode && !_packSale ? NurMarketKassa.Services.ReceivingPacks.LossText(_packCount, _piecesPerPack, _packPrice) : "";
+
+    private void NotifyPack()
+    {
+        OnPropertyChanged(nameof(PackSale));
+        OnPropertyChanged(nameof(PackSaleSize));
+        OnPropertyChanged(nameof(CanPackSale));
+        OnPropertyChanged(nameof(PackShortNote));
+        OnPropertyChanged(nameof(PackLinkText));
+        OnPropertyChanged(nameof(PackLinkShort));
+        OnPropertyChanged(nameof(PackLinkHint));
+        OnPropertyChanged(nameof(PackLossShort));
+        OnPropertyChanged(nameof(QtyInputText));
+        OnPropertyChanged(nameof(PiecesInputText));
+        OnPropertyChanged(nameof(PurchaseInputText));
+        OnPropertyChanged(nameof(PackMode));
+        OnPropertyChanged(nameof(PackCount));
+        OnPropertyChanged(nameof(PiecesPerPack));
+        OnPropertyChanged(nameof(PackPrice));
+        OnPropertyChanged(nameof(PackNeedsSize));
+        OnPropertyChanged(nameof(PackNote));
+        OnPropertyChanged(nameof(PackPriceNote));
+        OnPropertyChanged(nameof(PackLossText));
     }
 
     // ------------------------------------------------------------------ 2026-11-06: цена закупки по умолчанию (поставщик → карточка → 0)

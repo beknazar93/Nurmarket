@@ -404,6 +404,7 @@ public partial class ProductEditDialog
                 // итог придёт плашкой, каталог обновится сам по окончании. Раньше «Сохранить» была серой до ~110 с.
                 var updateId = _existing.Id;
                 var write = await ServerAnswerWait.ForegroundWriteAsync("products/update", t => _catalogApi.UpdateProductAsync(updateId, request, t)).ConfigureAwait(true);
+                SavedProductId = updateId; // 2026-11-07: склад обновит в каталоге только этот товар (без полной загрузки)
                 if (write.Pending)
                 {
                     var pendingName = request.Name;
@@ -413,7 +414,7 @@ public partial class ProductEditDialog
                         if (done.IsCompletedSuccessfully)
                         {
                             prompts?.ShowToast(Tr.T($"Товар «{pendingName}» сохранён.", $"«{pendingName}» товары сакталды.", $"Product “{pendingName}” saved.", $"«{pendingName}» ürünü kaydedildi.", $"«{pendingName}» mahsuloti saqlandi."));
-                            _ = CatalogCacheService.RefreshFromApiAsync();
+                            _ = CatalogCacheService.RefreshProductsAsync([updateId]); // 2026-11-07: только этот товар, не весь каталог
                         }
                         else
                         {
@@ -477,6 +478,8 @@ public partial class ProductEditDialog
             var created = await _catalogApi.CreateProductAsync(request, cts.Token).ConfigureAwait(true);
             var realId = ProductCatalogMapper.TryId(created) ?? Guid.NewGuid().ToString("N");
             LocalProductEditor.SaveLocally(request, realId, created); // 2026-11-06 (Б-4): код товара, фото и is_weight — из ответа сервера
+            if (ProductCatalogMapper.TryId(created) is { Length: > 0 } serverId)
+                SavedProductId = serverId; // 2026-11-07: склад обновит в каталоге только этот товар
         }
         catch (Exception ex) when (ex is OperationCanceledException or HttpRequestException or ApiException { StatusCode: 408 or 502 or 503 or 504 or (>= 520 and <= 524) })
         {

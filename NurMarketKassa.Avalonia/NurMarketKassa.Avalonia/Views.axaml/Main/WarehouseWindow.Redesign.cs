@@ -117,7 +117,8 @@ public partial class WarehouseWindow
             var dialog = new NurMarketKassa.AvaloniaHost.Views.Dialogs.ArchivedProductsDialog(archiveApi, canRestore);
             if (await dialog.ShowDialog<bool>(this).ConfigureAwait(true))
             {
-                await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
+                // 2026-11-07 («при каждом изменении товара весь склад загружается заново»): только вернувшиеся из архива товары, без полной загрузки каталога.
+                await CatalogCacheService.RefreshProductsAsync(dialog.RestoredIds).ConfigureAwait(true);
                 await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
             }
         };

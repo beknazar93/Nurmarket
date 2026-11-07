@@ -1006,6 +1006,10 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     /// <summary>2026-10-29 (спека Fable): подтверждение перед «Провести», если у строк цена продажи ниже закупки. Без обработчика — без вопроса. false — приёмка не проводится.</summary>
     public Func<IReadOnlyList<ReceivingLineVm>, Task<bool>>? ConfirmBelowCost { get; set; }
 
+    /// <summary>2026-11-07 («поштучная продажа» в приёмке): перед «Провести», если есть строки «упаковка с поштучной продажей», — «Товар будет вестись упаковками по N шт, остаток — в упаковках.
+    /// Продолжить?» со списком. Без обработчика такие строки НЕ проводятся (меняется единица остатка товара — молча нельзя). false — приёмка не проводится.</summary>
+    public Func<IReadOnlyList<ReceivingLineVm>, Task<bool>>? ConfirmPackSale { get; set; }
+
     /// <summary>2026-11-06 (жалоба «Орук маркет»): у строк нет цены продажи — окно «У N позиций нет цены продажи» (цена/наценка, «Оставить без цены», «Отмена»). Задаёт окно приёмки.
     /// false — приём не проводится. Без обработчика (другие окна) цена продажи, как раньше, обязательна: программа сама ничего не придумывает.</summary>
     public Func<IReadOnlyList<ReceivingLineVm>, Task<bool>>? ConfirmMissingSalePrices { get; set; }
@@ -1260,6 +1264,19 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             return;
         }
 
+        // 2026-11-07: «упаковка с поштучной продажей» — товар заводится с упаковкой и остатком в упаковках: явное подтверждение, без него не проводим.
+        if (lines.Where(l => l.PackSale).ToList() is { Count: > 0 } packSaleLines)
+        {
+            if (ConfirmPackSale is not { } askPackSale)
+            {
+                _prompts?.ShowWarning(Tr.T("Упаковку с поштучной продажей нельзя провести без подтверждения — откройте приёмку в окне «Склад».", "Даана менен сатылуучу таңгакты ырастоосуз өткөрүүгө болбойт — кабыл алууну «Кампа» терезесинде ачыңыз.",
+                    "A pack with single-piece sale can't be posted without confirmation — open receiving in the Warehouse window.", "Adetli satışlı koli onaysız kaydedilemez — mal kabulü «Depo» penceresinde açın.", "Donalab sotiladigan qadoqni tasdiqsiz o'tkazib bo'lmaydi — qabulni «Ombor» oynasida oching."));
+                return;
+            }
+            if (!await askPackSale(packSaleLines).ConfigureAwait(true))
+                return;
+        }
+
         // 2026-11-06: нет цены продажи — спрашиваем ДО постановки в очередь: цена/наценка или «Оставить без цены» (цена товара не трогается). «Отмена» — вернуться.
         if (ConfirmMissingSalePrices is { } askMissing && ReceivingPricing.MissingSalePrice(lines).Count > 0
             && !await askMissing(lines).ConfigureAwait(true))
@@ -1315,6 +1332,8 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         }
 
         // Задача принята и записана на диск — список готов к следующему приходу сразу (убираем ровно отправленные строки).
+        foreach (var packed in lines)
+            ReceivingPackSizes.Remember(packed); // 2026-11-07: «штук в упаковке» запоминается локально (как в «Закупки → Приём товара»)
         if (!duplicate)
             _myReceivingJobs.Add(jobId);
         // 2026-10-27 (ревью Ск-2): накладные этой приёмки считаются проведёнными (повторная загрузка того же файла предупредит). Ids берём до опустошения списка.

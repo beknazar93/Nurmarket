@@ -36,6 +36,8 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         // полная загрузка на программу и лента вместо полной, когда она жива (см. SharedRefreshAsync).
         CatalogCacheService.SharedRefresh = SharedRefreshAsync;
         CatalogCacheService.RequestBackgroundFullReload = RequestBackgroundFullReload;
+        // 2026-11-07 (жалоба владельца «при каждом изменении товара весь склад загружается заново»): правка/создание/цена товара обновляют только этот товар (карточка по id), без полной загрузки.
+        CatalogCacheService.SharedRefreshProducts = SharedRefreshProductsAsync;
     }
 
     private long _recoveredTicks;
@@ -104,6 +106,20 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         {
             var generation = Volatile.Read(ref _accountGeneration);
             var tick = await feed.TickAsync(() => generation == Volatile.Read(ref _accountGeneration) && (insideFullSync || !IsFullSyncRunning()), ct).ConfigureAwait(false);
+            // 2026-11-07 («при каждом изменении товара весь склад загружается заново»): лента принесла «неизвестный» товар (короткая запись без названия, а в базе такого нет) — раньше это
+            // всегда означало полную загрузку каталога (минуты на 6–15 тыс. товаров). Теперь карточки таких товаров читаются по id; полная загрузка — только если их много (больше
+            // CatalogPointRefresh.MaxIds), какую-то не прочитали или причина другая (курсор забыт, 410).
+            if (tick.NeedFullSync && tick.MissingIds is { Count: > 0 } missing && missing.Count <= CatalogPointRefresh.MaxIds
+                && generation == Volatile.Read(ref _accountGeneration) && (insideFullSync || !IsFullSyncRunning()))
+            {
+                var fetched = await CatalogPointRefresh.ApplyByIdsAsync(_catalogApi, missing, _settings.ApiBaseUrl, FeedStockGuard.Create(), ct).ConfigureAwait(false);
+                if (fetched.NotFetched.Count == 0)
+                {
+                    PosLogger.Log($"CATALOG_FEED: неизвестных товаров {missing.Count} — карточки прочитаны по id, полная загрузка не нужна.", "CATALOG_FEED");
+                    tick = tick with { NeedFullSync = false, MissingIds = null, Added = tick.Added + fetched.Added, Changed = tick.Changed + fetched.Changed, Deleted = tick.Deleted + fetched.Deleted };
+                }
+            }
+
             if (tick.Applied || tick.Note == "304" || tick.Ok)
             {
                 Interlocked.Increment(ref _feedOkStreak); // 2026-11-02 (Н3-01): считаем удачные опросы ленты — см. FullReloadInterval
@@ -188,6 +204,41 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         return result;
     }
 
+    /// <summary>2026-11-07 («при каждом изменении товара весь склад загружается заново»): точечное обновление — карточки товаров по id (CatalogPointRefresh), запись в базу и в память под замком ленты
+    /// (два применения не наперегонки), плитки и экраны — сразу. Полная загрузка здесь не запускается НИКОГДА (ни при нездоровой ленте, ни при 429, ни при идущей полной загрузке: слежку за
+    /// курсором ведёт лента, она донесёт пропущенное). Карточку не прочитали — тихо оставляем как есть. Потом — один внеочередной такт ленты (соседние товары, остатки).</summary>
+    private async Task<CatalogSyncResult> SharedRefreshProductsAsync(IReadOnlyList<string> ids, CancellationToken ct)
+    {
+        if (OfflineModeHelper.SellLocally)
+            return CatalogSyncResult.Failed("Нет подключения — каталог из локальной базы.");
+        EnsureFeedLoop();
+        var generation = Volatile.Read(ref _accountGeneration);
+        CatalogPointRefresh.Outcome outcome;
+        await _feedGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            outcome = await CatalogPointRefresh.ApplyByIdsAsync(_catalogApi, ids, _settings.ApiBaseUrl, FeedStockGuard.Create(), ct).ConfigureAwait(false);
+            if (outcome.Applied && generation == Volatile.Read(ref _accountGeneration))
+            {
+                TryLoadFromDatabase();
+                CatalogCacheService.NotifyCatalogChanged();
+                NurMarketKassa.Services.PhoneLink.PhoneLinkEvents.Publish("product");
+            }
+        }
+        finally
+        {
+            _feedGate.Release();
+        }
+
+        if (outcome.Fetched < outcome.Requested)
+            PosLogger.Log($"CATALOG: после правки не прочитано карточек: {outcome.NotFetched.Count} из {outcome.Requested} — каталог не перекачиваем, их донесёт лента изменений.", "CATALOG");
+        SyncCenter.FeedKick.Kick();
+        await UiDispatcherHolder.InvokeAsync(() => { }).ConfigureAwait(false);
+        return outcome.Fetched == 0 && outcome.Requested > 0
+            ? CatalogSyncResult.Failed("Карточка товара не получена — останется как была, обновит лента изменений.")
+            : CatalogSyncResult.Ok(outcome.Added, outcome.Changed, outcome.Deleted);
+    }
+
     private async Task<CatalogSyncResult> SharedRefreshCoreAsync(CancellationToken ct)
     {
         if (OfflineModeHelper.SellLocally)
@@ -206,12 +257,24 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                 return CatalogSyncResult.Ok(tick.Added, tick.Changed, tick.Deleted);
             }
         }
-        if (_feed is { } feed && FeedHealthy && HasLocalCatalog && !IsFullSyncRunning())
+        // 2026-11-07 («при каждом изменении товара весь склад загружается заново»): раньше лента пробовалась, только если она «здорова» (отвечала за последние 5 минут), — сразу после запуска, после
+        // паузы 429 или сбоя сети окно (Склад «Обновить», массовая загрузка, приход) шло в полную загрузку (минуты на 6–15 тыс. товаров). Теперь ленту читаем всегда, если она поддерживается
+        // и каталог в базе есть: «не ответила» (пауза, 429, сеть) — каталог из базы, лента догонит; полная загрузка — только когда ленты у сервера нет, курсор забыт (410) или неизвестных товаров много.
+        if (_feed is { } feed && HasLocalCatalog && !IsFullSyncRunning())
         {
             var tick = await TickFeedAsync(feed, ct).ConfigureAwait(false);
-            if (!tick.NeedFullSync)
-                return CatalogSyncResult.Ok(tick.Added, tick.Changed, tick.Deleted);
-            if (BulkLoadActive)
+            if (!tick.NeedFullSync && (tick.Ok || !feed.Unsupported))
+            {
+                if (!tick.Ok)
+                    PosLogger.Log($"CATALOG: обновление окна — лента сейчас не ответила ({(string.IsNullOrWhiteSpace(tick.Note) ? "пауза/сбой" : tick.Note)}); каталог из базы, полную загрузку не начинаем — лента догонит.", "CATALOG");
+                return tick.Ok || ApiThrottle.IsBusy
+                    ? CatalogSyncResult.Ok(tick.Added, tick.Changed, tick.Deleted)
+                    : CatalogSyncResult.Failed(Tr.T("Лента изменений не ответила — показан каталог из локальной базы.",
+                        "Өзгөрүүлөр тасмасы жооп берген жок — локалдык базадагы каталог көрсөтүлдү.", "The change feed did not answer — showing the catalog from the local database.",
+                        "Değişiklik akışı yanıt vermedi — yerel veritabanındaki katalog gösteriliyor.", "O'zgarishlar lentasi javob bermadi — mahalliy bazadagi katalog ko'rsatilmoqda."));
+            }
+
+            if (tick.NeedFullSync && BulkLoadActive)
             {
                 PosLogger.Log("CATALOG: лента принесла неизвестный товар во время массовой загрузки — полная загрузка после её окончания.", "CATALOG");
                 return CatalogSyncResult.Ok(tick.Added, tick.Changed, tick.Deleted);
@@ -374,16 +437,23 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         if (OfflineModeHelper.SellLocally || BulkLoadActive)
             return null;
         DateTime last;
+        var feedCovers = FeedHealthy && HasLocalCatalog;
         lock (_syncGate)
         {
             if (_inFlightSync is { IsCompleted: false } running)
                 return running;
-            last = _lastSuccessfulSyncUtc;
+            // 2026-11-07 («при каждом изменении товара весь склад загружается заново», «Сверка с сервером: загружено 3 800 из 6 152»): лента жива — изменения и остатки приносит она, а «Обновить» уже
+            // прочитал ленту и последние изменённые; полная сверка не чаще страховочного интервала (FullReloadInterval: час, а при устойчивой ленте — сутки), отсчёт — от настоящей полной
+            // загрузки (метка в базе). Ленты нет или она не отвечает — как раньше: если прошлая загрузка старше 10 минут.
+            last = feedCovers ? _lastFullLoadUtc : _lastSuccessfulSyncUtc;
         }
 
-        if (AgeOf(last) < TimeSpan.FromMinutes(10))
+        var minAge = feedCovers ? FullReloadInterval : TimeSpan.FromMinutes(10);
+        if (AgeOf(last) < minAge)
             return null;
-        return StartFullSync(CancellationToken.None, knownVersion: null, reason: "сверка после «Обновить» на Складе, прошлая загрузка старше 10 минут");
+        return StartFullSync(CancellationToken.None, knownVersion: null, reason: feedCovers
+            ? $"сверка после «Обновить» на Складе, прошлая полная загрузка старше страховочного интервала ({minAge.TotalMinutes:0} мин)"
+            : "сверка после «Обновить» на Складе, прошлая загрузка старше 10 минут");
     }
 
     /// <summary>2026-10-29: в чеках компании появилось изменение (чужая продажа, возврат, отмена) — остатки перечитываются полной загрузкой, но
@@ -833,6 +903,15 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         // (каждая правка цены/товара меняла версию и гоняла весь каталог) не нужны. Страховка — полная загрузка раз в 15–30 мин (выше).
         if (FeedHealthy)
             return CatalogSyncResult.Ok(0, 0, 0);
+
+        // 2026-11-07 («при каждом изменении товара весь склад загружается заново»): лента «нездорова» (после запуска ещё не отвечала, пауза 429, сбой) — прежде чем из-за смены «версии» качать весь каталог,
+        // спрашиваем ленту один раз прямо сейчас: ответила — изменение уже в базе, версию не сверяем и каталог не качаем. Не ответила / лента не поддерживается / курсор забыт — прежний путь.
+        if (_feed is { Unsupported: false } liveFeed && HasLocalCatalog && !IsFullSyncRunning())
+        {
+            var retry = await TickFeedAsync(liveFeed, cancellationToken).ConfigureAwait(false);
+            if (retry.Ok && !retry.NeedFullSync)
+                return CatalogSyncResult.Ok(retry.Added, retry.Changed, retry.Deleted);
+        }
 
         CatalogVersionInfo? remote;
         try

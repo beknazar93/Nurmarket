@@ -62,7 +62,8 @@ public partial class WarehouseWindow
         if (saved && !dialog.SavePending)
         {
             SuccessToast.Show(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
-            await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
+            // 2026-11-07 («при каждом изменении товара весь склад загружается заново»): обновляем только этот товар, не весь каталог.
+            await CatalogCacheService.RefreshProductsAsync([dialog.SavedProductId]).ConfigureAwait(true);
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
         }
     }
@@ -164,7 +165,8 @@ public partial class WarehouseWindow
         if (saved && !dialog.SavePending)
         {
             SuccessToast.Show(Tr.T("Товар сохранён.", "Товар сакталды.", "Product saved.", "Ürün kaydedildi.", "Mahsulot saqlandi."));
-            await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
+            // 2026-11-07 («при каждом изменении товара весь склад загружается заново»): обновляем только этот товар (карточка по id), без полной загрузки каталога.
+            await CatalogCacheService.RefreshProductsAsync([dialog.SavedProductId ?? product.Id]).ConfigureAwait(true);
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
         }
     }
@@ -307,7 +309,7 @@ public partial class WarehouseWindow
                     PosLogger.Log($"AUDIT: удаление «{product.Title}» ({product.Id}) прервано — после списания осталось {left:0.###}.", "WARNING");
                     var leftText = ProductActions.QtyWithUnit(left, product.Unit, product.MustWeigh); // 2026-11-05 (Т3-10)
                     ShowDeleteNotice(Tr.T($"Остаток списан не полностью (осталось {leftText}) — товар не удалён. Спишите остаток полностью и повторите удаление.", $"Калдык толугу менен эсептен чыгарылган жок ({leftText} калды) — товар өчүрүлгөн жок. Калдыкты толук эсептен чыгарып, өчүрүүнү кайталаңыз.", $"The stock was not written off completely ({leftText} left) — the product was not deleted. Write off all of it and delete again.", $"Stok tamamen düşülmedi ({leftText} kaldı) — ürün silinmedi. Tüm stoku düşüp silmeyi tekrarlayın.", $"Qoldiq to'liq hisobdan chiqarilmadi ({leftText} qoldi) — mahsulot o'chirilmadi. Qoldiqni to'liq hisobdan chiqarib, o'chirishni takrorlang."));
-                    await RefreshCatalogQuietlyAsync().ConfigureAwait(true); // остаток на экране — как на сервере
+                    await RefreshCatalogQuietlyAsync(product.Id).ConfigureAwait(true); // остаток на экране — как на сервере
                     return;
                 }
                 PosLogger.Log($"AUDIT: перед удалением списан остаток «{product.Title}» ({product.Id}) × {ProductActions.QtyWithUnit(Math.Max(0.0, stock - left), product.Unit, product.MustWeigh)}.", "INFO");
@@ -365,7 +367,8 @@ public partial class WarehouseWindow
                     PosLogger.Log($"AUDIT: товар «{product.Title}» ({product.Id}) удалён на сервере{(stockCleared ? " (остаток предварительно списан)" : "")}.", "INFO"); // 2026-11-05 (Д-9): удаление без истории остаётся в журнале
                     AfterProductRemoved(product, archived: false);
                     SuccessToast.Show(ProductRemoval.DeletedDoneText());
-                    await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
+                    // 2026-11-07: на сервере товара уже нет — убираем из каталога кассы только его (раньше — полная загрузка каталога).
+                    LocalProductEditor.DeleteLocally(product.Id);
                     await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
                     return;
 
@@ -374,7 +377,7 @@ public partial class WarehouseWindow
                     AfterProductRemoved(product, archived: true);
                     LocalProductEditor.DeleteLocally(product.Id); // сразу убираем из каталога кассы; сервер и так не отдаёт архивные товары в списках
                     SuccessToast.Show(ProductRemoval.ArchivedDoneText());
-                    await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
+                    // 2026-11-07: товар уже убран из каталога кассы строкой выше — полная загрузка каталога не нужна.
                     await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
                     return;
 
@@ -383,7 +386,7 @@ public partial class WarehouseWindow
                     if (stockCleared)
                     {
                         SuccessToast.Show(Tr.T("Остаток списан, товар остался в каталоге с нулём на складе.", "Калдык эсептен чыгарылды, товар каталогто нөл калдык менен калды.", "The stock was written off; the product stays in the catalog with zero stock.", "Stok düşüldü, ürün katalogda sıfır stokla kaldı.", "Qoldiq chiqarildi, mahsulot katalogda nol qoldiq bilan qoldi."));
-                        await RefreshCatalogQuietlyAsync().ConfigureAwait(true);
+                        await RefreshCatalogQuietlyAsync(product.Id).ConfigureAwait(true);
                     }
                     return;
 
@@ -392,13 +395,13 @@ public partial class WarehouseWindow
                     PosLogger.Log($"Склад: «{product.Title}» не отправлен в архив ({result.Error!.Message}).", "WARNING");
                     PosAlertDialog.Show(this, Tr.T("Не удалось отправить в архив", "Архивге жөнөтүү мүмкүн болгон жок", "Could not send to the archive", "Arşive gönderilemedi", "Arxivga yuborib bo'lmadi"), why, PosAlertKind.Warning, null, info: true); // окном, а не исчезающей плашкой
                     if (stockCleared)
-                        await RefreshCatalogQuietlyAsync().ConfigureAwait(true);
+                        await RefreshCatalogQuietlyAsync(product.Id).ConfigureAwait(true);
                     return;
 
                 default: // ArchiveUnavailable: сервер (Django ProtectedError) не удаляет товар с историей, а архива нет — не тупик, а понятный совет и переход в карточку
                     PosLogger.Log($"Склад: «{product.Title}» не удалён — по товару есть история (ответ сервера: {result.Error?.Message ?? "product_has_history"}), архив недоступен.", "INFO");
                     if (stockCleared)
-                        await RefreshCatalogQuietlyAsync().ConfigureAwait(true);
+                        await RefreshCatalogQuietlyAsync(product.Id).ConfigureAwait(true);
                     if (PosConfirmDialog.Show(this,
                             Tr.T("Товар нельзя удалить", "Товарды өчүрүүгө болбойт", "The product can't be deleted", "Ürün silinemez", "Mahsulotni o'chirib bo'lmaydi"),
                             ProductRemoval.NoArchiveText(product.Title, result.Counts, stockCleared),
@@ -482,11 +485,12 @@ public partial class WarehouseWindow
         _ = PosAlertDialog.ShowAsync(this, Tr.T("Внимание", "Көңүл буруңуз", "Warning", "Uyarı", "Diqqat"), message, PosAlertKind.Warning, null, info: true);
 
     /// <summary>2026-11-03 (аудит №3, Т3-01): после списания перед удалением каталог перечитываем в любом исходе — остаток на экране должен совпасть с сервером.</summary>
-    private async Task RefreshCatalogQuietlyAsync()
+    private async Task RefreshCatalogQuietlyAsync(string productId)
     {
         try
         {
-            await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(true);
+            // 2026-11-07 («при каждом изменении товара весь склад загружается заново»): перечитываем только этот товар, не весь каталог.
+            await CatalogCacheService.RefreshProductsAsync([productId]).ConfigureAwait(true);
             await _viewModel.EnsureCatalogLoadedAsync().ConfigureAwait(true);
         }
         catch (Exception rex) when (rex is not OutOfMemoryException)

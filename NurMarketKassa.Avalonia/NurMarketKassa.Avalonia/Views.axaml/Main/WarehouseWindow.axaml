@@ -398,10 +398,37 @@
             <Setter Property="Foreground" Value="{DynamicResource BrushDangerOnSoft}"/>
             <Setter Property="FontWeight" Value="Bold"/>
         </Style>
-        <Style Selector="TextBlock.rcv-sub">
+        <Style Selector="TextBlock.rcv-sub, TextBlock.rcv-namesub, TextBlock.rcv-bar-sub">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <!-- 2026-11-07 (жалоба «Где в приёмке штрихкод?», узкий вид < 1280 px): колонка «Штрихкод» прячется, а подстроку под названием («На складе · категория»)
+             правило ниже тоже скрывало — штрихкода не было нигде. Теперь подстрока названия (rcv-namesub) остаётся всегда, а в узком виде перед ней стоит штрихкод
+             (rcv-bar-sub) или «без штрихкода» (у нового товара, класс nobar). В широком виде колонка «Штрихкод» своя, эти надписи скрыты. -->
+        <Style Selector="TextBlock.rcv-bar-sub">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="DataGrid.rcv-compact TextBlock.rcv-bar-sub.has">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="DataGrid.rcv-compact TextBlock.rcv-bar-sub.none.nobar">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <!-- 2026-11-07: у нового товара без названия в ячейке был только значок «новый» — серая подсказка, что делать. -->
+        <Style Selector="TextBlock.rcv-namehint">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontStyle" Value="Italic"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <!-- 2026-11-07: штрихкод нового товара в узком виде вписывается во второй строке правки названия (колонки «Штрихкод» там нет). -->
+        <Style Selector="TextBox.rcv-baredit">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="DataGrid.rcv-compact TextBox.rcv-baredit.isnew">
+            <Setter Property="IsVisible" Value="True"/>
         </Style>
         <Style Selector="TextBlock.hdr-sub">
             <Setter Property="FontSize" Value="12"/>
@@ -1400,20 +1427,37 @@
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel VerticalAlignment="Center" Margin="2,0" Spacing="1">
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <TextBlock Text="{ReflectionBinding ProductName}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
-                                                               TextTrimming="CharacterEllipsis"/>
-                                                    <Border Classes="rcv-newbadge" IsVisible="{ReflectionBinding IsNew}">
+                                                <!-- 2026-11-07: Grid вместо горизонтальной панели — длинное название обрезается многоточием, а не уходит под край ячейки; значок «новый» справа. -->
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <Grid Grid.Column="0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{ReflectionBinding ProductName}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Classes="rcv-namehint" Text="{x:Static views:WarehouseWindow.NewNameHintText}"
+                                                                   IsVisible="{ReflectionBinding ProductName, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                                    </Grid>
+                                                    <Border Grid.Column="1" Classes="rcv-newbadge" Margin="6,0,0,0" IsVisible="{ReflectionBinding IsNew}">
                                                         <TextBlock Text="{ReflectionBinding NewBadgeText}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
                                                     </Border>
-                                                </StackPanel>
-                                                <TextBlock Classes="rcv-sub" Text="{ReflectionBinding NameSubText}"/>
+                                                </Grid>
+                                                <Grid ColumnDefinitions="Auto,Auto,*">
+                                                    <TextBlock Grid.Column="0" Classes="rcv-bar-sub" Margin="0,0,5,0" Text="{ReflectionBinding Barcode, StringFormat='{}{0} ·'}"
+                                                               Classes.has="{ReflectionBinding Barcode, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                                    <TextBlock Grid.Column="1" Classes="rcv-bar-sub none" Classes.nobar="{ReflectionBinding Barcode, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                                                               Margin="0,0,5,0" Text="{x:Static views:WarehouseWindow.NoBarcodeSubText}"/>
+                                                    <TextBlock Grid.Column="2" Classes="rcv-namesub" Text="{ReflectionBinding NameSubText}"/>
+                                                </Grid>
                                             </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                     <DataGridTemplateColumn.CellEditingTemplate>
                                         <DataTemplate>
-                                            <TextBox Text="{ReflectionBinding ProductName, Mode=TwoWay}" VerticalContentAlignment="Center"/>
+                                            <!-- 2026-11-07: в узком виде у нового товара под названием — поле штрихкода (колонки «Штрихкод» нет); цифры — WarehouseWindow.BulkScan.cs (rcv-baredit). -->
+                                            <Grid RowDefinitions="*,Auto">
+                                                <TextBox Grid.Row="0" Text="{ReflectionBinding ProductName, Mode=TwoWay}" VerticalContentAlignment="Center" MinHeight="0"/>
+                                                <TextBox Grid.Row="1" Classes="rcv-baredit" Classes.isnew="{ReflectionBinding IsNew}" Text="{ReflectionBinding Barcode, Mode=TwoWay}"
+                                                         MinHeight="0" Height="22" FontSize="12" Padding="6,0" Margin="0,2,0,0" VerticalContentAlignment="Center"
+                                                         Watermark="{x:Static views:WarehouseWindow.BarcodeHintText}"/>
+                                            </Grid>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellEditingTemplate>
                                 </DataGridTemplateColumn>
@@ -1429,16 +1473,65 @@
                                                     Binding="{ReflectionBinding StockBefore, StringFormat=\{0:0.###\}}" IsReadOnly="True">
                                     <DataGridTextColumn.Header><TextBlock x:Name="RcvWasHeader"/></DataGridTextColumn.Header>
                                 </DataGridTextColumn>
-                                <DataGridTextColumn Width="92"
-                                                    Binding="{ReflectionBinding QuantityText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
-                                    <DataGridTextColumn.Header><TextBlock x:Name="RcvTakenHeader"/></DataGridTextColumn.Header>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn Width="88"
-                                                    Binding="{ReflectionBinding PurchasePriceText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
-                                    <DataGridTextColumn.Header>
+                                <!-- 2026-11-07 («Принять упаковками» и «упаковка с поштучной продажей» в приёмке Склада): «Принимаем» — число (в режиме упаковок — упаковки; под ним «× 24 = 120 шт.»)
+                                     и ссылка выбора способа приёмки; в правке в режиме упаковок добавляется поле «шт/упак.». Расчёты — ReceivingLineVm (QtyInputText, PiecesInputText, PurchaseInputText).
+                                     Высоту строки в режиме упаковок увеличивает WarehouseWindow.Packs.cs (ApplyReceivingRowHeight). -->
+                                <DataGridTemplateColumn Width="92" SortMemberPath="Quantity">
+                                    <DataGridTemplateColumn.Header><TextBlock x:Name="RcvTakenHeader"/></DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Spacing="1">
+                                                <TextBlock Text="{ReflectionBinding QtyInputText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}"/>
+                                                <TextBlock FontSize="11.5" FontWeight="Normal" HorizontalAlignment="Right" TextAlignment="Right" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource BrushTextSoft}" Text="{ReflectionBinding PackShortNote}" ToolTip.Tip="{ReflectionBinding PackNote}"
+                                                           IsVisible="{ReflectionBinding PackMode}"/>
+                                                <TextBlock FontSize="11.5" FontWeight="SemiBold" HorizontalAlignment="Right" TextAlignment="Right" TextTrimming="CharacterEllipsis" Cursor="Hand"
+                                                           Foreground="{DynamicResource BrushAccent}" Text="{ReflectionBinding PackLinkShort}" ToolTip.Tip="{ReflectionBinding PackLinkHint}" Tag="rcv-packlink" PointerPressed="ReceivingPackLink_PointerPressed"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Spacing="2">
+                                                <TextBox Text="{ReflectionBinding QtyInputText, Mode=TwoWay, Converter={x:Static views:WarehouseWindow.CommaDecimal}}" Height="28" MinHeight="0" Padding="6,0"
+                                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Right" FontSize="14"/>
+                                                <TextBox Classes="rcv-pieces" IsVisible="{ReflectionBinding PackMode}" Height="28" MinHeight="0" Padding="6,0" FontSize="13"
+                                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Right" Watermark="{x:Static views:WarehouseWindow.PackPiecesHintText}"
+                                                         Text="{ReflectionBinding PiecesInputText, Mode=TwoWay, Converter={x:Static views:WarehouseWindow.CommaDecimal}}"/>
+                                                <TextBlock FontSize="11.5" FontWeight="SemiBold" HorizontalAlignment="Right" TextAlignment="Right" TextTrimming="CharacterEllipsis" Cursor="Hand"
+                                                           Foreground="{DynamicResource BrushAccent}" Text="{ReflectionBinding PackLinkShort}" ToolTip.Tip="{ReflectionBinding PackLinkHint}" Tag="rcv-packlink" PointerPressed="ReceivingPackLink_PointerPressed"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellEditingTemplate>
+                                </DataGridTemplateColumn>
+                                <!-- «Закупка»: в режиме упаковок — цена ЗА УПАКОВКУ; под ней «за упак. · 33,3333 за шт» и, если упаковка не делится ровно, красное «вместо 99 999,90». -->
+                                <DataGridTemplateColumn Width="88" SortMemberPath="PurchasePrice">
+                                    <DataGridTemplateColumn.Header>
                                         <StackPanel><TextBlock x:Name="RcvPurchaseHeader"/><TextBlock x:Name="RcvPurchaseSub" Classes="hdr-sub"/></StackPanel>
-                                    </DataGridTextColumn.Header>
-                                </DataGridTextColumn>
+                                    </DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Spacing="1">
+                                                <TextBlock Text="{ReflectionBinding PurchaseInputText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}"/>
+                                                <TextBlock FontSize="11.5" FontWeight="Normal" HorizontalAlignment="Right" TextAlignment="Right" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource BrushTextSoft}" Text="{ReflectionBinding PackPriceNote}" IsVisible="{ReflectionBinding PackMode}"/>
+                                                <TextBlock FontSize="11.5" FontWeight="SemiBold" HorizontalAlignment="Right" TextAlignment="Right" TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource BrushDanger}" Text="{ReflectionBinding PackLossShort}" ToolTip.Tip="{ReflectionBinding PackLossText}"
+                                                           IsVisible="{ReflectionBinding PackLossShort, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Spacing="2">
+                                                <TextBox Text="{ReflectionBinding PurchaseInputText, Mode=TwoWay, Converter={x:Static views:WarehouseWindow.CommaDecimal}}" Height="28" MinHeight="0" Padding="6,0"
+                                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Right" FontSize="14"/>
+                                                <TextBlock FontSize="11.5" FontWeight="Normal" HorizontalAlignment="Right" TextAlignment="Right" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource BrushTextSoft}" Text="{ReflectionBinding PackPriceNote}" IsVisible="{ReflectionBinding PackMode}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellEditingTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Width="84"
                                                     Binding="{ReflectionBinding MarkupText, Converter={x:Static views:WarehouseWindow.CommaDecimal}}">
                                     <DataGridTextColumn.Header><TextBlock x:Name="RcvMarkupHeader"/></DataGridTextColumn.Header>

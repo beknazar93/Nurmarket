@@ -63,7 +63,7 @@ public partial class WarehouseWindow
         };
 
         // 2026-10-29: штрихкод нового товара в таблице приёмки (колонка «Штрихкод», только у «+ Новый товар») — только цифры.
-        BarcodeInput.Attach(this, tb => _rcvBarcodeEditing && ReceivingGrid.IsKeyboardFocusWithin && tb.GetVisualAncestors().Contains(ReceivingGrid));
+        BarcodeInput.Attach(this, tb => ReceivingGrid.IsKeyboardFocusWithin && tb.GetVisualAncestors().Contains(ReceivingGrid) && (_rcvBarcodeEditing || tb.Classes.Contains("rcv-baredit"))); // 2026-11-07: + поле штрихкода в ячейке названия (узкий вид)
         var body = BuildBulkBody();
         _bulkTab = new TabItem { Header = TrB("Массовое добавление", "Массалык кошуу", "Bulk add", "Toplu ekleme", "Ommaviy qo'shish"), Content = body };
         var index = WarehouseTabs.Items.IndexOf(ReceivingTabItem);

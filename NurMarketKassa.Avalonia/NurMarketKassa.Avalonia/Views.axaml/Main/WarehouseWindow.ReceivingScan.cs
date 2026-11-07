@@ -29,6 +29,12 @@ public partial class WarehouseWindow
     /// <summary>Подпись значка у подсказки, если товар приходил от выбранного поставщика (x:Static в разметке).</summary>
     public static string SupplierBadgeText => TR("поставщик", "жеткирүүчү", "supplier", "tedarikçi", "yetkazib beruvchi");
 
+    // 2026-11-07 (жалоба «Где в приёмке штрихкод?»): подписи ячейки названия в таблице приёмки (x:Static в разметке).
+    public static string NewNameHintText => TR("название", "аталышы", "name", "ad", "nomi");
+    public static string NoBarcodeText => TR("без штрихкода", "штрихкод жок", "no barcode", "barkodsuz", "shtrix-kodsiz");
+    public static string NoBarcodeSubText => NoBarcodeText + " ·"; // перед «На складе / Новый · категория»
+    public static string BarcodeHintText => TR("штрихкод (по желанию)", "штрихкод (каалоосу боюнча)", "barcode (optional)", "barkod (isteğe bağlı)", "shtrix-kod (ixtiyoriy)");
+
     // Идентификаторы товаров выбранного поставщика. Статическая ссылка нужна конвертеру разметки; окно склада одно, при двух —
     // значок покажет товары того окна, где поставщика выбрали последним (на логику приёмки не влияет).
     private static HashSet<string> s_supplierProductIds = new(StringComparer.OrdinalIgnoreCase);
@@ -95,13 +101,14 @@ public partial class WarehouseWindow
         RcvWasHeader.Text = TR("На складе", "Кампада", "In stock", "Depoda", "Omborda");
         RcvTakenHeader.Text = TR("Прини­маем", "Кабыл ала­быз", "Receiving", "Alınıyor", "Qabul qili­nadi");
         RcvPurchaseHeader.Text = TR("Закупка", "Сатып алуу", "Purchase", "Alış", "Xarid");
-        RcvPurchaseSub.Text = TR("сом за шт.", "бирдик үчүн сом", "som per unit", "birim başına som", "dona uchun so'm");
+        RcvPurchaseSub.Text = TR("сом за шт.", "сом / бирдик", "som per unit", "birim başına som", "dona uchun so'm");
         RcvMarkupHeader.Text = TR("Наценка %", "Кошумча %", "Markup %", "Kâr %", "Ustama %");
         RcvSaleHeader.Text = TR("Цена продажи", "Сатуу баасы", "Sale price", "Satış fiyatı", "Sotuv narxi");
         RcvChangeHeader.Text = TR("Закупка изменилась", "Сатып алуу өзгөрдү", "Purchase changed", "Alış değişti", "Xarid o'zgardi");
         RcvChangeSub.IsVisible = false; // «против прошлой» — в тултипе заголовка и в подстроке «было …»
         RcvAutoHeader.Text = TR("Как посчитана цена", "Баа кантип эсептелген", "How the price is set", "Fiyat nasıl hesaplandı", "Narx qanday hisoblangan");
-        RcvProfitHeader.Text = TR("Прибыль с шт.", "Бирдиктен пайда", "Profit per unit", "Birim kârı", "Dona foydasi");
+        // 2026-11-07: ky «Бирдиктен пайда» → «Бирдик пайдасы»: слово «Бирдиктен» не влезало в колонку и рвалось посреди
+        RcvProfitHeader.Text = TR("Прибыль с шт.", "Бирдик пайдасы", "Profit per unit", "Birim kârı", "Dona foydasi");
         RcvTotalHeader.Text = TR("Сумма закупки", "Сатып алуу суммасы", "Purchase total", "Alış tutarı", "Xarid summasi");
         ToolTip.SetTip(RcvWasHeader, TR("Сколько этого товара сейчас на складе (до приёмки).", "Бул товардан азыр кампада канча бар (кабыл алганга чейин).", "How much of this product is in stock now (before receiving).", "Bu üründen şu an depoda ne kadar var (kabulden önce).", "Bu mahsulotdan hozir omborda qancha bor (qabuldan oldin)."));
         ToolTip.SetTip(RcvTakenHeader, TR("Сколько привезли — впишите число.", "Канча алып келишти — санды жазыңыз.", "How many arrived — enter the number.", "Kaç adet geldi — sayıyı yazın.", "Nechta keldi — sonni yozing."));
@@ -126,10 +133,11 @@ public partial class WarehouseWindow
             else if (!on)
                 row.Classes.Remove(name);
         }
-        static void ApplyRowClasses(DataGridRow row, ReceivingLineVm l)
+        void ApplyRowClasses(DataGridRow row, ReceivingLineVm l)
         {
             SetRowClass(row, "rcv-below", l.IsBelowCost);
             SetRowClass(row, "rcv-low", !l.IsBelowCost && (l.IsLowMargin || l.IsSalePriceMissing)); // 2026-11-06: нет цены продажи — жёлтая строка
+            ApplyReceivingRowHeight(row, l); // 2026-11-07: в режиме упаковок строка выше (поле «шт/упак.» и подписи)
         }
         void UnhookRow(DataGridRow row)
         {
@@ -315,7 +323,20 @@ public partial class WarehouseWindow
         if (ReferenceEquals(current, RcvColName))
             next = RcvColQty;
         else if (ReferenceEquals(current, RcvColQty))
+        {
+            // 2026-11-07: в режиме упаковок после «Принимаем» — «шт/упак.» (та же ячейка), затем «Закупка».
+            if (line.PackMode && !editor.Classes.Contains("rcv-pieces") && FindPiecesEditor(editor) is { } pieces)
+            {
+                e.Handled = true;
+                Dispatcher.UIThread.Post(() =>
+                {
+                    pieces.Focus();
+                    pieces.SelectAll();
+                }, DispatcherPriority.Background);
+                return;
+            }
             next = RcvColPurchase;
+        }
         else if (ReferenceEquals(current, RcvColPurchase))
             next = RcvColSale;
         else if (ReferenceEquals(current, RcvColSale))

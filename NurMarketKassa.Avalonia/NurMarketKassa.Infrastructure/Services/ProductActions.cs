@@ -280,12 +280,16 @@ public static class ProductActions
         RequestCatalogRefresh?.Invoke();
         // 2026-10-27 (цена склад-касса): RequestCatalogRefresh идёт через проверку «версии» каталога, а она не замечает смену цены —
         // при изменении цены каталог перечитываем полностью (как «Склад» после сохранения карточки).
+        // 2026-11-07 («при каждом изменении товара весь склад загружается заново»): вместо полной загрузки каталога — карточка только этого товара (точечное обновление).
         if (fields.ContainsKey("price") || fields.ContainsKey("purchase_price"))
+        {
+            var changedId = product.Id;
             _ = Task.Run(async () =>
             {
-                try { await CatalogCacheService.RefreshFromApiAsync().ConfigureAwait(false); }
+                try { await CatalogCacheService.RefreshProductsAsync([changedId]).ConfigureAwait(false); }
                 catch (Exception ex) { PosLogger.Log($"Каталог после смены цены не обновлён: {ex.Message}", "WARNING"); }
             });
+        }
         PosLogger.Log($"Действие с товаром ({actor ?? "—"}): «{product.Title}» — {what} ({string.Join(", ", fields.Keys)}).", "STOCK");
         return new Result(true, T($"«{product.Title}»: {what} — сохранено.", $"«{product.Title}»: {what} — сакталды.", $"“{product.Title}”: {what} — saved.",
             $"«{product.Title}»: {what} — kaydedildi.", $"«{product.Title}»: {what} — saqlandi."));

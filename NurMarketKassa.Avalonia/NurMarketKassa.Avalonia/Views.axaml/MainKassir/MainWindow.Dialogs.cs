@@ -510,12 +510,13 @@ public partial class MainWindow
         // все страницы, по 55 с каждая). Не успели — товар в чек не кладём (его ещё нет в локальном каталоге), каталог дозагрузится фоном.
         try
         {
-            await ServerAnswerWait.ForegroundAsync("catalog/refresh", t => CatalogCacheService.RefreshFromApiAsync(t)).ConfigureAwait(true);
+            // 2026-11-07 («при каждом изменении товара весь склад загружается заново»): обновляем только новый товар (карточка по id), без полной загрузки каталога.
+            await ServerAnswerWait.ForegroundAsync("catalog/refresh", t => CatalogCacheService.RefreshProductsAsync([dialog.SavedProductId], t)).ConfigureAwait(true);
         }
         catch (ServerNotAnsweringException)
         {
             PosLogger.Log("Новый товар сохранён, но каталог не обновился за 8 с — дозагрузка фоном.", "CATALOG");
-            _ = CatalogCacheService.RefreshFromApiAsync();
+            _ = CatalogCacheService.RefreshProductsAsync([dialog.SavedProductId]);
             _prompts.ShowToast(Tr.T("Товар добавлен на склад. Сервер отвечает медленно — в чек добавьте его чуть позже.",
                 "Товар кампага кошулду. Сервер жай жооп берип жатат — чекке бир аздан кийин кошуңуз.",
                 "Product added to the warehouse. The server is slow — add it to the receipt a little later.",

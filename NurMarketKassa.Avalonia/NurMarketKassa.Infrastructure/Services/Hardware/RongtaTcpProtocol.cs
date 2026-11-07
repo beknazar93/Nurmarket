@@ -76,7 +76,7 @@ public static class RongtaTcpProtocol
     /// No.", служит идентификатором PLU (см. Appendix мануала: "PLU No. — Retain for
     /// compatibility, no meaning"; "LFCode — unique identification... using for imputing
     /// PLU").</summary>
-    public static string BuildPluRecord(int plu, string name, double priceSom, char weighingUnit = '4')
+    public static string BuildPluRecord(int plu, string name, double priceSom, char weighingUnit = '4', int pricePoint = 2)
     {
         var transliteratedName = RongtaTransliterator.Transliterate(name);
         var sb = new StringBuilder(100);
@@ -92,10 +92,13 @@ public static class RongtaTcpProtocol
         sb.Append(ClampDigits(plu, 10));                     // Art. No. / Code = PLU
         sb.Append(ClampDigits(5, 2));                        // Barcode type 05
         // 2026-11-06: раньше ClampDigits брал «последние 8 цифр» (цена ≥ 1 000 000 сом молча превращалась в другую). Теперь — явная ошибка.
-        var priceUnits = (long)Math.Round(priceSom * 100, MidpointRounding.AwayFromZero);
+        // 2026-11-07 (жалоба «цена бала 800, а на этикетке 80,00»): цена уходит в единицах «знаков после запятой» ВЕСОВ (параметр «Price point», настройка «Знаков после запятой в цене на весах»),
+        // а не всегда ×100 — иначе при другом Price point на весах цена искажалась в 10 раз.
+        pricePoint = Math.Clamp(pricePoint, 0, 3);
+        var priceUnits = (long)Math.Round(priceSom * Math.Pow(10, pricePoint), MidpointRounding.AwayFromZero);
         if (priceUnits < 0 || priceUnits > MaxPriceUnits)
             throw new ArgumentOutOfRangeException(nameof(priceSom), priceSom, "Цена не помещается в 8 цифр поля Unit price (максимум 999 999,99 сом).");
-        sb.Append(ClampDigits(priceUnits, 8));               // Unit price ×100, без точки
+        sb.Append(ClampDigits(priceUnits, 8));               // Unit price ×10^Price point, без точки
         sb.Append(weighingUnit);                             // Weighing unit (по умолчанию '4' = кг)
         sb.Append(ClampDigits(21, 2));                       // Dept. = 21 (префикс штрихкода)
         sb.Append(ClampDigits(0, 6));                        // Tare weight (по умолчанию 0)

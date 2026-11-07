@@ -89,14 +89,14 @@ public partial class WarehouseWindow
         _viewModel.WriteOffHistory.CollectionChanged += (_, _) => Sync();
         Sync();
 
-        // 2026-11-07: порог узкого вида 1254 (+44 px колонки «№»; в узком виде «№» 40 px, соседние сужены на 30 px — итого 944 px при ширине таблицы ~960). 2026-10-29, спека Fable (Specs-1029/01): колонки и ширины по спеке. Полный вид (таблица от 1210 точек) — 12 колонок, фиксированные = 1040, «Название» — остаток (≥ 170);
+        // 2026-11-07: порог узкого вида 1300 (был 1254; +44 px колонки «№»; в узком виде «№» 40 px, соседние сужены на 30 px — итого 944 px при ширине таблицы ~960). 2026-10-29, спека Fable (Specs-1029/01): колонки и ширины по спеке. Полный вид (таблица от 1210 точек) — 12 колонок, фиксированные = 1040, «Название» — остаток (≥ 170);
         // узкий вид (1024×600, таблица ~960) прячет «Штрихкод», «На складе», «Прибыль с шт.», вторые строки подписей (класс rcv-compact у таблицы), «Закупка изменилась» —
         // только «↑ +3 %»; в итоговой панели прячутся «Выручка» и «Средняя наценка». Ширина — по самой таблице, а не окна (в программе владельца таблица уже окна на ширину меню).
         ReceivingGrid.SizeChanged += (_, e) =>
         {
             if (e.NewSize.Width <= 0)
                 return;
-            var compact = e.NewSize.Width < 1254; // 2026-11-07: было 1210; +44 px колонки «№»
+            var compact = e.NewSize.Width < 1300; // 2026-11-07: было 1210; +44 px колонки «№»; затем 1254 → 1300 (жалоба «Где в приёмке штрихкод?»: колонки 1128 + «Название» ≥ 170 = 1298, при 1254–1277 была горизонтальная прокрутка)
             ApplyReceivingCompactLayout(compact);
             RcvColBarcode.IsVisible = !compact;
             RcvColWas.IsVisible = !compact;
@@ -114,8 +114,8 @@ public partial class WarehouseWindow
             ReceivingGrid.RowHeight = compact ? 48 : 52;
             ReceivingGrid.ColumnHeaderHeight = compact ? 40 : 44;
             var widths = compact
-                ? new (DataGridColumn Column, double Width)[] { (RcvColNo, 40), (RcvColUnit, 44), (RcvColQty, 88), (RcvColPurchase, 84), (RcvColMarkup, 72), (RcvColSale, 84), (RcvColChange, 100), (RcvColAuto, 128), (RcvColTotal, 90), (RcvColRemove, 44) }
-                : new (DataGridColumn Column, double Width)[] { (RcvColNo, 44), (RcvColBarcode, 120), (RcvColUnit, 44), (RcvColWas, 64), (RcvColQty, 96), (RcvColPurchase, 88), (RcvColMarkup, 76), (RcvColSale, 88), (RcvColChange, 128), (RcvColAuto, 144), (RcvColProfit, 76), (RcvColTotal, 88), (RcvColRemove, 44) };
+                ? new (DataGridColumn Column, double Width)[] { (RcvColNo, 40), (RcvColUnit, 48), (RcvColQty, 96), (RcvColPurchase, 88), (RcvColMarkup, 80), (RcvColSale, 84), (RcvColChange, 100), (RcvColAuto, 128), (RcvColTotal, 92), (RcvColRemove, 44) }
+                : new (DataGridColumn Column, double Width)[] { (RcvColNo, 44), (RcvColBarcode, 120), (RcvColUnit, 48), (RcvColWas, 80), (RcvColQty, 96), (RcvColPurchase, 88), (RcvColMarkup, 76), (RcvColSale, 84), (RcvColChange, 128), (RcvColAuto, 144), (RcvColProfit, 84), (RcvColTotal, 92), (RcvColRemove, 44) };
             foreach (var (column, width) in widths)
                 if (column.Width.Value != width)
                     column.Width = new DataGridLength(width);
