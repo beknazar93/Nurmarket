@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using NurMarketKassa.Models;
+using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.Services;
 
@@ -56,6 +57,22 @@ public static class ReceiptMarkupLog
         MarkupPercent = ReceivingPricing.MarkupPercent(l.PurchasePrice, l.SalePrice), Sale = l.SalePrice, PreviousSale = l.OriginalSalePrice,
         Mode = l.SaleMode == SalePriceMode.Manual ? "manual" : l.SaleMode == SalePriceMode.Auto ? "auto" : "",
     };
+
+    /// <summary>2026-11-07 (живой тест, Б-П1): какую запись показывать для строки прихода — серверную или из журнала кассы.
+    /// Сервер у существующего товара мог записать в строку цену и наценку ПО СТАРОЙ КАРТОЧКЕ (закупка 40 × 1,2 = 48 / 20 % вместо введённых 60 / 50 %, а у прежней цены 15 — «−62,5 %, ниже закупки»).
+    /// Поэтому: журнал есть (приход проводила эта касса/этот ПК), документ не правили (version ≤ 1), закупка в журнале та же, а цена сервера от введённой отличается — берём журнал (то, что ввёл владелец).
+    /// Иначе — серверная запись (у правленной накладной, у прихода с сайта и другой кассы сервер — источник истины); нет серверной цены — журнал, как раньше.</summary>
+    public static ReceiptMarkupLine? Pick(SupplierReceiptLine line, int receiptVersion, ReceiptMarkupLine? journal)
+    {
+        var server = line.SalePrice is > 0
+            ? new ReceiptMarkupLine { ProductId = line.ProductId, Purchase = line.PurchasePrice, Qty = line.Qty, MarkupPercent = line.MarkupPercent, Sale = line.SalePrice.Value, PreviousSale = line.PreviousSalePrice ?? 0 }
+            : null;
+        if (server is null)
+            return journal;
+        if (journal is { Sale: > 0 } && receiptVersion <= 1 && Math.Abs(journal.Purchase - line.PurchasePrice) < 0.00005 && Math.Abs(journal.Sale - server.Sale) > 0.004)
+            return journal;
+        return server;
+    }
 
     /// <summary>Показатели строки. Есть запись журнала — берём её; нет — наценка расчётная от <paramref name="currentSale"/> (текущая цена продажи товара).</summary>
     public static MarkupView View(double purchase, ReceiptMarkupLine? saved, double? currentSale)

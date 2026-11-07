@@ -9,10 +9,16 @@ namespace NurMarketKassa.Services;
 [SupportedOSPlatform("windows")]
 public static class ClientDocPrint
 {
-    public static IReadOnlyList<string> Printers() => ScaleKeySheetService.InstalledPrinters();
+    /// <summary>2026-11-06 (В18, АЛ-5): прямая печать документа на принтер — Windows (спулер) и Linux/macOS (страницы в PDF и CUPS). На Android принтера A4 нет.</summary>
+    public static bool DirectPrintSupported => OperatingSystem.IsWindows() || CupsPrintService.IsAvailable;
+
+    public static IReadOnlyList<string> Printers() =>
+        OperatingSystem.IsWindows() ? ScaleKeySheetService.InstalledPrinters() : CupsPrintService.Queues();
 
     public static string? DefaultPrinter()
     {
+        if (!OperatingSystem.IsWindows())
+            return CupsPrintService.DefaultQueue();
         try
         {
             return new PrinterSettings().PrinterName;
@@ -28,6 +34,25 @@ public static class ClientDocPrint
     {
         if (pagePngs.Count == 0)
             return Tr.T("Нечего печатать.", "Басып чыгара турган эч нерсе жок.", "Nothing to print.", "Yazdırılacak bir şey yok.", "Chop etadigan narsa yo'q.");
+        // 2026-11-06 (В18, АЛ-5): Linux/macOS — страницы-картинки в PDF (Skia) и печать через CUPS; спулера Windows и System.Drawing там нет.
+        if (!OperatingSystem.IsWindows())
+        {
+            try
+            {
+                var result = CupsPrintService.PrintPdf(CupsPrintService.PortPrefix + printerName, PngPagesPdf.Create(pagePngs), 1, documentName);
+                return result switch
+                {
+                    LabelPrintResult.Success => null,
+                    LabelPrintResult.PrinterNotFound => Tr.T("Принтер не найден: ", "Принтер табылган жок: ", "Printer not found: ", "Yazıcı bulunamadı: ", "Printer topilmadi: ") + printerName,
+                    _ => CupsPrintService.FailedText,
+                };
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Документ клиента: печать через CUPS не удалась ({ex.Message}).", "WARNING");
+                return Tr.T("Не удалось напечатать: ", "Басып чыгаруу мүмкүн болгон жок: ", "Could not print: ", "Yazdırılamadı: ", "Chop etib bo'lmadi: ") + ex.Message;
+            }
+        }
         var images = new List<Image>();
         try
         {

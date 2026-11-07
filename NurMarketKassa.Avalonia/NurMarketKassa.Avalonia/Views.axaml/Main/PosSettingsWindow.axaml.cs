@@ -132,6 +132,14 @@ namespace NurMarketKassa.AvaloniaHost.Views
         private RadioButton LanguageUzbekRadio => _screenView.LanguageUzbekRadio;
         private RadioButton LanguageEnglishRadio => _screenView.LanguageEnglishRadio;
 
+        /// <summary>2026-11-06: набор платных функций изменился (ключ или покупка на сайте, ServerAddons) — платные языки показываются/прячутся сразу. Приходит из любого потока.</summary>
+        private void OnLanguagePackMaybeChanged() => Dispatcher.UIThread.Post(() =>
+        {
+            foreach (var (radio, language) in LanguageRadios())
+                radio.IsVisible = LanguagePackGate.IsAvailable(language);
+            _screenView.LanguagePackHint.IsVisible = !LanguagePackGate.IsUnlocked;
+        });
+
         /// <summary>Радиокнопка ↔ язык, в обе стороны — единственное место, которое надо
         /// расширить, если появится ещё один язык интерфейса.</summary>
         private IEnumerable<(RadioButton Radio, AppLanguage Language)> LanguageRadios()
@@ -242,7 +250,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     Dispatcher.UIThread.Post(UpdateNavColumns, DispatcherPriority.Loaded);
             };
             Tr.LanguageChanged += OnNavLanguageChanged;
-            Closed += (_, _) => { Tr.LanguageChanged -= OnNavLanguageChanged; _trCapture.Dispose(); Tr.ClearCaptured(); };
+            TariffGate.PacksChanged += OnLanguagePackMaybeChanged; // 2026-11-06: «Языковой пакет» купили на сайте при открытых Настройках — языки открываются без перезапуска
+            Closed += (_, _) => { Tr.LanguageChanged -= OnNavLanguageChanged; TariffGate.PacksChanged -= OnLanguagePackMaybeChanged; _trCapture.Dispose(); Tr.ClearCaptured(); };
             // 2026-11-01 (Р-6, П-1 приёмки): скрытое окно (раздел владельца) не держит запомненные переводы.
             DetachedFromVisualTree += (_, _) => Tr.ClearCaptured();
             // 2026-10-27, аудит С-22: правки на вкладках «Весы / Печать / Экран» при закрытии окна без «Сохранить» терялись молча.
@@ -433,23 +442,8 @@ namespace NurMarketKassa.AvaloniaHost.Views
             GraphicReceiptEnabledCheck.IsChecked = prefs.GraphicReceiptEnabled;
             TextModeRadio.IsChecked = prefs.SelectedPrintMode == PrintMode.Text;
             GraphicModeRadio.IsChecked = prefs.SelectedPrintMode == PrintMode.Graphic;
-            // 2026-11-06: В4 АЛ-3 — графический чек рисует System.Drawing (только Windows): на Linux и Android режим выбрать можно было, а тест-печать падала.
-            // Теперь там режим «Графика» недоступен (с подсказкой), а сохранённый «Графика» превращается в «Текст».
-            if (!OperatingSystem.IsWindows())
-            {
-                GraphicModeRadio.IsEnabled = false;
-                _printView.TestGraphicPrintButton.IsEnabled = false;
-                ToolTip.SetTip(GraphicModeRadio, Tr.T("Графический чек доступен только в Windows — здесь печатается текстовый.",
-                    "Графикалык чек Windows'то гана бар — бул жерде тексттик басылат.",
-                    "The graphic receipt is available on Windows only — a text receipt is printed here.",
-                    "Grafik fiş yalnızca Windows'ta vardır — burada metin fişi basılır.",
-                    "Grafik chek faqat Windows'da mavjud — bu yerda matnli chek chop etiladi."));
-                if (GraphicModeRadio.IsChecked == true)
-                {
-                    GraphicModeRadio.IsChecked = false;
-                    TextModeRadio.IsChecked = true;
-                }
-            }
+            // 2026-11-06: В4 АЛ-3 — графический чек рисовал System.Drawing (только Windows), поэтому на Linux и Android режим «Графика» был закрыт.
+            // 2026-11-06 (В18): теперь графический чек рисует Skia (GraphicReceiptSkia) — режим доступен везде; на настоящем принтере Linux/Android не проверялся.
 
             SelectComboByTag(GraphicFontCombo, TestReceiptLineBuilder.FontFamily);
 
@@ -565,7 +559,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 "Bağlantısız müşteri başına maks. borç, som — kasa internetsiz bu tutara kadar veresiye satış yapar. 0 — müşterinin limitine göre; hiçbir yerde limit yoksa kasa kasiyerden onay ister.",
                 "Aloqasiz mijoz uchun maks. qarz, so'm — kassa internetsiz shu summagacha «qarzga» rasmiylashtiradi. 0 — mijoz limiti bo'yicha; limit hech qayerda yo'q bo'lsa — kassa kassirdan tasdiq so'raydi.");
             var penaltySave = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            penaltySave.Tick += (_, _) =>
+            EventHandler penaltyFlush = (_, _) =>
             {
                 penaltySave.Stop();
                 var prefsNow = UserPreferences.Instance;
@@ -576,9 +570,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     System.Globalization.CultureInfo.InvariantCulture, out var offlineMax) && offlineMax > 0 ? offlineMax : 0;
                 prefsNow.SaveToDisk();
             };
+            penaltySave.Tick += penaltyFlush;
             OfflineDebtMaxBox.TextChanged += (_, _) => { penaltySave.Stop(); penaltySave.Start(); };
             DebtPenaltyBox.TextChanged += (_, _) => { penaltySave.Stop(); penaltySave.Start(); };
             RentalPenaltyBox.TextChanged += (_, _) => { penaltySave.Stop(); penaltySave.Start(); };
+            // 2026-11-07 (память, Б-J1): закрыли окно, пока таймер отложенного сохранения ещё ждёт, — сохраняем сразу и таймер останавливаем (запущенный DispatcherTimer лежит в списке диспетчера и держал закрытые «Настройки»).
+            Closed += (_, _) => { if (penaltySave.IsEnabled) penaltyFlush(penaltySave, EventArgs.Empty); };
             _screenView.SaveRequested += ScreenSaveRequested;
             _screenView.UiScaleChanged += (_, _) => RefreshUiScale();
 
@@ -1408,7 +1405,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                     }
 
                     var settings = BuildGraphicSettingsFromUi(devicePath);
-                    var bytes = GraphicReceiptGenerator.GenerateTestReceiptImage(settings, storeName);
+                    var bytes = ReceiptPrintService.GenerateGraphicTestBytes(settings, storeName);
                     ReceiptPrintService.SendRawBytes(devicePath, bytes, retry);
                     StatusText.Text = Tr.T(
                         $"✅ Графический чек ({bytes.Length} байт) отправлен на {devicePath}",

@@ -136,57 +136,13 @@ namespace NurMarketKassa.Services
         /// растра через ESC/POS.</summary>
         private const int BitImageBandHeightPx = 24;
 
-        private static byte[] ConvertToEscPosRaster(Bitmap bitmap)
-        {
-            int width = bitmap.Width;
-            int height = bitmap.Height;
-
-            using var ms = new MemoryStream();
-            EscPosCommands.WriteInitialize(ms);
-
-            // 2026-09-13, живой баг ("двоение"/линии на графическом чеке): без этой команды LF
-            // между полосами растра продвигает бумагу на межстрочный интервал по умолчанию
-            // принтера (обычно 1/6", не 24 точки), полосы съезжают и накладываются друг на
-            // друга. Выставляем интервал ровно в высоту полосы — см. WriteLineSpacing.
-            EscPosCommands.WriteLineSpacing(ms, BitImageBandHeightPx);
-
-            for (var bandStart = 0; bandStart < height; bandStart += BitImageBandHeightPx)
+        private static byte[] ConvertToEscPosRaster(Bitmap bitmap) =>
+            // 2026-11-06 (В18): общий кодировщик полос «ESC *» теперь в GraphicReceiptSkia (одни и те же байты для GDI+ и Skia); результат прежний.
+            GraphicReceiptSkia.EncodeEscStarBands(bitmap.Width, bitmap.Height, (x, y) =>
             {
-                ms.WriteByte(0x1B); // ESC
-                ms.WriteByte(0x2A); // *
-                ms.WriteByte(33);   // m = 24-точечная двойная плотность (3 байта на столбец)
-                ms.WriteByte((byte)(width % 256));
-                ms.WriteByte((byte)(width / 256));
-
-                for (var x = 0; x < width; x++)
-                {
-                    for (var chunk = 0; chunk < 3; chunk++)
-                    {
-                        byte col = 0;
-                        for (var bit = 0; bit < 8; bit++)
-                        {
-                            var y = bandStart + chunk * 8 + bit;
-                            if (y >= height)
-                                continue;
-
-                            var pixel = bitmap.GetPixel(x, y);
-                            if (pixel.R + pixel.G + pixel.B < 384)
-                                col |= (byte)(1 << (7 - bit));
-                        }
-
-                        ms.WriteByte(col);
-                    }
-                }
-
-                ms.WriteByte(0x0A); // LF — переход на следующую полосу той же ширины экрана
-            }
-
-            EscPosCommands.WriteDefaultLineSpacing(ms);
-            EscPosCommands.WriteFeedLines(ms, 2);
-            EscPosCommands.WriteFeedAndCut(ms);
-
-            return ms.ToArray();
-        }
+                var pixel = bitmap.GetPixel(x, y);
+                return pixel.R + pixel.G + pixel.B < 384;
+            });
 
     }
 

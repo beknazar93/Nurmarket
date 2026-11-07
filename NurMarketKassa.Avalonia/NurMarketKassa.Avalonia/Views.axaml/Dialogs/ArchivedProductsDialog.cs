@@ -305,6 +305,7 @@ internal sealed class ArchivedProductsDialog : Window
         {
             await _api.UnarchiveProductAsync(id).ConfigureAwait(true);
             PosLogger.Log($"AUDIT: товар «{name}» ({id}) возвращён из архива.", "INFO");
+            RemovedProductMemory.Forget(id); // 2026-11-06: товар снова в каталоге — запись об удалённом больше не нужна
             Restored = true;
             if (button.Parent is Grid row)
                 _list.Children.Remove(row);

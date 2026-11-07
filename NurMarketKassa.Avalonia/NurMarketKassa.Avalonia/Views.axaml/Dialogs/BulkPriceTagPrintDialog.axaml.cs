@@ -278,6 +278,11 @@ public partial class BulkPriceTagPrintDialog : Window
             StatusText.Text = LabelPrinterSelector.UnsupportedText; // 2026-11-01 (С-9)
             return;
         }
+        if (TargetA4Radio.IsChecked == true && !LabelPrinterSelector.A4PrintingSupported) // 2026-11-06 (В18): листы A4 — Windows и Linux (CUPS); на Android принтера A4 нет
+        {
+            StatusText.Text = LabelPrinterSelector.A4UnsupportedText;
+            return;
+        }
         if (PrinterCombo.SelectedItem is null && !_printersLoaded)
         {
             StatusText.Text = Tr.T("Ищу принтеры… повторите печать через секунду.", "Принтерлер изделүүдө… бир секунддан кийин кайра басыңыз.", "Looking for printers… try printing again in a second.", "Yazıcılar aranıyor… bir saniye sonra tekrar deneyin.", "Printerlar qidirilmoqda… bir soniyadan keyin qayta urinib ko'ring.");

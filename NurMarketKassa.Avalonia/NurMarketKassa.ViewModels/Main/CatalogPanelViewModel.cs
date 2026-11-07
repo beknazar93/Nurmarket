@@ -84,6 +84,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
 
         // Фоновый sync и правки в Складе теперь доходят до плиток (2026-09-07, см. RepublishFromLocalAsync).
         CatalogCacheService.CatalogChanged += OnCatalogChangedExternally;
+        CatalogCacheService.ServerAnswered += ClearOfflineBannerIfServerAnswered; // 2026-11-07 (Б-B1): плашка «автономный режим» гаснет после первого ответа сервера
+        ServerOutageMonitor.StateChanged += OnServerLinkChanged;
 
         // 2026-10-01, владелец: «в режиме магазина одежды и другое в каталоге должна быть кнопка
         // "Подробнее" с описанием товара от продавца». Видна в сферах «Одежда» и «Услуги».
@@ -123,6 +125,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
             return;
         CatalogCacheService.CatalogChanged -= OnCatalogChangedExternally;
+        CatalogCacheService.ServerAnswered -= ClearOfflineBannerIfServerAnswered;
+        ServerOutageMonitor.StateChanged -= OnServerLinkChanged;
         MarketSpheres.Changed -= _marketSpheresChanged;
         Tr.LanguageChanged -= _languageChanged;
     }
@@ -301,6 +305,8 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         set
         {
             _statusIsRoutine = false; // 2026-11-06 (Д4-07): обычная запись — предупреждение/ошибка/ход загрузки; служебные строки пишет SetRoutineStatus
+            _statusIsOffline = _offlineStatusNext; // 2026-11-07: строка про автономный режим/сбой синхронизации — снимется, когда сервер снова ответит
+            _offlineStatusNext = false;
             SetProperty(ref _statusText, value ?? "");
             RaiseStatusSplit();
         }
@@ -310,6 +316,31 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
     // Вид (CatalogPanelView, волна В7) показывает VisibleStatusText (пусто у служебных строк) и кладёт ServiceStatusText в подсказку значка «Онлайн». Сам StatusText не меняется.
 
     private bool _statusIsRoutine;
+    private bool _statusIsOffline;
+    private bool _offlineStatusNext;
+
+    /// <summary>2026-11-07 (живой тест, Б-B1): после возврата связи плашка «Работа в автономном режиме (из локальной БД)» висела 30+ минут: гасил её только следующий полный проход RefreshCatalogAsync,
+    /// а лента каталога (ответы сервера каждые ~8 с) его не запускает. Теперь первый же ответ сервера (лента/сверка, возврат связи в ServerOutageMonitor) снимает плашку и строку про автономный
+    /// режим — за один такт ленты (≤ 10 с). Связи по-прежнему нет (SellLocally) — ничего не меняется.</summary>
+    public void ClearOfflineBannerIfServerAnswered()
+    {
+        if (OfflineModeHelper.SellLocally || (!_isOfflineBannerVisible && !_statusIsOffline))
+            return;
+        _dispatcher.Post(() =>
+        {
+            if (OfflineModeHelper.SellLocally)
+                return;
+            IsOfflineBannerVisible = false;
+            if (_statusIsOffline)
+                SetRoutineStatus(Tr.T($"Товаров: {_allProducts.Count}", $"Товарлар: {_allProducts.Count}", $"Products: {_allProducts.Count}", $"Ürün: {_allProducts.Count}", $"Mahsulotlar: {_allProducts.Count}"));
+        });
+    }
+
+    private void OnServerLinkChanged(ServerLinkState from, ServerLinkState to)
+    {
+        if (to == ServerLinkState.Online)
+            ClearOfflineBannerIfServerAnswered();
+    }
 
     /// <summary>Служебная строка: всё в порядке, ничего делать не нужно (счётчик товаров, «Каталог обновлён», «Смена открыта»).</summary>
     public bool IsStatusRoutine => _statusIsRoutine;
@@ -325,6 +356,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
     /// <summary>Записывает служебную строку (см. <see cref="IsStatusRoutine"/>).</summary>
     public void SetRoutineStatus(string text)
     {
+        _statusIsOffline = false;
         _statusText = text ?? "";
         _statusIsRoutine = _statusText.Length > 0;
         OnPropertyChanged(nameof(StatusText));
@@ -767,6 +799,16 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
         return new RefreshResult(_lastSyncOk, _allProducts.Count, changed);
     }
 
+    /// <summary>2026-11-07 (живой тест, Б-П2): «Обновить каталог сейчас» — быстро, без полной загрузки: лента изменений + сверка последних изменённых товаров (секунды вместо ~80 с).
+    /// null — быстрый путь невозможен (нет связи, ленты нет, идёт полная загрузка) — тогда нужно обычное <see cref="ForceRefreshAsync"/>. Total — товаров в каталоге, Changed — исправлено.</summary>
+    public async Task<RefreshResult?> QuickRefreshAsync()
+    {
+        var result = await _catalogCache.QuickRefreshAsync().ConfigureAwait(false);
+        if (result is not { Success: true })
+            return null;
+        return new RefreshResult(true, _allProducts.Count, result.Added + result.Changed + result.Deleted);
+    }
+
     /// <summary>2026-10-28: есть ли товар с горячей клавишей группы (F1–F12) — F5 «Обновить» не должна отнимать клавишу у группы товаров.</summary>
     public bool HasProductsInHotkeyGroup(string group) =>
         _allProducts.Any(p => string.Equals(p.HotkeyGroup ?? "", group, StringComparison.OrdinalIgnoreCase));
@@ -848,6 +890,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
                 await _dispatcher.InvokeAsync(() =>
                 {
                     IsOfflineBannerVisible = !SessionExpiryMonitor.IsExpired; // 2026-11-06 (В-9)
+                    _offlineStatusNext = true;
                     StatusText = localProducts.Count > 0
                         ? Tr.T($"Работа в автономном режиме (из локальной БД). Товаров: {localProducts.Count}.",
                             $"Офлайн режимде иштөө (локалдык базадан). Товарлар: {localProducts.Count}.",
@@ -930,6 +973,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
                 else
                 {
                     IsOfflineBannerVisible = products.Count > 0;
+                    _offlineStatusNext = true;
                     StatusText = products.Count > 0
                         ? Tr.T($"Сервер недоступен — показан локальный каталог ({products.Count}). {syncResult.ErrorMessage}",
                             $"Сервер жеткиликсиз — локалдык каталог көрсөтүлдү ({products.Count}). {syncResult.ErrorMessage}",
@@ -952,6 +996,7 @@ public sealed class CatalogPanelViewModel : ViewModelBase, IDisposable
             await _dispatcher.InvokeAsync(() =>
             {
                 IsOfflineBannerVisible = _allProducts.Count > 0;
+                _offlineStatusNext = true;
                 StatusText = _allProducts.Count > 0
                     ? Tr.T($"Ошибка синхронизации — показан локальный каталог ({_allProducts.Count}).",
                         $"Шайкештирүү катасы — локалдык каталог көрсөтүлдү ({_allProducts.Count}).",

@@ -792,6 +792,14 @@ public sealed class AnalyticsReportData
                 catalog[product.Id] = product;
         }
 
+        // 2026-11-06 (удаление товара): товар, удалённый или отправленный в архив, из каталога ушёл, а его чеки в прошлых периодах остались — без закупки, категории и бренда
+        // он выпадал из срезов «по прибыли», «по категориям» и «по брендам». Берём запомненные при удалении значения (RemovedProductMemory); живой каталог главнее.
+        foreach (var gone in RemovedProductMemory.All())
+        {
+            if (!catalog.ContainsKey(gone.Id))
+                catalog[gone.Id] = RemovedProductMemory.ToTile(gone);
+        }
+
         return catalog;
     }
 
@@ -913,7 +921,7 @@ public sealed class AnalyticsReportData
             .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity), StringComparer.OrdinalIgnoreCase);
 
         var rows = new List<(string, double, double, double)>();
-        foreach (var product in CatalogCacheService.Products)
+        foreach (var product in CatalogCacheService.Products.ToArray()) // 2026-11-06: копия — каталог обновляется в UI-потоке, перебор живого списка в фоне падал бы «коллекция изменена»
         {
             if (!sold.TryGetValue(product.Id, out var quantity) || quantity <= 0)
                 continue;

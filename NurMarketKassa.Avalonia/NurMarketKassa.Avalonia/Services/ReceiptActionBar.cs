@@ -85,8 +85,9 @@ internal sealed class ReceiptActionBar : Border
         var list = new System.Collections.Generic.List<Button>();
         if (Print != null) list.Add(_print);
         list.Add(_qr);
-        // 2026-11-06: В4 А5-04 — на Android PDF не создаётся (нативная библиотека QuestPDF под glibc не грузится): кнопки нет, чек уходит текстом.
-        if (!PdfSupport.IsAvailable)
+        // 2026-11-06: В4 А5-04 — на Android PDF не создавался (нативная библиотека QuestPDF под glibc не грузится): кнопку скрывали.
+        // 2026-11-06 (В18): PDF чека на Android пишет SkiaSharp — кнопка есть везде. (Условие было перевёрнуто: кнопка показывалась только там, где PDF нет.)
+        if (PdfSupport.ReceiptPdfAvailable)
             list.Add(_pdf);
         list.Add(_send);
         if (_showReturn && Return != null) list.Add(_return);
@@ -215,7 +216,7 @@ internal sealed class ReceiptActionBar : Border
             TelegramReceiptUi.ShowQr(OwnerWindow ?? TopLevel.GetTopLevel(this) as Window);
         };
         var file = Item(Tr.T("PDF и папка", "PDF жана папка", "PDF and folder", "PDF ve klasör", "PDF va papka"));
-        // 2026-11-06: В4 А5-04 — на Android пункт «PDF и папка» скрыт (PDF там пока не работает).
+        // 2026-11-06: В4 А5-04 — на Android пункт «PDF и папка» скрыт: папку чеков там не открыть (PDF само по себе создаётся, кнопка «PDF» в ряду кнопок).
         file.IsVisible = PdfSupport.IsAvailable;
         var copy = Item(Tr.T("Скопировать текст", "Текстти көчүрүү", "Copy text", "Metni kopyala", "Matnni nusxalash"));
         var note = new TextBlock

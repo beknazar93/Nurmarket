@@ -43,20 +43,22 @@ public partial class WarehouseWindow
 
     // 2026-10-29, спека Fable: порядок — Название · Штрихкод · Ед. · На складе · Принимаем · Закупка · Наценка % · Цена продажи · Закупка изменилась · Как посчитана цена ·
     // Прибыль с шт. · Сумма закупки · Размеры · ✕ (колонки «Источник» нет: источник — подстрока под названием).
-    private DataGridColumn RcvColName => ReceivingGrid.Columns[0];
-    private DataGridColumn RcvColBarcode => ReceivingGrid.Columns[1];
-    private DataGridColumn RcvColUnit => ReceivingGrid.Columns[2];
-    private DataGridColumn RcvColWas => ReceivingGrid.Columns[3];
-    private DataGridColumn RcvColQty => ReceivingGrid.Columns[4];
-    private DataGridColumn RcvColPurchase => ReceivingGrid.Columns[5];
-    private DataGridColumn RcvColMarkup => ReceivingGrid.Columns[6];
-    private DataGridColumn RcvColSale => ReceivingGrid.Columns[7];
-    private DataGridColumn RcvColChange => ReceivingGrid.Columns[8];
-    private DataGridColumn RcvColAuto => ReceivingGrid.Columns[9];
-    private DataGridColumn RcvColProfit => ReceivingGrid.Columns[10];
-    private DataGridColumn RcvColTotal => ReceivingGrid.Columns[11];
-    private DataGridColumn RcvColSizes => ReceivingGrid.Columns[12];
-    private DataGridColumn RcvColRemove => ReceivingGrid.Columns[13];
+    // 2026-11-07: впереди колонка «№» (порядок добавления, только чтение) — остальные индексы сдвинуты на 1.
+    private DataGridColumn RcvColNo => ReceivingGrid.Columns[0];
+    private DataGridColumn RcvColName => ReceivingGrid.Columns[1];
+    private DataGridColumn RcvColBarcode => ReceivingGrid.Columns[2];
+    private DataGridColumn RcvColUnit => ReceivingGrid.Columns[3];
+    private DataGridColumn RcvColWas => ReceivingGrid.Columns[4];
+    private DataGridColumn RcvColQty => ReceivingGrid.Columns[5];
+    private DataGridColumn RcvColPurchase => ReceivingGrid.Columns[6];
+    private DataGridColumn RcvColMarkup => ReceivingGrid.Columns[7];
+    private DataGridColumn RcvColSale => ReceivingGrid.Columns[8];
+    private DataGridColumn RcvColChange => ReceivingGrid.Columns[9];
+    private DataGridColumn RcvColAuto => ReceivingGrid.Columns[10];
+    private DataGridColumn RcvColProfit => ReceivingGrid.Columns[11];
+    private DataGridColumn RcvColTotal => ReceivingGrid.Columns[12];
+    private DataGridColumn RcvColSizes => ReceivingGrid.Columns[13];
+    private DataGridColumn RcvColRemove => ReceivingGrid.Columns[14];
 
     // ------------------------------------------------------------------ запуск
 
@@ -84,6 +86,9 @@ public partial class WarehouseWindow
             "İmleç okutma alanında kalır, her okutma yanındaki alandaki miktarı ekler.",
             "Kursor skaner maydonida qoladi, har bir skan yonidagi maydondagi sonni qo'shadi."));
         // 2026-10-29, спека Fable (Specs-1029/01) + жалоба «что означает Динамика»: заголовки простыми словами, подзаголовки, тултипы; числа и их заголовки — вправо.
+        RcvNoHeader.Text = "№";
+        ToolTip.SetTip(RcvNoHeader, TR("Порядковый номер строки — в каком порядке добавляли товары.", "Саптын иретиндик номери — товарлар кандай тартипте кошулган.", "Line number — the order in which the products were added.",
+            "Satır sıra numarası — ürünlerin eklenme sırası.", "Qator tartib raqami — mahsulotlar qo'shilgan tartib."));
         RcvNameHeader.Text = TR("Название", "Аталышы", "Name", "Ad", "Nomi");
         RcvBarHeader.Text = TR("Штрихкод", "Штрихкод", "Barcode", "Barkod", "Shtrix-kod");
         RcvUnitHeader.Text = TR("Ед.", "Бир.", "Unit", "Birim", "Birlik");

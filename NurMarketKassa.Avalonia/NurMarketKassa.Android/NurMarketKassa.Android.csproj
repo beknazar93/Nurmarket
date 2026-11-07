@@ -33,9 +33,9 @@
     <ApplicationId>kg.nurmarket.kassa</ApplicationId>
     <ApplicationTitle>NurCRM Kassa</ApplicationTitle>
     <!-- versionCode Android — целое, растёт с каждой сборкой для клиентов: 1.17.44 → 11744. -->
-    <ApplicationVersion>11779</ApplicationVersion>
-    <ApplicationDisplayVersion>1.17.79</ApplicationDisplayVersion>
-    <Version>1.17.79</Version>
+    <ApplicationVersion>11781</ApplicationVersion>
+    <ApplicationDisplayVersion>1.17.81</ApplicationDisplayVersion>
+    <Version>1.17.81</Version>
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <FileVersion>$(Version)</FileVersion>
 
@@ -115,8 +115,9 @@
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
     <!-- 2026-11-06: В4 А5-04 (владелец: «убрать нативы QuestPDF из APK — да»). QuestPDF приходит из проекта Infrastructure; его родные библиотеки
          (libQuestPdfSkia.so, libqpdf.so) — сборки под Linux glibc: Android (bionic) их не загружает, PDF на Android не создавался и раньше (кнопки PDF
-         теперь скрыты, см. PdfSupport). Версия та же, что в Infrastructure; исключаются только родные файлы (≈7,6 МБ в APK). PDF на Android вернётся
-         через SkiaSharp (волна В18) — тогда эта строка не понадобится. -->
+         теперь скрыты, см. PdfSupport). Версия та же, что в Infrastructure; исключаются только родные файлы (≈7,6 МБ в APK).
+         2026-11-06 (В18): PDF чека на Android теперь пишет SkiaSharp (ReceiptSkiaPdf), но остальные 9 PDF-документов (накладные, возврат поставщику, отчёты)
+         по-прежнему на QuestPDF — поэтому строка остаётся, пока и они не переведены на Skia. -->
     <PackageReference Include="QuestPDF" Version="2024.12.3" ExcludeAssets="native" />
   </ItemGroup>
 

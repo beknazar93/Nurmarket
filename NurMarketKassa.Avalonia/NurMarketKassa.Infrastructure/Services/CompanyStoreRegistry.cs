@@ -58,6 +58,7 @@ public static class CompanyStoreRegistry
         "pending_debt_prepayments.json", "promotion_rules.json", "purchases", "revision", "supplier-debts",
         "rental-receipts.json", "upsell-sync.json", "client-docs", "funnel.json", "label-scales.json", "receiving-markup.json",
         "shtrikhpc-pictures.json",                             // 2026-11-06: что уже записано в папки весов РС-200 (картинки товаров компании)
+        "scale-config-backups",                                // 2026-11-06: копии Config.txt весов РС-200 перед записью настроек (ShtrikhPcConfigBackup) — настройки весов этой компании
         "salary_payouts.json", "startup-costs", "error-reports.json", "price-tag-template.json", "bonus-branch-rule.json",
         "profit-pay", "barcode-print-settings.json", "phone-print-settings.json", "menu-badges-seen.txt",
         "backups",                                            // копии общих настроек компании (settings-migration)
@@ -65,6 +66,8 @@ public static class CompanyStoreRegistry
         "offline_operations.json", "offline_clients.json",
         // 2026-10-31: кэш платных функций, включённых компании на сервере (ServerAddons), — принадлежит компании.
         "server-addons.json", "server-addons.json.bak",
+        // 2026-11-06 («темы с сайта»): кэш каталога тем/видов кассы с сервера и запись о поставленных с сайта темах (сама тема — в custom-themes.json) — принадлежат компании: покупка привязана к ней.
+        "marketplace-themes.json", "marketplace-themes.json.bak", "server-themes.json", "server-themes.json.bak",
         // 2026-11-03: память поиска фото пачками (какие товары компании уже проверены) — принадлежит компании.
         "photo-search-progress.json", "photo-search-progress.json.bak",
         // 2026-11-03 (аудит №3, Т3-04): кэш списка архивных товаров (10 минут) — принадлежит компании.
@@ -98,6 +101,7 @@ public static class CompanyStoreRegistry
         "shop-alerts-state.json", "shop-automation.json", "rental-alerts.json",
         // 2026-11-06 (аудит №5, Л5-11): порог PIN ревизии и история пересчётов теперь общий файл кассы и владельца (история — товары прежней компании).
         "cycle-count.json", "cycle-count.json.bak",
+        "removed-products.json", "removed-products.json.bak", // 2026-11-06: память об удалённых/архивных товарах (закупка, категория, бренд для прошлых периодов аналитики) — товары прежней компании
     ];
 
     /// <summary>2026-11-06: В3 Л4-05 — общие файлы кассы и владельца с полем «компания» у каждой записи: при смене компании не уносятся целиком.

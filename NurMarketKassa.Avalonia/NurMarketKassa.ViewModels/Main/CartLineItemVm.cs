@@ -29,6 +29,9 @@ public sealed class CartLineItemVm : ViewModelBase
     public override string ToString() => Title;
     public string DecreaseName => Tr.T("Убавить", "Азайтуу", "Decrease", "Azalt", "Kamaytirish") + ": " + Title;
     public string IncreaseName => Tr.T("Прибавить", "Көбөйтүү", "Increase", "Artır", "Ko'paytirish") + ": " + Title;
+    // 2026-11-06 (В7, ДС-2): корзина строки — «Удалить из чека: товар»; после первого нажатия (двойное нажатие, Д4-04) — «Подтвердить удаление: товар».
+    public string RemoveName => Tr.T("Удалить из чека", "Чектен өчүрүү", "Remove from receipt", "Fişten kaldır", "Chekdan olib tashlash") + ": " + Title;
+    public string RemoveConfirmName => Tr.T("Подтвердить удаление", "Өчүрүүнү ырастоо", "Confirm removal", "Kaldırmayı onayla", "O'chirishni tasdiqlash") + ": " + Title;
 
     public string Unit { get; init; } = "шт";
     public double UnitPrice { get; init; }

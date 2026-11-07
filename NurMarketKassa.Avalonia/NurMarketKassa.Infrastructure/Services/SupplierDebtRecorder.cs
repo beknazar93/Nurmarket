@@ -97,7 +97,7 @@ public static class SupplierDebtRecorder
     /// <summary>Один журнал на компьютер для кассы и программы владельца (как debt-payments): владелец видит долги, не записанные
     /// кассой на этом ПК. Не в папке data — её AccountDataIsolation уносит при смене компании (строки и так с компанией).</summary>
     private static string DataDir => DataDirOverride
-        ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "supplier-debts");
+        ?? Path.Combine(NurMarketKassa.Services.AppPaths.KassaRoaming, "supplier-debts");
 
     private static string FilePath => Path.Combine(DataDir, "supplier-debts.json");
     private static string LockPath => Path.Combine(DataDir, "supplier-debts.lock");

@@ -411,8 +411,13 @@ public static class ShtrikhPrintProtocol
         var mde = Math.Round(priceSom * factor, MidpointRounding.AwayFromZero);
         if (mde < 0)
             return 0;
-        return mde > 999999m ? 999999 : (int)mde;
+        // 2026-11-06: раньше здесь молча обрезалось до 999999 (на весах цена 12 500 стала бы 9999,99). Теперь значение
+        // возвращается как есть (с насыщением int); предел MaxPriceMde проверяют вызывающие (ScalePriceLimits, UploadPlusAsync).
+        return mde > int.MaxValue ? int.MaxValue : (int)mde;
     }
+
+    /// <summary>Предел цены в МДЕ по протоколу (0..999999): при 2 знаках — 9999,99 сом, при 0 знаках — 999 999 сом.</summary>
+    public const int MaxPriceMde = 999999;
 
     /// <summary>Упаковывает запись ПЛУ расширенного формата — 82 байта, общая часть команд
     /// 55h и 57h (у 57h перед ней идёт пароль, у 55h — пароль и количество записей).

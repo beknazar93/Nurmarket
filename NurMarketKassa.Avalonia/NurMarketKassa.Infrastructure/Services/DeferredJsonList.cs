@@ -70,6 +70,19 @@ public sealed class DeferredJsonList<T>
         catch { return true; }
     }
 
+    /// <summary>2026-11-06 (В16, память): забыть список в памяти, когда он больше не нужен (окно закрыто). У владельца история Советника — до 6 МБ текста (≈12 МБ строк UTF-16 в куче
+    /// больших объектов), и раньше она жила до выхода из программы. Следующий <see cref="Load"/> прочитает файл заново. Не трогает список, пока идёт запись или есть несохранённое.</summary>
+    public bool Release()
+    {
+        lock (_gate)
+        {
+            if (_dirty || _writing)
+                return false;
+            _mem = null;
+            return true;
+        }
+    }
+
     private void WriteLoop()
     {
         while (true)

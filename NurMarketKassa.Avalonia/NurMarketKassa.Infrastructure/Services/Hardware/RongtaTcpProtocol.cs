@@ -28,6 +28,9 @@ public static class RongtaTcpProtocol
     public const string CmdPluSend = "0110";
     public const string CmdRequestSalesUpload = "0120";
 
+    /// <summary>Предел поля «Unit price» (8 цифр, сотые без точки) — 999 999,99 сом.</summary>
+    public const long MaxPriceUnits = 99_999_999;
+
     /// <summary>Пакет = 4 ASCII-цифры длины (весь пакет целиком, включая само поле длины) +
     /// 4 ASCII-цифры код команды + данные. Пример из мануала: "00080201" — длина "0008" (=8
     /// символов всего пакета), команда "0201" (Start), без данных.</summary>
@@ -88,7 +91,11 @@ public static class RongtaTcpProtocol
         // раскладка компании «по коду», как советует документация сайта для Rongta.
         sb.Append(ClampDigits(plu, 10));                     // Art. No. / Code = PLU
         sb.Append(ClampDigits(5, 2));                        // Barcode type 05
-        sb.Append(ClampDigits((long)Math.Round(priceSom * 100), 8)); // Unit price ×100, без точки
+        // 2026-11-06: раньше ClampDigits брал «последние 8 цифр» (цена ≥ 1 000 000 сом молча превращалась в другую). Теперь — явная ошибка.
+        var priceUnits = (long)Math.Round(priceSom * 100, MidpointRounding.AwayFromZero);
+        if (priceUnits < 0 || priceUnits > MaxPriceUnits)
+            throw new ArgumentOutOfRangeException(nameof(priceSom), priceSom, "Цена не помещается в 8 цифр поля Unit price (максимум 999 999,99 сом).");
+        sb.Append(ClampDigits(priceUnits, 8));               // Unit price ×100, без точки
         sb.Append(weighingUnit);                             // Weighing unit (по умолчанию '4' = кг)
         sb.Append(ClampDigits(21, 2));                       // Dept. = 21 (префикс штрихкода)
         sb.Append(ClampDigits(0, 6));                        // Tare weight (по умолчанию 0)

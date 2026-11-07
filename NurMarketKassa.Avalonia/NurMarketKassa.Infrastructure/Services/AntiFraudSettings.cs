@@ -142,7 +142,7 @@ public static class AntiFraudSettingsStore
 
     public static event Action? Changed;
 
-    internal static string Folder => DataDirOverride ?? Path.Combine(AppPaths.Local, "NurMarketKassa");
+    internal static string Folder => DataDirOverride ?? AppPaths.KassaLocal;
 
     private static string FilePath => Path.Combine(Folder, "antifraud-settings.json");
 

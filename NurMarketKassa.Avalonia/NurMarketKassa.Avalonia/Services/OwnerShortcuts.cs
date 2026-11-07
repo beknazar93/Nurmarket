@@ -363,7 +363,7 @@ internal static class OwnerShortcuts
     {
         try
         {
-            var dir = Path.Combine(NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa", "Logs");
+            var dir = Path.Combine(NurMarketKassa.Services.AppPaths.KassaLocal, "Logs");
             Directory.CreateDirectory(dir);
             File.AppendAllText(Path.Combine(dir, "owner-shortcut.log"),
                 $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}");

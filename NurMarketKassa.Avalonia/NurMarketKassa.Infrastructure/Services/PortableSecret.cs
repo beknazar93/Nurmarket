@@ -52,7 +52,7 @@ public static class PortableSecret
         {
             if (_key is not null)
                 return _key;
-            var dir = Path.Combine(NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa");
+            var dir = NurMarketKassa.Services.AppPaths.KassaLocal;
             Directory.CreateDirectory(dir);
             // 2026-11-06: В3 А-15 — на Linux/Android папка с ключом доступна только владельцу (700), а не всем пользователям ПК. Сбой прав не мешает работе.
             if (!OperatingSystem.IsWindows())

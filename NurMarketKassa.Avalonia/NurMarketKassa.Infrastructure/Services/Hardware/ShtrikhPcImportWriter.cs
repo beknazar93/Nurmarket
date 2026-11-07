@@ -42,10 +42,10 @@ public enum ShtrikhPcFolderCheck
     Failed,
 }
 
-public sealed record ShtrikhPcBuildResult(string Text, int Written, IReadOnlyList<string> Warnings);
+public sealed record ShtrikhPcBuildResult(string Text, int Written, IReadOnlyList<string> Warnings, int QuickKeys = 0, IReadOnlyList<ShtrikhPcItem>? Items = null);
 
 public sealed record ShtrikhPcWriteResult(ShtrikhPcWriteStatus Status, int Written, IReadOnlyList<string> Warnings, string ImportPath, string FlagPath, string? Detail,
-    ShtrikhPcPictureStats? Pictures = null);
+    ShtrikhPcPictureStats? Pictures = null, ShtrikhPcScenarioResult? Scenario = null, IReadOnlyList<string>? ReloadFlags = null);
 
 /// <summary>2026-11-06: писатель файла импорта для весов «ШТРИХ РС-200С2» (руководство администратора, п. 6.2.1 «Структура БД товаров», п. 8.1 «Импорт данных»).
 /// Файл — текст в Windows-1251, строки через CRLF: строка 1 «##@@&amp;&amp;», строка 2 «#» (не обработан; после обработки весы меняют её на «@»), далее строки
@@ -174,6 +174,18 @@ public static class ShtrikhPcImportWriter
         return head + string.Join(";", f);
     }
 
+    /// <summary>Строка конфигурации «&lt;N» (руководство, п. 6.3): номер параметра, «;», значение. Начало строки — как у «&lt;D». Применяется весами только при включённом импорте конфигурации.</summary>
+    public static string BuildConfigLine(int parameter, long value, ShtrikhPcSettings settings)
+    {
+        var head = settings.LineStyle switch
+        {
+            ShtrikhPcSettings.LineGlued => "<N",
+            ShtrikhPcSettings.LineSemicolon => "<N;",
+            _ => "<N ",
+        };
+        return head + parameter.ToString(CultureInfo.InvariantCulture) + ";" + value.ToString(CultureInfo.InvariantCulture);
+    }
+
     /// <summary>Собирает весь текст файла. Повторные коды и коды вне 1…<paramref name="maxCode"/> отбрасываются с предупреждением.</summary>
     public static ShtrikhPcBuildResult Build(IEnumerable<ShtrikhPcItem> items, ShtrikhPcSettings settings, long maxCode = MaxCode)
     {
@@ -182,6 +194,8 @@ public static class ShtrikhPcImportWriter
         var warnings = new List<string>();
         var lines = new List<string>();
         var resourceLines = new List<string>();
+        var writtenCodes = new List<long>();
+        var acceptedItems = new List<ShtrikhPcItem>();
         var seen = new HashSet<long>();
         var seenResources = new HashSet<long>();
         foreach (var item in items)
@@ -207,14 +221,16 @@ public static class ShtrikhPcImportWriter
             var price = FormatPrice(item.Price, settings.PriceDecimals, settings.DecimalSeparator);
             if (price is null)
             {
-                warnings.Add(Tr.T($"«{item.Name}»: цена {item.Price} не помещается в поле цены весов (7 знаков) — не записан.",
-                    $"«{item.Name}»: {item.Price} баасы таразанын баа талаасына (7 белги) батпайт — жазылган жок.",
-                    $"“{item.Name}”: price {item.Price} does not fit the scale's price field (7 digits) — not written.",
-                    $"«{item.Name}»: {item.Price} fiyatı tartının fiyat alanına (7 hane) sığmıyor — yazılmadı.",
-                    $"«{item.Name}»: {item.Price} narxi tarozining narx maydoniga (7 raqam) sig‘maydi — yozilmadi."));
+                // 2026-11-06: сообщение с пределом при выбранных знаках после запятой и подсказкой (параметр весов 12).
+                var pcDecimals = Math.Clamp(settings.PriceDecimals, 0, 3);
+                warnings.Add($"«{item.Name}»: " + ScalePriceLimits.DoesNotFitText(item.Price, MaxPriceUnits, pcDecimals, pcDecimals == 0 ? "" : ScalePriceLimits.FewerDecimalsHint(
+                    "Число десятичных знаков цены и стоимости (параметр 12)", "Баанын жана наркынын ондук белгилеринин саны (12-параметр)", "Number of decimal places of price and cost (parameter 12)",
+                    "Fiyat ve tutarın ondalık hane sayısı (parametre 12)", "Narx va qiymatning o‘nlik xonalari soni (12-parametr)")));
                 continue;
             }
             lines.Add(BuildLine(item, settings, price));
+            writtenCodes.Add(item.Code);
+            acceptedItems.Add(item);
             if (item.PictureResource > 0 && !string.IsNullOrEmpty(item.PictureFile) && seenResources.Add(item.PictureResource))
                 resourceLines.Add(BuildResourceLine(item.PictureResource, item.PictureFile, settings));
         }
@@ -227,10 +243,19 @@ public static class ShtrikhPcImportWriter
             sb.Append(line).Append("\r\n");
         foreach (var line in lines)
             sb.Append(line).Append("\r\n");
+        // Кнопки быстрого доступа (главный экран весов): кнопка N = параметр 2000 + N, значение — код товара, 0 — пустая кнопка. Лишние кнопки очищаются,
+        // иначе после полной выгрузки они указывают на коды прежней системы (48002 …), которых в базе больше нет, и экран пуст.
+        var quickKeys = 0;
+        if (settings.QuickKeys && writtenCodes.Count > 0)
+        {
+            quickKeys = Math.Min(writtenCodes.Count, settings.QuickKeyCount);
+            for (var key = 0; key < settings.QuickKeyCount; key++)
+                sb.Append(BuildConfigLine(ShtrikhPcSettings.QuickKeyFirstParam + key, key < writtenCodes.Count ? writtenCodes[key] : 0, settings)).Append("\r\n");
+        }
         // Команды — строго в последних строках; весы выполняют их ДО загрузки данных (руководство, п. 8.1.1).
         if (settings.ClearBase)
             sb.Append(ClearCommand).Append("\r\n");
-        return new ShtrikhPcBuildResult(sb.ToString(), lines.Count, warnings);
+        return new ShtrikhPcBuildResult(sb.ToString(), lines.Count, warnings, quickKeys, acceptedItems);
     }
 
     // ------------------------------------------------------------------ пути и папка
@@ -273,7 +298,7 @@ public static class ShtrikhPcImportWriter
     }
 
     /// <summary>Выполняет <paramref name="work"/> на фоновом потоке и ждёт не дольше <paramref name="timeout"/>: сетевая папка выключенных весов не должна подвешивать кассу.</summary>
-    private static async Task<(bool Completed, T? Value)> RunWithTimeoutAsync<T>(Func<T> work, TimeSpan timeout, CancellationToken ct)
+    internal static async Task<(bool Completed, T? Value)> RunWithTimeoutAsync<T>(Func<T> work, TimeSpan timeout, CancellationToken ct)
     {
         var task = Task.Run(work, CancellationToken.None);
         var finished = await Task.WhenAny(task, Task.Delay(timeout, ct)).ConfigureAwait(false);
@@ -388,7 +413,11 @@ public static class ShtrikhPcImportWriter
 
         if (!overwritePending)
         {
-            var (_, pending) = await RunWithTimeoutAsync(() => IsPending(importPath, flagPath), AvailabilityTimeout, ct).ConfigureAwait(false);
+            var (checkedInTime, pending) = await RunWithTimeoutAsync(() => IsPending(importPath, flagPath), AvailabilityTimeout, ct).ConfigureAwait(false);
+            // 2026-11-06: не уложились в 3 с (папка весов зависла или машина перегружена) — раньше это молча считалось «не ждёт приёма» и непринятая выгрузка затиралась без вопроса.
+            // Теперь неизвестность = «папка недоступна»: ничего не пишем, владелец повторит.
+            if (!checkedInTime)
+                return new ShtrikhPcWriteResult(ShtrikhPcWriteStatus.FolderUnavailable, 0, build.Warnings, importPath, flagPath, "timeout");
             if (pending)
                 return new ShtrikhPcWriteResult(ShtrikhPcWriteStatus.PendingNotAccepted, 0, build.Warnings, importPath, flagPath, null);
         }
@@ -418,12 +447,49 @@ public static class ShtrikhPcImportWriter
         {
             var bytes = Encode(build.Text);
             await Task.Run(() => WriteAtomic(importPath, bytes), ct).ConfigureAwait(false);
+            // Главный экран весов — сценарий самообслуживания: пересобираем его из выгруженных товаров (только после удачной записи файла импорта).
+            ShtrikhPcScenarioResult? scenario = null;
+            if (settings.UpdateScenario && build.Items is { Count: > 0 } accepted)
+            {
+                var onScreen = settings.ScenarioOnlyWithPicture ? accepted.Where(i => i.PictureResource > 0) : accepted;
+                try
+                {
+                    scenario = await ShtrikhPcScenarioWriter.WriteAsync(onScreen.Select(i => i.Code).ToList(), settings, null, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Весы Штрих РС: сценарий главного экрана не записан ({ex.GetType().Name}: {ex.Message}).", "SCALES");
+                }
+            }
+            // 2026-11-06 (Паспорт версий 2.1.3.7, параметры 953/954): флаг перезагрузки сценария — после файла импорта, картинок и сценария, но ПЕРЕД основным флагом импорта:
+            // весы, приняв импорт, перечитывают главный экран сами. Порядок файлов: PCScale.txt → картинки → сценарий → flag → flag в SelfScenario → PCScale.flz.
+            IReadOnlyList<string> reloadFlags = Array.Empty<string>();
+            try
+            {
+                // Флаг нужен, только когда касса обновляет сценарий (галочка «Обновлять главный экран»): иначе перечитывать нечего и папку сценариев не трогаем.
+                if (settings.UpdateScenario)
+                    reloadFlags = await ShtrikhPcScenarioWriter.WriteReloadFlagsAsync(settings, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Весы Штрих РС: флаг перезагрузки сценария не создан ({ex.GetType().Name}: {ex.Message}).", "SCALES");
+            }
+            // Основной флаг импорта — последним: до него весы файл импорта не трогают.
             await Task.Run(() =>
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(flagPath)!);
                 using var _ = new FileStream(flagPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete); // пустой флаг-файл
+                TraceFile(flagPath);
             }, ct).ConfigureAwait(false);
-            return new ShtrikhPcWriteResult(ShtrikhPcWriteStatus.Ok, build.Written, build.Warnings, importPath, flagPath, null, pictureStats);
+            return new ShtrikhPcWriteResult(ShtrikhPcWriteStatus.Ok, build.Written, build.Warnings, importPath, flagPath, null, pictureStats, scenario, reloadFlags);
         }
         catch (OperationCanceledException)
         {
@@ -464,7 +530,7 @@ public static class ShtrikhPcImportWriter
     }
 
     /// <summary>Атомарная запись: временный файл рядом, затем переименование — весы не увидят полфайла.</summary>
-    private static void WriteAtomic(string path, byte[] bytes)
+    internal static void WriteAtomic(string path, byte[] bytes)
     {
         var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir))
@@ -472,5 +538,11 @@ public static class ShtrikhPcImportWriter
         var temp = path + ".tmp";
         File.WriteAllBytes(temp, bytes);
         File.Move(temp, path, overwrite: true);
+        TraceFile(path);
     }
+
+    /// <summary>2026-11-06: тест порядка создания файлов (PCScale.txt → сценарий → flag → PCScale.flz) подписывается сюда; в работе не используется.</summary>
+    internal static readonly AsyncLocal<Action<string>?> FileTrace = new();
+
+    internal static void TraceFile(string path) => FileTrace.Value?.Invoke(path);
 }

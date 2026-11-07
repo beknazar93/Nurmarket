@@ -1381,9 +1381,20 @@
                                 <x:Double x:Key="DataGridSortIconMinWidth">0</x:Double>
                             </DataGrid.Resources>
                             <DataGrid.Columns>
-                                <!-- 2026-10-29, спека Fable (Specs-1029/01): порядок (0–13) — Название (+подстрока «источник · категория») · Штрихкод · Ед. · На складе · Принимаем · Закупка ·
+                                <!-- 2026-10-29, спека Fable (Specs-1029/01): порядок (0–13; с 2026-11-07 впереди ещё «№», индексы колонок +1) — Название (+подстрока «источник · категория») · Штрихкод · Ед. · На складе · Принимаем · Закупка ·
                                      Наценка % · Цена продажи · Закупка изменилась · Как посчитана цена · Прибыль с шт. · Сумма закупки · Размеры · ✕. Код обращается к колонкам по именам
                                      RcvCol* (WarehouseWindow.ReceivingScan.cs) — при смене порядка править только их. Редактируются 4 ячейки (класс rcv-edit — подчёркивание). -->
+                                <!-- 2026-11-07 (ТЗ «Порядковая нумерация товаров в накладной»): «№» — порядок добавления (ReceivingLineVm.LineNo), только чтение, сортировка по колонке выключена;
+                                     при сортировке таблицы по другому столбцу номера остаются «как добавлялись». Ширину в узком виде ставит O9.cs. -->
+                                <DataGridTemplateColumn Width="44" IsReadOnly="True" CanUserSort="False" CanUserResize="False">
+                                    <DataGridTemplateColumn.Header><TextBlock x:Name="RcvNoHeader" HorizontalAlignment="Center"/></DataGridTemplateColumn.Header>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{ReflectionBinding LineNo}" AutomationProperties.Name="{ReflectionBinding LineNoAutomationText}" Focusable="False"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="13" Foreground="{DynamicResource BrushTextSoft}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTemplateColumn Width="*" MinWidth="170" SortMemberPath="ProductName">
                                     <DataGridTemplateColumn.Header><TextBlock x:Name="RcvNameHeader"/></DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>

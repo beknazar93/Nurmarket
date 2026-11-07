@@ -82,6 +82,12 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         WriteOffReasonOptions = new ObservableCollection<string>(WriteOffReasons);
         RevisionLines.CollectionChanged += (_, _) => (CommitRevisionCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
         ReceivingLines.CollectionChanged += (_, _) => (CommitReceivingCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+        // 2026-11-07 (ТЗ «Порядковая нумерация товаров в накладной»): «№» строки = порядок добавления; удаление уплотняет номера, перестановка «наверх» их не трогает.
+        ReceivingLines.CollectionChanged += (_, e) =>
+        {
+            if (!IsReorderingReceiving)
+                ReceivingListOrder.OnListChanged(ReceivingLines, e);
+        };
         RevisionPickCommand = new RelayCommand<CatalogProductTileVm>(PickRevisionProduct);
         WriteOffPickCommand = new RelayCommand<CatalogProductTileVm>(PickWriteOffProduct);
         PreviousProductPageCommand = new RelayCommand(() => GoToProductPage(_currentPage - 1), () => CanGoToPreviousProductPage);
@@ -1238,7 +1244,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
 
     private async Task CommitReceivingCoreAsync()
     {
-        var lines = ReceivingLines.ToList();
+        var lines = ReceivingListOrder.InAddedOrder(ReceivingLines); // 2026-11-07: в приход — в порядке добавления («№» 1, 2, 3…), а не «новая сверху»
         var problems = PurchaseReceivingService.Validate(lines, requireSalePrice: ConfirmMissingSalePrices is null); // 2026-11-06: цену продажи спросит окно ниже
         problems.AddRange(PurchaseReceivingService.FractionalProblems(lines)); // 2026-10-31: «2,5 шт» у нового товара — выберите «кг» или целое
         if (problems.Count > 0)

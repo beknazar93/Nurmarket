@@ -83,8 +83,11 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
         OnPropertyChanged(nameof(TypeBadgeText));
     }
 
-    public string? Category { get; set; }
-    public string? Brand { get; set; }
+    // 2026-11-06 (В16, память): повторяющиеся короткие значения — один общий экземпляр на значение (StringPool), а не по копии на каждый из 15 000 товаров.
+    private string? _category, _brand, _country, _kind, _statusDisplay, _hotkeyGroupName, _status, _hotkeyGroup;
+
+    public string? Category { get => _category; set => _category = NurMarketKassa.Core.Application.StringPool.Shared.Intern(value); }
+    public string? Brand { get => _brand; set => _brand = NurMarketKassa.Core.Application.StringPool.Shared.Intern(value); }
 
     // ── 2026-10-06, редизайн склада: подпись «категория · бренд», срок годности, цена числом для сортировки ──
 
@@ -213,12 +216,12 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
         }
     }
 
-    public string? StatusDisplay { get; set; }
-    public string? HotkeyGroupName { get; set; }
+    public string? StatusDisplay { get => _statusDisplay; set => _statusDisplay = NurMarketKassa.Core.Application.StringPool.Shared.Intern(value); }
+    public string? HotkeyGroupName { get => _hotkeyGroupName; set => _hotkeyGroupName = NurMarketKassa.Core.Application.StringPool.Shared.Intern(value); }
     public DateTime CreatedAt { get; set; }
     public string? ClientName { get; set; }
-    public string? Status { get; set; }
-    public string? HotkeyGroup { get; set; }
+    public string? Status { get => _status; set => _status = NurMarketKassa.Core.Application.StringPool.Shared.Intern(value); }
+    public string? HotkeyGroup { get => _hotkeyGroup; set => _hotkeyGroup = NurMarketKassa.Core.Application.StringPool.Shared.Intern(value); }
 
     public string? Barcode
     {
@@ -346,7 +349,7 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     public double DiscountPercent { get; set; }
     /// <summary>Есть ли скидка на товар — для колонки "Скидка" в Складе: плашка "-N%" вместо "0%".</summary>
     public bool HasDiscount => DiscountPercent > 0.0001;
-    public string? Country { get; set; }
+    public string? Country { get => _country; set => _country = NurMarketKassa.Core.Application.StringPool.Shared.Intern(value); }
     public double? WeightKg { get; set; }
 
     /// <summary>Доп. штрихкоды товара (поле "alternate_barcodes"), объединённые переносами
@@ -418,7 +421,7 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
     public bool IsBundle { get; set; }
 
     /// <summary>Вид товара сайта: product / service / bundle.</summary>
-    public string? Kind { get; set; }
+    public string? Kind { get => _kind; set => _kind = NurMarketKassa.Core.Application.StringPool.Shared.Intern(value); }
 
     /// <summary>Услуга: у неё нет остатка, и касса не проверяет его при продаже (2026-09-24,
     /// «в услуге требует количество» — «Тест услуги» с нулевым остатком не пробивалась).</summary>
@@ -437,7 +440,7 @@ public sealed class CatalogProductTileVm : INotifyPropertyChanged
         {
             if (_unit == value)
                 return;
-            _unit = value;
+            _unit = NurMarketKassa.Core.Application.StringPool.Shared.Intern(value);
             OnPropertyChanged(nameof(Unit));
             NotifyTypeBadgeChanged();
         }

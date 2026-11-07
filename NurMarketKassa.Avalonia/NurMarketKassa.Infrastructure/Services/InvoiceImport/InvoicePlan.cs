@@ -49,6 +49,22 @@ public sealed class InvoicePlanRow : INotifyPropertyChanged
             Reevaluate();
     }
 
+    private int _no;
+
+    /// <summary>2026-11-07 (ТЗ «Порядковая нумерация товаров в накладной»): номер строки в таблице предпросмотра накладной (1, 2, 3… по порядку, без пропусков после слияния/удаления).
+    /// Только для показа в колонке «№»; в приёмку уходит порядок строк, а «№» там присваивается заново (ReceivingLineVm.LineNo).</summary>
+    public int No
+    {
+        get => _no;
+        internal set
+        {
+            if (_no == value)
+                return;
+            _no = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(No)));
+        }
+    }
+
     public InvoiceItem Item { get; }
     public InvoiceMatch Match { get; private set; }
     public ReceivingLineVm Line { get; private set; }
@@ -431,6 +447,13 @@ public sealed class InvoicePlan
         _directory = directoryLookup ?? DefaultDirectory;
         _memory = memory;
         SupplierKey = memory?.SupplierKey ?? MemoryKeyOf(document);
+        Rows.CollectionChanged += (_, _) => RenumberRows(); // 2026-11-07: «№» строк предпросмотра без пропусков
+    }
+
+    private void RenumberRows()
+    {
+        for (var i = 0; i < Rows.Count; i++)
+            Rows[i].No = i + 1;
     }
 
     private readonly InvoiceMatchMemory.Snapshot? _memory;

@@ -186,6 +186,90 @@
             <Setter Property="Background" Value="{DynamicResource BrushAccentStrong}"/>
         </Style>
 
+        <!-- 2026-11-06 (В7, п. 15 в плана скорости): место под фото плитки занято сразу (по адресу картинки), а не когда картинка скачалась и расшифровалась, —
+             плитки не «подпрыгивают» при первом показе страницы. Пока картинки нет — мягкая подложка; в тесном окне фото ниже. -->
+        <Style Selector="Border.tile-photo">
+            <Setter Property="Height" Value="{DynamicResource CatalogTilePhotoHeight}"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
+        <Style Selector=".compact Border.tile-photo, .shortscreen Border.tile-photo">
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <!-- 2026-11-06 (В7, Д4-08): значок типа («Весовой», «Комплект») — только во вкладке «Все товары» и при поиске; на вкладке «Весовые» он повторял фильтр на каждой плитке.
+             Скрывает класс hide-type-badge у корня (ставит CatalogPanelView.UpdateTypeBadgeVisibility); сам значок привязан к ShowTypeBadge, поэтому прячем его обёртку. -->
+        <Style Selector="Border.hide-type-badge Panel.type-badge-host">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <!-- 2026-11-06 (В7, Д4-36): строка списка — 64 px; в автосписке (окно уже 1280) и в тесном окне — 48 px: на 1366×768 видно 12–14 товаров вместо 6. -->
+        <Style Selector="Grid.tbl-row">
+            <Setter Property="MinHeight" Value="64"/>
+        </Style>
+        <Style Selector="Border.tbl-photo">
+            <Setter Property="Width" Value="56"/>
+            <Setter Property="Height" Value="56"/>
+        </Style>
+        <Style Selector="Button.tbl-star">
+            <Setter Property="Width" Value="52"/>
+            <Setter Property="Height" Value="52"/>
+        </Style>
+        <Style Selector="Border.autolist Grid.tbl-row, .compact Grid.tbl-row, .shortscreen Grid.tbl-row">
+            <Setter Property="MinHeight" Value="48"/>
+        </Style>
+        <!-- 2026-11-07 (живая проверка 1.17.81, Б-A1): в списке цена обрезалась («208», «45,0») — колонки были «долями» и цену сжимали штрихкод и значки.
+             Теперь цена — колонка с постоянной шириной (по «12 500,00 сом»), штрихкод и остаток — фиксированной ширины, сжимается только название (многоточие).
+             Класс tbl-narrow (список уже ~760 px, ставит CatalogPanelView.UpdateTableDensity): штрихкод скрыт, остаток — под ценой;
+             tbl-tight (уже ~400 px): ещё и «сом» скрыт. Колонка цены не меняет ширину между строками — «прыжков» нет. -->
+        <Style Selector="TextBlock.tbl-price-amount">
+            <Setter Property="MinWidth" Value="92"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+        </Style>
+        <Style Selector="Border.tbl-narrow TextBlock.tbl-barcode, Border.tbl-narrow TextBlock.tbl-barcode-head, Border.tbl-narrow TextBlock.tbl-stock-head">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <!-- Колонка и ширина остатка — в стиле, а не на элементе: локальное значение перебило бы стиль «узкого» вида. -->
+        <Style Selector="TextBlock.tbl-stock">
+            <Setter Property="Grid.Column" Value="3"/>
+            <Setter Property="Width" Value="96"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="4,0,12,0"/>
+        </Style>
+        <Style Selector="StackPanel.tbl-price">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="4,0,8,0"/>
+        </Style>
+        <Style Selector="Border.tbl-narrow TextBlock.tbl-stock">
+            <Setter Property="Grid.Column" Value="4"/>
+            <Setter Property="Width" Value="NaN"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Bottom"/>
+            <Setter Property="Margin" Value="4,0,8,3"/>
+        </Style>
+        <Style Selector="Border.tbl-narrow StackPanel.tbl-price">
+            <Setter Property="VerticalAlignment" Value="Top"/>
+            <Setter Property="Margin" Value="4,3,8,0"/>
+        </Style>
+        <Style Selector="TextBlock.tbl-price-head">
+            <Setter Property="MinWidth" Value="124"/>
+        </Style>
+        <Style Selector="Border.tbl-tight TextBlock.tbl-price-head">
+            <Setter Property="MinWidth" Value="92"/>
+        </Style>
+        <Style Selector="Border.tbl-tight TextBlock.tbl-price-amount">
+            <Setter Property="MinWidth" Value="92"/>
+        </Style>
+        <Style Selector="Border.tbl-tight TextBlock.tbl-currency">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="Border.autolist Border.tbl-photo, .compact Border.tbl-photo, .shortscreen Border.tbl-photo">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+        </Style>
+        <Style Selector="Border.autolist Button.tbl-star, .compact Button.tbl-star, .shortscreen Button.tbl-star">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+        </Style>
+
         <!-- ============ Компактный вид (2026-10-04) ============
              Класс "compact" ставит окно кассы на маленьком экране (см. MainWindow.RefreshUiScale):
              касса не уменьшается целиком, а ужимает отступы. Сначала обычные значения (раньше
@@ -237,7 +321,8 @@
         </Style>
     </UserControl.Styles>
 
-    <Border Classes="main-panel catalog-surface"
+    <Border x:Name="CatalogRoot"
+            Classes="main-panel catalog-surface"
             BorderThickness="0,0,1,0"
             HorizontalAlignment="Stretch">
         <Grid RowDefinitions="Auto,Auto,Auto,*,Auto"
@@ -415,7 +500,10 @@
                                Foreground="{DynamicResource BrushWarning}"
                                TextWrapping="Wrap"/>
                 </Border>
-                <TextBlock Text="{Binding StatusText}"
+                <!-- 2026-11-06 (В7, Д4-07): служебные строки («Каталог обновлён. Товаров: N.») над плитками не показываем — они в подсказке значка «Онлайн» в шапке
+                     (Catalog.ServiceStatusText); предупреждения и ошибки (VisibleStatusText) видны, как раньше. -->
+                <TextBlock Text="{Binding VisibleStatusText}"
+                           IsVisible="{Binding HasVisibleStatus}"
                            FontSize="12"
                            Foreground="{DynamicResource BrushTextSoft}"
                            TextWrapping="Wrap"/>
@@ -497,9 +585,10 @@
                     </Border>
 
                     <Grid IsVisible="{Binding HasProducts}">
-                      <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                    HorizontalScrollBarVisibility="Disabled"
-                                    IsVisible="{Binding IsCardView}">
+                      <!-- 2026-11-06 (В7, Д4-36): видимость плиток и списка — из кода (CatalogPanelView.UpdateViewVisibility): на окне уже 1280 каталог сам показывается списком. -->
+                      <ScrollViewer x:Name="CardsScroll"
+                                    VerticalScrollBarVisibility="Auto"
+                                    HorizontalScrollBarVisibility="Disabled">
                         <!-- 2026-10-20, живая проверка: «верхний ряд плиток срезан» — скан/щелчок выделял товар (SelectedProduct),
                              и список сам прокручивался к нему на полряда. Прокрутку к рамке стрелок делает CatalogKeyboardNavigation. -->
                         <ListBox x:Name="CardsListBox" AutoScrollToSelectedItem="False" Classes="catalog-nav"
@@ -540,6 +629,7 @@
                                                 HorizontalContentAlignment="Stretch"
                                                 VerticalAlignment="Stretch"
                                                 VerticalContentAlignment="Stretch"
+                                                AutomationProperties.Name="{Binding Title}"
                                                 Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).SelectProductCommand}"
                                                 CommandParameter="{Binding}">
                                             <Border Classes="tile-face"
@@ -575,14 +665,15 @@
                                                          товаров без фото, поэтому пустых серых
                                                          прямоугольников, как было раньше, не
                                                          появляется, а высота плитки у всех одна. -->
+                                                    <!-- 2026-11-06 (В7): слот занят по ImageUrl (адрес картинки известен сразу), а не по ProductImagePath (путь появляется после загрузки). -->
                                                     <Border Grid.Row="0"
-                                                            MaxHeight="{DynamicResource CatalogTilePhotoHeight}"
+                                                            Classes="tile-photo"
                                                             MaxWidth="140"
                                                             Margin="0,0,0,8"
                                                             CornerRadius="10"
                                                             ClipToBounds="True"
-                                                            HorizontalAlignment="Center"
-                                                            IsVisible="{Binding ProductImagePath, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}">
+                                                            HorizontalAlignment="Stretch"
+                                                            IsVisible="{Binding ImageUrl, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}">
                                                         <Image Source="{Binding ProductImagePath, Converter={x:Static conv:AssetPathToBitmapConverter.Instance}, ConverterParameter=thumb}"
                                                                Stretch="UniformToFill"/>
                                                     </Border>
@@ -635,8 +726,8 @@
                                                     </StackPanel>
 
 
-                                                    <Border Grid.Row="3"
-                                                            Margin="0,8,0,0"
+                                                    <Panel Grid.Row="3" Classes="type-badge-host">
+                                                    <Border Margin="0,8,0,0"
                                                             Padding="8,3"
                                                             CornerRadius="4"
                                                             HorizontalAlignment="Center"
@@ -652,6 +743,7 @@
                                                                    Foreground="{DynamicResource BrushBadgePieceFg}"
                                                                    VerticalAlignment="Center"/>
                                                     </Border>
+                                                    </Panel>
                                                 </Grid>
                                             </Border>
                                         </Button>
@@ -694,6 +786,7 @@
                                                 Background="Transparent"
                                                 BorderThickness="0"
                                                 ToolTip.Tip="{DynamicResource csh.catalog.favoriteTooltip}"
+                                                AutomationProperties.Name="{DynamicResource csh.catalog.favoriteTooltip}"
                                                 Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).ToggleFavoriteCommand}"
                                                 CommandParameter="{Binding}">
                                             <Panel Width="16" Height="16">
@@ -719,20 +812,24 @@
                         </ListBox>
                       </ScrollViewer>
 
-                        <Grid IsVisible="{Binding IsTableView}" RowDefinitions="Auto,*">
+                        <Grid x:Name="TableGrid" IsVisible="False" RowDefinitions="Auto,*">
                             <Border Background="{DynamicResource BrushPanelSoft}"
                                     BorderBrush="{DynamicResource BrushBorder}"
                                     BorderThickness="1" CornerRadius="10"
                                     Padding="14,10">
-                                <Grid ColumnDefinitions="2.2*,1.4*,1*,1*,52">
-                                    <TextBlock Text="{DynamicResource csh.catalog.colName}" FontSize="12" FontWeight="Bold"
-                                               Foreground="{DynamicResource BrushTextSoft}"/>
-                                    <TextBlock Grid.Column="1" Text="{DynamicResource csh.catalog.colBarcode}" FontSize="12" FontWeight="Bold"
-                                               Foreground="{DynamicResource BrushTextSoft}"/>
-                                    <TextBlock Grid.Column="2" Text="{DynamicResource csh.catalog.colStock}" FontSize="12" FontWeight="Bold"
-                                               Foreground="{DynamicResource BrushTextSoft}"/>
-                                    <TextBlock Grid.Column="3" Text="{DynamicResource csh.catalog.colPrice}" FontSize="12" FontWeight="Bold"
-                                               Foreground="{DynamicResource BrushTextSoft}" HorizontalAlignment="Right"/>
+                                <!-- 2026-11-07: колонки те же, что в строках (56, название, штрихкод 130, остаток 96, цена, 96) — заголовки стоят над своими значениями. -->
+                                <Grid ColumnDefinitions="56,*,Auto,Auto,Auto,96">
+                                    <TextBlock Grid.Column="1" Text="{DynamicResource csh.catalog.colName}" FontSize="12" FontWeight="Bold"
+                                               Foreground="{DynamicResource BrushTextSoft}" Margin="6,0,0,0"/>
+                                    <TextBlock Grid.Column="2" Classes="tbl-barcode-head" Width="130" Margin="4,0,12,0"
+                                               Text="{DynamicResource csh.catalog.colBarcode}" FontSize="12" FontWeight="Bold"
+                                               Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="3" Classes="tbl-stock-head" Width="96" Margin="4,0,12,0"
+                                               Text="{DynamicResource csh.catalog.colStock}" FontSize="12" FontWeight="Bold"
+                                               Foreground="{DynamicResource BrushTextSoft}" TextTrimming="CharacterEllipsis"/>
+                                    <!-- ширина колонки цены — как у строк (сумма + «сом»), чтобы «Штрихкод» и «Остаток» стояли над своими значениями -->
+                                    <TextBlock Grid.Column="4" Classes="tbl-price-head" Text="{DynamicResource csh.catalog.colPrice}" FontSize="12" FontWeight="Bold"
+                                               Foreground="{DynamicResource BrushTextSoft}" HorizontalAlignment="Right" TextAlignment="Right" Margin="4,0,8,0"/>
                                 </Grid>
                             </Border>
                             <ScrollViewer Grid.Row="1" Margin="0,8,0,0"
@@ -754,9 +851,9 @@
                                                 HorizontalAlignment="Stretch">
                                             <!-- 2026-10-21: строка «Табличного» вида была ~130 px (на 1080 — 4,5 товара); теперь 64 px,
                                                  «i» и звезда — рядом справа, а не друг над другом (пакет 6, п. 15). -->
-                                            <Grid MinHeight="64" ColumnDefinitions="56,2.2*,1.4*,1*,1*,96"
+                                            <Grid Classes="tbl-row" ColumnDefinitions="56,*,Auto,Auto,Auto,96"
                                                   Margin="14,0">
-                                                <Border Grid.Column="0" Width="56" Height="56" CornerRadius="10"
+                                                <Border Grid.Column="0" Classes="tbl-photo" CornerRadius="10"
                                                         ClipToBounds="True" VerticalAlignment="Center"
                                                         Margin="0,0,10,0"
                                                         IsVisible="{Binding ProductImagePath, Converter={x:Static conv:ShowProductPhotoConverter.Instance}}">
@@ -774,9 +871,10 @@
                                                         Padding="0"
                                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                                         HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                                        AutomationProperties.Name="{Binding Title}"
                                                         Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).SelectProductCommand}"
                                                         CommandParameter="{Binding}">
-                                                    <Grid ColumnDefinitions="56,2.2*,1.4*,1*,1*">
+                                                    <Grid ColumnDefinitions="56,*,Auto,Auto,Auto">
                                                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,14,0">
                                                             <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold"
                                                                        Foreground="{DynamicResource BrushText}"
@@ -784,29 +882,31 @@
                                                             <!-- Здесь цвет типа товара — это ЦВЕТ ТЕКСТА, поэтому берём
                                                                  насыщенный TypeBadgeForeground, а не бледный фон плашки:
                                                                  бледным по белой строке текст был бы не виден. -->
-                                                            <TextBlock Text="{Binding , Converter={x:Static conv:TypeBadgeTextConverter.Instance}}" FontSize="12"
-                                                                       Classes.badge-weighted="{Binding IsWeighted}"
-                                                                       Classes.badge-bundle="{Binding IsBundle}"
-                                                                       Foreground="{DynamicResource BrushBadgePieceFg}"/>
+                                                            <!-- 2026-11-07 (Б-A2): подпись «Весовой» — только во «Все товары» и в поиске (как значок на плитках, класс hide-type-badge). -->
+                                                            <Panel Classes="type-badge-host">
+                                                                <TextBlock Text="{Binding , Converter={x:Static conv:TypeBadgeTextConverter.Instance}}" FontSize="12"
+                                                                           Classes.badge-weighted="{Binding IsWeighted}"
+                                                                           Classes.badge-bundle="{Binding IsBundle}"
+                                                                           Foreground="{DynamicResource BrushBadgePieceFg}"/>
+                                                            </Panel>
                                                         </StackPanel>
-                                                        <TextBlock Grid.Column="2" Text="{Binding Barcode}" FontSize="13"
+                                                        <TextBlock Grid.Column="2" Classes="tbl-barcode" Width="130" Text="{Binding Barcode}" FontSize="13"
                                                                    Foreground="{DynamicResource BrushTextSoft}"
                                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                                                                    Margin="4,0,12,0"/>
-                                                        <TextBlock Grid.Column="3" Text="{Binding StockInfo}" FontSize="13"
+                                                        <TextBlock Classes="tbl-stock" Text="{Binding StockInfo}" FontSize="13"
+                                                                   TextTrimming="CharacterEllipsis"
                                                                    IsVisible="{Binding !IsService}"
                                                                    Classes.stock-low="{Binding IsLowStock}"
                                                                    Classes.stock-out="{Binding Quantity, Converter={x:Static mainViews:WarehouseWindow.IsOutOfStock}}"
-                                                                   Foreground="{DynamicResource BrushCatalogStock}"
-                                                                   VerticalAlignment="Center"
-                                                                   Margin="4,0,12,0"/>
-                                                        <StackPanel Grid.Column="4" Orientation="Horizontal"
-                                                                    HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                                    Spacing="4" Margin="4,0,8,0">
-                                                            <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
+                                                                   Foreground="{DynamicResource BrushCatalogStock}"/>
+                                                        <StackPanel Grid.Column="4" Classes="tbl-price" Orientation="Horizontal"
+                                                                    HorizontalAlignment="Right"
+                                                                    Spacing="4">
+                                                            <TextBlock Classes="tbl-price-amount" Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
                                                                        FontSize="18" FontWeight="Bold"
                                                                        Foreground="{DynamicResource BrushCatalogPrice}"/>
-                                                            <TextBlock Text="{DynamicResource csh.catalog.currency}" FontSize="12"
+                                                            <TextBlock Classes="tbl-currency" Text="{DynamicResource csh.catalog.currency}" FontSize="12"
                                                                        Foreground="{DynamicResource BrushCatalogMeta}"
                                                                        VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                                                         </StackPanel>
@@ -826,10 +926,11 @@
                                                         </MultiBinding>
                                                     </Button.IsVisible>
                                                 </Button>
-                                                <Button Grid.Column="5" Width="52" Height="52" Padding="0"
+                                                <Button Grid.Column="5" Classes="tbl-star" Padding="0"
                                                         HorizontalAlignment="Right" VerticalAlignment="Center"
                                                         Background="Transparent" BorderThickness="0"
                                                         ToolTip.Tip="{DynamicResource csh.catalog.favoriteTooltip}"
+                                                        AutomationProperties.Name="{DynamicResource csh.catalog.favoriteTooltip}"
                                                         Command="{Binding $parent[UserControl].((vm:CatalogPanelViewModel)DataContext).ToggleFavoriteCommand}"
                                                         CommandParameter="{Binding}">
                                                     <Panel Width="26" Height="26">

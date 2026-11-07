@@ -149,13 +149,20 @@ public sealed class CatalogFeedSync
         var ok = false;
         try
         {
+            var pageCursor = _cursor; // 2026-11-07: с какого места читаем очередную страницу (курсор хранения при этом никогда не идёт назад)
             while (pages < MaxPagesPerTick)
             {
                 ct.ThrowIfCancellationRequested();
                 pages++;
-                var requested = _cursor;
-                var etag = string.Equals(_etagCursor, requested, StringComparison.Ordinal) ? _etag : null;
-                var page = await _api.ProductsChangesAsync(requested, PageLimit, etag, ct).ConfigureAwait(false);
+                var requested = pageCursor;
+                // 2026-11-07 (живой тест, Б-П2): первая страница такта читается «с курсора минус запас» (по умолчанию 8 с): сервер отдаёт курсор = своё время ответа, а запись изменения
+                // товара (приход) могла зафиксироваться на ~11 мс позже — товар не попадал в ответ, а курсор уходил дальше, и касса продавала по старой цене до полной загрузки.
+                // Вторая и следующие страницы идут с настоящим курсором страницы (иначе при 500+ изменений за секунды чтение не двигалось бы). Повторно присланный товар безвреден:
+                // запись в базу только при отличии (ApplyFeedChanges), остаток по-прежнему под защитой FeedStockGuard.
+                var lookback = pages == 1 ? Lookback : TimeSpan.Zero;
+                var sent = ShiftBack(requested, lookback);
+                var etag = string.Equals(_etagCursor, sent, StringComparison.Ordinal) ? _etag : null;
+                var page = await _api.ProductsChangesAsync(sent, PageLimit, etag, ct).ConfigureAwait(false);
 
                 if (page.Status == CatalogFeedStatus.Unsupported)
                 {
@@ -199,10 +206,12 @@ public sealed class CatalogFeedSync
                     changed += r.Changed;
                     deleted += r.Deleted;
                     needFull |= r.NeedFullSync;
-                    PosLogger.Log(
-                        $"CATALOG_FEED: страница {pages}: {page.Note}; в базе добавлено {r.Added}, изменено {r.Changed}, удалено {r.Deleted}"
-                        + (r.NeedFullSync ? "; есть товары, которых нет локально — нужна полная загрузка" : ""),
-                        "CATALOG_FEED");
+                    // 2026-11-07: повторы из запаса курсора (ничего не изменилось в базе) в журнал не пишем — иначе после каждого изменения шли бы лишние строки.
+                    if (lookback <= TimeSpan.Zero || r.Added + r.Changed + r.Deleted > 0 || r.NeedFullSync)
+                        PosLogger.Log(
+                            $"CATALOG_FEED: страница {pages}: {page.Note}; в базе добавлено {r.Added}, изменено {r.Changed}, удалено {r.Deleted}"
+                            + (r.NeedFullSync ? "; есть товары, которых нет локально — нужна полная загрузка" : ""),
+                            "CATALOG_FEED");
                 }
 
                 var moved = !string.IsNullOrWhiteSpace(page.NextCursor) && !string.Equals(page.NextCursor, requested, StringComparison.Ordinal);
@@ -214,12 +223,13 @@ public sealed class CatalogFeedSync
                     moved = false;
                 if (moved)
                 {
-                    _cursor = page.NextCursor;
+                    _cursor = Newer(_cursor, page.NextCursor);
+                    pageCursor = page.NextCursor;
                     _cursorAdvancedUtc = DateTime.UtcNow;
                 }
-                // ETag относится к ответу на запрос с курсором requested; уйдёт вместе с ним, пока курсор не изменился.
+                // ETag относится к ответу на запрос с курсором sent (с запасом); уйдёт вместе с ним, пока курсор не изменился.
                 _etag = page.ETag;
-                _etagCursor = requested;
+                _etagCursor = sent;
                 Save();
 
                 if (!page.HasMore || !moved)
@@ -264,6 +274,90 @@ public sealed class CatalogFeedSync
         if (ok)
             ProductCodeBackfill.ScheduleFromStorage(); // 2026-11-06 (класс Б, Б-7): медленное самолечение товаров без кодов на уровне хранилища (раз в 30 с, ≤ 20 карточек)
         return new TickResult(added, changed, deleted, needFull, notes, ok);
+    }
+
+    /// <summary>2026-11-07 (Б-П2): запас назад для курсора ленты (настройка server_prices.json, feed_lookback_sec; 0 — выключен).</summary>
+    public static TimeSpan Lookback => TimeSpan.FromSeconds(ServerPriceContract.FeedLookbackSeconds);
+
+    /// <summary>Курсор сдвинут назад на <paramref name="back"/>, если он — время в эпохе (13 цифр — миллисекунды, как у сервера NurCRM; 10 — секунды). Непрозрачный курсор не трогаем.</summary>
+    internal static string? ShiftBack(string? cursor, TimeSpan back)
+    {
+        if (back <= TimeSpan.Zero || string.IsNullOrWhiteSpace(cursor) || !long.TryParse(cursor, NumberStyles.None, CultureInfo.InvariantCulture, out var value))
+            return cursor;
+        var shifted = cursor.Length switch
+        {
+            13 => value - (long)back.TotalMilliseconds,
+            10 => value - (long)Math.Ceiling(back.TotalSeconds),
+            _ => -1L,
+        };
+        return shifted < 0 ? cursor : shifted.ToString(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>Курсор хранения не идёт назад: новый числовой курсор, не больше прежнего, прежний не заменяет. Непрозрачные курсоры — как раньше (новый).</summary>
+    internal static string? Newer(string? current, string? next)
+    {
+        if (string.IsNullOrWhiteSpace(next))
+            return current;
+        if (long.TryParse(current, NumberStyles.None, CultureInfo.InvariantCulture, out var a) && long.TryParse(next, NumberStyles.None, CultureInfo.InvariantCulture, out var b) && b <= a)
+            return current;
+        return next;
+    }
+
+    // ---------------------------------------------------------------- 2026-11-07 (живой тест, Б-П2): страховочная сверка «недавно изменённых»
+
+    /// <summary>Сколько последних изменённых товаров сверяем (сервер отдаёт страницу не больше 100).</summary>
+    public const int RecentLimit = 100;
+
+    /// <param name="Ok">Сервер ответил и сверка выполнена (в т. ч. «исправлять нечего»).</param>
+    /// <param name="Checked">Сколько карточек пришло от сервера.</param>
+    /// <param name="Fixed">Сколько товаров в базе кассы было неверно (добавлено + изменено + удалено) и исправлено.</param>
+    public sealed record RecentResult(bool Ok, int Checked, int Fixed, string Note)
+    {
+        public static RecentResult Skipped(string note) => new(false, 0, 0, note);
+    }
+
+    /// <summary>Когда последняя сверка недавних прошла успешно (UTC); MinValue — не было.</summary>
+    public DateTime LastRecentUtc { get; private set; } = DateTime.MinValue;
+
+    /// <summary>Страховка к ленте: берём у сервера последние <see cref="RecentLimit"/> изменённых товаров (products/list/?ordering=-updated_at) и применяем к базе теми же правилами, что страницу ленты
+    /// (защита остатка FeedStockGuard, локальные поля сокращённой карточки). Запись в базу — только при отличии, поэтому сверка идемпотентна. Не бросает (кроме отмены).
+    /// <paramref name="manual"/> — по просьбе кассира: итог пишется в журнал всегда, иначе — только если что-то исправлено.</summary>
+    public async Task<RecentResult> ReconcileRecentAsync(Func<bool>? stillValid = null, bool manual = false, CancellationToken ct = default)
+    {
+        if (!ServerPriceContract.CatalogFeedEnabled)
+            return RecentResult.Skipped("лента выключена настройкой");
+        if (ApiThrottle.RemainingBlock > TimeSpan.Zero)
+            return RecentResult.Skipped("сервер просит паузу");
+        try
+        {
+            var rows = await _api.ProductsRecentAsync(RecentLimit, ct).ConfigureAwait(false);
+            if (rows is null)
+                return RecentResult.Skipped("сервер не отдаёт последние изменённые");
+            if (rows.Count > 0 && stillValid is not null && !stillValid())
+                return RecentResult.Skipped("применение отложено (идёт полная загрузка или смена аккаунта)");
+            var fixedCount = 0;
+            if (rows.Count > 0)
+            {
+                var page = new CatalogFeedPage { Status = CatalogFeedStatus.Ok, Items = rows, Note = $"недавних {rows.Count}" };
+                var r = Apply(page, _apiBaseUrl(), _allowStock(), _stockGuardFactory?.Invoke());
+                fixedCount = r.Added + r.Changed + r.Deleted;
+            }
+
+            LastRecentUtc = DateTime.UtcNow;
+            if (manual || fixedCount > 0)
+                PosLogger.Log($"CATALOG: сверка недавних — исправлено {fixedCount} (проверено {rows.Count}).", "CATALOG");
+            return new RecentResult(true, rows.Count, fixedCount, "");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Сверка — помощь ленте, а не условие работы кассы: сбой = тихий пропуск (не чаще одной записи в 10 минут на причину).
+            PosLogger.LogThrottled("recent-sync-" + ex.GetType().Name, $"CATALOG: сверка недавних не удалась: {ex.GetType().Name}: {ex.Message}", "CATALOG");
+            return RecentResult.Skipped(ex.GetType().Name);
+        }
     }
 
     // 2026-10-29 (скорость синхронизации): раз в 5 минут одна строка — сколько опросов закончились 304 (сервер не собирал ответ) и сколько пустым 200.

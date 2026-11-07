@@ -21,6 +21,20 @@ public sealed class AppPathsTests
             AppPaths.Roaming.Should().NotStartWith(realRoaming);
     }
 
+    // 2026-11-06: В15г — замена литералов «NurMarketKassa» на AppPaths.KassaLocal/KassaRoaming не меняет ни одного пути
+    // (папки данных уже стоят у клиентов): сверяем с «ручной» сборкой пути и с зафиксированными именами папок.
+    [Fact]
+    public void KassaFolders_EqualHandBuiltPaths_AndKeepTechnicalNames()
+    {
+        AppPaths.KassaFolderName.Should().Be("NurMarketKassa");
+        AppPaths.OwnerFolderName.Should().Be("NurMarketOwner");
+        AppPaths.KassaLocal.Should().Be(Path.Combine(AppPaths.Local, "NurMarketKassa"));
+        AppPaths.KassaRoaming.Should().Be(Path.Combine(AppPaths.Roaming, "NurMarketKassa"));
+        Path.Combine(AppPaths.KassaLocal, "Logs", "x.log").Should().Be(Path.Combine(AppPaths.Local, "NurMarketKassa", "Logs", "x.log"));
+        Path.Combine(AppPaths.KassaRoaming, "purchases").Should().Be(Path.Combine(AppPaths.Roaming, "NurMarketKassa", "purchases"));
+        AppMode.DataFolderName.Should().BeOneOf(AppPaths.KassaFolderName, AppPaths.OwnerFolderName);
+    }
+
     [Theory]
     [InlineData(null, null)]
     [InlineData("", null)]

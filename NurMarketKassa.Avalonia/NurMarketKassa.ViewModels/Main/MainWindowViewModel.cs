@@ -73,6 +73,7 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
     private bool _isRefreshing;
     private long _lastRefreshAllTick;
+    private long _lastQuickRefreshTick;
 
     /// <summary>Идёт «Обновить»: значок ⟳ крутится.</summary>
     public bool IsRefreshing
@@ -102,7 +103,21 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
             // 2026-10-29: общая принудительная синхронизация (настройки компании, права, очередь чеков) — SyncCenter; каталог и смену
             // кнопка перечитывает сама (ниже), поэтому includeCatalog/includeShift = false. Не бросает.
             var syncAll = SyncCenter.ForceSyncAllAsync(default, includeCatalog: false, includeShift: false);
-            var result = await Catalog.ForceRefreshAsync();
+            // 2026-11-07 (живой тест, Б-П2): первое нажатие — БЫСТРОЕ обновление (лента + последние изменённые товары, секунды); полная загрузка каталога (~80 с на 15 тыс. товаров) — если быстрый путь
+            // невозможен (нет связи/ленты) или нажали ещё раз в течение минуты («данные всё равно не те»).
+            CatalogPanelViewModel.RefreshResult? quick = null;
+            var secondPress = _lastQuickRefreshTick != 0 && Environment.TickCount64 - _lastQuickRefreshTick < 60_000;
+            if (!secondPress)
+            {
+                try { quick = await Catalog.QuickRefreshAsync(); }
+                catch (Exception ex) when (ex is not OperationCanceledException) { PosLogger.Log($"REFRESH quick failed: {ex.Message}", "WARNING"); }
+            }
+
+            if (quick is not null)
+                _lastQuickRefreshTick = Environment.TickCount64 == 0 ? 1 : Environment.TickCount64;
+            else
+                _lastQuickRefreshTick = 0;
+            var result = quick ?? await Catalog.ForceRefreshAsync();
             try { await syncAll; }
             catch (Exception ex) { PosLogger.Log($"REFRESH sync-all failed: {ex.Message}", "WARNING"); }
             try { await shiftTask; }
@@ -110,7 +125,19 @@ public sealed class MainWindowViewModel : ViewModelBase, IDisposable
 
             var time = DateTime.Now.ToString("HH:mm");
             string text;
-            if (result.Online)
+            if (quick is not null)
+            {
+                var age = CatalogCacheService.LastSyncTime is { } synced ? (int)Math.Max(0, (DateTime.UtcNow - synced).TotalSeconds) : 0;
+                var ago = age < 2
+                    ? Tr.T("только что", "азыр эле", "just now", "az önce", "hozirgina")
+                    : Tr.T($"{age} с назад", $"{age} сек мурун", $"{age} s ago", $"{age} sn önce", $"{age} s oldin");
+                text = Tr.T($"Каталог обновлён {ago}: исправлено {result.Changed}. Ещё раз F5 — полная загрузка.",
+                    $"Каталог жаңыртылды ({ago}): оңдолгон {result.Changed}. F5 дагы бир жолу — толук жүктөө.",
+                    $"Catalog updated {ago}: {result.Changed} fixed. Press F5 again for a full reload.",
+                    $"Katalog güncellendi ({ago}): düzeltilen {result.Changed}. Tam yükleme için F5'e tekrar basın.",
+                    $"Katalog yangilandi ({ago}): tuzatildi {result.Changed}. To'liq yuklash uchun F5 ni yana bosing.");
+            }
+            else if (result.Online)
             {
                 text = Tr.T($"Обновлено: товаров {result.Total}, изменено {result.Changed} · {time}",
                     $"Жаңыртылды: товарлар {result.Total}, өзгөргөнү {result.Changed} · {time}",

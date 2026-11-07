@@ -22,7 +22,7 @@ public static class DeviceIdentity
     /// <summary>Филиал из профиля (NurMarketApiClient.ActiveBranchId). Подменяется в тестах.</summary>
     internal static Func<string?> BranchProvider { get; set; } = () => ServerLoyalty.ApiProvider?.Invoke()?.ActiveBranchId;
 
-    private static string FilePath => Path.Combine(DirOverride ?? Path.Combine(AppPaths.Local, "NurMarketKassa"), "device-key.txt");
+    private static string FilePath => Path.Combine(DirOverride ?? AppPaths.KassaLocal, "device-key.txt");
 
     /// <summary>Стабильный ключ установки: создаётся один раз и хранится в файле; не читается/не пишется файл — ключ живёт до перезапуска.</summary>
     public static string Key

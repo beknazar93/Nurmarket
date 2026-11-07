@@ -195,7 +195,16 @@ public static class CatalogCacheService
     public static Func<Task<CatalogSyncResult>?>? RequestBackgroundFullReload { get; set; }
 
     /// <summary>2026-10-30: каталог сверен с сервером (лентой или полной загрузкой) — для «каталог старше 10 минут» массовой загрузки.</summary>
-    public static void NoteSynced(DateTime utc) => LastSyncTime = utc;
+    public static void NoteSynced(DateTime utc)
+    {
+        LastSyncTime = utc;
+        // 2026-11-07 (Б-B1): сервер только что ответил (лента, сверка, полная загрузка) — подписчикам (плашка «автономный режим» каталога).
+        try { ServerAnswered?.Invoke(); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { PosLogger.Log($"CATALOG: подписчик ServerAnswered упал: {ex.Message}", "WARNING"); }
+    }
+
+    /// <summary>2026-11-07: сервер ответил на запрос каталога (см. <see cref="NoteSynced"/>). Вызывается из любого потока.</summary>
+    public static event Action? ServerAnswered;
 
     public static async Task<CatalogSyncResult> SyncCatalogFullAsync(CancellationToken cancellationToken = default)
     {

@@ -38,6 +38,10 @@ public interface ICatalogFeedApi
 
     /// <summary>GET api/main/products/changes/?since=&lt;курсор&gt;&amp;limit=…; ETag прошлого ответа по этому же курсору — If-None-Match.</summary>
     Task<CatalogFeedPage> ProductsChangesAsync(string? since, int limit, string? etag, CancellationToken ct = default);
+
+    /// <summary>2026-11-07 (живой тест, Б-П2): последние <paramref name="limit"/> изменённых товаров полными карточками (GET products/list/?ordering=-updated_at&amp;page_size=…) — страховочная сверка,
+    /// если лента пропустила изменение. null — сервер так не умеет (сортировка не работает / адрес не отвечает); заглушки без этого метода — тоже null.</summary>
+    Task<List<JsonElement>?> ProductsRecentAsync(int limit, CancellationToken ct = default) => Task.FromResult<List<JsonElement>?>(null);
 }
 
 public sealed partial class CatalogApiService : ICatalogFeedApi
@@ -68,6 +72,54 @@ public sealed partial class CatalogApiService : ICatalogFeedApi
             return new CatalogFeedPage { Status = CatalogFeedStatus.NotModified, ETag = newEtag, NextCursor = since };
 
         return ParseFeed(body, newEtag);
+    }
+
+    private static int _recentUnsupported;
+
+    /// <inheritdoc />
+    public async Task<List<JsonElement>?> ProductsRecentAsync(int limit, CancellationToken ct = default)
+    {
+        if (Volatile.Read(ref _recentUnsupported) != 0)
+            return null;
+        var size = Math.Clamp(limit, 1, 100); // сервер отдаёт страницу не больше 100 (журнал 02.11)
+        var qs = new Dictionary<string, string>
+        {
+            ["page"] = "1",
+            ["page_size"] = size.ToString(CultureInfo.InvariantCulture),
+            ["ordering"] = "-updated_at",
+        };
+        JsonElement data;
+        try
+        {
+            data = await _client.RequestAsync(HttpMethod.Get, "api/main/products/list/", null, qs, ct, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+        }
+        catch (ApiException ex) when (ex.StatusCode is 404 or 405 or 501)
+        {
+            Interlocked.Exchange(ref _recentUnsupported, 1);
+            return null;
+        }
+
+        var rows = NurMarketApiClient.UnwrapList(data);
+        // Сортировку сервер мог проигнорировать: тогда «последние» были бы случайными. Видно по updated_at: от новых к старым (если поля нет — не проверить, верим).
+        DateTime? first = null, last = null;
+        foreach (var row in rows)
+        {
+            if (row.ValueKind != JsonValueKind.Object || !row.TryGetProperty("updated_at", out var u) || u.ValueKind != JsonValueKind.String
+                || !DateTimeOffset.TryParse(u.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var t))
+                continue;
+            first ??= t.UtcDateTime;
+            last = t.UtcDateTime;
+        }
+
+        if (first is { } f && last is { } l && f < l)
+        {
+            Interlocked.Exchange(ref _recentUnsupported, 1);
+            PosLogger.Log("CATALOG: сервер не сортирует products/list/ по -updated_at — сверка недавних изменений выключена до перезапуска.", "CATALOG");
+            return null;
+        }
+
+        var list = rows.Where(r => r.ValueKind == JsonValueKind.Object).Select(r => r.Clone()).ToList();
+        return await ExcludeBranchCopiesAsync(list, ct).ConfigureAwait(false); // копии филиалов — не в каталоге основного склада, как при полной загрузке
     }
 
     // 2026-10-27 (ревью, К-11): сервер ленту ещё не выложил, формат неизвестен — имена полей терпимые: списки изменений results/items/products/…/

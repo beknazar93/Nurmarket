@@ -21,6 +21,12 @@ public static class ReceiptPaperPdf
 
     public static void Create(SaleReceiptCardData d, string path)
     {
+        // 2026-11-06 (В18, А5-04): на Android нативная библиотека QuestPDF не загружается — PDF чека пишет SkiaSharp (тот же вид).
+        if (OperatingSystem.IsAndroid())
+        {
+            ReceiptSkiaPdf.Create(d, path);
+            return;
+        }
         var dir = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);

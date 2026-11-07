@@ -534,6 +534,12 @@ public sealed partial class ShtrikhPrintLanScaleService : IDisposable // 2026-09
                 errors.Add($"«{plu.Name1}»: код товара {plu.ProductCode} вне диапазона 1..999999.");
                 continue;
             }
+            // 2026-11-06: цена выше предела весов (0..999999 МДЕ) раньше молча обрезалась в PriceToMde — теперь запись не уходит.
+            if (plu.PriceMde is < 0 or > ShtrikhPrintProtocol.MaxPriceMde)
+            {
+                errors.Add($"ПЛУ {plu.PluNumber} «{plu.Name1}»: цена {plu.PriceMde} МДЕ выше предела весов {ShtrikhPrintProtocol.MaxPriceMde} (9999,99 сом при 2 знаках, 999 999 сом при 0) — товар не загружен.");
+                continue;
+            }
             accepted.Add(plu);
         }
 

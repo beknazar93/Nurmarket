@@ -741,6 +741,12 @@ public partial class ShtrikhScaleSettingsWindow : Window
                 return false;
             }
             value = P.PriceToMde(price, DecimalDigits);
+            // 2026-11-06: выше предела весов (0..999999 МДЕ) молча не обрезаем — просим другую цену.
+            if (value > P.MaxPriceMde)
+            {
+                error = ScalePriceLimits.DoesNotFitText(price, ScalePriceLimits.ShtrikhPrintMaxUnits, ScalePriceLimits.ShtrikhPrintDigits(DecimalDigits));
+                return false;
+            }
             return true;
         }
         if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value) || value < 0 || value > f.Max

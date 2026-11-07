@@ -35,7 +35,7 @@ public static class ShopAlerts
 
     // 2026-11-05 (ревью волн 0–3, В1/В2): состояние (очередь до утра и «уже отправляли») — ОБЩИЙ файл кассы и владельца в %LOCALAPPDATA%\NurMarketKassa,
     // как настройки. Тогда ночное оповещение, созданное кассой, уйдёт утром от любой запущенной программы, а не потеряется в её личной папке.
-    private static string Folder => DataDirOverride ?? Path.Combine(AppPaths.Local, "NurMarketKassa");
+    private static string Folder => DataDirOverride ?? AppPaths.KassaLocal;
 
     private static string FilePath => Path.Combine(Folder, "shop-alerts-state.json");
 

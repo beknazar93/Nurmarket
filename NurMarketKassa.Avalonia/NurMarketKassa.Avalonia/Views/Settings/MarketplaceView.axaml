@@ -241,7 +241,7 @@
   </UserControl.Styles>
 
   <Border Classes="SettingsContentHost" Padding="14,12">
-    <Grid RowDefinitions="Auto,*" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
+    <Grid RowDefinitions="Auto,Auto,*" MaxWidth="{DynamicResource SettingsPageMaxWidth}" HorizontalAlignment="Stretch">
 
       <!-- Баннер обновления (2026-09-05, по просьбе пользователя: "при нажатии на маркетплейс обновлял список, чтобы клиенты
            видели новые функции и темы") — новые темы/доп. услуги реально попадают в кассу только через обновление версии
@@ -269,7 +269,10 @@
       <!-- 2026-10-23: вместо вкладок «Темы / Доп. функции / Виды кассы» — единая витрина (MarketplaceStoreView) по каталогу
            MarketplaceCatalog: поиск, чипы, ряды плиток и страница «подробно». Прежние карточки доп. функций собираются в коде
            как раньше (хранилище состояния и блок голосовых моделей), но на экране показывается только витрина. -->
-      <local:MarketplaceStoreView x:Name="Store" Grid.Row="1"/>
+      <!-- 2026-11-06: «Открыть Маркетплейс на сайте», «Обновить покупки» и строка итога проверки — собирается в коде (MarketplaceView.WebPurchases.cs). -->
+      <Border x:Name="WebBarHost" Grid.Row="1" Margin="0,0,0,10"/>
+
+      <local:MarketplaceStoreView x:Name="Store" Grid.Row="2"/>
     </Grid>
   </Border>
 </UserControl>

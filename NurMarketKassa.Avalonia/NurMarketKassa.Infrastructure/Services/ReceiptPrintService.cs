@@ -29,20 +29,26 @@ public static class ReceiptPrintService
 
     public static void PrintGraphic(GraphicReceiptSettings settings, string text)
     {
-        if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException("Graphic receipt printing is supported only on Windows.");
+        // 2026-11-06 (В18, АЛ-3): графический чек рисует Skia на Linux/Android, GDI+ на Windows (GraphicReceiptPrinter выбирает сам).
         ValidateGraphicSettings(settings);
         GraphicReceiptPrinter.Print(text, settings);
     }
 
     public static void PrintGraphicTest(GraphicReceiptSettings settings, string storeName)
     {
-        if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException("Graphic receipt printing is supported only on Windows.");
         ValidateGraphicSettings(settings);
-        var bytes = GraphicReceiptGenerator.GenerateTestReceiptImage(settings, storeName);
+        var bytes = GenerateGraphicTestBytes(settings, storeName);
         PrinterPortService.SendRawBytes(settings.DevicePath, bytes, settings.RetryCount);
     }
+
+    /// <summary>Байты пробного графического чека (ESC *): Windows — GDI+, Linux/Android — Skia.</summary>
+    public static byte[] GenerateGraphicTestBytes(GraphicReceiptSettings settings, string storeName) =>
+        OperatingSystem.IsWindows() ? GenerateGraphicTestBytesGdi(settings, storeName) : GraphicReceiptSkia.GenerateTestReceiptImage(settings, storeName);
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static byte[] GenerateGraphicTestBytesGdi(GraphicReceiptSettings settings, string storeName) =>
+        GraphicReceiptGenerator.GenerateTestReceiptImage(settings, storeName);
 
     public static void SendRawBytes(string port, byte[] bytes, int retries = 3) =>
         PrinterPortService.SendRawBytes(port, bytes, retries);
@@ -191,14 +197,9 @@ public static class ReceiptPrintService
         if (string.IsNullOrWhiteSpace(text))
             throw new InvalidOperationException("Текст чека пуст.");
 
-        // 2026-10-05: графический чек рисуется через System.Drawing — его нет на Android и Linux. Там — текстом
-        // ESC/POS, а не ошибка печати после каждой продажи.
-        if (prefs.SelectedPrintMode == PrintMode.Graphic && !OperatingSystem.IsWindows())
-        {
-            PosLogger.Log("ReceiptPrintService: графический чек есть только в Windows — печать текстом.", "PRINTER");
-            PrintText(prefs.ToReceiptPrinterSettings(), text);
-        }
-        else if (prefs.SelectedPrintMode == PrintMode.Graphic)
+        // 2026-10-05: графический чек рисовался через System.Drawing — его нет на Android и Linux; там печатали текстом.
+        // 2026-11-06 (В18, АЛ-3): теперь на Linux и Android графический чек рисует Skia — режим работает везде.
+        if (prefs.SelectedPrintMode == PrintMode.Graphic)
         {
             if (!prefs.GraphicReceiptEnabled)
                 throw new InvalidOperationException("Графический чек выключен в настройках кассы.");

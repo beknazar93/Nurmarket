@@ -13,6 +13,10 @@ public interface ICatalogCacheService
     Task<CatalogSyncResult> SyncCatalogIfChangedAsync(CancellationToken cancellationToken = default) =>
         SyncCatalogFullAsync(cancellationToken);
 
+    /// <summary>2026-11-07 (живой тест, Б-П2): быстрое обновление «сейчас» — лента изменений и сверка последних изменённых, без полной загрузки каталога (секунды вместо ~80 с).
+    /// null — быстрый путь невозможен (нет связи, нет ленты, идёт полная загрузка): вызывающий обновляет обычным путём. По умолчанию — null.</summary>
+    Task<CatalogSyncResult?> QuickRefreshAsync(CancellationToken cancellationToken = default) => Task.FromResult<CatalogSyncResult?>(null);
+
     bool TryLoadFromDatabase();
 
     IReadOnlyList<CatalogProductTileVm> GetProducts();

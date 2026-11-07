@@ -85,12 +85,15 @@ public sealed class ProductAnalyticsWindow : Window
         var toUtc = periodTo.Date.AddDays(1).ToUniversalTime();
         var inPeriod = all.Where(l => l.SoldAt >= fromUtc && l.SoldAt < toUtc).ToList();
 
-        var product = CatalogCacheService.Products
+        var product = CatalogCacheService.Products.ToArray()
             .FirstOrDefault(p => string.Equals(p.Title, productName, StringComparison.OrdinalIgnoreCase));
+        // 2026-11-06 (удаление товара): товара уже нет в каталоге (удалён/в архиве), а продажи в истории остались — закупка из памяти об удалённых, иначе «нет закупочной цены» и прибыль пропадает.
+        // Остаток и совет по заказу для такого товара не показываем (в каталоге его нет — «Остаток: нет в каталоге»).
+        var removedPurchase = product is null ? RemovedProductMemory.FindByTitle(productName)?.PurchasePrice : null;
 
         var writeOffs = DatabaseService.Instance.LoadWriteOffsForProduct(productName);
 
-        root.Children.Add(SummaryRow(inPeriod, product, periodFrom, periodTo));
+        root.Children.Add(SummaryRow(inPeriod, product, periodFrom, periodTo, removedPurchase));
         root.Children.Add(MonthCard(all));
         root.Children.Add(MovementCard(all, writeOffs, product));
         root.Children.Add(AdviceCard(all, inPeriod, product, periodFrom, periodTo));
@@ -103,11 +106,12 @@ public sealed class ProductAnalyticsWindow : Window
         List<(string ProductId, string ProductName, double Quantity, double UnitPrice, DateTime SoldAt)> lines,
         Models.Pos.CatalogProductTileVm? product,
         DateTime from,
-        DateTime to)
+        DateTime to,
+        double? removedPurchase = null)
     {
         var qty = lines.Sum(l => l.Quantity);
         var revenue = lines.Sum(l => l.Quantity * l.UnitPrice);
-        var purchase = product?.PurchasePrice ?? 0;
+        var purchase = product?.PurchasePrice ?? removedPurchase ?? 0;
         var profit = purchase > 0 ? revenue - qty * purchase : (double?)null;
         var days = Math.Max(1, (to.Date - from.Date).Days + 1);
 

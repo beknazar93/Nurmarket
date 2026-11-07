@@ -329,6 +329,31 @@
         <Style Selector="Border.cart-line.fresh">
             <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
         </Style>
+        <!-- 2026-11-06 (В7, Д4-06): плавный возврат цвета; повторный скан того же товара — «цена × количество» на 0,7 с цветом акцента (мигает «× 2»).
+             Меняется только цвет: размер, шрифт и позиция строки те же — «без прыжков». Цвет надписи — стилем, а не на элементе (локальное значение сильнее стиля). -->
+        <Style Selector="Border.cart-line">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.30"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="TextBlock.line-priceqty-wide, TextBlock.line-priceqty-compact">
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.30"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.cart-line.fresh-repeat TextBlock.line-priceqty-wide, Border.cart-line.fresh-repeat TextBlock.line-priceqty-compact">
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentStrong}"/>
+        </Style>
+        <!-- 2026-11-06 (В7, Д4-40): плашка «Чек очищен · Вернуть (5)» лежит поверх верха списка (в потоке её нет — ничего не сдвигается). -->
+        <Style Selector="Border.clear-undo">
+            <Setter Property="Background" Value="{DynamicResource BrushPanelElevated}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushBorderStrong}"/>
+        </Style>
         <Style Selector="Border.cart-line">
             <Setter Property="Padding" Value="10,8"/>
             <Setter Property="Margin" Value="0,0,0,8"/>
@@ -610,7 +635,8 @@
                             <Rectangle Grid.Column="2" Height="1" VerticalAlignment="Center"
                                        Fill="{DynamicResource BrushCatalogTileBorder}"/>
                         </Grid>
-                        <ItemsControl ItemsSource="{Binding QuickProducts}" MaxWidth="440">
+                        <!-- 2026-11-06 (В7, Д4-09): плитки 160×72 (были 134×66), название в две строки, цена справа внизу; ряд — до 520. -->
+                        <ItemsControl ItemsSource="{Binding QuickProducts}" MaxWidth="520">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
@@ -624,10 +650,11 @@
                                          можно нажать. Вид взят у карточки каталога — один и тот же
                                          товар должен выглядеть одинаково с обеих сторон экрана. -->
                                     <!-- 2026-09-30: быстрый товар без фокуса — иначе Enter сканера добавлял его ещё раз. -->
-                                    <Button Width="134" Height="66"
+                                    <Button Width="160" Height="72"
                                             Focusable="False"
                                             Margin="4"
                                             Padding="10,6"
+                                            AutomationProperties.Name="{Binding Title}"
                                             Cursor="Hand"
                                             Background="{DynamicResource BrushCatalogTileBg}"
                                             BorderBrush="{DynamicResource BrushCatalogTileBorder}"
@@ -636,18 +663,22 @@
                                             HorizontalContentAlignment="Stretch"
                                             Command="{Binding $parent[UserControl].((vm:BasketPanelViewModel)DataContext).AddQuickProductCommand}"
                                             CommandParameter="{Binding}">
-                                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <Grid RowDefinitions="*,Auto" VerticalAlignment="Stretch">
                                             <TextBlock Text="{Binding Title}"
                                                        FontSize="12"
                                                        FontWeight="SemiBold"
-                                                       MaxLines="1"
+                                                       TextWrapping="Wrap"
+                                                       MaxLines="2"
                                                        TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Title}"
                                                        Foreground="{DynamicResource BrushText}"/>
-                                            <TextBlock Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
+                                            <TextBlock Grid.Row="1"
+                                                       Text="{Binding PriceLine, Converter={StaticResource PriceAmountConverter}}"
                                                        FontSize="15"
                                                        FontWeight="Bold"
+                                                       HorizontalAlignment="Right"
                                                        Foreground="{DynamicResource BrushCatalogPrice}"/>
-                                        </StackPanel>
+                                        </Grid>
                                     </Button>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -655,6 +686,39 @@
                     </StackPanel>
                 </StackPanel>
                 </ScrollViewer>
+
+                <!-- 2026-11-06 (В7, Д4-40, решение владельца): «Очистить чек» без вопроса — вместо него плашка на 5 секунд; «Вернуть» возвращает чек, если в нём нет новых товаров.
+                     Пока этот вид на экране, он ставит ClearUndoUiReady = true (BasketPanelView.UpdateUiReady); в других раскладках плашки нет — там вопрос остаётся. -->
+                <Border x:Name="ClearUndoBar"
+                        Classes="clear-undo"
+                        ZIndex="5"
+                        VerticalAlignment="Top"
+                        Margin="0,0,0,0"
+                        Padding="14,4,6,4"
+                        CornerRadius="10"
+                        BorderThickness="1"
+                        AutomationProperties.LiveSetting="Polite"
+                        IsVisible="{Binding IsClearUndoVisible}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding ClearUndoText}"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource BrushText}"
+                                   VerticalAlignment="Center"/>
+                        <Button Grid.Column="1"
+                                x:Name="ClearUndoButton"
+                                Classes="cart-action"
+                                HorizontalAlignment="Right"
+                                MinWidth="132"
+                                Padding="14,4"
+                                FontSize="14"
+                                AutomationProperties.Name="{Binding UndoClearText}"
+                                Command="{Binding UndoClearCommand}">
+                            <TextBlock x:Name="ClearUndoLabel" Text="{Binding UndoClearText}" VerticalAlignment="Center"/>
+                        </Button>
+                    </Grid>
+                </Border>
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
@@ -720,7 +784,6 @@
                                             <TextBlock Classes="line-priceqty-wide"
                                                        Text="{Binding PriceQuantityLine}"
                                                        FontSize="13"
-                                                       Foreground="{DynamicResource BrushTextSoft}"
                                                        TextWrapping="NoWrap"
                                                        TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
@@ -745,7 +808,6 @@
                                                        Classes="line-priceqty-compact"
                                                        Text="{Binding PriceQuantityLine}"
                                                        FontSize="13"
-                                                       Foreground="{DynamicResource BrushTextSoft}"
                                                        Margin="0,0,8,0"
                                                        VerticalAlignment="Center"
                                                        TextWrapping="NoWrap"
@@ -826,10 +888,12 @@
                                                 </RepeatButton>
                                                 <!-- 2026-11-05 (аудит №4, Д4-04): корзина была вплотную к «+» — промах по «+» удалял товар. Теперь отступ 24, серый значок
                                                      и «двойное нажатие»: первое нажатие превращает кнопку в красное «Удалить?» на 3 с, второе удаляет. -->
+                                                <!-- 2026-11-06 (В7, ДС-2): имя для диктора/UIA — «Удалить из чека: товар»; после первого нажатия — «Подтвердить удаление: товар» (BasketPanelView.CartDelete_Click). -->
                                                 <Button Classes="cart-delete"
                                                         Focusable="False"
                                                         Margin="20,0,0,0"
                                                         ToolTip.Tip="{DynamicResource csh.cart.removeTooltip}"
+                                                        AutomationProperties.Name="{Binding RemoveName}"
                                                         Click="CartDelete_Click">
                                                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                                                         <PathIcon Width="16"
@@ -855,7 +919,9 @@
 
                 <!-- Ввод штрихкода + количество -->
                 <!-- 2026-10-04: поле, −/+ и «Добавить» — высотой 44 (палец); отступ — в стиле Grid.cart-entry-row. -->
+                <!-- 2026-11-06 (В7, Д4-03): строку скрывает признак «одна строка Скан или поиск» (файл single-input-row.on, BasketPanelView) — по умолчанию она на месте. -->
                 <Grid Grid.Row="0"
+                      x:Name="CartEntryRow"
                       Classes="cart-entry-row"
                       ColumnDefinitions="*,8,Auto,8,Auto"
                       MinWidth="0"
@@ -1218,6 +1284,7 @@
                         HorizontalContentAlignment="Center"
                         VerticalContentAlignment="Center"
                         FontSize="18"
+                        AutomationProperties.Name="{Binding PayButtonText}"
                         Command="{Binding PayCommand}">
                     <!-- 2026-10-21 (пакет 6, п. 20): цвет значка и надписи — от кнопки (стили cart-accent): у включённой тёмный на
                          акценте, у выключенной BrushTextMuted. Раньше Foreground=BrushAccentForeground был задан прямо здесь, и в
@@ -1232,6 +1299,18 @@
                                    FontSize="19"
                                    FontWeight="Bold"
                                    VerticalAlignment="Center"/>
+                        <!-- 2026-11-06 (В7, Д4-05): значок клавиши оплаты («Enter» или назначенная в «Горячих»); рамка и цвет — от кнопки (в выключенной она тоже блёклая). Текст ставит
+                             BasketPanelView.UpdatePayKeyBadge; на Android (нет клавиатуры, А4-22) и при снятом назначении значка нет. -->
+                        <Border x:Name="PayKeyBadge"
+                                IsVisible="False"
+                                CornerRadius="5"
+                                BorderThickness="1"
+                                Padding="7,1"
+                                Opacity="0.85"
+                                VerticalAlignment="Center"
+                                BorderBrush="{Binding $parent[Button].Foreground}">
+                            <TextBlock x:Name="PayKeyBadgeText" FontSize="12" FontWeight="SemiBold"/>
+                        </Border>
                     </StackPanel>
                 </Button>
             </Grid>

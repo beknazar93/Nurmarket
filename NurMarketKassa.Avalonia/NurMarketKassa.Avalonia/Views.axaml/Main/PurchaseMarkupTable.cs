@@ -27,9 +27,8 @@ internal static class PurchaseMarkupTable
         var result = new List<Row>();
         foreach (var l in r.Lines)
         {
-            ReceiptMarkupLine? saved = l.SalePrice is > 0
-                ? new ReceiptMarkupLine { ProductId = l.ProductId, Purchase = l.PurchasePrice, Qty = l.Qty, MarkupPercent = l.MarkupPercent, Sale = l.SalePrice.Value, PreviousSale = l.PreviousSalePrice ?? 0 }
-                : doc?.Lines.FirstOrDefault(x => string.Equals(x.ProductId, l.ProductId, StringComparison.OrdinalIgnoreCase));
+            // 2026-11-07 (Б-П1): серверная строка или журнал кассы — см. ReceiptMarkupLog.Pick (сервер мог записать цену по старой карточке).
+            var saved = ReceiptMarkupLog.Pick(l, r.Version, doc?.Lines.FirstOrDefault(x => string.Equals(x.ProductId, l.ProductId, StringComparison.OrdinalIgnoreCase)));
             double? current = null;
             if (saved is null)
             {

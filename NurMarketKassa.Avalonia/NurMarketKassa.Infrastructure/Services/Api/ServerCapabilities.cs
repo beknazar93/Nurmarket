@@ -41,6 +41,8 @@ public static class ServerCapabilities
     public const string RentalIdempotency = "rental_idempotency";
     public const string ProductsArchivedFilter = "products_archived_filter";
     public const string IdempotencyLookupBonusTransfers = "idempotency_lookup_bonus_transfers";
+    /// <summary>2026-11-06: сервер отдаёт каталог тем и видов кассы Маркетплейса (api/main/marketplace/themes/, пакеты по праву «куплено»). Без признака касса показывает только свои темы.</summary>
+    public const string MarketplaceThemes = "marketplace_themes";
 
     /// <summary>2026-11-05: синхронная проверка признака для мест, где ждать сеть нельзя (расчёт «Касса:», тело чека). true — признак есть у ЭТОГО аккаунта; нет списка, он устарел
     /// или запрос не удался — false (поведение «как раньше»). Если список не получен или старше срока, в фоне просит его заново (ServerAddons.Api — тот же клиент, что у бонусов).</summary>
@@ -114,7 +116,7 @@ public static class ServerCapabilities
 
     // ───────────── 2026-11-06 (аудит №5, Л5-01): последний известный список — на диске, по аккаунту ─────────────
 
-    private static string FilePath => Path.Combine(DirOverride ?? Path.Combine(AppPaths.Local, "NurMarketKassa"), "server-capabilities.json");
+    private static string FilePath => Path.Combine(DirOverride ?? AppPaths.KassaLocal, "server-capabilities.json");
 
     private static bool HasAccount(string account) => account.Trim('|').Length > 0;
 

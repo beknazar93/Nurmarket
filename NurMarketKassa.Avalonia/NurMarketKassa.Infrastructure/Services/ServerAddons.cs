@@ -36,6 +36,24 @@ public static class ServerAddons
 
     public sealed record AddonEntry(string Code, bool Active, string? Until);
 
+    /// <summary>2026-11-06 («купил на сайте — программа подхватывает»): итог немедленной проверки покупок.</summary>
+    public enum PurchaseCheckStatus
+    {
+        /// <summary>Ответ сервера получен (новые функции — в <see cref="PurchaseCheck.NewSlugs"/>, может быть пусто).</summary>
+        Checked,
+        /// <summary>Слишком часто (не чаще раза в 20 секунд) или уже идёт загрузка — остался прежний список.</summary>
+        Throttled,
+        /// <summary>Нет связи, вход не выполнен, ошибка сервера — работаем по ключам и кэшу.</summary>
+        Failed,
+    }
+
+    /// <summary>Что дала проверка: статус и коды (slug) функций, которые открылись именно сейчас.</summary>
+    public sealed record PurchaseCheck(PurchaseCheckStatus Status, IReadOnlyList<string> NewSlugs)
+    {
+        public static readonly PurchaseCheck Skipped = new(PurchaseCheckStatus.Throttled, Array.Empty<string>());
+        public static readonly PurchaseCheck NotDone = new(PurchaseCheckStatus.Failed, Array.Empty<string>());
+    }
+
     private sealed class Snap
     {
         public string Account = "";
@@ -230,6 +248,12 @@ public static class ServerAddons
     /// <summary>Забыть всё в памяти (смена компании: файл стирает AccountDataIsolation).</summary>
     public static void ResetMemory()
     {
+        lock (DiskLock)
+        {
+            _boostUntilUtc = DateTime.MinValue; // 2026-11-06: частые проверки после заявки относились к прежней компании
+            _boostTimer?.Dispose();
+            _boostTimer = null;
+        }
         _snap = null;
         Volatile.Write(ref _diskLoaded, 1);
         _lastAttemptUtc = DateTime.MinValue;
@@ -266,6 +290,45 @@ public static class ServerAddons
         return list;
     }
 
+    // ───────────── 2026-11-06: после заявки «Подключить» — частые проверки на время оплаты ─────────────
+
+    /// <summary>Период частых проверок после заявки на подключение и сколько они длятся (владелец платит через поддержку — функция включается в течение минут).</summary>
+    public static readonly TimeSpan BoostEvery = TimeSpan.FromMinutes(1);
+    public static readonly TimeSpan BoostFor = TimeSpan.FromMinutes(15);
+
+    private static DateTime _boostUntilUtc = DateTime.MinValue;
+    private static Timer? _boostTimer;
+
+    /// <summary>Идут ли частые проверки (раз в минуту, 15 минут после заявки).</summary>
+    public static bool IsBoosted => NowUtc < _boostUntilUtc;
+
+    /// <summary>Заявка на подключение отправлена: следующие 15 минут сервер опрашивается раз в минуту (потом — обычные 15 минут). Повторная заявка продлевает срок.</summary>
+    public static void BoostAfterRequest()
+    {
+        lock (DiskLock)
+        {
+            _boostUntilUtc = NowUtc + BoostFor;
+            _boostTimer ??= new Timer(_ => BoostTick(), null, BoostEvery, BoostEvery);
+        }
+    }
+
+    internal static void BoostTick()
+    {
+        if (NowUtc >= _boostUntilUtc)
+        {
+            lock (DiskLock)
+            {
+                if (NowUtc >= _boostUntilUtc)
+                {
+                    _boostTimer?.Dispose();
+                    _boostTimer = null;
+                }
+            }
+            return;
+        }
+        _ = RefreshAsync(force: true);
+    }
+
     /// <summary>Запуск после входа в компанию (CompanyInfoService.RefreshAsync): первая загрузка и таймер раз в 15 минут.</summary>
     public static void AfterCompanyRefresh()
     {
@@ -286,7 +349,11 @@ public static class ServerAddons
 
     /// <summary>GET users/company/addons/. false — запрос не состоялся или не удался (кэш и ключи остаются как были).
     /// <paramref name="force"/>: окно «Маркетплейс» просит свежие данные сразу (не чаще раза в 20 секунд); без него — не чаще раза в 15 минут.</summary>
-    public static async Task<bool> RefreshAsync(bool force = false, CancellationToken ct = default)
+    public static async Task<bool> RefreshAsync(bool force = false, CancellationToken ct = default) =>
+        (await RefreshDetailedAsync(force, ct).ConfigureAwait(false)).Status == PurchaseCheckStatus.Checked;
+
+    /// <summary>2026-11-06: то же, но с итогом — какие функции открылись только что («Подключено новых функций: N» в окне «Маркетплейс»).</summary>
+    public static async Task<PurchaseCheck> RefreshDetailedAsync(bool force = false, CancellationToken ct = default)
     {
         var minGap = force ? TimeSpan.FromSeconds(20) : RefreshEvery - TimeSpan.FromSeconds(30);
         // Кэш принадлежит компании: без номера компании (ответ /company/ ещё не пришёл) ключ кэша назвать нечем.
@@ -294,20 +361,20 @@ public static class ServerAddons
         // 2026-10-31 (приёмка 1.17.68): после смены аккаунта пауза между попытками не действует — функции новой компании нужны сразу, а не через 15 минут.
         var sameCompany = string.Equals(companyId, _attemptCompany, StringComparison.Ordinal);
         if (sameCompany && NowUtc - _lastAttemptUtc < minGap)
-            return false;
+            return PurchaseCheck.Skipped;
         if (Api is not { } api || ServerOutageMonitor.IsOutage)
-            return false;
+            return PurchaseCheck.NotDone;
         if (string.IsNullOrWhiteSpace(companyId))
-            return false;
+            return PurchaseCheck.NotDone;
         if (!await Gate.WaitAsync(0, ct).ConfigureAwait(false))
         {
             Volatile.Write(ref _rerunRequested, 1); // идёт загрузка (возможно, прежней компании): по её окончании проверим ещё раз
-            return false;
+            return PurchaseCheck.Skipped;
         }
         try
         {
             if (sameCompany && NowUtc - _lastAttemptUtc < minGap)
-                return false;
+                return PurchaseCheck.Skipped;
             _lastAttemptUtc = NowUtc;
             _attemptCompany = companyId;
             var before = GrantedSet();
@@ -319,7 +386,7 @@ public static class ServerAddons
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                return false;
+                return PurchaseCheck.NotDone;
             }
             catch (Exception ex)
             {
@@ -330,7 +397,7 @@ public static class ServerAddons
                     _lastIssue = issue;
                     PosLogger.Log($"Платные функции с сервера не загружены ({issue}) — работаем по ключам и кэшу.", "WARNING");
                 }
-                return false;
+                return PurchaseCheck.NotDone;
             }
 
             var arr = data.ValueKind == JsonValueKind.Array ? data
@@ -344,7 +411,7 @@ public static class ServerAddons
                     _lastIssue = "bad-format";
                     PosLogger.Log("Платные функции с сервера: неожиданный ответ addons — работаем по ключам и кэшу.", "WARNING");
                 }
-                return false;
+                return PurchaseCheck.NotDone;
             }
 
             _lastIssue = "";
@@ -358,7 +425,8 @@ public static class ServerAddons
                 PosLogger.Log($"Платные функции с сервера: включено {after.Count} ({string.Join(", ", after.OrderBy(s => s))}).", "INFO");
                 RaiseChanged();
             }
-            return true;
+            // 2026-11-06: что открылось именно сейчас (в списке до загрузки этого не было) — для сообщения «Подключено новых функций».
+            return new PurchaseCheck(PurchaseCheckStatus.Checked, after.Where(a => !before.Contains(a)).OrderBy(a => a, StringComparer.OrdinalIgnoreCase).ToList());
         }
         finally
         {
@@ -421,6 +489,8 @@ public static class ServerAddons
             var data = await api.RequestAsync(HttpMethod.Post, "api/support/addon-requests/", body, null, ct, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
             var ok = data.ValueKind != JsonValueKind.Object || !data.TryGetProperty("ok", out var o) || o.ValueKind != JsonValueKind.False;
             PosLogger.Log($"Заявка на подключение функции {CodePrefix}{slug} отправлена в поддержку.", "INFO");
+            if (ok)
+                BoostAfterRequest(); // 2026-11-06: пока владелец платит, проверяем сервер раз в минуту (15 минут)
             return new RequestResult(ok ? RequestStatus.Sent : RequestStatus.Failed);
         }
         catch (ApiException ex)

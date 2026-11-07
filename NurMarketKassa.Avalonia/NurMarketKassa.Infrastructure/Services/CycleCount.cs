@@ -234,7 +234,7 @@ public static class CycleCountStore
 
     // 2026-11-06 (аудит №5, Л5-11): порог PIN ревизии и история пересчётов — ОБЩИЙ файл кассы и программы владельца (%LOCALAPPDATA%\NurMarketKassa, как shop-automation.json).
     // Раньше у каждой программы был свой файл (AppMode.DataFolderName), и порог, поставленный владельцем, касса не видела. Старые файлы при первом чтении переносятся.
-    private static string FilePath => Path.Combine(DataDirOverride ?? Path.Combine(AppPaths.Local, "NurMarketKassa"), "cycle-count.json");
+    private static string FilePath => Path.Combine(DataDirOverride ?? AppPaths.KassaLocal, "cycle-count.json");
 
     /// <summary>Данные с учётом изменений файла другой программой (отметка времени).</summary>
     private static CycleCountData Load()
@@ -251,7 +251,7 @@ public static class CycleCountStore
         return _current;
     }
 
-    private static string MigratedFlagPath => Path.Combine(AppPaths.Local, "NurMarketKassa", "cycle-count.migrated");
+    private static string MigratedFlagPath => Path.Combine(AppPaths.KassaLocal, "cycle-count.migrated");
 
     private static DateTime StampOf(string path)
     {

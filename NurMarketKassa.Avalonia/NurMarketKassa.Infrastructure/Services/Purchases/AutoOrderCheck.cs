@@ -35,7 +35,7 @@ public static class AutoOrderCheck
     private static DateTime _latestAt;
     private static DateTime _latestStamp;
 
-    private static string LatestFile => Path.Combine(AppPaths.Local, "NurMarketKassa", "auto-order-latest.json");
+    private static string LatestFile => Path.Combine(AppPaths.KassaLocal, "auto-order-latest.json");
 
     private sealed class LatestBox
     {

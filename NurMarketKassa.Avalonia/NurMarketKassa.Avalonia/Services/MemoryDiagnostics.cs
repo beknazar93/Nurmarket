@@ -21,6 +21,9 @@ public static class MemoryDiagnostics
         if (_timer is not null)
             return;
         _timer = new Timer(_ => _ = TickAsync(), null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
+        // 2026-11-06 (В16, память): точка отсчёта — строка сразу при старте (до каталога и окон); дальше раз в 5 минут «ПАМЯТЬ:» с разбивкой.
+        OwnerMemoryTrim.BeforeTrim = () => NurMarketKassa.AvaloniaHost.Converters.AssetPathToBitmapConverter.TrimThumbs(48);
+        PosLogger.Log($"ПАМЯТЬ старт: {Snapshot()}.", "INFO");
     }
 
     private static string Mb(long bytes) => (bytes / (1024 * 1024)).ToString();
@@ -32,8 +35,15 @@ public static class MemoryDiagnostics
         {
             using var process = Process.GetCurrentProcess();
             var info = GC.GetGCMemoryInfo();
-            return $"куча {Mb(GC.GetTotalMemory(false))} МБ (LOH {Mb(info.GenerationInfo.Length > 3 ? info.GenerationInfo[3].SizeAfterBytes : 0)} МБ, сборок gen2: {GC.CollectionCount(2)}), "
-                   + $"частная {Mb(process.PrivateMemorySize64)} МБ, дескрипторы {process.HandleCount}, потоки {process.Threads.Count}";
+            // 2026-11-06 (В16): разбивка «управляемая куча / LOH / зафиксировано сборщиком / частная / WorkingSet» — по ней видно, чья память: управляемая (куча, LOH),
+            // «зафиксирована, но пуста» (committed − куча) или родная (частная − committed: картинки Skia, SQLite, сам .NET). Первая часть строки прежняя.
+            long Gen(int i) => info.GenerationInfo.Length > i ? info.GenerationInfo[i].SizeAfterBytes : 0;
+            var heap = GC.GetTotalMemory(false);
+            return $"куча {Mb(heap)} МБ (LOH {Mb(Gen(3))} МБ, сборок gen2: {GC.CollectionCount(2)}), "
+                   + $"частная {Mb(process.PrivateMemorySize64)} МБ, дескрипторы {process.HandleCount}, потоки {process.Threads.Count}; "
+                   + $"разбивка: gen0 {Mb(Gen(0))}, gen1 {Mb(Gen(1))}, gen2 {Mb(Gen(2))}, LOH {Mb(Gen(3))}, POH {Mb(Gen(4))} МБ после последней сборки; "
+                   + $"зафиксировано сборщиком {Mb(info.TotalCommittedBytes)} МБ, фрагментация {Mb(info.FragmentedBytes)} МБ; WorkingSet {Mb(process.WorkingSet64)} МБ; "
+                   + $"вне управляемой кучи ≈ {Mb(Math.Max(0, process.PrivateMemorySize64 - info.TotalCommittedBytes))} МБ";
         }
         catch (Exception ex)
         {
@@ -57,7 +67,8 @@ public static class MemoryDiagnostics
             }
 
             var (photos, photoBytes) = ProductPhotoFinder.RecentImagesStats();
-            PosLogger.Log($"ПАМЯТЬ: {Snapshot()}; окон {windows}; кэш картинок поиска фото {photos} шт. / {Mb(photoBytes)} МБ.", "INFO");
+            var (thumbs, thumbBytes) = NurMarketKassa.AvaloniaHost.Converters.AssetPathToBitmapConverter.ThumbCacheStats();
+            PosLogger.Log($"ПАМЯТЬ: {Snapshot()}; окон {windows}; кэш картинок поиска фото {photos} шт. / {Mb(photoBytes)} МБ; кэш миниатюр {thumbs} шт. / {Mb(thumbBytes)} МБ.", "INFO");
 
             // 2026-11-06 (В11, ПМ-1): закрытые разделы, что остались в памяти после ≥3 сборок второго поколения и ≥10 минут, — это утечка окна; называем раздел.
             // Сам этот вызов сборку не запускает: ждём обычных сборок (их много — gen2 каждые несколько минут).

@@ -5,6 +5,7 @@ using System.Drawing.Printing;
 using ZXing;
 using ZXing.Common;
 using ZXing.Rendering;
+using SkiaSharp;
 
 namespace NurMarketKassa.Services;
 
@@ -259,14 +260,19 @@ public static partial class PriceTagService
 
     private static LabelPrintResult PrintThermal(PriceTagPrintRequest request)
     {
-        if (BarcodeLabelService.IsRawDevicePath(request.PrinterName))
+        // 2026-11-06 (В18, А4-08): на Linux и Android спулера Windows и System.Drawing нет — ценник рисуется Skia и уходит принтеру командами.
+        if (BarcodeLabelService.IsRawDevicePath(request.PrinterName) || !OperatingSystem.IsWindows())
         {
             BarcodeLabelService.ClearPartial(request.PrinterName);
             try
             {
-                using var tag = GenerateBitmap(request.Kind, request.Data, request.WidthMm, request.HeightMm);
-                // 2026-10-01: язык принтера, зазор и сдвиг — из калибровки этикеток (BarcodeLabelService).
-                BarcodeLabelService.SendRawLabel(request.PrinterName, tag, request.WidthMm, request.HeightMm, request.Copies);
+                if (OperatingSystem.IsWindows())
+                    SendRawTagGdi(request);
+                else
+                {
+                    using var skTag = LabelSceneSkia.Render(BuildScene(request.Kind, request.Data, request.WidthMm, request.HeightMm));
+                    BarcodeLabelService.SendRawLabel(request.PrinterName, skTag, request.WidthMm, request.HeightMm, request.Copies);
+                }
                 return LabelPrintResult.Success;
             }
             catch (LabelSendException ex)
@@ -300,6 +306,15 @@ public static partial class PriceTagService
             PosLogger.Log($"Price tag print failed: {ex}", "ERROR");
             return LabelPrintResult.Failed;
         }
+    }
+
+    /// <summary>Windows: растр ценника GDI+ (как раньше) → задание принтеру этикеток. Отдельный метод — JIT не трогает System.Drawing на Linux/Android.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void SendRawTagGdi(PriceTagPrintRequest request)
+    {
+        using var tag = GenerateBitmap(request.Kind, request.Data, request.WidthMm, request.HeightMm);
+        // 2026-10-01: язык принтера, зазор и сдвиг — из калибровки этикеток (BarcodeLabelService).
+        BarcodeLabelService.SendRawLabel(request.PrinterName, tag, request.WidthMm, request.HeightMm, request.Copies);
     }
 
     /// <summary>Документ печати ценника на термопринтер через спулер Windows. Вынесен отдельно,
@@ -366,6 +381,18 @@ public static partial class PriceTagService
         IReadOnlyList<(PriceTagKind Kind, PriceTagData Data, int Copies)> items,
         double widthMm, double heightMm, string printerName)
     {
+        // 2026-11-06 (В18, АЛ-5): Linux/macOS — сетка ценников в PDF (Skia) и печать через CUPS.
+        if (!OperatingSystem.IsWindows())
+        {
+            var scenes = new List<Func<LabelScene>>();
+            foreach (var item in items)
+            {
+                var (kind, data) = (item.Kind, item.Data);
+                for (var i = 0; i < Math.Clamp(item.Copies, 1, 99); i++)
+                    scenes.Add(() => BuildScene(kind, data, widthMm, heightMm));
+            }
+            return PrintTagsViaCups(scenes, widthMm, heightMm, printerName);
+        }
         if (!RawPrinterHelper.GetInstalledPrinterNames()
                 .Any(p => string.Equals(p, printerName, StringComparison.OrdinalIgnoreCase)))
         {
@@ -384,6 +411,21 @@ public static partial class PriceTagService
         catch (Exception ex)
         {
             PosLogger.Log($"Price tag batch A4 print failed: {ex}", "ERROR");
+            return LabelPrintResult.Failed;
+        }
+    }
+
+    private static LabelPrintResult PrintTagsViaCups(List<Func<LabelScene>> scenes, double widthMm, double heightMm, string printerName)
+    {
+        try
+        {
+            if (!CupsPrintService.IsAvailable || scenes.Count == 0)
+                return LabelPrintResult.Failed;
+            return CupsPrintService.PrintPdf(printerName, PriceTagSheetSkia.CreatePdf(scenes, widthMm, heightMm), 1, "NurCRM price tags");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Price tag A4 print (CUPS) failed: {ex}", "ERROR");
             return LabelPrintResult.Failed;
         }
     }
@@ -481,6 +523,18 @@ public static partial class PriceTagService
     private static LabelPrintResult PrintBatchA4CustomTemplate(
         IReadOnlyList<(PriceTagData Data, int Copies)> items, LabelTemplate template, string printerName)
     {
+        // 2026-11-06 (В18, АЛ-5): Linux/macOS — сетка этикеток в PDF (Skia) и печать через CUPS.
+        if (!OperatingSystem.IsWindows())
+        {
+            var scenes = new List<Func<LabelScene>>();
+            foreach (var item in items)
+            {
+                var data = item.Data;
+                for (var i = 0; i < Math.Clamp(item.Copies, 1, 99); i++)
+                    scenes.Add(() => BarcodeLabelService.BuildLabelScene(data.ProductName, data.Barcode ?? "", data.PriceText, template, data.Sku, data.Unit, data.StoreName));
+            }
+            return PrintTagsViaCups(scenes, template.WidthMm, template.HeightMm, printerName);
+        }
         if (!RawPrinterHelper.GetInstalledPrinterNames()
                 .Any(p => string.Equals(p, printerName, StringComparison.OrdinalIgnoreCase)))
         {

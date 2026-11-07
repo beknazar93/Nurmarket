@@ -45,6 +45,24 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     private double _purchasePrice;
     private double _salePrice;
 
+    private int _lineNo;
+
+    /// <summary>2026-11-07 (ТЗ «Порядковая нумерация товаров в накладной»): порядковый номер строки в накладной — порядок ДОБАВЛЕНИЯ (первому 1, второму 2…).
+    /// Только для показа в колонке «№»: в базу, на сервер, в поиск и штрихкод не уходит. Присваивает и пересчитывает без пропусков
+    /// <see cref="NurMarketKassa.Services.ReceivingListOrder.Renumber"/>; правка количества и цен номер не меняет. 0 — номера ещё нет.</summary>
+    public int LineNo
+    {
+        get => _lineNo;
+        set
+        {
+            if (Set(ref _lineNo, value))
+                OnPropertyChanged(nameof(LineNoAutomationText));
+        }
+    }
+
+    /// <summary>«Позиция 3» — имя ячейки «№» для программ экранного чтения.</summary>
+    public string LineNoAutomationText => NurMarketKassa.Services.Tr.T("Позиция", "Позиция", "Item", "Kalem", "Pozitsiya") + " " + _lineNo.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
     public string? ProductId
     {
         get => _productId;

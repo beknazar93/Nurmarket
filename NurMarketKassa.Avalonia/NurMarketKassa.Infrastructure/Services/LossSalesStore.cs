@@ -31,7 +31,7 @@ public sealed class LossSaleRecord
 public static class LossSalesStore
 {
     private static readonly string FilePath = Path.Combine(
-        NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa", "loss-sales.json");
+        NurMarketKassa.Services.AppPaths.KassaLocal, "loss-sales.json");
     private static readonly object Gate = new();
 
     public static event Action? Changed;

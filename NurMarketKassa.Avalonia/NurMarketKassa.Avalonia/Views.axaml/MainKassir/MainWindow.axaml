@@ -132,10 +132,12 @@
         </Style>
         <!-- 2026-11-01: единая кнопка верхней панели (общий стиль top-tool, PosDialogStyles): 72×52 (подпись «Клавиатура» при 58 обрезалась у края). -->
         <!-- 2026-11-05 (аудит №4, Д4-02): ширина не зашита (было Width=72, подпись «Клавиат…» обрезалась, в ky/uz — длиннее): MinWidth 72 + по содержимому. -->
+        <!-- 2026-11-06 (В7, Д4-02/Д4-37, решение владельца): компактная шапка — вид по умолчанию на любом размере окна: у кнопок шапки нет подписей
+             (значок 48×44 + подсказка + имя для диктора), «Экран», «Тема», «Горячие» живут в меню «⋯». Прежние размеры 72×52 с подписью ушли вместе с кнопками. -->
         <Style Selector="Button.header-tool">
-            <Setter Property="Width" Value="NaN"/>
-            <Setter Property="MinWidth" Value="72"/>
-            <Setter Property="Height" Value="52"/>
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="MinWidth" Value="48"/>
+            <Setter Property="Height" Value="44"/>
             <Setter Property="Padding" Value="6,4"/>
         </Style>
         <Style Selector="TextBlock.header-tool-label">
@@ -152,11 +154,17 @@
         <!-- «⋯ Ещё» шапки есть только в компактном виде: в нём прячутся «Экран», «Тема» и
              «Горячие» (кнопка экранной клавиатуры остаётся — без неё на сенсорном моноблоке не
              набрать текст). -->
+        <!-- 2026-11-06 (В7, Д4-02/37): «⋯» теперь на виду всегда (было — только в компактном виде). -->
         <Style Selector="Button.header-more">
-            <Setter Property="IsVisible" Value="False"/>
+            <Setter Property="IsVisible" Value="True"/>
         </Style>
         <Style Selector="Button.shift-action">
             <Setter Property="MinHeight" Value="44"/>
+        </Style>
+        <!-- 2026-11-06 (В7, Д4-01): пилюля «Смена 09:04 ▾» — круглые края, место под значок меню справа. -->
+        <Style Selector="Button.shift-pill">
+            <Setter Property="CornerRadius" Value="22"/>
+            <Setter Property="Padding" Value="14,6"/>
         </Style>
         <!-- 2026-11-05 (аудит №4, Д4-01/Д4-10): из двух кнопок смены одна всегда недоступна (смена или открыта, или нет), и серая заливка недоступной читалась
              заметнее активной. Недоступную прячем при любом размере окна (раньше — только в компактном виде): остаётся одна кнопка — та, что можно нажать. -->
@@ -426,9 +434,17 @@
                             ClipToBounds="True"
                             Spacing="18">
                     <!-- 2026-09-29: подсказка — с какого времени сервер не отвечает и последняя ошибка -->
+                    <!-- 2026-11-06 (В7, Д4-07): в подсказку добавлена служебная строка каталога («Каталог обновлён. Товаров: N.») — её больше нет над плитками. -->
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
-                                Background="Transparent"
-                                ToolTip.Tip="{Binding Toolbar.Status.StatusToolTip}">
+                                Background="Transparent">
+                        <ToolTip.Tip>
+                            <StackPanel Spacing="4" MaxWidth="360">
+                                <TextBlock Text="{Binding Toolbar.Status.StatusToolTip}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding Catalog.ServiceStatusText}" TextWrapping="Wrap"
+                                           Opacity="0.8"
+                                           IsVisible="{Binding Catalog.ServiceStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            </StackPanel>
+                        </ToolTip.Tip>
                         <Ellipse Width="8" Height="8"
                                  VerticalAlignment="Center"
                                  Fill="{DynamicResource BrushUiStatusOk}"
@@ -531,71 +547,31 @@
                     </Button>
                 </StackPanel>
 
-                <!-- Тема, клавиатура, смена -->
-                <!-- 2026-10-04: кнопки с подписью — Button.header-tool (размер в стилях окна). В компактном
-                     виде «Экран», «Тема» и «Горячие» (header-secondary) уходят в меню «⋯», подписи под
-                     значками прячутся; клавиатура остаётся на месте. -->
+                <!-- Клавиатура, меню «⋯», смена -->
+                <!-- 2026-11-06 (В7, Д4-01/02/37, решение владельца): кнопки — значки без подписей (подсказка и имя для диктора), «Экран», «Тема» и «Горячие» — в меню «⋯»;
+                     справа одна кнопка смены: при открытой смене — пилюля «Смена 09:04 ▾» с меню (X-отчёт, внесение/изъятие, закрыть смену), при закрытой — жёлтая «Открыть смену». -->
                 <StackPanel Grid.Column="2"
                             Orientation="Horizontal"
                             Spacing="8"
                             VerticalAlignment="Center">
-                    <Button Classes="top-tool header-tool header-secondary"
-                            HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            ToolTip.Tip="{DynamicResource mainWindow.checkCustomerDisplayTooltip}"
-                            Command="{Binding Toolbar.CheckCustomerDisplayCommand}">
-                        <StackPanel Spacing="1" VerticalAlignment="Center">
-                            <PathIcon Classes="header-icon" Data="{StaticResource IconMonitor}"/>
-                            <TextBlock Classes="header-tool-label" Text="{DynamicResource header.labelCustomerDisplay}" FontSize="12"
-                                       HorizontalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                    <Button Classes="top-tool header-tool header-secondary"
-                            HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            ToolTip.Tip="{Binding Toolbar.ThemeTooltip}"
-                            AutomationProperties.Name="{Binding Toolbar.ThemeTooltip}"
-                            Click="ToggleTheme_Click">
-                        <StackPanel Spacing="1" VerticalAlignment="Center">
-                            <TextBlock Classes="mdl2" Text="{Binding Toolbar.ThemeGlyph}" FontSize="17" Width="18" Height="18" LineHeight="18" TextAlignment="Center" HorizontalAlignment="Center"/>
-                            <TextBlock Classes="header-tool-label" Text="{DynamicResource header.labelTheme}" FontSize="12"
-                                       HorizontalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
                     <Button Classes="top-tool header-tool"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             ToolTip.Tip="{DynamicResource mainWindow.onScreenKeyboardTooltip}"
+                            AutomationProperties.Name="{DynamicResource keyboard.title}"
                             Focusable="False"
                             Command="{Binding Toolbar.ToggleKeyboardCommand}">
                         <!-- 2026-09-30: Focusable=False — нажатие не уводит фокус из поля ввода, иначе
                              набор на экранной клавиатуре уходил в буфер сканера и пропадал. -->
-                        <StackPanel Spacing="1" VerticalAlignment="Center">
-                            <PathIcon Classes="header-icon" Data="{StaticResource IconKeyboard}"/>
-                            <!-- 2026-10-21 (пакет 6, п. 58): «Клавиатура» (экранная), а не «Клавиши» — рядом «Горячие» (горячие клавиши) путали. -->
-                            <TextBlock Classes="header-tool-label" Text="{DynamicResource keyboard.title}" FontSize="12"
-                                       HorizontalAlignment="Center"/>
-                        </StackPanel>
+                        <PathIcon Classes="header-icon" Data="{StaticResource IconKeyboard}"/>
                     </Button>
-                    <Button Classes="top-tool header-tool header-secondary"
-                            HorizontalContentAlignment="Center"
-                            VerticalContentAlignment="Center"
-                            ToolTip.Tip="{DynamicResource mainWindow.hotkeysTooltip}"
-                            Click="OpenHotkeySettings_Click">
-                        <StackPanel Spacing="1" VerticalAlignment="Center">
-                            <PathIcon Classes="header-icon" Data="{StaticResource IconBolt}"/>
-                            <TextBlock Classes="header-tool-label" Text="{DynamicResource header.labelHotkeys}" FontSize="12"
-                                       HorizontalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                    <!-- 2026-10-04: «⋯ Ещё» — только в компактном виде (см. стиль Button.header-more). Без
-                         фокуса, как кнопка клавиатуры: Enter сканера не должен открывать меню. Пункты меню —
-                         те же действия, что у спрятанных кнопок, крупные (48 точек) для пальца. -->
+                    <!-- «⋯»: без фокуса, как кнопка клавиатуры (Enter сканера не должен открывать меню). Пункты — крупные (48 точек) для пальца. -->
                     <Button Classes="top-tool header-tool header-more"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             Focusable="False"
-                            ToolTip.Tip="{DynamicResource csh.cart.moreTooltip}">
+                            ToolTip.Tip="{DynamicResource csh.cart.moreTooltip}"
+                            AutomationProperties.Name="{DynamicResource csh.cart.moreTooltip}">
                         <PathIcon Classes="header-icon" Data="{StaticResource IconMore}"/>
                         <Button.Flyout>
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
@@ -623,14 +599,16 @@
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>
-                    <!-- 2026-11-01: группа «Экран / Тема / Клавиатура / Горячие» отделена от кнопок смены. -->
                     <Border Classes="header-sep" Width="1" Height="28" Margin="2,0" VerticalAlignment="Center" Background="{DynamicResource BrushBorder}"/>
-                    <Button Classes="main-outline shift-action"
+                    <!-- Смена закрыта: одна жёлтая кнопка. Обработчик прежний (OpenShift_Click); «Закрыть смену» теперь в меню пилюли ниже. -->
+                    <Button x:Name="OpenShiftButton"
+                            Classes="main-primary shift-action"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
                             Click="OpenShift_Click"
                             ToolTip.Tip="{DynamicResource csh.toolbar.openShift}"
-                            IsEnabled="{Binding Toolbar.CanOpenShift}">
+                            AutomationProperties.Name="{DynamicResource csh.toolbar.openShift}"
+                            IsVisible="{Binding Toolbar.CanOpenShift}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <!-- 2026-09-15, по просьбе пользователя ("сделай дизайн
                                  профессиональным") — векторная иконка вместо эмодзи 🔓, тот
@@ -638,22 +616,48 @@
                                  Складе и боковом меню. -->
                             <PathIcon Width="15" Height="15" VerticalAlignment="Center"
                                       Data="M18,20V10H6V20H18M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10A2,2 0 0,1 6,8H15V6A3,3 0 0,0 12,3A3,3 0 0,0 9,6H7A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18Z"/>
-                            <TextBlock Text="{DynamicResource csh.toolbar.openShift}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource csh.toolbar.openShift}" VerticalAlignment="Center" FontWeight="SemiBold"/>
                         </StackPanel>
                     </Button>
-                    <!-- 2026-10-19, К1 (аудит 19.10, проблема 2): на экране продажи одна жёлтая — «Оплатить»;
-                         «Закрыть смену» — обводкой, как «Открыть смену». Обработчик и доступность прежние. -->
-                    <Button Classes="main-outline shift-action"
+                    <!-- Смена открыта: пилюля «Смена 09:04 ▾» (текст и подсказку ставит MainWindow.ApplyShiftPill). Меню: X-отчёт, внесение/изъятие, закрыть смену.
+                         Закрытие — тем же CloseShift_Click, что и раньше (подтверждения, права и Z-отчёт — как были). -->
+                    <Button x:Name="ShiftPillButton"
+                            Classes="main-outline shift-action shift-pill"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
-                            Click="CloseShift_Click"
-                            ToolTip.Tip="{DynamicResource csh.toolbar.closeShift}"
-                            IsEnabled="{Binding Toolbar.CanCloseShift}">
+                            Focusable="False"
+                            IsVisible="{Binding Toolbar.CanCloseShift}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <PathIcon Width="15" Height="15" VerticalAlignment="Center"
-                                      Data="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
-                            <TextBlock Text="{DynamicResource csh.toolbar.closeShift}" VerticalAlignment="Center"/>
+                            <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{DynamicResource BrushUiStatusOk}"/>
+                            <TextBlock x:Name="ShiftPillText" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                            <PathIcon Width="10" Height="10" VerticalAlignment="Center" Data="M7,10L12,15L17,10Z"/>
                         </StackPanel>
+                        <Button.Flyout>
+                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Classes="header-menu-item"
+                                          Header="{DynamicResource shiftActions.xReport}"
+                                          Click="XReport_Click">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconReceipt}" Width="18" Height="18"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Classes="header-menu-item"
+                                          Header="{DynamicResource csh.menu.cashOperation}"
+                                          Command="{Binding SideMenu.OpenCashOperationCommand}">
+                                    <MenuItem.Icon>
+                                        <PathIcon Data="{StaticResource IconCash}" Width="18" Height="18"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Classes="header-menu-item"
+                                          Header="{DynamicResource csh.toolbar.closeShift}"
+                                          Click="CloseShift_Click">
+                                    <MenuItem.Icon>
+                                        <PathIcon Width="18" Height="18"
+                                                  Data="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </MenuFlyout>
+                        </Button.Flyout>
                     </Button>
                 </StackPanel>
             </Grid>

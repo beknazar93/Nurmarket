@@ -32,6 +32,7 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
         // CatalogKeyboardNavigation: её же используют остальные раскладки кассы.
         CatalogKeyboardNavigation.Attach(CardsListBox, () => DataContext as CatalogPanelViewModel);
         CatalogKeyboardNavigation.Attach(TableListBox, () => DataContext as CatalogPanelViewModel);
+        TableGrid.SizeChanged += (_, _) => UpdateTableDensity();
         // 2026-10-04, редизайн под любые Android-устройства: плитки — по ширине ряда (см. FitTilesToRow).
         // 2026-10-19, К1 (аудит 19.10, проблема 3: на 1366 три столбца и пустая полоса ~150 px справа): и в Windows/Linux
         // плитки растягиваются на всю ширину ряда (FitTilesToRowDesktop) — 4 столбца на 1366, на 1024 — сколько влезает
@@ -63,6 +64,13 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
                 if (pagedVm is not null)
                     pagedVm.PropertyChanged += OnPageChanged;
             };
+        }
+        // 2026-11-06 (В7, Д4-03): признак «одна строка Скан или поиск» (файл single-input-row.on) — поле поиска принимает и скан, и ручной ввод кода/названия:
+        // Enter, не разобранный окном как скан сканера (оно разбирает быстрый набор раньше и помечает Enter обработанным), добавляет введённое в чек, как «Добавить».
+        if (KassaMainViewRules.SingleInputRowEnabled())
+        {
+            ProductSearchBox.Watermark = KassaMainViewRules.SearchWatermark(true);
+            ProductSearchBox.KeyDown += ProductSearchBox_KeyDown;
         }
         if (OperatingSystem.IsAndroid())
         {
@@ -121,6 +129,19 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
                     };
             };
         }
+    }
+
+    private void ProductSearchBox_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || e.KeyModifiers != KeyModifiers.None || e.Handled)
+            return;
+        var text = ProductSearchBox.Text?.Trim();
+        if (string.IsNullOrEmpty(text) || DataContext is not CatalogPanelViewModel catalog
+            || (TopLevel.GetTopLevel(this)?.DataContext as MainWindowViewModel)?.Basket is not { } basket)
+            return;
+        e.Handled = true;
+        catalog.SearchText = "";
+        basket.EnqueueBarcode(text);
     }
 
     /// <summary>2026-10-05, владелец (Android): «добавь сканер при поиске товара» — код с камеры уходит в поиск
@@ -221,6 +242,7 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
         _hostWindow = e.Root as Window;
         if (_hostWindow is not null)
             _hostWindow.Classes.CollectionChanged += OnHostClassesChanged;
+        HookWidthSource();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -228,7 +250,119 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
         if (_hostWindow is not null)
             _hostWindow.Classes.CollectionChanged -= OnHostClassesChanged;
         _hostWindow = null;
+        if (_widthSource is not null)
+            _widthSource.SizeChanged -= OnWidthSourceChanged;
+        _widthSource = null;
         base.OnDetachedFromVisualTree(e);
+    }
+
+    // ── 2026-11-06 (В7, Д4-36): автосписок. Окно уже 1280 (логических точек, после масштаба интерфейса) — каталог сам показывается списком (строка ~48 px:
+    // название · код · остаток · цена), а не плитками: на 1366 при 125 % плиток было 6, строк списка — 12–14. Выбор кассира «Плитки» уважаем до конца сеанса.
+    // На Android не включается: там плитки по две в ряд — задуманный вид. Решает KassaMainViewRules.UseAutoList (с запасом на границе, чтобы вид не мигал).
+    private bool _autoList;
+    private bool _userChoseCards;
+    private Control? _widthSource;
+
+    /// <summary>Источник «логической» ширины окна: содержимое LayoutTransformControl (масштаб интерфейса) — его размер без масштаба; иначе само окно.</summary>
+    private void HookWidthSource()
+    {
+        if (OperatingSystem.IsAndroid())
+            return;
+        var source = (this.FindAncestorOfType<LayoutTransformControl>()?.Child as Control) ?? _hostWindow;
+        if (!ReferenceEquals(source, _widthSource))
+        {
+            if (_widthSource is not null)
+                _widthSource.SizeChanged -= OnWidthSourceChanged;
+            _widthSource = source;
+            if (_widthSource is not null)
+                _widthSource.SizeChanged += OnWidthSourceChanged;
+        }
+        RecomputeAutoList();
+    }
+
+    private void OnWidthSourceChanged(object? sender, SizeChangedEventArgs e) => RecomputeAutoList();
+
+    private void RecomputeAutoList()
+    {
+        var want = !OperatingSystem.IsAndroid()
+            && DataContext is CatalogPanelViewModel { IsCardView: true }
+            && KassaMainViewRules.UseAutoList(_widthSource?.Bounds.Width ?? 0, _autoList, _userChoseCards);
+        _autoList = want;
+        UpdateViewVisibility();
+    }
+
+    /// <summary>Плитки или список: список — выбран кассиром («Таблица») или включён автоматически на узком окне.</summary>
+    private void UpdateViewVisibility()
+    {
+        var table = _autoList || DataContext is CatalogPanelViewModel { IsTableView: true };
+        CardsScroll.IsVisible = !table;
+        TableGrid.IsVisible = table;
+        if (_autoList)
+        {
+            if (!CatalogRoot.Classes.Contains("autolist"))
+                CatalogRoot.Classes.Add("autolist");
+        }
+        else
+        {
+            CatalogRoot.Classes.Remove("autolist");
+        }
+    }
+
+    private bool _tblNarrow, _tblTight;
+
+    /// <summary>2026-11-07 (живая проверка 1.17.81, Б-A1): плотность списка по его ширине — узкий (&lt; 760): штрихкод скрыт, остаток под ценой; тесный (&lt; 400): ещё и «сом» скрыт.
+    /// Так цена (колонка с постоянной шириной) не обрезается, сжимается только название. Гистерезис 24 px — граница не «мигает».</summary>
+    internal void UpdateTableDensity()
+    {
+        var w = TableGrid.Bounds.Width;
+        if (w <= 1)
+            return;
+        var (narrow, tight) = TableDensity(w, _tblNarrow, _tblTight);
+        _tblNarrow = narrow;
+        _tblTight = tight;
+        SetClass(CatalogRoot, "tbl-narrow", narrow);
+        SetClass(CatalogRoot, "tbl-tight", tight);
+        static void SetClass(StyledElement e, string c, bool on)
+        {
+            if (on && !e.Classes.Contains(c))
+                e.Classes.Add(c);
+            else if (!on)
+                e.Classes.Remove(c);
+        }
+    }
+
+    /// <summary>Чистая функция плотности: (узкий, тесный) по ширине списка; текущие значения дают гистерезис.</summary>
+    public static (bool Narrow, bool Tight) TableDensity(double width, bool wasNarrow, bool wasTight) =>
+        (width < (wasNarrow ? 784 : 760), width < (wasTight ? 424 : 400));
+
+    /// <summary>2026-11-06 (В7, Д4-08): значок типа на плитках («Весовой», «Комплект») — только во вкладке «Все товары» и при поиске (он идёт по всему каталогу).</summary>
+    private void UpdateTypeBadgeVisibility()
+    {
+        var hide = DataContext is CatalogPanelViewModel { SelectedTabIndex: not 0, IsSearchActive: false };
+        if (hide)
+        {
+            if (!CatalogRoot.Classes.Contains("hide-type-badge"))
+                CatalogRoot.Classes.Add("hide-type-badge");
+        }
+        else
+        {
+            CatalogRoot.Classes.Remove("hide-type-badge");
+        }
+    }
+
+    private void OnCatalogPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(CatalogPanelViewModel.IsCardView):
+            case nameof(CatalogPanelViewModel.IsTableView):
+                RecomputeAutoList();
+                break;
+            case nameof(CatalogPanelViewModel.SelectedTabIndex):
+            case nameof(CatalogPanelViewModel.IsSearchActive):
+                UpdateTypeBadgeVisibility();
+                break;
+        }
     }
 
     private void OnHostClassesChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
@@ -296,7 +430,8 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
         if (!IsEffectivelyVisible || DataContext is not CatalogPanelViewModel catalog || catalog.Products.Count == 0)
             return false;
 
-        return CatalogKeyboardNavigation.TryEnter(catalog, catalog.IsCardView ? CardsListBox : TableListBox);
+        // 2026-11-06 (В7, Д4-36): в автосписке (узкое окно) на экране список, а не плитки.
+        return CatalogKeyboardNavigation.TryEnter(catalog, catalog.IsCardView && !_autoList ? CardsListBox : TableListBox);
     }
 
     private void OpenFilter_Click(object? sender, RoutedEventArgs e)
@@ -320,25 +455,40 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
     private void CardView_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is CatalogPanelViewModel catalog)
+        {
+            _userChoseCards = true; // 2026-11-06 (Д4-36): кассир сам выбрал плитки — автосписок до конца сеанса не включаем
             catalog.SetViewMode(CatalogViewMode.Cards);
+            RecomputeAutoList();
+        }
     }
 
     private void TableView_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is CatalogPanelViewModel catalog)
+        {
+            _userChoseCards = false;
             catalog.SetViewMode(CatalogViewMode.Table);
+            RecomputeAutoList();
+        }
     }
 
     private void OnDataContextChanged(object? sender, System.EventArgs e)
     {
         if (_boundViewModel is not null)
+        {
             _boundViewModel.Products.CollectionChanged -= OnProductsCollectionChanged;
+            _boundViewModel.PropertyChanged -= OnCatalogPropertyChanged;
+        }
 
         _boundViewModel = DataContext as CatalogPanelViewModel;
+        // 2026-11-06 (В7): плитки/список и значки типа зависят от модели — пересчитываем при смене модели (в том числе когда её нет).
+        RecomputeAutoList();
+        UpdateTypeBadgeVisibility();
         if (_boundViewModel is null)
             return;
 
         _boundViewModel.Products.CollectionChanged += OnProductsCollectionChanged;
+        _boundViewModel.PropertyChanged += OnCatalogPropertyChanged;
         LoadThumbnails(_boundViewModel.Products);
     }
 
@@ -355,7 +505,7 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
     /// catalog. No-op for tiles that already have a local ProductImagePath (download-once
     /// guard lives inside ProductThumbService), so re-filtering/searching is cheap.
     /// </summary>
-    private static void LoadThumbnails(IEnumerable<CatalogProductTileVm> products)
+    private void LoadThumbnails(IEnumerable<CatalogProductTileVm> products)
     {
         var services = App.AppHost?.Services;
         if (services is null)
@@ -370,8 +520,31 @@ public partial class CatalogPanelView : UserControl, ICatalogKeyboardSurface
             if (string.IsNullOrWhiteSpace(product.ImageUrl) || !string.IsNullOrEmpty(product.ProductImagePath))
                 continue;
 
-            _ = thumbs.SetThumbAsync(
-                Dispatcher.UIThread, authApi, apiBaseUrl, product.ImageUrl!, product, CancellationToken.None);
+            _ = LoadThumbGatedAsync(thumbs, authApi, apiBaseUrl, product);
+        }
+    }
+
+    // 2026-11-06 (В7, фото плиток): страница из 50 плиток раньше запускала 50 загрузок/расшифровок сразу — диск и процессор забивались, список «дёргался».
+    // Теперь не больше четырёх одновременно; товар, который уже ушёл со страницы (другая страница, поиск), не грузим. Слот под фото уже занят (Border.tile-photo).
+    private static readonly SemaphoreSlim ThumbGate = new(4);
+
+    private async Task LoadThumbGatedAsync(ProductThumbService thumbs, IAuthApiService authApi, string apiBaseUrl, CatalogProductTileVm product)
+    {
+        await ThumbGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var stillShown = await Dispatcher.UIThread.InvokeAsync(() => _boundViewModel?.Products.Contains(product) == true);
+            if (!stillShown)
+                return;
+            await thumbs.SetThumbAsync(Dispatcher.UIThread, authApi, apiBaseUrl, product.ImageUrl!, product, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Миниатюра товара не загрузилась: {ex.GetType().Name}: {ex.Message}", "UI");
+        }
+        finally
+        {
+            ThumbGate.Release();
         }
     }
 

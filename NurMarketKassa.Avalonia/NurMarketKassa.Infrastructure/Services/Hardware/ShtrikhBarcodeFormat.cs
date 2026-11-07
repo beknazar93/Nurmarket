@@ -60,6 +60,21 @@ public static class ShtrikhBarcodeFormat
         return (long)Math.Pow(10, digits) - 1;
     }
 
+    /// <summary>2026-11-06: наибольшая стоимость (сом), которая помещается в поле «С» структуры штрих-кода: 4 цифры — «СССС», 5 — «ССССС».
+    /// Цифр стоимости больше нет — дорогая этикетка получит в штрих-коде неверную сумму. 0 — в структуре нет стоимости.</summary>
+    public static decimal MaxAmountSom(int structure, int decimalPointDigits)
+    {
+        if (structure <= 0 || structure >= Structures.Length)
+            return 0m;
+        var digits = 0;
+        foreach (var ch in Structures[structure])
+            if (ch == 'С')
+                digits++;
+        if (digits == 0)
+            return 0m;
+        return (decimal)(Math.Pow(10, digits) - 1) / (decimalPointDigits >= 2 ? 100m : 1m);
+    }
+
     /// <summary>Собирает пример штрих-кода этикетки: 13 цифр, либо с «?» на месте цифры «к»
     /// (её алгоритм протокол не описывает). null — структура 0 («не формировать ШК»).
     /// <paramref name="prefix"/> — число, которое весы ставят в префикс (например 20);
@@ -195,6 +210,17 @@ public static class ShtrikhBarcodeFormat
 
         if (!isWeight)
         {
+            // 2026-11-06 (жалоба «дальше 9 тысяч цена не отображается»): в штрих-код помещается сумма только до N сом.
+            var maxAmount = MaxAmountSom(structure, decimalPointDigits);
+            if (maxAmount > 0)
+            {
+                var maxText = maxAmount.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("ru-RU"));
+                problems.Add(Tr.T($"сумма в штрих-коде помещается только до {maxText} сом — на более дорогих этикетках касса прочтёт неверную сумму (структура по массе 6/7 не имеет этого предела)",
+                    $"штрих-коддогу сумма {maxText} сомго чейин гана батат — кымбат этикеткаларда касса туура эмес сумманы окуйт (6/7 массалык түзүлүштө бул чек жок)",
+                    $"the barcode holds an amount only up to {maxText} som — on more expensive labels the till will read a wrong amount (weight structures 6/7 have no such limit)",
+                    $"barkoda tutar yalnızca {maxText} som’a kadar sığar — daha pahalı etiketlerde kasa yanlış tutar okur (ağırlık yapıları 6/7’de bu sınır yok)",
+                    $"shtrix-kodga summa faqat {maxText} so‘mgacha sig‘adi — qimmatroq yorliqlarda kassa noto‘g‘ri summani o‘qiydi (massa tuzilmalari 6/7 da bu chegara yo‘q)"));
+            }
             var scaleInTiyin = decimalPointDigits >= 2;
             var kassaInTiyin = !string.Equals(amountUnit, "som", StringComparison.OrdinalIgnoreCase);
             if (scaleInTiyin != kassaInTiyin)

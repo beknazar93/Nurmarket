@@ -30,6 +30,14 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
     private readonly ComboBox _lineStyle = new() { Height = 36, MinWidth = 220 };
     private readonly ComboBox _separator = new() { Height = 36, MinWidth = 220 };
     private readonly CheckBox _sendPictures = new();
+    private readonly CheckBox _placeholder = new();
+    private readonly CheckBox _showPrice = new();
+    private readonly CheckBox _quickKeys = new();
+    private readonly CheckBox _updateScenario = new();
+    private readonly CheckBox _scenarioOnlyPic = new();
+    private readonly TextBox _scenarioFile = new() { Classes = { "ModernTextBox" }, Height = 36, Watermark = "Semya.ssc" };
+    private readonly TextBox _scenarioMax = new() { Classes = { "ModernTextBox" }, Height = 36, Width = 100, Watermark = "300" };
+    private readonly TextBox _quickCount = new() { Classes = { "ModernTextBox" }, Height = 36, Width = 100, Watermark = "54" };
     private readonly TextBox _pictureOffset = new() { Classes = { "ModernTextBox" }, Height = 36, Width = 140, Watermark = "100000" };
     private bool _loading;
 
@@ -119,11 +127,35 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
 
         _sendPictures.Content = Tr.T("Отправлять картинки товаров на весы", "Товарлардын сүрөттөрүн таразага жөнөтүү", "Send product pictures to the scale", "Ürün resimlerini tartıya gönder", "Tovar rasmlarini taroziga yuborish");
         Children.Add(_sendPictures);
-        Children.Add(Hint(Tr.T("На главном экране весов видны только товары с картинкой; без картинки товар находится лишь поиском. Касса переведёт фото товара в BMP 288×288 и положит в папку Pictures на весах (уже записанные, неизменившиеся не перекачиваются). Очистка базы весов — отдельная кнопка «Полная выгрузка (с очисткой)» в окне «Весы».",
-            "Таразанын башкы экранында сүрөтү бар товарлар гана көрүнөт; сүрөтсүз товар издөө аркылуу гана табылат. Касса товардын сүрөтүн BMP 288×288 кылып, таразадагы Pictures папкасына салат (жазылып калган, өзгөрбөгөндөрү кайра жүктөлбөйт). Таразанын базасын тазалоо — «Весы» терезесиндеги өзүнчө «Толук жүктөө (тазалоо менен)» баскычы.",
-            "On the scale's main screen only products with a picture are visible; a product without one can only be found by search. The till converts the product photo to BMP 288×288 and puts it into the Pictures folder on the scale (already written, unchanged pictures are not re-sent). Clearing the scale database is a separate “Full upload (with clearing)” button in the “Scales” window.",
-            "Tartının ana ekranında yalnızca resmi olan ürünler görünür; resimsiz ürün sadece aramayla bulunur. Kasa ürün fotoğrafını BMP 288×288'e çevirip tartıdaki Pictures klasörüne koyar (yazılmış, değişmemiş resimler yeniden gönderilmez). Tartı veritabanını temizleme — «Tartı» penceresinde ayrı «Tam yükleme (temizlemeyle)» düğmesi.",
-            "Tarozining bosh ekranida faqat rasmli tovarlar ko‘rinadi; rasmsiz tovar faqat qidiruv orqali topiladi. Kassa tovar fotosini BMP 288×288 ga o‘tkazib, tarozidagi Pictures papkasiga qo‘yadi (yozilgan, o‘zgarmagan rasmlar qayta yuborilmaydi). Tarozi bazasini tozalash — «Tarozi» oynasida alohida «To‘liq yuklash (tozalash bilan)» tugmasi.")));
+        Children.Add(Hint(Tr.T("Плитка товара на главном экране весов показывает его картинку; без картинки — серая плитка с названием. Касса переведёт фото товара в BMP 288×288 и положит в папку Pictures на весах (уже записанные, неизменившиеся не перекачиваются). Очистка базы весов — отдельная кнопка «Полная выгрузка (с очисткой)» в окне «Весы».",
+            "Таразанын башкы экранындагы товар плиткасы анын сүрөтүн көрсөтөт; сүрөтсүз — аты бар боз плитка. Касса товардын сүрөтүн BMP 288×288 кылып, таразадагы Pictures папкасына салат (жазылып калган, өзгөрбөгөндөрү кайра жүктөлбөйт). Таразанын базасын тазалоо — «Весы» терезесиндеги өзүнчө «Толук жүктөө (тазалоо менен)» баскычы.",
+            "A product tile on the scale's main screen shows its picture; without one it is a grey tile with the name. The till converts the product photo to BMP 288×288 and puts it into the Pictures folder on the scale (already written, unchanged pictures are not re-sent). Clearing the scale database is a separate “Full upload (with clearing)” button in the “Scales” window.",
+            "Tartının ana ekranındaki ürün karosu resmini gösterir; resimsizse adlı gri karodur. Kasa ürün fotoğrafını BMP 288×288'e çevirip tartıdaki Pictures klasörüne koyar (yazılmış, değişmemiş resimler yeniden gönderilmez). Tartı veritabanını temizleme — «Tartı» penceresinde ayrı «Tam yükleme (temizlemeyle)» düğmesi.",
+            "Tarozining bosh ekranidagi tovar plitkasi uning rasmini ko‘rsatadi; rasmsiz bo‘lsa — nomli kulrang plitka. Kassa tovar fotosini BMP 288×288 ga o‘tkazib, tarozidagi Pictures papkasiga qo‘yadi (yozilgan, o‘zgarmagan rasmlar qayta yuborilmaydi). Tarozi bazasini tozalash — «Tarozi» oynasida alohida «To‘liq yuklash (tozalash bilan)» tugmasi.")));
+
+        _updateScenario.Content = Tr.T("Обновлять главный экран весов (сценарий)", "Таразанын башкы экранын жаңыртуу (сценарий)", "Update the scale's main screen (scenario)", "Tartının ana ekranını güncelle (senaryo)", "Tarozining bosh ekranini yangilash (ssenariy)");
+        Children.Add(_updateScenario);
+        Children.Add(Hint(Tr.T("Главный экран весов строится не из всей базы товаров, а из сценария — файла Shared\\SelfScenario\\Semya.ssc: списка кнопок, привязанных к кодам товаров. После выгрузки с другими кодами старые кнопки пропадают, и экран пуст. Касса пересобирает сценарий из выгруженных товаров (по 29 на экран, с кнопками перехода); прежний файл при первой замене сохраняется рядом (.bak-дата). Весы перечитывают главный экран сами через 1–2 минуты после загрузки (параметр 953: касса кладёт флаг-файл «flag», его имя — параметр 954). Если не обновилось: на весах «Система и печать» → «Конфигурация» → «Продолжение работы».",
+            "Таразанын башкы экраны товарлардын бардык базасынан эмес, сценарийден курулат — Shared\\SelfScenario\\Semya.ssc файлы: товар коддоруна байланган баскычтардын тизмеси. Башка кодтор менен жүктөгөндөн кийин эски баскычтар жок болуп, экран бош калат. Касса сценарийди жүктөлгөн товарлардан кайра түзөт (экранга 29, өтүү баскычтары менен); мурунку файл биринчи алмаштырууда жанына сакталат (.bak-дата). Тараза башкы экранды жүктөөдөн кийин 1–2 мүнөттө өзү кайра окуйт (953-параметр: касса «flag» флаг-файлын салат, анын аты — 954-параметр). Жаңыланбаса: таразада «Система и печать» → «Конфигурация» → «Продолжение работы».",
+            "The scale's main screen is built not from the whole goods database but from a scenario — the file Shared\\SelfScenario\\Semya.ssc: a list of buttons bound to product codes. After an upload with other codes the old buttons are gone and the screen is empty. The till rebuilds the scenario from the uploaded goods (29 per screen, with paging buttons); the previous file is saved next to it on the first replacement (.bak-date). The scale re-reads the main screen by itself 1–2 minutes after loading (parameter 953: the till puts the flag file “flag”, its name is parameter 954). If it did not update: on the scale “System and printing” → “Configuration” → “Continue work”.",
+            "Tartının ana ekranı tüm ürün veritabanından değil, senaryodan kurulur — Shared\\SelfScenario\\Semya.ssc dosyası: ürün kodlarına bağlı düğmeler listesi. Başka kodlarla yüklemeden sonra eski düğmeler kaybolur ve ekran boş kalır. Kasa senaryoyu yüklenen ürünlerden yeniden kurar (ekran başına 29, geçiş düğmeleriyle); önceki dosya ilk değiştirmede yanına kaydedilir (.bak-tarih). Tartı yüklemeden 1–2 dakika sonra ana ekranı kendisi yeniden okur (parametre 953: kasa «flag» bayrak dosyasını koyar, adı parametre 954). Güncellenmediyse: tartıda «Система и печать» → «Конфигурация» → «Продолжение работы».",
+            "Tarozining bosh ekrani barcha tovarlar bazasidan emas, ssenariydan quriladi — Shared\\SelfScenario\\Semya.ssc fayli: tovar kodlariga bog‘langan tugmalar ro‘yxati. Boshqa kodlar bilan yuklagandan keyin eski tugmalar yo‘qoladi va ekran bo‘sh qoladi. Kassa ssenariyni yuklangan tovarlardan qayta quradi (ekranga 29 tadan, o‘tish tugmalari bilan); oldingi fayl birinchi almashtirishda yoniga saqlanadi (.bak-sana). Tarozi yuklangandan 1–2 daqiqa keyin bosh ekranni o‘zi qayta o‘qiydi (953-parametr: kassa «flag» bayroq-faylini qo‘yadi, uning nomi — 954-parametr). Yangilanmasa: tarozida «Система и печать» → «Конфигурация» → «Продолжение работы».")));
+
+        _placeholder.Content = Tr.T("Картинка-заглушка для товаров без фото", "Сүрөтсүз товарлар үчүн сүрөт-толтургуч", "Placeholder picture for products without a photo", "Fotoğrafsız ürünler için yer tutucu resim", "Rasmsiz tovarlar uchun rasm-to‘ldirgich");
+        Children.Add(_placeholder);
+        Children.Add(Hint(Tr.T("Без фото весы показывают товар серой плиткой; без фото касса рисует плитку с названием товара (цвет по названию, внизу код). Если фото появится — при следующей выгрузке плитка заменится фото; сменилось название — плитка перерисуется.",
+            "Сүрөтсүз товарды тараза боз плитка менен көрсөтөт; сүрөтү жок болсо касса товардын аты бар плитка тартат (түсү атына жараша, төмөндө коду). Сүрөт пайда болсо — кийинки жүктөөдө плитка сүрөткө алмашат; аты өзгөрсө — плитка кайра тартылат.",
+            "Without a photo the scale shows a product as a grey tile; without a photo the till draws a tile with the product name (colour from the name, the code at the bottom). When a photo appears, the next upload replaces the tile; if the name changes, the tile is redrawn.",
+            "Fotoğrafsız ürünü tartı gri karo olarak gösterir; fotoğrafsız ürün için kasa ürün adlı bir karo çizer (renk addan, altta kod). Fotoğraf eklenirse sonraki yüklemede karo fotoğrafla değişir; ad değişirse karo yeniden çizilir.",
+            "Fotosiz tovarni tarozi kulrang plitka sifatida ko‘rsatadi; foto bo‘lmasa kassa tovar nomi yozilgan plitka chizadi (rangi nomga qarab, pastda kod). Foto paydo bo‘lsa — keyingi yuklashda plitka fotoga almashadi; nom o‘zgarsa — plitka qayta chiziladi.")));
+
+        _quickKeys.Content = Tr.T("Дополнительно: назначить товары на кнопки «Быстрый доступ» (не главный экран)", "Товарларды таразанын тез жеткиликтүүлүк баскычтарына дайындоо", "Assign products to the scale's quick-access buttons", "Ürünleri tartının hızlı erişim düğmelerine ata", "Tovarlarni tarozining tez kirish tugmalariga biriktirish");
+        Children.Add(_quickKeys);
+        Children.Add(Hint(Tr.T("Главный экран весов — это кнопки быстрого доступа (по 18 на экран, «Конфигурация → Быстрый доступ»): товар, не назначенный на кнопку, находится только поиском. Касса пишет в файл назначение первых товаров на кнопки (параметры 2001…, строки «<N») и очищает остальные кнопки. Весы применяют это, только если на них в «Конфигурация → База данных → Импорт» стоит галочка «Конфигурация» (параметр 814 = 1). Без неё — назначьте кнопки на весах вручную.",
+            "Таразанын башкы экраны — тез жеткиликтүүлүк баскычтары (экранга 18ден, «Конфигурация → Быстрый доступ»): баскычка дайындалбаган товар издөө аркылуу гана табылат. Касса файлга биринчи товарлардын баскычтарга дайындалышын жазат (2001… параметрлери, «<N» саптары) жана калган баскычтарды тазалайт. Тараза муну «Конфигурация → База данных → Импорт» ичинде «Конфигурация» белгиси турганда гана колдонот (814 параметри = 1). Болбосо — баскычтарды таразада кол менен дайындаңыз.",
+            "The scale's main screen is the quick-access buttons (18 per screen, “Configuration → Quick access”): a product not assigned to a button can only be found by search. The till writes the assignment of the first products to buttons into the file (parameters 2001…, “<N” lines) and clears the other buttons. The scale applies it only if “Configuration → Database → Import” has the “Configuration” box ticked (parameter 814 = 1). Otherwise assign the buttons on the scale by hand.",
+            "Tartının ana ekranı hızlı erişim düğmeleridir (ekran başına 18, «Конфигурация → Быстрый доступ»): düğmeye atanmamış ürün sadece aramayla bulunur. Kasa ilk ürünlerin düğmelere atanmasını dosyaya yazar (2001… parametreleri, «<N» satırları) ve diğer düğmeleri temizler. Tartı bunu yalnızca «Конфигурация → База данных → Импорт»ta «Конфигурация» kutusu işaretliyse uygular (814 parametresi = 1). Aksi halde düğmeleri tartıda elle atayın.",
+            "Tarozining bosh ekrani — tez kirish tugmalari (ekranga 18 tadan, «Конфигурация → Быстрый доступ»): tugmaga biriktirilmagan tovar faqat qidiruv orqali topiladi. Kassa faylga birinchi tovarlarning tugmalarga biriktirilishini yozadi (2001… parametrlari, «<N» qatorlari) va qolgan tugmalarni tozalaydi. Tarozi buni faqat «Конфигурация → База данных → Импорт» da «Конфигурация» belgisi turganda qo‘llaydi (814 parametri = 1). Aks holda tugmalarni tarozida qo‘lda biriktiring.")));
 
         // Файлы обмена и «Дополнительно» — под выключателем: по умолчанию значения из руководства, менять нужно редко.
         var advanced = new Expander
@@ -163,6 +195,26 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
             "The exact shape of the “<D…” line and the price separator are not fully described in the manual. If the scale accepted the file but there are no goods or the prices are wrong — switch these two items and send again.",
             "«<D…» satırının tam biçimi ve fiyat ayıracı kılavuzda tam anlatılmamış. Tartı dosyayı kabul etti ama ürün yok ya da fiyatlar yanlışsa — bu iki öğeyi değiştirip tekrar gönderin.",
             "«<D…» qatorining aniq shakli va narx ajratgichi qo‘llanmada to‘liq tavsiflanmagan. Tarozi faylni qabul qilsa-yu, tovar yo‘q yoki narxlar noto‘g‘ri bo‘lsa — shu ikki bandni almashtirib, qayta yuboring.")));
+        inner.Children.Add(Label(Tr.T("Файл сценария главного экрана", "Башкы экрандын сценарий файлы", "Main-screen scenario file", "Ana ekran senaryo dosyası", "Bosh ekran ssenariy fayli")));
+        inner.Children.Add(_scenarioFile);
+        inner.Children.Add(Hint(Tr.T("По умолчанию Semya.ssc — этот файл уже выбран на весах (параметр 952). Другое имя (например NurCRM.ssc) нужно выбрать на весах: «Конфигурация → Самообслуживание → Файл сценария».",
+            "Демейки Semya.ssc — бул файл таразада тандалып калган (952 параметри). Башка ат (мисалы NurCRM.ssc) таразада тандалышы керек: «Конфигурация → Самообслуживание → Файл сценария».",
+            "Default Semya.ssc — this file is already selected on the scale (parameter 952). Another name (e.g. NurCRM.ssc) must be selected on the scale: “Configuration → Self-service → Scenario file”.",
+            "Varsayılan Semya.ssc — bu dosya tartıda zaten seçili (952 parametresi). Başka bir ad (örn. NurCRM.ssc) tartıda seçilmeli: «Конфигурация → Самообслуживание → Файл сценария».",
+            "Standart Semya.ssc — bu fayl tarozida allaqachon tanlangan (952 parametri). Boshqa nom (masalan NurCRM.ssc) tarozida tanlanishi kerak: «Конфигурация → Самообслуживание → Файл сценария».")));
+        _scenarioOnlyPic.Content = Tr.T("На главный экран — только товары с картинкой (фото или заглушка)", "Башкы экранга — сүрөтү бар товарлар гана (сүрөт же толтургуч)", "Main screen: only products with a picture (photo or placeholder)", "Ana ekranda yalnızca resmi olan ürünler (fotoğraf veya yer tutucu)", "Bosh ekranga — faqat rasmli tovarlar (foto yoki to‘ldirgich)");
+        inner.Children.Add(_scenarioOnlyPic);
+        inner.Children.Add(Label(Tr.T("Сколько товаров не больше на главном экране", "Башкы экранда эң көп канча товар", "Maximum products on the main screen", "Ana ekranda en fazla ürün", "Bosh ekranda eng ko‘pi bilan nechta tovar")));
+        inner.Children.Add(_scenarioMax);
+        _showPrice.Content = Tr.T("Показывать цену на плитке-заглушке", "Толтургуч плиткада баасын көрсөтүү", "Show the price on the placeholder tile", "Yer tutucu karoda fiyatı göster", "To‘ldirgich plitkada narxni ko‘rsatish");
+        inner.Children.Add(_showPrice);
+        inner.Children.Add(Label(Tr.T("Сколько кнопок быстрого доступа заполнять", "Канча тез жеткиликтүүлүк баскычын толтуруу", "How many quick-access buttons to fill", "Kaç hızlı erişim düğmesi doldurulsun", "Nechta tez kirish tugmasini to‘ldirish")));
+        inner.Children.Add(_quickCount);
+        inner.Children.Add(Hint(Tr.T("По умолчанию 54 = 3 экрана по 18 кнопок (на весах «Число экранов» — параметр 402, обычно 3). Не больше, чем экранов на весах.",
+            "Демейки 54 = 18 баскычтан 3 экран (таразада «Число экранов» — 402 параметри, адатта 3). Таразадагы экрандардан көп эмес.",
+            "Default 54 = 3 screens of 18 buttons (on the scale “Number of screens” is parameter 402, usually 3). No more than the screens on the scale.",
+            "Varsayılan 54 = 18 düğmeli 3 ekran (tartıda «Число экранов» 402 parametresidir, genelde 3). Tartıdaki ekran sayısından fazla olmamalı.",
+            "Standart 54 = 18 tugmali 3 ekran (tarozida «Число экранов» — 402 parametri, odatda 3). Tarozidagi ekranlardan ko‘p emas.")));
         inner.Children.Add(Label(Tr.T("Код ресурса картинки = число + код товара", "Сүрөт ресурсунун коду = сан + товар коду", "Picture resource code = number + item code", "Resim kaynak kodu = sayı + ürün kodu", "Rasm resursi kodi = son + tovar kodi")));
         inner.Children.Add(_pictureOffset);
         inner.Children.Add(Hint(Tr.T("По умолчанию 100000: картинка товара с кодом 123 получает код ресурса 100123. Число не должно пересекаться с кодами ресурсов, уже лежащими на весах (у прежней системы — код + 6000).",
@@ -187,12 +239,17 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
         advanced.Content = inner;
         AdvancedPart.Children.Add(advanced);
 
-        foreach (var box in new[] { _folder, _login, _password, _import, _flag, _export, _number, _pictureOffset })
+        foreach (var box in new[] { _folder, _login, _password, _import, _flag, _export, _number, _pictureOffset, _quickCount, _scenarioFile, _scenarioMax })
             box.LostFocus += (_, _) => Save();
         _decimals.SelectionChanged += (_, _) => Save();
         _lineStyle.SelectionChanged += (_, _) => Save();
         _separator.SelectionChanged += (_, _) => Save();
         _sendPictures.IsCheckedChanged += (_, _) => Save();
+        _placeholder.IsCheckedChanged += (_, _) => Save();
+        _showPrice.IsCheckedChanged += (_, _) => Save();
+        _quickKeys.IsCheckedChanged += (_, _) => Save();
+        _updateScenario.IsCheckedChanged += (_, _) => Save();
+        _scenarioOnlyPic.IsCheckedChanged += (_, _) => Save();
     }
 
     /// <summary>Заполняет поля из настроек. Ничего не сохраняет.</summary>
@@ -211,6 +268,14 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
             _number.Text = s.ScaleNumber.ToString(CultureInfo.InvariantCulture);
             _decimals.SelectedIndex = s.PriceDecimals;
             _sendPictures.IsChecked = s.SendPictures;
+            _placeholder.IsChecked = s.PlaceholderPictures;
+            _showPrice.IsChecked = s.PlaceholderShowPrice;
+            _quickKeys.IsChecked = s.QuickKeys;
+            _updateScenario.IsChecked = s.UpdateScenario;
+            _scenarioOnlyPic.IsChecked = s.ScenarioOnlyWithPicture;
+            _scenarioFile.Text = s.ScenarioFile;
+            _scenarioMax.Text = s.ScenarioMaxProducts.ToString(CultureInfo.InvariantCulture);
+            _quickCount.Text = s.QuickKeyCount.ToString(CultureInfo.InvariantCulture);
             _pictureOffset.Text = s.PictureOffset.ToString(CultureInfo.InvariantCulture);
             _lineStyle.SelectedIndex = s.LineStyle switch { ShtrikhPcSettings.LineGlued => 1, ShtrikhPcSettings.LineSemicolon => 2, _ => 0 };
             _separator.SelectedIndex = s.DecimalSeparator == "." ? 1 : 0;
@@ -236,6 +301,14 @@ internal sealed class ShtrikhPcFieldsView : StackPanel
         s.ScaleNumber = int.TryParse((_number.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : 1;
         s.PriceDecimals = Math.Clamp(_decimals.SelectedIndex, 0, 3);
         s.SendPictures = _sendPictures.IsChecked == true;
+        s.PlaceholderPictures = _placeholder.IsChecked == true;
+        s.PlaceholderShowPrice = _showPrice.IsChecked == true;
+        s.QuickKeys = _quickKeys.IsChecked == true;
+        s.UpdateScenario = _updateScenario.IsChecked == true;
+        s.ScenarioOnlyWithPicture = _scenarioOnlyPic.IsChecked == true;
+        s.ScenarioFile = (_scenarioFile.Text ?? "").Trim();
+        s.ScenarioMaxProducts = int.TryParse((_scenarioMax.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var sm) ? sm : 300;
+        s.QuickKeyCount = int.TryParse((_quickCount.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var qc) ? qc : 54;
         s.PictureOffset = int.TryParse((_pictureOffset.Text ?? "").Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var off) ? off : 100_000;
         s.LineStyle = _lineStyle.SelectedIndex switch { 1 => ShtrikhPcSettings.LineGlued, 2 => ShtrikhPcSettings.LineSemicolon, _ => ShtrikhPcSettings.LineSpace };
         s.DecimalSeparator = _separator.SelectedIndex == 1 ? "." : ",";
@@ -281,6 +354,9 @@ internal sealed class ShtrikhPcBarcodeCard : Border
     private readonly ComboBox _length = new() { Height = 36, Width = 90, ItemsSource = new[] { "1", "2", "3", "4", "5", "6" } };
     private readonly ComboBox _format = new() { Height = 36, MinWidth = 200 };
     private readonly CheckBox _checksum = new();
+    private readonly CheckBox _pieceEnabled = new();
+    private readonly ComboBox _piecePrefix = new() { Height = 36, Width = 90 };
+    private readonly ComboBox _pieceFormat = new() { Height = 36, MinWidth = 200 };
     private readonly TextBlock _example = new() { TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 13 };
     private readonly TextBlock _warn = new() { TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontSize = 12.5, FontWeight = Avalonia.Media.FontWeight.SemiBold };
     private bool _loading;
@@ -327,6 +403,17 @@ internal sealed class ShtrikhPcBarcodeCard : Border
         root.Children.Add(grid);
         _checksum.Content = Tr.T("КС кода товара (контрольная цифра кода)", "Товар коду КС (коддун текшерүү цифрасы)", "Item code check digit (КС)", "Ürün kodu KS (kod kontrol hanesi)", "Tovar kodi KS (kodning nazorat raqami)");
         root.Children.Add(_checksum);
+
+        // Штучные/стоимостные этикетки на тех же весах (параметры 304 и 306): на фото весов владельца 2000002007432 — префикс 20, код 00002, стоимость 7,43.
+        _pieceEnabled.Content = Tr.T("Читать и штучные/стоимостные этикетки (параметры весов 304 и 306)", "Штучный/баалуу этикеткаларды да окуу (таразанын 304 жана 306 параметрлери)", "Also read piece/cost labels (scale parameters 304 and 306)", "Adetli/tutarlı etiketleri de oku (tartı parametreleri 304 ve 306)", "Donali/narxli yorliqlarni ham o‘qish (tarozi parametrlari 304 va 306)");
+        root.Children.Add(_pieceEnabled);
+        for (var p = 20; p <= 29; p++)
+            _piecePrefix.Items.Add(p.ToString(CultureInfo.InvariantCulture));
+        _pieceFormat.ItemsSource = ShtrikhPcSettings.PieceFormats.Select(ShtrikhPcSettings.FormatTitle).ToArray();
+        var pieceRow = new WrapPanel { Orientation = Orientation.Horizontal };
+        pieceRow.Children.Add(Cell(Tr.T("Префикс штучного товара", "Штучный товар префикси", "Piece-item prefix", "Adetli ürün öneki", "Donali tovar prefiksi"), _piecePrefix));
+        pieceRow.Children.Add(Cell(Tr.T("Формат штучного товара", "Штучный товар форматы", "Piece-item format", "Adetli ürün biçimi", "Donali tovar formati"), _pieceFormat));
+        root.Children.Add(pieceRow);
         root.Children.Add(new TextBlock
         {
             Text = Tr.T("Числа на этикетке: 10 знаков на код и значение. Для веса до 99,999 кг нужно 5 знаков значения, то есть код — не длиннее 5 знаков. С КС последняя цифра кода — младший разряд суммы остальных (код 5 знаков с КС = 4 цифры кода + КС).",
@@ -357,6 +444,9 @@ internal sealed class ShtrikhPcBarcodeCard : Border
         _length.SelectionChanged += (_, _) => Save();
         _format.SelectionChanged += (_, _) => Save();
         _checksum.IsCheckedChanged += (_, _) => Save();
+        _pieceEnabled.IsCheckedChanged += (_, _) => Save();
+        _piecePrefix.SelectionChanged += (_, _) => Save();
+        _pieceFormat.SelectionChanged += (_, _) => Save();
         AttachedToVisualTree += (_, _) => Load();
     }
 
@@ -374,6 +464,9 @@ internal sealed class ShtrikhPcBarcodeCard : Border
             _length.SelectedIndex = s.CodeLength - 1;
             _format.SelectedIndex = Math.Max(0, Array.IndexOf(ShtrikhPcSettings.Formats, s.BarcodeFormat));
             _checksum.IsChecked = s.CodeChecksum;
+            _pieceEnabled.IsChecked = s.PieceBarcodeEnabled;
+            _piecePrefix.SelectedIndex = s.PiecePrefix - 20;
+            _pieceFormat.SelectedIndex = Math.Max(0, Array.IndexOf(ShtrikhPcSettings.PieceFormats, s.PieceFormat));
             _checksum.IsEnabled = s.CodeLength >= 2;
             IsVisible = s.BarcodeEnabled || string.Equals(UserPreferences.Instance.ScaleBrand, ScaleUi.BrandShtrikhPc, StringComparison.Ordinal);
             ShowExample(s);
@@ -394,6 +487,9 @@ internal sealed class ShtrikhPcBarcodeCard : Border
         s.CodeLength = 1 + Math.Max(0, _length.SelectedIndex);
         s.BarcodeFormat = ShtrikhPcSettings.Formats[Math.Clamp(_format.SelectedIndex, 0, ShtrikhPcSettings.Formats.Length - 1)];
         s.CodeChecksum = _checksum.IsChecked == true && s.CodeLength >= 2;
+        s.PieceBarcodeEnabled = _pieceEnabled.IsChecked == true;
+        s.PiecePrefix = 20 + Math.Max(0, _piecePrefix.SelectedIndex);
+        s.PieceFormat = ShtrikhPcSettings.PieceFormats[Math.Clamp(_pieceFormat.SelectedIndex, 0, ShtrikhPcSettings.PieceFormats.Length - 1)];
         ScaleBarcodeRules.ApplyShtrikhPc(s);
         _checksum.IsEnabled = s.CodeLength >= 2;
         ShowExample(s);

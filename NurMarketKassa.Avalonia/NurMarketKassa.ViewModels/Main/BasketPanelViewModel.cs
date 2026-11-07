@@ -1490,7 +1490,22 @@ public sealed partial class BasketPanelViewModel : ViewModelBase, IDisposable
         var price = LocalCartService.ParsePrice(product.PriceLine);
         var weightKg = weighted.ResolveWeightKg(price);
         if (!WeightBarcodeParser.IsUnrealisticLabel(weighted, weightKg))
+        {
+            // 2026-11-06 (жалоба «у Rongta не видит суммы больше 999»): поле суммы на этикетке заполнено до предела (все девятки) — весы не вместили настоящую сумму.
+            // Вместо молчаливой продажи на предельную сумму — понятное сообщение; «Всё равно добавить» оставляет прежнее поведение.
+            if (weighted.Kind == WeightBarcodeValueKind.Amount && WeightBarcodeParser.IsAmountFieldFull(barcode))
+            {
+                var proceed = await _prompts.ConfirmAsync(RongtaBarcodeFormat.AmountFieldFullMessage(weighted.Value),
+                    Tr.T("Всё равно добавить", "Баары бир кошуу", "Add anyway", "Yine de ekle", "Baribir qo'shish"),
+                    Tr.T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish")).ConfigureAwait(true);
+                if (!proceed)
+                {
+                    PosLogger.Log($"[SCALE] label {barcode}: amount field is full ({weighted.Value:0.00}), rejected by cashier", "CART");
+                    return null;
+                }
+            }
             return weighted;
+        }
 
         var inv = CultureInfo.InvariantCulture;
         var name = product.Title;

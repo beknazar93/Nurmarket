@@ -188,6 +188,22 @@ public static class WeightBarcodeParser
 
     public static bool IsEmbeddedWeightBarcode(string barcode) => TryParse(barcode, out _);
 
+    /// <summary>2026-11-06 (Rongta: тип 02 вмещает сумму до 999,99 сом): весовой штрихкод по СУММЕ, у которого поле суммы целиком из девяток (99999 / 9999 …). Весы не смогли напечатать
+    /// настоящую сумму — она не поместилась и могла быть обрезана; обычная покупка на ровно «все девятки» почти не встречается. false — не весовой штрихкод, по весу или поле не полное.</summary>
+    public static bool IsAmountFieldFull(string barcode)
+    {
+        if (!TryParse(barcode, out var parsed) || parsed.Kind != WeightBarcodeValueKind.Amount)
+            return false;
+        var code = (barcode ?? "").Trim();
+        int digits;
+        var prefix = code[..2];
+        if (CustomLayouts.Count > 0 && FindCustomLayout(prefix) is { } custom)
+            digits = 10 - custom.CodeLength;
+        else
+            digits = string.Equals(Layout, "code", StringComparison.OrdinalIgnoreCase) ? 4 : 5;
+        return digits >= 2 && code.Substring(12 - digits, digits).All(ch => ch == '9');
+    }
+
     public static bool TryParse(string barcode, out WeightBarcodeParseResult result)
     {
         result = null!;

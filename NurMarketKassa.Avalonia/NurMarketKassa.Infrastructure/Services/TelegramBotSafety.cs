@@ -132,7 +132,7 @@ internal static class TelegramReminderLog
     internal sealed record Entry(string? ClientId, DateTime AtUtc, double Amount);
 
     private static string FilePath => Path.Combine(
-        NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "telegram-reminders.json");
+        NurMarketKassa.Services.AppPaths.KassaRoaming, "telegram-reminders.json");
 
     private static Dictionary<string, Entry> Map()
     {

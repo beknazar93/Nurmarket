@@ -24,6 +24,18 @@ public static class AppPaths
     /// <summary>Замена <c>GetFolderPath(LocalApplicationData)</c>: база папок «Local».</summary>
     public static string Local => Resolve(Environment.SpecialFolder.LocalApplicationData, "Local");
 
+    // 2026-11-06: В15г — имена папок данных в одном месте вместо сорока строковых литералов «NurMarketKassa» по коду.
+    // Значения НЕ менять: это технические идентификаторы (папки данных уже стоят у клиентов). Результат
+    // Path.Combine(Local, "NurMarketKassa") и KassaLocal один и тот же (проверяет AppPathsTests).
+    public const string KassaFolderName = "NurMarketKassa";
+    public const string OwnerFolderName = "NurMarketOwner";
+
+    /// <summary>Общая папка кассы в «Local» (%LOCALAPPDATA%\NurMarketKassa): настройки и журналы, общие для кассы и владельца.</summary>
+    public static string KassaLocal => Path.Combine(Local, KassaFolderName);
+
+    /// <summary>Общая папка кассы в «Roaming» (%APPDATA%\NurMarketKassa).</summary>
+    public static string KassaRoaming => Path.Combine(Roaming, KassaFolderName);
+
     /// <summary>Папка из NURMARKET_DATA_ROOT (полный путь) или null.</summary>
     public static string? DataRootOverride
     {

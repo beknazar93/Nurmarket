@@ -441,9 +441,31 @@ public static class A4SheetService
         return new PaperSize("A4", widthHundredthInch, heightHundredthInch);
     }
 
+    /// <summary>Linux/macOS: листы в PDF и на очередь CUPS (<c>CUPS:имя</c>). На Android A4-принтера нет — Failed.</summary>
+    private static LabelPrintResult PrintViaCups(IReadOnlyList<A4SheetItem> items, A4SheetOptions o, string printerName)
+    {
+        try
+        {
+            if (!CupsPrintService.IsAvailable)
+                return LabelPrintResult.Failed;
+            if (Expand(items).Count == 0)
+                return LabelPrintResult.Failed;
+            var pdf = A4SheetSkia.CreatePdf(items, o);
+            return CupsPrintService.PrintPdf(printerName, pdf, 1, "NurCRM labels");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"A4 sheet print (CUPS) failed: {ex}", "ERROR");
+            return LabelPrintResult.Failed;
+        }
+    }
+
     /// <summary>Печать листов на выбранный принтер Windows.</summary>
     public static LabelPrintResult Print(IReadOnlyList<A4SheetItem> items, A4SheetOptions o, string printerName)
     {
+        // 2026-11-06 (В18, АЛ-5): на Linux/macOS — PDF листов (Skia) и печать через CUPS (lp); спулера Windows и System.Drawing там нет.
+        if (!OperatingSystem.IsWindows())
+            return PrintViaCups(items, o, printerName);
         try
         {
             if (!RawPrinterHelper.GetInstalledPrinterNames().Any(p => string.Equals(p, printerName, StringComparison.OrdinalIgnoreCase)))

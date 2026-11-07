@@ -40,6 +40,10 @@ public static class AnalyticsChartRenderer
     public static byte[] RenderBars(string title, IReadOnlyList<(string Label, double Value)> data,
         int width = 900, int height = 420)
     {
+        // 2026-11-06 (В18, АЛ-1): без System.Drawing (Linux, Android) график рисует SkiaSharp.
+        if (!OperatingSystem.IsWindows())
+            return AnalyticsChartSkia.RenderBars(title, data, width, height);
+
         using var bitmap = NewCanvas(width, height);
         using var g = Graphics.FromImage(bitmap);
         Prepare(g, width, height);
@@ -116,14 +120,7 @@ public static class AnalyticsChartRenderer
     }
 
     /// <summary>«Круглая» шкала: шаг 1, 2, 2,5 или 5 × 10ⁿ и максимум, кратный шагу.</summary>
-    private static (double Max, double Step) NiceScale(double dataMax, int ticks)
-    {
-        dataMax = Math.Max(dataMax, 0.0001);
-        var rough = dataMax / ticks;
-        var magnitude = Math.Pow(10, Math.Floor(Math.Log10(rough)));
-        var step = new[] { 1.0, 2.0, 2.5, 5.0, 10.0 }.Select(m => m * magnitude).First(s => s >= rough);
-        return (Math.Ceiling(dataMax / step) * step, step);
-    }
+    private static (double Max, double Step) NiceScale(double dataMax, int ticks) => AnalyticsChartSkia.NiceScale(dataMax, ticks);
 
     /// <summary>Диаграмма Парето для отчёта — та же, что на экране: на каждый товар три
     /// столбца, само значение по левой шкале, накопленная доля и порог 80 % по правой.
@@ -138,6 +135,10 @@ public static class AnalyticsChartRenderer
         int width = 980,
         int height = 460)
     {
+        // 2026-11-06 (В18, АЛ-1): без System.Drawing (Linux, Android) график рисует SkiaSharp.
+        if (!OperatingSystem.IsWindows())
+            return AnalyticsChartSkia.RenderPareto(title, data, valueLegend, width, height);
+
         var colorValue = Color.FromArgb(78, 134, 199);
         var colorCumulative = Color.FromArgb(237, 125, 49);
         var colorThreshold = Color.FromArgb(165, 165, 165);
@@ -234,6 +235,10 @@ public static class AnalyticsChartRenderer
         int width = 980,
         int height = 460)
     {
+        // 2026-11-06 (В18, АЛ-1): без System.Drawing (Linux, Android) график рисует SkiaSharp.
+        if (!OperatingSystem.IsWindows())
+            return AnalyticsChartSkia.RenderParetoClassic(title, data, width, height);
+
         using var bitmap = NewCanvas(width, height);
         using var g = Graphics.FromImage(bitmap);
         Prepare(g, width, height);
@@ -328,6 +333,10 @@ public static class AnalyticsChartRenderer
     public static byte[] RenderPie(string title, IReadOnlyList<(string Label, double Value)> data,
         int width = 900, int height = 420)
     {
+        // 2026-11-06 (В18, АЛ-1): без System.Drawing (Linux, Android) график рисует SkiaSharp.
+        if (!OperatingSystem.IsWindows())
+            return AnalyticsChartSkia.RenderPie(title, data, width, height);
+
         using var bitmap = NewCanvas(width, height);
         using var g = Graphics.FromImage(bitmap);
         Prepare(g, width, height);
@@ -403,12 +412,7 @@ public static class AnalyticsChartRenderer
 
     /// <summary>Крупные суммы сокращаем: «1 234 567» на подписи столбца не помещается и
     /// налезает на соседний.</summary>
-    private static string FormatShort(double value) => Math.Abs(value) switch
-    {
-        >= 1_000_000 => (value / 1_000_000).ToString("0.##", ReportFormat.Culture) + " " + Tr.T("млн", "млн", "M", "Mn", "mln"),
-        >= 1_000 => (value / 1_000).ToString("0.#", ReportFormat.Culture) + " " + Tr.T("тыс", "миң", "K", "B", "ming"),
-        _ => value.ToString("0.##", ReportFormat.Culture),
-    };
+    private static string FormatShort(double value) => AnalyticsChartSkia.FormatShort(value);
 
     private static string Ellipsize(Graphics g, string text, Font font, float maxWidth)
     {

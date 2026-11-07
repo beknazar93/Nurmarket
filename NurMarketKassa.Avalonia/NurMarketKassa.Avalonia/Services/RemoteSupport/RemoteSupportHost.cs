@@ -38,7 +38,7 @@ public sealed class RemoteSupportHost : IAsyncDisposable
                 return env.Trim();
             try
             {
-                var file = Path.Combine(NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa", "remote-relay.txt");
+                var file = Path.Combine(NurMarketKassa.Services.AppPaths.KassaLocal, "remote-relay.txt");
                 // 2026-10-16: пустой файл больше не выключает поддержку — берётся боевой адрес.
                 if (File.Exists(file) && File.ReadAllText(file).Trim() is { Length: > 0 } fromFile)
                     return fromFile;

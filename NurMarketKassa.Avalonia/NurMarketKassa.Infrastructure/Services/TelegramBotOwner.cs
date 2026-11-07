@@ -40,7 +40,7 @@ public static partial class TelegramBotOwner
     private static bool _loaded;
 
     private static string FilePath => Path.Combine(
-        NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "telegram-owner.json");
+        NurMarketKassa.Services.AppPaths.KassaRoaming, "telegram-owner.json");
 
     /// <summary>Номер бота — часть токена до «:» (не секрет: виден в адресе t.me). По нему старый владелец не переходит к новому боту.</summary>
     public static string? BotId(string? token)

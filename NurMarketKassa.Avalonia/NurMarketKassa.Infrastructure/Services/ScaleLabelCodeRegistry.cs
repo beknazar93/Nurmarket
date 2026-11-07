@@ -175,6 +175,34 @@ public static class ScaleLabelCodeRegistry
         }
     }
 
+    /// <summary>2026-11-06: обратное к <see cref="PublishAmountPrefix"/> — владелец перевёл весы Rongta на структуру штрихкода «по весу», префикс больше не «сумма». Убирает префикс из файлов
+    /// этой и соседней программы и из правил парсера в памяти (иначе общий файл вернул бы его при следующем скане).</summary>
+    public static void UnpublishAmountPrefix(string prefix)
+    {
+        if (_persistenceDisabled || prefix.Length != 2 || !prefix.All(char.IsDigit))
+            return;
+        try
+        {
+            var root = NurMarketKassa.Services.AppPaths.Roaming;
+            foreach (var folder in new[] { AppMode.DataFolderName, SiblingFolder })
+            {
+                var path = Path.Combine(root, folder, AmountPrefixesFile);
+                var set = ReadPrefixes(path);
+                if (set.Remove(prefix))
+                    AtomicFile.WriteAllText(path, JsonSerializer.Serialize(set.OrderBy(p => p).ToList()));
+            }
+            _sharedAmount.Remove(prefix);
+            _ownPrefixStamp = _siblingPrefixStamp = DateTime.MinValue;
+            var current = new HashSet<string>(NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes, StringComparer.Ordinal);
+            if (current.Remove(prefix))
+                NurMarketKassa.Core.Application.WeightBarcodeParser.AmountPrefixes = current;
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Префикс весов «сумма» не снят: {ex.Message}", "WARNING");
+        }
+    }
+
     /// <summary>Добавляет общие префиксы «сумма» (свои и соседней программы) к правилам разбора
     /// этикеток. Дёшево: файлы перечитываются, только если изменились. Вызывать перед разбором скана.</summary>
     public static void ApplySharedAmountPrefixes()

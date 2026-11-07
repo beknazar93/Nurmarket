@@ -8,6 +8,9 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 /// здесь достаточно вернуть true.</summary>
 internal static class PdfSupport
 {
-    /// <summary>false — Android (QuestPDF не работает); true — Windows и Linux.</summary>
+    /// <summary>false — Android (QuestPDF не работает); true — Windows и Linux. Относится к документам A4 на QuestPDF (возврат поставщику, накладные и т. п.).</summary>
     public static bool IsAvailable => !OperatingSystem.IsAndroid();
+
+    /// <summary>2026-11-06 (В18, А5-04): PDF чека есть везде — на Android его пишет SkiaSharp (ReceiptSkiaPdf), на Windows и Linux — QuestPDF.</summary>
+    public static bool ReceiptPdfAvailable => true;
 }

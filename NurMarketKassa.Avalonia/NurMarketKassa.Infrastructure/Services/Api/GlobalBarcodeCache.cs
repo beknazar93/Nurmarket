@@ -10,7 +10,7 @@ namespace NurMarketKassa.Services.Api;
 internal static class GlobalBarcodeCache
 {
     private static readonly string FilePath = Path.Combine(
-        NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa", "global-barcodes.json");
+        NurMarketKassa.Services.AppPaths.KassaLocal, "global-barcodes.json");
     private static readonly TimeSpan Ttl = TimeSpan.FromDays(30);
     private static readonly object Gate = new();
     private static ConcurrentDictionary<string, Entry>? _items;

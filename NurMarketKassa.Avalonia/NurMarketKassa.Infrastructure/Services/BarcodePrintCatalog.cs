@@ -187,9 +187,20 @@ public static class BarcodePrintCatalog
         return decimal.TryParse(digits, NumberStyles.Number, CultureInfo.InvariantCulture, out var v) ? (v, m.Groups[2].Value.Trim()) : null;
     }
 
+    /// <summary>2026-11-07 (живая проверка 1.17.81): десятичный разделитель ВИДИМОЙ цены на этикетке и ценнике — запятая (ru/ky/uz/tr), точка только в английском интерфейсе.
+    /// Только текст цены для показа: штрихкод и числа протоколов весов/принтеров сюда не входят.</summary>
+    public static string LabelDecimalSeparator => UserPreferences.Instance.Language == AppLanguage.English ? "." : ",";
+
+    /// <summary>Строка цены каталога («85.00 сом», PriceLine хранит точку) — в вид для этикетки/ценника: «85,00 сом». Сама PriceLine не меняется.</summary>
+    public static string LabelPriceText(string? priceLine) =>
+        Regex.Replace(priceLine ?? "", @"(?<=\d)\.(?=\d)", LabelDecimalSeparator);
+
+    /// <summary>Число цены для этикетки с двумя знаками: «85,00» (en — «85.00»).</summary>
+    public static string LabelAmount(decimal value) =>
+        value.ToString("0.00", CultureInfo.InvariantCulture).Replace(".", LabelDecimalSeparator);
+
     /// <summary>Цена как на ценнике этикетки: с запятой (как в остальных окнах, аудит 20.10), «85,00 сом».</summary>
-    public static string LabelPrice(CatalogProductTileVm p) =>
-        Regex.Replace(p.PriceLine ?? "", @"(?<=\d)\.(?=\d)", ",");
+    public static string LabelPrice(CatalogProductTileVm p) => LabelPriceText(p.PriceLine);
 
     /// <summary>Цена на этикетке для позиции печати: у размера — цена размера (если задана), иначе цена товара. Копейки не округляются.</summary>
     public static string LabelPrice(BarcodePrintItem item)
@@ -197,7 +208,7 @@ public static class BarcodePrintCatalog
         if (item.VariantPrice is > 0 and var vp)
         {
             var suffix = ParsePrice(item.Product.PriceLine)?.Suffix;
-            var text = ((decimal)vp).ToString("0.00", CultureInfo.InvariantCulture).Replace('.', ',');
+            var text = LabelAmount((decimal)vp);
             return string.IsNullOrEmpty(suffix) ? text + " сом" : text + " " + suffix;
         }
         return LabelPrice(item.Product);
@@ -205,7 +216,7 @@ public static class BarcodePrintCatalog
 
     /// <summary>Число для листа A4: без «,00» у целых («85»), с копейками у дробных («85,50»).</summary>
     public static string SheetNumber(decimal value) =>
-        (value == decimal.Truncate(value) ? value.ToString("0", CultureInfo.InvariantCulture) : value.ToString("0.00", CultureInfo.InvariantCulture)).Replace('.', ',');
+        (value == decimal.Truncate(value) ? value.ToString("0", CultureInfo.InvariantCulture) : value.ToString("0.00", CultureInfo.InvariantCulture)).Replace(".", LabelDecimalSeparator);
 
     /// <summary>Данные одного товара для листа A4. «Скидка (зачеркнуть старую цену)»: если у товара есть скидка (discount_percent
     /// карточки), старая цена — цена карточки, новая — цена минус скидка (копейки округляются как везде, от нуля). Цена карточки считается

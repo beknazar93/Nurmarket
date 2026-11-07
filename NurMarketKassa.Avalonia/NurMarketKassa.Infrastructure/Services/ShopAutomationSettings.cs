@@ -152,7 +152,7 @@ public static class ShopAutomationSettings
 
     public static event Action? Changed;
 
-    private static string Folder => DataDirOverride ?? Path.Combine(AppPaths.Local, "NurMarketKassa");
+    private static string Folder => DataDirOverride ?? AppPaths.KassaLocal;
 
     private static string FilePath => Path.Combine(Folder, "shop-automation.json");
 

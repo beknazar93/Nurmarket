@@ -254,6 +254,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         Action onPending = ConsumePending;
         PendingPosted += onPending;
         Closed += (_, _) => PendingPosted -= onPending;
+        Closed += (_, _) => _receive?.Detach?.Invoke(); // 2026-11-07 (Б-J1): закрыли раздел с открытым приёмом — не держим окно через ReceivingMarkupSettingsStore.Changed
         KeyDown += (_, e) =>
         {
             // Esc на открытой странице — назад к списку (сам раздел закрывает оболочка/окно). Набранный приём Esc не бросает —
@@ -1348,6 +1349,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         if (_sub is not null)
             _host.Children.Remove(_sub);
         _sub = null;
+        _receive?.Detach?.Invoke(); // 2026-11-07 (Б-J1): страница приёма закрыта — снимаем подписку на статическое событие
         _receive = null;
         _recommend = null;
         _main.IsVisible = true;

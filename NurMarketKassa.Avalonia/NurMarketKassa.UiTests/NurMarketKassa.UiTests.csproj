@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 2026-11-06 (В14, Т-1): сквозные тесты окон в режиме Avalonia.Headless (без экрана и железа). Отдельный проект: тяжёлые зависимости Headless
+       не влияют на обычный прогон NurMarketKassa.Tests. Запуск — только через tools/qa/test-safe.ps1 -Project NurMarketKassa.UiTests/NurMarketKassa.UiTests.csproj
+       (или `-Phase ui`). Пакеты — только для тестов; версии пакетов приложения не менялись. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>NurMarketKassa.UiTests</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.2" />
+    <PackageReference Include="FluentAssertions" Version="7.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <!-- 2026-11-06 (В14): Headless для xUnit (MIT) — той же версии, что Avalonia приложения. Снимки сравниваются своим кодом (Snapshots/PngSnapshot.cs), Verify.Avalonia не нужен. -->
+    <PackageReference Include="Avalonia.Headless.XUnit" Version="11.2.5" />
+    <PackageReference Include="Avalonia.Skia" Version="11.2.5" />
+    <PackageReference Include="WireMock.Net" Version="2.21.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NurMarketKassa.Avalonia\NurMarketKassa.Avalonia.csproj" />
+  </ItemGroup>
+
+  <!-- Поддельный NurCRM — файл проекта обычных тестов берётся ссылкой (без дублирования логики). -->
+  <ItemGroup>
+    <Compile Include="..\NurMarketKassa.Tests\Infrastructure\FakeNurCrmServer.cs" Link="Linked\FakeNurCrmServer.cs" />
+    <Compile Include="..\NurMarketKassa.Tests\Infrastructure\TestDataRoot.cs" Link="Linked\TestDataRoot.cs" />
+    <Compile Include="..\NurMarketKassa.Tests\Wave1\ScenarioSupport.cs" Link="Linked\ScenarioSupport.cs" />
+  </ItemGroup>
+
+</Project>

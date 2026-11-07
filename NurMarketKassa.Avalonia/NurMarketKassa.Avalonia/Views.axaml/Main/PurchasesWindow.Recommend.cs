@@ -47,6 +47,7 @@ public sealed partial class PurchasesWindow
         var data = PurchasesStore.Load();
         var s = new RecommendState { Editing = order, Settings0 = new PlannerSettings(data.PeriodDays, data.CoverDays, data.SafetyDays) };
         _recommend = s;
+        _receive?.Detach?.Invoke(); // 2026-11-07 (Б-J1)
         _receive = null;
         _recommendSource = null;
         if (order is not null)

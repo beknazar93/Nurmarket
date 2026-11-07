@@ -40,6 +40,7 @@ public partial class RongtaScaleSettingsWindow : Window
     private TextBlock _sampleText = null!;
     private TextBlock _verdictText = null!;
     private TextBlock _typeHint = null!;
+    private TextBlock _ceilingText = null!;
     private readonly List<RongtaBarcodeFormat.BarcodeType> _types = RongtaBarcodeFormat.Types.ToList();
 
     public RongtaScaleSettingsWindow()
@@ -241,6 +242,19 @@ public partial class RongtaScaleSettingsWindow : Window
         var shelfBox = new NumericUpDown { Minimum = 0, Maximum = 999, Increment = 1, FormatString = "0", Value = Math.Clamp(prefs.RongtaLanShelfLifeDays, 0, 999), MinWidth = 140 };
         shelfBox.ValueChanged += (_, _) => { prefs.RongtaLanShelfLifeDays = (int)(shelfBox.Value ?? 0); prefs.SaveToDisk(); };
         lanBody.Children.Add(Row(L("Срок годности, дней (0 — не задан)", "Жарактуулук мөөнөтү, күн (0 — коюлган эмес)", "Shelf life, days (0 — not set)", "Raf ömrü, gün (0 — yok)", "Yaroqlilik muddati, kun (0 — belgilanmagan)"), shelfBox));
+        // 2026-11-06 (жалоба «дальше 9 тысяч цена не отображается»): поле цены весов — 6 цифр, при 2 знаках предел 9999,99 сом. Число знаков
+        // можно уменьшить — но ТОЛЬКО вместе с тем же параметром на весах («Price point»), иначе цены уедут в 10/100 раз.
+        var priceDigitsBox = new ComboBox { MinWidth = 320 };
+        for (var d = 0; d <= 3; d++)
+            priceDigitsBox.Items.Add($"{d} — " + L("предел цены ", "баа чеги ", "price limit ", "fiyat sınırı ", "narx chegarasi ") + ScalePriceLimits.FormatMax(ScalePriceLimits.DahuaMaxUnits, d) + L(" сом", " сом", " som", " som", " so‘m"));
+        priceDigitsBox.SelectedIndex = Math.Clamp(prefs.RongtaPricePoint, 0, 3);
+        priceDigitsBox.SelectionChanged += (_, _) => { if (priceDigitsBox.SelectedIndex >= 0) { prefs.RongtaPricePoint = priceDigitsBox.SelectedIndex; prefs.SaveToDisk(); } };
+        lanBody.Children.Add(Row(L("Знаков после запятой в цене на весах", "Таразадагы баада үтүрдөн кийинки белгилер", "Decimals in the price on the scale", "Tartıdaki fiyatta ondalık hane", "Tarozidagi narxda verguldan keyingi xonalar"), priceDigitsBox));
+        lanBody.Children.Add(Text(L("Должно совпадать с параметром весов «Price point» (у вас 2). Касса его на весах не меняет: изменили здесь — измените и на весах (меню весов → системные параметры), иначе цены на этикетках будут в 10 или 100 раз неверны. Цена выше предела не загружается — касса назовёт такие товары.",
+            "Таразадагы «Price point» параметри менен дал келиши керек (сизде 2). Касса аны таразада өзгөртпөйт: бул жерде өзгөрттүңүз — таразада да өзгөртүңүз (тараза менюсу → система параметрлери), болбосо этикеткалардагы баалар 10 же 100 эсе туура эмес болот. Чектен жогору баа жүктөлбөйт — касса мындай товарларды атайт.",
+            "Must match the scale's “Price point” parameter (yours is 2). The till does not change it on the scale: if you change it here, change it on the scale too (scale menu → system parameters), otherwise label prices will be 10 or 100 times wrong. A price above the limit is not loaded — the till names such goods.",
+            "Tartının «Price point» parametresiyle aynı olmalı (sizde 2). Kasa bunu tartıda değiştirmez: burada değiştirirseniz tartıda da değiştirin (tartı menüsü → sistem parametreleri), aksi halde etiket fiyatları 10 veya 100 kat yanlış olur. Sınırı aşan fiyat yüklenmez — kasa bu ürünleri belirtir.",
+            "Tarozining «Price point» parametriga mos bo‘lishi kerak (sizda 2). Kassa uni tarozida o‘zgartirmaydi: bu yerda o‘zgartirsangiz, tarozida ham o‘zgartiring (tarozi menyusi → tizim parametrlari), aks holda yorliqlardagi narxlar 10 yoki 100 baravar xato bo‘ladi. Chegaradan yuqori narx yuklanmaydi — kassa bunday tovarlarni aytadi."), "hint"));
         lanBody.Children.Add(Text(L("Пример: «Шоколад молочный 90г» на весах будет «Шоколад молочнЫй 90г», «Колбаса вареная» — «Колбаса варенаЯ».",
             "Мисал: «Шоколад молочный 90г» таразада «Шоколад молочнЫй 90г», «Колбаса вареная» — «Колбаса варенаЯ» болот.",
             "Example: «Шоколад молочный 90г» shows as «Шоколад молочнЫй 90г», «Колбаса вареная» as «Колбаса варенаЯ».",
@@ -328,6 +342,9 @@ public partial class RongtaScaleSettingsWindow : Window
 
         _typeHint = Text("", "hint");
         body.Children.Add(_typeHint);
+        // 2026-11-06 (жалоба «у Rongta не видит суммы больше 999»): потолок суммы выбранной структуры и предупреждение по каталогу.
+        _ceilingText = Text("", "hint");
+        body.Children.Add(_ceilingText);
 
         // 2026-09-30: отдел = «префикс штрих-кода», который касса пишет в каждый товар при отправке
         // напрямую (поле Dahua madv5; на этикетке весов владельца напечаталось 20).
@@ -362,7 +379,8 @@ public partial class RongtaScaleSettingsWindow : Window
         body.Children.Add(_sampleText);
         _verdictText = new TextBlock { Classes = { "label" }, TextWrapping = TextWrapping.Wrap };
         body.Children.Add(_verdictText);
-        body.Children.Add(ButtonRow(MakeButton(L("Подобрать под кассу", "Кассага ылайыктоо", "Match the till", "Kasaya uydur", "Kassaga moslash"), false, (_, _) => MatchToKassa())));
+        body.Children.Add(ButtonRow(MakeButton(L("Подобрать под кассу", "Кассага ылайыктоо", "Match the till", "Kasaya uydur", "Kassaga moslash"), false, (_, _) => MatchToKassa()),
+            MakeButton(L("Выбрать структуру без ограничения суммы", "Сумма чегисиз түзүлүштү тандоо", "Choose the structure without an amount limit", "Tutar sınırı olmayan yapıyı seç", "Summa chegarasiz tuzilmani tanlash"), false, (_, _) => ChooseUnlimitedStructure())));
         panel.Children.Add(card);
 
         panel.Children.Add(Card(L("Что проверить на весах", "Таразада эмнени текшерүү керек", "What to check on the scale", "Tartıda neyi kontrol etmeli", "Tarozida nimani tekshirish kerak"),
@@ -408,6 +426,11 @@ public partial class RongtaScaleSettingsWindow : Window
               _ => L(", без веса и суммы", ", салмаксыз жана суммасыз", ", no weight or amount", ", ağırlık ve tutar yok", ", vazn va summasiz"),
           }) + ".";
 
+        // 2026-11-06: потолок суммы структуры и предупреждение, если в каталоге есть товары дороже.
+        var report = RongtaBarcodeFormat.CheckCatalog(type, CatalogCacheService.Products.Where(p => p.IsWeighted).Select(p => LocalCartService.ParsePrice(p.PriceLine)));
+        _ceilingText.Text = (RongtaBarcodeFormat.CeilingText(type) + " " + RongtaBarcodeFormat.CatalogWarning(report)).Trim();
+        Themed(this, _ceilingText, TextBlock.ForegroundProperty, report.HasProblem ? "BrushWarning" : "BrushTextSoft", report.HasProblem ? Brushes.DarkOrange : Brushes.Gray);
+
         var code = (long)(_sampleCode.Value ?? 1);
         var grams = (int)(_sampleGrams.Value ?? 392);
         var amount = Math.Round((decimal)(_samplePrice.Value ?? 250) * grams / 1000m, 2);
@@ -444,6 +467,35 @@ public partial class RongtaScaleSettingsWindow : Window
     {
         _verdictText.Text = (ok ? "✓ " : "⚠ " + L("Касса НЕ узнает товар: ", "Касса товарды ТААНЫБАЙТ: ", "The till will NOT recognise the item: ", "Kasa ürünü TANIMAZ: ", "Kassa tovarni TANIMAYDI: ")) + message;
         Themed(this, _verdictText, TextBlock.ForegroundProperty, ok ? "BrushSuccess" : "BrushWarning", ok ? Brushes.Green : Brushes.DarkOrange);
+    }
+
+    /// <summary>2026-11-06 (жалоба «у Rongta не видит суммы больше 999»): одной кнопкой — структура «по весу» с теми же префиксом и числом цифр кода (02 → 07): вес не имеет предела суммы.
+    /// Касса сама начинает читать префикс как ВЕС (правило префикса снимается с «сумма»). Тип на самих весах касса не меняет — прямой протокол записи этого поля не описан: нужно выставить то же значение
+    /// на весах ([SETTING] → set default barcode type) и в RLS1000 (Barcode Type у товаров).</summary>
+    private void ChooseUnlimitedStructure()
+    {
+        var current = SelectedType;
+        var recommended = current is null ? null : RongtaBarcodeFormat.RecommendedWeightType(current);
+        if (current is null || recommended is null)
+        {
+            ShowResult(L("Подходящая структура по весу не найдена — выберите её в списке.", "Салмак боюнча ылайыктуу түзүлүш табылган жок — тизмеден тандаңыз.", "No suitable by-weight structure found — choose one in the list.", "Uygun ağırlık yapısı bulunamadı — listeden seçin.", "Mos vazn tuzilmasi topilmadi — ro‘yxatdan tanlang."), true);
+            return;
+        }
+        var department = (int)(_department.Value ?? 20);
+        var prefix = recommended.Prefix == RongtaBarcodeFormat.PrefixKind.Fixed2 ? recommended.FixedPrefix : department;
+        _typeBox.SelectedIndex = _types.IndexOf(recommended); // SelectionChanged запоминает тип и обновляет пример
+        if (prefix is >= 20 and <= 29)
+        {
+            var text = prefix.ToString("00", CultureInfo.InvariantCulture);
+            NurMarketKassa.AvaloniaHost.Services.ScaleBarcodeRules.ApplyAndSave(text, NurMarketKassa.Core.Domain.WeightBarcodeValueKind.Weight);
+            ScaleLabelCodeRegistry.UnpublishAmountPrefix(text);
+        }
+        var kg = RongtaBarcodeFormat.MaxWeightKg(recommended).ToString("0.###", CultureInfo.GetCultureInfo("ru-RU"));
+        ShowResult(L($"Выбрана структура {recommended.Type:00} ({recommended.Pattern}): вес до {kg} кг, предела суммы нет; касса читает префикс как вес. ВАЖНО: то же значение выставьте на самих весах — [SETTING] → «set default barcode type» → {recommended.Type:00} (и «Barcode Type» у товаров в RLS1000) и проверьте «Price point» (знаки цены). Касса тип на весах не меняет. Затем распечатайте этикетку и считайте её сканером кассы.",
+            $"{recommended.Type:00} түзүлүшү тандалды ({recommended.Pattern}): салмак {kg} кг га чейин, сумма чеги жок; касса префиксти салмак катары окуйт. МААНИЛҮҮ: ушул эле маанини таразанын өзүндө коюңуз — [SETTING] → «set default barcode type» → {recommended.Type:00} (жана RLS1000 дөгү товарлардын «Barcode Type» талаасы) жана «Price point» ти (баанын белгилери) текшериңиз. Касса таразадагы түрдү өзгөртпөйт. Анан этикетка басып, касса сканери менен окуңуз.",
+            $"Structure {recommended.Type:00} ({recommended.Pattern}) chosen: weight up to {kg} kg, no amount limit; the till reads the prefix as weight. IMPORTANT: set the same value on the scale itself — [SETTING] → “set default barcode type” → {recommended.Type:00} (and “Barcode Type” of the items in RLS1000) and check “Price point” (price decimals). The till does not change the type on the scale. Then print a label and read it with the till's scanner.",
+            $"{recommended.Type:00} yapısı seçildi ({recommended.Pattern}): {kg} kg'a kadar ağırlık, tutar sınırı yok; kasa öneki ağırlık olarak okur. ÖNEMLİ: aynı değeri tartının kendisinde ayarlayın — [SETTING] → “set default barcode type” → {recommended.Type:00} (ve RLS1000'de ürünlerin “Barcode Type” alanı) ve “Price point”i (fiyat ondalığı) kontrol edin. Kasa tartıdaki türü değiştirmez. Sonra bir etiket basıp kasa tarayıcısıyla okutun.",
+            $"{recommended.Type:00} tuzilmasi tanlandi ({recommended.Pattern}): vazn {kg} kg gacha, summa chegarasi yo‘q; kassa prefiksni vazn deb o‘qiydi. MUHIM: shu qiymatni tarozining o‘zida ham belgilang — [SETTING] → «set default barcode type» → {recommended.Type:00} (va RLS1000 dagi tovarlarning «Barcode Type» maydoni) hamda «Price point» ni (narx xonalari) tekshiring. Kassa tarozidagi turni o‘zgartirmaydi. So‘ng yorliq chop etib, kassa skaneri bilan o‘qing."), false);
     }
 
     /// <summary>«Подобрать под кассу»: перебирает типы (сначала с фиксированным префиксом — им

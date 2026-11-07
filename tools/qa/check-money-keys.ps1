@@ -34,7 +34,8 @@ Write-Host ("Денежных подстрок пути: {0}, исключени
 $errors = New-Object System.Collections.Generic.List[string]
 
 # 2) ключ по умолчанию в RequestAsync на месте
-$clientText = Get-Content -LiteralPath $clientFile -Raw -Encoding UTF8
+# 2026-11-06: В15 — NurMarketApiClient разбит на partial-файлы (NurMarketApiClient.*.cs): проверяем все части вместе
+$clientText = ((@(Get-ChildItem -LiteralPath (Split-Path $clientFile) -Filter "NurMarketApiClient*.cs" -File | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8 })) -join "`n")
 if ($clientText -notmatch 'MoneyRequestKeys\.Applies\(method, relativePath\)' -or $clientText -notmatch 'idempotencyKey:\s*moneyKey') {
     $errors.Add("NurMarketApiClient.RequestAsync больше не подставляет ключ повтора по умолчанию (MoneyRequestKeys.Applies / idempotencyKey: moneyKey)")
 }

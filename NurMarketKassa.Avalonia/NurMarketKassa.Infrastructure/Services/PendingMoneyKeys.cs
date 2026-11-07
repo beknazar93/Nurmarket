@@ -27,7 +27,7 @@ public static class PendingMoneyKeys
     private static Dictionary<string, Row> _rows = new(StringComparer.Ordinal);
     private static string? _stamp;
 
-    private static string FilePath => Path.Combine(AppPaths.Local, "NurMarketKassa", "pending-money-keys.json");
+    private static string FilePath => Path.Combine(AppPaths.KassaLocal, "pending-money-keys.json");
 
     /// <summary>Ключ для операции с этой подписью: живой прежний (в том числе записанный до перезапуска) или новый (сразу пишется на диск).
     /// <paramref name="createdUtc"/> — когда ключ создан.</summary>

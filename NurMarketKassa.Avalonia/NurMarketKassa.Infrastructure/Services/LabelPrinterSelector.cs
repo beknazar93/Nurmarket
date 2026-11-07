@@ -93,15 +93,27 @@ public static class LabelPrinterSelector
         "Bu yazıcı Windows'ta «Generic / Text Only» olarak kurulmuş — yalnızca metin kabul eder, etiket (barkodlu resim) boş veya anlamsız çıkar. Üretici sürücüsünü kurun veya yazıcıyı doğrudan bağlayın (sürücüsüz USB / WinUSB / COM) — o zaman etiket yazıcı komutlarıyla basılır.",
         "Bu printer Windows'da «Generic / Text Only» sifatida o'rnatilgan — u faqat matnni qabul qiladi, yorliq (shtrix-kodli rasm) bo'sh yoki bema'ni chiqadi. Ishlab chiqaruvchi drayverini o'rnating yoki printerni to'g'ridan-to'g'ri ulang (drayversiz USB / WinUSB / COM) — shunda yorliq printer buyruqlari bilan chop etiladi.");
 
-    // 2026-11-01 (С-9): печать этикеток и листов использует System.Drawing — работает только в Windows.
-    public static bool PrintingSupported => OperatingSystem.IsWindows();
+    // 2026-11-01 (С-9): печать этикеток и листов использовала System.Drawing — только Windows.
+    // 2026-11-06 (В18, А4-08): теперь растр рисует Skia, а на принтер этикетка уходит командами через транспорт платформы (Linux: CUPS «raw», /dev/usb/lp, TCP 9100;
+    // Android: USB, Bluetooth, сеть). Поэтому «печать есть», если это Windows или у платформы есть свой транспорт принтера.
+    public static bool PrintingSupported => OperatingSystem.IsWindows() || PrinterPortService.PlatformTransport is not null;
+
+    /// <summary>Листы A4 (сетка этикеток и ценников на офисный принтер): Windows — спулер, Linux/macOS — PDF через CUPS; на Android A4-принтера нет.</summary>
+    public static bool A4PrintingSupported => OperatingSystem.IsWindows() || CupsPrintService.IsAvailable;
 
     public static string UnsupportedText => Tr.T(
-        "Печать этикеток, штрихкодов и ценников пока работает только в Windows. Предпросмотр доступен, печатать здесь нельзя.",
-        "Этикеткаларды, штрих-коддорду жана баа белгилерин басып чыгаруу азырынча Windows'то гана иштейт. Алдын ала көрүү бар, бирок бул жерден басууга болбойт.",
-        "Printing of labels, barcodes and price tags works only in Windows for now. Preview is available, but printing is not possible here.",
-        "Etiket, barkod ve fiyat etiketi yazdırma şimdilik yalnızca Windows'ta çalışır. Önizleme var, ancak burada yazdırılamaz.",
-        "Yorliq, shtrix-kod va narx yorlig'ini chop etish hozircha faqat Windows'da ishlaydi. Oldindan ko'rish mavjud, lekin bu yerda chop etib bo'lmaydi.");
+        "На этом устройстве печать этикеток, штрихкодов и ценников недоступна: не найден способ подключения принтера. Предпросмотр доступен.",
+        "Бул түзмөктө этикеткаларды, штрих-коддорду жана баа белгилерин басып чыгаруу жеткиликсиз: принтерди туташтыруу жолу табылган жок. Алдын ала көрүү бар.",
+        "Printing of labels, barcodes and price tags is not available on this device: no way to connect a printer was found. Preview is available.",
+        "Bu cihazda etiket, barkod ve fiyat etiketi yazdırma kullanılamıyor: yazıcı bağlantı yöntemi bulunamadı. Önizleme mevcut.",
+        "Bu qurilmada yorliq, shtrix-kod va narx yorlig'ini chop etish mavjud emas: printerni ulash usuli topilmadi. Oldindan ko'rish mavjud.");
+
+    public static string A4UnsupportedText => Tr.T(
+        "Листы A4 печатаются в Windows и на Linux (через CUPS). На этом устройстве принтера A4 нет — листы можно только посмотреть. Для этикеток выберите термопринтер.",
+        "A4 барактары Windows жана Linux'та (CUPS аркылуу) басылат. Бул түзмөктө A4 принтери жок — барактарды көрүүгө гана болот. Этикеткалар үчүн термопринтерди тандаңыз.",
+        "A4 sheets are printed in Windows and on Linux (through CUPS). This device has no A4 printer — sheets can only be previewed. For labels, choose a thermal printer.",
+        "A4 sayfalar Windows'ta ve Linux'ta (CUPS ile) yazdırılır. Bu cihazda A4 yazıcı yok — sayfalar yalnızca önizlenebilir. Etiketler için bir termal yazıcı seçin.",
+        "A4 varaqlar Windows'da va Linux'da (CUPS orqali) chop etiladi. Bu qurilmada A4 printer yo'q — varaqlarni faqat ko'rish mumkin. Yorliqlar uchun termoprinterni tanlang.");
 
     // 2026-11-01 (С-5): подтверждение для больших пачек.
     public const int BigBatchLabels = 1000;

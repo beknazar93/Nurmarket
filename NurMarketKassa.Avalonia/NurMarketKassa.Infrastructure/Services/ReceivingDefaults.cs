@@ -62,8 +62,41 @@ public static class ReceivingListOrder
         if (lines.IndexOf(line) >= 0)
             return false;
         lines.Insert(0, line);
+        Renumber(lines);
         return true;
     }
+
+    /// <summary>2026-11-07 (ТЗ «Порядковая нумерация товаров в накладной»): номера строк «№» = порядок добавления. Строка без номера (LineNo = 0) получает следующий
+    /// после наибольшего; остальные номера сохраняются и уплотняются без пропусков (после удаления). Порядок строк на экране (новая — сверху) не меняется,
+    /// а повтор одного товара отдельной строкой получает свой номер. Возвращает true, если какой-то номер изменился.</summary>
+    public static bool Renumber(IEnumerable<ReceivingLineVm> lines)
+    {
+        var list = lines.ToList();
+        var order = list.Select((l, i) => (Line: l, Index: i)).OrderBy(x => x.Line.LineNo > 0 ? x.Line.LineNo : int.MaxValue).ThenBy(x => x.Index).ToList();
+        var changed = false;
+        for (var i = 0; i < order.Count; i++)
+        {
+            if (order[i].Line.LineNo == i + 1)
+                continue;
+            order[i].Line.LineNo = i + 1;
+            changed = true;
+        }
+        return changed;
+    }
+
+    /// <summary>2026-11-07: обработчик CollectionChanged списка приёмки склада: убранной строке номер сбрасывается (вернётся — получит следующий), остальные уплотняются без пропусков.
+    /// Перестановка «наверх» (Remove + Insert одной и той же строки) обработчик не вызывают — номер при этом не меняется.</summary>
+    public static void OnListChanged(IEnumerable<ReceivingLineVm> lines, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+            foreach (var old in e.OldItems.OfType<ReceivingLineVm>())
+                old.LineNo = 0;
+        Renumber(lines);
+    }
+
+    /// <summary>2026-11-07: строки в порядке добавления («№» 1, 2, 3…) — в таком порядке они уходят в приход, и открытая позже накладная показывает те же номера.
+    /// Строки без номера (0) сохраняют своё взаимное положение (сортировка устойчивая).</summary>
+    public static List<ReceivingLineVm> InAddedOrder(IEnumerable<ReceivingLineVm> lines) => lines.OrderBy(l => l.LineNo > 0 ? l.LineNo : int.MaxValue).ToList();
 }
 
 /// <summary>2026-11-06: ответ на вопрос «Поставщик не выбран».</summary>

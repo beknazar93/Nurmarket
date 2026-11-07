@@ -201,6 +201,8 @@ public static class AccountDataIsolation
             NurMarketKassa.Services.Api.ServerCapabilities.Reset(); // 2026-11-01: признаки сервера прежнего аккаунта (receipt_edit и др.) не должны жить в новом
             NurMarketKassa.AvaloniaHost.Services.PhotoSearchMemory.ResetMemory(); // 2026-11-03: память поиска фото прежней компании (файл уже стёрт)
             ServerAddons.ResetMemory(); // 2026-10-31: функции, включённые сервером прежней компании, не должны открывать функции новой
+            MarketplaceThemesClient.Shared.ResetMemory(); // 2026-11-06: каталог тем с сайта и запись о поставленных — прежней компании (файлы уже унесены)
+            ServerThemeRegistry.Shared.ResetMemory();
             SettingsCloudSync.RunAccountReset(() =>
             {
                 CompanyScopedSettings.ResetForAccountSwitch(UserPreferences.Instance);
@@ -321,7 +323,7 @@ public static class AccountDataIsolation
         if (RootOverride is null && !AppMode.IsOwner)
         {
             // Журналы возвратов/списаний/удалений из чека лежат в папке КАССЫ (общей по замыслу); путь тот же, что у SaleReturnLedger и др.
-            var local = Path.Combine(NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa");
+            var local = NurMarketKassa.Services.AppPaths.KassaLocal;
             MoveAside(LocalLogItems.Select(item => Path.Combine(local, item)), Path.Combine(local, PreviousFolderName, stamp), moved, failed);
         }
 
@@ -392,7 +394,7 @@ public static class AccountDataIsolation
     {
         var bases = new List<string> { Root };
         if (RootOverride is null && !AppMode.IsOwner)
-            bases.Add(Path.Combine(NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa"));
+            bases.Add(NurMarketKassa.Services.AppPaths.KassaLocal);
         foreach (var baseDir in bases)
         {
             try
@@ -441,7 +443,7 @@ public static class AccountDataIsolation
         // 2026-11-05 (Л4-03): журнал неподтверждённых оплат долга ОБЩИЙ для кассы и владельца (%APPDATA%\NurMarketKassa\debt-payments),
         // у владельца Root другой — читаем общий путь, иначе его «исход неизвестен» не попадал в вопрос.
         var debts = CountJsonEntries(Path.Combine(Root, "pending_debt_prepayments.json"))
-                    + CountJsonEntries(Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "debt-payments", "debt-payments-unknown.json"))
+                    + CountJsonEntries(Path.Combine(NurMarketKassa.Services.AppPaths.KassaRoaming, "debt-payments", "debt-payments-unknown.json"))
                     + OfflineOperationsStore.CountUnsent(Path.Combine(Root, "offline_operations.json")); // 2026-10-29: возвраты и оплаты долга без связи
         // 2026-11-05 (Л4-05): оплата с неизвестным исходом (возможно, проведённая продажа), очередь бонусов и данные Telegram — не стираем молча.
         var unknownCheckout = File.Exists(Path.Combine(Root, "pending_unknown_checkout.json")) ? 1 : 0;

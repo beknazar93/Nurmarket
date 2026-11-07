@@ -3,6 +3,7 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using NurMarketKassa.Core.Application;
 
 namespace NurMarketKassa.AvaloniaHost.Converters;
 
@@ -91,28 +92,32 @@ public sealed class AssetPathToBitmapConverter : IValueConverter
 
     // 2026-11-06 (Л4-13): полноразмерные картинки с диска (обои, фон, выбранные файлы) раньше жили в кэше до выхода без предела — каждая по десятки МБ.
     // Теперь в кэше последние 16; вытесненная пересоздаётся при следующем показе (ту, что на экране, держит сам элемент). Значки приложения (avares://) — без предела.
+    // 2026-11-06 (В16, память): предел и по сумме байтов пикселей — 16 картинок 4K — это 530 МБ родной памяти; теперь не больше 96 МБ (самая свежая остаётся всегда).
     private const int MaxFullImages = 16;
-    private static readonly LinkedList<string> FullOrder = new();
-    private static readonly Dictionary<string, LinkedListNode<string>> FullNodes = new(StringComparer.Ordinal);
+    private const long MaxFullBytes = 96L * 1024 * 1024;
+    private static readonly ByteBudgetLru FullLru = new(MaxFullImages, MaxFullBytes);
 
     private static void TouchFull(string key)
     {
         lock (ThumbGate)
         {
-            if (FullNodes.TryGetValue(key, out var node))
-            {
-                FullOrder.Remove(node);
-                FullOrder.AddFirst(node);
-                return;
-            }
+            foreach (var evicted in FullLru.Touch(key, CachedBytes(key)))
+                _cache.TryRemove(evicted, out _);
+        }
+    }
 
-            FullNodes[key] = FullOrder.AddFirst(key);
-            while (FullOrder.Count > MaxFullImages && FullOrder.Last is { } oldest)
-            {
-                FullOrder.RemoveLast();
-                FullNodes.Remove(oldest.Value);
-                _cache.TryRemove(oldest.Value, out _);
-            }
+    /// <summary>Байты пикселей картинки, лежащей в кэше под ключом (ширина × высота × 4); 0 — нет или не измерить.</summary>
+    private static long CachedBytes(string key)
+    {
+        try
+        {
+            return _cache.TryGetValue(key, out var bmp) && bmp is not null
+                ? (long)bmp.PixelSize.Width * bmp.PixelSize.Height * 4
+                : 0;
+        }
+        catch
+        {
+            return 0;
         }
     }
 
@@ -123,30 +128,27 @@ public sealed class AssetPathToBitmapConverter : IValueConverter
     // когда плитка её отпустит. Обои, фон и значки (без «thumb») — как раньше, без предела.
     // 2026-10-30 (оптимизация кассы, Б5): 240 → 160 (≈ 3 страницы по 50 плиток; нативная память кэша ~98 → ~65 МБ). Ширину декодирования (320 px) не трогаем —
     // на экране с масштабом 200 % карточка 180 px требует 360 px, уменьшение дало бы мыло.
+    // 2026-11-06 (В16, память): плюс предел по сумме байтов — 48 МБ (≈120 миниатюр 320×320). Узкое высокое старое фото, расшифрованное в ширину 320 px, весит до 1,3 МБ,
+    // и 160 штук по счётчику были бы 200 МБ; теперь вытесняются раньше. Обычные готовые миниатюры (.t320., ≤ 320 px по длинной стороне) — до 0,4 МБ.
     private const int MaxThumbs = 160;
-    private static readonly LinkedList<string> ThumbOrder = new();
-    private static readonly Dictionary<string, LinkedListNode<string>> ThumbNodes = new(StringComparer.Ordinal);
+    private const long MaxThumbBytes = 48L * 1024 * 1024;
+    private static readonly ByteBudgetLru ThumbLru = new(MaxThumbs, MaxThumbBytes);
     private static readonly object ThumbGate = new();
 
     private static void TouchThumb(string key)
     {
         lock (ThumbGate)
         {
-            if (ThumbNodes.TryGetValue(key, out var node))
-            {
-                ThumbOrder.Remove(node);
-                ThumbOrder.AddFirst(node);
-                return;
-            }
-
-            ThumbNodes[key] = ThumbOrder.AddFirst(key);
-            while (ThumbOrder.Count > MaxThumbs && ThumbOrder.Last is { } oldest)
-            {
-                ThumbOrder.RemoveLast();
-                ThumbNodes.Remove(oldest.Value);
-                _cache.TryRemove(oldest.Value, out _);
-            }
+            foreach (var evicted in ThumbLru.Touch(key, CachedBytes(key)))
+                _cache.TryRemove(evicted, out _);
         }
+    }
+
+    /// <summary>Сколько миниатюр и байтов пикселей сейчас в кэше — для журнала «ПАМЯТЬ» и тестов.</summary>
+    public static (int Count, long Bytes) ThumbCacheStats()
+    {
+        lock (ThumbGate)
+            return (ThumbLru.Count, ThumbLru.TotalBytes);
     }
 
     /// <summary>2026-11-06: В4 А4-18 — системе не хватает памяти: оставить в кэше только <paramref name="keep"/> последних миниатюр,
@@ -155,13 +157,8 @@ public sealed class AssetPathToBitmapConverter : IValueConverter
     {
         lock (ThumbGate)
         {
-            keep = Math.Max(0, keep);
-            while (ThumbOrder.Count > keep && ThumbOrder.Last is { } oldest)
-            {
-                ThumbOrder.RemoveLast();
-                ThumbNodes.Remove(oldest.Value);
-                _cache.TryRemove(oldest.Value, out _);
-            }
+            foreach (var evicted in ThumbLru.Trim(Math.Max(0, keep)))
+                _cache.TryRemove(evicted, out _);
         }
     }
 

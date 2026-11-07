@@ -311,9 +311,22 @@ public sealed class InvoiceImportWindow : Window
 
         // 2026-11-06 (В12, ЖП Н-13): таблица накладной была шире окна (сумма фиксированных столбцов 1012 px + название 180 > ширина окна 1240) — правая колонка обрезалась;
         // фиксированные столбцы сужены (сумма 924 px), название остаётся растяжимым.
+        // 2026-11-07 (ТЗ «Порядковая нумерация товаров в накладной»): «№» — первая колонка, только чтение, 44 px; остальные фиксированные столбцы сужены на 44 px (Статус 210 → 190, Штрихкод 132 → 124, Ед. 72 → 64, Закупка 92 → 88, Нац. % 80 → 76), сумма по-прежнему 924 px.
         _grid.Columns.Add(new DataGridTemplateColumn
         {
-            Header = H(T("Статус", "Статус", "Status", "Durum", "Holat")), Width = new DataGridLength(210), IsReadOnly = true,
+            Header = H("№"), Width = new DataGridLength(44), IsReadOnly = true, CanUserSort = false,
+            CellTemplate = new FuncDataTemplate<InvoicePlanRow>((_, _) =>
+            {
+                var tb = new TextBlock { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, FontSize = 13, Focusable = false };
+                tb.Bind(TextBlock.TextProperty, new Binding(nameof(InvoicePlanRow.No)));
+                tb.Bind(TextBlock.ForegroundProperty, tb.GetResourceObservable("BrushTextSoft"));
+                tb.DataContextChanged += (_, _) => Avalonia.Automation.AutomationProperties.SetName(tb, T("Позиция", "Позиция", "Item", "Kalem", "Pozitsiya") + " " + (tb.DataContext as InvoicePlanRow)?.No);
+                return tb;
+            }, supportsRecycling: false),
+        });
+        _grid.Columns.Add(new DataGridTemplateColumn
+        {
+            Header = H(T("Статус", "Статус", "Status", "Durum", "Holat")), Width = new DataGridLength(190), IsReadOnly = true,
             CellTemplate = new FuncDataTemplate<InvoicePlanRow>((_, _) => new StatusCell(r =>
             {
                 _plan.Confirm(r); // 2026-11-03: через план — запоминает соответствие и склеивает с такой же строкой того же товара
@@ -336,13 +349,13 @@ public sealed class InvoiceImportWindow : Window
             }, supportsRecycling: false),
         };
         _grid.Columns.Add(_colName);
-        _colBarcode = new DataGridTextColumn { Header = H(T("Штрихкод", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod")), Width = new DataGridLength(132), Binding = new Binding("Line.Barcode") };
+        _colBarcode = new DataGridTextColumn { Header = H(T("Штрихкод", "Штрих-код", "Barcode", "Barkod", "Shtrix-kod")), Width = new DataGridLength(124), Binding = new Binding("Line.Barcode") };
         _grid.Columns.Add(_colBarcode);
-        _colUnit = new DataGridTextColumn { Header = H(T("Ед.", "Бир.", "Unit", "Birim", "Birlik")), Width = new DataGridLength(72), Binding = new Binding("Line.Unit") };
+        _colUnit = new DataGridTextColumn { Header = H(T("Ед.", "Бир.", "Unit", "Birim", "Birlik")), Width = new DataGridLength(64), Binding = new Binding("Line.Unit") };
         _grid.Columns.Add(_colUnit);
         _grid.Columns.Add(new DataGridTextColumn { Header = H(T("Кол-во", "Саны", "Qty", "Miktar", "Soni")), Width = new DataGridLength(84), Binding = new Binding("Line.QuantityText") { Converter = WarehouseWindow.CommaDecimal } });
-        _grid.Columns.Add(new DataGridTextColumn { Header = H(T("Закупка", "Сатып алуу", "Purchase", "Alış", "Xarid")), Width = new DataGridLength(92), Binding = new Binding("Line.PurchasePriceText") { Converter = WarehouseWindow.CommaDecimal } });
-        _grid.Columns.Add(new DataGridTextColumn { Header = H(T("Нац. %", "Кош. %", "Markup %", "Kâr %", "Ust. %")), Width = new DataGridLength(80), Binding = new Binding("Line.MarkupText") { Converter = WarehouseWindow.CommaDecimal } });
+        _grid.Columns.Add(new DataGridTextColumn { Header = H(T("Закупка", "Сатып алуу", "Purchase", "Alış", "Xarid")), Width = new DataGridLength(88), Binding = new Binding("Line.PurchasePriceText") { Converter = WarehouseWindow.CommaDecimal } });
+        _grid.Columns.Add(new DataGridTextColumn { Header = H(T("Нац. %", "Кош. %", "Markup %", "Kâr %", "Ust. %")), Width = new DataGridLength(76), Binding = new Binding("Line.MarkupText") { Converter = WarehouseWindow.CommaDecimal } });
         _grid.Columns.Add(new DataGridTextColumn { Header = H(T("Продажа", "Сатуу", "Sale", "Satış", "Sotuv")), Width = new DataGridLength(96), Binding = new Binding("Line.SalePriceText") { Converter = WarehouseWindow.CommaDecimal } });
         _grid.Columns.Add(new DataGridTextColumn { Header = H(T("Сумма", "Сумма", "Amount", "Tutar", "Summa")), Width = new DataGridLength(100), IsReadOnly = true, Binding = new Binding("Line.LineTotal") { StringFormat = "N2" } });
         _grid.Columns.Add(new DataGridTemplateColumn

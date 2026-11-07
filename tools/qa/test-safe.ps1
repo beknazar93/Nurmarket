@@ -1,5 +1,8 @@
 ﻿# 2026-11-05 (аудит №4, волна 0-A): ЕДИНСТВЕННЫЙ разрешённый способ запускать тесты NurMarketKassa.Tests.
 #   powershell -ExecutionPolicy Bypass -File tools/qa/test-safe.ps1 [-Filter "FullyQualifiedName~Money"] [-TimeoutMinutes 15]
+# 2026-11-06 (В14): фаза 2 — NurMarketKassa.UiTests (сквозные сценарии и снимки окон в Avalonia.Headless); тот же замок, та же временная папка данных,
+#   тот же хэш-контроль настоящих данных. Выбор: -Phase all|unit|ui; отчёты расхождений снимков: %LOCALAPPDATA%\Temp\nurmarket-tests\ui-actual;
+#   обновить эталоны сознательно: -UpdateSnapshots.
 # Что делает:
 #   1) NURMARKET_DATA_ROOT -> уникальная временная папка (все пути данных кассы — AppPaths.Roaming/Local — ведут внутрь неё; тесты
 #      дополнительно создают свою подпапку run-XXXX и удаляют её при выходе); DESKTOP_MARKET_API_URL -> заглушка 127.0.0.1:9
@@ -13,7 +16,12 @@
 param(
     [string]$Filter = "",
     [int]$TimeoutMinutes = 15,
-    [string]$Project = "NurMarketKassa.Tests/NurMarketKassa.Tests.csproj"
+    # 2026-11-06 (В14): без -Project идут две фазы подряд — обычные тесты и сквозные тесты окон (Avalonia.Headless); с -Project — только указанный проект.
+    [string]$Project = "",
+    # 2026-11-06 (В14): all (по умолчанию) | unit (только NurMarketKassa.Tests) | ui (только NurMarketKassa.UiTests); при заданном -Project не учитывается.
+    [ValidateSet("all", "unit", "ui")][string]$Phase = "all",
+    # 2026-11-06 (В14): перезаписать эталоны снимков окон (NURMARKET_UI_UPDATE=1) — только после сознательного изменения вида.
+    [switch]$UpdateSnapshots
 )
 $ErrorActionPreference = "Stop"
 $repo = Resolve-Path (Join-Path $PSScriptRoot "..\..")
@@ -89,14 +97,27 @@ try {
     $env:NURMARKET_DATA_ROOT = $dataRoot
     $env:DESKTOP_MARKET_API_URL = "http://127.0.0.1:9"
     Set-Location $solution
-    $dotnetArgs = @("test", $Project, "-m:1", "-nodeReuse:false", "--nologo")
-    if ($Filter) { $dotnetArgs += @("--filter", $Filter) }
-    $ErrorActionPreference = "Continue"
-    & dotnet @dotnetArgs 2>&1 | Out-File -FilePath $outFile -Encoding utf8
-    $testExit = $LASTEXITCODE
-    $ErrorActionPreference = "Stop"
+    if ($UpdateSnapshots) { $env:NURMARKET_UI_UPDATE = "1" }
+    $projects = @()
+    if ($Project) { $projects = @($Project) }
+    else {
+        if ($Phase -in @("all", "unit")) { $projects += "NurMarketKassa.Tests/NurMarketKassa.Tests.csproj" }
+        if ($Phase -in @("all", "ui")) { $projects += "NurMarketKassa.UiTests/NurMarketKassa.UiTests.csproj" }
+    }
+    $testExit = 0
+    "" | Out-File -FilePath $outFile -Encoding utf8
+    foreach ($proj in $projects) {
+        $dotnetArgs = @("test", $proj, "-m:1", "-nodeReuse:false", "--nologo")
+        if ($Filter) { $dotnetArgs += @("--filter", $Filter) }
+        $ErrorActionPreference = "Continue"
+        "=== $proj ===" | Out-File -FilePath $outFile -Encoding utf8 -Append
+        & dotnet @dotnetArgs 2>&1 | Out-File -FilePath $outFile -Encoding utf8 -Append
+        if ($LASTEXITCODE -ne 0 -and $testExit -eq 0) { $testExit = $LASTEXITCODE }
+        $ErrorActionPreference = "Stop"
+    }
 } finally {
     Remove-Item Env:\NURMARKET_DATA_ROOT -ErrorAction SilentlyContinue
+    Remove-Item Env:\NURMARKET_UI_UPDATE -ErrorAction SilentlyContinue
     Remove-Item Env:\DESKTOP_MARKET_API_URL -ErrorAction SilentlyContinue
     $mutex.ReleaseMutex()
 }
@@ -114,7 +135,7 @@ foreach ($k in $treeBefore.Keys) { if (-not $treeAfter.ContainsKey($k)) { $touch
 $summary = Select-String -Path $outFile -Pattern "Passed!|Failed!|Failed |error |Пройден|Не пройден|Total tests|Passed:|Failed:" | Select-Object -First 40 | ForEach-Object { $_.Line.Trim() }
 
 $lines = @()
-$lines += "test-safe: dotnet test EXIT=$testExit"
+$lines += "test-safe: dotnet test EXIT=$testExit (проекты: $($projects -join ', '))"
 $lines += "NURMARKET_DATA_ROOT (временная): $dataRoot"
 $lines += $summary
 $lines += "--- настоящие данные кассы ---"

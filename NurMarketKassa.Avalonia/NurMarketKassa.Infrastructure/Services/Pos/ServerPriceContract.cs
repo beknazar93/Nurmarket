@@ -15,7 +15,7 @@ namespace NurMarketKassa.Services;
 /// На боевом сервере это может быть ещё не выложено, поэтому всё здесь — «если поле пришло»: нет поля / нет адреса / обычный ответ —
 /// прежнее поведение кассы без ошибок.
 /// Настройки — необязательный файл server_prices.json в папке данных программы (у кассы и владельца свои):
-/// {"strict_price": true, "catalog_feed": true, "feed_interval_sec": 8}. Файла нет или он не читается — значения по умолчанию.
+/// {"strict_price": true, "catalog_feed": true, "feed_interval_sec": 8, "feed_lookback_sec": 8, "recent_sync_interval_sec": 150}. Файла нет или он не читается — значения по умолчанию.
 /// </summary>
 public static class ServerPriceContract
 {
@@ -32,6 +32,8 @@ public static class ServerPriceContract
     private static bool _strict = true;
     private static bool _feed = true;
     private static int _feedSeconds = 8;
+    private static int _lookbackSeconds = 8;
+    private static int _recentSeconds = 150;
 
     /// <summary>Слать заголовок строгой проверки цены на pos/checkout (по умолчанию да). Старый сервер заголовок игнорирует.</summary>
     public static bool StrictPriceEnabled
@@ -54,6 +56,21 @@ public static class ServerPriceContract
         set { Load(); _feedSeconds = Math.Clamp(value, 5, 60); }
     }
 
+    /// <summary>2026-11-07 (живой тест, Б-П2): запас назад для курсора ленты, секунд (0–30, по умолчанию 8). Сервер отдавал курсор = своё время ответа, а запись изменения товара (приход)
+    /// фиксировалась позже на ~11 мс — товар не попадал ни в этот ответ, ни в следующий. Касса спрашивает ленту «с курсора минус запас»; повторно присланный товар применяется без вреда (запись только при отличии).</summary>
+    public static int FeedLookbackSeconds
+    {
+        get { Load(); return _lookbackSeconds; }
+        set { Load(); _lookbackSeconds = Math.Clamp(value, 0, 30); }
+    }
+
+    /// <summary>2026-11-07 (Б-П2): как часто сверять «недавно изменённые» товары (сервер сортирует products/list/ по -updated_at), секунд (60–600, по умолчанию 150). Страховка, если лента пропустила изменение.</summary>
+    public static int RecentSyncIntervalSeconds
+    {
+        get { Load(); return _recentSeconds; }
+        set { Load(); _recentSeconds = Math.Clamp(value, 60, 600); }
+    }
+
     private static void Load()
     {
         lock (Gate)
@@ -74,6 +91,10 @@ public static class ServerPriceContract
                     _feed = f.GetBoolean();
                 if (doc.RootElement.TryGetProperty("feed_interval_sec", out var i) && i.ValueKind == JsonValueKind.Number && i.TryGetInt32(out var sec))
                     _feedSeconds = Math.Clamp(sec, 5, 60);
+                if (doc.RootElement.TryGetProperty("feed_lookback_sec", out var lb) && lb.ValueKind == JsonValueKind.Number && lb.TryGetInt32(out var lbSec))
+                    _lookbackSeconds = Math.Clamp(lbSec, 0, 30);
+                if (doc.RootElement.TryGetProperty("recent_sync_interval_sec", out var rs) && rs.ValueKind == JsonValueKind.Number && rs.TryGetInt32(out var rsSec))
+                    _recentSeconds = Math.Clamp(rsSec, 60, 600);
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
@@ -127,6 +148,9 @@ public static class ServerPriceContract
 
     /// <summary>Сервер хотя бы раз прислал price_changed в этом запуске — значит, Б-06 на нём выложен (PATCH закупки цену не меняет).</summary>
     public static bool ServerKeepsSalePrice { get; private set; }
+
+    /// <summary>2026-11-07: стенд проверки — забыть, что сервер присылал price_changed (признак «залипает» на весь запуск).</summary>
+    public static void ResetForTests() => ServerKeepsSalePrice = false;
 
     /// <summary>Запоминает, что сервер умеет price_changed (вызывать с любым ответом PATCH/PUT/прихода).</summary>
     public static void Observe(JsonElement response)

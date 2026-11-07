@@ -129,6 +129,55 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
         }
     }
 
+    private long _lastRecentSyncTicks;
+
+    /// <summary>2026-11-07 (Б-П2): сверка «недавно изменённых» под тем же замком, что такт ленты (два применения в базу не наперегонки). Исправленное — на плитки, в поиск, телефонам.</summary>
+    private async Task<CatalogFeedSync.RecentResult> RecentSyncAsync(CatalogFeedSync feed, bool manual, CancellationToken ct)
+    {
+        await _feedGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var generation = Volatile.Read(ref _accountGeneration);
+            var result = await feed.ReconcileRecentAsync(() => generation == Volatile.Read(ref _accountGeneration) && !IsFullSyncRunning(), manual, ct).ConfigureAwait(false);
+            if (result.Ok)
+            {
+                CatalogCacheService.NoteSynced(DateTime.UtcNow);
+                if (result.Fixed > 0 && generation == Volatile.Read(ref _accountGeneration))
+                {
+                    TryLoadFromDatabase();
+                    CatalogCacheService.NotifyCatalogChanged();
+                    NurMarketKassa.Services.PhoneLink.PhoneLinkEvents.Publish("product");
+                }
+            }
+
+            return result;
+        }
+        finally
+        {
+            _feedGate.Release();
+        }
+    }
+
+    /// <summary>2026-11-07 (Б-П2): «Обновить каталог сейчас» — быстро (секунды), без полной загрузки каталога: лента изменений + сверка последних изменённых. null — быстрый путь невозможен
+    /// (нет связи, ленты нет на сервере, идёт полная загрузка) — вызывающий делает обычное обновление. Fixed — сколько товаров исправлено, Total — сколько проверено.</summary>
+    public async Task<CatalogSyncResult?> QuickRefreshAsync(CancellationToken ct = default)
+    {
+        if (OfflineModeHelper.SellLocally || ServerOutageMonitor.IsOutage || IsFullSyncRunning() || !HasLocalCatalog)
+            return null;
+        EnsureFeedLoop();
+        if (_feed is not { } feed || feed.Unsupported)
+            return null;
+        var tick = await TickFeedAsync(feed, ct).ConfigureAwait(false);
+        if (!tick.Ok || tick.NeedFullSync)
+            return null;
+        var recent = await RecentSyncAsync(feed, manual: true, ct).ConfigureAwait(false);
+        Interlocked.Exchange(ref _lastRecentSyncTicks, DateTime.UtcNow.Ticks);
+        if (!recent.Ok && recent.Note != "сервер не отдаёт последние изменённые")
+            return null; // сверка не удалась (429, сбой) — пусть вызывающий обновит обычным путём
+        await UiDispatcherHolder.InvokeAsync(() => { }).ConfigureAwait(false);
+        return CatalogSyncResult.Ok(tick.Added, tick.Changed + recent.Fixed, tick.Deleted);
+    }
+
     /// <summary>2026-10-30: «обновить каталог» из окон. Лента жива и каталог в базе есть — только лента; иначе одна общая полная загрузка.</summary>
     private async Task<CatalogSyncResult> SharedRefreshAsync(CancellationToken ct)
     {
@@ -522,6 +571,15 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                     Interlocked.Exchange(ref _lastFeedFullSyncTicks, DateTime.UtcNow.Ticks);
                     PosLogger.Log("CATALOG_FEED: лента принесла товар, которого нет в базе кассы, — полная загрузка.", "CATALOG_FEED");
                     _ = StartFullSync(CancellationToken.None, knownVersion: null, reason: "лента принесла товар, которого нет в базе кассы");
+                }
+
+                // 2026-11-07 (живой тест, Б-П2): страховочная сверка «недавно изменённых» раз в 2–3 минуты (ServerPriceContract.RecentSyncIntervalSeconds): лента однажды потеряла
+                // изменение товара после прихода (курсор ушёл на 11 мс дальше записи), касса 12 минут продавала по старой цене. Один лёгкий запрос (последние 100 изменённых).
+                if (!BulkLoadActive && !IsFullSyncRunning()
+                    && AgeOf(new DateTime(Interlocked.Read(ref _lastRecentSyncTicks), DateTimeKind.Utc)) > TimeSpan.FromSeconds(ServerPriceContract.RecentSyncIntervalSeconds))
+                {
+                    Interlocked.Exchange(ref _lastRecentSyncTicks, DateTime.UtcNow.Ticks);
+                    await RecentSyncAsync(feed, manual: false, CancellationToken.None).ConfigureAwait(false);
                 }
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)

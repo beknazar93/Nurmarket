@@ -19,6 +19,7 @@ public static class CompanyScopedSettings
         "LastUpdateCheckUtc", "AppliedPublishDefaultsVersion", "LastSeenAppVersion", "UpdateTesterCode", "LanDeviceId",
         "Autostart", "Fullscreen", "TrueFullscreen", "LowPerformanceMode", "UiScalePercent", "CompactLayoutMode",
         "Language", "PostgreSqlConnectionStringEncrypted",
+        "MarketplaceWebUrl", "AutoInstallPurchasedThemes", // 2026-11-06: настройки этого компьютера (адрес Маркетплейса на сайте, автоустановка купленных тем)
         "AutonomousModeActivated", "AutonomousModeActivationKey", "AutonomousAutoResume", "PreserveCatalogOnNextAutonomousLogin",
     };
 

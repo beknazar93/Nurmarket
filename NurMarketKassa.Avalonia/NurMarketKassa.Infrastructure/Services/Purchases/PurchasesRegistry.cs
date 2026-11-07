@@ -139,9 +139,8 @@ public static class PurchasesRegistry
         var n = 0;
         foreach (var l in r.Lines)
         {
-            ReceiptMarkupLine? saved = l.SalePrice is > 0
-                ? new ReceiptMarkupLine { ProductId = l.ProductId, Purchase = l.PurchasePrice, Qty = l.Qty, MarkupPercent = l.MarkupPercent, Sale = l.SalePrice.Value, PreviousSale = l.PreviousSalePrice ?? 0 }
-                : journal?.Lines.FirstOrDefault(x => string.Equals(x.ProductId, l.ProductId, StringComparison.OrdinalIgnoreCase));
+            // 2026-11-07 (Б-П1): серверная строка или журнал кассы — см. ReceiptMarkupLog.Pick.
+            var saved = ReceiptMarkupLog.Pick(l, r.Version, journal?.Lines.FirstOrDefault(x => string.Equals(x.ProductId, l.ProductId, StringComparison.OrdinalIgnoreCase)));
             var cat = l.ProductId.Length > 0 ? ctx.Catalog?.Invoke(l.ProductId) : null;
             var view = ReceiptMarkupLog.View(l.PurchasePrice, saved, saved is null ? cat?.Sale : null);
             var barcode = cat?.Barcode is { Length: > 0 } b ? b : l.Code;

@@ -871,7 +871,7 @@ public sealed class SupplierApiService
 
     private static SupplierReceipt ParseReceipt(JsonElement x)
     {
-        var items = Arr(x, "items") is { Count: > 0 } it ? it : Arr(x, "lines");
+        var items = InLineOrder(Arr(x, "items") is { Count: > 0 } it ? it : Arr(x, "lines"));
         var lines = items.Select(i => new SupplierReceiptLine(Str(i, "id"), Str(i, "product_id") is { Length: > 0 } pid ? pid : Str(i, "product"), Str(i, "product_name"),
             Str(i, "product_code"), Num(i, "qty"), Num(i, "purchase_price"), Num(i, "returned_qty"), Str(i, "unit"),
             Has(i, "markup_percent") ? Num(i, "markup_percent") : null, Has(i, "sale_price") ? Num(i, "sale_price") : null,
@@ -910,6 +910,18 @@ public sealed class SupplierApiService
         d.ValueKind == JsonValueKind.Array ? d.EnumerateArray()
         : d.ValueKind == JsonValueKind.Object && d.TryGetProperty("results", out var r) && r.ValueKind == JsonValueKind.Array ? r.EnumerateArray()
         : Enumerable.Empty<JsonElement>();
+
+    /// <summary>2026-11-07 (ТЗ «Порядковая нумерация товаров в накладной»): если у ВСЕХ строк прихода есть числовое поле порядка (line_no / position / sort_order) — строки идут по нему,
+    /// иначе порядок как в ответе сервера (сортировка устойчивая). Номера «№» накладной = место строки в этом порядке; правка количества/цены его не меняет.</summary>
+    internal static List<JsonElement> InLineOrder(List<JsonElement> items)
+    {
+        if (items.Count < 2)
+            return items;
+        foreach (var name in new[] { "line_no", "position", "sort_order" })
+            if (items.All(i => Has(i, name) && i.GetProperty(name).ValueKind == JsonValueKind.Number))
+                return items.Select((item, index) => (Item: item, Index: index)).OrderBy(t => Num(t.Item, name)).ThenBy(t => t.Index).Select(t => t.Item).ToList();
+        return items;
+    }
 
     private static List<JsonElement> Arr(JsonElement x, string name) =>
         x.ValueKind == JsonValueKind.Object && x.TryGetProperty(name, out var a) && a.ValueKind == JsonValueKind.Array ? a.EnumerateArray().ToList() : new List<JsonElement>();

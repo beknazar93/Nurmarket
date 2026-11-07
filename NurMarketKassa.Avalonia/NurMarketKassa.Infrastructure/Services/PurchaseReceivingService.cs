@@ -232,6 +232,7 @@ public sealed class PurchaseReceivingService
             st.MarkPosted(id, total, at, Str(response, "number_display")); // 2026-11-06 (Б-3): серверный номер — источник истины
             // 2026-10-27 (Б-06 сервера): price_changed в ответе прихода (если сервер его присылает) — нужен, чтобы решить, возвращать ли цену.
             ServerPriceContract.Observe(response);
+            LogReceiptPriceEcho(response, ready);
             return (true, id, total, at, ServerPriceContract.PriceChangedOf(response));
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !st.IsStopping(ct))
@@ -248,6 +249,31 @@ public sealed class PurchaseReceivingService
                 "The supplier delivery was not posted: ", "Tedarikçiden mal kabulü yapılamadı: ",
                 "Yetkazib beruvchidan kirim o'tkazilmadi: ") + Msg2(ex));
             return (false, null, null, null, null);
+        }
+    }
+
+    /// <summary>2026-11-07 (Б-П1): ответ прихода показывает цену продажи по каждой строке; не совпала с введённой — сервер пересчитал её по карточке (Н-04) и накладная на сервере покажет не то, что ввели.
+    /// В журнал — одна строка; окна накладной тогда берут цену и наценку из журнала кассы (ReceiptPriceView).</summary>
+    private static void LogReceiptPriceEcho(JsonElement response, IReadOnlyList<ReceivingLineVm> ready)
+    {
+        try
+        {
+            if (response.ValueKind != JsonValueKind.Object || !response.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+                return;
+            var ignored = 0;
+            foreach (var item in items.EnumerateArray())
+            {
+                var pid = Str(item, "product_id") ?? Str(item, "product");
+                var line = ready.FirstOrDefault(l => string.Equals(l.ProductId, pid, StringComparison.OrdinalIgnoreCase));
+                if (line is { SalePrice: > 0 } && Num(item, "sale_price") is > 0 and var echoed && Math.Abs(echoed - line.SalePrice) > 0.004)
+                    ignored++;
+            }
+            if (ignored > 0)
+                PosLogger.Log($"PRICE_SYNC: сервер записал в строки прихода цену продажи, отличную от введённой ({ignored} стр.) — накладная покажет цену из журнала кассы.", "PRICE_SYNC");
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"PRICE_SYNC: ответ прихода не разобран ({ex.Message}).", "WARNING");
         }
     }
 
@@ -713,6 +739,21 @@ public sealed class PurchaseReceivingService
         return problems;
     }
 
+    /// <summary>2026-11-07 (живой тест, Б-П1): цена продажи и наценка, введённые владельцем, уходят В СТРОКУ прихода (sale_price, markup_percent — поля из ТЗ Умару п. 13, в ответах GET они уже есть).
+    /// Раньше строка шла только с закупкой, и сервер записывал в накладную цену и наценку ПО СТАРОЙ КАРТОЧКЕ (закупка 40 × 1,2 = 48 / 20 %, хотя введено 60 / 50 %), а введённая цена уходила
+    /// в товар отдельным PATCH уже после прихода. Сервер, не знающий этих полей, их пропускает (как document_number) — тогда накладную дополняет журнал кассы (ReceiptMarkupLog, см. ReceiptPriceView).
+    /// Цена не задана («Оставить без цены», 0) — полей нет, цена товара не трогается. Наценка — от закупки по накладной, как в журнале (ReceiptMarkupLog.FromLine).</summary>
+    private static Dictionary<string, object?> WithEnteredSalePrice(Dictionary<string, object?> item, ReceivingLineVm l)
+    {
+        if (l.SalePrice > 0)
+        {
+            item["sale_price"] = l.SalePrice;
+            if (ReceivingPricing.MarkupPercent(l.PurchasePrice, l.SalePrice) is { } markup)
+                item["markup_percent"] = markup;
+        }
+        return item;
+    }
+
     /// <summary>Провести приёмку. <paramref name="paidNow"/> — только с поставщиком: true — оплачено
     /// сразу (деньги уходят из кассы расходов, как у сайта), false — в долг поставщику.</summary>
     /// <param name="paymentFields">2026-10-22 (закупки как в вебе): «Оплачено сразу» не из кассы расходов — поля кассы для прихода
@@ -845,6 +886,9 @@ public sealed class PurchaseReceivingService
                         createdNow.Add(line);
                 CreatedPriceSet(st, line, line.SalePrice);
                 Interlocked.Increment(ref created);
+                // 2026-11-07: сервер мог поставить цену продажи сам (по наценке 20 % от закупки вместо введённой) — сверяем с ответом создания, расхождение чиним сразу.
+                if (line.SalePrice > 0)
+                    await EnsureSalePriceAsync(line, line.SalePrice, line.PurchasePrice, response, errors, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (Soft(ex))
             {
@@ -895,14 +939,14 @@ public sealed class PurchaseReceivingService
             // 2. С поставщиком — документ прихода. Остаток прибавляет сервер.
             var body = new Dictionary<string, object?>
             {
-                ["items"] = ready.Select(l => new Dictionary<string, object?>
+                ["items"] = ready.Select(l => WithEnteredSalePrice(new Dictionary<string, object?>
                 {
                     ["product"] = l.ProductId,
                     // 2026-10-29: сервер принимает не больше 3 знаков после запятой. 2026-10-31 («Не округляй»): ввод с лишними знаками не проводится
                     // (Validate), поэтому здесь убираем только шум double (0,1+0,2 = 0,30000000000000004), а не округляем введённое количество.
                     ["qty"] = Math.Round(l.Quantity, 6, MidpointRounding.AwayFromZero),
                     ["purchase_price"] = Math.Round(l.PurchasePrice, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero), // 2026-11-01: сервер хранит 4 знака
-                }).ToList(),
+                }, l)).ToList(),
                 ["payment_type"] = paidNow ? "cash" : "debt",
             };
             // Как у сайта: оплата «сразу» уходит из кассы переменных расходов.
@@ -954,11 +998,15 @@ public sealed class PurchaseReceivingService
             // 2026-10-25: приход уже проведён или отправлялся (исход неизвестен) — цену «до» заново не читаем: она могла измениться самим приходом.
             var fresh = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
             // 2026-10-27 (Б-06): сервер уже показал, что приход цену продажи не меняет (price_changed в ответах) — цену «до» читать незачем.
-            if (!ServerPriceContract.ServerKeepsSalePrice && (st is null || st.ReceiptOutcome is ReceivingReceiptOutcome.NotSent or ReceivingReceiptOutcome.Rejected))
+            // 2026-11-07 (жалоба «закупка 40, продажа 60 → 48»): признак «сервер присылает price_changed» залипает на весь запуск и раньше полностью отключал чтение цены «до»;
+            // но price_changed мог прийти от PATCH товара, а приход (другой адрес) всё ещё пересчитывал цену по наценке товара — тогда после прихода «сохраняли» уже пересчитанные 48.
+            // Поэтому у строк, где закупка изменилась (только они и пересчитываются), цену «до» читаем всегда; у остальных — как раньше.
+            var serverKeeps = ServerPriceContract.ServerKeepsSalePrice;
+            if (st is null || st.ReceiptOutcome is ReceivingReceiptOutcome.NotSent or ReceivingReceiptOutcome.Rejected)
             {
                 try
                 {
-                    fresh = await ReadSalePricesAsync(ready.Where(l => !l.IsNew && !PriceBeforeTryGet(st, l, out _) && MayRecalculate(l)).Select(l => l.ProductId!), ct).ConfigureAwait(false);
+                    fresh = await ReadSalePricesAsync(ready.Where(l => !l.IsNew && !PriceBeforeTryGet(st, l, out _) && (serverKeeps ? PurchaseDiffers(l) : MayRecalculate(l))).Select(l => l.ProductId!), ct).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (st is not null && !st.IsStopping(ct))
                 {
@@ -982,6 +1030,7 @@ public sealed class PurchaseReceivingService
                         receiptTotal = serverTotal;
                     receiptAt = SupplierApiService.Date(Str(response, "created_at") ?? "");
                     ServerPriceContract.Observe(response);
+                    LogReceiptPriceEcho(response, ready);
                     receiptPriceChanged = ServerPriceContract.PriceChangedOf(response);
                     posted.AddRange(ready);
                 }
@@ -1054,6 +1103,7 @@ public sealed class PurchaseReceivingService
             bool NeedsPricePatch(ReceivingLineVm l) => PriceChanged(l) || PurchaseChanged(l) || l.Source == ReceivingSource.GlobalBase || l.LandedExtraPerUnit > 0;
             double SaleToWrite(ReceivingLineVm l) =>
                 priceTargets.FirstOrDefault(t => ReferenceEquals(t.Line, l)) is { Line: not null, Target: > 0 } t ? t.Target : l.SalePrice;
+            var verifiedSale = new HashSet<ReceivingLineVm>(ReferenceEqualityComparer.Instance); // 2026-11-07: строки, у которых ответ PATCH уже показал нужную цену — повторно не читаем
             foreach (var line in ready.Where(l => NeedsPricePatch(l) || l.NameOrUnitChanged))
             {
                 if (st is { Interrupted: true })
@@ -1099,7 +1149,12 @@ public sealed class PurchaseReceivingService
                         st?.MarkPriceStepDone(line);
                         continue; // 2026-10-27 (Ск-7): цену не пишем, названия/единицы менять нечего — пустой PATCH не шлём
                     }
-                    ServerPriceContract.Observe(await Api.PatchProductFieldsAsync(line.ProductId!, fields, ct).ConfigureAwait(false));
+                    var patchResponse = await Api.PatchProductFieldsAsync(line.ProductId!, fields, ct).ConfigureAwait(false);
+                    ServerPriceContract.Observe(patchResponse);
+                    // 2026-11-07: ответ PATCH показывает цену продажи — совпала с записанной (проверено), нет — второй запрос и запись в итог приёмки.
+                    if (fields.TryGetValue("price", out var sentPrice) && sentPrice is double sentSale
+                        && await EnsureSalePriceAsync(line, sentSale, line.CostPrice, patchResponse, errors, ct).ConfigureAwait(false) == true)
+                        verifiedSale.Add(line);
                     st?.MarkPriceStepDone(line);
                 }
                 catch (Exception ex) when (Soft(ex))
@@ -1139,13 +1194,25 @@ public sealed class PurchaseReceivingService
                 // 2026-10-27 (Б-06 сервера, PRICE_SYNC): сервер сам сказал, что приход цену продажи не менял, — «возврат цены» опасен: он вернул бы
                 // «прежнюю» цену, которую кто-то мог законно поменять за время приёмки (на сайте, в программе владельца). Поле price_changed нет —
                 // прежнее поведение (else ниже).
-                PosLogger.Log("PRICE_SYNC: сервер сообщил price_changed=false — возврат цен продажи после прихода пропущен.", "PRICE_SYNC");
+                // 2026-11-07: но слепо верить флагу нельзя (см. выше) — у строк с изменившейся закупкой (единственный случай пересчёта) цену на сервере сверяем с целью и при расхождении возвращаем.
+                PosLogger.Log("PRICE_SYNC: сервер сообщил price_changed=false — возврат цен продажи после прихода пропущен (сверка только у строк с новой закупкой).", "PRICE_SYNC");
+                try
+                {
+                    var recheck = priceTargets.Where(t => PurchaseDiffers(t.Line) && !verifiedSale.Contains(t.Line)).ToList();
+                    if (recheck.Count > 0)
+                        await RestoreSalePricesAsync(recheck, errors, ct, priceBeforeTargets, announce: true).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (st is not null && !st.IsStopping(ct))
+                {
+                    st.Interrupted = true;
+                    errors.Add(NoAnswerText);
+                }
             }
             else
             {
                 try
                 {
-                    await RestoreSalePricesAsync(priceTargets, errors, ct, priceBeforeTargets).ConfigureAwait(false);
+                    await RestoreSalePricesAsync(priceTargets.Where(t => !verifiedSale.Contains(t.Line)).ToList(), errors, ct, priceBeforeTargets, announce: true).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (st is not null && !st.IsStopping(ct))
                 {
@@ -1227,9 +1294,10 @@ public sealed class PurchaseReceivingService
                         PatchSet(st, line, preStock, target);
                     }
                     AddNameAndUnit(line, fields);
+                    JsonElement noSupplierResponse = default;
                     try
                     {
-                        await Api.PatchProductFieldsAsync(line.ProductId!, fields, ct).ConfigureAwait(false);
+                        noSupplierResponse = await Api.PatchProductFieldsAsync(line.ProductId!, fields, ct).ConfigureAwait(false);
                     }
                     catch (Exception ex) when (fields.ContainsKey("quantity") && !PendingIdempotencyKey.IsOutcomeUnknown(ex))
                     {
@@ -1242,6 +1310,9 @@ public sealed class PurchaseReceivingService
                         throw;
                     }
                     PatchRemove(st, line);
+                    // 2026-11-07: ответ PATCH показал не ту цену продажи, что записали (сервер пересчитал по наценке товара) — вернуть введённую и сказать об этом (остаток к этому моменту уже записан).
+                    if (fields.TryGetValue("price", out var writtenPrice) && writtenPrice is double writtenSale)
+                        await EnsureSalePriceAsync(line, writtenSale, line.CostPrice, noSupplierResponse, errors, ct).ConfigureAwait(false);
                     lock (posted)
                         posted.Add(line);
                     st?.SetOutcome(line, "posted");
@@ -1392,7 +1463,7 @@ public sealed class PurchaseReceivingService
     /// (GET товара, до 4 запросов сразу). Отличается от нужной (поправленной в приёмке или прежней) — сервер пересчитал её сам
     /// (наценка от новой цены закупки): PATCH нужной цены и запись в журнал. Не прочитать — предупреждение (приход уже проведён).</summary>
     public async Task<int> RestoreSalePricesAsync(IReadOnlyList<(ReceivingLineVm Line, double Target)> targets, List<string>? errors, CancellationToken ct = default,
-        IReadOnlySet<ReceivingLineVm>? priceBeforeTargets = null)
+        IReadOnlySet<ReceivingLineVm>? priceBeforeTargets = null, bool announce = false)
     {
         var restored = 0;
         using var gate = new SemaphoreSlim(4, 4);
@@ -1415,9 +1486,33 @@ public sealed class PurchaseReceivingService
                     PosLogger.Log($"PRICE_SYNC: у товара {line.ProductId} цена на сервере {serverPrice:0.##} отличается от «до прихода» {x.Target:0.##}, но не из-за новой закупки ({line.OriginalPurchasePrice:0.##} → {line.PurchasePrice:0.##}) — цену не возвращаем.", "PRICE_SYNC");
                     return;
                 }
-                await Api.PatchProductFieldsAsync(line.ProductId!, new Dictionary<string, object?> { ["price"] = x.Target }, ct).ConfigureAwait(false);
+                // 2026-11-07: вместе с ценой уходит и наценка ({price, markup_percent}, как карточка товара) — иначе на сервере оставались пересчитанные «20 %» от прошлой наценки.
+                var restoreFields = new Dictionary<string, object?> { ["price"] = x.Target };
+                if (ReceivingPricing.MarkupPercent(line.CostPrice, x.Target) is { } restoreMarkup)
+                    restoreFields["markup_percent"] = restoreMarkup;
+                var restoreResponse = await Api.PatchProductFieldsAsync(line.ProductId!, restoreFields, ct).ConfigureAwait(false);
                 Interlocked.Increment(ref restored);
                 PosLogger.Log($"Приход: у товара {line.ProductId} цена продажи после прихода {serverPrice:0.##} вместо {x.Target:0.##} (сервер пересчитал от цены закупки {line.PurchasePrice:0.##}) — возвращена {x.Target:0.##}.", "STOCK");
+                // 2026-11-07: владельцу — «Сервер изменил цену продажи с 60 на 48 — исправлено / не удалось» (ответ PATCH сверяется с целью).
+                if (announce && errors is not null)
+                {
+                    var after = CardPrice(restoreResponse) ?? x.Target;
+                    var to = x.Target.ToString("0.##");
+                    var from = serverPrice.ToString("0.##");
+                    var done = Math.Abs(after - x.Target) <= 0.004;
+                    lock (gate)
+                        errors.Add(done
+                            ? Tr.T($"{line.ProductName}: сервер изменил цену продажи с {to} на {from} — исправлено, цена {to}.",
+                                $"{line.ProductName}: сервер сатуу баасын {to} дан {from} га өзгөрттү — оңдолду, баасы {to}.",
+                                $"{line.ProductName}: the server changed the selling price from {to} to {from} — fixed, the price is {to}.",
+                                $"{line.ProductName}: sunucu satış fiyatını {to} değerinden {from} değerine değiştirdi — düzeltildi, fiyat {to}.",
+                                $"{line.ProductName}: server sotuv narxini {to} dan {from} ga o'zgartirdi — to'g'rilandi, narx {to}.")
+                            : Tr.T($"{line.ProductName}: сервер изменил цену продажи с {to} на {from}, вернуть не удалось (сейчас {after:0.##}) — поправьте цену в карточке товара.",
+                                $"{line.ProductName}: сервер сатуу баасын {to} дан {from} га өзгөрттү, кайтаруу мүмкүн болгон жок (азыр {after:0.##}) — баасын товар карточкасынан оңдоңуз.",
+                                $"{line.ProductName}: the server changed the selling price from {to} to {from} and it could not be restored (now {after:0.##}) — fix the price in the product card.",
+                                $"{line.ProductName}: sunucu satış fiyatını {to} değerinden {from} değerine değiştirdi ve geri alınamadı (şu an {after:0.##}) — fiyatı ürün kartında düzeltin.",
+                                $"{line.ProductName}: server sotuv narxini {to} dan {from} ga o'zgartirdi, qaytarib bo'lmadi (hozir {after:0.##}) — narxni mahsulot kartasida to'g'rilang."));
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -1745,6 +1840,73 @@ public sealed class PurchaseReceivingService
         }
         PosLogger.Log($"Приёмка: товары поставщика «{supplier.Name}» — {byProduct.Count}.", "STOCK");
         return byProduct.Values.OrderByDescending(p => p.LastAt).ToList();
+    }
+
+    // ------------------------------------------------------------------ 2026-11-07: цена продажи после ответа сервера
+
+    /// <summary>2026-11-07: закупка строки изменилась против карточки — только в этом случае сервер (Н-04) мог пересчитать цену продажи сам.</summary>
+    private static bool PurchaseDiffers(ReceivingLineVm l) => !l.IsNew && Math.Abs(l.PurchasePrice - l.OriginalPurchasePrice) > 0.00005;
+
+    /// <summary>2026-11-07: цена продажи из ответа сервера (товар верхнего уровня или вложенный product/data); null — в ответе цены нет.</summary>
+    private static double? CardPrice(JsonElement response)
+    {
+        if (response.ValueKind != JsonValueKind.Object)
+            return null;
+        if (response.TryGetProperty("price", out var direct) && JsonNumericReader.TryToDouble(direct, out var d))
+            return d;
+        foreach (var key in new[] { "product", "data" })
+            if (response.TryGetProperty(key, out var nested) && nested.ValueKind == JsonValueKind.Object
+                && nested.TryGetProperty("price", out var inner) && JsonNumericReader.TryToDouble(inner, out var d2))
+                return d2;
+        return null;
+    }
+
+    /// <summary>2026-11-07, жалоба владельца «закупка 40, продажа 60, после сохранения программа ставит 20 % и показывает 48»: сверка цены продажи с ответом сервера.
+    /// Сервер ответил ценой, отличной от введённой (<paramref name="target"/>) — второй запрос {price, markup_percent} возвращает введённую цену и наценку, ответ сверяется ещё раз;
+    /// в итог приёмки пишется «Сервер изменил цену продажи с 60 на 48 — исправлено / не удалось». В ответе цены нет — null (сверит последующая проверка).
+    /// true — цена на сервере равна введённой. Исключений не бросает (приход / остаток к этому моменту уже записаны), кроме отмены.</summary>
+    private async Task<bool?> EnsureSalePriceAsync(ReceivingLineVm line, double target, double costBase, JsonElement response, List<string> errors, CancellationToken ct)
+    {
+        if (target <= 0 || CardPrice(response) is not { } got)
+            return null;
+        if (Math.Abs(got - target) <= 0.004)
+            return true;
+        var fields = new Dictionary<string, object?> { ["price"] = target };
+        if (ReceivingPricing.MarkupPercent(costBase, target) is { } markup)
+            fields["markup_percent"] = markup;
+        double? after = null;
+        string? failure = null;
+        try
+        {
+            ServerPriceContract.Observe(response);
+            var patched = await Api.PatchProductFieldsAsync(line.ProductId!, fields, ct).ConfigureAwait(false);
+            after = CardPrice(patched);
+            if (after is null && await Api.ProductsDetailAsync(line.ProductId!, ct).ConfigureAwait(false) is { ValueKind: JsonValueKind.Object } card)
+                after = CardPrice(card);
+        }
+        catch (Exception ex)
+        {
+            failure = ex.Message; // отмена тоже: приход/товар уже записаны, остальное доделают следующие шаги
+        }
+        var fixedNow = after is { } a && Math.Abs(a - target) <= 0.004;
+        PosLogger.Log($"PRICE_SYNC: у товара {line.ProductId} после приёма цена продажи {got:0.##} вместо введённой {target:0.##} (сервер пересчитал по своей наценке) — "
+                      + (fixedNow ? "возвращена введённая." : $"вернуть не удалось ({failure ?? (after is { } z ? z.ToString("0.##") : "нет ответа")}).") , "PRICE_SYNC");
+        var from = got.ToString("0.##");
+        var to = target.ToString("0.##");
+        var shown = (after ?? got).ToString("0.##");
+        lock (errors)
+            errors.Add(fixedNow
+                ? Tr.T($"{line.ProductName}: сервер изменил цену продажи с {to} на {from} — исправлено, цена {to}.",
+                    $"{line.ProductName}: сервер сатуу баасын {to} дан {from} га өзгөрттү — оңдолду, баасы {to}.",
+                    $"{line.ProductName}: the server changed the selling price from {to} to {from} — fixed, the price is {to}.",
+                    $"{line.ProductName}: sunucu satış fiyatını {to} değerinden {from} değerine değiştirdi — düzeltildi, fiyat {to}.",
+                    $"{line.ProductName}: server sotuv narxini {to} dan {from} ga o'zgartirdi — to'g'rilandi, narx {to}.")
+                : Tr.T($"{line.ProductName}: сервер изменил цену продажи с {to} на {from}, вернуть не удалось (сейчас {shown}) — поправьте цену в карточке товара.",
+                    $"{line.ProductName}: сервер сатуу баасын {to} дан {from} га өзгөрттү, кайтаруу мүмкүн болгон жок (азыр {shown}) — баасын товар карточкасынан оңдоңуз.",
+                    $"{line.ProductName}: the server changed the selling price from {to} to {from} and it could not be restored (now {shown}) — fix the price in the product card.",
+                    $"{line.ProductName}: sunucu satış fiyatını {to} değerinden {from} değerine değiştirdi ve geri alınamadı (şu an {shown}) — fiyatı ürün kartında düzeltin.",
+                    $"{line.ProductName}: server sotuv narxini {to} dan {from} ga o'zgartirdi, qaytarib bo'lmadi (hozir {shown}) — narxni mahsulot kartasida to'g'rilang."));
+        return fixedNow;
     }
 
     // ------------------------------------------------------------------ JSON

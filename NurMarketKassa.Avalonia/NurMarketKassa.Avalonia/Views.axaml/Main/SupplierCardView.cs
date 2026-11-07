@@ -652,7 +652,7 @@ public sealed class SupplierCardView : UserControl
             line.Inlines!.Add(new Run(T("Ближайший платёж: ", "Жакынкы төлөм: ", "Next payment: ", "Sonraki ödeme: ", "Keyingi to'lov: ")));
             var r = new Run($"{due:dd.MM.yyyy} — {MoneyText.Som(next.Remaining)}") { FontWeight = FontWeight.SemiBold };
             if (due.Date < DateTime.Today)
-                r.Bind(TextElement.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
+                r.Bind(TextElement.ForegroundProperty, line.GetResourceObservable("BrushDanger")); // 2026-11-07 (память, В11): ресурс берём у своего TextBlock, а не у всей карточки — перерисованная строка не копится в её подписках
             line.Inlines.Add(r);
             if (due.Date < DateTime.Today)
                 line.Inlines.Add(new Run(T($" · просрочен на {(DateTime.Today - due.Date).Days} дн.", $" · {(DateTime.Today - due.Date).Days} күн кечикти", $" · {(DateTime.Today - due.Date).Days} days overdue",
@@ -766,11 +766,11 @@ public sealed class SupplierCardView : UserControl
         var total = new TextBlock { FontSize = 15, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
         Use(total, TextBlock.ForegroundProperty, "BrushText");
         total.Inlines!.Add(new Run(T("Мы должны ", "Биз карызбыз ", "We owe ", "Borcumuz ", "Qarzimiz ")));
-        total.Inlines.Add(Red(MoneyText.Som(open.Sum(d => d.Remaining)), Debt > 0.005));
+        total.Inlines.Add(Red(MoneyText.Som(open.Sum(d => d.Remaining)), Debt > 0.005, total));
         if (Overdue > 0.005)
         {
             total.Inlines.Add(new Run(T(" · просрочено ", " · мөөнөтү өттү ", " · overdue ", " · vadesi geçmiş ", " · muddati o'tgan ")));
-            total.Inlines.Add(Red(MoneyText.Som(Overdue), true));
+            total.Inlines.Add(Red(MoneyText.Som(Overdue), true, total));
         }
         total.Inlines.Add(new Run(T($" · долгов: {open.Count}", $" · карыздар: {open.Count}", $" · debts: {open.Count}", $" · borç: {open.Count}", $" · qarzlar: {open.Count}")));
         // 2026-10-23, просьба владельца: «кнопка погасить весь долг где?» — все неоплаченные взносы одним подтверждением.
@@ -1348,11 +1348,11 @@ public sealed class SupplierCardView : UserControl
         return t;
     }
 
-    private Run Red(string text, bool red)
+    private static Run Red(string text, bool red, Control owner)
     {
         var run = new Run(text) { FontWeight = FontWeight.Bold };
         if (red)
-            run.Bind(TextElement.ForegroundProperty, this.GetResourceObservable("BrushDanger"));
+            run.Bind(TextElement.ForegroundProperty, owner.GetResourceObservable("BrushDanger")); // 2026-11-07 (память, В11): подписка на ресурс — у TextBlock-владельца, не у карточки
         return run;
     }
 

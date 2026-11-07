@@ -106,7 +106,7 @@ public static class SaleReturnLedger
     private static readonly TimeSpan KeepFor = TimeSpan.FromDays(45);
 
     private static readonly string FilePath = Path.Combine(
-        NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa", "sale-returns.json");
+        NurMarketKassa.Services.AppPaths.KassaLocal, "sale-returns.json");
 
     /// <summary>2026-10-21 (ревью денег, п. 3): копия прошлой версии журнала — читается, если основной файл не прочитан.</summary>
     private static readonly string BackupPath = FilePath + ".bak";

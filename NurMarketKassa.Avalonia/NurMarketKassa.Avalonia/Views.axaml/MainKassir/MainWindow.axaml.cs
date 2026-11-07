@@ -3002,6 +3002,7 @@ public partial class MainWindow : Window
         }
         _shiftAgeLevel = level;
         _shiftAgeLine = line;
+        ApplyShiftPill(); // 2026-11-06 (В7, Д4-01): «Смена 09:04 ▾» в шапке — по запомненному времени открытия
         var status = _viewModel.Toolbar.Status;
         status.SetShiftAge(line, level == ShiftAgeLevel.Red);
         if (level >= ShiftAgeLevel.Late
@@ -3012,6 +3013,19 @@ public partial class MainWindow : Window
             _ = PosAlertDialog.ShowAsync(this, Tr.T("Внимание", "Көңүл буруңуз", "Warning", "Uyarı", "Diqqat"), line, PosAlertKind.Warning, null, info: true);
         }
     }
+
+    /// <summary>2026-11-06 (В7, Д4-01): текст, подсказка и имя для диктора у пилюли смены в шапке. Видимость пилюли — от Toolbar.CanCloseShift (в XAML).</summary>
+    private void ApplyShiftPill()
+    {
+        DateTime? opened = _session.IsShiftOpen ? ShiftAgeWarning.Get(_session.ActiveShiftId) : null;
+        ShiftPillText.Text = KassaMainViewRules.ShiftPillLabel(opened);
+        var tip = KassaMainViewRules.ShiftPillTooltip(opened);
+        ToolTip.SetTip(ShiftPillButton, tip);
+        Avalonia.Automation.AutomationProperties.SetName(ShiftPillButton, ShiftPillText.Text + ". " + tip);
+    }
+
+    /// <summary>2026-11-06 (В7, Д4-01): «X-отчёт» из меню пилюли смены — то же окно, что в меню ☰.</summary>
+    private void XReport_Click(object? sender, RoutedEventArgs e) => ShowXReport();
 
     /// <summary>Сервер закрыл смену сам: шапка и кнопки сразу «Смена закрыта сервером в ЧЧ:ММ», «Открыть смену» активна,
     /// «Закрыть смену» скрыта (всё это от IsShiftOpen), корзина НЕ трогается, локальные данные смены (внесения/изъятия

@@ -479,6 +479,7 @@ public sealed partial class AiAdvisorWindow : Window, IOwnerSection, IOwnerSecti
             EndLive(null);
             SaveCurrentChat();
             ChatStore.Flush(TimeSpan.FromSeconds(2));
+            ChatStore.Release(); // 2026-11-06 (В16, память): история разговоров (до ~12 МБ строк) не держится в памяти после закрытия окна — следующее открытие прочитает файл
             _cts?.Cancel();
             _recorder?.Dispose();
             _recorder = null;

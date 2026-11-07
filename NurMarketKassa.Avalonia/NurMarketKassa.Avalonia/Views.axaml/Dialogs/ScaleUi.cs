@@ -342,18 +342,22 @@ internal static partial class ScaleUi
 
     // ------------------------------------------------------------------ открыть окна
 
+    /// <summary>2026-11-07 (живая проверка 1.17.81, Б-F1): какое окно «Настройки весов» открывает марка — чистая функция (для проверки в тестах). У AI-весов окна нет (null).
+    /// Единая точка входа: Настройки → Весы → «Настройки весов…», окно «Весы» и «Формат штрих-кода на самих весах…» берут окно отсюда.</summary>
+    public static Type? SettingsWindowTypeFor(string brand) => brand switch
+    {
+        BrandRongta => typeof(RongtaScaleSettingsWindow),
+        BrandTm => typeof(TmScaleSettingsWindow),
+        BrandAi => null,
+        // 2026-11-06: РС-200 — полное окно параметров конфигурации (Config.txt); пошаговая инструкция подключения открывается кнопкой на вкладке «Подключение»
+        BrandShtrikhPc => typeof(ShtrikhPcSettingsWindow),
+        _ => typeof(ShtrikhScaleSettingsWindow),
+    };
+
     /// <summary>Окно настроек весов выбранной марки. Для AI-весов отдельного окна нет.</summary>
     public static async Task OpenBrandSettingsAsync(Window owner, string brand)
     {
-        Window window = brand switch
-        {
-            BrandRongta => new RongtaScaleSettingsWindow(),
-            BrandTm => new TmScaleSettingsWindow(),
-            BrandAi => null!,
-            // 2026-11-06: у РС-200 своего окна настроек нет — вместо него пошаговая инструкция (вход в конфигурацию весов, общий доступ)
-            BrandShtrikhPc => new ScaleGuideWindow(BrandShtrikhPc),
-            _ => new ShtrikhScaleSettingsWindow(),
-        };
+        var window = SettingsWindowTypeFor(brand) is { } windowType ? (Window)Activator.CreateInstance(windowType)! : null;
         if (window is null)
         {
             await PosAlertDialog.ShowAsync(owner, BrandTitle(brand), L(

@@ -106,14 +106,21 @@ public static class RongtaTcpServerService
         await WriteAsync(stream, RongtaTcpProtocol.BuildAck(RongtaTcpProtocol.CmdStart), ct).ConfigureAwait(false);
 
         var sent = 0;
+        var skipped = new List<string>();
         foreach (var product in products)
         {
+            // 2026-11-06: цена выше предела поля — не загружаем и не обрезаем молча.
+            if (!ScalePriceLimits.Fits((decimal)product.PriceSom, ScalePriceLimits.RongtaRlsMaxUnits, 2))
+            {
+                skipped.Add($"«{product.Name}»: " + ScalePriceLimits.DoesNotFitText((decimal)product.PriceSom, ScalePriceLimits.RongtaRlsMaxUnits, 2));
+                continue;
+            }
             var packet = RongtaTcpProtocol.BuildPluRecord(product.Plu, product.Name, product.PriceSom);
             await WriteAsync(stream, packet, ct).ConfigureAwait(false);
             sent++;
         }
 
-        return RongtaTcpServerResult.Sent(sent);
+        return RongtaTcpServerResult.Sent(sent, skipped);
     }
 
     private static async Task<(string Command, string Data)?> ReadPacketAsync(
@@ -160,6 +167,10 @@ public sealed class RongtaTcpServerResult
     public string? ErrorMessage { get; private init; }
     public int RecordsSent { get; private init; }
 
-    public static RongtaTcpServerResult Sent(int count) => new() { IsSuccess = true, RecordsSent = count };
+    /// <summary>2026-11-06: товары, не загруженные из-за цены выше предела поля весов (с готовым текстом на 5 языках).</summary>
+    public IReadOnlyList<string> Skipped { get; private init; } = Array.Empty<string>();
+
+    public static RongtaTcpServerResult Sent(int count, IReadOnlyList<string>? skipped = null) =>
+        new() { IsSuccess = true, RecordsSent = count, Skipped = skipped ?? Array.Empty<string>() };
     public static RongtaTcpServerResult Failed(string message) => new() { IsSuccess = false, ErrorMessage = message };
 }

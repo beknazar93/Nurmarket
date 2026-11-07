@@ -67,8 +67,8 @@ public partial class ScalesPluWindow : Window
     /// <summary>Весы, которые касса пишет строками «!0V» (TM-30F и Rongta напрямую).</summary>
     private bool IsDahuaWire => IsTm || IsRongtaLan;
 
-    /// <summary>Rongta показывает цену с двумя знаками (1234 → 12,34 на весах владельца, 30.09).</summary>
-    private const int RongtaPricePoint = 2;
+    // 2026-11-06: Rongta показывает цену с двумя знаками по умолчанию (1234 → 12,34 на весах владельца, 30.09); число знаков теперь
+    // настраивается (UserPreferences.RongtaPricePoint, «Настройки весов Rongta» → «Загрузка товаров»): при 2 знаках предел 9999,99 сом.
 
     /// <summary>Горячих кнопок у Rongta RLS1000/1100: 112 на клавиатуре × 2 уровня (руководство весов).</summary>
     private const int RongtaHotkeyCount = 224;
@@ -593,7 +593,7 @@ public partial class ScalesPluWindow : Window
                 // 2026-09-29: колонка PLU заполняется RefreshPluNumbers (закреплённый номер ячейки
                 // или PLU из карточки — смотря кто нумерует); здесь — только PLU карточки.
                 CatalogPlu = p.Plu,
-                PriceLine = p.PriceLine,
+                PriceLine = NurMarketKassa.Services.MoneyText.SomFromText(p.PriceLine), // 2026-11-07: «208,00 сом», а не «208.00 сом» (данные PriceLine не меняются; число — в Price)
                 Unit = p.Unit ?? "",
                 Category = (p.Category ?? "").Trim(),
                 Price = NurMarketKassa.Services.LocalCartService.ParsePrice(p.PriceLine),
@@ -987,6 +987,7 @@ public partial class ScalesPluWindow : Window
             var numbers = PinNumbersForSend(selectedIds);
             var (codes, problems) = CheckSendBatch(selectedIds, numbers, maxCode: 999999);
             var records = new List<ShtrikhPluRecord>();
+            var shtrikhPriceNotes = new List<string>();
             // Что на какой клавише окажется — показываем кассиру: панель подписывают руками,
             // и без этого списка непонятно, какую наклейку куда клеить.
             var keyMap = new List<(int Plu, string Name)>();
@@ -996,6 +997,20 @@ public partial class ScalesPluWindow : Window
             {
                 if (!byId.TryGetValue(id, out var product) || problems.ContainsKey(id) || !numbers.TryGetValue(id, out var plu))
                     continue;
+
+                // 2026-11-06 (жалоба «дальше 9 тысяч цена не отображается»): цену выше предела МДЕ (999999: при 2 знаках весов —
+                // 9999,99 сом) не обрезаем молча, а не загружаем товар и говорим почему; остальные уходят как обычно.
+                var shtrikhPrice = (decimal)LocalCartService.ParsePrice(product.PriceLine);
+                var shtrikhDigits = ScalePriceLimits.ShtrikhPrintDigits(status.DecimalPointDigits);
+                if (!ScalePriceLimits.Fits(shtrikhPrice, ScalePriceLimits.ShtrikhPrintMaxUnits, shtrikhDigits))
+                {
+                    var priceText = ScalePriceLimits.DoesNotFitText(shtrikhPrice, ScalePriceLimits.ShtrikhPrintMaxUnits, shtrikhDigits,
+                        shtrikhDigits == 0 ? "" : ScalePriceLimits.FewerDecimalsHint("Положение десятичной точки (0 знаков)", "Ондук чекиттин орду (0 белги)", "Decimal point position (0 digits)", "Ondalık nokta konumu (0 hane)", "O‘nlik nuqta o‘rni (0 xona)"));
+                    problems[id] = priceText;
+                    shtrikhPriceNotes.Add($"«{product.Title}»: {priceText}");
+                    _allRows?.FirstOrDefault(r => r.Id == id)?.SetStatus("⚠ " + priceText, RowState.Warning);
+                    continue;
+                }
 
                 keyMap.Add((plu, product.Title));
                 recordIds.Add(id);
@@ -1015,7 +1030,9 @@ public partial class ScalesPluWindow : Window
 
             if (records.Count == 0)
             {
-                StatusText.Text = problems.Count > 0
+                StatusText.Text = shtrikhPriceNotes.Count > 0
+                    ? Tr.T("Ничего не отправлено. ", "Эч нерсе жөнөтүлгөн жок. ", "Nothing was sent. ", "Hiçbir şey gönderilmedi. ", "Hech narsa yuborilmadi. ") + string.Join(" · ", shtrikhPriceNotes.Take(3))
+                    : problems.Count > 0
                     ? Tr.T("Ничего не отправлено — исправьте строки с ⚠ (номер PLU или «Код в ШК»).", "Эч нерсе жөнөтүлгөн жок — ⚠ белгиси бар саптарды оңдоңуз (PLU номери же «ШКдагы код»).",
                         "Nothing was sent — fix the rows marked ⚠ (PLU number or “Barcode code”).", "Hiçbir şey gönderilmedi — ⚠ işaretli satırları düzeltin (PLU numarası veya «Barkod kodu»).",
                         "Hech narsa yuborilmadi — ⚠ belgili qatorlarni tuzating (PLU raqami yoki «ShKdagi kod»).")
@@ -1104,6 +1121,11 @@ public partial class ScalesPluWindow : Window
             if (problems.Count > 0)
                 StatusText.Text += Tr.T($" Не отправлено (⚠ в строках): {problems.Count}.", $" Жөнөтүлгөн жок (саптарда ⚠): {problems.Count}.", $" Not sent (⚠ in rows): {problems.Count}.",
                                         $" Gönderilmedi (satırlarda ⚠): {problems.Count}.", $" Yuborilmadi (qatorlarda ⚠): {problems.Count}.");
+            if (shtrikhPriceNotes.Count > 0)
+            {
+                StatusText.Text += " ⚠ " + string.Join(" · ", shtrikhPriceNotes.Take(3)) + (shtrikhPriceNotes.Count > 3 ? $" (+{shtrikhPriceNotes.Count - 3})" : "");
+                PosLogger.Log("Штрих-ПРИНТ: цена выше предела весов — " + string.Join("; ", shtrikhPriceNotes), "SCALES");
+            }
 
             // Печатаем раскладку в журнал: панель на 120 клавиш подписывают вручную, и владельцу
             // нужен список «номер клавиши — товар», чтобы наклеить ярлыки.
@@ -1190,6 +1212,17 @@ public partial class ScalesPluWindow : Window
         }
         var (ok, verdict) = NurMarketKassa.AvaloniaHost.Views.Dialogs.ScaleUi.VerifyWithKassa(sample, code, type.Value == RongtaBarcodeFormat.ValueKind.Weight, grams, amount);
         BarcodeExampleText.Text = head + (ok ? "✓ " : "⚠ ") + verdict;
+        if (type.Value == RongtaBarcodeFormat.ValueKind.Price && type.ValueDigits > 0)
+        {
+            // 2026-11-06: в штрих-код помещается сумма (в сотых) только до N сом — дороже чек получит неверную сумму.
+            var maxAmount = ((decimal)Math.Pow(10, type.ValueDigits) - 1) / 100m;
+            var maxText = maxAmount.ToString("N2", CultureInfo.GetCultureInfo("ru-RU"));
+            BarcodeExampleText.Text += " ⚠ " + Tr.T($"Сумма в штрих-коде — только до {maxText} сом: на более дорогих этикетках касса прочтёт неверную сумму (тип по весу такого предела не имеет).",
+                $"Штрих-коддогу сумма {maxText} сомго чейин гана: кымбат этикеткаларда касса туура эмес сумманы окуйт (салмак боюнча түрдө мындай чек жок).",
+                $"The amount in the barcode is only up to {maxText} som: on more expensive labels the till will read a wrong amount (a weight type has no such limit).",
+                $"Barkoddaki tutar yalnızca {maxText} som’a kadar: daha pahalı etiketlerde kasa yanlış tutar okur (ağırlık türünde bu sınır yok).",
+                $"Shtrix-koddagi summa faqat {maxText} so‘mgacha: qimmatroq yorliqlarda kassa noto‘g‘ri summani o‘qiydi (vazn turida bunday chegara yo‘q).");
+        }
     }
 
     /// <summary>Собирает записи PLU для TM-30F так же, как для Штрих-М по LAN: номер — закреплённый
@@ -1209,6 +1242,8 @@ public partial class ScalesPluWindow : Window
         var keyMap = new List<(int Plu, string Name)>();
         var rowsById = _allRows.ToDictionary(r => r.Id);
         _tmRecordIds.Clear();
+        var priceSkipped = new List<string>();
+        _tmPriceNote = "";
         // 2026-09-29: закреплённые номера и проверка номеров/кодов — общие со Штрих-ПРИНТ
         // (ScalesPluWindow.PinnedPlu.cs); pluStart — только начало для новых товаров (PluStart).
         var numbers = PinNumbersForSend(selectedIds);
@@ -1233,6 +1268,16 @@ public partial class ScalesPluWindow : Window
                 Name = product.Title,
             };
             var problem = DahuaTmProtocol.Validate(record, decimals);
+            if (problem == DahuaTmPluProblem.PriceDoesNotFit)
+            {
+                // 2026-11-06 (жалоба «дальше 9 тысяч цена не отображается»): дорогой товар не обрезаем и не блокируем остальные —
+                // не загружаем его, называем в итоге с пределом весов. Номера PLU закреплены, сдвига клавиш нет.
+                var priceText = ScalePriceLimits.DoesNotFitText(record.Price, ScalePriceLimits.DahuaMaxUnits, decimals, TmPriceHint());
+                priceSkipped.Add($"«{product.Title}» (PLU {plu}): {priceText}");
+                if (rowsById.TryGetValue(id, out var priceRow))
+                    priceRow.SetStatus("⚠ " + priceText, RowState.Warning);
+                continue;
+            }
             if (problem != DahuaTmPluProblem.None)
             {
                 problems.Add($"«{product.Title}» (PLU {plu}): {TmProblemText(problem)}");
@@ -1245,11 +1290,20 @@ public partial class ScalesPluWindow : Window
             keyMap.Add((plu, product.Title));
             _tmRecordIds.Add(id);
         }
+        if (priceSkipped.Count > 0)
+            _tmPriceNote = Tr.T("Не загружены (цена выше предела весов): ", "Жүктөлгөн жок (баа таразанын чегинен жогору): ", "Not loaded (price above the scale limit): ", "Yüklenmedi (fiyat tartı sınırının üzerinde): ", "Yuklanmadi (narx tarozi chegarasidan yuqori): ")
+                + string.Join(" · ", priceSkipped.Take(3)) + (priceSkipped.Count > 3 ? $" (+{priceSkipped.Count - 3})" : "");
         return (records, problems, keyMap);
     }
 
+    /// <summary>2026-11-06: итоговая строка про товары, не загруженные из-за цены выше предела весов (Rongta напрямую / TM-30F).</summary>
+    private string _tmPriceNote = "";
+
+    /// <summary>Что менять, когда цена не помещается в 6 цифр поля цены весов «!0V».</summary>
+    private static string TmPriceHint() => ScalePriceLimits.FewerDecimalsHint("Price point", "Price point", "Price point", "Price point", "Price point");
+
     /// <summary>Знаков после запятой в цене на весах: TM-30F — из настроек, Rongta — 2.</summary>
-    private int DahuaPricePoint => IsRongtaLan ? RongtaPricePoint : Math.Clamp(UserPreferences.Instance.TmScalePricePoint, 0, 3);
+    private int DahuaPricePoint => IsRongtaLan ? Math.Clamp(UserPreferences.Instance.RongtaPricePoint, 0, 3) : Math.Clamp(UserPreferences.Instance.TmScalePricePoint, 0, 3);
 
     /// <summary>id товара для каждой записи последнего BuildTmRecords (в том же порядке) — для
     /// результата по строкам.</summary>
@@ -1336,7 +1390,9 @@ public partial class ScalesPluWindow : Window
         }
         if (records.Count == 0)
         {
-            StatusText.Text = Tr.T("Не удалось собрать данные для выгрузки — обновите каталог.", "Жүктөө үчүн маалыматтарды чогултуу мүмкүн болгон жок — каталогду жаңыртыңыз.", "Could not prepare the data for upload — refresh the catalog.", "Tartıya gönderilecek veriler hazırlanamadı — kataloğu güncelleyin.", "Yuklash uchun ma'lumotlarni to'plab bo'lmadi — katalogni yangilang.");
+            StatusText.Text = _tmPriceNote.Length > 0
+                ? _tmPriceNote
+                : Tr.T("Не удалось собрать данные для выгрузки — обновите каталог.", "Жүктөө үчүн маалыматтарды чогултуу мүмкүн болгон жок — каталогду жаңыртыңыз.", "Could not prepare the data for upload — refresh the catalog.", "Tartıya gönderilecek veriler hazırlanamadı — kataloğu güncelleyin.", "Yuklash uchun ma'lumotlarni to'plab bo'lmadi — katalogni yangilang.");
             return;
         }
 
@@ -1479,6 +1535,11 @@ public partial class ScalesPluWindow : Window
                                   + (result.FailedPlu > 0 ? $" (PLU {result.FailedPlu})" : "")
                                   + Tr.T(". Журнал обмена: ", ". Алмашуу журналы: ", ". Exchange log: ", ". İletişim günlüğü: ", ". Almashuv jurnali: ") + DahuaTmScaleService.ExchangeLogPath
                                   + autoRuleNote;
+            }
+            if (_tmPriceNote.Length > 0)
+            {
+                StatusText.Text += " ⚠ " + _tmPriceNote;
+                PosLogger.Log($"{brandLog}: {_tmPriceNote}", "SCALES");
             }
         }
         catch (Exception ex)
@@ -1706,6 +1767,8 @@ public partial class ScalesPluWindow : Window
                     $"Kendi sunucumuz üzerinden tartıya gönderildi: {serverResult.RecordsSent}. Tartıdaki PLU'ları kontrol edin.",
                     $"O'z serverimiz orqali taroziga yuborildi: {serverResult.RecordsSent}. Tarozidagi PLUlarni tekshiring.")
                 : Tr.T("Ошибка: ", "Ката: ", "Error: ", "Hata: ", "Xato: ") + serverResult.ErrorMessage;
+            if (serverResult.Skipped.Count > 0)
+                StatusText.Text += " ⚠ " + string.Join(" · ", serverResult.Skipped.Take(3)) + (serverResult.Skipped.Count > 3 ? $" (+{serverResult.Skipped.Count - 3})" : "");
         }
         catch (System.Exception ex)
         {

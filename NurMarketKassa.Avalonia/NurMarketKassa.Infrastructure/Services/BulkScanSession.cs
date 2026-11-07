@@ -1190,7 +1190,7 @@ public static class BulkScanDraftStore
     public static string? CompanyIdOverride { get; set; }
 
     private static string DataDir => DataDirOverride
-        ?? Path.Combine(NurMarketKassa.Services.AppPaths.Roaming, "NurMarketKassa", "purchases");
+        ?? Path.Combine(NurMarketKassa.Services.AppPaths.KassaRoaming, "purchases");
 
     private static string FilePath => Path.Combine(DataDir, "bulk-scan-draft.json");
     private static readonly object Sync = new();

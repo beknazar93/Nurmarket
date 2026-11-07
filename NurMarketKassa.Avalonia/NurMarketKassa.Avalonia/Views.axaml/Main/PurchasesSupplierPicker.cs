@@ -34,12 +34,36 @@ public sealed class PurchasesSupplierPicker : Grid
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        DropRecoveredHook();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void DropRecoveredHook()
+    {
         if (_recoveredHook is not null)
         {
             ServerOutageMonitor.Recovered -= _recoveredHook;
             _recoveredHook = null;
         }
-        base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>2026-11-07 (память владельца, Б-J1): подписка на статическое ServerOutageMonitor.Recovered — по СЛАБОЙ ссылке на выбор поставщика. Раньше замыкание держало его
+    /// (а через родителей — всё окно «Закупки»), если окно закрывали, не отсоединив дерево, и если связь так и не возвращалась (или возвращалась, а подписка оставалась).
+    /// Собранный выбор поставщика сам снимает свою подписку при ближайшем событии.</summary>
+    private static Action MakeRecoveredHook(WeakReference<PurchasesSupplierPicker> weak)
+    {
+        Action? hook = null;
+        hook = () =>
+        {
+            if (!weak.TryGetTarget(out var picker))
+            {
+                ServerOutageMonitor.Recovered -= hook;
+                return;
+            }
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(async () => { if (picker._fromMemory) await picker.LoadAsync().ConfigureAwait(true); });
+        };
+        return hook;
     }
 
     /// <summary>2026-11-06 (Б-5): список поставщиков показан из памяти кассы, а не с сервера.</summary>
@@ -140,6 +164,7 @@ public sealed class PurchasesSupplierPicker : Grid
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(40));
             _all = await _svc.ListAsync(cts.Token).ConfigureAwait(true);
             _fromMemory = false;
+            DropRecoveredHook(); // 2026-11-07: список с сервера получен — ждать «связь вернулась» больше не нужно
             // 2026-11-06 (Б-5): удачный список запоминается в память кассы — без интернета (и при «предохранителе») окно возьмёт его.
             PurchaseReceivingService.RememberSuppliers(_all);
             if (_selected is { } s)
@@ -157,7 +182,7 @@ public sealed class PurchasesSupplierPicker : Grid
                 // Связь вернулась — список обновляется сам (подсказка «обновится, когда появится интернет»).
                 if (_recoveredHook is null)
                 {
-                    _recoveredHook = () => Avalonia.Threading.Dispatcher.UIThread.Post(async () => { if (_fromMemory) await LoadAsync().ConfigureAwait(true); });
+                    _recoveredHook = MakeRecoveredHook(new WeakReference<PurchasesSupplierPicker>(this));
                     ServerOutageMonitor.Recovered += _recoveredHook;
                 }
                 PosLogger.Log($"Закупки: поставщики взяты из памяти кассы ({_all.Count}).", "WARNING");

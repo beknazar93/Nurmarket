@@ -401,6 +401,8 @@
                             <StackPanel Spacing="4">
                                 <TextBlock x:Name="FinReceiptsLabel" Classes="sec-kpi-label" Text="{DynamicResource sales.receiptsCount}" />
                                 <Viewbox Classes="sec-kpi-fit"><TextBlock x:Name="ReceiptCountText" Classes="sec-kpi-value" /></Viewbox>
+                                <!-- 2026-11-07 (Б-C1): «+ в долг: N на S сом» — долговые чеки в плитку не входят (как на сайте), но в списке они есть. -->
+                                <TextBlock x:Name="FinReceiptsDebtNote" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" Margin="0,2,0,0" IsVisible="False" TextWrapping="Wrap" />
                             </StackPanel>
                         </Border>
                     </ctl:KpiTileGrid>

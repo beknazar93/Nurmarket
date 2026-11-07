@@ -79,7 +79,7 @@ public static class CartRemovalLogStore
     private static int _appendedSinceTrim = TrimEvery; // первая запись после запуска сразу чистит файл
 
     private static string _filePath = Path.Combine(
-        NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa", "cart-removals.jsonl");
+        NurMarketKassa.Services.AppPaths.KassaLocal, "cart-removals.jsonl");
 
     /// <summary>Путь файла. Меняют только снимки окон (headless), чтобы не писать в настоящий журнал этого ПК.</summary>
     public static string FilePath

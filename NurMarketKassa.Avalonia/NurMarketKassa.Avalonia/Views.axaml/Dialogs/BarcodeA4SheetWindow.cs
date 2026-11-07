@@ -392,6 +392,24 @@ public sealed class BarcodeA4SheetWindow : Window
 
     // ------------------------------------------------------------------ предпросмотр
 
+    /// <summary>PNG листа: Windows — GDI+ (как раньше), остальные системы — SkiaSharp.</summary>
+    internal static byte[] RenderPagePng(IReadOnlyList<A4SheetItem> expanded, int pageIndex, A4SheetOptions o, int dpi)
+    {
+        if (OperatingSystem.IsWindows())
+            return RenderPagePngGdi(expanded, pageIndex, o, dpi);
+        using var sk = A4SheetSkia.RenderPage(expanded, pageIndex, o, dpi);
+        return SkiaRaster.ToPng(sk);
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static byte[] RenderPagePngGdi(IReadOnlyList<A4SheetItem> expanded, int pageIndex, A4SheetOptions o, int dpi)
+    {
+        using var bmp = A4SheetService.RenderPage(expanded, pageIndex, o, dpi);
+        using var ms = new MemoryStream();
+        bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+        return ms.ToArray();
+    }
+
     private void RefreshPreview()
     {
         try
@@ -401,10 +419,8 @@ public sealed class BarcodeA4SheetWindow : Window
             var geo = A4SheetService.GetGeometry(_o);
             var pages = Math.Max(1, A4SheetService.PageCount(expanded.Count, _o));
             _pageIndex = Math.Clamp(_pageIndex, 0, pages - 1);
-            using var bmp = A4SheetService.RenderPage(expanded, _pageIndex, _o, 120);
-            using var ms = new MemoryStream();
-            bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-            ms.Position = 0;
+            // 2026-11-06 (В18, АЛ-4): на Linux/Android System.Drawing нет — предпросмотр листа рисует Skia (раньше картинка была пустой); в Windows всё как было.
+            using var ms = new MemoryStream(RenderPagePng(expanded, _pageIndex, _o, 120));
             var next = new Bitmap(ms);
             _pageImage.Source = next;
             _bitmap?.Dispose();
@@ -456,7 +472,8 @@ public sealed class BarcodeA4SheetWindow : Window
             PosLogger.Log($"A4 sheet window: printer enumeration failed: {ex.GetType().Name}", "WARNING");
             list = Array.Empty<DiscoveredPrinter>();
         }
-        var plain = list.Where(p => !BarcodeLabelService.IsRawDevicePath(p.DevicePath)).ToList();
+        // 2026-11-06 (В18, АЛ-5): на Linux/macOS листы A4 идут только на очереди CUPS (CUPS:имя); устройства /dev/usb/lp* и TCP — это принтеры этикеток.
+        var plain = list.Where(p => !BarcodeLabelService.IsRawDevicePath(p.DevicePath) && (OperatingSystem.IsWindows() || CupsPrintService.IsCupsPort(p.DevicePath))).ToList();
         // 2026-11-01 (Р-3): пункт «— не выбран —» (пустой путь): принтер A4 можно сбросить; "" в настройках = выбрано «не выбран», умолчание не подставляется.
         var withNone = new List<DiscoveredPrinter> { new(T("— не выбран —", "— тандалган эмес —", "— not selected —", "— seçilmedi —", "— tanlanmagan —"), "") };
         withNone.AddRange(plain);
@@ -473,9 +490,9 @@ public sealed class BarcodeA4SheetWindow : Window
             _status.Text = BarcodePrintAccess.DeniedText;
             return;
         }
-        if (!LabelPrinterSelector.PrintingSupported)
+        if (!LabelPrinterSelector.A4PrintingSupported)
         {
-            _status.Text = LabelPrinterSelector.UnsupportedText; // 2026-11-01 (С-9)
+            _status.Text = LabelPrinterSelector.A4UnsupportedText; // 2026-11-01 (С-9); 2026-11-06 (В18): листы печатаются и на Linux через CUPS
             return;
         }
         if (_printerCombo.SelectedItem is not DiscoveredPrinter printer || printer.DevicePath.Length == 0)

@@ -1,9 +1,12 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Core.Contracts;
+using NurMarketKassa.Services;
 using NurMarketKassa.ViewModels.Main;
 
 namespace NurMarketKassa.AvaloniaHost.Views.Main.Controls;
@@ -13,7 +16,11 @@ public partial class BasketPanelView : UserControl
     public BasketPanelView()
     {
         InitializeComponent();
-        DataContextChanged += (_, _) => HookLines();
+        DataContextChanged += (_, _) =>
+        {
+            HookLines();
+            HookViewModel();
+        };
         // 2026-10-20, живая проверка: «Отложить ч…» и подсказка поля кода не помещались на 1296 точек — короткие
         // подписи здесь (полный текст «Отложить чек» остаётся в подсказке кнопки).
         ApplyShortLabels();
@@ -22,6 +29,7 @@ public partial class BasketPanelView : UserControl
             Tr.LanguageChanged -= OnLanguageChanged;
             Tr.LanguageChanged += OnLanguageChanged;
             ApplyShortLabels();
+            UpdatePayKeyBadge();
         };
         DetachedFromVisualTree += (_, _) => Tr.LanguageChanged -= OnLanguageChanged;
         // 2026-10-20 (живой аудит кассы, К10): «Ещё» — всплывающее окно; нажатая в нём кнопка закрывает его (до своей команды).
@@ -30,9 +38,197 @@ public partial class BasketPanelView : UserControl
             if (DataContext is BasketPanelViewModel vm)
                 vm.IsMoreActionsVisible = false;
         }, RoutingStrategies.Bubble, handledEventsToo: true);
+        // 2026-11-06 (В7, Д4-03): признак «одна строка Скан или поиск» (файл single-input-row.on в %LOCALAPPDATA%\NurMarketKassa) — нижняя строка ввода чека скрыта,
+        // код и название вводятся в поиск каталога (там Enter добавляет в чек, см. CatalogPanelView). Без файла — строка на месте, как раньше.
+        if (KassaMainViewRules.SingleInputRowEnabled())
+            CartEntryRow.IsVisible = false;
     }
 
-    private void OnLanguageChanged() => Avalonia.Threading.Dispatcher.UIThread.Post(ApplyShortLabels);
+    private void OnLanguageChanged() => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+    {
+        ApplyShortLabels();
+        UpdatePayKeyBadge();
+    });
+
+    // ── 2026-11-06 (В7): связь вида с моделью чека — «Вернуть» после очистки (Д4-40), подсветка добавленной строки (Д4-06), значок клавиши на «Оплатить» (Д4-05) ──
+
+    private BasketPanelViewModel? _vm;
+    private Window? _hostWindow;
+    private bool _attached;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _attached = true;
+        LayoutUpdated -= OnLayoutUpdatedCheck;
+        LayoutUpdated += OnLayoutUpdatedCheck;
+        if (_hostWindow is not null)
+            _hostWindow.Activated -= OnHostActivated;
+        _hostWindow = e.Root as Window;
+        if (_hostWindow is not null)
+            _hostWindow.Activated += OnHostActivated;
+        UpdatePayKeyBadge();
+        UpdateUiReady();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _attached = false;
+        LayoutUpdated -= OnLayoutUpdatedCheck;
+        if (_hostWindow is not null)
+            _hostWindow.Activated -= OnHostActivated;
+        _hostWindow = null;
+        UpdateUiReady();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    // IsEffectivelyVisible в Avalonia 11.2 — не свойство с событием, поэтому проверяем после каждой раскладки (одно сравнение bool; смена раскладки кассы всегда даёт проход раскладки).
+    private void OnLayoutUpdatedCheck(object? sender, EventArgs e) => UpdateUiReady();
+
+    // Кассир мог сменить клавишу оплаты в «Горячих» — после возврата в окно значок обновляется.
+    private void OnHostActivated(object? sender, EventArgs e) => UpdatePayKeyBadge();
+
+    private void HookViewModel()
+    {
+        if (_vm is not null)
+        {
+            _vm.PropertyChanged -= OnBasketPropertyChanged;
+            // Старая модель больше не показывается этим видом: «Очистить чек» у неё снова спрашивает, подсветки нет.
+            _vm.ClearUndoUiReady = false;
+            _vm.AddFlashUiReady = false;
+        }
+        _vm = DataContext as BasketPanelViewModel;
+        if (_vm is not null)
+            _vm.PropertyChanged += OnBasketPropertyChanged;
+        UpdateUiReady();
+        UpdateUndoCountdown();
+    }
+
+    /// <summary>Вид «готов» только пока он на экране (виден и в дереве окна): модель чека общая для всех раскладок, и в других раскладках плашки «Вернуть» и подсветки нет —
+    /// там «Очистить чек» по-прежнему спрашивает «Очистить текущий чек?» (стереть чек без возврата одним нажатием нельзя).</summary>
+    private void UpdateUiReady()
+    {
+        if (_vm is null)
+            return;
+        var ready = _attached && IsEffectivelyVisible;
+        _vm.ClearUndoUiReady = ready;
+        _vm.AddFlashUiReady = ready;
+    }
+
+    private void OnBasketPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(BasketPanelViewModel.IsClearUndoVisible):
+                Dispatcher.UIThread.Post(UpdateUndoCountdown);
+                break;
+            case nameof(BasketPanelViewModel.AddFlashVersion):
+                Dispatcher.UIThread.Post(FlashAddedLine);
+                break;
+        }
+    }
+
+    // «Вернуть (5)» — число секунд убывает, пока плашка видна. Окно — BasketPanelViewModel.ClearUndoWindow (5 с).
+    private DispatcherTimer? _undoTimer;
+    private DateTime _undoShownUtc;
+
+    private void UpdateUndoCountdown()
+    {
+        if (_vm is { IsClearUndoVisible: true })
+        {
+            _undoShownUtc = DateTime.UtcNow;
+            RefreshUndoLabel();
+            _undoTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            _undoTimer.Tick -= OnUndoTick;
+            _undoTimer.Tick += OnUndoTick;
+            _undoTimer.Start();
+        }
+        else
+        {
+            _undoTimer?.Stop();
+        }
+    }
+
+    private void OnUndoTick(object? sender, EventArgs e) => RefreshUndoLabel();
+
+    private void RefreshUndoLabel()
+    {
+        if (_vm is null)
+            return;
+        var left = KassaMainViewRules.UndoSecondsLeft(_undoShownUtc, BasketPanelViewModel.ClearUndoWindow, DateTime.UtcNow);
+        ClearUndoLabel.Text = KassaMainViewRules.UndoButtonLabel(_vm.UndoClearText, left);
+    }
+
+    /// <summary>Подсветка строки, которую только что добавили или у которой выросло количество (модель говорит какая: LastAddedItemId). Повторный скан — ещё и «× N» цветом.</summary>
+    private void FlashAddedLine()
+    {
+        var vm = _vm;
+        if (vm is null || string.IsNullOrEmpty(vm.LastAddedItemId))
+            return;
+        var id = vm.LastAddedItemId;
+        var repeat = vm.LastAddedWasRepeat;
+        var index = -1;
+        for (var i = 0; i < vm.Lines.Count; i++)
+        {
+            if (string.Equals(vm.Lines[i].ItemId, id, StringComparison.Ordinal))
+            {
+                index = i;
+                break;
+            }
+        }
+        if (index < 0)
+            return;
+        if (!TryFlashRow(index, repeat))
+        {
+            // Строка вне экрана (повторный скан товара из середины длинного чека) — показываем её и подсвечиваем, когда она появится.
+            CartLinesList.ScrollIntoView(index);
+            Dispatcher.UIThread.Post(() => TryFlashRow(index, repeat), DispatcherPriority.Background);
+        }
+    }
+
+    private bool TryFlashRow(int index, bool repeat)
+    {
+        if (CartLinesList.ContainerFromIndex(index) is not { } container
+            || container.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Classes.Contains("cart-line")) is not { } row)
+            return false;
+        FlashRow(row, repeat);
+        return true;
+    }
+
+    /// <summary>Подсветка на 0,7 с; меняется только цвет (класс fresh / fresh-repeat), размер строки не трогаем. Токен защищает от раннего снятия, если подсветили второй раз подряд.</summary>
+    private static void FlashRow(Border row, bool repeat)
+    {
+        var token = new object();
+        row.Tag = token;
+        row.Classes.Add("fresh");
+        if (repeat)
+            row.Classes.Add("fresh-repeat");
+        DispatcherTimer.RunOnce(() =>
+        {
+            if (!ReferenceEquals(row.Tag, token))
+                return;
+            row.Classes.Remove("fresh");
+            row.Classes.Remove("fresh-repeat");
+        }, TimeSpan.FromMilliseconds(700));
+    }
+
+    /// <summary>Значок клавиши на «Оплатить»: назначенная в «Горячих» клавиша действия «Оплата» (по умолчанию Enter). Пусто (назначение снято) и на Android — значка нет.</summary>
+    private void UpdatePayKeyBadge()
+    {
+        var text = "";
+        try
+        {
+            var gesture = new PosHotkeyService().GetGesture(PosHotkeyAction.Pay);
+            if (!string.IsNullOrWhiteSpace(gesture))
+                text = PosHotkeyService.Display(gesture);
+        }
+        catch
+        {
+            // подсказка клавиши не должна мешать продаже — без значка
+        }
+        PayKeyBadgeText.Text = text;
+        PayKeyBadge.IsVisible = text.Length > 0 && !OperatingSystem.IsAndroid();
+    }
 
     private void ApplyShortLabels()
     {
@@ -68,8 +264,7 @@ public partial class BasketPanelView : UserControl
             if (CartLinesList.ContainerFromIndex(0) is { } container
                 && container.GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Classes.Contains("cart-line")) is { } row)
             {
-                row.Classes.Add("fresh");
-                Avalonia.Threading.DispatcherTimer.RunOnce(() => row.Classes.Remove("fresh"), TimeSpan.FromMilliseconds(700));
+                FlashRow(row, repeat: false); // 2026-11-06 (В7): общая подсветка (токен), вместе с подсветкой по LastAddedItemId
             }
         }, Avalonia.Threading.DispatcherPriority.Background);
     }
@@ -95,7 +290,12 @@ public partial class BasketPanelView : UserControl
     private void DisarmDelete()
     {
         if (_armedButton is not null)
+        {
             _armedButton.Classes.Remove("armed");
+            // 2026-11-06 (В7, ДС-2): имя вернулось с «Подтвердить удаление: …» на «Удалить из чека: …» (SetCurrentValue — привязка имени сохраняется).
+            if (_armedLine is not null)
+                _armedButton.SetCurrentValue(Avalonia.Automation.AutomationProperties.NameProperty, _armedLine.RemoveName);
+        }
         if (_armedLabel is not null && _armedOriginalText is not null)
             _armedLabel.Text = _armedOriginalText;
         _armedLine = null;
@@ -118,6 +318,7 @@ public partial class BasketPanelView : UserControl
                 ask.Text = Tr.T("Удалить?", "Өчүрөбү?", "Delete?", "Silinsin mi?", "O'chirilsinmi?");
             }
             btn.Classes.Add("armed");
+            btn.SetCurrentValue(Avalonia.Automation.AutomationProperties.NameProperty, line.RemoveConfirmName); // 2026-11-06 (В7, ДС-2): у «Удалить?» есть имя для диктора и UIA
             _armedLine = line;
             _armedUtc = DateTime.UtcNow;
             _armedButton = btn;

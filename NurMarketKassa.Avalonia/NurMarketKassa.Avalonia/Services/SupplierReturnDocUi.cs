@@ -185,16 +185,15 @@ internal static class SupplierReturnDocUi
 
     private static async Task PrintAsync(Control host, SupplierReturnDocData data, Action<string> say)
     {
-        // Windows с принтером — сразу на принтер; иначе PDF (печатать можно из программы просмотра).
+        // Windows и Linux (CUPS) с принтером — сразу на принтер; иначе PDF (печатать можно из программы просмотра).
+        // 2026-11-06 (В18, АЛ-5): раньше только Windows; на Linux документ теперь тоже уходит на принтер по умолчанию через CUPS.
         string? printer = null;
-        if (OperatingSystem.IsWindows())
+        if (ClientDocPrint.DirectPrintSupported)
             printer = ClientDocPrint.DefaultPrinter();
-        if (!string.IsNullOrWhiteSpace(printer) && OperatingSystem.IsWindows())
+        if (!string.IsNullOrWhiteSpace(printer) && ClientDocPrint.DirectPrintSupported)
         {
             var name = printer!;
-            var error = await Task.Run(() => OperatingSystem.IsWindows()
-                ? ClientDocPrint.Print(name, SupplierReturnDocuments.PrintName(data), SupplierReturnDocumentRenderer.PageImages(data, 200))
-                : null).ConfigureAwait(true);
+            var error = await Task.Run(() => ClientDocPrint.Print(name, SupplierReturnDocuments.PrintName(data), SupplierReturnDocumentRenderer.PageImages(data, 200))).ConfigureAwait(true);
             if (error is null)
                 PosLogger.Log($"Накладная возврата {data.Number}: отправлена на принтер «{name}» ({data.Lines.Count} поз.).", "INFO");
             say(error ?? T("Отправлено на принтер: ", "Принтерге жөнөтүлдү: ", "Sent to the printer: ", "Yazıcıya gönderildi: ", "Printerga yuborildi: ") + name);

@@ -22,7 +22,9 @@ public static class ExpiredWriteOff
         {
             await ProductExpiryIndex.RefreshAsync(true).ConfigureAwait(true);
             var today = DateTime.Today;
-            var expired = ProductExpiryIndex.Marks.Values.Where(m => ExpiryRules.IsExpired(m, today) && m.Quantity > 0.0005).ToList();
+            // 2026-11-06 (удаление товара): удалённый/архивный товар (RemovedProductMemory), которого уже нет в каталоге, не предлагаем списывать — сервер мог ещё держать его отметку срока.
+            var expired = ProductExpiryIndex.Marks.Values.Where(m => ExpiryRules.IsExpired(m, today) && m.Quantity > 0.0005
+                && !(RemovedProductMemory.Contains(m.ProductId) && ProductActions.Find(m.ProductId) is null)).ToList();
             // Когда последний раз приходовали товар (история закупок этой кассы) — для предупреждения «после даты годности был приход».
             Dictionary<string, List<PurchaseReceivingService.HistoryEntry>> history = new();
             try

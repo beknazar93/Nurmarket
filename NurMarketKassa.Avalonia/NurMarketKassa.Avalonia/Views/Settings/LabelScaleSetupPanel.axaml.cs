@@ -141,10 +141,11 @@ public partial class LabelScaleSetupPanel : UserControl
 
         var hasNetwork = _brand != ScaleUi.BrandAi;
         CheckButton.IsVisible = hasNetwork;
-        // 2026-11-06: у РС-200 нет поиска по сети и окна настроек весов — вместо них инструкция подключения
+        // 2026-11-06: у РС-200 нет поиска по сети — вместо него инструкция подключения
+        // 2026-11-07 (живая проверка 1.17.81, Б-F1): кнопка «Настройки весов…» у РС-200 была скрыта — окно параметров (Config.txt) нельзя было открыть; теперь видна у всех марок, кроме AI.
         var isPc = _brand == ScaleUi.BrandShtrikhPc;
         FindButton.IsVisible = hasNetwork && !isPc;
-        DeviceSettingsButton.IsVisible = hasNetwork && !isPc;
+        DeviceSettingsButton.IsVisible = hasNetwork;
         _pcGuideButton.IsVisible = isPc;
         SendButton.IsVisible = !IsDialogMode;
         SendButton.Content = _brand == ScaleUi.BrandAi

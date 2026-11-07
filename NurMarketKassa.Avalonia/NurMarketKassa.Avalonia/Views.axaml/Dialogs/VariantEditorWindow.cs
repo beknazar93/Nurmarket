@@ -964,7 +964,7 @@ public sealed class VariantEditorWindow : Window
                 {
                     Barcode = row.Barcode.Text!.Trim(),
                     Variant = string.Join(", ", new[] { row.Size.Text?.Trim(), row.Color.Text?.Trim() }.Where(x => !string.IsNullOrWhiteSpace(x))),
-                    PriceText = price.ToString("0.00", CultureInfo.GetCultureInfo("ru-RU")) + " сом", // 2026-11-05 (С2-43): «85,00 сом», как во всей программе
+                    PriceText = BarcodePrintCatalog.LabelAmount((decimal)price) + " сом", // 2026-11-05 (С2-43): «85,00 сом», как во всей программе
                     Remaining = copies,
                     Mode = CodeModeFor(row),
                 });

@@ -36,7 +36,7 @@ public static class RentalDueNotifier
     private static readonly TimeSpan Interval = TimeSpan.FromHours(1);
     private static readonly CultureInfo Ru = CultureInfo.GetCultureInfo("ru-RU");
     private static readonly string SentFile = Path.Combine(
-        NurMarketKassa.Services.AppPaths.Local, "NurMarketKassa", "rental-alerts.json");
+        NurMarketKassa.Services.AppPaths.KassaLocal, "rental-alerts.json");
     private static readonly object Gate = new();
     private static Func<string?, CancellationToken, Task<IReadOnlyList<RentalDto>>>? _loader;
     private static CancellationTokenSource? _cts;

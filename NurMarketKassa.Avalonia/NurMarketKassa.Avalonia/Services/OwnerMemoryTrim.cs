@@ -25,6 +25,9 @@ public static class OwnerMemoryTrim
 
     private static long _lastTrimTicks;
 
+    /// <summary>2026-11-06 (В16): что сделать перед сборкой (сброс кэша миниатюр). Ставит приложение.</summary>
+    public static Action? BeforeTrim { get; set; }
+
     /// <summary>Чистое правило: можно ли делать уплотняющую сборку сейчас.</summary>
     /// <param name="nowUtc">Сейчас.</param>
     /// <param name="lastTrimUtc">Когда делали прошлую (DateTime.MinValue — не делали).</param>
@@ -38,6 +41,10 @@ public static class OwnerMemoryTrim
     /// <summary>Сделать сборку, если <see cref="ShouldTrim"/> разрешает. true — сборка выполнена. Вызывать из любого потока.</summary>
     public static bool TrimNow(DateTime lastKeyUtc)
     {
+        // 2026-11-06 (В16, память): раздел закрыт — приложение (MemoryDiagnostics.Start) вешает сюда сброс кэша миниатюр до последних 48 (то, что ещё на экране, держат сами плитки);
+        // остальное соберёт сборка ниже или обычная. Файл компилируется и в тестах без Avalonia, поэтому через делегат.
+        try { BeforeTrim?.Invoke(); }
+        catch (Exception) { /* кэш картинок — только ускорение */ }
         var now = DateTime.UtcNow;
         var last = new DateTime(Interlocked.Read(ref _lastTrimTicks), DateTimeKind.Utc);
         var before = GC.GetTotalMemory(false);

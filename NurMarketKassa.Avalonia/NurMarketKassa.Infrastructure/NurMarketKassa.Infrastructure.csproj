@@ -39,6 +39,10 @@
     <PackageReference Include="Polly.Core" Version="8.5.2" />
     <!-- 2026-10-30: Vosk и sherpa-onnx (голос) удалены — в коде их нет; установка легче на ~66 МБ, APK на ~26 МБ. -->
     <PackageReference Include="QuestPDF" Version="2024.12.3" />
+    <!-- 2026-11-06: В18 — System.Drawing.Common работает только в Windows (печать через драйвер, предпросмотр GDI+). Растр этикеток, ценников,
+         листов A4, графических чеков и графиков для Linux/Android рисует SkiaSharp — той же версии 2.88.9, что приходит с Avalonia 11.2.5
+         (родные библиотеки для Windows/Linux/Android уже подтягиваются приложениями, новых пакетов нет). -->
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
     <PackageReference Include="System.Drawing.Common" Version="10.0.8" />
     <!-- 2026-11-05: ZXing.Net 0.16.10 -> 0.16.11 (Apache-2.0, только исправления) -->
     <PackageReference Include="ZXing.Net" Version="0.16.11" />

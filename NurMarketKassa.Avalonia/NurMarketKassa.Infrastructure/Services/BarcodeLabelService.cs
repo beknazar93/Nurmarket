@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using ZXing;
 using ZXing.Common;
 using ZXing.Rendering;
+using SkiaSharp;
 
 namespace NurMarketKassa.Services;
 
@@ -535,9 +536,10 @@ public static partial class BarcodeLabelService
     public static bool HasTextOverflow(string productName, string? priceText, LabelTemplate template,
         string? sku = null, string? unit = null, string? storeName = null, string? variantText = null)
     {
-        // 2026-10-29: Android/Linux — System.Drawing недоступен; жёлтая строка «текст не помещается» там не показывается.
+        // 2026-10-29: Android/Linux — System.Drawing недоступен; жёлтая строка «текст не помещается» там не показывалась.
+        // 2026-11-06 (В18): теперь проверка идёт по размерам текста Skia (перенос по словам, высота строк) — строка видна и там.
         if (!OperatingSystem.IsWindows())
-            return false;
+            return HasTextOverflowSkia(productName, priceText, template, sku, unit, storeName, variantText);
         using var probe = new Bitmap(1, 1);
         using var g = Graphics.FromImage(probe);
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
@@ -682,7 +684,9 @@ public static partial class BarcodeLabelService
 
     private static LabelPrintResult PrintUnqueued(LabelPrintRequest request)
     {
-        if (IsRawDevicePath(request.PrinterName))
+        // 2026-11-06 (В18, А4-08): на Linux и Android нет ни спулера Windows, ни System.Drawing — этикетка рисуется Skia и уходит принтеру командами
+        // (CUPS «raw», /dev/usb/lp, TCP 9100, USB/Bluetooth Android) через PrinterPortService, как на Windows для прямого подключения.
+        if (IsRawDevicePath(request.PrinterName) || !OperatingSystem.IsWindows())
             return PrintToRawDevice(request);
 
         try
@@ -748,14 +752,20 @@ public static partial class BarcodeLabelService
         ClearPartial(request.PrinterName); // новое задание на этот принтер — прежний «N из M» устарел
         try
         {
-            using var label = GenerateLabelBitmap(
-                request.ProductName, request.Barcode, request.PriceText, request.Template,
-                request.Sku, request.Unit, request.StoreName, request.VariantText);
             var devicePath = UsbRawPrinterPort.IsRawPortLabel(request.PrinterName)
                 ? UsbRawPrinterPort.ToDevicePath(request.PrinterName)
                 : request.PrinterName;
             var copies = Math.Clamp(request.Copies, 1, 99);
-            SendRawLabel(devicePath, label, request.Template.WidthMm, request.Template.HeightMm, copies);
+            if (OperatingSystem.IsWindows())
+                SendRawLabelGdi(request, devicePath, copies);
+            else
+            {
+                // 2026-11-06 (В18): растр — Skia по готовой сцене этикетки (203 dpi).
+                using var skLabel = LabelSceneSkia.Render(BuildLabelScene(
+                    request.ProductName, request.Barcode, request.PriceText, request.Template,
+                    request.Sku, request.Unit, request.StoreName, request.VariantText));
+                SendRawLabel(devicePath, skLabel, request.Template.WidthMm, request.Template.HeightMm, copies);
+            }
 
             return LabelPrintResult.Success;
         }
@@ -770,6 +780,16 @@ public static partial class BarcodeLabelService
             PosLogger.Log($"Raw device label print failed: {ex}", "ERROR");
             return LabelPrintResult.Failed;
         }
+    }
+
+    /// <summary>Windows: растр этикетки GDI+ (как раньше) → задание принтеру. Отдельный метод, чтобы JIT не трогал System.Drawing на Linux/Android.</summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void SendRawLabelGdi(LabelPrintRequest request, string devicePath, int copies)
+    {
+        using var label = GenerateLabelBitmap(
+            request.ProductName, request.Barcode, request.PriceText, request.Template,
+            request.Sku, request.Unit, request.StoreName, request.VariantText);
+        SendRawLabel(devicePath, label, request.Template.WidthMm, request.Template.HeightMm, copies);
     }
 
     /// <summary>2026-10-01, «пропускает наклейки и печатает не на том месте»: печать через
@@ -799,7 +819,15 @@ public static partial class BarcodeLabelService
     /// (UserPreferences.LabelRawLanguage): escpos — как раньше; escpos_gap — после картинки
     /// GS FF (подача до начала следующей этикетки по зазору/метке); tspl — SIZE/GAP/BITMAP/PRINT,
     /// принтер сам находит зазор и печатает с начала наклейки.</summary>
-    internal static void SendRawLabel(string devicePath, Bitmap label, double widthMm, double heightMm, int copies)
+    internal static void SendRawLabel(string devicePath, Bitmap label, double widthMm, double heightMm, int copies) =>
+        SendRawLabelRaster(devicePath, BitmapToEscPosRaster(label), widthMm, heightMm, copies);
+
+    /// <summary>2026-11-06 (В18): то же для растра Skia (Linux/Android — System.Drawing там нет).</summary>
+    internal static void SendRawLabel(string devicePath, SKBitmap label, double widthMm, double heightMm, int copies) =>
+        SendRawLabelRaster(devicePath, BitmapToEscPosRaster(label), widthMm, heightMm, copies);
+
+    /// <param name="raster">Команда «GS v 0» (8 байт заголовка + строки) — результат <see cref="BitmapToEscPosRaster(Bitmap)"/> или <see cref="BitmapToEscPosRaster(SKBitmap)"/>.</param>
+    internal static void SendRawLabelRaster(string devicePath, byte[] raster, double widthMm, double heightMm, int copies)
     {
         var prefs = UserPreferences.Instance;
         copies = Math.Clamp(copies, 1, 99);
@@ -810,11 +838,10 @@ public static partial class BarcodeLabelService
             var extras = prefs.LabelTsplDensity is null && prefs.LabelTsplSpeed is null && prefs.LabelTsplFlip is null && prefs.LabelTsplSensor is null
                 ? null
                 : new TsplExtras(prefs.LabelTsplDensity, prefs.LabelTsplSpeed, prefs.LabelTsplFlip, prefs.LabelTsplSensor);
-            buildJob = n => BuildTsplJob(label, widthMm, heightMm, prefs.LabelGapMm, prefs.LabelOffsetXMm, prefs.LabelOffsetYMm, n, extras);
+            buildJob = n => BuildTsplJob(raster, widthMm, heightMm, prefs.LabelGapMm, prefs.LabelOffsetXMm, prefs.LabelOffsetYMm, n, extras);
         }
         else
         {
-            var raster = BitmapToEscPosRaster(label);
             if (prefs.LabelRawLanguage == "escpos_gap")
             {
                 var withFeed = new byte[raster.Length + 2];
@@ -889,10 +916,18 @@ public static partial class BarcodeLabelService
     /// <summary>Задание TSPL (TSC, Xprinter, Gprinter, Rongta в режиме этикеток): размер, зазор,
     /// картинка BITMAP (в TSPL бит 0 — печать, поэтому байты инвертируются), копии.</summary>
     internal static byte[] BuildTsplJob(Bitmap label, double widthMm, double heightMm, double gapMm,
+        double offsetXMm, double offsetYMm, int copies, TsplExtras? extras = null) =>
+        BuildTsplJob(BitmapToEscPosRaster(label), widthMm, heightMm, gapMm, offsetXMm, offsetYMm, copies, extras);
+
+    /// <summary>2026-11-06 (В18): то же для растра Skia.</summary>
+    internal static byte[] BuildTsplJob(SKBitmap label, double widthMm, double heightMm, double gapMm,
+        double offsetXMm, double offsetYMm, int copies, TsplExtras? extras = null) =>
+        BuildTsplJob(BitmapToEscPosRaster(label), widthMm, heightMm, gapMm, offsetXMm, offsetYMm, copies, extras);
+
+    internal static byte[] BuildTsplJob(byte[] raster, double widthMm, double heightMm, double gapMm,
         double offsetXMm, double offsetYMm, int copies, TsplExtras? extras = null)
     {
         var ci = System.Globalization.CultureInfo.InvariantCulture;
-        var raster = BitmapToEscPosRaster(label);
         // Заголовок GS v 0 — 8 байт: 1D 76 30 00 xL xH yL yH.
         var bytesPerRow = raster[4] | (raster[5] << 8);
         var height = raster[6] | (raster[7] << 8);
@@ -956,10 +991,19 @@ public static partial class BarcodeLabelService
     }
 
     /// <summary>Encodes a monochrome ESC/POS "GS v 0" raster bit-image command (m=0, no scaling).</summary>
-    internal static byte[] BitmapToEscPosRaster(Bitmap bitmap)
+    internal static byte[] BitmapToEscPosRaster(Bitmap bitmap) =>
+        EncodeGsV0(bitmap.Width, bitmap.Height, (x, y) =>
+        {
+            var pixel = bitmap.GetPixel(x, y);
+            return pixel.R * 0.299 + pixel.G * 0.587 + pixel.B * 0.114 < 128;
+        });
+
+    /// <summary>2026-11-06 (В18): то же для растра Skia — тот же порог яркости (&lt; 128 — чёрная точка), поэтому одинаковая картинка даёт те же байты.</summary>
+    internal static byte[] BitmapToEscPosRaster(SKBitmap bitmap) =>
+        EncodeGsV0(bitmap.Width, bitmap.Height, (x, y) => SkiaRaster.Luminance(bitmap.GetPixel(x, y)) < 128);
+
+    private static byte[] EncodeGsV0(int width, int height, Func<int, int, bool> isBlack)
     {
-        var width = bitmap.Width;
-        var height = bitmap.Height;
         var bytesPerRow = (width + 7) / 8;
         var imageData = new byte[bytesPerRow * height];
 
@@ -967,9 +1011,7 @@ public static partial class BarcodeLabelService
         {
             for (var x = 0; x < width; x++)
             {
-                var pixel = bitmap.GetPixel(x, y);
-                var luminance = pixel.R * 0.299 + pixel.G * 0.587 + pixel.B * 0.114;
-                if (luminance >= 128)
+                if (!isBlack(x, y))
                     continue;
 
                 var byteIndex = y * bytesPerRow + x / 8;

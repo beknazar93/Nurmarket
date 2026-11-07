@@ -565,10 +565,14 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
                 related: themeIds.Where(i => i != theme.Id).Take(4).Select(i => "theme:" + i).Append("themeeditor").ToList()));
 
         foreach (var custom in CustomThemeStore.All)
+        {
+            if (MarketplaceServerThemes.IsServerCustomTheme(custom.Id))
+                continue; // 2026-11-06: тема поставлена с сайта — у неё своя карточка «servertheme:…» (Установлено/Обновить/Удалить)
             items.Add(ThemeItem(custom.Id, custom.Name,
                 T("Своя тема. Изменить — кнопка «Редактор тем».", "Өз темаңыз. Өзгөртүү — «Темалар редактору» баскычы.", "Your own theme. To change it, use the “Theme editor” button.", "Kendi temanız. Değiştirmek için «Tema düzenleyici» düğmesi.", "O'z mavzuingiz. O'zgartirish — «Mavzu muharriri» tugmasi."),
                 true, string.Equals(custom.Id, currentTheme, StringComparison.OrdinalIgnoreCase), themeNote, selectedText, dark,
                 related: ["themeeditor"]));
+        }
 
         items.Add(new MarketplaceItem
         {
@@ -599,6 +603,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
         });
 
         MarketplaceSiteThemes.Append(items, _run); // 2026-10-27: темы сайта (в т.ч. 10 тем одежды) — ТЗ «Сайт», С-3
+        MarketplaceServerThemes.Append(items, _run); // 2026-11-06: темы и виды кассы с сервера (покупка на сайте) — только при признаке marketplace_themes
         MarketplaceContent.Enrich(items); // 2026-10-23: группы и (позже) контент страницы «подробно» — отдельным файлом
         return items;
     }
@@ -668,7 +673,9 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
             ConnectedByServer = byServer,
             // 2026-10-31 (ТЗ Умара): у платной функции без ключа и без включения на сервере — «Подключить» (заявка в поддержку) рядом с вводом ключа.
             Secondary = !unlocked && kind == MarketplaceKind.Feature && Array.IndexOf(ServerAddons.Slugs, id) >= 0
-                ? [new MarketplaceAction(T("Подключить", "Туташтыруу", "Connect", "Bağla", "Ulash"), () => _run("request:" + slug))]
+                ? [new MarketplaceAction(T("Подключить", "Туташтыруу", "Connect", "Bağla", "Ulash"), () => _run("request:" + slug)),
+                   // 2026-11-06: купить можно и на сайте — вернётесь в программу, и покупка подхватится сама
+                   new MarketplaceAction(T("Купить на сайте", "Сайттан сатып алуу", "Buy on the website", "Web sitesinden satın al", "Saytdan sotib olish"), () => _run("web:" + ServerAddons.CodePrefix + slug))]
                 : [],
             ActionHint = !unlocked && kind == MarketplaceKind.Feature && Array.IndexOf(ServerAddons.Slugs, id) >= 0
                 ? T("Оплата пока через поддержку: оставьте заявку — перезвоним, примем оплату и включим функцию",

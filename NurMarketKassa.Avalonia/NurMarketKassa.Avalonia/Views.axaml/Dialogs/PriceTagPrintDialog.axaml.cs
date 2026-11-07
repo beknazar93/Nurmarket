@@ -170,8 +170,7 @@ public partial class PriceTagPrintDialog : Window
 
     /// <summary>2026-10-20, аудит программы владельца: ценник показывал «85.00 сом» (точка, как хранится PriceLine), а везде —
     /// запятая. На ценнике и в предпросмотре — с запятой; сам PriceLine (его разбирают другие места) не меняется.</summary>
-    private string PriceDisplay =>
-        System.Text.RegularExpressions.Regex.Replace(_product.PriceLine ?? "", @"(?<=\d)\.(?=\d)", ",");
+    private string PriceDisplay => BarcodePrintCatalog.LabelPriceText(_product.PriceLine); // 2026-11-07: разделитель по языку (en — точка)
 
     private PriceTagData BuildData()
     {
@@ -247,6 +246,11 @@ public partial class PriceTagPrintDialog : Window
         if (!LabelPrinterSelector.PrintingSupported)
         {
             StatusText.Text = LabelPrinterSelector.UnsupportedText; // 2026-11-01 (С-9)
+            return;
+        }
+        if (TargetA4Radio.IsChecked == true && !LabelPrinterSelector.A4PrintingSupported) // 2026-11-06 (В18): листы A4 — Windows и Linux (CUPS); на Android принтера A4 нет
+        {
+            StatusText.Text = LabelPrinterSelector.A4UnsupportedText;
             return;
         }
         if (PrinterCombo.SelectedItem is null && !_printersLoaded)

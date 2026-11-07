@@ -32,7 +32,8 @@ public partial class LabelPrintDialog : Window, INotifyPropertyChanged
 
     public string ProductName => _product.Title;
     public string Barcode => _product.Barcode ?? "";
-    public string PriceText => _product.PriceLine;
+    // 2026-11-07 (живая проверка 1.17.81): в предпросмотре и печати «Этикетка…» цена шла как хранится («60.00 сом», точка) — теперь «60,00 сом», как на листе и в окне печати штрихкодов.
+    public string PriceText => BarcodePrintCatalog.LabelPriceText(_product.PriceLine);
     public bool HasBarcode => !string.IsNullOrWhiteSpace(Barcode);
     /// <summary>2026-10-26: штрих-код нужен, только если он включён в шаблоне (печать одного названия или одной цены).</summary>
     public bool CanPrint => HasBarcode || !_template.Barcode.Enabled;
