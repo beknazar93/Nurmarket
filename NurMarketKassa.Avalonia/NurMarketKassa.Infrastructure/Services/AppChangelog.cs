@@ -13,6 +13,14 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Табель: Табель сотрудников в программе владельца: ручные отметки и автоматическая отметка прихода.",
+        "Рабочее время кассиров: Рабочее время кассиров и автоматический выход из кассы по его окончании.",
+        "Долги: кнопка «WA»: В долгах появилась кнопка «WA» — сообщение должнику в WhatsApp.",
+        "Согласия и сообщения клиентам: Согласия клиентов, журнал сообщений, тихие часы и каналы отправки.",
+        "Витрина магазина: Отзывы, коллекции и «Примерка» на витрине.",
+        "Вид магазина под замком: Вид магазина можно закрыть от изменений — по просьбе техподдержки.",
+        "Замер скорости и тариф «Своё»: Замер скорости работы кассы и тариф «Своё».",
+        "Android: отклик касаний: Исправлен отклик касаний на Android.",
         "Упаковки в приёмке: В приёмке (Закупки и Склад → Приёмка) товар можно принимать упаковками; для нового товара есть поштучная продажа.",
         "Точечное обновление товара: После изменения товар обновляется точечно, склад не перекачивается целиком.",
         "Склад → Приёмка: В приёмке появились штрихкод и дополнительные колонки.",
@@ -215,6 +223,14 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Табель: Ээсинин программасында кызматкерлердин табели: кол менен белгилөө жана келүүнү автоматтык белгилөө.",
+        "Кассирлердин иш убактысы: Кассирлердин иш убактысы жана ал аяктаганда кассадан автоматтык чыгуу.",
+        "Карыздар: «WA» баскычы: Карыздарда «WA» баскычы пайда болду — карызкорго WhatsApp аркылуу билдирүү.",
+        "Макулдуктар жана кардарларга билдирүүлөр: Кардарлардын макулдуктары, билдирүүлөр журналы, тынч сааттар жана жөнөтүү каналдары.",
+        "Дүкөндүн витринасы: Витринада пикирлер, коллекциялар жана «Ченеп көрүү».",
+        "Дүкөн көрүнүшү кулпуланган: Дүкөндүн көрүнүшүн өзгөртүүдөн жабууга болот — техколдоонун өтүнүчү боюнча.",
+        "Ылдамдыкты өлчөө жана «Өзүнкү» тарифи: Кассанын ылдамдыгын өлчөө жана «Өзүнкү» тарифи.",
+        "Android: тийүүгө жооп: Android'де тийүүгө жооп оңдолду.",
         "Кабыл алуудагы таңгактар: Кабыл алууда (Сатып алуулар жана Кампа → Кабыл алуу) товарды таңгак менен кабыл алса болот; жаңы товар үчүн даана сатуу бар.",
         "Товарды чекит жаңыртуу: Өзгөртүүдөн кийин товар чекит жаңыртылат, кампа толугу менен кайра жүктөлбөйт.",
         "Кампа → Кабыл алуу: Кабыл алууда штрихкод жана кошумча мамычалар пайда болду.",
@@ -415,6 +431,14 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Timesheet: Staff timesheet in the owner program: manual marks and automatic check-in.",
+        "Cashiers' working hours: Cashiers' working hours and an automatic sign-out when they end.",
+        "Debts: the “WA” button: Debts now have a “WA” button — a WhatsApp message to the debtor.",
+        "Consents and customer messages: Customer consents, a message log, quiet hours and sending channels.",
+        "Store showcase: Reviews, collections and “Try-on” on the showcase.",
+        "Store look under lock: The store look can be locked against changes — at tech support's request.",
+        "Speed test and the “Custom” plan: A speed test of the till and the “Custom” plan.",
+        "Android: touch response: Touch response is fixed on Android.",
         "Packs in receiving: In receiving (Purchases and Warehouse → Receiving) goods can be received by the pack; a new product can be sold by the piece.",
         "Targeted product refresh: After a change only that product is refreshed; the warehouse is no longer downloaded in full.",
         "Warehouse → Receiving: Receiving now has a barcode and extra columns.",
@@ -615,6 +639,14 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Puantaj: Sahip programında personel puantajı: elle işaretler ve otomatik giriş işareti.",
+        "Kasiyerlerin çalışma saatleri: Kasiyerlerin çalışma saatleri ve bittiğinde kasadan otomatik çıkış.",
+        "Borçlar: «WA» düğmesi: Borçlarda «WA» düğmesi eklendi — borçluya WhatsApp mesajı.",
+        "Onaylar ve müşteri mesajları: Müşteri onayları, mesaj günlüğü, sessiz saatler ve gönderim kanalları.",
+        "Mağaza vitrini: Vitrinde yorumlar, koleksiyonlar ve «Deneme».",
+        "Mağaza görünümü kilitli: Mağaza görünümü değişikliklere karşı kilitlenebilir — teknik destek isteğiyle.",
+        "Hız ölçümü ve «Kendi» tarifesi: Kasa hız ölçümü ve «Kendi» tarifesi.",
+        "Android: dokunma tepkisi: Android'de dokunma tepkisi düzeltildi.",
         "Mal kabulünde paketler: Mal kabulünde (Satın alma ve Depo → Mal kabulü) ürün paketle kabul edilebilir; yeni ürün için adetle satış vardır.",
         "Ürünün tek tek yenilenmesi: Değişiklikten sonra yalnızca o ürün yenilenir; depo baştan indirilmez.",
         "Depo → Mal kabulü: Mal kabulüne barkod ve ek sütunlar eklendi.",
@@ -815,6 +847,14 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Tabel: Egasi dasturida xodimlar tabeli: qo'lda belgilash va kelishni avtomatik belgilash.",
+        "Kassirlarning ish vaqti: Kassirlarning ish vaqti va u tugaganda kassadan avtomatik chiqish.",
+        "Qarzlar: «WA» tugmasi: Qarzlarda «WA» tugmasi paydo bo'ldi — qarzdorga WhatsApp xabari.",
+        "Rozilik va mijozlarga xabarlar: Mijozlar roziligi, xabarlar jurnali, sokin soatlar va yuborish kanallari.",
+        "Do'kon vitrinasi: Vitrinada sharhlar, kolleksiyalar va «O'lchab ko'rish».",
+        "Do'kon ko'rinishi qulf ostida: Do'kon ko'rinishini o'zgartirishdan yopish mumkin — texnik yordam so'rovi bilan.",
+        "Tezlikni o'lchash va «O'zimniki» tarifi: Kassa tezligini o'lchash va «O'zimniki» tarifi.",
+        "Android: tegish javobi: Android'da tegishga javob tuzatildi.",
         "Qabuldagi o'ramlar: Qabulda (Xaridlar va Ombor → Qabul) tovarni o'ram bilan qabul qilish mumkin; yangi tovar uchun donalab sotuv bor.",
         "Tovarni nuqtali yangilash: O'zgarishdan keyin faqat shu tovar yangilanadi; ombor butunlay qayta yuklanmaydi.",
         "Ombor → Qabul: Qabulda shtrix-kod va qo'shimcha ustunlar paydo bo'ldi.",
@@ -1020,6 +1060,7 @@ public static class AppChangelog
     // 2026-11-05: 1.17.76 (добавка) — сверху всех Latest* пункты «Весы: единица суммы в штрихкоде» и «Внешние сервисы», сверху AndroidLatest* — «Внешние сервисы».
     // 2026-11-06: 1.17.77 (добавка) — первым пунктом всех Latest* и AndroidLatest* «Загрузка каталога» (срочный фикс Б-1).
     // 2026-11-06: 1.17.77 (добавка 3, тестовый канал) — после пункта «Загрузка каталога» в Latest*: приёмка без связи, «Неотправленное», защита входа, возврат долгового чека, окно оплаты, быстрее запуск, картинки/ИИ, наценка приёмки, программа владельца; в AndroidLatest* — первые шесть.
+    // 2026-11-08: 1.17.83 (тестовый) — сверху всех Latest* 8 пунктов (табель, рабочее время кассиров, «WA» в долгах, согласия и сообщения, витрина, вид магазина под замком, замер скорости и «Своё», отклик касаний Android), сверху AndroidLatest* — 5 общих.
     // 2026-11-07: 1.17.82 (тестовый) — сверху всех Latest* 5 пунктов (упаковки в приёмке, точечное обновление товара, Склад → Приёмка, колонка «Наименование» в накладной, цена Rongta), сверху AndroidLatest* — 4 общих.
     // 2026-11-07: 1.17.81 — сверху всех Latest* 11 пунктов (цена приёмки, весы РС-200, цены выше 9999,99, главная касса, удаление товара, «№», Маркетплейс, печать и PDF, этикетки размеров, память, запуск), сверху AndroidLatest* — 8 общих.
     // 2026-11-06: 1.17.79 — сверху всех Latest* 10 пунктов (суммы в программе владельца, оплата долга, ревизия, прокат, смена, запуск и поиск, склад, весы РС-200, программа владельца, просроченный товар), сверху AndroidLatest* — 7 общих.
@@ -1070,6 +1111,11 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Android: отклик касаний: Исправлен отклик касаний на Android.",
+        "Табель: Табель сотрудников в программе владельца: ручные отметки и автоматическая отметка прихода.",
+        "Рабочее время кассиров: Рабочее время кассиров и автоматический выход из кассы по его окончании.",
+        "Долги: кнопка «WA»: В долгах появилась кнопка «WA» — сообщение должнику в WhatsApp.",
+        "Согласия и сообщения клиентам: Согласия клиентов, журнал сообщений, тихие часы и каналы отправки.",
         "Упаковки в приёмке: В приёмке (Закупки и Склад → Приёмка) товар можно принимать упаковками; для нового товара есть поштучная продажа.",
         "Точечное обновление товара: После изменения товар обновляется точечно, склад не перекачивается целиком.",
         "Склад → Приёмка: В приёмке появились штрихкод и дополнительные колонки.",
@@ -1211,6 +1257,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Android: тийүүгө жооп: Android'де тийүүгө жооп оңдолду.",
+        "Табель: Ээсинин программасында кызматкерлердин табели: кол менен белгилөө жана келүүнү автоматтык белгилөө.",
+        "Кассирлердин иш убактысы: Кассирлердин иш убактысы жана ал аяктаганда кассадан автоматтык чыгуу.",
+        "Карыздар: «WA» баскычы: Карыздарда «WA» баскычы пайда болду — карызкорго WhatsApp аркылуу билдирүү.",
+        "Макулдуктар жана кардарларга билдирүүлөр: Кардарлардын макулдуктары, билдирүүлөр журналы, тынч сааттар жана жөнөтүү каналдары.",
         "Кабыл алуудагы таңгактар: Кабыл алууда (Сатып алуулар жана Кампа → Кабыл алуу) товарды таңгак менен кабыл алса болот; жаңы товар үчүн даана сатуу бар.",
         "Товарды чекит жаңыртуу: Өзгөртүүдөн кийин товар чекит жаңыртылат, кампа толугу менен кайра жүктөлбөйт.",
         "Кампа → Кабыл алуу: Кабыл алууда штрихкод жана кошумча мамычалар пайда болду.",
@@ -1350,6 +1401,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Android: touch response: Touch response is fixed on Android.",
+        "Timesheet: Staff timesheet in the owner program: manual marks and automatic check-in.",
+        "Cashiers' working hours: Cashiers' working hours and an automatic sign-out when they end.",
+        "Debts: the “WA” button: Debts now have a “WA” button — a WhatsApp message to the debtor.",
+        "Consents and customer messages: Customer consents, a message log, quiet hours and sending channels.",
         "Packs in receiving: In receiving (Purchases and Warehouse → Receiving) goods can be received by the pack; a new product can be sold by the piece.",
         "Targeted product refresh: After a change only that product is refreshed; the warehouse is no longer downloaded in full.",
         "Warehouse → Receiving: Receiving now has a barcode and extra columns.",
@@ -1489,6 +1545,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Android: dokunma tepkisi: Android'de dokunma tepkisi düzeltildi.",
+        "Puantaj: Sahip programında personel puantajı: elle işaretler ve otomatik giriş işareti.",
+        "Kasiyerlerin çalışma saatleri: Kasiyerlerin çalışma saatleri ve bittiğinde kasadan otomatik çıkış.",
+        "Borçlar: «WA» düğmesi: Borçlarda «WA» düğmesi eklendi — borçluya WhatsApp mesajı.",
+        "Onaylar ve müşteri mesajları: Müşteri onayları, mesaj günlüğü, sessiz saatler ve gönderim kanalları.",
         "Mal kabulünde paketler: Mal kabulünde (Satın alma ve Depo → Mal kabulü) ürün paketle kabul edilebilir; yeni ürün için adetle satış vardır.",
         "Ürünün tek tek yenilenmesi: Değişiklikten sonra yalnızca o ürün yenilenir; depo baştan indirilmez.",
         "Depo → Mal kabulü: Mal kabulüne barkod ve ek sütunlar eklendi.",
@@ -1628,6 +1689,11 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Android: tegish javobi: Android'da tegishga javob tuzatildi.",
+        "Tabel: Egasi dasturida xodimlar tabeli: qo'lda belgilash va kelishni avtomatik belgilash.",
+        "Kassirlarning ish vaqti: Kassirlarning ish vaqti va u tugaganda kassadan avtomatik chiqish.",
+        "Qarzlar: «WA» tugmasi: Qarzlarda «WA» tugmasi paydo bo'ldi — qarzdorga WhatsApp xabari.",
+        "Rozilik va mijozlarga xabarlar: Mijozlar roziligi, xabarlar jurnali, sokin soatlar va yuborish kanallari.",
         "Qabuldagi o'ramlar: Qabulda (Xaridlar va Ombor → Qabul) tovarni o'ram bilan qabul qilish mumkin; yangi tovar uchun donalab sotuv bor.",
         "Tovarni nuqtali yangilash: O'zgarishdan keyin faqat shu tovar yangilanadi; ombor butunlay qayta yuklanmaydi.",
         "Ombor → Qabul: Qabulda shtrix-kod va qo'shimcha ustunlar paydo bo'ldi.",

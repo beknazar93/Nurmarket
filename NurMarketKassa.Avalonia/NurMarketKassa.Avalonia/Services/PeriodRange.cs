@@ -8,6 +8,9 @@ namespace NurMarketKassa.AvaloniaHost.Services;
 /// И подпись дат рядом с сегментами: «01.10–20.10».</summary>
 public static class PeriodRange
 {
+    /// <summary>2026-11-08: «сегодня» для подписей периода; тесты окон подменяют на фиксированную дату (эталоны снимков не зависят от дня запуска).</summary>
+    public static Func<DateTime> Today { get; set; } = () => DateTime.Today;
+
     public static DateTime WeekFrom(DateTime today) => today.Date.AddDays(-6);
 
     public static DateTime MonthFrom(DateTime today) => new(today.Year, today.Month, 1);

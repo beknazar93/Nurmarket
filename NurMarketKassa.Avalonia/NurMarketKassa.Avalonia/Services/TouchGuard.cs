@@ -49,7 +49,34 @@ internal static class TouchGuard
         Gestures.ScrollGestureEvent.AddClassHandler<TopLevel>((_, _) => OnScrollGesture(ended: false), RoutingStrategies.Bubble, handledEventsToo: true);
         Gestures.ScrollGestureInertiaStartingEvent.AddClassHandler<TopLevel>((_, _) => OnScrollGesture(ended: true), RoutingStrategies.Bubble, handledEventsToo: true);
         Gestures.ScrollGestureEndedEvent.AddClassHandler<TopLevel>((_, _) => OnScrollGesture(ended: true), RoutingStrategies.Bubble, handledEventsToo: true);
+        if (OperatingSystem.IsAndroid())
+            TouchScrollSlop.Register();
     }
+
+    /// <summary>2026-11-08, владелец: «Android (NurMarket владелец): сенсор откликается очень плохо». Android отменяет касание
+    /// (ACTION_CANCEL: защита от ладони, жест «назад» с края, шторка уведомлений) — Avalonia превращает это в TouchCancel БЕЗ
+    /// PointerReleased, и палец оставался в <see cref="Active"/> до 5 с. Следующее касание считалось «вторым пальцем»: e.Handled,
+    /// нажатие отменялось, отпускание глушилось — кнопки, строки и вкладки молчали до 5 секунд подряд. Android точно знает, когда
+    /// на экране не осталось пальцев: новое касание (ACTION_DOWN) всегда первое, после ACTION_CANCEL пальцев нет. В эти моменты
+    /// MainActivity (Android) сбрасывает здесь всё запомненное.</summary>
+    public static void ResetFromPlatform()
+    {
+        try
+        {
+            if (Active.Count > 0)
+                Active.Clear();
+            _twoFinger = false;
+            _root = null;
+            CancelDrag();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Сенсор: сброс касаний не удался: {ex.Message}", "WARNING");
+        }
+    }
+
+    /// <summary>2026-11-08: палец сейчас на экране (касание, прокрутка). Тяжёлые обходы дерева (AutoReflow на Android) в это время откладываются.</summary>
+    public static bool IsTouchActive => Active.Count > 0;
 
     private static DateTime _lastScrollGestureUtc;
 

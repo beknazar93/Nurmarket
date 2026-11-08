@@ -52,6 +52,12 @@ public sealed class SiteOrder
     /// <summary>2026-11-01 (ответ Умара по ТЗ 01.11, ИИ-3): подробный источник — site_cart (корзина сайта), site_button, site_product,
     /// site_chat / assistant (помощник сайта), chat_handoff, bot_menu, bot_ai; неизвестное сервер сохраняет как есть. Пусто — сервер без поля.</summary>
     public string? SourceDetail { get; init; }
+    /// <summary>2026-11-08 (ответ Умара 08.11, п.38 Б-94): «Примерить в магазине» — товар в резерве до этого времени (только чтение; сервер отменяет
+    /// заказ new/accepted после него раз в 10 минут, ready не отменяется). null — обычный заказ.</summary>
+    public DateTimeOffset? HoldUntil { get; init; }
+
+    /// <summary>Заказ с примеркой в магазине: delivery.type = try_on или есть hold_until.</summary>
+    public bool IsTryOn => HoldUntil != null || string.Equals(Delivery, "try_on", StringComparison.OrdinalIgnoreCase);
 
     public bool IsNew => string.Equals(Status, ShowcaseApiService.StatusNew, StringComparison.OrdinalIgnoreCase);
 }
@@ -495,6 +501,8 @@ public sealed class ShowcaseApiService
             }
         }
 
+        // 2026-11-08 (п.38): delivery у заказа с примеркой — объект {type:"try_on", hold_until}; у остальных — строка или нет вовсе.
+        var deliveryObj = row.ValueKind == JsonValueKind.Object && row.TryGetProperty("delivery", out var dv) && dv.ValueKind == JsonValueKind.Object ? dv : default;
         return new SiteOrder
         {
             Id = Str(row, "id") ?? "",
@@ -509,7 +517,8 @@ public sealed class ShowcaseApiService
             Total = Num(row, "total") ?? items.Sum(i => i.Total),
             TotalQuantity = Num(row, "total_quantity") ?? items.Sum(i => i.Quantity),
             Items = items,
-            Delivery = FirstStr(row, "delivery_type", "delivery_method", "receive_method", "delivery"),
+            Delivery = Str(deliveryObj, "type") ?? FirstStr(row, "delivery_type", "delivery_method", "receive_method", "delivery"),
+            HoldUntil = Date(row, "hold_until") ?? Date(deliveryObj, "hold_until"),
             Address = FirstStr(row, "delivery_address", "address"),
             Comment = FirstStr(row, "comment", "customer_comment", "note", "notes"),
             Source = FirstStr(row, "source", "channel"),

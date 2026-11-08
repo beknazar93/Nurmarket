@@ -892,6 +892,12 @@ public partial class OwnerShellWindow : Window, IMainShell
         Add("siteeditor", "StoreIcon", Tr.T("Редактор сайта", "Сайттын редактору", "Website editor", "Web sitesi düzenleyici", "Sayt muharriri"), true,
             // 2026-10-27 (аудит редакторов, В-2): раньше без проверки прав — любой сотрудник мог менять и публиковать сайт; как у «Настроек сайта».
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("siteeditor", () => new SiteEditorWindow()); });
+        // 2026-11-08 (ответ Умара 08.11, п.39 Б-95 и п.37 Б-93): «Отзывы» (модерация) и «Коллекции» витрины — рядом с «Заказами с сайта»;
+        // видны только если витрина подключена (владелец или админ с услугой «Онлайн витрина»), иначе скрыты.
+        Add("sitereviews", "StoreIcon", Tr.T("Отзывы", "Пикирлер", "Reviews", "Yorumlar", "Sharhlar"), ShowcaseApiService.IsShowcaseConnected,
+            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("sitereviews", () => new SiteReviewsWindow()); });
+        Add("sitecollections", "StoreIcon", Tr.T("Коллекции", "Коллекциялар", "Collections", "Koleksiyonlar", "Kolleksiyalar"), ShowcaseApiService.IsShowcaseConnected,
+            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("sitecollections", () => new SiteCollectionsWindow()); });
         Add("sitesettings", "SiteSettingsIcon", Tr.T("Настройки сайта", "Сайттын жөндөөлөрү", "Website settings", "Web sitesi ayarları", "Sayt sozlamalari"), true,
             OpenSiteSettings);
         // 2026-10-05, запрос NurCRM: «экран „Магазин в приложении“, чтобы владельцы подключались сами» (бесплатно на любом тарифе).
@@ -917,6 +923,10 @@ public partial class OwnerShellWindow : Window, IMainShell
         Group("manage", Tr.T("Управление", "Башкаруу", "Management", "Yönetim", "Boshqaruv"));
         Add("salary", "SalaryIcon", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi"), TariffGate.CanUseSalary,
             () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("salary", () => new SalaryWindow()); });
+        // 2026-11-08, запрос владельца «вернуть табель»: «Табель» (отметки сотрудников по дням + итоги по сменам) — владельцу всегда, без покупки в Маркетплейсе (в кассе гейт прежний).
+        // Права — как у «Зарплаты»; деньги и расчёт зарплаты окно не трогает.
+        Add("timesheet", "TimesheetIcon", Tr.T("Табель", "Табель", "Timesheet", "Çizelge", "Tabel"), true,
+            () => { if (Authorize(PosPermissions.ViewSettings)) OpenSection("timesheet", () => new StaffTimesheetWindow()); });
         Add("crm", "CrmIcon", "NurCRM", TariffGate.CanUseService,
             () => OpenSection("crm", () => App.GetRequiredService<CrmWebViewWindow>()));
         Add("marketplace", "MarketplaceIcon", Tr.T("Маркетплейс", "Маркетплейс", "Marketplace", "Pazar yeri", "Marketpleys"), true,

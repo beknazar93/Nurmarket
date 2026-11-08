@@ -75,8 +75,12 @@ internal static class AvaloniaHostServiceRegistration
         services.AddSingleton<ClientDebtsApiService>();
         // 2026-09-29: заказы и настройки витрины (сайта) для программы владельца.
         services.AddSingleton<ShowcaseApiService>();
+        services.AddSingleton<ShowcaseExtrasApiService>(); // 2026-11-08: отзывы и коллекции витрины (п.37, п.39)
         // 2026-10-01, ТЗ часть 5: бот и ИИ на сервере NurCRM.
         services.AddSingleton<ServerTelegramBotApi>();
+        services.AddSingleton<ClientMessagingApi>(); // 2026-11-08: согласия клиента, каналы, тихие часы, журнал сообщений бота (п. 31, 35)
+        services.AddSingleton<ConnectionSpeedTest>(); // 2026-11-08: замер скорости связи (п. 34)
+        services.AddSingleton<TariffApi>(); // 2026-11-08: тариф «Своё» — каталог, расчёт, заявка (п. 32)
         // 2026-10-02: прокат (аренда) для одежды и услуг — документ ведёт сервер NurCRM.
         services.AddSingleton<RentalsApi>();
         // 2026-10-05, ТЗ часть 7: журнал допродажи и итоги по всем кассам на сервере.

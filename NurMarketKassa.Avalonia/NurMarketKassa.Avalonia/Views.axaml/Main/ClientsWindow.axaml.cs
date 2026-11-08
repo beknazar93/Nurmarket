@@ -82,7 +82,11 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
         InitDebtButton();
         // 2026-10-21: вкладка «Документы» (КП, счета, накладные) — только у владельца, см. ClientsWindow.Docs.cs.
         InitDocs();
+        // 2026-11-08: блок «Согласия на сообщения» и «Каналы» в карточке клиента (п. 31, 35).
+        CardMessagingHost.Content = _messaging = new ClientMessagingBlock();
     }
+
+    private ClientMessagingBlock? _messaging;
 
     private void CloseCardButton_Click(object? sender, RoutedEventArgs e) => SelectedClient = null;
 
@@ -196,6 +200,7 @@ public partial class ClientsWindow : Window, INotifyPropertyChanged, IOwnerSecti
             if (TelegramInviteHint != null)
                 TelegramInviteHint.IsVisible = false;
             _ = LoadClientPurchasesAsync(value);
+            _messaging?.SetClient(value?.Id); // 2026-11-08: согласия и каналы выбранного клиента
         }
     }
 

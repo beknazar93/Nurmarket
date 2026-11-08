@@ -449,6 +449,9 @@
                                 </StackPanel>
                             </Border>
 
+                            <!-- 2026-11-08 (п. 31, 35 ответа сервера): согласия на сообщения, язык и каналы клиента — ClientMessagingBlock. -->
+                            <ContentControl x:Name="CardMessagingHost"/>
+
                             <TextBlock Text="{Binding CardErrorMessage}"
                                        Foreground="{DynamicResource BrushDanger}"
                                        FontSize="13"

@@ -101,6 +101,7 @@ public static class CompanyStoreRegistry
         "shop-alerts-state.json", "shop-automation.json", "rental-alerts.json",
         // 2026-11-06 (аудит №5, Л5-11): порог PIN ревизии и история пересчётов теперь общий файл кассы и владельца (история — товары прежней компании).
         "cycle-count.json", "cycle-count.json.bak",
+        "timesheet-marks.json", "timesheet-marks.json.bak",   // 2026-11-08: отметки сотрудников в табеле (TimesheetMarksService) — общий файл кассы и владельца, данные компании
         "removed-products.json", "removed-products.json.bak", // 2026-11-06: память об удалённых/архивных товарах (закупка, категория, бренд для прошлых периодов аналитики) — товары прежней компании
     ];
 

@@ -69,6 +69,21 @@ public sealed class EmployeeAccessCode
     /// оставлено только чтобы прочитать и стереть пароли, сохранённые прежними версиями.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? LoginPassword { get; set; }
+
+    /// <summary>2026-11-08, решение владельца («рабочее время сотрудника»): ограничение рабочего времени кассира. null/false — ограничения нет
+    /// (смены открывают и закрывают вручную, как раньше). Поля едут в облако вместе со списком сотрудников (ToCloudSecure, версия списка),
+    /// поэтому действуют на всех кассах магазина. См. WorkSchedule.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? WorkLimitEnabled { get; set; }
+    /// <summary>2026-11-08: начало и конец рабочего времени «ЧЧ:ММ» (местные часы ПК). Конец раньше начала — ночная смена (22:00–06:00).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? WorkFrom { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? WorkTo { get; set; }
+    /// <summary>2026-11-08: дни недели рабочего времени (0 = воскресенье … 6 = суббота, как System.DayOfWeek); null/пусто — каждый день.
+    /// Ночная смена относится к дню её начала.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<int>? WorkDays { get; set; }
 }
 
 /// <summary>Локальные настройки POS (%AppData%\NurMarketKassa\user-settings.json).</summary>
@@ -409,6 +424,10 @@ public sealed partial class UserPreferences
     /// Ключ общих настроек компании (SettingsCloudSync.CompanyKeys): другие кассы магазина видят ту же сферу.</summary>
     public string? MarketSphereDetail { get; set; }
 
+    /// <summary>2026-11-08: метка последнего применённого назначения вида магазина от техподдержки (MarketSphereLock, ключ
+    /// SupportMarketSphere общих настроек). Каждое назначение применяется один раз; null — назначений не было.</summary>
+    public string? SupportSphereAppliedStamp { get; set; }
+
     /// <summary>Ручной оверрайд скруглённости кнопок (px) поверх значения активной темы —
     /// null означает "как задано в теме" (см. AccentThemeService.Apply).</summary>
     public double? CustomButtonRadius { get; set; }
@@ -614,6 +633,15 @@ public sealed partial class UserPreferences
     /// <summary>2026-10-30, редактор накладных закупок: окно правки проведённой накладной — "24" (по умолчанию) / "48" / "always". Общее для магазина:
     /// меняет владелец (Настройки → Операции), на все кассы идёт через SettingsCloudSync (CompanyKeys). null — ничего не меняли (24 ч). См. ReceiptEditPolicy.</summary>
     public string? PurchaseEditWindow { get; set; }
+
+    /// <summary>2026-11-08 (запрос владельца «авто отметка в настройках»): автоотметка сотрудника в табеле — "off" (по умолчанию, null = выкл), "shift" (при открытии смены кассиром),
+    /// "login" (при входе в кассу). Общее правило магазина (SettingsCloudSync, CompanyKeys). Ручная отметка владельца приоритетнее. См. StaffAutoMark.</summary>
+    public string? StaffAutoMarkMode { get; set; }
+
+    /// <summary>2026-11-08 (решение владельца «рабочее время сотрудника»): выход из аккаунта при бездействии, минут — только у кассиров с включённым
+    /// ограничением рабочего времени (EmployeeAccessCode.WorkLimitEnabled). null — не меняли (60 минут), 0 — не выходить. Общее правило магазина
+    /// (SettingsCloudSync, CompanyKeys); меняет владелец в «Настройки → Сотрудники». См. WorkSchedule.IdleLogoutMinutes.</summary>
+    public int? IdleLogoutMinutes { get; set; }
 
     /// <summary>2026-10-04, клиент: «тумблер, который переключает скидку с процента на сом, сделать
     /// запоминающим — последняя нажатая кнопка остаётся». Окно скидки (на чек и на товар) без уже

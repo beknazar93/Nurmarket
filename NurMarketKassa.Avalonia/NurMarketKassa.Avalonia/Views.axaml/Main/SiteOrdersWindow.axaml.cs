@@ -569,6 +569,9 @@ public partial class SiteOrdersWindow : Window, IOwnerSection, IOwnerSectionExce
         // 2026-11-01 (ИИ-3): чип «Откуда заказ» — только когда сервер отдаёт source_detail (иначе строка выглядит как раньше).
         if (OriginPanel.IsVisible && OriginChipText(order) is { Length: > 0 } originChip)
             pills.Children.Add(Pill(originChip, "BrushInputAlt", "BrushTextSoft"));
+        // 2026-11-08 (п.38, Б-94): «Примерка» — заказ с примеркой в магазине.
+        if (order.IsTryOn)
+            pills.Children.Add(Pill(Tr.T("Примерка", "Кийип көрүү", "Try-on", "Deneme", "Kiyib ko'rish"), "BrushInputAlt", "BrushTextSoft"));
         pills.Children.Add(StatusPill(order.Status));
         Grid.SetColumn(pills, 1);
         top.Children.Add(pills);
@@ -724,6 +727,14 @@ public partial class SiteOrdersWindow : Window, IOwnerSection, IOwnerSectionExce
         if (DetailText(order.SourceDetail) is { } detailText)
             Field(Tr.T("Откуда", "Кайдан", "From", "Nereden", "Qayerdan"), OriginChipText(order) is { Length: > 0 } chipText ? $"{chipText} · {detailText}" : detailText);
         DetailPanel.Children.Add(fields);
+
+        // 2026-11-08 (п.38, Б-94): примерка в магазине — товар в резерве до hold_until (время магазина), доставка 0.
+        if (TryOnNote(order) is { } tryOn)
+        {
+            var tryOnText = new TextBlock { Text = tryOn, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 8) };
+            UseBrush(tryOnText, TextBlock.ForegroundProperty, "BrushWarning");
+            DetailPanel.Children.Add(tryOnText);
+        }
 
         DetailPanel.Children.Add(BuildItemsTable(order));
 
@@ -961,10 +972,36 @@ public partial class SiteOrdersWindow : Window, IOwnerSection, IOwnerSectionExce
     };
 
     /// <summary>2026-10-20 (живой аудит: «Получение: pickup» — слово сервера): способ получения — простыми словами на языке программы.</summary>
+    /// <summary>2026-11-08 (п.38): пометка заказа с примеркой в магазине. Для ready — подсказка кассиру «подготовьте до…» (сервер ready не отменяет);
+    /// для new/accepted — предупреждение об автоотмене после срока; закрытый заказ — без подсказок.</summary>
+    internal static string? TryOnNote(SiteOrder order)
+    {
+        if (!order.IsTryOn)
+            return null;
+        var until = order.HoldUntil is { } h ? h.LocalDateTime.ToString("dd.MM HH:mm", CultureInfo.InvariantCulture) : null;
+        var head = until == null
+            ? Tr.T("Примерка в магазине — товар в резерве, доставка 0.", "Дүкөндө кийип көрүү — товар резервде, жеткирүү 0.",
+                "Try on in the store — the item is on hold, delivery 0.", "Mağazada deneme — ürün rezervde, teslimat 0.",
+                "Do'konda kiyib ko'rish — mahsulot zaxirada, yetkazish 0.")
+            : Tr.T($"Примерка в магазине — товар в резерве до {until}.", $"Дүкөндө кийип көрүү — товар {until} чейин резервде.",
+                $"Try on in the store — the item is on hold until {until}.", $"Mağazada deneme — ürün {until} tarihine kadar rezervde.",
+                $"Do'konda kiyib ko'rish — mahsulot {until} gacha zaxirada.");
+        if (until == null || ShowcaseApiService.IsFinished(order.Status))
+            return head;
+        return order.Status == ShowcaseApiService.StatusReady
+            ? head + " " + Tr.T($"Подготовьте товар до {until}.", $"Товарды {until} чейин даярдаңыз.", $"Have the item ready by {until}.", $"Ürünü {until} tarihine kadar hazırlayın.", $"Mahsulotni {until} gacha tayyorlang.")
+            : head + " " + Tr.T("Если не принять и не подготовить до этого времени, сервер отменит заказ сам (проверка раз в 10 минут); «Готов» не отменяется.",
+                "Ушул убакытка чейин кабыл албасаңыз же даярдабасаңыз, сервер заказды өзү жокко чыгарат (10 мүнөт сайын текшерет); «Даяр» жокко чыгарылбайт.",
+                "If not accepted and prepared by then, the server cancels the order itself (checked every 10 minutes); “Ready” is not canceled.",
+                "O zamana kadar kabul edilip hazırlanmazsa sunucu siparişi kendisi iptal eder (10 dakikada bir kontrol); «Hazır» iptal edilmez.",
+                "Shu vaqtgacha qabul qilinmasa va tayyorlanmasa, server buyurtmani o'zi bekor qiladi (har 10 daqiqada tekshiradi); «Tayyor» bekor qilinmaydi.");
+    }
+
     private static string? DeliveryText(string? delivery) => (delivery ?? "").Trim().ToLowerInvariant() switch
     {
         "" => null,
         "pickup" or "self_pickup" or "self-pickup" or "selfpickup" or "self" => Tr.T("Самовывоз", "Өзү алып кетүү", "Pickup", "Gel-al", "Olib ketish"),
+        "try_on" => Tr.T("Примерка в магазине", "Дүкөндө кийип көрүү", "Try on in the store", "Mağazada deneme", "Do'konda kiyib ko'rish"),
         "delivery" or "courier" or "shipping" => Tr.T("Доставка", "Жеткирүү", "Delivery", "Teslimat", "Yetkazib berish"),
         _ => delivery,
     };

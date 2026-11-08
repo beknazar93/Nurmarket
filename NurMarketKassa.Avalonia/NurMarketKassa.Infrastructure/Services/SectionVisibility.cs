@@ -61,12 +61,15 @@ public static class SectionVisibility
         ("debts", Tr.T("Долги клиентов", "Кардарлардын карыздары", "Customer debts", "Müşteri borçları", "Mijozlar qarzlari")),
         ("siteorders", Tr.T("Заказы с сайта", "Сайттан заказдар", "Website orders", "Web sitesi siparişleri", "Saytdan buyurtmalar")),
         ("siteeditor", Tr.T("Редактор сайта", "Сайттын редактору", "Website editor", "Web sitesi düzenleyici", "Sayt muharriri")),
+        ("sitereviews", Tr.T("Отзывы", "Пикирлер", "Reviews", "Yorumlar", "Sharhlar")), // 2026-11-08
+        ("sitecollections", Tr.T("Коллекции", "Коллекциялар", "Collections", "Koleksiyonlar", "Kolleksiyalar")), // 2026-11-08
         ("appshop", Tr.T("Магазин в приложении", "Тиркемедеги дүкөн", "Shop in the app", "Uygulamadaki mağaza", "Ilovadagi do'kon")),
         ("sitesettings", Tr.T("Настройки сайта", "Сайттын жөндөөлөрү", "Website settings", "Web sitesi ayarları", "Sayt sozlamalari")),
         ("clients", Tr.T("Клиенты", "Кардарлар", "Customers", "Müşteriler", "Mijozlar")),
         ("telegrambot", Tr.T("Телеграм-бот", "Телеграм-бот", "Telegram bot", "Telegram botu", "Telegram bot")),
         ("rentals", Tr.T("Прокат", "Прокат", "Rentals", "Kiralama", "Prokat")),
         ("salary", Tr.T("Зарплата", "Эмгек акы", "Salary", "Maaş", "Ish haqi")),
+        ("timesheet", Tr.T("Табель", "Табель", "Timesheet", "Çizelge", "Tabel")), // 2026-11-08
         ("crm", "NurCRM"),
         ("whatsapp", "WhatsApp"),
         ("funnel", Tr.T("Воронка", "Воронка", "Sales funnel", "Satış hunisi", "Savdo voronkasi")),

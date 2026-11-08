@@ -249,6 +249,23 @@ public static class EmployeeAccessGate
     /// <summary>2026-10-18, четвёртый круг ревью (оплата долга): у вошедшего сотрудника задан код на это действие.</summary>
     public static bool CurrentEmployeeHasCode(string action) => FindCurrentEmployee() is { } me && HasCode(action, me);
 
+    /// <summary>2026-11-08: карточка вошедшего сотрудника для проверки рабочего времени (WorkSchedule); null — карточки нет (ограничения нет).</summary>
+    public static EmployeeAccessCode? CurrentEmployeeCard() => FindCurrentEmployee();
+
+    /// <summary>2026-11-08: вошедший — владелец или администратор (роль из профиля): рабочее время к ним не применяется.</summary>
+    public static bool CurrentUserIsOwnerOrAdmin()
+    {
+        try
+        {
+            var payload = CurrentUserProvider?.Invoke() ?? default;
+            return payload.ValueKind == JsonValueKind.Object && PermissionService.IsOwnerOrAdmin(payload);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     /// <summary>2026-10-18: карточка вошедшего сотрудника — по id пользователя на сервере, затем по email.</summary>
     private static EmployeeAccessCode? FindCurrentEmployee()
     {
@@ -567,6 +584,11 @@ public static class EmployeeAccessGate
             ProductAddCodeHash = e.ProductAddCodeHash,
             DebtPaymentCodeHash = e.DebtPaymentCodeHash,
             ShortCodes = e.ShortCodes?.ToList(),
+            // 2026-11-08: рабочее время кассира едет в облако вместе с карточкой (см. WorkSchedule).
+            WorkLimitEnabled = e.WorkLimitEnabled,
+            WorkFrom = e.WorkFrom,
+            WorkTo = e.WorkTo,
+            WorkDays = e.WorkDays?.ToList(),
         }).ToList();
 
     /// <summary>2026-10-18, повторное ревью: локальная правка списка сотрудников/кодов — версия списка растёт
@@ -620,6 +642,11 @@ public static class EmployeeAccessGate
             // 2026-10-18, повторное ревью: пустые id/email из облака не стирают уже известные кассе.
             l.ServerId = r.ServerId ?? l.ServerId;
             l.Email = r.Email ?? l.Email;
+            // 2026-11-08: рабочее время — как в облаке (сервер главнее; версия списка новее локальной, раз мы здесь).
+            l.WorkLimitEnabled = r.WorkLimitEnabled;
+            l.WorkFrom = r.WorkFrom;
+            l.WorkTo = r.WorkTo;
+            l.WorkDays = r.WorkDays?.ToList();
             foreach (var action in AllActions)
                 if (string.IsNullOrWhiteSpace(PlainFor(action, l)))
                 {

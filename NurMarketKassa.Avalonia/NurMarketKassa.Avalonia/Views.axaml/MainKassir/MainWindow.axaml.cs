@@ -363,6 +363,8 @@ public partial class MainWindow : Window
             AccountCatalogIsolation.ClearForcedCatalogSyncFlag();
 
         _appInitialized = true;
+        // 2026-11-08: автоотметка «при входе в кассу» (режим включается в настройках; по умолчанию выкл).
+        StaffAutoMark.OnLogin();
         return true;
     }
 
@@ -1884,6 +1886,10 @@ public partial class MainWindow : Window
             return;
         }
 
+        // 2026-11-08: рабочее время ограниченного кассира — вне его смену не открыть (у остальных проверка ничего не делает).
+        if (!AuthorizeWorkTimeForShift())
+            return;
+
         var dlg = App.GetRequiredService<OpenShiftDialog>();
         dlg.SuggestedBalance = EffectiveShiftCashBalance;
         // 2026-10-23 (аудит, круг 5): остатка нет в памяти — диалог покажет «загрузка…» и подтянет его в фоне (до 20 с, 2 попытки).
@@ -2367,6 +2373,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        // 2026-11-08 (решение владельца «рабочее время сотрудника»): у кассира с включённым ограничением вход вне его времени — отказ с сообщением; у всех остальных
+        // (по умолчанию ограничения нет) ничего не происходит. Дальше — слежение за концом рабочего времени и бездействием (MainWindow.WorkTime.cs).
+        if (!await EnforceWorkTimeOnEntryAsync().ConfigureAwait(true))
+            return;
+        StartWorkTimeWatch();
+
         // Здесь (а не в InitializeApplicationAsync) — окно уже гарантированно видимо и может
         // быть owner'ом диалога, независимо от того, был ли _appInitialized уже true к этому
         // моменту (LoginWindow может вызвать InitializeApplicationAsync до Show() этого окна).
@@ -2831,6 +2843,7 @@ public partial class MainWindow : Window
         SaleDoneBar.Dismiss();
         ServerOutageMonitor.Recovered -= OnServerRecovered;
         _shiftWatchTimer?.Stop(); // 2026-10-22 (П1)
+        StopWorkTimeWatch(); // 2026-11-08: слежение за рабочим временем и бездействием
         _balanceRefreshTimer?.Stop(); // 2026-10-27: разовый таймер обновления остатка не должен пережить окно
         ServerOutageMonitor.QueueFlushed -= OnQueueFlushed;
         MarketSpheres.Changed -= OnMarketSphereChanged;
@@ -3717,6 +3730,8 @@ public partial class MainWindow : Window
         // 2026-10-18: и из окна «Операции с кассой» — тоже только с доступом «Смены».
         if (!AuthorizeShifts())
             return;
+        if (!AuthorizeWorkTimeForShift()) // 2026-11-08: рабочее время ограниченного кассира
+            return;
         NurMarketKassa.App.SyncFromSession(_session);
         var result = await _cashShiftService.OpenShiftAsync(openingCash, _windowCts.Token).ConfigureAwait(true);
         if (!result.IsSuccess)
@@ -3741,6 +3756,8 @@ public partial class MainWindow : Window
 
         NurMarketKassa.App.SyncToSession(_session);
         App.PosCashboxId = NurMarketKassa.App.PosCashboxId;
+        // 2026-11-08: автоотметка прихода в табеле (если включена в настройках; по умолчанию выкл) — к деньгам смены отношения не имеет.
+        StaffAutoMark.OnShiftOpened();
 
         _shiftCashBalance = result.Balance ?? openingCash;
         UpdateShiftBalanceUi();
@@ -3983,6 +4000,8 @@ public partial class MainWindow : Window
         PosLogger.Log($"Закрытие смены (окно кассы): смена {shiftIdBeforeClose}, ожидалось в ящике {(expectedBeforeClose is { } exp ? exp.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "—")}, " +
                       $"пересчитано {(closingCash is { } counted ? counted.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "—")}, " +
                       $"разница {(expectedBeforeClose is { } e2 && closingCash is { } c2 ? (c2 - e2).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) : "—")}, {(result.IsOffline ? "без связи" : "связь есть")}.", "SHIFT");
+        // 2026-11-08: автоотметка ухода в табеле — дописывает часы в отметку, поставленную автоматически (если включено в настройках).
+        StaffAutoMark.OnShiftClosed();
         if (closedWithNote)
             _prompts.ShowWarning(Tr.T("Смена закрыта с пометкой: неотправленные внесения/изъятия записаны в журнал, владельцу сообщено.",
                 "Смена белги менен жабылды: жөнөтүлбөгөн киргизүүлөр/алуулар журналга жазылды, ээсине билдирилди.",

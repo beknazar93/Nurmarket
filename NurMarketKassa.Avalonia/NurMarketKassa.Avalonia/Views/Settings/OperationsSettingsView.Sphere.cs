@@ -1,4 +1,8 @@
 using System.Net.Http;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
+using NurMarketKassa.AvaloniaHost.Services;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
 
@@ -87,5 +91,81 @@ public partial class OperationsSettingsView
     {
         SphereServerStatus.Text = text;
         SphereServerStatus.IsVisible = !string.IsNullOrWhiteSpace(text);
+    }
+
+    // ── 2026-11-08, владелец: «Вид магазина меняется только через техподдержку» (MarketSphereLock) ──────────────
+
+    /// <summary>Плашка с замком, текущий вид, серые кнопки. Под замком кнопки неактивны, но выбранная показывает текущий вид.</summary>
+    private void RefreshSphereLockUi()
+    {
+        var canChange = MarketSphereLock.CanChangeNow;
+        foreach (var radio in new[] { SphereGroceryRadio, SphereClothingRadio, SphereServicesRadio })
+            radio.IsEnabled = canChange;
+
+        SphereLockText.Text = !canChange
+            ? LockedText
+            : MarketSphereLock.SupportSessionActive
+                ? Tr.T("Оператор поддержки подключён — вид магазина можно переключить.",
+                    "Колдоо кызматынын оператору туташты — дүкөндүн түрүн которсо болот.",
+                    "A support operator is connected — the store type can be switched.",
+                    "Destek operatörü bağlı — mağaza türü değiştirilebilir.",
+                    "Qo'llab-quvvatlash operatori ulangan — do'kon turini almashtirish mumkin.")
+                : MarketSphereLock.UnlockedBySupport
+                    ? Tr.T("Техподдержка разрешила сменить вид магазина на этой кассе.",
+                        "Техколдоо бул кассада дүкөндүн түрүн алмаштырууга уруксат берди.",
+                        "Support has allowed changing the store type on this till.",
+                        "Teknik destek bu kasada mağaza türünü değiştirmeye izin verdi.",
+                        "Texnik yordam shu kassada do'kon turini o'zgartirishga ruxsat berdi.")
+                    : Tr.T("Выберите вид магазина. Выбор делается один раз — потом вид меняется только через техподдержку.",
+                        "Дүкөндүн түрүн тандаңыз. Тандоо бир жолу жасалат — андан кийин түр техколдоо аркылуу гана өзгөрөт.",
+                        "Choose the store type. You choose it once — after that it can only be changed through support.",
+                        "Mağaza türünü seçin. Seçim bir kez yapılır — sonra tür yalnızca teknik destek aracılığıyla değişir.",
+                        "Do'kon turini tanlang. Tanlov bir marta qilinadi — keyin tur faqat texnik yordam orqali o'zgaradi.");
+
+        SphereCurrentText.Text = Tr.T("Сейчас: ", "Азыр: ", "Current: ", "Şu an: ", "Hozir: ") + MarketSpheres.Profile.Title.Get();
+
+        SphereSupportRow.IsVisible = !canChange;
+        SphereSupportButton.Content = Tr.T("Написать в поддержку", "Колдоо кызматына жазуу", "Message support", "Desteğe yaz", "Yordamga yozish");
+        SphereSupportPhone.Text = Tr.T("Телефон и WhatsApp: ", "Телефон жана WhatsApp: ", "Phone and WhatsApp: ", "Telefon ve WhatsApp: ", "Telefon va WhatsApp: ")
+                                  + MarketSphereLock.SupportPhone;
+    }
+
+    /// <summary>Надпись над серыми кнопками (её же проверяет тест снимка).</summary>
+    public static string LockedText => Tr.T(
+        "Вид магазина меняется только через техподдержку.",
+        "Дүкөндүн түрү техколдоо аркылуу гана өзгөрөт.",
+        "The store type can only be changed through support.",
+        "Mağaza türü yalnızca teknik destek aracılığıyla değiştirilir.",
+        "Do'kon turi faqat texnik yordam orqali o'zgartiriladi.");
+
+    /// <summary>«Написать в поддержку» — WhatsApp поддержки с готовым текстом (тот же номер, что в окне «Поддержка»).</summary>
+    private void SphereSupport_Click(object? sender, RoutedEventArgs e)
+    {
+        var company = CompanyInfoService.LastCompany?.Name;
+        var text = Tr.T("Здравствуйте! Хочу сменить вид магазина. ", "Саламатсызбы! Дүкөндүн түрүн алмаштыргым келет. ", "Hello! I would like to change the store type. ",
+                       "Merhaba! Mağaza türünü değiştirmek istiyorum. ", "Assalomu alaykum! Do'kon turini o'zgartirmoqchiman. ")
+                   + (string.IsNullOrWhiteSpace(company) ? "" : Tr.T("Компания: ", "Компания: ", "Company: ", "Şirket: ", "Kompaniya: ") + company + ". ")
+                   + Tr.T("Сейчас: ", "Азыр: ", "Current: ", "Şu an: ", "Hozir: ") + MarketSpheres.Profile.Title.Get() + ".";
+        var digits = new string(MarketSphereLock.SupportPhone.Where(char.IsDigit).ToArray());
+        if (!PlatformLauncher.OpenUrl("https://wa.me/" + digits + "?text=" + Uri.EscapeDataString(text)))
+            PosLogger.Log("Вид магазина: WhatsApp поддержки не открылся.", "WARNING");
+    }
+
+    private void OnSphereLockChanged() => Dispatcher.UIThread.Post(() =>
+    {
+        if (this.IsAttachedToVisualTree())
+            RefreshSphereUi();
+    });
+
+    private void SphereLock_Attached(object? sender, Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        MarketSphereLock.Changed += OnSphereLockChanged;
+        MarketSpheres.Changed += OnSphereLockChanged; // вид назначили сверху, пока страница открыта
+    }
+
+    private void SphereLock_Detached(object? sender, Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        MarketSphereLock.Changed -= OnSphereLockChanged;
+        MarketSpheres.Changed -= OnSphereLockChanged;
     }
 }

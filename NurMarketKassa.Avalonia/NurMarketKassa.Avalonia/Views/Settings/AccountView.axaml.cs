@@ -20,6 +20,7 @@ public partial class AccountView : UserControl
     {
         InitializeComponent();
         AddOwnerPinCard(); // 2026-11-06 (Л4-19): опция «PIN владельца при запуске» — только в программе владельца
+        AddSpeedAndTariffCards(); // 2026-11-08 (п. 34, п. 32): «Скорость связи» и «Тариф «Своё»» (владелец)
         RenderCompany(CompanyInfoService.LastCompany);
         _ = LoadAsync();
     }

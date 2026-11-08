@@ -406,7 +406,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             _periods.Children.Add(seg);
         }
         var (from, to) = PeriodBounds();
-        _periodLabel.Text = from is { } f ? PeriodRange.Label(f, to ?? DateTime.Today) : "";
+        _periodLabel.Text = from is { } f ? PeriodRange.Label(f, to ?? PeriodRange.Today()) : "";
     }
 
     /// <summary>«Даты…» — с и по (как «Дата от / Дата до» сайта), «Применить».</summary>
@@ -445,9 +445,9 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
 
     private (DateTime? From, DateTime? To) PeriodBounds() => _period switch
     {
-        "week" => (PeriodRange.WeekFrom(DateTime.Today), null),
-        "month" => (DateTime.Today.AddDays(-29), null),
-        "quarter" => (DateTime.Today.AddDays(-89), null),
+        "week" => (PeriodRange.WeekFrom(PeriodRange.Today()), null),
+        "month" => (PeriodRange.Today().AddDays(-29), null),
+        "quarter" => (PeriodRange.Today().AddDays(-89), null),
         "custom" => (_customFrom, _customTo),
         _ => (null, null),
     };

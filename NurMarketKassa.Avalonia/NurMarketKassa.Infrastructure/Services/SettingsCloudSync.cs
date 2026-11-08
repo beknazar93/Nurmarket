@@ -87,6 +87,10 @@ public static class SettingsCloudSync
         "AdvisorCapabilitiesJson",
         // 2026-10-30: окно правки накладных закупок (24 ч / 48 ч / всегда) — правило магазина, меняет владелец. null (ничего не менялось) в облако не уходит.
         "PurchaseEditWindow",
+        // 2026-11-08: автоотметка сотрудников в табеле (off/shift/login) — правило магазина. null (ничего не менялось) в облако не уходит.
+        "StaffAutoMarkMode",
+        // 2026-11-08: выход при бездействии (минут) у кассиров с ограничением рабочего времени — правило магазина. null (не меняли = 60) в облако не уходит.
+        "IdleLogoutMinutes",
     };
 
     /// <summary>2026-10-27, Б-1: новые общие ключи правил (удаления, слепой пересчёт) не «заполняют пустое облако» значением по умолчанию
@@ -544,6 +548,9 @@ public static class SettingsCloudSync
             }
             PosLogger.Log($"Настройки с сервера ({AppName}): личные {(personalOk ? "получены" : "НЕТ")}, общие {(companyOk ? "получены" : "НЕТ")}, " +
                           $"применено {appliedKeys.Count}{(appliedKeys.Count > 0 ? " (" + string.Join(", ", appliedKeys) + ")" : "")}, грязных {dirtyCount}.", "INFO");
+            // 2026-11-08: вид магазина, назначенный техподдержкой (ключ SupportMarketSphere — только чтение, касса его не отправляет).
+            if (doCompany && company is not null)
+                MarketSphereLock.ApplyFromCompanyDoc(company);
             await PushAsync().ConfigureAwait(false);
             if (migrationPending && generation == _generation && !_companyForbidden)
                 await WriteOwnerMergedMarkerAsync(api, migratedKeys).ConfigureAwait(false);
@@ -718,6 +725,7 @@ public static class SettingsCloudSync
                 _baseline = Snapshot(AllKeys);
             }
 
+            MarketSphereLock.ApplyFromCompanyDoc(company); // 2026-11-08: назначение вида магазина техподдержкой — без перезапуска
             _companyFingerprint = fingerprint;
             _companyEtag = etag;
             _applyPending = false;

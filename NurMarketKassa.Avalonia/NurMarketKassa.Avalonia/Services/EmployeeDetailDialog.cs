@@ -130,6 +130,9 @@ public sealed class EmployeeDetailDialog : Window
 
         // 2026-10-18, аудит: пароль сотрудника больше не хранится — его показывают один раз при создании.
 
+        // 2026-11-08 (решение владельца «рабочее время сотрудника»): переключатель «Ограничить рабочее время» + «с / до» + дни; по умолчанию выключено; выше кодов, чтобы владелец нашёл блок сразу.
+        panel.Children.Add(WorkHoursEditor.Build(employee));
+
         CodeField(
             Tr.T("Код на удаление из корзины", "Себеттен өчүрүү коду", "Cart item removal code", "Sepetten silme kodu", "Savatdan o'chirish kodi"),
             EmployeeAccessGate.CartDelete);
@@ -210,11 +213,11 @@ public sealed class EmployeeDetailDialog : Window
         btnClose.Click += (_, _) => Close(false);
 
         shell = SectionCards.Shell(Title,
-            Tr.T("Коды доступа на этой кассе. Сохранит их кнопка «Сохранить» на странице «Сотрудники».",
-                "Бул кассадагы кирүү коддору. Аларды «Кызматкерлер» барагындагы «Сактоо» баскычы сактайт.",
-                "Access codes on this till. The “Save” button on the “Employees” page saves them.",
-                "Bu kasadaki erişim kodları. «Personel» sayfasındaki «Kaydet» düğmesi bunları kaydeder.",
-                "Shu kassadagi kirish kodlari. Ularni «Xodimlar» sahifasidagi «Saqlash» tugmasi saqlaydi."),
+            Tr.T("Коды доступа и рабочее время. Сохранит их кнопка «Сохранить» на странице «Сотрудники».",
+                "Кирүү коддору жана иш убактысы. Аларды «Кызматкерлер» барагындагы «Сактоо» баскычы сактайт.",
+                "Access codes and working hours. The “Save” button on the “Employees” page saves them.",
+                "Erişim kodları ve çalışma saatleri. «Personel» sayfasındaki «Kaydet» düğmesi bunları kaydeder.",
+                "Kirish kodlari va ish vaqti. Ularni «Xodimlar» sahifasidagi «Saqlash» tugmasi saqlaydi."),
             panel, SectionCards.Buttons(btnClose), _deleteButton);
         shell.InitialFocus = employee.ServerId != null ? btnClose : nameBox;
         Content = shell;

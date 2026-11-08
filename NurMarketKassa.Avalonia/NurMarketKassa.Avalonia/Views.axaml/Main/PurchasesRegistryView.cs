@@ -423,9 +423,9 @@ internal sealed class PurchasesRegistryView : UserControl
 
     private (DateTime? From, DateTime? To) PeriodBounds() => _period switch
     {
-        "week" => (PeriodRange.WeekFrom(DateTime.Today), null),
-        "month" => (DateTime.Today.AddDays(-29), null),
-        "quarter" => (DateTime.Today.AddDays(-89), null),
+        "week" => (PeriodRange.WeekFrom(PeriodRange.Today()), null),
+        "month" => (PeriodRange.Today().AddDays(-29), null),
+        "quarter" => (PeriodRange.Today().AddDays(-89), null),
         "custom" => (_customFrom, _customTo),
         _ => (null, null),
     };
@@ -687,7 +687,7 @@ internal sealed class PurchasesRegistryView : UserControl
         var parts = new List<string>();
         var (from, to) = PeriodBounds();
         if (from is { } f)
-            parts.Add(PeriodRange.Label(f, to ?? DateTime.Today));
+            parts.Add(PeriodRange.Label(f, to ?? PeriodRange.Today()));
         var all = _mode == "docs" ? _docs.Count : _docs.Sum(d => d.Lines.Count);
         var shown = _mode == "docs" ? _shownDocs.Count : _shownLines.Count;
         parts.Add(T($"Показано {N(shown)} из {N(all)}", $"Көрсөтүлдү {N(shown)} / {N(all)}", $"Showing {N(shown)} of {N(all)}", $"Gösterilen {N(shown)} / {N(all)}", $"Ko'rsatildi {N(shown)} / {N(all)}"));

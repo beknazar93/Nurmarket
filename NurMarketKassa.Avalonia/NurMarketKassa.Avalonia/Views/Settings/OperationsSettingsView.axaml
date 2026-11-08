@@ -17,6 +17,18 @@
     <StyleInclude Source="avares://NurMarketKassa.Avalonia/Views/Settings/SettingsSharedStyles.axaml"/>
     <!-- 2026-10-19, этап О7: кнопки Telegram, ИИ и обмена без своего класса были серыми кнопками Fluent — теперь
          btn-secondary (обводка, SettingsSharedStyles); жёлтая на странице одна — «Сохранить код». -->
+    <!-- 2026-11-08: вид магазина под замком — кнопки серые, выбранная (текущий вид) — серая заливка (MarketSphereLock). -->
+    <Style Selector="RadioButton.SphereLockable:disabled">
+      <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushTextSoft}"/>
+      <Setter Property="Cursor" Value="Arrow"/>
+    </Style>
+    <Style Selector="RadioButton.SphereLockable:disabled:checked">
+      <Setter Property="Background" Value="{DynamicResource BrushTextSoft}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushTextSoft}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushPanel}"/>
+    </Style>
   </UserControl.Styles>
 
   <Border Classes="SettingsContentHost">
@@ -44,10 +56,27 @@
           <StackPanel Spacing="10">
             <TextBlock x:Name="SphereTitle" Classes="SettingsCardTitle" FontSize="14"/>
             <TextBlock x:Name="SphereHint" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+            <!-- 2026-11-08, владелец: «Вид магазина меняется только через техподдержку» — плашка с замком над серыми кнопками
+                 (MarketSphereLock). Тексты — в коде (RefreshSphereUi). -->
+            <Border x:Name="SphereLockBanner" Background="{DynamicResource BrushPanelSoft}" BorderBrush="{DynamicResource BrushBorder}"
+                    BorderThickness="1" CornerRadius="10" Padding="12,10">
+              <Grid ColumnDefinitions="Auto,*">
+                <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="16" Margin="0,1,10,0" VerticalAlignment="Top"
+                           Foreground="{DynamicResource BrushTextSoft}"/>
+                <StackPanel Grid.Column="1" Spacing="6">
+                  <TextBlock x:Name="SphereLockText" FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+                  <TextBlock x:Name="SphereCurrentText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
+                  <WrapPanel x:Name="SphereSupportRow" Orientation="Horizontal">
+                    <Button x:Name="SphereSupportButton" Classes="btn-secondary" Margin="0,0,10,0" Click="SphereSupport_Click"/>
+                    <SelectableTextBlock x:Name="SphereSupportPhone" FontSize="12.5" VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}"/>
+                  </WrapPanel>
+                </StackPanel>
+              </Grid>
+            </Border>
             <WrapPanel Orientation="Horizontal">
-              <RadioButton x:Name="SphereGroceryRadio" GroupName="MarketSphere" Classes="DatePill" Margin="0,0,8,8" Click="Sphere_Click"/>
-              <RadioButton x:Name="SphereClothingRadio" GroupName="MarketSphere" Classes="DatePill" Margin="0,0,8,8" Click="Sphere_Click"/>
-              <RadioButton x:Name="SphereServicesRadio" GroupName="MarketSphere" Classes="DatePill" Margin="0,0,8,8" Click="Sphere_Click"/>
+              <RadioButton x:Name="SphereGroceryRadio" GroupName="MarketSphere" Classes="DatePill SphereLockable" Margin="0,0,8,8" Click="Sphere_Click"/>
+              <RadioButton x:Name="SphereClothingRadio" GroupName="MarketSphere" Classes="DatePill SphereLockable" Margin="0,0,8,8" Click="Sphere_Click"/>
+              <RadioButton x:Name="SphereServicesRadio" GroupName="MarketSphere" Classes="DatePill SphereLockable" Margin="0,0,8,8" Click="Sphere_Click"/>
             </WrapPanel>
             <TextBlock x:Name="SphereDescription" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource BrushText}"/>
             <!-- 2026-09-28: итог сохранения вида магазина на сервере (market_sphere, BE-18). Текст — в коде. -->
@@ -63,6 +92,15 @@
             <TextBlock x:Name="ShiftCloseTitle" Classes="SettingsCardTitle" FontSize="14"/>
             <CheckBox x:Name="BlindCashCountCheck" Classes="ToggleSwitch" IsCheckedChanged="BlindCashCount_Changed"/>
             <TextBlock x:Name="BlindCashCountDesc" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
+          </StackPanel>
+        </Border>
+
+        <!-- 2026-11-08 (запрос владельца): автоотметка сотрудника в табеле (UserPreferences.StaffAutoMarkMode, StaffAutoMark). Тексты — в коде (RefreshAutoMarkUi). -->
+        <Border Classes="SettingsCard" Padding="16">
+          <StackPanel Spacing="8">
+            <TextBlock x:Name="AutoMarkTitle" Classes="SettingsCardTitle" FontSize="14" TextWrapping="Wrap"/>
+            <ComboBox x:Name="AutoMarkCombo" Classes="TouchComboBox" HorizontalAlignment="Left" MinWidth="280" SelectionChanged="AutoMark_Changed"/>
+            <TextBlock x:Name="AutoMarkDesc" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextSoft}"/>
           </StackPanel>
         </Border>
 

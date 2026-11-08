@@ -173,6 +173,8 @@ public sealed partial class UserPreferences
                 DebtPrepaymentChooseMethod = DebtPrepaymentChooseMethod,
                 AdvisorCapabilitiesJson = AdvisorCapabilitiesJson,
                 PurchaseEditWindow = PurchaseEditWindow,
+                StaffAutoMarkMode = StaffAutoMarkMode,
+                IdleLogoutMinutes = IdleLogoutMinutes, // 2026-11-08
                 DiscountModePercent = DiscountModePercent,
                 TelegramBotUsername = TelegramBotUsername,
                 OwnerPhone = OwnerPhone,
@@ -286,6 +288,7 @@ public sealed partial class UserPreferences
                 MarketSphereDetail = MarketSphereDetail,
                 MarketSphereServerSeen = MarketSphereServerSeen,
                 MarketSphereChoicePending = MarketSphereChoicePending ? true : null,
+                SupportSphereAppliedStamp = SupportSphereAppliedStamp, // 2026-11-08: MarketSphereLock
                 UpdateTesterCode = UpdateTesterCode,
                 CustomerDisplay = CustomerDisplay,
             };
@@ -526,6 +529,8 @@ public sealed partial class UserPreferences
         public bool? DebtPrepaymentChooseMethod { get; set; }
         public string? AdvisorCapabilitiesJson { get; set; }
         public string? PurchaseEditWindow { get; set; }
+        public string? StaffAutoMarkMode { get; set; }
+        public int? IdleLogoutMinutes { get; set; }
         public bool? DiscountModePercent { get; set; }
         public string? TelegramBotUsername { get; set; }
         public bool? TelegramShiftSummaryEnabled { get; set; }
@@ -641,6 +646,7 @@ public sealed partial class UserPreferences
         public string? MarketSphereDetail { get; set; }
         public string? MarketSphereServerSeen { get; set; }
         public bool? MarketSphereChoicePending { get; set; }
+        public string? SupportSphereAppliedStamp { get; set; }
         public string? UpdateTesterCode { get; set; }
         public double? BackgroundOpacity { get; set; }
         public CustomerDisplaySettings? CustomerDisplay { get; set; }

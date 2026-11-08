@@ -34,6 +34,9 @@ public sealed class MarketSphereChoiceWindow : Window
                 await Task.Delay(500).ConfigureAwait(true);
             if (CompanyInfoService.LastCompany is null)
                 return;
+            // 2026-11-08: пока ждали компанию, вид могли выбрать в настройках или назначить техподдержкой (MarketSphereLock) — не спрашиваем.
+            if (!prefs.MarketSphereChoicePending)
+                return;
             if (MarketSphereSync.ServerSphere is { } serverSphere)
             {
                 // Компания уже выбрала вид (на другой кассе или на сайте) — его применила синхронизация, не спрашиваем.
@@ -115,11 +118,12 @@ public sealed class MarketSphereChoiceWindow : Window
             Content = root,
         };
         shell[!ModalShell.TitleProperty] = new Avalonia.Data.Binding { Source = this, Path = nameof(Title) };
-        shell.Subtitle = Tr.T("Касса настроится под ваш вид торговли. Поменять можно в любой момент: Настройки → Операции → «Сфера магазина».",
-            "Касса соода түрүңүзгө ылайыкташат. Каалаган убакта өзгөртсө болот: Жөндөөлөр → Операциялар → «Дүкөндүн тармагы».",
-            "The till will adapt to your kind of trade. You can change it any time: Settings → Operations → “Store type”.",
-            "Kasa ticaret türünüze göre ayarlanır. İstediğiniz zaman değiştirebilirsiniz: Ayarlar → İşlemler → «Mağaza türü».",
-            "Kassa savdo turingizga moslashadi. Istalgan vaqtda o'zgartirish mumkin: Sozlamalar → Operatsiyalar → «Do'kon turi».");
+        // 2026-11-08, владелец: после выбора вид магазина меняет только техподдержка (MarketSphereLock) — было «в любой момент».
+        shell.Subtitle = Tr.T("Касса настроится под ваш вид торговли. Выбор делается один раз: потом вид магазина меняется только через техподдержку.",
+            "Касса соода түрүңүзгө ылайыкташат. Тандоо бир жолу жасалат: андан кийин дүкөндүн түрү техколдоо аркылуу гана өзгөрөт.",
+            "The till will adapt to your kind of trade. You choose once: after that the store type can only be changed through support.",
+            "Kasa ticaret türünüze göre ayarlanır. Seçim bir kez yapılır: sonra mağaza türü yalnızca teknik destek aracılığıyla değişir.",
+            "Kassa savdo turingizga moslashadi. Tanlov bir marta qilinadi: keyin do'kon turi faqat texnik yordam orqali o'zgaradi.");
         Content = shell;
     }
 

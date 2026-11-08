@@ -48,21 +48,51 @@
         </dlg:ModalShell.Footer>
 
         <Grid RowDefinitions="Auto,*">
-            <!-- Фильтр по датам -->
-            <Border Grid.Row="0" Classes="Card" Margin="0,0,0,12">
+            <!-- 2026-11-08 (запрос владельца «вернуть табель»): две вкладки — «Отметки» (сетка сотрудники × дни месяца, ручные отметки и автоотметка)
+                 и «Итоги по сменам» (прежняя таблица по закрытым сменам, без изменений). -->
+            <Border Grid.Row="0" Classes="Card" Margin="0,0,0,12" Padding="10,8">
                 <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="{DynamicResource staffTimesheet.periodLabel}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,10,0"/>
-                    <CalendarDatePicker x:Name="FromDatePicker" Width="160" Margin="0,0,10,0" Watermark="{DynamicResource staffTimesheet.fromWatermark}" SelectedDateChanged="DateFilter_Changed"/>
-                    <TextBlock Text="—" VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,10,0"/>
-                    <CalendarDatePicker x:Name="ToDatePicker" Width="160" Margin="0,0,10,0" Watermark="{DynamicResource staffTimesheet.toWatermark}" SelectedDateChanged="DateFilter_Changed"/>
-                    <Button Content="{DynamicResource common.refresh}" Classes="SecondaryButton" Margin="0,0,10,0" Click="Refresh_Click"/>
-                    <Button Content="{DynamicResource staffTimesheet.allPeriod}" Classes="SecondaryButton" Margin="0,0,10,0" Click="ClearFilter_Click"/>
-                    <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap"/>
+                    <Border Classes="sec-segment" Margin="0,0,12,0">
+                        <StackPanel Orientation="Horizontal" Spacing="2">
+                            <RadioButton x:Name="MarksTabRadio" GroupName="TimesheetTab" Classes="sec-seg" IsChecked="True" Click="Tab_Click"/>
+                            <RadioButton x:Name="ShiftsTabRadio" GroupName="TimesheetTab" Classes="sec-seg" Click="Tab_Click"/>
+                        </StackPanel>
+                    </Border>
+                    <StackPanel x:Name="MonthBar" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <Button x:Name="PrevMonthButton" Content="‹" Classes="SecondaryButton" MinWidth="44" MinHeight="44" Padding="8,0" Click="PrevMonth_Click"/>
+                        <TextBlock x:Name="MonthText" MinWidth="140" TextAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource BrushText}"/>
+                        <Button x:Name="NextMonthButton" Content="›" Classes="SecondaryButton" MinWidth="44" MinHeight="44" Padding="8,0" Click="NextMonth_Click"/>
+                        <Button x:Name="ThisMonthButton" Classes="SecondaryButton" MinHeight="44" Click="ThisMonth_Click"/>
+                    </StackPanel>
+                    <StackPanel x:Name="PeriodBar" Orientation="Horizontal" VerticalAlignment="Center" IsVisible="False">
+                        <TextBlock Text="{DynamicResource staffTimesheet.periodLabel}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource BrushText}" Margin="0,0,10,0"/>
+                        <CalendarDatePicker x:Name="FromDatePicker" Width="160" Margin="0,0,10,0" Watermark="{DynamicResource staffTimesheet.fromWatermark}" SelectedDateChanged="DateFilter_Changed"/>
+                        <TextBlock Text="—" VerticalAlignment="Center" Foreground="{DynamicResource BrushTextSoft}" Margin="0,0,10,0"/>
+                        <CalendarDatePicker x:Name="ToDatePicker" Width="160" Margin="0,0,10,0" Watermark="{DynamicResource staffTimesheet.toWatermark}" SelectedDateChanged="DateFilter_Changed"/>
+                        <Button Content="{DynamicResource staffTimesheet.allPeriod}" Classes="SecondaryButton" Margin="0,0,10,0" Click="ClearFilter_Click"/>
+                    </StackPanel>
+                    <Button Content="{DynamicResource common.refresh}" Classes="SecondaryButton" MinHeight="44" Margin="0,0,10,0" Click="Refresh_Click"/>
+                    <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource BrushTextSoft}" TextWrapping="Wrap" MaxWidth="460"/>
                 </WrapPanel>
             </Border>
 
-            <!-- Таблица -->
-            <Border Grid.Row="1" Classes="Card">
+            <!-- Вкладка «Отметки» -->
+            <Grid x:Name="MarksPanel" Grid.Row="1" RowDefinitions="Auto,*,Auto">
+                <WrapPanel x:Name="ActionsPanel" Grid.Row="0" Margin="0,0,0,8">
+                    <Button x:Name="MarkAllTodayButton" Classes="SecondaryButton" MinHeight="44" Margin="0,0,8,4" Click="MarkAllToday_Click"/>
+                    <Button x:Name="CopyYesterdayButton" Classes="SecondaryButton" MinHeight="44" Margin="0,0,8,4" Click="CopyYesterday_Click"/>
+                    <Button x:Name="JournalButton" Classes="SecondaryButton" MinHeight="44" Margin="0,0,8,4" Click="Journal_Click"/>
+                </WrapPanel>
+                <Border Grid.Row="1" Classes="Card" Padding="0" ClipToBounds="True">
+                    <ScrollViewer x:Name="TableScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <Grid x:Name="TableGrid"/>
+                    </ScrollViewer>
+                </Border>
+                <WrapPanel x:Name="LegendPanel" Grid.Row="2" Margin="0,8,0,0"/>
+            </Grid>
+
+            <!-- Вкладка «Итоги по сменам» (прежняя таблица) -->
+            <Border x:Name="ShiftsPanel" Grid.Row="1" Classes="Card" IsVisible="False">
                 <DataGrid x:Name="TimesheetGrid" AutoGenerateColumns="False" IsReadOnly="True" RowHeight="40" GridLinesVisibility="Horizontal">
                     <DataGrid.Columns>
                         <DataGridTextColumn Width="2.4*" MinWidth="170" Binding="{Binding Cashier}">

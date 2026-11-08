@@ -391,6 +391,10 @@ public sealed partial class UserPreferences
                 p.AdvisorCapabilitiesJson = fromFile.AdvisorCapabilitiesJson;
             if (!string.IsNullOrWhiteSpace(fromFile.PurchaseEditWindow))
                 p.PurchaseEditWindow = fromFile.PurchaseEditWindow;
+            if (!string.IsNullOrWhiteSpace(fromFile.StaffAutoMarkMode))
+                p.StaffAutoMarkMode = fromFile.StaffAutoMarkMode;
+            if (fromFile.IdleLogoutMinutes is not null)
+                p.IdleLogoutMinutes = fromFile.IdleLogoutMinutes; // 2026-11-08
             if (fromFile.DiscountModePercent is not null)
                 p.DiscountModePercent = fromFile.DiscountModePercent.Value;
             if (!string.IsNullOrWhiteSpace(fromFile.TelegramBotUsername))
@@ -563,6 +567,7 @@ public sealed partial class UserPreferences
             p.MarketSphereDetail = SphereCatalog.SanitizeDetail(fromFile.MarketSphereDetail); // 2026-10-26: ХМ1
             p.MarketSphereServerSeen = fromFile.MarketSphereServerSeen;
             p.MarketSphereChoicePending = fromFile.MarketSphereChoicePending ?? false;
+            p.SupportSphereAppliedStamp = fromFile.SupportSphereAppliedStamp; // 2026-11-08: назначение вида техподдержкой (MarketSphereLock)
             if (fromFile.CustomerDisplay is not null)
             {
                 fromFile.CustomerDisplay.Normalize();

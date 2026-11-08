@@ -570,6 +570,8 @@ public class Window : WindowBase
     private bool _autoReflowEnabled;
     private bool _reflowQueued;
     private long _lastReflowTicks;
+    private long _lastSlowReflowLogTicks;
+    private long _reflowDeferredSince;
 
     private void OnLayoutUpdatedForReflow(object? sender, EventArgs e) => QueueReflow();
 
@@ -584,11 +586,36 @@ public class Window : WindowBase
         DispatcherTimer.RunOnce(() =>
         {
             _reflowQueued = false;
+            // 2026-11-08, «сенсор откликается очень плохо»: прокрутка пальцем — тоже пересчёт разметки, и обход всего дерева окна шёл
+            // раз в 0,4 с прямо посреди жеста (рывки и запоздалые касания на телефоне). Пока палец на экране — откладываем.
+            // Не дольше 3 с подряд: если отпускание пальца потерялось, перестройка всё равно выполнится.
+            if (NurMarketKassa.AvaloniaHost.Services.TouchGuard.IsTouchActive)
+            {
+                if (_reflowDeferredSince == 0)
+                    _reflowDeferredSince = Environment.TickCount64;
+                if (Environment.TickCount64 - _reflowDeferredSince < 3000)
+                {
+                    _lastReflowTicks = Environment.TickCount64; // следующая попытка — через 0,4 с, без частого опроса
+                    QueueReflow();
+                    return;
+                }
+            }
+            _reflowDeferredSince = 0;
             _lastReflowTicks = Environment.TickCount64;
             try
             {
                 if (IsVisible && Bounds.Width > 0)
+                {
+                    var started = Environment.TickCount64;
                     AutoReflow.Apply(this, _autoReflowEnabled && Bounds.Width < AutoReflow.NarrowWidth);
+                    // 2026-11-08: для проверки на телефоне — медленная перестройка видна в журнале (не чаще раза в минуту на окно).
+                    var spent = Environment.TickCount64 - started;
+                    if (spent > 40 && Environment.TickCount64 - _lastSlowReflowLogTicks > 60_000)
+                    {
+                        _lastSlowReflowLogTicks = Environment.TickCount64;
+                        NurMarketKassa.Services.PosLogger.Log($"Android: перестройка окна {GetType().Name} заняла {spent} мс.", "UI");
+                    }
+                }
             }
             catch (Exception ex)
             {

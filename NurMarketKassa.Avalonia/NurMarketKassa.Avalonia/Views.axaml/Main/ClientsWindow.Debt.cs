@@ -34,6 +34,12 @@ public partial class ClientsWindow
         PayDebtButton.Content = T("Принять оплату", "Төлөм кабыл алуу", "Accept payment", "Ödeme al", "To'lov qabul qilish");
         foreach (var b in new[] { AddDebtButton, PayDebtButton })
             Avalonia.Automation.AutomationProperties.SetName(b, b.Content as string ?? "");
+        // 2026-11-08, владелец: «Нужно вернуть кнопку WA» — «WA» (напоминание о долге в WhatsApp) рядом с «Принять оплату»; видна, когда у клиента есть долг.
+        if (PayDebtButton.Parent is Panel debtButtons)
+        {
+            _cardWa = new NurMarketKassa.AvaloniaHost.Services.DebtWhatsAppButton { Margin = new Thickness(0, 0, 8, 0), IsVisible = false };
+            debtButtons.Children.Insert(debtButtons.Children.IndexOf(PayDebtButton) + 1, _cardWa);
+        }
         HookDebtListEvents();
 
         // 2026-10-18: долг клиента оплатили (в этой кассе, в другой или у владельца — LAN «debt_paid») — покупки открытого
@@ -260,6 +266,9 @@ public partial class ClientsWindow
 
     /// <summary>Блок «Долг» карточки: сумма (красным, если есть), чеки и с какого числа; «Принять оплату» — только у владельца
     /// и только при долге (как в «Долгах клиентов»).</summary>
+    /// <summary>2026-11-08: кнопка «WA» блока «Долг» карточки клиента.</summary>
+    private NurMarketKassa.AvaloniaHost.Services.DebtWhatsAppButton? _cardWa;
+
     private void UpdateCardDebt()
     {
         if (CardDebtBox == null || !TariffGate.CanUseDebts)
@@ -267,6 +276,8 @@ public partial class ClientsWindow
         var client = SelectedClient;
         var ru = CultureInfo.GetCultureInfo("ru-RU");
         PayDebtButton.IsVisible = false;
+        if (_cardWa != null)
+            _cardWa.IsVisible = false;
         if (client == null)
             return;
         if (client.DebtUnknown)
@@ -305,6 +316,11 @@ public partial class ClientsWindow
             CardDebtDetail.Text = n > 0 ? CardDebtDetail.Text + " · " + label : label;
         }
         PayDebtButton.IsVisible = AppMode.IsOwner;
+        if (_cardWa != null)
+        {
+            _cardWa.Update(client.Id, client.FullName, client.Phone, client.Debt, client.DebtSince);
+            _cardWa.IsVisible = true;
+        }
     }
 
     /// <summary>«Принять оплату» — то же окно, что в «Долгах клиентов» (AcceptDebtPaymentWindow); деньги проводит оно.

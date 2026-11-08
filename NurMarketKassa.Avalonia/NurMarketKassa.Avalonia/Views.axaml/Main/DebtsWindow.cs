@@ -1066,29 +1066,16 @@ public sealed class DebtsView : UserControl
         sumRow.Children.Add(sum);
         right.Children.Add(sumRow);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, HorizontalAlignment = HorizontalAlignment.Right };
-        if (ClientQrCode.NationalDigits(d.Phone) is { } national)
+        // 2026-11-08, владелец: «Нужно вернуть кнопку WA» — кнопка «WA» (значок WhatsApp) у каждого должника; без номера — неактивна, причина в подсказке
+        // и короткой строкой под кнопками (раньше вместо неё стоял только серый текст, а «Напомнить в WhatsApp» не было видно у клиентов без номера в формате +996).
+        var wa = new NurMarketKassa.AvaloniaHost.Services.DebtWhatsAppButton();
+        wa.Update(d.ClientId, d.Name, d.Phone, d.Total, d.Oldest);
+        buttons.Children.Add(wa);
+        TextBlock? why = null;
+        if (d.ClientId.Length == 0 || DebtWhatsAppLink.NormalizePhone(d.Phone) is null)
         {
-            var wa = UiKit.Ghost(this, T("Напомнить в WhatsApp", "WhatsApp'та эскертүү", "Remind on WhatsApp", "WhatsApp'tan hatırlat", "WhatsApp'da eslatish"));
-            wa.Height = 40; // 2026-11-06: В6 цель нажатия 40 (было 32)
-            wa.MinHeight = 40;
-            wa.FontSize = 12.5;
-            wa.Click += (_, e) =>
-            {
-                e.Handled = true;
-                var text = T($"Здравствуйте, {d.Name}! Напоминаем о долге в нашем магазине: {Money(d.Total)}. Спасибо!",
-                    $"Саламатсызбы, {d.Name}! Дүкөнүбүздөгү карызыңызды эскертебиз: {Money(d.Total)}. Рахмат!",
-                    $"Hello, {d.Name}! A reminder about your debt at our shop: {Money(d.Total)}. Thank you!",
-                    $"Merhaba {d.Name}! Mağazamızdaki borcunuzu hatırlatırız: {Money(d.Total)}. Teşekkürler!",
-                    $"Assalomu alaykum, {d.Name}! Do'konimizdagi qarzingizni eslatamiz: {Money(d.Total)}. Rahmat!");
-                SiteOrdersWindow.OpenUrl($"https://wa.me/996{national}?text={Uri.EscapeDataString(text)}");
-            };
-            buttons.Children.Add(wa);
-        }
-        else
-        {
-            // 2026-10-18, этап О4 (аудит «Долги»): было непонятно, почему «Напомнить в WhatsApp» есть не у всех.
-            // Доводка О4: вместо выключенной кнопки — маленькая серая причина справа (подробно — в подсказке).
-            var why = new TextBlock
+            // 2026-10-18, этап О4 (аудит «Долги»): было непонятно, почему напоминания нет у всех — маленькая серая причина (подробно — в подсказке).
+            why = new TextBlock
             {
                 Text = NoPhoneShort(d), FontSize = 12, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right,
                 MaxWidth = 280, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 2, 0, 0),
@@ -1096,7 +1083,6 @@ public sealed class DebtsView : UserControl
             Use(why, TextBlock.ForegroundProperty, "BrushTextSoft");
             ToolTip.SetTip(why, NoWhatsAppReason(d));
             Avalonia.Automation.AutomationProperties.SetName(why, NoWhatsAppReason(d));
-            buttons.Children.Add(why);
         }
         // 2026-11-01: по решению владельца — одна главная кнопка на экран (решение 18.10 «жёлтая в каждой карточке» отменено).
         // Список долгов — много одинаковых действий, главной (жёлтой) на этом экране нет: в строке клиента «Принять оплату» — вторичная
@@ -1143,6 +1129,8 @@ public sealed class DebtsView : UserControl
             buttons.Children.Add(pay);
         }
         right.Children.Add(buttons);
+        if (why is not null)
+            right.Children.Add(why);
         Grid.SetColumn(right, 1);
         head.Children.Add(right);
         body.Children.Add(head);

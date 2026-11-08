@@ -43,6 +43,8 @@ public partial class OperationsSettingsView : UserControl
         OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(TelegramCard) + 1, new AdvisorSettingsCard());
         AttachedToVisualTree += Lan_Attached;
         DetachedFromVisualTree += Lan_Detached;
+        AttachedToVisualTree += SphereLock_Attached; // 2026-11-08: замок вида магазина обновляется на лету (сеанс поддержки, назначение)
+        DetachedFromVisualTree += SphereLock_Detached;
     }
 
     // ── Работа без интернета: обмен продажами по локальной сети ─────────────────────
@@ -157,12 +159,13 @@ public partial class OperationsSettingsView : UserControl
     private void RefreshSphereUi()
     {
         SphereTitle.Text = Tr.T("Сфера магазина", "Дүкөндүн тармагы", "Store type", "Mağaza türü", "Do'kon turi");
+        // 2026-11-08, владелец: вид магазина после первого выбора меняет только техподдержка (было «меняется в любой момент»).
         SphereHint.Text = Tr.T(
-            "Под что настроена касса. Меняется в любой момент, на продажи и отчёты не влияет.",
-            "Касса кайсы тармакка ыңгайлаштырылган. Каалаган убакта өзгөртсө болот, сатууларга жана отчётторго таасир этпейт.",
-            "What the till is set up for. You can change it at any time; sales and reports aren't affected.",
-            "Kasanın hangi işe göre ayarlandığı. Her zaman değiştirilebilir; satışları ve raporları etkilemez.",
-            "Kassa qaysi soha uchun sozlangan. Istalgan vaqtda o'zgartirish mumkin, sotuv va hisobotlarga ta'sir qilmaydi.");
+            "Под что настроена касса. На продажи и отчёты не влияет.",
+            "Касса кайсы тармакка ыңгайлаштырылган. Сатууларга жана отчётторго таасир этпейт.",
+            "What the till is set up for. Sales and reports aren't affected.",
+            "Kasanın hangi işe göre ayarlandığı. Satışları ve raporları etkilemez.",
+            "Kassa qaysi soha uchun sozlangan. Sotuv va hisobotlarga ta'sir qilmaydi.");
         SphereGroceryRadio.Content = Tr.T("Продуктовый", "Азык-түлүк", "Grocery", "Market (gıda)", "Oziq-ovqat");
         SphereClothingRadio.Content = Tr.T("Одежда и похожие", "Кийим жана ушул сыяктуулар", "Clothing and similar", "Giyim ve benzeri", "Kiyim va shunga o'xshash");
         SphereServicesRadio.Content = Tr.T("Услуги", "Кызматтар", "Services", "Hizmetler", "Xizmatlar");
@@ -194,14 +197,24 @@ public partial class OperationsSettingsView : UserControl
         };
         // 2026-10-06 (О-31, О-32): правила обмена — только у одежды.
         RefreshExchangeRulesCard();
+        RefreshSphereLockUi(); // 2026-11-08: замок «только через техподдержку» (OperationsSettingsView.Sphere.cs)
     }
 
     private void Sphere_Click(object? sender, RoutedEventArgs e)
     {
+        // 2026-11-08: под замком переключить нельзя (кнопки и так серые) — возвращаем текущий вид.
+        if (!MarketSphereLock.CanChangeNow)
+        {
+            RefreshSphereUi();
+            return;
+        }
+        var firstChoice = MarketSphereLock.IsFirstChoice;
         var sphere = SphereClothingRadio.IsChecked == true ? MarketSpheres.Clothing
             : SphereServicesRadio.IsChecked == true ? MarketSpheres.Services
             : MarketSpheres.Grocery;
         MarketSpheres.Set(sphere);
+        if (firstChoice)
+            MarketSphereLock.NoteLocalChoice(); // первый выбор израсходован — дальше через техподдержку
         RefreshSphereUi();
         // 2026-09-28: вид магазина теперь хранится и у компании на сервере — все кассы
         // перестраиваются сами при входе (BE-18). См. OperationsSettingsView.Sphere.cs.
@@ -242,6 +255,49 @@ public partial class OperationsSettingsView : UserControl
             return;
         prefs.BlindCashCount = enabled;
         prefs.SaveToDisk();
+    }
+
+    // ── Автоотметка сотрудников в табеле (2026-11-08) ────────────────────────────────
+
+    private static readonly string[] AutoMarkModes = [StaffAutoMark.ModeOff, StaffAutoMark.ModeShift, StaffAutoMark.ModeLogin];
+    private bool _autoMarkLoading;
+
+    private void RefreshAutoMarkUi()
+    {
+        AutoMarkTitle.Text = Tr.T("Автоматически отмечать сотрудника в табеле", "Кызматкерди табелде автоматтык белгилөө", "Mark staff in the timesheet automatically",
+            "Çalışanı çizelgede otomatik işaretle", "Xodimni tabelda avtomatik belgilash");
+        _autoMarkLoading = true;
+        try
+        {
+            AutoMarkCombo.ItemsSource = new[]
+            {
+                Tr.T("Выключено", "Өчүк", "Off", "Kapalı", "O'chiq"),
+                Tr.T("При открытии смены кассиром", "Кассир сменаны ачканда", "When a cashier opens a shift", "Kasiyer vardiya açınca", "Kassir smenani ochganda"),
+                Tr.T("При входе в кассу", "Кассага киргенде", "When signing in to the till", "Kasaya girişte", "Kassaga kirganda"),
+            };
+            AutoMarkCombo.SelectedIndex = Math.Max(0, Array.IndexOf(AutoMarkModes, StaffAutoMark.Mode));
+        }
+        finally { _autoMarkLoading = false; }
+        AutoMarkDesc.Text = Tr.T(
+            "Касса сама ставит отметку «Был» на сегодня с временем прихода, а при закрытии смены дописывает часы. Ручная отметка владельца всегда главнее и не перезаписывается. Отметки хранятся на этом компьютере (Табель → «Отметки»). На зарплату и деньги не влияет.",
+            "Касса бүгүнкү күнгө келген убактысы менен «Келди» деп өзү белгилейт, ал эми сменаны жапканда сааттарды кошуп жазат. Ээсинин кол менен коюлган белгиси дайыма маанилүү жана кайра жазылбайт. Белгилер ушул компьютерде сакталат (Табель → «Белгилер»). Эмгек акыга жана акчага таасир этпейт.",
+            "The till marks “Present” for today with the arrival time by itself and adds the hours when the shift closes. The owner’s manual mark always wins and is never overwritten. Marks are stored on this computer (Timesheet → “Marks”). It does not affect salary or money.",
+            "Kasa bugün için geliş saatiyle «Geldi» işaretini kendisi koyar, vardiya kapanınca saatleri ekler. Sahibinin elle işareti her zaman önceliklidir ve üzerine yazılmaz. İşaretler bu bilgisayarda saklanır (Çizelge → «İşaretler»). Maaşı ve parayı etkilemez.",
+            "Kassa bugun uchun kelgan vaqti bilan «Keldi» belgisini o'zi qo'yadi, smena yopilganda soatlarni qo'shadi. Egasining qo'lda qo'ygan belgisi doim ustun va ustidan yozilmaydi. Belgilar shu kompyuterda saqlanadi (Tabel → «Belgilar»). Maosh va pulga ta'sir qilmaydi.");
+        AutoMarkDesc.Text += " " + SharedForAllTillsNote();
+    }
+
+    private void AutoMark_Changed(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_autoMarkLoading || AutoMarkCombo.SelectedIndex < 0 || AutoMarkCombo.SelectedIndex >= AutoMarkModes.Length)
+            return;
+        var mode = AutoMarkModes[AutoMarkCombo.SelectedIndex];
+        var prefs = UserPreferences.Instance;
+        if (StaffAutoMark.Mode == mode)
+            return;
+        prefs.StaffAutoMarkMode = mode;
+        prefs.SaveToDisk();
+        PosLogger.Log($"Табель: режим автоотметки — {mode}.", "STAFF");
     }
 
     // ── Контроль удалений из чека (2026-10-17, редизайн, этап 4) ────────────────────
@@ -310,6 +366,7 @@ public partial class OperationsSettingsView : UserControl
         RefreshSphereUi();
         RefreshLanUi();
         RefreshShiftCloseUi();
+        RefreshAutoMarkUi();
         RefreshCartRemovalUi();
         _bankSettings = new ObservableCollection<BankQrSetting>();
         var prefs = UserPreferences.Instance;

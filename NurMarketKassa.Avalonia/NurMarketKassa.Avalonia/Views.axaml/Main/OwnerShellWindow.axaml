@@ -30,6 +30,8 @@
         <!-- «Аналитика»: оси и линия тренда с точками (2026-09-27). -->
         <StreamGeometry x:Key="AnalyticsIcon">M4,4 V20 H20 M7.5,15.5 L11,11.5 L14,14 L19,8 M11,11.5 V11.51 M14,14 V14.01 M19,8 V8.01</StreamGeometry>
         <StreamGeometry x:Key="SalaryIcon">M2,6 H22 V18 H2 Z M12,9 A3,3 0 1 1 11.99,9 M5,9 V9.01 M19,15 V15.01</StreamGeometry>
+        <!-- 2026-11-08: «Табель» — календарь с галочкой. -->
+        <StreamGeometry x:Key="TimesheetIcon">M4,5 H20 V20 H4 Z M4,10 H20 M8,3 V7 M16,3 V7 M8,15 L11,18 L16,13</StreamGeometry>
         <!-- 2026-10-20, живой аудит (меню, МЕЛОЧЬ): у «Поставщиков» был значок «Клиентов» — свой, грузовик. -->
         <!-- 2026-10-22 (закупки как в вебе): «Закупки» — сумка со стрелкой «внутрь» (приход товара). -->
         <StreamGeometry x:Key="PurchasesIcon">M5,8 H19 L18,21 H6 Z M9,8 V6 A3,3 0 0 1 15,6 V8 M12,11 V17 M9.5,14.5 L12,17 L14.5,14.5</StreamGeometry>

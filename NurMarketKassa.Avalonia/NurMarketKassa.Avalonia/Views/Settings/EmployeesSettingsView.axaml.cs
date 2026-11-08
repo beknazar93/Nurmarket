@@ -33,6 +33,7 @@ public partial class EmployeesSettingsView : UserControl
     {
         InitializeComponent();
         EmployeeSearchBox.Watermark = Tr.T("Поиск: имя, почта, телефон", "Издөө: аты, почта, телефон", "Search: name, email, phone", "Ara: ad, e-posta, telefon", "Qidiruv: ism, email, telefon");
+        RefreshIdleUi();
         RefreshList();
         // 2026-10-18, 6-й/7-й круг (П.3): облако этой компании пришло — список обновить (до этого чужой не показываем).
         // Подписка — только пока страница на экране.
@@ -107,7 +108,60 @@ public partial class EmployeesSettingsView : UserControl
 
     private void EmployeeSearch_TextChanged(object? sender, TextChangedEventArgs e) => RefreshList();
 
-    private void OnCloudApplied() => Avalonia.Threading.Dispatcher.UIThread.Post(RefreshList);
+    private void OnCloudApplied() => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+    {
+        RefreshIdleUi();
+        RefreshList();
+    });
+
+    // ── 2026-11-08 (решение владельца «рабочее время сотрудника»): «Выход при бездействии, минут» ──────────────
+    // Общая настройка магазина (UserPreferences.IdleLogoutMinutes → облако, SettingsCloudSync.CompanyKeys). По умолчанию 60, 0 — не выходить.
+    // Действует только на кассиров с включённым «Рабочим временем» в карточке сотрудника; владельца/администратора и остальных не касается.
+
+    private void RefreshIdleUi()
+    {
+        IdleTitle.Text = Tr.T("Выход при бездействии, минут", "Иштебей калганда чыгуу, мүнөт", "Sign out when idle, minutes", "Boşta çıkış, dakika", "Harakatsizlikda chiqish, daqiqa");
+        IdleUnit.Text = Tr.T("мин (0 — не выходить)", "мүн (0 — чыкпоо)", "min (0 — never)", "dk (0 — çıkma)", "daq (0 — chiqmaslik)");
+        IdleDesc.Text = Tr.T(
+            "Только у кассиров с включённым «Рабочим временем» (карточка сотрудника): если они ничего не делают (мышь, клавиши, сканер) столько минут — касса выходит из аккаунта. Открытый чек сохраняется как отложенный, смена не закрывается. Не срабатывает во время оплаты, печати и открытого окна. За минуту касса предупредит. Значение по умолчанию — 60. Настройка общая для всех касс магазина.",
+            "Иш убактысы күйгүзүлгөн кассирлер үчүн гана (кызматкердин картасы): алар ушунча мүнөт эч нерсе кылбаса (чычкан, баскычтар, сканер) — касса аккаунттан чыгат. Ачык чек калтырылган катары сакталат, смена жабылбайт. Төлөм, басып чыгаруу жана ачык терезе учурунда иштебейт. Бир мүнөт мурун касса эскертет. Демейки мааниси — 60. Жөндөө дүкөндүн бардык кассалары үчүн жалпы.",
+            "Only for cashiers with “Working hours” turned on (employee card): if they do nothing (mouse, keys, scanner) for this many minutes, the till signs out. The open receipt is saved as held, the shift stays open. It does not fire during payment, printing or an open window. The till warns a minute before. Default is 60. The setting is shared by all tills of the shop.",
+            "Yalnızca «Çalışma saatleri» açık kasiyerler için (personel kartı): bu kadar dakika hiçbir işlem yapmazlarsa (fare, tuş, tarayıcı) kasa hesaptan çıkar. Açık fiş bekletilen olarak saklanır, vardiya kapanmaz. Ödeme, yazdırma ve açık pencere sırasında çalışmaz. Kasa bir dakika önce uyarır. Varsayılan 60. Ayar mağazanın tüm kasaları için ortaktır.",
+            "Faqat «Ish vaqti» yoqilgan kassirlar uchun (xodim kartasi): ular shuncha daqiqa hech narsa qilmasa (sichqoncha, tugmalar, skaner) — kassa akkauntdan chiqadi. Ochiq chek kechiktirilgan sifatida saqlanadi, smena yopilmaydi. To'lov, chop etish va ochiq oyna vaqtida ishlamaydi. Kassa bir daqiqa oldin ogohlantiradi. Standart qiymat — 60. Sozlama do'konning barcha kassalari uchun umumiy.");
+        IdleMinutesBox.Text = WorkSchedule.IdleLogoutMinutes().ToString(System.Globalization.CultureInfo.InvariantCulture);
+        IdleError.IsVisible = false;
+    }
+
+    private void IdleMinutes_KeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (e.Key == Avalonia.Input.Key.Enter)
+            SaveIdleMinutes();
+    }
+
+    private void IdleMinutes_LostFocus(object? sender, RoutedEventArgs e) => SaveIdleMinutes();
+
+    private void SaveIdleMinutes()
+    {
+        var prefs = UserPreferences.Instance;
+        var raw = (IdleMinutesBox.Text ?? "").Trim();
+        if (!int.TryParse(raw, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var minutes)
+            || minutes < 0 || minutes > WorkSchedule.MaxIdleMinutes)
+        {
+            IdleError.Text = Tr.T($"Введите целое число минут от 0 до {WorkSchedule.MaxIdleMinutes}.", $"0дөн {WorkSchedule.MaxIdleMinutes}ге чейин бүтүн мүнөт санын киргизиңиз.",
+                $"Enter a whole number of minutes from 0 to {WorkSchedule.MaxIdleMinutes}.", $"0 ile {WorkSchedule.MaxIdleMinutes} arasında tam dakika girin.",
+                $"0 dan {WorkSchedule.MaxIdleMinutes} gacha butun daqiqa kiriting.");
+            IdleError.IsVisible = true;
+            IdleMinutesBox.Text = WorkSchedule.IdleLogoutMinutes().ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return;
+        }
+        IdleError.IsVisible = false;
+        IdleMinutesBox.Text = minutes.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (WorkSchedule.IdleLogoutMinutes() == minutes)
+            return; // значение не изменилось (в том числе «60» при «не меняли») — зря не пишем и в облако не шлём
+        prefs.IdleLogoutMinutes = minutes;
+        prefs.SaveToDisk();
+        PosLogger.Log($"Рабочее время: выход при бездействии — {minutes} мин.", "STAFF");
+    }
 
     private void RefreshList()
     {
@@ -229,7 +283,9 @@ public partial class EmployeesSettingsView : UserControl
                 : Tr.T($"Личные коды: {filledCount} из {EmployeeAccessGate.ActionCount}", $"Жеке коддор: {filledCount} / {EmployeeAccessGate.ActionCount}",
                     $"Personal codes: {filledCount} of {EmployeeAccessGate.ActionCount}", $"Kişisel kodlar: {filledCount} / {EmployeeAccessGate.ActionCount}",
                     $"Shaxsiy kodlar: {filledCount} / {EmployeeAccessGate.ActionCount}")) + shortNote
-                + (infoLine.Length > 0 ? "\n" + infoLine : ""),
+                + (infoLine.Length > 0 ? "\n" + infoLine : "")
+                // 2026-11-08: рабочее время кассира (если ограничение включено) — строкой в списке.
+                + (WorkSchedule.RuleOf(employee) is { } workRule ? "\n" + WorkSchedule.HoursLine(workRule) : ""),
             FontSize = 12,
             TextWrapping = TextWrapping.Wrap,
         };

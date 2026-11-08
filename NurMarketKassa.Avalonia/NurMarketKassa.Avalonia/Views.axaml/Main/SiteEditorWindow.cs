@@ -1138,6 +1138,11 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection, IOwnerSect
         NumberField(cart, T("Минимальная сумма заказа, сом", "Заказдын минималдуу суммасы, сом", "Minimum order, som", "Asgari sipariş, som", "Eng kam buyurtma, so'm"), "cart.min_order_total");
         Toggle(cart, T("Самовывоз", "Өзү алып кетүү", "Pickup", "Gel-al", "Olib ketish"), "cart.delivery.pickup");
         Toggle(cart, T("Доставка", "Жеткирүү", "Delivery", "Teslimat", "Yetkazib berish"), "cart.delivery.delivery");
+        // 2026-11-08 (ответ Умара 08.11, п.38 Б-94): «Примерить в магазине»; по умолчанию включено — выключить можно только явным false.
+        var tryOn = new CheckBox { Content = T("Разрешить примерку в магазине (товар в резерве на 24 часа, доставка 0)", "Дүкөндө кийип көрүүгө уруксат (товар 24 саат резервде, жеткирүү 0)", "Allow trying on in the store (item held for 24 hours, delivery 0)", "Mağazada denemeye izin ver (ürün 24 saat rezervde, teslimat 0)", "Do'konda kiyib ko'rishga ruxsat (mahsulot 24 soat zaxirada, yetkazish 0)"), IsChecked = Get("cart.delivery.try_on") is null || Flag("cart.delivery.try_on") };
+        Use(tryOn, CheckBox.ForegroundProperty, "BrushText");
+        tryOn.IsCheckedChanged += (_, _) => Set("cart.delivery.try_on", JsonValue.Create(tryOn.IsChecked == true));
+        cart.Children.Add(tryOn);
         NumberField(cart, T("Стоимость доставки, сом", "Жеткирүүнүн баасы, сом", "Delivery fee, som", "Teslimat ücreti, som", "Yetkazish narxi, so'm"), "cart.delivery.delivery_fee");
         NumberField(cart, T("Бесплатная доставка от, сом", "Акысыз жеткирүү, сомдон", "Free delivery from, som", "Ücretsiz teslimat, som'dan", "Bepul yetkazish, so'mdan"), "cart.delivery.free_from");
         TextField(cart, T("Где доставляете", "Кайда жеткиресиз", "Delivery areas", "Teslimat bölgeleri", "Qayerga yetkazasiz"), "cart.delivery.zones_text", i18n: true);
@@ -1402,6 +1407,7 @@ public sealed partial class SiteEditorWindow : Window, IOwnerSection, IOwnerSect
         "categories" => T("Категории", "Категориялар", "Categories", "Kategoriler", "Toifalar"),
         "promo_blocks" => T("Блоки акций", "Акция блоктору", "Promotion blocks", "Kampanya blokları", "Aksiya bloklari"),
         "products" => T("Все товары", "Бардык товарлар", "All products", "Tüm ürünler", "Barcha mahsulotlar"),
+        "collections" => T("Коллекции", "Коллекциялар", "Collections", "Koleksiyonlar", "Kolleksiyalar"), // 2026-11-08 (п.37, Б-93)
         "featured" => T("Избранные товары", "Тандалган товарлар", "Featured products", "Öne çıkan ürünler", "Tanlangan mahsulotlar"),
         "new_arrivals" => T("Новинки", "Жаңылыктар", "New arrivals", "Yeni gelenler", "Yangiliklar"),
         "on_sale" => T("Со скидкой", "Арзандатуу менен", "On sale", "İndirimde", "Chegirmada"),

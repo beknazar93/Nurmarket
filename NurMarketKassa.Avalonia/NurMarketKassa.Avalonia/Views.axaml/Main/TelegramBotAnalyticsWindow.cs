@@ -52,6 +52,16 @@ public sealed class TelegramBotAnalyticsWindow : Window
         Grid.SetRow(_chips, 2);
         Grid.SetRow(_tiles, 3);
         root.Children.Add(title);
+        // 2026-11-08 (п. 31 ответа сервера): журнал сообщений бота покупателям и тихие часы — отдельное окно.
+        var journal = new Button { Classes = { "sec-outline" }, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top,
+            Content = Tr.T("Журнал сообщений и тихие часы", "Билдирүүлөр журналы жана тынч сааттар", "Message log and quiet hours", "Mesaj günlüğü ve sessiz saatler", "Xabarlar jurnali va tinch soatlar") };
+        Avalonia.Automation.AutomationProperties.SetName(journal, journal.Content as string ?? "");
+        journal.Click += (_, _) =>
+        {
+            try { new BotMessagesWindow().Show(this); }
+            catch (Exception ex) { PosLogger.Log($"Журнал сообщений бота не открылся: {ex.Message}", "WARNING"); }
+        };
+        root.Children.Add(journal);
         root.Children.Add(_status);
         root.Children.Add(_chips);
         root.Children.Add(_tiles);

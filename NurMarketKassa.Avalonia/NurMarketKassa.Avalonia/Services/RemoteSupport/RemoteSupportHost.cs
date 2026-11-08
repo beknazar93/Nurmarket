@@ -143,6 +143,9 @@ public sealed class RemoteSupportHost : IAsyncDisposable
     private void SetState(State s)
     {
         Current = s;
+        // 2026-11-08: пока оператор подключён, вид магазина в настройках можно переключать (MarketSphereLock).
+        if (!SimulateInput)
+            MarketSphereLock.SupportSessionActive = s == State.InSession;
         StateChanged?.Invoke(s);
     }
 

@@ -36,6 +36,9 @@ public static class ScreenCatalog
         new("owner-shell", ScreenKind.Window, () => new OwnerShellWindow()),
         // 2026-11-07 (живая проверка 1.17.81): «Приём товара» (панель скана при 1024) — окно «Закупки» с открытым мастером.
         new("purchases-receive", ScreenKind.Window, () => { var w = new PurchasesWindow(); w.OpenReceive(null); return w; }),
+        // 2026-11-08 (ответ Умара 08.11, п.39 и п.37): «Отзывы» и «Коллекции» витрины (разделы группы «Сайт»); сервер — заглушка «нет связи».
+        new("site-reviews", ScreenKind.Window, () => new SiteReviewsWindow()),
+        new("site-collections", ScreenKind.Window, () => new SiteCollectionsWindow()),
         // --- диалоги
         new("checkout", ScreenKind.Dialog, () => Svc<CheckoutDialog>()),
         new("open-shift", ScreenKind.Dialog, () => new OpenShiftDialog()),

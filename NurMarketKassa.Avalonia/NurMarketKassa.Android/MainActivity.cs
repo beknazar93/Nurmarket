@@ -105,15 +105,15 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
     {
         NurMarketKassa.Services.SyncCenter.NoteInput(); // 2026-10-30 (оптимизация, Б1): время последнего касания — основа «простоя» на Android
         if (ev is null || !NurMarketKassa.AndroidNestedLoop.Enabled)
-            return base.DispatchTouchEvent(ev);
+            return DispatchTouchWithGuardReset(ev);
         var copy = Android.Views.MotionEvent.Obtain(ev);
         if (copy is null)
-            return base.DispatchTouchEvent(ev);
+            return DispatchTouchWithGuardReset(ev);
         InputHandler.Post(() =>
         {
             try
             {
-                base.DispatchTouchEvent(copy);
+                DispatchTouchWithGuardReset(copy);
             }
             finally
             {
@@ -121,6 +121,21 @@ public class MainActivity : AvaloniaMainActivity<NurMarketKassa.AvaloniaHost.App
             }
         });
         return true;
+    }
+
+    /// <summary>2026-11-08, владелец: «сенсор откликается очень плохо». Отменённое системой касание (ACTION_CANCEL — ладонь, жест
+    /// «назад», шторка) Avalonia не отпускает, и TouchGuard до 5 с считал каждое новое касание «вторым пальцем» — нажатия глушились.
+    /// Новое касание (ACTION_DOWN) у Android всегда первое на экране, после ACTION_CANCEL пальцев нет — в эти моменты сбрасываем
+    /// TouchGuard. Сброс — в той же очереди, что и само касание, поэтому порядок событий не меняется.</summary>
+    private bool DispatchTouchWithGuardReset(Android.Views.MotionEvent? ev)
+    {
+        var action = ev?.ActionMasked;
+        if (action == Android.Views.MotionEventActions.Down)
+            NurMarketKassa.AvaloniaHost.Services.TouchGuard.ResetFromPlatform();
+        var handled = base.DispatchTouchEvent(ev);
+        if (action == Android.Views.MotionEventActions.Cancel)
+            NurMarketKassa.AvaloniaHost.Services.TouchGuard.ResetFromPlatform();
+        return handled;
     }
 
     public override bool DispatchKeyEvent(Android.Views.KeyEvent? e)
