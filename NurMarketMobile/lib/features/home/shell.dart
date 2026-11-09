@@ -61,54 +61,60 @@ class _CashierShellState extends State<CashierShell> {
             color: p.panel,
             border: Border(top: BorderSide(color: p.border)),
           ),
-          child: SafeArea(
-            top: false,
-            // 2026-10-26 (живой аудит, П1, В-4): высота панели не фиксированная (была 64 dp — при шрифте 1,3× переполнялась
-            // на 11 px): минимум 64, дальше растёт с текстом. Подпись в одну строку ужимается по ширине вкладки.
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 64),
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var i = 0; i < items.length; i++)
-                      Expanded(
-                        child: Semantics(
-                          selected: i == selected,
-                          button: true,
-                          child: InkWell(
-                            onTap: () => context.go(CashierShell._tabs[i]),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 150),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(color: i == selected ? T.accent : Colors.transparent, borderRadius: BorderRadius.circular(16)),
-                                    child: Icon(items[i].$1, size: 22, color: i == selected ? T.navy : p.textSoft),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      items[i].$2,
-                                      maxLines: 1,
-                                      style: TextStyle(
-                                        fontSize: 11.5,
-                                        fontWeight: i == selected ? FontWeight.w800 : FontWeight.w500,
-                                        color: i == selected ? p.text : p.textSoft,
+          // 2026-11-08, владелец: «сенсор откликается очень плохо». Рябь InkWell рисуется на ближайшем Material (Scaffold) —
+          // ПОД цветным Container панели, и нажатие вкладки не давало видимого отклика (особенно на «Продажа»/«Сканер», которые
+          // строятся с задержкой: казалось, что касание не сработало). Прозрачный Material над фоном — рябь видна, вид тот же.
+          child: Material(
+            type: MaterialType.transparency,
+            child: SafeArea(
+              top: false,
+              // 2026-10-26 (живой аудит, П1, В-4): высота панели не фиксированная (была 64 dp — при шрифте 1,3× переполнялась
+              // на 11 px): минимум 64, дальше растёт с текстом. Подпись в одну строку ужимается по ширине вкладки.
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 64),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < items.length; i++)
+                        Expanded(
+                          child: Semantics(
+                            selected: i == selected,
+                            button: true,
+                            child: InkWell(
+                              onTap: () => context.go(CashierShell._tabs[i]),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    AnimatedContainer(
+                                      duration: const Duration(milliseconds: 150),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(color: i == selected ? T.accent : Colors.transparent, borderRadius: BorderRadius.circular(16)),
+                                      child: Icon(items[i].$1, size: 22, color: i == selected ? T.navy : p.textSoft),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        items[i].$2,
+                                        maxLines: 1,
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: i == selected ? FontWeight.w800 : FontWeight.w500,
+                                          color: i == selected ? p.text : p.textSoft,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

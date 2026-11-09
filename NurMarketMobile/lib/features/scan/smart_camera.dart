@@ -31,6 +31,9 @@ import 'live_shot.dart';
 import '../../core/ai/product_refs.dart';
 import '../../core/util/audit.dart';
 import 'barcode_bind.dart';
+import '../../core/units.dart';
+import '../stock/receive_units.dart';
+import '../stock/unit_picker.dart';
 
 /// 13.10, доски Т9–Т10 и владелец: «умная камера при продаже в телефоне где?». Снимок системной камерой (без штрихкода),
 /// товары узнаёт ИИ (VisionService), дальше — в чек (продажа) или в приёмку (полка, накладная, этикетки).
@@ -692,8 +695,9 @@ ReceiveLine camSyncLine(
   required double qty,
   required double cost,
   required double price,
+  String unit = 'шт', // 2026-11-08: единица НОВОГО товара (у товара из базы — из его карточки)
 }) {
-  final fits = old != null && (product != null ? !old.isNew && old.productId == product.id : old.isNew && old.name == name && old.barcode == barcode);
+  final fits = old != null && (product != null ? !old.isNew && old.productId == product.id : old.isNew && old.name == name && old.barcode == barcode && old.unit == unit);
   if (old != null && (fits || camLineLocked(old))) {
     old.qty = qty;
     old.cost = cost;
@@ -712,7 +716,7 @@ ReceiveLine camSyncLine(
           qty: qty,
           cost: cost,
         )
-      : ReceiveLine(productId: '', name: name, barcode: barcode, qty: qty, cost: cost, price: price, isNew: true);
+      : ReceiveLine(productId: '', name: name, barcode: barcode, unit: unit, qty: qty, cost: cost, price: price, isNew: true, weight: unitOf(unit)?.weight ?? false);
 }
 
 /// Связь с сервером есть: лёгкий запрос. Без связи ничего не проводим — список остаётся черновиком на экране.
@@ -811,12 +815,16 @@ class _CamItem {
   String? learnedId;
   List<String> learned = [];
   final Set<String> rejected = {};
+  // 2026-11-08: единица НОВОГО товара (из накладной или выбор кассира; по умолчанию «шт»); у товара из базы — единица его карточки
+  String unit;
+  String get unitCode => product != null ? unitOrPcs(product!.unit) : unitOrPcs(unit);
   // 2026-10-27: товар берётся сам, только если лучший ≥ 0,85 и отрыв от второго ≥ 0,15 ([SeenMatch.picked]); иначе — карточка
   // «Похоже на» с вариантами (раньше порог 0,75: всё слабее уходило в «Новые» и выглядело как «товар не найден»)
   _CamItem(this.seen)
     : product = seen.picked,
-      qty = seen.seen.count.toDouble(),
-      name = TextEditingController(text: seen.seen.title),
+      qty = seen.seen.amount, // 2026-11-08: дробное количество из накладной (2,5 кг, 10 л) не округляется
+      unit = normalizeUnit(seen.seen.unit),
+      name =TextEditingController(text: seen.seen.title),
       cost = TextEditingController(text: seen.seen.labelPrice > 0 ? seen.seen.labelPrice.toStringAsFixed(0) : ''),
       price = TextEditingController();
 }
@@ -874,7 +882,7 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
       for (final m in found) {
         final same = m.picked == null ? null : _items.where((x) => x.product?.id == m.picked!.id).firstOrNull;
         if (same != null) {
-          same.qty += m.seen.count;
+          same.qty += m.seen.amount;
         } else {
           _items.add(_CamItem(m));
         }
@@ -1054,6 +1062,7 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
       qty: x.qty,
       cost: cost,
       price: parseNum(x.price.text) ?? _autoPrice(cost),
+      unit: x.unit,
     );
   }
 
@@ -1169,8 +1178,15 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
   }
 
   Future<void> _editQty(_CamItem x) async {
-    final v = await askNumber(context, title: x.product?.name ?? x.name.text, initial: x.qty, kind: NumKind.qty);
-    if (v != null) setState(() => x.qty = v.clamp(0, 99999).toDouble());
+    final v = await askNumber(context, title: x.product?.name ?? x.name.text, initial: x.qty, kind: NumKind.qty, suffix: x.unitCode);
+    if (v == null || !mounted) return;
+    // 2026-11-08: дробное число — только там, где единица это допускает (л, кг, м…); у «шт» — целое
+    final bad = qtyErrorText(context.l, x.unitCode, v);
+    if (bad != null) {
+      if (context.mounted) toast(context, bad, error: true);
+      return;
+    }
+    setState(() => x.qty = v.clamp(0, 99999).toDouble());
   }
 
   Widget _qtyRow(_CamItem x) {
@@ -1186,9 +1202,11 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
             constraints: const BoxConstraints(minWidth: 56),
             height: 40,
             alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             margin: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(color: pal.window, borderRadius: BorderRadius.circular(10)),
-            child: Text(qtyText(x.qty), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            // 2026-11-08: число с единицей («10 л»), а не голое «10» — иначе литры выглядят штуками
+            child: Text(qtyWithUnit(x.qty, x.unitCode), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
           ),
         ),
         IconButton.filled(
@@ -1241,6 +1259,12 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
               _qtyRow(x),
             ],
           ),
+          // 2026-11-08: сколько станет на складе — количество прибавляется к остатку в единице карточки: «3 + 10 = 13 л»
+          if (x.qty > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(receiveSumText(p.quantity, x.qty, p.unit), key: ValueKey('camSum_${p.id}'), style: TextStyle(color: pal.textSoft, fontSize: 12)),
+            ),
           _rowStatus(x),
           // 2026-10-27 (ревью М-3): неверный выбор можно отменить, запомненные названия — посмотреть и удалить
           if (x.seen.candidates.isNotEmpty || x.learnedId != null)
@@ -1348,6 +1372,14 @@ class _SmartCameraScreenState extends ConsumerState<SmartCameraScreen> {
             ],
           ),
           const SizedBox(height: 6),
+          // 2026-11-08: единица нового товара (из накладной или «шт»): выбирает кассир; раньше новый товар из камеры всегда становился штучным
+          if (!camLineLocked(x.line)) ...[
+            UnitPicker(key: ValueKey('camUnit_${x.hashCode}'), value: x.unit, showHint: false, onChanged: (u) => setState(() {
+              x.unit = u;
+              if (qtyProblem(u, x.qty) != null) x.qty = x.qty.roundToDouble().clamp(1, 99999).toDouble(); // «шт» — только целое
+            })),
+            const SizedBox(height: 6),
+          ],
           _qtyRow(x),
           _rowStatus(x),
         ],

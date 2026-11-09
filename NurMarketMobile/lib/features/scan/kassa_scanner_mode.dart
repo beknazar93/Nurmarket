@@ -8,6 +8,7 @@ import '../../core/theme/tokens.dart';
 import '../../core/util/beep.dart';
 import '../../core/util/ui.dart';
 import '../profile/kassa_link_screen.dart';
+import 'repeat_scan_guard.dart';
 import 'shot_flow.dart';
 
 // 2026-10-27, владелец: «при сканировании мобилки камерой товар попадает прямо в кассу десктопа». Режим «Сканер для кассы»
@@ -38,7 +39,7 @@ enum KassaScanStatus {
 }
 
 class KassaScannerController extends ChangeNotifier {
-  KassaScannerController({KassaLink? link, this.userName, this.onFlash}) : link = link ?? KassaLink.instance;
+  KassaScannerController({KassaLink? link, this.userName, this.onFlash, this.askRepeat}) : link = link ?? KassaLink.instance;
 
   final KassaLink link;
 
@@ -47,6 +48,14 @@ class KassaScannerController extends ChangeNotifier {
 
   /// Вспышка рамки сканера: true — успех, false — ошибка.
   final void Function(bool ok)? onFlash;
+
+  /// 2026-11-07 (владелец: «если товар смотрит долго, то подряд добавляет»): тот же код считан повторно — экран ставит камеру на паузу и
+  /// спрашивает «Сколько штук?»: (код, название по последнему ответу кассы или null, сколько кодов уже ушло за сеанс) → сколько
+  /// отправить ещё; null или 0 — «Отмена». Не задан — прежнее поведение (тот же код не чаще раза в 1,5 с).
+  final Future<int?> Function(String code, String? product, int sent)? askRepeat;
+  final _guard = RepeatScanGuard();
+  bool _askingRepeat = false;
+  final _sent = <String, int>{};
 
   /// Антидребезг: тот же код чаще чем раз в 1,5 с не уходит (правило сканера продажи — [ScanRepeat]).
   final _repeat = ScanRepeat();
@@ -87,9 +96,39 @@ class KassaScannerController extends ChangeNotifier {
   void onCode(String code) {
     if (_disposed || !link.isPaired) return;
     final now = DateTime.now();
+    if (askRepeat != null) {
+      final v = _guard.check(code);
+      if (v == ScanVerdict.same) return;
+      if (v == ScanVerdict.repeat) {
+        if (!_askingRepeat) unawaited(_repeatFlow(code));
+        return;
+      }
+    }
     if (!_repeat.isNew(code, now)) return;
     _repeat.counted(code, now);
+    if (askRepeat != null) _guard.counted(code);
     _lastActivity = now;
+    _submit(code);
+  }
+
+  /// 2026-11-07: повтор того же кода — спросить количество и отправить на кассу столько раз (каждый код — +1 на кассе).
+  Future<void> _repeatFlow(String code) async {
+    _askingRepeat = true;
+    try {
+      final n = await askRepeat!(code, lastCode == code ? lastProduct : null, _sent[code] ?? 1);
+      if (_disposed || n == null || n <= 0) return;
+      _lastActivity = DateTime.now();
+      for (var i = 0; i < n; i++) {
+        if (!_submit(code)) break; // очередь полна или связь снята — остальное не отправляем
+      }
+    } finally {
+      _askingRepeat = false;
+      if (!_disposed) _guard.dialogClosed(code);
+    }
+  }
+
+  /// Отправить код на кассу; false — не принят (очередь полна, связи нет).
+  bool _submit(String code) {
     // 2026-10-27 (аудит мобилки, С-4): касса заведомо откажет — не шлём, говорим почему и проверяем связь ещё раз (вдруг уже исправили)
     if (link.status.refusesScans) {
       lastCode = code;
@@ -98,22 +137,26 @@ class KassaScannerController extends ChangeNotifier {
       _feedback(false);
       if (!link.checking) unawaited(link.check(discover: false));
       notifyListeners();
-      return;
+      return false;
     }
+    var ok = false;
     switch (link.submitScan(code)) {
       case KassaSubmit.accepted:
         lastCode = code;
         lastProduct = null;
         lastStatus = KassaScanStatus.sending;
+        _sent[code] = (_sent[code] ?? 0) + 1;
+        ok = true;
       case KassaSubmit.queueFull:
         lastCode = code;
         lastProduct = null;
         lastStatus = KassaScanStatus.queueFull;
         _feedback(false);
       case KassaSubmit.notPaired:
-        return;
+        return false;
     }
     notifyListeners();
+    return ok;
   }
 
   void _onEvent(KassaScanEvent e) {

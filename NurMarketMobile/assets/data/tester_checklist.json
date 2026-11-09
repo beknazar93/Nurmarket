@@ -4848,6 +4848,194 @@
           "PLU bog'lash: «Sut» tovarining PLU si 15, PLU 12 yorlig'ini skanerlang: «Tovar «Sut» PLU 15, bo'ladi 12…»."
         ]
       }
+    },
+    {
+      "id": "1.18.20/repeat-scan",
+      "version": "1.18.20",
+      "area": "scanner",
+      "severity": "important",
+      "title": {
+        "ru": "Повторный скан того же кода останавливает камеру и спрашивает количество",
+        "ky": "Бир эле кодду кайра сканерлегенде камера токтоп, санын сурайт",
+        "en": "Scanning the same code again stops the camera and asks for the quantity",
+        "tr": "Aynı kodu tekrar okutmak kamerayı durdurur ve miktarı sorar",
+        "uz": "Bir xil kodni qayta skanerlash kamerani to'xtatib, miqdorni so'raydi"
+      },
+      "changed": {
+        "ru": "Если товар долго смотрит в камеру, он больше не добавляется строка за строкой: на повторном считывании камера останавливается и появляется окно «Сколько штук?». Работает на экранах «Продажа», «Приёмка», коммерческое предложение, сборка заказа и в режиме «Сканер для кассы».",
+        "ky": "Товар камерага көпкө турса, ал эми сап сайын кошулбайт: кайра окулганда камера токтоп, «Канча даана?» терезеси чыгат. «Сатуу», «Кабыл алуу», коммерциялык сунуш, заказды чогултуу экрандарында жана «Кассага сканер» режиминде иштейт.",
+        "en": "If a product stays in front of the camera, it is no longer added line after line: on the repeated read the camera stops and a “How many?” window appears. Works on Sale, Receiving, Quote, order picking and in the “Scanner for the till” mode.",
+        "tr": "Ürün kameranın önünde uzun kalırsa artık satır satır eklenmez: tekrar okumada kamera durur ve «Kaç adet?» penceresi çıkar. Satış, Mal kabul, Teklif, sipariş toplama ekranlarında ve «Kasa için tarayıcı» modunda çalışır.",
+        "uz": "Tovar kamera oldida uzoq tursa, endi qatorma-qator qo'shilmaydi: qayta o'qishda kamera to'xtab, «Nechta?» oynasi chiqadi. Sotuv, Qabul, Taklif, buyurtma yig'ish ekranlarida va «Kassa uchun skaner» rejimida ishlaydi."
+      },
+      "steps": {
+        "ru": [
+          "«Продажа» → камера: наведите на товар и держите — после первого добавления камера останавливается, окно «Сколько штук?».",
+          "Введите 3 и подтвердите: в чеке 1 + 3 по этому товару, а не десяток одинаковых добавлений.",
+          "Уберите товар, наведите снова — это новый скан, добавляется как обычно."
+        ],
+        "ky": [
+          "«Сатуу» → камера: товарга багыттап кармап туруңуз — биринчи кошулгандан кийин камера токтойт, «Канча даана?» терезеси чыгат.",
+          "3 киргизип ырастаңыз: чекте бул товар боюнча 1 + 3, он бирдей кошуу эмес.",
+          "Товарды алып салып, кайра багыттаңыз — бул жаңы скан, адаттагыдай кошулат."
+        ],
+        "en": [
+          "Sale → camera: point at a product and keep holding — after the first add the camera stops and the “How many?” window appears.",
+          "Enter 3 and confirm: the receipt has 1 + 3 for this product, not ten identical adds.",
+          "Remove the product, point again — it is a new scan and is added as usual."
+        ],
+        "tr": [
+          "Satış → kamera: ürüne yöneltip tutun — ilk eklemeden sonra kamera durur, «Kaç adet?» penceresi çıkar.",
+          "3 yazıp onaylayın: fişte bu üründen 1 + 3 var, on aynı ekleme değil.",
+          "Ürünü kaldırıp tekrar yöneltin — yeni okutmadır, her zamanki gibi eklenir."
+        ],
+        "uz": [
+          "Sotuv → kamera: tovarga qaratib ushlab turing — birinchi qo'shilgandan keyin kamera to'xtaydi, «Nechta?» oynasi chiqadi.",
+          "3 kiriting va tasdiqlang: chekda bu tovardan 1 + 3, o'nta bir xil qo'shish emas.",
+          "Tovarni olib qo'yib, qayta qarating — bu yangi skan, odatdagidek qo'shiladi."
+        ]
+      }
+    },
+    {
+      "id": "1.18.20/receive-units",
+      "version": "1.18.20",
+      "area": "stock",
+      "severity": "money",
+      "title": {
+        "ru": "Приёмка: литры и килограммы остаются литрами и килограммами",
+        "ky": "Кабыл алуу: литр жана килограмм литр жана килограмм бойдон калат",
+        "en": "Receiving: liters and kilograms stay liters and kilograms",
+        "tr": "Mal kabul: litre ve kilogram litre ve kilogram olarak kalır",
+        "uz": "Qabul: litr va kilogramm litr va kilogramm bo'lib qoladi"
+      },
+      "changed": {
+        "ru": "В приёмке остаток считается в единице карточки: было 3 л, пришло 10 л — станет 13 л (раньше приёмка вела литры как штуки). Дробное количество из накладной («2,5 кг», «10,5 л») больше не округляется до целого, умная камера читает единицу измерения, у нового товара единицу можно выбрать (по умолчанию «шт»).",
+        "ky": "Кабыл алууда калдык карточканын бирдигинде эсептелет: 3 л болчу, 10 л келди — 13 л болот (мурун литр даана катары жүрчү). Накладнойдогу бөлчөк сан («2,5 кг», «10,5 л») бүтүнгө тегеректелбейт, акылдуу камера өлчөө бирдигин окуйт, жаңы товарга бирдикти тандаса болот (демейде «даана»).",
+        "en": "In receiving the stock is counted in the card's unit: 3 l before, 10 l arrived — becomes 13 l (receiving used to treat liters as pieces). A fractional quantity from the invoice (“2.5 kg”, “10.5 l”) is no longer rounded to a whole number, the smart camera reads the unit, and a new product's unit can be chosen (“pcs” by default).",
+        "tr": "Mal kabulde stok kartın biriminde sayılır: 3 l vardı, 10 l geldi — 13 l olur (eskiden litre adet sayılırdı). Faturadaki kesirli miktar («2,5 kg», «10,5 l») artık tam sayıya yuvarlanmaz, akıllı kamera birimi okur, yeni ürünün birimi seçilebilir (varsayılan «adet»).",
+        "uz": "Qabulda qoldiq kartochka birligida hisoblanadi: 3 l edi, 10 l keldi — 13 l bo'ladi (avval litr dona sifatida yurardi). Nakladnoydagi kasrli miqdor («2,5 kg», «10,5 l») butunga yaxlitlanmaydi, aqlli kamera birlikni o'qiydi, yangi tovarga birlikni tanlash mumkin (odatda «dona»)."
+      },
+      "steps": {
+        "ru": [
+          "Склад → Приёмка: товар в литрах с остатком 3 л, добавьте 10 → в строке видно «13 л» после прихода.",
+          "Накладная с «2,5 кг»: в приёмке 2,5 кг, а не 3; у товара в «шт» количество остаётся целым.",
+          "Умная камера на накладную с новым товаром «Молоко 10 л»: предложена единица «л», её можно сменить."
+        ],
+        "ky": [
+          "Кампа → Кабыл алуу: калдыгы 3 л болгон литрдик товар, 10 кошуңуз → кирешеден кийин сапта «13 л» көрүнөт.",
+          "«2,5 кг» болгон накладной: кабыл алууда 2,5 кг, 3 эмес; «даана» товарда сан бүтүн бойдон калат.",
+          "Жаңы «Сүт 10 л» товарлуу накладнойго акылдуу камера: «л» бирдиги сунушталат, аны алмаштырса болот."
+        ],
+        "en": [
+          "Stock → Receiving: a product in liters with 3 l in stock, add 10 → the line shows “13 l” after receiving.",
+          "An invoice with “2.5 kg”: receiving takes 2.5 kg, not 3; for a product in “pcs” the quantity stays whole.",
+          "Smart camera on an invoice with a new product “Milk 10 l”: the unit “l” is suggested and can be changed."
+        ],
+        "tr": [
+          "Depo → Mal kabul: stokta 3 l olan litreli ürün, 10 ekleyin → kabulden sonra satırda «13 l» görünür.",
+          "«2,5 kg» olan fatura: kabulde 2,5 kg, 3 değil; «adet» ürününde miktar tam kalır.",
+          "Yeni ürün «Süt 10 l» olan faturada akıllı kamera: «l» birimi önerilir, değiştirilebilir."
+        ],
+        "uz": [
+          "Ombor → Qabul: qoldig'i 3 l bo'lgan litrli tovar, 10 qo'shing → kirimdan keyin qatorda «13 l» ko'rinadi.",
+          "«2,5 kg» bor nakladnoy: qabulda 2,5 kg, 3 emas; «dona» tovarda miqdor butun qoladi.",
+          "Yangi «Sut 10 l» tovarli nakladnoyda aqlli kamera: «l» birligi taklif etiladi, uni almashtirish mumkin."
+        ]
+      }
+    },
+    {
+      "id": "1.18.20/debt-wa",
+      "version": "1.18.20",
+      "area": "other",
+      "severity": "normal",
+      "title": {
+        "ru": "Кнопка WA в «Долгах»",
+        "ky": "«Карыздар» бөлүмүндө WA баскычы",
+        "en": "WA button in “Debts”",
+        "tr": "«Borçlar»da WA düğmesi",
+        "uz": "«Qarzlar»da WA tugmasi"
+      },
+      "changed": {
+        "ru": "У каждого должника в списке «Долги» снова есть кнопка WA: открывается чат WhatsApp с готовым напоминанием (имя, сумма долга, магазин) на языке приложения. Сообщение отправляет сам человек — приложение ничего не шлёт само.",
+        "ky": "«Карыздар» тизмесинде ар бир карызкорго кайра WA баскычы бар: WhatsApp чаты даяр эскертме менен (аты, карыз суммасы, дүкөн) колдонмонун тилинде ачылат. Билдирүүнү адам өзү жөнөтөт — колдонмо өзү эч нерсе жөнөтпөйт.",
+        "en": "Each debtor in the “Debts” list has the WA button again: it opens a WhatsApp chat with a ready reminder (name, debt amount, shop) in the app language. The person sends the message themselves — the app sends nothing on its own.",
+        "tr": "«Borçlar» listesinde her borçlunun yine WA düğmesi var: uygulama dilinde hazır hatırlatmayla (ad, borç tutarı, mağaza) WhatsApp sohbeti açılır. Mesajı kişi kendisi gönderir — uygulama kendiliğinden bir şey göndermez.",
+        "uz": "«Qarzlar» ro'yxatida har bir qarzdorda yana WA tugmasi bor: ilova tilida tayyor eslatma (ism, qarz summasi, do'kon) bilan WhatsApp chati ochiladi. Xabarni odamning o'zi yuboradi — ilova o'zi hech narsa yubormaydi."
+      },
+      "steps": {
+        "ru": [
+          "Раздел «Долги» → у должника с номером телефона нажмите WA: открывается WhatsApp с текстом напоминания, номер в формате 996….",
+          "Текст на языке приложения, сумма долга и название магазина верные; без нажатия «Отправить» ничего не уходит.",
+          "У должника без телефона: понятное сообщение, а не пустой чат."
+        ],
+        "ky": [
+          "«Карыздар» бөлүмү → телефон номери бар карызкордо WA басыңыз: эскертме тексти менен WhatsApp ачылат, номер 996… форматында.",
+          "Текст колдонмонун тилинде, карыз суммасы жана дүкөндүн аты туура; «Жөнөтүү» баспайынча эч нерсе кетпейт.",
+          "Телефону жок карызкордо: бош чат эмес, түшүнүктүү билдирүү."
+        ],
+        "en": [
+          "“Debts” section → on a debtor with a phone number tap WA: WhatsApp opens with the reminder text, the number is in 996… format.",
+          "The text is in the app language, the debt amount and the shop name are right; nothing is sent until “Send” is pressed.",
+          "A debtor without a phone: a clear message, not an empty chat."
+        ],
+        "tr": [
+          "«Borçlar» bölümü → telefon numarası olan borçluda WA'ya basın: hatırlatma metniyle WhatsApp açılır, numara 996… biçiminde.",
+          "Metin uygulama dilinde, borç tutarı ve mağaza adı doğru; «Gönder»e basılmadan hiçbir şey gitmez.",
+          "Telefonu olmayan borçluda: boş sohbet değil, anlaşılır mesaj."
+        ],
+        "uz": [
+          "«Qarzlar» bo'limi → telefon raqami bor qarzdorda WA ni bosing: eslatma matni bilan WhatsApp ochiladi, raqam 996… formatida.",
+          "Matn ilova tilida, qarz summasi va do'kon nomi to'g'ri; «Yuborish» bosilmaguncha hech narsa ketmaydi.",
+          "Telefoni yo'q qarzdorda: bo'sh chat emas, tushunarli xabar."
+        ]
+      }
+    },
+    {
+      "id": "1.18.20/touch-ripple",
+      "version": "1.18.20",
+      "area": "profile",
+      "severity": "normal",
+      "title": {
+        "ru": "Нижняя панель сразу откликается на касание",
+        "ky": "Ылдыйкы панель тийгенде дароо жооп берет",
+        "en": "The bottom bar responds to a touch at once",
+        "tr": "Alt çubuk dokunuşa hemen yanıt verir",
+        "uz": "Pastki panel teginishga darrov javob beradi"
+      },
+      "changed": {
+        "ru": "Нажатие вкладки нижней панели теперь видно сразу (волна под пальцем), а не после загрузки экрана; вместо «искр» Material 3 — обычная рябь без рывка на первом касании. Раньше казалось, что сенсор откликается плохо.",
+        "ky": "Ылдыйкы панелдин өтмөгүн басканда эми дароо көрүнөт (манжанын астында толкун), экран жүктөлгөндөн кийин эмес; Material 3 «учкундарынын» ордуна биринчи тийгенде кармалбаган кадимки толкун. Мурун сенсор начар иштегендей сезилчү.",
+        "en": "Pressing a bottom-bar tab is now visible at once (a ripple under the finger), not after the screen loads; instead of Material 3 “sparkles” — a plain ripple with no jank on the first touch. It used to feel as if the touch responded badly.",
+        "tr": "Alt çubuk sekmesine basmak artık hemen görünür (parmağın altında dalga), ekran yüklendikten sonra değil; Material 3 «kıvılcımları» yerine ilk dokunuşta takılma yapmayan düz dalga. Eskiden dokunmatik kötü yanıt veriyormuş gibi hissedilirdi.",
+        "uz": "Pastki panel yorlig'ini bosish endi darrov ko'rinadi (barmoq ostida to'lqin), ekran yuklangandan keyin emas; Material 3 «uchqunlari» o'rniga birinchi teginishda qotmaydigan oddiy to'lqin. Avval sensor yomon javob berayotgandek tuyulardi."
+      },
+      "steps": {
+        "ru": [
+          "Нажмите «Продажа», «Сканер», «Склад» на нижней панели: под пальцем сразу видна волна, вкладка переключается без рывка.",
+          "Первое нажатие после запуска приложения не «подвисает».",
+          "В тёмной и светлой теме волна видна."
+        ],
+        "ky": [
+          "Ылдыйкы панелде «Сатуу», «Сканер», «Кампа» басыңыз: манжанын астында дароо толкун көрүнөт, өтмөк кармалбай алмашат.",
+          "Колдонмону ачкандан кийинки биринчи басуу «катпайт».",
+          "Караңгы жана ачык темада толкун көрүнөт."
+        ],
+        "en": [
+          "Tap Sale, Scanner, Stock on the bottom bar: a ripple is visible under the finger at once, the tab switches without a hitch.",
+          "The first tap after launching the app does not “freeze”.",
+          "The ripple is visible in the dark and light themes."
+        ],
+        "tr": [
+          "Alt çubukta Satış, Tarayıcı, Depo'ya basın: parmağın altında hemen dalga görünür, sekme takılmadan değişir.",
+          "Uygulamayı açtıktan sonraki ilk basış «donmaz».",
+          "Koyu ve açık temada dalga görünür."
+        ],
+        "uz": [
+          "Pastki panelda Sotuv, Skaner, Ombor ni bosing: barmoq ostida darrov to'lqin ko'rinadi, yorliq qotmasdan almashadi.",
+          "Ilovani ochgandan keyingi birinchi bosish «qotib» qolmaydi.",
+          "Qorong'i va yorug' mavzuda to'lqin ko'rinadi."
+        ]
+      }
     }
   ]
 }

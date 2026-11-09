@@ -323,7 +323,7 @@ void main() {
       expect(alt.map((e) => e['barcode']), contains(_pepsi));
       expect(find.byKey(const ValueKey('unknown_$_pepsi')), findsNothing);
       expect(find.text('пепси 1.5'), findsOneWidget);
-      expect(find.text('3'), findsOneWidget, reason: 'три скана неизвестного кода -> 3 штуки');
+      expect(find.text('3 шт'), findsOneWidget, reason: 'три скана неизвестного кода -> 3 штуки');
     });
 
     testWidgets('«Исправить»: основной код карточки меняется на верный', (tester) async {

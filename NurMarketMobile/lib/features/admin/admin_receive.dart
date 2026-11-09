@@ -21,8 +21,12 @@ import '../../core/util/audit.dart';
 import '../../l10n/app_localizations.dart';
 import '../scan/barcode_lookup.dart';
 import '../scan/code_lookup.dart';
+import '../scan/repeat_scan_dialog.dart';
+import '../scan/repeat_scan_guard.dart';
 import '../stock/product_edit_repository.dart' show isWeightUnit;
+import '../stock/receive_units.dart';
 import '../stock/unit_picker.dart';
+import '../../core/units.dart';
 
 /// Строка приёмки администратора: количество, закупка и продажа.
 class ReceiveLine {
@@ -539,8 +543,8 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
   bool _busy = false;
   final _search = TextEditingController();
   MobileScannerController? _camera;
-  String _last = '';
-  DateTime _lastAt = DateTime(2000);
+  /// 2026-11-07 (владелец: «если товар смотрит долго, то подряд добавляет»): тот же код считан повторно — камера на паузу и «Сколько штук?».
+  final _guard = RepeatScanGuard();
 
   // 2026-10-22 (мобилка, админ, П8, К-9): поля цен — свои контроллеры у каждой строки. Раньше TextFormField(initialValue)
   // без ключа: новая строка вставлялась наверх, а поле оставалось от прежней — у товара Б показывалась закупка товара А.
@@ -727,17 +731,63 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
   }
 
   Future<void> _onCode(String code) async {
-    final now = DateTime.now();
     if (_scanBusy) return;
-    if (code == _last && now.difference(_lastAt).inMilliseconds < 1500) return;
-    _last = code;
-    _lastAt = now;
+    // 2026-11-07: прежнее «тот же код не чаще раза в 1,5 с» добавляло ту же пачку каждые 1,5 с, пока она в кадре. Теперь повтор —
+    // остановить камеру и спросить количество (RepeatScanGuard); кадры только что принятой пачки игнорируются.
+    final v = _guard.check(code);
+    if (v == ScanVerdict.same) return;
     _scanBusy = true;
     try {
+      if (v == ScanVerdict.repeat) {
+        await _askRepeat(code);
+        return;
+      }
+      _guard.counted(code);
       await _handleCode(code);
     } finally {
       _scanBusy = false;
-      _lastAt = DateTime.now();
+      if (_guard.code == code && !_guard.locked) _guard.counted(code); // «сразу после добавления» — от конца разбора
+    }
+  }
+
+  /// 2026-11-07: повторный скан того же кода. Товар (или новая строка с этим штрихкодом) найден — камера на паузу, окно «Уже в приёмке:
+  /// N. Сколько добавить?»; «Добавить» прибавляет к строке, «Отмена» ничего не меняет. Не найден — обычный разбор кода.
+  Future<void> _askRepeat(String code) async {
+    final db = ref.read(databaseProvider);
+    final hit = await CodeLookup.find(db, ref.read(apiProvider), code, allowWeightLabel: false);
+    if (!mounted) return;
+    final clean = normalizeCode(code);
+    final p = hit.product;
+    final fresh = p == null ? _lines.where((x) => x.isNew && x.barcode == clean).firstOrNull : null;
+    if (p == null && fresh == null) {
+      _guard.counted(code);
+      await _handleCode(code);
+      return;
+    }
+    await _camera?.stop();
+    try {
+      if (!mounted) return;
+      final name = p?.name ?? fresh!.name;
+      final unit = p?.unit ?? fresh!.unit;
+      final have = p == null ? fresh!.qty : _lines.where((x) => x.productId == p.id).fold<double>(0, (s, x) => s + x.qty);
+      final per = (p == null ? null : hit.qty) ?? 1;
+      final n = await askRepeatQty(
+        context,
+        name: name,
+        message: repeatQtyMessage(context, RepeatQtyKind.receive, have: have, unit: unit),
+        unit: unit,
+        initial: per,
+        fractional: unitIsFractional(unit), // 2026-11-08: литры, метры тоже дробные (раньше только кг и г)
+      );
+      if (n == null || n <= 0 || !mounted) return;
+      if (p != null) {
+        await _addProduct(p, qty: n);
+      } else {
+        setState(() => fresh!.qty += n);
+      }
+    } finally {
+      _guard.dialogClosed(code);
+      if (mounted && _scanning) await _camera?.start();
     }
   }
 
@@ -1282,7 +1332,8 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                                         ? l.newProduct
                                         : costUp
                                         ? '${l.purchasePrice} ${money(line.oldCost)} → ${money(line.cost)}'
-                                        : '${l.onStockLabel}: ${qtyText(line.before)} ${line.unit}',
+                                        // 2026-11-08: «На складе: 3 л → 3 + 10 = 13 л» — единица из карточки, количество прибавляется к остатку
+                                        : '${l.onStockLabel}: ${qtyText(line.before)} ${line.unit}${line.qty > 0 ? ' → ${receiveSumText(line.before, line.qty, line.unit)}' : ''}',
                                     style: TextStyle(fontSize: 12, color: line.isNew || costUp ? context.pal.warn : c.pal.textSoft),
                                   ),
                                   // 2026-10-31 (одежда): у товара есть размеры и цвета — пометка и остаток по размерам (из базы телефона)
@@ -1297,8 +1348,15 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                             // 13.10, владелец: «количество не вводится» — нажатие на число: ввод количества
                             InkWell(
                               onTap: () async {
-                                final v = await askNumber(context, title: line.name, initial: line.qty, kind: NumKind.qty);
-                                if (v != null && v > 0) setState(() => line.qty = v);
+                                final v = await askNumber(context, title: line.name, initial: line.qty, kind: NumKind.qty, suffix: line.unit);
+                                if (v == null || v <= 0) return;
+                                // 2026-11-08: дробное число — только там, где единица это допускает (л, кг, м…); у «шт» — целое
+                                final bad = qtyErrorText(l, line.unit, v);
+                                if (bad != null) {
+                                  if (context.mounted) toast(context, bad, error: true);
+                                  return;
+                                }
+                                setState(() => line.qty = v);
                               },
                               borderRadius: BorderRadius.circular(8),
                               child: Container(
@@ -1306,7 +1364,7 @@ class _AdminReceiveScreenState extends ConsumerState<AdminReceiveScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                 decoration: BoxDecoration(color: context.pal.window, borderRadius: BorderRadius.circular(8)),
                                 child: Text(
-                                  qtyText(line.qty),
+                                  qtyWithUnit(line.qty, line.unit), // 2026-11-08: «10 л», а не голое «10»
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                                 ),

@@ -30,6 +30,9 @@ ThemeData buildTheme({required bool dark}) {
   final ink = dark ? T.accent : p.text;
   return base.copyWith(
     scaffoldBackgroundColor: p.window,
+    // 2026-11-08, владелец: «сенсор откликается очень плохо». Material 3 на Android рисует нажатие шейдером InkSparkle: первое касание
+    // компилирует шейдер (рывок), на слабых GPU каждое нажатие дороже. Обычная рябь InkRipple — тот же отклик, без «искр» и рывка.
+    splashFactory: InkRipple.splashFactory,
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: ink,

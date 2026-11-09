@@ -17,6 +17,7 @@ import '../../core/util/ui.dart';
 import '../admin/admin_repository.dart' show DeletionRow;
 import '../admin/admin_screens.dart' show adminRepoProvider;
 import '../sale/cart.dart' show roundMoney;
+import 'debt_whatsapp.dart';
 import 'ops_docs.dart';
 import 'ops_repository.dart';
 import 'return_ledger.dart';
@@ -402,6 +403,9 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
                                 '${money(d.debt)} ${l.som}',
                                 style: TextStyle(fontWeight: FontWeight.w800, color: context.pal.danger),
                               ),
+                              // 2026-11-08 (владелец: «вернуть кнопку WA»): напоминание о долге в WhatsApp, чат открывается по нажатию.
+                              const SizedBox(width: 8),
+                              DebtWhatsAppButton(phone: d.phone, name: d.name, amount: d.debt, shop: ref.read(sessionProvider)?.companyName ?? ''),
                             ],
                           ),
                         ),

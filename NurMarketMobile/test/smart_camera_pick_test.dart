@@ -319,7 +319,7 @@ void main() {
       await settle(tester);
       expect(v.calls.map((c) => (c.mode, c.mime)), [('invoice', 'image/jpeg'), ('invoice', 'image/png')]);
       expect(find.text('Адыгене 1л'), findsOneWidget);
-      expect(find.text('6'), findsOneWidget, reason: '3 + 3 штуки одного товара');
+      expect(find.text('6 шт'), findsOneWidget, reason: '3 + 3 штуки одного товара');
     });
 
     testWidgets('«Из файла»: PDF -> ИИ с типом application/pdf', (tester) async {

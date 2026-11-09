@@ -21,6 +21,8 @@ import 'live_shot.dart';
 import 'shot_flow.dart';
 import '../../core/util/beep.dart';
 import 'scan_animations.dart';
+import 'repeat_scan_dialog.dart';
+import 'repeat_scan_guard.dart';
 import 'cam_label.dart';
 import 'kassa_scanner_mode.dart';
 import '../profile/kassa_link_screen.dart';
@@ -61,6 +63,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
 
   /// 2026-10-22 (аудит С-1): повтор скана — по каждому коду отдельно ([ScanRepeat]).
   late final _repeat = ScanRepeat(receiving: widget.returnCodes);
+
+  /// 2026-11-07 (владелец: «если товар смотрит долго, то подряд добавляет»): тот же код считан повторно — сканер на паузу и вопрос
+  /// «Сколько штук?» ([RepeatScanGuard]). Только продажа и сканер кодов (приёмка/ревизия): «Цена» ничего не добавляет.
+  final _guard = RepeatScanGuard();
 
   /// 2026-11-05 (М5-13): весовые этикетки, уже добавленные в текущий чек, — та же этикетка сама второй раз не добавляется.
   final _labels = ScaleLabelMemory();
@@ -170,8 +176,19 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     // этикетка в кадре ложилась в чек второй раз через 1,5 с)
     _labels.syncWithCart(cartEmpty: ref.read(cartProvider).isEmpty, lines: ref.read(cartProvider).lines);
     _repeat.receiving = widget.returnCodes || _mode != ScanMode.sale || _labels.contains(code);
+    // 2026-11-07: повтор того же кода без «камеру отвели» — не добавлять молча, а остановить сканер и спросить количество
+    final guarded = widget.returnCodes || _mode == ScanMode.sale;
+    if (guarded) {
+      final v = _guard.check(code);
+      if (v == ScanVerdict.same) return;
+      if (v == ScanVerdict.repeat) {
+        if (!_processing && !_asking && !_handedOver) await _askRepeat(code);
+        return;
+      }
+    }
     if (!_repeat.isNew(code, now) || _processing || _asking) return;
     _repeat.counted(code, now);
+    if (guarded) _guard.counted(code);
     _processing = true;
     try {
       await _handleCode(code);
@@ -179,6 +196,91 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
       _processing = false;
       // пока шёл разбор (окно размера), код был в кадре — «ушёл из кадра» считаем от конца разбора
       _repeat.seen(code, DateTime.now());
+      if (guarded && _guard.code == code && !_guard.locked) _guard.counted(code); // 2026-11-07: «сразу после добавления» — от конца разбора
+    }
+  }
+
+  /// 2026-11-07: повторный скан того же кода. Товар найден — камера на паузу, окно «Уже в чеке: N. Сколько добавить?»; «Добавить» прибавляет
+  /// N к чеку (в приёмке — N кодов в список), «Отмена» ничего не меняет. Потом камера включается, а этот код считается новым,
+  /// только когда камеру отведут на 1,5 с ([RepeatScanGuard.dialogClosed]). Товар не найден — не «ещё штука», обычный разбор кода.
+  Future<void> _askRepeat(String code) async {
+    final db = ref.read(databaseProvider);
+    _processing = true;
+    var stopped = false;
+    try {
+      Product? p;
+      double? hitQty;
+      if (widget.returnCodes) {
+        final h = await db.productByScan(code, allowWeightLabel: false);
+        p = h?.product;
+        hitQty = h?.qty;
+      } else {
+        final h = await CodeLookup.find(db, ref.read(apiProvider), code);
+        p = h.product;
+        hitQty = h.qty;
+      }
+      if (!mounted) return;
+      if (p == null) {
+        _guard.counted(code);
+        await _handleCode(code);
+        return;
+      }
+      _asking = true;
+      _handedOver = true;
+      stopped = true;
+      try {
+        await _camera.stop();
+      } catch (_) {}
+      HapticFeedback.mediumImpact();
+      if (!mounted) return;
+      final product = p;
+      final per = hitQty ?? 1;
+      final double have;
+      final RepeatQtyKind kind;
+      if (widget.returnCodes) {
+        have = _received.where((c) => c == code).length * per;
+        kind = RepeatQtyKind.scanned;
+      } else {
+        have = ref.read(cartProvider).lines.where((x) => x.productId == product.id).fold<double>(0, (s, x) => s + x.qty);
+        kind = RepeatQtyKind.check;
+      }
+      final n = await askRepeatQty(
+        context,
+        name: product.name,
+        message: repeatQtyMessage(context, kind, have: have, unit: product.unit, need: null),
+        unit: product.unit,
+        initial: per,
+        fractional: !widget.returnCodes && product.isWeight,
+      );
+      if (n == null || n <= 0 || !mounted) return;
+      if (widget.returnCodes) {
+        // в список уходят коды: одна запись — одна штука (у штрихкода упаковки — вся упаковка, per штук)
+        final copies = (n / per).round().clamp(1, 100000);
+        _received.addAll(List.filled(copies, code));
+        _popups.currentState?.add('+${qtyText(n)} ${product.name}', color: T.success);
+        setState(() {});
+      } else {
+        final before = ref.read(cartProvider).quantity;
+        await addProduct(context, ref, product, qty: n, code: code);
+        if (mounted && ref.read(cartProvider).quantity != before) {
+          _frame.currentState?.success();
+          _popups.currentState?.add('+${qtyText(n)} ${product.unit} ${product.name}');
+        }
+      }
+    } finally {
+      _processing = false;
+      if (stopped) {
+        _guard.dialogClosed(code);
+        _asking = false;
+        _handedOver = false;
+        if (mounted) {
+          try {
+            await _camera.start();
+          } catch (_) {}
+        }
+      } else {
+        _repeat.seen(code, DateTime.now());
+      }
     }
   }
 
@@ -196,6 +298,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     final ctl = KassaScannerController(
       userName: () => ref.read(sessionProvider)?.userName ?? '',
       onFlash: (ok) => ok ? _frame.currentState?.success() : _frame.currentState?.fail(),
+      askRepeat: _askKassaRepeat,
     );
     setState(() {
       _kassa = true;
@@ -204,6 +307,35 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     });
     unawaited(ctl.start());
     _remember(ScanModeMemory.kassa);
+  }
+
+  /// 2026-11-07: режим «Сканер для кассы» — тот же код считан повторно: камера на паузу, окно «Сколько штук?», потом камера снова.
+  /// Сколько отправить на кассу (каждый код — +1 там); null — «Отмена». Название товара — по последнему ответу кассы, иначе сам код.
+  Future<int?> _askKassaRepeat(String code, String? product, int sent) async {
+    if (_asking || _handedOver || !mounted) return null;
+    _asking = true;
+    _handedOver = true;
+    try {
+      await _camera.stop();
+    } catch (_) {}
+    HapticFeedback.mediumImpact();
+    try {
+      if (!mounted) return null;
+      final n = await askRepeatQty(
+        context,
+        name: product ?? code,
+        message: repeatQtyMessage(context, RepeatQtyKind.scanned, have: sent.toDouble(), unit: '', need: null),
+      );
+      return n?.round();
+    } finally {
+      _asking = false;
+      _handedOver = false;
+      if (mounted) {
+        try {
+          await _camera.start();
+        } catch (_) {}
+      }
+    }
   }
 
   /// Из панели «не настроено»: экран «Связь с кассой»; камера на это время отдана экрану QR.
@@ -435,6 +567,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
     } finally {
       await CameraGate.idle();
       _handedOver = false;
+      _guard.reset(); // 2026-11-07: вернулись с другого экрана — код новый
       if (mounted) await _camera.start();
     }
   }
@@ -598,6 +731,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with WidgetsBindingObse
                               // Вторая камера (сканер приёмки) не откроется, пока работает эта — останавливаем и включаем по возвращении.
                               _handOver(() => context.push('/stock/receive'));
                             } else {
+                              _guard.reset(); // 2026-11-07: смена режима — следующий код новый
                               setState(() => _mode = m);
                               _remember(m.name);
                             }

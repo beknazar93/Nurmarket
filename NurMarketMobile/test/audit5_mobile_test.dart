@@ -703,9 +703,9 @@ void main() {
   });
 
   // ---------------------------------------------------------------- Версия
-  test('версия 1.18.19+20 в pubspec и AppBuild; тестовая сборка выключена', () {
+  test('версия 1.18.20+21 в pubspec и AppBuild; тестовая сборка выключена', () {
     final pubspec = File('pubspec.yaml').readAsStringSync();
-    expect(RegExp(r'^version:\s*1\.18\.19\+20\s*$', multiLine: true).hasMatch(pubspec), isTrue);
-    expect(File('release-notes-mobile-1.18.19.md').existsSync(), isTrue);
+    expect(RegExp(r'^version:\s*1\.18\.20\+21\s*$', multiLine: true).hasMatch(pubspec), isTrue);
+    expect(File('release-notes-mobile-1.18.20.md').existsSync(), isTrue);
   });
 }

@@ -119,7 +119,7 @@ void main() {
     expect(find.text(l.recvCostAvg(1)), findsOneWidget);
     final cost = t.widgetList<TextField>(find.byType(TextField)).map((f) => f.controller?.text ?? '').toList();
     expect(cost.any((s) => s.replaceAll(',', '.') == '53.33'), isTrue, reason: 'закупка 53,33, а не 60: $cost');
-    expect(find.text('15'), findsWidgets, reason: 'количество 10 + 5');
+    expect(find.text('15 шт'), findsWidgets, reason: 'количество 10 + 5');
   });
 
   testWidgets('Ск-6: одинаковая закупка — сообщения нет, цена прежняя', (t) async {

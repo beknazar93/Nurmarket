@@ -69,3 +69,9 @@ QtyProblem? qtyProblem(String? unit, double qty, {bool packed = false}) {
   if (!packed && !unitIsFractional(unit) && (qty - qty.roundToDouble()).abs() > 1e-9) return QtyProblem.notWhole;
   return null;
 }
+
+/// 2026-11-08 (жалоба «приёмка ведёт литры как штуки»): единица товара из карточки; пустая — «шт».
+String unitOrPcs(String? unit) => (unit ?? '').trim().isEmpty ? 'шт' : unit!.trim();
+
+/// 2026-11-08: остаток после прихода — прибавка к остатку, в любой единице: 3 л + 10 л = 13 л (до 3 знаков, как roundQty).
+double stockAfter(double before, double qty) => ((before + qty) * 1000).round() / 1000;

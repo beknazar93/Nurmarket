@@ -19,6 +19,8 @@ import '../payment/payment_screen.dart';
 import '../payment/sales_repository.dart' show Client;
 import '../receipt/receipt.dart';
 import '../sale/cart.dart';
+import '../scan/repeat_scan_dialog.dart';
+import '../scan/repeat_scan_guard.dart';
 import 'admin_screens.dart' show openWhatsApp;
 import 'quotes_store.dart';
 import 'waybill_pdf.dart';
@@ -934,7 +936,11 @@ class _QuoteEditScreenState extends ConsumerState<QuoteEditScreen> {
   Future<void> _scan() => showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _QuoteScanSheet(onProduct: (p, qty) => _addProduct(p, qty: qty)),
+    builder: (_) => _QuoteScanSheet(
+      onProduct: (p, qty) => _addProduct(p, qty: qty),
+      // 2026-11-07: сколько этого товара уже в КП — для окна повторного скана
+      currentQty: (p) => _lines.where((x) => x.productId == p.id).fold<double>(0, (s, x) => s + x.qty),
+    ),
   );
 
   void _fromCart() {
@@ -1239,15 +1245,17 @@ class _TotalRow extends StatelessWidget {
 /// 2026-10-21: сканер камерой для КП/счёта — каждый скан добавляет товар (повтор того же кода в течение 1,5 с не считается).
 class _QuoteScanSheet extends ConsumerStatefulWidget {
   final void Function(Product p, double qty) onProduct;
-  const _QuoteScanSheet({required this.onProduct});
+  final double Function(Product p) currentQty;
+  const _QuoteScanSheet({required this.onProduct, required this.currentQty});
   @override
   ConsumerState<_QuoteScanSheet> createState() => _QuoteScanSheetState();
 }
 
 class _QuoteScanSheetState extends ConsumerState<_QuoteScanSheet> {
   final _camera = MobileScannerController(formats: const [BarcodeFormat.ean13, BarcodeFormat.ean8, BarcodeFormat.code128, BarcodeFormat.upcA, BarcodeFormat.upcE, BarcodeFormat.itf14, BarcodeFormat.qrCode], detectionSpeed: DetectionSpeed.normal);
-  String _last = '';
-  DateTime _lastAt = DateTime(2000);
+  /// 2026-11-07 (владелец: «если товар смотрит долго, то подряд добавляет»): тот же код считан повторно — камера на паузу и «Сколько штук?».
+  final _guard = RepeatScanGuard();
+  bool _busy = false;
   String? _msg;
   bool _error = false;
 
@@ -1258,10 +1266,57 @@ class _QuoteScanSheetState extends ConsumerState<_QuoteScanSheet> {
   }
 
   Future<void> _onCode(String code) async {
-    final now = DateTime.now();
-    if (code == _last && now.difference(_lastAt).inMilliseconds < 1500) return;
-    _last = code;
-    _lastAt = now;
+    if (_busy) return;
+    final v = _guard.check(code);
+    if (v == ScanVerdict.same) return;
+    _busy = true;
+    try {
+      if (v == ScanVerdict.repeat) {
+        await _askRepeat(code);
+        return;
+      }
+      _guard.counted(code);
+      await _addByCode(code);
+    } finally {
+      _busy = false;
+      if (_guard.code == code && !_guard.locked) _guard.counted(code); // «сразу после добавления» — от конца разбора
+    }
+  }
+
+  /// 2026-11-07: повторный скан: товар найден — камера на паузу, «Уже в КП: N. Сколько добавить?»; не найден — обычный разбор кода.
+  Future<void> _askRepeat(String code) async {
+    final hit = await ref.read(databaseProvider).productByScan(code);
+    if (!mounted) return;
+    if (hit == null) {
+      _guard.counted(code);
+      await _addByCode(code);
+      return;
+    }
+    final p = hit.product;
+    await _camera.stop();
+    try {
+      if (!mounted) return;
+      final n = await askRepeatQty(
+        context,
+        name: p.name,
+        message: repeatQtyMessage(context, RepeatQtyKind.quote, have: widget.currentQty(p), unit: p.unit),
+        unit: p.unit,
+        initial: hit.qty ?? 1,
+        fractional: p.isWeight,
+      );
+      if (n == null || n <= 0 || !mounted) return;
+      widget.onProduct(p, n);
+      setState(() {
+        _msg = context.l.scannedAdded(p.name);
+        _error = false;
+      });
+    } finally {
+      _guard.dialogClosed(code);
+      if (mounted) await _camera.start();
+    }
+  }
+
+  Future<void> _addByCode(String code) async {
     final l = context.l;
     final hit = await ref.read(databaseProvider).productByScan(code);
     if (!mounted) return;

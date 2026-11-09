@@ -25,6 +25,9 @@ import 'product_edit_repository.dart';
 import 'product_batches.dart';
 import 'product_packages.dart';
 import 'receive_lookup.dart';
+import 'receive_units.dart';
+import 'unit_picker.dart' show qtyErrorText;
+import '../../core/units.dart';
 import 'stock_repository.dart';
 import '../scan/smart_camera.dart';
 
@@ -598,7 +601,13 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
     setState(() {
       for (final m in (j['lines'] as List).cast<Map>()) {
         _lines.add(
-          StockLine(productId: m['productId'] as String, name: m['name'] as String, before: (m['before'] as num).toDouble(), qty: (m['qty'] as num).toDouble()),
+          StockLine(
+            productId: m['productId'] as String,
+            name: m['name'] as String,
+            before: (m['before'] as num).toDouble(),
+            qty: (m['qty'] as num).toDouble(),
+            unit: unitOrPcs(m['unit'] as String?), // 2026-11-08: единица из карточки переживает «Отложить»
+          ),
         );
       }
       _unknown.addAll((j['unknown'] as List).cast<String>());
@@ -620,7 +629,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
       .setSetting(
         _draftKey,
         jsonEncode({
-          'lines': _lines.map((l) => {'productId': l.productId, 'name': l.name, 'before': l.before, 'qty': l.qty}).toList(),
+          'lines': _lines.map((l) => {'productId': l.productId, 'name': l.name, 'before': l.before, 'qty': l.qty, 'unit': l.unit}).toList(),
           'unknown': _unknown,
           'unknownQty': _unknownQty,
         }),
@@ -657,7 +666,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
     if (i >= 0) {
       _lines[i].qty += qty;
     } else {
-      _lines.insert(0, StockLine(productId: p.id, name: p.name, before: p.quantity, qty: qty));
+      _lines.insert(0, StockLine(productId: p.id, name: p.name, before: p.quantity, qty: qty, unit: unitOrPcs(p.unit))); // 2026-11-08: единица из карточки (л, кг, м…)
     }
   }
 
@@ -820,6 +829,9 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
     final l = context.l;
     final pal = context.pal;
     final pieces = _lines.fold<double>(0, (s, x) => s + x.qty);
+    // 2026-11-08: все строки — штуки: прежние подписи «N шт»; есть литры, кг, метры — итог по единицам («10 л · 5 шт»)
+    final allPcs = receiveAllPieces(_lines.map((x) => x.unit));
+    final totals = receiveTotalsText([for (final x in _lines) (unit: x.unit, qty: x.qty)]);
     return Scaffold(
       appBar: ScreenTitle(l.receiving, subtitle: l.receiveNoSupplier),
       body: ListView(
@@ -850,7 +862,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
               Text(l.accepted, style: const TextStyle(fontWeight: FontWeight.w800)),
               const SizedBox(width: 8),
               // 2026-10-27: на 360 dp с шрифтом 1,3 (ky/uz) подпись не помещалась в строку
-              Expanded(child: Text(l.goodsPieces(_lines.length, qtyText(pieces)), textAlign: TextAlign.end, style: TextStyle(fontSize: 12.5, color: pal.textSoft))),
+              Expanded(child: Text(allPcs ? l.goodsPieces(_lines.length, qtyText(pieces)) : '${_lines.length} · $totals', textAlign: TextAlign.end, style: TextStyle(fontSize: 12.5, color: pal.textSoft))),
             ],
           ),
           const SizedBox(height: 6),
@@ -864,7 +876,11 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(_lines[i].name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                        Text(l.wasPieces(qtyText(_lines[i].before)), style: TextStyle(fontSize: 12, color: pal.textSoft)),
+                        // 2026-11-08: «было 3 л → станет 3 + 10 = 13 л» — единица из карточки, количество прибавляется к остатку
+                        Text(
+                          _lines[i].qty > 0 ? '${l.wasPieces(qtyWithUnit(_lines[i].before, _lines[i].unit))} → ${receiveSumText(_lines[i].before, _lines[i].qty, _lines[i].unit)}' : l.wasPieces(qtyWithUnit(_lines[i].before, _lines[i].unit)),
+                          style: TextStyle(fontSize: 12, color: pal.textSoft),
+                        ),
                       ],
                     ),
                   ),
@@ -880,18 +896,28 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
                   ),
                   InkWell(
                     onTap: () async {
-                      final v = await askNumber(context, title: _lines[i].name, initial: _lines[i].qty, kind: NumKind.qty);
+                      final line = _lines[i];
+                      final v = await askNumber(context, title: line.name, initial: line.qty, kind: NumKind.qty, suffix: line.unit);
                       if (v != null && v >= 0) {
-                        setState(() => _lines[i].qty = v);
+                        // 2026-11-08: дробное число — только в единицах, где оно возможно (л, кг, м…); у «шт» — целое
+                        final bad = qtyErrorText(l, line.unit, v);
+                        if (bad != null) {
+                          if (context.mounted) toast(context, bad, error: true);
+                          return;
+                        }
+                        setState(() => line.qty = v);
                         _saveDraft();
                       }
                     },
                     child: SizedBox(
-                      width: 44,
-                      child: Text(
-                        qtyText(_lines[i].qty),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                      width: 72,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          qtyWithUnit(_lines[i].qty, _lines[i].unit), // 2026-11-08: число с единицей («10 л»), а не голое «10»
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        ),
                       ),
                     ),
                   ),
@@ -928,7 +954,7 @@ class _ReceiveScreenState extends ConsumerState<ReceiveScreen> {
               const SizedBox(width: 10),
               Expanded(
                 flex: 2,
-                child: FilledButton(onPressed: _busy || _lines.isEmpty ? null : _post, child: Text(l.postPieces(qtyText(pieces)), textAlign: TextAlign.center)),
+                child: FilledButton(onPressed: _busy || _lines.isEmpty ? null : _post, child: Text(allPcs ? l.postPieces(qtyText(pieces)) : '${l.postReceipt} · $totals', textAlign: TextAlign.center)),
               ),
             ],
           ),

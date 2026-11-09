@@ -21,6 +21,8 @@ import 'analytics.dart' show analyticsRepoProvider;
 import 'admin_repository.dart';
 import 'admin_receive.dart';
 import '../../core/util/audit.dart';
+import '../scan/repeat_scan_dialog.dart';
+import '../scan/repeat_scan_guard.dart';
 import '../stock/product_delete.dart';
 import '../stock/product_edit.dart';
 
@@ -945,8 +947,9 @@ class PickScreen extends ConsumerStatefulWidget {
 class _PickScreenState extends ConsumerState<PickScreen> {
   final Map<int, double> _picked = {};
   final _camera = MobileScannerController(formats: const [BarcodeFormat.ean13, BarcodeFormat.ean8, BarcodeFormat.code128, BarcodeFormat.upcA, BarcodeFormat.upcE, BarcodeFormat.itf14, BarcodeFormat.qrCode], detectionSpeed: DetectionSpeed.normal);
-  String _last = '';
-  DateTime _lastAt = DateTime(2000);
+  /// 2026-11-07 (владелец: «если товар смотрит долго, то подряд добавляет»): тот же код считан повторно — камера на паузу и «Сколько штук?».
+  final _guard = RepeatScanGuard();
+  bool _scanBusy = false;
   bool _busy = false;
 
   @override
@@ -958,11 +961,75 @@ class _PickScreenState extends ConsumerState<PickScreen> {
   /// 2026-10-22 (мобилка, админ, П11): товар по скану — как в продаже (db.productByScan): любой штрихкод товара, доп.
   /// штрихкод упаковки (×N), UPC-A ↔ EAN-13, весовая этикетка (вес). Раньше — только основной штрихкод, весовой товар +1.
   Future<void> _onScan(String code) async {
-    final now = DateTime.now();
-    if (code == _last && now.difference(_lastAt).inMilliseconds < 1500) return;
-    _last = code;
-    _lastAt = now;
+    if (_scanBusy) return;
+    final v = _guard.check(code);
+    if (v == ScanVerdict.same) return;
+    _scanBusy = true;
+    try {
+      if (v == ScanVerdict.repeat) {
+        await _askRepeat(code);
+        return;
+      }
+      _guard.counted(code);
+      await _pickByCode(code, null);
+    } finally {
+      _scanBusy = false;
+      if (_guard.code == code && !_guard.locked) _guard.counted(code); // «сразу после добавления» — от конца разбора
+    }
+  }
+
+  /// 2026-11-07: повторный скан в сборке заказа: товар из заказа и ещё не собран — камера на паузу, «Уже собрано: N из M. Сколько добавить?»
+  /// (не больше недобранного); иначе — обычный разбор кода (товара нет в заказе / собран).
+  Future<void> _askRepeat(String code) async {
     final hit = await ref.read(databaseProvider).productByScan(code);
+    if (!mounted) return;
+    final p = hit?.product;
+    final items = widget.order.items;
+    final need = p == null ? 0.0 : items.where((i) => i.productId == p.id).fold<double>(0, (s, i) => s + i.qty);
+    var have = 0.0;
+    var left = 0.0;
+    if (p != null) {
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].productId != p.id) continue;
+        have += _picked[i] ?? 0;
+        left += (items[i].qty - (_picked[i] ?? 0)).clamp(0, double.infinity);
+      }
+    }
+    if (p == null || left <= 1e-9) {
+      _guard.counted(code);
+      await _pickByCode(code, hit);
+      return;
+    }
+    await _camera.stop();
+    try {
+      if (!mounted) return;
+      final n = await askRepeatQty(
+        context,
+        name: p.name,
+        message: repeatQtyMessage(context, RepeatQtyKind.picked, have: have, unit: p.unit, need: need),
+        unit: p.unit,
+        initial: (hit!.qty ?? 1) > left ? left : (hit.qty ?? 1),
+        fractional: p.isWeight,
+        max: left,
+      );
+      if (n == null || n <= 0 || !mounted) return;
+      var rest = n;
+      setState(() {
+        while (rest > 1e-9) {
+          final r = pickScanned(items, _picked, p.id, rest);
+          if (r == null) break;
+          rest -= r.$2 - (_picked[r.$1] ?? 0);
+          _picked[r.$1] = r.$2;
+        }
+      });
+    } finally {
+      _guard.dialogClosed(code);
+      if (mounted) await _camera.start();
+    }
+  }
+
+  Future<void> _pickByCode(String code, ({Product product, double? qty})? known) async {
+    final hit = known ?? await ref.read(databaseProvider).productByScan(code);
     if (!mounted) return;
     final r = hit == null ? null : pickScanned(widget.order.items, _picked, hit.product.id, hit.qty);
     if (r == null) {

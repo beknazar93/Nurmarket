@@ -29,9 +29,19 @@ class SeenItem {
   final int count;
   final double labelPrice;
 
+  /// 2026-11-08: дробное количество из накладной («2,5 кг», «10,5 л»): `count` — целое для штучных (полка, чек), а накладная с литрами
+  /// и килограммами раньше округлялась до целого. null — количество целое, берём [count].
+  final double? qty;
+
+  /// 2026-11-08: единица из накладной как написано («л», «кг», «шт»); пусто — не указана. Нужна только новому товару: у товара из базы единица — из карточки.
+  final String unit;
+
   /// 2026-10-27: название по-русски, как назвал бы продавец (ИИ отвечает name_ru); пусто — ИИ его не дал.
   final String nameRu;
-  const SeenItem({required this.name, this.brand = '', this.size = '', this.barcode = '', this.count = 1, this.labelPrice = 0, this.nameRu = ''});
+  const SeenItem({required this.name, this.brand = '', this.size = '', this.barcode = '', this.count = 1, this.labelPrice = 0, this.nameRu = '', this.qty, this.unit = ''});
+
+  /// Сколько принять: дробное из накладной или целое [count].
+  double get amount => qty ?? count.toDouble();
   String get title => [brand, name, size].where((x) => x.trim().isNotEmpty).join(' ');
 
   /// 2026-10-27: то же по-русски («Спрайт 1 л» вместо «Sprite 1 L») — второй вариант для сверки с каталогом.
@@ -945,7 +955,7 @@ class VisionService {
     if (mime == 'image/jpeg') jpeg = await shrinkForAi(jpeg, maxSide: mode == 'invoice' ? 2048 : 1280);
     final task = switch (mode) {
       'invoice' =>
-        'На фото (или в файле) — накладная поставщика. Перечисли строки товаров: название как в накладной, количество (count), цена за штуку (label_price), штрихкод или артикул — если для него есть колонка.',
+        'На фото (или в файле) — накладная поставщика. Перечисли строки товаров: название как в накладной, количество (count; может быть дробным — 2.5 кг, 10 л, пиши как в накладной) и единица измерения (unit: шт, кг, л, м… как в накладной, если указана), цена за единицу (label_price), штрихкод или артикул — если для него есть колонка.',
       'labels' => 'На фото — этикетки или ценники. Перечисли товары: название, штрихкод с этикетки, если читается, цена (label_price).',
       'shelf' =>
         'На фото — полка магазина. Перечисли все разные товары: бренд, название, объём/вес, сколько штук видно (count), штрихкод — только если он читается.',
@@ -958,7 +968,7 @@ class VisionService {
           'parts': [
             {
               // 2026-10-27: короткое name, name_ru — по-русски (каталог магазина в основном русский/смешанный), без описаний
-              'text': 'Ты распознаёшь товары магазина в Кыргызстане по фото. Отвечай ТОЛЬКО JSON-массивом объектов {"name","name_ru","brand","size","barcode","count","label_price"}. name — как написано на упаковке, коротко (вид, вкус), без описаний и рекламных слов; brand — марка как на упаковке; size — объём или вес; name_ru — то же название по-русски, как назвал бы продавец. Не выдумывай: неуверен — пиши, что видно, barcode пустой.',
+              'text': 'Ты распознаёшь товары магазина в Кыргызстане по фото. Отвечай ТОЛЬКО JSON-массивом объектов {"name","name_ru","brand","size","barcode","count","label_price","unit"}. unit — единица измерения из накладной (шт, кг, л, м), если указана, иначе пусто. name — как написано на упаковке, коротко (вид, вкус), без описаний и рекламных слов; brand — марка как на упаковке; size — объём или вес; name_ru — то же название по-русски, как назвал бы продавец. Не выдумывай: неуверен — пиши, что видно, barcode пустой.',
             },
           ],
         },
@@ -1287,6 +1297,13 @@ class VisionService {
   @visibleForTesting
   static String? answerText(Map<String, dynamic> data) => _text(data);
 
+  /// 2026-11-08: дробное количество ответа ИИ (число или строка «2,5»); целое или непонятное — null (тогда берётся целое `count`).
+  static double? _fractionalQty(Object? raw) {
+    final v = raw is num ? raw.toDouble() : double.tryParse('${raw ?? ''}'.trim().replaceAll(',', '.'));
+    if (v == null || !v.isFinite || v <= 0 || v >= 99999 || (v - v.roundToDouble()).abs() < 1e-9) return null;
+    return (v * 1000).round() / 1000;
+  }
+
   static List<SeenItem> parseSeen(String text) {
     var t = text.trim();
     final start = t.indexOf('[');
@@ -1304,6 +1321,9 @@ class VisionService {
             size: e['size']?.toString().trim() ?? '',
             barcode: (e['barcode']?.toString() ?? '').replaceAll(RegExp(r'\D'), ''),
             count: (e['count'] is num ? (e['count'] as num).round() : int.tryParse('${e['count']}') ?? 1).clamp(1, 999),
+            // 2026-11-08: «2,5» кг / «10,5» л из накладной — дробное количество не округляется до целого (раньше 0,5 л → 1, 2,5 кг → 3)
+            qty: _fractionalQty(e['count']),
+            unit: e['unit']?.toString().trim() ?? '',
             labelPrice: e['label_price'] is num ? (e['label_price'] as num).toDouble() : double.tryParse('${e['label_price']}'.replaceAll(',', '.')) ?? 0,
           ),
     ];

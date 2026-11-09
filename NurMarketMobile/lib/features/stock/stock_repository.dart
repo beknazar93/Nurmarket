@@ -12,7 +12,10 @@ class StockLine {
   final String name;
   final double before;
   double qty;
-  StockLine({required this.productId, required this.name, required this.before, this.qty = 1});
+
+  /// 2026-11-08: единица товара из карточки («л», «кг», «м»…) — только для подписей приёмки; на сервер уходит прежнее (productId, qty).
+  final String unit;
+  StockLine({required this.productId, required this.name, required this.before, this.qty = 1, this.unit = 'шт'});
 
   Map<String, dynamic> toJson() => {'productId': productId, 'name': name, 'qty': qty, 'done': false};
 }
