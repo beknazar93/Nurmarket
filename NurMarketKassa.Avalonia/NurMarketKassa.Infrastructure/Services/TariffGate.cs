@@ -27,6 +27,9 @@ public static class TariffGate
     private static string? CachedPlanName =>
         UserPreferences.Instance.LastKnownPlanName is { Length: > 0 } name ? name.Trim() : null;
 
+    /// <summary>2026-11-08 (владелец): «Редактор этикетки» входит в тариф «Старт» — подключён сразу, без покупки (в файл настроек это не пишется: сменился тариф — условие пересчитается).</summary>
+    public static bool LabelEditorAvailable => UserPreferences.Instance.LabelEditorUnlocked || IsStartTariff;
+
     public static bool IsStartTariff
     {
         get

@@ -318,7 +318,7 @@ public partial class MarketplaceView
                 var editor = new LabelTemplateEditorDialog();
                 return editor.ShowDialog(TopLevel.GetTopLevel(this) as Window);
             },
-            unlocked: UserPreferences.Instance.LabelEditorUnlocked,
+            unlocked: TariffGate.LabelEditorAvailable, // 2026-11-08: входит в тариф «Старт»
             onUnlockClick: LabelEditorUnlockButton_Click);
 
         ExtrasWrapPanel.Children.Add(_labelEditorCard);

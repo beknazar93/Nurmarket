@@ -31,6 +31,13 @@ public partial class WarehouseWindow
 
     // 2026-11-07 (жалоба «Где в приёмке штрихкод?»): подписи ячейки названия в таблице приёмки (x:Static в разметке).
     public static string NewNameHintText => TR("название", "аталышы", "name", "ad", "nomi");
+    // 2026-11-09 (владелец: «если товар не найден — только предложить найти в интернете, по нажатию»): подписи кнопки-лупы у строки «Неизвестно».
+    public static string InternetSearchText => TR("Найти в интернете", "Интернеттен издөө", "Find on the internet", "İnternette bul", "Internetdan topish");
+    public static string InternetSearchHintText => TR("Найти название по штрихкоду в открытых базах интернета. Выполняется только по нажатию; найденное нужно проверить.",
+        "Штрихкод боюнча атын интернеттин ачык базаларынан издөө. Басканда гана аткарылат; табылганды текшериңиз.",
+        "Look up the name by barcode in open internet databases. Runs only when you press it; check what is found.",
+        "Adı barkoda göre internetin açık bazalarında bul. Yalnızca basınca çalışır; bulunanı kontrol edin.",
+        "Nomini shtrix-kod bo'yicha internetning ochiq bazalaridan topish. Faqat bosganda ishlaydi; topilganini tekshiring.");
     public static string NoBarcodeText => TR("без штрихкода", "штрихкод жок", "no barcode", "barkodsuz", "shtrix-kodsiz");
     public static string NoBarcodeSubText => NoBarcodeText + " ·"; // перед «На складе / Новый · категория»
     public static string BarcodeHintText => TR("штрихкод (по желанию)", "штрихкод (каалоосу боюнча)", "barcode (optional)", "barkod (isteğe bağlı)", "shtrix-kod (ixtiyoriy)");

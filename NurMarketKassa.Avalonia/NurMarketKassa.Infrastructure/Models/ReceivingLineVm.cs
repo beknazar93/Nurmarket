@@ -11,6 +11,9 @@ public enum ReceivingSource
     Warehouse,
     GlobalBase,
     Unknown,
+    /// <summary>2026-11-09 (владелец: «из интернета» как на старом): название/категория подобраны из интернета ПО НАЖАТИЮ кассира («Найти в интернете» у строки «Неизвестно»).
+    /// Товар по-прежнему новый (IsNew). Значение — в конце: в сохранённых задачах и сессиях цифры прежних значений не меняются.</summary>
+    Internet,
 }
 
 /// <summary>2026-10-28: как считается цена продажи строки в ручной приёмке (см. ReceivingLineVm.SaleMode).</summary>
@@ -74,13 +77,26 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     public string Barcode
     {
         get => _barcode;
-        set => Set(ref _barcode, (value ?? "").Trim());
+        set
+        {
+            if (Set(ref _barcode, (value ?? "").Trim()))
+                OnPropertyChanged(nameof(CanSearchInternet)); // 2026-11-09
+        }
     }
 
     public string ProductName
     {
         get => _productName;
-        set => Set(ref _productName, value ?? "");
+        set
+        {
+            if (Set(ref _productName, value ?? ""))
+            {
+                // 2026-11-09: подсветка «название изменено» и подсказка «было: …» у товара склада.
+                OnPropertyChanged(nameof(NameRenamed));
+                OnPropertyChanged(nameof(NameWasHint));
+                OnPropertyChanged(nameof(NameSubText));
+            }
+        }
     }
 
     public string Unit
@@ -97,6 +113,11 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
             if (Set(ref _source, value))
             {
                 OnPropertyChanged(nameof(SourceText));
+                OnPropertyChanged(nameof(SourceHint)); // 2026-11-09: метка источника в начале строки
+                OnPropertyChanged(nameof(SourceAutomationText));
+                OnPropertyChanged(nameof(CanSearchInternet));
+                OnPropertyChanged(nameof(NameRenamed));
+                OnPropertyChanged(nameof(NameWasHint));
                 OnPropertyChanged(nameof(IsNew));
                 OnPropertyChanged(nameof(PurchaseChangeText)); // 2026-10-29: «новый товар» зависит от источника
                 OnPropertyChanged(nameof(IsChangeNew));
@@ -317,7 +338,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
 
     /// <summary>Вариант «поштучная продажа» разрешён только для НОВОГО товара (создаётся при проведении, остатка нет): у существующего товара остаток в штуках — смена единицы
     /// остатка на «упаковки» исказила бы склад. Весовой товар и строка с размерами — тоже нет (в карточке поштучная продажа только у штучного товара без размеров).</summary>
-    public bool CanPackSale => Source == ReceivingSource.Unknown && !IsWeight && VariantQuantities is not { Count: > 0 };
+    public bool CanPackSale => Source is ReceivingSource.Unknown or ReceivingSource.Internet && !IsWeight && VariantQuantities is not { Count: > 0 };
 
     /// <summary>Почему «поштучная продажа» недоступна (показывается у пункта меню).</summary>
     public static string PackSaleBlockedText => NurMarketKassa.Services.Tr.T(
@@ -977,6 +998,8 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         get
         {
             var parts = new List<string> { SourceText };
+            if (NameRenamed) // 2026-11-09: рядом с источником — отметка, что название карточки поменяется (не одним цветом)
+                parts.Add(L("название изменено", "аты өзгөрдү", "name changed", "ad değişti", "nomi o'zgargan"));
             var category = NurMarketKassa.Services.ReceivingPricing.CategoryOf(this);
             if (!string.IsNullOrWhiteSpace(category))
                 parts.Add(category!);
@@ -1356,12 +1379,102 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     /// <summary>Товара у магазина ещё нет — он будет создан при проведении приёмки.</summary>
     public bool IsNew => Source != ReceivingSource.Warehouse;
 
-    public string SourceText => Source switch
+    /// <summary>2026-11-09 (владелец: «указывать вначале как на старом — база / база NurCRM / неизвестно / из интернета»): короткое название источника строки.</summary>
+    public string SourceText => SourceTitle(Source);
+
+    /// <summary>Подсказка к метке источника (ToolTip значка в начале строки).</summary>
+    public string SourceHint => SourceHintFor(Source);
+
+    /// <summary>Название + пояснение одной строкой — для подсказки и для AutomationProperties.Name значка.</summary>
+    public string SourceAutomationText => SourceText + ": " + SourceHint;
+
+    public static string SourceTitle(ReceivingSource source) => source switch
     {
-        ReceivingSource.GlobalBase => NurMarketKassa.Services.Tr.T("База CRM", "CRM базасы", "CRM catalog", "CRM veritabanı", "CRM bazasi"),
-        ReceivingSource.Unknown => NurMarketKassa.Services.Tr.T("Новый", "Жаңы", "New", "Yeni", "Yangi"),
-        _ => NurMarketKassa.Services.Tr.T("На складе", "Кампада", "In stock", "Depoda", "Omborda"),
+        ReceivingSource.GlobalBase => NurMarketKassa.Services.Tr.T("База NurCRM", "NurCRM базасы", "NurCRM base", "NurCRM bazı", "NurCRM bazasi"),
+        ReceivingSource.Unknown => NurMarketKassa.Services.Tr.T("Неизвестно", "Белгисиз", "Unknown", "Bilinmiyor", "Noma'lum"),
+        ReceivingSource.Internet => NurMarketKassa.Services.Tr.T("Из интернета", "Интернеттен", "From the internet", "İnternetten", "Internetdan"),
+        _ => NurMarketKassa.Services.Tr.T("База", "База", "Store base", "Mağaza bazı", "Baza"),
     };
+
+    public static string SourceHintFor(ReceivingSource source) => source switch
+    {
+        ReceivingSource.GlobalBase => NurMarketKassa.Services.Tr.T(
+            "Товар из общей базы NurCRM: у вашего магазина его ещё нет, карточка будет создана из общей базы при проведении прихода.",
+            "NurCRM жалпы базасындагы товар: магазиныңызда али жок, кирүүнү өткөргөндө карточка жалпы базадан түзүлөт.",
+            "A product from the shared NurCRM base: your store does not have it yet, the card will be created from the shared base when the receiving is posted.",
+            "Ortak NurCRM bazından ürün: mağazanızda henüz yok, mal kabul işlenirken kart ortak bazdan oluşturulacak.",
+            "Umumiy NurCRM bazasidagi mahsulot: do'koningizda hali yo'q, kirim o'tkazilganda karta umumiy bazadan yaratiladi."),
+        ReceivingSource.Unknown => NurMarketKassa.Services.Tr.T(
+            "Штрихкод нигде не найден: нужен новый товар — впишите название или нажмите «Найти в интернете».",
+            "Штрихкод эч жерден табылган жок: жаңы товар керек — атын жазыңыз же «Интернеттен издөө» басыңыз.",
+            "The barcode was not found anywhere: a new product is needed — type a name or press “Find on the internet”.",
+            "Barkod hiçbir yerde bulunamadı: yeni ürün gerekli — adı yazın veya «İnternette bul»a basın.",
+            "Shtrix-kod hech qayerda topilmadi: yangi mahsulot kerak — nomini yozing yoki «Internetdan topish»ni bosing."),
+        ReceivingSource.Internet => NurMarketKassa.Services.Tr.T(
+            "Название и категория подобраны из интернета по вашему нажатию — проверьте их перед проведением. Товар будет создан новым.",
+            "Аталышы жана категориясы сиздин басууңуз боюнча интернеттен алынды — өткөрүүдөн мурун текшериңиз. Товар жаңы болуп түзүлөт.",
+            "The name and category were taken from the internet when you pressed the button — check them before posting. The product will be created as new.",
+            "Ad ve kategori düğmeye bastığınızda internetten alındı — işlemeden önce kontrol edin. Ürün yeni olarak oluşturulacak.",
+            "Nomi va toifasi siz bosganingizda internetdan olindi — o'tkazishdan oldin tekshiring. Mahsulot yangi sifatida yaratiladi."),
+        _ => NurMarketKassa.Services.Tr.T(
+            "Товар из вашей базы (склад магазина): карточка уже есть, приход добавит остаток.",
+            "Сиздин базадагы товар (магазиндин кампасы): карточка бар, кирүү калдыкты кошот.",
+            "A product from your own base (the store warehouse): the card exists, the receiving adds stock.",
+            "Kendi bazanızdaki ürün (mağaza deposu): kart var, mal kabul stoğu artırır.",
+            "O'z bazangizdagi mahsulot (do'kon ombori): karta bor, kirim qoldiqni oshiradi."),
+    };
+
+    // ------------------------------------------------------------------ 2026-11-09: правка названия и «Найти в интернете»
+
+    /// <summary>Название товара склада поправили в приёмке (при проведении оно уйдёт в карточку — PurchaseReceivingService.AddNameAndUnit). У нового товара название и есть название.</summary>
+    public bool NameRenamed =>
+        !IsNew && OriginalName.Length > 0 && ProductName.Trim().Length > 0 && !string.Equals(ProductName.Trim(), OriginalName.Trim(), StringComparison.Ordinal);
+
+    /// <summary>Подсказка к названию: «Было: …» и что произойдёт при проведении; пусто, если название не менялось.</summary>
+    public string NameWasHint => NameRenamed
+        ? L($"Было: {OriginalName.Trim()}. При проведении прихода карточка товара будет переименована.",
+            $"Мурун: {OriginalName.Trim()}. Кирүүнү өткөргөндө товардын карточкасынын аты өзгөрөт.",
+            $"Was: {OriginalName.Trim()}. When the receiving is posted the product card will be renamed.",
+            $"Önceki: {OriginalName.Trim()}. Mal kabul işlenirken ürün kartı yeniden adlandırılacak.",
+            $"Avval: {OriginalName.Trim()}. Kirim o'tkazilganda mahsulot kartasi qayta nomlanadi.")
+        : "";
+
+    /// <summary>Пустое название нельзя: у товара склада после правки возвращается прежнее, у нового — остаётся пустым (проведение попросит ввести). true — название вернули.</summary>
+    public bool CommitName()
+    {
+        if (!string.IsNullOrWhiteSpace(ProductName))
+        {
+            var trimmed = ProductName.Trim();
+            if (trimmed != ProductName)
+                ProductName = trimmed;
+            return false;
+        }
+        if (!IsNew && OriginalName.Length > 0)
+        {
+            ProductName = OriginalName;
+            return true;
+        }
+        return false;
+    }
+
+    private bool _internetSearching;
+
+    /// <summary>Идёт поиск в интернете по нажатию «Найти в интернете».</summary>
+    public bool InternetSearching
+    {
+        get => _internetSearching;
+        set
+        {
+            if (Set(ref _internetSearching, value))
+                OnPropertyChanged(nameof(NotSearchingInternet));
+        }
+    }
+
+    /// <summary>Кнопка «Найти в интернете» у строки видна: штрихкод не найден нигде («Неизвестно») и похож на настоящий (8–14 цифр). Сам поиск никогда не запускается — только по нажатию.</summary>
+    public bool CanSearchInternet => Source == ReceivingSource.Unknown && NurMarketKassa.Services.ReceivingInternetLookup.IsSearchable(Barcode);
+
+    /// <summary>Кнопка «Найти в интернете» доступна (поиск не идёт) — для IsEnabled в разметке.</summary>
+    public bool NotSearchingInternet => !_internetSearching;
 
     /// <summary>2026-10-06, исследование «Кассы для одежды» (О-70): приёмка сеткой «цвет × размер». Сколько пришло каждого
     /// размера (id варианта NurCRM → штук). Сервер держит остаток товара равным сумме остатков размеров (проверено 06.10:

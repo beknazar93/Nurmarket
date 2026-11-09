@@ -16,7 +16,7 @@
     <DefineConstants>$(DefineConstants);NURPORTABLE</DefineConstants>
     <!-- 2026-11-06: В4 А5-20 — метка времени нажатия клавиши для HID-сканера на Linux берётся у закрытого API ввода Avalonia (LinuxRawKeyClock), как в проекте Android. -->
     <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
-    <Version>1.17.83</Version>
+    <Version>1.17.84</Version>
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <FileVersion>$(Version)</FileVersion>
     <ApplicationIcon>..\NurMarketKassa.Avalonia\Assets\app-icon.ico</ApplicationIcon>

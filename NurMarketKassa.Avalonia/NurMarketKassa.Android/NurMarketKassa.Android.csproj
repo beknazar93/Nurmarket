@@ -33,9 +33,9 @@
     <ApplicationId>kg.nurmarket.kassa</ApplicationId>
     <ApplicationTitle>NurCRM Kassa</ApplicationTitle>
     <!-- versionCode Android — целое, растёт с каждой сборкой для клиентов: 1.17.44 → 11744. -->
-    <ApplicationVersion>11783</ApplicationVersion>
-    <ApplicationDisplayVersion>1.17.83</ApplicationDisplayVersion>
-    <Version>1.17.83</Version>
+    <ApplicationVersion>11784</ApplicationVersion>
+    <ApplicationDisplayVersion>1.17.84</ApplicationDisplayVersion>
+    <Version>1.17.84</Version>
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <FileVersion>$(Version)</FileVersion>
 

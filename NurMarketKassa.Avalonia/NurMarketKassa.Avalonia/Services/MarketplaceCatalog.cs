@@ -319,7 +319,7 @@ public sealed class LocalMarketplaceCatalogSource : IMarketplaceCatalogSource
             [T("Штрих-код, название, цена, артикул, единица, магазин", "Штрих-код, аталыш, баа, артикул, бирдик, дүкөн", "Barcode, name, price, SKU, unit, store", "Barkod, ad, fiyat, stok kodu, birim, mağaza", "Shtrix-kod, nom, narx, artikul, birlik, do'kon"),
              T("Перетаскивание и настройка каждого элемента", "Ар бир элементти сүйрөө жана жөндөө", "Drag and configure every element", "Her öğeyi sürükleme ve ayarlama", "Har bir elementni sudrash va sozlash")],
             [T("Принтер этикеток", "Этикетка принтери", "A label printer", "Etiket yazıcısı", "Yorliq printeri")],
-            prefs.LabelEditorUnlocked, new MarketplacePrice(1500),
+            TariffGate.LabelEditorAvailable, new MarketplacePrice(1500), // 2026-11-08: входит в тариф «Старт»
             openLabel: T("Открыть редактор", "Редакторду ачуу", "Open editor", "Düzenleyiciyi aç", "Muharrirni ochish"),
             tags: [TagWarehouse, TagPrint], whatsNew: T("Платная с 07.09.2026", "Акылуу 07.09.2026 тартып", "Paid since 07.09.2026", "07.09.2026'dan beri ücretli", "07.09.2026 dan beri pullik"),
             related: ["pricetag", "bulktag"]));

@@ -486,8 +486,10 @@ public partial class LabelTemplateEditorDialog : Window
 
     private void LabelSize_Changed(object? sender, NumericUpDownValueChangedEventArgs e)
     {
-        _template.WidthMm = Math.Clamp((double)(LabelWidthBox.Value ?? 40m), 15, 150);
-        _template.HeightMm = Math.Clamp((double)(LabelHeightBox.Value ?? 30m), 10, 150);
+        // 2026-11-08 («этикетки не подходят по размеру»): элементы растягиваются вместе с этикеткой, а не остаются на прежних миллиметрах.
+        LabelAutoLayout.ScaleToSize(_template,
+            Math.Clamp((double)(LabelWidthBox.Value ?? 40m), 15, 150),
+            Math.Clamp((double)(LabelHeightBox.Value ?? 30m), 10, 150));
 
         ClampLayout(_template.Barcode);
         ClampLayout(_template.ProductName);

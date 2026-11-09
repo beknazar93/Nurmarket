@@ -430,6 +430,7 @@ public sealed class OnlineOfflineAuthenticationService : IOnlineOfflineAuthentic
         var profile = await _api.GetProfileAsync(cancellationToken).ConfigureAwait(false);
         _api.ApplyUserFromProfile(profile);
         _api.ApplyBranchFromProfile(profile);
+        PermissionRecheck.MarkLiveProfile(); // 2026-11-09: права — из ответа сервера (строка «для поддержки» в отказе по правам)
         return profile;
     }
 

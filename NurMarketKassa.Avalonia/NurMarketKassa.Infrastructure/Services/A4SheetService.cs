@@ -322,6 +322,7 @@ public static class A4SheetService
     internal static Bitmap RenderCell(A4SheetItem it, A4SheetOptions o, SheetGeometry geo, int dpi)
     {
         var bmp = new Bitmap(Math.Max((int)Math.Round(geo.CellWmm / 25.4 * dpi), 10), Math.Max((int)Math.Round(geo.CellHmm / 25.4 * dpi), 10));
+        BarcodeLabelService.PinTextDpi(bmp); // 2026-11-08: цифры под штрихкодом (шрифт в пунктах) не зависят от масштаба экрана
         using var g = Graphics.FromImage(bmp);
         g.Clear(Color.White);
         g.ScaleTransform(dpi / WorldDpi, dpi / WorldDpi);
@@ -342,6 +343,7 @@ public static class A4SheetService
     {
         var geo = GetGeometry(o);
         var bmp = new Bitmap((int)Math.Round(geo.PageWmm / 25.4 * dpi), (int)Math.Round(geo.PageHmm / 25.4 * dpi));
+        BarcodeLabelService.PinTextDpi(bmp); // 2026-11-08: предпросмотр = печать при любом масштабе экрана
         using var g = Graphics.FromImage(bmp);
         g.Clear(Color.White);
         var scale = dpi / WorldDpi;
@@ -396,6 +398,7 @@ public static class A4SheetService
         {
             var g = e.Graphics!;
             var dpi = BarcodeLabelService.RenderDpiFor(g.DpiX);
+            var (hx, hy) = BarcodeLabelService.HardMargins(e); // 2026-11-08: ячейки от края листа (вырубка самоклеящейся бумаги), а не от печатной области
             if (geo.HasHeader)
             {
                 var hw = geo.PageWmm - 2 * MarginMm;
@@ -406,7 +409,7 @@ public static class A4SheetService
                     hg.ScaleTransform(dpi / WorldDpi, dpi / WorldDpi);
                     DrawHeader(hg, o.Title, hw);
                 }
-                BarcodeLabelService.DrawOnPrinterPage(g, hb, geo.GridLeftMm, MarginMm, dpi);
+                BarcodeLabelService.DrawOnPrinterPage(g, hb, geo.GridLeftMm, MarginMm, dpi, hx, hy);
             }
             var start = pageIndex * geo.PerPage - skip; // 2026-11-01 (П-6): «Начать с ячейки №» — первые ячейки первого листа пустые
             for (var i = 0; i < geo.PerPage && start + i < expanded.Count; i++)
@@ -416,7 +419,7 @@ public static class A4SheetService
                 var col = i % geo.Columns;
                 var row = i / geo.Columns;
                 using var cell = RenderCell(expanded[start + i], o, geo, dpi);
-                BarcodeLabelService.DrawOnPrinterPage(g, cell, geo.GridLeftMm + col * geo.StepX, geo.GridTopMm + row * geo.StepY, dpi);
+                BarcodeLabelService.DrawOnPrinterPage(g, cell, geo.GridLeftMm + col * geo.StepX, geo.GridTopMm + row * geo.StepY, dpi, hx, hy);
             }
             pageIndex++;
             e.HasMorePages = pageIndex * geo.PerPage - skip < expanded.Count;

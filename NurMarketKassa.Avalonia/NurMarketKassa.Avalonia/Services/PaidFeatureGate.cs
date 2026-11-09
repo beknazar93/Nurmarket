@@ -37,7 +37,7 @@ public static class PaidFeatureGate
         var prefs = UserPreferences.Instance;
         return feature switch
         {
-            PaidFeature.LabelEditor => prefs.LabelEditorUnlocked,
+            PaidFeature.LabelEditor => NurMarketKassa.Services.TariffGate.LabelEditorAvailable, // 2026-11-08: входит в «Старт»
             PaidFeature.BulkPriceTag => prefs.BulkPriceTagUnlocked,
             _ => false,
         };

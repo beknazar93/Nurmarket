@@ -152,7 +152,8 @@ public sealed class PermissionService : IPermissionService
         return ReadExplicitFlag(payload, PosPermissions.EditProducts, 0) == true;
     }
 
-    private static bool? ReadExplicitFlag(JsonElement element, string name, int depth)
+    // 2026-11-09: internal — строка «для поддержки» в отказе по правам (PermissionRecheck.Describe) показывает явное false.
+    internal static bool? ReadExplicitFlag(JsonElement element, string name, int depth)
     {
         if (depth > 5)
             return null;
@@ -188,9 +189,11 @@ public sealed class PermissionService : IPermissionService
                && (roleName.Equals("owner", StringComparison.OrdinalIgnoreCase) || roleName.Equals("admin", StringComparison.OrdinalIgnoreCase));
     }
 
+    // 2026-11-09: роль — из объекта пользователя (ResolveUserObject), как в HasOwnerOrAdminRole: при обёртке {"user":{…,"role":"owner"}}
+    // (ответ входа без id у user) владельцу закрывались его же «Склад»/«Аналитика»/«Клиенты»/«Заказы».
     private static bool IsOwnerRole(JsonElement payload) =>
-        payload.ValueKind == JsonValueKind.Object
-        && payload.TryGetProperty("role", out var role)
+        OfflineAuthSessionStore.ResolveUserObject(payload) is { ValueKind: JsonValueKind.Object } user
+        && user.TryGetProperty("role", out var role)
         && role.ValueKind == JsonValueKind.String
         && string.Equals(role.GetString(), "owner", StringComparison.OrdinalIgnoreCase);
 

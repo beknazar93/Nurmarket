@@ -91,7 +91,9 @@ public sealed class WarehouseReceivingLayoutTests
             var newRow = rows.First(r => ReferenceEquals(r.DataContext, created));
             var newTexts = newRow.GetVisualDescendants().OfType<TextBlock>().Where(t => t.IsEffectivelyVisible && t.Bounds.Height > 0).Select(t => t.Text ?? "").ToList();
             newTexts.Should().Contain(WarehouseWindow.NewNameHintText, $"у нового товара видно подсказку про название ({tag})");
-            newTexts.Should().Contain(created.NewBadgeText, $"значок «новый» ({tag})");
+            // 2026-11-09: вместо текстового значка «новый» — значок источника слева и подпись «Неизвестно» под названием (колонка названия узкая).
+            newRow.GetVisualDescendants().OfType<ReceivingSourceBadge>().Any(b => b.IsEffectivelyVisible && b.Source == ReceivingSource.Unknown).Should().BeTrue($"значок источника «Неизвестно» ({tag})");
+            newTexts.Any(t => t.StartsWith(created.SourceText, StringComparison.Ordinal)).Should().BeTrue($"подпись источника «{created.SourceText}» ({tag})");
             if (compact)
                 newTexts.Should().Contain(WarehouseWindow.NoBarcodeSubText, $"у нового товара в узком виде видно «без штрихкода» ({tag})");
 

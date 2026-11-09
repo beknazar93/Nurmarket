@@ -134,7 +134,7 @@ public sealed class ExternalServicesTimeoutTests : IDisposable
     public async Task SendMessage_5xx_SingleRequest_NoDuplicate(int status)
     {
         Stub("POST", "/botTKN/sendMessage", status, "{\"ok\":false,\"description\":\"Bad Gateway\"}");
-        TelegramBotService.Http = FakeClient(TimeSpan.FromSeconds(5));
+        TelegramBotService.Http = FakeClient(TimeSpan.FromSeconds(30)) /* 2026-11-09: запас на загруженном ПК — срок клиента не предмет проверки, флак в полном прогоне */;
 
         var (error, _, kind) = await TelegramBotService.SendPartAsync("TKN", "777001", "привет", null, CancellationToken.None);
 
@@ -163,7 +163,7 @@ public sealed class ExternalServicesTimeoutTests : IDisposable
     public async Task SendMessage_Ok_SingleRequest()
     {
         Stub("POST", "/botTKN/sendMessage", 200, "{\"ok\":true,\"result\":{\"message_id\":1}}");
-        TelegramBotService.Http = FakeClient(TimeSpan.FromSeconds(5));
+        TelegramBotService.Http = FakeClient(TimeSpan.FromSeconds(30)) /* 2026-11-09: запас на загруженном ПК — срок клиента не предмет проверки, флак в полном прогоне */;
 
         var (error, _, kind) = await TelegramBotService.SendPartAsync("TKN", "777003", "привет", null, CancellationToken.None);
 

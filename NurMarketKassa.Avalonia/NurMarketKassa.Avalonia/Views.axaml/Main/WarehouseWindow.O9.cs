@@ -239,7 +239,7 @@ public partial class WarehouseWindow
 
     private void RefreshLabelEditorTab()
     {
-        var unlocked = UserPreferences.Instance.LabelEditorUnlocked;
+        var unlocked = TariffGate.LabelEditorAvailable; // 2026-11-08: входит в тариф «Старт»
         var fee = TariffGate.PackActivationFee;
         LabelEditorPaidText.Text = unlocked
             ? T("Подключено на этом компьютере.", "Бул компьютерде туташтырылган.", "Activated on this computer.",

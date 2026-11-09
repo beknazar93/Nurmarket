@@ -504,6 +504,24 @@
             <Setter Property="Background" Value="{DynamicResource BrushAccentSoft}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
+        <!-- 2026-11-09: название товара склада поправили в приёмке — курсив и цвет; смысл дублирует подсказка «Было: …» и отметка «название изменено» под названием. -->
+        <Style Selector="TextBlock.rcv-renamed">
+            <Setter Property="FontStyle" Value="Italic"/>
+            <Setter Property="Foreground" Value="{DynamicResource BrushWarning}"/>
+        </Style>
+        <Style Selector="Button.rcv-netbtn">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="{DynamicResource BrushPanelSoft}"/>
+        </Style>
         <Style Selector="TextBlock.sum-cap">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="Medium"/>
@@ -1426,18 +1444,27 @@
                                     <DataGridTemplateColumn.Header><TextBlock x:Name="RcvNameHeader"/></DataGridTemplateColumn.Header>
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <StackPanel VerticalAlignment="Center" Margin="2,0" Spacing="1">
+                                            <!-- 2026-11-09 (владелец: источник «вначале, значком, с подсказкой»): значок источника — первый в ячейке названия (после «№»); у «Неизвестно» справа кнопка «Найти в интернете» (только по нажатию). -->
+                                            <Grid ColumnDefinitions="Auto,*" Margin="2,0">
+                                            <views:ReceivingSourceBadge Grid.Column="0" Source="{ReflectionBinding Source}" Margin="0,0,6,0"/>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
                                                 <!-- 2026-11-07: Grid вместо горизонтальной панели — длинное название обрезается многоточием, а не уходит под край ячейки; значок «новый» справа. -->
-                                                <Grid ColumnDefinitions="*,Auto">
+                                                <Grid ColumnDefinitions="*,Auto,Auto">
                                                     <Grid Grid.Column="0" VerticalAlignment="Center">
                                                         <TextBlock Text="{ReflectionBinding ProductName}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
-                                                                   TextTrimming="CharacterEllipsis"/>
+                                                                   TextTrimming="CharacterEllipsis" Classes.rcv-renamed="{ReflectionBinding NameRenamed}"
+                                                                   ToolTip.Tip="{ReflectionBinding NameWasHint}"/>
                                                         <TextBlock Classes="rcv-namehint" Text="{x:Static views:WarehouseWindow.NewNameHintText}"
                                                                    IsVisible="{ReflectionBinding ProductName, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
                                                     </Grid>
-                                                    <Border Grid.Column="1" Classes="rcv-newbadge" Margin="6,0,0,0" IsVisible="{ReflectionBinding IsNew}">
-                                                        <TextBlock Text="{ReflectionBinding NewBadgeText}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource BrushText}"/>
-                                                    </Border>
+                                                    <!-- 2026-11-09: текстовый значок «новый» убран — его место (колонка названия всего ~170 px) заняли значок источника слева и подпись «Неизвестно / База NurCRM / Из интернета» под названием; «новый» читается по ним. -->
+                                                    <Button Grid.Column="2" Classes="rcv-netbtn" Tag="rcv-netlink" Click="ReceivingInternetSearch_Click"
+                                                            IsVisible="{ReflectionBinding CanSearchInternet}" IsEnabled="{ReflectionBinding NotSearchingInternet}"
+                                                            ToolTip.Tip="{x:Static views:WarehouseWindow.InternetSearchHintText}"
+                                                            AutomationProperties.Name="{x:Static views:WarehouseWindow.InternetSearchText}">
+                                                        <Path Data="M10.5,3 A7.5,7.5 0 1 1 10.49,3 Z M16,16 L21,21" Stretch="Uniform" Width="16" Height="16" StrokeThickness="2" StrokeLineCap="Round"
+                                                              Stroke="{DynamicResource BrushText}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Button>
                                                 </Grid>
                                                 <Grid ColumnDefinitions="Auto,Auto,*">
                                                     <TextBlock Grid.Column="0" Classes="rcv-bar-sub" Margin="0,0,5,0" Text="{ReflectionBinding Barcode, StringFormat='{}{0} ·'}"
@@ -1447,16 +1474,21 @@
                                                     <TextBlock Grid.Column="2" Classes="rcv-namesub" Text="{ReflectionBinding NameSubText}"/>
                                                 </Grid>
                                             </StackPanel>
+                                            </Grid>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                     <DataGridTemplateColumn.CellEditingTemplate>
                                         <DataTemplate>
                                             <!-- 2026-11-07: в узком виде у нового товара под названием — поле штрихкода (колонки «Штрихкод» нет); цифры — WarehouseWindow.BulkScan.cs (rcv-baredit). -->
-                                            <Grid RowDefinitions="*,Auto">
-                                                <TextBox Grid.Row="0" Text="{ReflectionBinding ProductName, Mode=TwoWay}" VerticalContentAlignment="Center" MinHeight="0"/>
+                                            <Grid ColumnDefinitions="Auto,*" Margin="2,0">
+                                            <views:ReceivingSourceBadge Grid.Column="0" Source="{ReflectionBinding Source}" Margin="0,0,6,0"/>
+                                            <Grid Grid.Column="1" RowDefinitions="*,Auto">
+                                                <TextBox Grid.Row="0" Text="{ReflectionBinding ProductName, Mode=TwoWay}" VerticalContentAlignment="Center" MinHeight="0"
+                                                         ToolTip.Tip="{ReflectionBinding NameWasHint}"/>
                                                 <TextBox Grid.Row="1" Classes="rcv-baredit" Classes.isnew="{ReflectionBinding IsNew}" Text="{ReflectionBinding Barcode, Mode=TwoWay}"
                                                          MinHeight="0" Height="22" FontSize="12" Padding="6,0" Margin="0,2,0,0" VerticalContentAlignment="Center"
                                                          Watermark="{x:Static views:WarehouseWindow.BarcodeHintText}"/>
+                                            </Grid>
                                             </Grid>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellEditingTemplate>

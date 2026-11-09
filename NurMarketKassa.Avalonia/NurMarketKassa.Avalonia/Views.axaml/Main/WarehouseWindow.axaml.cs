@@ -294,7 +294,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             return;
 
         // 2026-10-24: колонки — по имени (RcvColBarcode), а не по номеру: «Наценка %» и «Изменение» сдвинули номера.
-        if (ReferenceEquals(e.Column, RcvColBarcode) && line.Source != NurMarketKassa.Models.ReceivingSource.Unknown)
+        if (ReferenceEquals(e.Column, RcvColBarcode) && line.Source is not (NurMarketKassa.Models.ReceivingSource.Unknown or NurMarketKassa.Models.ReceivingSource.Internet)) // 2026-11-09: «Из интернета» — тот же новый товар
             e.Cancel = true;
         _rcvBarcodeEditing = !e.Cancel && ReferenceEquals(e.Column, RcvColBarcode); // 2026-10-29: в правке штрихкода — только цифры (BarcodeInput)
     }
@@ -314,6 +314,10 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         // 2026-11-07: нажатие на подпись-ссылку «упак. ▾» открывает меню способа приёмки, а не правку ячейки (правка заменила бы ячейку и закрыла меню).
         if (e.PointerPressedEventArgs.Source is Avalonia.Controls.Control { Tag: "rcv-packlink" })
             return;
+        // 2026-11-09: то же для кнопки «Найти в интернете» (нажатие может прийти от значка внутри кнопки — смотрим вверх по дереву до ячейки).
+        for (var v = e.PointerPressedEventArgs.Source as Avalonia.Visual; v is not null && v is not Avalonia.Controls.DataGridCell; v = v.GetVisualParent())
+            if (v is Avalonia.Controls.Control { Tag: "rcv-netlink" })
+                return;
 
         var column = e.Column;
         Dispatcher.UIThread.Post(() =>
@@ -352,8 +356,35 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
     {
         // 2026-10-28 (ДЕНЬГИ): пока ячейка правилась, в ней жил сырой набранный текст («100.», «100,6»); по выходу — нормальный показ («100,60»).
         if (e.Row?.DataContext is NurMarketKassa.Models.ReceivingLineVm line)
+        {
             line.CommitText();
+            // 2026-11-09: пустое название нельзя — у товара склада возвращается прежнее (у нового проведение попросит ввести).
+            if (ReferenceEquals(e.Column, RcvColName) && line.CommitName())
+                _viewModel.ShowReceivingInfo(Tr.T("Название не может быть пустым — вернули прежнее.", "Аты бош болбошу керек — мурункусу кайтарылды.",
+                    "The name cannot be empty — the previous one was restored.", "Ad boş olamaz — önceki geri yüklendi.", "Nom bo'sh bo'lmasligi kerak — avvalgisi qaytarildi."));
+        }
         RefreshReceivingSummary();
+    }
+
+    /// <summary>2026-11-09: «Найти в интернете» у строки «Неизвестно» — поиск названия по штрихкоду ТОЛЬКО по этому нажатию (ReceivingInternetLookup, один запрос на нажатие).
+    /// Нашлось — название и метка «Из интернета»; не нашлось/нет связи — строка остаётся «Неизвестно».</summary>
+    private async void ReceivingInternetSearch_Click(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if ((sender as Avalonia.Controls.Control)?.DataContext is not NurMarketKassa.Models.ReceivingLineVm line)
+            return;
+        try
+        {
+            var result = await ReceivingInternetLookup.ApplyAsync(line).ConfigureAwait(true);
+            var text = ReceivingInternetLookup.MessageFor(result);
+            if (text.Length > 0)
+                _viewModel.ShowReceivingInfo(text);
+            RefreshReceivingSummary();
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Приёмка: «Найти в интернете» — {ex.Message}", "WARNING");
+        }
     }
 
     private async void ReceivingPickFromList_Click(object? sender, RoutedEventArgs e)

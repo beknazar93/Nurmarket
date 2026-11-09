@@ -82,6 +82,7 @@ public static partial class PriceTagService
         var heightPx = Math.Max((int)(heightMm / 25.4 * dpi), 10);
 
         var bmp = new Bitmap(widthPx, heightPx);
+        BarcodeLabelService.PinTextDpi(bmp); // 2026-11-08: шрифт не зависит от масштаба экрана Windows
         using var g = Graphics.FromImage(bmp);
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
         g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -341,7 +342,8 @@ public static partial class PriceTagService
                 tagDpi = BarcodeLabelService.RenderDpiFor(g.DpiX);
                 tag = GenerateBitmap(request.Kind, request.Data, request.WidthMm, request.HeightMm, tagDpi);
             }
-            BarcodeLabelService.DrawOnPrinterPage(g, tag, UserPreferences.Instance.LabelOffsetXMm, UserPreferences.Instance.LabelOffsetYMm, tagDpi);
+            var (hx, hy) = BarcodeLabelService.HardMargins(e); // 2026-11-08: ценник от края бумаги, а не от печатной области драйвера
+            BarcodeLabelService.DrawOnPrinterPage(g, tag, UserPreferences.Instance.LabelOffsetXMm, UserPreferences.Instance.LabelOffsetYMm, tagDpi, hx, hy);
             copiesRemaining--;
             e.HasMorePages = copiesRemaining > 0;
         };
@@ -474,6 +476,7 @@ public static partial class PriceTagService
             // меряется в 1/100 дюйма — на A4 ценник выходил в 6 раз крупнее и один занимал лист.
             // Теперь позиции в мм, картинка — в разрешении принтера, точка-в-точку.
             var renderDpi = BarcodeLabelService.RenderDpiFor(g.DpiX);
+            var (hx, hy) = BarcodeLabelService.HardMargins(e); // 2026-11-08: сетка от края листа, как в предпросмотре
             var onThisPage = Math.Min(tags.Count - index, perPage);
             for (var i = 0; i < onThisPage; i++)
             {
@@ -481,7 +484,7 @@ public static partial class PriceTagService
                 var row = i / columns;
                 using var tag = tags[index + i](renderDpi);
                 BarcodeLabelService.DrawOnPrinterPage(g, tag,
-                    marginMm + col * (widthMm + gapMm), marginMm + row * (heightMm + gapMm), renderDpi);
+                    marginMm + col * (widthMm + gapMm), marginMm + row * (heightMm + gapMm), renderDpi, hx, hy);
             }
 
             index += onThisPage;

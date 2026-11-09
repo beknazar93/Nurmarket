@@ -92,6 +92,35 @@ public static class LabelAutoLayout
         return MmToPx(hBar);
     }
 
+    /// <summary>2026-11-08 (жалоба «этикетки не подходят по размеру»): в редакторе этикетки смена размера (40×30 → 58×40) оставляла элементы на
+    /// прежних миллиметрах — на большой этикетке всё ютилось в левом верхнем углу, на маленькой (→ 30×20) элементы наезжали друг на друга.
+    /// Теперь раскладка растягивается пропорционально новому размеру; ручной размер шрифта — на среднее геометрическое коэффициентов (не меньший:
+    /// при наборе ширины по цифрам 40 → 15 → 58 меньший коэффициент навсегда уменьшал бы шрифт). Без округления: путь 40 → 15 → 58 даёт то же,
+    /// что сразу 58, а возврат размера возвращает раскладку и шрифт.</summary>
+    public static void ScaleToSize(LabelTemplate t, double widthMm, double heightMm)
+    {
+        var kx = widthMm / Math.Max(t.WidthMm, 1);
+        var ky = heightMm / Math.Max(t.HeightMm, 1);
+        t.WidthMm = widthMm;
+        t.HeightMm = heightMm;
+        if (Math.Abs(kx - 1) < 1e-9 && Math.Abs(ky - 1) < 1e-9)
+            return;
+        var kf = Math.Sqrt(kx * ky);
+        foreach (var e in new[] { t.Barcode, t.ProductName, t.Price, t.Sku, t.Unit, t.StoreName, t.Variant })
+        {
+            if (e is null)
+                continue;
+            e.XMm *= kx;
+            e.WidthMm *= kx;
+            e.YMm *= ky;
+            e.HeightMm *= ky;
+            if (e.FontSizePx is > 0)
+                e.FontSizePx = Math.Max(1, e.FontSizePx.Value * kf);
+        }
+        if (t.FontSizePx > 0)
+            t.FontSizePx = Math.Max(1, t.FontSizePx * kf);
+    }
+
     /// <summary>Высота штрихкода шаблона в пикселях окна (для поля «Высота штрих-кода»).</summary>
     public static int BarcodeHeightPx(LabelTemplate t) => Math.Max(8, MmToPx(t.Barcode.HeightMm));
 }

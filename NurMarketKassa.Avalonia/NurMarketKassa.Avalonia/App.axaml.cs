@@ -171,6 +171,8 @@ public partial class App : Application
             : Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(PosSettingsWindow.HasUnsavedEdits).GetAwaiter().GetResult();
         // 2026-10-18, аудит: личный код сотрудника подходит только вошедшему кассиру (EmployeeAccessGate).
         EmployeeAccessGate.CurrentUserProvider = () => AppHost?.Services.GetService<NurMarketApiClient>()?.UserPayload ?? default;
+        // 2026-11-09 (жалоба «все права выданы, а „Склад“ закрыт»): после возврата связи — перечитать профиль (права), а не жить на сохранённом входе.
+        PermissionRecheck.Attach(() => AppHost?.Services.GetService<IAuthApiService>(), () => AppHost?.Services.GetService<IAutonomousAuthService>());
         // 2026-10-06: срок долга, названный клиентом, — на сервер после продажи «В долг».
         DebtDueDateSync.ApiProvider = () => AppHost?.Services.GetService<NurMarketApiClient>();
         // 2026-10-29: возврат и оплата долга без связи уходят на сервер из очереди (SalesOfflineOpsApi), кэш клиентов для «в долг» обновляется с сервера.

@@ -13,6 +13,10 @@ public static class AppChangelog
 {
     public static readonly string[] Latest =
     [
+        "Приёмка: названия и источники: В приёмке можно править название; значки источника — «База», «База NurCRM», «Неизвестно», «Из интернета»; кнопка «Найти в интернете» ищет только по нажатию.",
+        "«Недостаточно прав»: При отказе и после возврата связи касса заново читает права сотрудника; в сообщении есть строка для техподдержки.",
+        "Редактор этикетки в тарифе «Старт»: Редактор этикетки теперь входит в тариф «Старт».",
+        "Размеры этикеток: Исправлены поля принтера, шрифт при масштабе экрана и растяжение раскладки редактором.",
         "Табель: Табель сотрудников в программе владельца: ручные отметки и автоматическая отметка прихода.",
         "Рабочее время кассиров: Рабочее время кассиров и автоматический выход из кассы по его окончании.",
         "Долги: кнопка «WA»: В долгах появилась кнопка «WA» — сообщение должнику в WhatsApp.",
@@ -223,6 +227,10 @@ public static class AppChangelog
 
     public static readonly string[] LatestKy =
     [
+        "Кабыл алуу: аталыштар жана булактар: Кабыл алууда аталышты оңдосо болот; булак белгилери — «База», «NurCRM базасы», «Белгисиз», «Интернеттен»; «Интернеттен табуу» баскычы басканда гана издейт.",
+        "«Укук жетишсиз»: Четке кагылганда жана байланыш кайткандан кийин касса кызматкердин укуктарын кайра окуйт; билдирүүдө техколдоо үчүн сап бар.",
+        "«Старт» тарифиндеги этикетка редактору: Этикетка редактору эми «Старт» тарифине кирет.",
+        "Этикетка өлчөмдөрү: Принтердин талаалары, экран масштабындагы шрифт жана редактордун жайгашуусун созуу оңдолду.",
         "Табель: Ээсинин программасында кызматкерлердин табели: кол менен белгилөө жана келүүнү автоматтык белгилөө.",
         "Кассирлердин иш убактысы: Кассирлердин иш убактысы жана ал аяктаганда кассадан автоматтык чыгуу.",
         "Карыздар: «WA» баскычы: Карыздарда «WA» баскычы пайда болду — карызкорго WhatsApp аркылуу билдирүү.",
@@ -431,6 +439,10 @@ public static class AppChangelog
 
     public static readonly string[] LatestEn =
     [
+        "Receiving: names and sources: In receiving you can edit the name; source badges — “Database”, “NurCRM database”, “Unknown”, “From the internet”; the “Find on the internet” button searches only when pressed.",
+        "“Not enough rights”: On a refusal and after the connection returns the till re-reads the employee's rights; the message has a line for tech support.",
+        "Label editor in the “Start” plan: The label editor is now included in the “Start” plan.",
+        "Label sizes: Fixed printer margins, the font at a screen scale, and the editor stretching the layout.",
         "Timesheet: Staff timesheet in the owner program: manual marks and automatic check-in.",
         "Cashiers' working hours: Cashiers' working hours and an automatic sign-out when they end.",
         "Debts: the “WA” button: Debts now have a “WA” button — a WhatsApp message to the debtor.",
@@ -639,6 +651,10 @@ public static class AppChangelog
 
     public static readonly string[] LatestTr =
     [
+        "Mal kabulü: adlar ve kaynaklar: Mal kabulünde ad düzenlenebilir; kaynak rozetleri — «Veritabanı», «NurCRM veritabanı», «Bilinmiyor», «İnternetten»; «İnternette bul» düğmesi yalnızca basıldığında arar.",
+        "«Yetersiz yetki»: Ret durumunda ve bağlantı geldikten sonra kasa çalışanın yetkilerini yeniden okur; mesajda teknik destek için bir satır vardır.",
+        "«Başlangıç» tarifesinde etiket düzenleyici: Etiket düzenleyici artık «Başlangıç» tarifesine dahildir.",
+        "Etiket boyutları: Yazıcı kenar boşlukları, ekran ölçeğindeki yazı tipi ve düzenleyicinin yerleşimi uzatması düzeltildi.",
         "Puantaj: Sahip programında personel puantajı: elle işaretler ve otomatik giriş işareti.",
         "Kasiyerlerin çalışma saatleri: Kasiyerlerin çalışma saatleri ve bittiğinde kasadan otomatik çıkış.",
         "Borçlar: «WA» düğmesi: Borçlarda «WA» düğmesi eklendi — borçluya WhatsApp mesajı.",
@@ -847,6 +863,10 @@ public static class AppChangelog
 
     public static readonly string[] LatestUz =
     [
+        "Qabul: nomlar va manbalar: Qabulda nomni tahrirlash mumkin; manba belgilari — «Baza», «NurCRM bazasi», «Noma'lum», «Internetdan»; «Internetdan topish» tugmasi faqat bosilganda qidiradi.",
+        "«Huquq yetarli emas»: Rad etilganda va aloqa qaytgandan keyin kassa xodimning huquqlarini qayta o'qiydi; xabarda texnik yordam uchun qator bor.",
+        "«Start» tarifida yorliq muharriri: Yorliq muharriri endi «Start» tarifiga kiradi.",
+        "Yorliq o'lchamlari: Printer maydonlari, ekran masshtabidagi shrift va muharrir tomonidan joylashuvni cho'zish tuzatildi.",
         "Tabel: Egasi dasturida xodimlar tabeli: qo'lda belgilash va kelishni avtomatik belgilash.",
         "Kassirlarning ish vaqti: Kassirlarning ish vaqti va u tugaganda kassadan avtomatik chiqish.",
         "Qarzlar: «WA» tugmasi: Qarzlarda «WA» tugmasi paydo bo'ldi — qarzdorga WhatsApp xabari.",
@@ -1060,6 +1080,7 @@ public static class AppChangelog
     // 2026-11-05: 1.17.76 (добавка) — сверху всех Latest* пункты «Весы: единица суммы в штрихкоде» и «Внешние сервисы», сверху AndroidLatest* — «Внешние сервисы».
     // 2026-11-06: 1.17.77 (добавка) — первым пунктом всех Latest* и AndroidLatest* «Загрузка каталога» (срочный фикс Б-1).
     // 2026-11-06: 1.17.77 (добавка 3, тестовый канал) — после пункта «Загрузка каталога» в Latest*: приёмка без связи, «Неотправленное», защита входа, возврат долгового чека, окно оплаты, быстрее запуск, картинки/ИИ, наценка приёмки, программа владельца; в AndroidLatest* — первые шесть.
+    // 2026-11-09: 1.17.84 — сверху всех Latest* 4 пункта (приёмка: названия и источники, «Недостаточно прав», редактор этикетки в «Старт», размеры этикеток), сверху AndroidLatest* — 2 общих.
     // 2026-11-08: 1.17.83 (тестовый) — сверху всех Latest* 8 пунктов (табель, рабочее время кассиров, «WA» в долгах, согласия и сообщения, витрина, вид магазина под замком, замер скорости и «Своё», отклик касаний Android), сверху AndroidLatest* — 5 общих.
     // 2026-11-07: 1.17.82 (тестовый) — сверху всех Latest* 5 пунктов (упаковки в приёмке, точечное обновление товара, Склад → Приёмка, колонка «Наименование» в накладной, цена Rongta), сверху AndroidLatest* — 4 общих.
     // 2026-11-07: 1.17.81 — сверху всех Latest* 11 пунктов (цена приёмки, весы РС-200, цены выше 9999,99, главная касса, удаление товара, «№», Маркетплейс, печать и PDF, этикетки размеров, память, запуск), сверху AndroidLatest* — 8 общих.
@@ -1111,6 +1132,8 @@ public static class AppChangelog
     // 2026-10-05: Android 1.17.52. Без эмодзи — на Android их шрифт не рисует (снимок владельца: «Кнопка  в поиске»).
     public static readonly string[] AndroidLatest =
     [
+        "Приёмка: названия и источники: В приёмке можно править название; значки источника — «База», «База NurCRM», «Неизвестно», «Из интернета»; кнопка «Найти в интернете» ищет только по нажатию.",
+        "«Недостаточно прав»: При отказе и после возврата связи касса заново читает права сотрудника; в сообщении есть строка для техподдержки.",
         "Android: отклик касаний: Исправлен отклик касаний на Android.",
         "Табель: Табель сотрудников в программе владельца: ручные отметки и автоматическая отметка прихода.",
         "Рабочее время кассиров: Рабочее время кассиров и автоматический выход из кассы по его окончании.",
@@ -1257,6 +1280,8 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestKy =
     [
+        "Кабыл алуу: аталыштар жана булактар: Кабыл алууда аталышты оңдосо болот; булак белгилери — «База», «NurCRM базасы», «Белгисиз», «Интернеттен»; «Интернеттен табуу» баскычы басканда гана издейт.",
+        "«Укук жетишсиз»: Четке кагылганда жана байланыш кайткандан кийин касса кызматкердин укуктарын кайра окуйт; билдирүүдө техколдоо үчүн сап бар.",
         "Android: тийүүгө жооп: Android'де тийүүгө жооп оңдолду.",
         "Табель: Ээсинин программасында кызматкерлердин табели: кол менен белгилөө жана келүүнү автоматтык белгилөө.",
         "Кассирлердин иш убактысы: Кассирлердин иш убактысы жана ал аяктаганда кассадан автоматтык чыгуу.",
@@ -1401,6 +1426,8 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestEn =
     [
+        "Receiving: names and sources: In receiving you can edit the name; source badges — “Database”, “NurCRM database”, “Unknown”, “From the internet”; the “Find on the internet” button searches only when pressed.",
+        "“Not enough rights”: On a refusal and after the connection returns the till re-reads the employee's rights; the message has a line for tech support.",
         "Android: touch response: Touch response is fixed on Android.",
         "Timesheet: Staff timesheet in the owner program: manual marks and automatic check-in.",
         "Cashiers' working hours: Cashiers' working hours and an automatic sign-out when they end.",
@@ -1545,6 +1572,8 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestTr =
     [
+        "Mal kabulü: adlar ve kaynaklar: Mal kabulünde ad düzenlenebilir; kaynak rozetleri — «Veritabanı», «NurCRM veritabanı», «Bilinmiyor», «İnternetten»; «İnternette bul» düğmesi yalnızca basıldığında arar.",
+        "«Yetersiz yetki»: Ret durumunda ve bağlantı geldikten sonra kasa çalışanın yetkilerini yeniden okur; mesajda teknik destek için bir satır vardır.",
         "Android: dokunma tepkisi: Android'de dokunma tepkisi düzeltildi.",
         "Puantaj: Sahip programında personel puantajı: elle işaretler ve otomatik giriş işareti.",
         "Kasiyerlerin çalışma saatleri: Kasiyerlerin çalışma saatleri ve bittiğinde kasadan otomatik çıkış.",
@@ -1689,6 +1718,8 @@ public static class AppChangelog
 
     public static readonly string[] AndroidLatestUz =
     [
+        "Qabul: nomlar va manbalar: Qabulda nomni tahrirlash mumkin; manba belgilari — «Baza», «NurCRM bazasi», «Noma'lum», «Internetdan»; «Internetdan topish» tugmasi faqat bosilganda qidiradi.",
+        "«Huquq yetarli emas»: Rad etilganda va aloqa qaytgandan keyin kassa xodimning huquqlarini qayta o'qiydi; xabarda texnik yordam uchun qator bor.",
         "Android: tegish javobi: Android'da tegishga javob tuzatildi.",
         "Tabel: Egasi dasturida xodimlar tabeli: qo'lda belgilash va kelishni avtomatik belgilash.",
         "Kassirlarning ish vaqti: Kassirlarning ish vaqti va u tugaganda kassadan avtomatik chiqish.",

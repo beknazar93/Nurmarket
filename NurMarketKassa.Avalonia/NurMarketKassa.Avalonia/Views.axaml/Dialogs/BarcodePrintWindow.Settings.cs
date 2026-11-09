@@ -249,7 +249,9 @@ public partial class BarcodePrintWindow
         if (Math.Abs(_template.WidthMm - w) < 0.01 && Math.Abs(_template.HeightMm - h) < 0.01)
             return;
         // Ручной размер шрифта (если задан в редакторе) растёт и убывает вместе с этикеткой — иначе на малой этикетке он не помещается.
-        var k = Math.Min(w / Math.Max(_template.WidthMm, 1), h / Math.Max(_template.HeightMm, 1));
+        // 2026-11-08: среднее геометрическое вместо меньшего коэффициента — при наборе «Своего размера» по цифрам (40 → 15 → 58) шрифт
+        // уменьшался на первом шаге и больше не возвращался (меньший коэффициент второго шага = 1).
+        var k = Math.Sqrt(w / Math.Max(_template.WidthMm, 1) * (h / Math.Max(_template.HeightMm, 1)));
         _template.WidthMm = w;
         _template.HeightMm = h;
         foreach (var e in new[] { _template.ProductName, _template.Price, _template.Sku, _template.Unit, _template.StoreName, _template.Variant })

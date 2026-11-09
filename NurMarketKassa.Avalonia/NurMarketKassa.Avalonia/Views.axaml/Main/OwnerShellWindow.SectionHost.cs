@@ -700,6 +700,77 @@ public partial class OwnerShellWindow
             return false;
         }
         PosLogger.Log($"Owner app: permission denied: {permission}", "WARNING");
+        // 2026-11-09, жалоба клиента «все права выданы, перезапуск не помогает»: права в кассе — из профиля, прочитанного при входе (или из сохранённого
+        // входа, если сервер при запуске не ответил за 3 с). Перед отказом — один раз перечитать профиль с сервера: доступ есть — раздел открывается сам
+        // (нажатие в меню) или просьба нажать ещё раз; нет — прежний отказ со строкой «для поддержки». Профиль только что с сервера или авария — сразу отказ.
+        if (_permissionRecheckRunning)
+            return false; // повторное нажатие, пока идёт перепроверка: ответ придёт от неё
+        if (!ServerOutageMonitor.IsOutage
+            && !(PermissionRecheck.LiveProfileAt is { } liveAt && DateTimeOffset.Now - liveAt < TimeSpan.FromSeconds(20)))
+        {
+            _ = RecheckPermissionThenExplainAsync(permission, _navOpenInProgress);
+            return false;
+        }
+        ShowPermissionDenied(permission);
+        return false;
+    }
+
+    /// <summary>2026-11-09: открытие пункта меню, идущее сейчас (для повтора после перепроверки прав); null — вызов не из меню.</summary>
+    private Action? _navOpenInProgress;
+    private bool _permissionRecheckRunning;
+
+    private async Task RecheckPermissionThenExplainAsync(string permission, Action? retry)
+    {
+        _permissionRecheckRunning = true;
+        var oldCursor = Cursor;
+        Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Wait);
+        bool refreshed;
+        try
+        {
+            refreshed = await PermissionRecheck.RefreshProfileAsync(App.GetRequiredService<NurMarketKassa.Services.Api.IAuthApiService>(),
+                App.GetRequiredService<IAutonomousAuthService>(), "раздел " + permission, TimeSpan.FromSeconds(6)).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            PosLogger.Log($"Owner app: перепроверка прав не удалась ({ex.GetType().Name}).", "WARNING");
+            refreshed = false;
+        }
+        finally
+        {
+            _permissionRecheckRunning = false;
+            Cursor = oldCursor;
+        }
+        if (refreshed && App.GetRequiredService<IPermissionService>().HasPermission(permission))
+        {
+            PosLogger.Log($"Owner app: {permission} — после перечитывания профиля доступ есть.", "AUTH");
+            if (retry is not null)
+            {
+                try
+                {
+                    retry();
+                }
+                catch (Exception ex)
+                {
+                    PosLogger.Log($"Owner app: section failed to open after permission recheck: {ex}", "ERROR");
+                }
+                return;
+            }
+            PosMessageBox.Show(this,
+                Tr.T("Права обновлены с сервера NurCRM — доступ есть. Откройте раздел ещё раз.", "Укуктар NurCRM серверинен жаңыртылды — уруксат бар. Бөлүмдү кайра ачыңыз.",
+                    "Permissions were updated from the NurCRM server — access granted. Open the section again.",
+                    "Yetkiler NurCRM sunucusundan güncellendi — erişim var. Bölümü yeniden açın.",
+                    "Huquqlar NurCRM serveridan yangilandi — ruxsat bor. Bo'limni qayta oching."),
+                Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+            return;
+        }
+        ShowPermissionDenied(permission);
+    }
+
+    private void ShowPermissionDenied(string permission)
+    {
+        // 2026-11-09: строка «для поддержки» (право, что прислал сервер, роль, откуда права) — в окне и в журнале.
+        var diagnostics = PermissionRecheck.Describe(permission, App.GetRequiredService<NurMarketKassa.Services.Api.IAuthApiService>().UserPayload);
+        PosLogger.Log($"Owner app: отказ по правам — {diagnostics}", "WARNING");
         // 2026-10-01: подсказка, какую галочку включить на сайте (названия — как на сайте NurCRM).
         var siteRight = SiteRightName(permission);
         var hint = siteRight is null ? "" : Environment.NewLine + Environment.NewLine + Tr.T(
@@ -710,9 +781,8 @@ public partial class OwnerShellWindow
             $"Ruxsatni ega NurCRM saytida beradi: Xodimlar → xodim → «{siteRight}» ruxsati. O'zgartirgandan keyin dasturni qayta ishga tushiring.");
         PosMessageBox.Show(this,
             Tr.T("Недостаточно прав для этого раздела.", "Бул бөлүм үчүн укук жетишсиз.", "You don't have permission to open this section.",
-                "Bu bölüm için yetkiniz yetersiz.", "Bu bo'lim uchun huquq yetarli emas.") + hint,
+                "Bu bölüm için yetkiniz yetersiz.", "Bu bo'lim uchun huquq yetarli emas.") + hint + Environment.NewLine + Environment.NewLine + diagnostics,
             Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
-        return false;
     }
 
     /// <summary>Название галочки доступа на сайте NurCRM (Сотрудники → доступы).</summary>

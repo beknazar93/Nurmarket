@@ -171,28 +171,67 @@ public partial class PurchasesWindow
         var g = new Grid { ColumnDefinitions = new ColumnDefinitions(ReceiveColumns) };
         // Товар: название (у нового — поле), штрихкод/код и пометка «новый».
         var who = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
+        // 2026-11-09 (владелец: «добавить возможность редактировать наименование товара»): название правится у ЛЮБОЙ строки. У товара склада правка = переименование карточки
+        // при проведении (PurchaseReceivingService.AddNameAndUnit → PATCH name, как «Склад → Приёмка»); под полем — «Было: …». Пустое название нельзя: прежнее возвращается.
+        var nameBox = new TextBox { Text = line.ProductName, Watermark = line.IsNew ? T("Название нового товара", "Жаңы товардын аты", "New product name", "Yeni ürün adı", "Yangi mahsulot nomi") : T("Название товара", "Товардын аты", "Product name", "Ürün adı", "Mahsulot nomi"), Height = 40, FontSize = 14, VerticalContentAlignment = VerticalAlignment.Center, Tag = "rcv-cell" };
+        Avalonia.Automation.AutomationProperties.SetName(nameBox, nameBox.Watermark);
+        nameBox.TextChanged += (_, _) =>
+        {
+            if (parts.Syncing)
+                return;
+            line.ProductName = nameBox.Text ?? "";
+        };
+        nameBox.LostFocus += (_, _) =>
+        {
+            if (line.CommitName())
+            {
+                nameBox.Text = line.ProductName;
+                ReceiveMessage(T("Название не может быть пустым — вернули прежнее.", "Аты бош болбошу керек — мурункусу кайтарылды.", "The name cannot be empty — the previous one was restored.", "Ad boş olamaz — önceki geri yüklendi.", "Nom bo'sh bo'lmasligi kerak — avvalgisi qaytarildi."), warning: true);
+            }
+        };
+        parts.Name = nameBox;
+        who.Children.Add(nameBox);
+        var renamedNote = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, IsVisible = false };
+        Use(renamedNote, TextBlock.ForegroundProperty, "BrushWarning");
+        who.Children.Add(renamedNote);
         if (line.IsNew)
-        {
-            var nameBox = new TextBox { Text = line.ProductName, Watermark = T("Название нового товара", "Жаңы товардын аты", "New product name", "Yeni ürün adı", "Yangi mahsulot nomi"), Height = 40, FontSize = 14, VerticalContentAlignment = VerticalAlignment.Center, Tag = "rcv-cell" };
-            Avalonia.Automation.AutomationProperties.SetName(nameBox, nameBox.Watermark);
-            nameBox.TextChanged += (_, _) => line.ProductName = nameBox.Text ?? "";
-            parts.Name = nameBox;
-            who.Children.Add(nameBox);
             who.Children.Add(ReceiveUnitChips(line)); // 2026-10-31: единица нового товара (кг — весовой)
-        }
-        else
-        {
-            var name = Cell(line.ProductName, "BrushText", 14, FontWeight.SemiBold);
-            name.Margin = default;
-            name.MaxLines = 2;
-            name.TextTrimming = TextTrimming.CharacterEllipsis;
-            who.Children.Add(name);
-        }
         var meta = Cell((line.Barcode.Length > 0 ? line.Barcode : "—") + (line.IsNew ? " · " + T("новый товар", "жаңы товар", "new product", "yeni ürün", "yangi mahsulot") : "")
                         + (s.Narrow && !line.IsNew ? " · " + T("ост. ", "калд. ", "stock ", "stok ", "qold. ") + Q(line.StockBefore) : ""), line.IsNew ? "BrushDanger" : "BrushTextSoft", 12);
         meta.Margin = default;
-        who.Children.Add(meta);
-        var whoLine = OnFieldLine(who);
+        meta.VerticalAlignment = VerticalAlignment.Center;
+        // 2026-11-09 (владелец: «не найден — только предложить найти в интернете, по нажатию»): у «Неизвестно» рядом со штрихкодом — кнопка; поиск идёт только по её нажатию.
+        var netButton = new Button { Content = T("Найти в интернете", "Интернеттен издөө", "Find on the internet", "İnternette bul", "Internetdan topish"), MinHeight = 32, Padding = new Thickness(10, 0), Margin = new Thickness(8, 0, 0, 0), FontSize = 12, IsVisible = false, Tag = "rcv-netlink" };
+        ToolTip.SetTip(netButton, T("Найти название по штрихкоду в открытых базах интернета. Выполняется только по нажатию; найденное нужно проверить.", "Штрихкод боюнча атын интернеттин ачык базаларынан издөө. Басканда гана аткарылат; табылганды текшериңиз.",
+            "Look up the name by barcode in open internet databases. Runs only when you press it; check what is found.", "Adı barkoda göre internetin açık bazalarında bul. Yalnızca basınca çalışır; bulunanı kontrol edin.", "Nomini shtrix-kod bo'yicha internetning ochiq bazalaridan topish. Faqat bosganda ishlaydi; topilganini tekshiring."));
+        Avalonia.Automation.AutomationProperties.SetName(netButton, T("Найти в интернете", "Интернеттен издөө", "Find on the internet", "İnternette bul", "Internetdan topish") + " " + line.Barcode);
+        netButton.Click += async (_, _) =>
+        {
+            try
+            {
+                var result = await ReceivingInternetLookup.ApplyAsync(line).ConfigureAwait(true);
+                var text = ReceivingInternetLookup.MessageFor(result);
+                if (text.Length > 0 && _receive == s)
+                    ReceiveMessage(text, warning: result.Outcome is ReceivingInternetLookup.Outcome.NotFound or ReceivingInternetLookup.Outcome.Failed);
+                if (_receive == s)
+                    ReceiveRefresh();
+            }
+            catch (Exception ex)
+            {
+                PosLogger.Log($"Приём товара: «Найти в интернете» — {ex.Message}", "WARNING");
+            }
+        };
+        var metaRow = new StackPanel { Orientation = Orientation.Horizontal, Children = { meta, netButton } };
+        who.Children.Add(metaRow);
+        // 2026-11-09 (владелец: «указывать вначале как на старом — база / база NurCRM / неизвестно / из интернета, значками, с подсказкой»): значок источника — первый в строке, перед названием.
+        var badge = new ReceivingSourceBadge { Source = line.Source, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 7, 8, 0) };
+        var whoRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        Grid.SetColumn(who, 1);
+        whoRow.Children.Add(badge);
+        whoRow.Children.Add(who);
+        who.Margin = default;
+        whoRow.Margin = new Thickness(0, 0, 10, 0);
+        var whoLine = OnFieldLine(whoRow);
         Grid.SetColumn(whoLine, 1);
         g.Children.Add(whoLine);
 
@@ -314,6 +353,15 @@ public partial class PurchasesWindow
                 Put(purchase, ReceiveMoney(pack ? line.PackPrice : line.PurchasePrice));
                 Put(markup, ReceiveMarkup(line));
                 Put(sale, ReceiveMoney(line.SalePrice));
+                // 2026-11-09: название (подставленное из интернета по кнопке), значок источника, «Найти в интернете», пометка «Было: …» у переименованного товара склада.
+                Put(nameBox, line.ProductName);
+                badge.Source = line.Source;
+                netButton.IsVisible = line.CanSearchInternet;
+                netButton.IsEnabled = line.NotSearchingInternet;
+                renamedNote.IsVisible = line.NameRenamed;
+                renamedNote.Text = line.NameWasHint;
+                nameBox.FontStyle = line.NameRenamed ? FontStyle.Italic : FontStyle.Normal;
+                ToolTip.SetTip(nameBox, line.NameRenamed ? line.NameWasHint : null);
                 sum.Text = MoneyText.Som(line.LineTotal);
                 numText.Text = line.LineNo > 0 ? line.LineNo.ToString(CultureInfo.InvariantCulture) : "";
                 Avalonia.Automation.AutomationProperties.SetName(numText, T("Позиция", "Позиция", "Item", "Kalem", "Pozitsiya") + " " + numText.Text);

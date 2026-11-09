@@ -457,6 +457,8 @@ public sealed partial class NurMarketApiClient : IDisposable
 
         using var doc = JsonDocument.Parse(stream.ToArray());
         UserPayload = doc.RootElement.Clone();
+        // 2026-11-09: права — из сохранённого входа (могут быть устаревшими); перечитываются при возврате связи (PermissionRecheck).
+        PermissionRecheck.MarkSavedSession();
     }
 
     /// <summary>GET /api/users/profile/</summary>

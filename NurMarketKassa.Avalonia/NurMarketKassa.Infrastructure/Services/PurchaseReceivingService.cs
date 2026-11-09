@@ -658,7 +658,12 @@ public sealed class PurchaseReceivingService
                 ? Tr.T("новый товар", "жаңы товар", "new product", "yeni ürün", "yangi mahsulot")
                 : line.Barcode;
             var name = string.IsNullOrWhiteSpace(line.ProductName) ? label : line.ProductName;
-            if (string.IsNullOrWhiteSpace(line.ProductName))
+            if (string.IsNullOrWhiteSpace(line.ProductName) && !line.IsNew)
+                // 2026-11-09: название товара склада можно править, но пустым оно быть не может (в окнах прежнее возвращается само — это страховка).
+                problems.Add(Tr.T($"{label}: название товара не может быть пустым",
+                    $"{label}: товардын аты бош болбошу керек", $"{label}: the product name cannot be empty",
+                    $"{label}: ürün adı boş olamaz", $"{label}: mahsulot nomi bo'sh bo'lmasligi kerak"));
+            else if (string.IsNullOrWhiteSpace(line.ProductName))
                 problems.Add(Tr.T($"{label}: впишите название нового товара",
                     $"{label}: жаңы товардын атын жазыңыз", $"{label}: enter a name for the new product",
                     $"{label}: yeni ürünün adını girin", $"{label}: yangi mahsulot nomini kiriting"));
@@ -673,7 +678,7 @@ public sealed class PurchaseReceivingService
                         $"{name}: barkod {line.Barcode} mal kabulde iki kez geçiyor", $"{name}: {line.Barcode} shtrix-kodi qabul qilishda ikki marta uchraydi"));
                 // 2026-10-19, ревью: товар строки уже создан прошлой попыткой (ProductId задан, ответ на приход потерялся) — после
                 // обновления каталога его штрихкод находит ЭТОТ же товар: это не чужой товар, а приход к нему (повтор не блокируем).
-                else if (line.Source == ReceivingSource.Unknown
+                else if (line.Source is ReceivingSource.Unknown or ReceivingSource.Internet // 2026-11-09: «Из интернета» — тоже новый товар без своей карточки
                          && CatalogCacheService.Products.FirstOrDefault(p =>
                              string.Equals(p.Barcode, line.Barcode, StringComparison.OrdinalIgnoreCase)
                              && !string.Equals(p.Id, line.ProductId, StringComparison.OrdinalIgnoreCase)) is { } owner

@@ -48,7 +48,8 @@ public sealed class ReceivingByPacksUiTests
             window.OpenReceive(new ReceivePrefill(null, null, null, null, new[] { ("pk1", title, "шт", 1.0, (double?)null) }));
             UiShot.Settle(12);
 
-            double NameWidth() => window.GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Text == title).Bounds.Width;
+            // 2026-11-09: название товара склада в «Приёме товара» теперь поле ввода (правка названия), а не подпись.
+            double NameWidth() => window.GetVisualDescendants().OfType<TextBox>().First(t => t.IsEffectivelyVisible && t.Text == title).Bounds.Width;
             var before = NameWidth();
             before.Should().BeGreaterThanOrEqualTo(120, "название читается и до включения режима");
 

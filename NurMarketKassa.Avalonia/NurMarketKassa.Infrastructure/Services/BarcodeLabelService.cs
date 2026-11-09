@@ -81,6 +81,7 @@ public static partial class BarcodeLabelService
         var heightPx = Math.Max((int)(template.HeightMm / 25.4 * dpi), 10);
 
         var label = new Bitmap(widthPx, heightPx);
+        PinTextDpi(label);
         using var g = Graphics.FromImage(label);
         g.Clear(Color.White);
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
@@ -103,6 +104,14 @@ public static partial class BarcodeLabelService
 
         return label;
     }
+
+    /// <summary>Разрешение картинки, по которому GDI+ переводит пункты шрифта в точки: 96 на дюйм, как в Skia (SkiaText.PtToPx) и предпросмотре Avalonia.</summary>
+    internal const float TextDpi = 96f;
+
+    /// <summary>2026-11-08 (жалоба «этикетки не подходят по размеру»): new Bitmap(w, h) берёт разрешение экрана; у программы, знающей о масштабе Windows
+    /// (Avalonia), при 125 % / 150 % это 120 / 144 — шрифт в пунктах выходил в 1,25–1,5 раза крупнее (автоподбор «0,72 × высота блока» давал текст выше
+    /// своего блока: название наезжало на цену, цена — за нижний край этикетки). Теперь всегда 96, как в Skia: размер текста не зависит от масштаба экрана.</summary>
+    internal static void PinTextDpi(Bitmap bitmap) => bitmap.SetResolution(TextDpi, TextDpi);
 
     private static string ResolveFontFamily(LabelElementLayout element, LabelTemplate template) =>
         string.IsNullOrWhiteSpace(element.FontFamily)
@@ -465,7 +474,11 @@ public static partial class BarcodeLabelService
     /// Раньше DrawImage(bmp, 0, 0, bmp.Width, bmp.Height) трактовал пиксели как единицы
     /// страницы принтера (1/100 дюйма) — этикетка 40 мм печаталась шириной 81 мм и
     /// обрезалась по краю ленты, на A4 (600 dpi) ценник выходил в 6 раз крупнее.</summary>
-    internal static void DrawOnPrinterPage(Graphics g, Bitmap bmp, double xMm, double yMm, int renderDpi)
+    /// <param name="hardMarginX">2026-11-08: непечатное поле принтера слева, сотые доли дюйма (<see cref="PageSettings.HardMarginX"/>). При
+    /// OriginAtMargins = false начало координат страницы — угол ПЕЧАТНОЙ области, а не бумаги: без вычета все этикетки сдвигались на это поле
+    /// (на офисном принтере ~4 мм вправо и вниз — сетка не попадала в вырубку самоклеящегося листа A4, нижний ряд уходил за край). Так же
+    /// делает ClientDocPrint; на Linux (PDF через CUPS) координаты и так от края бумаги.</param>
+    internal static void DrawOnPrinterPage(Graphics g, Bitmap bmp, double xMm, double yMm, int renderDpi, float hardMarginX = 0, float hardMarginY = 0)
     {
         var state = g.Save();
         var unit = g.PageUnit;
@@ -476,8 +489,8 @@ public static partial class BarcodeLabelService
             g.PageScale = 1f;
             g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
             g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-            var x = (int)Math.Round(xMm / 25.4 * g.DpiX);
-            var y = (int)Math.Round(yMm / 25.4 * g.DpiY);
+            var x = (int)Math.Round((xMm / 25.4 - Math.Max(hardMarginX, 0) / 100.0) * g.DpiX);
+            var y = (int)Math.Round((yMm / 25.4 - Math.Max(hardMarginY, 0) / 100.0) * g.DpiY);
             var w = (int)Math.Round(bmp.Width * (double)g.DpiX / renderDpi);
             var h = (int)Math.Round(bmp.Height * (double)g.DpiY / renderDpi);
             g.DrawImage(bmp, new Rectangle(x, y, w, h), 0, 0, bmp.Width, bmp.Height, GraphicsUnit.Pixel);
@@ -487,6 +500,20 @@ public static partial class BarcodeLabelService
             g.Restore(state);
             g.PageUnit = unit;
             g.PageScale = pageScale;
+        }
+    }
+
+    /// <summary>2026-11-08: непечатные поля принтера (сотые доли дюйма) для <see cref="DrawOnPrinterPage"/>; не прочитались — 0, как раньше.</summary>
+    internal static (float X, float Y) HardMargins(PrintPageEventArgs e)
+    {
+        try
+        {
+            return (e.PageSettings.HardMarginX, e.PageSettings.HardMarginY);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Printer hard margins not read: {ex.GetType().Name}", "WARNING");
+            return (0, 0);
         }
     }
 
@@ -541,6 +568,7 @@ public static partial class BarcodeLabelService
         if (!OperatingSystem.IsWindows())
             return HasTextOverflowSkia(productName, priceText, template, sku, unit, storeName, variantText);
         using var probe = new Bitmap(1, 1);
+        PinTextDpi(probe); // 2026-11-08: мерить в том же разрешении, в котором рисуется этикетка
         using var g = Graphics.FromImage(probe);
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
 
@@ -734,7 +762,8 @@ public static partial class BarcodeLabelService
                     request.ProductName, request.Barcode, request.PriceText, request.Template,
                     request.Sku, request.Unit, request.StoreName, labelDpi, request.VariantText);
             }
-            DrawOnPrinterPage(g, label, UserPreferences.Instance.LabelOffsetXMm, UserPreferences.Instance.LabelOffsetYMm, labelDpi);
+            var (hx, hy) = HardMargins(e); // 2026-11-08: этикетка от края бумаги, а не от печатной области драйвера
+            DrawOnPrinterPage(g, label, UserPreferences.Instance.LabelOffsetXMm, UserPreferences.Instance.LabelOffsetYMm, labelDpi, hx, hy);
             copiesRemaining--;
             e.HasMorePages = copiesRemaining > 0;
         };

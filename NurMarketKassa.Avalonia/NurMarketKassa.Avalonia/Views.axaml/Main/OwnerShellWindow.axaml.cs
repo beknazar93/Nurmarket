@@ -781,6 +781,8 @@ public partial class OwnerShellWindow : Window, IMainShell
                 }
                 try
                 {
+                    // 2026-11-09: если права перепроверяются на сервере (Authorize), после подтверждения раздел откроется этим же действием.
+                    _navOpenInProgress = open;
                     open();
                 }
                 catch (Exception ex)
@@ -790,6 +792,10 @@ public partial class OwnerShellWindow : Window, IMainShell
                     PosMessageBox.Show(this, Tr.T("Раздел не открылся. Подробности — в журнале ошибок.", "Бөлүм ачылган жок. Чоо-жайы — каталар журналында.",
                         "The section did not open. See the error log for details.", "Bölüm açılamadı. Ayrıntılar hata günlüğünde.", "Bo'lim ochilmadi. Tafsilotlar xatolar jurnalida."),
                         Title ?? "", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                }
+                finally
+                {
+                    _navOpenInProgress = null;
                 }
                 if (fromBurger)
                     RestoreSectionAfterBurger();
