@@ -430,6 +430,13 @@
         <Style Selector="DataGrid.rcv-compact TextBox.rcv-baredit.isnew">
             <Setter Property="IsVisible" Value="True"/>
         </Style>
+        <!-- 2026-11-10: строка «поле штрихкода + Сгенерировать» под названием — только в узком виде (в широком своя колонка «Штрихкод», кнопка — рядом с названием). -->
+        <Style Selector="Grid.rcv-baredit-row">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="DataGrid.rcv-compact Grid.rcv-baredit-row">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
         <Style Selector="TextBlock.hdr-sub">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="Medium"/>
@@ -1453,11 +1460,18 @@
                                                     <Grid Grid.Column="0" VerticalAlignment="Center">
                                                         <TextBlock Text="{ReflectionBinding ProductName}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
                                                                    TextTrimming="CharacterEllipsis" Classes.rcv-renamed="{ReflectionBinding NameRenamed}"
-                                                                   ToolTip.Tip="{ReflectionBinding NameWasHint}"/>
+                                                                   ToolTip.Tip="{ReflectionBinding NameTip}"/>
                                                         <TextBlock Classes="rcv-namehint" Text="{x:Static views:WarehouseWindow.NewNameHintText}"
                                                                    IsVisible="{ReflectionBinding ProductName, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
                                                     </Grid>
                                                     <!-- 2026-11-09: текстовый значок «новый» убран — его место (колонка названия всего ~170 px) заняли значок источника слева и подпись «Неизвестно / База NurCRM / Из интернета» под названием; «новый» читается по ним. -->
+                                                    <!-- 2026-11-10 (владелец: «Генерация штрихкода как в вебе!»): у нового товара без штрихкода — кнопка «Сгенерировать штрихкод» (EAN-13, как в окне товара; WarehouseWindow.ReceivingBarcode). -->
+                                                    <Button Grid.Column="1" Classes="rcv-netbtn" Tag="rcv-genbar" Click="ReceivingGenerateBarcode_Click" Margin="0,0,2,0"
+                                                            IsVisible="{ReflectionBinding CanGenerateBarcode}"
+                                                            ToolTip.Tip="{x:Static views:WarehouseWindow.GenerateBarcodeHintText}"
+                                                            AutomationProperties.Name="{x:Static views:WarehouseWindow.GenerateBarcodeText}">
+                                                        <PathIcon Data="{StaticResource IconBarcode}" Width="16" Height="16" Foreground="{DynamicResource BrushText}"/>
+                                                    </Button>
                                                     <Button Grid.Column="2" Classes="rcv-netbtn" Tag="rcv-netlink" Click="ReceivingInternetSearch_Click"
                                                             IsVisible="{ReflectionBinding CanSearchInternet}" IsEnabled="{ReflectionBinding NotSearchingInternet}"
                                                             ToolTip.Tip="{x:Static views:WarehouseWindow.InternetSearchHintText}"
@@ -1483,11 +1497,23 @@
                                             <Grid ColumnDefinitions="Auto,*" Margin="2,0">
                                             <views:ReceivingSourceBadge Grid.Column="0" Source="{ReflectionBinding Source}" Margin="0,0,6,0"/>
                                             <Grid Grid.Column="1" RowDefinitions="*,Auto">
+                                                <!-- 2026-11-11 (Б-5, видео 11.34.58): в узком виде поле было ~22 px при общих отступах 10,8 — текст не виден. Теперь отступы 8,2, шрифт 14, подсказка;
+                                                     строка нового товара на время правки названия выше (WarehouseWindow.axaml.cs, ReceivingNameEditRowHeight). -->
                                                 <TextBox Grid.Row="0" Text="{ReflectionBinding ProductName, Mode=TwoWay}" VerticalContentAlignment="Center" MinHeight="0"
-                                                         ToolTip.Tip="{ReflectionBinding NameWasHint}"/>
-                                                <TextBox Grid.Row="1" Classes="rcv-baredit" Classes.isnew="{ReflectionBinding IsNew}" Text="{ReflectionBinding Barcode, Mode=TwoWay}"
+                                                         Padding="8,2" FontSize="14" Watermark="{x:Static views:WarehouseWindow.NewNameWatermarkText}"
+                                                         ToolTip.Tip="{ReflectionBinding NameTip}"/>
+                                                <!-- 2026-11-10: рядом с полем штрихкода (узкий вид) — та же кнопка «Сгенерировать штрихкод». -->
+                                                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Classes="rcv-baredit-row">
+                                                <TextBox Classes="rcv-baredit" Classes.isnew="{ReflectionBinding IsNew}" Text="{ReflectionBinding Barcode, Mode=TwoWay}"
                                                          MinHeight="0" Height="22" FontSize="12" Padding="6,0" Margin="0,2,0,0" VerticalContentAlignment="Center"
                                                          Watermark="{x:Static views:WarehouseWindow.BarcodeHintText}"/>
+                                                <Button Grid.Column="1" Classes="rcv-netbtn rcv-genbar-small" Tag="rcv-genbar" Click="ReceivingGenerateBarcode_Click" Margin="4,2,0,0"
+                                                        Width="24" Height="22" IsVisible="{ReflectionBinding CanGenerateBarcode}"
+                                                        ToolTip.Tip="{x:Static views:WarehouseWindow.GenerateBarcodeHintText}"
+                                                        AutomationProperties.Name="{x:Static views:WarehouseWindow.GenerateBarcodeText}">
+                                                    <PathIcon Data="{StaticResource IconBarcode}" Width="13" Height="13" Foreground="{DynamicResource BrushText}"/>
+                                                </Button>
+                                                </Grid>
                                             </Grid>
                                             </Grid>
                                         </DataTemplate>

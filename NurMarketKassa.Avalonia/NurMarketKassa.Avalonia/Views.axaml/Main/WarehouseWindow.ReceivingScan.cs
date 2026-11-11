@@ -31,6 +31,16 @@ public partial class WarehouseWindow
 
     // 2026-11-07 (жалоба «Где в приёмке штрихкод?»): подписи ячейки названия в таблице приёмки (x:Static в разметке).
     public static string NewNameHintText => TR("название", "аталышы", "name", "ad", "nomi");
+
+    /// <summary>2026-11-11 (Б-5, видео 11.34.58): подсказка в пустом поле названия новой строки.</summary>
+    public static string NewNameWatermarkText => TR("Название нового товара", "Жаңы товардын аты", "New product name", "Yeni ürün adı", "Yangi mahsulot nomi");
+
+    /// <summary>2026-11-11 (Б-5): после скана неизвестного кода — что делать (как в «Закупках»).</summary>
+    public static string UnknownScannedText => TR("Товар не найден — введите название и цены.", "Товар табылган жок — атын жана баасын жазыңыз.", "Product not found — enter the name and prices.",
+        "Ürün bulunamadı — adını ve fiyatlarını girin.", "Mahsulot topilmadi — nomi va narxlarini kiriting.");
+
+    // Высота строки нового товара, пока правят название в узком виде: поле названия 36 + поле штрихкода 22 + отступы.
+    private const double ReceivingNameEditRowHeight = 76;
     // 2026-11-09 (владелец: «если товар не найден — только предложить найти в интернете, по нажатию»): подписи кнопки-лупы у строки «Неизвестно».
     public static string InternetSearchText => TR("Найти в интернете", "Интернеттен издөө", "Find on the internet", "İnternette bul", "Internetdan topish");
     public static string InternetSearchHintText => TR("Найти название по штрихкоду в открытых базах интернета. Выполняется только по нажатию; найденное нужно проверить.",
@@ -142,8 +152,9 @@ public partial class WarehouseWindow
         }
         void ApplyRowClasses(DataGridRow row, ReceivingLineVm l)
         {
-            SetRowClass(row, "rcv-below", l.IsBelowCost);
-            SetRowClass(row, "rcv-low", !l.IsBelowCost && (l.IsLowMargin || l.IsSalePriceMissing)); // 2026-11-06: нет цены продажи — жёлтая строка
+            SetRowClass(row, "rcv-below", l.IsBelowCost || l.IsPriceTooBig); // 2026-11-11: цена больше 10 млн (штрихкод в ячейке, лишние нули) — тоже красная строка
+            SetRowClass(row, "rcv-low", !l.IsBelowCost && !l.IsPriceTooBig && (l.IsLowMargin || l.IsSalePriceMissing)); // 2026-11-06: нет цены продажи — жёлтая строка
+            ToolTip.SetTip(row, l.PriceProblemText is { Length: > 0 } problem ? problem : l.MarkupPercent is > ReceivingLineVm.MarkupWarnMax ? ReceivingLineVm.MarkupTooBigText : null); // 2026-11-11: причина видна при наведении
             ApplyReceivingRowHeight(row, l); // 2026-11-07: в режиме упаковок строка выше (поле «шт/упак.» и подписи)
         }
         void UnhookRow(DataGridRow row)
@@ -156,7 +167,13 @@ public partial class WarehouseWindow
             UnhookRow(e.Row);
             if (e.Row.DataContext is not ReceivingLineVm line)
                 return;
-            System.ComponentModel.PropertyChangedEventHandler handler = (_, _) => ApplyRowClasses(e.Row, line);
+            System.ComponentModel.PropertyChangedEventHandler handler = (_, pe) =>
+            {
+                ApplyRowClasses(e.Row, line);
+                // 2026-11-11 (Б-6): итог «Прибыль/Выручка/Ср. наценка» — на лету, пока набирают закупку/цену/количество (раньше — только по выходу из ячейки).
+                if (pe.PropertyName is nameof(ReceivingLineVm.Quantity) or nameof(ReceivingLineVm.PurchasePrice) or nameof(ReceivingLineVm.SalePrice) or nameof(ReceivingLineVm.LandedExtraPerUnit))
+                    ScheduleReceivingSummary();
+            };
             line.PropertyChanged += handler;
             rowHooks[e.Row] = (line, handler);
             ApplyRowClasses(e.Row, line);
@@ -225,6 +242,31 @@ public partial class WarehouseWindow
 
         // Enter / Tab в правке ячейки приёмки — по цепочке «Принято» → «Закупка» → «Продажа» → поле скана (туннельно: раньше, чем DataGrid уведёт курсор вниз).
         ReceivingGrid.AddHandler(KeyDownEvent, ReceivingGrid_PreviewKeyDown, RoutingStrategies.Tunnel);
+        // 2026-11-10 (жалоба «удобства не удобно»): любой вход в правку (F2, программный BeginEdit) — поле ячейки в фокусе, число выделено (набор заменяет).
+        // В шаблонных ячейках («Принимаем», «Закупка») DataGrid фокус в поле сам не ставит.
+        ReceivingGrid.PreparingCellForEdit += (_, e) =>
+        {
+            var editing = e.EditingElement;
+            Dispatcher.UIThread.Post(() =>
+            {
+                var box = editing as TextBox ?? editing.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(t => t.IsEffectivelyVisible);
+                if (box is null || box.IsKeyboardFocusWithin || editing.IsKeyboardFocusWithin)
+                    return;
+                box.Focus();
+                box.SelectAll();
+            }, DispatcherPriority.Input);
+        };
+
+        // 2026-11-09 (владелец: «при повторном скане того же товара — спросить количество»): окно «Сколько штук?» (общая логика — WarehouseViewModel.HandleReceivingScanAsync).
+        // «Отмена» ничего не меняет, курсор возвращается в поле скана; при добавлении курсор ставит OnReceivingLineAdded, как после обычного скана.
+        _viewModel.AskRepeatQuantity = async (line, initial) =>
+        {
+            var answer = await ReceivingRepeatQtyDialog.AskAsync(this, line, initial).ConfigureAwait(true);
+            if (answer is null)
+                Dispatcher.UIThread.Post(() => ReceivingScanBox.Focus(), DispatcherPriority.Background);
+            return answer;
+        };
+        Closed += (_, _) => _viewModel.RepeatScanGuard.Reset();
 
         // 2026-10-26, приёмка (Д-2): в программе владельца в пустой приёмке видели «строку-призрак» («Новый · шт · 0 · 1 …») поверх «Накладная пока
         // пустая», хотя в списке 0 позиций. Причину в стенде воспроизвести не удалось, поэтому — защита от симптома: после каждого изменения
@@ -246,6 +288,21 @@ public partial class WarehouseWindow
                 }
             }, DispatcherPriority.Background);
         };
+    }
+
+    private bool _receivingSummaryQueued;
+
+    /// <summary>2026-11-11 (Б-6): пересчитать итоги приёмки один раз после пачки изменений строки (набор каждой цифры не пересчитывает панель по нескольку раз).</summary>
+    private void ScheduleReceivingSummary()
+    {
+        if (_receivingSummaryQueued)
+            return;
+        _receivingSummaryQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _receivingSummaryQueued = false;
+            RefreshReceivingSummary();
+        }, DispatcherPriority.Background);
     }
 
     /// <summary>2026-10-26 (Д-2): таблица приёмки показывает больше строк, чем в списке, — переустановить источник (см. InitReceivingScan).
@@ -277,6 +334,9 @@ public partial class WarehouseWindow
     private void OnReceivingLineAdded(ReceivingLineVm line)
     {
         RefreshReceivingSummary();
+        // 2026-11-11 (Б-5): неизвестный код — сразу сказать, что делать (как в «Закупках»), курсор ниже встанет в название.
+        if (line.Source == ReceivingSource.Unknown && string.IsNullOrWhiteSpace(line.ProductName) && !string.IsNullOrWhiteSpace(line.Barcode))
+            _viewModel.ShowReceivingInfo(UnknownScannedText);
         Dispatcher.UIThread.Post(() =>
         {
             if (!_viewModel.ReceivingLines.Contains(line))

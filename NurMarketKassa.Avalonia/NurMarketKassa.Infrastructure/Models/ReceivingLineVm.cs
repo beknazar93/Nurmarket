@@ -26,6 +26,15 @@ public enum SalePriceMode
     Card,
 }
 
+/// <summary>2026-11-10: поле ячейки приёмки (возврат прежнего значения, если поле оставили пустым).</summary>
+public enum ReceivingCellField
+{
+    Quantity,
+    Pieces,
+    Purchase,
+    Sale,
+}
+
 /// <summary>2026-11-06: откуда подставлена цена закупки новой строки «Приём товара».</summary>
 public enum PurchaseDefaultSource
 {
@@ -37,7 +46,7 @@ public enum PurchaseDefaultSource
 /// <summary>Строка приёмки: сколько привезли и почём. Цена закупки и цена продажи обязательны —
 /// без них приход нельзя провести (2026-09-24, просьба владельца: «обязательно цена приёмки и
 /// цена продажи, как на складе»).</summary>
-public sealed class ReceivingLineVm : INotifyPropertyChanged
+public sealed partial class ReceivingLineVm : INotifyPropertyChanged // 2026-11-11: partial — снимок строки для черновика приёмки в ReceivingLineVm.Draft.cs
 {
     private string? _productId;
     private string _barcode = "";
@@ -80,7 +89,10 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         set
         {
             if (Set(ref _barcode, (value ?? "").Trim()))
+            {
                 OnPropertyChanged(nameof(CanSearchInternet)); // 2026-11-09
+                OnPropertyChanged(nameof(CanGenerateBarcode)); // 2026-11-10
+            }
         }
     }
 
@@ -95,9 +107,13 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                 OnPropertyChanged(nameof(NameRenamed));
                 OnPropertyChanged(nameof(NameWasHint));
                 OnPropertyChanged(nameof(NameSubText));
+                OnPropertyChanged(nameof(NameTip));
             }
         }
     }
+
+    /// <summary>2026-11-10 (владелец: «Наименование должно быть длинным!»): подсказка у названия — полное название (и «Было: …», если его поменяли).</summary>
+    public string? NameTip => _productName.Trim().Length == 0 ? null : NameRenamed ? _productName.Trim() + "\n" + NameWasHint : _productName.Trim();
 
     public string Unit
     {
@@ -118,7 +134,9 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                 OnPropertyChanged(nameof(CanSearchInternet));
                 OnPropertyChanged(nameof(NameRenamed));
                 OnPropertyChanged(nameof(NameWasHint));
+                OnPropertyChanged(nameof(NameTip));
                 OnPropertyChanged(nameof(IsNew));
+                OnPropertyChanged(nameof(CanGenerateBarcode)); // 2026-11-10
                 OnPropertyChanged(nameof(PurchaseChangeText)); // 2026-10-29: «новый товар» зависит от источника
                 OnPropertyChanged(nameof(IsChangeNew));
                 OnPropertyChanged(nameof(IsChangeUp));
@@ -287,11 +305,209 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         OnPropertyChanged(nameof(PurchaseInputText));
     }
 
+    // ------------------------------------------------------------------ 2026-11-10 (жалоба владельца «удобства не удобно»): правка ячейки как в таблицах
+    // Вход в ячейку запоминает значения строки. Пока набирают, пустое поле остаётся пустым (ничего не навязывается обратно). Выход из ячейки:
+    // поле оставили пустым — возвращается прежнее значение этого поля (не «молча 1»); Esc — откат всей правки ячейки.
+
+    private sealed record CellSnapshot(double Quantity, double Purchase, double Sale, double PackCount, double PiecesPerPack, double PackPrice, bool PackPriceTyped,
+        bool PurchaseManual, SalePriceMode SaleMode, PurchaseDefaultSource PurchaseSource, bool PackMode, bool PackSaleOn, string Name, string Barcode, string Unit);
+
+    private CellSnapshot? _cellSnapshot;
+
+    /// <summary>Идёт правка ячейки (запомнены значения до неё).</summary>
+    public bool InCellEdit => _cellSnapshot is not null;
+
+    /// <summary>Вход в ячейку: запомнить значения строки (для Esc и для пустого поля при выходе).</summary>
+    public void BeginCellEdit() => _cellSnapshot = (CellSnapshot)CaptureCellState();
+
+    /// <summary>Esc: вернуть всё, что было до входа в ячейку (число, цены, упаковки, название, штрихкод). Способ приёмки за время правки сменили — откатывать нечего, правка просто закрывается.</summary>
+    public void CancelCellEdit()
+    {
+        var s = _cellSnapshot;
+        _cellSnapshot = null;
+        RestoreAll(s);
+        CommitText();
+    }
+
+    /// <summary>Снимок значений строки для окна, где у каждого поля свой снимок («Закупки → Приём товара»: фокус нового поля приходит раньше ухода из старого).</summary>
+    public object CaptureCellState() =>
+        new CellSnapshot(_quantity, _purchasePrice, _salePrice, _packCount, _piecesPerPack, _packPrice, _packPriceTyped, _purchaseManual, _saleMode, PurchaseSource,
+            _packMode, _packSale, _productName, _barcode, _unit);
+
+    /// <summary>Esc по своему снимку поля (<see cref="CaptureCellState"/>).</summary>
+    public void RestoreCellState(object? state)
+    {
+        RestoreAll(state as CellSnapshot);
+        CommitText();
+    }
+
+    /// <summary>Поле оставили пустым — прежнее значение из своего снимка поля (<see cref="CaptureCellState"/>).</summary>
+    public bool RestoreEmptyField(ReceivingCellField field, object? state) => state is CellSnapshot s && s.PackMode == _packMode && s.PackSaleOn == _packSale && RestoreField(field, s);
+
+    /// <summary>Esc в одном поле («Закупки → Приём товара»): вернуть значение ЭТОГО поля из его снимка (и ноль тоже), остальные поля строки не трогать.</summary>
+    public void RestoreCellField(ReceivingCellField field, object? state)
+    {
+        if (state is not CellSnapshot s || s.PackMode != _packMode || s.PackSaleOn != _packSale)
+            return;
+        _inPackCalc = true;
+        try
+        {
+            switch (field)
+            {
+                case ReceivingCellField.Quantity:
+                    _packCount = s.PackCount;
+                    Quantity = s.Quantity;
+                    break;
+                case ReceivingCellField.Pieces:
+                    _piecesPerPack = s.PiecesPerPack;
+                    _packCount = s.PackCount;
+                    Quantity = s.Quantity;
+                    _packPrice = s.PackPrice;
+                    PurchasePrice = s.Purchase;
+                    break;
+                case ReceivingCellField.Purchase:
+                    _packPrice = s.PackPrice;
+                    _packPriceTyped = s.PackPriceTyped;
+                    PurchasePrice = s.Purchase;
+                    _purchaseManual = s.PurchaseManual;
+                    SalePrice = s.Sale; // автонаценка могла пересчитать продажу от набранной закупки
+                    _saleMode = s.SaleMode;
+                    break;
+                case ReceivingCellField.Sale:
+                    SalePrice = s.Sale;
+                    _saleMode = s.SaleMode;
+                    break;
+            }
+        }
+        finally
+        {
+            _inPackCalc = false;
+        }
+        NotifyPack();
+        NotifyMode();
+        CommitText();
+    }
+
+    private void RestoreAll(CellSnapshot? s)
+    {
+        if (s is not null && s.PackMode == _packMode && s.PackSaleOn == _packSale)
+        {
+            _inPackCalc = true;
+            try
+            {
+                _packCount = s.PackCount;
+                _piecesPerPack = s.PiecesPerPack;
+                _packPrice = s.PackPrice;
+                _packPriceTyped = s.PackPriceTyped;
+                Quantity = s.Quantity;
+                PurchasePrice = s.Purchase;
+                SalePrice = s.Sale;
+            }
+            finally
+            {
+                _inPackCalc = false;
+            }
+            _purchaseManual = s.PurchaseManual;
+            _saleMode = s.SaleMode;
+            PurchaseSource = s.PurchaseSource;
+            ProductName = s.Name;
+            Barcode = s.Barcode;
+            Unit = s.Unit;
+            NotifyPack();
+            NotifyMode();
+        }
+    }
+
+    /// <summary>Выход из ячейки (Enter, Tab, клик мимо): поле, оставленное ПУСТЫМ, получает прежнее значение; затем обычное <see cref="CommitText"/>.
+    /// true — какое-то поле вернули (окно может сказать об этом).</summary>
+    public bool EndCellEdit()
+    {
+        var s = _cellSnapshot;
+        _cellSnapshot = null;
+        var restored = false;
+        if (s is not null && s.PackMode == _packMode && s.PackSaleOn == _packSale)
+        {
+            if (!_packMode && _quantityRaw is { Length: 0 })
+                restored |= RestoreField(ReceivingCellField.Quantity, s);
+            if (_packMode && _packCountRaw is { Length: 0 })
+                restored |= RestoreField(ReceivingCellField.Quantity, s);
+            if (_packMode && _piecesRaw is { Length: 0 })
+                restored |= RestoreField(ReceivingCellField.Pieces, s);
+            if ((!_packMode && _purchaseRaw is { Length: 0 }) || (_packMode && _packPriceRaw is { Length: 0 }))
+                restored |= RestoreField(ReceivingCellField.Purchase, s);
+            if (_saleRaw is { Length: 0 })
+                restored |= RestoreField(ReceivingCellField.Sale, s);
+        }
+        CommitText();
+        return restored;
+    }
+
+    /// <summary>Поле оставили пустым (окна, где ячейка — простое поле, например «Закупки → Приём товара»): вернуть прежнее значение поля из снимка входа. Снимка нет — false.</summary>
+    public bool RestoreEmptyField(ReceivingCellField field) => _cellSnapshot is { } s && RestoreField(field, s);
+
+    /// <summary>Закончить правку без отката (снимок больше не нужен).</summary>
+    public void ForgetCellEdit() => _cellSnapshot = null;
+
+    private bool RestoreField(ReceivingCellField field, CellSnapshot s)
+    {
+        switch (field)
+        {
+            case ReceivingCellField.Quantity:
+                if (_packMode)
+                {
+                    if (s.PackCount <= 0)
+                        return false;
+                    _packCount = s.PackCount;
+                    RecalcQuantity();
+                }
+                else
+                {
+                    if (s.Quantity <= 0)
+                        return false;
+                    Quantity = s.Quantity;
+                }
+                break;
+            case ReceivingCellField.Pieces:
+                if (s.PiecesPerPack <= 0)
+                    return false;
+                SetPiecesPerPack(s.PiecesPerPack);
+                break;
+            case ReceivingCellField.Purchase:
+                if (s.Purchase <= 0)
+                    return false;
+                _inPackCalc = true;
+                try
+                {
+                    _packPrice = s.PackPrice;
+                    _packPriceTyped = s.PackPriceTyped;
+                    PurchasePrice = s.Purchase;
+                }
+                finally
+                {
+                    _inPackCalc = false;
+                }
+                _purchaseManual = s.PurchaseManual;
+                ApplyAutoSale();
+                break;
+            case ReceivingCellField.Sale:
+                if (s.Sale <= 0)
+                    return false;
+                SalePrice = s.Sale;
+                _saleMode = s.SaleMode;
+                NotifyMode();
+                break;
+            default:
+                return false;
+        }
+        NotifyPack();
+        return true;
+    }
+
     /// <summary>Ввод закупки руками: значение; с автонаценкой (строка в режиме «авто») цена продажи пересчитывается.</summary>
     public void SetPurchaseText(string? text)
     {
         var before = PurchasePrice;
-        SetPriceFromText(text, NurMarketKassa.Services.ReceivingPricing.PurchaseDecimals, v => PurchasePrice = v, nameof(PurchasePriceText), r => _purchaseRaw = r);
+        SetPriceFromText(text, NurMarketKassa.Services.ReceivingPricing.PurchaseDecimals, v => PurchasePrice = v, nameof(PurchasePriceText), r => _purchaseRaw = r, isSale: false);
         if (Math.Abs(PurchasePrice - before) > 1e-9)
         {
             _purchaseManual = true; // 2026-11-06: цену закупки вписали руками — при смене поставщика её не подменяем
@@ -333,20 +549,103 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     /// <summary>Строка принимается упаковкой с поштучной продажей (на склад — упаковки, в карточку нового товара — упаковка с N штук).</summary>
     public bool PackSale => _packMode && _packSale;
 
+    private string _packName = "";
+
+    /// <summary>2026-11-10 (эталон веба «Поштучная продажа из упаковки»: поле «Упаковка», подсказка «Пачка»): название упаковки для карточки товара; пусто — «упаковка».
+    /// Касса (как и чтение карточки — PieceOption) ведёт ОДНУ упаковку у товара.</summary>
+    public string PackName
+    {
+        get => _packName;
+        set => Set(ref _packName, (value ?? "").Trim());
+    }
+
     /// <summary>Сколько штук в упаковке, которую заведут в карточку нового товара (0 — строка не в этом варианте). Читают очередь приходов и создание товара.</summary>
     public double PackSaleSize => PackSale ? _piecesPerPack : 0;
 
-    /// <summary>Вариант «поштучная продажа» разрешён только для НОВОГО товара (создаётся при проведении, остатка нет): у существующего товара остаток в штуках — смена единицы
-    /// остатка на «упаковки» исказила бы склад. Весовой товар и строка с размерами — тоже нет (в карточке поштучная продажа только у штучного товара без размеров).</summary>
-    public bool CanPackSale => Source is ReceivingSource.Unknown or ReceivingSource.Internet && !IsWeight && VariantQuantities is not { Count: > 0 };
+    /// <summary>Вариант «поштучная продажа»: весовой товар и строка с размерами — нет (в карточке поштучная продажа только у штучного товара без размеров).
+    /// 2026-11-10 (владелец: «В приёмке как в вебе — как упаковка, продажа поштучно!»): и у ТОВАРА СКЛАДА (есть id в каталоге) — упаковка пишется в его карточку тем же PATCH
+    /// с packages_input, что окно товара, а остаток пересчитывается из штук в упаковки (PurchaseReceivingService.ConvertExistingToPackSaleAsync; без подтверждения
+    /// «Было → станет» не проводится, остаток, который не делится на упаковки ровно, — не проводится). Товар общей базы NurCRM — по-прежнему нет (создаётся другим запросом).</summary>
+    public bool CanPackSale => (Source is ReceivingSource.Unknown or ReceivingSource.Internet || (Source == ReceivingSource.Warehouse && !string.IsNullOrEmpty(_productId)))
+                               && !IsWeight && VariantQuantities is not { Count: > 0 };
+
+    /// <summary>2026-11-10: строка «упаковка с поштучной продажей» у товара склада, у которого единица остатка МЕНЯЕТСЯ (упаковки ещё не было или в ней было другое число штук) —
+    /// перед приходом карточка товара получает упаковку и пересчитанный остаток (PurchaseReceivingService.ConvertExistingToPackSaleAsync).</summary>
+    public bool PackSaleConvertsExisting => PackSale && !IsNew && _piecesPerPack > 0 && (CardPackSize <= 0 || Math.Abs(CardPackSize - _piecesPerPack) > 1e-9);
+
+    /// <summary>2026-11-10: остаток товара склада после смены единицы: <see cref="StockBefore"/> (в штуках, а у товара с упаковкой — в упаковках по <see cref="CardPackSize"/>)
+    /// в упаковках по <see cref="PiecesPerPack"/>. null — не делится ровно на целые упаковки (такую строку не проводим).</summary>
+    public double? ConvertedStock => NurMarketKassa.Services.ReceivingPacks.TryConvertStock(PackConvertStockSeen, CardPackSize, _piecesPerPack, out var after) ? after : null;
+
+    // 2026-11-11 (Умар: атомарный convert-to-packages): что кассир подтвердил перед переводом остатка в упаковки. Пишется окном перед подтверждением
+    // (ReceivingPackConvertFlow — остаток из СВЕЖЕЙ карточки с сервера, не из кэша), уходит в очередь приходов (JobLine) и в запрос expected_quantity.
+    /// <summary>Остаток товара (в единицах сервера), который кассир видел в подтверждении «было → станет»; null — не спрашивали (берётся <see cref="StockBefore"/>).</summary>
+    public double? PackConvertExpected { get; set; }
+
+    /// <summary>Кассир явно согласился округлить остаток до целых упаковок (allow_rounding).</summary>
+    public bool PackConvertAllowRounding { get; set; }
+
+    /// <summary>Ключ повтора перевода в упаковки: новый на каждое подтверждение, тот же при повторе очередью после обрыва.</summary>
+    public string? PackConvertKey { get; set; }
+
+    /// <summary>Остаток для «было → станет»: подтверждённый свежий или <see cref="StockBefore"/>.</summary>
+    public double PackConvertStockSeen => PackConvertExpected ?? StockBefore;
+
+    /// <summary>2026-11-11: свежая карточка с сервера сказала, сколько штук в упаковке у товара (0 — упаковки нет): заменяет прочитанное из кэша каталога.</summary>
+    public void SetCardPackSizeFromServer(double size)
+    {
+        _cardPackSize = size > 0 && size < 1e9 ? size : 0;
+        NotifyPack();
+    }
+
+    /// <summary>2026-11-11 (already_has_packages): у товара УЖЕ есть упаковка по <paramref name="size"/> шт — строка «упаковка с поштучной продажей» пересчитывается в ЕЁ упаковки
+    /// (штуки строки = упаковки × прежних штук в упаковке → ÷ size; закупка и продажа упаковки — по штучной цене × size). false — штуки строки не делятся на целые упаковки по size (ничего не меняется).</summary>
+    public bool AdoptCardPack(double size)
+    {
+        if (!PackSale || size <= 0 || size >= 1e9 || _piecesPerPack <= 0)
+            return false;
+        var pieces = (decimal)Quantity * (decimal)_piecesPerPack;
+        var packs = pieces / (decimal)size;
+        if (Math.Abs(packs - Math.Round(packs)) > 0.000001m)
+            return false;
+        var per = (decimal)_piecesPerPack;
+        var purchase = PurchasePrice > 0 ? (double)Math.Round((decimal)PurchasePrice / per * (decimal)size, NurMarketKassa.Services.ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero) : 0;
+        var sale = SalePrice > 0 ? (double)Math.Round((decimal)SalePrice / per * (decimal)size, 2, MidpointRounding.AwayFromZero) : 0;
+        _cardPackSize = size;
+        _scaleFromPiece = false;
+        _packPriceTyped = true;
+        _packSaleTyped = true;
+        _piecesPerPack = size;
+        _packCountRaw = _piecesRaw = _packPriceRaw = null;
+        _inPackCalc = true;
+        try
+        {
+            Quantity = (double)Math.Round(packs);
+            if (purchase > 0)
+                PurchasePrice = purchase;
+            if (sale > 0)
+                SalePrice = sale;
+        }
+        finally
+        {
+            _inPackCalc = false;
+        }
+        _packCount = Quantity;
+        _packPrice = PurchasePrice;
+        PackConvertExpected = null;
+        PackConvertAllowRounding = false;
+        PackConvertKey = null;
+        NotifyPack();
+        return true;
+    }
 
     /// <summary>Почему «поштучная продажа» недоступна (показывается у пункта меню).</summary>
     public static string PackSaleBlockedText => NurMarketKassa.Services.Tr.T(
-        "Только для НОВОГО товара: у товара с остатком смена единицы остатка («упаковки») исказит склад. Поштучную продажу включите в карточке товара.",
-        "Жаңы товар үчүн гана: калдыгы бар товарда калдык бирдигин («таңгак») алмаштыруу кампаны бузат. Даана менен сатууну товардын картасынан иштетиңиз.",
-        "Only for a NEW product: for a product with stock, changing the stock unit (“packs”) would distort the warehouse. Enable piece sale in the product card.",
-        "Yalnızca YENİ ürün için: stoklu üründe stok birimini («koli») değiştirmek depoyu bozar. Adetli satışı ürün kartında açın.",
-        "Faqat YANGI mahsulot uchun: qoldig'i bor mahsulotda qoldiq birligini («qadoq») almashtirish omborni buzadi. Donalab sotishni mahsulot kartasida yoqing.");
+        "Недоступно для весового товара, товара с размерами и товара из общей базы NurCRM (он создаётся по шаблону базы). Поштучную продажу включите в карточке товара.",
+        "Салмактуу товарга, өлчөмдөрү бар товарга жана NurCRM жалпы базасындагы товарга болбойт (ал базанын үлгүсү менен түзүлөт). Даана менен сатууну товардын картасынан иштетиңиз.",
+        "Not available for a weighed product, a product with sizes or a product from the shared NurCRM base (it is created from the base template). Enable piece sale in the product card.",
+        "Tartılı ürün, bedenli ürün ve ortak NurCRM bazındaki ürün için kullanılamaz (baz şablonuyla oluşturulur). Adetli satışı ürün kartında açın.",
+        "Vaznli mahsulot, o'lchamli mahsulot va umumiy NurCRM bazasidagi mahsulot uchun mavjud emas (u baza shabloni bilan yaratiladi). Donalab sotishni mahsulot kartasida yoqing.");
 
     private double PackPriceOfPurchase() => _packSale ? PurchasePrice : _piecesPerPack > 0 ? NurMarketKassa.Services.ReceivingPacks.PackPriceFromPiece(PurchasePrice, _piecesPerPack) : 0;
 
@@ -384,7 +683,8 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     /// <summary>Включить/выключить вариант «упаковка с поштучной продажей». Включить можно только у НОВОГО товара (<see cref="CanPackSale"/>) — иначе false, ничего не меняется.
     /// Из обычного ввода «упаковками» (в штуки) переход пересчитывает: упаковки → Quantity, цена упаковки → закупка, цена продажи штуки × штук → цена продажи упаковки; из «штук» — числа остаются
     /// как введены (вводят уже упаковки и цену за упаковку). Выключение — обратно в штуки (упаковки × штук, цены ÷ штук).</summary>
-    public bool SetPackSale(bool on, double suggestedPiecesPerPack = 0)
+    /// <param name="keepNumbers">2026-11-10: true — числа строки уже в упаковках (возврат строки из очереди приходов): цены товара склада не пересчитываются из штучных.</param>
+    public bool SetPackSale(bool on, double suggestedPiecesPerPack = 0, bool keepNumbers = false)
     {
         if (on == PackSale)
             return true;
@@ -402,6 +702,12 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         var sale = SalePrice;
         if (!wasPieces && per <= 0 && suggestedPiecesPerPack > 0 && suggestedPiecesPerPack < 1e9)
             per = suggestedPiecesPerPack;
+        // 2026-11-10: товар склада БЕЗ упаковки в карточке — его цены в строке штучные (из карточки). В «упаковке с поштучной продажей» закупка и продажа — за упаковку:
+        // пока цену упаковки / продажи не ввели руками, они следуют за «шт в упак.» (штучная × штук). У товара с упаковкой в карточке цены уже за упаковку — не трогаем.
+        _scaleFromPiece = !keepNumbers && !wasPieces && !IsNew && CardPackSize <= 0;
+        _piecePurchaseBase = PurchasePrice;
+        _pieceSaleBase = SalePrice;
+        _packSaleTyped = false;
         _piecesPerPack = per;
         _packMode = true;
         _packSale = true;
@@ -425,11 +731,42 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         }
         _packCount = Quantity;
         _packPrice = PurchasePrice;
+        if (_scaleFromPiece)
+            ScalePiecePrices();
         if (wasPieces)
             ApplyAutoSale();
         NotifyPack();
         return true;
     }
+
+    // 2026-11-10: цены товара склада, пересчитываемые из штучных в упаковку (см. SetPackSale).
+    private bool _scaleFromPiece, _packSaleTyped;
+    private double _piecePurchaseBase, _pieceSaleBase;
+
+    /// <summary>Закупка и продажа упаковки = штучная × штук в упаковке (пока их не ввели руками).</summary>
+    private void ScalePiecePrices()
+    {
+        if (!_scaleFromPiece || _piecesPerPack <= 0)
+            return;
+        _inPackCalc = true;
+        try
+        {
+            if (!_packPriceTyped && _piecePurchaseBase > 0)
+            {
+                PurchasePrice = Math.Round(_piecePurchaseBase * _piecesPerPack, NurMarketKassa.Services.ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero);
+                _packPrice = PurchasePrice;
+            }
+            if (!_packSaleTyped && _pieceSaleBase > 0)
+                SalePrice = Math.Round(_pieceSaleBase * _piecesPerPack, 2, MidpointRounding.AwayFromZero);
+        }
+        finally
+        {
+            _inPackCalc = false;
+        }
+    }
+
+    /// <summary>Сравнение закупки с прошлой: у товара склада, который сейчас принимается упаковкой с поштучной продажей, прошлая (штучная) закупка × штук в упаковке.</summary>
+    private double ComparePurchase => _packSale && _scaleFromPiece && _piecesPerPack > 0 ? OriginalPurchasePrice * _piecesPerPack : OriginalPurchasePrice;
 
     /// <summary>Выйти из «поштучной продажи» в обычные штуки: упаковки × штук в упаковке, цена закупки и продажи упаковки ÷ штук. Размер упаковки неизвестен — числа остаются.</summary>
     private void LeavePackSale()
@@ -440,6 +777,13 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         _packSale = false;
         _packMode = false;
         _packCountRaw = _piecesRaw = _packPriceRaw = null;
+        _scaleFromPiece = false;
+        // 2026-11-10: у товара, который склад и так ведёт упаковками (упаковка в карточке), числа уже в упаковках — обратно ничего не пересчитываем (иначе остаток вырос бы в N раз).
+        if (CardPackSize > 0)
+        {
+            NotifyPack();
+            return;
+        }
         if (per > 0)
         {
             var sale = SalePrice;
@@ -464,9 +808,16 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     public void SetPiecesPerPack(double perPack)
     {
         _piecesPerPack = perPack > 0 && perPack < 1e9 ? perPack : 0;
+        if (!_packMode)
+        {
+            NotifyPack(); // 2026-11-11: строка в штуках — размер упаковки только запоминается, количество и цены не пересчитываются
+            return;
+        }
         RecalcQuantity();
         var before = PurchasePrice;
-        if (_packPriceTyped)
+        if (_packSale && _scaleFromPiece)
+            ScalePiecePrices(); // 2026-11-10: товар склада — цены упаковки следуют за «шт в упак.», пока их не ввели руками
+        else if (_packPriceTyped)
             RecalcPurchase();
         else
             _packPrice = PackPriceOfPurchase();
@@ -485,7 +836,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
             _packPriceTyped = true;
             _purchaseManual = true; // цену вписали руками — при смене поставщика её не подменяем
             RecalcPurchase();
-        }, nameof(PackPrice), r => _packPriceRaw = r);
+        }, nameof(PackPrice), r => _packPriceRaw = r, isSale: false);
         if (Math.Abs(PurchasePrice - before) > 1e-9)
             ApplyAutoSale();
         NotifyPack();
@@ -493,6 +844,8 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
 
     private void RecalcQuantity()
     {
+        if (!_packMode)
+            return; // 2026-11-11: строка в штуках — поля упаковок количество не трогают (скрытое пустое «шт в упак.» обнуляло «Принимаем» в «Закупки → Приём товара»)
         _inPackCalc = true;
         try
         {
@@ -586,11 +939,12 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     public double CardPackSize => string.IsNullOrEmpty(_productId) ? 0 : _cardPackSize ??= NurMarketKassa.Services.ReceivingPacks.PieceOptionSize(this);
 
     /// <summary>Подпись-ссылка нажимается (у товара с упаковкой в карточке — это просто подсказка).</summary>
-    public bool PackLinkClickable => CardPackSize <= 0;
+    /// 2026-11-10 (владелец: упаковка «как в вебе»): у товара с упаковкой в карточке подпись тоже нажимается — «Изменить штук в упаковке» (через подтверждение «Было → станет»).
+    public bool PackLinkClickable => true;
 
     /// <summary>Подпись-ссылка под «Принимаем» в таблице Склада: какой способ приёмки включён (нажатие открывает выбор).</summary>
-    public string PackLinkText => CardPackSize > 0
-        ? NurMarketKassa.Services.Tr.T($"упак. = {CardPackSize:0.###} шт", $"таңгак = {CardPackSize:0.###} даана", $"pack = {CardPackSize:0.###} pcs", $"koli = {CardPackSize:0.###} adet", $"qadoq = {CardPackSize:0.###} dona")
+    public string PackLinkText => CardPackSize > 0 && !_packSale
+        ? NurMarketKassa.Services.Tr.T($"упак. = {CardPackSize:0.###} шт ▾", $"таңгак = {CardPackSize:0.###} даана ▾", $"pack = {CardPackSize:0.###} pcs ▾", $"koli = {CardPackSize:0.###} adet ▾", $"qadoq = {CardPackSize:0.###} dona ▾")
         : _packSale
         ? NurMarketKassa.Services.Tr.T("упак. + поштучно ▾", "таңгак + даана ▾", "pack + pieces ▾", "koli + adet ▾", "qadoq + dona ▾")
         : _packMode
@@ -598,7 +952,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
             : NurMarketKassa.Services.Tr.T("упаковками ▾", "таңгак менен ▾", "by packs ▾", "kolilerle ▾", "qadoq bilan ▾");
 
     /// <summary>Короткая подпись-ссылка для узкой ячейки таблицы Склада (колонка «Принимаем» 96 px): «упак. ▾» / «упак.→шт ▾» / «упак.+шт ▾». Подробно — <see cref="PackLinkHint"/>.</summary>
-    public string PackLinkShort => CardPackSize > 0
+    public string PackLinkShort => CardPackSize > 0 && !_packSale
         ? PackLinkText
         : _packSale
             ? NurMarketKassa.Services.Tr.T("упак.+шт ▾", "таңгак+дн ▾", "pack+pcs ▾", "koli+adt ▾", "qadoq+dn ▾")
@@ -607,7 +961,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                 : NurMarketKassa.Services.Tr.T("упак. ▾", "таңгак ▾", "packs ▾", "koli ▾", "qadoq ▾");
 
     /// <summary>Подсказка к подписи-ссылке: что включено и что будет на складе.</summary>
-    public string PackLinkHint => CardPackSize > 0
+    public string PackLinkHint => CardPackSize > 0 && !_packSale
         ? NurMarketKassa.Services.Tr.T($"Склад ведёт этот товар упаковками (в упаковке {CardPackSize:0.###} шт): «Принимаем» и закупка — за упаковку.", $"Кампа бул товарды таңгак менен жүргүзөт (таңгакта {CardPackSize:0.###} даана): «Кабыл алабыз» жана баасы — таңгак үчүн.",
             $"The warehouse keeps this product in packs ({CardPackSize:0.###} pcs each): “Receiving” and the purchase price are per pack.", $"Depo bu ürünü koli ile tutar (kolide {CardPackSize:0.###} adet): «Alınıyor» ve alış fiyatı koli başınadır.", $"Ombor bu mahsulotni qadoq bilan yuritadi (qadoqda {CardPackSize:0.###} dona): «Qabul qilinadi» va xarid narxi qadoq uchun.")
         : _packSale
@@ -654,7 +1008,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
             _packCountRaw = (value ?? "").Trim();
             if (_packCountRaw.Length == 0)
                 SetPackCount(0);
-            else if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(_packCountRaw, out var v) && v >= 0)
+            else if (!RejectBarcode(_packCountRaw) && NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(_packCountRaw, out var v) && v >= 0) // 2026-11-11: штрихкод — не число упаковок
                 SetPackCount(v);
             OnPropertyChanged(nameof(QtyInputText));
         }
@@ -669,7 +1023,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
             _piecesRaw = (value ?? "").Trim();
             if (_piecesRaw.Length == 0)
                 SetPiecesPerPack(0);
-            else if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(_piecesRaw, out var v) && v >= 0)
+            else if (!RejectBarcode(_piecesRaw) && NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(_piecesRaw, out var v) && v >= 0) // 2026-11-11
                 SetPiecesPerPack(v);
             OnPropertyChanged(nameof(PiecesInputText));
         }
@@ -764,18 +1118,82 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     public void SetSaleText(string? text)
     {
         var before = SalePrice;
-        SetPriceFromText(text, 2, v => SalePrice = v, nameof(SalePriceText), r => _saleRaw = r);
+        SetPriceFromText(text, 2, v => SalePrice = v, nameof(SalePriceText), r => _saleRaw = r, isSale: true);
         if (Math.Abs(SalePrice - before) > 1e-9)
+        {
             MarkSaleManual();
+            _packSaleTyped = true; // 2026-11-10: цену упаковки ввели руками — из штучной больше не пересчитывается
+        }
     }
 
     private string? _priceProblem;
     private bool _inTextSet; // идёт ввод текста в ячейку: сеттеры значений не сбрасывают сырой текст
 
     /// <summary>Причина, по которой введённое число цены не принято (пусто — всё принято). Показывается красным в колонке «Изменение».</summary>
-    public string PriceProblemText => _priceProblem ?? (QuantityTooPrecise(Quantity) ? QuantityPrecisionText : "");
+    public string PriceProblemText => _priceProblem ?? (QuantityTooPrecise(Quantity) ? QuantityPrecisionText : IsPriceOverLimit ? OverLimitText : IsPriceTooBig ? PriceTooBigText : "");
 
-    private void SetPriceFromText(string? text, int decimals, Action<double> apply, string name, Action<string?> setRaw)
+    // ------------------------------------------------------------------ 2026-11-11 (владелец: штрихкод, попавший в ячейку цены, не должен становиться ценой)
+
+    // 2026-11-11 (ответ Умара): пределы цен сервера — в ServerPriceLimits (продажа ≤ 9 999 999,999; закупка ≤ 9 999 999 999,9999). Выше предела цена не принимается и не проводится;
+    // «подозрительно большая» (больше 1 000 000) — только красная пометка, проводить можно.
+    /// <summary>Максимум, который держит значение цены в строке (черновик, расчёты): предел закупки сервера.</summary>
+    public const double PriceHardMax = (double)NurMarketKassa.Services.ServerPriceLimits.PurchaseMax;
+
+    /// <summary>Цена больше 1 млн — красная строка-предупреждение (почти всегда это попавший в ячейку штрихкод или лишние нули); не запрет.</summary>
+    public const double PriceWarnMax = NurMarketKassa.Services.ServerPriceLimits.SuspiciousPrice;
+
+    /// <summary>Наценка больше 10 000 % — предупреждение «проверьте цены» (проводить можно).</summary>
+    public const double MarkupWarnMax = 10_000;
+
+    /// <summary>Похоже на штрихкод: одни цифры, 8 и больше (EAN-8, EAN-13, UPC). Такой «ввод» в количество, цену и наценку не записывается.</summary>
+    public static bool LooksLikeBarcode(string? text)
+    {
+        var t = (text ?? "").Trim();
+        return t.Length >= 8 && t.All(char.IsAsciiDigit);
+    }
+
+    private string? _rejectedBarcode;
+
+    /// <summary>2026-11-11 (Б-4: скан при открытой ячейке не должен теряться): штрихкод, который сканер «напечатал» в ячейку (медленный сканер — перехват по скорости не сработал)
+    /// и который ячейка не приняла. Окно забирает его по выходу из ячейки и обрабатывает как обычный скан. null — такого не было.</summary>
+    public string? TakeRejectedBarcode()
+    {
+        var code = _rejectedBarcode;
+        _rejectedBarcode = null;
+        return code;
+    }
+
+    private bool RejectBarcode(string? text)
+    {
+        if (!LooksLikeBarcode(text))
+            return false;
+        _rejectedBarcode = text!.Trim();
+        return true;
+    }
+
+    /// <summary>Цена закупки или продажи больше <see cref="PriceWarnMax"/> — предупреждение, не запрет.</summary>
+    public bool IsPriceTooBig => PurchasePrice > PriceWarnMax || SalePrice > PriceWarnMax;
+
+    /// <summary>2026-11-11: цена продажи больше 9 999 999,999 или закупка больше 9 999 999 999,9999 — сервер такую не примет: строка не проводится.</summary>
+    public bool IsPriceOverLimit => NurMarketKassa.Services.ServerPriceLimits.SaleExceeds(SalePrice) || NurMarketKassa.Services.ServerPriceLimits.PurchaseExceeds(PurchasePrice);
+
+    /// <summary>Текст про предел (продажа или закупка — что именно превышено).</summary>
+    public string OverLimitText => NurMarketKassa.Services.ServerPriceLimits.SaleExceeds(SalePrice) ? NurMarketKassa.Services.ServerPriceLimits.SaleTooBigText : NurMarketKassa.Services.ServerPriceLimits.PurchaseTooBigText;
+
+    public static string BarcodeInCellText => NurMarketKassa.Services.Tr.T(
+        "Похоже на штрихкод — в ячейку не записано. Сканируйте в поле скана.",
+        "Штрихкодго окшош — уячага жазылган жок. Скандоо талаасына сканерлеңиз.",
+        "Looks like a barcode — not written to the cell. Scan into the scan field.",
+        "Barkoda benziyor — hücreye yazılmadı. Tarama alanına okutun.",
+        "Shtrix-kodga o'xshaydi — katakka yozilmadi. Skanerlash maydoniga skanerlang.");
+
+    public static string PriceTooBigText => NurMarketKassa.Services.ServerPriceLimits.SuspiciousPriceText; // 2026-11-11: было «больше 10 000 000» (блокировка), стало «больше 1 000 000» (предупреждение)
+
+    public static string MarkupTooBigText => NurMarketKassa.Services.Tr.T(
+        "Наценка больше 10 000 % — проверьте цены", "Кошумча 10 000 %дан ашык — бааларды текшериңиз", "Markup over 10,000% — check the prices",
+        "Kâr %10.000'den fazla — fiyatları kontrol edin", "Ustama 10 000 % dan ortiq — narxlarni tekshiring");
+
+    private void SetPriceFromText(string? text, int decimals, Action<double> apply, string name, Action<string?> setRaw, bool isSale)
     {
         var problem = (string?)null;
         // Сырой набранный текст ставится ДО применения числа и не сбрасывается сеттерами значения (_inTextSet): иначе таблица на миг получает
@@ -792,7 +1210,14 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
             {
                 setRaw(text.Trim()); // «100.», «100,6», «12,333» остаются в ячейке как набраны, пока её правят
                 var parse = NurMarketKassa.Services.CheckoutValidation.TryParseAmount(text, out var value, decimals);
-                if (parse == NurMarketKassa.Services.CheckoutValidation.AmountParse.Ok)
+                // 2026-11-11: штрихкод (одни цифры, от 8) и число больше поля цены сервера ценой не становятся — прежняя цена остаётся, причина красным.
+                if (RejectBarcode(text))
+                    problem = BarcodeInCellText;
+                // 2026-11-11 (ответ Умара): предел сервера — продажа 9 999 999,999, закупка 9 999 999 999,9999 (выше — не принимается, прежняя цена остаётся).
+                else if (parse == NurMarketKassa.Services.CheckoutValidation.AmountParse.Ok
+                    && (isSale ? NurMarketKassa.Services.ServerPriceLimits.SaleExceeds(value) : NurMarketKassa.Services.ServerPriceLimits.PurchaseExceeds(value)))
+                    problem = isSale ? NurMarketKassa.Services.ServerPriceLimits.SaleTooBigText : NurMarketKassa.Services.ServerPriceLimits.PurchaseTooBigText;
+                else if (parse == NurMarketKassa.Services.CheckoutValidation.AmountParse.Ok)
                     apply(value);
                 else
                     problem = NurMarketKassa.Services.CheckoutValidation.AmountProblemText(parse, decimals);
@@ -930,9 +1355,10 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
     // ------------------------------------------------------------------ 2026-10-29: «Закупка изменилась» — сравнение с прошлой закупкой простыми словами
 
     /// <summary>Товар новый или прежней закупки нет — сравнивать не с чем.</summary>
-    public bool IsChangeNew => PurchasePrice > 0 && (IsNew || OriginalPurchasePrice <= 0);
-    public bool IsChangeUp => PurchasePrice > 0 && !IsChangeNew && PurchasePrice - OriginalPurchasePrice > 0.004;
-    public bool IsChangeDown => PurchasePrice > 0 && !IsChangeNew && OriginalPurchasePrice - PurchasePrice > 0.004;
+    // 2026-11-10: сравнение — с ComparePurchase (у товара склада в «упаковке с поштучной продажей» прошлая штучная закупка × штук в упаковке, иначе «↑ дороже в 24 раза»).
+    public bool IsChangeNew => PurchasePrice > 0 && (IsNew || ComparePurchase <= 0);
+    public bool IsChangeUp => PurchasePrice > 0 && !IsChangeNew && PurchasePrice - ComparePurchase > 0.004;
+    public bool IsChangeDown => PurchasePrice > 0 && !IsChangeNew && ComparePurchase - PurchasePrice > 0.004;
     public bool IsChangeSame => PurchasePrice > 0 && !IsChangeNew && !IsChangeUp && !IsChangeDown;
 
     /// <summary>«↑ дороже на 5 сом (+10 %)» / «↓ дешевле на 2 сом» / «без изменений» / «новый товар»; пусто, пока закупка не введена.</summary>
@@ -944,15 +1370,15 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                 return "";
             if (IsChangeNew)
                 return L("новый товар", "жаңы товар", "new product", "yeni ürün", "yangi mahsulot");
-            var delta = Math.Abs(PurchasePrice - OriginalPurchasePrice).ToString("0.##", RuCulture);
+            var delta = Math.Abs(PurchasePrice - ComparePurchase).ToString("0.##", RuCulture);
             if (IsChangeUp)
             {
-                var pct = ChangePercentText(PurchasePrice / OriginalPurchasePrice - 1);
+                var pct = ChangePercentText(PurchasePrice / ComparePurchase - 1);
                 return L($"↑ дороже на {delta} сом (+{pct} %)", $"↑ {delta} сомго кымбат (+{pct} %)", $"↑ up by {delta} som (+{pct}%)", $"↑ {delta} som pahalı (+{pct} %)", $"↑ {delta} so'mga qimmat (+{pct} %)");
             }
             if (IsChangeDown)
             {
-                var pct = ChangePercentText(1 - PurchasePrice / OriginalPurchasePrice);
+                var pct = ChangePercentText(1 - PurchasePrice / ComparePurchase);
                 return L($"↓ дешевле на {delta} сом (−{pct} %)", $"↓ {delta} сомго арзан (−{pct} %)", $"↓ down by {delta} som (−{pct}%)", $"↓ {delta} som ucuz (−{pct} %)", $"↓ {delta} so'mga arzon (−{pct} %)");
             }
             return L("без изменений", "өзгөрүүсүз", "no change", "değişiklik yok", "o'zgarishsiz");
@@ -970,9 +1396,9 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
             if (PurchasePrice <= 0)
                 return "";
             if (IsChangeUp)
-                return "↑ +" + ChangePercentText(PurchasePrice / OriginalPurchasePrice - 1) + " %";
+                return "↑ +" + ChangePercentText(PurchasePrice / ComparePurchase - 1) + " %";
             if (IsChangeDown)
-                return "↓ −" + ChangePercentText(1 - PurchasePrice / OriginalPurchasePrice) + " %";
+                return "↓ −" + ChangePercentText(1 - PurchasePrice / ComparePurchase) + " %";
             return PurchaseChangeText;
         }
     }
@@ -986,7 +1412,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                 return "";
             if (IsChangeNew)
                 return L("прошлой закупки нет", "мурунку сатып алуу жок", "no previous purchase", "önceki alış yok", "oldingi xarid yo'q");
-            return L($"было {OriginalPurchasePrice.ToString("0.00", RuCulture)}", $"болгон {OriginalPurchasePrice.ToString("0.00", RuCulture)}", $"was {OriginalPurchasePrice.ToString("0.00", RuCulture)}", $"önceki {OriginalPurchasePrice.ToString("0.00", RuCulture)}", $"avval {OriginalPurchasePrice.ToString("0.00", RuCulture)}");
+            return L($"было {ComparePurchase.ToString("0.00", RuCulture)}", $"болгон {ComparePurchase.ToString("0.00", RuCulture)}", $"was {ComparePurchase.ToString("0.00", RuCulture)}", $"önceki {ComparePurchase.ToString("0.00", RuCulture)}", $"avval {ComparePurchase.ToString("0.00", RuCulture)}");
         }
     }
 
@@ -1194,8 +1620,18 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         string? qtyProblem = null;
         if (string.IsNullOrWhiteSpace(text))
         {
-            apply(0);
-            setRaw("");
+            // 2026-11-10 (жалоба владельца «Количество 1 не удаляется»): пустой текст ставится ДО значения и под _inTextSet — иначе сеттер Quantity сбрасывал сырой текст,
+            // и таблица на миг получала «0» вместо пустого поля (набор поверх стёртого числа шёл не туда).
+            _inTextSet = true;
+            try
+            {
+                setRaw("");
+                apply(0);
+            }
+            finally
+            {
+                _inTextSet = false;
+            }
         }
         else
         {
@@ -1203,7 +1639,9 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
             try
             {
                 setRaw(text.Trim()); // 2026-10-28: «Принято» тоже хранит набранный текст («2.», «2,5») до выхода из ячейки (CommitText)
-                if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(text, out var value) && value >= 0)
+                if (RejectBarcode(text))
+                    qtyProblem = BarcodeInCellText; // 2026-11-11: штрихкод в «Принимаем» количеством не становится
+                else if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(text, out var value) && value >= 0)
                 {
                     // 2026-10-29: сервер принимает количество не больше чем с 3 знаками после запятой (кг, л).
                     // 2026-10-31 («Не округляй»): больше 3 знаков НЕ округляем и не обрезаем — значение остаётся как набрано, красное пояснение
@@ -1263,7 +1701,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         {
             if (string.IsNullOrWhiteSpace(value))
                 _markupRaw = "";
-            else if (NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(value, out var markup) && markup >= 0)
+            else if (!RejectBarcode(value) && NurMarketKassa.Services.ProductCsvImporter.TryParseNumber(value, out var markup) && markup >= 0) // 2026-11-11: штрихкод — не наценка
             {
                 // 2026-10-24 (Б1, стенд приёмки): таблица сама «записывает» показанную наценку обратно при создании строки — равное текущему
                 // значению не трогает цену продажи (иначе «410» превращалось в «411» из-за округления вверх при каждом показе строки).
@@ -1280,6 +1718,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
                         _inMarkupSet = false;
                     }
                     MarkSaleManual(); // 2026-10-28: наценку вписали руками — автопересчёт цены этой строки выключен
+                    _packSaleTyped = true; // 2026-11-10
                 }
             }
             else
@@ -1309,6 +1748,7 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
 
     // 2026-10-28: непринятое число цены (PriceProblemText) показывается здесь же, в красной строке под ценой.
     public string LowMarginText => PriceProblemText is { Length: > 0 } problem ? problem
+        : MarkupPercent is > MarkupWarnMax ? MarkupTooBigText // 2026-11-11: наценка-великан — предупреждение
         : IsLowMargin && MarkupPercent is { } m
             ? NurMarketKassa.Services.Tr.T($"маржа {m:0.#} %", $"маржа {m:0.#} %", $"margin {m:0.#}%", $"marj {m:0.#} %", $"marja {m:0.#} %")
             : "";
@@ -1326,6 +1766,9 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsPurchaseChanged));
         OnPropertyChanged(nameof(PreviousPurchaseText));
         OnPropertyChanged(nameof(IsLowMargin));
+        OnPropertyChanged(nameof(IsPriceTooBig)); // 2026-11-11
+        OnPropertyChanged(nameof(IsPriceOverLimit));
+        OnPropertyChanged(nameof(PriceProblemText));
         OnPropertyChanged(nameof(LowMarginText));
         OnPropertyChanged(nameof(CanRaiseSalePrice));
         OnPropertyChanged(nameof(ProfitText));
@@ -1472,6 +1915,10 @@ public sealed class ReceivingLineVm : INotifyPropertyChanged
 
     /// <summary>Кнопка «Найти в интернете» у строки видна: штрихкод не найден нигде («Неизвестно») и похож на настоящий (8–14 цифр). Сам поиск никогда не запускается — только по нажатию.</summary>
     public bool CanSearchInternet => Source == ReceivingSource.Unknown && NurMarketKassa.Services.ReceivingInternetLookup.IsSearchable(Barcode);
+
+    /// <summary>2026-11-10 (владелец: «Генерация штрихкода как в вебе!»): кнопка «Сгенерировать штрихкод» у НОВОГО товара без штрихкода («+ Новый товар», «Неизвестно»/«Из интернета» без кода).
+    /// Отсканированный код (заводской) не заменяется; у товара склада штрихкод правится в карточке товара.</summary>
+    public bool CanGenerateBarcode => Source is ReceivingSource.Unknown or ReceivingSource.Internet && string.IsNullOrWhiteSpace(_productId) && _barcode.Length == 0;
 
     /// <summary>Кнопка «Найти в интернете» доступна (поиск не идёт) — для IsEnabled в разметке.</summary>
     public bool NotSearchingInternet => !_internetSearching;

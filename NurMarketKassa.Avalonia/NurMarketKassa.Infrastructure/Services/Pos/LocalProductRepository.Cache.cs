@@ -17,7 +17,8 @@ public sealed partial class LocalProductRepository
     /// <summary>Поля, которые лента изменений прислала БЕЗ карточки товара (только изменившиеся значения). null — поля нет в ответе.</summary>
     public sealed record FeedFieldPatch(string Id, double? Price, double? PurchasePrice, double? WholesalePrice, double? Stock);
 
-    public sealed record FeedApplyResult(int Added, int Changed, int Deleted, IReadOnlyList<string> MissingIds);
+    /// <param name="UnchangedIds">2026-11-11: товары, которые пришли, но запись в базе от них не изменилась (лента прислала то же, что уже есть).</param>
+    public sealed record FeedApplyResult(int Added, int Changed, int Deleted, IReadOnlyList<string> MissingIds, IReadOnlyList<string>? UnchangedIds = null);
 
     /// <summary>2026-10-27 (Б-46, CATALOG_FEED): применить изменения из ленты сервера — upserts (уже готовые плитки) и удалённые товары.
     /// Пишутся только действительно изменившиеся записи (отпечаток, как в SyncReplaceAllWithDiff), кэш правится точечно, как после
@@ -53,6 +54,7 @@ public sealed partial class LocalProductRepository
         var toUpsert = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var toDelete = new List<string>();
         var missing = new List<string>();
+        List<string>? unchanged = null; // 2026-11-11: см. FeedApplyResult.UnchangedIds
         using var connection = OpenConnection();
         // Поля без карточки: берём запись из базы и меняем только присланное. Товара в базе нет — ленте нечем его создать (нужна полная загрузка).
         foreach (var patch in patches)
@@ -89,6 +91,10 @@ public sealed partial class LocalProductRepository
                 changed++;
                 toUpsert.Add(id);
             }
+            else
+            {
+                (unchanged ??= new List<string>()).Add(id);
+            }
         }
 
         foreach (var id in deletedIds.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -96,7 +102,7 @@ public sealed partial class LocalProductRepository
                 toDelete.Add(existing.Id);
 
         if (toUpsert.Count == 0 && toDelete.Count == 0)
-            return new FeedApplyResult(0, 0, 0, missing);
+            return new FeedApplyResult(0, 0, 0, missing, unchanged);
 
         using var transaction = connection.BeginTransaction();
         if (toDelete.Count > 0)
@@ -125,7 +131,7 @@ public sealed partial class LocalProductRepository
         transaction.Commit();
         if (!TryPatchCacheAfterSync(incoming, toUpsert, added, toDelete))
             ResetCache();
-        return new FeedApplyResult(added, changed, toDelete.Count, missing);
+        return new FeedApplyResult(added, changed, toDelete.Count, missing, unchanged);
     }
 
     /// <summary>2026-11-06 (жалоба клиента «колонка Код / штрихкод пустая», база, заполненная сокращённой лентой): дописать в запись товара ТОЛЬКО пустые штрихкод,

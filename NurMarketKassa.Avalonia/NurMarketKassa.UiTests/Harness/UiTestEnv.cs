@@ -13,5 +13,8 @@ internal static class UiTestEnv
             Environment.SetEnvironmentVariable("DESKTOP_MARKET_API_URL", "http://127.0.0.1:9");
         // 2026-11-08: эталоны сняты 07.11.2026 — подписи периода («09.10–07.11») не должны меняться от дня запуска.
         NurMarketKassa.AvaloniaHost.Services.PeriodRange.Today = () => new DateTime(2026, 11, 7);
+        // 2026-11-11 (О-5): черновик приёмки в сквозных тестах окон выключен — иначе строки, оставшиеся от прошлого теста, вызвали бы окно «Продолжить?» в чужом сценарии.
+        // Сам черновик проверяют ReceivingDraftUiTests (они включают его на время теста и папку берут свою).
+        NurMarketKassa.Services.ReceivingDraftStore.Disabled = true;
     }
 }

@@ -28,7 +28,10 @@ public sealed class CatalogFeedSync
     /// изменениях, а пустая страница (первый опрос после изменений: ETag ещё не привязан к новому курсору) её не подтверждала.</param>
     /// <param name="MissingIds">2026-11-07: код каждого «неизвестного» товара (пришла короткая запись без названия, а в базе кассы такого нет). Их карточки читаются по id
     /// (<see cref="CatalogPointRefresh"/>) — полная загрузка каталога нужна, только если таких много или причина другая (курсор забыт, 410).</param>
-    public sealed record TickResult(int Added, int Changed, int Deleted, bool NeedFullSync, string Note, bool Ok = false, IReadOnlyList<string>? MissingIds = null)
+    /// <param name="HiddenChangeIds">2026-11-11: товары, у которых изменилось поле, которого в сокращённой карточке ленты нет (штрихкод, артикул, код, PLU, единица, доп. штрихкоды):
+    /// их карточки читаются по id (<see cref="CatalogPointRefresh"/>). См. <see cref="Apply"/>.</param>
+    public sealed record TickResult(int Added, int Changed, int Deleted, bool NeedFullSync, string Note, bool Ok = false, IReadOnlyList<string>? MissingIds = null,
+        IReadOnlyList<string>? HiddenChangeIds = null)
     {
         public bool Applied => Added + Changed + Deleted > 0;
         public static TickResult None(string note) => new(0, 0, 0, false, note);
@@ -147,6 +150,7 @@ public sealed class CatalogFeedSync
         int added = 0, changed = 0, deleted = 0;
         var needFull = false;
         List<string>? missing = null; // 2026-11-07: см. TickResult.MissingIds
+        List<string>? hidden = null; // 2026-11-11: см. TickResult.HiddenChangeIds
         var pages = 0;
         var notes = "";
         var ok = false;
@@ -211,6 +215,8 @@ public sealed class CatalogFeedSync
                     needFull |= r.NeedFullSync;
                     if (r.MissingIds is { Count: > 0 })
                         (missing ??= []).AddRange(r.MissingIds);
+                    if (r.HiddenChangeIds is { Count: > 0 })
+                        (hidden ??= []).AddRange(r.HiddenChangeIds);
                     // 2026-11-07: повторы из запаса курсора (ничего не изменилось в базе) в журнал не пишем — иначе после каждого изменения шли бы лишние строки.
                     if (lookback <= TimeSpan.Zero || r.Added + r.Changed + r.Deleted > 0 || r.NeedFullSync)
                         PosLogger.Log(
@@ -278,7 +284,7 @@ public sealed class CatalogFeedSync
         LogStatsIfDue();
         if (ok)
             ProductCodeBackfill.ScheduleFromStorage(); // 2026-11-06 (класс Б, Б-7): медленное самолечение товаров без кодов на уровне хранилища (раз в 30 с, ≤ 20 карточек)
-        return new TickResult(added, changed, deleted, needFull, notes, ok, missing);
+        return new TickResult(added, changed, deleted, needFull, notes, ok, missing, hidden);
     }
 
     /// <summary>2026-11-07 (Б-П2): запас назад для курсора ленты (настройка server_prices.json, feed_lookback_sec; 0 — выключен).</summary>
@@ -467,7 +473,36 @@ public sealed class CatalogFeedSync
 
     // ---------------------------------------------------------------- применение страницы
 
-    public sealed record ApplyOutcome(int Added, int Changed, int Deleted, bool NeedFullSync, IReadOnlyList<string>? MissingIds = null);
+    public sealed record ApplyOutcome(int Added, int Changed, int Deleted, bool NeedFullSync, IReadOnlyList<string>? MissingIds = null, IReadOnlyList<string>? HiddenChangeIds = null);
+
+    // 2026-11-11 (жалоба владельца «штрихкод в программе владельца один, а в кассе другой»): сокращённая карточка ленты (9 полей) не несёт штрихкод, артикул, код,
+    // PLU, единицу и доп. штрихкоды — для товара, который уже есть в базе, эти поля берутся из базы (KeepLocalForAbsentFields). Правку ТОЛЬКО штрихкода (окно товара
+    // шлёт лишь изменённые поля, Б-3) лента приносит как «тот же товар без изменений»: касса показывала старый штрихкод до сверки недавних (до 2,5 мин) или до полной
+    // загрузки (сутки). Теперь: товар пришёл в ленте с НОВЫМ updated_at, а запись в базе от него не изменилась (или сменилось только название — правка карточки, а не
+    // продажа) — значит, изменилось поле, которого в ленте нет; его карточку читаем по id. Повтор того же товара из запаса курсора (тот же updated_at) не считается.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> SeenUpdatedAt = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>2026-11-11: карточку не прочитали (сеть, 429) — забыть отметку, чтобы следующий опрос (запас курсора) попробовал ещё раз.</summary>
+    public static void ForgetHiddenSeen(IEnumerable<string> ids)
+    {
+        foreach (var id in ids)
+            SeenUpdatedAt.TryRemove(id, out _);
+    }
+
+    internal static void ResetHiddenSeenForTests() => SeenUpdatedAt.Clear();
+
+    /// <summary>2026-11-11: сокращённая карточка ленты с updated_at, которого этот товар ещё не присылал. Отметка запоминается.</summary>
+    private static bool IsNewShortChange(JsonElement item, string id)
+    {
+        if (item.TryGetProperty("barcode", out _) || !NewProductCardBackfill.IsShortFeedCard(item)
+            || !item.TryGetProperty("updated_at", out var u) || u.ValueKind != JsonValueKind.String || u.GetString() is not { Length: > 0 } stamp)
+            return false;
+        if (SeenUpdatedAt.Count > 20_000)
+            SeenUpdatedAt.Clear();
+        var isNew = !SeenUpdatedAt.TryGetValue(id, out var prev) || !string.Equals(prev, stamp, StringComparison.Ordinal);
+        SeenUpdatedAt[id] = stamp;
+        return isNew;
+    }
 
     private static readonly string[] NameKeys = ["name", "title", "display_name", "label"];
 
@@ -498,6 +533,8 @@ public sealed class CatalogFeedSync
         List<string>? archivedIds = null;
         List<CatalogProductTileVm>? newWithoutCodes = null;
         List<string>? newShortIds = null;
+        List<string>? hiddenCandidates = null; // 2026-11-11: см. SeenUpdatedAt
+        HashSet<string>? renamedIds = null;
         foreach (var item in page.Items)
         {
             var id = ProductCatalogMapper.TryId(item);
@@ -521,7 +558,16 @@ public sealed class CatalogFeedSync
                 // 2026-10-27 (ревью, К-11): карточка ленты может быть сокращённой (без packages / alternate_barcodes / plu / kind) — тогда эти поля
                 // остаются локальными, а не затираются пустыми до следующей полной загрузки (пропадали поштучная продажа, доп. штрихкоды, PLU весов).
                 if (local is not null)
+                {
                     KeepLocalForAbsentFields(item, tile, local);
+                    // 2026-11-11: остаток из ленты к товару не применяется (своя/соседняя продажа, очередь) — это продажа, а не правка карточки: карточку не читаем.
+                    if (stockOk && IsNewShortChange(item, id))
+                    {
+                        (hiddenCandidates ??= new List<string>()).Add(id);
+                        if (!string.Equals(tile.Title.Trim(), local.Title.Trim(), StringComparison.Ordinal))
+                            (renamedIds ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase)).Add(id);
+                    }
+                }
                 else if (NewProductCardBackfill.IsShortFeedCard(item))
                     (newShortIds ??= new List<string>()).Add(tile.Id); // 2026-11-06 (класс Б, Б-1): новый товар в сокращённой карточке — полную (единица, вид, фасовка, категория, PLU) дочитаем с сервера
                 else if (ProductCodeBackfill.NeedsCodes(tile))
@@ -549,7 +595,17 @@ public sealed class CatalogFeedSync
             ProductCodeBackfill.ScheduleForRows(newWithoutCodes);
         if (newShortIds is { Count: > 0 } && result.Added > 0)
             NewProductCardBackfill.Enqueue(newShortIds);
-        return new ApplyOutcome(result.Added, result.Changed, result.Deleted, result.MissingIds.Count > 0, result.MissingIds.Count > 0 ? result.MissingIds : null);
+        // 2026-11-11: запись не изменилась (поменялось поле, которого в ленте нет) или сменилось название (правка карточки: штрихкод могли поменять вместе с ним).
+        List<string>? hiddenIds = null;
+        if (hiddenCandidates is { Count: > 0 })
+        {
+            var unchanged = result.UnchangedIds is { Count: > 0 } u ? new HashSet<string>(u, StringComparer.OrdinalIgnoreCase) : null;
+            hiddenIds = hiddenCandidates.Where(id => unchanged?.Contains(id) == true || renamedIds?.Contains(id) == true)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        return new ApplyOutcome(result.Added, result.Changed, result.Deleted, result.MissingIds.Count > 0, result.MissingIds.Count > 0 ? result.MissingIds : null,
+            hiddenIds is { Count: > 0 } ? hiddenIds : null);
     }
 
     /// <summary>2026-10-27 (ревью, К-11): поля, которых в присланной карточке нет вовсе (ключа нет — не «пустой список»), берём из локальной записи.

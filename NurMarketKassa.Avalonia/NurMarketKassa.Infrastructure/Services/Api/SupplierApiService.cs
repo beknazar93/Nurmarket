@@ -110,13 +110,20 @@ public sealed record SupplierProduct(string Id, string Name, string Code, string
 /// <summary>Возврат поставщику (GET suppliers/returns/): compensation — cash / debt_offset / none.</summary>
 public sealed record SupplierReturnLine(string ProductName, double Qty, string Unit, double PurchasePrice, double Total,
     // 2026-11-05 (накладная на возврат поставщику): артикул и штрихкод строки, если сервер их отдаёт; иначе пусто.
-    string Article = "", string Barcode = "");
+    string Article = "", string Barcode = "",
+    // 2026-11-10 (правка возврата 24 ч): id строки и товара, скидка и примечание строки — для PATCH возврата (ТЗ Умару, п. 2); сервер пока их может не отдавать.
+    string Id = "", string ProductId = "", double Discount = 0, string Note = "");
 
 public sealed record SupplierReturnInfo(
     string Id, string SupplierId, string SupplierName, string ReceiptId, DateTime? CreatedAt, string Reason, string Compensation, double Total,
     string CreatedBy, string Comment, IReadOnlyList<SupplierReturnLine> Lines,
     // 2026-11-05 (накладная на возврат поставщику): серверный номер («ВП-2026-000010» / «ВП-11»), номер прихода-основания и склад, если сервер их отдал.
-    string NumberDisplay = "", string ReceiptNumber = "", string Warehouse = "");
+    string NumberDisplay = "", string ReceiptNumber = "", string Warehouse = "",
+    // 2026-11-10 (правка и аннулирование 24 ч): версия, статус, can_edit/can_void, сроки по времени сервера; нет полей — ReturnEditState.None (кнопок нет).
+    ReturnEditState? Edit = null)
+{
+    public ReturnEditState EditState => Edit ?? ReturnEditState.None;
+}
 
 /// <summary>Строка списка «Поставщики»: долг (kpis), предоплата, просрочка и ближайший срок (по сделкам), последняя закупка (приходы).
 /// Loaded=false — долг по поставщику получить не удалось (строка показывает «не загрузилось»).</summary>
@@ -893,7 +900,8 @@ public sealed class SupplierApiService
         var items = Arr(x, "items") is { Count: > 0 } it ? it : Arr(x, "lines");
         var lines = items.Select(i => new SupplierReturnLine(Str(i, "product_name"), Num(i, "qty"), Str(i, "unit"), Num(i, "purchase_price"),
             Num(i, "line_total") is > 0 and var lt ? lt : Num(i, "qty") * Num(i, "purchase_price"),
-            First(i, "article", "product_article", "product_code"), First(i, "barcode", "product_barcode"))).ToList();
+            First(i, "article", "product_article", "product_code"), First(i, "barcode", "product_barcode"),
+            Str(i, "id"), First(i, "product_id", "product"), Num(i, "discount"), First(i, "note", "comment"))).ToList();
         // Номер: number_display («ВП-2026-000010»); нет — number (число у сервера) с префиксом «ВП-».
         var number = Str(x, "number_display");
         if (number.Length == 0 && Str(x, "number") is { Length: > 0 } plain)
@@ -903,7 +911,7 @@ public sealed class SupplierApiService
             receiptNumber = "";
         return new SupplierReturnInfo(Str(x, "id"), Str(x, "supplier_id"), Str(x, "supplier_name"), Str(x, "receipt_id"), Date(Str(x, "created_at")),
             Str(x, "reason"), Str(x, "compensation") is { Length: > 0 } c ? c : Str(x, "compensation_type"), Num(x, "total_amount"), Str(x, "created_by_name"),
-            Str(x, "comment"), lines, number, receiptNumber, First(x, "warehouse_name", "warehouse"));
+            Str(x, "comment"), lines, number, receiptNumber, First(x, "warehouse_name", "warehouse"), ReturnEditState.Parse(x));
     }
 
     private static IEnumerable<JsonElement> Rows(JsonElement d) =>

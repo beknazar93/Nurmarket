@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using NurMarketKassa.AvaloniaHost.Views.Dialogs;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
+using ReturnSaleLauncher = NurMarketKassa.AvaloniaHost.Services.ReturnSaleLauncher; // 2026-11-10
 
 namespace NurMarketKassa.AvaloniaHost.Views;
 
@@ -1128,6 +1129,25 @@ public sealed class DebtsView : UserControl
             };
             buttons.Children.Add(pay);
         }
+        // 2026-11-10, владелец: «возврат добавь в клиентов которые брали в долг» — «Возврат» у должника: окно возврата со списком ЕГО чеков (статус «Долговой»);
+        // у каждого чека в раскрытой таблице — своя кнопка «Возврат». После возврата карточка клиента перечитывается (долг пересчитывает сервер).
+        if (d.ClientId.Length > 0 && d.Sales.Any(s => !s.Id.StartsWith("deal:", StringComparison.Ordinal)) && ReturnSaleLauncher.CanReturn())
+        {
+            var ret = UiKit.Ghost(this, ReturnSaleLauncher.ButtonText);
+            ret.Height = 40;
+            ret.MinHeight = 40;
+            ret.MinWidth = 0;
+            ret.FontSize = 13;
+            ret.Padding = new Thickness(12, 0);
+            ret.Margin = new Thickness(6, 0, 0, 0);
+            Avalonia.Automation.AutomationProperties.SetName(ret, ReturnSaleLauncher.ButtonText + " — " + d.Name);
+            ret.Click += async (_, e) =>
+            {
+                e.Handled = true;
+                await OpenReturnAsync(d, null, null).ConfigureAwait(true);
+            };
+            buttons.Children.Add(ret);
+        }
         right.Children.Add(buttons);
         if (why is not null)
             right.Children.Add(why);
@@ -1150,9 +1170,29 @@ public sealed class DebtsView : UserControl
         return card;
     }
 
+    /// <summary>2026-11-10: окно возврата для должника (его чеки, статус «Долговой») или сразу с чеком <paramref name="saleId"/>; после — карточка клиента с сервера.</summary>
+    private async Task OpenReturnAsync(Debtor d, string? saleId, string? number)
+    {
+        if (TopLevel.GetTopLevel(this) is not Window owner)
+            return;
+        var opened = await ReturnSaleLauncher.OpenAsync(owner, saleId, number, clientId: d.ClientId, clientName: d.Name,
+            status: SaleListFilter.StatusKind.Debt).ConfigureAwait(true);
+        if (!opened || d.ClientId.Length == 0)
+            return;
+        try
+        {
+            await ReloadClientAsync(d.ClientId).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Долги клиентов: карточка {d.ClientId} после возврата не перечитана ({ex.Message}).", "WARNING");
+        }
+    }
+
     private Control BuildSalesTable(Debtor d)
     {
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,Auto,*,Auto,Auto,Auto"), Margin = new Thickness(0, 6, 0, 0) };
+        var canReturn = d.ClientId.Length > 0 && ReturnSaleLauncher.CanReturn(); // 2026-11-10: колонка «Возврат» у каждого чека в долг
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(canReturn ? "Auto,Auto,*,Auto,Auto,Auto,Auto" : "Auto,Auto,*,Auto,Auto,Auto"), Margin = new Thickness(0, 6, 0, 0) };
         var row = 0;
         void Cell(string text, int col, bool head = false, string brush = "BrushText", bool right = false, bool wrap = false)
         {
@@ -1192,6 +1232,27 @@ public sealed class DebtsView : UserControl
             // 2026-10-21 (пакет 4, п. 93): остаток чека — цветом текста, красный — только у чека старше 30 дней.
             Cell(Money(s.Left) + (s.Checking ? " · " + T("уточняется", "такталууда", "being checked", "kontrol ediliyor", "aniqlanmoqda") : ""), 5,
                 brush: s.Checking ? "BrushWarning" : AgeDays(s.At) > 30 ? "BrushDanger" : "BrushText", right: true);
+            // 2026-11-10: «Возврат» по этому чеку (долг без продажи — «deal:…» — вернуть нечего).
+            if (canReturn && s.Id.Length > 0 && !s.Id.StartsWith("deal:", StringComparison.Ordinal))
+            {
+                var sale = s;
+                var ret = UiKit.Ghost(this, ReturnSaleLauncher.ButtonText);
+                ret.Height = 36;
+                ret.MinHeight = 36;
+                ret.MinWidth = 0;
+                ret.FontSize = 12.5;
+                ret.Padding = new Thickness(10, 0);
+                ret.Margin = new Thickness(14, 2, 0, 2);
+                Avalonia.Automation.AutomationProperties.SetName(ret, ReturnSaleLauncher.ButtonText + " — №" + sale.Number);
+                ret.Click += async (_, e) =>
+                {
+                    e.Handled = true;
+                    await OpenReturnAsync(d, sale.Id, sale.Number.Length > 0 ? sale.Number : null).ConfigureAwait(true);
+                };
+                Grid.SetRow(ret, row);
+                Grid.SetColumn(ret, 6);
+                grid.Children.Add(ret);
+            }
         }
         return grid;
     }

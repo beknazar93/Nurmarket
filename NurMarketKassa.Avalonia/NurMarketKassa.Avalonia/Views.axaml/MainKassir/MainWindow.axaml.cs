@@ -229,6 +229,14 @@ public partial class MainWindow : Window
         ApplyFullscreenPreference();
         // 2026-10-30: окно кассы всегда целиком в рабочей области своего экрана (старый размер, другой монитор, масштаб Windows).
         NurMarketKassa.AvaloniaHost.Services.WindowFitGuard.Attach(this);
+        // 2026-11-11 (жалоба «частое сворачивание — кривые кнопки, пол-окна»): после разворачивания (серия — один раз, через 150 мс) —
+        // перерисовка окна и пересчёт колонок, низкого экрана и узкой шапки по настоящему размеру.
+        NurMarketKassa.AvaloniaHost.Services.WindowRestoreGuard.Attach(this, () =>
+        {
+            FitColumnMinimums();
+            UpdateShortScreen();
+            UpdateHeaderNarrow();
+        });
         // Масштаб — до показа окна: UiScaleHelper дождётся, пока окно окажется на экране, и
         // первый же кадр кассы будет подогнан под экран, а не в родных 1280×840.
         RefreshUiScale();

@@ -58,6 +58,7 @@ public static class SectionVisibility
         ("branches", Tr.T("Филиалы", "Филиалдар", "Branches", "Şubeler", "Filiallar")),
         ("losssales", Tr.T("Продажи в убыток", "Зыян менен сатуулар", "Sales at a loss", "Zararına satışlar", "Zarariga sotuvlar")),
         ("sizesreport", Tr.T("Размеры и цвета", "Өлчөмдөр жана түстөр", "Sizes and colours", "Bedenler ve renkler", "O'lchamlar va ranglar")),
+        ("salereturn", Tr.T("Возврат товаров по чеку", "Чек боюнча товар кайтаруу", "Return goods by receipt", "Fişe göre ürün iadesi", "Chek bo'yicha tovar qaytarish")), // 2026-11-10
         ("debts", Tr.T("Долги клиентов", "Кардарлардын карыздары", "Customer debts", "Müşteri borçları", "Mijozlar qarzlari")),
         ("siteorders", Tr.T("Заказы с сайта", "Сайттан заказдар", "Website orders", "Web sitesi siparişleri", "Saytdan buyurtmalar")),
         ("siteeditor", Tr.T("Редактор сайта", "Сайттын редактору", "Website editor", "Web sitesi düzenleyici", "Sayt muharriri")),

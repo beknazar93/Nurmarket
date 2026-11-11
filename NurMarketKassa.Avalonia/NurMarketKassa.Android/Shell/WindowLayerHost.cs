@@ -92,7 +92,8 @@ public sealed class WindowLayerHost : Panel
         UpdateInteractivity();
         // 2026-10-05, владелец: «плавный интерфейс и приятный переход». Окна и диалоги появляются плавно; главные
         // окна (заставка, касса, программа владельца) — сразу.
-        if (!(IsMainWindow?.Invoke(window) ?? false))
+        // 2026-11-11: «слабое устройство» — без анимации появления (ModalMotion.ReduceMotion).
+        if (!(IsMainWindow?.Invoke(window) ?? false) && !NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalMotion.ReduceMotion)
             AnimateIn(layer, modal);
         // 2026-10-04: журнал окон — чтобы по журналу Android было видно, какое окно висит сверху.
         NurMarketKassa.Services.PosLogger.Log($"Android: окно открыто {window.GetType().Name}{(modal ? " (модальное)" : "")}, слоёв {_windows.Count}.", "UI");
@@ -307,16 +308,17 @@ public sealed class WindowLayerHost : Panel
     // ---- 2026-10-30: размытие фона под модалкой (затемнение уже есть в слое модалки; здесь — блюр слоёв ниже неё) ----
 
     private readonly List<Layer> _blurLayers = new();
-    private double _blurLevel;
-    private double _blurGoal;
-    private DispatcherTimer? _blurTimer;
+    private BlurEffect? _blurEffect;
 
-    /// <summary>Слои ниже верхней модалки размываются за 130 мс; когда модалок нет — размытие плавно снимается. Слабое устройство — без блюра.</summary>
+    /// <summary>Слой под верхней модалкой размывается (2026-11-11: сразу, без анимации, если включена настройка); когда модалок нет — размытие снимается.
+    /// Слабое устройство — без блюра.</summary>
     private void UpdateBackdropBlur(int topModal)
     {
         try
         {
-            if (NurMarketKassa.Services.UserPreferences.Instance.LowPerformanceMode)
+            // 2026-11-11 (жалоба «затемнение дольше 2 с», одинаково с Windows/Linux): размытие только если включено явно (ModalMotion.BlurEnabled,
+            // по умолчанию нет) — новый BlurEffect на каждом кадре перерисовывал весь слой под модалкой; затемнение слоя модалки остаётся.
+            if (NurMarketKassa.Services.UserPreferences.Instance.LowPerformanceMode || !NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalMotion.BlurEnabled)
                 topModal = -1;
             var wanted = new List<Layer>();
             // 2026-11-06: В4 шаг 20 — на Android размывается ОДИН слой: непосредственно под верхней модалкой (раньше — все слои ниже неё, каждый со своим
@@ -335,24 +337,14 @@ public sealed class WindowLayerHost : Panel
                 _blurLayers.Remove(old);
             }
             _blurLayers.AddRange(wanted.Where(l => !_blurLayers.Contains(l)));
-            _blurGoal = _blurLayers.Count > 0 ? 1 : 0;
-            if (_blurTimer is null)
+            // 2026-11-11 (настройка «Размытие фона под окнами»): без анимации — один эффект с постоянным радиусом ставится сразу и снимается
+            // вместе с модалкой (раньше новый BlurEffect на каждом кадре 130 мс перерисовывал слой целиком).
+            _blurEffect ??= new BlurEffect { Radius = NurMarketKassa.AvaloniaHost.Views.Dialogs.ModalMotion.BlurRadius };
+            foreach (var l in _blurLayers)
             {
-                _blurTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-                _blurTimer.Tick += (_, _) =>
-                {
-                    _blurLevel = _blurGoal > _blurLevel ? Math.Min(1, _blurLevel + 16.0 / 130) : Math.Max(0, _blurLevel - 16.0 / 130);
-                    foreach (var l in _blurLayers)
-                        l.Effect = _blurLevel > 0 ? new BlurEffect { Radius = _blurLevel * 5 } : null;
-                    if (_blurLevel == _blurGoal)
-                        _blurTimer?.Stop();
-                };
+                if (!ReferenceEquals(l.Effect, _blurEffect))
+                    l.Effect = _blurEffect;
             }
-            if (_blurLevel != _blurGoal)
-                _blurTimer.Start();
-            else
-                foreach (var l in _blurLayers)
-                    l.Effect = _blurLevel > 0 ? new BlurEffect { Radius = _blurLevel * 5 } : null;
         }
         catch (Exception ex)
         {

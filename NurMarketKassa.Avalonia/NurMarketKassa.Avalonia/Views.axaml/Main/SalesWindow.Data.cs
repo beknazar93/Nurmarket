@@ -523,9 +523,12 @@ namespace NurMarketKassa.AvaloniaHost.Views
         // ── Фильтрация и поиск ──
         private void FilterSales(object sender, FilterEventArgs e)
         {
+            // 2026-11-10: общая панель фильтров (оплата, статус, кассир, клиент, сумма — SaleListFilter, как в окне возврата).
+            if (e.Item is SaleItem fs && !PassesSharedFilter(fs)) { e.Accepted = false; return; }
             if (string.IsNullOrWhiteSpace(_searchFilter)) { e.Accepted = true; return; }
             // Поиск и по номеру, и по товарам в чеке.
-            if (e.Item is SaleItem s) e.Accepted = SearchMatch.Matches(_searchFilter.Trim().TrimStart('№', '#'), s.ReceiptNumber, s.ItemsSummary); // 2026-10-29: единый поиск («№1115», слова товаров в любом порядке)
+            if (e.Item is SaleItem s) e.Accepted = SearchMatch.Matches(_searchFilter.Trim().TrimStart('№', '#'), s.ReceiptNumber, s.ItemsSummary) // 2026-10-29: единый поиск («№1115», слова товаров в любом порядке)
+                || ProductCodeMatches(s, _searchFilter.Trim()); // 2026-11-10: и по штрихкоду/артикулу товара (каталог кассы)
             else e.Accepted = false;
         }
 
@@ -539,6 +542,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
             {
                 await Task.Delay(300, currentCts.Token);
                 SalesView.Refresh();
+                UpdateFilterCount(); // 2026-11-10
             }
             catch (TaskCanceledException)
             {
@@ -563,6 +567,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         /// Нажатие на заголовок или пустое место таблицы чек не открывает.</summary>
         private async void SalesGrid_Tapped(object sender, TappedEventArgs e)
         {
+            // 2026-11-10: нажатие на кнопку «Возврат» в строке — не открывать чек.
+            if (e.Source is Avalonia.Visual tappedVisual && Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<Button>(tappedVisual, true) is not null)
+                return;
             var row = Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<DataGridRow>(e.Source as Avalonia.Visual, includeSelf: true);
             if (row?.DataContext is SaleItem item)
                 await ShowReceiptDetailsByIdAsync(item.Id, item.ReceiptNumber);
@@ -913,6 +920,20 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 || string.Equals(Status, "partially_returned", StringComparison.OrdinalIgnoreCase);
             public bool IsRefund { get; set; }
             public string RefundReason { get; set; }
+
+            // 2026-11-10 (возврат из «Продаж», фильтры): статус возврата, кассир и клиент строки списка.
+            public string ReturnStatus { get; set; }
+            public string Cashier { get; set; }
+            public string ClientName { get; set; }
+            public string ReturnMark => ReturnSaleLauncher.ReturnMark(Status, ReturnStatus);
+            public bool HasReturnMark => ReturnMark.Length > 0;
+            /// <summary>Чек можно вернуть: серверный (не локальный) и не возвращён целиком.</summary>
+            public bool CanReturnRow => Id.Length > 0 && !Id.StartsWith("local-", StringComparison.Ordinal) && !ReturnSaleLauncher.IsFullyReturned(Status, ReturnStatus);
+            public string ReturnTip => CanReturnRow ? null : ReturnSaleLauncher.IsFullyReturned(Status, ReturnStatus) ? ReturnSaleLauncher.FullyReturnedHint
+                : Tr.T("Чек этой кассы без связи — возврат после отправки на сервер.", "Байланышсыз кассанын чеги — кайтаруу серверге жөнөтүлгөндөн кийин.",
+                    "Offline receipt of this till — return after it is sent to the server.", "Bu kasanın çevrimdışı fişi — sunucuya gönderildikten sonra iade.",
+                    "Aloqasiz kassa cheki — qaytarish serverga yuborilgandan keyin.");
+            public string ReturnButtonName => ReturnSaleLauncher.ButtonText + " — " + ReceiptNumber;
         }
 
         /// <summary>Подпись валюты на экране.</summary>

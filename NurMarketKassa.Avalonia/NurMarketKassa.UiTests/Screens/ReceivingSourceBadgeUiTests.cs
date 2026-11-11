@@ -156,7 +156,8 @@ public sealed class ReceivingSourceBadgeUiTests
             warehouse.NameOrUnitChanged.Should().BeTrue("название уйдёт в карточку при проведении");
             var renamedText = warehouseRow.GetVisualDescendants().OfType<TextBlock>().First(t => t.IsEffectivelyVisible && t.Text == "Молоко 1 л 3,2 %");
             renamedText.Classes.Contains("rcv-renamed").Should().BeTrue($"изменённое название подсвечено ({tag})");
-            (ToolTip.GetTip(renamedText) as string).Should().Contain("Молоко 1 л").And.Be(warehouse.NameWasHint, $"в подсказке «было: …» ({tag})");
+            // 2026-11-10 (владелец: «Наименование должно быть длинным!»): подсказка — полное название, а под ним «было: …»
+            (ToolTip.GetTip(renamedText) as string).Should().Contain("Молоко 1 л").And.Contain(warehouse.NameWasHint, $"в подсказке «было: …» ({tag})").And.StartWith(warehouse.ProductName.Trim(), $"полное название в подсказке ({tag})");
 
             SaveShot(window, $"receiving-source-warehouse-{(lang == AppLanguage.Kyrgyz ? "ky" : "ru")}-{width}x{height}");
         }

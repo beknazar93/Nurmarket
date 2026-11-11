@@ -177,6 +177,17 @@ public partial class OwnerShellWindow
         };
         NavRail.SizeChanged += (_, _) => ApplyRailDensity();
         RefreshUiScale();
+        // 2026-11-11 (жалоба «частое сворачивание — программа наполовину, кривые кнопки»): после разворачивания (серия сворачиваний —
+        // один раз, через 150 мс) — перерисовка окна, раскладка меню по настоящей ширине и раздел ровно на своё место.
+        NurMarketKassa.AvaloniaHost.Services.WindowRestoreGuard.Attach(this, OnShellRestored);
+    }
+
+    /// <summary>2026-11-11: окно развёрнуто из свёрнутого и размер уже настоящий (WindowRestoreGuard).</summary>
+    private void OnShellRestored()
+    {
+        UpdateWindowChrome();
+        OnShellSizeChangedForNav();
+        SyncSectionBounds();
     }
 
     /// <summary>2026-10-18, ревью О2: при 1366×768 и масштабе 125 % окно ~580 точек в высоту — «Управление» и «Помощь» уходили

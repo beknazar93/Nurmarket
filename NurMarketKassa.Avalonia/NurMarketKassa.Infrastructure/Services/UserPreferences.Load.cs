@@ -116,6 +116,8 @@ public sealed partial class UserPreferences
                 p.LabelPageFromTemplate = fromFile.LabelPageFromTemplate.Value;
             if (fromFile.TransferAutoWaybill is not null)
                 p.TransferAutoWaybill = fromFile.TransferAutoWaybill.Value; // 2026-10-31
+            if (fromFile.AskQtyOnRepeatScan is not null)
+                p.AskQtyOnRepeatScan = fromFile.AskQtyOnRepeatScan.Value; // 2026-11-09
             if (fromFile.TransferAutoOther is not null)
                 p.TransferAutoOther = fromFile.TransferAutoOther.Value;
             if (fromFile.LabelGapMm is >= 0 and <= 20)
@@ -210,6 +212,11 @@ public sealed partial class UserPreferences
                 p.TrueFullscreen = fromFile.TrueFullscreen.Value;
             if (fromFile.LowPerformanceMode is not null)
                 p.LowPerformanceMode = fromFile.LowPerformanceMode.Value;
+            // 2026-11-11: размытие фона под модалками и режим отрисовки Windows — настройки этого ПК.
+            if (fromFile.ModalBackgroundBlur is not null)
+                p.ModalBackgroundBlur = fromFile.ModalBackgroundBlur.Value;
+            if (!string.IsNullOrWhiteSpace(fromFile.WindowsRenderMode))
+                p.WindowsRenderMode = fromFile.WindowsRenderMode;
             if (fromFile.AskOwnerPinOnKassaPc is not null)
                 p.AskOwnerPinOnKassaPc = fromFile.AskOwnerPinOnKassaPc.Value; // 2026-11-06 (Л4-19)
             if (fromFile.VoiceControlEnabled is not null)

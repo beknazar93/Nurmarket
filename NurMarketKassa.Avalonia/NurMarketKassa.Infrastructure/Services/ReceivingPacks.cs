@@ -87,6 +87,21 @@ public static class ReceivingPacks
     // ------------------------------------------------------------------ 2026-11-07: «упаковка с поштучной продажей» (подтверждение)
 
     /// <summary>Текст подтверждения перед проведением строк «упаковка с поштучной продажей»: единица остатка товара меняется — спрашиваем явно.</summary>
+    /// <summary>2026-11-10 (упаковка у товара склада): остаток <paramref name="stock"/> (в штуках, а если у товара уже есть упаковка по <paramref name="oldPerPack"/> шт — в таких упаковках)
+    /// в упаковках по <paramref name="newPerPack"/> шт. false — не делится на ЦЕЛЫЕ упаковки (дробный остаток штучного товара сервер не принимает; такую строку не проводим).</summary>
+    public static bool TryConvertStock(double stock, double oldPerPack, double newPerPack, out double newStock)
+    {
+        newStock = 0;
+        if (newPerPack <= 0 || double.IsNaN(stock) || double.IsInfinity(stock))
+            return false;
+        var pieces = (decimal)stock * (decimal)(oldPerPack > 0 ? oldPerPack : 1);
+        var packs = pieces / (decimal)newPerPack;
+        if (Math.Abs(packs - Math.Round(packs)) > 0.000001m)
+            return false;
+        newStock = (double)Math.Round(packs);
+        return true;
+    }
+
     public static string PackSaleConfirmMessage(IReadOnlyList<ReceivingLineVm> lines)
     {
         static string N(double v) => v.ToString("0.#########", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',');
@@ -96,6 +111,21 @@ public static class ReceivingPacks
             var per = N(l.PackSaleSize);
             var packs = N(l.Quantity);
             var piece = N(PurchaseReceivingService.PackPieceSalePrice(l));
+            // 2026-11-10 (упаковка у товара склада): «Было: N шт → станет: M упак. по K шт; остаток …; приход …; продажа поштучно: цена штуки …».
+            if (l.PackSaleConvertsExisting)
+            {
+                var stock = N(l.StockBefore);
+                var after = l.ConvertedStock is { } a ? N(a) : "?";
+                var packPrice = N(l.PurchasePrice);
+                var was = l.CardPackSize > 0
+                    ? Tr.T($"упаковка по {N(l.CardPackSize)} шт, остаток {stock} упак.", $"таңгак {N(l.CardPackSize)} даанадан, калдык {stock} таңгак", $"a pack of {N(l.CardPackSize)} pcs, stock {stock} packs", $"{N(l.CardPackSize)} adetlik koli, stok {stock} koli", $"{N(l.CardPackSize)} donalik qadoq, qoldiq {stock} qadoq")
+                    : Tr.T($"{stock} шт", $"{stock} даана", $"{stock} pcs", $"{stock} adet", $"{stock} dona");
+                return "• " + name + ": " + Tr.T($"было: {was} → станет: {after} упак. по {per} шт; приход: +{packs} упак. по {packPrice} сом за упаковку; продажа поштучно: цена штуки {piece} сом",
+                    $"болгон: {was} → болот: {after} таңгак, ар бири {per} даана; кирүү: +{packs} таңгак, таңгагы {packPrice} сом; даана менен сатуу: даананын баасы {piece} сом",
+                    $"was: {was} → will be: {after} packs of {per} pcs; receipt: +{packs} packs at {packPrice} som per pack; piece sale: piece price {piece} som",
+                    $"önce: {was} → sonra: {per} adetlik {after} koli; giriş: +{packs} koli, kolisi {packPrice} som; adetli satış: adet fiyatı {piece} som",
+                    $"avval: {was} → bo'ladi: {per} donalik {after} qadoq; kirim: +{packs} qadoq, qadog'i {packPrice} so'm; donalab sotish: dona narxi {piece} so'm");
+            }
             return "• " + name + ": " + Tr.T($"{packs} упак. по {per} шт, штука в продаже {piece} сом", $"{packs} таңгак, ар бири {per} дана, даанасы сатууда {piece} сом",
                 $"{packs} packs of {per} pcs, piece on sale {piece} som", $"{packs} koli, her biri {per} adet, adet satışı {piece} som", $"{packs} qadoq, har biri {per} dona, donasi sotuvda {piece} so'm");
         }).ToList();

@@ -74,6 +74,8 @@ public partial class WarehouseWindow
             ReceivingDebtRadio.IsChecked = true;
             _viewModel.ReceivingPaidNow = false;
             _ = _viewModel.LoadReceivingSuppliersAsync();
+            // 2026-11-11 (О-5): черновик неоконченной приёмки — автосохранение и «Продолжить / Начать заново» (WarehouseWindow.ReceivingDraft.cs).
+            InitReceivingDraft();
             // 2026-10-24, пакет Р2: код извне идёт в открытую ревизию (строку-дубль в старой таблице больше не создаём).
             if (!string.IsNullOrWhiteSpace(InitialBarcode))
                 RevisionExternalScan(InitialBarcode.Trim());

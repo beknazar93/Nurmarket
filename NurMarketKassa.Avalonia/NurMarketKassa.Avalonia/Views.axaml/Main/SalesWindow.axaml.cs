@@ -90,6 +90,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 "Fiş ara: numara veya ürün", "Chek qidirish: raqam yoki mahsulot");
             Avalonia.Automation.AutomationProperties.SetName(SearchReceiptBox, SearchReceiptBox.Watermark);
             ChecksTab.Header = Tr.T("Чеки", "Чектер", "Receipts", "Fişler", "Cheklar");
+            AddReturnColumn(); // 2026-11-10, владелец: «функцию возврата добавь в продажи» — колонка «Возврат» (при праве «Возврат»)
             // 2026-10-24 (аудит, круг 8, С-5): плитки выручки и чеков — без продаж в долг (как в «Аналитике»); возвраты — подпись,
             // что возвращённые чеки уже не в выручке. Суммы плиток не менялись.
             RevenueLabel.Text = Tr.T("Выручка (без долга)", "Түшүм (карызсыз)", "Revenue (excl. credit)", "Ciro (veresiyesiz)", "Tushum (qarzsiz)");
@@ -187,7 +188,7 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 ChecksTab.Content = null;
                 var checks = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
                 Grid.SetRow(SalesGrid, 1);
-                checks.Children.Add(search);
+                checks.Children.Add(SearchWithFilters(search)); // 2026-11-10: строка поиска + «Фильтры (N)» и панель фильтров
                 checks.Children.Add(SalesGrid);
                 ChecksTab.Content = checks;
             }
@@ -754,6 +755,10 @@ namespace NurMarketKassa.AvaloniaHost.Views
                 if (el.TryGetProperty("payment_method", out var pmProp)) item.PaymentMethod = pmProp.GetString() ?? "";
                 if (el.TryGetProperty("is_refund", out var rfProp) && ParseBool(rfProp)) item.IsRefund = true;
                 if (el.TryGetProperty("refund_reason", out var rrProp)) item.RefundReason = rrProp.GetString();
+                // 2026-11-10 (возврат и фильтры в «Продажах»): статус возврата, кассир, клиент.
+                if (el.TryGetProperty("return_status", out var retProp) && retProp.ValueKind == JsonValueKind.String) item.ReturnStatus = retProp.GetString();
+                item.Cashier = CartDisplayHelper.TryCashierName(el);
+                if (el.TryGetProperty("client_name", out var cnProp) && cnProp.ValueKind == JsonValueKind.String) item.ClientName = cnProp.GetString();
                 // ReceiptNumber остаётся пустым, если сервер не прислал ни одного из известных полей —
                 // AssignFallbackReceiptNumbers подставит читаемый порядковый номер вместо «сырого» GUID.
                 result.Add(item);

@@ -120,6 +120,18 @@ public sealed class AvaloniaCatalogCacheService : ICatalogCacheService
                 }
             }
 
+            // 2026-11-11 (жалоба владельца «штрихкод в программе владельца один, а в кассе другой»): у товара изменилось поле, которого в ленте нет (штрихкод, артикул,
+            // код, PLU, единица) — читаем карточки этих товаров по id, не дожидаясь сверки недавних (до 2,5 мин) или полной загрузки (сутки). См. CatalogFeedSync.Apply.
+            if (tick.HiddenChangeIds is { Count: > 0 } hidden
+                && generation == Volatile.Read(ref _accountGeneration) && (insideFullSync || !IsFullSyncRunning()))
+            {
+                var fetchedHidden = await CatalogPointRefresh.ApplyByIdsAsync(_catalogApi, hidden, _settings.ApiBaseUrl, FeedStockGuard.Create(), ct).ConfigureAwait(false);
+                if (fetchedHidden.NotFetched.Count > 0)
+                    CatalogFeedSync.ForgetHiddenSeen(fetchedHidden.NotFetched); // не прочитали — следующий опрос (запас курсора) попробует ещё раз
+                PosLogger.Log($"CATALOG_FEED: у {hidden.Count} товаров изменились поля, которых нет в ленте (штрихкод, артикул, PLU, единица…) — карточки прочитаны по id: исправлено {fetchedHidden.Changed}, не прочитано {fetchedHidden.NotFetched.Count}.", "CATALOG_FEED");
+                tick = tick with { HiddenChangeIds = null, Added = tick.Added + fetchedHidden.Added, Changed = tick.Changed + fetchedHidden.Changed, Deleted = tick.Deleted + fetchedHidden.Deleted };
+            }
+
             if (tick.Applied || tick.Note == "304" || tick.Ok)
             {
                 Interlocked.Increment(ref _feedOkStreak); // 2026-11-02 (Н3-01): считаем удачные опросы ленты — см. FullReloadInterval

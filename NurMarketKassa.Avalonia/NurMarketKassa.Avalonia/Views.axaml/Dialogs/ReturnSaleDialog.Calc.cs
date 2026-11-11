@@ -216,6 +216,15 @@ public partial class ReturnSaleDialog
                 $"Selected receipt · {DisplaySaleNumber(_currentSaleId)}  ·  items in receipt: {Lines.Count}",
                 $"Seçilen fiş · {DisplaySaleNumber(_currentSaleId)}  ·  fişteki kalem: {Lines.Count}",
                 $"Tanlangan chek · {DisplaySaleNumber(_currentSaleId)}  ·  chekdagi pozitsiyalar: {Lines.Count}");
+            // 2026-11-10 (владелец: возврат долгового чека): способ возврата долгового чека — всегда «в счёт долга клиента» (сервер уменьшает долг сам;
+            // деньги выдаются только за часть, внесённую при покупке). Выбирать способ кассиру не нужно — говорим об этом прямо.
+            var methodNow = (_ledger?.Method is { Length: > 0 } knownMethod ? knownMethod : _currentSaleMethod ?? "").Trim().ToLowerInvariant();
+            if (methodNow == "debt" || _ledger is { Debt: > 0.005m })
+                SelectedSaleText.Text += "\n" + Tr.T("Чек в долг: возврат — в счёт долга клиента (долг уменьшится; деньги — только за внесённую часть).",
+                    "Карыз чек: кайтаруу — кардардын карызынын эсебинен (карыз азаят; акча — төлөнгөн бөлүгү үчүн гана).",
+                    "Credit receipt: the return goes against the customer's debt (the debt decreases; money only for the part paid).",
+                    "Veresiye fiş: iade müşterinin borcundan düşülür (borç azalır; para yalnızca ödenen kısım için).",
+                    "Qarz chek: qaytarish — mijoz qarzi hisobidan (qarz kamayadi; pul — faqat to'langan qism uchun).");
             LinesPlaceholder.IsVisible = false;
         }
 

@@ -245,6 +245,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
         InitializeComponent();
         _currentUserId = App.CurrentUserId;
         DataContext = this;
+        BuildFilterUi(); // 2026-11-10: поле «Товар», «Фильтры (N)», панель фильтров и счётчик над таблицей чеков
         Lines.CollectionChanged += (_, _) => UpdateReceiptChrome();
         // 2026-10-19, К1: состояние «Вернуть выбранные» и пустого списка чеков — по отметкам строк и списку.
         Lines.CollectionChanged += (_, e) =>
@@ -288,6 +289,7 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
     {
         Opened -= OnFirstOpened;
         UpdateWindowStateUI();
+        ApplyInitialFilters(); // 2026-11-10: статус «Долговой» из карточки клиента, товар из «Продаж», режим клиента
         // 2026-10-04: сервер не ответил на список (авария объявлена, текст уже в окне) — чек из
         // «Истории чеков» тоже не открываем: это ещё один запрос к молчащему серверу.
         if (!await LoadSalesAsync(true).ConfigureAwait(true) && _serverDown)
@@ -399,6 +401,11 @@ public partial class ReturnSaleDialog : Window, INotifyPropertyChanged
             : Item.SaleDate.ToString("dd.MM.yy HH:mm", CultureInfo.InvariantCulture);
 
         public bool HasReturnMark => ReturnMark.Length > 0;
+
+        /// <summary>2026-11-10 (поиск по товару): найденный в чеке товар — подписью под датой.</summary>
+        public string? HitText { get; init; }
+        public bool HasHit => !string.IsNullOrWhiteSpace(HitText);
+        public string HitDisplay => HasHit ? "• " + HitText : "";
 
         /// <summary>2026-10-21 (пакет 6, п. 35): чек после возврата помечен в списке — по статусу сервера или по журналу
         /// возвратов этой кассы (SaleReturnLedger): «↩ возвращён» / «↩ частично».</summary>

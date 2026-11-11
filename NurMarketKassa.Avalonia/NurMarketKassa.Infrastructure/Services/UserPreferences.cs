@@ -271,6 +271,10 @@ public sealed partial class UserPreferences
     // накладная — по умолчанию ВКЛ, акт приёма-передачи и транспортный документ — по умолчанию ВЫКЛ.
     public bool TransferAutoWaybill { get; set; } = true;
     public bool TransferAutoOther { get; set; }
+
+    // 2026-11-09 (владелец: «при повторном скане того же товара — окно «Сколько штук?», и на закупках в десктопе»): «Склад → Приёмка» и «Закупки → Приём товара».
+    // По умолчанию ВКЛ; кто набирает количество серией сканов «пик-пик», выключает в «Настройки → Операции». Только на этом компьютере (облачной синхронизации нет).
+    public bool AskQtyOnRepeatScan { get; set; } = true;
     public double LabelGapMm { get; set; } = 2;
     public double LabelOffsetXMm { get; set; }
     public double LabelOffsetYMm { get; set; }
@@ -335,6 +339,25 @@ public sealed partial class UserPreferences
     /// плавности анимаций. Применяется при следующем запуске приложения.
     /// </summary>
     public bool LowPerformanceMode { get; set; }
+
+    /// <summary>2026-11-11 (решение владельца): размытие фона под модалками — «для мощных ПК». По умолчанию ВЫКЛ (на встроенной видеокарте
+    /// размытие всего окна тормозило открытие модалок). Настройка этого компьютера: в облако не уходит, при смене компании не сбрасывается.
+    /// Применяется сразу (ModalMotion.BlurEnabled читает её при каждом открытии модалки); в «режиме слабого устройства» не действует.</summary>
+    public bool ModalBackgroundBlur { get; set; }
+
+    /// <summary>2026-11-11: переключатель размытия — сразу, без «Сохранить».</summary>
+    public static void SetModalBackgroundBlur(bool on)
+    {
+        if (Instance.ModalBackgroundBlur == on)
+            return;
+        Instance.ModalBackgroundBlur = on;
+        Instance.SaveToDisk();
+    }
+
+    /// <summary>2026-11-11 (решение владельца, «после сворачивания остаётся пол-окна» на некоторых видеокартах): режим отрисовки Windows —
+    /// "auto" (как было: DirectComposition), "compat" (без DirectComposition) или "software" (без видеокарты). Только Windows,
+    /// настройка этого компьютера (в облако не уходит), применяется при следующем запуске (Program читает user-settings.json до старта окна).</summary>
+    public string WindowsRenderMode { get; set; } = "auto";
 
     /// <summary>2026-11-06 (Л4-19, решение владельца): просить PIN владельца при запуске программы владельца на ПК, где стоит касса. По умолчанию ВЫКЛ — владелец включает
     /// в настройках программы владельца. Раньше PIN спрашивался всегда, а у многих PIN не задан — без него на этом ПК не войти без пароля.</summary>

@@ -144,9 +144,9 @@ public partial class ProductEditDialog
         if (quantityUntouched)
             quantityValue = _existing!.Quantity;
         if ((!quantityUntouched && !CheckAmount(_quantity, ("Количество", "Саны", "Quantity", "Miktar", "Miqdor"), 3, out quantityValue))
-            || !CheckAmount(_purchasePrice, ("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), 4, out var purchaseValue)
-            || !CheckAmount(_price, ("Цена продажи", "Сатуу баасы", "Sale price", "Satış fiyatı", "Sotuv narxi"), 2, out var saleValue)
-            || !CheckAmount(_wholesalePrice, ("Оптовая цена", "Оптом баасы", "Wholesale price", "Toptan fiyat", "Ulgurji narx"), 2, out var wholesaleValue)
+            || !CheckAmount(_purchasePrice, ("Цена закупки", "Сатып алуу баасы", "Purchase price", "Alış fiyatı", "Xarid narxi"), 4, out var purchaseValue, ServerPriceLimits.PurchaseTooBigText, ServerPriceLimits.PurchaseExceeds)
+            || !CheckAmount(_price, ("Цена продажи", "Сатуу баасы", "Sale price", "Satış fiyatı", "Sotuv narxi"), 2, out var saleValue, ServerPriceLimits.SaleTooBigText, ServerPriceLimits.SaleExceeds)
+            || !CheckAmount(_wholesalePrice, ("Оптовая цена", "Оптом баасы", "Wholesale price", "Toptan fiyat", "Ulgurji narx"), 2, out var wholesaleValue, ServerPriceLimits.SaleTooBigText, ServerPriceLimits.SaleExceeds)
             || !CheckAmount(_minimumQuantity, ("Минимальный остаток", "Минималдуу калдык", "Minimum stock", "Asgari stok", "Minimal qoldiq"), 3, out var minimumValue)
             || !CheckAmount(_discountPercent, ("Скидка, %", "Арзандатуу, %", "Discount, %", "İndirim, %", "Chegirma, %"), 2, out var discountValue)
             || !CheckMarkup(_markupPercent))
@@ -507,7 +507,8 @@ public partial class ProductEditDialog
 
     /// <summary>2026-10-29: разбор числа поля карточки единым CheckoutValidation.TryParseAmount. Пусто — null (поле не заполнено, это не ошибка);
     /// непонятное число — понятный текст в ErrorMessage и false. Название поля — на 5 языках.</summary>
-    private bool CheckAmount(string? text, (string Ru, string Ky, string En, string Tr, string Uz) label, int maxDecimals, out double? value)
+    private bool CheckAmount(string? text, (string Ru, string Ky, string En, string Tr, string Uz) label, int maxDecimals, out double? value,
+        string? tooBigText = null, Func<double, bool>? exceeds = null)
     {
         value = null;
         var parse = CheckoutValidation.TryParseAmount(text, out var parsed, maxDecimals);
@@ -515,6 +516,13 @@ public partial class ProductEditDialog
             return true;
         if (parse == CheckoutValidation.AmountParse.Ok)
         {
+            // 2026-11-11 (ответ Умара): цена выше предела сервера не сохраняется — понятный текст вместо ошибки сервера.
+            if (exceeds is not null && exceeds(parsed))
+            {
+                ErrorMessage = tooBigText ?? "";
+                return false;
+            }
+
             value = parsed;
             return true;
         }

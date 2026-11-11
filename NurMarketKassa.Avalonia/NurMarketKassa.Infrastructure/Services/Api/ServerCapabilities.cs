@@ -43,6 +43,11 @@ public static class ServerCapabilities
     public const string IdempotencyLookupBonusTransfers = "idempotency_lookup_bonus_transfers";
     /// <summary>2026-11-06: сервер отдаёт каталог тем и видов кассы Маркетплейса (api/main/marketplace/themes/, пакеты по праву «куплено»). Без признака касса показывает только свои темы.</summary>
     public const string MarketplaceThemes = "marketplace_themes";
+    /// <summary>2026-11-10 (ТЗ «правка и аннулирование возвратных накладных 24 ч»): сервер умеет править/аннулировать возврат поставщику по PIN руководителя
+    /// (поля can_edit/editable_until, PATCH, void, history). Контракт предложен нами (docs/Отчеты/«ТЗ Умару — правка и аннулирование возвратных накладных 24 ч.md»), сервером не подтверждён.</summary>
+    public const string SupplierReturnEdit24h = "supplier_return_edit_24h";
+    /// <summary>2026-11-10: то же для возврата от клиента (pos/returns).</summary>
+    public const string PosReturnEdit24h = "pos_return_edit_24h";
 
     /// <summary>2026-11-05: синхронная проверка признака для мест, где ждать сеть нельзя (расчёт «Касса:», тело чека). true — признак есть у ЭТОГО аккаунта; нет списка, он устарел
     /// или запрос не удался — false (поведение «как раньше»). Если список не получен или старше срока, в фоне просит его заново (ServerAddons.Api — тот же клиент, что у бонусов).</summary>

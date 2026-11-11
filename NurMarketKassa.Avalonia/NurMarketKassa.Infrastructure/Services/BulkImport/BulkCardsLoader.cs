@@ -343,7 +343,7 @@ public static class BulkCardsLoader
         if (cardsOnly && row.ChPurchase)
             fields["purchase_price"] = line.PurchasePrice.ToString("0.####", inv); // 2026-11-01: 4 знака
         if (cardsOnly && row.ChSale)
-            fields["price"] = line.SalePrice.ToString("0.##", inv);
+            fields["price"] = line.SalePrice.ToString("0.###", inv); // 2026-11-11: сервер хранит цену продажи с 3 знаками (не режем молча)
         if (cardsOnly && (row.ChPurchase || row.ChSale) && ReceivingPricing.MarkupPercent(line.PurchasePrice, line.SalePrice) is { } markup)
             fields["markup_percent"] = markup.ToString("0.##", inv);
         if (row.AltAdded > 0)

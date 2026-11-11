@@ -31,7 +31,7 @@ public static class SupplierReturnDocumentRenderer
         return TransferDocumentRenderer.Compose(l, $"{SupplierReturnDocuments.PrintName(d)} · {TransferDocuments.Stamp(d.CreatedAt)}", col =>
         {
             TransferDocumentRenderer.HeaderBlock(col, d.OrgName, TransferDocumentRenderer.OrgLine(d.OrgInn, d.OrgAddress, d.OrgPhone, l),
-                SupplierReturnDocuments.Title(d.Lang) + " " + TransferDocumentRenderer.NumberLine(d.Number, d.Date, l));
+                SupplierReturnDocuments.HeaderTitle(d) + " " + TransferDocumentRenderer.NumberLine(d.Number, d.Date, l)); // 2026-11-10: у аннулированного — «— АННУЛИРОВАН»
 
             var rows = new List<(string, string)>
             {
@@ -43,6 +43,8 @@ public static class SupplierReturnDocumentRenderer
             };
             if (!string.IsNullOrWhiteSpace(d.Comment))
                 rows.Add((l.T("Комментарий:", "Комментарий:", "Comment:", "Yorum:", "Izoh:"), d.Comment));
+            if (d.Voided) // 2026-11-10: аннулированный документ — строка «Статус» первой
+                rows.Insert(0, (l.T("Статус:", "Абалы:", "Status:", "Durum:", "Holati:"), SupplierReturnDocuments.VoidedStatusText(d)));
             TransferDocumentRenderer.Parties(col, rows);
 
             col.Item().PaddingTop(4).Table(t =>

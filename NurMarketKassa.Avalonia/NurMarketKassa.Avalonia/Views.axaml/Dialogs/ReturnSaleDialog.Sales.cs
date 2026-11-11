@@ -92,11 +92,22 @@ public partial class ReturnSaleDialog
 
         try
         {
-            var jsonElementList = reset
+            // 2026-11-10 (фильтры возврата): период — запросом к серверу (date_from / date_to, «до» не включает свой день), страница крупнее;
+            // режим клиента (карточка клиента, «Долги клиентов») — продажи этого клиента одним списком.
+            var clientId = InitialClientId?.Trim();
+            var range = string.IsNullOrEmpty(clientId) ? ListFilter.PeriodRange(DateTime.Now) : null;
+            var pageSize = range is null ? SalesPageSize : 100;
+            if (!string.IsNullOrEmpty(clientId) && !reset)
+                return false;
+            var jsonElementList = !string.IsNullOrEmpty(clientId)
                 ? await ServerAnswerWait.FirstPortionAsync(ReturnContext,
-                        ct => App.SalesApi.PosSalesListAsync(page, SalesPageSize, App.PosCashboxId, ct))
+                        ct => App.SalesApi.PosSalesByClientAsync(clientId, maxPages: 10, ct))
                     .ConfigureAwait(true)
-                : await App.SalesApi.PosSalesListAsync(page, SalesPageSize, App.PosCashboxId)
+                : reset
+                ? await ServerAnswerWait.FirstPortionAsync(ReturnContext,
+                        ct => App.SalesApi.PosSalesListAsync(page, pageSize, App.PosCashboxId, ct, range?.From, range?.ToExclusive))
+                    .ConfigureAwait(true)
+                : await App.SalesApi.PosSalesListAsync(page, pageSize, App.PosCashboxId, default, range?.From, range?.ToExclusive)
                     .ConfigureAwait(true);
 
             // Пока шла фоновая страница, кассир нажал «Обновить» — список уже другой.
@@ -105,6 +116,7 @@ public partial class ReturnSaleDialog
 
             var hasCustomerId = jsonElementList.Any(el => el.TryGetProperty("customer_id", out _));
             var added = 0;
+            var newIds = new List<string>();
 
             foreach (var row in jsonElementList)
             {
@@ -116,47 +128,22 @@ public partial class ReturnSaleDialog
                 var saleId = PosSaleRowFormatter.TrySaleId(row);
                 if (string.IsNullOrEmpty(saleId) || !_salesSeenIds.Add(saleId))
                     continue;
+                // 2026-11-10: «new» — открытая корзина, не чек (в режиме клиента сервер отдаёт и такие).
+                if (string.Equals(SaleStatus(row), "new", StringComparison.OrdinalIgnoreCase))
+                    continue;
 
-                DateTime saleDate = DateTime.MinValue;
-                _ = TryGetDateTime(row, "date", out saleDate)
-                    || TryGetDateTime(row, "created_at", out saleDate)
-                    || TryGetDateTime(row, "sale_date", out saleDate)
-                    || TryGetDateTime(row, "order_date", out saleDate);
-
-                decimal totalAmount = 0;
-                _ = TryGetDecimal(row, "total", out totalAmount)
-                    || TryGetDecimal(row, "grand_total", out totalAmount)
-                    || TryGetDecimal(row, "total_amount", out totalAmount)
-                    || TryGetDecimal(row, "amount", out totalAmount)
-                    || TryGetDecimal(row, "total_sum", out totalAmount)
-                    || TryGetDecimal(row, "sum", out totalAmount)
-                    || TryGetDecimal(row, "price", out totalAmount)
-                    || TryGetDecimal(row, "total_price", out totalAmount)
-                    || TryGetDecimal(row, "final_total", out totalAmount)
-                    || TryGetDecimal(row, "order_total", out totalAmount);
-
-                string? receiptNumber = row.TryGetProperty("receipt_number", out var rn) && rn.ValueKind == JsonValueKind.String
-                    ? rn.GetString()
-                    : null;
-                // 2026-09-28 (BE-08): постоянный номер продажи с сервера — тот же, что в «Истории
-                // чеков», в «Продажах» и на печатном чеке (SalesWindow.TryReceiptNumber). Раньше
-                // здесь был номер по месту в списке, который рос с каждой новой продажей.
-                if (string.IsNullOrWhiteSpace(receiptNumber))
-                    receiptNumber = SalesWindow.TryReceiptNumber(row);
-
-                Sales.Add(new ReturnSaleListItemVm
-                {
-                    SaleId = saleId,
-                    SaleDate = saleDate,
-                    TotalAmount = totalAmount,
-                    Summary = PosSaleRowFormatter.SummaryLine(row),
-                    ReceiptNumber = string.IsNullOrWhiteSpace(receiptNumber) ? null : receiptNumber,
-                    Status = SaleStatus(row),
-                });
+                // 2026-09-28 (BE-08): постоянный номер продажи с сервера — тот же, что в «Истории чеков», в «Продажах» и на печатном чеке.
+                // 2026-11-10: разбор строки — ListItemFromRow (общий; плюс поля для фильтров: оплата, кассир, клиент, первый товар, return_status).
+                Sales.Add(ListItemFromRow(row, saleId));
+                newIds.Add(saleId);
                 added++;
             }
 
+            AddLocalLines(newIds); // 2026-11-10: состав чеков этой кассы — из локальной истории, без запросов (поиск по товару)
+            _filterBar?.SetCashiers(Sales.Select(s => s.Cashier ?? ""));
             ApplySalesFilter();
+            if (_productQuery is { IsEmpty: false })
+                StartDeepProductSearch();
 
             if (reset && Sales.Count == 0)
                 ShowErr(Tr.T("Список продаж пуст или API не вернул данные. Попробуйте «Обновить» или введите ID продажи вручную.",
@@ -234,6 +221,7 @@ public partial class ReturnSaleDialog
         var trimmedFilter = (_searchFilter ?? "").Trim().TrimStart('№', '#');
         // 2026-09-28: «№1115», «1115» и «001115» — один и тот же постоянный номер чека.
         var filterNumber = NurCrmReportsApi.ParseSaleNumber(_searchFilter);
+        var now = DateTime.Now;
         foreach (var item in Sales)
         {
             position++;
@@ -244,9 +232,14 @@ public partial class ReturnSaleDialog
                 || (filterNumber is { } wanted && NurCrmReportsApi.ParseSaleNumber(item.ReceiptNumber) == wanted)
                 || (string.IsNullOrWhiteSpace(item.ReceiptNumber) &&
                     string.Equals(trimmedFilter, position.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal));
+            // 2026-11-10: фильтры (период, сумма, оплата, статус, кассир, клиент) и поиск по товару — все вместе.
+            string? hit = null;
+            if (matches && !PassesListFilters(item, now, out hit))
+                matches = false;
             if (matches)
-                FilteredSales.Add(new ReturnSaleGridRow(item, position));
+                FilteredSales.Add(new ReturnSaleGridRow(item, position) { HitText = hit });
         }
+        UpdateFilterCount();
     }
 
     private static bool TryGetDateTime(JsonElement element, string propertyName, out DateTime result)
@@ -461,6 +454,8 @@ public partial class ReturnSaleDialog
             // номер берём из самой продажи (2026-09-28, BE-08): он же печатается на чеке возврата.
             _currentReceiptNumber = Sales.FirstOrDefault(x => x.SaleId == saleId)?.ReceiptNumber
                                     ?? SalesWindow.TryReceiptNumber(sale);
+            RememberSaleLines(saleId, sale); // 2026-11-10: состав открытого чека — и для поиска по товару
+            _preselectOnFill = true;         // 2026-11-10: при поиске по товару найденная позиция отмечается (количество 1)
             FillLinesFromSale(sale);
             UpdateReceiptChrome();
             if (Lines.Count == 0)
@@ -558,7 +553,7 @@ public partial class ReturnSaleDialog
                 decimal.TryParse(CartDisplayHelper.LineTotal(it), NumberStyles.Any, CultureInfo.InvariantCulture, out var lineTotal);
                 lines.Add(new SaleLedgerLine
                 {
-                    LineId = CartDisplayHelper.TryRefundLineId(it),
+                    LineId = ReturnLineCheck.SaleItemId(it), // 2026-11-11: sale_item_id = id строки чека (контракт Умара)
                     Name = CartDisplayHelper.ItemName(it),
                     Quantity = CartDisplayHelper.LineQuantity(it),
                     UnitPrice = (decimal)CartDisplayHelper.UnitPrice(it),
@@ -709,9 +704,12 @@ public partial class ReturnSaleDialog
 
             factor = ReturnShareEstimator.Factor(_currentSaleTotal, linesSum);
         }
+        var preferRowId = PreferRowId(_currentSaleId);
         foreach (var lineItem in CartDisplayHelper.EnumerateSaleLineItems(sale))
         {
-            var lineId = CartDisplayHelper.TryRefundLineId(lineItem);
+            // 2026-11-10 («Есть позиции не из этого чека…»): id строки для sale_item_id — явное поле sale_item_id, иначе прежний выбор; после отказа сервера — поле id строки.
+            var lineId = ReturnLineCheck.SaleItemId(lineItem, preferRowId);
+            var legacyLineId = CartDisplayHelper.TryRefundLineId(lineItem);
             if (string.IsNullOrEmpty(lineId))
                 continue;
 
@@ -730,7 +728,9 @@ public partial class ReturnSaleDialog
             decimal.TryParse(lineTotal, NumberStyles.Any, CultureInfo.InvariantCulture, out var refundSumValue);
             var refundPerUnit = 0m; // 2026-10-27 (Д-5): сумма возврата за единицу строки без округления — для частичного возврата по количеству
             // 2026-10-20 (К1): строка — как в продаже до возвратов (снимок), и её доля скидки на весь чек.
-            if (ledgerLines is not null && ledgerLines.TryGetValue(lineId, out var was) && was.Quantity > 0)
+            if (ledgerLines is not null
+                && (ledgerLines.TryGetValue(lineId, out var was) || (legacyLineId is not null && ledgerLines.TryGetValue(legacyLineId, out was)))
+                && was.Quantity > 0)
             {
                 originalQty = was.Quantity;
                 lineTotal = CartDisplayHelper.FormatMoney((double)was.Total);
@@ -788,7 +788,11 @@ public partial class ReturnSaleDialog
                 RefundSum = refundSumValue,
                 CanReturn = canReturn,
                 RefundReason = refundReason,
+                // 2026-11-10 (поиск по товару): найденная позиция подсвечена.
+                IsSearchHit = _productQuery is { IsEmpty: false } pq && pq.MatchesLine(title, CartDisplayHelper.TryProductId(lineItem)),
             });
         }
+        ApplyProductPreselect();
+        UpdateReturnDocs(sale); // 2026-11-10: прошлые возвраты чека — «Удалить»/«История» (только при признаке сервера pos_return_edit_24h)
     }
 }

@@ -26,7 +26,8 @@ public partial class PurchasesWindow
 
     // 2026-10-24, ТЗ «Склад» (Б2): колонки как в Склад → Приёмка — Товар · Остаток · Количество · Закупка · Наценка % · Продажа · Сумма · ✕.
     // 2026-11-07 (ТЗ «Порядковая нумерация товаров в накладной»): слева узкая колонка «№» (44 px, на узком окне 40) — порядок добавления, только для чтения.
-    private string ReceiveColumns => _receive?.Narrow == true ? "40,2*,0,0.95*,1.15*,0.95*,1.15*,1*,Auto" : "44,2.3*,0.7*,0.95*,1.15*,0.95*,1.15*,1.1*,Auto";
+    // 2026-11-10 (владелец: «Наименование должно быть длинным!», как колонка «Товар» в вебе): название — главная колонка (было 2* / 2,3*), числа уже.
+    private string ReceiveColumns => _receive?.Narrow == true ? "40,2.4*,0,1*,1.15*,0.8*,1.15*,0.9*,Auto" : "44,3.2*,0.65*,0.9*,1.05*,0.8*,1.05*,1*,Auto";
 
     private void ReceiveRefresh()
     {
@@ -93,6 +94,8 @@ public partial class PurchasesWindow
         var t = (box.Text ?? "").Trim().Replace(" ", "").Replace(',', '.');
         if (t.Length == 0)
             return true;
+        if (ReceivingLineVm.LooksLikeBarcode(t))
+            return false; // 2026-11-11: штрихкод (одни цифры, от 8) количеством не становится — строка остаётся как была
         if (!double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) || v < 0 || v >= 1e9)
             return false;
         value = v; // 2026-10-31 («Не округляй»): не округляем; больше 3 знаков — красное пояснение и блок проведения (Validate)
@@ -173,7 +176,10 @@ public partial class PurchasesWindow
         var who = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
         // 2026-11-09 (владелец: «добавить возможность редактировать наименование товара»): название правится у ЛЮБОЙ строки. У товара склада правка = переименование карточки
         // при проведении (PurchaseReceivingService.AddNameAndUnit → PATCH name, как «Склад → Приёмка»); под полем — «Было: …». Пустое название нельзя: прежнее возвращается.
-        var nameBox = new TextBox { Text = line.ProductName, Watermark = line.IsNew ? T("Название нового товара", "Жаңы товардын аты", "New product name", "Yeni ürün adı", "Yangi mahsulot nomi") : T("Название товара", "Товардын аты", "Product name", "Ürün adı", "Mahsulot nomi"), Height = 40, FontSize = 14, VerticalContentAlignment = VerticalAlignment.Center, Tag = "rcv-cell" };
+        // 2026-11-10 (владелец: «Наименование должно быть длинным!»): длинное название переносится на 2 строки (не режется), полностью — в подсказке.
+        var nameBox = new TextBox { Text = line.ProductName, Watermark = line.IsNew ? T("Название нового товара", "Жаңы товардын аты", "New product name", "Yeni ürün adı", "Yangi mahsulot nomi") : T("Название товара", "Товардын аты", "Product name", "Ürün adı", "Mahsulot nomi"), MinHeight = 40, FontSize = 14, VerticalContentAlignment = VerticalAlignment.Center, Tag = "rcv-cell",
+            TextWrapping = TextWrapping.Wrap, MaxLines = 2, AcceptsReturn = false };
+        ToolTip.SetTip(nameBox, line.ProductName.Length > 0 ? line.ProductName : null);
         Avalonia.Automation.AutomationProperties.SetName(nameBox, nameBox.Watermark);
         nameBox.TextChanged += (_, _) =>
         {
@@ -196,8 +202,9 @@ public partial class PurchasesWindow
         who.Children.Add(renamedNote);
         if (line.IsNew)
             who.Children.Add(ReceiveUnitChips(line)); // 2026-10-31: единица нового товара (кг — весовой)
-        var meta = Cell((line.Barcode.Length > 0 ? line.Barcode : "—") + (line.IsNew ? " · " + T("новый товар", "жаңы товар", "new product", "yeni ürün", "yangi mahsulot") : "")
-                        + (s.Narrow && !line.IsNew ? " · " + T("ост. ", "калд. ", "stock ", "stok ", "qold. ") + Q(line.StockBefore) : ""), line.IsNew ? "BrushDanger" : "BrushTextSoft", 12);
+        string MetaText() => (line.Barcode.Length > 0 ? line.Barcode : "—") + (line.IsNew ? " · " + T("новый товар", "жаңы товар", "new product", "yeni ürün", "yangi mahsulot") : "")
+                             + (s.Narrow && !line.IsNew ? " · " + T("ост. ", "калд. ", "stock ", "stok ", "qold. ") + Q(line.StockBefore) : "");
+        var meta = Cell(MetaText(), line.IsNew ? "BrushDanger" : "BrushTextSoft", 12);
         meta.Margin = default;
         meta.VerticalAlignment = VerticalAlignment.Center;
         // 2026-11-09 (владелец: «не найден — только предложить найти в интернете, по нажатию»): у «Неизвестно» рядом со штрихкодом — кнопка; поиск идёт только по её нажатию.
@@ -221,7 +228,20 @@ public partial class PurchasesWindow
                 PosLogger.Log($"Приём товара: «Найти в интернете» — {ex.Message}", "WARNING");
             }
         };
-        var metaRow = new StackPanel { Orientation = Orientation.Horizontal, Children = { meta, netButton } };
+        // 2026-11-10 (владелец: «Генерация штрихкода как в вебе!»): у нового товара без штрихкода — «Сгенерировать штрихкод» (тот же генератор, что в окне товара; без дублей среди каталога и строк приёма).
+        var genButton = new Button { Content = T("Сгенерировать штрихкод", "Штрихкод түзүү", "Generate barcode", "Barkod oluştur", "Shtrix-kod yaratish"), MinHeight = 32, Padding = new Thickness(10, 0), Margin = new Thickness(8, 0, 0, 0), FontSize = 12, IsVisible = line.CanGenerateBarcode, Tag = "rcv-genbar" };
+        ToolTip.SetTip(genButton, T("Свой штрихкод EAN-13 для нового товара, как в окне товара и на сайте. Не повторяет товары каталога и строки этого приёма.", "Жаңы товар үчүн өз EAN-13 штрихкоду, товар терезесиндегидей жана сайттагыдай. Каталогдогу товарларды жана бул кабыл алуунун саптарын кайталабайт.",
+            "An own EAN-13 barcode for the new product, as in the product window and on the website. Does not repeat catalog products or lines of this receipt.", "Yeni ürün için kendi EAN-13 barkodu, ürün penceresindeki ve sitedeki gibi. Katalog ürünlerini ve bu girişin satırlarını tekrarlamaz.",
+            "Yangi mahsulot uchun o'z EAN-13 shtrix-kodi, mahsulot oynasidagi va saytdagidek. Katalog mahsulotlari va bu qabul qatorlarini takrorlamaydi."));
+        Avalonia.Automation.AutomationProperties.SetName(genButton, T("Сгенерировать штрихкод", "Штрихкод түзүү", "Generate barcode", "Barkod oluştur", "Shtrix-kod yaratish") + " " + line.ProductName);
+        genButton.Click += (_, _) =>
+        {
+            if (!BarcodeGenerator.GenerateForReceivingLine(line, s.Lines))
+                return;
+            PosLogger.Log($"Приём товара: новому товару «{line.ProductName}» сгенерирован штрихкод {line.Barcode}.", "STOCK");
+            ReceiveMessage(T($"Штрихкод {line.Barcode} сгенерирован.", $"{line.Barcode} штрихкоду түзүлдү.", $"Barcode {line.Barcode} generated.", $"{line.Barcode} barkodu oluşturuldu.", $"{line.Barcode} shtrix-kodi yaratildi."));
+        };
+        var metaRow = new StackPanel { Orientation = Orientation.Horizontal, Children = { meta, netButton, genButton } };
         who.Children.Add(metaRow);
         // 2026-11-09 (владелец: «указывать вначале как на старом — база / база NurCRM / неизвестно / из интернета, значками, с подсказкой»): значок источника — первый в строке, перед названием.
         var badge = new ReceivingSourceBadge { Source = line.Source, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 7, 8, 0) };
@@ -268,15 +288,24 @@ public partial class PurchasesWindow
         pieces.Margin = new Thickness(0, 4, 10, 0);
         pieces.Watermark = T("шт в упак.", "даана/таңгак", "pcs/pack", "adet/koli", "dona/qadoq");
         pieces.IsVisible = false;
+        // 2026-11-10 (эталон веба «Поштучная продажа из упаковки»: поле «Упаковка», подсказка «Пачка»): название упаковки для карточки — только у «упаковки с поштучной продажей».
+        var packNameBox = new TextBox { Height = 36, MinHeight = 36, FontSize = 13, Margin = new Thickness(0, 4, 10, 0), IsVisible = false, Tag = "rcv-cell",
+            Watermark = T("Пачка", "Пачка", "Pack", "Paket", "Pachka"), Text = line.PackName };
+        Avalonia.Automation.AutomationProperties.SetName(packNameBox, Lbl("Название упаковки", "Таңгактын аты", "Pack name", "Koli adı", "Qadoq nomi"));
+        ToolTip.SetTip(packNameBox, T("Название упаковки в карточке товара (например, «Пачка», «Блок»). Пусто — «упаковка».", "Товардын картасындагы таңгактын аты (мисалы, «Пачка», «Блок»). Бош — «таңгак».",
+            "The pack name in the product card (e.g. “Pack”, “Block”). Empty — “pack”.", "Ürün kartındaki koli adı (ör. «Paket», «Blok»). Boş — «koli».", "Mahsulot kartasidagi qadoq nomi (masalan, «Pachka», «Blok»). Bo'sh — «qadoq»."));
+        packNameBox.TextChanged += (_, _) =>
+        {
+            if (!parts.Syncing)
+                line.PackName = packNameBox.Text ?? "";
+        };
         var packNote = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 2, 10, 0), IsVisible = false };
         var packToggle = new TextBlock { FontSize = 12, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Right, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 2, 10, 0), Cursor = new Cursor(StandardCursorType.Hand) };
         Use(packToggle, TextBlock.ForegroundProperty, "BrushAccent");
         if (cardPack > 0)
         {
-            packToggle.Text = T($"упак. = {Q(cardPack)} шт", $"таңгак = {Q(cardPack)} даана", $"pack = {Q(cardPack)} pcs", $"koli = {Q(cardPack)} adet", $"qadoq = {Q(cardPack)} dona");
-            packToggle.Cursor = new Cursor(StandardCursorType.Arrow);
-            packToggle.FontWeight = FontWeight.Normal;
-            Use(packToggle, TextBlock.ForegroundProperty, "BrushTextSoft");
+            // 2026-11-10 (владелец: упаковка «как в вебе»): подпись нажимается — «Изменить штук в упаковке» (меню ReceivingPackMenu, подтверждение «Было → станет»).
+            packToggle.Text = line.PackLinkText;
             ToolTip.SetTip(packToggle, T($"Склад ведёт этот товар упаковками (в упаковке {Q(cardPack)} шт): «Принимаем» и цена закупки — за упаковку.",
                 $"Кампа бул товарды таңгак менен жүргүзөт (таңгакта {Q(cardPack)} даана): «Кабыл алабыз» жана баасы — таңгак үчүн.",
                 $"The warehouse keeps this product in packs ({Q(cardPack)} pcs each): “Receiving” and the purchase price are per pack.",
@@ -291,6 +320,20 @@ public partial class PurchasesWindow
         parts.Purchase = purchase;
         parts.Markup = markup;
         parts.Sale = sale;
+        // 2026-11-11 (регрессия «Принимаем 0 у всех строк», аудит «Закупки — удобство и дизайн»): TextChanged в Avalonia 11.2 приходит ПОЗЖЕ, через Dispatcher, — флаг parts.Syncing
+        // к тому времени уже снят, и текст, который окно само поставило (создание строки, Sync), разбирался как ввод кассира. Скрытое поле «шт в упак.» с пустым текстом
+        // давало SetPiecesPerPack(0) → количество строки 0 (позиций 0, итог пустой); «Наценка %» пересчитывала цену продажи из округлённого показа, «Цена продажи» переводила
+        // строку во «вручную», «Цена закупки» резала знаки и ставила «вписана руками». Теперь текст, поставленный окном, запоминается, и его «эхо» обработчики пропускают.
+        var echo = new Dictionary<TextBox, string>();
+        foreach (var b in new[] { qty, pieces, purchase, markup, sale })
+            echo[b] = b.Text ?? "";
+        bool Echo(TextBox b)
+        {
+            if (echo.TryGetValue(b, out var put) && string.Equals(put, b.Text ?? "", StringComparison.Ordinal))
+                return true;
+            echo.Remove(b); // кассир набрал своё — дальше каждое изменение его
+            return false;
+        }
         // Под закупкой — «▲ +12 %» (оранжевым) и «было 45,00»; под продажей — «маржа 4 %» (красным); значения те же, что в Склад → Приёмка (ReceivingLineVm).
         // 2026-10-29: под закупкой — «↑ дороже на 5 сом (+10 %)» красным / «↓ дешевле на 2 сом» зелёным / «без изменений», «новый товар» серым;
         // под продажей — статус «авто (по общей наценке 30 %)» или «вручную · Как у всех», «прибыль 14 сом с шт.», красная пометка маржи.
@@ -324,19 +367,24 @@ public partial class PurchasesWindow
                 void Put(TextBox b, string t)
                 {
                     if ((force || !b.IsFocused) && b.Text != t)
+                    {
+                        echo[b] = t; // 2026-11-11: отложенный TextChanged от этой записи — не ввод кассира
                         b.Text = t;
+                    }
                 }
                 var pack = line.PackMode; // 2026-11-07: в режиме упаковок поля «Принимаем» и «Цена закупки» показывают упаковки и цену за упаковку
                 qty.Watermark = pack ? T("упак.", "таңгак", "packs", "koli", "qadoq") : "0";
                 Put(qty, ReceiveNum(pack ? line.PackCount : line.Quantity));
                 Put(pieces, ReceiveNum(line.PiecesPerPack));
                 pieces.IsVisible = pack;
+                packNameBox.IsVisible = line.PackSale; // 2026-11-10
+                Put(packNameBox, line.PackName);
                 packNote.IsVisible = pack && line.PackNote.Length > 0;
                 packNote.Text = line.PackNote;
                 Use(packNote, TextBlock.ForegroundProperty, line.PackNeedsSize ? "BrushDanger" : "BrushTextSoft");
+                packToggle.Text = line.PackLinkText; // 2026-11-07: «упаковками ▾» / «упак. → штуки ▾» / «упак. + поштучно ▾» — нажатие открывает выбор способа (2026-11-10: и «упак. = N шт ▾»)
                 if (cardPack <= 0)
                 {
-                    packToggle.Text = line.PackLinkText; // 2026-11-07: «упаковками ▾» / «упак. → штуки ▾» / «упак. + поштучно ▾» — нажатие открывает выбор способа
                     ToolTip.SetTip(packToggle, line.PackSale
                         ? T("Упаковка с поштучной продажей: на склад идут УПАКОВКИ, новый товар заводится с упаковкой (штук в упаковке). Закупка и цена продажи — за упаковку.", "Даана менен сатылуучу таңгак: кампага ТАҢГАКТАР барат, жаңы товар таңгак менен түзүлөт. Сатып алуу жана сатуу баасы — таңгак үчүн.",
                             "Pack with single-piece sale: the warehouse gets PACKS, the new product is created with a pack (pieces per pack). Purchase and sale price — per pack.", "Adetli satışlı koli: depoya KOLİLER gider, yeni ürün koli ile oluşturulur. Alış ve satış fiyatı — koli başına.", "Donalab sotiladigan qadoq: omborga QADOQLAR boradi, yangi mahsulot qadoq bilan yaratiladi. Xarid va sotuv narxi — qadoq uchun.")
@@ -357,11 +405,13 @@ public partial class PurchasesWindow
                 Put(nameBox, line.ProductName);
                 badge.Source = line.Source;
                 netButton.IsVisible = line.CanSearchInternet;
+                genButton.IsVisible = line.CanGenerateBarcode; // 2026-11-10
+                meta.Text = MetaText();
                 netButton.IsEnabled = line.NotSearchingInternet;
                 renamedNote.IsVisible = line.NameRenamed;
                 renamedNote.Text = line.NameWasHint;
                 nameBox.FontStyle = line.NameRenamed ? FontStyle.Italic : FontStyle.Normal;
-                ToolTip.SetTip(nameBox, line.NameRenamed ? line.NameWasHint : null);
+                ToolTip.SetTip(nameBox, line.NameRenamed ? line.ProductName + "\n" + line.NameWasHint : line.ProductName.Length > 0 ? line.ProductName : null); // 2026-11-10: полное название при наведении
                 sum.Text = MoneyText.Som(line.LineTotal);
                 numText.Text = line.LineNo > 0 ? line.LineNo.ToString(CultureInfo.InvariantCulture) : "";
                 Avalonia.Automation.AutomationProperties.SetName(numText, T("Позиция", "Позиция", "Item", "Kalem", "Pozitsiya") + " " + numText.Text);
@@ -389,12 +439,16 @@ public partial class PurchasesWindow
         parts.Refresh = Sync;
         Sync(true);
 
+        // 2026-11-10: снимок значений строки на входе в КАЖДОЕ поле (для Esc и пустого поля при уходе): у каждого поля свой — фокус нового поля приходит раньше ухода из старого.
+        var cellSnaps = new Dictionary<TextBox, object>();
         // Ввод в ячейку сразу попадает в строку. Закупка при неизменной продаже пересчитывает наценку (продажа сама не меняется);
         // наценка меняет цену продажи (ReceivingLineVm.MarkupText: округление вверх до сома); цена продажи меняет наценку.
         qty.TextChanged += (_, _) =>
         {
-            if (parts.Syncing || !ReceiveReadCell(qty, out var v))
+            if (parts.Syncing || Echo(qty) || !ReceiveReadCell(qty, out var v))
                 return;
+            if (!cellSnaps.ContainsKey(qty))
+                cellSnaps[qty] = line.CaptureCellState(); // 2026-11-10: поле уже было в фокусе (вход без GotFocus) — значения до правки запоминаем перед первой буквой
             if (line.PackMode)
             {
                 line.SetPackCount(v); // 2026-11-07: число упаковок — штуки считает строка (упаковки × штук в упаковке)
@@ -415,8 +469,10 @@ public partial class PurchasesWindow
         // закупка пересчитывает цену продажи строки в режиме «авто», правка продажи переводит строку в «вручную».
         purchase.TextChanged += (_, _) =>
         {
-            if (parts.Syncing)
+            if (parts.Syncing || Echo(purchase))
                 return;
+            if (!cellSnaps.ContainsKey(purchase))
+                cellSnaps[purchase] = line.CaptureCellState(); // 2026-11-10: поле уже было в фокусе (вход без GotFocus) — значения до правки запоминаем перед первой буквой
             if (line.PackMode)
                 line.SetPackPriceText(purchase.Text); // 2026-11-07: в режиме упаковок поле — цена за упаковку, цену за штуку считает строка
             else
@@ -425,8 +481,10 @@ public partial class PurchasesWindow
         };
         pieces.TextChanged += (_, _) =>
         {
-            if (parts.Syncing || !ReceiveReadCell(pieces, out var perPack))
+            if (parts.Syncing || Echo(pieces) || !ReceiveReadCell(pieces, out var perPack))
                 return;
+            if (!cellSnaps.ContainsKey(pieces))
+                cellSnaps[pieces] = line.CaptureCellState(); // 2026-11-10: поле уже было в фокусе (вход без GotFocus) — значения до правки запоминаем перед первой буквой
             line.SetPiecesPerPack(perPack);
             var roundedHint = RoundedQuantityHint;
             if (ReceivingLineVm.QuantityTooPrecise(line.Quantity))
@@ -437,8 +495,7 @@ public partial class PurchasesWindow
         };
         packToggle.PointerPressed += (_, _) =>
         {
-            if (cardPack > 0)
-                return; // склад ведёт товар упаковками — переключать нечего (подсказка на надписи)
+            // 2026-11-10: и у товара с упаковкой в карточке — меню «как в карточке / Изменить штук в упаковке» (раньше подпись была только подсказкой).
             // 2026-11-07: вместо переключателя «упаковками ↔ в штуках» — меню из трёх способов (в штуках, упаковками → штуки, упаковка с поштучной продажей; общий код со «Склад → Приёмка»).
             ReceivingPackMenu.Show(packToggle, line, () =>
             {
@@ -452,7 +509,7 @@ public partial class PurchasesWindow
         };
         markup.TextChanged += (_, _) =>
         {
-            if (parts.Syncing)
+            if (parts.Syncing || Echo(markup))
                 return;
             var t = (markup.Text ?? "").Trim();
             if (t.Length == 0)
@@ -462,13 +519,61 @@ public partial class PurchasesWindow
         };
         sale.TextChanged += (_, _) =>
         {
-            if (parts.Syncing)
+            if (parts.Syncing || Echo(sale))
                 return;
+            if (!cellSnaps.ContainsKey(sale))
+                cellSnaps[sale] = line.CaptureCellState(); // 2026-11-10: поле уже было в фокусе (вход без GotFocus) — значения до правки запоминаем перед первой буквой
             line.SetSaleText(sale.Text);
             ReceiveRefresh();
         };
-        foreach (var cell in new[] { qty, pieces, purchase, markup, sale })
-            cell.LostFocus += (_, _) => { line.CommitText(); Sync(false); }; // 2026-10-28: сырой набранный текст → нормальный показ («100,60»)
+        // 2026-11-10 (жалоба владельца «удобства не удобно», как в «Склад → Приёмка»): вход в поле (клик, Tab, Enter) — всё число выделено, набор заменяет; пока набирают,
+        // пустое поле остаётся пустым; ушли из поля, оставив его пустым, — прежнее значение поля; Esc — откат правки поля.
+        foreach (var (cell, field) in new (TextBox, ReceivingCellField?)[] { (qty, ReceivingCellField.Quantity), (pieces, ReceivingCellField.Pieces), (purchase, ReceivingCellField.Purchase), (markup, null), (sale, ReceivingCellField.Sale) })
+        {
+            string? textOnEnter = null;
+            cell.GotFocus += (_, _) =>
+            {
+                cellSnaps[cell] = line.CaptureCellState();
+                textOnEnter = cell.Text ?? "";
+                // клик мышью ставит курсор ПОСЛЕ получения фокуса — выделяем всё следом за ним
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    if (cell.IsFocused)
+                        cell.SelectAll();
+                }, Avalonia.Threading.DispatcherPriority.Background);
+            };
+            cell.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+            {
+                if (e.Key != Key.Escape || !cellSnaps.TryGetValue(cell, out var snap) || (textOnEnter is not null && string.Equals(cell.Text ?? "", textOnEnter, StringComparison.Ordinal)))
+                    return; // нечего откатывать — Esc идёт дальше (например, «назад»)
+                e.Handled = true;
+                line.RestoreCellField(field ?? ReceivingCellField.Sale, snap); // наценка меняет цену продажи — её и возвращаем
+                Sync(true);
+                ReceiveRefresh();
+                cellSnaps[cell] = line.CaptureCellState();
+                textOnEnter = cell.Text ?? "";
+                cell.SelectAll();
+            }, RoutingStrategies.Tunnel);
+            cell.LostFocus += (_, _) =>
+            {
+                cellSnaps.Remove(cell, out var snap);
+                // 2026-11-11 (Б-4): штрихкод, «напечатанный» медленным сканером в поле, — не число: поле возвращается, код обрабатывается как скан.
+                var typedCode = line.TakeRejectedBarcode() ?? (ReceivingLineVm.LooksLikeBarcode(cell.Text) ? cell.Text!.Trim() : null);
+                if (typedCode is not null)
+                {
+                    if (field is { } bf)
+                        line.RestoreCellField(bf, snap);
+                    Sync(true);
+                    _ = ReceiveAddByCodeAsync(typedCode);
+                }
+                var restored = field is { } f && string.IsNullOrWhiteSpace(cell.Text) && line.RestoreEmptyField(f, snap);
+                textOnEnter = null;
+                line.CommitText(); // 2026-10-28: сырой набранный текст → нормальный показ («100,60»)
+                Sync(false);
+                if (restored)
+                    ReceiveRefresh();
+            };
+        }
 
         // Enter и Tab: «Название» → «Количество» → «Закупка» → «Цена продажи» → поле скана (наценку Enter пропускает, её правят мышью или Shift+Tab).
         void Chain(TextBox from, Func<TextBox?> next) => from.AddHandler(InputElement.KeyDownEvent, (_, e) =>
@@ -501,7 +606,7 @@ public partial class PurchasesWindow
         // 2026-10-30 (баг владельца): подписи под «Закупкой» («без изменений» + «было 35,00») и «Продажей» («прибыль …») разной высоты сдвигали поля по вертикали
         // (поля центрировались вместе с подписями). Теперь все четыре поля прижаты к верху строки (одинаковая линия 40 px), подписи — под полем и ряд не двигают;
         // «На складе», «Сумма закупки», название и «✕» — по центру этой же линии (OnFieldLine). Деньги и расчёт не менялись — только разметка.
-        var qtyBox = new StackPanel { VerticalAlignment = VerticalAlignment.Top, Children = { qty, pieces, packNote, packToggle } };
+        var qtyBox = new StackPanel { VerticalAlignment = VerticalAlignment.Top, Children = { qty, pieces, packNameBox, packNote, packToggle } };
         Grid.SetColumn(qtyBox, 3);
         g.Children.Add(qtyBox);
         var purchaseBox = new StackPanel { VerticalAlignment = VerticalAlignment.Top, Children = { purchase, purchaseSub } };
@@ -698,8 +803,8 @@ public partial class PurchasesWindow
             var goOn = await PosConfirmDialog.ShowModalAsync(this,
                 T("Поштучная продажа из упаковки", "Таңгактан даана менен сатуу", "Single pieces from a pack", "Koliden tek tek satış", "Qadoqdan donalab sotish"),
                 ReceivingPacks.PackSaleConfirmMessage(packSaleLines),
-                T("Продолжить", "Улантуу", "Continue", "Devam", "Davom etish"),
-                T("Вернуться", "Артка", "Go back", "Geri dön", "Orqaga"), PosConfirmAccent.Primary).ConfigureAwait(true);
+                T("Применить", "Колдонуу", "Apply", "Uygula", "Qo'llash"), // 2026-11-10: «Было → станет» — «Применить» / «Отмена»
+                T("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), PosConfirmAccent.Primary).ConfigureAwait(true);
             if (_receive != s || !goOn)
                 return;
         }

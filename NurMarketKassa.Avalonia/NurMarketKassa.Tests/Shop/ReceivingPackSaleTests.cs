@@ -73,16 +73,13 @@ public sealed class ReceivingPackSaleTests : IDisposable
         PurchaseReceivingService.Validate(new[] { l }).Should().BeEmpty();
     }
 
+    // 2026-11-10 (владелец: «В приёмке как в вебе — как упаковка, продажа поштучно!»): у товара склада вариант теперь доступен (остаток пересчитывается через
+    // подтверждение «Было → станет» — ReceivingCellInputAndPackTests); заблокированы по-прежнему весовой товар и товар общей базы.
     [Fact]
-    public void Pack_sale_is_blocked_for_existing_products_with_stock_and_for_weight_goods()
+    public void Pack_sale_is_blocked_for_weight_goods_and_global_base_but_allowed_for_warehouse_product()
     {
         var existing = ExistingLine(stock: 7);
-        existing.CanPackSale.Should().BeFalse("у товара с остатком в штуках смена единицы остатка исказит склад");
-        existing.SetPackSale(true).Should().BeFalse();
-        existing.PackSale.Should().BeFalse();
-        existing.PackMode.Should().BeFalse("ничего не изменилось");
-        existing.Quantity.Should().Be(1);
-        existing.PurchasePrice.Should().Be(25);
+        existing.CanPackSale.Should().BeTrue("товар склада получает упаковку тем же PATCH, что окно товара");
 
         var fromBase = new ReceivingLineVm { ProductName = "Из базы", Source = ReceivingSource.GlobalBase, Quantity = 1 };
         fromBase.SetPackSale(true).Should().BeFalse("товар общей базы создаётся другим запросом без упаковки");
@@ -90,7 +87,7 @@ public sealed class ReceivingPackSaleTests : IDisposable
         var weight = new ReceivingLineVm { ProductName = "Сахар", Source = ReceivingSource.Unknown, Quantity = 1, IsWeight = true };
         weight.SetPackSale(true).Should().BeFalse("весовой товар — без поштучной продажи");
 
-        ReceivingLineVm.PackSaleBlockedText.Should().Contain("НОВОГО");
+        ReceivingLineVm.PackSaleBlockedText.Should().Contain("весового");
     }
 
     [Fact]

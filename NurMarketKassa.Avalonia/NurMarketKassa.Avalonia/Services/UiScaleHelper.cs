@@ -368,16 +368,36 @@ public static class UiScaleHelper
 
         state.Window = window;
 
+        // 2026-11-11 (жалоба «частое сворачивание — кривые кнопки»): пока окно свёрнуто (в т.ч. системой, раньше чем узнала Avalonia), масштаб и
+        // компактный вид не пересчитываем — экран свёрнутого окна (-32000) может определиться не тот; пересчёт — один раз после разворачивания.
+        var pendingWhileMinimized = false;
+
         void Reapply(object? sender, EventArgs e) =>
             Dispatcher.UIThread.Post(() =>
             {
-                if (ReferenceEquals(state.Window, window))
-                    ApplyCore(transformRoot, state, state.DesignWidth, state.DesignHeight);
+                if (!ReferenceEquals(state.Window, window))
+                    return;
+                if (WindowRestoreGuard.IsMinimizedNow(window))
+                {
+                    pendingWhileMinimized = true;
+                    return;
+                }
+                ApplyCore(transformRoot, state, state.DesignWidth, state.DesignHeight);
             }, DispatcherPriority.Background);
+
+        void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+        {
+            if (e.Property == Window.WindowStateProperty && pendingWhileMinimized && window.WindowState != WindowState.Minimized)
+            {
+                pendingWhileMinimized = false;
+                Reapply(sender, EventArgs.Empty);
+            }
+        }
 
         var screens = window.Screens;
         window.Opened += Reapply;
         window.ScalingChanged += Reapply;
+        window.PropertyChanged += OnWindowPropertyChanged;
         if (screens is not null)
             screens.Changed += Reapply;
 
@@ -386,6 +406,7 @@ public static class UiScaleHelper
             window.Closed -= OnClosed;
             window.Opened -= Reapply;
             window.ScalingChanged -= Reapply;
+            window.PropertyChanged -= OnWindowPropertyChanged;
             if (screens is not null)
                 screens.Changed -= Reapply;
             if (ReferenceEquals(state.Window, window))

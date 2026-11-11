@@ -269,7 +269,8 @@ public sealed class WarehouseReceivingPacksUiTests
 
             UiDrive.Click(window, Link(existing));
             UiShot.Settle(6);
-            Item("Упаковка с поштучной продажей").IsEnabled.Should().BeFalse("у товара с остатком смена единицы остатка исказит склад");
+            // 2026-11-10 (владелец: «как в вебе — упаковка, продажа поштучно»): у товара склада тоже доступно — остаток пересчитается через подтверждение «Было → станет»
+            Item("Упаковка с поштучной продажей").IsEnabled.Should().BeTrue("товар склада получает упаковку тем же PATCH, что окно товара");
             Item("Упаковками → на склад штуки").IsEnabled.Should().BeTrue();
             UiDrive.Click(window, Item("Упаковками → на склад штуки"));
             UiShot.Settle(8);

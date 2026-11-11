@@ -301,7 +301,11 @@ public partial class OwnerShellWindow
     private void SyncSectionBounds()
     {
         var section = _activeSection;
-        if (section == null || !IsVisible || WindowState == WindowState.Minimized || !SectionHost.IsVisible)
+        // 2026-11-11 (жалоба «частое сворачивание — программа наполовину»): при сворачивании Windows сначала двигает окно в (-32000, -32000)
+        // (PositionChanged), а «свёрнуто» сообщает позже — раздел клался по координатам свёрнутого окна. Свёрнутое системой окно и
+        // вырожденные размеры пропускаем; после разворачивания раздел кладётся заново (WindowRestoreGuard → OnShellRestored).
+        if (section == null || !IsVisible || WindowState == WindowState.Minimized || !SectionHost.IsVisible
+            || NurMarketKassa.AvaloniaHost.Services.WindowRestoreGuard.ShouldSkipLayoutWork(this))
             return;
 
         var size = SectionHost.Bounds.Size;

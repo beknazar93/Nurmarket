@@ -552,18 +552,33 @@ public sealed class PurchaseReceivingService
         // штрихкод пока индекс не прогрет, размер, артикул), без весовой этикетки (склад не находит товар по скану).
         var tile = ProductCodeLookup.FindLocal(code, allowWeightLabel: false)?.Product;
         if (tile is not null)
+        {
+            LogScan(code, "база кассы", $"товар {tile.Id}");
             return FromTile(tile, quantity);
+        }
 
         // 2026-11-06: офлайн-приход — связи нет: сервер не спрашиваем (раньше каждый скан ждал таймаут запроса до 55 с). Неизвестный штрихкод встаёт как новый товар,
         // приход сохранится в очередь; если товар на самом деле есть на складе — сервер отклонит дубль штрихкода, и приход покажет «Требует внимания».
         if (BackgroundReceivingQueue.NoConnectionNow)
+        {
+            LogScan(code, "нет связи", "неизвестно");
             return new ReceivingLineVm { Barcode = code, ProductName = "", Source = ReceivingSource.Unknown, Quantity = quantity };
+        }
 
+        var forms = ProductCodeLookup.Candidates(code);
         try
         {
             var product = await Api.FindWarehouseProductByBarcodeAsync(code, ct).ConfigureAwait(false);
+            // 2026-11-11 (владелец: «многие товары показывает как ВЕСОВОЙ»): сервер по коду «20…29» мог вернуть ЧУЖОЙ товар (весовой по PLU внутри кода).
+            // Берём товар склада, только если у него именно этот штрихкод (основной или дополнительный), иначе ответ отбрасываем и ищем дальше.
+            if (product is { } other && !ServerAnswerHasCode(other, forms, requireField: true))
+            {
+                LogScan(code, "склад на сервере", $"отброшен товар {Str(other, "id") ?? "?"} — у него другой штрихкод");
+                product = null;
+            }
             if (product is { } p)
             {
+                LogScan(code, "склад на сервере", $"товар {Str(p, "id") ?? "?"}");
                 var price = Num(p, "price");
                 var purchase = Num(p, "purchase_price");
                 var name = Str(p, "name") ?? code;
@@ -591,8 +606,15 @@ public sealed class PurchaseReceivingService
             // 2026-10-03: UPC-A из сканера (12 цифр) ↔ EAN-13 с нулём в общей базе — см. BarcodeForms.
             if (global is null && BarcodeForms.Alternate(code) is { } alternate)
                 global = await Api.FindGlobalProductByBarcodeAsync(alternate, ct).ConfigureAwait(false);
+            // 2026-11-11: и из общей базы — только товар с этим штрихкодом (поля штрихкода в ответе нет — ответ на точный запрос по коду принимаем).
+            if (global is { } otherGlobal && !ServerAnswerHasCode(otherGlobal, forms, requireField: false))
+            {
+                LogScan(code, "общая база NurCRM", "отброшен ответ — другой штрихкод");
+                global = null;
+            }
             if (global is { } g)
             {
+                LogScan(code, "общая база NurCRM", "найден");
                 return new ReceivingLineVm
                 {
                     Barcode = Str(g, "barcode") ?? code,
@@ -602,13 +624,20 @@ public sealed class PurchaseReceivingService
                 };
             }
         }
+        catch (AmbiguousBarcodeException)
+        {
+            // 2026-11-11 (ответ Умара): один штрихкод у нескольких товаров — НЕ «новый товар» и не случайный: окно показывает понятное сообщение, строки не добавляет.
+            LogScan(code, "склад на сервере", "неоднозначный штрихкод (у нескольких товаров)");
+            throw;
+        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Нет связи — не повод терять скан: строка встанет как новая, и название можно
             // вписать руками. При проведении сервер всё равно ещё раз увидит штрихкод.
-            PosLogger.Log($"Приёмка: поиск штрихкода {code} на сервере не удался: {ex.Message}", "WARNING");
+            PosLogger.Log($"Приёмка: поиск штрихкода {MaskCode(code)} на сервере не удался: {ex.Message}", "WARNING");
         }
 
+        LogScan(code, "нигде не найден", "неизвестно (новый товар)");
         return new ReceivingLineVm
         {
             Barcode = code,
@@ -616,6 +645,44 @@ public sealed class PurchaseReceivingService
             Source = ReceivingSource.Unknown,
             Quantity = quantity,
         };
+    }
+
+    /// <summary>2026-11-11: штрихкод в журнале — без середины («46…11»), чтобы журнал не хранил полные коды.</summary>
+    public static string MaskCode(string? code)
+    {
+        var c = (code ?? "").Trim();
+        return c.Length <= 4 ? new string('*', c.Length) : c[..2] + new string('*', c.Length - 4) + c[^2..];
+    }
+
+    /// <summary>2026-11-11 (владелец: «криво работает определение штрихкодов»): запись в журнал о каждом скане приёмки — код (маска), путь решения, результат. Без персональных данных.</summary>
+    public static void LogScan(string code, string path, string result) =>
+        PosLogger.Log($"Приёмка: скан {MaskCode(code)} → {path} → {result}.", "STOCK");
+
+    /// <summary>2026-11-11: у товара из ответа сервера именно этот штрихкод — основной («barcode») или среди дополнительных («alternate_barcodes»: строки или объекты с «barcode»).
+    /// <paramref name="requireField"/> = false — если штрихкода в ответе нет вовсе, ответ принимается (общая база отвечает на точный запрос по коду).</summary>
+    public static bool ServerAnswerHasCode(JsonElement product, IReadOnlyCollection<string> forms, bool requireField)
+    {
+        if (product.ValueKind != JsonValueKind.Object)
+            return false;
+        var any = false;
+        bool Match(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+            any = true;
+            return forms.Contains(value.Trim(), StringComparer.OrdinalIgnoreCase);
+        }
+        if (product.TryGetProperty("barcode", out var main) && main.ValueKind == JsonValueKind.String && Match(main.GetString()))
+            return true;
+        if (product.TryGetProperty("alternate_barcodes", out var alts) && alts.ValueKind == JsonValueKind.Array)
+            foreach (var a in alts.EnumerateArray())
+            {
+                var value = a.ValueKind == JsonValueKind.String ? a.GetString()
+                    : a.ValueKind == JsonValueKind.Object && a.TryGetProperty("barcode", out var b) && b.ValueKind == JsonValueKind.String ? b.GetString() : null;
+                if (Match(value))
+                    return true;
+            }
+        return !requireField && !any;
     }
 
     public static ReceivingLineVm FromTile(NurMarketKassa.Models.Pos.CatalogProductTileVm tile, double quantity)
@@ -711,6 +778,25 @@ public sealed class PurchaseReceivingService
                 else if (!line.PackNeedsSize && (line.PiecesPerPack < 2 || Math.Abs(line.PiecesPerPack - Math.Round(line.PiecesPerPack)) > 1e-9))
                     problems.Add(Tr.T($"{name}: «Штук в упаковке» — целое число от 2", $"{name}: «Таңгактагы штук саны» — 2ден баштап бүтүн сан",
                         $"{name}: “Pieces in a pack” must be a whole number, 2 or more", $"{name}: «Paketteki adet» 2 veya daha büyük bir tam sayı olmalı", $"{name}: «Qadoqdagi dona soni» 2 dan boshlab butun son bo'lishi kerak"));
+                // 2026-11-10 (упаковка у товара склада): остаток пересчитывается из штук в упаковки — только если делится на ЦЕЛЫЕ упаковки (дробный остаток штучного товара
+                // сервер не принимает, а округление исказило бы склад), и только при связи с сервером (карточку товара правит PATCH перед приходом).
+                if (line.CanPackSale && line.PackSaleConvertsExisting)
+                {
+                    // 2026-11-11 (convert-to-packages): остаток, который не делится, больше не блокирует заранее — перед подтверждением окно читает СВЕЖИЙ остаток
+                    // и предлагает «Округлить» (allow_rounding) только по явному согласию (ReceivingPackConvertFlow); здесь — лишь если строка пришла с уже подтверждённым остатком без округления.
+                    if (line.PackConvertExpected is not null && !line.PackConvertAllowRounding && line.ConvertedStock is null)
+                    {
+                        var pieces = line.StockBefore * (line.CardPackSize > 0 ? line.CardPackSize : 1);
+                        problems.Add(Tr.T($"{name}: остаток {pieces:0.###} шт не делится на упаковки по {line.PiecesPerPack:0.###} шт — поправьте остаток (ревизия) или выберите другое «шт в упак.»",
+                            $"{name}: калдык {pieces:0.###} даана {line.PiecesPerPack:0.###} даанадан таңгакка бөлүнбөйт — калдыкты оңдоңуз (ревизия) же башка «даана/таңгак» тандаңыз",
+                            $"{name}: the stock of {pieces:0.###} pcs does not divide into packs of {line.PiecesPerPack:0.###} — fix the stock (stocktake) or choose another “pcs/pack”",
+                            $"{name}: {pieces:0.###} adet stok {line.PiecesPerPack:0.###} adetlik kolilere bölünmüyor — stoğu düzeltin (sayım) veya başka «adet/koli» seçin",
+                            $"{name}: {pieces:0.###} dona qoldiq {line.PiecesPerPack:0.###} donalik qadoqlarga bo'linmaydi — qoldiqni tuzating (inventarizatsiya) yoki boshqa «dona/qadoq» tanlang"));
+                    }
+                    if (OfflineModeHelper.UseLocalOperations)
+                        problems.Add(Tr.T($"{name}: упаковку в карточку товара можно записать только при связи с сервером", $"{name}: таңгакты товардын картасына сервер менен байланышта гана жазууга болот",
+                            $"{name}: the pack can be written to the product card only while connected to the server", $"{name}: koli ürün kartına yalnızca sunucuya bağlıyken yazılabilir", $"{name}: qadoqni mahsulot kartasiga faqat server bilan aloqada yozish mumkin"));
+                }
                 if (line.SalePrice <= 0)
                     problems.Add(Tr.T($"{name}: укажите цену продажи упаковки (цена штуки = она ÷ штук в упаковке)", $"{name}: таңгактын сатуу баасын жазыңыз (даананын баасы = ал ÷ таңгактагы даана)",
                         $"{name}: enter the sale price of the pack (the piece price = it ÷ pieces in a pack)", $"{name}: koli satış fiyatını girin (adet fiyatı = o ÷ koli başına adet)", $"{name}: qadoq sotuv narxini kiriting (dona narxi = u ÷ qadoqdagi dona)"));
@@ -726,6 +812,12 @@ public sealed class PurchaseReceivingService
                     $"{name}: purchase price {line.PurchasePrice:0.#########} — at most {ReceivingPricing.PurchaseDecimals} decimal places (the server stores {ReceivingPricing.PurchaseDecimals})",
                     $"{name}: alış fiyatı {line.PurchasePrice:0.#########} — virgülden sonra en fazla {ReceivingPricing.PurchaseDecimals} basamak (sunucu {ReceivingPricing.PurchaseDecimals} saklar)",
                     $"{name}: xarid narxi {line.PurchasePrice:0.#########} — verguldan keyin ko'pi bilan {ReceivingPricing.PurchaseDecimals} raqam (server {ReceivingPricing.PurchaseDecimals} saqlaydi)"));
+            // 2026-11-11 (ответ Умара): цена продажи больше 9 999 999,999 или закупка больше 9 999 999 999,9999 — сервер такую не примет: не проводим, пока не исправят.
+            // «Подозрительно большая» (больше 1 000 000) — только красная пометка в строке, проводить можно.
+            if (ServerPriceLimits.SaleExceeds(line.SalePrice))
+                problems.Add($"{name}: {ServerPriceLimits.SaleTooBigText}");
+            if (ServerPriceLimits.PurchaseExceeds(line.PurchasePrice))
+                problems.Add($"{name}: {ServerPriceLimits.PurchaseTooBigText}");
             if (line.PurchasePrice <= 0)
                 problems.Add(Tr.T($"{name}: не указана цена закупки", $"{name}: сатып алуу баасы көрсөтүлгөн эмес",
                     $"{name}: purchase price missing", $"{name}: alış fiyatı belirtilmedi", $"{name}: xarid narxi ko'rsatilmagan"));
@@ -740,6 +832,124 @@ public sealed class PurchaseReceivingService
     /// <summary>2026-11-07: цена ШТУКИ упаковки с поштучной продажей = цена продажи упаковки ÷ штук в упаковке, до копеек (как кнопка «Авто» в карточке товара).</summary>
     public static double PackPieceSalePrice(ReceivingLineVm line) =>
         line.PackSaleSize >= 2 ? (double)Math.Round((decimal)line.SalePrice / (decimal)line.PackSaleSize, 2, MidpointRounding.AwayFromZero) : 0;
+
+    /// <summary>2026-11-11 (Умар включил convert-to-packages на боевом): товар склада → упаковки ОДНОЙ атомарной операцией сервера (под блокировкой товара, без окна гонки с продажами):
+    /// expected_quantity — остаток из подтверждения, ключ повтора — из строки (тот же при повторе очередью). Цену упаковки сервер считает сам (цена × штук) — сверяем после.
+    /// Отказ по существу — понятная причина, строка не проводится (приход упаковок к остатку в штуках не прибавится). already_has_packages — свежая карточка: упаковка того же размера
+    /// (прошлая попытка дошла) — проводим, другого — нет. 404/405 — сервер не умеет: прежний путь (чтение + PATCH) и предупреждение. Сеть/5xx — исключение (очередь повторит тем же ключом).</summary>
+    private static async Task<bool> ConvertToPacksAsync(ReceivingLineVm line, Action<string> addError, CancellationToken ct)
+    {
+        var outcome = await ReceivingPackConvert.ConvertAsync(Api, line, ct).ConfigureAwait(false);
+        var per = line.PiecesPerPack;
+        switch (outcome.Kind)
+        {
+            case ReceivingPackConvert.Kind.Ok:
+            {
+                var expectedPrice = line.OriginalSalePrice > 0 ? Math.Round(line.OriginalSalePrice * per, 2, MidpointRounding.AwayFromZero) : 0;
+                PosLogger.Log($"Приёмка: товар {line.ProductId} переведён в упаковки по {per:0.###} шт сервером (convert-to-packages), остаток {line.PackConvertStockSeen:0.###} → {(outcome.NewQuantity is { } q ? q.ToString("0.###", CultureInfo.InvariantCulture) : "?")}" +
+                              (line.PackConvertAllowRounding ? " (с округлением по согласию кассира)" : "") + ".", "STOCK");
+                if (outcome.NewPrice is { } serverPrice && expectedPrice > 0 && Math.Abs(serverPrice - expectedPrice) > 0.005)
+                    PosLogger.Log($"Приёмка: цена упаковки товара {line.ProductId} после перевода {serverPrice:0.00}, ожидали {expectedPrice:0.00} (цена штуки × {per:0.###}) — дальше приход запишет цену строки.", "WARNING");
+                if (!line.PackConvertAllowRounding && outcome.NewQuantity is { } nq && line.ConvertedStock is { } want && Math.Abs(nq - want) > 0.0005)
+                    PosLogger.Log($"Приёмка: остаток товара {line.ProductId} после перевода {nq:0.###} упак., ожидали {want:0.###}.", "WARNING");
+                RefreshProductLater(line.ProductId);
+                return true;
+            }
+            case ReceivingPackConvert.Kind.NotSupported:
+                PosLogger.Log($"Приёмка: сервер не знает convert-to-packages (код {outcome.Status}) — товар {line.ProductId} переводим прежним способом (чтение остатка + PATCH).", "WARNING");
+                if (!await ConvertExistingToPackSaleAsync(line, addError, ct).ConfigureAwait(false))
+                    return false;
+                addError(ReceivingPackConvert.FallbackWarning(line));
+                return true;
+            case ReceivingPackConvert.Kind.AlreadyHasPackages:
+                // Повтор после обрыва (сервер без повтора ответа) или упаковку завели в другом месте: та же упаковка — переводить нечего, приход упаковок можно.
+                if (await ReceivingPackConvert.ReadFreshAsync(Api, line.ProductId!, ct).ConfigureAwait(false) is { PackSize: > 0 } fresh && Math.Abs(fresh.PackSize - per) < 1e-9)
+                {
+                    PosLogger.Log($"Приёмка: у товара {line.ProductId} упаковка по {per:0.###} шт уже есть (прошлая попытка дошла) — второй раз не переводим.", "STOCK");
+                    return true;
+                }
+                addError(ReceivingPackConvert.Describe(outcome, line));
+                RefreshProductLater(line.ProductId);
+                return false;
+            default:
+                PosLogger.Log($"Приёмка: сервер отказал в переводе товара {line.ProductId} в упаковки: {outcome.Kind} ({outcome.Status}) {outcome.ServerMessage}", "WARNING");
+                addError(ReceivingPackConvert.Describe(outcome, line));
+                if (outcome.Kind == ReceivingPackConvert.Kind.StockChanged)
+                    RefreshProductLater(line.ProductId); // перечитать карточку: следующее подтверждение покажет новый остаток
+                return false;
+        }
+    }
+
+    /// <summary>2026-11-11: точечно перечитать товар в каталоге кассы (в фоне, только в программе — на стендах хоста нет и базу не трогаем).</summary>
+    private static void RefreshProductLater(string? productId)
+    {
+        if (string.IsNullOrWhiteSpace(productId) || CatalogCacheService.SharedRefreshProducts is null)
+            return;
+        _ = Task.Run(async () =>
+        {
+            try { await CatalogCacheService.RefreshProductsAsync(new[] { productId }).ConfigureAwait(false); }
+            catch (Exception ex) { PosLogger.Log($"Приёмка: товар {productId} не перечитан после перевода в упаковки: {ex.Message}", "WARNING"); }
+        });
+    }
+
+    /// <summary>2026-11-10: товар склада → «упаковка с поштучной продажей» перед приходом. Свежая карточка с сервера: упаковка того же размера уже есть (прошлая попытка дошла) — ничего
+    /// не меняем; иначе остаток (штуки или упаковки прежнего размера) пересчитывается в упаковки по <see cref="ReceivingLineVm.PiecesPerPack"/> — только если делится на ЦЕЛЫЕ
+    /// упаковки — и одним PATCH уходят packages_input (как окно товара), остаток и цены упаковки. false — строку не проводить (причина уже в <paramref name="addError"/>).</summary>
+    private static async Task<bool> ConvertExistingToPackSaleAsync(ReceivingLineVm line, Action<string> addError, CancellationToken ct)
+    {
+        var per = line.PiecesPerPack;
+        if (await Api.ProductsDetailAsync(line.ProductId!, ct).ConfigureAwait(false) is not { ValueKind: JsonValueKind.Object } card)
+        {
+            addError(Tr.T($"{line.ProductName}: сервер не вернул карточку товара — упаковку не записали, строка не проведена. Попробуйте ещё раз.",
+                $"{line.ProductName}: сервер товардын картасын кайтарган жок — таңгак жазылган жок, сап өткөрүлгөн жок. Кайра аракет кылыңыз.",
+                $"{line.ProductName}: the server did not return the product card — the pack was not written, the line was not posted. Try again.",
+                $"{line.ProductName}: sunucu ürün kartını döndürmedi — koli yazılmadı, satır işlenmedi. Tekrar deneyin.",
+                $"{line.ProductName}: server mahsulot kartasini qaytarmadi — qadoq yozilmadi, qator o'tkazilmadi. Qayta urinib ko'ring."));
+            return false;
+        }
+        var stock = Num(card, "quantity");
+        double cardPer = 0;
+        if (card.TryGetProperty("packages", out var pkgs) && pkgs.ValueKind == JsonValueKind.Array)
+            foreach (var pkg in pkgs.EnumerateArray())
+                if (pkg.ValueKind == JsonValueKind.Object && Num(pkg, "quantity_in_package") is > 0 and var q && Num(pkg, "piece_unit_price") > 0)
+                {
+                    cardPer = q; // касса, как и чтение каталога (ProductCatalogMapper), берёт первую упаковку
+                    break;
+                }
+        if (cardPer > 0 && Math.Abs(cardPer - per) < 1e-9)
+        {
+            PosLogger.Log($"Приёмка: у товара {line.ProductId} упаковка по {per:0.###} шт уже есть (прошлая попытка дошла) — карточку не меняем.", "STOCK");
+            return true;
+        }
+        if (!ReceivingPacks.TryConvertStock(stock, cardPer, per, out var newStock))
+        {
+            var pieces = stock * (cardPer > 0 ? cardPer : 1);
+            addError(Tr.T($"{line.ProductName}: остаток на сервере сейчас {pieces:0.###} шт — не делится на упаковки по {per:0.###} шт. Упаковку не записали, строка не проведена: поправьте остаток (ревизия) или «шт в упак.».",
+                $"{line.ProductName}: сервердеги калдык азыр {pieces:0.###} даана — {per:0.###} даанадан таңгакка бөлүнбөйт. Таңгак жазылган жок, сап өткөрүлгөн жок: калдыкты (ревизия) же «даана/таңгакты» оңдоңуз.",
+                $"{line.ProductName}: the stock on the server is now {pieces:0.###} pcs — it does not divide into packs of {per:0.###}. The pack was not written, the line was not posted: fix the stock (stocktake) or “pcs/pack”.",
+                $"{line.ProductName}: sunucudaki stok şu an {pieces:0.###} adet — {per:0.###} adetlik kolilere bölünmüyor. Koli yazılmadı, satır işlenmedi: stoğu (sayım) veya «adet/koli»yi düzeltin.",
+                $"{line.ProductName}: serverdagi qoldiq hozir {pieces:0.###} dona — {per:0.###} donalik qadoqlarga bo'linmaydi. Qadoq yozilmadi, qator o'tkazilmadi: qoldiqni (inventarizatsiya) yoki «dona/qadoq»ni tuzating."));
+            return false;
+        }
+        var fields = new Dictionary<string, object?>
+        {
+            ["packages_input"] = CatalogApiService.PackagesInput(line.PackName, per, line.Unit, PackPieceSalePrice(line)),
+            ["purchase_price"] = Math.Round(line.PurchasePrice, ReceivingPricing.PurchaseDecimals, MidpointRounding.AwayFromZero), // за упаковку
+        };
+        if (line.SalePrice > 0)
+        {
+            fields["price"] = line.SalePrice; // за упаковку
+            if (ReceivingPricing.MarkupPercent(line.PurchasePrice, line.SalePrice) is { } markup)
+                fields["markup_percent"] = markup;
+        }
+        if (Math.Abs(newStock - stock) > 0.0005)
+            fields["quantity"] = newStock;
+        if (Math.Abs(stock - line.StockBefore) > 0.0005)
+            PosLogger.Log($"Приёмка: остаток товара {line.ProductId} изменился с начала приёмки ({line.StockBefore:0.###} → {stock:0.###}) — пересчитан свежий.", "STOCK");
+        await Api.PatchProductFieldsAsync(line.ProductId!, fields, ct).ConfigureAwait(false);
+        PosLogger.Log($"Приёмка: товар {line.ProductId} переведён на упаковку по {per:0.###} шт (было {(cardPer > 0 ? $"упаковка по {cardPer:0.###}" : "штуки")}), остаток {stock:0.###} → {newStock:0.###}.", "STOCK");
+        return true;
+    }
 
     /// <summary>2026-11-06 (жалоба «Орук маркет», приход №48): уходит ли цена продажи строки в товар при приходе БЕЗ поставщика (прямой PATCH товара). Только если цена есть (> 0) и она
     /// новая (новый товар), изменена в этом приходе, либо закупка изменилась / есть доп. расходы / товар из общей базы (цена пишется вместе с закупкой, чтобы сервер не пересчитал её
@@ -895,6 +1105,7 @@ public sealed class PurchaseReceivingService
                         EnablePieceSale = line.PackSaleSize >= 2,
                         PackageQuantity = line.PackSaleSize >= 2 ? line.PackSaleSize : null,
                         PackagePiecePrice = line.PackSaleSize >= 2 ? PackPieceSalePrice(line) : null,
+                        PackageName = line.PackName, // 2026-11-10: «Пачка»/«Упаковка» (пусто — «упаковка», как раньше)
                     }, ct).ConfigureAwait(false);
                 }
 
@@ -952,6 +1163,34 @@ public sealed class PurchaseReceivingService
         // 2026-10-25: приход документом — одно целое. Если создание какого-то товара не удалось по причине «исход неизвестен» (сеть, таймаут),
         // документ сейчас не отправляем — очередь повторит все создания, а затем отправит приход одним документом (второго не будет).
         if (st is not null && (st.Interrupted || (supplier is not null && lines.Any(l => string.IsNullOrWhiteSpace(l.ProductId) && IsLineOutcome(st, l, "unknown")))))
+            return new PostResult(Array.Empty<ReceivingLineVm>(), 0, created, errors);
+
+        // 2026-11-10 (владелец: «В приёмке как в вебе — как упаковка, продажа поштучно!»): товар склада, принимаемый «упаковкой с поштучной продажей», сначала получает в карточке
+        // упаковку (тот же PATCH с packages_input, что окно товара) и остаток, пересчитанный из штук в упаковки; только потом приход (он прибавляет уже упаковки).
+        // Не получилось — строка в приход НЕ идёт (иначе упаковки прибавились бы к остатку в штуках), остальные строки проводятся.
+        foreach (var line in ready.Where(l => l.PackSaleConvertsExisting && !createdNow.Contains(l)).ToList())
+        {
+            if (st is { Interrupted: true })
+                break;
+            try
+            {
+                // 2026-11-11: атомарный convert-to-packages (Умар); старый сервер (404/405) — прежний PATCH с предупреждением.
+                if (!await ConvertToPacksAsync(line, AddErr, ct).ConfigureAwait(false))
+                    ready.Remove(line);
+            }
+            catch (Exception ex) when (Soft(ex))
+            {
+                ready.Remove(line);
+                var why = Msg(ex);
+                AddErr(Tr.T($"{line.ProductName}: упаковку в карточку товара записать не удалось — {why}. Строка не проведена.",
+                    $"{line.ProductName}: таңгакты товардын картасына жазуу мүмкүн болгон жок — {why}. Сап өткөрүлгөн жок.",
+                    $"{line.ProductName}: could not write the pack to the product card — {why}. The line was not posted.",
+                    $"{line.ProductName}: koli ürün kartına yazılamadı — {why}. Satır işlenmedi.",
+                    $"{line.ProductName}: qadoqni mahsulot kartasiga yozib bo'lmadi — {why}. Qator o'tkazilmadi."));
+                NoteLineFailure(st, line, ex);
+            }
+        }
+        if (ready.Count == 0)
             return new PostResult(Array.Empty<ReceivingLineVm>(), 0, created, errors);
 
         var posted = new List<ReceivingLineVm>();

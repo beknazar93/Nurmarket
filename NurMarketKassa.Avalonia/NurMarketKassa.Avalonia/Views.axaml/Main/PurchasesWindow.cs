@@ -1068,7 +1068,7 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
             r.Compensation == "cash" ? "BrushSuccessSoft" : r.Compensation == "debt_offset" ? "BrushWarningSoft" : "BrushPanelSoft",
             r.Compensation == "cash" ? "BrushSuccess" : "BrushText");
         pill.HorizontalAlignment = HorizontalAlignment.Left;
-        money.Children.Add(pill);
+        money.Children.Add(r.EditState.IsVoided && ReturnEditFlows.VoidedPill(this, r.EditState) is { } voided ? voided : pill); // 2026-11-10: аннулированный — плашкой
         var reason = Cell(SupplierReturnsWindow.ReasonName(r.Reason) + (r.Comment.Length > 0 ? " · " + r.Comment : ""), "BrushTextSoft", 12);
         reason.Margin = default;
         reason.MaxLines = 1;
@@ -1223,6 +1223,17 @@ public sealed partial class PurchasesWindow : Window, IOwnerSection, IOwnerSecti
         info.Children.Add(SectionCards.LinesTable(this, lines, T("Товар", "Товар", "Product", "Ürün", "Mahsulot"), T("Кол-во", "Саны", "Qty", "Adet", "Soni"),
             T("Цена", "Баасы", "Price", "Fiyat", "Narx"), T("Сумма", "Сумма", "Amount", "Tutar", "Summa")));
         var w = new Window { Title = T("Возврат поставщику", "Жеткирүүчүгө кайтаруу", "Return to supplier", "Tedarikçiye iade", "Yetkazib beruvchiga qaytarish") };
+        // 2026-11-10 (ТЗ «правка и аннулирование 24 ч»): плашка «АННУЛИРОВАН» и кнопки «Редактировать / Удалить / История» (только при признаке сервера и can_edit/can_void).
+        if (ReturnEditFlows.VoidedPill(this, r.EditState) is { } voided)
+        {
+            voided.HorizontalAlignment = HorizontalAlignment.Left;
+            info.Children.Insert(0, voided);
+        }
+        info.Children.Add(ReturnEditFlows.SupplierBar(this, r, async () =>
+        {
+            w.Close();
+            await ReloadAsync().ConfigureAwait(true);
+        }));
         SectionCards.AsModal(w, 620);
         var close = SectionCards.Cancel(T("Закрыть", "Жабуу", "Close", "Kapat", "Yopish"));
         close.Click += (_, _) => w.Close();

@@ -386,6 +386,8 @@ public partial class App : Application
             var splash = new SplashWindow();
             desktop.MainWindow = splash;
             splash.Show();
+            // 2026-11-11: проверка запуска с нестандартным режимом отрисовки (маркер аварийного отката) — см. RenderModeSettings.
+            NurMarketKassa.AvaloniaHost.Services.RenderModeSettings.WatchStartup(desktop);
             // 2026-11-05 (С-03): «Выйти» на затянувшейся заставке — отменяем запуск и закрываем программу (смена и данные не затрагиваются).
             splash.ExitRequested += () =>
             {

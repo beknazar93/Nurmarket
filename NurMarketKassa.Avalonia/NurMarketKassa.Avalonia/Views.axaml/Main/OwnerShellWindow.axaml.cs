@@ -852,6 +852,10 @@ public partial class OwnerShellWindow : Window, IMainShell
             TariffGate.CanUseSalesAnalytics && (salesFinanceParts.Sales || salesFinanceParts.Finance),
             () => OpenSalesFinance());
         // 2026-10-05, владелец: «аналитика по долгам — при нажатии подробно показывать долги».
+        // 2026-11-10, владелец: «возвраты добавь в программу владельца тоже» — то же окно возврата, что в кассе («Возврат товаров по чеку»: фильтры, поиск по товару,
+        // возврат долгового чека в счёт долга), через общий ReturnSaleLauncher. Виден только с правом «Возврат» (у владельца — всегда); скрывается в «Разделах меню».
+        Add("salereturn", "ReturnIcon", Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), HasPermissionSafe(PosPermissions.EmployeeReturn),
+            () => _ = ReturnSaleLauncher.OpenAsync(this));
         Add("debts", "DebtsIcon", Tr.T("Долги клиентов", "Кардарлардын карыздары", "Customer debts", "Müşteri borçları", "Mijozlar qarzlari"), TariffGate.CanUseDebts,
             OpenDebts);
         // 2026-10-02, владелец: «и админку не забудь — при смене режима админка должна меняться». Прокат —

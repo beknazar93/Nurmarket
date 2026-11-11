@@ -383,6 +383,9 @@ public sealed class TimesheetMarksService
 
     public static string Legend() => string.Join(", ", Enum.GetValues<TimesheetStatus>().Select(s => $"{StatusCode(s)} — {StatusName(s)}"));
 
+    /// <summary>2026-11-11: часы смен для показа — до десятых (округление здесь, а не в окне: проверка check-money-in-views).</summary>
+    public static double RoundHours(double h) => Math.Round(h, 1);
+
     /// <summary>Часы текстом: «8 ч», «7,5 ч».</summary>
     public static string HoursText(double h) =>
         $"{h.ToString("0.##", System.Globalization.CultureInfo.CurrentCulture)} {Tr.T("ч", "саат", "h", "sa", "soat")}";

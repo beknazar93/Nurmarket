@@ -119,6 +119,19 @@ public partial class WarehouseWindow
             foreach (var (column, width) in widths)
                 if (column.Width.Value != width)
                     column.Width = new DataGridLength(width);
+            // 2026-11-10 (владелец: «Наименование должно быть длинным!», как колонка «Товар» в вебе): название — главная колонка. Если ему не хватает места
+            // (цель: ≥ 300 px в полном виде, ≥ 220 px в узком), сначала прячутся второстепенные колонки: «Прибыль с шт.» (есть в подсказке «Как посчитана цена»),
+            // «На складе», затем «Закупка изменилась». «Как посчитана цена» не прячется — в ней кнопка «Как у всех».
+            var nameMin = compact ? 220 : 300;
+            RcvColChange.IsVisible = true; // стало шире — возвращается (две другие — по правилу узкого вида выше)
+            var used = widths.Where(w => w.Column.IsVisible).Sum(w => w.Width) + 4; // + рамка/полоса прокрутки
+            foreach (var optional in new[] { RcvColProfit, RcvColWas, RcvColChange })
+            {
+                if (!optional.IsVisible || used + nameMin <= e.NewSize.Width)
+                    continue;
+                optional.IsVisible = false;
+                used -= widths.FirstOrDefault(x => ReferenceEquals(x.Column, optional)).Width;
+            }
         };
         // Перемещение: пустой журнал документов или движения — заголовок и подсказка по выбранному разделу.
         void SyncMovements()

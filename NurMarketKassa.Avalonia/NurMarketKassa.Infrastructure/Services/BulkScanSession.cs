@@ -609,6 +609,17 @@ public sealed class BulkScanSession : INotifyPropertyChanged, IDisposable
             if (!row.IsRemoved)
                 ApplyChecked(row, found, verified);
         }
+        catch (AmbiguousBarcodeException ambiguous)
+        {
+            // 2026-11-11 (ответ Умара): код у нескольких товаров — ничего не подставляем, строка остаётся «неизвестной» с понятным текстом (код в журнале замаскирован).
+            PosLogger.Log($"Массовое добавление: код {PurchaseReceivingService.MaskCode(row.ScannedCode)} неоднозначный (у нескольких товаров).", "WARNING");
+            if (!row.IsRemoved)
+            {
+                row.IsChecking = false;
+                row.NotVerified = true;
+                row.SetError(ambiguous.Message);
+            }
+        }
         catch (Exception ex)
         {
             PosLogger.Log($"Массовое добавление: проверка кода '{row.ScannedCode}' не удалась: {ex.Message}", "WARNING");
@@ -678,6 +689,10 @@ public sealed class BulkScanSession : INotifyPropertyChanged, IDisposable
                     Quantity = 1,
                 }, true);
             return (null, true);
+        }
+        catch (AmbiguousBarcodeException)
+        {
+            throw; // 2026-11-11 (ответ Умара): «неоднозначный штрихкод» — не «нет связи»; CheckAsync помечает строку понятным текстом
         }
         catch (Exception ex)
         {

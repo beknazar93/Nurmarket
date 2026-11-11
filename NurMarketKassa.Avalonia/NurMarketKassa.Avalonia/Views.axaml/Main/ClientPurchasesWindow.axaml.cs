@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using NurMarketKassa.Services;
+using ReturnSaleLauncher = NurMarketKassa.AvaloniaHost.Services.ReturnSaleLauncher; // 2026-11-10
 
 namespace NurMarketKassa.AvaloniaHost.Views;
 
@@ -56,9 +57,14 @@ public sealed class ClientPurchasesWindow : Window
     private string? _currentReceipt;
     private readonly Button _waybillButton = new() { IsVisible = false };
 
+    // 2026-11-10, владелец: «возврат добавь в клиентов которые брали в долг» — «Возврат» по выбранному чеку (то же окно возврата, ReturnSaleLauncher).
+    private readonly Button _returnButton = new() { IsVisible = false };
+    private readonly string _clientName;
+
     public ClientPurchasesWindow(string clientId, string clientName)
     {
         _clientId = clientId ?? "";
+        _clientName = clientName ?? "";
 
         Title = Tr.T("История покупок", "Сатып алуулар тарыхы", "Purchase history",
                      "Satın alma geçmişi", "Xaridlar tarixi");
@@ -92,7 +98,7 @@ public sealed class ClientPurchasesWindow : Window
             Margin = new Avalonia.Thickness(0, 0, 0, 6),
         };
         UseBrush(receiptTitle, TextBlock.ForegroundProperty, "BrushText");
-        var right = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Avalonia.Thickness(12, 0, 0, 0), Width = 372 };
+        var right = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto,Auto"), Margin = new Avalonia.Thickness(12, 0, 0, 0), Width = 372 };
         right.Children.Add(receiptTitle);
         _bar.GetData = () => _card;
         _bar.OwnerWindow = this;
@@ -124,6 +130,27 @@ public sealed class ClientPurchasesWindow : Window
             };
             right.Children.Add(_waybillButton);
         }
+
+        // 2026-11-10: «Возврат» по выбранному чеку — под чеком; у возвращённого целиком — неактивна с подсказкой; долговой чек — в счёт долга (так вернёт окно возврата).
+        _returnButton.Content = ReturnSaleLauncher.ButtonText;
+        _returnButton.Name = "ClientPurchaseReturnButton";
+        _returnButton.Classes.Add("sec-outline");
+        _returnButton.Height = 44;
+        _returnButton.Margin = new Avalonia.Thickness(0, 8, 0, 0);
+        _returnButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+        _returnButton.HorizontalContentAlignment = HorizontalAlignment.Center;
+        Grid.SetRow(_returnButton, 3);
+        _returnButton.Click += async (_, _) =>
+        {
+            if (_grid.SelectedItem is not PurchaseVm row || string.IsNullOrWhiteSpace(row.SaleId))
+                return;
+            var opened = await ReturnSaleLauncher.OpenAsync(this, row.SaleId, row.ReceiptText == "—" ? null : row.ReceiptText,
+                clientId: _clientId, clientName: _clientName,
+                status: row.IsDebt ? NurMarketKassa.Services.SaleListFilter.StatusKind.Debt : null).ConfigureAwait(true);
+            if (opened)
+                await LoadAsync().ConfigureAwait(true); // статус чеков и долг после возврата — с сервера
+        };
+        right.Children.Add(_returnButton);
 
         var body = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,*") };
         body.Children.Add(top);
@@ -215,6 +242,7 @@ public sealed class ClientPurchasesWindow : Window
         Add(Tr.T("№ чека", "Чек №", "Receipt no.", "Fiş no", "Chek №"), nameof(PurchaseVm.ReceiptText), 130);
         Add(Tr.T("Оплата", "Төлөм", "Payment", "Ödeme", "To'lov"), nameof(PurchaseVm.PaymentText), 120);
         Add(Tr.T("Сумма", "Суммасы", "Amount", "Tutar", "Summa"), nameof(PurchaseVm.AmountText), 130);
+        Add(Tr.T("Возврат", "Кайтаруу", "Return", "İade", "Qaytarish"), nameof(PurchaseVm.ReturnMark), 130); // 2026-11-10: «↩ возвращён» / «↩ частично»
     }
 
     private async Task LoadAsync()
@@ -250,6 +278,9 @@ public sealed class ClientPurchasesWindow : Window
                     PaymentText = DescribePayment(ReadString(sale, "payment_method")),
                     AmountText = amount.ToString("N2", CultureInfo.CurrentCulture) + " "
                                  + Tr.T("сом", "сом", "som", "som", "so'm"),
+                    Status = ReadString(sale, "status"),
+                    ReturnStatus = ReadString(sale, "return_status"),
+                    PaymentMethod = ReadString(sale, "payment_method"),
                 });
             }
 
@@ -360,6 +391,7 @@ public sealed class ClientPurchasesWindow : Window
         {
             _currentSale = null;
             _waybillButton.IsVisible = false;
+            _returnButton.IsVisible = false;
             _card = null;
             _paper.Content = null;
             _bar.IsVisible = false;
@@ -367,6 +399,7 @@ public sealed class ClientPurchasesWindow : Window
             return;
         }
 
+        UpdateReturnButton(row);
         try
         {
             var sale = await App.SalesApi.PosSaleGetAsync(row.SaleId).ConfigureAwait(true);
@@ -391,6 +424,16 @@ public sealed class ClientPurchasesWindow : Window
                 "Fiş yüklenemedi", "Chek yuklanmadi") + ": " + ServerOutageMonitor.FriendlyError(ex);
             _receiptNote.IsVisible = true;
         }
+    }
+
+    /// <summary>2026-11-10: «Возврат» видна с правом «Возврат»; у чека, возвращённого целиком, — неактивна с подсказкой.</summary>
+    private void UpdateReturnButton(PurchaseVm row)
+    {
+        _returnButton.IsVisible = ReturnSaleLauncher.CanReturn() && !row.SaleId.StartsWith("local", StringComparison.Ordinal);
+        var full = ReturnSaleLauncher.IsFullyReturned(row.Status, row.ReturnStatus);
+        _returnButton.IsEnabled = !full;
+        ToolTip.SetTip(_returnButton, full ? ReturnSaleLauncher.FullyReturnedHint : null);
+        Avalonia.Automation.AutomationProperties.SetName(_returnButton, ReturnSaleLauncher.ButtonText + " — " + row.ReceiptText);
     }
 
     private static decimal ReadAmount(JsonElement sale)
@@ -474,5 +517,11 @@ public sealed class ClientPurchasesWindow : Window
         public string ReceiptText { get; init; } = "";
         public string PaymentText { get; init; } = "";
         public string AmountText { get; init; } = "";
+        // 2026-11-10: статус возврата и способ оплаты — для кнопки «Возврат» и пометки.
+        public string? Status { get; init; }
+        public string? ReturnStatus { get; init; }
+        public string? PaymentMethod { get; init; }
+        public bool IsDebt => NurMarketKassa.Services.SaleListFilter.IsDebtSale(new NurMarketKassa.Services.SaleListFilter.Row(default, 0m, PaymentMethod, Status, ReturnStatus, null, null));
+        public string ReturnMark => ReturnSaleLauncher.ReturnMark(Status, ReturnStatus);
     }
 }

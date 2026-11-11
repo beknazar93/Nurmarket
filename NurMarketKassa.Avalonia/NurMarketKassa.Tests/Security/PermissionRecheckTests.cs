@@ -137,6 +137,17 @@ public sealed class PermissionRecheckTests : IDisposable
         service.HasPermission(PosPermissions.ViewSupplier).Should().BeFalse("тарифные флаги роль по-прежнему не даёт");
     }
 
+    /// <summary>2026-11-10 (владелец: пункт «Возврат» в программе владельца): владелец видит возврат всегда, сотрудник — только с флагом can_view_market_employee_return.</summary>
+    [Theory]
+    [InlineData("""{ "id": "1", "role": "owner" }""", true)]
+    [InlineData("""{ "id": "2", "role": "salesperson" }""", false)]
+    [InlineData("""{ "id": "3", "role": "salesperson", "can_view_market_employee_return": true }""", true)]
+    [InlineData("""{ "id": "4", "role": "admin", "can_view_market_employee_return": false }""", false)]
+    public void ReturnPermission_OwnerAlways_EmployeeByFlag(string payload, bool expected)
+    {
+        new PermissionService(new StubAuthApi(payload), new StubAutonomous()).HasPermission(PosPermissions.EmployeeReturn).Should().Be(expected);
+    }
+
     private sealed class StubAutonomous : IAutonomousAuthService
     {
         public StubAutonomous(bool isAutonomous = false) => IsCurrentSessionAutonomous = isAutonomous;

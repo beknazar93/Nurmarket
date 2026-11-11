@@ -51,8 +51,17 @@ public static class PosDialogHost
     /// пораздельной проверки каждого (можно случайно застопорить чек/оплату).</summary>
     private static void ApplyFadeIn(Window dialog)
     {
+#if NURANDROID
+        // 2026-11-11: на Android слой окна уже появляется плавно (WindowLayerHost.AnimateIn) — второе затухание самого окна давало
+        // «тёмную модалку, потом светлее» вдвое дольше.
+        return;
+#else
+        // 2026-11-11 (жалоба «затемнение дольше 2 с»): без анимаций при «слабом устройстве» / выключенных анимациях Windows.
+        if (ModalMotion.ReduceMotion)
+            return;
         dialog.Opacity = 0;
         dialog.Opened += OnDialogOpenedFadeIn;
+#endif
     }
 
     private static void OnDialogOpenedFadeIn(object? sender, EventArgs e)
@@ -63,7 +72,8 @@ public static class PosDialogHost
 
         var animation = new Animation
         {
-            Duration = TimeSpan.FromMilliseconds(160),
+            // 2026-11-11: 160 → 110 мс — одна короткая смена непрозрачности поверх уже готового затемнения.
+            Duration = TimeSpan.FromMilliseconds(ModalMotion.DialogFadeMs),
             Easing = new CubicEaseOut(),
             FillMode = FillMode.Forward,
             Children =
@@ -87,7 +97,7 @@ public static class PosDialogHost
 
         owner = ResolveOwner(owner);
         ApplyFadeIn(dialog);
-        var task = dialog.ShowDialog<bool?>(owner);
+        var task = ShowDialogDimmed<bool?>(dialog, owner);
 
         // UI thread: pump until the dialog closes so Click → Close can complete.
         using var cts = new CancellationTokenSource();
@@ -149,8 +159,59 @@ public static class PosDialogHost
         // диктор «замолкал», дерево окна было недоступно. Теперь вызывающий (его await) возвращает управление сразу, а окно открывается
         // следующим проходом цикла диспетчера (Task.Yield). Само окно и результат — прежние (тот же Show), порядок действий после
         // закрытия не менялся.
-        await Task.Yield();
+        // 2026-11-11 (жалоба «затемнение дольше 2 с»): затемнение владельца — сразу, и до разметки модалки даём отрисоваться одному кадру
+        // (вместо Task.Yield — ждём кадр, не дольше 50 мс): тяжёлое окно размечается уже над затемнённым фоном, а не «ничего не происходит».
+        ModalWindowManager.MarkShowRequested(dialog);
+        try
+        {
+            var dimOwner = ResolveOwner(owner);
+            ModalWindowManager.PreDim(dimOwner);
+            await WaitOneFrameAsync(dimOwner).ConfigureAwait(true);
+        }
+        catch (InvalidOperationException)
+        {
+            await Task.Yield(); // окна-владельца нет — Show ниже сообщит об этом, как раньше
+        }
         return Show(dialog, owner);
+#endif
+    }
+
+#if !NURANDROID
+    /// <summary>2026-11-11: следующий кадр окна (затемнение уже отрисовано), но не дольше 50 мс — медленная отрисовка не задерживает модалку.</summary>
+    private static Task WaitOneFrameAsync(Window window)
+    {
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            window.RequestAnimationFrame(_ => tcs.TrySetResult());
+        }
+        catch
+        {
+            tcs.TrySetResult();
+        }
+        DispatcherTimer.RunOnce(() => tcs.TrySetResult(), TimeSpan.FromMilliseconds(50));
+        return tcs.Task;
+    }
+#endif
+
+    /// <summary>2026-11-11: ShowDialog с затемнением владельца заранее (до разметки модалки) и замером времени до первого кадра.
+    /// Если окно не открылось — затемнение снимается.</summary>
+    private static Task<T> ShowDialogDimmed<T>(Window dialog, Window owner)
+    {
+#if NURANDROID
+        return dialog.ShowDialog<T>(owner);
+#else
+        ModalWindowManager.MarkShowRequested(dialog);
+        ModalWindowManager.PreDim(owner);
+        try
+        {
+            return dialog.ShowDialog<T>(owner);
+        }
+        catch
+        {
+            ModalWindowManager.CancelPreDim();
+            throw;
+        }
 #endif
     }
 
@@ -158,12 +219,12 @@ public static class PosDialogHost
     {
         owner = ResolveOwner(owner);
         ApplyFadeIn(dialog);
-        return dialog.ShowDialog<bool?>(owner);
+        return ShowDialogDimmed<bool?>(dialog, owner);
     }
 
     public static Task<T?> ShowDialogAsync<T>(Window owner, Window dialog) where T : class
     {
         ApplyFadeIn(dialog);
-        return dialog.ShowDialog<T?>(owner);
+        return ShowDialogDimmed<T?>(dialog, owner);
     }
 }

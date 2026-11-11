@@ -361,10 +361,21 @@ public sealed class BulkImportPlan
 
             // ---- числа
             if (!TryNumber(row, ProductImportField.Quantity, cardsOnly ? -1 : cQty, cardsOnly ? "" : src[cQty], 1e9, out var quantity)
-                || !TryNumber(row, ProductImportField.Purchase, cPurchase, cPurchase < 0 ? "" : src[cPurchase], 1e8, out var purchase)
+                || !TryNumber(row, ProductImportField.Purchase, cPurchase, cPurchase < 0 ? "" : src[cPurchase], 1e10, out var purchase)
                 || !TryNumber(row, ProductImportField.Sale, cSale, cSale < 0 ? "" : src[cSale], 1e8, out var sale)
                 || !TryNumber(row, ProductImportField.Markup, cMarkup, cMarkup < 0 ? "" : src[cMarkup], 1e6, out var markup))
                 continue;
+            // 2026-11-11 (ответ Умара): пределы цен сервера — продажа 9 999 999,999, закупка 9 999 999 999,9999 (было 1e8 для обеих). Строка с ценой выше предела не загружается.
+            if (sale is { } saleValue && ServerPriceLimits.SaleExceeds(saleValue))
+            {
+                Fail(row, ServerPriceLimits.SaleTooBigText, ProductImportField.Sale, cSale);
+                continue;
+            }
+            if (purchase is { } purchaseValue && ServerPriceLimits.PurchaseExceeds(purchaseValue))
+            {
+                Fail(row, ServerPriceLimits.PurchaseTooBigText, ProductImportField.Purchase, cPurchase);
+                continue;
+            }
 
             // 2026-11-02 (аудит №2, С2-19): цена продажи не выше закупки — скорее всего, в «Цену» попала закупка; строка не блокируется, но помечается
             if (purchase is > 0 && sale is > 0 && sale.Value <= purchase.Value)

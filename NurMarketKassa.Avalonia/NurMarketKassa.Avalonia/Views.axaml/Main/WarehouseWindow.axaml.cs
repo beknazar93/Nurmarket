@@ -229,6 +229,7 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
             // 2026-10-06 (О-70): этикетка размера — +N этому размеру в строке товара.
             if (TryReceiveVariantScan(code, quantity))
             {
+                _viewModel.RepeatScanGuard.Reset(); // 2026-11-09: этикетка размера — другой способ добавления, отсчёт «тот же код подряд» заново
                 ReceivingQuantityBox.Text = "1";
                 RefreshReceivingSummary();
                 return;
@@ -297,6 +298,11 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         if (ReferenceEquals(e.Column, RcvColBarcode) && line.Source is not (NurMarketKassa.Models.ReceivingSource.Unknown or NurMarketKassa.Models.ReceivingSource.Internet)) // 2026-11-09: «Из интернета» — тот же новый товар
             e.Cancel = true;
         _rcvBarcodeEditing = !e.Cancel && ReferenceEquals(e.Column, RcvColBarcode); // 2026-10-29: в правке штрихкода — только цифры (BarcodeInput)
+        if (!e.Cancel)
+            line.BeginCellEdit(); // 2026-11-10: значения до правки — для Esc и для пустого поля при выходе (ReceivingLineVm.EndCellEdit)
+        // 2026-11-11 (Б-5): в узком виде у нового товара под названием ещё поле штрихкода — на время правки названия строка выше, чтобы поле названия было видно целиком.
+        if (!e.Cancel && ReferenceEquals(e.Column, RcvColName) && line.IsNew && ReceivingGrid.Classes.Contains("rcv-compact") && e.Row.MinHeight < ReceivingNameEditRowHeight)
+            e.Row.MinHeight = ReceivingNameEditRowHeight;
     }
 
     /// <summary>Правка с одного нажатия. DataGrid входит в правку только по второму нажатию на уже
@@ -315,17 +321,16 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         if (e.PointerPressedEventArgs.Source is Avalonia.Controls.Control { Tag: "rcv-packlink" })
             return;
         // 2026-11-09: то же для кнопки «Найти в интернете» (нажатие может прийти от значка внутри кнопки — смотрим вверх по дереву до ячейки).
+        // 2026-11-10: и для кнопки «Сгенерировать штрихкод» (rcv-genbar); нажатие внутри уже открытого поля ввода — это постановка курсора, правку заново не начинаем.
         for (var v = e.PointerPressedEventArgs.Source as Avalonia.Visual; v is not null && v is not Avalonia.Controls.DataGridCell; v = v.GetVisualParent())
-            if (v is Avalonia.Controls.Control { Tag: "rcv-netlink" })
+            if (v is Avalonia.Controls.Control { Tag: "rcv-netlink" or "rcv-genbar" } || v is TextBox)
                 return;
 
+        // 2026-11-10 (жалоба владельца «Количество 1 не удаляется»): одно нажатие — сразу ввод: поле в фокусе и число выделено, набор заменяет его.
+        // Раньше правка начиналась, но фокус оставался на таблице (в шаблонной ячейке поле не получало фокус), а повторный клик ставил курсор слева от «1» —
+        // Backspace ничего не стирал.
         var column = e.Column;
-        Dispatcher.UIThread.Post(() =>
-        {
-            ReceivingGrid.SelectedItem = line;
-            ReceivingGrid.CurrentColumn = column;
-            ReceivingGrid.BeginEdit();
-        }, DispatcherPriority.Background);
+        Dispatcher.UIThread.Post(() => BeginReceivingEdit(line, column), DispatcherPriority.Background);
     }
 
     /// <summary>«+ Новый товар»: пустая строка нового товара, сразу в правке названия. Кнопку можно
@@ -357,7 +362,24 @@ public partial class WarehouseWindow : Window, IOwnerSection, IOwnerSectionKeepA
         // 2026-10-28 (ДЕНЬГИ): пока ячейка правилась, в ней жил сырой набранный текст («100.», «100,6»); по выходу — нормальный показ («100,60»).
         if (e.Row?.DataContext is NurMarketKassa.Models.ReceivingLineVm line)
         {
-            line.CommitText();
+            // 2026-11-11: в ячейку попал штрихкод или цена-великан — значение не принято, говорим почему (после выхода в ячейке прежнее число).
+            // 2026-11-11 (Б-4): штрихкод, «напечатанный» медленным сканером в ячейку, не теряется — обрабатывается как обычный скан.
+            var rejectedCode = line.TakeRejectedBarcode();
+            if (rejectedCode is not null && e.EditAction != DataGridEditAction.Cancel)
+                Dispatcher.UIThread.Post(() => _ = ScanIntoReceivingAsync(rejectedCode), DispatcherPriority.Background);
+            else if (e.EditAction != DataGridEditAction.Cancel && line.PriceProblemText is { Length: > 0 } rejected
+                && (rejected == NurMarketKassa.Models.ReceivingLineVm.BarcodeInCellText || rejected == NurMarketKassa.Models.ReceivingLineVm.PriceTooBigText
+                    || rejected == NurMarketKassa.Services.ServerPriceLimits.SaleTooBigText || rejected == NurMarketKassa.Services.ServerPriceLimits.PurchaseTooBigText)) // 2026-11-11: пределы цен сервера
+                _viewModel.ShowReceivingInfo(rejected);
+            // 2026-11-10: Esc — откат правки ячейки; выход с пустым полем — прежнее значение поля (не «молча 1» во время набора).
+            // 2026-11-11 (стык Б-4 и ввода в ячейках): медленный сканер печатает код по цифре — первые 7 цифр («4600000») успевали стать количеством/ценой 4 600 000,
+            // а 8-я отклонялась как штрихкод, и 4 600 000 оставалось в строке. Код в ячейке — откат всей правки этой ячейки, как Esc (так же делает «Закупки → Приём товара»).
+            if (e.EditAction == DataGridEditAction.Cancel || rejectedCode is not null)
+                line.CancelCellEdit();
+            else
+                line.EndCellEdit();
+            if (e.Row is { } editedRow)
+                ApplyReceivingRowHeight(editedRow, line); // 2026-11-11 (Б-5): правку названия закончили — обычная высота строки
             // 2026-11-09: пустое название нельзя — у товара склада возвращается прежнее (у нового проведение попросит ввести).
             if (ReferenceEquals(e.Column, RcvColName) && line.CommitName())
                 _viewModel.ShowReceivingInfo(Tr.T("Название не может быть пустым — вернули прежнее.", "Аты бош болбошу керек — мурункусу кайтарылды.",

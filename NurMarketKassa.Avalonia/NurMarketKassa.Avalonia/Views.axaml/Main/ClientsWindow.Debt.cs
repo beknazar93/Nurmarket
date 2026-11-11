@@ -12,6 +12,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using NurMarketKassa.Services;
 using NurMarketKassa.Services.Api;
+using ReturnSaleLauncher = NurMarketKassa.AvaloniaHost.Services.ReturnSaleLauncher; // 2026-11-10
 
 namespace NurMarketKassa.AvaloniaHost.Views;
 
@@ -39,6 +40,23 @@ public partial class ClientsWindow
         {
             _cardWa = new NurMarketKassa.AvaloniaHost.Services.DebtWhatsAppButton { Margin = new Thickness(0, 0, 8, 0), IsVisible = false };
             debtButtons.Children.Insert(debtButtons.Children.IndexOf(PayDebtButton) + 1, _cardWa);
+            // 2026-11-10, владелец: «возврат добавь в клиентов которые брали в долг» — «Возврат» в блоке «Долг»: окно возврата со списком чеков клиента
+            // (статус «Долговой»; долговой чек возвращается в счёт долга). Видна при долге и праве «Возврат».
+            _cardReturn = new Button
+            {
+                Content = ReturnSaleLauncher.ButtonText,
+                Classes = { "sec-outline" },
+                Height = 40,
+                MinHeight = 40,
+                Padding = new Thickness(14, 0),
+                Margin = new Thickness(0, 0, 8, 0),
+                IsVisible = false,
+            };
+            _cardReturn.Name = "CardDebtReturnButton";
+            Avalonia.Automation.AutomationProperties.SetName(_cardReturn, T("Возврат по чекам клиента", "Кардардын чектери боюнча кайтаруу", "Return from the customer's receipts",
+                "Müşterinin fişlerinden iade", "Mijoz cheklari bo'yicha qaytarish"));
+            _cardReturn.Click += CardReturn_Click;
+            debtButtons.Children.Insert(debtButtons.Children.IndexOf(_cardWa) + 1, _cardReturn);
         }
         HookDebtListEvents();
 
@@ -269,6 +287,31 @@ public partial class ClientsWindow
     /// <summary>2026-11-08: кнопка «WA» блока «Долг» карточки клиента.</summary>
     private NurMarketKassa.AvaloniaHost.Services.DebtWhatsAppButton? _cardWa;
 
+    /// <summary>2026-11-10: кнопка «Возврат» блока «Долг» карточки клиента.</summary>
+    private Button? _cardReturn;
+
+    /// <summary>2026-11-10: «Возврат» — окно возврата с чеками этого клиента (статус «Долговой»). После — долг и покупки клиента перечитываются (долг пересчитывает сервер;
+    /// при частичном возврате сервер может пересчитать иначе — окно возврата уже предупреждает «Сервер пересчитал долг иначе»).</summary>
+    private async void CardReturn_Click(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedClient is not { } client || string.IsNullOrWhiteSpace(client.Id))
+            return;
+        try
+        {
+            var opened = await ReturnSaleLauncher.OpenAsync(this, clientId: client.Id, clientName: client.FullName,
+                status: SaleListFilter.StatusKind.Debt).ConfigureAwait(true);
+            if (!opened)
+                return;
+            await RefreshClientDebtAsync(client.Id).ConfigureAwait(true);
+            if (ReferenceEquals(SelectedClient, client))
+                _ = LoadClientPurchasesAsync(client);
+        }
+        catch (Exception ex)
+        {
+            PosLogger.Log($"Клиенты: окно возврата не открылось: {ex}", "WARNING");
+        }
+    }
+
     private void UpdateCardDebt()
     {
         if (CardDebtBox == null || !TariffGate.CanUseDebts)
@@ -278,6 +321,8 @@ public partial class ClientsWindow
         PayDebtButton.IsVisible = false;
         if (_cardWa != null)
             _cardWa.IsVisible = false;
+        if (_cardReturn != null)
+            _cardReturn.IsVisible = false;
         if (client == null)
             return;
         if (client.DebtUnknown)
@@ -316,6 +361,8 @@ public partial class ClientsWindow
             CardDebtDetail.Text = n > 0 ? CardDebtDetail.Text + " · " + label : label;
         }
         PayDebtButton.IsVisible = AppMode.IsOwner;
+        if (_cardReturn != null)
+            _cardReturn.IsVisible = n > 0 && ReturnSaleLauncher.CanReturn(); // 2026-11-10: есть чеки в долг (у долга без продажи возвращать нечего)
         if (_cardWa != null)
         {
             _cardWa.Update(client.Id, client.FullName, client.Phone, client.Debt, client.DebtSince);

@@ -57,7 +57,8 @@ public sealed class ReceivingByPacksUiTests
             // 2026-11-07: вместо переключателя — меню способа приёмки; у существующего товара «поштучная продажа» недоступна (только новый товар)
             UiDrive.Click(window, toggle);
             UiShot.Settle(6);
-            window.GetVisualDescendants().OfType<MenuItem>().Single(m => m.Header is string h && h.Contains("Упаковка с поштучной продажей")).IsEnabled.Should().BeFalse("товар со склада: единицу остатка менять нельзя");
+            // 2026-11-10 (владелец: «как в вебе — упаковка, продажа поштучно»): и у товара склада доступна (остаток пересчитается через подтверждение «Было → станет»)
+            window.GetVisualDescendants().OfType<MenuItem>().Single(m => m.Header is string h && h.Contains("Упаковка с поштучной продажей")).IsEnabled.Should().BeTrue("товар со склада: упаковка уходит в карточку тем же PATCH, что окно товара");
             UiDrive.Click(window, window.GetVisualDescendants().OfType<MenuItem>().Single(m => m.Header is string h && h.Contains("Упаковками → на склад штуки")));
             UiShot.Settle();
             UiShot.Settle();

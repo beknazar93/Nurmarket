@@ -39,6 +39,8 @@ public partial class OperationsSettingsView : UserControl
         OpsCardList.Children.Add(new PurchaseNumberingSettingsCard());
         // 2026-10-30: окно правки проведённых накладных закупок (24 ч / 48 ч / всегда) — меняет только владелец.
         OpsCardList.Children.Add(new PurchaseEditSettingsCard());
+        // 2026-11-09: «Спрашивать количество при повторном скане» (Склад → Приёмка и Закупки → Приём товара) — один тумблер, по умолчанию ВКЛ.
+        OpsCardList.Children.Add(new ReceivingRepeatScanSettingsCard());
         // 2026-10-30: тумблеры возможностей Нур Советника — карточка из кода сразу за карточкой Telegram-бота и ключей ИИ.
         OpsCardList.Children.Insert(OpsCardList.Children.IndexOf(TelegramCard) + 1, new AdvisorSettingsCard());
         AttachedToVisualTree += Lan_Attached;

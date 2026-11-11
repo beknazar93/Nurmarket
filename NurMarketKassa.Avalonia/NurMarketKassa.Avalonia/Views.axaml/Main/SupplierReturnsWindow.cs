@@ -215,6 +215,11 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
             query["search"] = search;
         try
         {
+            // 2026-11-10 (правка/аннулирование 24 ч): признаки сервера — до показа карточек (кнопки «Редактировать/Удалить/История»); при признаке
+            // просим и аннулированные (status=all) — они видны с плашкой «АННУЛИРОВАН» и не входят в итоги.
+            await ReturnEditGate.WarmAsync(_api).ConfigureAwait(true);
+            if (ReturnEditGate.FeatureOn(ReturnDocKind.Supplier))
+                query["status"] = "all";
             var data = await _api.RequestAsync(HttpMethod.Get, "api/main/suppliers/returns/", null, query, CancellationToken.None, TimeSpan.FromSeconds(30)).ConfigureAwait(true);
             if (gen != _loadGen)
                 return;
@@ -239,7 +244,7 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
                 return;
             }
             if (total <= 0)
-                total = rows.EnumerateArray().Sum(x => Num(x, "total_amount"));
+                total = rows.EnumerateArray().Where(x => !IsVoided(x)).Sum(x => Num(x, "total_amount")); // 2026-11-10: аннулированные — не в итоге
             RenderKpi(count, total, rows);
             foreach (var row in rows.EnumerateArray())
                 _list.Children.Add(BuildCard(row));
@@ -263,8 +268,8 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
     private void RenderKpi(int count, double total, JsonElement rows)
     {
         string Comp(JsonElement x) => Str(x, "compensation") is { Length: > 0 } c ? c : Str(x, "compensation_type");
-        var cash = rows.EnumerateArray().Where(x => Comp(x) == "cash").Sum(x => Num(x, "total_amount"));
-        var debt = rows.EnumerateArray().Where(x => Comp(x) == "debt_offset").Sum(x => Num(x, "total_amount"));
+        var cash = rows.EnumerateArray().Where(x => Comp(x) == "cash" && !IsVoided(x)).Sum(x => Num(x, "total_amount"));
+        var debt = rows.EnumerateArray().Where(x => Comp(x) == "debt_offset" && !IsVoided(x)).Sum(x => Num(x, "total_amount"));
         _kpi.Children.Clear();
         _kpi.Children.Add(UiKit.Kpi(T("Возвратов", "Кайтаруулар", "Returns", "İadeler", "Qaytarishlar"), count.ToString(CultureInfo.InvariantCulture)));
         _kpi.Children.Add(UiKit.Kpi(T("На сумму", "Суммасы", "Total", "Toplam", "Jami summa"), Money(total)));
@@ -288,6 +293,12 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
         Use(name, TextBlock.ForegroundProperty, "BrushText");
         nameRow.Children.Add(name);
         nameRow.Children.Add(SectionCards.Pill(this, ReasonName(Str(row, "reason"))));
+        var info = SupplierApiService.ParseReturn(row); // 2026-11-10: состояние правки/аннулирования по ответу сервера
+        if (ReturnEditFlows.VoidedPill(this, info.EditState) is { } voided)
+        {
+            voided.Margin = new Thickness(8, 0, 0, 0);
+            nameRow.Children.Add(voided);
+        }
         who.Children.Add(nameRow);
         DateTime.TryParse(Str(row, "created_at"), CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var at);
         var meta = new TextBlock
@@ -340,6 +351,8 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
         }
         // 2026-11-05, жалоба владельца: у каждого возврата — «Печать накладной», PDF, Word, Excel (документ строится по данным сервера).
         body.Children.Add(SupplierReturnDocUi.Bar(this, () => SupplierApiService.ParseReturn(row)));
+        // 2026-11-10 (ТЗ «правка и аннулирование 24 ч»): «Редактировать» / «Удалить» / «История» — только при признаке сервера и can_edit/can_void документа.
+        body.Children.Add(ReturnEditFlows.SupplierBar(this, info, LoadAsync));
         card.Child = body;
         card.PointerPressed += (_, _) =>
         {
@@ -351,6 +364,9 @@ public sealed class SupplierReturnsWindow : Window, IOwnerSection
         };
         return card;
     }
+
+    /// <summary>2026-11-10: строка списка — аннулированный возврат (status: voided / is_voided).</summary>
+    internal static bool IsVoided(JsonElement x) => ReturnEditState.Parse(x).IsVoided;
 
     internal static string Money(double v) => v.ToString("N2", Ru) + " " + T("сом", "сом", "som", "som", "so'm");
 

@@ -68,7 +68,9 @@ public static class FullscreenHelper
             try
             {
                 var want = ExpectedState(prefs);
-                if (!prefs.Fullscreen || !window.IsVisible || window.WindowState == want || window.WindowState == WindowState.Minimized)
+                // 2026-11-11 (жалоба «частое сворачивание — программа наполовину»): и окно, которое система уже свернула, а Avalonia ещё не знает
+                // (IsIconic): полный экран, поставленный свёрнутому окну, запоминает «прежний размер» 160×28 за краем экрана.
+                if (!prefs.Fullscreen || !window.IsVisible || window.WindowState == want || WindowRestoreGuard.IsMinimizedNow(window))
                     return;
                 PosLogger.Log($"Окно {window.GetType().Name}: состояние {window.WindowState} вместо {want} ({when}) — ставлю заново.", "UI");
                 Apply(window);
@@ -88,7 +90,7 @@ public static class FullscreenHelper
 
         void RestoreMode(string when)
         {
-            if (!wasMinimized || window.WindowState == WindowState.Minimized)
+            if (!wasMinimized || WindowRestoreGuard.IsMinimizedNow(window)) // 2026-11-11: и по самой системе (см. Recheck)
                 return;
             wasMinimized = false;
             var now = DateTime.UtcNow;

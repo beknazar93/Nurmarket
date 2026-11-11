@@ -30,6 +30,34 @@ internal static class ReceivingPackMenu
         }
 
         var canSale = line.CanPackSale;
+        // 2026-11-10 (владелец: упаковка «как в вебе»): у товара, который склад УЖЕ ведёт упаковками (упаковка в карточке), — «как в карточке» или «Изменить штук в упаковке»
+        // (остаток пересчитается через подтверждение «Было → станет»). «В штуках» и «упаковками → штуки» ему нельзя: остаток в упаковках, умножение раздуло бы склад.
+        if (line.CardPackSize > 0)
+        {
+            var size = line.CardPackSize.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            new ContextMenu
+            {
+                ItemsSource = new List<Control>
+                {
+                    Item(T($"Упаковка по {size} шт (как в карточке)", $"{size} даанадан таңгак (картадагыдай)", $"Pack of {size} pcs (as in the card)", $"{size} adetlik koli (karttaki gibi)", $"{size} donalik qadoq (kartadagidek)"),
+                        !line.PackSale, true,
+                        T("«Принимаем» и закупка — за упаковку, карточка не меняется.", "«Кабыл алабыз» жана баасы — таңгак үчүн, карта өзгөрбөйт.", "“Receiving” and the purchase price are per pack, the card does not change.",
+                            "«Alınıyor» ve alış fiyatı koli başına, kart değişmez.", "«Qabul qilinadi» va xarid narxi qadoq uchun, karta o'zgarmaydi."),
+                        () => line.SetPackSale(false)),
+                    Item(T("Изменить штук в упаковке…", "Таңгактагы даананы өзгөртүү…", "Change pieces per pack…", "Koli başına adedi değiştir…", "Qadoqdagi donani o'zgartirish…"),
+                        line.PackSale, canSale,
+                        canSale
+                            ? T("Новое «шт в упак.» запишется в карточку товара, остаток пересчитается в новые упаковки — перед проведением покажем «Было → станет».",
+                                "Жаңы «даана/таңгак» товардын картасына жазылат, калдык жаңы таңгактарга кайра эсептелет — өткөрүүдөн мурун «Болгон → болот» көрсөтөбүз.",
+                                "The new “pcs/pack” is written to the product card, the stock is recalculated into the new packs — before posting we show “Was → will be”.",
+                                "Yeni «adet/koli» ürün kartına yazılır, stok yeni kolilere yeniden hesaplanır — işlemeden önce «Önce → sonra» gösterilir.",
+                                "Yangi «dona/qadoq» mahsulot kartasiga yoziladi, qoldiq yangi qadoqlarga qayta hisoblanadi — o'tkazishdan oldin «Avval → bo'ladi» ko'rsatiladi.")
+                            : ReceivingLineVm.PackSaleBlockedText,
+                        () => line.SetPackSale(true, line.CardPackSize)),
+                },
+            }.Open(anchor);
+            return;
+        }
         var items = new List<Control>
         {
             Item(T("В штуках (как есть)", "Даана менен (болгондой)", "In pieces (as is)", "Adetle (olduğu gibi)", "Donalab (shundayligicha)"),
@@ -44,15 +72,22 @@ internal static class ReceivingPackMenu
                     "Koli sayısını, koli başına adedi ve koli fiyatını girin — depoya adet ve adet fiyatı gider.",
                     "Qadoq sonini, qadoqdagi donani va qadoq narxini kiriting — omborga dona va dona narxi boradi."),
                 () => line.SetPackMode(true, ReceivingPackSizes.Suggest(line))),
-            Item(T("Упаковка с поштучной продажей" + (canSale ? "" : " — только новый товар"), "Даана менен сатылуучу таңгак" + (canSale ? "" : " — жаңы товар гана"),
-                    "Pack with single-piece sale" + (canSale ? "" : " — new product only"), "Adetli satışlı koli" + (canSale ? "" : " — yalnızca yeni ürün"), "Donalab sotiladigan qadoq" + (canSale ? "" : " — faqat yangi mahsulot")),
+            // 2026-11-10: и для товара склада (было «только новый товар»): упаковка уходит в его карточку, остаток пересчитывается — через подтверждение «Было → станет».
+            Item(T("Упаковка с поштучной продажей" + (canSale ? "" : " — недоступно"), "Даана менен сатылуучу таңгак" + (canSale ? "" : " — жеткиликсиз"),
+                    "Pack with single-piece sale" + (canSale ? "" : " — not available"), "Adetli satışlı koli" + (canSale ? "" : " — kullanılamaz"), "Donalab sotiladigan qadoq" + (canSale ? "" : " — mavjud emas")),
                 line.PackSale, canSale,
                 canSale
-                    ? T("Новый товар заводится с упаковкой (штук в упаковке) и поштучной продажей, остаток — в УПАКОВКАХ. Цена закупки и цена продажи — за упаковку.",
-                        "Жаңы товар таңгак (таңгактагы даана) жана даана менен сатуу менен түзүлөт, калдык — ТАҢГАКТАРДА. Сатып алуу жана сатуу баасы — таңгак үчүн.",
-                        "The new product is created with a pack (pieces per pack) and single-piece sale, the stock is in PACKS. Purchase and sale price — per pack.",
-                        "Yeni ürün koli (koli başına adet) ve adetli satışla oluşturulur, stok KOLİLERDE. Alış ve satış fiyatı — koli başına.",
-                        "Yangi mahsulot qadoq (qadoqdagi dona) va donalab sotish bilan yaratiladi, qoldiq — QADOQLARDA. Xarid va sotuv narxi — qadoq uchun.")
+                    ? line.IsNew
+                        ? T("Новый товар заводится с упаковкой (штук в упаковке) и поштучной продажей, остаток — в УПАКОВКАХ. Цена закупки и цена продажи — за упаковку.",
+                            "Жаңы товар таңгак (таңгактагы даана) жана даана менен сатуу менен түзүлөт, калдык — ТАҢГАКТАРДА. Сатып алуу жана сатуу баасы — таңгак үчүн.",
+                            "The new product is created with a pack (pieces per pack) and single-piece sale, the stock is in PACKS. Purchase and sale price — per pack.",
+                            "Yeni ürün koli (koli başına adet) ve adetli satışla oluşturulur, stok KOLİLERDE. Alış ve satış fiyatı — koli başına.",
+                            "Yangi mahsulot qadoq (qadoqdagi dona) va donalab sotish bilan yaratiladi, qoldiq — QADOQLARDA. Xarid va sotuv narxi — qadoq uchun.")
+                        : T("Карточка товара получит упаковку и поштучную продажу (как в окне товара), остаток пересчитается из штук в упаковки. Закупка и цена продажи — за упаковку. Перед проведением покажем «Было → станет».",
+                            "Товардын картасы таңгак жана даана менен сатууну алат (товар терезесиндегидей), калдык даанадан таңгакка кайра эсептелет. Сатып алуу жана сатуу баасы — таңгак үчүн. Өткөрүүдөн мурун «Болгон → болот» көрсөтөбүз.",
+                            "The product card gets a pack and single-piece sale (as in the product window), the stock is recalculated from pieces into packs. Purchase and sale price — per pack. Before posting we show “Was → will be”.",
+                            "Ürün kartı koli ve adetli satış alır (ürün penceresindeki gibi), stok adetten koliye yeniden hesaplanır. Alış ve satış fiyatı — koli başına. İşlemeden önce «Önce → sonra» gösterilir.",
+                            "Mahsulot kartasi qadoq va donalab sotishni oladi (mahsulot oynasidagidek), qoldiq donadan qadoqqa qayta hisoblanadi. Xarid va sotuv narxi — qadoq uchun. O'tkazishdan oldin «Avval → bo'ladi» ko'rsatiladi.")
                     : ReceivingLineVm.PackSaleBlockedText,
                 () => line.SetPackSale(true, ReceivingPackSizes.Suggest(line))),
         };

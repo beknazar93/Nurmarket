@@ -927,7 +927,7 @@ public partial class ReceiptHistoryWindow : Window
         }
         foreach (var line in CartDisplayHelper.EnumerateSaleLineItems(detail))
         {
-            if (CartDisplayHelper.TryRefundLineId(line) is { } id && !returnedByLine.ContainsKey(id))
+            if (ReturnLineCheck.SaleItemId(line) is { } id && !returnedByLine.ContainsKey(id)) // 2026-11-11: sale_item_id = id строки чека (контракт Умара)
             {
                 var serverReturned = CartDisplayHelper.LineQuantity(line) - CartDisplayHelper.RefundableQuantity(line);
                 if (serverReturned > 1e-6)

@@ -18,8 +18,9 @@ namespace NurMarketKassa.AvaloniaHost.Views.Dialogs;
 /// 2) окно-владелец для диалогов без явного владельца — верхняя модалка/активное окно, а не главное окно кассы
 ///    (раздел поверх главного окна закрывал диалог, открытый «от главного»);
 /// 3) Topmost владельца переносится на модалку;
-/// 4) пока модалка открыта, всё остальное содержимое окон кассы размывается (BlurEffect) и слегка затемняется (слой в
-///    OverlayLayer окна), 140 мс; в режиме слабого устройства — только затемнение;
+/// 4) пока модалка открыта, всё остальное содержимое окон кассы затемняется (слой в OverlayLayer окна). 2026-11-11 (жалоба «затемнение
+///    работает криво, дольше 2 с»): без размытия (BlurEffect перерисовывал всё окно каждый кадр — см. ModalMotion), затемнение — СРАЗУ, ещё до
+///    первой разметки модалки (окно стало видимым как диалог — IsVisible), снятие — 90 мс; время до первого кадра модалки — в журнал, если > 500 мс;
 /// 5) страховка: если окно осталось заблокированным (Windows), а модалки нет — оно разблокируется.
 /// Окна выбора файла, подсказки (Popup), экран покупателя, всплывающие уведомления и окна «поверх всех» не затрагиваются.</summary>
 internal static class ModalWindowManager
@@ -37,15 +38,43 @@ internal static class ModalWindowManager
     private static DispatcherTimer? _frameTimer;
     private static DispatcherTimer? _watchTimer;
     private static readonly HashSet<IntPtr> DisabledSeen = new();
-    private const double FadeMs = 140;
+    private const double FadeMs = ModalMotion.DimFadeOutMs; // 2026-11-11: было 140 мс в обе стороны; теперь только снятие, появление — сразу
     private static long _lastFrame;
+    // 2026-11-11: окна, затемнённые заранее (PreDim — до показа модалки), и срок, до которого их не снимают, пока модалка не зарегистрирована.
+    private static readonly HashSet<Window> PreDimmed = new();
+    private static long _preDimDeadline;
+    // 2026-11-11: замер «запрос показа → первый кадр модалки» (журнал при > 500 мс).
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Window, OpenTiming> Timings = new();
+
+    private sealed class OpenTiming
+    {
+        public long Start;
+        public long Opened;
+        public bool Hooked;
+    }
 
     public static void Register()
     {
         if (_registered)
             return;
         _registered = true;
+        NurMarketKassa.AvaloniaHost.Services.InputStateReset.Register(); // 2026-11-11: запоминание указателя для сброса захвата при уходе в фон
         Window.WindowOpenedEvent.AddClassHandler<Window>((window, _) => OnOpened(window));
+        // 2026-11-11: WindowOpenedEvent приходит ДО того, как окно помечено диалогом (ShowDialog ставит признак и IsVisible позже), поэтому
+        // модалка раньше регистрировалась только после своей первой разметки и показа (Post после ShowDialog) — затемнение запаздывало.
+        // IsVisible = true ставится уже с признаком диалога, но ДО разметки содержимого: здесь затемняем фон сразу.
+        Visual.IsVisibleProperty.Changed.AddClassHandler<Window>((window, _) =>
+        {
+            try
+            {
+                if (window.IsVisible && !Modals.Contains(window) && IsModal(window))
+                    Classify(window, early: true);
+            }
+            catch (Exception ex)
+            {
+                NurMarketKassa.Services.PosLogger.Log($"ModalWindowManager: раннее затемнение для {window.GetType().Name}: {ex.Message}", "WARNING");
+            }
+        });
         _watchTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _watchTimer.Tick += (_, _) => Watch();
         _watchTimer.Start();
@@ -76,6 +105,116 @@ internal static class ModalWindowManager
     }
 
     public static bool IsOpenModal(Window w) => Modals.Contains(w);
+
+    /// <summary>2026-11-11: затемнить окно-владельца сразу, ещё до создания разметки модалки (PosDialogHost перед ShowDialog). Затемнение держится,
+    /// пока модалка не зарегистрируется (не дольше 2 с — потом сторож снимет его, если модалка так и не открылась).</summary>
+    public static void PreDim(Window? owner)
+    {
+        try
+        {
+            if (owner is null || !owner.IsVisible || owner.WindowState == WindowState.Minimized || IsExempt(owner))
+                return;
+            PreDimmed.Add(owner);
+            _preDimDeadline = System.Diagnostics.Stopwatch.GetTimestamp() + 2 * System.Diagnostics.Stopwatch.Frequency;
+            if (!Backdrops.TryGetValue(owner, out var b))
+                Backdrops[owner] = b = new Backdrop(owner);
+            b.Goal = 1;
+            b.ShowNow();
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"ModalWindowManager: затемнение заранее: {ex.Message}", "WARNING");
+        }
+    }
+
+    /// <summary>2026-11-11: модалка не открылась (исключение в ShowDialog) — снять затемнение, поставленное заранее.</summary>
+    public static void CancelPreDim()
+    {
+        PreDimmed.Clear();
+        _preDimDeadline = 0;
+        Refresh();
+    }
+
+    /// <summary>2026-11-11: начало замера «запрос показа → первый кадр» (PosDialogHost; без него замер идёт от WindowOpenedEvent).</summary>
+    public static void MarkShowRequested(Window dialog)
+    {
+        try
+        {
+            var t = Timings.GetValue(dialog, _ => new OpenTiming());
+            if (t.Start == 0)
+                t.Start = System.Diagnostics.Stopwatch.GetTimestamp();
+        }
+        catch
+        {
+            // замер — диагностика
+        }
+    }
+
+    /// <summary>2026-11-11 (владелец: «после сворачивания и возврата кнопки перестают работать»): модалок нет — убрать все слои затемнения сразу,
+    /// в том числе «осиротевшие» (без записи в Backdrops), чтобы невидимый/гаснущий слой не перехватывал нажатия.</summary>
+    public static void SweepStrayDims()
+    {
+        try
+        {
+            Prune();
+            if (Modals.Count > 0 || (PreDimmed.Count > 0 && System.Diagnostics.Stopwatch.GetTimestamp() < _preDimDeadline))
+                return;
+            PreDimmed.Clear();
+            foreach (var pair in Backdrops.ToList())
+            {
+                Backdrops.Remove(pair.Key);
+                pair.Value.Dispose();
+            }
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
+                return;
+            foreach (var w in desktop.Windows)
+            {
+                if (OverlayLayer.GetOverlayLayer(w) is not { } layer)
+                    continue;
+                foreach (var stray in layer.Children.OfType<Border>().Where(b => b.Classes.Contains("nur-modal-dim")).ToList())
+                {
+                    layer.Children.Remove(stray);
+                    NurMarketKassa.Services.PosLogger.Log($"ModalWindowManager: в окне {w.GetType().Name} убран слой затемнения без модалки.", "WARNING");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            NurMarketKassa.Services.PosLogger.Log($"ModalWindowManager: уборка затемнения: {ex.Message}", "WARNING");
+        }
+    }
+
+    /// <summary>2026-11-11: подписка на «окно показано» и «первый кадр» для замера времени открытия модалки.</summary>
+    private static void HookTiming(Window window)
+    {
+        var t = Timings.GetValue(window, _ => new OpenTiming());
+        if (t.Start == 0)
+            t.Start = System.Diagnostics.Stopwatch.GetTimestamp();
+        if (t.Hooked)
+            return;
+        t.Hooked = true;
+        void OnShown(object? sender, EventArgs e)
+        {
+            window.Opened -= OnShown;
+            t.Opened = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
+            {
+                window.RequestAnimationFrame(_ =>
+                {
+                    if (!Modals.Contains(window) && !IsModal(window))
+                        return; // обычное окно (Show) — не модалка, не меряем
+                    var f = (double)System.Diagnostics.Stopwatch.Frequency;
+                    var now = System.Diagnostics.Stopwatch.GetTimestamp();
+                    ModalOpenTiming.Report(window.GetType().Name, (t.Opened - t.Start) * 1000 / f, (now - t.Start) * 1000 / f);
+                });
+            }
+            catch
+            {
+                // нет отрисовки (окно закрыли сразу) — без замера
+            }
+        }
+        window.Opened += OnShown;
+    }
 
     /// <summary>2026-10-30: окно, открытое через Show() (а не ShowDialog) и стоящее поверх остальных (вопрос «Разрешить доступ?»
     /// удалённой помощи — Topmost, без владельца), тоже считается модалкой: фон размывается и затемняется. Вызывать до Show().</summary>
@@ -137,8 +276,11 @@ internal static class ModalWindowManager
             {
                 window.Activated += (_, _) => OnActivated(window);
                 window.Closed += (_, _) => OnClosed(window);
+                // 2026-11-11 («после сворачивания/выхода кнопки перестают работать»): уход программы в фон — сброс залипшего ввода.
+                window.Deactivated += (_, _) => NurMarketKassa.AvaloniaHost.Services.InputStateReset.OnDeactivated(window);
             }
             DialogDragHelper.AttachAuto(window); // 2026-10-30: окна без системной рамки двигаются за шапку («модалка не двигается!!!»)
+            HookTiming(window); // 2026-11-11: время до первого кадра модалки (журнал при > 500 мс)
             Classify(window);
             // Признак «показано как диалог» мог быть выставлен уже после события — проверяем ещё раз после показа.
             Dispatcher.UIThread.Post(() => Classify(window), DispatcherPriority.Send);
@@ -150,7 +292,9 @@ internal static class ModalWindowManager
         }
     }
 
-    private static void Classify(Window window)
+    /// <param name="early">2026-11-11: вызов из IsVisible внутри ShowDialog — окно ещё не размечено и не показано системой, владелец ещё не
+    /// назначен: только затемняем фон, а Topmost, запись в журнал и подъём — после ShowDialog (Post).</param>
+    private static void Classify(Window window, bool early = false)
     {
         if (!window.IsVisible || Modals.Contains(window))
         {
@@ -161,6 +305,22 @@ internal static class ModalWindowManager
         if (IsModal(window) || IsOverlay(window))
         {
             Modals.Add(window);
+            PreDimmed.Clear(); // 2026-11-11: модалка зарегистрирована — дальше фон ведёт обычный Refresh
+            if (early)
+            {
+                Refresh();
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (!Modals.Contains(window) || !window.IsVisible)
+                        return;
+                    if (OwnerChainTopmost(window))
+                        window.Topmost = true;
+                    NurMarketKassa.Services.PosLogger.Log($"Модалка открыта: {window.GetType().Name}, владелец {window.Owner?.GetType().Name ?? "нет"}, модалок {Modals.Count}.", "UI");
+                    Refresh();
+                    Raise(window, pulse: false);
+                }, DispatcherPriority.Send);
+                return;
+            }
             if (OwnerChainTopmost(window))
                 window.Topmost = true;
             NurMarketKassa.Services.PosLogger.Log($"Модалка открыта: {window.GetType().Name}, владелец {window.Owner?.GetType().Name ?? "нет"}, модалок {Modals.Count}.", "UI");
@@ -212,9 +372,13 @@ internal static class ModalWindowManager
         // 2026-10-30: окно из Track развернули из свёрнутого — снова модалка (если не приостановлено).
         if (Tracked.Contains(window) && !Modals.Contains(window) && window.IsVisible)
             Classify(window);
+        NurMarketKassa.AvaloniaHost.Services.InputStateReset.OnActivated(window); // 2026-11-11: палец сенсора, чьё отпускание потерялось
         Prune();
         if (Modals.Count == 0)
+        {
+            SweepStrayDims(); // 2026-11-11: модалки нет — никакого слоя затемнения поверх окна
             return;
+        }
         var top = Modals[^1];
         if (ReferenceEquals(window, top))
             return;
@@ -296,11 +460,28 @@ internal static class ModalWindowManager
                         && !Modals.Any(m => !ReferenceEquals(m, w) && Covers(m, w)))
                         wanted.Add(w);
             }
+            // 2026-11-11: окно, затемнённое заранее (PreDim), не снимаем, пока модалка не зарегистрировалась (не дольше 2 с).
+            if (top is null && PreDimmed.Count > 0)
+            {
+                if (System.Diagnostics.Stopwatch.GetTimestamp() < _preDimDeadline)
+                {
+                    foreach (var w in PreDimmed)
+                    {
+                        if (w.IsVisible && w.WindowState != WindowState.Minimized)
+                            wanted.Add(w);
+                    }
+                }
+                else
+                {
+                    PreDimmed.Clear();
+                }
+            }
             foreach (var w in wanted)
             {
                 if (!Backdrops.TryGetValue(w, out var b))
                     Backdrops[w] = b = new Backdrop(w);
                 b.Goal = 1;
+                b.ShowNow(); // 2026-11-11: затемнение — сразу, без нарастания (было 140 мс вместе с размытием)
             }
             foreach (var pair in Backdrops)
                 if (!wanted.Contains(pair.Key))
@@ -319,6 +500,9 @@ internal static class ModalWindowManager
     {
         try
         {
+            // 2026-11-11: модалка ещё не показана системой (раннее затемнение внутри ShowDialog) — её размер и место ещё не настоящие.
+            if (Timings.TryGetValue(top, out var timing) && timing.Opened == 0)
+                return false;
             if (top.Opacity < 0.99 || top.SystemDecorations == SystemDecorations.None && top.Background is null)
                 return false;
             if (top.TransparencyLevelHint.Any(l => l == WindowTransparencyLevel.Transparent || l == WindowTransparencyLevel.AcrylicBlur))
@@ -354,7 +538,7 @@ internal static class ModalWindowManager
         var now = System.Diagnostics.Stopwatch.GetTimestamp();
         var dt = Math.Clamp((now - _lastFrame) * 1000.0 / System.Diagnostics.Stopwatch.Frequency, 1, 100);
         _lastFrame = now;
-        var step = dt / FadeMs;
+        var step = ModalMotion.ReduceMotion ? 1 : dt / FadeMs; // 2026-11-11: без анимаций — снятие сразу
         // 2026-10-30: замер кадра. Размытие на программном рендере (старая видеокарта) может тормозить — три кадра подряд
         // дольше 90 мс при идущем появлении/снятии = отключаем размытие до конца сеанса, остаётся затемнение.
         if (!_blurSlow && Backdrops.Values.Any(b => b.HasBlur))
@@ -399,6 +583,9 @@ internal static class ModalWindowManager
 
         public bool HasBlur => _blur;
 
+        /// <summary>2026-11-11: этот слой затемнения принадлежит этой записи.</summary>
+        public bool Owns(Control c) => ReferenceEquals(_dim, c);
+
         public void DisableBlur()
         {
             if (_blur && _content is not null)
@@ -416,9 +603,12 @@ internal static class ModalWindowManager
             _content = window.Content as Control;
             _originalEffect = _content?.Effect;
             // Блюр только если у содержимого нет своего эффекта и устройство не слабое; иначе — одно затемнение.
-            _blur = !low && !_blurSlow && _content is not null && _originalEffect is null;
+            // 2026-11-11: и только если размытие включено явно (ModalMotion.BlurEnabled, по умолчанию нет) — оно и было причиной «затемнение
+            // дольше 2 с»: BlurEffect на всё окно перерисовывал окно каждый кадр, первая отрисовка модалки ждала в той же очереди.
+            _blur = ModalMotion.BlurEnabled && !low && !_blurSlow && _content is not null && _originalEffect is null;
             // 2026-10-30: большое окно (пикселей много) — радиус 4, меньше работы для видеокарты/процессора; обычное — 6.
-            _radius = window.ClientSize.Width * window.ClientSize.Height * window.RenderScaling * window.RenderScaling > 2_200_000 ? 4 : 6;
+            // 2026-11-11: радиус постоянный (ModalMotion.BlurRadius), эффект создаётся один раз (см. BlurOnce).
+            _radius = window.ClientSize.Width * window.ClientSize.Height * window.RenderScaling * window.RenderScaling > 2_200_000 ? 4 : ModalMotion.BlurRadius;
             var dark = window.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark;
             _dimAlpha = low ? (dark ? 0.55 : 0.45) : (dark ? 0.42 : 0.32);
             try
@@ -433,6 +623,7 @@ internal static class ModalWindowManager
                         IsHitTestVisible = true,
                         Cursor = new Cursor(StandardCursorType.Arrow),
                     };
+                    _dim.Classes.Add("nur-modal-dim"); // 2026-11-11: метка слоя затемнения (тесты, диагностика)
                     _dim.PointerPressed += OnDimPressed;
                     SyncSize();
                     window.SizeChanged += OnWindowSizeChanged;
@@ -443,7 +634,40 @@ internal static class ModalWindowManager
             {
                 _dim = null;
             }
+            // 2026-11-11: окно закрыто, пока затемнено (затемнение заранее, окно без подписки OnOpened) — слой и запись убрать.
+            window.Closed += OnWindowClosed;
         }
+
+        private void OnWindowClosed(object? sender, EventArgs e)
+        {
+            _window.Closed -= OnWindowClosed;
+            if (Backdrops.TryGetValue(_window, out var b) && ReferenceEquals(b, this))
+                Backdrops.Remove(_window);
+            PreDimmed.Remove(_window);
+            Dispose();
+        }
+
+        /// <summary>2026-11-11: затемнение сразу на полную (без нарастания); размытие (если включено) — один раз, не на каждом кадре.</summary>
+        public void ShowNow()
+        {
+            if (_disposed || Goal < 1 || _level >= 1)
+                return;
+            _level = 1;
+            if (_dim is not null)
+            {
+                if (_dim.Width <= 0 || _dim.Height <= 0)
+                    SyncSize();
+                _dim.IsHitTestVisible = true;
+                _dim.Opacity = _dimAlpha;
+            }
+            if (_blur && _content is not null)
+                _content.Effect = BlurOnce();
+        }
+
+        private BlurEffect? _blurEffect;
+
+        /// <summary>2026-11-11 (настройка «Размытие фона под окнами»): один эффект на всё время затемнения — без нового BlurEffect на каждом кадре.</summary>
+        private BlurEffect BlurOnce() => _blurEffect ??= new BlurEffect { Radius = _radius };
 
         private void OnWindowSizeChanged(object? sender, SizeChangedEventArgs e) => SyncSize();
 
@@ -471,12 +695,19 @@ internal static class ModalWindowManager
             _level = Goal > _level ? Math.Min(1, _level + step) : Math.Max(0, _level - step);
             if (_dim is not null)
             {
+                // 2026-11-11 («кнопки перестают работать»): снимаемое затемнение (модалки уже нет) не ловит нажатия, пока гаснет.
+                _dim.IsHitTestVisible = Goal > 0;
                 if (_dim.Width <= 0 || _dim.Height <= 0)
                     SyncSize();
                 _dim.Opacity = _level * _dimAlpha;
             }
             if (_blur && _content is not null)
-                _content.Effect = _level <= 0 ? _originalEffect : new BlurEffect { Radius = _level * _radius };
+            {
+                // 2026-11-11: размытие не анимируется — стоит, пока есть затемнение, и снимается, когда оно погасло.
+                var want = _level <= 0 ? _originalEffect : BlurOnce();
+                if (!ReferenceEquals(_content.Effect, want))
+                    _content.Effect = want;
+            }
             return _level != Goal;
         }
 
@@ -490,6 +721,7 @@ internal static class ModalWindowManager
                 if (_blur && _content is not null)
                     _content.Effect = _originalEffect;
                 _window.SizeChanged -= OnWindowSizeChanged;
+                _window.Closed -= OnWindowClosed;
                 if (_dim is not null)
                 {
                     _dim.PointerPressed -= OnDimPressed;

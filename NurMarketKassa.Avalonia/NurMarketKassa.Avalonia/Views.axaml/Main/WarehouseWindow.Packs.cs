@@ -69,7 +69,8 @@ public partial class WarehouseWindow
         return PosConfirmDialog.ShowModalAsync(this,
             TR("Поштучная продажа из упаковки", "Таңгактан даана менен сатуу", "Single pieces from a pack", "Koliden tek tek satış", "Qadoqdan donalab sotish"),
             ReceivingPacks.PackSaleConfirmMessage(lines),
-            TR("Продолжить", "Улантуу", "Continue", "Devam", "Davom etish"),
-            TR("Вернуться", "Артка", "Go back", "Geri dön", "Orqaga"), PosConfirmAccent.Primary);
+            // 2026-11-10 (упаковка у товара склада): «Было → станет» — кнопки «Применить» / «Отмена»; без подтверждения не проводим.
+            TR("Применить", "Колдонуу", "Apply", "Uygula", "Qo'llash"),
+            TR("Отмена", "Жокко чыгаруу", "Cancel", "İptal", "Bekor qilish"), PosConfirmAccent.Primary);
     }
 }

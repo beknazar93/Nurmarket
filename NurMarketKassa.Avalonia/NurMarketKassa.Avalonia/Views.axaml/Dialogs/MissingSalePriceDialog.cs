@@ -31,6 +31,9 @@ public sealed class MissingSalePriceDialog : Window
         public required TextBox Price { get; init; }
         public required TextBox Markup { get; init; }
         public bool Syncing;
+        // 2026-11-11: TextChanged в Avalonia 11.2 приходит позже (через Dispatcher), когда Syncing уже снят: текст, поставленный окном в соседнее поле, разбирался как ввод
+        // и пересчитывал обратно (наценка 33 % → цена 10 → наценка 42,86 % → цена 11 при округлении вверх, текст менялся под пальцами). Запоминаем поставленное окном.
+        public string? PriceEcho, MarkupEcho;
     }
 
     private readonly List<Entry> _entries = new();
@@ -136,12 +139,13 @@ public sealed class MissingSalePriceDialog : Window
         // Наценка → цена и цена → наценка считаются на глазах (кассир видит итог до отправки).
         markup.TextChanged += (_, _) =>
         {
-            if (entry.Syncing)
+            if (entry.Syncing || (entry.MarkupEcho is { } me && me == (markup.Text ?? "")))
                 return;
+            entry.MarkupEcho = null;
             entry.Syncing = true;
             try
             {
-                price.Text = ReceivingPricing.ResolveTypedSale(line.PurchasePrice, null, markup.Text) is { } sale ? sale.ToString("0.##", Ru) : "";
+                price.Text = entry.PriceEcho = ReceivingPricing.ResolveTypedSale(line.PurchasePrice, null, markup.Text) is { } sale ? sale.ToString("0.##", Ru) : "";
             }
             finally
             {
@@ -151,13 +155,14 @@ public sealed class MissingSalePriceDialog : Window
         };
         price.TextChanged += (_, _) =>
         {
-            if (entry.Syncing)
+            if (entry.Syncing || (entry.PriceEcho is { } pe && pe == (price.Text ?? "")))
                 return;
+            entry.PriceEcho = null;
             entry.Syncing = true;
             try
             {
                 var sale = ReceivingPricing.ResolveTypedSale(line.PurchasePrice, price.Text, null);
-                markup.Text = sale is { } s && ReceivingPricing.MarkupPercent(line.PurchasePrice, s) is { } m ? m.ToString("0.##", Ru) : "";
+                markup.Text = entry.MarkupEcho = sale is { } s && ReceivingPricing.MarkupPercent(line.PurchasePrice, s) is { } m ? m.ToString("0.##", Ru) : "";
             }
             finally
             {

@@ -731,7 +731,9 @@ public partial class OwnerShellWindow
     private void ToggleMaximize() =>
         WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
 
-    private void Minimize_Click(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    // 2026-11-11 (жалоба «частое сворачивание — программа наполовину»): окно на весь экран сворачивается как с панели задач — Avalonia при
+    // WindowState = Minimized сначала выходила из полного экрана (окно на миг с рамкой и прежним размером, после разворачивания — обычное окно).
+    private void Minimize_Click(object? sender, RoutedEventArgs e) => NurMarketKassa.AvaloniaHost.Services.WindowRestoreGuard.Minimize(this);
 
     private void Maximize_Click(object? sender, RoutedEventArgs e) => ToggleMaximize();
 

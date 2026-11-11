@@ -86,6 +86,9 @@ internal static class Program
         // сделать ярлык программы владельца, касса досоздаёт его при запуске (см. OwnerShortcuts).
         NurMarketKassa.AvaloniaHost.Services.OwnerShortcuts.EnsureOnStartup();
 
+        // 2026-11-11: режим отрисовки Windows (настройка «Режим отрисовки») — до построения окна: решение, маркер аварийного отката, строка в журнал.
+        NurMarketKassa.AvaloniaHost.Services.RenderModeSettings.PrepareAtStartup(IsLowPerformanceModeEnabled());
+
         try
         {
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
@@ -251,13 +254,22 @@ internal static class Program
             if (window is null)
                 return;
 
-            if (window.WindowState == Avalonia.Controls.WindowState.Minimized)
+            var platformHandle = OperatingSystem.IsWindows() ? window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero : IntPtr.Zero;
+            if (window.WindowState == Avalonia.Controls.WindowState.Minimized
+                || (platformHandle != IntPtr.Zero && IsIconic(platformHandle)))
             {
                 // 2026-10-27: второй запуск (ярлык) при свёрнутой кассе возвращал её окном (Normal) — «Полный экран» терялся.
-                if (NurMarketKassa.Services.UserPreferences.Instance.Fullscreen && window.GetType().Name != "SplashWindow")
-                    NurMarketKassa.AvaloniaHost.Services.FullscreenHelper.ApplyToMainWindow(window);
+                // 2026-11-11 (жалоба «частое сворачивание — программа наполовину»): полный экран ставился ЕЩЁ СВЁРНУТОМУ окну — Avalonia запоминала
+                // «прежний размер» свёрнутого окна (160×28 за экраном). Теперь сначала окно разворачивает система (окно на весь экран так и
+                // возвращается на весь экран), а режим «Полный экран» проверяется следующим проходом, уже на развёрнутом окне.
+                if (platformHandle != IntPtr.Zero)
+                    ShowWindow(platformHandle, SW_RESTORE);
                 else
                     window.WindowState = Avalonia.Controls.WindowState.Normal;
+                if (NurMarketKassa.Services.UserPreferences.Instance.Fullscreen && window.GetType().Name != "SplashWindow")
+                    Avalonia.Threading.Dispatcher.UIThread.Post(
+                        () => NurMarketKassa.AvaloniaHost.Services.FullscreenHelper.ApplyToMainWindow(window),
+                        Avalonia.Threading.DispatcherPriority.Background);
             }
 
             window.Show();
@@ -266,10 +278,12 @@ internal static class Program
             // Avalonia.Activate() не всегда перетаскивает окно поверх чужих — Windows
             // ограничивает смену активного окна для процесса, который сейчас не на переднем
             // плане. Подстраховываемся прямым вызовом Win32.
-            if (OperatingSystem.IsWindows() && window.TryGetPlatformHandle()?.Handle is { } handle && handle != IntPtr.Zero)
+            if (platformHandle != IntPtr.Zero)
             {
-                ShowWindow(handle, SW_RESTORE);
-                SetForegroundWindow(handle);
+                // 2026-11-11: SW_RESTORE только свёрнутому окну — развёрнутое (Maximized, «Полный экран» без «настоящего») он делал обычным окном.
+                if (IsIconic(platformHandle))
+                    ShowWindow(platformHandle, SW_RESTORE);
+                SetForegroundWindow(platformHandle);
             }
         }
         catch (Exception)
@@ -285,6 +299,9 @@ internal static class Program
 
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
 
     /// <summary>Прямой Win32 MessageBox — Avalonia на этом этапе ещё не инициализирована.</summary>
     private static void ShowAlreadyRunningMessage()
@@ -348,6 +365,13 @@ internal static class Program
                 builder = builder.With(new X11PlatformOptions { RenderingMode = new[] { X11RenderingMode.Software } });
             else if (OperatingSystem.IsMacOS())
                 builder = builder.With(new AvaloniaNativePlatformOptions { RenderingMode = new[] { AvaloniaNativeRenderingMode.Software } });
+        }
+        // 2026-11-11: выбранный режим отрисовки Windows («Совместимый» / «Программный»); «Авто» — параметры по умолчанию, как было.
+        else if (OperatingSystem.IsWindows()
+                 && NurMarketKassa.AvaloniaHost.Services.RenderModeWin32.BuildOptions(
+                     NurMarketKassa.AvaloniaHost.Services.RenderModeSettings.EffectiveMode, lowPerformance: false) is { } win32)
+        {
+            builder = builder.With(win32);
         }
 
         return builder;

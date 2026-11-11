@@ -68,6 +68,17 @@ public static class BarcodeGenerator
         });
     }
 
+    /// <summary>2026-11-10 (владелец: «Генерация штрихкода как в вебе!»): штрихкод новому товару строки приёмки — тот же генератор, что «Сгенерировать» в окне товара
+    /// (EAN-13, не с 0 и не с 2), свободный в каталоге кассы, индексе размеров и среди штрихкодов ВСЕХ строк этой приёмки. Ставится в строку; false — строке генерировать нельзя
+    /// (<see cref="Models.ReceivingLineVm.CanGenerateBarcode"/>: только новый товар без штрихкода).</summary>
+    public static bool GenerateForReceivingLine(Models.ReceivingLineVm line, IEnumerable<Models.ReceivingLineVm> allLines)
+    {
+        if (!line.CanGenerateBarcode)
+            return false;
+        line.Barcode = GenerateForCatalog(allLines.Select(l => l.Barcode).ToList());
+        return true;
+    }
+
     /// <summary>Верна ли контрольная цифра 13-значного кода (для проверки в стенде и в тестах).</summary>
     public static bool HasValidCheckDigit(string code)
     {

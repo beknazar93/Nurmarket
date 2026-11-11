@@ -700,7 +700,7 @@ public sealed class ExchangeWindow : Window
         var items = CartDisplayHelper.EnumerateSaleLineItems(sale).ToList();
         foreach (var row in returns)
         {
-            var item = items.FirstOrDefault(it => string.Equals(CartDisplayHelper.TryRefundLineId(it), row.Line.LineId, StringComparison.OrdinalIgnoreCase));
+            var item = items.FirstOrDefault(it => string.Equals(ReturnLineCheck.SaleItemId(it), row.Line.LineId, StringComparison.OrdinalIgnoreCase)); // 2026-11-11: sale_item_id = id строки чека (контракт Умара)
             if (item.ValueKind != JsonValueKind.Object)
                 continue;
             var left = CartDisplayHelper.LineLooksFullyReturned(item) ? 0 : CartDisplayHelper.RefundableQuantity(item);

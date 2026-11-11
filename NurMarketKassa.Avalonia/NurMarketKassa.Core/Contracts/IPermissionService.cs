@@ -50,7 +50,9 @@ public static class PosPermissions
     /// <summary>Разделы, которые сайт владельцу показывает всегда (при входе владельца сайт сам
     /// выставляет ему эти флаги). Если владелец ни разу не входил на сайт, флаги могут быть
     /// пустыми — касса не должна закрывать ему его же склад и аналитику.</summary>
-    public static readonly string[] OwnerSections = { ViewProducts, ViewAnalytics, ViewClients, ViewOrders };
+    // 2026-11-10 (владелец: «возвраты добавь в программу владельца»): возврат владелец видит всегда (на сайте возврат есть у владельца на любом тарифе);
+    // сотруднику — только по флагу can_view_market_employee_return с сервера.
+    public static readonly string[] OwnerSections = { ViewProducts, ViewAnalytics, ViewClients, ViewOrders, EmployeeReturn };
 }
 
 public sealed class PermissionDeniedException : InvalidOperationException

@@ -95,7 +95,16 @@ public partial class ReturnSaleDialog
         var refundableBefore = RefundableByLine(selected);
         var outcomeUnknown = false;
         ApiException? debtLineRefusal = null; // 2026-11-06 (Б-2): сервер ответил «Долг нельзя указывать в строках оплаты», а возврат мог провести — выясняем по чеку
+        ApiException? lineIdRefusal = null; // 2026-11-10: сервер отказал «позиции не из этого чека / несуществующие sale_item_id»
+        List<PosRefundLineRequest>? sentRequests = null;
         IsBusy = true;
+
+        // 2026-11-10 (жалоба владельца, «Есть позиции не из этого чека…»): перед отправкой — свежая карточка чека с сервера и сверка id строк.
+        if (!await VerifyLinesBeforeReturnAsync(saleId, selected).ConfigureAwait(true))
+        {
+            IsBusy = false;
+            return;
+        }
 
         try
         {
@@ -107,6 +116,7 @@ public partial class ReturnSaleDialog
                 Quantity = line.Quantity > 0 ? line.Quantity : 1,
                 OriginalQuantity = line.OriginalQuantity > 0 ? line.OriginalQuantity : line.Quantity,
             }).ToList();
+            sentRequests = requests;
 
             // 2026-10-15, ревью: тот же чек и те же строки/количества — тот же ключ (см. PendingReturn).
             var returnSignature = "lines|" + (isDefect ? "defect|" : "") + saleId + "|" + string.Join(";", requests
@@ -231,6 +241,12 @@ public partial class ReturnSaleDialog
             PosLogger.Log($"Возврат по продаже {saleId}: сервер ответил «{ex.Message}» — проверяем по чеку, проведён ли возврат.", "WARNING");
             debtLineRefusal = ex;
         }
+        catch (ApiException ex) when (ReturnLineCheck.IsUnknownLineRefusal(ex))
+        {
+            // 2026-11-10: отказ проверки строк (до записи возврата) — ключ забыт (4xx), ниже чек перечитывается и кассиру понятный текст.
+            PendingReturn.OnError(ex);
+            lineIdRefusal = ex;
+        }
         catch (ApiException ex)
         {
             // 2026-10-16, ревью: 4xx (кроме 408/429) — ключ забыт; иначе исход неизвестен, ключ оставлен для повтора.
@@ -261,6 +277,12 @@ public partial class ReturnSaleDialog
         finally
         {
             IsBusy = false;
+        }
+
+        if (lineIdRefusal is not null)
+        {
+            await HandleUnknownLineRefusalAsync(saleId, lineIdRefusal, sentRequests ?? new List<PosRefundLineRequest>()).ConfigureAwait(true);
+            return;
         }
 
         // 2026-10-16, ревью: ответ не дошёл — сервер мог провести возврат; сверяем по чеку (см. ReportReturnIfAppliedAsync).
@@ -459,6 +481,8 @@ public partial class ReturnSaleDialog
         var outcomeUnknown = false;
         var exceedsRefused = false; // 2026-11-01 (К-01): сервер отказал «больше положенного» — чек перечитываем, деньги не выдаём
         ApiException? debtLineRefusal = null; // 2026-11-06 (Б-2): см. возврат по позициям
+        ApiException? wholeLineIdRefusal = null; // 2026-11-10: см. возврат по позициям
+        List<PosRefundLineRequest>? wholeSent = null;
         IsBusy = true;
         try
         {
@@ -483,6 +507,7 @@ public partial class ReturnSaleDialog
                     OriginalQuantity = l.OriginalQuantity > 0 ? l.OriginalQuantity : l.Quantity,
                 }).ToList()
                 : null;
+            wholeSent = wholeLinesToSend;
             var wholeResponse = await SlowMoneyCall.RunAsync("pos/return-whole", "return|" + saleId, t => wholeLinesToSend is not null
                 ? PosRefundService.RefundLinesAsync(
                     App.SalesApi,
@@ -580,6 +605,12 @@ public partial class ReturnSaleDialog
             PosLogger.Log($"Возврат по продаже {saleId}: сервер ответил «{ex.Message}» — проверяем по чеку, проведён ли возврат.", "WARNING");
             debtLineRefusal = ex; // 2026-11-06 (Б-2): см. возврат по позициям
         }
+        catch (ApiException ex) when (ReturnLineCheck.IsUnknownLineRefusal(ex))
+        {
+            // 2026-11-10: «позиции не из этого чека» (весь чек построчно, когда есть неотправленный возврат без связи) — как в возврате по позициям.
+            PendingReturn.OnError(ex);
+            wholeLineIdRefusal = ex;
+        }
         catch (ApiException ex)
         {
             // 2026-10-16, ревью: 4xx (кроме 408/429) — ключ забыт; иначе исход неизвестен, ключ оставлен для повтора.
@@ -611,6 +642,12 @@ public partial class ReturnSaleDialog
         finally
         {
             IsBusy = false;
+        }
+
+        if (wholeLineIdRefusal is not null)
+        {
+            await HandleUnknownLineRefusalAsync(saleId, wholeLineIdRefusal, wholeSent ?? new List<PosRefundLineRequest>()).ConfigureAwait(true);
+            return;
         }
 
         // 2026-10-16, ревью: ответ не дошёл — сервер мог провести возврат; сверяем по чеку и показываем чек как на сервере.

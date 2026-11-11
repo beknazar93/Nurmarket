@@ -43,7 +43,7 @@ Views.axaml\Dialogs\VariantReceiveWindow.cs;1
 Views.axaml\Dialogs\WeighedProductDialog.axaml.cs;4
 Views.axaml\Dialogs\WriteOffDialog.axaml.cs;1
 Views.axaml\Main\AiAdvisorWindow.Answer.cs;2
-Views.axaml\Main\AiAdvisorWindow.cs;1
+Views.axaml\Main\AiAdvisorWindow.Chat.cs;1
 Views.axaml\Main\BranchesWindow.cs;3
 Views.axaml\Main\BulkImportWizardWindow.cs;1
 Views.axaml\Main\CalculatorWindow.axaml.cs;10

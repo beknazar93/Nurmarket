@@ -21,6 +21,8 @@ public static class WindowFitGuard
         if (OperatingSystem.IsAndroid() || Attached.TryGetValue(window, out _))
             return;
         Attached.Add(window, new object());
+        // 2026-11-11: главные окна (касса, владелец) — перерисовка после разворачивания и журнал сворачиваний (WindowRestoreGuard).
+        WindowRestoreGuard.Attach(window);
 
         var fixes = new Queue<DateTime>();
         DispatcherTimer? debounce = null;
@@ -69,7 +71,9 @@ public static class WindowFitGuard
     {
         try
         {
-            if (!window.IsVisible || window.WindowState == WindowState.Minimized)
+            // 2026-11-11 (жалоба «частое сворачивание — программа наполовину»): свёрнутое системой окно (IsIconic) и вырожденные размеры
+            // (-32000, 160×28) — не подгоняем: иначе «подгонка» по ним ставила окну размер и снимала полный экран.
+            if (WindowRestoreGuard.ShouldSkipLayoutWork(window))
                 return;
             var screen = window.Screens.ScreenFromWindow(window) ?? window.Screens.Primary;
             if (screen is null)

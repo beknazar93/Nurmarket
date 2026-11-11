@@ -60,6 +60,7 @@ public sealed partial class UserPreferences
                 LabelPageFromTemplate = LabelPageFromTemplate,
                 TransferAutoWaybill = TransferAutoWaybill,
                 TransferAutoOther = TransferAutoOther,
+                AskQtyOnRepeatScan = AskQtyOnRepeatScan,
                 LabelGapMm = LabelGapMm,
                 LabelOffsetXMm = LabelOffsetXMm,
                 LabelOffsetYMm = LabelOffsetYMm,
@@ -81,6 +82,8 @@ public sealed partial class UserPreferences
                 Fullscreen = Fullscreen,
                 TrueFullscreen = TrueFullscreen,
                 LowPerformanceMode = LowPerformanceMode,
+                ModalBackgroundBlur = ModalBackgroundBlur, // 2026-11-11
+                WindowsRenderMode = WindowsRenderMode, // 2026-11-11
                 AskOwnerPinOnKassaPc = AskOwnerPinOnKassaPc, // 2026-11-06 (Л4-19)
                 VoiceControlEnabled = VoiceControlEnabled,
                 VoiceControlUnlocked = VoiceControlUnlocked,
@@ -415,6 +418,7 @@ public sealed partial class UserPreferences
         public bool? LabelPageFromTemplate { get; set; }
         public bool? TransferAutoWaybill { get; set; }
         public bool? TransferAutoOther { get; set; }
+        public bool? AskQtyOnRepeatScan { get; set; }
         public double? LabelGapMm { get; set; }
         public double? LabelOffsetXMm { get; set; }
         public double? LabelOffsetYMm { get; set; }
@@ -436,6 +440,8 @@ public sealed partial class UserPreferences
         public bool? Fullscreen { get; set; }
         public bool? TrueFullscreen { get; set; }
         public bool? LowPerformanceMode { get; set; }
+        public bool? ModalBackgroundBlur { get; set; }
+        public string? WindowsRenderMode { get; set; }
         public bool? AskOwnerPinOnKassaPc { get; set; }
         public bool? VoiceControlEnabled { get; set; }
         public bool? VoiceControlUnlocked { get; set; }

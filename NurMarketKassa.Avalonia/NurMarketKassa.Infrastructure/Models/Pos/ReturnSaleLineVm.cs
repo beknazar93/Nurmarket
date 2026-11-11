@@ -31,6 +31,9 @@ public sealed class ReturnSaleLineVm : INotifyPropertyChanged
 
     public bool CanReturn { get; init; }
 
+    /// <summary>2026-11-10 (поиск по товару в окне возврата): строка — тот товар, который искали; подсвечена и при открытии отмечена (количество 1).</summary>
+    public bool IsSearchHit { get; init; }
+
     // 2026-10-27 (приёмка 1.17.63, Д-5): частичный возврат строки по количеству («клей × 2» — вернуть 1). Quantity и RefundSum —
     // по-прежнему «всё, что ещё можно вернуть по строке»; сколько вернуть сейчас — ReturnQuantity (по умолчанию всё).
     private double _returnQuantity = double.NaN;

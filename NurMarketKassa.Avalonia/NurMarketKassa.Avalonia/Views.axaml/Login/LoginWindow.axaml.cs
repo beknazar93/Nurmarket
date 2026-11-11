@@ -431,8 +431,9 @@ namespace NurMarketKassa.AvaloniaHost.Views
         // Fullscreen login (SystemDecorations.None, see OnLoaded) has no native
         // window chrome, so minimize/close only exist if the login screen itself
         // offers them.
+        // 2026-11-11: окно на весь экран сворачивается как с панели задач (без промежуточного «окна с рамкой», см. WindowRestoreGuard.Minimize).
         private void MinimizeWindowButton_Click(object sender, RoutedEventArgs e) =>
-            WindowState = WindowState.Minimized;
+            NurMarketKassa.AvaloniaHost.Services.WindowRestoreGuard.Minimize(this);
 
         private async void CloseWindowButton_Click(object sender, RoutedEventArgs e) =>
             await ConfirmAndExitAsync();

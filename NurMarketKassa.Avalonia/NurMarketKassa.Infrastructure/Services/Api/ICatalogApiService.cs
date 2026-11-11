@@ -104,6 +104,13 @@ public interface ICatalogApiService
     /// отправляет карточку целиком и перетёр бы на сервере всё, чего касса не знает.</summary>
     Task<JsonElement> PatchProductFieldsAsync(string productId, IReadOnlyDictionary<string, object?> fields, CancellationToken ct = default);
 
+    /// <summary>2026-11-11 (Умар включил на боевом): атомарный перевод остатка товара в упаковки — POST products/&lt;id&gt;/convert-to-packages/
+    /// {quantity_in_package, unit?, package_name?, expected_quantity?, allow_rounding?, idempotency_key} + заголовок Idempotency-Key.
+    /// Отказы — ApiException (409 stock_changed / already_has_packages / …, 400 not_divisible / price_overflow); разбор — ReceivingPackConvert.
+    /// По умолчанию (другие реализации) — 405 «сервер не умеет»: вызывающий откатывается на прежний PATCH.</summary>
+    Task<JsonElement> ConvertToPackagesAsync(string productId, IReadOnlyDictionary<string, object?> body, string idempotencyKey, CancellationToken ct = default) =>
+        throw new ApiException("convert-to-packages не поддерживается", 405);
+
     /// <summary>Поставщики компании: GET clients/?type=suppliers.</summary>
     Task<JsonElement> ListSuppliersAsync(CancellationToken ct = default);
 
@@ -257,6 +264,8 @@ public sealed class ProductEditRequest
     public bool EnablePieceSale { get; set; }
     public double? PackageQuantity { get; set; }
     public double? PackagePiecePrice { get; set; }
+    /// <summary>2026-11-10: название упаковки («Пачка», как подсказка веба); пусто — «упаковка», как раньше.</summary>
+    public string? PackageName { get; set; }
     /// <summary>"product" (обычный товар с остатком), "service" (без остатка) или "bundle"
     /// (комплект из нескольких товаров, см. BundleItems) — поле "kind" в NurCRM.</summary>
     public string Kind { get; set; } = "product";

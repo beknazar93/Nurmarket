@@ -520,7 +520,7 @@ public static class OfflineOperationsReplayer
     {
         var map = new Dictionary<string, double>(StringComparer.Ordinal);
         foreach (var it in CartDisplayHelper.EnumerateSaleLineItems(sale))
-            if (CartDisplayHelper.TryRefundLineId(it) is { Length: > 0 } id)
+            if (ReturnLineCheck.SaleItemId(it) is { Length: > 0 } id) // 2026-11-11: sale_item_id = id строки чека (контракт Умара)
                 map[id] = CartDisplayHelper.RefundableQuantity(it);
         return map;
     }
@@ -601,7 +601,7 @@ public static class OfflineOperationsReplayer
     private static List<PosRefundLineRequest> MapLines(JsonElement sale, OfflineOperationEntry op)
     {
         var server = CartDisplayHelper.EnumerateSaleLineItems(sale)
-            .Select(it => (Id: CartDisplayHelper.TryRefundLineId(it), ProductId: CartDisplayHelper.TryProductId(it), Name: CartDisplayHelper.ItemName(it),
+            .Select(it => (Id: ReturnLineCheck.SaleItemId(it), ProductId: CartDisplayHelper.TryProductId(it), Name: CartDisplayHelper.ItemName(it), // 2026-11-11: sale_item_id = id строки чека (контракт Умара)
                            Left: CartDisplayHelper.RefundableQuantity(it), Total: CartDisplayHelper.LineQuantity(it)))
             .Where(s => !string.IsNullOrEmpty(s.Id))
             .ToList();

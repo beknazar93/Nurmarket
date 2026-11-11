@@ -125,6 +125,11 @@ public static class ProductCodeLookup
         try
         {
             ScaleLabelCodeRegistry.ApplySharedAmountPrefixes();
+            // 2026-11-11 (владелец: «на приёмке многие товары, которые не находит, показывает как ВЕСОВОЙ»): обычные штрихкоды магазина на «20…29» с верной контрольной цифрой
+            // разбирались как этикетка весов, и код «товара» внутри совпадал с PLU/артикулом чужого весового товара. Теперь в приёмке этикеткой считается только код
+            // с префиксом, НАСТРОЕННЫМ у магазина (Настройки → Весы: префиксы «вес»/«сумма» или своя раскладка); весы не настроены — код обычный.
+            if (!ScalePrefixConfigured(key))
+                return null;
             if (!WeightBarcodeParser.TryParse(key, out var label))
                 return null;
             var product = LocalCartService.FindByEmbeddedCode(label.ProductCode);
@@ -356,6 +361,16 @@ public static class ProductCodeLookup
 
     /// <summary>Как у кассы (BasketPanelViewModel.WeightBarcodeAllowedHere): в «Одежде» внутренние штрихкоды тоже на «2»,
     /// там весовой код — только с явно настроенным префиксом весов.</summary>
+    /// <summary>2026-11-11: префикс кода (первые 2 цифры) настроен у магазина как префикс этикеток весов: «по весу», «по сумме» или своя раскладка (Настройки → Весы).</summary>
+    public static bool ScalePrefixConfigured(string? code)
+    {
+        var key = Normalize(code);
+        if (key.Length < 2)
+            return false;
+        var prefix = key[..2];
+        return WeightBarcodeParser.AmountPrefixes.Contains(prefix) || WeightBarcodeParser.WeightPrefixes.Contains(prefix) || WeightBarcodeParser.FindCustomLayout(prefix) is not null;
+    }
+
     private static bool WeightLabelAllowedHere(string code)
     {
         if (!MarketSpheres.IsClothing)

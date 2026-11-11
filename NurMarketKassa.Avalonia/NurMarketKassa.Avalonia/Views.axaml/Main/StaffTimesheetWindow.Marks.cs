@@ -298,7 +298,7 @@ public partial class StaffTimesheetWindow
         var weekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
         if (mark is null)
         {
-            line1 = shiftH > 0 ? "~" + HoursPlain(Math.Round(shiftH, 1)) : "";
+            line1 = shiftH > 0 ? "~" + HoursPlain(TimesheetMarksService.RoundHours(shiftH)) : "";
             if (weekend) background = soft;
         }
         else
@@ -308,7 +308,7 @@ public partial class StaffTimesheetWindow
             edge = new SolidColorBrush(color);
             line1 = TimesheetMarksService.StatusCode(mark.Status) + (check != TimesheetCheck.None ? "!" : "");
             if (mark.Status == TimesheetStatus.Present)
-                line2 = mark.Hours is { } h ? HoursPlain(h) : shiftH > 0 ? HoursPlain(Math.Round(shiftH, 1)) : "…";
+                line2 = mark.Hours is { } h ? HoursPlain(h) : shiftH > 0 ? HoursPlain(TimesheetMarksService.RoundHours(shiftH)) : "…";
         }
 
         var description = Describe(name, date, mark, shiftH, check);
@@ -354,7 +354,7 @@ public partial class StaffTimesheetWindow
                 parts.Add(Tr.T("комментарий: ", "комментарий: ", "comment: ", "yorum: ", "izoh: ") + mark.Comment);
         }
         parts.Add(shiftH > 0
-            ? Tr.T("по смене: ", "смена боюнча: ", "by shift: ", "vardiyaya göre: ", "smena bo'yicha: ") + TimesheetMarksService.HoursText(Math.Round(shiftH, 1))
+            ? Tr.T("по смене: ", "смена боюнча: ", "by shift: ", "vardiyaya göre: ", "smena bo'yicha: ") + TimesheetMarksService.HoursText(TimesheetMarksService.RoundHours(shiftH))
             : Tr.T("смен в этот день нет", "бул күнү смена жок", "no shifts this day", "o gün vardiya yok", "bu kuni smena yo'q"));
         var warn = CheckText(check, mark, shiftH);
         if (warn != null)
@@ -364,16 +364,16 @@ public partial class StaffTimesheetWindow
 
     private static string? CheckText(TimesheetCheck check, TimesheetMark? mark, double shiftH) => check switch
     {
-        TimesheetCheck.AbsentButShift => Tr.T($"Внимание: отмечен как «{TimesheetMarksService.StatusName(mark!.Status).ToLowerInvariant()}», но была смена ({TimesheetMarksService.HoursText(Math.Round(shiftH, 1))}).",
-            $"Көңүл буруңуз: «{TimesheetMarksService.StatusName(mark!.Status).ToLowerInvariant()}» деп белгиленген, бирок смена болгон ({TimesheetMarksService.HoursText(Math.Round(shiftH, 1))}).",
-            $"Attention: marked as “{TimesheetMarksService.StatusName(mark!.Status).ToLowerInvariant()}”, but there was a shift ({TimesheetMarksService.HoursText(Math.Round(shiftH, 1))}).",
-            $"Dikkat: «{TimesheetMarksService.StatusName(mark!.Status).ToLowerInvariant()}» işaretli, ama vardiya vardı ({TimesheetMarksService.HoursText(Math.Round(shiftH, 1))}).",
-            $"Diqqat: «{TimesheetMarksService.StatusName(mark!.Status).ToLowerInvariant()}» deb belgilangan, lekin smena bo'lgan ({TimesheetMarksService.HoursText(Math.Round(shiftH, 1))})."),
-        TimesheetCheck.HoursDiffer => Tr.T($"Внимание: часы в отметке ({TimesheetMarksService.HoursText(mark!.Hours ?? 0)}) расходятся со сменами ({TimesheetMarksService.HoursText(Math.Round(shiftH, 1))}).",
-            $"Көңүл буруңуз: белгидеги саат ({TimesheetMarksService.HoursText(mark!.Hours ?? 0)}) смена менен дал келбейт ({TimesheetMarksService.HoursText(Math.Round(shiftH, 1))}).",
-            $"Attention: the marked hours ({TimesheetMarksService.HoursText(mark!.Hours ?? 0)}) differ from the shifts ({TimesheetMarksService.HoursText(Math.Round(shiftH, 1))}).",
-            $"Dikkat: işaretteki saat ({TimesheetMarksService.HoursText(mark!.Hours ?? 0)}) vardiyalarla ({TimesheetMarksService.HoursText(Math.Round(shiftH, 1))}) uyuşmuyor.",
-            $"Diqqat: belgidagi soat ({TimesheetMarksService.HoursText(mark!.Hours ?? 0)}) smenalar ({TimesheetMarksService.HoursText(Math.Round(shiftH, 1))}) bilan mos kelmaydi."),
+        TimesheetCheck.AbsentButShift => Tr.T($"Внимание: отмечен как «{TimesheetMarksService.StatusName(mark!.Status).ToLowerInvariant()}», но была смена ({TimesheetMarksService.HoursText(TimesheetMarksService.RoundHours(shiftH))}).",
+            $"Көңүл буруңуз: «{TimesheetMarksService.StatusName(mark!.Status).ToLowerInvariant()}» деп белгиленген, бирок смена болгон ({TimesheetMarksService.HoursText(TimesheetMarksService.RoundHours(shiftH))}).",
+            $"Attention: marked as “{TimesheetMarksService.StatusName(mark!.Status).ToLowerInvariant()}”, but there was a shift ({TimesheetMarksService.HoursText(TimesheetMarksService.RoundHours(shiftH))}).",
+            $"Dikkat: «{TimesheetMarksService.StatusName(mark!.Status).ToLowerInvariant()}» işaretli, ama vardiya vardı ({TimesheetMarksService.HoursText(TimesheetMarksService.RoundHours(shiftH))}).",
+            $"Diqqat: «{TimesheetMarksService.StatusName(mark!.Status).ToLowerInvariant()}» deb belgilangan, lekin smena bo'lgan ({TimesheetMarksService.HoursText(TimesheetMarksService.RoundHours(shiftH))})."),
+        TimesheetCheck.HoursDiffer => Tr.T($"Внимание: часы в отметке ({TimesheetMarksService.HoursText(mark!.Hours ?? 0)}) расходятся со сменами ({TimesheetMarksService.HoursText(TimesheetMarksService.RoundHours(shiftH))}).",
+            $"Көңүл буруңуз: белгидеги саат ({TimesheetMarksService.HoursText(mark!.Hours ?? 0)}) смена менен дал келбейт ({TimesheetMarksService.HoursText(TimesheetMarksService.RoundHours(shiftH))}).",
+            $"Attention: the marked hours ({TimesheetMarksService.HoursText(mark!.Hours ?? 0)}) differ from the shifts ({TimesheetMarksService.HoursText(TimesheetMarksService.RoundHours(shiftH))}).",
+            $"Dikkat: işaretteki saat ({TimesheetMarksService.HoursText(mark!.Hours ?? 0)}) vardiyalarla ({TimesheetMarksService.HoursText(TimesheetMarksService.RoundHours(shiftH))}) uyuşmuyor.",
+            $"Diqqat: belgidagi soat ({TimesheetMarksService.HoursText(mark!.Hours ?? 0)}) smenalar ({TimesheetMarksService.HoursText(TimesheetMarksService.RoundHours(shiftH))}) bilan mos kelmaydi."),
         _ => null,
     };
 
@@ -417,7 +417,7 @@ public partial class StaffTimesheetWindow
         root.Children.Add(new TextBlock
         {
             Text = shiftH > 0
-                ? Tr.T("По смене: ", "Смена боюнча: ", "By shift: ", "Vardiyaya göre: ", "Smena bo'yicha: ") + TimesheetMarksService.HoursText(Math.Round(shiftH, 1))
+                ? Tr.T("По смене: ", "Смена боюнча: ", "By shift: ", "Vardiyaya göre: ", "Smena bo'yicha: ") + TimesheetMarksService.HoursText(TimesheetMarksService.RoundHours(shiftH))
                 : Tr.T("Смен в этот день нет.", "Бул күнү смена жок.", "No shifts this day.", "O gün vardiya yok.", "Bu kuni smena yo'q."),
             FontSize = 12, Foreground = Res("BrushTextSoft", Brushes.Gray), TextWrapping = TextWrapping.Wrap,
         });

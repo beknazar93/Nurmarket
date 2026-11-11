@@ -876,22 +876,62 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             return;
 
         var trimmed = barcode.Trim();
+
+        // 2026-11-09 (владелец: «при повторном скане того же товара остановить сканер и спросить количество»): тот же код сразу после добавления — окно «Сколько штук?»
+        // (окно задаёт приёмка через AskRepeatQuantity; без него и при выключенной настройке — как прежде, +количество). Весовая этикетка и код без строки в списке не спрашивают.
+        if (AskRepeatQuantity is { } ask
+            && RepeatScanGuard.Check(trimmed) == ReceivingScanVerdict.Repeat
+            && ReceivingRepeatScan.FindLine(ReceivingLines, trimmed) is { } repeatLine)
+        {
+            var add = await ask(repeatLine, quantity > 0 ? quantity : 1).ConfigureAwait(true);
+            RepeatScanGuard.Counted(trimmed); // после окна (любой исход) этот код по-прежнему «последний»: ещё один скан подряд — снова вопрос
+            if (add is { } n && n > 0 && ReceivingLines.Contains(repeatLine))
+            {
+                ReceivingRepeatScan.AddTo(repeatLine, n);
+                MoveReceivingLineToTop(repeatLine);
+                ReceivingLineAdded?.Invoke(repeatLine);
+            }
+            return;
+        }
+
         var existing = ReceivingLines.FirstOrDefault(l =>
             string.Equals(l.Barcode, trimmed, StringComparison.OrdinalIgnoreCase));
 
         if (existing is not null)
         {
-            existing.Quantity += quantity;
+            // 2026-11-11 (Б-4, видео «Ак Кант»): в режиме упаковок повторный скан прибавлял 1 ШТУКУ, а колонка показывает упаковки (40 → 40,04 — «не меняется»).
+            // Теперь — в тех же единицах, что в колонке «Принимаем» (ReceivingRepeatScan.AddTo: упаковка в режиме упаковок, иначе штука).
+            ReceivingRepeatScan.AddTo(existing, quantity);
+            PurchaseReceivingService.LogScan(trimmed, "повторный скан", existing.PackMode ? $"+{quantity:0.###} упак." : $"+{quantity:0.###}");
+            RepeatScanGuard.Counted(trimmed);
             MoveReceivingLineToTop(existing); // 2026-10-24, ТЗ «Склад» Б1: найденная строка поднимается наверх
             ReceivingLineAdded?.Invoke(existing);
             return;
         }
 
+        // 2026-11-11 (владелец: «на приёмке многие товары, которые не находит, показывает как ВЕСОВОЙ; в массовом сканировании всё чётко»): порядок как в массовом —
+        // точный штрихкод в базе кассы (и доп. коды/размеры) → склад на сервере (только товар ИМЕННО с этим штрихкодом) → общая база NurCRM → и только если товар
+        // нигде не найден, код может быть этикеткой весов — и то лишь при настроенном у магазина префиксе весов (ProductCodeLookup.FindWeightLabel). Раньше этикетка
+        // разбиралась ДО поиска, и обычный код «20…» становился чужим весовым товаром.
+        ReceivingLineVm line;
+        try
+        {
+            line = await PurchaseReceivingService.Instance.LookupAsync(trimmed, quantity).ConfigureAwait(true);
+        }
+        catch (AmbiguousBarcodeException ambiguous)
+        {
+            // 2026-11-11 (ответ Умара): один штрихкод у нескольких товаров — строку не добавляем и товар не подставляем, красное сообщение (сервер сам не выбирает случайный).
+            SetReceivingNotice(ambiguous.Message, isError: true, hideAfterSeconds: 10);
+            return;
+        }
+
         // 2026-10-31 (владелец: «в приёмке весовые добавляются???»): этикетка весов — товар по коду внутри, количество = вес с этикетки
         // (раньше становилась «новым товаром» с кодом этикетки). Только если точного штрихкода с таким кодом нет.
-        if (ProductCodeLookup.FindLocal(trimmed, allowWeightLabel: false) is null
+        if (line.Source == ReceivingSource.Unknown
             && ProductCodeLookup.FindWeightLabel(trimmed) is { Product: { } weighedTile } weighedLabel)
         {
+            PurchaseReceivingService.LogScan(trimmed, "весовая этикетка (префикс весов настроен)", $"товар {weighedTile.Id}, {weighedLabel.Quantity:0.###}");
+            RepeatScanGuard.Counted(trimmed); // 2026-11-09: код этикетки весов запоминается, но окно не вызывает (строки с таким штрихкодом нет)
             var sameProduct = ReceivingLines.FirstOrDefault(l => string.Equals(l.ProductId, weighedTile.Id, StringComparison.OrdinalIgnoreCase));
             if (sameProduct is not null)
             {
@@ -908,8 +948,6 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
             return;
         }
 
-        var line = await PurchaseReceivingService.Instance.LookupAsync(trimmed, quantity).ConfigureAwait(true);
-
         // Пока шёл запрос, тот же товар могли отсканировать ещё раз.
         var raced = ReceivingLines.FirstOrDefault(l =>
             string.Equals(l.Barcode, line.Barcode, StringComparison.OrdinalIgnoreCase)
@@ -917,7 +955,8 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
                 && string.Equals(l.ProductId, line.ProductId, StringComparison.OrdinalIgnoreCase)));
         if (raced is not null)
         {
-            raced.Quantity += quantity;
+            ReceivingRepeatScan.AddTo(raced, quantity); // 2026-11-11 (Б-4): в единицах колонки (упаковка в режиме упаковок)
+            RepeatScanGuard.Counted(trimmed);
             MoveReceivingLineToTop(raced);
             ReceivingLineAdded?.Invoke(raced);
             return;
@@ -926,8 +965,15 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
         // 2026-10-24, ТЗ «Склад» Б1: новая строка встаёт сверху — у кладовщика перед глазами последний скан, а не конец длинной накладной.
         line.EnableReceivingPricing(); // 2026-10-28: ручной скан; 2026-11-06: у товара с ценой в карточке общая наценка её не меняет (только «Как у всех» / «Применить ко всем»)
         ReceivingLines.Insert(0, line);
+        RepeatScanGuard.Counted(trimmed);
         ReceivingLineAdded?.Invoke(line);
     }
+
+    /// <summary>2026-11-09: «тот же код подряд» для окна «Сколько штук?» (одна общая настройка UserPreferences.AskQtyOnRepeatScan).</summary>
+    public ReceivingRepeatScanGuard RepeatScanGuard { get; } = new();
+
+    /// <summary>2026-11-09: «Сколько штук?» — окно приёмки (строка, число по умолчанию → сколько добавить; null — «Отмена»). Без обработчика повторный скан добавляет, как раньше.</summary>
+    public Func<ReceivingLineVm, double, Task<double?>>? AskRepeatQuantity { get; set; }
 
     /// <summary>2026-10-24, ТЗ «Склад» Б1: строка приёмки наверх списка (повторный скан / выбор уже добавленного товара).</summary>
     public void MoveReceivingLineToTop(ReceivingLineVm line)
@@ -1020,6 +1066,7 @@ public sealed class WarehouseViewModel : INotifyPropertyChanged
     /// <summary>Добавить товар в приёмку из списка, а не сканом.</summary>
     public ReceivingLineVm AddReceivingProduct(CatalogProductTileVm product, double quantity)
     {
+        RepeatScanGuard.Reset(); // 2026-11-09: товар выбран из списка, а не отсканирован — отсчёт «тот же код подряд» начинается заново
         var existing = ReceivingLines.FirstOrDefault(l =>
             string.Equals(l.ProductId, product.Id, StringComparison.OrdinalIgnoreCase));
 

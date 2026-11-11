@@ -86,7 +86,10 @@ public static class NurCrmReportsApi
         // возврат в аналитике не отображается»). У старых возвратов сервер отдаёт позиции без имени.
         string? ItemsText = null,
         decimal ItemsQty = 0m,
-        string? Reason = null);
+        string? Reason = null,
+        // 2026-11-10 (правка и аннулирование возвратов 24 ч): version/status/can_edit/can_void по ответу сервера (нет полей — None, кнопок нет). Кнопки в окнах
+        // «Возврат от клиента» подключает другой исполнитель: ReturnEditUi.Bar(..., ReturnDocKind.Customer, ...) и ReturnEditFlows.VoidAsync.
+        ReturnEditState? Edit = null);
 
     /// <summary>GET api/main/pos/returns/?date_from&amp;date_to&amp;shift&amp;sale.
     ///
@@ -171,7 +174,8 @@ public static class NurCrmReportsApi
                             : null,
                         names.Count > 0 ? string.Join(", ", names) : null,
                         qty,
-                        ReasonOf(row) ?? (itemReasons.Count > 0 ? string.Join("; ", itemReasons) : null)));
+                        ReasonOf(row) ?? (itemReasons.Count > 0 ? string.Join("; ", itemReasons) : null),
+                        ReturnEditState.Parse(row)));
                 }
 
                 var hasNext = data.ValueKind == JsonValueKind.Object

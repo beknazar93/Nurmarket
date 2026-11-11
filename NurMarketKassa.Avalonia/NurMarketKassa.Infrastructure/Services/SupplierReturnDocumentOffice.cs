@@ -20,7 +20,7 @@ public static class SupplierReturnDocumentOffice
     public static void SaveWord(SupplierReturnDocData d, string path)
     {
         var l = new TransferDocumentRenderer.L(d.Lang);
-        var title = SupplierReturnDocuments.Title(d.Lang) + " № " + d.Number;
+        var title = SupplierReturnDocuments.HeaderTitle(d) + " № " + d.Number; // 2026-11-10: у аннулированного — «— АННУЛИРОВАН»
         var meta = ReportMeta.Create(title, string.IsNullOrWhiteSpace(d.OrgName) ? null : d.OrgName, d.Date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture));
         using var doc = new WordReportBuilder(path, meta);
 
@@ -37,6 +37,8 @@ public static class SupplierReturnDocumentOffice
             details.Insert(0, (l.T("ИНН", "ИНН", "TIN", "VKN", "STIR"), d.OrgInn));
         if (!string.IsNullOrWhiteSpace(d.Comment))
             details.Add((l.T("Комментарий", "Комментарий", "Comment", "Yorum", "Izoh"), d.Comment));
+        if (d.Voided)
+            details.Insert(0, (l.T("Статус", "Абалы", "Status", "Durum", "Holati"), SupplierReturnDocuments.VoidedStatusText(d)));
         doc.TitleBlock(details);
 
         var cols = new List<WColumn>
@@ -80,7 +82,7 @@ public static class SupplierReturnDocumentOffice
     public static void SaveExcel(SupplierReturnDocData d, string path)
     {
         var l = new TransferDocumentRenderer.L(d.Lang);
-        var title = SupplierReturnDocuments.Title(d.Lang) + " № " + d.Number;
+        var title = SupplierReturnDocuments.HeaderTitle(d) + " № " + d.Number; // 2026-11-10: у аннулированного — «— АННУЛИРОВАН»
         var meta = ReportMeta.Create(title, string.IsNullOrWhiteSpace(d.OrgName) ? null : d.OrgName, null);
         using var book = new ExcelWorkbookBuilder(path, meta);
 
@@ -103,6 +105,8 @@ public static class SupplierReturnDocumentOffice
         };
         if (!string.IsNullOrWhiteSpace(d.OrgInn))
             fields.Insert(2, new XlKeyValue(l.T("ИНН", "ИНН", "TIN", "VKN", "STIR"), d.OrgInn, XlKind.Code));
+        if (d.Voided)
+            fields.Insert(0, new XlKeyValue(l.T("Статус", "Абалы", "Status", "Durum", "Holati"), SupplierReturnDocuments.VoidedStatusText(d)));
         header.AddKeyValues(fields);
 
         var contents = book.AddSheet(l.T("Состав", "Курамы", "Contents", "İçerik", "Tarkibi"), meta.Title);

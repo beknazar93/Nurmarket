@@ -1,3 +1,4 @@
+using System.Globalization;
 using NurMarketKassa.Services.Api;
 
 namespace NurMarketKassa.Services;
@@ -47,6 +48,12 @@ public sealed class SupplierReturnDocData
     /// <summary>Итог по ответу сервера — используется, только если у возврата нет строк.</summary>
     public double ServerTotal { get; set; }
     public List<SupplierReturnDocLine> Lines { get; set; } = new();
+    /// <summary>2026-11-10 (аннулирование 24 ч): документ аннулирован на сервере (status: voided) — в заголовке «АННУЛИРОВАН», строка «Статус».</summary>
+    public bool Voided { get; set; }
+    public DateTime? VoidedAt { get; set; }
+    public string VoidReason { get; set; } = "";
+    /// <summary>Версия документа на сервере (после правок &gt; 1); 0 — сервер не отдаёт.</summary>
+    public int Version { get; set; }
 
     public double TotalQty => Lines.Sum(l => l.Qty);
     /// <summary>Итог: по серверу (total_amount), если он сходится с суммой строк до копеек округления; иначе — сумма строк (таблица всегда сходится сама с собой).</summary>
@@ -147,6 +154,11 @@ public static class SupplierReturnDocuments
             Comment = First(r.Comment),
             IssuedBy = First(r.CreatedBy, issuedBy),
             ServerTotal = r.Total,
+            // 2026-11-10: документ строится по актуальной версии сервера; аннулированный получает метку.
+            Voided = r.EditState.IsVoided,
+            VoidedAt = r.EditState.VoidedAt?.LocalDateTime,
+            VoidReason = r.EditState.VoidReason,
+            Version = r.EditState.Version,
         };
         if (data.HasReceipt && data.ReceiptNumber.Length == 0)
         {
@@ -199,6 +211,24 @@ public static class SupplierReturnDocuments
                 Last.Clear();
             Last[d.ReturnId] = d;
         }
+    }
+
+    /// <summary>2026-11-10: метка аннулированного документа на языке документа.</summary>
+    public static string VoidedMark(string lang) => Pick(lang, "АННУЛИРОВАН", "ЖОККО ЧЫГАРЫЛДЫ", "VOIDED", "İPTAL EDİLDİ", "BEKOR QILINDI");
+
+    /// <summary>2026-11-10: заголовок документа; у аннулированного — с меткой «— АННУЛИРОВАН».</summary>
+    public static string HeaderTitle(SupplierReturnDocData d) => Title(d.Lang) + (d.Voided ? " — " + VoidedMark(d.Lang) : "");
+
+    /// <summary>2026-11-10: строка «Статус» аннулированного документа (дата и причина); пусто — документ действующий.</summary>
+    public static string VoidedStatusText(SupplierReturnDocData d)
+    {
+        if (!d.Voided)
+            return "";
+        var l = d.Lang;
+        var text = VoidedMark(l) + (d.VoidedAt is { } at ? " " + at.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) : "");
+        if (!string.IsNullOrWhiteSpace(d.VoidReason))
+            text += " · " + Pick(l, "причина: ", "себеби: ", "reason: ", "neden: ", "sabab: ") + d.VoidReason.Trim();
+        return text;
     }
 
     /// <summary>Имя файла: «Накладная на возврат товара поставщику ВП-2026-000010.pdf».</summary>

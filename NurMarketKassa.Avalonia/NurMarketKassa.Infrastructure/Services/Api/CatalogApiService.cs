@@ -930,6 +930,9 @@ public sealed partial class CatalogApiService : ICatalogApiService
 
     public async Task<JsonElement?> FindWarehouseProductByBarcodeAsync(string barcode, CancellationToken ct = default)
     {
+        // 2026-11-11 (ответ Умара): без ?branch=<uuid> сервер ищет по всей компании и может отдать товар ЧУЖОГО филиала. Параметр branch=<uuid филиала кассы> добавляет
+        // сам транспорт (NurMarketApiClient.BuildUri — активный филиал из профиля пользователя, закодирован Uri.EscapeDataString); филиала нет/неизвестен — параметра нет.
+        // Один штрихкод у двух товаров — сервер отвечает ошибкой «неоднозначный штрихкод»: превращаем в AmbiguousBarcodeException, товар не подставляем.
         try
         {
             var data = await _client.RequestAsync(
@@ -944,6 +947,11 @@ public sealed partial class CatalogApiService : ICatalogApiService
         catch (ApiException ex) when (ex.StatusCode == 404)
         {
             return null;
+        }
+        catch (ApiException ex) when (ex is not AmbiguousBarcodeException && AmbiguousBarcodeException.IsAmbiguous(ex))
+        {
+            PosLogger.Log($"Штрихкод {PurchaseReceivingService.MaskCode(barcode)}: сервер ответил «неоднозначный штрихкод» (код {ex.StatusCode}) — товар не подставляем.", "WARNING");
+            throw new AmbiguousBarcodeException(ex.StatusCode, ex.Payload);
         }
     }
 
@@ -993,9 +1001,40 @@ public sealed partial class CatalogApiService : ICatalogApiService
             null,
             ct);
 
-    public Task<JsonElement> PatchProductFieldsAsync(string productId, IReadOnlyDictionary<string, object?> fields, CancellationToken ct = default) =>
-        _client.RequestAsync(
+    public Task<JsonElement> PatchProductFieldsAsync(string productId, IReadOnlyDictionary<string, object?> fields, CancellationToken ct = default)
+    {
+        // 2026-11-11 (ответ Умара): цена выше предела сервера (продажа/опт 9 999 999,999, закупка 9 999 999 999,9999) — понятный отказ вместо ошибки сервера.
+        if (ServerPriceLimits.ProductPriceProblem(FieldNumber(fields, "price"), FieldNumber(fields, "wholesale_price"), FieldNumber(fields, "purchase_price")) is { } priceProblem)
+            throw new ApiException(priceProblem, 400);
+        return _client.RequestAsync(
             HttpMethod.Patch, $"api/main/products/{Uri.EscapeDataString(productId.Trim())}/", fields, null, ct);
+    }
+
+    /// <summary>2026-11-11: атомарный перевод остатка в упаковки (см. ICatalogApiService). Ключ повтора — и в теле, и заголовком Idempotency-Key (как у прихода):
+    /// повтор после обрыва с тем же ключом сервер не выполняет второй раз.</summary>
+    public async Task<JsonElement> ConvertToPackagesAsync(string productId, IReadOnlyDictionary<string, object?> body, string idempotencyKey, CancellationToken ct = default)
+    {
+        var headers = new Dictionary<string, string> { ["Idempotency-Key"] = idempotencyKey.Trim() };
+        var (data, _) = await _client.RequestWithHeadersAsync(HttpMethod.Post,
+            $"api/main/products/{Uri.EscapeDataString(productId.Trim())}/convert-to-packages/", body, headers, ct).ConfigureAwait(false);
+        return data;
+    }
+
+    /// <summary>Число из поля PATCH (число или строка «12.5»); нет поля или не число — null.</summary>
+    private static double? FieldNumber(IReadOnlyDictionary<string, object?> fields, string key)
+    {
+        if (!fields.TryGetValue(key, out var value) || value is null)
+            return null;
+        return value switch
+        {
+            double d => d,
+            decimal m => (double)m,
+            int i => i,
+            long l => l,
+            string s when double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var p) => p,
+            _ => null,
+        };
+    }
 
     public Task<JsonElement> ListSuppliersAsync(CancellationToken ct = default) =>
         _client.RequestAsync(
@@ -1083,8 +1122,26 @@ public sealed partial class CatalogApiService : ICatalogApiService
         return result.ToArray();
     }
 
+    /// <summary>2026-11-10: поле packages_input «поштучная продажа из упаковки» — одна упаковка (касса читает и пишет одну: PieceOption), как шлёт окно товара.
+    /// Общий для окна товара и приёмки (упаковка у товара склада, PurchaseReceivingService.ConvertExistingToPackSaleAsync). Название пустое — «упаковка», как раньше.</summary>
+    public static object[] PackagesInput(string? name, double quantityInPackage, string unit, double piecePrice) => new object[]
+    {
+        new Dictionary<string, object?>
+        {
+            ["name"] = string.IsNullOrWhiteSpace(name) ? "упаковка" : name.Trim(),
+            ["quantity_in_package"] = quantityInPackage,
+            ["unit"] = unit,
+            ["piece_unit_price"] = piecePrice.ToString("0.##", CultureInfo.InvariantCulture),
+        },
+    };
+
     private static Dictionary<string, object?> BuildProductBody(ProductEditRequest r)
     {
+        // 2026-11-11 (ответ Умара): предел цен сервера — продажа/опт 9 999 999,999, закупка 9 999 999 999,9999. Здесь общий путь окна товара, массового импорта, Нур Советника
+        // и приёмки: цену выше предела не отправляем (сервер ответил бы ошибкой) — понятный отказ. Поля, которые не отправляются, не проверяются.
+        if (ServerPriceLimits.ProductPriceProblem(
+                r.SendPrice ? r.Price : null, r.SendWholesalePrice ? r.WholesalePrice : null, r.SendPurchasePrice ? r.PurchasePrice : null) is { } priceProblem)
+            throw new ApiException(priceProblem, 400);
         var body = new Dictionary<string, object?>
         {
             ["name"] = r.Name.Trim(),
@@ -1100,8 +1157,8 @@ public sealed partial class CatalogApiService : ICatalogApiService
             ["description"] = r.Description?.Trim() ?? "",
             ["purchase_price"] = (r.PurchasePrice ?? 0).ToString("0.####", CultureInfo.InvariantCulture), // 2026-11-01: сервер хранит закупку с 4 знаками
             ["markup_percent"] = (r.MarkupPercent ?? 0).ToString("0.##", CultureInfo.InvariantCulture),
-            ["price"] = (r.Price ?? 0).ToString("0.##", CultureInfo.InvariantCulture),
-            ["wholesale_price"] = (r.WholesalePrice ?? 0).ToString("0.##", CultureInfo.InvariantCulture),
+            ["price"] = (r.Price ?? 0).ToString("0.###", CultureInfo.InvariantCulture), // 2026-11-11: сервер хранит цену продажи и опт с 3 знаками (было 0.## — молча резало 3-й знак)
+            ["wholesale_price"] = (r.WholesalePrice ?? 0).ToString("0.###", CultureInfo.InvariantCulture),
             ["discount_percent"] = (r.DiscountPercent ?? 0).ToString("0.##", CultureInfo.InvariantCulture),
             ["country"] = r.Country?.Trim() ?? "",
             // Заглавными или null — так шлёт веб-форма (см. buildProductPayload в исходниках сайта).
@@ -1131,16 +1188,7 @@ public sealed partial class CatalogApiService : ICatalogApiService
         if (r.EnablePieceSale && r.PackageQuantity is > 0)
         {
             // Только когда кассир сам включил галочку в этой сессии — есть что отправлять.
-            body["packages_input"] = new object[]
-            {
-                new Dictionary<string, object?>
-                {
-                    ["name"] = "упаковка",
-                    ["quantity_in_package"] = r.PackageQuantity!.Value,
-                    ["unit"] = r.Unit,
-                    ["piece_unit_price"] = (r.PackagePiecePrice ?? 0).ToString("0.##", CultureInfo.InvariantCulture),
-                },
-            };
+            body["packages_input"] = PackagesInput(r.PackageName, r.PackageQuantity!.Value, r.Unit, r.PackagePiecePrice ?? 0);
         }
         else if (r.IsNew)
         {

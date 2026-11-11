@@ -1144,6 +1144,11 @@ public sealed class SupplierCardView : UserControl
         Use(title, TextBlock.ForegroundProperty, "BrushText");
         titleRow.Children.Add(title);
         titleRow.Children.Add(SectionCards.Pill(this, SupplierReturnsWindow.ReasonName(r.Reason)));
+        if (ReturnEditFlows.VoidedPill(this, r.EditState) is { } voided) // 2026-11-10: аннулированный возврат
+        {
+            voided.Margin = new Thickness(8, 0, 0, 0);
+            titleRow.Children.Add(voided);
+        }
         who.Children.Add(titleRow);
         who.Children.Add(Soft(string.Join(" · ", new[] { SupplierReturnsWindow.CompensationName(r.Compensation), r.CreatedBy }.Where(x => x.Length > 0))));
         if (r.Comment.Length > 0)
@@ -1185,6 +1190,8 @@ public sealed class SupplierCardView : UserControl
         }
         // 2026-11-05, жалоба владельца: накладная на возврат — печать, PDF, Word, Excel (реквизиты поставщика уже в карточке).
         body.Children.Add(SupplierReturnDocUi.Bar(this, () => r, _info));
+        // 2026-11-10 (ТЗ «правка и аннулирование 24 ч»): «Редактировать / Удалить / История» — при признаке сервера и can_edit/can_void.
+        body.Children.Add(ReturnEditFlows.SupplierBar(this, r, ReloadAsync));
         return Card(body);
     }
 

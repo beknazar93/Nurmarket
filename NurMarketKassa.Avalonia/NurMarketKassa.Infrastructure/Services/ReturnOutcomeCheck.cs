@@ -30,7 +30,7 @@ public sealed class ReturnSnapshot
             return new ReturnSnapshot { Lines = lines };
         foreach (var it in CartDisplayHelper.EnumerateSaleLineItems(sale))
         {
-            if (CartDisplayHelper.TryRefundLineId(it) is not { Length: > 0 } id)
+            if (ReturnLineCheck.SaleItemId(it) is not { Length: > 0 } id) // 2026-11-11: sale_item_id = id строки чека (контракт Умара)
                 continue;
             double returned = 0;
             foreach (var key in ReturnedKeys)
@@ -130,7 +130,7 @@ public static class ReturnProbe
             && status.GetString()?.Trim().ToLowerInvariant() is "canceled" or "cancelled" or "returned" or "refunded")
             return true;
         return CartDisplayHelper.EnumerateSaleLineItems(sale).Any(item =>
-            CartDisplayHelper.TryRefundLineId(item) is { } lineId
+            ReturnLineCheck.SaleItemId(item) is { } lineId // 2026-11-11: sale_item_id = id строки чека (контракт Умара)
             && refundableBefore.TryGetValue(lineId, out var before) && before > 0
             && (CartDisplayHelper.LineLooksFullyReturned(item) || CartDisplayHelper.RefundableQuantity(item) < before - 1e-6));
     }

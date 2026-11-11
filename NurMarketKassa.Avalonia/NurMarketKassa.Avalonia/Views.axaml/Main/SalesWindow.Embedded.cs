@@ -54,10 +54,11 @@ namespace NurMarketKassa.AvaloniaHost.Views
             RootGrid.Children.Remove(ReceiptDetailsPopup);
 
             var body = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto") };
-            Grid.SetRow(search, 0);
+            var searchRow = SearchWithFilters(search); // 2026-11-10: строка поиска + «Фильтры (N)» и панель фильтров
+            Grid.SetRow(searchRow, 0);
             Grid.SetRow(SalesGrid, 1);
             Grid.SetRow(NoticeBox, 2);
-            body.Children.Add(search);
+            body.Children.Add(searchRow);
             body.Children.Add(SalesGrid);
             body.Children.Add(NoticeBox);
             body.Children.Add(ReceiptDetailsPopup);

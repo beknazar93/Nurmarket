@@ -644,9 +644,11 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
             // запрос, а склад и общая база спрашивались по очереди (до 4 запросов). Теперь все запросы — сразу.
             var alternate = BarcodeForms.Alternate(code);
             var api = _catalogApi;
+            var ambiguousBarcode = false; // 2026-11-11 (ответ Умара): сервер ответил «неоднозначный штрихкод» — код уже у нескольких товаров
             Task<System.Text.Json.JsonElement?> Safe(Func<Task<System.Text.Json.JsonElement?>> call) => Task.Run(async () =>
             {
                 try { return await call().ConfigureAwait(false); }
+                catch (AmbiguousBarcodeException) { ambiguousBarcode = true; return null; }
                 catch (Exception ex) { PosLogger.Log($"Карточка товара: запрос по штрихкоду не удался: {ex.Message}", "DEBUG"); return null; }
             });
             var ownTask = Safe(() => api.FindWarehouseProductByBarcodeAsync(code));
@@ -659,6 +661,12 @@ public partial class ProductEditDialog : Window, INotifyPropertyChanged
                     "NurCRM sunucusu yavaş yanıt veriyor, bekleniyor…", "NurCRM serveri sekin javob bermoqda, kutilmoqda…");
             await all.ConfigureAwait(true);
             var own = ownTask.Result ?? ownAltTask.Result;
+            if (ambiguousBarcode && own is null)
+            {
+                ErrorMessage = AmbiguousBarcodeException.FriendlyText;
+                GlobalStatus = "";
+                return;
+            }
             if (own is { } ownProduct)
             {
                 var ownName = ownProduct.TryGetProperty("name", out var n) ? n.GetString() : null;

@@ -86,6 +86,8 @@ public sealed partial class PurchasesWindow
         public ReceivingLineVm? Highlight;
         public readonly Dictionary<ReceivingLineVm, RowParts> RowMap = new();
         // Скан внутри ячейки таблицы (поле «Количество» и др.): быстрая серия символов + Enter — это сканер, а не человек.
+        /// <summary>2026-11-09 (владелец: «повторный скан того же товара — спросить количество»): «тот же код подряд» этой приёмки (закрыли приёмку — отсчёт заново).</summary>
+        public readonly ReceivingRepeatScanGuard RepeatGuard = new();
         public long FsTick;
         public ulong? FsRaw;
         public string FsBuf = "";
@@ -128,8 +130,9 @@ public sealed partial class PurchasesWindow
         Avalonia.Automation.AutomationProperties.SetName(back, T("Назад к закупкам", "Сатып алууларга кайтуу", "Back to purchases", "Satın almalara dön", "Xaridlarga qaytish"));
         back.Click += async (_, _) =>
         {
-            if (ReceiveHasWork && !await ConfirmAsync(T("Выйти без оприходования? Набранные товары не сохранятся.", "Кабыл албай чыгасызбы? Терилген товарлар сакталбайт.",
-                    "Leave without posting? The entered products won't be saved.", "Kabul etmeden çıkılsın mı? Girilen ürünler kaydedilmez.", "Qabul qilmasdan chiqasizmi? Kiritilgan mahsulotlar saqlanmaydi."),
+            // 2026-11-11 (О-5): набранное теперь остаётся черновиком (ReceivingDraftSession) — при следующем открытии приёма его предложат продолжить.
+            if (ReceiveHasWork && !await ConfirmAsync(T("Выйти без оприходования? Набранное сохранится черновиком — продолжите при следующем открытии приёма.", "Кабыл албай чыгасызбы? Терилгени долбоор катары сакталат — кийинки ачканда улантасыз.",
+                    "Leave without posting? What you entered stays as a draft — continue it the next time you open receiving.", "Kabul etmeden çıkılsın mı? Girilenler taslak olarak kalır — bir sonraki açılışta devam edebilirsiniz.", "Qabul qilmasdan chiqasizmi? Kiritilgan qoralama sifatida saqlanadi — keyingi ochishda davom ettirasiz."),
                     T("Выйти", "Чыгуу", "Leave", "Çık", "Chiqish")).ConfigureAwait(true))
                 return;
             CloseSub();
@@ -430,6 +433,7 @@ public sealed partial class PurchasesWindow
         if (prefill is { Lines.Count: > 0 })
             _ = ReceivePrefillAsync(prefill);
         Avalonia.Threading.Dispatcher.UIThread.Post(() => s.Scan.Focus(), Avalonia.Threading.DispatcherPriority.Background);
+        ReceiveDraftInit(s); // 2026-11-11 (О-5): черновик неоконченной приёмки (PurchasesWindow.Receive.Draft.cs)
         PosLogger.Log($"Закупки: открыт приём товара{(prefill is null ? "" : $" ({prefill.Lines.Count} строк заранее{(prefill.OrderNumber is { } n ? ", заказ " + n : "")})")}.", "UI");
     }
 
@@ -512,19 +516,36 @@ public sealed partial class PurchasesWindow
             return;
         ReceiveMessage(null);
         var code = ProductCodeLookup.Normalize(text);
+        // 2026-11-09 (владелец: «при повторном скане того же товара остановить сканер и спросить количество — и на закупках в десктопе»): тот же код сразу после добавления,
+        // строка с ним уже в приёме — окно «Сколько штук?» вместо +1. Весовая этикетка (строки с таким штрихкодом нет) и код без строки идут как обычно.
+        if (s.RepeatGuard.Check(code) == ReceivingScanVerdict.Repeat && ReceivingRepeatScan.FindLine(s.Lines, code) is { } again)
+        {
+            s.Scan.Text = "";
+            await ReceiveAskRepeatAsync(s, code, again).ConfigureAwait(true);
+            return;
+        }
         var local = ProductCodeLookup.FindLocal(code, allowWeightLabel: false)?.Product;
         if (local is not null)
         {
-            ReceiveAddTile(local, 1);
+            PurchaseReceivingService.LogScan(code, "база кассы", $"товар {local.Id}"); // 2026-11-11
+            ReceiveAddTile(local, 1, byScan: true);
+            s.RepeatGuard.Counted(code);
             s.Scan.Text = "";
             return;
         }
         // 2026-10-31 (владелец: «в приёмке весовые добавляются???»): этикетка весов (13 цифр, 2x…) — товар по коду внутри, количество = вес с этикетки
         // (повторная такая же этикетка прибавляется). Раньше она становилась «новым товаром» с кодом этикетки.
-        var weightLabel = ProductCodeLookup.FindWeightLabel(code);
-        if (weightLabel?.Product is { } weighedTile)
+        // 2026-11-11 (владелец: «многие товары, которые не находит, показывает как ВЕСОВОЙ»): этикетка весов разбирается только ПОСЛЕ поиска по складу, серверу и общей базе
+        // (ниже) и только при настроенном у магазина префиксе весов (ProductCodeLookup.FindWeightLabel). Раньше она шла до поиска — обычный код «20…» становился чужим весовым товаром.
+        ProductCodeLookup.WeightLabelHit? weightLabel = null;
+        bool AddWeightLabel()
         {
+            weightLabel = ProductCodeLookup.FindWeightLabel(code);
+            if (weightLabel?.Product is not { } weighedTile)
+                return false;
+            PurchaseReceivingService.LogScan(code, "весовая этикетка (префикс весов настроен)", $"товар {weighedTile.Id}, {weightLabel.Quantity:0.###}");
             ReceiveAddTile(weighedTile, weightLabel.Quantity);
+            s.RepeatGuard.Counted(code); // 2026-11-09: код запоминается (между двумя сканами одного товара был другой код), но окно не вызывает
             s.Scan.Text = "";
             var byAmount = weightLabel.Label.Kind == NurMarketKassa.Core.Domain.WeightBarcodeValueKind.Amount;
             ReceiveMessage(weightLabel.Quantity > 0
@@ -538,7 +559,7 @@ public sealed partial class PurchasesWindow
                     $"The scale label of “{weighedTile.Title}” is by amount and the product has no price — the weight can't be restored. Type the quantity by hand.",
                     $"«{weighedTile.Title}» terazi etiketi tutara göre, ürünün fiyatı yok — ağırlık hesaplanamaz. Miktarı elle girin.",
                     $"«{weighedTile.Title}» tarozi yorlig'i summa bo'yicha, mahsulot narxi yo'q — vaznni tiklab bo'lmaydi. Miqdorni qo'lda kiriting."), warning: weightLabel.Quantity <= 0);
-            return;
+            return true;
         }
         var looksLikeCode = code.Length >= 4 && code.All(char.IsLetterOrDigit) && code.Count(char.IsDigit) >= Math.Max(4, code.Length - 2);
         if (!looksLikeCode)
@@ -594,24 +615,29 @@ public sealed partial class PurchasesWindow
             var server = await ProductCodeLookup.FindOnServerAsync(code).ConfigureAwait(true);
             if (server.Hit?.Product is { } found)
             {
-                ReceiveAddTile(found, 1);
+                PurchaseReceivingService.LogScan(code, "сервер (поиск кассы)", $"товар {found.Id}"); // 2026-11-11
+                ReceiveAddTile(found, 1, byScan: true);
+                s.RepeatGuard.Counted(code);
                 s.Scan.Text = "";
                 return;
             }
             var line = await PurchaseReceivingService.Instance.LookupAsync(code, 1).ConfigureAwait(true);
             if (_receive != s)
                 return;
+            // 2026-11-11: нигде не найден — только теперь код может оказаться этикеткой весов (при настроенном префиксе весов магазина).
+            if (line.Source == ReceivingSource.Unknown && AddWeightLabel())
+                return;
             var target = line;
             var added = true;
             if (line.ProductId is { Length: > 0 } && s.Lines.FirstOrDefault(x => string.Equals(x.ProductId, line.ProductId, StringComparison.OrdinalIgnoreCase)) is { } same)
             {
-                same.Quantity += 1;
+                ReceivingRepeatScan.AddTo(same, 1); // 2026-11-11 (Б-4): в единицах колонки (упаковка в режиме упаковок)
                 target = same;
                 added = false;
             }
             else if (line.IsNew && s.Lines.FirstOrDefault(x => x.IsNew && string.Equals(x.Barcode, line.Barcode, StringComparison.OrdinalIgnoreCase)) is { } sameNew)
             {
-                sameNew.Quantity += 1;
+                ReceivingRepeatScan.AddTo(sameNew, 1); // 2026-11-11 (Б-4)
                 target = sameNew;
                 added = false;
             }
@@ -630,6 +656,13 @@ public sealed partial class PurchasesWindow
                     "Yangi mahsulot: nomi, xarid va sotuv narxini kiriting — kirim qilinganda omborda paydo bo'ladi."));
             s.Scan.Text = "";
             ReceiveShowTop(s, target, false);
+            s.RepeatGuard.Counted(code);
+        }
+        catch (AmbiguousBarcodeException ambiguous)
+        {
+            // 2026-11-11 (ответ Умара): один штрихкод у нескольких товаров — товар не подставляем, строку не добавляем; код в журнале замаскирован.
+            PosLogger.Log($"Закупки: скан {PurchaseReceivingService.MaskCode(code)} — неоднозначный штрихкод, строка не добавлена.", "WARNING");
+            ReceiveMessage(ambiguous.Message, warning: true);
         }
         catch (Exception ex)
         {
@@ -641,6 +674,23 @@ public sealed partial class PurchasesWindow
             s.Scan.IsEnabled = true;
             s.Scan.Focus();
         }
+    }
+
+    /// <summary>2026-11-09: окно «Сколько штук?» после повторного скана того же кода. «Добавить» прибавляет N к ТОЙ ЖЕ строке (не дубль) и ведёт курсор как после обычного скана,
+    /// «Отмена» ничего не меняет (курсор — в поле скана). Скан во время окна окно игнорирует (ReceivingRepeatQtyDialog).</summary>
+    private async Task ReceiveAskRepeatAsync(ReceiveState s, string code, ReceivingLineVm line)
+    {
+        var add = await ReceivingRepeatQtyDialog.AskAsync(this, line, 1).ConfigureAwait(true);
+        if (_receive != s)
+            return;
+        s.RepeatGuard.Counted(code); // после окна (любой исход) этот код по-прежнему «последний»: ещё один скан подряд — снова вопрос
+        if (add is { } n && n > 0 && s.Lines.Contains(line))
+        {
+            ReceivingRepeatScan.AddTo(line, n);
+            ReceiveShowTop(s, line, false);
+        }
+        else
+            ReceiveFocusScan(s);
     }
 
     /// <summary>2026-10-24 (Б2): при выбранном поставщике его товары идут в подсказках первыми.
@@ -695,12 +745,15 @@ public sealed partial class PurchasesWindow
         s.SuggestBox.IsVisible = matches.Count > 0;
     }
 
-    private void ReceiveAddTile(CatalogProductTileVm tile, double qty, bool fromPanel = false)
+    private void ReceiveAddTile(CatalogProductTileVm tile, double qty, bool fromPanel = false, bool byScan = false)
     {
         if (_receive is not { } s)
             return;
+        s.RepeatGuard.Reset(); // 2026-11-09: товар добавлен не сканом кода (название, подсказка, панель поставщика) — отсчёт «тот же код подряд» заново; скан кода после этого вызывает Counted
         var line = s.Lines.FirstOrDefault(x => string.Equals(x.ProductId, tile.Id, StringComparison.OrdinalIgnoreCase));
-        if (line is not null)
+        if (line is not null && byScan)
+            ReceivingRepeatScan.AddTo(line, qty); // 2026-11-11 (Б-4, как «Склад → Приёмка»): скан кода к строке в режиме упаковок — +1 упаковка (в единицах колонки «Принимаем»), а не +1 штука
+        else if (line is not null)
             line.Quantity += qty;
         else
             line = PurchaseReceivingService.FromTile(tile, qty);

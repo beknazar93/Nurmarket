@@ -72,6 +72,12 @@
       <Setter Property="Foreground" Value="{DynamicResource BrushText}"/>
     </Style>
 
+    <!-- 2026-11-10 (поиск по товару): найденная позиция чека. -->
+    <Style Selector="Border.hit">
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="BorderThickness" Value="2"/>
+    </Style>
+
     <!-- Поле ввода поиска. 2026-10-22 (модалки, пакет 1): 44 px под палец (было 38). -->
     <Style Selector="TextBox.ModernInput">
       <Setter Property="Height" Value="44"/>
@@ -143,6 +149,10 @@
                           <TextBlock Text="{ReflectionBinding SaleDateDisplay}" TextTrimming="CharacterEllipsis"/>
                           <TextBlock Text="{ReflectionBinding ReturnMark}" IsVisible="{ReflectionBinding HasReturnMark}"
                                      FontSize="12" FontWeight="SemiBold"
+                                     TextTrimming="CharacterEllipsis"/>
+                          <!-- 2026-11-10 (поиск по товару): найденный товар в этом чеке. -->
+                          <TextBlock Text="{ReflectionBinding HitDisplay}" IsVisible="{ReflectionBinding HasHit}"
+                                     FontSize="12" Foreground="{DynamicResource BrushAccent}"
                                      TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                       </DataTemplate>
@@ -239,7 +249,8 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="pos:ReturnSaleLineVm">
                   <!-- 2026-10-19, К1: строка — белая карточка, сумма к возврату крупно справа цветом текста. -->
-                  <Border CornerRadius="10" Padding="12,10" Margin="0,0,0,8"
+                  <!-- 2026-11-10 (поиск по товару): найденная позиция — рамкой акцентного цвета (класс hit). -->
+                  <Border CornerRadius="10" Padding="12,10" Margin="0,0,0,8" Classes.hit="{Binding IsSearchHit}"
                           Background="{DynamicResource BrushPanel}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                       <CheckBox Grid.Column="0" VerticalAlignment="Center"
